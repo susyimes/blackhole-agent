@@ -95,6 +95,38 @@ Replay with:
 
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_capability_pipeline`
 
+### Pass 4 reverse-flow local apply completion
+
+Source digest: `github-growth-20260712T195308.158137Z` (pass 4 of 4; selected
+proposal `prop-skill-pipeline-reverse-flow-test` with companions
+`prop-skill-pipeline-rnskill-docs` and `prop-skill-pipeline-config-gates`).
+
+Pass 4 completes the shared `skill_route_discovery_capability_pipeline` rather
+than adding another per-digest fixture. Once reverse-flow local apply is ready
+after pipeline-stage comparison and lane unlock, the controller emits
+`skill_route_discovery_local_apply_completion`:
+
+1. Binds the full capability path: classifier → route_profiles →
+   bounded_local_apply_lanes → `skill_route_discovery_local_comparison` →
+   `skill_route_discovery_reverse_flow_test_validation_lane` →
+   `skill_route_discovery_rnskill_docs_validation_lane` →
+   `skill_route_discovery_config_gate_boundary` →
+   `skill_route_discovery_local_apply` →
+   `skill_route_discovery_local_apply_completion`
+2. Completes only when reverse-flow `test` lane is unlocked, local comparison
+   passed, rnskill docs companion is `ready` or `not_applicable`, and config
+   gates keep general_agent_project and privacy rows out of skill unlocks
+3. Theme status becomes `complete` on the final planned pass; supervisor next
+   action is
+   `apply_unlocked_local_test_lane_with_focused_validation_and_keep_activation_external`
+4. Runtime action stays `none`; external skill execution, provider launch,
+   remote apply, push, promotion, and kernel restart stay denied; body-free
+   export only (proposal IDs, lanes, hashes, booleans)
+
+Replay with:
+
+`pytest tests/test_github_growth.py -q -k skill_route_discovery_capability_pipeline`
+
 For source digest `github-growth-20260709T103527.169759Z`, pass 2 exposes
 `skill_route_discovery_current_digest_20260709T103527_pass2_skill_route_validation_lane`.
 The lane keeps `reverse-flow-skill` in the local test lane as Codex workflow

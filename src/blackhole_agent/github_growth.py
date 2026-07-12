@@ -2770,6 +2770,13 @@ def build_skill_route_discovery_capability_pipeline(
     Pass 3 packages the unlocked reverse-flow test lane into a body-free local
     apply handoff with companion rnskill documentation profiles and config-gate
     boundaries on the same pipeline (no isolated fixtures).
+
+    Pass 4 closes the theme with skill_route_discovery_local_apply_completion:
+    once reverse-flow local apply is ready, emit an operator-visible completion
+    handoff that binds the full capability pipeline, unlocked local test lane,
+    retained privacy/general-agent boundaries, and the external supervisor
+    next action. External skill execution, provider launch, remote apply, push,
+    promotion, and kernel restart stay denied.
     """
 
     del items  # reserved for future item-level corroboration without URL export
@@ -2951,6 +2958,23 @@ def build_skill_route_discovery_capability_pipeline(
         config_gate_boundary=config_gate_boundary,
         theme_window=theme,
     )
+    local_apply_completion = build_skill_route_discovery_local_apply_completion(
+        local_apply=local_apply,
+        reverse_flow_test_validation_lane=reverse_flow_test_lane,
+        rnskill_docs_validation_lane=rnskill_docs_lane,
+        config_gate_boundary=config_gate_boundary,
+        local_comparison=local_comparison,
+        retained_boundaries=retained_boundaries,
+        adjacent_general_agent_rows=adjacent_general_agent_rows,
+        theme_window=theme,
+    )
+    # Pass 4 closes the window when the reverse-flow local apply completion is ready.
+    if (
+        str(local_apply_completion.get("status") or "") == "complete"
+        and int(theme.get("planned_passes") or 0)
+        >= int(theme.get("target_passes") or DEFAULT_THEME_WINDOW_TARGET_PASSES)
+    ):
+        status = "complete"
     return {
         "schema_version": 1,
         "controller_surface": "skill_route_discovery_capability_pipeline",
@@ -2959,7 +2983,13 @@ def build_skill_route_discovery_capability_pipeline(
         "theme_pass": {
             "planned_passes": int(theme.get("planned_passes") or 0),
             "target_passes": int(theme.get("target_passes") or DEFAULT_THEME_WINDOW_TARGET_PASSES),
-            "status": str(theme.get("status") or ""),
+            "status": (
+                "complete"
+                if str(local_apply_completion.get("status") or "") == "complete"
+                and int(theme.get("planned_passes") or 0)
+                >= int(theme.get("target_passes") or DEFAULT_THEME_WINDOW_TARGET_PASSES)
+                else str(theme.get("status") or "")
+            ),
         },
         "pipeline_stages": list(SKILL_ROUTE_DISCOVERY_PIPELINE_STAGES),
         "status": status,
@@ -3009,6 +3039,7 @@ def build_skill_route_discovery_capability_pipeline(
         "rnskill_docs_validation_lane": rnskill_docs_lane,
         "config_gate_boundary": config_gate_boundary,
         "local_apply": local_apply,
+        "local_apply_completion": local_apply_completion,
         "selected_step": selected_step,
         "retained_boundaries": retained_boundaries,
         "adjacent_general_agent_rows": adjacent_general_agent_rows,
@@ -3602,6 +3633,227 @@ def build_skill_route_discovery_local_apply(
             if status == "ready"
             else "repair_skill_route_discovery_local_apply_before_pass4"
         ),
+    }
+
+
+def build_skill_route_discovery_local_apply_completion(
+    *,
+    local_apply: dict[str, Any],
+    reverse_flow_test_validation_lane: dict[str, Any] | None = None,
+    rnskill_docs_validation_lane: dict[str, Any] | None = None,
+    config_gate_boundary: dict[str, Any] | None = None,
+    local_comparison: dict[str, Any] | None = None,
+    retained_boundaries: list[dict[str, Any]] | None = None,
+    adjacent_general_agent_rows: list[dict[str, Any]] | None = None,
+    theme_window: dict[str, Any] | None = None,
+    source_digest: str | None = None,
+) -> dict[str, Any]:
+    """Pass-4 completion handoff after reverse-flow local apply unlocks.
+
+    Closes the skill-route-discovery theme window once
+    ``skill_route_discovery_local_apply`` is ready for the reverse-flow test
+    lane. Binds the full capability pipeline (classifier → route_profiles →
+    bounded_local_apply_lanes → local comparison → reverse-flow test lane →
+    rnskill docs companion → config gates → local apply → completion), retained
+    privacy/general-agent boundaries, and the external supervisor next action.
+    Runtime action, external skill execution, provider launch, remote apply,
+    push, promotion, and kernel restart stay denied.
+    """
+
+    theme = theme_window if isinstance(theme_window, dict) else {}
+    apply = local_apply if isinstance(local_apply, dict) else {}
+    reverse_lane = (
+        reverse_flow_test_validation_lane
+        if isinstance(reverse_flow_test_validation_lane, dict)
+        else {}
+    )
+    rnskill_lane = (
+        rnskill_docs_validation_lane if isinstance(rnskill_docs_validation_lane, dict) else {}
+    )
+    config_gates = config_gate_boundary if isinstance(config_gate_boundary, dict) else {}
+    comparison = local_comparison if isinstance(local_comparison, dict) else {}
+    retained = list(retained_boundaries or [])
+    adjacent = list(adjacent_general_agent_rows or [])
+
+    planned_passes = int(theme.get("planned_passes") or 0)
+    target_passes = int(theme.get("target_passes") or DEFAULT_THEME_WINDOW_TARGET_PASSES)
+    apply_status = str(apply.get("status") or "")
+    comparison_passed = bool(
+        apply.get("local_comparison_passed")
+        if apply.get("local_comparison_passed") is not None
+        else comparison.get("local_comparison_passed")
+    )
+    unlocked = [
+        lane
+        for lane in list(apply.get("unlocked_local_lanes") or [])
+        if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+    ]
+    reverse_ready = str(reverse_lane.get("status") or "") == "ready"
+    rnskill_ready = str(rnskill_lane.get("status") or "") in {"ready", "not_applicable"}
+    config_ready = str(config_gates.get("status") or "") in {
+        "ready",
+        "ready_awaiting_local_comparison",
+        "not_applicable",
+    }
+    selected_lane = str(apply.get("selected_local_lane") or "")
+    selected_proposal_id = str(
+        apply.get("selected_proposal_id")
+        or apply.get("proposal_track")
+        or "prop-skill-pipeline-reverse-flow-test"
+    )
+    retained_ids = sorted(
+        {
+            str(row.get("proposal_id") or "")
+            for row in retained
+            if isinstance(row, dict) and str(row.get("proposal_id") or "").strip()
+        }
+    )
+    adjacent_ids = sorted(
+        {
+            str(row.get("proposal_id") or "")
+            for row in adjacent
+            if isinstance(row, dict) and str(row.get("proposal_id") or "").strip()
+        }
+    )
+    general_agent_isolated = all(
+        row.get("skill_route_discovery_inherited") is False
+        and list(row.get("direct_allowed_lanes_before_eval") or []) == []
+        for row in adjacent
+    ) if adjacent else True
+    privacy_isolated = all(
+        str(row.get("route_class") or "")
+        in {"privacy_boundary_review_only", "offensive_boundary_review_only"}
+        for row in retained
+    ) if retained else True
+
+    theme_complete = (
+        apply_status == "ready"
+        and comparison_passed
+        and reverse_ready
+        and rnskill_ready
+        and config_ready
+        and selected_lane == "test"
+        and "test" in unlocked
+        and apply.get("runtime_action") == "none"
+        and apply.get("external_skill_execution_allowed") is not True
+        and apply.get("provider_launch_allowed") is not True
+        and apply.get("remote_apply_allowed") is not True
+        and apply.get("push_or_promotion_allowed") is not True
+        and apply.get("kernel_restart_allowed") is not True
+        and general_agent_isolated
+        and privacy_isolated
+        and config_gates.get("general_agent_inherits_skill_unlock") is not True
+        and config_gates.get("privacy_rows_selectable_for_local_apply") is not True
+    )
+
+    if apply_status in {"", "not_applicable"} and not selected_proposal_id:
+        status = "not_applicable"
+        decision = "no_skill_route_local_apply_candidate_to_complete_theme"
+        supervisor_next_action = "wait_for_skill_route_discovery_local_apply"
+    elif theme_complete:
+        status = "complete"
+        decision = (
+            "complete_skill_route_discovery_capability_slice_after_reverse_flow_local_apply"
+        )
+        supervisor_next_action = (
+            "apply_unlocked_local_test_lane_with_focused_validation_and_keep_activation_external"
+        )
+    else:
+        status = "blocked"
+        decision = "hold_theme_completion_until_reverse_flow_local_apply_unlocks_test_lane"
+        supervisor_next_action = (
+            "repair_skill_route_discovery_local_apply_before_theme_completion"
+        )
+
+    return {
+        "schema_version": 1,
+        "controller_surface": "skill_route_discovery_local_apply_completion",
+        "proposal_track": "prop-skill-pipeline-reverse-flow-test",
+        "companion_tracks": [
+            "prop-skill-pipeline-rnskill-docs",
+            "prop-skill-pipeline-config-gates",
+        ],
+        "proposal_id": selected_proposal_id,
+        "selected_proposal_id": selected_proposal_id,
+        "theme_id": str(theme.get("theme_id") or "skill-route-discovery"),
+        "theme_pass": {
+            "planned_passes": planned_passes,
+            "target_passes": target_passes,
+            "current_pass": planned_passes if planned_passes > 0 else target_passes,
+            "status": "complete" if theme_complete else status,
+            "is_final_pass": planned_passes >= target_passes and target_passes > 0,
+        },
+        "source_digest": source_digest or "",
+        "status": status,
+        "decision": decision,
+        "capability_action": str(
+            apply.get("capability_action")
+            or "apply_one_local_skill_route_validation_candidate"
+        ),
+        "capability_pipeline": [
+            "skill_route_discovery_capability_pipeline",
+            "skill_route_discovery_local_comparison",
+            "skill_route_discovery_reverse_flow_test_validation_lane",
+            "skill_route_discovery_rnskill_docs_validation_lane",
+            "skill_route_discovery_config_gate_boundary",
+            "skill_route_discovery_local_apply",
+            "skill_route_discovery_local_apply_completion",
+        ],
+        "local_apply_status": apply_status,
+        "local_comparison_passed": comparison_passed,
+        "local_comparison_status": str(
+            apply.get("local_comparison_status") or comparison.get("status") or ""
+        ),
+        "reverse_flow_test_validation_lane_status": str(reverse_lane.get("status") or "none"),
+        "rnskill_docs_validation_lane_status": str(rnskill_lane.get("status") or "none"),
+        "config_gate_boundary_status": str(config_gates.get("status") or "none"),
+        "selected_local_lane": selected_lane,
+        "unlocked_local_lanes": unlocked if theme_complete else [],
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "route_class": str(apply.get("route_class") or "skill_route_discovery"),
+        "route_profiles": list(apply.get("route_profiles") or []),
+        "skill_route_discovery_first": bool(apply.get("skill_route_discovery_first")),
+        "local_validation_required": True,
+        "theme_complete": theme_complete,
+        "retained_boundary_proposal_ids": retained_ids,
+        "adjacent_general_agent_proposal_ids": adjacent_ids,
+        "general_agent_inherits_skill_unlock": False,
+        "privacy_rows_selectable_for_local_apply": False,
+        "general_agent_isolation_passed": general_agent_isolated,
+        "privacy_isolation_passed": privacy_isolated,
+        "rnskill_docs_companion": {
+            "status": rnskill_lane.get("status"),
+            "preferred_local_lane": rnskill_lane.get("preferred_local_lane"),
+            "body_free": bool(rnskill_lane.get("body_free", True)),
+            "proposal_track": rnskill_lane.get("proposal_track")
+            or "prop-skill-pipeline-rnskill-docs",
+        },
+        "config_gates": {
+            "status": config_gates.get("status"),
+            "general_agent_inherits_skill_unlock": bool(
+                config_gates.get("general_agent_inherits_skill_unlock")
+            ),
+            "privacy_rows_selectable_for_local_apply": bool(
+                config_gates.get("privacy_rows_selectable_for_local_apply")
+            ),
+            "route_profiles_separated": bool(config_gates.get("route_profiles_separated")),
+            "proposal_track": config_gates.get("proposal_track")
+            or "prop-skill-pipeline-config-gates",
+        },
+        "runtime_action": "none",
+        "external_skill_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_apply_allowed": False,
+        "push_or_promotion_allowed": False,
+        "kernel_restart_allowed": False,
+        "supervisor_activation_allowed": False,
+        "supervisor_next_action": supervisor_next_action,
+        "required_validation": [
+            "pytest tests/test_github_growth.py -q -k skill_route_discovery_capability_pipeline"
+        ],
+        "body_free": True,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_bodies_exported": False,
     }
 
 
@@ -4211,6 +4463,11 @@ def render_skill_route_discovery_capability_pipeline_lines(
     local_apply = (
         pipeline.get("local_apply") if isinstance(pipeline.get("local_apply"), dict) else {}
     )
+    local_apply_completion = (
+        pipeline.get("local_apply_completion")
+        if isinstance(pipeline.get("local_apply_completion"), dict)
+        else {}
+    )
     stages = ", ".join(str(stage) for stage in pipeline.get("pipeline_stages") or [])
     profiles = ", ".join(str(profile) for profile in selected.get("route_profiles") or [])
     lines = [
@@ -4231,6 +4488,10 @@ def render_skill_route_discovery_capability_pipeline_lines(
         f"- Config gate boundary: `{config_gates.get('status') or 'none'}`",
         f"- Local apply handoff: `{local_apply.get('status') or 'none'}`",
         f"- Local apply decision: `{local_apply.get('decision') or 'none'}`",
+        f"- Local apply completion: `{local_apply_completion.get('status') or 'none'}`",
+        f"- Local apply completion decision: `{local_apply_completion.get('decision') or 'none'}`",
+        f"- Theme complete: `{bool(local_apply_completion.get('theme_complete'))}`",
+        f"- Supervisor next action: `{local_apply_completion.get('supervisor_next_action') or local_apply.get('supervisor_next_action') or 'none'}`",
         f"- Skill route discovery first: `{bool(selected.get('skill_route_discovery_first'))}`",
         f"- Autonomous local apply for selected step: `{bool(selected.get('autonomous_local_apply'))}`",
         f"- Runtime action: `{pipeline.get('runtime_action', 'none')}`",
@@ -4239,6 +4500,7 @@ def render_skill_route_discovery_capability_pipeline_lines(
         "- Keep privacy-leakage and offensive-behavior rows review-only; do not export raw evidence URLs or sensitive bodies.",
         "- Pass 2 locks reverse-flow codex_workflow_gate into a bounded local test lane only after pipeline-stage comparison.",
         "- Pass 3 packages reverse-flow local apply with body-free rnskill docs companion and config-gate boundaries.",
+        "- Pass 4 completes the reverse-flow local test validation lane via skill_route_discovery_local_apply_completion.",
     ]
     retained = pipeline.get("retained_boundaries") or []
     if retained:

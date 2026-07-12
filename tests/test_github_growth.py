@@ -25,6 +25,7 @@ from blackhole_agent.github_growth import (
     build_skill_route_discovery_capability_pipeline,
     build_skill_route_discovery_config_gate_boundary,
     build_skill_route_discovery_local_apply,
+    build_skill_route_discovery_local_apply_completion,
     build_skill_route_discovery_reverse_flow_test_validation_lane,
     build_skill_route_discovery_rnskill_docs_validation_lane,
     evaluate_skill_route_discovery_local_comparison,
@@ -4717,6 +4718,291 @@ def test_skill_route_discovery_capability_pipeline_pass3_local_apply_handoff():
     assert rnskill_url not in dumped
     assert fortress_url not in dumped
     assert chief_url not in dumped
+
+
+def test_skill_route_discovery_capability_pipeline_pass4_local_apply_completion():
+    """Pass 4: complete reverse-flow skill-route pipeline after local apply unlock."""
+
+    reverse_url = "https://github.com/lingbol088-spec/reverse-flow-skill"
+    rnskill_url = "https://github.com/Pluviobyte/rnskill"
+    fortress_url = "https://github.com/tiliondev/fortress"
+    chief_url = "https://github.com/SmileLikeYe/agent-chief"
+    proposals = [
+        {
+            "proposal_id": "prop-skill-pipeline-reverse-flow-test",
+            "kind": "test",
+            "summary": (
+                "Complete pass-4 reverse-flow skill_route_discovery local test "
+                "validation lane via criteria-driven comparison against "
+                "codex_workflow_gate + skill_route_discovery_first."
+            ),
+            "evidence_urls": [reverse_url],
+            "risk_flags": [],
+            "implementation_scope": "local_validation_candidate",
+            "validation_gate": "focused-evidence-review",
+            "validation_task": (
+                "Run skill_route_discovery_local_comparison for reverse-flow-skill only; "
+                "unlock skill_route_discovery_reverse_flow_test_validation_lane when probe "
+                "rows match classifier, route_profiles=[codex_workflow_gate], "
+                "evaluation_lane=skill_route_discovery_first, allowed_lanes include test, "
+                "and runtime_action remains none."
+            ),
+            "requires_approval": False,
+        },
+        {
+            "proposal_id": "prop-skill-pipeline-rnskill-docs",
+            "kind": "documentation",
+            "summary": (
+                "Fold rnskill generic_skill_workflow into the shared skill_route_discovery "
+                "capability pipeline via bounded documentation."
+            ),
+            "evidence_urls": [rnskill_url],
+            "risk_flags": [],
+            "implementation_scope": "local_validation_candidate",
+            "validation_gate": "focused-evidence-review",
+            "validation_task": "Document rnskill generic_skill_workflow documentation lane.",
+            "requires_approval": False,
+        },
+        {
+            "proposal_id": "prop-skill-pipeline-config-gates",
+            "kind": "config",
+            "summary": (
+                "Validate config wiring for skill_route_discovery route_profiles "
+                "codex_workflow_gate vs generic_skill_workflow without reverse-flow markers."
+            ),
+            "evidence_urls": [rnskill_url],
+            "risk_flags": [],
+            "implementation_scope": "local_validation_candidate",
+            "validation_gate": "focused-evidence-review",
+            "validation_task": "Keep general_agent_project items out of skill apply unlocks.",
+            "requires_approval": False,
+        },
+        {
+            "proposal_id": "prop-fortress-agent-harness-eval-local-candidate",
+            "kind": "test",
+            "summary": "tiliondev/fortress general_agent_project harness-eval candidate.",
+            "evidence_urls": [fortress_url],
+            "risk_flags": [],
+            "implementation_scope": "local_validation_candidate",
+            "validation_gate": "focused-evidence-review",
+            "validation_task": "Keep fortress behind agent_harness_eval_required.",
+            "requires_approval": False,
+        },
+        {
+            "proposal_id": "prop-agent-chief-privacy-review-only",
+            "kind": "follow_up_issue",
+            "summary": "agent-chief privacy/governance evidence stays review-only.",
+            "evidence_urls": [chief_url],
+            "risk_flags": ["privacy-leakage"],
+            "implementation_scope": "reviewable_proposal_only",
+            "validation_gate": "privacy-leakage-human-review",
+            "validation_task": "Do not select agent-chief for local apply.",
+            "requires_approval": False,
+        },
+        {
+            "proposal_id": "prop-agent-harness-eval-cluster",
+            "kind": "test",
+            "summary": "Retained agent harness eval cluster boundary.",
+            "evidence_urls": [],
+            "risk_flags": [],
+            "implementation_scope": "reviewable_proposal_only",
+            "validation_gate": "focused-evidence-review",
+            "validation_task": "Keep agent harness eval boundary review-only for this pass.",
+            "requires_approval": False,
+        },
+    ]
+
+    theme = {
+        "theme_id": "skill-route-discovery",
+        "planned_passes": 4,
+        "target_passes": 4,
+        "status": "active",
+    }
+    pipeline = build_skill_route_discovery_capability_pipeline(proposals, theme_window=theme)
+    deferred = build_skill_route_discovery_capability_pipeline(
+        proposals,
+        theme_window=theme,
+        apply_local_comparison=False,
+    )
+
+    reverse_lane = pipeline["reverse_flow_test_validation_lane"]
+    rnskill_lane = pipeline["rnskill_docs_validation_lane"]
+    config_gates = pipeline["config_gate_boundary"]
+    local_apply = pipeline["local_apply"]
+    completion = pipeline["local_apply_completion"]
+
+    assert reverse_lane["status"] == "ready"
+    assert reverse_lane["unlocked_local_lanes"] == ["test"]
+    assert reverse_lane["skill_route_discovery_first"] is True
+    assert "codex_workflow_gate" in reverse_lane["route_profiles"]
+
+    assert rnskill_lane["status"] == "ready"
+    assert rnskill_lane["unlocked_local_lanes"] == ["documentation"]
+    assert rnskill_lane["body_free"] is True
+
+    assert config_gates["status"] == "ready"
+    assert config_gates["general_agent_inherits_skill_unlock"] is False
+    assert config_gates["privacy_rows_selectable_for_local_apply"] is False
+
+    assert local_apply["status"] == "ready"
+    assert local_apply["decision"] == (
+        "apply_one_local_skill_route_validation_candidate_after_lane_unlock"
+    )
+    assert local_apply["unlocked_local_lanes"] == ["test"]
+    assert local_apply["runtime_action"] == "none"
+
+    assert completion["controller_surface"] == "skill_route_discovery_local_apply_completion"
+    assert completion["proposal_track"] == "prop-skill-pipeline-reverse-flow-test"
+    assert "prop-skill-pipeline-rnskill-docs" in completion["companion_tracks"]
+    assert "prop-skill-pipeline-config-gates" in completion["companion_tracks"]
+    assert completion["status"] == "complete"
+    assert completion["theme_complete"] is True
+    assert completion["decision"] == (
+        "complete_skill_route_discovery_capability_slice_after_reverse_flow_local_apply"
+    )
+    assert completion["supervisor_next_action"] == (
+        "apply_unlocked_local_test_lane_with_focused_validation_and_keep_activation_external"
+    )
+    assert completion["capability_action"] == (
+        "apply_one_local_skill_route_validation_candidate"
+    )
+    assert completion["selected_local_lane"] == "test"
+    assert completion["unlocked_local_lanes"] == ["test"]
+    assert completion["local_apply_status"] == "ready"
+    assert completion["local_comparison_passed"] is True
+    assert completion["reverse_flow_test_validation_lane_status"] == "ready"
+    assert completion["rnskill_docs_validation_lane_status"] == "ready"
+    assert completion["config_gate_boundary_status"] == "ready"
+    assert completion["skill_route_discovery_first"] is True
+    assert "codex_workflow_gate" in completion["route_profiles"]
+    assert completion["general_agent_inherits_skill_unlock"] is False
+    assert completion["privacy_rows_selectable_for_local_apply"] is False
+    assert completion["general_agent_isolation_passed"] is True
+    assert completion["privacy_isolation_passed"] is True
+    assert completion["runtime_action"] == "none"
+    assert completion["external_skill_execution_allowed"] is False
+    assert completion["provider_launch_allowed"] is False
+    assert completion["remote_apply_allowed"] is False
+    assert completion["push_or_promotion_allowed"] is False
+    assert completion["kernel_restart_allowed"] is False
+    assert completion["supervisor_activation_allowed"] is False
+    assert completion["body_free"] is True
+    assert completion["raw_evidence_urls_exported"] is False
+    assert completion["theme_pass"]["is_final_pass"] is True
+    assert completion["theme_pass"]["status"] == "complete"
+    assert "skill_route_discovery_local_apply_completion" in completion["capability_pipeline"]
+    assert "skill_route_discovery_local_apply" in completion["capability_pipeline"]
+    assert "skill_route_discovery_local_comparison" in completion["capability_pipeline"]
+    assert completion["retained_boundary_proposal_ids"]
+    assert "prop-agent-chief-privacy-review-only" in completion["retained_boundary_proposal_ids"]
+    assert completion["adjacent_general_agent_proposal_ids"]
+    assert (
+        "prop-fortress-agent-harness-eval-local-candidate"
+        in completion["adjacent_general_agent_proposal_ids"]
+    )
+
+    # Final pass closes the operator-visible pipeline status.
+    assert pipeline["status"] == "complete"
+    assert pipeline["theme_pass"]["status"] == "complete"
+    assert pipeline["runtime_action"] == "none"
+
+    # Deferred comparison keeps theme completion blocked.
+    assert deferred["status"] == "ready_for_local_comparison"
+    assert deferred["local_apply"]["status"] == "blocked_until_reverse_flow_lane_ready"
+    assert deferred["local_apply_completion"]["status"] == "blocked"
+    assert deferred["local_apply_completion"]["theme_complete"] is False
+    assert deferred["local_apply_completion"]["unlocked_local_lanes"] == []
+    assert deferred["local_apply_completion"]["supervisor_next_action"] == (
+        "repair_skill_route_discovery_local_apply_before_theme_completion"
+    )
+
+    # Direct builder contract: completion only after reverse-flow apply unlocks.
+    direct = build_skill_route_discovery_local_apply_completion(
+        local_apply=local_apply,
+        reverse_flow_test_validation_lane=reverse_lane,
+        rnskill_docs_validation_lane=rnskill_lane,
+        config_gate_boundary=config_gates,
+        local_comparison=pipeline["local_comparison"],
+        retained_boundaries=pipeline["retained_boundaries"],
+        adjacent_general_agent_rows=pipeline["adjacent_general_agent_rows"],
+        theme_window=theme,
+        source_digest="github-growth-20260712T195308.158137Z",
+    )
+    assert direct["status"] == "complete"
+    assert direct["source_digest"] == "github-growth-20260712T195308.158137Z"
+    assert direct["theme_complete"] is True
+
+    # rnskill companion may be not_applicable and still complete the theme.
+    rnskill_na = dict(rnskill_lane)
+    rnskill_na["status"] = "not_applicable"
+    rnskill_na["unlocked_local_lanes"] = []
+    complete_with_na = build_skill_route_discovery_local_apply_completion(
+        local_apply=local_apply,
+        reverse_flow_test_validation_lane=reverse_lane,
+        rnskill_docs_validation_lane=rnskill_na,
+        config_gate_boundary=config_gates,
+        local_comparison=pipeline["local_comparison"],
+        retained_boundaries=pipeline["retained_boundaries"],
+        adjacent_general_agent_rows=pipeline["adjacent_general_agent_rows"],
+        theme_window=theme,
+    )
+    assert complete_with_na["status"] == "complete"
+    assert complete_with_na["rnskill_docs_validation_lane_status"] == "not_applicable"
+
+    dumped = json.dumps(pipeline)
+    assert reverse_url not in dumped
+    assert rnskill_url not in dumped
+    assert fortress_url not in dumped
+    assert chief_url not in dumped
+
+
+def test_skill_route_discovery_local_apply_completion_blocks_when_apply_not_ready():
+    """Completion stays blocked until reverse-flow local apply unlocks the test lane."""
+
+    completion = build_skill_route_discovery_local_apply_completion(
+        local_apply={
+            "status": "blocked_until_reverse_flow_lane_ready",
+            "selected_proposal_id": "prop-skill-pipeline-reverse-flow-test",
+            "proposal_track": "prop-skill-pipeline-reverse-flow-test",
+            "selected_local_lane": "test",
+            "unlocked_local_lanes": [],
+            "local_comparison_passed": True,
+            "route_class": "skill_route_discovery",
+            "route_profiles": ["codex_workflow_gate"],
+            "skill_route_discovery_first": True,
+            "capability_action": "apply_one_local_skill_route_validation_candidate",
+            "runtime_action": "none",
+            "external_skill_execution_allowed": False,
+            "provider_launch_allowed": False,
+            "remote_apply_allowed": False,
+            "push_or_promotion_allowed": False,
+            "kernel_restart_allowed": False,
+        },
+        reverse_flow_test_validation_lane={
+            "status": "comparison_passed_awaiting_lane_unlock",
+        },
+        rnskill_docs_validation_lane={"status": "ready", "body_free": True},
+        config_gate_boundary={
+            "status": "ready",
+            "general_agent_inherits_skill_unlock": False,
+            "privacy_rows_selectable_for_local_apply": False,
+            "route_profiles_separated": True,
+        },
+        local_comparison={"local_comparison_passed": True, "status": "passed"},
+        theme_window={
+            "theme_id": "skill-route-discovery",
+            "planned_passes": 4,
+            "target_passes": 4,
+            "status": "active",
+        },
+    )
+    assert completion["status"] == "blocked"
+    assert completion["theme_complete"] is False
+    assert completion["unlocked_local_lanes"] == []
+    assert completion["runtime_action"] == "none"
+    assert completion["supervisor_next_action"] == (
+        "repair_skill_route_discovery_local_apply_before_theme_completion"
+    )
 
 
 def test_skill_route_discovery_local_comparison_blocks_when_skill_first_missing():

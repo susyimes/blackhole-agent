@@ -28,11 +28,13 @@ touches multiple files or behavior paths.
 
 ## Skill Route Discovery Habit
 
-Observed this run (pass 3 of 4 of `skill-route-discovery`, active): reverse-flow-skill and rnskill skill-workflow
-signals stay on one local `skill_route_discovery_capability_pipeline`. Pass 2 locked reverse-flow into a bounded
-local test validation lane through criteria-driven local comparison. Pass 3 packages that unlocked lane into a
-body-free local apply handoff with rnskill documentation companion and config-gate boundaries — still one pipeline,
-not isolated fixtures.
+Observed this run (pass 4 of 4 of `skill-route-discovery`, complete): reverse-flow-skill and rnskill skill-workflow
+signals closed on one local `skill_route_discovery_capability_pipeline` rather than isolated fixtures. Pass 2 locked
+reverse-flow into a bounded local test validation lane through criteria-driven local comparison. Pass 3 packaged that
+unlocked lane into a body-free local apply handoff with rnskill documentation companion and config-gate boundaries.
+Pass 4 completes the slice with `skill_route_discovery_local_apply_completion` — an operator-visible theme close that
+binds the full capability path, unlocked local `test` lane, retained privacy/general-agent boundaries, and the
+external supervisor next action.
 
 Pipeline stages remain:
 
@@ -42,29 +44,32 @@ Pipeline stages remain:
 3. bounded_local_apply_lanes — reverse-flow prefers `test`, rnskill prefers `documentation`; only
    documentation/config/test/code_patch; local comparison required before unlock; `runtime_action=none`
 
-Pass 2–3 operator surfaces on the same pipeline:
+Operator surfaces on the completed pipeline:
 
 - `skill_route_discovery_local_comparison` — compares selected skill-route probe rows to classifier /
   route_profiles / bounded_local_apply_lanes criteria
 - `skill_route_discovery_reverse_flow_test_validation_lane` — unlocks only the local `test` lane when
   reverse-flow criteria pass
 - `skill_route_discovery_rnskill_docs_validation_lane` — body-free `generic_skill_workflow` documentation
-  companion (`prop-skill-pipeline-rnskill-docs`) after reverse-flow comparison
+  companion (`prop-skill-pipeline-rnskill-docs`) after reverse-flow comparison; may be `not_applicable`
 - `skill_route_discovery_config_gate_boundary` — keeps general_agent and privacy rows out of skill unlocks
   (`prop-skill-pipeline-config-gates`)
-- `skill_route_discovery_local_apply` — pass-3 handoff that applies the reverse-flow local test validation
-  candidate only when reverse-flow, rnskill docs, and config gates are ready
+- `skill_route_discovery_local_apply` — applies the reverse-flow local test validation candidate only when
+  reverse-flow, rnskill docs, and config gates are ready
+- `skill_route_discovery_local_apply_completion` — pass-4 theme close after reverse-flow local apply unlocks;
+  supervisor next action
+  `apply_unlocked_local_test_lane_with_focused_validation_and_keep_activation_external`
 
 Selected local candidate: `prop-skill-pipeline-reverse-flow-test`. Fortress remains an adjacent
 general_agent_project harness-eval row. Agent-chief privacy evidence stays review-only and cannot be selected for
 local apply. External skill execution, provider launch, remote apply, push, promotion, and restart stay denied.
 
-Prefer completing this pipeline on pass 4 over another per-digest fixture.
+This theme window is complete. Prefer a new capability slice on the next wake unless residual repair work is required.
 
 ## Upstream Evidence Habit
 
 Previous theme (`upstream-evidence-capability`, complete): mixed public agent signals became
 `upstream_evidence_capability_step` → `agent_harness_eval_cluster` →
 `agent_harness_eval_cluster_local_apply` → `agent_harness_eval_cluster_local_apply_completion`. That pattern is
-the template for the active skill-route pipeline: one operator-visible capability path, body-free exports, and a
-narrow safety boundary.
+the template the skill-route pipeline followed: one operator-visible capability path, body-free exports, narrow
+safety boundary, and a final local-apply completion handoff.

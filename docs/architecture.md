@@ -152,6 +152,11 @@ Pass 3 packages the unlocked reverse-flow lane into
 `skill_route_discovery_rnskill_docs_validation_lane` (body-free documentation
 companion) and `skill_route_discovery_config_gate_boundary` (keeps
 general-agent and privacy rows out of skill unlocks) on the same pipeline.
+Pass 4 closes the theme with
+`skill_route_discovery_local_apply_completion` once reverse-flow local apply is
+ready: it binds the full capability pipeline, unlocked local `test` lane,
+retained privacy and general-agent boundaries, and the external supervisor next
+action (`apply_unlocked_local_test_lane_with_focused_validation_and_keep_activation_external`).
 Fortress-style general-agent projects remain adjacent
 `agent_harness_eval_required` rows without skill-route inheritance.
 Agent-chief-style privacy evidence stays `privacy_boundary_review_only`.
