@@ -28,8 +28,13 @@ touches multiple files or behavior paths.
 
 ## Upstream Evidence Habit
 
-Observed this run: agent-chief privacy release evidence stays review-only, while Hy3-style untitled pull request
-movement is not proof of a patch. Prefer translating mixed public signals into one local capability step
-(`upstream_evidence_capability_step`) that either compares the PR approach with local behavior before drafting or
-retains a hard privacy boundary. Do not treat another isolated note as progress on the upstream-evidence-capability
-slice.
+Observed this run (pass 2 of `upstream-evidence-capability`): agent-chief privacy release evidence stays
+review-only; Hy3 and fortress general-agent movement belong in `agent_harness_eval_cluster`, not direct
+behavior adoption. For each general_agent_project item, record `evaluation_lane=agent_harness_eval_required`
+and `local_validation_required=true`, keep `runtime_action=none`, unlock only documentation/test/code_patch
+after local comparison, and never draft a behavioral patch from star-count evidence alone.
+
+Prefer translating mixed public signals into one local capability step
+(`upstream_evidence_capability_step` → selected local validation candidate such as
+`prop-agent-harness-eval-cluster`) rather than another isolated note. Pass 1 established the one-step
+classifier; pass 2 deepens it with an operator-visible harness-eval cluster and comparison criteria.

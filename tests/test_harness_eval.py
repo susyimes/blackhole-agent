@@ -1235,8 +1235,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 196
-    assert payload["pass_count"] == 195
+    assert payload["fixture_count"] == 197
+    assert payload["pass_count"] == 196
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -4791,6 +4791,103 @@ def test_agent_harness_eval_lane_exposes_post_eval_route_queue_for_current_gener
     )
     assert "https://github.com/" not in serialized
     assert "runtime_execution" not in serialized
+
+
+def test_agent_harness_eval_cluster_queues_agent_chief_hy3_fortress_without_runtime_action():
+    """prop-agent-harness-eval-cluster: general_agent_project trends stay behind local comparison."""
+
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "agent_harness_eval_lane_20260712T175313_agent_harness_eval_cluster.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    cluster = output["agent_harness_eval_cluster"]
+    rows = {row["item_id"]: row for row in cluster["rows"]}
+    review_rows = {row["item_id"]: row for row in cluster["review_only_rows"]}
+    serialized = json.dumps(cluster, sort_keys=True)
+    criterion_ids = [row["criterion_id"] for row in cluster["comparison_criteria"]]
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert cluster["controller_surface"] == "agent_harness_eval_cluster"
+    assert cluster["proposal_id"] == "prop-agent-harness-eval-cluster"
+    assert cluster["status"] == "ready_with_review_boundaries"
+    assert cluster["decision"] == (
+        "run_bounded_agent_harness_eval_cluster_with_retained_review_boundaries"
+    )
+    assert cluster["evaluation_lane"] == "agent_harness_eval_required"
+    assert cluster["record_count"] == 3
+    assert cluster["eval_ready_record_count"] == 2
+    assert cluster["review_only_record_count"] == 1
+    assert cluster["local_validation_required"] is True
+    assert cluster["local_comparison_required"] is True
+    assert cluster["runtime_action"] == "none"
+    assert cluster["runtime_action_auto_opened"] is False
+    assert cluster["implementation_patch_allowed_before_eval"] is False
+    assert cluster["behavior_patch_from_star_count_allowed"] is False
+    assert cluster["star_count_alone_unlocks_behavior_patch"] is False
+    assert cluster["allowed_local_lanes_after_local_comparison"] == [
+        "documentation",
+        "test",
+        "code_patch",
+    ]
+    assert cluster["direct_allowed_lanes_before_eval"] == []
+    assert "star_count_alone_insufficient" in criterion_ids
+    assert "runtime_action_stays_none" in criterion_ids
+    assert "privacy_and_offensive_review_only" in criterion_ids
+
+    assert set(rows) == {
+        "trend:Tencent-Hunyuan/Hy3-1",
+        "trend:tiliondev/fortress-1",
+    }
+    for row in rows.values():
+        assert row["route_class"] == "general_agent_project"
+        assert row["evaluation_lane"] == "agent_harness_eval_required"
+        assert row["local_validation_required"] is True
+        assert row["local_comparison_required"] is True
+        assert row["local_comparison_status"] == "ready_for_local_comparison"
+        assert row["runtime_action"] == "none"
+        assert row["direct_allowed_lanes_before_eval"] == []
+        assert row["allowed_local_lanes_after_local_comparison"] == [
+            "documentation",
+            "test",
+            "code_patch",
+        ]
+        assert row["star_count_alone_unlocks_behavior_patch"] is False
+        assert row["behavior_patch_from_star_count_allowed"] is False
+        assert row["implementation_patch_allowed_before_eval"] is False
+        assert all(
+            route["lane"] in {"documentation", "test", "code_patch"}
+            and route["runtime_action"] == "none"
+            and route["star_count_alone_unlocks_lane"] is False
+            for route in row["post_compare_candidate_routes"]
+        )
+
+    assert set(review_rows) == {"trend:SmileLikeYe/agent-chief-1"}
+    privacy_row = review_rows["trend:SmileLikeYe/agent-chief-1"]
+    assert privacy_row["status"] == "review_only"
+    assert privacy_row["evaluation_lane"] == "agent_harness_eval_required"
+    assert privacy_row["local_validation_required"] is True
+    assert privacy_row["review_gate"] == "privacy-leakage-human-review"
+    assert privacy_row["runtime_action"] == "none"
+    assert privacy_row["allowed_local_lanes_after_local_comparison"] == []
+    assert privacy_row["behavior_patch_from_star_count_allowed"] is False
+
+    assert cluster["external_agent_activation_allowed"] is False
+    assert cluster["external_harness_execution_allowed"] is False
+    assert cluster["provider_runtime_launch_allowed"] is False
+    assert cluster["remote_execution_allowed"] is False
+    assert cluster["raw_source_urls_exported"] is False
+    assert "https://github.com/" not in serialized
+    assert '"runtime_execution"' not in serialized
+    assert '"provider_runtime"' not in serialized
+    assert '"install"' not in serialized
 
 
 def test_agent_harness_eval_lane_exposes_benchmark_meta_agent_probe():

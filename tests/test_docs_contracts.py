@@ -77,6 +77,8 @@ def test_architecture_links_upstream_evidence_interpretation_contract():
     assert "upstream_evidence_capability_step" in architecture
     assert "compare_pull_request_approach_with_local_agent_behavior_before_draft" in architecture
     assert "privacy_boundary_review_only" in architecture
+    assert "agent_harness_eval_cluster" in architecture
+    assert "pytest tests/test_harness_eval.py -q -k agent_harness_eval_cluster" in architecture
 
 
 def test_upstream_evidence_interpretation_doc_records_capability_step_contract():
@@ -92,6 +94,14 @@ def test_upstream_evidence_interpretation_doc_records_capability_step_contract()
         "pytest tests/test_github_growth.py -q -k upstream_evidence_capability_step",
         "raw evidence URLs and upstream bodies stay out of",
         "the packet",
+        "## Agent Harness Eval Cluster",
+        "Source digest: `github-growth-20260712T175313.658382Z`",
+        "`agent_harness_eval_cluster`",
+        "`prop-agent-harness-eval-cluster`",
+        "evaluation_lane=agent_harness_eval_required",
+        "local_validation_required=true",
+        "Star count, trend rank, or popularity alone never unlocks",
+        "pytest tests/test_harness_eval.py -q -k agent_harness_eval_cluster",
     ]
 
     missing = [phrase for phrase in required_phrases if phrase not in doc]

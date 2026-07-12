@@ -115,6 +115,69 @@ CI_ROUND_TRIP_HANG_MARKERS = (
 )
 AGENT_HARNESS_EVAL_HINT = "agent_harness_eval"
 AGENT_HARNESS_EVAL_ALLOWED_LANES = ("documentation", "test", "code_patch")
+AGENT_HARNESS_EVAL_CLUSTER_COMPARISON_CRITERIA = (
+    {
+        "criterion_id": "project_shape_probe_fields",
+        "required": True,
+        "description": (
+            "Declare install_shape, entrypoints, dependency_boundaries, "
+            "task_loop_assumptions, and observable_behaviors before any follow-up lane unlocks."
+        ),
+    },
+    {
+        "criterion_id": "local_claim_mapping",
+        "required": True,
+        "description": (
+            "Map upstream claims to local capabilities, or document unmapped claims as "
+            "review-only gaps before selecting documentation, test, or code_patch."
+        ),
+    },
+    {
+        "criterion_id": "local_harness_replay",
+        "required": True,
+        "description": (
+            "Replay the local agent_harness_eval_lane fixture and require a pass before "
+            "unlocking documentation, test, or code_patch follow-up."
+        ),
+    },
+    {
+        "criterion_id": "runtime_action_stays_none",
+        "required": True,
+        "description": (
+            "External agent-project trends never auto-open runtime_action; runtime_action "
+            "remains none until an external supervisor path is separately authorized."
+        ),
+    },
+    {
+        "criterion_id": "post_eval_lanes_bounded",
+        "required": True,
+        "description": (
+            "After local comparison, only documentation, test, or code_patch may unlock. "
+            "Provider, install, runtime execution, and remote execution stay denied."
+        ),
+    },
+    {
+        "criterion_id": "star_count_alone_insufficient",
+        "required": True,
+        "description": (
+            "Star count, trend rank, or popularity alone never unlocks a behavioral patch, "
+            "code_patch, or runtime_action."
+        ),
+        "blocks": [
+            "code_patch_from_stars_only",
+            "behavior_patch_from_trend_rank",
+            "runtime_action_from_popularity",
+        ],
+    },
+    {
+        "criterion_id": "privacy_and_offensive_review_only",
+        "required": True,
+        "description": (
+            "Privacy-leakage and offensive-behavior signals remain review-only and do not "
+            "enter autonomous local apply or export raw evidence URLs or sensitive bodies."
+        ),
+    },
+)
 AGENT_HARNESS_POLICY_EVAL_COMMAND = "pytest tests/test_harness_eval.py -q -k agent_harness_policy_eval"
 AGENT_HARNESS_POLICY_ALLOWED_OUTCOMES = {"allow", "ask", "deny", "review_required"}
 AGENT_HARNESS_POLICY_BLOCKING_OUTCOMES = {"ask", "deny", "review_required"}
@@ -234,6 +297,7 @@ AGENT_HARNESS_EVAL_EXPECTED_OUTPUT_FIELDS = (
     "project_intake_probe",
     "general_agent_route_review_queue",
     "implementation_readiness_contract",
+    "agent_harness_eval_cluster",
     "benchmark_meta_agent_probe_lane",
     "privacy",
 )
@@ -1243,6 +1307,11 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
         records,
         project_intake_probe=project_intake_probe,
     )
+    agent_harness_eval_cluster = build_agent_harness_eval_cluster(
+        records,
+        project_intake_probe=project_intake_probe,
+        review_notes=review_notes,
+    )
     workflow_orchestration_eval_lane = build_workflow_orchestration_eval_lane(
         records,
         project_intake_probe=project_intake_probe,
@@ -1281,6 +1350,7 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
         "fork_cluster_eval_queue": fork_cluster_eval_queue,
         "implementation_readiness_contract": implementation_readiness_contract,
         "general_agent_project_route_plan": general_agent_project_route_plan,
+        "agent_harness_eval_cluster": agent_harness_eval_cluster,
         "workflow_orchestration_eval_lane": workflow_orchestration_eval_lane,
         "benchmark_meta_agent_probe_lane": benchmark_meta_agent_probe_lane,
         "claim_evaluation": claim_evaluation,
@@ -1440,6 +1510,211 @@ def build_general_agent_project_route_plan(
         "provider_runtime_launch_allowed": False,
         "remote_execution_allowed": False,
         "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def build_agent_harness_eval_cluster(
+    records: list[dict[str, Any]],
+    *,
+    project_intake_probe: dict[str, Any],
+    review_notes: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Cluster general-agent project signals into one local harness-eval queue.
+
+    External agent-project trends do not auto-open runtime_action. Each recognized
+    general_agent_project item records evaluation_lane=agent_harness_eval_required
+    and local_validation_required=true. Documentation, test, or code_patch unlock
+    only after local comparison. Star count or trend rank alone never drafts a
+    behavioral patch. Privacy-leakage and offensive-behavior rows stay review-only.
+    """
+
+    probe_rows = {
+        str(row.get("item_id") or ""): row
+        for row in project_intake_probe.get("rows", [])
+        if isinstance(row, dict)
+    }
+    review_by_item = {
+        str(note.get("item_id") or ""): note
+        for note in (review_notes or [])
+        if isinstance(note, dict) and str(note.get("item_id") or "").strip()
+    }
+    validation_command = "pytest tests/test_harness_eval.py -q -k agent_harness_eval_cluster"
+    rows: list[dict[str, Any]] = []
+    review_only_rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+
+    for index, record in enumerate(records, start=1):
+        if not isinstance(record, dict):
+            continue
+        text = agent_harness_eval_record_text(record)
+        route_hints = set(string_list(record.get("route_hints")))
+        risk_flags = set(string_list(record.get("risk_flags")))
+        recognized = AGENT_HARNESS_EVAL_HINT in route_hints or any(
+            marker in text for marker in ("agent harness", "benchmark", "eval", "evaluation", "harness")
+        )
+        if not recognized:
+            continue
+        item_id = optional_string(record.get("item_id")) or f"item-{index}"
+        source_url = optional_string(record.get("source_url")) or ""
+        suggested_lanes = string_list(record.get("suggested_lanes"))
+        allowed_after_compare = [
+            lane for lane in suggested_lanes if lane in AGENT_HARNESS_EVAL_ALLOWED_LANES
+        ] or list(AGENT_HARNESS_EVAL_ALLOWED_LANES)
+        rejected_lanes = sorted(set(suggested_lanes) - set(AGENT_HARNESS_EVAL_ALLOWED_LANES))
+        missing_probe_fields = string_list(probe_rows.get(item_id, {}).get("missing_fields"))
+        star_count = optional_int(record.get("star_count"))
+        has_detail_markers = any(marker in text for marker in AGENT_HARNESS_EVAL_DETAIL_MARKERS)
+        popularity_only_signal = bool(record.get("popularity_only_evidence")) or (
+            star_count is not None and not has_detail_markers
+        )
+        # Star/trend popularity alone is never enough for a behavior patch.
+        star_count_alone_unlocks_behavior_patch = False
+        boundary_flags = sorted(risk_flags & SAFETY_BOUNDARY_REVIEW_FLAGS)
+        review_note = review_by_item.get(item_id, {})
+        if boundary_flags or review_note:
+            review_gate = (
+                safety_review_gate_for_flags(boundary_flags)
+                if boundary_flags
+                else str(review_note.get("review_gate") or PRIVACY_REVIEW_GATE)
+            )
+            review_only_rows.append(
+                {
+                    "item_id": item_id,
+                    "route_class": "general_agent_project",
+                    "evaluation_lane": "agent_harness_eval_required",
+                    "status": "review_only",
+                    "local_validation_required": True,
+                    "local_comparison_required": True,
+                    "local_comparison_status": "blocked_by_safety_boundary",
+                    "review_gate": review_gate,
+                    "risk_flags": boundary_flags or string_list(review_note.get("risk_flags")),
+                    "runtime_action": "none",
+                    "direct_allowed_lanes_before_eval": [],
+                    "allowed_local_lanes_after_local_comparison": [],
+                    "implementation_patch_allowed_before_eval": False,
+                    "star_count_alone_unlocks_behavior_patch": star_count_alone_unlocks_behavior_patch,
+                    "behavior_patch_from_star_count_allowed": False,
+                    "external_agent_activation_allowed": False,
+                    "external_harness_execution_allowed": False,
+                    "provider_runtime_launch_allowed": False,
+                    "remote_execution_allowed": False,
+                    "source_url_hash": stable_text_hash(source_url) if source_url else None,
+                }
+            )
+            diagnostics.append(f"{item_id}:safety_boundary_review_only")
+            continue
+
+        row_diagnostics: list[str] = []
+        if missing_probe_fields:
+            row_diagnostics.append("missing_agent_harness_probe_fields")
+        if rejected_lanes:
+            row_diagnostics.append("unsupported_direct_lane_requested")
+        if popularity_only_signal:
+            row_diagnostics.append("star_count_or_trend_rank_alone_insufficient")
+        probe_ready = not missing_probe_fields
+        if not probe_ready:
+            comparison_status = "blocked_until_probe_fields_declared"
+        elif rejected_lanes:
+            comparison_status = "blocked_until_direct_lanes_removed"
+        else:
+            comparison_status = "ready_for_local_comparison"
+        diagnostics.extend(f"{item_id}:{diagnostic}" for diagnostic in row_diagnostics)
+        rows.append(
+            {
+                "item_id": item_id,
+                "route_class": "general_agent_project",
+                "evaluation_lane": "agent_harness_eval_required",
+                "status": "queued" if comparison_status == "ready_for_local_comparison" else "blocked",
+                "local_validation_required": True,
+                "local_comparison_required": True,
+                "local_comparison_status": comparison_status,
+                "probe_ready": probe_ready,
+                "missing_probe_fields": missing_probe_fields,
+                "rejected_direct_lanes": rejected_lanes,
+                "runtime_action": "none",
+                "direct_allowed_lanes_before_eval": [],
+                "allowed_local_lanes_after_local_comparison": allowed_after_compare,
+                "post_compare_candidate_routes": [
+                    {
+                        "lane": lane,
+                        "status": "candidate_after_local_comparison",
+                        "required_validation": [validation_command],
+                        "local_validation_required": True,
+                        "runtime_action": "none",
+                        "star_count_alone_unlocks_lane": False,
+                        "external_agent_activation_allowed": False,
+                        "external_harness_execution_allowed": False,
+                        "provider_runtime_launch_allowed": False,
+                        "remote_execution_allowed": False,
+                    }
+                    for lane in allowed_after_compare
+                ],
+                "implementation_patch_allowed_before_eval": False,
+                "star_count_alone_unlocks_behavior_patch": star_count_alone_unlocks_behavior_patch,
+                "behavior_patch_from_star_count_allowed": False,
+                "skill_route_discovery_inherited": False,
+                "direct_runtime_route_allowed": False,
+                "direct_code_patch_route_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "source_url_hash": stable_text_hash(source_url) if source_url else None,
+            }
+        )
+
+    eval_ready_count = sum(1 for row in rows if row["status"] == "queued")
+    blocked_count = sum(1 for row in rows if row["status"] == "blocked")
+    review_only_count = len(review_only_rows)
+    if not rows and not review_only_rows:
+        status = "not_applicable"
+        decision = "no_general_agent_project_signals_for_agent_harness_eval_cluster"
+    elif not rows and review_only_rows:
+        status = "review_only"
+        decision = "retain_safety_boundary_and_queue_non_boundary_rows_for_local_eval"
+    elif blocked_count:
+        status = "blocked"
+        decision = "declare_probe_fields_and_complete_local_comparison_before_followup"
+    elif review_only_rows:
+        status = "ready_with_review_boundaries"
+        decision = "run_bounded_agent_harness_eval_cluster_with_retained_review_boundaries"
+    else:
+        status = "ready"
+        decision = "run_bounded_agent_harness_eval_cluster_before_behavior_adoption"
+
+    return {
+        "controller_surface": "agent_harness_eval_cluster",
+        "proposal_id": "prop-agent-harness-eval-cluster",
+        "status": status,
+        "decision": decision,
+        "route_class": "general_agent_project",
+        "evaluation_lane": "agent_harness_eval_required",
+        "record_count": len(rows) + review_only_count,
+        "eval_ready_record_count": eval_ready_count,
+        "blocked_record_count": blocked_count,
+        "review_only_record_count": review_only_count,
+        "comparison_criteria": [dict(criterion) for criterion in AGENT_HARNESS_EVAL_CLUSTER_COMPARISON_CRITERIA],
+        "allowed_local_lanes_after_local_comparison": list(AGENT_HARNESS_EVAL_ALLOWED_LANES),
+        "direct_allowed_lanes_before_eval": [],
+        "local_validation_required": True,
+        "local_comparison_required": True,
+        "runtime_action": "none",
+        "runtime_action_auto_opened": False,
+        "implementation_patch_allowed_before_eval": False,
+        "behavior_patch_from_star_count_allowed": False,
+        "star_count_alone_unlocks_behavior_patch": False,
+        "required_validation": [validation_command],
+        "rows": rows,
+        "review_only_rows": review_only_rows,
+        "diagnostics": sorted(dict.fromkeys(diagnostics)),
+        "body_free": True,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_urls_exported": False,
+        "raw_evidence_urls_exported": False,
         "raw_upstream_body_exported": False,
     }
 

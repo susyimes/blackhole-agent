@@ -148,6 +148,17 @@ bodies, credentials, and personal data remain omitted. Runtime action stays
 promotion, and kernel restart remain denied until a supervisor path permits
 them.
 
+Pass 2 of the same theme deepens that translation through
+`agent_harness_eval_cluster` on `agent_harness_eval_lane`. Broad
+`general_agent_project` signals such as agent-chief, Hy3, and fortress are
+queued with `evaluation_lane=agent_harness_eval_required` and
+`local_validation_required=true`. The cluster documents comparison criteria,
+keeps `runtime_action=none`, refuses star-count-only behavior patches, unlocks
+only documentation, test, or code_patch after local comparison, and retains
+privacy-class rows review-only. Use
+`pytest tests/test_harness_eval.py -q -k agent_harness_eval_cluster` for the
+current regression.
+
 ### Selectable Local CLI Kernel
 
 Runs only when explicitly selected with `--evolution-mode codex`. The `--kernel codex|grok` selector chooses the local execution backend without changing the surrounding rollback and promotion protocol.
@@ -284,6 +295,8 @@ When a skill-route validation window includes sampled provider/runtime preflight
 
 The same lane emits `skill_route_discovery_route_family_eval_matrix` for mixed evidence windows that contain both skill/workflow candidates and adjacent general-agent projects. Skill rows keep the `skill_route_discovery_first` gate and are limited to documentation, config, test, or code_patch lanes. General-agent rows keep `agent_harness_eval_required`, inherit no skill-route lane, have no direct implementation lanes before evaluation, and may only proceed to documentation, test, or code_patch after local agent-harness validation. The companion `skill_route_discovery_route_family_agent_harness_intake` surface converts those adjacent general-agent rows into a body-free intake queue for `agent_harness_eval_lane`: it lists required probe fields, selected follow-up lanes after evaluation, source hashes, and missing local project-shape fields while denying runtime action, external harness execution, provider launch, remote execution, raw source URLs, and upstream bodies. Use `pytest tests/test_harness_eval.py -q -k "skill_route_discovery_current_digest_20260706T141555_pass3_agent_harness_intake or skill_route_discovery_20260706_pass1_route_family_eval_matrix or skill_route_discovery_lane or agent_harness_eval_lane"` for the current reverse-flow plus Agents-A1/Qwen-AgentWorld/Fundamental-Ava/Shepherd regression.
 `agent_harness_eval_lane` also emits `general_agent_project_route_plan` after project-shape probe fields are present. This plan is the ready-state companion to the intake queue: it classifies broad public agent projects as `general_agent_project`, selects `agent_harness_eval_required` before behavior adoption, keeps direct pre-eval lanes empty, and limits post-eval follow-up to documentation, test, or code_patch. Use `pytest tests/test_harness_eval.py -q -k "agent_harness_eval_lane or current_window_general_agent_projects"` for the current ready-state route-plan regression.
+
+The same lane emits `agent_harness_eval_cluster` for mixed general-agent project windows (for example agent-chief, Hy3, and fortress). The cluster is the operator-visible comparison surface for `prop-agent-harness-eval-cluster`: every non-boundary row records `evaluation_lane=agent_harness_eval_required`, `local_validation_required=true`, and `local_comparison_required=true`; `runtime_action` stays `none`; star count alone never unlocks a behavior patch; documentation, test, or code_patch are candidates only after local comparison; privacy-leakage rows remain review-only with hashed source refs and no raw URL export. Use `pytest tests/test_harness_eval.py -q -k agent_harness_eval_cluster` for the current cluster regression.
 
 The pass-4 skill-route completion handoff for `github-growth-20260707T170109.447884Z` adds a route-hint policy regression packet. Reverse-flow skill repositories and `rnskill` stay in `skill_route_discovery` with only documentation, config, test, or code_patch lanes; Shepherd and Agents-A1 activity stay in `agent_harness_eval_required` with no direct lanes before local harness evaluation and only documentation, test, or code_patch after evaluation. Route hints remain metadata and never grant permissions, runtime action, external skill activation, external harness execution, provider launch, remote execution, promotion, or restart authority. Use `python -m pytest tests/test_skill_routing.py -q -k 20260707T170109` for the current completion-lane regression.
 

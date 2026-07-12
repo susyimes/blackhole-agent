@@ -30,6 +30,9 @@ records a confirming detail such as an inspected PR body, commit diff, release
 note, failing local test, or repository file that maps the upstream movement to
 a specific local behavior.
 
+Star count, trend rank, or popularity alone never unlocks a behavioral patch,
+`code_patch`, or `runtime_action`. Popularity is a discovery signal only.
+
 ## Upstream Evidence Capability Step
 
 Source digest: `github-growth-20260712T173308.992902Z` (pass 1 of the
@@ -56,6 +59,40 @@ digest and self-evolution plan. That packet:
 Validation command for this surface:
 
 `pytest tests/test_github_growth.py -q -k upstream_evidence_capability_step`
+
+## Agent Harness Eval Cluster
+
+Source digest: `github-growth-20260712T175313.658382Z` (pass 2 of the
+`upstream-evidence-capability` window; selected proposal
+`prop-agent-harness-eval-cluster`).
+
+When public signals are broad general-agent projects such as agent-chief, Hy3,
+or fortress, the local `agent_harness_eval_lane` emits
+`agent_harness_eval_cluster`. That operator-visible surface:
+
+- classifies each item as `general_agent_project`
+- records `evaluation_lane=agent_harness_eval_required` and
+  `local_validation_required=true` for every row
+- keeps `runtime_action=none` and never auto-opens runtime, provider launch,
+  external harness execution, or remote execution
+- unlocks only `documentation`, `test`, or `code_patch` after local comparison
+- keeps star-count or trend-rank alone insufficient for a behavior patch
+- retains agent-chief-style privacy-leakage rows as review-only with no raw URL
+  or sensitive-body export
+
+Comparison criteria exported by the cluster:
+
+1. project shape probe fields declared
+2. local claim mapping or explicit unmapped review
+3. local harness replay passes
+4. runtime action stays none
+5. post-eval lanes bounded to documentation, test, or code_patch
+6. star count alone insufficient for behavior patches
+7. privacy and offensive signals remain review-only
+
+Validation command for this surface:
+
+`pytest tests/test_harness_eval.py -q -k agent_harness_eval_cluster`
 
 The proposal interpreter may summarize and rank candidate lessons, but it must
 not add evidence URLs, remove risk flags, grant permissions, or decide final
