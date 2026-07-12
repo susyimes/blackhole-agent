@@ -28,10 +28,11 @@ touches multiple files or behavior paths.
 
 ## Skill Route Discovery Habit
 
-Observed this run (pass 1 of 4 of `skill-route-discovery`, active): reverse-flow-skill and rnskill skill-workflow
-signals enter one local `skill_route_discovery_capability_pipeline` rather than isolated notes.
+Observed this run (pass 2 of 4 of `skill-route-discovery`, active): reverse-flow-skill and rnskill skill-workflow
+signals stay on one local `skill_route_discovery_capability_pipeline`. Pass 2 locks reverse-flow into a bounded
+local test validation lane through criteria-driven local comparison rather than a free unlock boolean.
 
-Pass 1 establishes the pipeline stages:
+Pipeline stages remain:
 
 1. classifier — skill_route_discovery vs agent_harness_eval_required vs privacy/offensive review-only
 2. route_profiles — reverse-flow → `codex_workflow_gate` + `skill_route_discovery_first`; rnskill →
@@ -39,7 +40,14 @@ Pass 1 establishes the pipeline stages:
 3. bounded_local_apply_lanes — reverse-flow prefers `test`, rnskill prefers `documentation`; only
    documentation/config/test/code_patch; local comparison required before unlock; `runtime_action=none`
 
-Selected local candidate: `trend:lingbol088-spec/reverse-flow-skill-2`. Fortress remains an adjacent
+Pass 2 additions (operator-visible on the same pipeline):
+
+- `skill_route_discovery_local_comparison` — compares selected skill-route probe rows to classifier /
+  route_profiles / bounded_local_apply_lanes criteria
+- `skill_route_discovery_reverse_flow_test_validation_lane` — unlocks only the local `test` lane when
+  reverse-flow criteria pass; companion rnskill docs profiles remain body-free on the same path
+
+Selected local candidate: `prop-skill-pipeline-reverse-flow-test`. Fortress remains an adjacent
 general_agent_project harness-eval row. Agent-chief privacy evidence stays review-only and cannot be selected for
 local apply. External skill execution, provider launch, remote apply, push, promotion, and restart stay denied.
 

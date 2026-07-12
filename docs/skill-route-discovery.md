@@ -35,6 +35,37 @@ Validation command for this surface:
 
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_capability_pipeline`
 
+### Pass 2 reverse-flow local test validation lane
+
+Source digest: `github-growth-20260712T191308.244484Z` (pass 2 of 4; selected
+proposal `prop-skill-pipeline-reverse-flow-test`).
+
+Pass 2 compounds the same pipeline rather than adding an isolated fixture.
+After classifier / route_profiles / bounded_local_apply_lanes run, the
+controller evaluates `skill_route_discovery_local_comparison` criteria against
+the reverse-flow skill-workflow probe:
+
+- route class must be `skill_route_discovery`
+- `codex_workflow_gate` requires `skill_route_discovery_first`
+- preferred lane for reverse-flow is `test`
+- `allowed_local_lanes` ⊆ {documentation, config, test, code_patch}
+- `runtime_action=none`
+- external skill execution, provider launch, and remote apply stay denied
+- fortress-style general-agent rows do not inherit skill unlocks
+- agent-chief privacy rows remain review-only
+
+When criteria pass, `reverse_flow_test_validation_lane` unlocks only the local
+`test` lane. Companion rnskill evidence stays on the same pipeline as a
+`generic_skill_workflow` documentation profile (`prop-skill-pipeline-rnskill-docs`)
+without a separate fixture path. Config-gate separation
+(`prop-skill-pipeline-config-gates`) keeps general_agent_project items out of
+skill apply unlocks. Callers may set `apply_local_comparison=False` to keep the
+pass-1 `ready_for_local_comparison` gate visible without unlocking lanes.
+
+Replay with:
+
+`pytest tests/test_github_growth.py -q -k skill_route_discovery_capability_pipeline`
+
 For source digest `github-growth-20260709T103527.169759Z`, pass 2 exposes
 `skill_route_discovery_current_digest_20260709T103527_pass2_skill_route_validation_lane`.
 The lane keeps `reverse-flow-skill` in the local test lane as Codex workflow

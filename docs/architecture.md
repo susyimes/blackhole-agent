@@ -142,6 +142,11 @@ into that pipeline rather than isolated notes. reverse-flow-skill maps to
 `test` lane; rnskill maps to `generic_skill_workflow` with a preferred
 `documentation` lane. Allowed lanes stay limited to documentation, config,
 test, or code_patch. Local comparison is required before any lane unlock.
+Pass 2 evaluates `skill_route_discovery_local_comparison` criteria against the
+reverse-flow probe and exposes
+`skill_route_discovery_reverse_flow_test_validation_lane` so the preferred
+`test` lane unlocks only after pipeline-stage comparison; companion rnskill
+rows remain documentation-preferring profiles on the same path.
 Fortress-style general-agent projects remain adjacent
 `agent_harness_eval_required` rows without skill-route inheritance.
 Agent-chief-style privacy evidence stays `privacy_boundary_review_only`.
