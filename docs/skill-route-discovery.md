@@ -248,6 +248,38 @@ Replay with:
 
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_local_test_validation`
 
+### Focused validation activation-external handoff
+
+Source digest: `github-growth-20260712T213308.729900Z` (selected proposal
+`prop-skill-reverse-flow-focused-test-validation`).
+
+After focused validation is recorded as `passed` with body-free command-hash
+results that cover the expected set, the pipeline emits
+`skill_route_discovery_focused_validation_activation_external_handoff`:
+
+1. Decision is
+   `package_activation_external_handoff_after_focused_validation_pass`
+2. Supervisor next action remains
+   `keep_activation_external_after_focused_local_test_validation`
+3. The handoff exports command hashes / boolean results only; raw command text,
+   stdout, evidence URLs, and upstream bodies stay out of the packet
+4. Activation, push, promotion, provider launch, remote apply, external skill
+   execution, and kernel restart stay denied (`activation_external_only=true`)
+5. While focused validation is still `ready` (unrecorded), status is
+   `blocked_until_focused_validation_recorded`
+6. On failed focused validation, status is
+   `blocked_until_focused_validation_repaired`
+7. Residual fortress-style adjacent rows may be noted as
+   `residual_adjacent_harness_eval_available` without inheriting skill unlocks
+
+Replay with:
+
+`pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_local_test_validation`
+
+and:
+
+`pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_validation_activation_external`
+
 For source digest `github-growth-20260709T103527.169759Z`, pass 2 exposes
 `skill_route_discovery_current_digest_20260709T103527_pass2_skill_route_validation_lane`.
 The lane keeps `reverse-flow-skill` in the local test lane as Codex workflow

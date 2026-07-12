@@ -166,11 +166,17 @@ command-hash results (`ready` → `passed`/`failed`) and keeps activation
 external. Supervisors close results via
 `focused_validation_command_results` on the pipeline builder or
 `record_skill_route_discovery_focused_local_test_validation_results` on an
-existing packet (`prop-skill-reverse-flow-focused-test-validation`). Use
+existing packet (`prop-skill-reverse-flow-focused-test-validation`). After a
+recorded pass,
+`skill_route_discovery_focused_validation_activation_external_handoff` packages
+`keep_activation_external_after_focused_local_test_validation` into one
+operator-visible packet while push, promotion, provider launch, remote apply,
+external skill execution, and kernel restart stay denied. Use
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_unlocked_local_test_lane_apply`
 and
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_local_test_validation`
-for the unlocked-lane apply and focused-validation regressions.
+for the unlocked-lane apply, focused-validation, and activation-external
+handoff regressions.
 Fortress-style general-agent projects remain adjacent
 `agent_harness_eval_required` rows without skill-route inheritance.
 When residual fortress-style general-agent proposals are selected after

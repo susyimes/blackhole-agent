@@ -102,6 +102,7 @@ def test_architecture_links_upstream_evidence_interpretation_contract():
     assert "skill_route_discovery_local_apply_completion" in architecture
     assert "skill_route_discovery_unlocked_local_test_lane_apply" in architecture
     assert "skill_route_discovery_focused_local_test_validation" in architecture
+    assert "skill_route_discovery_focused_validation_activation_external_handoff" in architecture
     assert "skill_route_discovery_adjacent_harness_eval_handoff" in architecture
     assert (
         "pytest tests/test_github_growth.py -q -k skill_route_discovery_capability_pipeline"
@@ -337,6 +338,11 @@ def test_skill_route_discovery_doc_records_capability_pipeline_pass1():
         "`prop-skill-reverse-flow-focused-test-validation`",
         "record_skill_route_discovery_focused_local_test_validation_results",
         "normalize_skill_route_discovery_focused_validation_command_results",
+        "### Focused validation activation-external handoff",
+        "Source digest: `github-growth-20260712T213308.729900Z`",
+        "`skill_route_discovery_focused_validation_activation_external_handoff`",
+        "package_activation_external_handoff_after_focused_validation_pass",
+        "blocked_until_focused_validation_recorded",
         "### Adjacent fortress harness-eval handoff",
         "`skill_route_discovery_adjacent_harness_eval_handoff`",
         "`prop-harness-fortress-local-eval`",

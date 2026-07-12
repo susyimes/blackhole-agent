@@ -30,17 +30,17 @@ touches multiple files or behavior paths.
 
 Shared pipeline
 `skill_route_discovery_capability_pipeline` now ends with an operator-visible
-focused validation **result recording** path after reverse-flow unlock:
+**activation-external handoff** after reverse-flow focused validation records:
 
 classifier → route_profiles → bounded_local_apply_lanes → local comparison →
 reverse-flow test lane → rnskill docs companion → config gates → local apply →
 local apply completion → unlocked local test lane apply →
-focused local test validation → **record body-free command-hash results** →
-(optional) adjacent harness-eval handoff.
+focused local test validation → record body-free command-hash results →
+**activation-external handoff** → (optional) adjacent harness-eval residual.
 
 Observed this run (`prop-skill-reverse-flow-focused-test-validation` /
 `lingbol088-spec/reverse-flow-skill`, digest
-`github-growth-20260712T211308.627162Z`):
+`github-growth-20260712T213308.729900Z`):
 
 - Classifies as `skill_route_discovery` with
   `codex_workflow_gate` + `skill_route_discovery_first`
@@ -52,19 +52,20 @@ Observed this run (`prop-skill-reverse-flow-focused-test-validation` /
   - `focused_validation_command_results` on the pipeline builder, or
   - `record_skill_route_discovery_focused_local_test_validation_results` on an
     existing pipeline packet
-- `normalize_skill_route_discovery_focused_validation_command_results` keeps
-  exports body-free (`command_hash` / `passed` / `in_expected_set` only)
-- On full pass: decision
-  `record_focused_local_test_validation_pass_and_keep_activation_external`,
-  supervisor next
+- On recorded pass, pipeline emits
+  `skill_route_discovery_focused_validation_activation_external_handoff` with
+  decision `package_activation_external_handoff_after_focused_validation_pass`
+- While unrecorded, that handoff stays
+  `blocked_until_focused_validation_recorded`
+- On full pass: supervisor next remains
   `keep_activation_external_after_focused_local_test_validation`
 - Activation, push, promotion, provider launch, remote apply, external skill
   execution, and kernel restart stay denied
-- Rnskill remains documentation companion; fortress/Hy3 remain adjacent
-  harness-eval; agent-chief remains privacy review-only
+- Residual fortress/Hy3 rows may be noted as adjacent harness-eval without
+  inheriting skill unlocks; agent-chief remains privacy review-only
 
 Pipeline stages remain the three classifier stages plus post-completion unlock,
-focused validation, and result recording:
+focused validation, result recording, and activation-external handoff:
 
 1. classifier — skill_route_discovery vs agent_harness_eval_required vs privacy/offensive review-only
 2. route_profiles — reverse-flow → `codex_workflow_gate` + `skill_route_discovery_first`; rnskill →
@@ -78,10 +79,13 @@ focused validation, and result recording:
    command hashes; never activate from this surface
 6. result recording — close `ready` → `passed`/`failed` via pipeline results or
    `record_skill_route_discovery_focused_local_test_validation_results`
-7. adjacent handoff — fortress-style residuals go to agent harness-eval local comparison; skill unlocks stay closed
+7. activation-external handoff — on recorded pass emit
+   `skill_route_discovery_focused_validation_activation_external_handoff`; keep
+   push/promotion/restart external
+8. adjacent residual — fortress-style rows stay available for agent harness-eval; skill unlocks stay closed
 
 External skill execution, provider launch, remote apply, push, promotion, and restart stay denied.
-Prefer recording focused validation outcomes over re-emitting unlock notes forever.
+Prefer packaging recorded focused validation into the activation-external handoff over re-emitting unlock notes forever.
 
 ## Upstream Evidence Habit
 
@@ -89,6 +93,6 @@ Previous theme (`upstream-evidence-capability`, complete): mixed public agent si
 `upstream_evidence_capability_step` → `agent_harness_eval_cluster` →
 `agent_harness_eval_cluster_local_apply` → `agent_harness_eval_cluster_local_apply_completion`. That pattern is
 the template the skill-route pipeline followed: one operator-visible capability path, body-free exports, narrow
-safety boundary, and a final local-apply completion handoff. The reverse-flow focused local test validation
-result-recording path is the skill-route analogue of “close unlocked-lane validation outcomes while activation
+safety boundary, and a final local-apply completion handoff. The reverse-flow focused validation
+activation-external handoff is the skill-route analogue of “close recorded validation outcomes while activation
 stays external.”
