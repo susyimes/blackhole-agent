@@ -30,21 +30,22 @@ touches multiple files or behavior paths.
 
 Shared pipeline
 `skill_route_discovery_capability_pipeline` now ends with an operator-visible
-**residual adjacent harness-eval local apply** after reverse-flow focused
-validation records, activation-external handoff/acceptance, and residual
-adjacent queue:
+**residual adjacent harness-eval local comparison** after reverse-flow focused
+validation records, activation-external handoff/acceptance, residual adjacent
+queue, and residual harness-eval local apply:
 
 classifier → route_profiles → bounded_local_apply_lanes → local comparison →
 reverse-flow test lane → rnskill docs companion → config gates → local apply →
 local apply completion → unlocked local test lane apply →
 focused local test validation → record / close body-free command-hash results →
 activation-external handoff → activation-external acceptance →
-residual adjacent queue → **residual adjacent harness-eval local apply** →
+residual adjacent queue → residual adjacent harness-eval local apply →
+**residual adjacent harness-eval local comparison** →
 (optional) selected-step adjacent harness-eval.
 
 Observed this run (`prop-residual-adjacent-fortress-harness-eval` /
 `tiliondev/fortress` residual after reverse-flow acceptance, digest
-`github-growth-20260712T223308.255959Z`):
+`github-growth-20260712T225308.154547Z`):
 
 - Reverse-flow still classifies as `skill_route_discovery` with
   `codex_workflow_gate` + `skill_route_discovery_first`
@@ -56,25 +57,30 @@ Observed this run (`prop-residual-adjacent-fortress-harness-eval` /
   `skill_route_discovery_residual_adjacent_harness_eval_local_apply` with
   decision
   `hand_off_selected_residual_adjacent_row_to_agent_harness_eval_cluster_local_apply`
-- Selection prefers fortress residual proposal IDs, then Hy3, then first residual
-  ID; supervisor next becomes
-  `run_agent_harness_eval_local_comparison_for_residual_adjacent_row`
-- Handoff targets `agent_harness_eval_cluster_local_apply` with local comparison
-  required; only documentation/test/code_patch may unlock after harness criteria
+- When residual local apply is `ready`, pipeline emits
+  `skill_route_discovery_residual_adjacent_harness_eval_local_comparison` with
+  decision
+  `unlock_documentation_test_or_code_patch_after_residual_adjacent_harness_local_comparison`
+- Comparison unlocks only documentation/test/code_patch after harness criteria
+  pass; supervisor next becomes
+  `apply_unlocked_documentation_test_or_code_patch_with_focused_validation_and_keep_activation_external`
 - Reverse-flow skill unlocks stay closed on residual rows
-  (`skill_route_discovery_inherited=false`, `unlocked_local_lanes=[]`)
-- While residual queue is blocked, residual local apply stays
-  `blocked_until_residual_adjacent_queue_ready`
-- Residual local apply is distinct from selected-step
+  (`skill_route_discovery_inherited=false`, `skill_route_unlocked_local_lanes=[]`)
+- Residual handoff `unlocked_local_lanes` stay empty until comparison passes;
+  after pass, harness post-compare lanes unlock without skill inheritance
+- While residual local apply is blocked, residual comparison stays
+  `blocked_until_residual_adjacent_harness_eval_local_apply_ready`
+- Residual comparison is distinct from selected-step
   `skill_route_discovery_adjacent_harness_eval_handoff`: reverse-flow can stay
-  selected while a residual fortress row is handed to harness-eval
+  selected while a residual fortress row runs harness comparison
 - Activation, push, promotion, provider launch, remote apply, external skill
   execution, and kernel restart stay denied
 - agent-chief remains privacy review-only
 
 Pipeline stages remain the three classifier stages plus post-completion unlock,
 focused validation, result recording/close, activation-external handoff,
-acceptance, residual adjacent queue, and residual harness-eval local apply:
+acceptance, residual adjacent queue, residual harness-eval local apply, and
+residual harness-eval local comparison:
 
 1. classifier — skill_route_discovery vs agent_harness_eval_required vs privacy/offensive review-only
 2. route_profiles — reverse-flow → `codex_workflow_gate` + `skill_route_discovery_first`; rnskill →
@@ -101,12 +107,15 @@ acceptance, residual adjacent queue, and residual harness-eval local apply:
 10. residual harness-eval local apply — on ready residual queue emit
     `skill_route_discovery_residual_adjacent_harness_eval_local_apply`; select one
     residual row and hand off to `agent_harness_eval_cluster_local_apply`
-11. selected-step adjacent residual — fortress-style selected rows stay available for
+11. residual harness-eval local comparison — on ready residual local apply emit
+    `skill_route_discovery_residual_adjacent_harness_eval_local_comparison`; unlock
+    documentation/test/code_patch after harness criteria pass
+12. selected-step adjacent residual — fortress-style selected rows stay available for
     agent harness-eval handoff; skill unlocks stay closed
 
 External skill execution, provider launch, remote apply, push, promotion, and restart stay denied.
-Prefer closing ready residual queue into residual harness-eval local apply over re-emitting
-queue notes forever.
+Prefer closing ready residual local apply into residual harness-eval local comparison
+over re-emitting residual handoff notes forever.
 
 ## Upstream Evidence Habit
 
@@ -114,6 +123,6 @@ Previous theme (`upstream-evidence-capability`, complete): mixed public agent si
 `upstream_evidence_capability_step` → `agent_harness_eval_cluster` →
 `agent_harness_eval_cluster_local_apply` → `agent_harness_eval_cluster_local_apply_completion`. That pattern is
 the template the skill-route pipeline followed: one operator-visible capability path, body-free exports, narrow
-safety boundary, and a final local-apply completion handoff. Residual adjacent harness-eval local apply is the
-skill-route analogue of “after reverse-flow validation is accepted externally, select one residual general-agent
-row and run harness-eval local comparison without inheriting skill unlocks.”
+safety boundary, and a final local-apply completion handoff. Residual adjacent harness-eval local comparison is the
+skill-route analogue of “after residual fortress/Hy3 handoff is ready, run harness local comparison and unlock only
+documentation/test/code_patch without inheriting skill unlocks.”

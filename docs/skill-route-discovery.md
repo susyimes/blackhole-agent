@@ -384,6 +384,41 @@ and:
 
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_validation_residual_adjacent`
 
+### Residual adjacent harness-eval local comparison after residual local apply
+
+Source digest: `github-growth-20260712T225308.154547Z` (selected residual
+proposal track `prop-residual-adjacent-fortress-harness-eval`).
+
+After residual adjacent harness-eval local apply is `ready`, the pipeline emits
+`skill_route_discovery_residual_adjacent_harness_eval_local_comparison`:
+
+1. Closes supervisor next action
+   `run_agent_harness_eval_local_comparison_for_residual_adjacent_row`
+2. Decision is
+   `unlock_documentation_test_or_code_patch_after_residual_adjacent_harness_local_comparison`
+3. Supervisor next action becomes
+   `apply_unlocked_documentation_test_or_code_patch_with_focused_validation_and_keep_activation_external`
+4. When harness criteria pass, unlocks only documentation, test, or code_patch
+5. Reverse-flow skill unlocks stay closed
+   (`skill_route_discovery_inherited=false`, `skill_route_unlocked_local_lanes=[]`)
+6. While residual local apply is still blocked, this surface stays
+   `blocked_until_residual_adjacent_harness_eval_local_apply_ready`
+7. When residual local apply is `not_applicable`, this surface is `not_applicable`
+8. Activation, push, promotion, provider launch, remote apply, external skill
+   execution, and kernel restart stay denied; agent-chief privacy rows stay
+   review-only
+9. Distinct from selected-step
+   `skill_route_discovery_adjacent_harness_eval_handoff`: reverse-flow can remain
+   selected while residual fortress harness comparison unlocks bounded lanes
+
+Replay with:
+
+`pytest tests/test_github_growth.py -q -k skill_route_discovery_residual_adjacent_harness_eval_local_comparison`
+
+and:
+
+`pytest tests/test_github_growth.py -q -k skill_route_discovery_residual_adjacent_harness_eval_local_apply`
+
 Replay with:
 
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_local_test_validation`

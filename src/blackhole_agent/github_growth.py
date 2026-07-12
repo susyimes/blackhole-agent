@@ -2834,9 +2834,12 @@ def build_skill_route_discovery_capability_pipeline(
     ``skill_route_discovery_residual_adjacent_harness_eval_local_apply`` selects
     one residual fortress/Hy3 proposal and hands it to
     ``agent_harness_eval_cluster_local_apply`` with local comparison required and
-    skill unlocks closed. External skill execution, provider launch, remote
-    apply, push, promotion, and kernel restart stay denied; activation remains
-    external.
+    skill unlocks closed. When that residual local apply is ``ready``,
+    ``skill_route_discovery_residual_adjacent_harness_eval_local_comparison``
+    runs residual harness local comparison and unlocks only documentation,
+    test, or code_patch after criteria pass while skill-route unlocks stay
+    closed. External skill execution, provider launch, remote apply, push,
+    promotion, and kernel restart stay denied; activation remains external.
     """
 
     del items  # reserved for future item-level corroboration without URL export
@@ -3117,6 +3120,17 @@ def build_skill_route_discovery_capability_pipeline(
             source_digest=source_digest,
         )
     )
+    residual_adjacent_harness_eval_local_comparison = (
+        build_skill_route_discovery_residual_adjacent_harness_eval_local_comparison(
+            residual_adjacent_harness_eval_local_apply=(
+                residual_adjacent_harness_eval_local_apply
+            ),
+            adjacent_general_agent_rows=adjacent_general_agent_rows,
+            retained_boundaries=retained_boundaries,
+            theme_window=theme,
+            source_digest=source_digest,
+        )
+    )
     adjacent_harness_eval_handoff = build_skill_route_discovery_adjacent_harness_eval_handoff(
         selected_step=selected_step,
         adjacent_general_agent_rows=adjacent_general_agent_rows,
@@ -3217,6 +3231,9 @@ def build_skill_route_discovery_capability_pipeline(
         ),
         "residual_adjacent_harness_eval_local_apply": (
             residual_adjacent_harness_eval_local_apply
+        ),
+        "residual_adjacent_harness_eval_local_comparison": (
+            residual_adjacent_harness_eval_local_comparison
         ),
         "focused_local_test_validation_recorded": focused_local_test_validation.get(
             "focused_validation_recorded"
@@ -4453,8 +4470,9 @@ def record_skill_route_discovery_focused_local_test_validation_results(
     ``passed``/``failed`` and refresh
     ``skill_route_discovery_focused_validation_activation_external_handoff``,
     ``skill_route_discovery_focused_validation_activation_external_acceptance``,
-    ``skill_route_discovery_focused_validation_residual_adjacent_queue``, and
-    ``skill_route_discovery_residual_adjacent_harness_eval_local_apply``
+    ``skill_route_discovery_focused_validation_residual_adjacent_queue``,
+    ``skill_route_discovery_residual_adjacent_harness_eval_local_apply``, and
+    ``skill_route_discovery_residual_adjacent_harness_eval_local_comparison``
     without enabling activation, push, promotion, provider launch, remote apply,
     external skill execution, or kernel restart.
     """
@@ -4557,6 +4575,17 @@ def record_skill_route_discovery_focused_local_test_validation_results(
             source_digest=digest,
         )
     )
+    residual_adjacent_harness_eval_local_comparison = (
+        build_skill_route_discovery_residual_adjacent_harness_eval_local_comparison(
+            residual_adjacent_harness_eval_local_apply=(
+                residual_adjacent_harness_eval_local_apply
+            ),
+            adjacent_general_agent_rows=adjacent_rows,
+            retained_boundaries=retained_rows,
+            theme_window=theme,
+            source_digest=digest,
+        )
+    )
     updated = dict(pipeline)
     updated["focused_local_test_validation"] = focused
     updated["focused_local_test_validation_recorded"] = focused.get("status") in {
@@ -4570,6 +4599,9 @@ def record_skill_route_discovery_focused_local_test_validation_results(
     updated["focused_validation_residual_adjacent_queue"] = residual_adjacent_queue
     updated["residual_adjacent_harness_eval_local_apply"] = (
         residual_adjacent_harness_eval_local_apply
+    )
+    updated["residual_adjacent_harness_eval_local_comparison"] = (
+        residual_adjacent_harness_eval_local_comparison
     )
     return updated
 
@@ -5846,6 +5878,7 @@ def build_skill_route_discovery_focused_validation_residual_adjacent_queue(
             "skill_route_discovery_focused_validation_activation_external_acceptance",
             "skill_route_discovery_focused_validation_residual_adjacent_queue",
             "skill_route_discovery_residual_adjacent_harness_eval_local_apply",
+            "skill_route_discovery_residual_adjacent_harness_eval_local_comparison",
         ],
         "focused_validation_activation_external_acceptance_status": (
             acceptance_status or "none"
@@ -6012,7 +6045,9 @@ def build_skill_route_discovery_residual_adjacent_harness_eval_local_apply(
     fortress, then Hy3) and packages a body-free handoff for
     ``agent_harness_eval_cluster_local_apply``. Local comparison is required
     before any documentation/test/code_patch unlock; reverse-flow skill unlocks
-    stay closed. This is distinct from
+    stay closed. When this surface is ``ready``,
+    ``skill_route_discovery_residual_adjacent_harness_eval_local_comparison``
+    closes the residual comparison. This is distinct from
     ``skill_route_discovery_adjacent_harness_eval_handoff``, which fires only when
     the selected pipeline step is itself an adjacent harness-eval row. Push,
     promotion, provider launch, remote apply, external skill execution, and
@@ -6234,6 +6269,7 @@ def build_skill_route_discovery_residual_adjacent_harness_eval_local_apply(
             "skill_route_discovery_focused_validation_activation_external_acceptance",
             "skill_route_discovery_focused_validation_residual_adjacent_queue",
             "skill_route_discovery_residual_adjacent_harness_eval_local_apply",
+            "skill_route_discovery_residual_adjacent_harness_eval_local_comparison",
         ],
         "focused_validation_residual_adjacent_queue_status": residual_status or "none",
         "focused_validation_residual_adjacent_queue_decision": residual_decision,
@@ -6306,6 +6342,411 @@ def build_skill_route_discovery_residual_adjacent_harness_eval_local_apply(
         "required_validation": [
             "pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_validation_residual_adjacent",
             "pytest tests/test_github_growth.py -q -k skill_route_discovery_residual_adjacent_harness_eval_local_apply",
+            "pytest tests/test_github_growth.py -q -k skill_route_discovery_residual_adjacent_harness_eval_local_comparison",
+            ADJACENT_HARNESS_EVAL_VALIDATION_COMMAND,
+        ],
+        "body_free": True,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_bodies_exported": False,
+        "raw_command_stdout_exported": False,
+        "raw_command_text_exported": False,
+    }
+
+
+def build_skill_route_discovery_residual_adjacent_harness_eval_local_comparison(
+    *,
+    residual_adjacent_harness_eval_local_apply: dict[str, Any] | None = None,
+    adjacent_general_agent_rows: list[dict[str, Any]] | None = None,
+    retained_boundaries: list[dict[str, Any]] | None = None,
+    theme_window: dict[str, Any] | None = None,
+    source_digest: str | None = None,
+) -> dict[str, Any]:
+    """Run residual fortress/Hy3 harness local comparison after residual apply.
+
+    After ``skill_route_discovery_residual_adjacent_harness_eval_local_apply`` is
+    ``ready``, this surface closes supervisor next action
+    ``run_agent_harness_eval_local_comparison_for_residual_adjacent_row`` by
+    evaluating body-free residual harness criteria. When criteria pass, unlock
+    only documentation/test/code_patch for bounded local apply. Reverse-flow
+    skill unlocks stay closed (``skill_route_discovery_inherited=false``,
+    ``skill_route_unlocked_local_lanes=[]``). Distinct from selected-step
+    ``skill_route_discovery_adjacent_harness_eval_handoff``. Push, promotion,
+    provider launch, remote apply, external skill execution, and kernel restart
+    stay denied; activation remains external. Privacy/offensive rows stay
+    review-only.
+    """
+
+    theme = theme_window if isinstance(theme_window, dict) else {}
+    residual_apply = (
+        residual_adjacent_harness_eval_local_apply
+        if isinstance(residual_adjacent_harness_eval_local_apply, dict)
+        else {}
+    )
+    adjacent = list(adjacent_general_agent_rows or [])
+    retained = list(retained_boundaries or [])
+    residual_apply_status = str(residual_apply.get("status") or "")
+    residual_apply_decision = str(residual_apply.get("decision") or "")
+    selected_residual_id = str(
+        residual_apply.get("selected_residual_proposal_id")
+        or residual_apply.get("selected_proposal_id")
+        or residual_apply.get("proposal_id")
+        or ""
+    ).strip()
+    residual_ids = [
+        str(item).strip()
+        for item in list(residual_apply.get("adjacent_general_agent_proposal_ids") or [])
+        if str(item).strip()
+    ]
+    if not residual_ids and adjacent:
+        residual_ids = [
+            str(row.get("proposal_id") or "").strip()
+            for row in adjacent
+            if isinstance(row, dict) and str(row.get("proposal_id") or "").strip()
+        ]
+    retained_ids = sorted(
+        {
+            str(row.get("proposal_id") or "")
+            for row in retained
+            if isinstance(row, dict) and str(row.get("proposal_id") or "").strip()
+        }
+        | {
+            str(item).strip()
+            for item in list(residual_apply.get("retained_boundary_proposal_ids") or [])
+            if str(item).strip()
+        }
+    )
+    selected_row = next(
+        (
+            row
+            for row in adjacent
+            if isinstance(row, dict)
+            and str(row.get("proposal_id") or "").strip() == selected_residual_id
+        ),
+        None,
+    )
+    allowed_after = [
+        lane
+        for lane in list(
+            residual_apply.get("allowed_local_lanes_after_local_comparison")
+            or (selected_row or {}).get("allowed_local_lanes_after_eval")
+            or AGENT_HARNESS_EVAL_POST_COMPARE_LANES
+        )
+        if lane in AGENT_HARNESS_EVAL_POST_COMPARE_LANES
+    ] or list(AGENT_HARNESS_EVAL_POST_COMPARE_LANES)
+    general_agent_isolated = all(
+        row.get("skill_route_discovery_inherited") is False
+        and list(row.get("direct_allowed_lanes_before_eval") or []) == []
+        for row in adjacent
+        if isinstance(row, dict)
+    ) if adjacent else bool(residual_apply.get("general_agent_isolation_passed", True))
+    privacy_isolated = all(
+        str(row.get("route_class") or "")
+        in {"privacy_boundary_review_only", "offensive_boundary_review_only"}
+        for row in retained
+        if isinstance(row, dict)
+    ) if retained else bool(residual_apply.get("privacy_isolation_passed", True))
+    skill_unlocks_closed = (
+        list(residual_apply.get("unlocked_local_lanes") or []) == []
+        and residual_apply.get("skill_route_discovery_inherited") is not True
+        and residual_apply.get("skill_route_unlocks_closed_for_residual") is not False
+    )
+    residual_apply_ready = (
+        residual_apply_status == "ready"
+        and residual_apply_decision
+        == "hand_off_selected_residual_adjacent_row_to_agent_harness_eval_cluster_local_apply"
+        and bool(selected_residual_id)
+        and bool(residual_apply.get("activation_external_only", True))
+        and residual_apply.get("supervisor_activation_allowed") is not True
+        and residual_apply.get("runtime_action", "none") == "none"
+        and residual_apply.get("external_skill_execution_allowed") is not True
+        and residual_apply.get("provider_launch_allowed") is not True
+        and residual_apply.get("remote_apply_allowed") is not True
+        and residual_apply.get("push_or_promotion_allowed") is not True
+        and residual_apply.get("kernel_restart_allowed") is not True
+        and residual_apply.get("local_comparison_required") is not False
+        and str(residual_apply.get("handoff_controller_surface") or "")
+        == "agent_harness_eval_cluster_local_apply"
+    )
+    comparison_notes = [
+        {
+            "criterion_id": "residual_adjacent_local_apply_ready",
+            "required": True,
+            "passed": residual_apply_status == "ready",
+        },
+        {
+            "criterion_id": "selected_residual_proposal_present",
+            "required": True,
+            "passed": bool(selected_residual_id),
+        },
+        {
+            "criterion_id": "handoff_targets_agent_harness_eval_cluster_local_apply",
+            "required": True,
+            "passed": str(residual_apply.get("handoff_controller_surface") or "")
+            == "agent_harness_eval_cluster_local_apply",
+        },
+        {
+            "criterion_id": "local_comparison_required",
+            "required": True,
+            "passed": residual_apply.get("local_comparison_required") is not False,
+        },
+        {
+            "criterion_id": "skill_route_unlocks_closed_for_residual",
+            "required": True,
+            "passed": skill_unlocks_closed,
+        },
+        {
+            "criterion_id": "general_agent_does_not_inherit_skill_unlock",
+            "required": True,
+            "passed": general_agent_isolated,
+        },
+        {
+            "criterion_id": "privacy_or_offensive_rows_remain_review_only",
+            "required": True,
+            "passed": privacy_isolated,
+        },
+        {
+            "criterion_id": "allowed_lanes_subset_of_harness_post_compare",
+            "required": True,
+            "passed": all(
+                lane in AGENT_HARNESS_EVAL_POST_COMPARE_LANES for lane in allowed_after
+            )
+            and bool(allowed_after),
+        },
+        {
+            "criterion_id": "activation_external_only",
+            "required": True,
+            "passed": bool(residual_apply.get("activation_external_only", True)),
+        },
+        {
+            "criterion_id": "runtime_action_none",
+            "required": True,
+            "passed": residual_apply.get("runtime_action", "none") == "none",
+        },
+        {
+            "criterion_id": "external_skill_execution_denied",
+            "required": True,
+            "passed": residual_apply.get("external_skill_execution_allowed") is not True,
+        },
+        {
+            "criterion_id": "provider_launch_denied",
+            "required": True,
+            "passed": residual_apply.get("provider_launch_allowed") is not True,
+        },
+        {
+            "criterion_id": "remote_apply_denied",
+            "required": True,
+            "passed": residual_apply.get("remote_apply_allowed") is not True,
+        },
+    ]
+    failed_criteria = [
+        str(row["criterion_id"])
+        for row in comparison_notes
+        if row.get("required") is True and row.get("passed") is not True
+    ]
+    comparison_passed = residual_apply_ready and not failed_criteria
+
+    if residual_apply_status in {"", "not_applicable"}:
+        status = "not_applicable"
+        decision = "no_residual_adjacent_local_apply_for_harness_eval_local_comparison"
+        supervisor_next_action = (
+            "wait_for_skill_route_discovery_residual_adjacent_harness_eval_local_apply"
+        )
+        unlocked_lanes: list[str] = []
+        local_comparison_status = "not_applicable"
+    elif residual_apply_status.startswith("blocked"):
+        status = "blocked_until_residual_adjacent_harness_eval_local_apply_ready"
+        decision = (
+            "hold_residual_adjacent_harness_eval_local_comparison_until_local_apply_ready"
+        )
+        if residual_apply.get("supervisor_next_action"):
+            supervisor_next_action = str(residual_apply.get("supervisor_next_action"))
+        else:
+            supervisor_next_action = (
+                "hand_off_residual_adjacent_rows_to_agent_harness_eval_cluster_local_apply"
+            )
+        unlocked_lanes = []
+        local_comparison_status = "blocked_until_residual_adjacent_local_apply_ready"
+    elif not residual_apply_ready:
+        status = "blocked_until_residual_adjacent_harness_eval_local_apply_ready"
+        decision = (
+            "hold_residual_adjacent_harness_eval_local_comparison_until_local_apply_ready"
+        )
+        supervisor_next_action = (
+            "run_agent_harness_eval_local_comparison_for_residual_adjacent_row"
+            if residual_apply_status == "ready"
+            else "hand_off_residual_adjacent_rows_to_agent_harness_eval_cluster_local_apply"
+        )
+        unlocked_lanes = []
+        local_comparison_status = "blocked_until_residual_adjacent_local_apply_ready"
+    elif not general_agent_isolated or not privacy_isolated or not skill_unlocks_closed:
+        status = "blocked"
+        decision = "repair_residual_adjacent_isolation_before_harness_local_comparison"
+        supervisor_next_action = "repair_skill_route_config_gate_isolation"
+        unlocked_lanes = []
+        local_comparison_status = "failed_local_comparison"
+    elif not comparison_passed:
+        status = "blocked"
+        decision = "hold_residual_adjacent_row_until_harness_local_comparison_criteria_pass"
+        supervisor_next_action = (
+            "repair_residual_adjacent_harness_eval_local_comparison_criteria"
+        )
+        unlocked_lanes = []
+        local_comparison_status = "failed_local_comparison"
+    else:
+        status = "ready"
+        decision = (
+            "unlock_documentation_test_or_code_patch_after_residual_adjacent_harness_local_comparison"
+        )
+        supervisor_next_action = (
+            "apply_unlocked_documentation_test_or_code_patch_with_focused_validation_and_keep_activation_external"
+        )
+        unlocked_lanes = list(allowed_after)
+        local_comparison_status = "passed_local_comparison"
+
+    export_residual_ids = residual_ids if status in {"ready", "blocked"} else []
+    export_notes = comparison_notes if status in {"ready", "blocked"} else []
+    export_failed = failed_criteria if status == "blocked" else []
+
+    return {
+        "schema_version": 1,
+        "controller_surface": (
+            "skill_route_discovery_residual_adjacent_harness_eval_local_comparison"
+        ),
+        "proposal_track": "prop-residual-adjacent-fortress-harness-eval",
+        "legacy_proposal_tracks": [
+            "prop-harness-residual-hy3-fortress",
+            "prop-harness-fortress-hy3-adjacent-eval",
+            "prop-skill-reverse-flow-continue-local-validation",
+        ],
+        "companion_tracks": [
+            "prop-residual-adjacent-fortress-harness-eval",
+            "prop-residual-adjacent-hy3-harness-eval",
+            "prop-harness-residual-hy3-fortress",
+            "prop-harness-fortress-hy3-adjacent-eval",
+            "prop-harness-fortress-adjacent-eval",
+            "prop-harness-hy3-adjacent-eval",
+            "prop-skill-reverse-flow-continue-local-validation",
+            "prop-skill-rnskill-docs-companion",
+            "prop-skill-pipeline-config-gates",
+        ],
+        "proposal_id": selected_residual_id
+        or str(residual_apply.get("selected_proposal_id") or residual_apply.get("proposal_id") or ""),
+        "selected_proposal_id": selected_residual_id
+        or str(residual_apply.get("selected_proposal_id") or residual_apply.get("proposal_id") or ""),
+        "selected_residual_proposal_id": selected_residual_id,
+        "selected_residual_route_class": str(
+            (selected_row or {}).get("route_class")
+            or residual_apply.get("selected_residual_route_class")
+            or residual_apply.get("route_class")
+            or "agent_harness_eval_required"
+        ),
+        "status": status,
+        "decision": decision,
+        "capability_action": "compare_one_residual_adjacent_harness_eval_local_candidate",
+        "capability_pipeline": [
+            "skill_route_discovery_capability_pipeline",
+            "skill_route_discovery_local_comparison",
+            "skill_route_discovery_reverse_flow_test_validation_lane",
+            "skill_route_discovery_rnskill_docs_validation_lane",
+            "skill_route_discovery_config_gate_boundary",
+            "skill_route_discovery_local_apply",
+            "skill_route_discovery_local_apply_completion",
+            "skill_route_discovery_unlocked_local_test_lane_apply",
+            "skill_route_discovery_focused_local_test_validation",
+            "record_skill_route_discovery_focused_local_test_validation_results",
+            "close_skill_route_discovery_focused_local_test_validation_with_outcome",
+            "skill_route_discovery_focused_validation_activation_external_handoff",
+            "skill_route_discovery_focused_validation_activation_external_acceptance",
+            "skill_route_discovery_focused_validation_residual_adjacent_queue",
+            "skill_route_discovery_residual_adjacent_harness_eval_local_apply",
+            "skill_route_discovery_residual_adjacent_harness_eval_local_comparison",
+        ],
+        "residual_adjacent_harness_eval_local_apply_status": residual_apply_status or "none",
+        "residual_adjacent_harness_eval_local_apply_decision": residual_apply_decision,
+        "route_class": "agent_harness_eval_required",
+        "evaluation_lane": "agent_harness_eval_required",
+        "handoff_controller_surface": "agent_harness_eval_cluster_local_apply",
+        "handoff_completion_surface": "agent_harness_eval_cluster_local_apply_completion",
+        "allowed_local_lanes_after_local_comparison": list(allowed_after),
+        "direct_allowed_lanes_before_eval": [],
+        # Harness post-compare unlocks (not reverse-flow skill unlocks).
+        "unlocked_local_lanes": unlocked_lanes,
+        "skill_route_unlocked_local_lanes": [],
+        "skill_route_discovery_inherited": False,
+        "skill_route_unlocks_closed_for_residual": True,
+        "local_validation_required": True,
+        "local_comparison_required": True,
+        "local_comparison_passed": comparison_passed if status == "ready" else False,
+        "local_comparison_status": local_comparison_status,
+        "local_comparison_notes": export_notes,
+        "comparison_criteria_results": export_notes,
+        "failed_local_comparison_criteria": export_failed,
+        "failed_criteria": export_failed,
+        "unlocked_lane_routes": [
+            {
+                "lane": lane,
+                "status": "unlocked_after_residual_adjacent_harness_local_comparison",
+                "required_validation": [
+                    "pytest tests/test_github_growth.py -q -k skill_route_discovery_residual_adjacent_harness_eval_local_comparison",
+                    ADJACENT_HARNESS_EVAL_VALIDATION_COMMAND,
+                ],
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "skill_route_discovery_inherited": False,
+                "external_skill_execution_allowed": False,
+                "provider_launch_allowed": False,
+                "remote_apply_allowed": False,
+            }
+            for lane in unlocked_lanes
+        ],
+        "activation_external_only": True,
+        "supervisor_activation_allowed": False,
+        "retained_boundary_proposal_ids": retained_ids
+        if status in {"ready", "blocked", "not_applicable"}
+        else [],
+        "adjacent_general_agent_proposal_ids": export_residual_ids,
+        "residual_adjacent_harness_eval_available": bool(residual_ids),
+        "residual_adjacent_handoff_surface": (
+            "agent_harness_eval_cluster_local_apply" if residual_ids else "none"
+        ),
+        "general_agent_inherits_skill_unlock": False,
+        "privacy_rows_selectable_for_local_apply": False,
+        "general_agent_isolation_passed": general_agent_isolated,
+        "privacy_isolation_passed": privacy_isolated,
+        "runtime_action": "none",
+        "external_skill_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_apply_allowed": False,
+        "push_or_promotion_allowed": False,
+        "kernel_restart_allowed": False,
+        "theme_id": str(
+            theme.get("theme_id")
+            or residual_apply.get("theme_id")
+            or "skill-route-discovery"
+        ),
+        "theme_pass": {
+            "planned_passes": int(
+                theme.get("planned_passes")
+                or (residual_apply.get("theme_pass") or {}).get("planned_passes")
+                or 0
+            ),
+            "target_passes": int(
+                theme.get("target_passes")
+                or (residual_apply.get("theme_pass") or {}).get("target_passes")
+                or DEFAULT_THEME_WINDOW_TARGET_PASSES
+            ),
+            "status": str(
+                theme.get("status")
+                or (residual_apply.get("theme_pass") or {}).get("status")
+                or ""
+            ),
+        },
+        "source_digest": source_digest
+        or str(residual_apply.get("source_digest") or ""),
+        "supervisor_next_action": supervisor_next_action,
+        "required_validation": [
+            "pytest tests/test_github_growth.py -q -k skill_route_discovery_residual_adjacent_harness_eval_local_apply",
+            "pytest tests/test_github_growth.py -q -k skill_route_discovery_residual_adjacent_harness_eval_local_comparison",
             ADJACENT_HARNESS_EVAL_VALIDATION_COMMAND,
         ],
         "body_free": True,
@@ -7109,6 +7550,13 @@ def render_skill_route_discovery_capability_pipeline_lines(
         if isinstance(pipeline.get("residual_adjacent_harness_eval_local_apply"), dict)
         else {}
     )
+    residual_adjacent_local_comparison = (
+        pipeline.get("residual_adjacent_harness_eval_local_comparison")
+        if isinstance(
+            pipeline.get("residual_adjacent_harness_eval_local_comparison"), dict
+        )
+        else {}
+    )
     adjacent_handoff = (
         pipeline.get("adjacent_agent_harness_eval_handoff")
         if isinstance(pipeline.get("adjacent_agent_harness_eval_handoff"), dict)
@@ -7125,10 +7573,22 @@ def render_skill_route_discovery_capability_pipeline_lines(
     residual_adjacent_local_apply_status = str(
         residual_adjacent_local_apply.get("status") or ""
     )
+    residual_adjacent_local_comparison_status = str(
+        residual_adjacent_local_comparison.get("status") or ""
+    )
     unlocked_status = str(unlocked_test_lane_apply.get("status") or "")
     supervisor_next = (
         adjacent_handoff.get("supervisor_next_action")
         if str(adjacent_handoff.get("status") or "") == "ready"
+        else None
+    ) or (
+        residual_adjacent_local_comparison.get("supervisor_next_action")
+        if residual_adjacent_local_comparison_status
+        in {
+            "ready",
+            "blocked_until_residual_adjacent_harness_eval_local_apply_ready",
+            "blocked",
+        }
         else None
     ) or (
         residual_adjacent_local_apply.get("supervisor_next_action")
@@ -7137,6 +7597,12 @@ def render_skill_route_discovery_capability_pipeline_lines(
             "ready",
             "blocked_until_residual_adjacent_queue_ready",
             "blocked",
+        }
+        and residual_adjacent_local_comparison_status
+        not in {
+            "ready",
+            "blocked",
+            "blocked_until_residual_adjacent_harness_eval_local_apply_ready",
         }
         else None
     ) or (
@@ -7222,8 +7688,14 @@ def render_skill_route_discovery_capability_pipeline_lines(
         f"{residual_adjacent_local_apply.get('status') or 'none'}`",
         f"- Residual adjacent harness-eval local apply decision: `"
         f"{residual_adjacent_local_apply.get('decision') or 'none'}`",
+        f"- Residual adjacent harness-eval local comparison: `"
+        f"{residual_adjacent_local_comparison.get('status') or 'none'}`",
+        f"- Residual adjacent harness-eval local comparison decision: `"
+        f"{residual_adjacent_local_comparison.get('decision') or 'none'}`",
+        f"- Residual adjacent harness unlocked lanes: `"
+        f"{', '.join(residual_adjacent_local_comparison.get('unlocked_local_lanes') or []) or 'none'}`",
         f"- Residual adjacent selected proposal: `"
-        f"{residual_adjacent_local_apply.get('selected_residual_proposal_id') or 'none'}`",
+        f"{residual_adjacent_local_comparison.get('selected_residual_proposal_id') or residual_adjacent_local_apply.get('selected_residual_proposal_id') or 'none'}`",
         f"- Adjacent agent harness-eval handoff: `{adjacent_handoff.get('status') or 'none'}`",
         f"- Adjacent handoff decision: `{adjacent_handoff.get('decision') or 'none'}`",
         f"- Theme complete: `{bool(local_apply_completion.get('theme_complete'))}`",
@@ -7245,6 +7717,7 @@ def render_skill_route_discovery_capability_pipeline_lines(
         "- After ready handoff, skill_route_discovery_focused_validation_activation_external_acceptance accepts the package while activation stays external.",
         "- After acceptance, skill_route_discovery_focused_validation_residual_adjacent_queue packages residual fortress/Hy3 rows for agent_harness_eval_cluster_local_apply without skill unlock inheritance.",
         "- After residual queue ready, skill_route_discovery_residual_adjacent_harness_eval_local_apply selects one residual fortress/Hy3 row and hands it to agent_harness_eval_cluster_local_apply with local comparison required.",
+        "- After residual local apply ready, skill_route_discovery_residual_adjacent_harness_eval_local_comparison unlocks documentation/test/code_patch after harness criteria pass while skill unlocks stay closed.",
         "- Residual fortress-style general_agent_project rows hand off to agent_harness_eval_cluster_local_apply instead of failing skill-route comparison.",
     ]
     retained = pipeline.get("retained_boundaries") or []

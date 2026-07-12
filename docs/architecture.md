@@ -191,14 +191,19 @@ residual fortress/Hy3 proposal (prefer fortress) and hands it to
 `agent_harness_eval_cluster_local_apply` with local comparison required and skill
 unlocks closed
 (`hand_off_selected_residual_adjacent_row_to_agent_harness_eval_cluster_local_apply`,
-`prop-residual-adjacent-fortress-harness-eval`).
+`prop-residual-adjacent-fortress-harness-eval`). When residual local apply is
+`ready`,
+`skill_route_discovery_residual_adjacent_harness_eval_local_comparison` runs
+residual harness local comparison and unlocks only documentation, test, or
+code_patch after criteria pass while skill-route unlocks stay closed
+(`unlock_documentation_test_or_code_patch_after_residual_adjacent_harness_local_comparison`).
 Use
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_unlocked_local_test_lane_apply`
 and
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_local_test_validation`
 for the unlocked-lane apply, focused-validation, activation-external handoff,
-acceptance, residual-adjacent queue, and residual harness-eval local-apply
-regressions.
+acceptance, residual-adjacent queue, residual harness-eval local-apply, and
+residual harness-eval local-comparison regressions.
 Fortress-style general-agent projects remain adjacent
 `agent_harness_eval_required` rows without skill-route inheritance.
 When residual fortress-style general-agent proposals are selected after
@@ -209,7 +214,8 @@ comparison or requesting reverse-flow repair. The residual-adjacent queue after
 focused-validation acceptance is the reverse-flow companion path: it queues
 fortress/Hy3 proposal IDs while reverse-flow remains the selected step and
 activation stays external. The residual harness-eval local-apply surface then
-selects one residual row for harness-eval local comparison without skill unlock
+selects one residual row; residual harness-eval local-comparison unlocks
+documentation/test/code_patch after criteria pass without skill unlock
 inheritance.
 Agent-chief-style privacy evidence stays `privacy_boundary_review_only`.
 Runtime action stays `none`; external skill execution, provider launch, remote
