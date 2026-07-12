@@ -197,13 +197,31 @@ unlocks closed
 residual harness local comparison and unlocks only documentation, test, or
 code_patch after criteria pass while skill-route unlocks stay closed
 (`unlock_documentation_test_or_code_patch_after_residual_adjacent_harness_local_comparison`).
+When residual harness comparison is `ready`,
+`skill_route_discovery_residual_adjacent_unlocked_local_lane_apply` packages
+test-first residual unlocked documentation/test/code_patch apply without skill
+unlock inheritance
+(`apply_unlocked_documentation_test_or_code_patch_with_focused_validation_and_keep_activation_external`).
+When residual unlocked apply is `ready`,
+`skill_route_discovery_residual_adjacent_focused_local_validation` records
+body-free command-hash results for the residual selected lane while skill unlocks
+stay closed and activation remains external
+(`run_residual_adjacent_focused_local_validation_with_body_free_command_hashes`,
+`prop-residual-adjacent-fortress-harness-eval`). Supervisors close residual focused
+results via
+`record_skill_route_discovery_residual_adjacent_focused_local_validation_results`
+or
+`close_skill_route_discovery_residual_adjacent_focused_local_validation_with_outcome`.
 Use
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_unlocked_local_test_lane_apply`
 and
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_local_test_validation`
+and
+`pytest tests/test_github_growth.py -q -k skill_route_discovery_residual_adjacent_focused_local_validation`
 for the unlocked-lane apply, focused-validation, activation-external handoff,
-acceptance, residual-adjacent queue, residual harness-eval local-apply, and
-residual harness-eval local-comparison regressions.
+acceptance, residual-adjacent queue, residual harness-eval local-apply,
+residual harness-eval local-comparison, residual unlocked-lane apply, and
+residual focused-validation regressions.
 Fortress-style general-agent projects remain adjacent
 `agent_harness_eval_required` rows without skill-route inheritance.
 When residual fortress-style general-agent proposals are selected after
@@ -215,8 +233,9 @@ focused-validation acceptance is the reverse-flow companion path: it queues
 fortress/Hy3 proposal IDs while reverse-flow remains the selected step and
 activation stays external. The residual harness-eval local-apply surface then
 selects one residual row; residual harness-eval local-comparison unlocks
-documentation/test/code_patch after criteria pass without skill unlock
-inheritance.
+documentation/test/code_patch after criteria pass; residual unlocked apply and
+residual focused validation then package and record the preferred focused local
+lane without skill unlock inheritance.
 Agent-chief-style privacy evidence stays `privacy_boundary_review_only`.
 Runtime action stays `none`; external skill execution, provider launch, remote
 apply, push or promotion, and kernel restart remain denied. The packet exports

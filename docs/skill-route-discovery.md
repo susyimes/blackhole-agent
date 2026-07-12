@@ -447,6 +447,8 @@ documentation/test/code_patch, the pipeline emits
 9. Distinct from reverse-flow
    `skill_route_discovery_unlocked_local_test_lane_apply`: residual harness
    unlocks do not inherit reverse-flow skill lanes
+10. When residual unlocked apply is `ready`, the pipeline continues into
+    `skill_route_discovery_residual_adjacent_focused_local_validation`
 
 Replay with:
 
@@ -455,6 +457,51 @@ Replay with:
 and:
 
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_residual_adjacent_harness_eval_local_comparison`
+
+### Residual adjacent focused local validation after unlocked lane apply
+
+Source digest: `github-growth-20260712T233308.367716Z` (selected residual
+proposal track `prop-residual-adjacent-fortress-harness-eval`).
+
+After residual adjacent unlocked local lane apply is `ready`, the pipeline emits
+`skill_route_discovery_residual_adjacent_focused_local_validation`:
+
+1. Closes supervisor next action
+   `run_focused_local_validation_for_residual_adjacent_unlocked_lane_and_keep_activation_external`
+2. Decision is
+   `run_residual_adjacent_focused_local_validation_with_body_free_command_hashes`
+   while results are pending
+3. Preferred residual focused lane stays the unlocked selected lane (test-first)
+4. Body-free command-hash rows only; no command text, stdout, evidence URLs, or
+   upstream bodies
+5. Supervisors close results via
+   `record_skill_route_discovery_residual_adjacent_focused_local_validation_results`
+   or
+   `close_skill_route_discovery_residual_adjacent_focused_local_validation_with_outcome`
+6. On recorded pass, decision becomes
+   `record_residual_adjacent_focused_local_validation_pass_and_keep_activation_external`
+   and supervisor next becomes
+   `keep_activation_external_after_residual_adjacent_focused_local_validation`
+7. Reverse-flow skill unlocks stay closed
+   (`skill_route_discovery_inherited=false`, `skill_route_unlocked_local_lanes=[]`)
+8. While residual unlocked apply is still blocked, this surface stays
+   `blocked_until_residual_adjacent_unlocked_local_lane_apply_ready`
+9. When residual unlocked apply is `not_applicable`, this surface is
+   `not_applicable`
+10. Activation, push, promotion, provider launch, remote apply, external skill
+    execution, and kernel restart stay denied; agent-chief privacy rows stay
+    review-only
+11. Distinct from reverse-flow
+    `skill_route_discovery_focused_local_test_validation`: residual focused
+    validation does not inherit reverse-flow skill unlocks
+
+Replay with:
+
+`pytest tests/test_github_growth.py -q -k skill_route_discovery_residual_adjacent_focused_local_validation`
+
+and:
+
+`pytest tests/test_github_growth.py -q -k skill_route_discovery_residual_adjacent_unlocked_local_lane_apply`
 
 Replay with:
 

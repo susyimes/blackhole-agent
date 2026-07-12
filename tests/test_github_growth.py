@@ -37,9 +37,12 @@ from blackhole_agent.github_growth import (
     build_skill_route_discovery_residual_adjacent_harness_eval_local_apply,
     build_skill_route_discovery_residual_adjacent_harness_eval_local_comparison,
     build_skill_route_discovery_residual_adjacent_unlocked_local_lane_apply,
+    build_skill_route_discovery_residual_adjacent_focused_local_validation,
     close_skill_route_discovery_focused_local_test_validation_with_outcome,
+    close_skill_route_discovery_residual_adjacent_focused_local_validation_with_outcome,
     normalize_skill_route_discovery_focused_validation_command_results,
     record_skill_route_discovery_focused_local_test_validation_results,
+    record_skill_route_discovery_residual_adjacent_focused_local_validation_results,
     evaluate_skill_route_discovery_local_comparison,
     build_trending_repository_query_for_date,
     extract_growth_signals,
@@ -5844,6 +5847,176 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert "skill_route_discovery_residual_adjacent_unlocked_local_lane_apply" in (
         residual_unlocked_lane_ready["capability_pipeline"]
     )
+    assert "skill_route_discovery_residual_adjacent_focused_local_validation" in (
+        residual_unlocked_lane_ready["capability_pipeline"]
+    )
+
+    # Ready residual unlocked apply packages residual focused local validation
+    # with body-free command hashes while skill unlocks stay closed.
+    residual_focused_ready = (
+        build_skill_route_discovery_residual_adjacent_focused_local_validation(
+            residual_adjacent_unlocked_local_lane_apply=residual_unlocked_lane_ready,
+            theme_window=theme,
+            source_digest="github-growth-20260712T233308.367716Z",
+        )
+    )
+    assert residual_focused_ready["status"] == "ready"
+    assert residual_focused_ready["source_digest"] == (
+        "github-growth-20260712T233308.367716Z"
+    )
+    assert residual_focused_ready["controller_surface"] == (
+        "skill_route_discovery_residual_adjacent_focused_local_validation"
+    )
+    assert residual_focused_ready["proposal_track"] == (
+        "prop-residual-adjacent-fortress-harness-eval"
+    )
+    assert residual_focused_ready["decision"] == (
+        "run_residual_adjacent_focused_local_validation_with_body_free_command_hashes"
+    )
+    assert residual_focused_ready["supervisor_next_action"] == (
+        "run_focused_local_validation_for_residual_adjacent_unlocked_lane_and_keep_activation_external"
+    )
+    assert residual_focused_ready["selected_local_lane"] == "test"
+    assert residual_focused_ready["preferred_local_lane"] == "test"
+    assert residual_focused_ready["unlocked_local_lanes"] == [
+        "documentation",
+        "test",
+        "code_patch",
+    ]
+    assert residual_focused_ready["skill_route_unlocked_local_lanes"] == []
+    assert residual_focused_ready["skill_route_discovery_inherited"] is False
+    assert residual_focused_ready["skill_route_unlocks_closed_for_residual"] is True
+    assert residual_focused_ready["direct_allowed_lanes_before_eval"] == []
+    assert residual_focused_ready["focused_validation"]["status"] == "ready"
+    assert residual_focused_ready["focused_validation"]["lane"] == "test"
+    assert residual_focused_ready["focused_validation"]["commands"]
+    assert residual_focused_ready["focused_validation"]["command_hashes"]
+    assert residual_focused_ready["focused_validation"]["commands_exported"] is False
+    assert residual_focused_ready["focused_validation"]["unit_test_signal"] is True
+    assert residual_focused_ready["focused_validation_recorded"] is False
+    assert "fortress" in residual_focused_ready["selected_residual_proposal_id"]
+    assert residual_focused_ready["activation_external_only"] is True
+    assert residual_focused_ready["supervisor_activation_allowed"] is False
+    assert residual_focused_ready["runtime_action"] == "none"
+    assert residual_focused_ready["external_skill_execution_allowed"] is False
+    assert residual_focused_ready["provider_launch_allowed"] is False
+    assert residual_focused_ready["remote_apply_allowed"] is False
+    assert residual_focused_ready["push_or_promotion_allowed"] is False
+    assert residual_focused_ready["kernel_restart_allowed"] is False
+    assert residual_focused_ready["body_free"] is True
+    assert residual_focused_ready["raw_evidence_urls_exported"] is False
+    assert residual_focused_ready["raw_command_text_exported"] is False
+    assert residual_focused_ready["general_agent_inherits_skill_unlock"] is False
+    residual_command_hashes = list(
+        residual_focused_ready["focused_validation"]["command_hashes"]
+    )
+    assert residual_command_hashes
+    assert "skill_route_discovery_residual_adjacent_focused_local_validation" in (
+        residual_focused_ready["capability_pipeline"]
+    )
+
+    residual_materialized = (
+        build_skill_route_discovery_focused_validation_body_free_command_results(
+            residual_focused_ready,
+            passed=True,
+        )
+    )
+    assert len(residual_materialized) == len(residual_command_hashes)
+    for row in residual_materialized:
+        assert set(row.keys()) <= {"command_hash", "passed", "in_expected_set"}
+        assert row["passed"] is True
+        assert "command" not in row
+
+    residual_closed = (
+        close_skill_route_discovery_residual_adjacent_focused_local_validation_with_outcome(
+            {
+                "residual_adjacent_unlocked_local_lane_apply": residual_unlocked_lane_ready,
+                "residual_adjacent_focused_local_validation": residual_focused_ready,
+                "theme_id": "skill-route-discovery",
+                "theme_pass": theme,
+            },
+            passed=True,
+            source_digest="github-growth-20260712T233308.367716Z",
+        )
+    )
+    assert residual_closed["residual_adjacent_focused_local_validation_recorded"] is True
+    assert residual_closed["residual_adjacent_focused_local_validation"]["status"] == (
+        "passed"
+    )
+    assert residual_closed["residual_adjacent_focused_local_validation"]["decision"] == (
+        "record_residual_adjacent_focused_local_validation_pass_and_keep_activation_external"
+    )
+    assert residual_closed["residual_adjacent_focused_local_validation"][
+        "supervisor_next_action"
+    ] == ("keep_activation_external_after_residual_adjacent_focused_local_validation")
+    assert residual_closed["residual_adjacent_focused_local_validation"][
+        "supervisor_activation_allowed"
+    ] is False
+    assert residual_closed["residual_adjacent_focused_local_validation"][
+        "skill_route_unlocked_local_lanes"
+    ] == []
+    assert residual_closed["residual_adjacent_focused_local_validation"][
+        "skill_route_discovery_inherited"
+    ] is False
+    for row in residual_closed["residual_adjacent_focused_local_validation"][
+        "focused_validation"
+    ]["command_results"]:
+        assert set(row.keys()) <= {"command_hash", "passed", "in_expected_set"}
+        assert "command" not in row
+
+    residual_failed = build_skill_route_discovery_residual_adjacent_focused_local_validation(
+        residual_adjacent_unlocked_local_lane_apply=residual_unlocked_lane_ready,
+        command_results=[
+            {
+                "command_hash": residual_command_hashes[0],
+                "passed": False,
+            },
+            *[
+                {"command_hash": command_hash, "passed": True}
+                for command_hash in residual_command_hashes[1:]
+            ],
+        ],
+        theme_window=theme,
+    )
+    assert residual_failed["status"] == "failed"
+    assert residual_failed["decision"] == (
+        "repair_residual_adjacent_focused_local_validation_before_activation_review"
+    )
+    assert residual_failed["supervisor_next_action"] == (
+        "repair_failed_residual_adjacent_focused_local_validation_commands"
+    )
+    assert residual_failed["supervisor_activation_allowed"] is False
+    assert residual_failed["focused_validation_recorded"] is True
+
+    residual_blocked = build_skill_route_discovery_residual_adjacent_focused_local_validation(
+        residual_adjacent_unlocked_local_lane_apply={
+            "status": "blocked_until_residual_adjacent_harness_local_comparison_ready",
+            "decision": (
+                "hold_residual_adjacent_unlocked_local_lane_apply_until_harness_local_comparison_ready"
+            ),
+            "selected_residual_proposal_id": "prop-fortress-residual-adjacent-harness-eval",
+            "selected_local_lane": "none",
+            "unlocked_local_lanes": [],
+            "skill_route_unlocked_local_lanes": [],
+            "skill_route_discovery_inherited": False,
+            "skill_route_unlocks_closed_for_residual": True,
+            "activation_external_only": True,
+            "supervisor_activation_allowed": False,
+            "runtime_action": "none",
+            "body_free": True,
+            "general_agent_isolation_passed": True,
+            "privacy_isolation_passed": True,
+        },
+        theme_window=theme,
+    )
+    assert residual_blocked["status"] == (
+        "blocked_until_residual_adjacent_unlocked_local_lane_apply_ready"
+    )
+    assert residual_blocked["decision"] == (
+        "hold_residual_adjacent_focused_local_validation_until_unlocked_lane_apply_ready"
+    )
+    assert residual_blocked["focused_validation"]["command_hashes"] == []
+    assert residual_blocked["supervisor_activation_allowed"] is False
 
     # Body-free materializer + close-with-outcome close ready focused validation.
     materialized = build_skill_route_discovery_focused_validation_body_free_command_results(
@@ -5964,11 +6137,61 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert "fortress" in closed["residual_adjacent_unlocked_local_lane_apply"][
         "selected_residual_proposal_id"
     ]
+    assert closed["residual_adjacent_focused_local_validation"]["status"] == "ready"
+    assert closed["residual_adjacent_focused_local_validation"]["decision"] == (
+        "run_residual_adjacent_focused_local_validation_with_body_free_command_hashes"
+    )
+    assert closed["residual_adjacent_focused_local_validation"][
+        "supervisor_next_action"
+    ] == (
+        "run_focused_local_validation_for_residual_adjacent_unlocked_lane_and_keep_activation_external"
+    )
+    assert closed["residual_adjacent_focused_local_validation"][
+        "selected_local_lane"
+    ] == "test"
+    assert closed["residual_adjacent_focused_local_validation"][
+        "skill_route_unlocked_local_lanes"
+    ] == []
+    assert closed["residual_adjacent_focused_local_validation"][
+        "skill_route_discovery_inherited"
+    ] is False
+    assert closed["residual_adjacent_focused_local_validation"][
+        "supervisor_activation_allowed"
+    ] is False
+    assert closed["residual_adjacent_focused_local_validation_recorded"] is False
+    assert "fortress" in closed["residual_adjacent_focused_local_validation"][
+        "selected_residual_proposal_id"
+    ]
     for row in closed["focused_local_test_validation"]["focused_validation"][
         "command_results"
     ]:
         assert set(row.keys()) <= {"command_hash", "passed", "in_expected_set"}
         assert "command" not in row
+
+    residual_pipeline_passed = (
+        close_skill_route_discovery_residual_adjacent_focused_local_validation_with_outcome(
+            closed,
+            passed=True,
+            source_digest="github-growth-20260712T233308.367716Z",
+        )
+    )
+    assert residual_pipeline_passed[
+        "residual_adjacent_focused_local_validation_recorded"
+    ] is True
+    assert residual_pipeline_passed["residual_adjacent_focused_local_validation"][
+        "status"
+    ] == "passed"
+    assert residual_pipeline_passed["residual_adjacent_focused_local_validation"][
+        "decision"
+    ] == (
+        "record_residual_adjacent_focused_local_validation_pass_and_keep_activation_external"
+    )
+    assert residual_pipeline_passed["residual_adjacent_focused_local_validation"][
+        "supervisor_next_action"
+    ] == ("keep_activation_external_after_residual_adjacent_focused_local_validation")
+    assert residual_pipeline_passed["residual_adjacent_focused_local_validation"][
+        "supervisor_activation_allowed"
+    ] is False
 
     # Pipeline accepts focused results in one build; record helper updates existing packet.
     pipeline_passed = build_skill_route_discovery_capability_pipeline(
@@ -6060,6 +6283,56 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert pipeline_passed["residual_adjacent_unlocked_local_lane_apply"][
         "supervisor_activation_allowed"
     ] is False
+    assert pipeline_passed["residual_adjacent_focused_local_validation"][
+        "status"
+    ] == "ready"
+    assert pipeline_passed["residual_adjacent_focused_local_validation"][
+        "decision"
+    ] == (
+        "run_residual_adjacent_focused_local_validation_with_body_free_command_hashes"
+    )
+    assert pipeline_passed["residual_adjacent_focused_local_validation"][
+        "selected_local_lane"
+    ] == "test"
+    assert pipeline_passed["residual_adjacent_focused_local_validation"][
+        "skill_route_unlocked_local_lanes"
+    ] == []
+    assert pipeline_passed["residual_adjacent_focused_local_validation"][
+        "supervisor_activation_allowed"
+    ] is False
+    assert pipeline_passed[
+        "residual_adjacent_focused_local_validation_recorded"
+    ] is False
+
+    residual_one_build = build_skill_route_discovery_capability_pipeline(
+        proposals,
+        theme_window=theme,
+        focused_validation_command_results=[
+            {"command_hash": command_hash, "passed": True} for command_hash in command_hashes
+        ],
+        residual_focused_validation_command_results=[
+            {"command_hash": command_hash, "passed": True}
+            for command_hash in pipeline_passed["residual_adjacent_focused_local_validation"][
+                "focused_validation"
+            ]["command_hashes"]
+        ],
+        source_digest="github-growth-20260712T233308.367716Z",
+    )
+    assert residual_one_build["residual_adjacent_focused_local_validation"][
+        "status"
+    ] == "passed"
+    assert residual_one_build["residual_adjacent_focused_local_validation_recorded"] is True
+    assert residual_one_build["residual_adjacent_focused_local_validation"][
+        "decision"
+    ] == (
+        "record_residual_adjacent_focused_local_validation_pass_and_keep_activation_external"
+    )
+    assert residual_one_build["residual_adjacent_focused_local_validation"][
+        "supervisor_next_action"
+    ] == ("keep_activation_external_after_residual_adjacent_focused_local_validation")
+    assert residual_one_build["residual_adjacent_focused_local_validation"][
+        "supervisor_activation_allowed"
+    ] is False
 
     recorded = record_skill_route_discovery_focused_local_test_validation_results(
         pipeline,
@@ -6148,6 +6421,51 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert recorded["residual_adjacent_unlocked_local_lane_apply"][
         "skill_route_discovery_inherited"
     ] is False
+    assert recorded["residual_adjacent_focused_local_validation"]["status"] == "ready"
+    assert recorded["residual_adjacent_focused_local_validation"]["decision"] == (
+        "run_residual_adjacent_focused_local_validation_with_body_free_command_hashes"
+    )
+    assert recorded["residual_adjacent_focused_local_validation"][
+        "supervisor_next_action"
+    ] == (
+        "run_focused_local_validation_for_residual_adjacent_unlocked_lane_and_keep_activation_external"
+    )
+    assert recorded["residual_adjacent_focused_local_validation"][
+        "skill_route_unlocked_local_lanes"
+    ] == []
+    assert recorded["residual_adjacent_focused_local_validation"][
+        "skill_route_discovery_inherited"
+    ] is False
+    assert recorded["residual_adjacent_focused_local_validation_recorded"] is False
+    residual_recorded = (
+        record_skill_route_discovery_residual_adjacent_focused_local_validation_results(
+            recorded,
+            [
+                {"command_hash": command_hash, "passed": True}
+                for command_hash in recorded["residual_adjacent_focused_local_validation"][
+                    "focused_validation"
+                ]["command_hashes"]
+            ],
+            source_digest="github-growth-20260712T233308.367716Z",
+        )
+    )
+    assert residual_recorded["residual_adjacent_focused_local_validation_recorded"] is True
+    assert residual_recorded["residual_adjacent_focused_local_validation"]["status"] == (
+        "passed"
+    )
+    assert residual_recorded["residual_adjacent_focused_local_validation"][
+        "decision"
+    ] == (
+        "record_residual_adjacent_focused_local_validation_pass_and_keep_activation_external"
+    )
+    assert residual_recorded["residual_adjacent_focused_local_validation"][
+        "supervisor_next_action"
+    ] == ("keep_activation_external_after_residual_adjacent_focused_local_validation")
+    for row in residual_recorded["residual_adjacent_focused_local_validation"][
+        "focused_validation"
+    ]["command_results"]:
+        assert set(row.keys()) <= {"command_hash", "passed", "in_expected_set"}
+        assert "command" not in row
     for row in recorded["focused_local_test_validation"]["focused_validation"][
         "command_results"
     ]:

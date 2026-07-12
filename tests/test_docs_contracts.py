@@ -107,6 +107,8 @@ def test_architecture_links_upstream_evidence_interpretation_contract():
     assert "skill_route_discovery_focused_validation_residual_adjacent_queue" in architecture
     assert "skill_route_discovery_residual_adjacent_harness_eval_local_apply" in architecture
     assert "skill_route_discovery_residual_adjacent_harness_eval_local_comparison" in architecture
+    assert "skill_route_discovery_residual_adjacent_unlocked_local_lane_apply" in architecture
+    assert "skill_route_discovery_residual_adjacent_focused_local_validation" in architecture
     assert "skill_route_discovery_adjacent_harness_eval_handoff" in architecture
     assert (
         "pytest tests/test_github_growth.py -q -k skill_route_discovery_capability_pipeline"
@@ -120,8 +122,14 @@ def test_architecture_links_upstream_evidence_interpretation_contract():
         "pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_local_test_validation"
         in architecture
     )
+    assert (
+        "pytest tests/test_github_growth.py -q -k skill_route_discovery_residual_adjacent_focused_local_validation"
+        in architecture
+    )
     assert "record_skill_route_discovery_focused_local_test_validation_results" in architecture
     assert "close_skill_route_discovery_focused_local_test_validation_with_outcome" in architecture
+    assert "record_skill_route_discovery_residual_adjacent_focused_local_validation_results" in architecture
+    assert "close_skill_route_discovery_residual_adjacent_focused_local_validation_with_outcome" in architecture
     assert "build_skill_route_discovery_focused_validation_body_free_command_results" in architecture
     assert "prop-skill-reverse-flow-focused-test-validation" in architecture
 
@@ -382,6 +390,23 @@ def test_skill_route_discovery_doc_records_capability_pipeline_pass1():
         "blocked_until_residual_adjacent_harness_eval_local_apply_ready",
         "skill_route_unlocked_local_lanes",
         "pytest tests/test_github_growth.py -q -k skill_route_discovery_residual_adjacent_harness_eval_local_comparison",
+        "### Residual adjacent unlocked local lane apply after harness comparison",
+        "Source digest: `github-growth-20260712T231308.528323Z`",
+        "`skill_route_discovery_residual_adjacent_unlocked_local_lane_apply`",
+        "apply_unlocked_documentation_test_or_code_patch_with_focused_validation_and_keep_activation_external",
+        "run_focused_local_validation_for_residual_adjacent_unlocked_lane_and_keep_activation_external",
+        "blocked_until_residual_adjacent_harness_local_comparison_ready",
+        "pytest tests/test_github_growth.py -q -k skill_route_discovery_residual_adjacent_unlocked_local_lane_apply",
+        "### Residual adjacent focused local validation after unlocked lane apply",
+        "Source digest: `github-growth-20260712T233308.367716Z`",
+        "`skill_route_discovery_residual_adjacent_focused_local_validation`",
+        "run_residual_adjacent_focused_local_validation_with_body_free_command_hashes",
+        "record_residual_adjacent_focused_local_validation_pass_and_keep_activation_external",
+        "keep_activation_external_after_residual_adjacent_focused_local_validation",
+        "record_skill_route_discovery_residual_adjacent_focused_local_validation_results",
+        "close_skill_route_discovery_residual_adjacent_focused_local_validation_with_outcome",
+        "blocked_until_residual_adjacent_unlocked_local_lane_apply_ready",
+        "pytest tests/test_github_growth.py -q -k skill_route_discovery_residual_adjacent_focused_local_validation",
         "### Adjacent fortress harness-eval handoff",
         "`skill_route_discovery_adjacent_harness_eval_handoff`",
         "`prop-harness-fortress-local-eval`",
