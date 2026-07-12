@@ -36,6 +36,7 @@ from blackhole_agent.github_growth import (
     build_skill_route_discovery_focused_validation_residual_adjacent_queue,
     build_skill_route_discovery_residual_adjacent_harness_eval_local_apply,
     build_skill_route_discovery_residual_adjacent_harness_eval_local_comparison,
+    build_skill_route_discovery_residual_adjacent_unlocked_local_lane_apply,
     close_skill_route_discovery_focused_local_test_validation_with_outcome,
     normalize_skill_route_discovery_focused_validation_command_results,
     record_skill_route_discovery_focused_local_test_validation_results,
@@ -5421,6 +5422,24 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert residual_comparison_blocked["local_comparison_passed"] is False
     assert residual_comparison_blocked["activation_external_only"] is True
     assert residual_comparison_blocked["supervisor_activation_allowed"] is False
+    residual_unlocked_lane_blocked = pipeline[
+        "residual_adjacent_unlocked_local_lane_apply"
+    ]
+    assert residual_unlocked_lane_blocked["controller_surface"] == (
+        "skill_route_discovery_residual_adjacent_unlocked_local_lane_apply"
+    )
+    assert residual_unlocked_lane_blocked["status"] == (
+        "blocked_until_residual_adjacent_harness_local_comparison_ready"
+    )
+    assert residual_unlocked_lane_blocked["decision"] == (
+        "hold_residual_adjacent_unlocked_local_lane_apply_until_harness_local_comparison_ready"
+    )
+    assert residual_unlocked_lane_blocked["unlocked_local_lanes"] == []
+    assert residual_unlocked_lane_blocked["skill_route_unlocked_local_lanes"] == []
+    assert residual_unlocked_lane_blocked["skill_route_discovery_inherited"] is False
+    assert residual_unlocked_lane_blocked["selected_local_lane"] == "none"
+    assert residual_unlocked_lane_blocked["activation_external_only"] is True
+    assert residual_unlocked_lane_blocked["supervisor_activation_allowed"] is False
     assert residual_blocked["proposal_track"] == (
         "prop-skill-reverse-flow-continue-local-validation"
     )
@@ -5744,6 +5763,87 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert "skill_route_discovery_residual_adjacent_harness_eval_local_comparison" in (
         residual_comparison_ready["capability_pipeline"]
     )
+    assert "skill_route_discovery_residual_adjacent_unlocked_local_lane_apply" in (
+        residual_comparison_ready["capability_pipeline"]
+    )
+
+    # Ready residual harness comparison packages unlocked lane apply with
+    # preferred test-first focused validation while skill unlocks stay closed.
+    residual_unlocked_lane_ready = (
+        build_skill_route_discovery_residual_adjacent_unlocked_local_lane_apply(
+            residual_adjacent_harness_eval_local_comparison=residual_comparison_ready,
+            adjacent_general_agent_rows=pipeline["adjacent_general_agent_rows"],
+            retained_boundaries=pipeline["retained_boundaries"],
+            theme_window=theme,
+            source_digest="github-growth-20260712T231308.528323Z",
+        )
+    )
+    assert residual_unlocked_lane_ready["status"] == "ready"
+    assert residual_unlocked_lane_ready["source_digest"] == (
+        "github-growth-20260712T231308.528323Z"
+    )
+    assert residual_unlocked_lane_ready["controller_surface"] == (
+        "skill_route_discovery_residual_adjacent_unlocked_local_lane_apply"
+    )
+    assert residual_unlocked_lane_ready["proposal_track"] == (
+        "prop-residual-adjacent-fortress-harness-eval"
+    )
+    assert residual_unlocked_lane_ready["decision"] == (
+        "apply_unlocked_documentation_test_or_code_patch_with_focused_validation_and_keep_activation_external"
+    )
+    assert residual_unlocked_lane_ready["supervisor_next_action"] == (
+        "run_focused_local_validation_for_residual_adjacent_unlocked_lane_and_keep_activation_external"
+    )
+    assert residual_unlocked_lane_ready["selected_local_lane"] == "test"
+    assert residual_unlocked_lane_ready["preferred_local_lane"] == "test"
+    assert residual_unlocked_lane_ready["unlocked_local_lanes"] == [
+        "documentation",
+        "test",
+        "code_patch",
+    ]
+    assert residual_unlocked_lane_ready["skill_route_unlocked_local_lanes"] == []
+    assert residual_unlocked_lane_ready["skill_route_discovery_inherited"] is False
+    assert residual_unlocked_lane_ready["skill_route_unlocks_closed_for_residual"] is True
+    assert residual_unlocked_lane_ready["direct_allowed_lanes_before_eval"] == []
+    assert residual_unlocked_lane_ready["local_comparison_passed"] is True
+    assert residual_unlocked_lane_ready["focused_validation"]["status"] == "ready"
+    assert residual_unlocked_lane_ready["focused_validation"]["lane"] == "test"
+    assert residual_unlocked_lane_ready["focused_validation"]["commands"]
+    assert residual_unlocked_lane_ready["focused_validation"]["command_hashes"]
+    assert residual_unlocked_lane_ready["focused_validation"]["commands_exported"] is False
+    assert residual_unlocked_lane_ready["focused_validation"]["unit_test_signal"] is True
+    assert "fortress" in residual_unlocked_lane_ready["selected_residual_proposal_id"]
+    assert residual_unlocked_lane_ready["activation_external_only"] is True
+    assert residual_unlocked_lane_ready["supervisor_activation_allowed"] is False
+    assert residual_unlocked_lane_ready["runtime_action"] == "none"
+    assert residual_unlocked_lane_ready["external_skill_execution_allowed"] is False
+    assert residual_unlocked_lane_ready["provider_launch_allowed"] is False
+    assert residual_unlocked_lane_ready["remote_apply_allowed"] is False
+    assert residual_unlocked_lane_ready["push_or_promotion_allowed"] is False
+    assert residual_unlocked_lane_ready["kernel_restart_allowed"] is False
+    assert residual_unlocked_lane_ready["body_free"] is True
+    assert residual_unlocked_lane_ready["raw_evidence_urls_exported"] is False
+    assert residual_unlocked_lane_ready["general_agent_inherits_skill_unlock"] is False
+    assert residual_unlocked_lane_ready["local_comparison_notes"]
+    for note in residual_unlocked_lane_ready["local_comparison_notes"]:
+        assert set(note.keys()) <= {"criterion_id", "required", "passed"}
+        assert note["passed"] is True
+    assert residual_unlocked_lane_ready["unlocked_lane_routes"]
+    selected_routes = [
+        route
+        for route in residual_unlocked_lane_ready["unlocked_lane_routes"]
+        if route.get("selected") is True
+    ]
+    assert len(selected_routes) == 1
+    assert selected_routes[0]["lane"] == "test"
+    assert selected_routes[0]["status"] == (
+        "selected_for_residual_adjacent_focused_validation"
+    )
+    assert selected_routes[0]["runtime_action"] == "none"
+    assert selected_routes[0]["skill_route_discovery_inherited"] is False
+    assert "skill_route_discovery_residual_adjacent_unlocked_local_lane_apply" in (
+        residual_unlocked_lane_ready["capability_pipeline"]
+    )
 
     # Body-free materializer + close-with-outcome close ready focused validation.
     materialized = build_skill_route_discovery_focused_validation_body_free_command_results(
@@ -5837,6 +5937,33 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert "fortress" in closed["residual_adjacent_harness_eval_local_comparison"][
         "selected_residual_proposal_id"
     ]
+    assert closed["residual_adjacent_unlocked_local_lane_apply"]["status"] == "ready"
+    assert closed["residual_adjacent_unlocked_local_lane_apply"]["decision"] == (
+        "apply_unlocked_documentation_test_or_code_patch_with_focused_validation_and_keep_activation_external"
+    )
+    assert closed["residual_adjacent_unlocked_local_lane_apply"][
+        "supervisor_next_action"
+    ] == (
+        "run_focused_local_validation_for_residual_adjacent_unlocked_lane_and_keep_activation_external"
+    )
+    assert closed["residual_adjacent_unlocked_local_lane_apply"][
+        "selected_local_lane"
+    ] == "test"
+    assert closed["residual_adjacent_unlocked_local_lane_apply"][
+        "unlocked_local_lanes"
+    ] == ["documentation", "test", "code_patch"]
+    assert closed["residual_adjacent_unlocked_local_lane_apply"][
+        "skill_route_unlocked_local_lanes"
+    ] == []
+    assert closed["residual_adjacent_unlocked_local_lane_apply"][
+        "skill_route_discovery_inherited"
+    ] is False
+    assert closed["residual_adjacent_unlocked_local_lane_apply"][
+        "supervisor_activation_allowed"
+    ] is False
+    assert "fortress" in closed["residual_adjacent_unlocked_local_lane_apply"][
+        "selected_residual_proposal_id"
+    ]
     for row in closed["focused_local_test_validation"]["focused_validation"][
         "command_results"
     ]:
@@ -5913,6 +6040,26 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert pipeline_passed["residual_adjacent_harness_eval_local_comparison"][
         "supervisor_activation_allowed"
     ] is False
+    assert pipeline_passed["residual_adjacent_unlocked_local_lane_apply"][
+        "status"
+    ] == "ready"
+    assert pipeline_passed["residual_adjacent_unlocked_local_lane_apply"][
+        "decision"
+    ] == (
+        "apply_unlocked_documentation_test_or_code_patch_with_focused_validation_and_keep_activation_external"
+    )
+    assert pipeline_passed["residual_adjacent_unlocked_local_lane_apply"][
+        "selected_local_lane"
+    ] == "test"
+    assert pipeline_passed["residual_adjacent_unlocked_local_lane_apply"][
+        "unlocked_local_lanes"
+    ] == ["documentation", "test", "code_patch"]
+    assert pipeline_passed["residual_adjacent_unlocked_local_lane_apply"][
+        "skill_route_unlocked_local_lanes"
+    ] == []
+    assert pipeline_passed["residual_adjacent_unlocked_local_lane_apply"][
+        "supervisor_activation_allowed"
+    ] is False
 
     recorded = record_skill_route_discovery_focused_local_test_validation_results(
         pipeline,
@@ -5978,6 +6125,27 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         "skill_route_unlocked_local_lanes"
     ] == []
     assert recorded["residual_adjacent_harness_eval_local_comparison"][
+        "skill_route_discovery_inherited"
+    ] is False
+    assert recorded["residual_adjacent_unlocked_local_lane_apply"]["status"] == "ready"
+    assert recorded["residual_adjacent_unlocked_local_lane_apply"]["decision"] == (
+        "apply_unlocked_documentation_test_or_code_patch_with_focused_validation_and_keep_activation_external"
+    )
+    assert recorded["residual_adjacent_unlocked_local_lane_apply"][
+        "supervisor_next_action"
+    ] == (
+        "run_focused_local_validation_for_residual_adjacent_unlocked_lane_and_keep_activation_external"
+    )
+    assert recorded["residual_adjacent_unlocked_local_lane_apply"][
+        "selected_local_lane"
+    ] == "test"
+    assert recorded["residual_adjacent_unlocked_local_lane_apply"][
+        "unlocked_local_lanes"
+    ] == ["documentation", "test", "code_patch"]
+    assert recorded["residual_adjacent_unlocked_local_lane_apply"][
+        "skill_route_unlocked_local_lanes"
+    ] == []
+    assert recorded["residual_adjacent_unlocked_local_lane_apply"][
         "skill_route_discovery_inherited"
     ] is False
     for row in recorded["focused_local_test_validation"]["focused_validation"][
@@ -6064,6 +6232,8 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert "Focused validation residual adjacent queue: `ready`" in rendered_passed
     assert "Residual adjacent harness-eval local apply: `ready`" in rendered_passed
     assert "Residual adjacent harness-eval local comparison: `ready`" in rendered_passed
+    assert "Residual adjacent unlocked local lane apply: `ready`" in rendered_passed
+    assert "Residual adjacent unlocked selected lane: `test`" in rendered_passed
     assert (
         "package_activation_external_handoff_after_focused_validation_pass"
         in rendered_passed
@@ -6086,6 +6256,10 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     )
     assert (
         "apply_unlocked_documentation_test_or_code_patch_with_focused_validation_and_keep_activation_external"
+        in rendered_passed
+    )
+    assert (
+        "run_focused_local_validation_for_residual_adjacent_unlocked_lane_and_keep_activation_external"
         in rendered_passed
     )
     assert "Residual adjacent harness unlocked lanes: `documentation, test, code_patch`" in (

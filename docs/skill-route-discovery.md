@@ -419,6 +419,43 @@ and:
 
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_residual_adjacent_harness_eval_local_apply`
 
+### Residual adjacent unlocked local lane apply after harness comparison
+
+Source digest: `github-growth-20260712T231308.528323Z` (selected residual
+proposal track `prop-residual-adjacent-fortress-harness-eval`).
+
+After residual adjacent harness-eval local comparison is `ready` and unlocks
+documentation/test/code_patch, the pipeline emits
+`skill_route_discovery_residual_adjacent_unlocked_local_lane_apply`:
+
+1. Closes supervisor next action
+   `apply_unlocked_documentation_test_or_code_patch_with_focused_validation_and_keep_activation_external`
+2. Decision matches that action; selected residual proposal stays fortress/Hy3
+3. Preferred focused lane is local `test` when unlocked, else `documentation`,
+   else `code_patch`
+4. Focused validation commands are body-free (command hashes only; no command
+   text, stdout, evidence URLs, or upstream bodies)
+5. Reverse-flow skill unlocks stay closed
+   (`skill_route_discovery_inherited=false`, `skill_route_unlocked_local_lanes=[]`)
+6. While residual harness comparison is still blocked, this surface stays
+   `blocked_until_residual_adjacent_harness_local_comparison_ready`
+7. When residual harness comparison is `not_applicable`, this surface is
+   `not_applicable`
+8. Activation, push, promotion, provider launch, remote apply, external skill
+   execution, and kernel restart stay denied; agent-chief privacy rows stay
+   review-only
+9. Distinct from reverse-flow
+   `skill_route_discovery_unlocked_local_test_lane_apply`: residual harness
+   unlocks do not inherit reverse-flow skill lanes
+
+Replay with:
+
+`pytest tests/test_github_growth.py -q -k skill_route_discovery_residual_adjacent_unlocked_local_lane_apply`
+
+and:
+
+`pytest tests/test_github_growth.py -q -k skill_route_discovery_residual_adjacent_harness_eval_local_comparison`
+
 Replay with:
 
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_local_test_validation`
