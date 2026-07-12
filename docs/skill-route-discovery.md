@@ -280,6 +280,45 @@ and:
 
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_validation_activation_external`
 
+### Focused validation close-with-outcome + activation-external acceptance
+
+Source digest: `github-growth-20260712T215308.239488Z` (selected proposal
+`prop-skill-reverse-flow-focused-test-validation`).
+
+After focused validation is `ready`, supervisors close body-free command-hash
+results and accept the activation-external package without re-listing commands
+or enabling activation:
+
+1. `build_skill_route_discovery_focused_validation_body_free_command_results(focused, passed=...)`
+   materializes expected-hash rows as
+   `{command_hash, passed, in_expected_set}` only
+2. `close_skill_route_discovery_focused_local_test_validation_with_outcome(pipeline, passed=...)`
+   records those rows, refreshes activation-external handoff, and packages
+   acceptance when the handoff is ready after a pass
+3. After handoff is `ready` with
+   `package_activation_external_handoff_after_focused_validation_pass`, the
+   pipeline emits
+   `skill_route_discovery_focused_validation_activation_external_acceptance`
+4. Acceptance decision is
+   `accept_activation_external_package_after_focused_validation_pass`
+5. Supervisor next action remains activation-external:
+   `keep_activation_external_after_focused_local_test_validation`, or when
+   residual fortress/Hy3 rows exist,
+   `keep_activation_external_and_queue_residual_adjacent_harness_eval`
+6. While handoff is still blocked (unrecorded or failed focused validation),
+   acceptance stays `blocked_until_activation_external_handoff_ready`
+7. Activation, push, promotion, provider launch, remote apply, external skill
+   execution, and kernel restart stay denied; residual adjacent rows do not
+   inherit skill unlocks
+
+Replay with:
+
+`pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_local_test_validation`
+
+and:
+
+`pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_validation_activation_external`
+
 For source digest `github-growth-20260709T103527.169759Z`, pass 2 exposes
 `skill_route_discovery_current_digest_20260709T103527_pass2_skill_route_validation_lane`.
 The lane keeps `reverse-flow-skill` in the local test lane as Codex workflow

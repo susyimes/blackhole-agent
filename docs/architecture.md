@@ -171,12 +171,22 @@ recorded pass,
 `skill_route_discovery_focused_validation_activation_external_handoff` packages
 `keep_activation_external_after_focused_local_test_validation` into one
 operator-visible packet while push, promotion, provider launch, remote apply,
-external skill execution, and kernel restart stay denied. Use
+external skill execution, and kernel restart stay denied. Supervisors may close
+a ready focused surface with
+`close_skill_route_discovery_focused_local_test_validation_with_outcome` (body-free
+expected-hash materialization via
+`build_skill_route_discovery_focused_validation_body_free_command_results`) without
+re-listing commands. When the activation-external handoff is ready after a
+recorded pass,
+`skill_route_discovery_focused_validation_activation_external_acceptance` accepts
+the package (`accept_activation_external_package_after_focused_validation_pass`)
+while residual fortress/Hy3 rows stay adjacent harness-eval only and activation
+stays external. Use
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_unlocked_local_test_lane_apply`
 and
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_local_test_validation`
-for the unlocked-lane apply, focused-validation, and activation-external
-handoff regressions.
+for the unlocked-lane apply, focused-validation, activation-external handoff,
+and acceptance regressions.
 Fortress-style general-agent projects remain adjacent
 `agent_harness_eval_required` rows without skill-route inheritance.
 When residual fortress-style general-agent proposals are selected after

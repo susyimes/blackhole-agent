@@ -30,7 +30,10 @@ from blackhole_agent.github_growth import (
     build_skill_route_discovery_rnskill_docs_validation_lane,
     build_skill_route_discovery_unlocked_local_test_lane_apply,
     build_skill_route_discovery_focused_local_test_validation,
+    build_skill_route_discovery_focused_validation_activation_external_acceptance,
     build_skill_route_discovery_focused_validation_activation_external_handoff,
+    build_skill_route_discovery_focused_validation_body_free_command_results,
+    close_skill_route_discovery_focused_local_test_validation_with_outcome,
     normalize_skill_route_discovery_focused_validation_command_results,
     record_skill_route_discovery_focused_local_test_validation_results,
     evaluate_skill_route_discovery_local_comparison,
@@ -5352,6 +5355,32 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert activation_blocked["remote_apply_allowed"] is False
     assert activation_blocked["focused_validation"]["commands_exported"] is False
 
+    # Unrecorded focused validation also blocks activation-external acceptance.
+    acceptance_blocked = pipeline["focused_validation_activation_external_acceptance"]
+    assert acceptance_blocked["controller_surface"] == (
+        "skill_route_discovery_focused_validation_activation_external_acceptance"
+    )
+    assert acceptance_blocked["proposal_track"] == (
+        "prop-skill-reverse-flow-focused-test-validation"
+    )
+    assert acceptance_blocked["status"] == (
+        "blocked_until_activation_external_handoff_ready"
+    )
+    assert acceptance_blocked["decision"] == (
+        "hold_activation_external_acceptance_until_handoff_ready"
+    )
+    assert acceptance_blocked["supervisor_next_action"] == (
+        "run_focused_local_test_validation_then_keep_activation_external"
+    )
+    assert acceptance_blocked["activation_external_only"] is True
+    assert acceptance_blocked["supervisor_activation_allowed"] is False
+    assert acceptance_blocked["runtime_action"] == "none"
+    assert acceptance_blocked["push_or_promotion_allowed"] is False
+    assert acceptance_blocked["kernel_restart_allowed"] is False
+    assert acceptance_blocked["external_skill_execution_allowed"] is False
+    assert acceptance_blocked["provider_launch_allowed"] is False
+    assert acceptance_blocked["remote_apply_allowed"] is False
+
     # Deferred comparison keeps focused validation blocked.
     assert deferred["focused_local_test_validation"]["status"] in {
         "blocked_until_unlocked_local_test_lane_apply",
@@ -5361,6 +5390,10 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert deferred["focused_local_test_validation"]["focused_validation"]["commands"] == []
     assert deferred["focused_validation_activation_external_handoff"]["status"] in {
         "blocked_until_focused_validation_ready",
+        "not_applicable",
+    }
+    assert deferred["focused_validation_activation_external_acceptance"]["status"] in {
+        "blocked_until_activation_external_handoff_ready",
         "not_applicable",
     }
 
@@ -5429,6 +5462,89 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     )
     assert activation_ready["general_agent_inherits_skill_unlock"] is False
 
+    # Ready activation-external handoff packages terminal acceptance without activation.
+    acceptance_ready = build_skill_route_discovery_focused_validation_activation_external_acceptance(
+        focused_validation_activation_external_handoff=activation_ready,
+        focused_local_test_validation=passed,
+        unlocked_local_test_lane_apply=unlocked_apply,
+        adjacent_general_agent_rows=pipeline["adjacent_general_agent_rows"],
+        retained_boundaries=pipeline["retained_boundaries"],
+        theme_window=theme,
+        source_digest="github-growth-20260712T215308.239488Z",
+    )
+    assert acceptance_ready["status"] == "accepted"
+    assert acceptance_ready["source_digest"] == "github-growth-20260712T215308.239488Z"
+    assert acceptance_ready["decision"] == (
+        "accept_activation_external_package_after_focused_validation_pass"
+    )
+    assert acceptance_ready["supervisor_next_action"] == (
+        "keep_activation_external_and_queue_residual_adjacent_harness_eval"
+    )
+    assert acceptance_ready["focused_local_test_validation_recorded"] is True
+    assert acceptance_ready["focused_validation_results_cover_expected"] is True
+    assert acceptance_ready["focused_validation_all_expected_passed"] is True
+    assert acceptance_ready["activation_external_only"] is True
+    assert acceptance_ready["supervisor_activation_allowed"] is False
+    assert acceptance_ready["runtime_action"] == "none"
+    assert acceptance_ready["external_skill_execution_allowed"] is False
+    assert acceptance_ready["provider_launch_allowed"] is False
+    assert acceptance_ready["remote_apply_allowed"] is False
+    assert acceptance_ready["push_or_promotion_allowed"] is False
+    assert acceptance_ready["kernel_restart_allowed"] is False
+    assert acceptance_ready["body_free"] is True
+    assert acceptance_ready["raw_command_text_exported"] is False
+    assert acceptance_ready["focused_validation"]["commands_exported"] is False
+    assert "commands" not in acceptance_ready["focused_validation"]
+    for row in acceptance_ready["focused_validation"]["command_results"]:
+        assert set(row.keys()) <= {"command_hash", "passed", "in_expected_set"}
+    assert acceptance_ready["residual_adjacent_harness_eval_available"] is True
+    assert acceptance_ready["residual_adjacent_handoff_surface"] == (
+        "agent_harness_eval_cluster_local_apply"
+    )
+    assert acceptance_ready["general_agent_inherits_skill_unlock"] is False
+
+    # Body-free materializer + close-with-outcome close ready focused validation.
+    materialized = build_skill_route_discovery_focused_validation_body_free_command_results(
+        focused,
+        passed=True,
+    )
+    assert len(materialized) == len(command_hashes)
+    assert {row["command_hash"] for row in materialized} == set(command_hashes)
+    for row in materialized:
+        assert set(row.keys()) <= {"command_hash", "passed", "in_expected_set"}
+        assert row["passed"] is True
+        assert row["in_expected_set"] is True
+        assert "command" not in row
+        assert "stdout" not in row
+
+    closed = close_skill_route_discovery_focused_local_test_validation_with_outcome(
+        pipeline,
+        passed=True,
+        source_digest="github-growth-20260712T215308.239488Z",
+    )
+    assert closed is not pipeline
+    assert closed["focused_local_test_validation_recorded"] is True
+    assert closed["focused_local_test_validation"]["status"] == "passed"
+    assert closed["focused_validation_activation_external_handoff"]["status"] == "ready"
+    assert closed["focused_validation_activation_external_handoff"]["decision"] == (
+        "package_activation_external_handoff_after_focused_validation_pass"
+    )
+    assert closed["focused_validation_activation_external_acceptance"]["status"] == "accepted"
+    assert closed["focused_validation_activation_external_acceptance"]["decision"] == (
+        "accept_activation_external_package_after_focused_validation_pass"
+    )
+    assert closed["focused_validation_activation_external_acceptance"][
+        "supervisor_next_action"
+    ] == ("keep_activation_external_and_queue_residual_adjacent_harness_eval")
+    assert closed["focused_validation_activation_external_acceptance"][
+        "supervisor_activation_allowed"
+    ] is False
+    for row in closed["focused_local_test_validation"]["focused_validation"][
+        "command_results"
+    ]:
+        assert set(row.keys()) <= {"command_hash", "passed", "in_expected_set"}
+        assert "command" not in row
+
     # Pipeline accepts focused results in one build; record helper updates existing packet.
     pipeline_passed = build_skill_route_discovery_capability_pipeline(
         proposals,
@@ -5451,6 +5567,15 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         "package_activation_external_handoff_after_focused_validation_pass"
     )
     assert pipeline_passed["focused_validation_activation_external_handoff"][
+        "supervisor_activation_allowed"
+    ] is False
+    assert pipeline_passed["focused_validation_activation_external_acceptance"][
+        "status"
+    ] == "accepted"
+    assert pipeline_passed["focused_validation_activation_external_acceptance"][
+        "decision"
+    ] == ("accept_activation_external_package_after_focused_validation_pass")
+    assert pipeline_passed["focused_validation_activation_external_acceptance"][
         "supervisor_activation_allowed"
     ] is False
 
@@ -5478,6 +5603,13 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert recorded["focused_validation_activation_external_handoff"][
         "supervisor_next_action"
     ] == ("keep_activation_external_after_focused_local_test_validation")
+    assert recorded["focused_validation_activation_external_acceptance"]["status"] == "accepted"
+    assert recorded["focused_validation_activation_external_acceptance"]["decision"] == (
+        "accept_activation_external_package_after_focused_validation_pass"
+    )
+    assert recorded["focused_validation_activation_external_acceptance"][
+        "supervisor_next_action"
+    ] == ("keep_activation_external_and_queue_residual_adjacent_harness_eval")
     for row in recorded["focused_local_test_validation"]["focused_validation"][
         "command_results"
     ]:
@@ -5546,6 +5678,7 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert "Focused local test validation: `ready`" in rendered
     assert "Focused local test validation recorded: `False`" in rendered
     assert "Focused validation activation-external handoff: `blocked_until_focused_validation_recorded`" in rendered
+    assert "Focused validation activation-external acceptance: `blocked_until_activation_external_handoff_ready`" in rendered
     assert "run_focused_local_test_validation_with_body_free_command_hashes" in rendered or (
         "run_focused_local_test_validation_then_keep_activation_external" in rendered
     )
@@ -5556,8 +5689,13 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert "Focused local test validation recorded: `True`" in rendered_passed
     assert "Focused validation results cover expected: `True`" in rendered_passed
     assert "Focused validation activation-external handoff: `ready`" in rendered_passed
+    assert "Focused validation activation-external acceptance: `accepted`" in rendered_passed
     assert (
         "package_activation_external_handoff_after_focused_validation_pass"
+        in rendered_passed
+    )
+    assert (
+        "accept_activation_external_package_after_focused_validation_pass"
         in rendered_passed
     )
     assert (
@@ -5565,12 +5703,24 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         in rendered_passed
     )
     assert (
+        "close_skill_route_discovery_focused_local_test_validation_with_outcome"
+        in rendered_passed
+    )
+    assert (
         "skill_route_discovery_focused_validation_activation_external_handoff"
         in rendered_passed
     )
-    assert "keep_activation_external_after_focused_local_test_validation" in rendered_passed
+    assert (
+        "skill_route_discovery_focused_validation_activation_external_acceptance"
+        in rendered_passed
+    )
+    assert (
+        "keep_activation_external_and_queue_residual_adjacent_harness_eval"
+        in rendered_passed
+        or "keep_activation_external_after_focused_local_test_validation" in rendered_passed
+    )
 
-    # Failed focused validation keeps activation-external handoff blocked.
+    # Failed focused validation keeps activation-external handoff/acceptance blocked.
     failed_activation = build_skill_route_discovery_focused_validation_activation_external_handoff(
         focused_local_test_validation=failed,
         unlocked_local_test_lane_apply=unlocked_apply,
@@ -5584,6 +5734,38 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         "repair_failed_focused_local_test_validation_commands"
     )
     assert failed_activation["supervisor_activation_allowed"] is False
+    failed_acceptance = build_skill_route_discovery_focused_validation_activation_external_acceptance(
+        focused_validation_activation_external_handoff=failed_activation,
+        focused_local_test_validation=failed,
+        unlocked_local_test_lane_apply=unlocked_apply,
+        theme_window=theme,
+    )
+    assert failed_acceptance["status"] == (
+        "blocked_until_activation_external_handoff_ready"
+    )
+    assert failed_acceptance["decision"] == (
+        "hold_activation_external_acceptance_until_handoff_ready"
+    )
+    assert failed_acceptance["supervisor_next_action"] == (
+        "repair_failed_focused_local_test_validation_commands"
+    )
+    assert failed_acceptance["supervisor_activation_allowed"] is False
+
+    closed_failed = close_skill_route_discovery_focused_local_test_validation_with_outcome(
+        pipeline,
+        passed=False,
+        source_digest="github-growth-20260712T215308.239488Z",
+    )
+    assert closed_failed["focused_local_test_validation"]["status"] == "failed"
+    assert closed_failed["focused_validation_activation_external_handoff"]["status"] == (
+        "blocked_until_focused_validation_repaired"
+    )
+    assert closed_failed["focused_validation_activation_external_acceptance"]["status"] == (
+        "blocked_until_activation_external_handoff_ready"
+    )
+    assert closed_failed["focused_validation_activation_external_acceptance"][
+        "supervisor_activation_allowed"
+    ] is False
 
     dumped = json.dumps(pipeline)
     assert reverse_url not in dumped
@@ -5600,6 +5782,13 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert reverse_url not in dumped_activation
     assert fortress_url not in dumped_activation
     assert rnskill_url not in dumped_activation
+    dumped_acceptance = json.dumps(acceptance_ready)
+    assert reverse_url not in dumped_acceptance
+    assert fortress_url not in dumped_acceptance
+    assert rnskill_url not in dumped_acceptance
+    dumped_closed = json.dumps(closed)
+    assert reverse_url not in dumped_closed
+    assert fortress_url not in dumped_closed
     # Operator-supplied command text is normalized away from command_results.
     for row in recorded["focused_local_test_validation"]["focused_validation"][
         "command_results"
@@ -5607,6 +5796,9 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         assert "command" not in row
         assert "stdout" not in row
     for row in activation_ready["focused_validation"]["command_results"]:
+        assert "command" not in row
+        assert "stdout" not in row
+    for row in acceptance_ready["focused_validation"]["command_results"]:
         assert "command" not in row
         assert "stdout" not in row
 

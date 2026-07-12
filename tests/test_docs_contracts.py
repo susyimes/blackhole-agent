@@ -103,6 +103,7 @@ def test_architecture_links_upstream_evidence_interpretation_contract():
     assert "skill_route_discovery_unlocked_local_test_lane_apply" in architecture
     assert "skill_route_discovery_focused_local_test_validation" in architecture
     assert "skill_route_discovery_focused_validation_activation_external_handoff" in architecture
+    assert "skill_route_discovery_focused_validation_activation_external_acceptance" in architecture
     assert "skill_route_discovery_adjacent_harness_eval_handoff" in architecture
     assert (
         "pytest tests/test_github_growth.py -q -k skill_route_discovery_capability_pipeline"
@@ -117,6 +118,8 @@ def test_architecture_links_upstream_evidence_interpretation_contract():
         in architecture
     )
     assert "record_skill_route_discovery_focused_local_test_validation_results" in architecture
+    assert "close_skill_route_discovery_focused_local_test_validation_with_outcome" in architecture
+    assert "build_skill_route_discovery_focused_validation_body_free_command_results" in architecture
     assert "prop-skill-reverse-flow-focused-test-validation" in architecture
 
 
@@ -343,6 +346,15 @@ def test_skill_route_discovery_doc_records_capability_pipeline_pass1():
         "`skill_route_discovery_focused_validation_activation_external_handoff`",
         "package_activation_external_handoff_after_focused_validation_pass",
         "blocked_until_focused_validation_recorded",
+        "### Focused validation close-with-outcome + activation-external acceptance",
+        "Source digest: `github-growth-20260712T215308.239488Z`",
+        "`prop-skill-reverse-flow-focused-test-validation`",
+        "build_skill_route_discovery_focused_validation_body_free_command_results",
+        "close_skill_route_discovery_focused_local_test_validation_with_outcome",
+        "`skill_route_discovery_focused_validation_activation_external_acceptance`",
+        "accept_activation_external_package_after_focused_validation_pass",
+        "blocked_until_activation_external_handoff_ready",
+        "keep_activation_external_and_queue_residual_adjacent_harness_eval",
         "### Adjacent fortress harness-eval handoff",
         "`skill_route_discovery_adjacent_harness_eval_handoff`",
         "`prop-harness-fortress-local-eval`",
