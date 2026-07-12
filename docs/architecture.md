@@ -157,6 +157,12 @@ Pass 4 closes the theme with
 ready: it binds the full capability pipeline, unlocked local `test` lane,
 retained privacy and general-agent boundaries, and the external supervisor next
 action (`apply_unlocked_local_test_lane_with_focused_validation_and_keep_activation_external`).
+After completion, `skill_route_discovery_unlocked_local_test_lane_apply`
+packages that supervisor action into a body-free focused local test validation
+apply for reverse-flow (`prop-skill-reverse-flow-test-lane`) while keeping
+activation external. Use
+`pytest tests/test_github_growth.py -q -k skill_route_discovery_unlocked_local_test_lane_apply`
+for the unlocked-lane apply regression.
 Fortress-style general-agent projects remain adjacent
 `agent_harness_eval_required` rows without skill-route inheritance.
 When residual fortress-style general-agent proposals are selected after

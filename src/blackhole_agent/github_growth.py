@@ -250,12 +250,18 @@ REVIEW_ACTIVITY_EVENT_KINDS = {
 UNIT_TEST_VALIDATION_TERMS = (
     "focused test",
     "focused tests",
+    "focused validation",
     "local test",
     "local tests",
+    "local test lane",
     "pytest",
     "regression test",
     "regression tests",
     "snapshot test",
+    "test-lane",
+    "test lane",
+    "test-lane probe",
+    "test-lane probes",
     "unit test",
     "unit tests",
 )
@@ -2794,8 +2800,14 @@ def build_skill_route_discovery_capability_pipeline(
     once reverse-flow local apply is ready, emit an operator-visible completion
     handoff that binds the full capability pipeline, unlocked local test lane,
     retained privacy/general-agent boundaries, and the external supervisor
-    next action. External skill execution, provider launch, remote apply, push,
-    promotion, and kernel restart stay denied.
+    next action.
+
+    After completion, skill_route_discovery_unlocked_local_test_lane_apply
+    packages the supervisor next action
+    (apply_unlocked_local_test_lane_with_focused_validation_and_keep_activation_external)
+    into a body-free focused-validation apply packet for the reverse-flow test
+    lane only. External skill execution, provider launch, remote apply, push,
+    promotion, and kernel restart stay denied; activation remains external.
     """
 
     del items  # reserved for future item-level corroboration without URL export
@@ -3011,6 +3023,16 @@ def build_skill_route_discovery_capability_pipeline(
         adjacent_general_agent_rows=adjacent_general_agent_rows,
         theme_window=theme,
     )
+    unlocked_local_test_lane_apply = build_skill_route_discovery_unlocked_local_test_lane_apply(
+        local_apply_completion=local_apply_completion,
+        local_apply=local_apply,
+        reverse_flow_test_validation_lane=reverse_flow_test_lane,
+        local_comparison=local_comparison,
+        selected_step=selected_step,
+        retained_boundaries=retained_boundaries,
+        adjacent_general_agent_rows=adjacent_general_agent_rows,
+        theme_window=theme,
+    )
     adjacent_harness_eval_handoff = build_skill_route_discovery_adjacent_harness_eval_handoff(
         selected_step=selected_step,
         adjacent_general_agent_rows=adjacent_general_agent_rows,
@@ -3098,6 +3120,7 @@ def build_skill_route_discovery_capability_pipeline(
         "config_gate_boundary": config_gate_boundary,
         "local_apply": local_apply,
         "local_apply_completion": local_apply_completion,
+        "unlocked_local_test_lane_apply": unlocked_local_test_lane_apply,
         "adjacent_agent_harness_eval_handoff": adjacent_harness_eval_handoff,
         "selected_step": selected_step,
         "retained_boundaries": retained_boundaries,
@@ -3946,6 +3969,7 @@ def build_skill_route_discovery_local_apply_completion(
             "skill_route_discovery_config_gate_boundary",
             "skill_route_discovery_local_apply",
             "skill_route_discovery_local_apply_completion",
+            "skill_route_discovery_unlocked_local_test_lane_apply",
             "skill_route_discovery_adjacent_harness_eval_handoff",
         ],
         "local_apply_status": apply_status,
@@ -4010,6 +4034,264 @@ def build_skill_route_discovery_local_apply_completion(
             if selected_is_adjacent_harness
             else []
         ),
+        "body_free": True,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_bodies_exported": False,
+    }
+
+
+def build_skill_route_discovery_unlocked_local_test_lane_apply(
+    *,
+    local_apply_completion: dict[str, Any] | None = None,
+    local_apply: dict[str, Any] | None = None,
+    reverse_flow_test_validation_lane: dict[str, Any] | None = None,
+    local_comparison: dict[str, Any] | None = None,
+    selected_step: dict[str, Any] | None = None,
+    retained_boundaries: list[dict[str, Any]] | None = None,
+    adjacent_general_agent_rows: list[dict[str, Any]] | None = None,
+    theme_window: dict[str, Any] | None = None,
+    source_digest: str | None = None,
+) -> dict[str, Any]:
+    """Apply the unlocked reverse-flow local test lane with focused validation.
+
+    Consumes ``skill_route_discovery_local_apply_completion`` when the reverse-flow
+    test lane is unlocked and packages the supervisor next action
+    ``apply_unlocked_local_test_lane_with_focused_validation_and_keep_activation_external``
+    into one body-free operator surface. This is local validation only: no
+    external skill execution, provider launch, remote apply, push, promotion,
+    kernel restart, or in-kernel activation.
+    """
+
+    theme = theme_window if isinstance(theme_window, dict) else {}
+    completion = local_apply_completion if isinstance(local_apply_completion, dict) else {}
+    apply = local_apply if isinstance(local_apply, dict) else {}
+    reverse_lane = (
+        reverse_flow_test_validation_lane
+        if isinstance(reverse_flow_test_validation_lane, dict)
+        else {}
+    )
+    comparison = local_comparison if isinstance(local_comparison, dict) else {}
+    selected = selected_step if isinstance(selected_step, dict) else {}
+    retained = list(retained_boundaries or [])
+    adjacent = list(adjacent_general_agent_rows or [])
+
+    completion_status = str(completion.get("status") or "")
+    reverse_status = str(reverse_lane.get("status") or "")
+    comparison_passed = bool(
+        completion.get("local_comparison_passed")
+        if completion.get("local_comparison_passed") is not None
+        else comparison.get("local_comparison_passed")
+    )
+    unlocked = [
+        lane
+        for lane in list(
+            completion.get("unlocked_local_lanes")
+            or apply.get("unlocked_local_lanes")
+            or selected.get("unlocked_local_lanes")
+            or []
+        )
+        if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+    ]
+    selected_lane = str(
+        completion.get("selected_local_lane")
+        or apply.get("selected_local_lane")
+        or selected.get("selected_local_lane")
+        or ""
+    )
+    selected_proposal_id = str(
+        completion.get("selected_proposal_id")
+        or apply.get("selected_proposal_id")
+        or selected.get("proposal_id")
+        or "prop-skill-reverse-flow-test-lane"
+    )
+    profiles = [
+        str(profile)
+        for profile in (
+            completion.get("route_profiles")
+            or apply.get("route_profiles")
+            or selected.get("route_profiles")
+            or []
+        )
+    ]
+    skill_first = bool(
+        completion.get("skill_route_discovery_first")
+        if completion.get("skill_route_discovery_first") is not None
+        else selected.get("skill_route_discovery_first")
+    )
+    is_reverse_flow = "codex_workflow_gate" in profiles and skill_first
+    selected_route_class = str(
+        completion.get("route_class")
+        or apply.get("route_class")
+        or selected.get("route_class")
+        or "none"
+    )
+    selected_is_adjacent = selected_route_class == "agent_harness_eval_required"
+    theme_complete = bool(completion.get("theme_complete"))
+    general_agent_isolated = all(
+        row.get("skill_route_discovery_inherited") is False
+        and list(row.get("direct_allowed_lanes_before_eval") or []) == []
+        for row in adjacent
+    ) if adjacent else True
+    privacy_isolated = all(
+        str(row.get("route_class") or "")
+        in {"privacy_boundary_review_only", "offensive_boundary_review_only"}
+        for row in retained
+    ) if retained else True
+
+    apply_ready = (
+        completion_status == "complete"
+        and theme_complete
+        and comparison_passed
+        and reverse_status == "ready"
+        and is_reverse_flow
+        and selected_lane == "test"
+        and "test" in unlocked
+        and not selected_is_adjacent
+        and general_agent_isolated
+        and privacy_isolated
+        and completion.get("runtime_action") == "none"
+        and completion.get("external_skill_execution_allowed") is not True
+        and completion.get("provider_launch_allowed") is not True
+        and completion.get("remote_apply_allowed") is not True
+        and completion.get("supervisor_activation_allowed") is not True
+    )
+
+    if selected_is_adjacent:
+        status = "deferred_adjacent_harness_eval"
+        decision = "selected_step_is_adjacent_agent_harness_eval_not_unlocked_test_lane_apply"
+        supervisor_next_action = (
+            "run_agent_harness_eval_local_comparison_for_selected_general_agent_row"
+        )
+    elif not selected_proposal_id or completion_status in {"", "not_applicable"}:
+        status = "not_applicable"
+        decision = "no_completed_reverse_flow_local_apply_for_unlocked_test_lane"
+        supervisor_next_action = "wait_for_skill_route_discovery_local_apply_completion"
+    elif apply_ready:
+        status = "ready"
+        decision = (
+            "apply_unlocked_local_test_lane_with_focused_validation_and_keep_activation_external"
+        )
+        supervisor_next_action = (
+            "run_focused_local_test_validation_then_keep_activation_external"
+        )
+    elif completion_status == "deferred_adjacent_harness_eval":
+        status = "deferred_adjacent_harness_eval"
+        decision = "completion_deferred_to_adjacent_agent_harness_eval"
+        supervisor_next_action = (
+            "run_agent_harness_eval_local_comparison_for_selected_general_agent_row"
+        )
+    elif completion_status == "blocked":
+        status = "blocked_until_local_apply_completion"
+        decision = "hold_unlocked_test_lane_apply_until_local_apply_completion"
+        supervisor_next_action = (
+            "repair_skill_route_discovery_local_apply_before_theme_completion"
+        )
+    else:
+        status = "blocked_until_reverse_flow_test_lane_ready"
+        decision = "hold_unlocked_test_lane_apply_until_reverse_flow_lane_and_completion_ready"
+        supervisor_next_action = (
+            "repair_skill_route_discovery_reverse_flow_test_lane_before_apply"
+        )
+
+    retained_ids = sorted(
+        {
+            str(row.get("proposal_id") or "")
+            for row in retained
+            if isinstance(row, dict) and str(row.get("proposal_id") or "").strip()
+        }
+    )
+    adjacent_ids = sorted(
+        {
+            str(row.get("proposal_id") or "")
+            for row in adjacent
+            if isinstance(row, dict) and str(row.get("proposal_id") or "").strip()
+        }
+    )
+    focused_validation_commands = [
+        "pytest tests/test_github_growth.py -q -k skill_route_discovery_capability_pipeline",
+        "pytest tests/test_github_growth.py -q -k skill_route_discovery_unlocked_local_test_lane_apply",
+    ]
+    focused_validation_command_hashes = [
+        hashlib.sha256(command.encode("utf-8")).hexdigest()[:16]
+        for command in focused_validation_commands
+    ]
+
+    return {
+        "schema_version": 1,
+        "controller_surface": "skill_route_discovery_unlocked_local_test_lane_apply",
+        "proposal_track": "prop-skill-reverse-flow-test-lane",
+        "legacy_proposal_track": "prop-skill-pipeline-reverse-flow-test",
+        "companion_tracks": [
+            "prop-skill-rnskill-docs-companion",
+            "prop-skill-pipeline-rnskill-docs",
+            "prop-skill-pipeline-config-gates",
+        ],
+        "proposal_id": selected_proposal_id,
+        "selected_proposal_id": selected_proposal_id,
+        "status": status,
+        "decision": decision,
+        "capability_action": "apply_one_local_skill_route_validation_candidate",
+        "capability_pipeline": [
+            "skill_route_discovery_capability_pipeline",
+            "skill_route_discovery_local_comparison",
+            "skill_route_discovery_reverse_flow_test_validation_lane",
+            "skill_route_discovery_rnskill_docs_validation_lane",
+            "skill_route_discovery_config_gate_boundary",
+            "skill_route_discovery_local_apply",
+            "skill_route_discovery_local_apply_completion",
+            "skill_route_discovery_unlocked_local_test_lane_apply",
+        ],
+        "local_apply_completion_status": completion_status,
+        "local_apply_status": str(apply.get("status") or "none"),
+        "reverse_flow_test_validation_lane_status": reverse_status or "none",
+        "local_comparison_passed": comparison_passed,
+        "local_comparison_status": str(
+            completion.get("local_comparison_status")
+            or selected.get("local_comparison_status")
+            or comparison.get("status")
+            or ""
+        ),
+        "theme_complete": theme_complete,
+        "route_class": selected_route_class if selected_route_class else "none",
+        "route_profiles": profiles,
+        "skill_route_discovery_first": skill_first,
+        "selected_local_lane": selected_lane if selected_lane else "none",
+        "preferred_local_lane": "test",
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "unlocked_local_lanes": unlocked if status == "ready" else [],
+        "focused_validation": {
+            "status": "ready" if status == "ready" else status,
+            "lane": "test",
+            "required": True,
+            "commands": focused_validation_commands if status == "ready" else [],
+            "command_hashes": focused_validation_command_hashes if status == "ready" else [],
+            "unit_test_signal": status == "ready",
+            "coverage_required": False,
+        },
+        "local_validation_required": True,
+        "activation_external_only": True,
+        "supervisor_activation_allowed": False,
+        "retained_boundary_proposal_ids": retained_ids,
+        "adjacent_general_agent_proposal_ids": adjacent_ids,
+        "general_agent_inherits_skill_unlock": False,
+        "privacy_rows_selectable_for_local_apply": False,
+        "general_agent_isolation_passed": general_agent_isolated,
+        "privacy_isolation_passed": privacy_isolated,
+        "runtime_action": "none",
+        "external_skill_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_apply_allowed": False,
+        "push_or_promotion_allowed": False,
+        "kernel_restart_allowed": False,
+        "theme_id": str(theme.get("theme_id") or "skill-route-discovery"),
+        "theme_pass": {
+            "planned_passes": int(theme.get("planned_passes") or 0),
+            "target_passes": int(theme.get("target_passes") or DEFAULT_THEME_WINDOW_TARGET_PASSES),
+            "status": str(theme.get("status") or ""),
+        },
+        "source_digest": source_digest or str(completion.get("source_digest") or ""),
+        "supervisor_next_action": supervisor_next_action,
+        "required_validation": focused_validation_commands,
         "body_free": True,
         "raw_evidence_urls_exported": False,
         "raw_upstream_bodies_exported": False,
@@ -4366,6 +4648,8 @@ def select_skill_route_discovery_capability_step(
         if (
             "skill-pipeline-reverse-flow" in proposal_id
             or "skill_pipeline_reverse_flow" in proposal_id
+            or "skill-reverse-flow-test" in proposal_id
+            or "skill_reverse_flow_test" in proposal_id
             or "reverse-flow-test" in proposal_id
             or "reverse_flow_test" in proposal_id
         ):
@@ -4777,6 +5061,11 @@ def render_skill_route_discovery_capability_pipeline_lines(
         if isinstance(pipeline.get("local_apply_completion"), dict)
         else {}
     )
+    unlocked_test_lane_apply = (
+        pipeline.get("unlocked_local_test_lane_apply")
+        if isinstance(pipeline.get("unlocked_local_test_lane_apply"), dict)
+        else {}
+    )
     adjacent_handoff = (
         pipeline.get("adjacent_agent_harness_eval_handoff")
         if isinstance(pipeline.get("adjacent_agent_harness_eval_handoff"), dict)
@@ -4787,6 +5076,10 @@ def render_skill_route_discovery_capability_pipeline_lines(
     supervisor_next = (
         adjacent_handoff.get("supervisor_next_action")
         if str(adjacent_handoff.get("status") or "") == "ready"
+        else None
+    ) or (
+        unlocked_test_lane_apply.get("supervisor_next_action")
+        if str(unlocked_test_lane_apply.get("status") or "") == "ready"
         else None
     ) or local_apply_completion.get("supervisor_next_action") or local_apply.get(
         "supervisor_next_action"
@@ -4811,6 +5104,8 @@ def render_skill_route_discovery_capability_pipeline_lines(
         f"- Local apply decision: `{local_apply.get('decision') or 'none'}`",
         f"- Local apply completion: `{local_apply_completion.get('status') or 'none'}`",
         f"- Local apply completion decision: `{local_apply_completion.get('decision') or 'none'}`",
+        f"- Unlocked local test lane apply: `{unlocked_test_lane_apply.get('status') or 'none'}`",
+        f"- Unlocked local test lane apply decision: `{unlocked_test_lane_apply.get('decision') or 'none'}`",
         f"- Adjacent agent harness-eval handoff: `{adjacent_handoff.get('status') or 'none'}`",
         f"- Adjacent handoff decision: `{adjacent_handoff.get('decision') or 'none'}`",
         f"- Theme complete: `{bool(local_apply_completion.get('theme_complete'))}`",
@@ -4824,6 +5119,7 @@ def render_skill_route_discovery_capability_pipeline_lines(
         "- Pass 2 locks reverse-flow codex_workflow_gate into a bounded local test lane only after pipeline-stage comparison.",
         "- Pass 3 packages reverse-flow local apply with body-free rnskill docs companion and config-gate boundaries.",
         "- Pass 4 completes the reverse-flow local test validation lane via skill_route_discovery_local_apply_completion.",
+        "- After completion, skill_route_discovery_unlocked_local_test_lane_apply packages focused local test validation while activation stays external.",
         "- Residual fortress-style general_agent_project rows hand off to agent_harness_eval_cluster_local_apply instead of failing skill-route comparison.",
     ]
     retained = pipeline.get("retained_boundaries") or []

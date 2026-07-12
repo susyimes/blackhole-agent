@@ -28,42 +28,48 @@ touches multiple files or behavior paths.
 
 ## Skill Route Discovery Habit
 
-Reverse-flow skill-route discovery closed on the shared
-`skill_route_discovery_capability_pipeline` (classifier → route_profiles →
-bounded_local_apply_lanes → local comparison → reverse-flow test lane → rnskill
-docs companion → config gates → local apply → completion). Residual work this
-run: when the selected step is an adjacent fortress-style
-`general_agent_project` (`prop-harness-fortress-local-eval`) rather than a
-reverse-flow skill row, do not fail skill-route local comparison or demand
-`repair_skill_route_discovery_local_apply_before_theme_completion`.
+Shared pipeline
+`skill_route_discovery_capability_pipeline` now ends with an operator-visible
+unlocked-lane apply after reverse-flow completion:
 
-Observed this run (adjacent harness-eval handoff repair):
+classifier → route_profiles → bounded_local_apply_lanes → local comparison →
+reverse-flow test lane → rnskill docs companion → config gates → local apply →
+local apply completion → **unlocked local test lane apply** → (optional)
+adjacent harness-eval handoff.
 
-- Fortress / Hy3 classify as `agent_harness_eval_required`
-- Agent-chief remains `privacy_boundary_review_only`
-- Skill-route local comparison for adjacent selections is `not_applicable`, not
-  `failed`
-- Config gates stay ready when isolation holds
-- Local apply / completion become `deferred_adjacent_harness_eval`
-- New operator surface:
-  `skill_route_discovery_adjacent_harness_eval_handoff` queues
-  `agent_harness_eval_cluster_local_apply` for the selected general-agent row
-- Supervisor next action:
-  `run_agent_harness_eval_local_comparison_for_selected_general_agent_row`
-- `prop-harness-fortress-local-eval` resolves to the fortress cluster row and
-  unlocks only documentation / test / code_patch after harness criteria pass
+Observed this run (`prop-skill-reverse-flow-test-lane` /
+`lingbol088-spec/reverse-flow-skill`):
 
-Pipeline stages remain:
+- Classifies as `skill_route_discovery` with
+  `codex_workflow_gate` + `skill_route_discovery_first`
+- Preferred / unlocked lane is local `test` only after comparison
+- Completion supervisor action
+  `apply_unlocked_local_test_lane_with_focused_validation_and_keep_activation_external`
+  is packaged by
+  `skill_route_discovery_unlocked_local_test_lane_apply`
+- Focused validation is body-free (command hashes; no raw evidence URLs)
+- Activation, push, promotion, provider launch, remote apply, external skill
+  execution, and kernel restart stay denied
+- Preflight treats reverse-flow “test-lane / focused validation” language as a
+  unit-test signal so ready reverse-flow candidates are not stuck in
+  `validation_gap` for missing pytest wording alone
+- Rnskill remains documentation companion; fortress/Hy3 remain adjacent
+  harness-eval; agent-chief remains privacy review-only
+
+Pipeline stages remain the three classifier stages plus the post-completion
+unlocked apply:
 
 1. classifier — skill_route_discovery vs agent_harness_eval_required vs privacy/offensive review-only
 2. route_profiles — reverse-flow → `codex_workflow_gate` + `skill_route_discovery_first`; rnskill →
    `generic_skill_workflow`
 3. bounded_local_apply_lanes — reverse-flow prefers `test`, rnskill prefers `documentation`; only
    documentation/config/test/code_patch; local comparison required before unlock; `runtime_action=none`
-4. adjacent handoff — fortress-style residuals go to agent harness-eval local comparison; skill unlocks stay closed
+4. unlocked apply — when completion is complete and reverse-flow `test` is unlocked, emit
+   `skill_route_discovery_unlocked_local_test_lane_apply` and keep activation external
+5. adjacent handoff — fortress-style residuals go to agent harness-eval local comparison; skill unlocks stay closed
 
 External skill execution, provider launch, remote apply, push, promotion, and restart stay denied.
-Prefer this handoff over treating adjacent general-agent residual rows as reverse-flow theme failures.
+Prefer the unlocked test-lane apply over treating completion as a dead end that only re-emits notes.
 
 ## Upstream Evidence Habit
 
@@ -71,4 +77,5 @@ Previous theme (`upstream-evidence-capability`, complete): mixed public agent si
 `upstream_evidence_capability_step` → `agent_harness_eval_cluster` →
 `agent_harness_eval_cluster_local_apply` → `agent_harness_eval_cluster_local_apply_completion`. That pattern is
 the template the skill-route pipeline followed: one operator-visible capability path, body-free exports, narrow
-safety boundary, and a final local-apply completion handoff.
+safety boundary, and a final local-apply completion handoff. The reverse-flow unlocked test-lane apply is the
+skill-route analogue of “apply unlocked lanes with focused validation while activation stays external.”

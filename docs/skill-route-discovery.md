@@ -156,6 +156,40 @@ Replay with:
 
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_capability_pipeline`
 
+### Unlocked reverse-flow local test lane apply
+
+Source digest: `github-growth-20260712T203308.588539Z` (selected proposal
+`prop-skill-reverse-flow-test-lane`).
+
+After
+`skill_route_discovery_local_apply_completion` is `complete` and the reverse-flow
+`test` lane is unlocked, the pipeline emits
+`skill_route_discovery_unlocked_local_test_lane_apply`:
+
+1. Decision is
+   `apply_unlocked_local_test_lane_with_focused_validation_and_keep_activation_external`
+2. Focused validation commands are body-free (command hashes exported; no raw
+   upstream bodies or evidence URLs)
+3. Only the local `test` lane is applied; documentation/config/code_patch stay
+   closed unless a later comparison unlocks them
+4. Activation, push, promotion, provider launch, remote apply, external skill
+   execution, and kernel restart stay denied (`activation_external_only=true`)
+5. Supervisor next action becomes
+   `run_focused_local_test_validation_then_keep_activation_external`
+6. Adjacent fortress-style rows remain outside this apply; agent-chief privacy
+   rows stay review-only
+
+Reverse-flow test-lane proposals that name focused validation / test-lane probes
+satisfy local unit-test preflight without opening runtime action.
+
+Replay with:
+
+`pytest tests/test_github_growth.py -q -k skill_route_discovery_unlocked_local_test_lane_apply`
+
+and:
+
+`pytest tests/test_github_growth.py -q -k skill_route_discovery_capability_pipeline`
+
 For source digest `github-growth-20260709T103527.169759Z`, pass 2 exposes
 `skill_route_discovery_current_digest_20260709T103527_pass2_skill_route_validation_lane`.
 The lane keeps `reverse-flow-skill` in the local test lane as Codex workflow
