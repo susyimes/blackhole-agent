@@ -163,7 +163,10 @@ apply for reverse-flow (`prop-skill-reverse-flow-test-lane`) while keeping
 activation external. When that apply is ready,
 `skill_route_discovery_focused_local_test_validation` records body-free
 command-hash results (`ready` → `passed`/`failed`) and keeps activation
-external. Use
+external. Supervisors close results via
+`focused_validation_command_results` on the pipeline builder or
+`record_skill_route_discovery_focused_local_test_validation_results` on an
+existing packet (`prop-skill-reverse-flow-focused-test-validation`). Use
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_unlocked_local_test_lane_apply`
 and
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_local_test_validation`

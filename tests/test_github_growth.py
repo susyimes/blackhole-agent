@@ -30,6 +30,8 @@ from blackhole_agent.github_growth import (
     build_skill_route_discovery_rnskill_docs_validation_lane,
     build_skill_route_discovery_unlocked_local_test_lane_apply,
     build_skill_route_discovery_focused_local_test_validation,
+    normalize_skill_route_discovery_focused_validation_command_results,
+    record_skill_route_discovery_focused_local_test_validation_results,
     evaluate_skill_route_discovery_local_comparison,
     build_trending_repository_query_for_date,
     extract_growth_signals,
@@ -5269,7 +5271,10 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert focused["controller_surface"] == (
         "skill_route_discovery_focused_local_test_validation"
     )
-    assert focused["proposal_track"] == "prop-skill-reverse-flow-test-lane"
+    assert focused["proposal_track"] == (
+        "prop-skill-reverse-flow-focused-test-validation"
+    )
+    assert focused["legacy_proposal_track"] == "prop-skill-reverse-flow-test-lane"
     assert focused["selected_proposal_id"] == "prop-skill-reverse-flow-test-lane"
     assert focused["status"] == "ready"
     assert focused["decision"] == (
@@ -5295,16 +5300,24 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert focused["body_free"] is True
     assert focused["raw_evidence_urls_exported"] is False
     assert focused["raw_command_stdout_exported"] is False
+    assert focused["focused_validation_recorded"] is False
     assert focused["focused_validation"]["status"] == "ready"
     assert focused["focused_validation"]["lane"] == "test"
     assert focused["focused_validation"]["unit_test_signal"] is True
     assert focused["focused_validation"]["commands"]
     assert focused["focused_validation"]["command_hashes"]
     assert focused["focused_validation"]["command_results"] == []
+    assert focused["focused_validation"]["recorded"] is False
+    assert focused["focused_validation"]["expected_command_count"] == len(
+        focused["focused_validation"]["command_hashes"]
+    )
     assert "skill_route_discovery_focused_local_test_validation" in focused[
         "capability_pipeline"
     ]
     assert "skill_route_discovery_unlocked_local_test_lane_apply" in focused[
+        "capability_pipeline"
+    ]
+    assert "record_skill_route_discovery_focused_local_test_validation_results" in focused[
         "capability_pipeline"
     ]
     assert focused["general_agent_inherits_skill_unlock"] is False
@@ -5338,8 +5351,62 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     )
     assert passed["focused_validation"]["results_cover_expected"] is True
     assert passed["focused_validation"]["all_expected_passed"] is True
+    assert passed["focused_validation"]["recorded"] is True
+    assert passed["focused_validation_recorded"] is True
     assert passed["supervisor_activation_allowed"] is False
     assert passed["activation_external_only"] is True
+
+    # Pipeline accepts focused results in one build; record helper updates existing packet.
+    pipeline_passed = build_skill_route_discovery_capability_pipeline(
+        proposals,
+        theme_window=theme,
+        focused_validation_command_results=[
+            {"command_hash": command_hash, "passed": True} for command_hash in command_hashes
+        ],
+        source_digest="github-growth-20260712T211308.627162Z",
+    )
+    assert pipeline_passed["focused_local_test_validation"]["status"] == "passed"
+    assert pipeline_passed["focused_local_test_validation"]["source_digest"] == (
+        "github-growth-20260712T211308.627162Z"
+    )
+    assert pipeline_passed["focused_local_test_validation"][
+        "supervisor_activation_allowed"
+    ] is False
+
+    recorded = record_skill_route_discovery_focused_local_test_validation_results(
+        pipeline,
+        [
+            {"command": cmd, "passed": True}
+            for cmd in focused["focused_validation"]["commands"]
+        ],
+        source_digest="github-growth-20260712T211308.627162Z",
+    )
+    assert recorded is not pipeline
+    assert recorded["focused_local_test_validation_recorded"] is True
+    assert recorded["focused_local_test_validation"]["status"] == "passed"
+    assert recorded["focused_local_test_validation"]["decision"] == (
+        "record_focused_local_test_validation_pass_and_keep_activation_external"
+    )
+    assert recorded["focused_local_test_validation"]["supervisor_next_action"] == (
+        "keep_activation_external_after_focused_local_test_validation"
+    )
+    for row in recorded["focused_local_test_validation"]["focused_validation"][
+        "command_results"
+    ]:
+        assert set(row.keys()) <= {"command_hash", "passed", "in_expected_set"}
+        assert "command" not in row
+    assert recorded["unlocked_local_test_lane_apply"]["status"] == "ready"
+
+    # Normalizer stays body-free even when raw command text is supplied.
+    normalized = normalize_skill_route_discovery_focused_validation_command_results(
+        [{"command": focused["focused_validation"]["commands"][0], "passed": True}],
+        expected_command_hashes=command_hashes,
+    )
+    assert len(normalized) == 1
+    assert set(normalized[0].keys()) <= {"command_hash", "passed", "in_expected_set"}
+    assert normalized[0]["command_hash"] == command_hashes[0]
+    assert normalized[0]["passed"] is True
+    assert normalized[0]["in_expected_set"] is True
 
     # A failed expected hash stays body-free and does not unlock activation.
     failed = build_skill_route_discovery_focused_local_test_validation(
@@ -5361,6 +5428,7 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         "repair_failed_focused_local_test_validation_commands"
     )
     assert failed["supervisor_activation_allowed"] is False
+    assert failed["focused_validation_recorded"] is True
     for row in failed["focused_validation"]["command_results"]:
         assert set(row.keys()) <= {"command_hash", "passed", "in_expected_set"}
         assert "command" not in row
@@ -5388,9 +5456,21 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         github_growth.render_skill_route_discovery_capability_pipeline_lines(pipeline)
     )
     assert "Focused local test validation: `ready`" in rendered
+    assert "Focused local test validation recorded: `False`" in rendered
     assert "run_focused_local_test_validation_with_body_free_command_hashes" in rendered or (
         "run_focused_local_test_validation_then_keep_activation_external" in rendered
     )
+    rendered_passed = "\n".join(
+        github_growth.render_skill_route_discovery_capability_pipeline_lines(recorded)
+    )
+    assert "Focused local test validation: `passed`" in rendered_passed
+    assert "Focused local test validation recorded: `True`" in rendered_passed
+    assert "Focused validation results cover expected: `True`" in rendered_passed
+    assert (
+        "record_skill_route_discovery_focused_local_test_validation_results"
+        in rendered_passed
+    )
+    assert "keep_activation_external_after_focused_local_test_validation" in rendered_passed
 
     dumped = json.dumps(pipeline)
     assert reverse_url not in dumped
@@ -5400,6 +5480,15 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     dumped_passed = json.dumps(passed)
     assert reverse_url not in dumped_passed
     assert fortress_url not in dumped_passed
+    dumped_recorded = json.dumps(recorded)
+    assert reverse_url not in dumped_recorded
+    assert fortress_url not in dumped_recorded
+    # Operator-supplied command text is normalized away from command_results.
+    for row in recorded["focused_local_test_validation"]["focused_validation"][
+        "command_results"
+    ]:
+        assert "command" not in row
+        assert "stdout" not in row
 
 
 def test_skill_route_discovery_adjacent_fortress_handoff_does_not_fail_skill_comparison():

@@ -222,6 +222,32 @@ and:
 
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_unlocked_local_test_lane_apply`
 
+### Focused local test validation result recording
+
+Source digest: `github-growth-20260712T211308.627162Z` (selected proposal
+`prop-skill-reverse-flow-focused-test-validation`).
+
+After focused validation is `ready`, supervisors record body-free command-hash
+results without treating unlock as a dead end:
+
+1. `build_skill_route_discovery_capability_pipeline(..., focused_validation_command_results=[...])`
+   closes `ready` → `passed`/`failed` in one pipeline build
+2. `record_skill_route_discovery_focused_local_test_validation_results(pipeline, results)`
+   updates an existing pipeline packet after the focused commands run
+3. `normalize_skill_route_discovery_focused_validation_command_results` accepts
+   `command_hash` or raw `command` text but exports only
+   `{command_hash, passed, in_expected_set}`
+4. On pass, decision remains
+   `record_focused_local_test_validation_pass_and_keep_activation_external` and
+   supervisor next action remains
+   `keep_activation_external_after_focused_local_test_validation`
+5. Activation, push, promotion, provider launch, remote apply, external skill
+   execution, and kernel restart stay denied; no raw evidence URLs or stdout
+
+Replay with:
+
+`pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_local_test_validation`
+
 For source digest `github-growth-20260709T103527.169759Z`, pass 2 exposes
 `skill_route_discovery_current_digest_20260709T103527_pass2_skill_route_validation_lane`.
 The lane keeps `reverse-flow-skill` in the local test lane as Codex workflow
