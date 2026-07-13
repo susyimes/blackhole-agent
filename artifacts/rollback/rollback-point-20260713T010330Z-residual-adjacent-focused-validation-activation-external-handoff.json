@@ -1,0 +1,12 @@
+{
+  "source_digest": "github-growth-20260713T010202.728081Z",
+  "original_branch": "grok/blackhole-evolve/20260713T010244.122849-bounded-skill-route-discovery-local-test-lane-va",
+  "created_at": "20260713T010330Z",
+  "head": "5ddab76e81ffe3f32d1eb1efd6239638489c754f",
+  "recovery_commands": [
+    "git switch --detach refs/blackhole-agent/rollback/20260713T010330Z-residual-adjacent-focused-validation-activation-external-handoff",
+    "git reset --hard refs/blackhole-agent/rollback/20260713T010330Z-residual-adjacent-focused-validation-activation-external-handoff"
+  ],
+  "rollback_ref": "refs/blackhole-agent/rollback/20260713T010330Z-residual-adjacent-focused-validation-activation-external-handoff",
+  "change": "residual-adjacent-focused-validation-activation-external-handoff"
+}

@@ -212,16 +212,24 @@ results via
 `record_skill_route_discovery_residual_adjacent_focused_local_validation_results`
 or
 `close_skill_route_discovery_residual_adjacent_focused_local_validation_with_outcome`.
+When residual focused validation is `passed`,
+`skill_route_discovery_residual_adjacent_focused_validation_activation_external_handoff`
+packages
+`package_activation_external_handoff_after_residual_adjacent_focused_validation_pass`
+while remaining residual fortress/Hy3 proposal IDs stay noted without skill unlock
+inheritance and activation remains external.
 Use
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_unlocked_local_test_lane_apply`
 and
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_local_test_validation`
 and
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_residual_adjacent_focused_local_validation`
+and
+`pytest tests/test_github_growth.py -q -k skill_route_discovery_residual_adjacent_focused_validation_activation_external`
 for the unlocked-lane apply, focused-validation, activation-external handoff,
 acceptance, residual-adjacent queue, residual harness-eval local-apply,
-residual harness-eval local-comparison, residual unlocked-lane apply, and
-residual focused-validation regressions.
+residual harness-eval local-comparison, residual unlocked-lane apply, residual
+focused-validation, and residual activation-external handoff regressions.
 Fortress-style general-agent projects remain adjacent
 `agent_harness_eval_required` rows without skill-route inheritance.
 When residual fortress-style general-agent proposals are selected after
@@ -235,7 +243,9 @@ activation stays external. The residual harness-eval local-apply surface then
 selects one residual row; residual harness-eval local-comparison unlocks
 documentation/test/code_patch after criteria pass; residual unlocked apply and
 residual focused validation then package and record the preferred focused local
-lane without skill unlock inheritance.
+lane without skill unlock inheritance. After residual focused validation pass,
+residual activation-external handoff packages keep_activation_external and may
+note remaining residual rows.
 Agent-chief-style privacy evidence stays `privacy_boundary_review_only`.
 Runtime action stays `none`; external skill execution, provider launch, remote
 apply, push or promotion, and kernel restart remain denied. The packet exports

@@ -494,6 +494,8 @@ After residual adjacent unlocked local lane apply is `ready`, the pipeline emits
 11. Distinct from reverse-flow
     `skill_route_discovery_focused_local_test_validation`: residual focused
     validation does not inherit reverse-flow skill unlocks
+12. When residual focused validation is `passed`, the pipeline continues into
+    `skill_route_discovery_residual_adjacent_focused_validation_activation_external_handoff`
 
 Replay with:
 
@@ -502,6 +504,46 @@ Replay with:
 and:
 
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_residual_adjacent_unlocked_local_lane_apply`
+
+### Residual adjacent focused validation activation-external handoff
+
+Source digest: `github-growth-20260713T010202.728081Z` (selected residual
+proposal track `prop-residual-adjacent-fortress-harness-eval`).
+
+After residual adjacent focused local validation is `passed` with body-free
+command-hash results, the pipeline emits
+`skill_route_discovery_residual_adjacent_focused_validation_activation_external_handoff`:
+
+1. Closes supervisor next action
+   `keep_activation_external_after_residual_adjacent_focused_local_validation`
+2. Decision is
+   `package_activation_external_handoff_after_residual_adjacent_focused_validation_pass`
+3. Body-free command-hash rows only; no command text, stdout, evidence URLs, or
+   upstream bodies
+4. Reverse-flow skill unlocks stay closed
+   (`skill_route_discovery_inherited=false`, `skill_route_unlocked_local_lanes=[]`)
+5. Remaining residual fortress/Hy3 proposal IDs may be noted as
+   `remaining_residual_adjacent_proposal_ids` without skill unlock inheritance
+6. When remaining residual rows exist, supervisor next becomes
+   `keep_activation_external_and_note_remaining_residual_adjacent_rows`
+7. While residual focused validation is still unrecorded, this surface stays
+   `blocked_until_residual_adjacent_focused_validation_recorded`
+8. Failed residual focused validation blocks as
+   `blocked_until_residual_adjacent_focused_validation_repaired`
+9. Activation, push, promotion, provider launch, remote apply, external skill
+   execution, and kernel restart stay denied; agent-chief privacy rows stay
+   review-only
+10. Distinct from reverse-flow
+    `skill_route_discovery_focused_validation_activation_external_handoff`:
+    residual handoff does not re-open reverse-flow skill unlocks
+
+Replay with:
+
+`pytest tests/test_github_growth.py -q -k skill_route_discovery_residual_adjacent_focused_validation_activation_external`
+
+and:
+
+`pytest tests/test_github_growth.py -q -k skill_route_discovery_residual_adjacent_focused_local_validation`
 
 Replay with:
 
