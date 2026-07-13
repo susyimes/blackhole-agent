@@ -63,6 +63,7 @@ from blackhole_agent.github_growth import (
     package_reverse_flow_focused_validation_continue_progress_transition,
     package_reverse_flow_focused_validation_continue_exec_receipt,
     package_reverse_flow_focused_validation_continue_finish_receipt,
+    package_reverse_flow_focused_validation_continue_residual_open,
     resolve_reverse_flow_focused_validation_continue_dispatch_follow_through,
     normalize_skill_route_discovery_focused_validation_command_results,
     record_skill_route_discovery_focused_local_test_validation_results,
@@ -5496,6 +5497,24 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert "residual_export=false" in pipeline["operator_state"][
         "reverse_flow_focused_validation_continue_finish_line"
     ]
+    assert pipeline[
+        "reverse_flow_focused_validation_continue_residual_open_helper"
+    ] == "package_reverse_flow_focused_validation_continue_residual_open"
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_open_helper"
+    ] == "package_reverse_flow_focused_validation_continue_residual_open"
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_open_ready"
+    ] is False
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_adjacent_count"
+    ] == 0
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_open_line"
+    ].startswith("residual_open ready=false ")
+    assert "residual_export=false" in pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_open_line"
+    ]
     assert pipeline["reverse_flow_focused_validation_continue_supervisor_wake"][
         "controller_surface"
     ] == "reverse_flow_focused_validation_continue_run_supervisor_wake"
@@ -6631,6 +6650,19 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert "status=ready" in inventory_dispatch["finish_line"]
     assert "residual_export=false" in inventory_dispatch["finish_line"]
     assert inventory_dispatch["finish_receipt"]["residual_export_allowed"] is False
+    # Inventory-only residual open stays blocked until reverse-flow finish + residual queue ready.
+    assert inventory_dispatch["residual_open"]["controller_surface"] == (
+        "reverse_flow_focused_validation_continue_residual_open"
+    )
+    assert inventory_dispatch["residual_open_ready"] is False
+    assert inventory_dispatch["residual_adjacent_count"] == 0
+    assert inventory_dispatch["residual_open_line"].startswith(
+        "residual_open ready=false "
+    )
+    assert "residual_export=false" in inventory_dispatch["residual_open_line"]
+    assert inventory_dispatch["residual_open"]["residual_export_allowed"] is False
+    assert inventory_dispatch["residual_open"]["supervisor_activation_allowed"] is False
+    assert inventory_dispatch["residual_open"]["kernel_restart_allowed"] is False
     assert "dispatch_reverse_flow_focused_validation_continue_supervisor_wake" in (
         inventory_dispatch["record_helpers"]
     )
@@ -6644,6 +6676,9 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         inventory_dispatch["record_helpers"]
     )
     assert "package_reverse_flow_focused_validation_continue_finish_receipt" in (
+        inventory_dispatch["record_helpers"]
+    )
+    assert "package_reverse_flow_focused_validation_continue_residual_open" in (
         inventory_dispatch["record_helpers"]
     )
     assert "package_reverse_flow_focused_validation_continue_dispatch_inventory" in (
@@ -6764,6 +6799,26 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert "acceptance=accepted" in full_dispatch["finish_line"]
     assert "residual_queue=ready" in full_dispatch["finish_line"]
     assert "residual_export=false" in full_dispatch["finish_line"]
+    # Residual open bridges finish residual_queue_ready into residual pipeline entry.
+    assert full_dispatch["residual_open"]["controller_surface"] == (
+        "reverse_flow_focused_validation_continue_residual_open"
+    )
+    assert full_dispatch["residual_open_ready"] is True
+    assert full_dispatch["residual_adjacent_count"] >= 1
+    assert full_dispatch["residual_open"]["residual_queue_status"] == "ready"
+    assert full_dispatch["residual_open"]["residual_export_allowed"] is False
+    assert full_dispatch["residual_open"]["supervisor_activation_allowed"] is False
+    assert full_dispatch["residual_open"]["kernel_restart_allowed"] is False
+    assert full_dispatch["residual_open"]["raw_command_stdout_exported"] is False
+    assert full_dispatch["residual_open_line"].startswith("residual_open ready=true ")
+    assert "residual_export=false" in full_dispatch["residual_open_line"]
+    assert (
+        "hand_off_residual_adjacent_rows_to_agent_harness_eval_cluster_local_apply"
+        in full_dispatch["residual_open_line"]
+    )
+    assert "prop-harness-fortress-local-eval" in full_dispatch["residual_open"][
+        "residual_adjacent_proposal_ids"
+    ]
     # Standalone progress-transition package matches dispatch attachment.
     standalone_transition = (
         package_reverse_flow_focused_validation_continue_progress_transition(
@@ -6816,6 +6871,23 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert standalone_finish["supervisor_activation_allowed"] is False
     assert standalone_finish["kernel_restart_allowed"] is False
     assert standalone_finish["finish_line"].startswith("finish complete=true ")
+    standalone_residual_open = (
+        package_reverse_flow_focused_validation_continue_residual_open(
+            pipeline=full_dispatch["pipeline"],
+            finish_receipt=standalone_finish,
+        )
+    )
+    assert standalone_residual_open["controller_surface"] == (
+        "reverse_flow_focused_validation_continue_residual_open"
+    )
+    assert standalone_residual_open["residual_open"] is True
+    assert standalone_residual_open["residual_adjacent_count"] >= 1
+    assert standalone_residual_open["residual_export_allowed"] is False
+    assert standalone_residual_open["supervisor_activation_allowed"] is False
+    assert standalone_residual_open["kernel_restart_allowed"] is False
+    assert standalone_residual_open["residual_open_line"].startswith(
+        "residual_open ready=true "
+    )
 
     # Policy-aware follow-through entry: execute_now → run_and_record without
     # supervisors re-deriving execute from nested action fields.
@@ -6868,6 +6940,11 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert follow_packet["finish_line"].startswith("finish complete=true ")
     assert "residual_queue=ready" in follow_packet["finish_line"]
     assert follow_packet["finish_receipt"]["residual_export_allowed"] is False
+    assert follow_packet["residual_open_ready"] is True
+    assert follow_packet["residual_adjacent_count"] >= 1
+    assert follow_packet["residual_open_line"].startswith("residual_open ready=true ")
+    assert "residual_export=false" in follow_packet["residual_open_line"]
+    assert follow_packet["residual_open"]["residual_export_allowed"] is False
     assert follow_packet["residual_export_allowed"] is False
     assert follow_packet["supervisor_activation_allowed"] is False
     assert follow_packet["kernel_restart_allowed"] is False
@@ -6955,6 +7032,12 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert post_pass_follow["residual_queue_ready"] is True
     assert post_pass_follow["finish_line"].startswith("finish complete=true ")
     assert post_pass_follow["finish_receipt"]["residual_export_allowed"] is False
+    assert post_pass_follow["residual_open_ready"] is True
+    assert post_pass_follow["residual_adjacent_count"] >= 1
+    assert post_pass_follow["residual_open_line"].startswith(
+        "residual_open ready=true "
+    )
+    assert post_pass_follow["residual_open"]["residual_export_allowed"] is False
 
     # Skipped non-allowed unit leaves no outcome (partial stays partial when record empty).
     denied_plan = {

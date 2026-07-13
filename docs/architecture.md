@@ -221,17 +221,28 @@ residual_export=false`) plus `continue_finished` / `residual_queue_ready` so
 supervisors do not re-derive nested post cards after reverse-flow continue
 finishes. Residual export stays denied on continue surfaces even when
 `residual_queue_ready` is true.
+`package_reverse_flow_focused_validation_continue_residual_open` collapses
+finish `residual_queue_ready` plus
+`focused_validation_residual_adjacent_queue` into body-free `residual_open_line`
+(for example `residual_open ready=true count=1 status=ready
+next=hand_off_residual_adjacent_rows_to_agent_harness_eval_cluster_local_apply
+residual_export=false
+helper=build_skill_route_discovery_residual_adjacent_harness_eval_local_apply`)
+plus `residual_open` / `residual_adjacent_count` so residual pipeline entry is
+legible without nested residual-queue re-assembly. Residual export stays denied
+on continue surfaces even when residual open is ready.
 Preferred policy-aware operator entry is
 `follow_reverse_flow_focused_validation_continue_dispatch`
 (inventory → follow-through → dispatch execute only when recommended, with
 `post_follow_through`, `operator_card` / `post_operator_card`,
-`progress_transition`, `exec_receipt`, and `finish_receipt` after run/record).
+`progress_transition`, `exec_receipt`, `finish_receipt`, and `residual_open`
+after run/record).
 Low-level single operator entry remains
 `dispatch_reverse_flow_focused_validation_continue_supervisor_wake` (inventory
 packet, optional allowlisted run/record when executable, always reverse-flow-first
 `supervisor_wake` plus `post_dispatch_inventory`, `follow_through`, operator
-card progress labels, `progress_transition`, `exec_receipt`, and
-`finish_receipt`; residual export stays denied on the dispatch surface).
+card progress labels, `progress_transition`, `exec_receipt`, `finish_receipt`,
+and `residual_open`; residual export stays denied on the dispatch surface).
 Durable `operator_state` also exports
 `continue_run_recommended`, inventory `continue_supervisor_wake`, nested
 `continue_dispatch`, `continue_dispatch_action`,
@@ -244,8 +255,11 @@ Durable `operator_state` also exports
 `continue_progress_label`, `continue_action_line`,
 `continue_progress_transition_helper`, `continue_exec_receipt_helper`,
 nested `continue_finish_receipt`, `continue_finish_receipt_helper`,
-`continue_finish_line`, `continue_finished`, and
-`continue_residual_queue_ready` while reverse-flow is ready/unrecorded or after
+`continue_finish_line`, `continue_finished`,
+`continue_residual_queue_ready`, nested `continue_residual_open`,
+`continue_residual_open_helper`, `continue_residual_open_line`,
+`continue_residual_open_ready`, and `continue_residual_adjacent_count` while
+reverse-flow is ready/unrecorded or after
 pass. After a
 recorded pass,
 `skill_route_discovery_focused_validation_activation_external_handoff` packages
