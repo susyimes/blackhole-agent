@@ -6406,6 +6406,21 @@ def package_reverse_flow_focused_validation_continue_operator_card(
             "package_reverse_flow_focused_validation_continue_dispatch_inventory"
         )
 
+    supervisor_next_action = str(
+        source.get("supervisor_next_action")
+        or (ft or {}).get("supervisor_next_action")
+        or "none"
+    )
+    # One body-free line supervisors can log without re-assembling nested fields.
+    action_line = (
+        f"progress={progress_label} "
+        f"action={follow_through_action} "
+        f"call_execute={'true' if call_with_execute else 'false'} "
+        f"helper={preferred_helper} "
+        f"residual_hold={'true' if residual_hold_active else 'false'} "
+        f"next={supervisor_next_action}"
+    )
+
     return {
         "schema_version": 1,
         "controller_surface": (
@@ -6425,11 +6440,8 @@ def package_reverse_flow_focused_validation_continue_operator_card(
         ),
         "follow_through_action": follow_through_action,
         "call_dispatch_with_execute": call_with_execute,
-        "supervisor_next_action": str(
-            source.get("supervisor_next_action")
-            or (ft or {}).get("supervisor_next_action")
-            or "none"
-        ),
+        "supervisor_next_action": supervisor_next_action,
+        "action_line": action_line,
         "reverse_flow_continue_decision": str(
             source.get("reverse_flow_continue_decision") or "none"
         ),
@@ -6478,6 +6490,9 @@ def package_reverse_flow_focused_validation_continue_operator_card(
         "operator_card_helper": (
             "package_reverse_flow_focused_validation_continue_operator_card"
         ),
+        "progress_transition_helper": (
+            "package_reverse_flow_focused_validation_continue_progress_transition"
+        ),
         "activation_external_only": True,
         "supervisor_activation_allowed": False,
         "runtime_action": "none",
@@ -6491,6 +6506,7 @@ def package_reverse_flow_focused_validation_continue_operator_card(
         "raw_upstream_bodies_exported": False,
         "raw_command_stdout_exported": False,
         "record_helpers": [
+            "package_reverse_flow_focused_validation_continue_progress_transition",
             "package_reverse_flow_focused_validation_continue_operator_card",
             "follow_reverse_flow_focused_validation_continue_dispatch",
             "resolve_reverse_flow_focused_validation_continue_dispatch_follow_through",
@@ -6500,6 +6516,129 @@ def package_reverse_flow_focused_validation_continue_operator_card(
             "resolve_reverse_flow_focused_validation_continue_run_supervisor_wake",
             "resolve_reverse_flow_focused_validation_continue_supervisor_next",
             "build_reverse_flow_focused_validation_continue_plan",
+        ],
+    }
+
+
+def package_reverse_flow_focused_validation_continue_progress_transition(
+    *,
+    pre_card: dict[str, Any] | None = None,
+    post_card: dict[str, Any] | None = None,
+    pre_follow_through: dict[str, Any] | None = None,
+    post_follow_through: dict[str, Any] | None = None,
+    executed: bool = False,
+    recorded: bool = False,
+) -> dict[str, Any]:
+    """Collapse pre/post operator cards into one body-free progress transition.
+
+    Supervisors read ``progress_transition_label`` (for example ``0/3→3/3``),
+    ``progress_advanced``, ``follow_through_transition``, and residual hold
+    after a continue wake without comparing nested pre/post cards. Does not
+    execute commands, export stdout, or enable activation, push, promotion,
+    provider launch, remote apply, external skill execution, or kernel restart.
+    """
+
+    pre = pre_card if isinstance(pre_card, dict) else {}
+    post = post_card if isinstance(post_card, dict) and post_card else dict(pre)
+    pre_ft = pre_follow_through if isinstance(pre_follow_through, dict) else {}
+    post_ft = post_follow_through if isinstance(post_follow_through, dict) else {}
+
+    progress_from = str(pre.get("progress_label") or "0/0")
+    progress_to = str(post.get("progress_label") or progress_from)
+    recorded_from = int(pre.get("recorded_result_count") or 0)
+    recorded_to = int(post.get("recorded_result_count") or recorded_from)
+    expected = int(
+        post.get("expected_command_count")
+        if post.get("expected_command_count") is not None
+        else pre.get("expected_command_count")
+        or 0
+    )
+    progress_advanced = progress_to != progress_from or recorded_to > recorded_from
+    progress_complete_after = bool(post.get("progress_complete"))
+    pre_action = str(
+        pre.get("follow_through_action")
+        or pre_ft.get("follow_through_action")
+        or "none"
+    )
+    post_action = str(
+        post.get("follow_through_action")
+        or post_ft.get("follow_through_action")
+        or pre_action
+    )
+    residual_hold_after = bool(
+        post.get("residual_hold_active")
+        if post.get("residual_hold_active") is not None
+        else pre.get("residual_hold_active", True)
+    )
+    progress_transition_label = f"{progress_from}→{progress_to}"
+    follow_through_transition = f"{pre_action}→{post_action}"
+    transition_line = (
+        f"transition={progress_transition_label} "
+        f"follow={follow_through_transition} "
+        f"advanced={'true' if progress_advanced else 'false'} "
+        f"complete={'true' if progress_complete_after else 'false'} "
+        f"executed={'true' if executed else 'false'} "
+        f"recorded={'true' if recorded else 'false'} "
+        f"residual_hold={'true' if residual_hold_after else 'false'} "
+        f"residual_export=false"
+    )
+
+    return {
+        "schema_version": 1,
+        "controller_surface": (
+            "reverse_flow_focused_validation_continue_progress_transition"
+        ),
+        "proposal_track": "prop-reverse-flow-skill-route-discovery-continue",
+        "progress_transition_label": progress_transition_label,
+        "progress_from": progress_from,
+        "progress_to": progress_to,
+        "progress_advanced": bool(progress_advanced),
+        "progress_complete_after": progress_complete_after,
+        "recorded_from": recorded_from,
+        "recorded_to": recorded_to,
+        "recorded_delta": max(0, recorded_to - recorded_from),
+        "expected_command_count": expected,
+        "follow_through_from": pre_action,
+        "follow_through_to": post_action,
+        "follow_through_transition": follow_through_transition,
+        "executed": bool(executed),
+        "recorded": bool(recorded),
+        "residual_hold_active_after": residual_hold_after,
+        "residual_export_allowed": False,
+        "supervisor_next_action_after": str(
+            post.get("supervisor_next_action")
+            or pre.get("supervisor_next_action")
+            or "none"
+        ),
+        "transition_line": transition_line,
+        "progress_transition_helper": (
+            "package_reverse_flow_focused_validation_continue_progress_transition"
+        ),
+        "operator_card_helper": (
+            "package_reverse_flow_focused_validation_continue_operator_card"
+        ),
+        "follow_through_helper": (
+            "follow_reverse_flow_focused_validation_continue_dispatch"
+        ),
+        "activation_external_only": True,
+        "supervisor_activation_allowed": False,
+        "runtime_action": "none",
+        "external_skill_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_apply_allowed": False,
+        "push_or_promotion_allowed": False,
+        "kernel_restart_allowed": False,
+        "body_free": True,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_bodies_exported": False,
+        "raw_command_stdout_exported": False,
+        "record_helpers": [
+            "package_reverse_flow_focused_validation_continue_progress_transition",
+            "package_reverse_flow_focused_validation_continue_operator_card",
+            "follow_reverse_flow_focused_validation_continue_dispatch",
+            "dispatch_reverse_flow_focused_validation_continue_supervisor_wake",
+            "resolve_reverse_flow_focused_validation_continue_dispatch_follow_through",
+            "package_reverse_flow_focused_validation_continue_dispatch_inventory",
         ],
     }
 
@@ -6604,6 +6743,28 @@ def follow_reverse_flow_focused_validation_continue_dispatch(
     result["post_progress_label"] = str(
         post_operator_card.get("progress_label") or "0/0"
     )
+    progress_transition = (
+        dispatch_packet.get("progress_transition")
+        if isinstance(dispatch_packet.get("progress_transition"), dict)
+        else package_reverse_flow_focused_validation_continue_progress_transition(
+            pre_card=operator_card,
+            post_card=post_operator_card,
+            pre_follow_through=follow_through,
+            post_follow_through=post_follow_through,
+            executed=bool(result.get("executed")),
+            recorded=bool(result.get("recorded")),
+        )
+    )
+    result["progress_transition"] = progress_transition
+    result["progress_transition_label"] = str(
+        progress_transition.get("progress_transition_label") or "0/0→0/0"
+    )
+    result["progress_advanced"] = bool(progress_transition.get("progress_advanced"))
+    result["transition_line"] = str(
+        progress_transition.get("transition_line") or ""
+    )
+    result["action_line"] = str(operator_card.get("action_line") or "")
+    result["post_action_line"] = str(post_operator_card.get("action_line") or "")
     result["call_dispatch_with_execute"] = bool(should_execute)
     result["followed_recommendation"] = execute is None
     result["execute_requested"] = execute
@@ -6622,9 +6783,13 @@ def follow_reverse_flow_focused_validation_continue_dispatch(
     result["operator_card_helper"] = (
         "package_reverse_flow_focused_validation_continue_operator_card"
     )
+    result["progress_transition_helper"] = (
+        "package_reverse_flow_focused_validation_continue_progress_transition"
+    )
     result["residual_export_allowed"] = False
     helpers = list(result.get("record_helpers") or [])
     for name in (
+        "package_reverse_flow_focused_validation_continue_progress_transition",
         "package_reverse_flow_focused_validation_continue_operator_card",
         "follow_reverse_flow_focused_validation_continue_dispatch",
         "resolve_reverse_flow_focused_validation_continue_dispatch_follow_through",
@@ -6728,6 +6893,16 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
             pipeline=updated_pipeline,
             follow_through=post_follow_through,
         )
+        progress_transition = (
+            package_reverse_flow_focused_validation_continue_progress_transition(
+                pre_card=operator_card,
+                post_card=post_operator_card,
+                pre_follow_through=follow_through,
+                post_follow_through=post_follow_through,
+                executed=True,
+                recorded=bool(run_packet.get("recorded")),
+            )
+        )
         return {
             "schema_version": 1,
             "controller_surface": (
@@ -6757,6 +6932,18 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
             "post_progress_label": str(
                 post_operator_card.get("progress_label") or "0/0"
             ),
+            "progress_transition": progress_transition,
+            "progress_transition_label": str(
+                progress_transition.get("progress_transition_label") or "0/0→0/0"
+            ),
+            "progress_advanced": bool(
+                progress_transition.get("progress_advanced")
+            ),
+            "transition_line": str(
+                progress_transition.get("transition_line") or ""
+            ),
+            "action_line": str(operator_card.get("action_line") or ""),
+            "post_action_line": str(post_operator_card.get("action_line") or ""),
             "call_dispatch_with_execute": True,
             "run_and_record": run_packet,
             "pipeline": updated_pipeline,
@@ -6815,6 +7002,9 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
             "operator_card_helper": (
                 "package_reverse_flow_focused_validation_continue_operator_card"
             ),
+            "progress_transition_helper": (
+                "package_reverse_flow_focused_validation_continue_progress_transition"
+            ),
             "activation_external_only": True,
             "supervisor_activation_allowed": False,
             "runtime_action": "none",
@@ -6828,6 +7018,7 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
             "raw_upstream_bodies_exported": False,
             "raw_command_stdout_exported": False,
             "record_helpers": [
+                "package_reverse_flow_focused_validation_continue_progress_transition",
                 "package_reverse_flow_focused_validation_continue_operator_card",
                 "follow_reverse_flow_focused_validation_continue_dispatch",
                 "resolve_reverse_flow_focused_validation_continue_dispatch_follow_through",
@@ -6856,8 +7047,28 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
     )
     result["operator_card"] = operator_card
     result["progress_label"] = str(operator_card.get("progress_label") or "0/0")
+    progress_transition = (
+        package_reverse_flow_focused_validation_continue_progress_transition(
+            pre_card=operator_card,
+            post_card=operator_card,
+            pre_follow_through=follow_through,
+            post_follow_through=follow_through,
+            executed=False,
+            recorded=False,
+        )
+    )
+    result["progress_transition"] = progress_transition
+    result["progress_transition_label"] = str(
+        progress_transition.get("progress_transition_label") or "0/0→0/0"
+    )
+    result["progress_advanced"] = bool(progress_transition.get("progress_advanced"))
+    result["transition_line"] = str(progress_transition.get("transition_line") or "")
+    result["action_line"] = str(operator_card.get("action_line") or "")
     result["operator_card_helper"] = (
         "package_reverse_flow_focused_validation_continue_operator_card"
+    )
+    result["progress_transition_helper"] = (
+        "package_reverse_flow_focused_validation_continue_progress_transition"
     )
     result["follow_through_helper"] = (
         "follow_reverse_flow_focused_validation_continue_dispatch"
@@ -6867,6 +7078,7 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
     )
     helpers = list(result.get("record_helpers") or [])
     for name in (
+        "package_reverse_flow_focused_validation_continue_progress_transition",
         "package_reverse_flow_focused_validation_continue_operator_card",
         "follow_reverse_flow_focused_validation_continue_dispatch",
         "resolve_reverse_flow_focused_validation_continue_dispatch_follow_through",
@@ -12015,6 +12227,10 @@ def resolve_skill_route_discovery_pipeline_operator_state(
                 "package_reverse_flow_focused_validation_continue_operator_card"
             ),
             "reverse_flow_focused_validation_continue_progress_label": "0/0",
+            "reverse_flow_focused_validation_continue_action_line": "",
+            "reverse_flow_focused_validation_continue_progress_transition_helper": (
+                "package_reverse_flow_focused_validation_continue_progress_transition"
+            ),
             "reverse_flow_continue_decision": "none",
             "reverse_flow_bound": False,
             "reverse_flow_bound_proposal_id": "",
@@ -12708,6 +12924,12 @@ def resolve_skill_route_discovery_pipeline_operator_state(
     state["reverse_flow_focused_validation_continue_progress_label"] = str(
         operator_card.get("progress_label") or "0/0"
     )
+    state["reverse_flow_focused_validation_continue_action_line"] = str(
+        operator_card.get("action_line") or ""
+    )
+    state["reverse_flow_focused_validation_continue_progress_transition_helper"] = (
+        "package_reverse_flow_focused_validation_continue_progress_transition"
+    )
     return state
 
 
@@ -12985,8 +13207,12 @@ def render_skill_route_discovery_capability_pipeline_lines(
         f"{operator_state.get('reverse_flow_focused_validation_continue_dispatch_follow_through_helper') or 'follow_reverse_flow_focused_validation_continue_dispatch'}`",
         f"- Reverse-flow focused validation continue progress label: `"
         f"{operator_state.get('reverse_flow_focused_validation_continue_progress_label') or '0/0'}`",
+        f"- Reverse-flow focused validation continue action line: `"
+        f"{operator_state.get('reverse_flow_focused_validation_continue_action_line') or 'none'}`",
         f"- Reverse-flow focused validation continue operator card helper: `"
         f"{operator_state.get('reverse_flow_focused_validation_continue_operator_card_helper') or 'package_reverse_flow_focused_validation_continue_operator_card'}`",
+        f"- Reverse-flow focused validation continue progress transition helper: `"
+        f"{operator_state.get('reverse_flow_focused_validation_continue_progress_transition_helper') or 'package_reverse_flow_focused_validation_continue_progress_transition'}`",
         f"- Reverse-flow continue decision: `"
         f"{operator_state.get('reverse_flow_continue_decision') or 'none'}`",
         f"- Adjacent agent harness-eval handoff: `{adjacent_handoff.get('status') or 'none'}`",
@@ -13014,9 +13240,10 @@ def render_skill_route_discovery_capability_pipeline_lines(
         "- resolve_reverse_flow_focused_validation_continue_run_supervisor_wake packages reverse-flow-first supervisor_next after continue-run inventory/run (mode, residual hold, handoff/acceptance status) so residual fortress stages stay blocked until reverse-flow record/close and activation-external acceptance; run-and-record attaches supervisor_wake without enabling activation.",
         "- package_reverse_flow_focused_validation_continue_dispatch_inventory packages a body-free inventory dispatch packet (action, execute_recommended, residual hold) without running commands so supervisors can decide whether to execute without re-deriving nested wake fields; residual export stays denied.",
         "- resolve_reverse_flow_focused_validation_continue_dispatch_follow_through collapses inventory action + execute_recommended into follow_through_action (execute_now|wait_for_local_allowlist|keep_activation_external|repair|noop) and call_dispatch_with_execute so supervisors do not re-derive execute policy from nested wake fields; residual export stays denied.",
-        "- package_reverse_flow_focused_validation_continue_operator_card collapses progress (recorded/expected label such as 0/3), follow_through_action, preferred helper, residual hold, and supervisor_next into one body-free operator card so supervisors do not re-assemble nested operator_state fields; residual export stays denied.",
-        "- follow_reverse_flow_focused_validation_continue_dispatch is the preferred policy-aware operator entry: package inventory, resolve follow-through, call dispatch with execute only when call_dispatch_with_execute is true, and attach post_follow_through plus operator_card/post_operator_card after run/record; residual fortress stages stay blocked until reverse-flow record/close and activation-external acceptance.",
-        "- dispatch_reverse_flow_focused_validation_continue_supervisor_wake remains the low-level single operator entry: inventory packet first (via package_reverse_flow_focused_validation_continue_dispatch_inventory), optional allowlisted run/record when continue_run_executable, always reverse-flow-first supervisor_wake plus post_dispatch_inventory, follow_through, and operator_card progress labels; residual fortress stages stay blocked until reverse-flow record/close and activation-external acceptance. operator_state also exports continue_run_recommended, continue_supervisor_wake, continue_dispatch (inventory packet without pipeline snapshot), continue_dispatch_action, continue_dispatch_execute_recommended, continue_dispatch_follow_through, continue_dispatch_follow_through_action, continue_dispatch_call_with_execute, continue_dispatch_helper, continue_dispatch_inventory_helper, continue_dispatch_follow_through_helper, continue_operator_card, continue_operator_card_helper, and continue_progress_label while reverse-flow is ready/unrecorded.",
+        "- package_reverse_flow_focused_validation_continue_operator_card collapses progress (recorded/expected label such as 0/3), follow_through_action, preferred helper, residual hold, supervisor_next, and a body-free action_line into one operator card so supervisors do not re-assemble nested operator_state fields; residual export stays denied.",
+        "- package_reverse_flow_focused_validation_continue_progress_transition collapses pre/post operator cards into progress_transition_label (for example 0/3→3/3), progress_advanced, follow_through_transition, recorded_delta, and transition_line so supervisors do not compare nested progress_label fields after continue wakes; residual export stays denied.",
+        "- follow_reverse_flow_focused_validation_continue_dispatch is the preferred policy-aware operator entry: package inventory, resolve follow-through, call dispatch with execute only when call_dispatch_with_execute is true, and attach post_follow_through plus operator_card/post_operator_card and progress_transition after run/record; residual fortress stages stay blocked until reverse-flow record/close and activation-external acceptance.",
+        "- dispatch_reverse_flow_focused_validation_continue_supervisor_wake remains the low-level single operator entry: inventory packet first (via package_reverse_flow_focused_validation_continue_dispatch_inventory), optional allowlisted run/record when continue_run_executable, always reverse-flow-first supervisor_wake plus post_dispatch_inventory, follow_through, operator_card progress labels, and progress_transition; residual fortress stages stay blocked until reverse-flow record/close and activation-external acceptance. operator_state also exports continue_run_recommended, continue_supervisor_wake, continue_dispatch (inventory packet without pipeline snapshot), continue_dispatch_action, continue_dispatch_execute_recommended, continue_dispatch_follow_through, continue_dispatch_follow_through_action, continue_dispatch_call_with_execute, continue_dispatch_helper, continue_dispatch_inventory_helper, continue_dispatch_follow_through_helper, continue_operator_card, continue_operator_card_helper, continue_progress_label, continue_action_line, and continue_progress_transition_helper while reverse-flow is ready/unrecorded.",
         "- Partial body-free command-hash rows stay on ready focused validation and accumulate across record calls via merge_skill_route_discovery_focused_validation_command_results; while partial, supervisor_next promotes to record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external (not a full re-run); residual export remains denied until results cover expected hashes and reverse-flow record/close advances residual-active work.",
         "- After ready, record_skill_route_discovery_focused_local_test_validation_results merges new body-free command-hash rows with any prior partial rows while activation stays external.",
         "- After ready, close_skill_route_discovery_focused_local_test_validation_with_outcome materializes body-free expected-hash outcomes and refreshes activation-external handoff/acceptance.",

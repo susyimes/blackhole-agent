@@ -294,17 +294,23 @@ emits `skill_route_discovery_focused_local_test_validation`:
    `call_dispatch_with_execute`.
    `package_reverse_flow_focused_validation_continue_operator_card` collapses
    progress (`progress_label` such as `0/3`), follow-through policy, preferred
-   helper, residual hold, and `supervisor_next` into one body-free operator card.
+   helper, residual hold, `supervisor_next`, and a body-free `action_line` into
+   one operator card.
+   `package_reverse_flow_focused_validation_continue_progress_transition`
+   collapses pre/post operator cards into `progress_transition_label` (for
+   example `0/3→3/3`), `progress_advanced`, `follow_through_transition`,
+   `recorded_delta`, and `transition_line` so supervisors do not compare nested
+   progress labels after continue wakes.
    Preferred policy-aware operator entry is
    `follow_reverse_flow_focused_validation_continue_dispatch`: package inventory,
    resolve follow-through, call dispatch with execute only when recommended, and
-   attach `post_follow_through` plus `operator_card` / `post_operator_card`
-   after run/record. Low-level single operator entry remains
+   attach `post_follow_through` plus `operator_card` / `post_operator_card` and
+   `progress_transition` after run/record. Low-level single operator entry remains
    `dispatch_reverse_flow_focused_validation_continue_supervisor_wake`:
    package inventory first, optionally run/record when `continue_run_executable`,
    always return reverse-flow-first `supervisor_wake` plus
-   `post_dispatch_inventory`, `follow_through`, and operator card progress
-   labels. Durable `operator_state`
+   `post_dispatch_inventory`, `follow_through`, operator card progress
+   labels, and `progress_transition`. Durable `operator_state`
    exports `reverse_flow_focused_validation_continue_run_recommended`, nested
    inventory `reverse_flow_focused_validation_continue_supervisor_wake`, nested
    `reverse_flow_focused_validation_continue_dispatch` (without pipeline
@@ -314,8 +320,9 @@ emits `skill_route_discovery_focused_local_test_validation`:
    `continue_dispatch_call_with_execute`, `continue_dispatch_helper`,
    `continue_dispatch_inventory_helper`,
    `continue_dispatch_follow_through_helper`, nested
-   `continue_operator_card`, `continue_operator_card_helper`, and
-   `continue_progress_label` while reverse-flow focused
+   `continue_operator_card`, `continue_operator_card_helper`,
+   `continue_progress_label`, `continue_action_line`, and
+   `continue_progress_transition_helper` while reverse-flow focused
    validation is ready/unrecorded
 
 Replay with:

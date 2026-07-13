@@ -200,16 +200,24 @@ collapses that inventory into `follow_through_action`
 `repair` | `noop`) and `call_dispatch_with_execute`.
 `package_reverse_flow_focused_validation_continue_operator_card` collapses
 progress (`progress_label` such as `0/3`), follow-through policy, preferred
-helper, residual hold, and `supervisor_next` into one body-free operator card.
+helper, residual hold, `supervisor_next`, and a body-free `action_line` into one
+operator card.
+`package_reverse_flow_focused_validation_continue_progress_transition` collapses
+pre/post operator cards into `progress_transition_label` (for example
+`0/3→3/3`), `progress_advanced`, `follow_through_transition`, `recorded_delta`,
+and `transition_line` so supervisors do not compare nested progress labels after
+continue wakes.
 Preferred policy-aware operator entry is
 `follow_reverse_flow_focused_validation_continue_dispatch`
 (inventory → follow-through → dispatch execute only when recommended, with
-`post_follow_through` and `operator_card` / `post_operator_card` after run/record).
+`post_follow_through`, `operator_card` / `post_operator_card`, and
+`progress_transition` after run/record).
 Low-level single operator entry remains
 `dispatch_reverse_flow_focused_validation_continue_supervisor_wake` (inventory
 packet, optional allowlisted run/record when executable, always reverse-flow-first
-`supervisor_wake` plus `post_dispatch_inventory`, `follow_through`, and operator
-card progress labels; residual export stays denied on the dispatch surface).
+`supervisor_wake` plus `post_dispatch_inventory`, `follow_through`, operator
+card progress labels, and `progress_transition`; residual export stays denied on
+the dispatch surface).
 Durable `operator_state` also exports
 `continue_run_recommended`, inventory `continue_supervisor_wake`, nested
 `continue_dispatch`, `continue_dispatch_action`,
@@ -218,8 +226,9 @@ Durable `operator_state` also exports
 `continue_dispatch_call_with_execute`, `continue_dispatch_helper`,
 `continue_dispatch_inventory_helper`,
 `continue_dispatch_follow_through_helper`, nested
-`continue_operator_card`, `continue_operator_card_helper`, and
-`continue_progress_label` while reverse-flow is ready/unrecorded. After a
+`continue_operator_card`, `continue_operator_card_helper`,
+`continue_progress_label`, `continue_action_line`, and
+`continue_progress_transition_helper` while reverse-flow is ready/unrecorded. After a
 recorded pass,
 `skill_route_discovery_focused_validation_activation_external_handoff` packages
 `keep_activation_external_after_focused_local_test_validation` into one

@@ -46,7 +46,7 @@ residual adjacent focused validation activation-external handoff →
 residual adjacent focused validation activation-external acceptance →
 (optional) selected-step adjacent harness-eval.
 
-Observed this run (digest `github-growth-20260713T073123.781342Z`,
+Observed this run (digest `github-growth-20260713T075123.779833Z`,
 `prop-reverse-flow-skill-route-discovery-continue` bound against
 `lingbol088-spec/reverse-flow-skill`, residual fortress adjacent):
 
@@ -55,44 +55,46 @@ Observed this run (digest `github-growth-20260713T073123.781342Z`,
   policy and record/close body-free results; residual stages stay blocked waiting
   on reverse-flow record/close and activation-external acceptance
 - Prior: continue plan + pending work units + local allowlist + continue-run
-  plan/execute/record + run supervisor_wake + inventory dispatch packager +
-  follow-through resolve/follow helpers +
-  `dispatch_reverse_flow_focused_validation_continue_supervisor_wake` already
+  plan/execute/record + run supervisor_wake + inventory dispatch + follow-through
+  resolve/follow + operator_card packaging + pre/post progress labels already
   inventory, optional allowlisted run/record, reverse-flow-first
-  `supervisor_wake`, `post_dispatch_inventory`, and `follow_through`
-- New: `package_reverse_flow_focused_validation_continue_operator_card` collapses
-  recorded/expected progress (`progress_label` such as `0/3`),
-  `follow_through_action`, `call_dispatch_with_execute`, preferred helper,
-  residual hold, and `supervisor_next_action` into one body-free operator card
-  so supervisors do not re-assemble nested operator_state fields
-- New: dispatch inventory and run_and_record paths attach `operator_card` /
-  `post_operator_card` plus `progress_label` / `post_progress_label` alongside
-  follow_through / post_follow_through
-- New: `follow_reverse_flow_focused_validation_continue_dispatch` returns pre/post
-  operator cards so 0/N → N/N progress after execute is legible without re-reading
-  nested wake fields
-- New: operator_state exports nested
-  `reverse_flow_focused_validation_continue_operator_card`,
-  `continue_operator_card_helper`, and `continue_progress_label` while
-  ready/unrecorded (alongside continue_dispatch follow-through fields);
-  zero-row and partial ready wakes always prefer reverse-flow continue over
-  residual repair noise
+  `supervisor_wake`, `post_dispatch_inventory`, `follow_through`, and
+  `operator_card` / `post_operator_card`
+- New: `package_reverse_flow_focused_validation_continue_progress_transition`
+  collapses pre/post operator cards into `progress_transition_label` (for
+  example `0/3→3/3`), `progress_advanced`, `follow_through_transition`
+  (`execute_now→keep_activation_external`), `recorded_delta`, and a body-free
+  `transition_line` so supervisors do not compare nested progress_label fields
+  after continue wakes
+- New: operator_card adds body-free `action_line`
+  (`progress=0/3 action=execute_now call_execute=true helper=follow_...
+  residual_hold=true next=...`) for one-line supervisor logging without nested
+  re-assembly
+- New: follow and dispatch attach `progress_transition`,
+  `progress_transition_label`, `progress_advanced`, `transition_line`,
+  `action_line`, and `post_action_line` alongside operator cards; inventory-only
+  wakes export `0/N→0/N` with `progress_advanced=false`
+- New: operator_state exports `continue_action_line` and
+  `continue_progress_transition_helper` while ready/unrecorded (alongside
+  continue_operator_card / continue_progress_label)
 - Ready/unrecorded operator card: progress_label=`0/3` (or `0/N`),
   follow_through_action=`execute_now`, call_dispatch_with_execute=true when
   local pytest units are allowlisted, preferred_helper=`follow_...`, residual
-  hold active, residual export denied
-- Full follow after pass + record: progress_label=`0/N` then
-  post_progress_label=`N/N` with progress_complete=true,
-  post_follow_through_action=`keep_activation_external`, handoff ready,
-  acceptance accepted, call_dispatch_with_execute becomes false; residual export
-  still denied on the dispatch/follow surface itself
+  hold active, residual export denied, action_line carries the same policy
+- Full follow after pass + record: progress_transition_label=`0/N→N/N` with
+  progress_advanced=true, progress_complete_after=true,
+  follow_through_transition=`execute_now→keep_activation_external`, handoff
+  ready, acceptance accepted; residual export still denied on the
+  dispatch/follow/transition surfaces themselves
 - Partial follow: runs remaining units only (`mode=record_remaining`) then
   packages keep_activation_external post_follow_through with updated progress
+  transition reflecting partial→complete when remaining units close
 - Post-pass follow with recommendation still defaulted: action=`keep_activation_external`,
-  call_dispatch_with_execute=false, does not re-run units
+  call_dispatch_with_execute=false, does not re-run units; progress_transition
+  stays `N/N→N/N` with progress_advanced=false
 - Explicit `execute=False` on follow or dispatch stays inventory-only even when
-  follow_through_action would be `execute_now`; operator_card still shows
-  execute_now recommendation with progress_label
+  follow_through_action would be `execute_now`; progress_transition stays
+  `0/N→0/N` while operator_card still shows execute_now recommendation
 - While ready/unrecorded with zero partial rows:
   `continue_plan.mode=run_pending`,
   `supervisor_next_action=run_focused_local_test_validation_then_keep_activation_external`,
