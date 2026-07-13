@@ -423,6 +423,21 @@ emits `skill_route_discovery_focused_local_test_validation`:
    keep_activation_external policy are legible without nested residual-handoff /
    acceptance re-assembly. Residual export stays denied on continue surfaces even
    when residual acceptance is accepted.
+   `package_reverse_flow_focused_validation_continue_residual_cascade`
+   collapses residual acceptance into body-free
+   `residual_cascade_line` (for example
+   `residual_cascade ready=true selected=prop-harness-fortress-local-eval
+   status=complete progress=8/8 blocked_at=none stages=open,entry,follow,
+   comparison,unlocked_apply,focused_validation,handoff,acceptance remaining=0
+   action=keep_activation_external residual_export=false
+   next=keep_activation_external_after_residual_adjacent_focused_local_validation
+   helper=package_reverse_flow_focused_validation_continue_residual_acceptance`)
+   plus `residual_cascade` / `residual_cascade_action` /
+   `residual_cascade_progress_label` / `residual_cascade_blocked_at` so residual
+   cascade stage progress, blocked stage, remaining residual IDs, and
+   keep_activation_external policy are legible without nested residual-acceptance
+   / stage re-assembly. Residual export stays denied on continue surfaces even
+   when residual cascade is complete.
    Preferred policy-aware operator entry is
    `follow_reverse_flow_focused_validation_continue_dispatch`: package inventory,
    resolve follow-through, call dispatch with execute only when recommended, and
@@ -430,7 +445,7 @@ emits `skill_route_discovery_focused_local_test_validation`:
    `progress_transition`, `exec_receipt`, `finish_receipt`, `residual_open`,
    `residual_entry`, `residual_follow`, `residual_comparison`,
    `residual_unlocked_apply`, `residual_focused_validation`,
-   `residual_handoff`, and `residual_acceptance` after run/record.
+   `residual_handoff`, `residual_acceptance`, and `residual_cascade` after run/record.
    Low-level single operator entry remains
    `dispatch_reverse_flow_focused_validation_continue_supervisor_wake`:
    package inventory first, optionally run/record when `continue_run_executable`,
@@ -439,7 +454,7 @@ emits `skill_route_discovery_focused_local_test_validation`:
    labels, `progress_transition`, `exec_receipt`, `finish_receipt`,
    `residual_open`, `residual_entry`, `residual_follow`, `residual_comparison`,
    `residual_unlocked_apply`, `residual_focused_validation`,
-   `residual_handoff`, and `residual_acceptance`. Durable
+   `residual_handoff`, `residual_acceptance`, and `residual_cascade`. Durable
    `operator_state` exports `reverse_flow_focused_validation_continue_run_recommended`,
    nested inventory `reverse_flow_focused_validation_continue_supervisor_wake`, nested
    `reverse_flow_focused_validation_continue_dispatch` (without pipeline
@@ -482,8 +497,11 @@ emits `skill_route_discovery_focused_local_test_validation`:
    `continue_residual_handoff_ready`, `continue_residual_handoff_action`,
    `continue_call_residual_acceptance`, nested `continue_residual_acceptance`,
    `continue_residual_acceptance_helper`, `continue_residual_acceptance_line`,
-   `continue_residual_acceptance_ready`, and
-   `continue_residual_acceptance_action` while reverse-flow focused validation
+   `continue_residual_acceptance_ready`, `continue_residual_acceptance_action`,
+   nested `continue_residual_cascade`, `continue_residual_cascade_helper`,
+   `continue_residual_cascade_line`, `continue_residual_cascade_ready`,
+   `continue_residual_cascade_action`, `continue_residual_cascade_progress_label`,
+   and `continue_residual_cascade_blocked_at` while reverse-flow focused validation
    is ready/unrecorded or after pass
 
 Replay with:

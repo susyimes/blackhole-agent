@@ -71,6 +71,7 @@ from blackhole_agent.github_growth import (
     package_reverse_flow_focused_validation_continue_residual_focused_validation,
     package_reverse_flow_focused_validation_continue_residual_handoff,
     package_reverse_flow_focused_validation_continue_residual_acceptance,
+    package_reverse_flow_focused_validation_continue_residual_cascade,
     resolve_reverse_flow_focused_validation_continue_dispatch_follow_through,
     normalize_skill_route_discovery_focused_validation_command_results,
     record_skill_route_discovery_focused_local_test_validation_results,
@@ -5702,6 +5703,39 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert "residual_export=false" in pipeline["operator_state"][
         "reverse_flow_focused_validation_continue_residual_acceptance_line"
     ]
+    assert pipeline[
+        "reverse_flow_focused_validation_continue_residual_cascade_helper"
+    ] == "package_reverse_flow_focused_validation_continue_residual_cascade"
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_cascade_helper"
+    ] == "package_reverse_flow_focused_validation_continue_residual_cascade"
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_cascade_ready"
+    ] is False
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_cascade_action"
+    ] == "wait_for_reverse_flow"
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_cascade_progress_label"
+    ] == "0/8"
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_cascade_blocked_at"
+    ] == "open"
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_cascade_line"
+    ].startswith("residual_cascade ready=false ")
+    assert "action=wait_for_reverse_flow" in pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_cascade_line"
+    ]
+    assert "progress=0/8" in pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_cascade_line"
+    ]
+    assert "blocked_at=open" in pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_cascade_line"
+    ]
+    assert "residual_export=false" in pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_cascade_line"
+    ]
     assert pipeline["reverse_flow_focused_validation_continue_supervisor_wake"][
         "controller_surface"
     ] == "reverse_flow_focused_validation_continue_run_supervisor_wake"
@@ -7019,6 +7053,37 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert inventory_dispatch["residual_acceptance"][
         "kernel_restart_allowed"
     ] is False
+    # Inventory-only residual cascade stays wait_for_reverse_flow (0/8);
+    # residual export denied.
+    assert inventory_dispatch["residual_cascade"]["controller_surface"] == (
+        "reverse_flow_focused_validation_continue_residual_cascade"
+    )
+    assert inventory_dispatch["residual_cascade_ready"] is False
+    assert inventory_dispatch["residual_cascade_action"] == (
+        "wait_for_reverse_flow"
+    )
+    assert inventory_dispatch["residual_cascade_progress_label"] == "0/8"
+    assert inventory_dispatch["residual_cascade_blocked_at"] == "open"
+    assert inventory_dispatch["residual_cascade_line"].startswith(
+        "residual_cascade ready=false "
+    )
+    assert "action=wait_for_reverse_flow" in inventory_dispatch[
+        "residual_cascade_line"
+    ]
+    assert "progress=0/8" in inventory_dispatch["residual_cascade_line"]
+    assert "blocked_at=open" in inventory_dispatch["residual_cascade_line"]
+    assert "residual_export=false" in inventory_dispatch[
+        "residual_cascade_line"
+    ]
+    assert inventory_dispatch["residual_cascade"][
+        "residual_export_allowed"
+    ] is False
+    assert inventory_dispatch["residual_cascade"][
+        "supervisor_activation_allowed"
+    ] is False
+    assert inventory_dispatch["residual_cascade"][
+        "kernel_restart_allowed"
+    ] is False
     assert "dispatch_reverse_flow_focused_validation_continue_supervisor_wake" in (
         inventory_dispatch["record_helpers"]
     )
@@ -7527,6 +7592,65 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert standalone_residual_acceptance["residual_acceptance"] is False
     assert standalone_residual_acceptance["call_residual_acceptance"] is False
     assert standalone_residual_acceptance[
+        "residual_export_allowed"
+    ] is False
+    # Residual cascade collapses residual acceptance into stage progress /
+    # blocked_at without residual_export. While residual handoff waits on
+    # residual focused validation, cascade progress reflects ready stages.
+    assert full_dispatch["residual_cascade"]["controller_surface"] == (
+        "reverse_flow_focused_validation_continue_residual_cascade"
+    )
+    assert full_dispatch["residual_cascade_ready"] is False
+    assert full_dispatch["residual_cascade_action"] == (
+        "wait_for_residual_handoff"
+    )
+    assert full_dispatch["residual_cascade"][
+        "residual_acceptance_ready"
+    ] is False
+    assert full_dispatch["residual_cascade"][
+        "residual_export_allowed"
+    ] is False
+    assert full_dispatch["residual_cascade"][
+        "supervisor_activation_allowed"
+    ] is False
+    assert full_dispatch["residual_cascade"][
+        "kernel_restart_allowed"
+    ] is False
+    assert full_dispatch["residual_cascade"][
+        "raw_command_stdout_exported"
+    ] is False
+    assert full_dispatch["residual_cascade_line"].startswith(
+        "residual_cascade ready=false "
+    )
+    assert "action=wait_for_residual_handoff" in (
+        full_dispatch["residual_cascade_line"]
+    )
+    assert "blocked_at=handoff" in full_dispatch["residual_cascade_line"]
+    assert "acceptance_ready=false" in full_dispatch["residual_cascade_line"]
+    assert "residual_export=false" in full_dispatch["residual_cascade_line"]
+    # Standalone residual cascade package matches dispatch attachment.
+    standalone_residual_cascade = (
+        package_reverse_flow_focused_validation_continue_residual_cascade(
+            pipeline=full_dispatch["pipeline"],
+            residual_acceptance=full_dispatch["residual_acceptance"],
+            residual_handoff=full_dispatch["residual_handoff"],
+            residual_focused_validation=full_dispatch["residual_focused_validation"],
+            residual_unlocked_apply=full_dispatch["residual_unlocked_apply"],
+            residual_comparison=full_dispatch["residual_comparison"],
+            residual_follow=full_dispatch["residual_follow"],
+            residual_entry=full_dispatch["residual_entry"],
+            residual_open=full_dispatch["residual_open"],
+        )
+    )
+    assert standalone_residual_cascade["controller_surface"] == (
+        "reverse_flow_focused_validation_continue_residual_cascade"
+    )
+    assert standalone_residual_cascade["residual_cascade"] is False
+    assert standalone_residual_cascade["residual_cascade_action"] == (
+        "wait_for_residual_handoff"
+    )
+    assert standalone_residual_cascade["residual_cascade_blocked_at"] == "handoff"
+    assert standalone_residual_cascade[
         "residual_export_allowed"
     ] is False
     # Standalone progress-transition package matches dispatch attachment.
