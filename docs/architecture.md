@@ -299,21 +299,38 @@ without nested residual-unlocked-apply / focused-validation re-assembly.
 Residual export stays denied on continue surfaces even when residual focused
 validation is ready; `call_residual_handoff` is informational policy only
 (true only after residual focused validation records a pass).
+`package_reverse_flow_focused_validation_continue_residual_handoff`
+collapses residual focused validation into body-free
+`residual_handoff_line` (for example
+`residual_handoff ready=true selected=prop-harness-fortress-local-eval
+status=ready lane=test preferred=test remaining=0 focused_ready=true
+action=open_residual_activation_external_acceptance call_acceptance=true
+residual_export=false
+next=keep_activation_external_after_residual_adjacent_focused_local_validation
+helper=build_skill_route_discovery_residual_adjacent_focused_validation_activation_external_handoff`)
+plus `residual_handoff` / `residual_handoff_action` /
+`call_residual_acceptance` so residual activation-external handoff readiness,
+remaining residual IDs, and acceptance policy are legible without nested
+residual-focused-validation / handoff re-assembly. Residual export stays denied
+on continue surfaces even when residual handoff is ready;
+`call_residual_acceptance` is informational policy only (true only after residual
+handoff is ready).
 Preferred policy-aware operator entry is
 `follow_reverse_flow_focused_validation_continue_dispatch`
 (inventory → follow-through → dispatch execute only when recommended, with
 `post_follow_through`, `operator_card` / `post_operator_card`,
 `progress_transition`, `exec_receipt`, `finish_receipt`, `residual_open`,
 `residual_entry`, `residual_follow`, `residual_comparison`,
-`residual_unlocked_apply`, and `residual_focused_validation` after run/record).
+`residual_unlocked_apply`, `residual_focused_validation`, and `residual_handoff`
+after run/record).
 Low-level single operator entry remains
 `dispatch_reverse_flow_focused_validation_continue_supervisor_wake` (inventory
 packet, optional allowlisted run/record when executable, always reverse-flow-first
 `supervisor_wake` plus `post_dispatch_inventory`, `follow_through`, operator
 card progress labels, `progress_transition`, `exec_receipt`, `finish_receipt`,
 `residual_open`, `residual_entry`, `residual_follow`, `residual_comparison`,
-`residual_unlocked_apply`, and `residual_focused_validation`; residual export
-stays denied on the dispatch surface).
+`residual_unlocked_apply`, `residual_focused_validation`, and `residual_handoff`;
+residual export stays denied on the dispatch surface).
 Durable `operator_state` also exports
 `continue_run_recommended`, inventory `continue_supervisor_wake`, nested
 `continue_dispatch`, `continue_dispatch_action`,
@@ -348,8 +365,11 @@ nested `continue_finish_receipt`, `continue_finish_receipt_helper`,
 `continue_residual_focused_validation_helper`,
 `continue_residual_focused_validation_line`,
 `continue_residual_focused_validation_ready`,
-`continue_residual_focused_validation_action`, and
-`continue_call_residual_handoff` while reverse-flow is ready/unrecorded
+`continue_residual_focused_validation_action`,
+`continue_call_residual_handoff`, nested `continue_residual_handoff`,
+`continue_residual_handoff_helper`, `continue_residual_handoff_line`,
+`continue_residual_handoff_ready`, `continue_residual_handoff_action`, and
+`continue_call_residual_acceptance` while reverse-flow is ready/unrecorded
 or after pass. After a
 recorded pass,
 `skill_route_discovery_focused_validation_activation_external_handoff` packages

@@ -69,6 +69,7 @@ from blackhole_agent.github_growth import (
     package_reverse_flow_focused_validation_continue_residual_comparison,
     package_reverse_flow_focused_validation_continue_residual_unlocked_apply,
     package_reverse_flow_focused_validation_continue_residual_focused_validation,
+    package_reverse_flow_focused_validation_continue_residual_handoff,
     resolve_reverse_flow_focused_validation_continue_dispatch_follow_through,
     normalize_skill_route_discovery_focused_validation_command_results,
     record_skill_route_discovery_focused_local_test_validation_results,
@@ -5649,6 +5650,33 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert "residual_export=false" in pipeline["operator_state"][
         "reverse_flow_focused_validation_continue_residual_focused_validation_line"
     ]
+    assert pipeline[
+        "reverse_flow_focused_validation_continue_residual_handoff_helper"
+    ] == "package_reverse_flow_focused_validation_continue_residual_handoff"
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_handoff_helper"
+    ] == "package_reverse_flow_focused_validation_continue_residual_handoff"
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_handoff_ready"
+    ] is False
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_handoff_action"
+    ] == "wait_for_reverse_flow"
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_call_residual_acceptance"
+    ] is False
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_handoff_line"
+    ].startswith("residual_handoff ready=false ")
+    assert "action=wait_for_reverse_flow" in pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_handoff_line"
+    ]
+    assert "call_acceptance=false" in pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_handoff_line"
+    ]
+    assert "residual_export=false" in pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_handoff_line"
+    ]
     assert pipeline["reverse_flow_focused_validation_continue_supervisor_wake"][
         "controller_surface"
     ] == "reverse_flow_focused_validation_continue_run_supervisor_wake"
@@ -6905,6 +6933,37 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert inventory_dispatch["residual_focused_validation"][
         "kernel_restart_allowed"
     ] is False
+    # Inventory-only residual handoff stays wait_for_reverse_flow;
+    # residual acceptance call denied.
+    assert inventory_dispatch["residual_handoff"]["controller_surface"] == (
+        "reverse_flow_focused_validation_continue_residual_handoff"
+    )
+    assert inventory_dispatch["residual_handoff_ready"] is False
+    assert inventory_dispatch["residual_handoff_action"] == (
+        "wait_for_reverse_flow"
+    )
+    assert inventory_dispatch["call_residual_acceptance"] is False
+    assert inventory_dispatch["residual_handoff_line"].startswith(
+        "residual_handoff ready=false "
+    )
+    assert "action=wait_for_reverse_flow" in inventory_dispatch[
+        "residual_handoff_line"
+    ]
+    assert "call_acceptance=false" in inventory_dispatch[
+        "residual_handoff_line"
+    ]
+    assert "residual_export=false" in inventory_dispatch[
+        "residual_handoff_line"
+    ]
+    assert inventory_dispatch["residual_handoff"][
+        "residual_export_allowed"
+    ] is False
+    assert inventory_dispatch["residual_handoff"][
+        "supervisor_activation_allowed"
+    ] is False
+    assert inventory_dispatch["residual_handoff"][
+        "kernel_restart_allowed"
+    ] is False
     assert "dispatch_reverse_flow_focused_validation_continue_supervisor_wake" in (
         inventory_dispatch["record_helpers"]
     )
@@ -7303,6 +7362,61 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     ] is True
     assert standalone_residual_focused_validation["call_residual_handoff"] is False
     assert standalone_residual_focused_validation[
+        "residual_export_allowed"
+    ] is False
+    # Residual handoff collapses residual focused validation into activation-
+    # external handoff readiness + acceptance policy without residual_export.
+    # While residual focused validation is ready/unrecorded, handoff waits.
+    assert full_dispatch["residual_handoff"]["controller_surface"] == (
+        "reverse_flow_focused_validation_continue_residual_handoff"
+    )
+    assert full_dispatch["residual_handoff_ready"] is False
+    assert full_dispatch["residual_handoff_action"] == (
+        "wait_for_residual_focused_validation"
+    )
+    assert full_dispatch["call_residual_acceptance"] is False
+    assert full_dispatch["residual_handoff"][
+        "residual_focused_validation_ready"
+    ] is True
+    assert full_dispatch["residual_handoff"][
+        "residual_export_allowed"
+    ] is False
+    assert full_dispatch["residual_handoff"][
+        "supervisor_activation_allowed"
+    ] is False
+    assert full_dispatch["residual_handoff"][
+        "kernel_restart_allowed"
+    ] is False
+    assert full_dispatch["residual_handoff"][
+        "raw_command_stdout_exported"
+    ] is False
+    assert full_dispatch["residual_handoff_line"].startswith(
+        "residual_handoff ready=false "
+    )
+    assert "action=wait_for_residual_focused_validation" in (
+        full_dispatch["residual_handoff_line"]
+    )
+    assert "call_acceptance=false" in full_dispatch["residual_handoff_line"]
+    assert "focused_ready=true" in full_dispatch["residual_handoff_line"]
+    assert "residual_export=false" in full_dispatch["residual_handoff_line"]
+    # Standalone residual handoff package matches dispatch attachment.
+    standalone_residual_handoff = (
+        package_reverse_flow_focused_validation_continue_residual_handoff(
+            pipeline=full_dispatch["pipeline"],
+            residual_focused_validation=full_dispatch["residual_focused_validation"],
+            residual_unlocked_apply=full_dispatch["residual_unlocked_apply"],
+            residual_comparison=full_dispatch["residual_comparison"],
+            residual_follow=full_dispatch["residual_follow"],
+            residual_entry=full_dispatch["residual_entry"],
+            residual_open=full_dispatch["residual_open"],
+        )
+    )
+    assert standalone_residual_handoff["controller_surface"] == (
+        "reverse_flow_focused_validation_continue_residual_handoff"
+    )
+    assert standalone_residual_handoff["residual_handoff"] is False
+    assert standalone_residual_handoff["call_residual_acceptance"] is False
+    assert standalone_residual_handoff[
         "residual_export_allowed"
     ] is False
     # Standalone progress-transition package matches dispatch attachment.
