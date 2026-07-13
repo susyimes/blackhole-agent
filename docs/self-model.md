@@ -46,7 +46,7 @@ residual adjacent focused validation activation-external handoff →
 residual adjacent focused validation activation-external acceptance →
 (optional) selected-step adjacent harness-eval.
 
-Observed this run (digest `github-growth-20260713T045123.532400Z`,
+Observed this run (digest `github-growth-20260713T051123.935613Z`,
 `prop-reverse-flow-skill-route-discovery-continue` bound against
 `lingbol088-spec/reverse-flow-skill`, residual fortress adjacent):
 
@@ -57,25 +57,34 @@ Observed this run (digest `github-growth-20260713T045123.532400Z`,
   `merge_skill_route_discovery_focused_validation_command_results` (later
   same-hash rows win); missing-hash inventory stays body-free on focused
   validation and operator_state
-- New: while ready with partial coverage, operator-visible
+- Prior: while ready with partial coverage, operator-visible
   `supervisor_next_action` promotes to
   `record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external`
-  (decision
-  `record_remaining_focused_validation_command_hashes_before_activation_external`)
   via `resolve_reverse_flow_focused_validation_continue_supervisor_next` — blocked
-  handoff/acceptance/residual queue inherit the same continue action so multi-wake
-  reverse-flow continue does not re-advertise a full focused re-run
-- New: body-free recorded-hash inventory
-  (`recorded_command_hashes` / `recorded_command_hash_count`) and
-  `pending_commands` / `pending_command_count` map missing hashes back to local
-  command text for continue wakes without re-deriving from full command lists
+  handoff/acceptance/residual queue inherit the same continue action
+- New: `build_reverse_flow_focused_validation_continue_plan` packages one
+  inspectable continue wake surface on focused validation and
+  `focused_validation.continue_plan`:
+  - zero-row ready → `mode=run_pending` (all pending commands)
+  - partial ready → `mode=record_remaining` (remaining only)
+  - passed → `mode=keep_activation_external` (pending cleared)
+  - failed → `mode=repair`
+  Residual export stays denied on this surface; residual-active cascade still
+  owns fortress export after activation-external acceptance
+- New: durable operator_state exports
+  `reverse_flow_focused_validation_pending_commands` (command texts, not just
+  count) and `reverse_flow_focused_validation_continue_plan_mode` so supervisors
+  can run/record only pending work without re-deriving nested command lists or
+  re-rendering markdown
 - While ready/unrecorded with partial rows:
+  `continue_plan.mode=record_remaining`,
   `reverse_flow_continue_decision=record_remaining_reverse_flow_focused_validation_command_hashes_before_residual_export`,
-  `supervisor_next_action=record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external`,
-  residual export stays denied until full cover + residual-active cascade
+  `supervisor_next_action=record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external`
 - While ready/unrecorded with zero partial rows:
-  `reverse_flow_continue_decision=record_or_close_reverse_flow_focused_validation_before_residual_export`
-  and `supervisor_next_action=run_focused_local_test_validation_then_keep_activation_external`
+  `continue_plan.mode=run_pending`,
+  `reverse_flow_continue_decision=record_or_close_reverse_flow_focused_validation_before_residual_export`,
+  `supervisor_next_action=run_focused_local_test_validation_then_keep_activation_external`,
+  pending inventory still lists the full local command set as the work unit
 - Prior durable operator_state still holds: reverse-flow evidence binding
   (`reverse_flow_bound`, `reverse_flow_bound_source_marker=lingbol088-spec/reverse-flow-skill`,
   nested body-free `reverse_flow_evidence_binding`), residual hold/export flags,
@@ -84,9 +93,9 @@ Observed this run (digest `github-growth-20260713T045123.532400Z`,
   residual stages reverse-flow-waiting do not own residual repair next actions,
   leave fortress selection empty, and do not pre-export residual adjacent IDs
 - After multi-wake merge covers expected hashes and record/close passes,
-  operator_state refreshes: residual holds release, `residual_export_allowed=true`
-  when residual-active, fortress selected residual id re-exports only when
-  residual-active
+  continue_plan mode becomes `keep_activation_external`, residual holds release,
+  `residual_export_allowed=true` when residual-active, fortress selected residual
+  id re-exports only when residual-active
 - Activation, push, promotion, provider launch, remote apply, external skill
   execution, and kernel restart stay denied
 - agent-chief remains privacy review-only

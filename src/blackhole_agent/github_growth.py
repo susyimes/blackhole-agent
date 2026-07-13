@@ -4734,6 +4734,170 @@ def resolve_reverse_flow_focused_validation_continue_supervisor_next(
     return REVERSE_FLOW_FOCUSED_VALIDATION_SUPERVISOR_NEXT_RUN
 
 
+def build_reverse_flow_focused_validation_continue_plan(
+    *,
+    focused_local_test_validation: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Package one operator-visible reverse-flow focused-validation continue wake.
+
+    Unifies zero-row first wakes and multi-wake partial continue around the same
+    pending inventory: supervisors always run/record only ``pending_commands`` /
+    ``missing_command_hashes`` without re-deriving the full focused command list
+    from nested packets. Residual export stays denied while ready/unrecorded or
+    failed. Body-free only (no stdout, evidence URLs, or upstream bodies).
+    """
+
+    focused = (
+        focused_local_test_validation
+        if isinstance(focused_local_test_validation, dict)
+        else {}
+    )
+    status = str(focused.get("status") or "")
+    focused_validation = (
+        focused.get("focused_validation")
+        if isinstance(focused.get("focused_validation"), dict)
+        else {}
+    )
+    commands = [
+        str(item)
+        for item in list(focused_validation.get("commands") or [])
+        if str(item).strip()
+    ]
+    command_hashes = [
+        str(item).strip()
+        for item in list(focused_validation.get("command_hashes") or [])
+        if str(item).strip()
+    ]
+    result_rows = [
+        row
+        for row in list(focused_validation.get("command_results") or [])
+        if isinstance(row, dict)
+    ]
+    recorded_hashes = list(
+        focused_validation.get("recorded_command_hashes")
+        or recorded_skill_route_discovery_focused_validation_command_hashes(
+            expected_command_hashes=command_hashes,
+            command_results=result_rows,
+        )
+    )
+    recorded_hashes = [str(item).strip() for item in recorded_hashes if str(item).strip()]
+    missing_hashes = list(
+        focused_validation.get("missing_command_hashes")
+        or missing_skill_route_discovery_focused_validation_command_hashes(
+            expected_command_hashes=command_hashes,
+            command_results=result_rows,
+        )
+    )
+    missing_hashes = [str(item).strip() for item in missing_hashes if str(item).strip()]
+    pending_commands = list(
+        focused_validation.get("pending_commands")
+        or pending_skill_route_discovery_focused_validation_commands(
+            commands=commands,
+            command_hashes=command_hashes,
+            missing_command_hashes=missing_hashes,
+        )
+    )
+    pending_commands = [str(item) for item in pending_commands if str(item).strip()]
+    results_cover_expected = bool(focused_validation.get("results_cover_expected"))
+    recorded_result_count = int(
+        focused_validation.get("recorded_result_count")
+        if focused_validation.get("recorded_result_count") is not None
+        else len(result_rows)
+    )
+    expected_command_count = int(
+        focused_validation.get("expected_command_count")
+        if focused_validation.get("expected_command_count") is not None
+        else len(command_hashes)
+    )
+    partial_results_recorded = bool(focused_validation.get("partial_results_recorded")) or (
+        status == "ready"
+        and recorded_result_count > 0
+        and not results_cover_expected
+    )
+    supervisor_next = resolve_reverse_flow_focused_validation_continue_supervisor_next(
+        focused_local_test_validation=focused,
+    )
+    # Residual fortress export is owned by the residual-active cascade after
+    # activation-external acceptance. This continue plan never pre-authorizes it.
+    residual_export_allowed = False
+    mode = "wait"
+    reverse_flow_continue_decision = "none"
+    if status == "failed":
+        mode = "repair"
+        reverse_flow_continue_decision = (
+            "repair_failed_focused_local_test_validation_commands"
+        )
+    elif status == "passed":
+        mode = "keep_activation_external"
+        reverse_flow_continue_decision = str(
+            focused.get("supervisor_next_action")
+            or "keep_activation_external_after_focused_local_test_validation"
+        )
+        # Passed continue plans do not re-advertise pending work.
+        pending_commands = []
+        missing_hashes = []
+    elif status == "ready":
+        if partial_results_recorded:
+            mode = "record_remaining"
+            reverse_flow_continue_decision = (
+                "record_remaining_reverse_flow_focused_validation_command_hashes_before_residual_export"
+            )
+        else:
+            mode = "run_pending"
+            reverse_flow_continue_decision = (
+                "record_or_close_reverse_flow_focused_validation_before_residual_export"
+            )
+    elif status.startswith("blocked") or status in {"", "not_applicable"}:
+        mode = "wait"
+        reverse_flow_continue_decision = str(focused.get("decision") or "wait")
+        pending_commands = []
+        missing_hashes = []
+        recorded_hashes = []
+
+    return {
+        "schema_version": 1,
+        "controller_surface": "reverse_flow_focused_validation_continue_plan",
+        "proposal_track": "prop-reverse-flow-skill-route-discovery-continue",
+        "status": status or "none",
+        "mode": mode,
+        "decision": reverse_flow_continue_decision,
+        "supervisor_next_action": supervisor_next,
+        "reverse_flow_continue_decision": reverse_flow_continue_decision,
+        "partial_results_recorded": partial_results_recorded,
+        "results_cover_expected": results_cover_expected,
+        "expected_command_count": expected_command_count,
+        "recorded_result_count": recorded_result_count,
+        "recorded_command_hashes": recorded_hashes,
+        "recorded_command_hash_count": len(recorded_hashes),
+        "missing_command_hashes": missing_hashes,
+        "missing_command_hash_count": len(missing_hashes),
+        "pending_commands": pending_commands,
+        "pending_command_count": len(pending_commands),
+        "residual_export_allowed": residual_export_allowed,
+        "activation_external_only": True,
+        "supervisor_activation_allowed": False,
+        "runtime_action": "none",
+        "external_skill_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_apply_allowed": False,
+        "push_or_promotion_allowed": False,
+        "kernel_restart_allowed": False,
+        "body_free": True,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_bodies_exported": False,
+        "raw_command_stdout_exported": False,
+        "record_helpers": [
+            "record_skill_route_discovery_focused_local_test_validation_results",
+            "close_skill_route_discovery_focused_local_test_validation_with_outcome",
+            "merge_skill_route_discovery_focused_validation_command_results",
+            "resolve_reverse_flow_focused_validation_continue_supervisor_next",
+            "build_reverse_flow_focused_validation_continue_plan",
+        ]
+        if status in {"ready", "passed", "failed"}
+        else [],
+    }
+
+
 def record_skill_route_discovery_focused_local_test_validation_results(
     pipeline: dict[str, Any],
     command_results: list[dict[str, Any]] | None = None,
@@ -5239,7 +5403,31 @@ def build_skill_route_discovery_focused_local_test_validation(
     ]
     export_adjacent_ids = [] if residual_hold_active else adjacent_ids
 
-    return {
+    focused_validation_payload = {
+        "status": status,
+        "lane": "test",
+        "required": True,
+        "commands": export_commands,
+        "command_hashes": export_hashes,
+        "command_results": export_results,
+        "expected_command_count": len(export_hashes),
+        "recorded_result_count": len(export_results),
+        "recorded_command_hashes": recorded_hashes,
+        "recorded_command_hash_count": len(recorded_hashes),
+        "missing_command_hashes": missing_hashes,
+        "missing_command_hash_count": len(missing_hashes),
+        "pending_commands": pending_commands,
+        "pending_command_count": len(pending_commands),
+        "unit_test_signal": status in {"ready", "passed", "failed"},
+        "coverage_required": False,
+        "results_cover_expected": bool(results_cover_expected and export_results),
+        "all_expected_passed": bool(all_expected_passed and export_results),
+        "partial_results_recorded": bool(
+            status == "ready" and export_results and not results_cover_expected
+        ),
+        "recorded": recorded,
+    }
+    packet = {
         "schema_version": 1,
         "controller_surface": "skill_route_discovery_focused_local_test_validation",
         "proposal_track": "prop-skill-reverse-flow-focused-test-validation",
@@ -5288,30 +5476,7 @@ def build_skill_route_discovery_focused_local_test_validation(
         "preferred_local_lane": "test",
         "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
         "unlocked_local_lanes": unlocked_lanes if status in {"ready", "passed", "failed"} else [],
-        "focused_validation": {
-            "status": status,
-            "lane": "test",
-            "required": True,
-            "commands": export_commands,
-            "command_hashes": export_hashes,
-            "command_results": export_results,
-            "expected_command_count": len(export_hashes),
-            "recorded_result_count": len(export_results),
-            "recorded_command_hashes": recorded_hashes,
-            "recorded_command_hash_count": len(recorded_hashes),
-            "missing_command_hashes": missing_hashes,
-            "missing_command_hash_count": len(missing_hashes),
-            "pending_commands": pending_commands,
-            "pending_command_count": len(pending_commands),
-            "unit_test_signal": status in {"ready", "passed", "failed"},
-            "coverage_required": False,
-            "results_cover_expected": bool(results_cover_expected and export_results),
-            "all_expected_passed": bool(all_expected_passed and export_results),
-            "partial_results_recorded": bool(
-                status == "ready" and export_results and not results_cover_expected
-            ),
-            "recorded": recorded,
-        },
+        "focused_validation": focused_validation_payload,
         "local_validation_required": True,
         "activation_external_only": True,
         "supervisor_activation_allowed": False,
@@ -5379,6 +5544,7 @@ def build_skill_route_discovery_focused_local_test_validation(
             "close_skill_route_discovery_focused_local_test_validation_with_outcome",
             "merge_skill_route_discovery_focused_validation_command_results",
             "resolve_reverse_flow_focused_validation_continue_supervisor_next",
+            "build_reverse_flow_focused_validation_continue_plan",
         ]
         if status in {"ready", "passed", "failed"}
         else [],
@@ -5388,6 +5554,17 @@ def build_skill_route_discovery_focused_local_test_validation(
             else "none"
         ),
     }
+    # Attach continue plan after residual hold fields exist so zero-row and
+    # partial wakes share one inspectable pending-work surface.
+    continue_plan = build_reverse_flow_focused_validation_continue_plan(
+        focused_local_test_validation=packet,
+    )
+    packet["continue_plan"] = continue_plan
+    packet["focused_validation"] = {
+        **focused_validation_payload,
+        "continue_plan": continue_plan,
+    }
+    return packet
 
 
 def build_skill_route_discovery_focused_validation_activation_external_handoff(
@@ -10134,7 +10311,9 @@ def resolve_skill_route_discovery_pipeline_operator_state(
             "reverse_flow_focused_validation_recorded_command_hash_count": 0,
             "reverse_flow_focused_validation_missing_command_hashes": [],
             "reverse_flow_focused_validation_missing_command_hash_count": 0,
+            "reverse_flow_focused_validation_pending_commands": [],
             "reverse_flow_focused_validation_pending_command_count": 0,
+            "reverse_flow_focused_validation_continue_plan_mode": "none",
             "reverse_flow_continue_decision": "none",
             "reverse_flow_bound": False,
             "reverse_flow_bound_proposal_id": "",
@@ -10467,7 +10646,26 @@ def resolve_skill_route_discovery_pipeline_operator_state(
         "close_skill_route_discovery_focused_local_test_validation_with_outcome",
         "merge_skill_route_discovery_focused_validation_command_results",
         "resolve_reverse_flow_focused_validation_continue_supervisor_next",
+        "build_reverse_flow_focused_validation_continue_plan",
     ]
+    continue_plan = (
+        focused_local_test_validation.get("continue_plan")
+        if isinstance(focused_local_test_validation.get("continue_plan"), dict)
+        else focused_validation.get("continue_plan")
+        if isinstance(focused_validation.get("continue_plan"), dict)
+        else None
+    )
+    if not isinstance(continue_plan, dict) and focused_status in {
+        "ready",
+        "passed",
+        "failed",
+    }:
+        continue_plan = build_reverse_flow_focused_validation_continue_plan(
+            focused_local_test_validation=focused_local_test_validation,
+        )
+    if not isinstance(continue_plan, dict):
+        continue_plan = {}
+    continue_plan_mode = str(continue_plan.get("mode") or "none")
     # Align top-level supervisor_next with reverse-flow continue when partial
     # coverage already exists. Downstream residual packets may still say
     # run_focused... as a fallback; operator_state must stay reverse-flow-first.
@@ -10487,17 +10685,41 @@ def resolve_skill_route_discovery_pipeline_operator_state(
             else "record_or_close_reverse_flow_focused_validation_before_residual_export"
         )
         helpers = list(record_helpers)
+        # Prefer continue_plan pending inventory when present so zero-row and
+        # partial wakes share one durable work unit on operator_state.
+        if continue_plan.get("pending_commands") is not None:
+            pending_commands = [
+                str(item)
+                for item in list(continue_plan.get("pending_commands") or [])
+                if str(item).strip()
+            ]
+            pending_command_count = int(
+                continue_plan.get("pending_command_count")
+                if continue_plan.get("pending_command_count") is not None
+                else len(pending_commands)
+            )
+        if continue_plan.get("mode"):
+            continue_plan_mode = str(continue_plan.get("mode") or continue_plan_mode)
     elif focused_status == "failed":
         reverse_flow_continue_decision = (
             "repair_failed_focused_local_test_validation_commands"
         )
         helpers = list(record_helpers)
+        if continue_plan.get("mode"):
+            continue_plan_mode = str(continue_plan.get("mode") or "repair")
     elif focused_status == "passed":
         reverse_flow_continue_decision = str(supervisor_next or "none")
         helpers = []
+        pending_commands = []
+        pending_command_count = 0
+        if continue_plan.get("mode"):
+            continue_plan_mode = str(continue_plan.get("mode") or "keep_activation_external")
     else:
         reverse_flow_continue_decision = str(supervisor_next or "none")
         helpers = []
+        pending_commands = []
+        pending_command_count = 0
+        continue_plan_mode = "none"
 
     return {
         "supervisor_next_action": str(supervisor_next or "none"),
@@ -10527,7 +10749,9 @@ def resolve_skill_route_discovery_pipeline_operator_state(
         "reverse_flow_focused_validation_missing_command_hash_count": (
             missing_command_hash_count
         ),
+        "reverse_flow_focused_validation_pending_commands": pending_commands,
         "reverse_flow_focused_validation_pending_command_count": pending_command_count,
+        "reverse_flow_focused_validation_continue_plan_mode": continue_plan_mode,
         "reverse_flow_continue_decision": reverse_flow_continue_decision,
         "reverse_flow_bound": bool(reverse_flow_binding.get("bound")),
         "reverse_flow_bound_proposal_id": str(
@@ -10788,6 +11012,8 @@ def render_skill_route_discovery_capability_pipeline_lines(
         f"{int(operator_state.get('reverse_flow_focused_validation_missing_command_hash_count') or 0)}`",
         f"- Reverse-flow focused validation pending command count: `"
         f"{int(operator_state.get('reverse_flow_focused_validation_pending_command_count') or 0)}`",
+        f"- Reverse-flow focused validation continue plan mode: `"
+        f"{operator_state.get('reverse_flow_focused_validation_continue_plan_mode') or 'none'}`",
         f"- Reverse-flow continue decision: `"
         f"{operator_state.get('reverse_flow_continue_decision') or 'none'}`",
         f"- Adjacent agent harness-eval handoff: `{adjacent_handoff.get('status') or 'none'}`",
@@ -10808,7 +11034,8 @@ def render_skill_route_discovery_capability_pipeline_lines(
         "- While reverse-flow focused validation is ready/unrecorded or failed, residual fortress/Hy3 stages stay held; supervisor_next stays on reverse-flow focused validation and residual selected proposal is not advertised on residual packets or render.",
         "- Residual fortress/Hy3 selected_residual_proposal_id is exported only when residual work is residual-active; reverse-flow-waiting residual stages leave selection empty.",
         "- Reverse-flow focused validation, activation-external handoff/acceptance, and residual queue also hold residual adjacent_general_agent_proposal_ids and residual_adjacent_harness_eval_available until reverse-flow record/close and residual-active readiness; do not pre-export fortress IDs while reverse-flow waits.",
-        "- Pipeline operator_state durably exports supervisor_next_action, residual hold/export flags, reverse_flow_continue_decision, reverse-flow-skill evidence binding, residual_export_allowed, partial body-free command-hash coverage, recorded/missing command-hash inventories, and pending command counts after build and after record/close so supervisors continue reverse-flow without re-rendering markdown.",
+        "- Pipeline operator_state durably exports supervisor_next_action, residual hold/export flags, reverse_flow_continue_decision, reverse-flow-skill evidence binding, residual_export_allowed, partial body-free command-hash coverage, recorded/missing command-hash inventories, pending command texts/counts, and continue_plan mode after build and after record/close so supervisors continue reverse-flow without re-rendering markdown.",
+        "- build_reverse_flow_focused_validation_continue_plan unifies zero-row first wakes (mode=run_pending) and multi-wake partial continue (mode=record_remaining) around pending_commands / missing_command_hashes only; residual export stays denied until reverse-flow record/close and residual-active cascade.",
         "- Partial body-free command-hash rows stay on ready focused validation and accumulate across record calls via merge_skill_route_discovery_focused_validation_command_results; while partial, supervisor_next promotes to record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external (not a full re-run); residual export remains denied until results cover expected hashes and reverse-flow record/close advances residual-active work.",
         "- After ready, record_skill_route_discovery_focused_local_test_validation_results merges new body-free command-hash rows with any prior partial rows while activation stays external.",
         "- After ready, close_skill_route_discovery_focused_local_test_validation_with_outcome materializes body-free expected-hash outcomes and refreshes activation-external handoff/acceptance.",

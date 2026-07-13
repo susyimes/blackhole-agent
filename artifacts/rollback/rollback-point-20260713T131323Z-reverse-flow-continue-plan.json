@@ -1,0 +1,12 @@
+{
+  "original_head": "1f0def75f49cd6fdd69130a008149578eb06d684",
+  "local_rollback_ref": "refs/blackhole-rollback/20260713T131323Z",
+  "original_branch": "grok/blackhole-evolve/20260713T051211.732414-continue-reverse-flow-skill-route-discovery-reco",
+  "rollback_id": "20260713T131323Z",
+  "recovery_commands": [
+    "git checkout grok/blackhole-evolve/20260713T051211.732414-continue-reverse-flow-skill-route-discovery-reco",
+    "git reset --hard refs/blackhole-rollback/20260713T131323Z",
+    "git clean -fd"
+  ],
+  "created_at": "2026-07-13T05:13:23.6169020Z"
+}

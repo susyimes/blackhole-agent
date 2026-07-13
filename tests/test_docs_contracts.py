@@ -369,6 +369,7 @@ def test_skill_route_discovery_doc_records_capability_pipeline_pass1():
         "recorded_skill_route_discovery_focused_validation_command_hashes",
         "pending_skill_route_discovery_focused_validation_commands",
         "resolve_reverse_flow_focused_validation_continue_supervisor_next",
+        "build_reverse_flow_focused_validation_continue_plan",
         "record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external",
         "### Focused validation activation-external handoff",
         "Source digest: `github-growth-20260712T213308.729900Z`",

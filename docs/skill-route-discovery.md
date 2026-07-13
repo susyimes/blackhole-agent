@@ -254,12 +254,18 @@ emits `skill_route_discovery_focused_local_test_validation`:
    `merge_skill_route_discovery_focused_validation_command_results` (later rows
    for the same hash win). While coverage is incomplete residual export stays
    denied, missing hashes stay listed body-free, recorded/pending inventories
-   export (`recorded_command_hashes`, `pending_commands`), continue decision is
+   export (`recorded_command_hashes`, `pending_commands` on focused validation
+   and operator_state), continue decision is
    `record_remaining_reverse_flow_focused_validation_command_hashes_before_residual_export`,
    and operator-visible `supervisor_next_action` promotes to
    `record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external`
    (via `resolve_reverse_flow_focused_validation_continue_supervisor_next`) so
-   reverse-flow multi-wake continue does not re-advertise a full focused re-run
+   reverse-flow multi-wake continue does not re-advertise a full focused re-run.
+   `build_reverse_flow_focused_validation_continue_plan` packages one inspectable
+   continue wake: zero-row ready → `mode=run_pending` (all pending commands),
+   partial ready → `mode=record_remaining` (remaining only), passed →
+   `mode=keep_activation_external`, failed → `mode=repair`; residual export stays
+   denied on this surface
 
 Replay with:
 
@@ -296,7 +302,10 @@ results without treating unlock as a dead end:
    back to local command text for continue wakes;
    `resolve_reverse_flow_focused_validation_continue_supervisor_next` promotes
    partial ready surfaces to
-   `record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external`
+   `record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external`;
+   `build_reverse_flow_focused_validation_continue_plan` unifies zero-row and
+   partial wakes around `pending_commands` / `missing_command_hashes` with modes
+   `run_pending` | `record_remaining` | `repair` | `keep_activation_external`
 4. On partial ready coverage, decision is
    `record_remaining_focused_validation_command_hashes_before_activation_external`
    and supervisor next is record-remaining (not a full re-run). On pass, decision
