@@ -11200,6 +11200,300 @@ def package_reverse_flow_focused_validation_continue_residual_cascade(
     }
 
 
+def package_reverse_flow_focused_validation_continue_cascade(
+    *,
+    pipeline: dict[str, Any] | None = None,
+    operator_card: dict[str, Any] | None = None,
+    residual_cascade: dict[str, Any] | None = None,
+    follow_through: dict[str, Any] | None = None,
+    finish_receipt: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Collapse reverse-flow continue progress + residual cascade into one body-free card.
+
+    After residual cascade packages stage progress (``N/8``, ``blocked_at``),
+    supervisors still re-derived full continue state by reading both
+    ``action_line`` (reverse-flow progress such as ``0/3``) and
+    ``residual_cascade_line``. This surface packages a body-free
+    ``continue_cascade_line`` (for example
+    ``continue_cascade ready=false reverse_progress=0/3 residual_progress=0/8
+    residual_blocked_at=open reverse_action=execute_now
+    residual_action=wait_for_reverse_flow call_execute=true residual_export=false
+    next=run_focused_local_test_validation_then_keep_activation_external
+    helper=follow_reverse_flow_focused_validation_continue_dispatch``) so reverse-flow
+    continue progress, residual cascade progress, and reverse-flow-first next action
+    are legible without nested re-assembly.
+
+    ``continue_cascade`` is ready/complete only when reverse-flow progress is
+    complete and residual cascade is ready/complete. While reverse-flow waits,
+    action prefers reverse-flow follow-through (``execute_now`` /
+    ``record_remaining`` policy) over residual cascade stage waits. Residual
+    export stays denied on this continue surface even when the cascade is
+    complete. Does not enable activation, push, promotion, provider launch,
+    remote apply, external skill execution, or kernel restart. Does not export
+    raw evidence URLs, bodies, or command stdout.
+    """
+
+    pipe = pipeline if isinstance(pipeline, dict) else {}
+    card = operator_card if isinstance(operator_card, dict) else {}
+    cascade = residual_cascade if isinstance(residual_cascade, dict) else {}
+    ft = follow_through if isinstance(follow_through, dict) else {}
+    finish = finish_receipt if isinstance(finish_receipt, dict) else {}
+
+    if not card and pipe:
+        nested_card = pipe.get("reverse_flow_focused_validation_continue_operator_card")
+        if isinstance(nested_card, dict):
+            card = nested_card
+        else:
+            nested_state = pipe.get("operator_state")
+            if isinstance(nested_state, dict):
+                nested_card = nested_state.get(
+                    "reverse_flow_focused_validation_continue_operator_card"
+                )
+                if isinstance(nested_card, dict):
+                    card = nested_card
+                elif nested_state.get(
+                    "reverse_flow_focused_validation_recorded_result_count"
+                ) is not None:
+                    # Build a minimal card from operator_state progress fields.
+                    card = package_reverse_flow_focused_validation_continue_operator_card(
+                        pipeline=pipe,
+                        state=nested_state,
+                        follow_through=(
+                            nested_state.get(
+                                "reverse_flow_focused_validation_continue_dispatch_follow_through"
+                            )
+                            if isinstance(
+                                nested_state.get(
+                                    "reverse_flow_focused_validation_continue_dispatch_follow_through"
+                                ),
+                                dict,
+                            )
+                            else None
+                        ),
+                    )
+        if not card:
+            card = package_reverse_flow_focused_validation_continue_operator_card(
+                pipeline=pipe if pipe else None,
+                follow_through=ft if ft else None,
+            )
+
+    if not cascade and pipe:
+        nested_cascade = pipe.get(
+            "reverse_flow_focused_validation_continue_residual_cascade"
+        )
+        if isinstance(nested_cascade, dict):
+            cascade = nested_cascade
+        else:
+            nested_state = pipe.get("operator_state")
+            if isinstance(nested_state, dict):
+                nested_cascade = nested_state.get(
+                    "reverse_flow_focused_validation_continue_residual_cascade"
+                )
+                if isinstance(nested_cascade, dict):
+                    cascade = nested_cascade
+        if not cascade:
+            cascade = package_reverse_flow_focused_validation_continue_residual_cascade(
+                pipeline=pipe if pipe else None,
+            )
+
+    if not ft and pipe:
+        nested_ft = pipe.get(
+            "reverse_flow_focused_validation_continue_dispatch_follow_through"
+        )
+        if isinstance(nested_ft, dict):
+            ft = nested_ft
+        else:
+            nested_state = pipe.get("operator_state")
+            if isinstance(nested_state, dict):
+                nested_ft = nested_state.get(
+                    "reverse_flow_focused_validation_continue_dispatch_follow_through"
+                )
+                if isinstance(nested_ft, dict):
+                    ft = nested_ft
+
+    if not finish and pipe:
+        nested_finish = pipe.get(
+            "reverse_flow_focused_validation_continue_finish_receipt"
+        )
+        if isinstance(nested_finish, dict):
+            finish = nested_finish
+        else:
+            nested_state = pipe.get("operator_state")
+            if isinstance(nested_state, dict):
+                nested_finish = nested_state.get(
+                    "reverse_flow_focused_validation_continue_finish_receipt"
+                )
+                if isinstance(nested_finish, dict):
+                    finish = nested_finish
+
+    reverse_progress_label = str(card.get("progress_label") or "0/0")
+    reverse_progress_complete = bool(card.get("progress_complete"))
+    reverse_action = str(
+        card.get("follow_through_action")
+        or ft.get("follow_through_action")
+        or "none"
+    )
+    call_execute = bool(
+        card.get("call_dispatch_with_execute")
+        if card.get("call_dispatch_with_execute") is not None
+        else ft.get("call_dispatch_with_execute")
+    )
+    residual_hold_active = bool(
+        card.get("residual_hold_active")
+        if card.get("residual_hold_active") is not None
+        else True
+    )
+    residual_progress_label = str(
+        cascade.get("residual_cascade_progress_label") or "0/8"
+    )
+    residual_blocked_at = str(cascade.get("residual_cascade_blocked_at") or "open")
+    residual_action = str(
+        cascade.get("residual_cascade_action") or "wait_for_reverse_flow"
+    )
+    residual_cascade_ready = bool(cascade.get("residual_cascade"))
+    residual_cascade_state = str(cascade.get("residual_cascade_state") or "blocked")
+    continue_finished = bool(
+        finish.get("continue_finished")
+        if finish.get("continue_finished") is not None
+        else reverse_progress_complete
+    )
+    supervisor_next = str(
+        card.get("supervisor_next_action")
+        or cascade.get("residual_next_action")
+        or finish.get("supervisor_next_action")
+        or "none"
+    )
+    selected_residual = str(
+        cascade.get("selected_residual_proposal_id") or ""
+    ).strip()
+    remaining_count = int(cascade.get("remaining_residual_adjacent_count") or 0)
+
+    # Reverse-flow-first: prefer reverse continue action until progress covers
+    # expected hashes; only then surface residual cascade action.
+    if not reverse_progress_complete:
+        continue_cascade = False
+        continue_cascade_state = "blocked"
+        continue_cascade_action = reverse_action
+        continue_helper = "follow_reverse_flow_focused_validation_continue_dispatch"
+        continue_next = supervisor_next
+        if reverse_action in {"none", ""}:
+            continue_cascade_action = "wait_for_reverse_flow"
+    elif residual_cascade_ready and residual_cascade_state == "complete":
+        continue_cascade = True
+        continue_cascade_state = "complete"
+        continue_cascade_action = residual_action
+        continue_helper = (
+            "package_reverse_flow_focused_validation_continue_residual_cascade"
+        )
+        continue_next = str(
+            cascade.get("residual_next_action")
+            or supervisor_next
+            or "keep_activation_external_after_residual_adjacent_focused_local_validation"
+        )
+    elif residual_action == "repair_residual_cascade":
+        continue_cascade = False
+        continue_cascade_state = residual_cascade_state or "blocked"
+        continue_cascade_action = "repair_continue_cascade"
+        continue_helper = (
+            "package_reverse_flow_focused_validation_continue_cascade"
+        )
+        continue_next = str(
+            cascade.get("residual_next_action")
+            or supervisor_next
+            or "repair_skill_route_discovery_residual_adjacent_focused_validation_activation_external_handoff"
+        )
+    else:
+        continue_cascade = False
+        continue_cascade_state = residual_cascade_state or "in_progress"
+        continue_cascade_action = residual_action
+        continue_helper = (
+            "package_reverse_flow_focused_validation_continue_residual_cascade"
+        )
+        continue_next = str(
+            cascade.get("residual_next_action") or supervisor_next or "none"
+        )
+
+    continue_cascade_line = (
+        f"continue_cascade ready={'true' if continue_cascade else 'false'} "
+        f"status={continue_cascade_state} "
+        f"reverse_progress={reverse_progress_label} "
+        f"residual_progress={residual_progress_label} "
+        f"residual_blocked_at={residual_blocked_at} "
+        f"reverse_action={reverse_action} "
+        f"residual_action={residual_action} "
+        f"action={continue_cascade_action} "
+        f"call_execute={'true' if call_execute and not reverse_progress_complete else 'false'} "
+        f"continue_finished={'true' if continue_finished else 'false'} "
+        f"residual_cascade_ready={'true' if residual_cascade_ready else 'false'} "
+        f"residual_hold={'true' if residual_hold_active else 'false'} "
+        f"selected={selected_residual if continue_cascade else 'none'} "
+        f"remaining={remaining_count if continue_cascade else 0} "
+        f"residual_export=false "
+        f"next={continue_next} "
+        f"helper={continue_helper}"
+    )
+    return {
+        "schema_version": 1,
+        "controller_surface": (
+            "reverse_flow_focused_validation_continue_cascade"
+        ),
+        "proposal_track": "prop-reverse-flow-skill-route-discovery-continue",
+        "continue_cascade": bool(continue_cascade),
+        "continue_cascade_state": continue_cascade_state,
+        "continue_cascade_action": continue_cascade_action,
+        "reverse_progress_label": reverse_progress_label,
+        "reverse_progress_complete": bool(reverse_progress_complete),
+        "reverse_action": reverse_action,
+        "call_dispatch_with_execute": bool(
+            call_execute and not reverse_progress_complete
+        ),
+        "residual_progress_label": residual_progress_label,
+        "residual_cascade_blocked_at": residual_blocked_at,
+        "residual_cascade_action": residual_action,
+        "residual_cascade_ready": bool(residual_cascade_ready),
+        "residual_cascade_state": residual_cascade_state,
+        "continue_finished": bool(continue_finished),
+        "residual_hold_active": bool(residual_hold_active),
+        "selected_residual_proposal_id": selected_residual if continue_cascade else "",
+        "remaining_residual_adjacent_count": remaining_count if continue_cascade else 0,
+        "supervisor_next_action": continue_next,
+        "continue_cascade_line": continue_cascade_line,
+        "continue_cascade_helper": (
+            "package_reverse_flow_focused_validation_continue_cascade"
+        ),
+        "residual_cascade_helper": (
+            "package_reverse_flow_focused_validation_continue_residual_cascade"
+        ),
+        "operator_card_helper": (
+            "package_reverse_flow_focused_validation_continue_operator_card"
+        ),
+        "follow_through_helper": (
+            "follow_reverse_flow_focused_validation_continue_dispatch"
+        ),
+        "residual_export_allowed": False,
+        "activation_external_only": True,
+        "supervisor_activation_allowed": False,
+        "runtime_action": "none",
+        "external_skill_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_apply_allowed": False,
+        "push_or_promotion_allowed": False,
+        "kernel_restart_allowed": False,
+        "body_free": True,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_bodies_exported": False,
+        "raw_command_stdout_exported": False,
+        "record_helpers": [
+            "package_reverse_flow_focused_validation_continue_cascade",
+            "package_reverse_flow_focused_validation_continue_residual_cascade",
+            "package_reverse_flow_focused_validation_continue_operator_card",
+            "package_reverse_flow_focused_validation_continue_finish_receipt",
+            "follow_reverse_flow_focused_validation_continue_dispatch",
+            "dispatch_reverse_flow_focused_validation_continue_supervisor_wake",
+        ],
+    }
+
+
 def follow_reverse_flow_focused_validation_continue_dispatch(
     pipeline: dict[str, Any],
     *,
@@ -11221,9 +11515,9 @@ def follow_reverse_flow_focused_validation_continue_dispatch(
     ``execute=True`` only when ``call_dispatch_with_execute`` is true. After
     run/record attaches residual_open, residual_entry, residual_follow,
     residual_comparison, residual_unlocked_apply, residual_focused_validation,
-    residual_handoff, residual_acceptance, and residual_cascade so residual
-    cascade stage progress and activation-external acceptance policy are legible
-    without nested re-assembly.
+    residual_handoff, residual_acceptance, residual_cascade, and continue_cascade
+    so reverse-flow progress plus residual cascade stage progress and
+    activation-external acceptance policy are legible without nested re-assembly.
 
     ``execute=None`` follows the durable recommendation. ``execute=True`` still
     only runs allowlisted continue units (never forces re-run after pass).
@@ -11631,6 +11925,39 @@ def follow_reverse_flow_focused_validation_continue_dispatch(
     result["residual_cascade_helper"] = (
         "package_reverse_flow_focused_validation_continue_residual_cascade"
     )
+    continue_cascade = (
+        dispatch_packet.get("continue_cascade")
+        if isinstance(dispatch_packet.get("continue_cascade"), dict)
+        else package_reverse_flow_focused_validation_continue_cascade(
+            pipeline=updated_pipeline,
+            operator_card=post_operator_card,
+            residual_cascade=residual_cascade,
+            follow_through=post_follow_through,
+            finish_receipt=finish_receipt,
+        )
+    )
+    result["continue_cascade"] = continue_cascade
+    result["continue_cascade_line"] = str(
+        continue_cascade.get("continue_cascade_line") or ""
+    )
+    result["continue_cascade_ready"] = bool(
+        continue_cascade.get("continue_cascade")
+    )
+    result["continue_cascade_action"] = str(
+        continue_cascade.get("continue_cascade_action") or "wait_for_reverse_flow"
+    )
+    result["continue_cascade_reverse_progress_label"] = str(
+        continue_cascade.get("reverse_progress_label") or "0/0"
+    )
+    result["continue_cascade_residual_progress_label"] = str(
+        continue_cascade.get("residual_progress_label") or "0/8"
+    )
+    result["continue_cascade_residual_blocked_at"] = str(
+        continue_cascade.get("residual_cascade_blocked_at") or "open"
+    )
+    result["continue_cascade_helper"] = (
+        "package_reverse_flow_focused_validation_continue_cascade"
+    )
     result["call_dispatch_with_execute"] = bool(should_execute)
     result["followed_recommendation"] = execute is None
     result["execute_requested"] = execute
@@ -11655,6 +11982,7 @@ def follow_reverse_flow_focused_validation_continue_dispatch(
     result["residual_export_allowed"] = False
     helpers = list(result.get("record_helpers") or [])
     for name in (
+        "package_reverse_flow_focused_validation_continue_cascade",
         "package_reverse_flow_focused_validation_continue_residual_cascade",
         "package_reverse_flow_focused_validation_continue_residual_acceptance",
         "package_reverse_flow_focused_validation_continue_residual_handoff",
@@ -11704,7 +12032,7 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
     ``call_dispatch_with_execute`` without re-deriving action + recommendation.
     Also packages residual_open, residual_entry, residual_follow,
     residual_comparison, residual_unlocked_apply, residual_focused_validation,
-    residual_handoff, residual_acceptance, and residual_cascade
+    residual_handoff, residual_acceptance, residual_cascade, and continue_cascade
     (blocked while reverse-flow waits; ready after pass) without residual_export.
     Never enables activation, push, promotion, provider launch, remote apply,
     external skill execution, or kernel restart. Does not export stdout.
@@ -12229,6 +12557,49 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
         execute_result["residual_cascade_helper"] = (
             "package_reverse_flow_focused_validation_continue_residual_cascade"
         )
+        continue_cascade = (
+            package_reverse_flow_focused_validation_continue_cascade(
+                pipeline=updated_pipeline,
+                operator_card=(
+                    execute_result.get("post_operator_card")
+                    if isinstance(execute_result.get("post_operator_card"), dict)
+                    else operator_card
+                ),
+                residual_cascade=residual_cascade,
+                follow_through=(
+                    execute_result.get("post_follow_through")
+                    if isinstance(execute_result.get("post_follow_through"), dict)
+                    else follow_through
+                ),
+                finish_receipt=(
+                    execute_result.get("finish_receipt")
+                    if isinstance(execute_result.get("finish_receipt"), dict)
+                    else None
+                ),
+            )
+        )
+        execute_result["continue_cascade"] = continue_cascade
+        execute_result["continue_cascade_line"] = str(
+            continue_cascade.get("continue_cascade_line") or ""
+        )
+        execute_result["continue_cascade_ready"] = bool(
+            continue_cascade.get("continue_cascade")
+        )
+        execute_result["continue_cascade_action"] = str(
+            continue_cascade.get("continue_cascade_action") or "wait_for_reverse_flow"
+        )
+        execute_result["continue_cascade_reverse_progress_label"] = str(
+            continue_cascade.get("reverse_progress_label") or "0/0"
+        )
+        execute_result["continue_cascade_residual_progress_label"] = str(
+            continue_cascade.get("residual_progress_label") or "0/8"
+        )
+        execute_result["continue_cascade_residual_blocked_at"] = str(
+            continue_cascade.get("residual_cascade_blocked_at") or "open"
+        )
+        execute_result["continue_cascade_helper"] = (
+            "package_reverse_flow_focused_validation_continue_cascade"
+        )
         return execute_result
 
     # Inventory-only / not-executable / keep / repair / noop: return durable packet
@@ -12534,6 +12905,35 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
     result["residual_cascade_helper"] = (
         "package_reverse_flow_focused_validation_continue_residual_cascade"
     )
+    continue_cascade = package_reverse_flow_focused_validation_continue_cascade(
+        pipeline=pipeline,
+        operator_card=operator_card,
+        residual_cascade=residual_cascade,
+        follow_through=follow_through,
+        finish_receipt=finish_receipt,
+    )
+    result["continue_cascade"] = continue_cascade
+    result["continue_cascade_line"] = str(
+        continue_cascade.get("continue_cascade_line") or ""
+    )
+    result["continue_cascade_ready"] = bool(
+        continue_cascade.get("continue_cascade")
+    )
+    result["continue_cascade_action"] = str(
+        continue_cascade.get("continue_cascade_action") or "wait_for_reverse_flow"
+    )
+    result["continue_cascade_reverse_progress_label"] = str(
+        continue_cascade.get("reverse_progress_label") or "0/0"
+    )
+    result["continue_cascade_residual_progress_label"] = str(
+        continue_cascade.get("residual_progress_label") or "0/8"
+    )
+    result["continue_cascade_residual_blocked_at"] = str(
+        continue_cascade.get("residual_cascade_blocked_at") or "open"
+    )
+    result["continue_cascade_helper"] = (
+        "package_reverse_flow_focused_validation_continue_cascade"
+    )
     result["follow_through_helper"] = (
         "follow_reverse_flow_focused_validation_continue_dispatch"
     )
@@ -12542,6 +12942,7 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
     )
     helpers = list(result.get("record_helpers") or [])
     for name in (
+        "package_reverse_flow_focused_validation_continue_cascade",
         "package_reverse_flow_focused_validation_continue_residual_cascade",
         "package_reverse_flow_focused_validation_continue_residual_acceptance",
         "package_reverse_flow_focused_validation_continue_residual_handoff",
@@ -18441,6 +18842,9 @@ def resolve_skill_route_discovery_pipeline_operator_state(
     state[
         "reverse_flow_focused_validation_continue_residual_cascade_helper"
     ] = "package_reverse_flow_focused_validation_continue_residual_cascade"
+    state[
+        "reverse_flow_focused_validation_continue_cascade_helper"
+    ] = "package_reverse_flow_focused_validation_continue_cascade"
     # Body-free finish receipt so supervisors can log continue_finished /
     # residual_queue_ready without nested post-card / handoff re-assembly.
     finish_receipt = package_reverse_flow_focused_validation_continue_finish_receipt(
@@ -18709,6 +19113,43 @@ def resolve_skill_route_discovery_pipeline_operator_state(
     state[
         "reverse_flow_focused_validation_continue_residual_cascade_helper"
     ] = "package_reverse_flow_focused_validation_continue_residual_cascade"
+    # Body-free continue cascade unifies reverse-flow progress with residual
+    # cascade progress / blocked_at without residual_export.
+    continue_cascade = package_reverse_flow_focused_validation_continue_cascade(
+        pipeline=pipeline,
+        operator_card=operator_card,
+        residual_cascade=residual_cascade,
+        follow_through=(
+            continue_dispatch_follow_through
+            if continue_dispatch_follow_through
+            else None
+        ),
+        finish_receipt=finish_receipt if finish_receipt else None,
+    )
+    state["reverse_flow_focused_validation_continue_cascade"] = continue_cascade
+    state[
+        "reverse_flow_focused_validation_continue_cascade_line"
+    ] = str(continue_cascade.get("continue_cascade_line") or "")
+    state[
+        "reverse_flow_focused_validation_continue_cascade_ready"
+    ] = bool(continue_cascade.get("continue_cascade"))
+    state[
+        "reverse_flow_focused_validation_continue_cascade_action"
+    ] = str(
+        continue_cascade.get("continue_cascade_action") or "wait_for_reverse_flow"
+    )
+    state[
+        "reverse_flow_focused_validation_continue_cascade_reverse_progress_label"
+    ] = str(continue_cascade.get("reverse_progress_label") or "0/0")
+    state[
+        "reverse_flow_focused_validation_continue_cascade_residual_progress_label"
+    ] = str(continue_cascade.get("residual_progress_label") or "0/8")
+    state[
+        "reverse_flow_focused_validation_continue_cascade_residual_blocked_at"
+    ] = str(continue_cascade.get("residual_cascade_blocked_at") or "open")
+    state[
+        "reverse_flow_focused_validation_continue_cascade_helper"
+    ] = "package_reverse_flow_focused_validation_continue_cascade"
     return state
 
 
@@ -19066,6 +19507,20 @@ def render_skill_route_discovery_capability_pipeline_lines(
         f"{operator_state.get('reverse_flow_focused_validation_continue_residual_cascade_progress_label') or '0/8'}`",
         f"- Reverse-flow focused validation continue residual cascade blocked at: `"
         f"{operator_state.get('reverse_flow_focused_validation_continue_residual_cascade_blocked_at') or 'open'}`",
+        f"- Reverse-flow focused validation continue cascade helper: `"
+        f"{operator_state.get('reverse_flow_focused_validation_continue_cascade_helper') or 'package_reverse_flow_focused_validation_continue_cascade'}`",
+        f"- Reverse-flow focused validation continue cascade line: `"
+        f"{operator_state.get('reverse_flow_focused_validation_continue_cascade_line') or 'none'}`",
+        f"- Reverse-flow focused validation continue cascade action: `"
+        f"{operator_state.get('reverse_flow_focused_validation_continue_cascade_action') or 'wait_for_reverse_flow'}`",
+        f"- Reverse-flow focused validation continue cascade ready: `"
+        f"{bool(operator_state.get('reverse_flow_focused_validation_continue_cascade_ready'))}`",
+        f"- Reverse-flow focused validation continue cascade reverse progress: `"
+        f"{operator_state.get('reverse_flow_focused_validation_continue_cascade_reverse_progress_label') or '0/0'}`",
+        f"- Reverse-flow focused validation continue cascade residual progress: `"
+        f"{operator_state.get('reverse_flow_focused_validation_continue_cascade_residual_progress_label') or '0/8'}`",
+        f"- Reverse-flow focused validation continue cascade residual blocked at: `"
+        f"{operator_state.get('reverse_flow_focused_validation_continue_cascade_residual_blocked_at') or 'open'}`",
         f"- Reverse-flow continue decision: `"
         f"{operator_state.get('reverse_flow_continue_decision') or 'none'}`",
         f"- Adjacent agent harness-eval handoff: `{adjacent_handoff.get('status') or 'none'}`",
@@ -19106,8 +19561,9 @@ def render_skill_route_discovery_capability_pipeline_lines(
         "- package_reverse_flow_focused_validation_continue_residual_handoff collapses residual focused validation into body-free residual_handoff_line (for example residual_handoff ready=true selected=prop-harness-fortress-local-eval status=ready lane=test preferred=test remaining=0 focused_ready=true action=open_residual_activation_external_acceptance call_acceptance=true residual_export=false next=keep_activation_external_after_residual_adjacent_focused_local_validation helper=build_skill_route_discovery_residual_adjacent_focused_validation_activation_external_handoff) so residual activation-external handoff readiness, remaining residual IDs, and acceptance policy are legible without nested re-assembly; residual export stays denied on continue surfaces and call_residual_acceptance is informational policy only (true only after residual handoff is ready).",
         "- package_reverse_flow_focused_validation_continue_residual_acceptance collapses residual handoff into body-free residual_acceptance_line (for example residual_acceptance ready=true selected=prop-harness-fortress-local-eval status=accepted lane=test preferred=test remaining=0 handoff_ready=true action=keep_activation_external residual_export=false next=keep_activation_external_after_residual_adjacent_focused_local_validation helper=build_skill_route_discovery_residual_adjacent_focused_validation_activation_external_acceptance) so residual activation-external acceptance readiness, remaining residual IDs, and keep_activation_external policy are legible without nested re-assembly; residual export stays denied on continue surfaces even when residual acceptance is accepted.",
         "- package_reverse_flow_focused_validation_continue_residual_cascade collapses residual acceptance into body-free residual_cascade_line (for example residual_cascade ready=true selected=prop-harness-fortress-local-eval status=complete progress=8/8 blocked_at=none stages=open,entry,follow,comparison,unlocked_apply,focused_validation,handoff,acceptance remaining=0 action=keep_activation_external residual_export=false next=keep_activation_external_after_residual_adjacent_focused_local_validation helper=package_reverse_flow_focused_validation_continue_residual_acceptance) so residual cascade stage progress, blocked stage, remaining residual IDs, and keep_activation_external policy are legible without nested re-assembly; residual export stays denied on continue surfaces even when residual cascade is complete.",
-        "- follow_reverse_flow_focused_validation_continue_dispatch is the preferred policy-aware operator entry: package inventory, resolve follow-through, call dispatch with execute only when call_dispatch_with_execute is true, and attach post_follow_through plus operator_card/post_operator_card, progress_transition, exec_receipt, finish_receipt, residual_open, residual_entry, residual_follow, residual_comparison, residual_unlocked_apply, residual_focused_validation, residual_handoff, residual_acceptance, and residual_cascade after run/record; residual fortress stages stay blocked until reverse-flow record/close and activation-external acceptance.",
-        "- dispatch_reverse_flow_focused_validation_continue_supervisor_wake remains the low-level single operator entry: inventory packet first (via package_reverse_flow_focused_validation_continue_dispatch_inventory), optional allowlisted run/record when continue_run_executable, always reverse-flow-first supervisor_wake plus post_dispatch_inventory, follow_through, operator_card progress labels, progress_transition, exec_receipt, finish_receipt, residual_open, residual_entry, residual_follow, residual_comparison, residual_unlocked_apply, residual_focused_validation, residual_handoff, residual_acceptance, and residual_cascade; residual fortress stages stay blocked until reverse-flow record/close and activation-external acceptance. operator_state also exports continue_run_recommended, continue_supervisor_wake, continue_dispatch (inventory packet without pipeline snapshot), continue_dispatch_action, continue_dispatch_execute_recommended, continue_dispatch_follow_through, continue_dispatch_follow_through_action, continue_dispatch_call_with_execute, continue_dispatch_helper, continue_dispatch_inventory_helper, continue_dispatch_follow_through_helper, continue_operator_card, continue_operator_card_helper, continue_progress_label, continue_action_line, continue_progress_transition_helper, continue_exec_receipt_helper, continue_finish_receipt, continue_finish_receipt_helper, continue_finish_line, continue_finished, continue_residual_queue_ready, continue_residual_open, continue_residual_open_helper, continue_residual_open_line, continue_residual_open_ready, continue_residual_adjacent_count, continue_residual_entry, continue_residual_entry_helper, continue_residual_entry_line, continue_residual_entry_ready, continue_selected_residual_proposal_id, continue_residual_follow, continue_residual_follow_helper, continue_residual_follow_line, continue_residual_follow_ready, continue_residual_follow_action, continue_call_residual_comparison, continue_residual_comparison, continue_residual_comparison_helper, continue_residual_comparison_line, continue_residual_comparison_ready, continue_residual_comparison_action, continue_call_residual_unlocked_apply, continue_residual_unlocked_apply, continue_residual_unlocked_apply_helper, continue_residual_unlocked_apply_line, continue_residual_unlocked_apply_ready, continue_residual_unlocked_apply_action, continue_call_residual_focused_validation, continue_residual_focused_validation, continue_residual_focused_validation_helper, continue_residual_focused_validation_line, continue_residual_focused_validation_ready, continue_residual_focused_validation_action, continue_call_residual_handoff, continue_residual_handoff, continue_residual_handoff_helper, continue_residual_handoff_line, continue_residual_handoff_ready, continue_residual_handoff_action, continue_call_residual_acceptance, continue_residual_acceptance, continue_residual_acceptance_helper, continue_residual_acceptance_line, continue_residual_acceptance_ready, continue_residual_acceptance_action, nested continue_residual_cascade, continue_residual_cascade_helper, continue_residual_cascade_line, continue_residual_cascade_ready, continue_residual_cascade_action, continue_residual_cascade_progress_label, and continue_residual_cascade_blocked_at while reverse-flow is ready/unrecorded or after pass.",
+        "- package_reverse_flow_focused_validation_continue_cascade collapses reverse-flow continue progress plus residual cascade into body-free continue_cascade_line (for example continue_cascade ready=false reverse_progress=0/3 residual_progress=0/8 residual_blocked_at=open reverse_action=execute_now residual_action=wait_for_reverse_flow action=execute_now call_execute=true residual_export=false next=run_focused_local_test_validation_then_keep_activation_external helper=follow_reverse_flow_focused_validation_continue_dispatch) so reverse-flow progress, residual cascade progress/blocked_at, and reverse-flow-first next action are legible without nested re-assembly; residual export stays denied on continue surfaces even when continue cascade is complete.",
+        "- follow_reverse_flow_focused_validation_continue_dispatch is the preferred policy-aware operator entry: package inventory, resolve follow-through, call dispatch with execute only when call_dispatch_with_execute is true, and attach post_follow_through plus operator_card/post_operator_card, progress_transition, exec_receipt, finish_receipt, residual_open, residual_entry, residual_follow, residual_comparison, residual_unlocked_apply, residual_focused_validation, residual_handoff, residual_acceptance, residual_cascade, and continue_cascade after run/record; residual fortress stages stay blocked until reverse-flow record/close and activation-external acceptance.",
+        "- dispatch_reverse_flow_focused_validation_continue_supervisor_wake remains the low-level single operator entry: inventory packet first (via package_reverse_flow_focused_validation_continue_dispatch_inventory), optional allowlisted run/record when continue_run_executable, always reverse-flow-first supervisor_wake plus post_dispatch_inventory, follow_through, operator_card progress labels, progress_transition, exec_receipt, finish_receipt, residual_open, residual_entry, residual_follow, residual_comparison, residual_unlocked_apply, residual_focused_validation, residual_handoff, residual_acceptance, residual_cascade, and continue_cascade; residual fortress stages stay blocked until reverse-flow record/close and activation-external acceptance. operator_state also exports continue_run_recommended, continue_supervisor_wake, continue_dispatch (inventory packet without pipeline snapshot), continue_dispatch_action, continue_dispatch_execute_recommended, continue_dispatch_follow_through, continue_dispatch_follow_through_action, continue_dispatch_call_with_execute, continue_dispatch_helper, continue_dispatch_inventory_helper, continue_dispatch_follow_through_helper, continue_operator_card, continue_operator_card_helper, continue_progress_label, continue_action_line, continue_progress_transition_helper, continue_exec_receipt_helper, continue_finish_receipt, continue_finish_receipt_helper, continue_finish_line, continue_finished, continue_residual_queue_ready, continue_residual_open, continue_residual_open_helper, continue_residual_open_line, continue_residual_open_ready, continue_residual_adjacent_count, continue_residual_entry, continue_residual_entry_helper, continue_residual_entry_line, continue_residual_entry_ready, continue_selected_residual_proposal_id, continue_residual_follow, continue_residual_follow_helper, continue_residual_follow_line, continue_residual_follow_ready, continue_residual_follow_action, continue_call_residual_comparison, continue_residual_comparison, continue_residual_comparison_helper, continue_residual_comparison_line, continue_residual_comparison_ready, continue_residual_comparison_action, continue_call_residual_unlocked_apply, continue_residual_unlocked_apply, continue_residual_unlocked_apply_helper, continue_residual_unlocked_apply_line, continue_residual_unlocked_apply_ready, continue_residual_unlocked_apply_action, continue_call_residual_focused_validation, continue_residual_focused_validation, continue_residual_focused_validation_helper, continue_residual_focused_validation_line, continue_residual_focused_validation_ready, continue_residual_focused_validation_action, continue_call_residual_handoff, continue_residual_handoff, continue_residual_handoff_helper, continue_residual_handoff_line, continue_residual_handoff_ready, continue_residual_handoff_action, continue_call_residual_acceptance, continue_residual_acceptance, continue_residual_acceptance_helper, continue_residual_acceptance_line, continue_residual_acceptance_ready, continue_residual_acceptance_action, nested continue_residual_cascade, continue_residual_cascade_helper, continue_residual_cascade_line, continue_residual_cascade_ready, continue_residual_cascade_action, continue_residual_cascade_progress_label, continue_residual_cascade_blocked_at, nested continue_cascade, continue_cascade_helper, continue_cascade_line, continue_cascade_ready, continue_cascade_action, continue_cascade_reverse_progress_label, continue_cascade_residual_progress_label, and continue_cascade_residual_blocked_at while reverse-flow is ready/unrecorded or after pass.",
         "- Partial body-free command-hash rows stay on ready focused validation and accumulate across record calls via merge_skill_route_discovery_focused_validation_command_results; while partial, supervisor_next promotes to record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external (not a full re-run); residual export remains denied until results cover expected hashes and reverse-flow record/close advances residual-active work.",
         "- After ready, record_skill_route_discovery_focused_local_test_validation_results merges new body-free command-hash rows with any prior partial rows while activation stays external.",
         "- After ready, close_skill_route_discovery_focused_local_test_validation_with_outcome materializes body-free expected-hash outcomes and refreshes activation-external handoff/acceptance.",

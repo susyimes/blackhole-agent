@@ -46,7 +46,7 @@ residual adjacent focused validation activation-external handoff →
 residual adjacent focused validation activation-external acceptance →
 (optional) selected-step adjacent harness-eval.
 
-Observed this run (digest `github-growth-20260713T185418.714620Z`,
+Observed this run (digest `github-growth-20260713T195418.632720Z`,
 `prop-skill-reverse-flow-continue` / reverse-flow bound against
 `lingbol088-spec/reverse-flow-skill`, residual fortress/Hy3 adjacent):
 
@@ -54,82 +54,77 @@ Observed this run (digest `github-growth-20260713T185418.714620Z`,
   `continue_plan.mode=run_pending` until supervisors follow continue dispatch
   policy and record/close body-free results; residual stages stay blocked waiting
   on reverse-flow record/close and activation-external acceptance
-- Prior: residual acceptance packaging already collapses residual handoff into
-  body-free residual activation-external acceptance readiness +
-  keep_activation_external / note_remaining_residual_rows policy without
+- Prior: residual cascade packaging already collapses eight residual stages into
+  body-free `residual_cascade_line` (progress N/8, blocked_at, action) without
   residual_export
-- New: `package_reverse_flow_focused_validation_continue_residual_cascade`
-  collapses residual acceptance into body-free
-  `residual_cascade_line` (for example
-  `residual_cascade ready=true
-  selected=prop-harness-fortress-local-eval status=complete progress=8/8
-  blocked_at=none stages=open,entry,follow,comparison,unlocked_apply,
-  focused_validation,handoff,acceptance remaining=0
-  action=keep_activation_external residual_export=false
-  next=keep_activation_external_after_residual_adjacent_focused_local_validation
-  helper=package_reverse_flow_focused_validation_continue_residual_acceptance`)
-  so supervisors do not re-derive residual cascade stage progress, blocked stage,
-  remaining residual IDs, or keep_activation_external policy from eight nested
-  residual cards
-- New: follow and dispatch attach `residual_cascade`,
-  `residual_cascade_line`, `residual_cascade_ready`,
-  `residual_cascade_action`, `residual_cascade_progress_label`, and
-  `residual_cascade_blocked_at`
-- New: inventory-only wakes package blocked residual cascade
-  (`ready=false`, `action=wait_for_reverse_flow`, `progress=0/8`,
-  `blocked_at=open`, residual_export denied) for pre-exec audit while reverse-flow
-  is still unrecorded
-- New: operator_state exports nested `continue_residual_cascade`,
-  `continue_residual_cascade_helper`,
-  `continue_residual_cascade_line`,
-  `continue_residual_cascade_ready`,
-  `continue_residual_cascade_action`,
-  `continue_residual_cascade_progress_label`, and
-  `continue_residual_cascade_blocked_at` (alongside continue_residual_acceptance /
-  continue_residual_handoff / continue_call_residual_acceptance /
-  continue_residual_focused_validation / continue_residual_unlocked_apply /
-  continue_residual_comparison / continue_residual_follow /
-  continue_residual_entry / continue_residual_open / continue_finish_receipt /
-  continue_finished)
-- Ready/unrecorded residual cascade:
-  `residual_cascade_ready=false`,
-  `residual_cascade_action=wait_for_reverse_flow`,
-  `residual_cascade_progress_label=0/8`, `residual_cascade_blocked_at=open`,
-  residual_export denied; finish stays incomplete while progress is 0/N
-- Full follow after reverse-flow pass + residual cascade: residual handoff becomes
-  ready with `call_residual_acceptance=true`; residual acceptance then becomes
-  ready/accepted with `action=keep_activation_external` (or
-  `note_remaining_residual_rows` when remaining residual IDs exist); residual
-  cascade then becomes ready/complete with `progress=8/8`, `blocked_at=none`,
-  and the same keep_activation_external / note_remaining_residual_rows action;
-  residual export still denied on continue/dispatch/follow/finish/residual_open/
-  residual_entry/residual_follow/residual_comparison/residual_unlocked_apply/
-  residual_focused_validation/residual_handoff/residual_acceptance/
-  residual_cascade surfaces themselves (residual stages open only via residual
-  pipeline helpers)
+- New: `package_reverse_flow_focused_validation_continue_cascade`
+  collapses reverse-flow continue progress plus residual cascade into body-free
+  `continue_cascade_line` (for example
+  `continue_cascade ready=false reverse_progress=0/3 residual_progress=0/8
+  residual_blocked_at=open reverse_action=execute_now
+  residual_action=wait_for_reverse_flow action=execute_now call_execute=true
+  residual_export=false
+  next=run_focused_local_test_validation_then_keep_activation_external
+  helper=follow_reverse_flow_focused_validation_continue_dispatch`)
+  so supervisors do not re-derive full continue state from separate action_line
+  and residual_cascade_line surfaces
+- New: follow and dispatch attach `continue_cascade`,
+  `continue_cascade_line`, `continue_cascade_ready`,
+  `continue_cascade_action`, `continue_cascade_reverse_progress_label`,
+  `continue_cascade_residual_progress_label`, and
+  `continue_cascade_residual_blocked_at`
+- New: inventory-only wakes package blocked continue cascade
+  (`ready=false`, `action=execute_now`, `reverse_progress=0/3`,
+  `residual_progress=0/8`, `residual_blocked_at=open`, residual_export denied)
+  for pre-exec audit while reverse-flow is still unrecorded
+- New: operator_state exports nested `continue_cascade`,
+  `continue_cascade_helper`,
+  `continue_cascade_line`,
+  `continue_cascade_ready`,
+  `continue_cascade_action`,
+  `continue_cascade_reverse_progress_label`,
+  `continue_cascade_residual_progress_label`, and
+  `continue_cascade_residual_blocked_at` (alongside continue_residual_cascade /
+  continue_residual_acceptance / continue_residual_handoff /
+  continue_call_residual_acceptance / continue_residual_focused_validation /
+  continue_residual_unlocked_apply / continue_residual_comparison /
+  continue_residual_follow / continue_residual_entry / continue_residual_open /
+  continue_finish_receipt / continue_finished)
+- Ready/unrecorded continue cascade:
+  `continue_cascade_ready=false`,
+  `continue_cascade_action=execute_now`,
+  `continue_cascade_reverse_progress_label=0/3`,
+  `continue_cascade_residual_progress_label=0/8`,
+  `continue_cascade_residual_blocked_at=open`,
+  residual_export denied; finish stays incomplete while reverse progress is 0/N
+- Full follow after reverse-flow pass + residual cascade complete: continue
+  cascade becomes ready/complete with reverse_progress=N/N residual_progress=8/8
+  residual_blocked_at=none and residual cascade keep_activation_external /
+  note_remaining_residual_rows action; residual export still denied on
+  continue/dispatch/follow/finish/residual_open/residual_entry/residual_follow/
+  residual_comparison/residual_unlocked_apply/residual_focused_validation/
+  residual_handoff/residual_acceptance/residual_cascade/continue_cascade
+  surfaces themselves
 - While residual focused validation is ready/unrecorded after reverse-flow pass:
-  residual handoff waits (`wait_for_residual_focused_validation`), residual
-  acceptance waits (`wait_for_residual_handoff`), and residual cascade reports
-  `blocked_at=handoff` with partial stage progress (for example 6/8) with
-  residual_export denied
+  residual cascade reports `blocked_at=handoff` with partial stage progress
+  (for example 6/8); continue cascade keeps reverse progress complete and
+  surfaces residual_action=`wait_for_residual_handoff` with residual_export denied
 - Partial follow: runs remaining units only (`mode=record_remaining`) then
   packages keep_activation_external post_follow_through; residual unlocked apply,
-  residual focused validation, and residual handoff become ready only when
-  remaining units close, acceptance is accepted, residual queue is residual-active,
-  residual comparison is residual-active ready, residual unlocked-apply criteria
-  pass, residual focused-validation criteria pass, and residual handoff criteria pass
+  residual focused validation, residual handoff, residual acceptance, residual
+  cascade, and continue cascade advance only when remaining units close and
+  residual-active criteria pass
 - Post-pass follow with recommendation still defaulted: action=`keep_activation_external`,
   call_dispatch_with_execute=false, does not re-run units; residual open, residual
   entry, residual follow, residual comparison, residual unlocked apply, residual
-  focused validation, residual handoff, residual acceptance, and residual cascade
-  stay ready (or cascade-progress legible) with residual_export denied when residual
-  queue, residual apply, residual comparison, residual unlocked apply, residual
-  focused validation, and residual handoff are ready
+  focused validation, residual handoff, residual acceptance, residual cascade,
+  and continue cascade stay ready (or cascade-progress legible) with residual_export
+  denied when residual queue through residual cascade are ready
 - Explicit `execute=False` on follow or dispatch stays inventory-only even when
   follow_through_action would be `execute_now`; residual open, residual entry,
   residual follow, residual comparison, residual unlocked apply, residual focused
-  validation, residual handoff, residual acceptance, and residual cascade stay
-  blocked while progress is 0/N
+  validation, residual handoff, residual acceptance, residual cascade, and
+  continue cascade stay blocked (or reverse-flow-first) while progress is 0/N
 - While ready/unrecorded with zero partial rows:
   `continue_plan.mode=run_pending`,
   `supervisor_next_action=run_focused_local_test_validation_then_keep_activation_external`,
