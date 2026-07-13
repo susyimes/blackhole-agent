@@ -5297,13 +5297,30 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     ] is True
     assert pipeline["residual_adjacent_selection_held_until_residual_active"] is True
     assert pipeline["residual_adjacent_export_held_on_reverse_flow_surfaces"] is True
+    assert pipeline["residual_export_allowed"] is False
     assert pipeline["residual_adjacent_selected_proposal_id"] == ""
     assert pipeline["residual_work_is_residual_active"] is False
+    assert pipeline["reverse_flow_bound"] is True
+    assert pipeline["reverse_flow_bound_proposal_id"] == "prop-skill-reverse-flow-test-lane"
+    assert pipeline["reverse_flow_bound_source_marker"] == (
+        "lingbol088-spec/reverse-flow-skill"
+    )
+    assert pipeline["reverse_flow_evidence_binding"]["bound"] is True
+    assert pipeline["reverse_flow_evidence_binding"]["raw_evidence_urls_exported"] is False
+    assert pipeline["reverse_flow_focused_validation_partial_results_recorded"] is False
+    assert pipeline["reverse_flow_focused_validation_recorded_result_count"] == 0
+    assert pipeline["reverse_flow_focused_validation_expected_command_count"] == len(
+        focused["focused_validation"]["command_hashes"]
+    )
     assert pipeline["operator_state"]["supervisor_next_action"] == (
         pipeline["supervisor_next_action"]
     )
     assert pipeline["operator_state"]["reverse_flow_continue_decision"] == (
         pipeline["reverse_flow_continue_decision"]
+    )
+    assert pipeline["operator_state"]["residual_export_allowed"] is False
+    assert pipeline["operator_state"]["reverse_flow_bound_source_marker"] == (
+        pipeline["reverse_flow_bound_source_marker"]
     )
 
     assert unlocked_apply["status"] == "ready"
@@ -5614,9 +5631,19 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         "Reverse-flow continue decision: `record_or_close_reverse_flow_focused_validation_before_residual_export`"
         in pipeline_rendered
     )
+    assert "Residual export allowed: `False`" in pipeline_rendered
+    assert "Reverse-flow bound: `True`" in pipeline_rendered
+    assert (
+        "Reverse-flow bound source marker: `lingbol088-spec/reverse-flow-skill`"
+        in pipeline_rendered
+    )
     assert (
         "Pipeline operator_state durably exports supervisor_next_action"
         in pipeline_rendered
+    )
+    assert "reverse-flow-skill evidence binding" in pipeline_rendered
+    assert "Partial body-free command-hash rows stay on ready focused validation" in (
+        pipeline_rendered
     )
 
     # Deferred comparison keeps focused validation blocked.
@@ -5669,6 +5696,56 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert passed["focused_validation_recorded"] is True
     assert passed["supervisor_activation_allowed"] is False
     assert passed["activation_external_only"] is True
+
+    # Partial body-free command-hash results stay on ready and keep residual export held.
+    partial = record_skill_route_discovery_focused_local_test_validation_results(
+        pipeline,
+        [{"command_hash": command_hashes[0], "passed": True}],
+        source_digest="github-growth-20260713T041123.699547Z",
+    )
+    assert partial is not pipeline
+    assert partial["focused_local_test_validation"]["status"] == "ready"
+    assert partial["focused_local_test_validation"]["focused_validation"][
+        "partial_results_recorded"
+    ] is True
+    assert partial["focused_local_test_validation"]["focused_validation"][
+        "results_cover_expected"
+    ] is False
+    assert partial["focused_local_test_validation"]["focused_validation"][
+        "recorded_result_count"
+    ] == 1
+    assert partial["focused_local_test_validation"]["focused_validation"][
+        "command_results"
+    ] == [
+        {
+            "command_hash": command_hashes[0],
+            "passed": True,
+            "in_expected_set": True,
+        }
+    ]
+    assert partial["focused_local_test_validation"]["adjacent_general_agent_proposal_ids"] == []
+    assert partial["residual_export_allowed"] is False
+    assert partial["residual_adjacent_export_held_on_reverse_flow_surfaces"] is True
+    assert partial["residual_adjacent_selected_proposal_id"] == ""
+    assert partial["reverse_flow_focused_validation_partial_results_recorded"] is True
+    assert partial["reverse_flow_focused_validation_recorded_result_count"] == 1
+    assert partial["reverse_flow_continue_decision"] == (
+        "record_remaining_reverse_flow_focused_validation_command_hashes_before_residual_export"
+    )
+    assert partial["operator_state"]["reverse_flow_continue_decision"] == (
+        partial["reverse_flow_continue_decision"]
+    )
+    assert partial["operator_state"]["residual_export_allowed"] is False
+    assert partial["reverse_flow_bound"] is True
+    assert partial["reverse_flow_bound_source_marker"] == (
+        "lingbol088-spec/reverse-flow-skill"
+    )
+    assert "command" not in partial["focused_local_test_validation"]["focused_validation"][
+        "command_results"
+    ][0]
+    assert "stdout" not in partial["focused_local_test_validation"]["focused_validation"][
+        "command_results"
+    ][0]
 
     # Failed reverse-flow focused validation keeps residual hold active for repair.
     failed = build_skill_route_discovery_focused_local_test_validation(
@@ -6522,11 +6599,15 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         "residual_adjacent_held_until_reverse_flow_focused_validation_recorded"
     ] is False
     assert closed["residual_adjacent_export_held_on_reverse_flow_surfaces"] is False
+    assert closed["residual_export_allowed"] is True
     assert closed["residual_work_is_residual_active"] is True
     assert "fortress" in closed["residual_adjacent_selected_proposal_id"]
+    assert closed["reverse_flow_focused_validation_partial_results_recorded"] is False
+    assert closed["reverse_flow_focused_validation_results_cover_expected"] is True
     assert closed["operator_state"]["supervisor_next_action"] == (
         closed["supervisor_next_action"]
     )
+    assert closed["operator_state"]["residual_export_allowed"] is True
     assert closed["focused_validation_activation_external_handoff"]["status"] == "ready"
     assert closed["focused_validation_activation_external_handoff"]["decision"] == (
         "package_activation_external_handoff_after_focused_validation_pass"

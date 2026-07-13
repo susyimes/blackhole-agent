@@ -237,10 +237,18 @@ emits `skill_route_discovery_focused_local_test_validation`:
    named on the packet; activation-external handoff follows only after record
 11. Durable pipeline `operator_state` (also top-level fields) exports
    `supervisor_next_action`, residual hold/export flags,
-   `reverse_flow_continue_decision`, and record helpers after pipeline build and
-   after record/close so supervisors continue reverse-flow without re-rendering
-   markdown. While ready/unrecorded:
-   `reverse_flow_continue_decision=record_or_close_reverse_flow_focused_validation_before_residual_export`
+   `residual_export_allowed`, reverse-flow-skill evidence binding
+   (`reverse_flow_bound`, `reverse_flow_bound_proposal_id`,
+   `reverse_flow_bound_source_marker` / nested `reverse_flow_evidence_binding`,
+   body-free with no raw evidence URLs), partial command-hash coverage
+   (`reverse_flow_focused_validation_partial_results_recorded`, recorded/expected
+   counts), `reverse_flow_continue_decision`, and record helpers after pipeline
+   build and after record/close so supervisors continue reverse-flow without
+   re-rendering markdown. While ready/unrecorded with no partial rows:
+   `reverse_flow_continue_decision=record_or_close_reverse_flow_focused_validation_before_residual_export`.
+   Partial body-free command-hash rows stay on ready focused validation; while
+   coverage is incomplete residual export stays denied and continue decision is
+   `record_remaining_reverse_flow_focused_validation_command_hashes_before_residual_export`
 
 Replay with:
 

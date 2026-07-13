@@ -46,19 +46,29 @@ residual adjacent focused validation activation-external handoff →
 residual adjacent focused validation activation-external acceptance →
 (optional) selected-step adjacent harness-eval.
 
-Observed this run (digest `github-growth-20260713T035123.555299Z`,
-`prop-reverse-flow-skill-route-discovery` with residual fortress adjacent):
+Observed this run (digest `github-growth-20260713T041123.699547Z`,
+`prop-reverse-flow-skill-route-discovery` bound against
+`lingbol088-spec/reverse-flow-skill`, residual fortress adjacent):
 
 - Reverse-flow focused validation is still `ready` / unrecorded until supervisors
   record/close body-free command-hash results; residual stages stay blocked
   waiting on reverse-flow record/close and activation-external acceptance
-- New: pipeline build and record/close attach durable `operator_state` (also
-  top-level): `supervisor_next_action`, residual hold/export flags,
-  `reverse_flow_continue_decision`, and reverse-flow record helpers. Supervisors
-  continue reverse-flow without re-rendering markdown
-- While ready/unrecorded:
+- New: `operator_state` binds reverse-flow evidence body-free
+  (`reverse_flow_bound`, `reverse_flow_bound_proposal_id`,
+  `reverse_flow_bound_source_marker=lingbol088-spec/reverse-flow-skill`, nested
+  `reverse_flow_evidence_binding` with no raw evidence URLs) and exports
+  `residual_export_allowed=false` while reverse-flow remains unrecorded
+- New: partial body-free command-hash rows stay on ready focused validation;
+  `reverse_flow_focused_validation_partial_results_recorded` plus recorded/expected
+  counts surface coverage without releasing residual export. Continue decision
+  becomes
+  `record_remaining_reverse_flow_focused_validation_command_hashes_before_residual_export`
+- While ready/unrecorded with zero partial rows:
   `reverse_flow_continue_decision=record_or_close_reverse_flow_focused_validation_before_residual_export`
   and `supervisor_next_action=run_focused_local_test_validation_then_keep_activation_external`
+- Prior durable operator_state still holds: pipeline build and record/close attach
+  top-level + nested `operator_state` (`supervisor_next_action`, residual
+  hold/export flags, continue decision, record helpers)
 - Prior residual acceptance repair still holds: residual acceptance inherits
   cascaded handoff next when handoff is blocked, and only owns render priority
   when residual handoff is residual-active
@@ -72,9 +82,9 @@ Observed this run (digest `github-growth-20260713T035123.555299Z`,
   reverse-flow-waiting (`residual_adjacent_ids_held_until_recorded` /
   `residual_adjacent_export_held_until_ready`)
 - After record/close pass, operator_state refreshes: residual holds release,
-  fortress selected residual id re-exports only when residual-active, and
-  `supervisor_next_action` advances to residual focused validation when the
-  residual cascade is ready
+  `residual_export_allowed=true` when residual-active, fortress selected residual
+  id re-exports only when residual-active, and `supervisor_next_action` advances
+  to residual focused validation when the residual cascade is ready
 - Activation, push, promotion, provider launch, remote apply, external skill
   execution, and kernel restart stay denied
 - agent-chief remains privacy review-only

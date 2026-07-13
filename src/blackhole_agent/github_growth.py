@@ -4991,7 +4991,10 @@ def build_skill_route_discovery_focused_local_test_validation(
 
     export_commands = commands if status in {"ready", "passed", "failed"} else []
     export_hashes = command_hashes if status in {"ready", "passed", "failed"} else []
-    export_results = result_rows if status in {"passed", "failed"} else []
+    # Keep body-free partial command-hash rows on ready so supervisors can
+    # accumulate coverage across wakes without re-exporting command text/stdout.
+    # Full close still requires results_cover_expected; residual export stays held.
+    export_results = result_rows if status in {"ready", "passed", "failed"} else []
     recorded = status in {"passed", "failed"}
     residual_hold_until_recorded = status == "ready" and not recorded
     residual_hold_active = residual_hold_until_recorded or status == "failed"
@@ -5065,8 +5068,11 @@ def build_skill_route_discovery_focused_local_test_validation(
             "recorded_result_count": len(export_results),
             "unit_test_signal": status in {"ready", "passed", "failed"},
             "coverage_required": False,
-            "results_cover_expected": results_cover_expected if export_results else False,
-            "all_expected_passed": all_expected_passed if export_results else False,
+            "results_cover_expected": bool(results_cover_expected and export_results),
+            "all_expected_passed": bool(all_expected_passed and export_results),
+            "partial_results_recorded": bool(
+                status == "ready" and export_results and not results_cover_expected
+            ),
             "recorded": recorded,
         },
         "local_validation_required": True,
@@ -9742,6 +9748,87 @@ def render_upstream_evidence_capability_step_lines(capability_step: dict[str, An
     return lines
 
 
+def _resolve_reverse_flow_evidence_binding(
+    pipeline: dict[str, Any],
+    focused_local_test_validation: dict[str, Any],
+) -> dict[str, Any]:
+    """Body-free reverse-flow-skill evidence binding for operator continue state.
+
+    Binds the selected reverse-flow proposal to reverse-flow-skill markers
+    (``lingbol088-spec/reverse-flow-skill`` / ``codex_workflow_gate``) without
+    exporting raw evidence URLs or upstream bodies. Residual export remains
+    gated separately until reverse-flow focused validation is recorded/closed.
+    """
+
+    selected = (
+        pipeline.get("selected_step")
+        if isinstance(pipeline.get("selected_step"), dict)
+        else {}
+    )
+    proposal_id = str(
+        focused_local_test_validation.get("selected_proposal_id")
+        or focused_local_test_validation.get("proposal_id")
+        or selected.get("proposal_id")
+        or ""
+    ).strip()
+    profiles = [
+        str(profile)
+        for profile in list(
+            focused_local_test_validation.get("route_profiles")
+            or selected.get("route_profiles")
+            or []
+        )
+        if str(profile).strip()
+    ]
+    skill_first = bool(
+        focused_local_test_validation.get("skill_route_discovery_first")
+        if "skill_route_discovery_first" in focused_local_test_validation
+        else selected.get("skill_route_discovery_first")
+    )
+    route_class = str(
+        focused_local_test_validation.get("route_class")
+        or selected.get("route_class")
+        or ""
+    )
+    blob = " ".join(
+        [
+            proposal_id,
+            route_class,
+            *profiles,
+            str(selected.get("summary") or ""),
+            str(focused_local_test_validation.get("proposal_track") or ""),
+        ]
+    ).lower()
+    marker_hit = any(marker in blob for marker in _SKILL_ROUTE_REVERSE_FLOW_MARKERS)
+    profile_bound = "codex_workflow_gate" in profiles and skill_first
+    bound = bool(marker_hit or profile_bound)
+    # Prefer the public reverse-flow-skill evidence marker when any reverse-flow
+    # naming is present; profile-only binds stay generic reverse-flow.
+    if (
+        "lingbol088" in blob
+        or "reverse-flow-skill" in blob
+        or "reverse_flow_skill" in blob
+        or "reverse-flow" in blob
+        or "reverse_flow" in blob
+        or "reverse flow" in blob
+    ):
+        source_marker = "lingbol088-spec/reverse-flow-skill"
+    elif bound:
+        source_marker = "reverse-flow"
+    else:
+        source_marker = ""
+    return {
+        "bound": bound,
+        "selected_proposal_id": proposal_id if bound else "",
+        "source_marker": source_marker if bound else "",
+        "route_profiles": profiles if bound else [],
+        "skill_route_discovery_first": skill_first if bound else False,
+        "body_free": True,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_bodies_exported": False,
+    }
+
+
 def resolve_skill_route_discovery_pipeline_operator_state(
     pipeline: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -9751,20 +9838,41 @@ def resolve_skill_route_discovery_pipeline_operator_state(
     packet so reverse-flow focused validation continue does not require re-rendering
     markdown to learn supervisor_next or residual fortress hold/export state.
     Residual fortress IDs stay held while reverse-flow focused validation is
-    ready/unrecorded or failed.
+    ready/unrecorded or failed. Partial body-free command-hash coverage is also
+    exported so supervisors can finish reverse-flow record/close before residual
+    export without re-rendering markdown.
     """
 
+    empty_binding = {
+        "bound": False,
+        "selected_proposal_id": "",
+        "source_marker": "",
+        "route_profiles": [],
+        "skill_route_discovery_first": False,
+        "body_free": True,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_bodies_exported": False,
+    }
     if not isinstance(pipeline, dict) or not pipeline:
         return {
             "supervisor_next_action": "none",
             "residual_adjacent_held_until_reverse_flow_focused_validation_recorded": False,
             "residual_adjacent_selection_held_until_residual_active": False,
             "residual_adjacent_export_held_on_reverse_flow_surfaces": False,
+            "residual_export_allowed": False,
             "residual_adjacent_selected_proposal_id": "",
             "residual_work_is_residual_active": False,
             "reverse_flow_focused_validation_ready_unrecorded": False,
             "reverse_flow_focused_validation_record_helpers": [],
+            "reverse_flow_focused_validation_results_cover_expected": False,
+            "reverse_flow_focused_validation_recorded_result_count": 0,
+            "reverse_flow_focused_validation_expected_command_count": 0,
+            "reverse_flow_focused_validation_partial_results_recorded": False,
             "reverse_flow_continue_decision": "none",
+            "reverse_flow_bound": False,
+            "reverse_flow_bound_proposal_id": "",
+            "reverse_flow_bound_source_marker": "",
+            "reverse_flow_evidence_binding": dict(empty_binding),
         }
 
     def _packet(key: str) -> dict[str, Any]:
@@ -10007,14 +10115,43 @@ def resolve_skill_route_discovery_pipeline_operator_state(
         focused_local_test_validation.get("focused_validation_recorded")
         or pipeline.get("focused_local_test_validation_recorded")
     )
+    focused_validation = (
+        focused_local_test_validation.get("focused_validation")
+        if isinstance(focused_local_test_validation.get("focused_validation"), dict)
+        else {}
+    )
+    results_cover_expected = bool(focused_validation.get("results_cover_expected"))
+    recorded_result_count = int(focused_validation.get("recorded_result_count") or 0)
+    expected_command_count = int(
+        focused_validation.get("expected_command_count")
+        or len(list(focused_validation.get("command_hashes") or []))
+        or 0
+    )
+    partial_results_recorded = bool(
+        reverse_flow_ready_unrecorded
+        and (
+            focused_validation.get("partial_results_recorded")
+            or (recorded_result_count > 0 and not results_cover_expected)
+        )
+    )
+    reverse_flow_binding = _resolve_reverse_flow_evidence_binding(
+        pipeline,
+        focused_local_test_validation,
+    )
+    residual_export_allowed = (not residual_export_held) and residual_work_is_residual_active
     record_helpers = [
         "record_skill_route_discovery_focused_local_test_validation_results",
         "close_skill_route_discovery_focused_local_test_validation_with_outcome",
     ]
     if reverse_flow_ready_unrecorded:
-        reverse_flow_continue_decision = (
-            "record_or_close_reverse_flow_focused_validation_before_residual_export"
-        )
+        if partial_results_recorded:
+            reverse_flow_continue_decision = (
+                "record_remaining_reverse_flow_focused_validation_command_hashes_before_residual_export"
+            )
+        else:
+            reverse_flow_continue_decision = (
+                "record_or_close_reverse_flow_focused_validation_before_residual_export"
+            )
         helpers = list(record_helpers)
     elif focused_status == "failed":
         reverse_flow_continue_decision = (
@@ -10039,11 +10176,24 @@ def resolve_skill_route_discovery_pipeline_operator_state(
             or not residual_work_is_residual_active
         ),
         "residual_adjacent_export_held_on_reverse_flow_surfaces": residual_export_held,
+        "residual_export_allowed": residual_export_allowed,
         "residual_adjacent_selected_proposal_id": str(residual_selected_proposal_id or ""),
         "residual_work_is_residual_active": residual_work_is_residual_active,
         "reverse_flow_focused_validation_ready_unrecorded": reverse_flow_ready_unrecorded,
         "reverse_flow_focused_validation_record_helpers": helpers,
+        "reverse_flow_focused_validation_results_cover_expected": results_cover_expected,
+        "reverse_flow_focused_validation_recorded_result_count": recorded_result_count,
+        "reverse_flow_focused_validation_expected_command_count": expected_command_count,
+        "reverse_flow_focused_validation_partial_results_recorded": partial_results_recorded,
         "reverse_flow_continue_decision": reverse_flow_continue_decision,
+        "reverse_flow_bound": bool(reverse_flow_binding.get("bound")),
+        "reverse_flow_bound_proposal_id": str(
+            reverse_flow_binding.get("selected_proposal_id") or ""
+        ),
+        "reverse_flow_bound_source_marker": str(
+            reverse_flow_binding.get("source_marker") or ""
+        ),
+        "reverse_flow_evidence_binding": dict(reverse_flow_binding),
     }
 
 
@@ -10277,6 +10427,18 @@ def render_skill_route_discovery_capability_pipeline_lines(
         f"{residual_selection_held}`",
         f"- Residual adjacent export held on reverse-flow surfaces: `"
         f"{residual_export_held}`",
+        f"- Residual export allowed: `"
+        f"{bool(operator_state.get('residual_export_allowed'))}`",
+        f"- Reverse-flow bound: `{bool(operator_state.get('reverse_flow_bound'))}`",
+        f"- Reverse-flow bound proposal: `"
+        f"{operator_state.get('reverse_flow_bound_proposal_id') or 'none'}`",
+        f"- Reverse-flow bound source marker: `"
+        f"{operator_state.get('reverse_flow_bound_source_marker') or 'none'}`",
+        f"- Reverse-flow focused validation partial results recorded: `"
+        f"{bool(operator_state.get('reverse_flow_focused_validation_partial_results_recorded'))}`",
+        f"- Reverse-flow focused validation recorded result count: `"
+        f"{int(operator_state.get('reverse_flow_focused_validation_recorded_result_count') or 0)}`"
+        f" / `{int(operator_state.get('reverse_flow_focused_validation_expected_command_count') or 0)}`",
         f"- Reverse-flow continue decision: `"
         f"{operator_state.get('reverse_flow_continue_decision') or 'none'}`",
         f"- Adjacent agent harness-eval handoff: `{adjacent_handoff.get('status') or 'none'}`",
@@ -10297,7 +10459,8 @@ def render_skill_route_discovery_capability_pipeline_lines(
         "- While reverse-flow focused validation is ready/unrecorded or failed, residual fortress/Hy3 stages stay held; supervisor_next stays on reverse-flow focused validation and residual selected proposal is not advertised on residual packets or render.",
         "- Residual fortress/Hy3 selected_residual_proposal_id is exported only when residual work is residual-active; reverse-flow-waiting residual stages leave selection empty.",
         "- Reverse-flow focused validation, activation-external handoff/acceptance, and residual queue also hold residual adjacent_general_agent_proposal_ids and residual_adjacent_harness_eval_available until reverse-flow record/close and residual-active readiness; do not pre-export fortress IDs while reverse-flow waits.",
-        "- Pipeline operator_state durably exports supervisor_next_action, residual hold/export flags, and reverse_flow_continue_decision after build and after record/close so supervisors continue reverse-flow without re-rendering markdown.",
+        "- Pipeline operator_state durably exports supervisor_next_action, residual hold/export flags, reverse_flow_continue_decision, reverse-flow-skill evidence binding, residual_export_allowed, and partial body-free command-hash coverage after build and after record/close so supervisors continue reverse-flow without re-rendering markdown.",
+        "- Partial body-free command-hash rows stay on ready focused validation; residual export remains denied until results cover expected hashes and reverse-flow record/close advances residual-active work.",
         "- After ready, record_skill_route_discovery_focused_local_test_validation_results closes body-free command-hash results while activation stays external.",
         "- After ready, close_skill_route_discovery_focused_local_test_validation_with_outcome materializes body-free expected-hash outcomes and refreshes activation-external handoff/acceptance.",
         "- After recorded pass, skill_route_discovery_focused_validation_activation_external_handoff packages keep_activation_external while push/promotion/restart stay denied.",

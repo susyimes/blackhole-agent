@@ -1,0 +1,7 @@
+{
+  "purpose": "reverse-flow continue binding + partial command-hash retention",
+  "rollback_ref": "refs/blackhole-rollback/20260713T121417Z",
+  "created_at": "20260713T121417Z",
+  "head": "89389c9192566dbce57e4e09c8061ea7221a68a4",
+  "branch": "grok/blackhole-evolve/20260713T041209.269566-bound-skill-route-discovery-against-lingbol088-s"
+}
