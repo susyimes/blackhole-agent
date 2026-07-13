@@ -74,6 +74,7 @@ from blackhole_agent.github_growth import (
     package_reverse_flow_focused_validation_continue_residual_cascade,
     package_reverse_flow_focused_validation_continue_cascade,
     package_reverse_flow_focused_validation_continue_cascade_transition,
+    package_reverse_flow_focused_validation_continue_cascade_wake,
     resolve_reverse_flow_focused_validation_continue_dispatch_follow_through,
     normalize_skill_route_discovery_focused_validation_command_results,
     record_skill_route_discovery_focused_local_test_validation_results,
@@ -5853,6 +5854,86 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert cascade_transition["continue_cascade_transition_helper"] == (
         "package_reverse_flow_focused_validation_continue_cascade_transition"
     )
+    # Body-free continue cascade wake collapses transition + finish/residual_open
+    # into a classified wake_outcome without residual_export.
+    assert pipeline[
+        "reverse_flow_focused_validation_continue_cascade_wake_helper"
+    ] == "package_reverse_flow_focused_validation_continue_cascade_wake"
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_cascade_wake_helper"
+    ] == "package_reverse_flow_focused_validation_continue_cascade_wake"
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_cascade_wake_outcome"
+    ] in {"identity", "execute_recommended"}
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_cascade_wake_line"
+    ].startswith("continue_cascade_wake outcome=")
+    assert "reverse=0/3→0/3" in pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_cascade_wake_line"
+    ]
+    assert "residual=0/8→0/8" in pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_cascade_wake_line"
+    ]
+    assert "cascade_advanced=false" in pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_cascade_wake_line"
+    ]
+    assert "residual_export=false" in pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_cascade_wake_line"
+    ]
+    cascade_wake = package_reverse_flow_focused_validation_continue_cascade_wake(
+        cascade_transition=cascade_transition,
+        exec_receipt={"executed": True, "recorded": True},
+        finish_receipt={
+            "continue_finished": True,
+            "residual_queue_ready": False,
+            "residual_hold_active": True,
+            "supervisor_next_action": (
+                "keep_activation_external_after_focused_local_test_validation"
+            ),
+        },
+        residual_open={"residual_open": False},
+        follow_through={"follow_through_action": "keep_activation_external"},
+    )
+    assert cascade_wake["controller_surface"] == (
+        "reverse_flow_focused_validation_continue_cascade_wake"
+    )
+    assert cascade_wake["wake_outcome"] == "continue_finished"
+    assert cascade_wake["reverse_progress_transition"] == "0/3→3/3"
+    assert cascade_wake["residual_progress_transition"] == "0/8→0/8"
+    assert cascade_wake["cascade_advanced"] is True
+    assert cascade_wake["reverse_advanced"] is True
+    assert cascade_wake["continue_finished"] is True
+    assert cascade_wake["residual_open_ready"] is False
+    assert cascade_wake["residual_export_allowed"] is False
+    assert cascade_wake["continue_cascade_wake_line"].startswith(
+        "continue_cascade_wake outcome=continue_finished "
+    )
+    assert "reverse=0/3→3/3" in cascade_wake["continue_cascade_wake_line"]
+    assert "cascade_advanced=true" in cascade_wake["continue_cascade_wake_line"]
+    assert "residual_export=false" in cascade_wake["continue_cascade_wake_line"]
+    assert cascade_wake["continue_cascade_wake_helper"] == (
+        "package_reverse_flow_focused_validation_continue_cascade_wake"
+    )
+    residual_open_wake = package_reverse_flow_focused_validation_continue_cascade_wake(
+        cascade_transition=cascade_transition,
+        exec_receipt={"executed": True, "recorded": True},
+        finish_receipt={
+            "continue_finished": True,
+            "residual_queue_ready": True,
+            "residual_hold_active": False,
+            "supervisor_next_action": (
+                "hand_off_residual_adjacent_rows_to_agent_harness_eval_cluster_local_apply"
+            ),
+        },
+        residual_open={"residual_open": True},
+        follow_through={"follow_through_action": "keep_activation_external"},
+    )
+    assert residual_open_wake["wake_outcome"] == "residual_open_ready"
+    assert residual_open_wake["residual_open_ready"] is True
+    assert residual_open_wake["residual_export_allowed"] is False
+    assert "outcome=residual_open_ready" in residual_open_wake[
+        "continue_cascade_wake_line"
+    ]
     assert pipeline["reverse_flow_focused_validation_continue_supervisor_wake"][
         "controller_surface"
     ] == "reverse_flow_focused_validation_continue_run_supervisor_wake"
