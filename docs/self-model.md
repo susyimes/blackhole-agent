@@ -46,7 +46,7 @@ residual adjacent focused validation activation-external handoff →
 residual adjacent focused validation activation-external acceptance →
 (optional) selected-step adjacent harness-eval.
 
-Observed this run (digest `github-growth-20260713T135419.207508Z`,
+Observed this run (digest `github-growth-20260713T145419.078614Z`,
 `prop-reverse-flow-skill-route-discovery-continue` bound against
 `lingbol088-spec/reverse-flow-skill`, residual fortress adjacent):
 
@@ -58,61 +58,63 @@ Observed this run (digest `github-growth-20260713T135419.207508Z`,
   plan/execute/record + run supervisor_wake + inventory dispatch + follow-through
   resolve/follow + operator_card + progress_transition + action_line +
   exec_receipt / finish_receipt / residual_open / residual_entry /
-  residual_follow already inventory, optional allowlisted run/record,
-  reverse-flow-first `supervisor_wake`, `post_dispatch_inventory`,
+  residual_follow / residual_comparison already inventory, optional allowlisted
+  run/record, reverse-flow-first `supervisor_wake`, `post_dispatch_inventory`,
   `follow_through`, `operator_card` / `post_operator_card`,
   `progress_transition`, `exec_receipt`, `finish_receipt`, `residual_open`,
-  `residual_entry`, and `residual_follow`
-- New: `package_reverse_flow_focused_validation_continue_residual_comparison`
-  collapses residual follow into body-free `residual_comparison_line` (for
-  example `residual_comparison ready=true selected=prop-harness-fortress-local-eval
-  status=ready comparison=passed_local_comparison unlocked=documentation,test,code_patch
-  action=open_residual_unlocked_local_lane_apply call_unlocked_apply=true
+  `residual_entry`, `residual_follow`, and `residual_comparison`
+- New: `package_reverse_flow_focused_validation_continue_residual_unlocked_apply`
+  collapses residual comparison into body-free `residual_unlocked_apply_line`
+  (for example `residual_unlocked_apply ready=true
+  selected=prop-harness-fortress-local-eval status=ready lane=test preferred=test
+  unlocked=documentation,test,code_patch comparison_ready=true
+  action=open_residual_focused_local_validation call_focused_validation=true
   residual_export=false
-  next=apply_unlocked_documentation_test_or_code_patch_with_focused_validation_and_keep_activation_external
-  helper=build_skill_route_discovery_residual_adjacent_harness_eval_local_comparison`)
-  so supervisors do not re-derive residual comparison readiness or unlocked-lane
-  policy after residual follow is ready
-- New: follow and dispatch attach `residual_comparison`,
-  `residual_comparison_line`, `residual_comparison_ready`,
-  `residual_comparison_action`, and `call_residual_unlocked_apply`
-- New: inventory-only wakes package blocked residual comparison
-  (`ready=false`, `action=wait_for_reverse_flow`, `call_unlocked_apply=false`)
-  for pre-exec audit while residual follow is still blocked
-- New: operator_state exports nested `continue_residual_comparison`,
-  `continue_residual_comparison_helper`, `continue_residual_comparison_line`,
-  `continue_residual_comparison_ready`, `continue_residual_comparison_action`,
-  and `continue_call_residual_unlocked_apply` (alongside continue_residual_follow /
-  continue_residual_entry / continue_residual_open / continue_finish_receipt /
-  continue_finished)
-- Ready/unrecorded residual comparison: `residual_comparison_ready=false`,
-  `residual_comparison_action=wait_for_reverse_flow`,
-  `call_residual_unlocked_apply=false`, residual_export denied; finish stays
+  next=run_focused_local_validation_for_residual_adjacent_unlocked_lane_and_keep_activation_external
+  helper=build_skill_route_discovery_residual_adjacent_unlocked_local_lane_apply`)
+  so supervisors do not re-derive residual unlocked-apply readiness, preferred
+  test-first lane, or focused-validation policy after residual comparison is ready
+- New: follow and dispatch attach `residual_unlocked_apply`,
+  `residual_unlocked_apply_line`, `residual_unlocked_apply_ready`,
+  `residual_unlocked_apply_action`, and `call_residual_focused_validation`
+- New: inventory-only wakes package blocked residual unlocked apply
+  (`ready=false`, `action=wait_for_reverse_flow`, `call_focused_validation=false`)
+  for pre-exec audit while residual comparison is still blocked
+- New: operator_state exports nested `continue_residual_unlocked_apply`,
+  `continue_residual_unlocked_apply_helper`, `continue_residual_unlocked_apply_line`,
+  `continue_residual_unlocked_apply_ready`, `continue_residual_unlocked_apply_action`,
+  and `continue_call_residual_focused_validation` (alongside continue_residual_comparison /
+  continue_residual_follow / continue_residual_entry / continue_residual_open /
+  continue_finish_receipt / continue_finished)
+- Ready/unrecorded residual unlocked apply: `residual_unlocked_apply_ready=false`,
+  `residual_unlocked_apply_action=wait_for_reverse_flow`,
+  `call_residual_focused_validation=false`, residual_export denied; finish stays
   incomplete while progress is 0/N
 - Full follow after pass + record: `continue_finished=true`,
   `residual_queue_ready=true`, `residual_open_ready=true`,
-  `residual_entry_ready=true`, `residual_follow_ready=true`, and
-  `residual_comparison_ready=true` with
-  `residual_comparison_action=open_residual_unlocked_local_lane_apply` and
-  `call_residual_unlocked_apply=true` when residual follow is ready and residual
-  comparison criteria pass with selected fortress/Hy3 ID; residual export still
-  denied on continue/dispatch/follow/finish/residual_open/residual_entry/
-  residual_follow/residual_comparison surfaces themselves
-  (`call_residual_unlocked_apply` is informational policy only; residual stages
-  open only via residual pipeline helpers)
+  `residual_entry_ready=true`, `residual_follow_ready=true`,
+  `residual_comparison_ready=true`, and `residual_unlocked_apply_ready=true` with
+  `residual_unlocked_apply_action=open_residual_focused_local_validation` and
+  `call_residual_focused_validation=true` when residual comparison is ready and
+  residual unlocked-apply criteria pass with selected fortress/Hy3 ID and preferred
+  test-first lane; residual export still denied on continue/dispatch/follow/finish/
+  residual_open/residual_entry/residual_follow/residual_comparison/
+  residual_unlocked_apply surfaces themselves (`call_residual_focused_validation`
+  is informational policy only; residual stages open only via residual pipeline helpers)
 - Partial follow: runs remaining units only (`mode=record_remaining`) then
-  packages keep_activation_external post_follow_through; residual comparison
+  packages keep_activation_external post_follow_through; residual unlocked apply
   becomes ready only when remaining units close, acceptance is accepted, residual
-  queue is residual-active, residual entry is residual-active ready, residual
-  follow is residual-active ready, and residual comparison criteria pass
+  queue is residual-active, residual comparison is residual-active ready, and residual
+  unlocked-apply criteria pass
 - Post-pass follow with recommendation still defaulted: action=`keep_activation_external`,
   call_dispatch_with_execute=false, does not re-run units; residual open, residual
-  entry, residual follow, and residual comparison stay ready with residual_export
-  denied when residual queue, residual apply, residual follow, and residual
-  comparison are ready
+  entry, residual follow, residual comparison, and residual unlocked apply stay ready
+  with residual_export denied when residual queue, residual apply, residual comparison,
+  and residual unlocked apply are ready
 - Explicit `execute=False` on follow or dispatch stays inventory-only even when
   follow_through_action would be `execute_now`; residual open, residual entry,
-  residual follow, and residual comparison stay blocked while progress is 0/N
+  residual follow, residual comparison, and residual unlocked apply stay blocked
+  while progress is 0/N
 - While ready/unrecorded with zero partial rows:
   `continue_plan.mode=run_pending`,
   `supervisor_next_action=run_focused_local_test_validation_then_keep_activation_external`,
@@ -126,8 +128,9 @@ Observed this run (digest `github-growth-20260713T135419.207508Z`,
   continue_plan mode becomes `keep_activation_external`, pending work units
   clear, residual holds release when residual-active, finish receipt marks
   residual_queue ready, residual open packages residual next, residual entry
-  packages selected residual, residual follow packages comparison policy, and
-  residual comparison packages unlocked-lane readiness without enabling
+  packages selected residual, residual follow packages comparison policy,
+  residual comparison packages unlocked-lane readiness, and residual unlocked
+  apply packages preferred test-first focused-validation policy without enabling
   residual_export on continue surfaces
 - Activation, push, promotion, provider launch, remote apply, external skill
   execution, and kernel restart stay denied
