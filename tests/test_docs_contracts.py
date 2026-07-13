@@ -396,6 +396,7 @@ def test_skill_route_discovery_doc_records_capability_pipeline_pass1():
         "package_reverse_flow_focused_validation_continue_cascade_transition",
         "package_reverse_flow_focused_validation_continue_cascade_wake",
         "package_reverse_flow_focused_validation_continue_cascade_wake_route",
+        "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply",
         "follow_reverse_flow_focused_validation_continue_dispatch",
         "dispatch_reverse_flow_focused_validation_continue_supervisor_wake",
         "reverse_flow_focused_validation_continue_local_command_allowed",
