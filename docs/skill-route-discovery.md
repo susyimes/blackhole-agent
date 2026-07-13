@@ -536,6 +536,50 @@ command-hash results, the pipeline emits
 10. Distinct from reverse-flow
     `skill_route_discovery_focused_validation_activation_external_handoff`:
     residual handoff does not re-open reverse-flow skill unlocks
+11. When residual handoff is `ready`, the pipeline continues into
+    `skill_route_discovery_residual_adjacent_focused_validation_activation_external_acceptance`
+
+Replay with:
+
+`pytest tests/test_github_growth.py -q -k skill_route_discovery_residual_adjacent_focused_validation_activation_external`
+
+and:
+
+`pytest tests/test_github_growth.py -q -k skill_route_discovery_residual_adjacent_focused_local_validation`
+
+### Residual adjacent focused validation activation-external acceptance
+
+Source digest: `github-growth-20260713T021123.550143Z` (selected residual
+proposal track `prop-residual-adjacent-fortress-harness-eval`).
+
+After residual adjacent focused validation activation-external handoff is
+`ready` from a recorded residual focused validation pass, the pipeline emits
+`skill_route_discovery_residual_adjacent_focused_validation_activation_external_acceptance`:
+
+1. Closes supervisor next action
+   `keep_activation_external_after_residual_adjacent_focused_local_validation`
+   (or
+   `keep_activation_external_and_note_remaining_residual_adjacent_rows` when
+   remaining residual IDs exist)
+2. Decision is
+   `accept_activation_external_package_after_residual_adjacent_focused_validation_pass`
+3. Status is `accepted` only when residual handoff is ready with body-free
+   residual focused pass rows
+4. Body-free command-hash rows only; no command text, stdout, evidence URLs, or
+   upstream bodies
+5. Reverse-flow skill unlocks stay closed
+   (`skill_route_discovery_inherited=false`, `skill_route_unlocked_local_lanes=[]`)
+6. Remaining residual fortress/Hy3 proposal IDs may be noted as
+   `remaining_residual_adjacent_proposal_ids` without skill unlock inheritance
+7. While residual handoff is still blocked/unready, this surface stays
+   `blocked_until_residual_adjacent_activation_external_handoff_ready`
+8. Activation, push, promotion, provider launch, remote apply, external skill
+   execution, and kernel restart stay denied; agent-chief privacy rows stay
+   review-only
+9. Distinct from reverse-flow
+   `skill_route_discovery_focused_validation_activation_external_acceptance`:
+   residual acceptance does not re-open reverse-flow skill unlocks or residual
+   queue inheritance
 
 Replay with:
 

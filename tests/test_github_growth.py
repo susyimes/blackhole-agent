@@ -38,6 +38,7 @@ from blackhole_agent.github_growth import (
     build_skill_route_discovery_residual_adjacent_harness_eval_local_comparison,
     build_skill_route_discovery_residual_adjacent_unlocked_local_lane_apply,
     build_skill_route_discovery_residual_adjacent_focused_local_validation,
+    build_skill_route_discovery_residual_adjacent_focused_validation_activation_external_acceptance,
     build_skill_route_discovery_residual_adjacent_focused_validation_activation_external_handoff,
     close_skill_route_discovery_focused_local_test_validation_with_outcome,
     close_skill_route_discovery_residual_adjacent_focused_local_validation_with_outcome,
@@ -6080,6 +6081,103 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         "residual_adjacent_focused_validation_activation_external_handoff"
     ]["supervisor_activation_allowed"] is False
 
+    # Ready residual handoff packages residual activation-external acceptance.
+    residual_acceptance_ready = (
+        build_skill_route_discovery_residual_adjacent_focused_validation_activation_external_acceptance(
+            residual_adjacent_focused_validation_activation_external_handoff=(
+                residual_activation_ready
+            ),
+            residual_adjacent_focused_local_validation=residual_closed[
+                "residual_adjacent_focused_local_validation"
+            ],
+            residual_adjacent_unlocked_local_lane_apply=residual_unlocked_lane_ready,
+            adjacent_general_agent_rows=pipeline["adjacent_general_agent_rows"],
+            retained_boundaries=pipeline["retained_boundaries"],
+            theme_window=theme,
+            source_digest="github-growth-20260713T021123.550143Z",
+        )
+    )
+    assert residual_acceptance_ready["status"] == "accepted"
+    assert residual_acceptance_ready["source_digest"] == (
+        "github-growth-20260713T021123.550143Z"
+    )
+    assert residual_acceptance_ready["controller_surface"] == (
+        "skill_route_discovery_residual_adjacent_focused_validation_activation_external_acceptance"
+    )
+    assert residual_acceptance_ready["proposal_track"] == (
+        "prop-residual-adjacent-fortress-harness-eval"
+    )
+    assert residual_acceptance_ready["decision"] == (
+        "accept_activation_external_package_after_residual_adjacent_focused_validation_pass"
+    )
+    assert residual_acceptance_ready["supervisor_next_action"] in {
+        "keep_activation_external_after_residual_adjacent_focused_local_validation",
+        "keep_activation_external_and_note_remaining_residual_adjacent_rows",
+    }
+    if residual_acceptance_ready["remaining_residual_adjacent_proposal_ids"]:
+        assert residual_acceptance_ready["supervisor_next_action"] == (
+            "keep_activation_external_and_note_remaining_residual_adjacent_rows"
+        )
+        assert residual_acceptance_ready["remaining_residual_adjacent_available"] is True
+        assert residual_acceptance_ready["selected_residual_proposal_id"] not in (
+            residual_acceptance_ready["remaining_residual_adjacent_proposal_ids"]
+        )
+    else:
+        assert residual_acceptance_ready["supervisor_next_action"] == (
+            "keep_activation_external_after_residual_adjacent_focused_local_validation"
+        )
+        assert residual_acceptance_ready["remaining_residual_adjacent_available"] is False
+    assert residual_acceptance_ready[
+        "residual_adjacent_focused_local_validation_recorded"
+    ] is True
+    assert residual_acceptance_ready[
+        "residual_focused_validation_results_cover_expected"
+    ] is True
+    assert residual_acceptance_ready[
+        "residual_focused_validation_all_expected_passed"
+    ] is True
+    assert residual_acceptance_ready["selected_local_lane"] == "test"
+    assert residual_acceptance_ready["unlocked_local_lanes"] == [
+        "documentation",
+        "test",
+        "code_patch",
+    ]
+    assert residual_acceptance_ready["skill_route_unlocked_local_lanes"] == []
+    assert residual_acceptance_ready["skill_route_discovery_inherited"] is False
+    assert residual_acceptance_ready["skill_route_unlocks_closed_for_residual"] is True
+    assert residual_acceptance_ready["direct_allowed_lanes_before_eval"] == []
+    assert "fortress" in residual_acceptance_ready["selected_residual_proposal_id"]
+    assert residual_acceptance_ready["activation_external_only"] is True
+    assert residual_acceptance_ready["supervisor_activation_allowed"] is False
+    assert residual_acceptance_ready["runtime_action"] == "none"
+    assert residual_acceptance_ready["external_skill_execution_allowed"] is False
+    assert residual_acceptance_ready["provider_launch_allowed"] is False
+    assert residual_acceptance_ready["remote_apply_allowed"] is False
+    assert residual_acceptance_ready["push_or_promotion_allowed"] is False
+    assert residual_acceptance_ready["kernel_restart_allowed"] is False
+    assert residual_acceptance_ready["body_free"] is True
+    assert residual_acceptance_ready["raw_command_text_exported"] is False
+    assert residual_acceptance_ready["focused_validation"]["commands_exported"] is False
+    assert "commands" not in residual_acceptance_ready["focused_validation"]
+    for row in residual_acceptance_ready["focused_validation"]["command_results"]:
+        assert set(row.keys()) <= {"command_hash", "passed", "in_expected_set"}
+    assert residual_acceptance_ready["general_agent_inherits_skill_unlock"] is False
+    assert (
+        "skill_route_discovery_residual_adjacent_focused_validation_activation_external_acceptance"
+        in residual_acceptance_ready["capability_pipeline"]
+    )
+    assert residual_closed[
+        "residual_adjacent_focused_validation_activation_external_acceptance"
+    ]["status"] == "accepted"
+    assert residual_closed[
+        "residual_adjacent_focused_validation_activation_external_acceptance"
+    ]["decision"] == (
+        "accept_activation_external_package_after_residual_adjacent_focused_validation_pass"
+    )
+    assert residual_closed[
+        "residual_adjacent_focused_validation_activation_external_acceptance"
+    ]["supervisor_activation_allowed"] is False
+
     residual_failed = build_skill_route_discovery_residual_adjacent_focused_local_validation(
         residual_adjacent_unlocked_local_lane_apply=residual_unlocked_lane_ready,
         command_results=[
@@ -6124,6 +6222,31 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     )
     assert residual_activation_failed["supervisor_activation_allowed"] is False
     assert residual_activation_failed["skill_route_unlocked_local_lanes"] == []
+
+    residual_acceptance_failed = (
+        build_skill_route_discovery_residual_adjacent_focused_validation_activation_external_acceptance(
+            residual_adjacent_focused_validation_activation_external_handoff=(
+                residual_activation_failed
+            ),
+            residual_adjacent_focused_local_validation=residual_failed,
+            residual_adjacent_unlocked_local_lane_apply=residual_unlocked_lane_ready,
+            adjacent_general_agent_rows=pipeline["adjacent_general_agent_rows"],
+            retained_boundaries=pipeline["retained_boundaries"],
+            theme_window=theme,
+        )
+    )
+    assert residual_acceptance_failed["status"] == (
+        "blocked_until_residual_adjacent_activation_external_handoff_ready"
+    )
+    assert residual_acceptance_failed["decision"] == (
+        "hold_residual_adjacent_activation_external_acceptance_until_handoff_ready"
+    )
+    assert residual_acceptance_failed["supervisor_next_action"] == (
+        "repair_failed_residual_adjacent_focused_local_validation_commands"
+    )
+    assert residual_acceptance_failed["supervisor_activation_allowed"] is False
+    assert residual_acceptance_failed["skill_route_unlocked_local_lanes"] == []
+    assert residual_acceptance_failed["skill_route_discovery_inherited"] is False
 
     residual_blocked = build_skill_route_discovery_residual_adjacent_focused_local_validation(
         residual_adjacent_unlocked_local_lane_apply={
