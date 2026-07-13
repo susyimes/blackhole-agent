@@ -46,77 +46,59 @@ residual adjacent focused validation activation-external handoff →
 residual adjacent focused validation activation-external acceptance →
 (optional) selected-step adjacent harness-eval.
 
-Observed this run (digest `github-growth-20260713T165418.708155Z`,
-`prop-reverse-flow-skill-route-discovery-continue` bound against
-`lingbol088-spec/reverse-flow-skill`, residual fortress adjacent):
+Observed this run (digest `github-growth-20260713T175421.075171Z`,
+`trend:lingbol088-spec/reverse-flow-skill-3` bound against
+`lingbol088-spec/reverse-flow-skill`, residual fortress/Hy3 adjacent):
 
 - Reverse-flow focused validation remains `ready` / unrecorded (0/3) with
   `continue_plan.mode=run_pending` until supervisors follow continue dispatch
   policy and record/close body-free results; residual stages stay blocked waiting
   on reverse-flow record/close and activation-external acceptance
-- Prior: continue plan + pending work units + local allowlist + continue-run
-  plan/execute/record + run supervisor_wake + inventory dispatch + follow-through
-  resolve/follow + operator_card + progress_transition + action_line +
-  exec_receipt / finish_receipt / residual_open / residual_entry /
-  residual_follow / residual_comparison / residual_unlocked_apply /
-  residual_focused_validation already inventory, optional allowlisted run/record,
-  reverse-flow-first `supervisor_wake`, `post_dispatch_inventory`,
-  `follow_through`, `operator_card` / `post_operator_card`,
-  `progress_transition`, `exec_receipt`, `finish_receipt`, `residual_open`,
-  `residual_entry`, `residual_follow`, `residual_comparison`,
-  `residual_unlocked_apply`, and `residual_focused_validation`
-- New: `package_reverse_flow_focused_validation_continue_residual_handoff`
-  collapses residual focused validation into body-free
-  `residual_handoff_line` (for example
-  `residual_handoff ready=true
-  selected=prop-harness-fortress-local-eval status=ready lane=test preferred=test
-  remaining=0 focused_ready=true
-  action=open_residual_activation_external_acceptance call_acceptance=true
-  residual_export=false
+- Prior: residual handoff packaging already collapses residual focused validation
+  into body-free residual activation-external handoff readiness +
+  `call_residual_acceptance` policy without residual_export
+- New: `package_reverse_flow_focused_validation_continue_residual_acceptance`
+  collapses residual handoff into body-free
+  `residual_acceptance_line` (for example
+  `residual_acceptance ready=true
+  selected=prop-harness-fortress-local-eval status=accepted lane=test preferred=test
+  remaining=0 handoff_ready=true
+  action=keep_activation_external residual_export=false
   next=keep_activation_external_after_residual_adjacent_focused_local_validation
-  helper=build_skill_route_discovery_residual_adjacent_focused_validation_activation_external_handoff`)
-  so supervisors do not re-derive residual activation-external handoff readiness,
-  remaining residual IDs, or acceptance policy after residual focused validation
-  records a pass
-- New: follow and dispatch attach `residual_handoff`,
-  `residual_handoff_line`, `residual_handoff_ready`,
-  `residual_handoff_action`, and `call_residual_acceptance`
-- New: inventory-only wakes package blocked residual handoff
-  (`ready=false`, `action=wait_for_reverse_flow`, `call_acceptance=false`)
-  for pre-exec audit while residual focused validation is still blocked
-- New: operator_state exports nested `continue_residual_handoff`,
-  `continue_residual_handoff_helper`,
-  `continue_residual_handoff_line`,
-  `continue_residual_handoff_ready`,
-  `continue_residual_handoff_action`, and
-  `continue_call_residual_acceptance` (alongside continue_residual_focused_validation /
+  helper=build_skill_route_discovery_residual_adjacent_focused_validation_activation_external_acceptance`)
+  so supervisors do not re-derive residual activation-external acceptance readiness,
+  remaining residual IDs, or keep_activation_external policy after residual handoff
+  becomes ready
+- New: follow and dispatch attach `residual_acceptance`,
+  `residual_acceptance_line`, `residual_acceptance_ready`, and
+  `residual_acceptance_action`
+- New: inventory-only wakes package blocked residual acceptance
+  (`ready=false`, `action=wait_for_reverse_flow`, residual_export denied)
+  for pre-exec audit while residual handoff is still blocked
+- New: operator_state exports nested `continue_residual_acceptance`,
+  `continue_residual_acceptance_helper`,
+  `continue_residual_acceptance_line`,
+  `continue_residual_acceptance_ready`, and
+  `continue_residual_acceptance_action` (alongside continue_residual_handoff /
+  continue_call_residual_acceptance / continue_residual_focused_validation /
   continue_residual_unlocked_apply / continue_residual_comparison /
   continue_residual_follow / continue_residual_entry / continue_residual_open /
   continue_finish_receipt / continue_finished)
-- Ready/unrecorded residual handoff:
-  `residual_handoff_ready=false`,
-  `residual_handoff_action=wait_for_reverse_flow`,
-  `call_residual_acceptance=false`, residual_export denied; finish stays incomplete
-  while progress is 0/N
-- Full follow after pass + record: `continue_finished=true`,
-  `residual_queue_ready=true`, `residual_open_ready=true`,
-  `residual_entry_ready=true`, `residual_follow_ready=true`,
-  `residual_comparison_ready=true`, `residual_unlocked_apply_ready=true`, and
-  `residual_focused_validation_ready=true` with
-  `residual_focused_validation_action=run_residual_focused_validation` and
-  `call_residual_handoff=false` while residual focused validation is ready
-  unrecorded; residual handoff stays
-  `residual_handoff_ready=false` /
-  `residual_handoff_action=wait_for_residual_focused_validation` until residual
-  focused validation records a pass; after residual focused validation pass,
-  `residual_focused_validation_action=open_residual_activation_external_handoff`,
-  `call_residual_handoff=true`, and residual handoff becomes ready with
-  `residual_handoff_action=open_residual_activation_external_acceptance` and
-  `call_residual_acceptance=true`; residual export still denied on
-  continue/dispatch/follow/finish/residual_open/residual_entry/residual_follow/
-  residual_comparison/residual_unlocked_apply/residual_focused_validation/
-  residual_handoff surfaces themselves (`call_residual_acceptance` is
-  informational policy only; residual stages open only via residual pipeline helpers)
+- Ready/unrecorded residual acceptance:
+  `residual_acceptance_ready=false`,
+  `residual_acceptance_action=wait_for_reverse_flow`, residual_export denied;
+  finish stays incomplete while progress is 0/N
+- Full follow after reverse-flow pass + residual cascade: residual handoff becomes
+  ready with `call_residual_acceptance=true`; residual acceptance then becomes
+  ready/accepted with `action=keep_activation_external` (or
+  `note_remaining_residual_rows` when remaining residual IDs exist); residual
+  export still denied on continue/dispatch/follow/finish/residual_open/
+  residual_entry/residual_follow/residual_comparison/residual_unlocked_apply/
+  residual_focused_validation/residual_handoff/residual_acceptance surfaces
+  themselves (residual stages open only via residual pipeline helpers)
+- While residual focused validation is ready/unrecorded after reverse-flow pass:
+  residual handoff waits (`wait_for_residual_focused_validation`) and residual
+  acceptance waits (`wait_for_residual_handoff`) with residual_export denied
 - Partial follow: runs remaining units only (`mode=record_remaining`) then
   packages keep_activation_external post_follow_through; residual unlocked apply,
   residual focused validation, and residual handoff become ready only when

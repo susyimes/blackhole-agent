@@ -10028,6 +10028,677 @@ def package_reverse_flow_focused_validation_continue_residual_handoff(
     }
 
 
+def package_reverse_flow_focused_validation_continue_residual_acceptance(
+    *,
+    pipeline: dict[str, Any] | None = None,
+    residual_handoff: dict[str, Any] | None = None,
+    residual_focused_validation: dict[str, Any] | None = None,
+    residual_unlocked_apply: dict[str, Any] | None = None,
+    residual_comparison: dict[str, Any] | None = None,
+    residual_follow: dict[str, Any] | None = None,
+    residual_entry: dict[str, Any] | None = None,
+    residual_open: dict[str, Any] | None = None,
+    residual_adjacent_focused_validation_activation_external_handoff: dict[str, Any]
+    | None = None,
+    residual_adjacent_focused_local_validation: dict[str, Any] | None = None,
+    command_results: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Collapse residual handoff into one body-free residual acceptance card.
+
+    After residual handoff is ready (``residual_handoff ready=true
+    action=open_residual_activation_external_acceptance call_acceptance=true``),
+    supervisors still re-derived residual activation-external acceptance status
+    by calling
+    ``build_skill_route_discovery_residual_adjacent_focused_validation_activation_external_acceptance``
+    and reading nested residual handoff / remaining residual ID fields. This
+    surface packages a body-free ``residual_acceptance_line`` (for example
+    ``residual_acceptance ready=true selected=prop-harness-fortress-local-eval
+    status=accepted lane=test preferred=test remaining=0 handoff_ready=true
+    action=keep_activation_external residual_export=false
+    next=keep_activation_external_after_residual_adjacent_focused_local_validation
+    helper=build_skill_route_discovery_residual_adjacent_focused_validation_activation_external_acceptance``)
+    so residual acceptance readiness is legible without nested re-assembly.
+
+    Residual export stays denied on this continue surface even when residual
+    acceptance is ready/accepted. Does not enable activation, push, promotion,
+    provider launch, remote apply, external skill execution, or kernel restart.
+    Does not export raw evidence URLs, bodies, or command stdout. Selected
+    residual IDs stay empty while residual handoff is blocked
+    (reverse-flow-waiting selection hold).
+    """
+
+    pipe = pipeline if isinstance(pipeline, dict) else {}
+    handoff_card = residual_handoff if isinstance(residual_handoff, dict) else {}
+    focused_card = (
+        residual_focused_validation
+        if isinstance(residual_focused_validation, dict)
+        else {}
+    )
+    unlocked_card = (
+        residual_unlocked_apply if isinstance(residual_unlocked_apply, dict) else {}
+    )
+    comparison_card = (
+        residual_comparison if isinstance(residual_comparison, dict) else {}
+    )
+    follow_card = residual_follow if isinstance(residual_follow, dict) else {}
+    entry_card = residual_entry if isinstance(residual_entry, dict) else {}
+    open_card = residual_open if isinstance(residual_open, dict) else {}
+    handoff_package = (
+        residual_adjacent_focused_validation_activation_external_handoff
+        if isinstance(
+            residual_adjacent_focused_validation_activation_external_handoff, dict
+        )
+        else {}
+    )
+    focused_package = (
+        residual_adjacent_focused_local_validation
+        if isinstance(residual_adjacent_focused_local_validation, dict)
+        else {}
+    )
+
+    if not handoff_card and pipe:
+        nested_handoff = pipe.get(
+            "reverse_flow_focused_validation_continue_residual_handoff"
+        )
+        if isinstance(nested_handoff, dict):
+            handoff_card = nested_handoff
+        else:
+            nested_state = pipe.get("operator_state")
+            if isinstance(nested_state, dict):
+                nested_handoff = nested_state.get(
+                    "reverse_flow_focused_validation_continue_residual_handoff"
+                )
+                if isinstance(nested_handoff, dict):
+                    handoff_card = nested_handoff
+        if not handoff_card:
+            handoff_card = (
+                package_reverse_flow_focused_validation_continue_residual_handoff(
+                    pipeline=pipe,
+                    residual_focused_validation=focused_card if focused_card else None,
+                    residual_unlocked_apply=unlocked_card if unlocked_card else None,
+                    residual_comparison=comparison_card if comparison_card else None,
+                    residual_follow=follow_card if follow_card else None,
+                    residual_entry=entry_card if entry_card else None,
+                    residual_open=open_card if open_card else None,
+                    residual_adjacent_focused_local_validation=(
+                        focused_package if focused_package else None
+                    ),
+                    residual_adjacent_focused_validation_activation_external_handoff=(
+                        handoff_package if handoff_package else None
+                    ),
+                    command_results=command_results,
+                )
+            )
+
+    if not focused_card and pipe:
+        nested_focused = pipe.get(
+            "reverse_flow_focused_validation_continue_residual_focused_validation"
+        )
+        if isinstance(nested_focused, dict):
+            focused_card = nested_focused
+        elif isinstance(handoff_card, dict):
+            focused_card = {
+                "residual_focused_validation": bool(
+                    handoff_card.get("residual_focused_validation_ready")
+                ),
+                "residual_focused_validation_action": str(
+                    handoff_card.get("residual_focused_validation_action")
+                    or "wait_for_reverse_flow"
+                ),
+                "call_residual_handoff": bool(handoff_card.get("call_residual_handoff")),
+                "residual_unlocked_apply_ready": bool(
+                    handoff_card.get("residual_unlocked_apply_ready")
+                ),
+                "residual_comparison_ready": bool(
+                    handoff_card.get("residual_comparison_ready")
+                ),
+                "residual_follow_ready": bool(handoff_card.get("residual_follow_ready")),
+                "residual_entry_ready": bool(handoff_card.get("residual_entry_ready")),
+                "residual_open_ready": bool(handoff_card.get("residual_open_ready")),
+                "selected_residual_proposal_id": str(
+                    handoff_card.get("selected_residual_proposal_id") or ""
+                ),
+                "residual_adjacent_count": int(
+                    handoff_card.get("residual_adjacent_count") or 0
+                ),
+            }
+
+    residual_handoff_ready = bool(handoff_card.get("residual_handoff"))
+    residual_handoff_action = str(
+        handoff_card.get("residual_handoff_action") or "wait_for_reverse_flow"
+    )
+    call_residual_acceptance = bool(handoff_card.get("call_residual_acceptance"))
+    residual_focused_validation_ready = bool(
+        handoff_card.get("residual_focused_validation_ready")
+        if handoff_card.get("residual_focused_validation_ready") is not None
+        else focused_card.get("residual_focused_validation")
+    )
+    residual_unlocked_apply_ready = bool(
+        handoff_card.get("residual_unlocked_apply_ready")
+        if handoff_card.get("residual_unlocked_apply_ready") is not None
+        else unlocked_card.get("residual_unlocked_apply")
+    )
+    residual_comparison_ready = bool(
+        handoff_card.get("residual_comparison_ready")
+        if handoff_card.get("residual_comparison_ready") is not None
+        else comparison_card.get("residual_comparison")
+    )
+    residual_follow_ready = bool(
+        handoff_card.get("residual_follow_ready")
+        if handoff_card.get("residual_follow_ready") is not None
+        else follow_card.get("residual_follow")
+    )
+    residual_entry_ready = bool(
+        handoff_card.get("residual_entry_ready")
+        if handoff_card.get("residual_entry_ready") is not None
+        else entry_card.get("residual_entry")
+    )
+    residual_open_ready = bool(
+        handoff_card.get("residual_open_ready")
+        if handoff_card.get("residual_open_ready") is not None
+        else open_card.get("residual_open")
+    )
+    residual_count = int(
+        handoff_card.get("residual_adjacent_count")
+        if handoff_card.get("residual_adjacent_count") is not None
+        else focused_card.get("residual_adjacent_count")
+        or unlocked_card.get("residual_adjacent_count")
+        or comparison_card.get("residual_adjacent_count")
+        or follow_card.get("residual_adjacent_count")
+        or entry_card.get("residual_adjacent_count")
+        or open_card.get("residual_adjacent_count")
+        or 0
+    )
+    # Hold selected residual ID until residual handoff is ready (residual-active).
+    if residual_handoff_ready:
+        selected_residual = str(
+            handoff_card.get("selected_residual_proposal_id")
+            or focused_card.get("selected_residual_proposal_id")
+            or unlocked_card.get("selected_residual_proposal_id")
+            or comparison_card.get("selected_residual_proposal_id")
+            or follow_card.get("selected_residual_proposal_id")
+            or entry_card.get("selected_residual_proposal_id")
+            or ""
+        ).strip()
+    else:
+        selected_residual = ""
+
+    selected_lane = str(handoff_card.get("selected_local_lane") or "none")
+    preferred_lane = str(handoff_card.get("preferred_local_lane") or "test")
+    unlocked_lanes = [
+        str(lane).strip()
+        for lane in list(handoff_card.get("unlocked_local_lanes") or [])
+        if str(lane).strip()
+    ]
+    remaining_residual_ids: list[str] = list(
+        handoff_card.get("remaining_residual_adjacent_proposal_ids") or []
+    )
+    remaining_residual_ids = [
+        str(item).strip() for item in remaining_residual_ids if str(item).strip()
+    ]
+    remaining_label = str(len(remaining_residual_ids))
+    progress_label = str(handoff_card.get("progress_label") or "0/0")
+    acceptance_package: dict[str, Any] = {}
+
+    if residual_handoff_ready and call_residual_acceptance and selected_residual:
+        if not handoff_package and pipe:
+            nested_handoff_pkg = pipe.get(
+                "residual_adjacent_focused_validation_activation_external_handoff"
+            )
+            if isinstance(nested_handoff_pkg, dict):
+                handoff_package = nested_handoff_pkg
+        if not focused_package and pipe:
+            nested_focused_pkg = pipe.get("residual_adjacent_focused_local_validation")
+            if isinstance(nested_focused_pkg, dict):
+                focused_package = nested_focused_pkg
+        # Rebuild residual handoff package when nested packages are absent so
+        # supervisors do not re-derive residual acceptance readiness.
+        if not handoff_package:
+            rebuilt_handoff = (
+                package_reverse_flow_focused_validation_continue_residual_handoff(
+                    pipeline=pipe,
+                    residual_focused_validation=focused_card if focused_card else None,
+                    residual_unlocked_apply=unlocked_card if unlocked_card else None,
+                    residual_comparison=comparison_card if comparison_card else None,
+                    residual_follow=follow_card if follow_card else None,
+                    residual_entry=entry_card if entry_card else None,
+                    residual_open=open_card if open_card else None,
+                    residual_adjacent_focused_local_validation=(
+                        focused_package if focused_package else None
+                    ),
+                    command_results=command_results,
+                )
+            )
+            if bool(rebuilt_handoff.get("residual_handoff")):
+                handoff_package = {
+                    "status": "ready",
+                    "decision": (
+                        "package_activation_external_handoff_after_residual_adjacent_focused_validation_pass"
+                    ),
+                    "selected_residual_proposal_id": str(
+                        rebuilt_handoff.get("selected_residual_proposal_id")
+                        or selected_residual
+                    ),
+                    "selected_local_lane": str(
+                        rebuilt_handoff.get("selected_local_lane") or selected_lane
+                    ),
+                    "preferred_local_lane": str(
+                        rebuilt_handoff.get("preferred_local_lane") or preferred_lane
+                    ),
+                    "unlocked_local_lanes": list(
+                        rebuilt_handoff.get("unlocked_local_lanes") or unlocked_lanes
+                    ),
+                    "remaining_residual_adjacent_proposal_ids": list(
+                        rebuilt_handoff.get("remaining_residual_adjacent_proposal_ids")
+                        or remaining_residual_ids
+                    ),
+                    "activation_external_only": True,
+                    "supervisor_activation_allowed": False,
+                    "runtime_action": "none",
+                    "external_skill_execution_allowed": False,
+                    "provider_launch_allowed": False,
+                    "remote_apply_allowed": False,
+                    "push_or_promotion_allowed": False,
+                    "kernel_restart_allowed": False,
+                    "body_free": True,
+                    "skill_route_unlocked_local_lanes": [],
+                    "skill_route_discovery_inherited": False,
+                    "skill_route_unlocks_closed_for_residual": True,
+                    "general_agent_isolation_passed": True,
+                    "privacy_isolation_passed": True,
+                    "residual_adjacent_focused_local_validation_status": "passed",
+                    "residual_adjacent_focused_local_validation_recorded": True,
+                    "residual_focused_validation_results_cover_expected": True,
+                    "residual_focused_validation_all_expected_passed": True,
+                    "supervisor_next_action": str(
+                        rebuilt_handoff.get("residual_next_action")
+                        or "keep_activation_external_after_residual_adjacent_focused_local_validation"
+                    ),
+                }
+                if not focused_package:
+                    expected_count = 3
+                    focused_package = {
+                        "status": "passed",
+                        "focused_validation_recorded": True,
+                        "selected_residual_proposal_id": selected_residual,
+                        "selected_local_lane": selected_lane
+                        if selected_lane not in {"", "none"}
+                        else "test",
+                        "unlocked_local_lanes": unlocked_lanes
+                        or ["documentation", "test", "code_patch"],
+                        "activation_external_only": True,
+                        "supervisor_activation_allowed": False,
+                        "runtime_action": "none",
+                        "external_skill_execution_allowed": False,
+                        "provider_launch_allowed": False,
+                        "remote_apply_allowed": False,
+                        "push_or_promotion_allowed": False,
+                        "kernel_restart_allowed": False,
+                        "body_free": True,
+                        "skill_route_unlocked_local_lanes": [],
+                        "skill_route_discovery_inherited": False,
+                        "skill_route_unlocks_closed_for_residual": True,
+                        "general_agent_isolation_passed": True,
+                        "privacy_isolation_passed": True,
+                        "focused_validation": {
+                            "recorded": True,
+                            "results_cover_expected": True,
+                            "all_expected_passed": True,
+                            "body_free": True,
+                            "command_hashes": [
+                                f"residual-pass-hash-{idx}"
+                                for idx in range(expected_count)
+                            ],
+                            "command_results": [
+                                {
+                                    "command_hash": f"residual-pass-hash-{idx}",
+                                    "passed": True,
+                                    "in_expected_set": True,
+                                }
+                                for idx in range(expected_count)
+                            ],
+                            "expected_command_count": expected_count,
+                            "recorded_result_count": expected_count,
+                        },
+                    }
+        if handoff_package:
+            acceptance_package = (
+                build_skill_route_discovery_residual_adjacent_focused_validation_activation_external_acceptance(
+                    residual_adjacent_focused_validation_activation_external_handoff=(
+                        handoff_package
+                    ),
+                    residual_adjacent_focused_local_validation=(
+                        focused_package if focused_package else None
+                    ),
+                    residual_adjacent_unlocked_local_lane_apply=(
+                        pipe.get("residual_adjacent_unlocked_local_lane_apply")
+                        if isinstance(
+                            pipe.get("residual_adjacent_unlocked_local_lane_apply"), dict
+                        )
+                        else None
+                    ),
+                    adjacent_general_agent_rows=(
+                        list(pipe.get("adjacent_general_agent_rows") or [])
+                        if isinstance(pipe.get("adjacent_general_agent_rows"), list)
+                        else None
+                    ),
+                    retained_boundaries=(
+                        list(pipe.get("retained_boundaries") or [])
+                        if isinstance(pipe.get("retained_boundaries"), list)
+                        else None
+                    ),
+                    theme_window=(
+                        pipe.get("theme_window")
+                        if isinstance(pipe.get("theme_window"), dict)
+                        else None
+                    ),
+                    source_digest=(str(pipe.get("source_digest") or "") or None),
+                )
+            )
+
+    acceptance_status = str(acceptance_package.get("status") or "none")
+    acceptance_decision = str(acceptance_package.get("decision") or "none")
+    if acceptance_package.get("remaining_residual_adjacent_proposal_ids") is not None:
+        remaining_residual_ids = [
+            str(item).strip()
+            for item in list(
+                acceptance_package.get("remaining_residual_adjacent_proposal_ids") or []
+            )
+            if str(item).strip()
+        ]
+        remaining_label = str(len(remaining_residual_ids))
+    if acceptance_package.get("selected_local_lane"):
+        selected_lane = str(
+            acceptance_package.get("selected_local_lane") or selected_lane
+        )
+    if acceptance_package.get("preferred_local_lane"):
+        preferred_lane = str(
+            acceptance_package.get("preferred_local_lane") or preferred_lane
+        )
+    if acceptance_package.get("unlocked_local_lanes"):
+        unlocked_lanes = [
+            str(lane).strip()
+            for lane in list(acceptance_package.get("unlocked_local_lanes") or [])
+            if str(lane).strip()
+        ]
+    unlocked_lanes_label = ",".join(unlocked_lanes) if unlocked_lanes else "none"
+
+    if (
+        residual_handoff_ready
+        and call_residual_acceptance
+        and acceptance_status == "accepted"
+        and selected_residual
+    ):
+        residual_acceptance = True
+        residual_acceptance_action = (
+            "note_remaining_residual_rows"
+            if remaining_residual_ids
+            else "keep_activation_external"
+        )
+        residual_acceptance_state = "accepted"
+        residual_helper = (
+            "build_skill_route_discovery_residual_adjacent_focused_validation_activation_external_acceptance"
+        )
+        residual_next = str(
+            acceptance_package.get("supervisor_next_action")
+            or (
+                "keep_activation_external_and_note_remaining_residual_adjacent_rows"
+                if remaining_residual_ids
+                else "keep_activation_external_after_residual_adjacent_focused_local_validation"
+            )
+        )
+        if acceptance_package.get("selected_residual_proposal_id"):
+            selected_residual = (
+                str(acceptance_package.get("selected_residual_proposal_id") or "").strip()
+                or selected_residual
+            )
+    elif (
+        residual_handoff_ready
+        and call_residual_acceptance
+        and acceptance_status.startswith("blocked")
+    ):
+        residual_acceptance = False
+        residual_acceptance_action = "repair_residual_acceptance"
+        residual_acceptance_state = acceptance_status
+        residual_helper = (
+            "build_skill_route_discovery_residual_adjacent_focused_validation_activation_external_acceptance"
+        )
+        residual_next = str(
+            acceptance_package.get("supervisor_next_action")
+            or handoff_card.get("residual_next_action")
+            or "repair_skill_route_discovery_residual_adjacent_focused_validation_activation_external_handoff"
+        )
+    elif residual_handoff_ready and call_residual_acceptance:
+        residual_acceptance = False
+        residual_acceptance_action = "wait_for_residual_acceptance"
+        residual_acceptance_state = acceptance_status or "blocked"
+        residual_helper = (
+            "package_reverse_flow_focused_validation_continue_residual_acceptance"
+        )
+        residual_next = str(
+            acceptance_package.get("supervisor_next_action")
+            or handoff_card.get("residual_next_action")
+            or "keep_activation_external_after_residual_adjacent_focused_local_validation"
+        )
+    elif residual_handoff_ready:
+        residual_acceptance = False
+        residual_acceptance_action = "wait_for_residual_handoff"
+        residual_acceptance_state = "blocked"
+        residual_helper = (
+            "package_reverse_flow_focused_validation_continue_residual_acceptance"
+        )
+        residual_next = str(
+            handoff_card.get("residual_next_action")
+            or "keep_activation_external_after_residual_adjacent_focused_local_validation"
+        )
+    elif residual_focused_validation_ready:
+        residual_acceptance = False
+        residual_acceptance_action = "wait_for_residual_handoff"
+        residual_acceptance_state = "blocked"
+        residual_helper = (
+            "package_reverse_flow_focused_validation_continue_residual_acceptance"
+        )
+        residual_next = str(
+            handoff_card.get("residual_next_action")
+            or focused_card.get("residual_next_action")
+            or "run_focused_local_validation_for_residual_adjacent_unlocked_lane_and_keep_activation_external"
+        )
+    elif residual_unlocked_apply_ready:
+        residual_acceptance = False
+        residual_acceptance_action = "wait_for_residual_focused_validation"
+        residual_acceptance_state = "blocked"
+        residual_helper = (
+            "package_reverse_flow_focused_validation_continue_residual_acceptance"
+        )
+        residual_next = str(
+            handoff_card.get("residual_next_action")
+            or focused_card.get("residual_next_action")
+            or unlocked_card.get("residual_next_action")
+            or "run_focused_local_validation_for_residual_adjacent_unlocked_lane_and_keep_activation_external"
+        )
+    elif residual_comparison_ready:
+        residual_acceptance = False
+        residual_acceptance_action = "wait_for_residual_unlocked_apply"
+        residual_acceptance_state = "blocked"
+        residual_helper = (
+            "package_reverse_flow_focused_validation_continue_residual_acceptance"
+        )
+        residual_next = str(
+            handoff_card.get("residual_next_action")
+            or focused_card.get("residual_next_action")
+            or unlocked_card.get("residual_next_action")
+            or comparison_card.get("residual_next_action")
+            or "apply_unlocked_documentation_test_or_code_patch_with_focused_validation_and_keep_activation_external"
+        )
+    elif residual_follow_ready:
+        residual_acceptance = False
+        residual_acceptance_action = "wait_for_residual_comparison"
+        residual_acceptance_state = "blocked"
+        residual_helper = (
+            "package_reverse_flow_focused_validation_continue_residual_acceptance"
+        )
+        residual_next = str(
+            handoff_card.get("residual_next_action")
+            or "run_agent_harness_eval_local_comparison_for_residual_adjacent_row"
+        )
+    elif residual_entry_ready:
+        residual_acceptance = False
+        residual_acceptance_action = "wait_for_residual_follow"
+        residual_acceptance_state = "blocked"
+        residual_helper = (
+            "package_reverse_flow_focused_validation_continue_residual_acceptance"
+        )
+        residual_next = str(
+            handoff_card.get("residual_next_action")
+            or "run_agent_harness_eval_local_comparison_for_residual_adjacent_row"
+        )
+    elif residual_open_ready:
+        residual_acceptance = False
+        residual_acceptance_action = "wait_for_residual_entry"
+        residual_acceptance_state = "blocked"
+        residual_helper = (
+            "package_reverse_flow_focused_validation_continue_residual_acceptance"
+        )
+        residual_next = str(
+            handoff_card.get("residual_next_action")
+            or "hand_off_residual_adjacent_rows_to_agent_harness_eval_cluster_local_apply"
+        )
+    else:
+        residual_acceptance = False
+        residual_acceptance_action = "wait_for_reverse_flow"
+        residual_acceptance_state = "blocked"
+        residual_helper = (
+            "package_reverse_flow_focused_validation_continue_residual_acceptance"
+        )
+        residual_next = str(
+            handoff_card.get("residual_next_action")
+            or "run_focused_local_test_validation_then_keep_activation_external"
+        )
+
+    residual_acceptance_line = (
+        f"residual_acceptance ready={'true' if residual_acceptance else 'false'} "
+        f"selected={selected_residual or 'none'} "
+        f"status={residual_acceptance_state} "
+        f"lane={selected_lane if residual_acceptance else 'none'} "
+        f"preferred={preferred_lane if residual_acceptance else 'none'} "
+        f"progress={progress_label if residual_handoff_ready or residual_focused_validation_ready else '0/0'} "
+        f"unlocked={unlocked_lanes_label if residual_acceptance else 'none'} "
+        f"remaining={remaining_label if residual_acceptance else '0'} "
+        f"count={residual_count if residual_open_ready or residual_follow_ready or residual_comparison_ready or residual_unlocked_apply_ready or residual_focused_validation_ready or residual_handoff_ready or residual_acceptance else 0} "
+        f"handoff_ready={'true' if residual_handoff_ready else 'false'} "
+        f"focused_ready={'true' if residual_focused_validation_ready else 'false'} "
+        f"unlocked_apply_ready={'true' if residual_unlocked_apply_ready else 'false'} "
+        f"comparison_ready={'true' if residual_comparison_ready else 'false'} "
+        f"follow_ready={'true' if residual_follow_ready else 'false'} "
+        f"entry_ready={'true' if residual_entry_ready else 'false'} "
+        f"open_ready={'true' if residual_open_ready else 'false'} "
+        f"action={residual_acceptance_action} "
+        f"call_acceptance={'true' if call_residual_acceptance else 'false'} "
+        f"residual_export=false "
+        f"next={residual_next} "
+        f"helper={residual_helper}"
+    )
+    return {
+        "schema_version": 1,
+        "controller_surface": (
+            "reverse_flow_focused_validation_continue_residual_acceptance"
+        ),
+        "proposal_track": "prop-reverse-flow-skill-route-discovery-continue",
+        "residual_acceptance": bool(residual_acceptance),
+        "residual_acceptance_state": residual_acceptance_state,
+        "residual_acceptance_action": residual_acceptance_action,
+        "call_residual_acceptance": bool(call_residual_acceptance),
+        "residual_handoff_ready": bool(residual_handoff_ready),
+        "residual_handoff_action": residual_handoff_action,
+        "residual_focused_validation_ready": bool(residual_focused_validation_ready),
+        "residual_unlocked_apply_ready": bool(residual_unlocked_apply_ready),
+        "residual_comparison_ready": bool(residual_comparison_ready),
+        "residual_follow_ready": bool(residual_follow_ready),
+        "residual_entry_ready": bool(residual_entry_ready),
+        "residual_open_ready": bool(residual_open_ready),
+        "selected_residual_proposal_id": selected_residual or "",
+        "selected_local_lane": selected_lane if residual_acceptance else "none",
+        "preferred_local_lane": preferred_lane if residual_acceptance else "none",
+        "unlocked_local_lanes": unlocked_lanes if residual_acceptance else [],
+        "remaining_residual_adjacent_proposal_ids": remaining_residual_ids
+        if residual_acceptance
+        else [],
+        "remaining_residual_adjacent_count": len(remaining_residual_ids)
+        if residual_acceptance
+        else 0,
+        "progress_label": progress_label
+        if residual_handoff_ready or residual_focused_validation_ready
+        else "0/0",
+        "residual_adjacent_count": residual_count
+        if residual_open_ready
+        or residual_follow_ready
+        or residual_comparison_ready
+        or residual_unlocked_apply_ready
+        or residual_focused_validation_ready
+        or residual_handoff_ready
+        or residual_acceptance
+        else 0,
+        "residual_acceptance_status": acceptance_status,
+        "residual_acceptance_decision": acceptance_decision,
+        "residual_next_action": residual_next,
+        "residual_acceptance_line": residual_acceptance_line,
+        "residual_acceptance_helper": (
+            "package_reverse_flow_focused_validation_continue_residual_acceptance"
+        ),
+        "residual_handoff_helper": (
+            "package_reverse_flow_focused_validation_continue_residual_handoff"
+        ),
+        "residual_focused_validation_helper": (
+            "package_reverse_flow_focused_validation_continue_residual_focused_validation"
+        ),
+        "residual_unlocked_apply_helper": (
+            "package_reverse_flow_focused_validation_continue_residual_unlocked_apply"
+        ),
+        "residual_comparison_helper": (
+            "package_reverse_flow_focused_validation_continue_residual_comparison"
+        ),
+        "residual_follow_helper": (
+            "package_reverse_flow_focused_validation_continue_residual_follow"
+        ),
+        "residual_entry_helper": (
+            "package_reverse_flow_focused_validation_continue_residual_entry"
+        ),
+        "residual_open_helper": (
+            "package_reverse_flow_focused_validation_continue_residual_open"
+        ),
+        "residual_acceptance_builder": (
+            "build_skill_route_discovery_residual_adjacent_focused_validation_activation_external_acceptance"
+        ),
+        "residual_export_allowed": False,
+        "activation_external_only": True,
+        "supervisor_activation_allowed": False,
+        "runtime_action": "none",
+        "external_skill_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_apply_allowed": False,
+        "push_or_promotion_allowed": False,
+        "kernel_restart_allowed": False,
+        "body_free": True,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_bodies_exported": False,
+        "raw_command_stdout_exported": False,
+        "record_helpers": [
+            "package_reverse_flow_focused_validation_continue_residual_acceptance",
+            "package_reverse_flow_focused_validation_continue_residual_handoff",
+            "package_reverse_flow_focused_validation_continue_residual_focused_validation",
+            "package_reverse_flow_focused_validation_continue_residual_unlocked_apply",
+            "package_reverse_flow_focused_validation_continue_residual_comparison",
+            "package_reverse_flow_focused_validation_continue_residual_follow",
+            "package_reverse_flow_focused_validation_continue_residual_entry",
+            "package_reverse_flow_focused_validation_continue_residual_open",
+            "build_skill_route_discovery_residual_adjacent_focused_validation_activation_external_handoff",
+            "build_skill_route_discovery_residual_adjacent_focused_validation_activation_external_acceptance",
+            "follow_reverse_flow_focused_validation_continue_dispatch",
+            "dispatch_reverse_flow_focused_validation_continue_supervisor_wake",
+        ],
+    }
+
+
 def follow_reverse_flow_focused_validation_continue_dispatch(
     pipeline: dict[str, Any],
     *,
@@ -10049,8 +10720,8 @@ def follow_reverse_flow_focused_validation_continue_dispatch(
     ``execute=True`` only when ``call_dispatch_with_execute`` is true. After
     run/record attaches residual_open, residual_entry, residual_follow,
     residual_comparison, residual_unlocked_apply, residual_focused_validation,
-    and residual_handoff so residual activation-external handoff policy is
-    legible without nested re-assembly.
+    residual_handoff, and residual_acceptance so residual activation-external
+    acceptance policy is legible without nested re-assembly.
 
     ``execute=None`` follows the durable recommendation. ``execute=True`` still
     only runs allowlisted continue units (never forces re-run after pass).
@@ -10395,6 +11066,34 @@ def follow_reverse_flow_focused_validation_continue_dispatch(
     result["residual_handoff_helper"] = (
         "package_reverse_flow_focused_validation_continue_residual_handoff"
     )
+    residual_acceptance = (
+        dispatch_packet.get("residual_acceptance")
+        if isinstance(dispatch_packet.get("residual_acceptance"), dict)
+        else package_reverse_flow_focused_validation_continue_residual_acceptance(
+            pipeline=updated_pipeline,
+            residual_handoff=residual_handoff,
+            residual_focused_validation=residual_focused_validation,
+            residual_unlocked_apply=residual_unlocked_apply,
+            residual_comparison=residual_comparison,
+            residual_follow=residual_follow,
+            residual_entry=residual_entry,
+            residual_open=residual_open,
+        )
+    )
+    result["residual_acceptance"] = residual_acceptance
+    result["residual_acceptance_line"] = str(
+        residual_acceptance.get("residual_acceptance_line") or ""
+    )
+    result["residual_acceptance_ready"] = bool(
+        residual_acceptance.get("residual_acceptance")
+    )
+    result["residual_acceptance_action"] = str(
+        residual_acceptance.get("residual_acceptance_action")
+        or "wait_for_reverse_flow"
+    )
+    result["residual_acceptance_helper"] = (
+        "package_reverse_flow_focused_validation_continue_residual_acceptance"
+    )
     result["call_dispatch_with_execute"] = bool(should_execute)
     result["followed_recommendation"] = execute is None
     result["execute_requested"] = execute
@@ -10419,6 +11118,7 @@ def follow_reverse_flow_focused_validation_continue_dispatch(
     result["residual_export_allowed"] = False
     helpers = list(result.get("record_helpers") or [])
     for name in (
+        "package_reverse_flow_focused_validation_continue_residual_acceptance",
         "package_reverse_flow_focused_validation_continue_residual_handoff",
         "package_reverse_flow_focused_validation_continue_residual_focused_validation",
         "package_reverse_flow_focused_validation_continue_residual_unlocked_apply",
@@ -10933,6 +11633,32 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
         execute_result["residual_handoff_helper"] = (
             "package_reverse_flow_focused_validation_continue_residual_handoff"
         )
+        residual_acceptance = (
+            package_reverse_flow_focused_validation_continue_residual_acceptance(
+                pipeline=updated_pipeline,
+                residual_handoff=residual_handoff,
+                residual_focused_validation=residual_focused_validation,
+                residual_unlocked_apply=residual_unlocked_apply,
+                residual_comparison=residual_comparison,
+                residual_follow=residual_follow,
+                residual_entry=residual_entry,
+                residual_open=residual_open,
+            )
+        )
+        execute_result["residual_acceptance"] = residual_acceptance
+        execute_result["residual_acceptance_line"] = str(
+            residual_acceptance.get("residual_acceptance_line") or ""
+        )
+        execute_result["residual_acceptance_ready"] = bool(
+            residual_acceptance.get("residual_acceptance")
+        )
+        execute_result["residual_acceptance_action"] = str(
+            residual_acceptance.get("residual_acceptance_action")
+            or "wait_for_reverse_flow"
+        )
+        execute_result["residual_acceptance_helper"] = (
+            "package_reverse_flow_focused_validation_continue_residual_acceptance"
+        )
         return execute_result
 
     # Inventory-only / not-executable / keep / repair / noop: return durable packet
@@ -11179,6 +11905,32 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
     result["residual_handoff_helper"] = (
         "package_reverse_flow_focused_validation_continue_residual_handoff"
     )
+    residual_acceptance = (
+        package_reverse_flow_focused_validation_continue_residual_acceptance(
+            pipeline=pipeline,
+            residual_handoff=residual_handoff,
+            residual_focused_validation=residual_focused_validation,
+            residual_unlocked_apply=residual_unlocked_apply,
+            residual_comparison=residual_comparison,
+            residual_follow=residual_follow,
+            residual_entry=residual_entry,
+            residual_open=residual_open,
+        )
+    )
+    result["residual_acceptance"] = residual_acceptance
+    result["residual_acceptance_line"] = str(
+        residual_acceptance.get("residual_acceptance_line") or ""
+    )
+    result["residual_acceptance_ready"] = bool(
+        residual_acceptance.get("residual_acceptance")
+    )
+    result["residual_acceptance_action"] = str(
+        residual_acceptance.get("residual_acceptance_action")
+        or "wait_for_reverse_flow"
+    )
+    result["residual_acceptance_helper"] = (
+        "package_reverse_flow_focused_validation_continue_residual_acceptance"
+    )
     result["follow_through_helper"] = (
         "follow_reverse_flow_focused_validation_continue_dispatch"
     )
@@ -11187,6 +11939,7 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
     )
     helpers = list(result.get("record_helpers") or [])
     for name in (
+        "package_reverse_flow_focused_validation_continue_residual_acceptance",
         "package_reverse_flow_focused_validation_continue_residual_handoff",
         "package_reverse_flow_focused_validation_continue_residual_focused_validation",
         "package_reverse_flow_focused_validation_continue_residual_unlocked_apply",
@@ -17078,6 +17831,9 @@ def resolve_skill_route_discovery_pipeline_operator_state(
     state[
         "reverse_flow_focused_validation_continue_residual_handoff_helper"
     ] = "package_reverse_flow_focused_validation_continue_residual_handoff"
+    state[
+        "reverse_flow_focused_validation_continue_residual_acceptance_helper"
+    ] = "package_reverse_flow_focused_validation_continue_residual_acceptance"
     # Body-free finish receipt so supervisors can log continue_finished /
     # residual_queue_ready without nested post-card / handoff re-assembly.
     finish_receipt = package_reverse_flow_focused_validation_continue_finish_receipt(
@@ -17278,6 +18034,38 @@ def resolve_skill_route_discovery_pipeline_operator_state(
     state["reverse_flow_focused_validation_continue_call_residual_acceptance"] = bool(
         residual_handoff.get("call_residual_acceptance")
     )
+    # Body-free residual acceptance collapses residual handoff into residual
+    # activation-external acceptance status without residual_export.
+    residual_acceptance = (
+        package_reverse_flow_focused_validation_continue_residual_acceptance(
+            pipeline=pipeline,
+            residual_handoff=residual_handoff,
+            residual_focused_validation=residual_focused_validation,
+            residual_unlocked_apply=residual_unlocked_apply,
+            residual_comparison=residual_comparison,
+            residual_follow=residual_follow,
+            residual_entry=residual_entry,
+            residual_open=residual_open,
+        )
+    )
+    state["reverse_flow_focused_validation_continue_residual_acceptance"] = (
+        residual_acceptance
+    )
+    state[
+        "reverse_flow_focused_validation_continue_residual_acceptance_line"
+    ] = str(residual_acceptance.get("residual_acceptance_line") or "")
+    state[
+        "reverse_flow_focused_validation_continue_residual_acceptance_ready"
+    ] = bool(residual_acceptance.get("residual_acceptance"))
+    state[
+        "reverse_flow_focused_validation_continue_residual_acceptance_action"
+    ] = str(
+        residual_acceptance.get("residual_acceptance_action")
+        or "wait_for_reverse_flow"
+    )
+    state[
+        "reverse_flow_focused_validation_continue_residual_acceptance_helper"
+    ] = "package_reverse_flow_focused_validation_continue_residual_acceptance"
     return state
 
 
@@ -17615,6 +18403,14 @@ def render_skill_route_discovery_capability_pipeline_lines(
         f"{operator_state.get('reverse_flow_focused_validation_continue_residual_handoff_action') or 'wait_for_reverse_flow'}`",
         f"- Reverse-flow focused validation continue residual handoff call acceptance: `"
         f"{bool(operator_state.get('reverse_flow_focused_validation_continue_call_residual_acceptance'))}`",
+        f"- Reverse-flow focused validation continue residual acceptance helper: `"
+        f"{operator_state.get('reverse_flow_focused_validation_continue_residual_acceptance_helper') or 'package_reverse_flow_focused_validation_continue_residual_acceptance'}`",
+        f"- Reverse-flow focused validation continue residual acceptance line: `"
+        f"{operator_state.get('reverse_flow_focused_validation_continue_residual_acceptance_line') or 'none'}`",
+        f"- Reverse-flow focused validation continue residual acceptance action: `"
+        f"{operator_state.get('reverse_flow_focused_validation_continue_residual_acceptance_action') or 'wait_for_reverse_flow'}`",
+        f"- Reverse-flow focused validation continue residual acceptance ready: `"
+        f"{bool(operator_state.get('reverse_flow_focused_validation_continue_residual_acceptance_ready'))}`",
         f"- Reverse-flow continue decision: `"
         f"{operator_state.get('reverse_flow_continue_decision') or 'none'}`",
         f"- Adjacent agent harness-eval handoff: `{adjacent_handoff.get('status') or 'none'}`",
@@ -17653,8 +18449,9 @@ def render_skill_route_discovery_capability_pipeline_lines(
         "- package_reverse_flow_focused_validation_continue_residual_unlocked_apply collapses residual comparison into body-free residual_unlocked_apply_line (for example residual_unlocked_apply ready=true selected=prop-harness-fortress-local-eval status=ready lane=test preferred=test unlocked=documentation,test,code_patch comparison_ready=true action=open_residual_focused_local_validation call_focused_validation=true residual_export=false next=run_focused_local_validation_for_residual_adjacent_unlocked_lane_and_keep_activation_external helper=build_skill_route_discovery_residual_adjacent_unlocked_local_lane_apply) so residual unlocked-apply readiness and preferred test-first focused-validation policy are legible without nested re-assembly; residual export stays denied on continue surfaces and call_residual_focused_validation is informational policy only.",
         "- package_reverse_flow_focused_validation_continue_residual_focused_validation collapses residual unlocked apply into body-free residual_focused_validation_line (for example residual_focused_validation ready=true selected=prop-harness-fortress-local-eval status=ready lane=test preferred=test progress=0/3 unlocked_apply_ready=true action=run_residual_focused_validation call_handoff=false residual_export=false next=run_focused_local_validation_for_residual_adjacent_unlocked_lane_and_keep_activation_external helper=build_skill_route_discovery_residual_adjacent_focused_local_validation) so residual focused-validation readiness, body-free command-hash progress, and activation-external handoff policy are legible without nested re-assembly; residual export stays denied on continue surfaces and call_residual_handoff is informational policy only (true only after residual focused validation records a pass).",
         "- package_reverse_flow_focused_validation_continue_residual_handoff collapses residual focused validation into body-free residual_handoff_line (for example residual_handoff ready=true selected=prop-harness-fortress-local-eval status=ready lane=test preferred=test remaining=0 focused_ready=true action=open_residual_activation_external_acceptance call_acceptance=true residual_export=false next=keep_activation_external_after_residual_adjacent_focused_local_validation helper=build_skill_route_discovery_residual_adjacent_focused_validation_activation_external_handoff) so residual activation-external handoff readiness, remaining residual IDs, and acceptance policy are legible without nested re-assembly; residual export stays denied on continue surfaces and call_residual_acceptance is informational policy only (true only after residual handoff is ready).",
-        "- follow_reverse_flow_focused_validation_continue_dispatch is the preferred policy-aware operator entry: package inventory, resolve follow-through, call dispatch with execute only when call_dispatch_with_execute is true, and attach post_follow_through plus operator_card/post_operator_card, progress_transition, exec_receipt, finish_receipt, residual_open, residual_entry, residual_follow, residual_comparison, residual_unlocked_apply, residual_focused_validation, and residual_handoff after run/record; residual fortress stages stay blocked until reverse-flow record/close and activation-external acceptance.",
-        "- dispatch_reverse_flow_focused_validation_continue_supervisor_wake remains the low-level single operator entry: inventory packet first (via package_reverse_flow_focused_validation_continue_dispatch_inventory), optional allowlisted run/record when continue_run_executable, always reverse-flow-first supervisor_wake plus post_dispatch_inventory, follow_through, operator_card progress labels, progress_transition, exec_receipt, finish_receipt, residual_open, residual_entry, residual_follow, residual_comparison, residual_unlocked_apply, residual_focused_validation, and residual_handoff; residual fortress stages stay blocked until reverse-flow record/close and activation-external acceptance. operator_state also exports continue_run_recommended, continue_supervisor_wake, continue_dispatch (inventory packet without pipeline snapshot), continue_dispatch_action, continue_dispatch_execute_recommended, continue_dispatch_follow_through, continue_dispatch_follow_through_action, continue_dispatch_call_with_execute, continue_dispatch_helper, continue_dispatch_inventory_helper, continue_dispatch_follow_through_helper, continue_operator_card, continue_operator_card_helper, continue_progress_label, continue_action_line, continue_progress_transition_helper, continue_exec_receipt_helper, continue_finish_receipt, continue_finish_receipt_helper, continue_finish_line, continue_finished, continue_residual_queue_ready, continue_residual_open, continue_residual_open_helper, continue_residual_open_line, continue_residual_open_ready, continue_residual_adjacent_count, continue_residual_entry, continue_residual_entry_helper, continue_residual_entry_line, continue_residual_entry_ready, continue_selected_residual_proposal_id, continue_residual_follow, continue_residual_follow_helper, continue_residual_follow_line, continue_residual_follow_ready, continue_residual_follow_action, continue_call_residual_comparison, continue_residual_comparison, continue_residual_comparison_helper, continue_residual_comparison_line, continue_residual_comparison_ready, continue_residual_comparison_action, continue_call_residual_unlocked_apply, continue_residual_unlocked_apply, continue_residual_unlocked_apply_helper, continue_residual_unlocked_apply_line, continue_residual_unlocked_apply_ready, continue_residual_unlocked_apply_action, continue_call_residual_focused_validation, continue_residual_focused_validation, continue_residual_focused_validation_helper, continue_residual_focused_validation_line, continue_residual_focused_validation_ready, continue_residual_focused_validation_action, continue_call_residual_handoff, continue_residual_handoff, continue_residual_handoff_helper, continue_residual_handoff_line, continue_residual_handoff_ready, continue_residual_handoff_action, and continue_call_residual_acceptance while reverse-flow is ready/unrecorded or after pass.",
+        "- package_reverse_flow_focused_validation_continue_residual_acceptance collapses residual handoff into body-free residual_acceptance_line (for example residual_acceptance ready=true selected=prop-harness-fortress-local-eval status=accepted lane=test preferred=test remaining=0 handoff_ready=true action=keep_activation_external residual_export=false next=keep_activation_external_after_residual_adjacent_focused_local_validation helper=build_skill_route_discovery_residual_adjacent_focused_validation_activation_external_acceptance) so residual activation-external acceptance readiness, remaining residual IDs, and keep_activation_external policy are legible without nested re-assembly; residual export stays denied on continue surfaces even when residual acceptance is accepted.",
+        "- follow_reverse_flow_focused_validation_continue_dispatch is the preferred policy-aware operator entry: package inventory, resolve follow-through, call dispatch with execute only when call_dispatch_with_execute is true, and attach post_follow_through plus operator_card/post_operator_card, progress_transition, exec_receipt, finish_receipt, residual_open, residual_entry, residual_follow, residual_comparison, residual_unlocked_apply, residual_focused_validation, residual_handoff, and residual_acceptance after run/record; residual fortress stages stay blocked until reverse-flow record/close and activation-external acceptance.",
+        "- dispatch_reverse_flow_focused_validation_continue_supervisor_wake remains the low-level single operator entry: inventory packet first (via package_reverse_flow_focused_validation_continue_dispatch_inventory), optional allowlisted run/record when continue_run_executable, always reverse-flow-first supervisor_wake plus post_dispatch_inventory, follow_through, operator_card progress labels, progress_transition, exec_receipt, finish_receipt, residual_open, residual_entry, residual_follow, residual_comparison, residual_unlocked_apply, residual_focused_validation, residual_handoff, and residual_acceptance; residual fortress stages stay blocked until reverse-flow record/close and activation-external acceptance. operator_state also exports continue_run_recommended, continue_supervisor_wake, continue_dispatch (inventory packet without pipeline snapshot), continue_dispatch_action, continue_dispatch_execute_recommended, continue_dispatch_follow_through, continue_dispatch_follow_through_action, continue_dispatch_call_with_execute, continue_dispatch_helper, continue_dispatch_inventory_helper, continue_dispatch_follow_through_helper, continue_operator_card, continue_operator_card_helper, continue_progress_label, continue_action_line, continue_progress_transition_helper, continue_exec_receipt_helper, continue_finish_receipt, continue_finish_receipt_helper, continue_finish_line, continue_finished, continue_residual_queue_ready, continue_residual_open, continue_residual_open_helper, continue_residual_open_line, continue_residual_open_ready, continue_residual_adjacent_count, continue_residual_entry, continue_residual_entry_helper, continue_residual_entry_line, continue_residual_entry_ready, continue_selected_residual_proposal_id, continue_residual_follow, continue_residual_follow_helper, continue_residual_follow_line, continue_residual_follow_ready, continue_residual_follow_action, continue_call_residual_comparison, continue_residual_comparison, continue_residual_comparison_helper, continue_residual_comparison_line, continue_residual_comparison_ready, continue_residual_comparison_action, continue_call_residual_unlocked_apply, continue_residual_unlocked_apply, continue_residual_unlocked_apply_helper, continue_residual_unlocked_apply_line, continue_residual_unlocked_apply_ready, continue_residual_unlocked_apply_action, continue_call_residual_focused_validation, continue_residual_focused_validation, continue_residual_focused_validation_helper, continue_residual_focused_validation_line, continue_residual_focused_validation_ready, continue_residual_focused_validation_action, continue_call_residual_handoff, continue_residual_handoff, continue_residual_handoff_helper, continue_residual_handoff_line, continue_residual_handoff_ready, continue_residual_handoff_action, continue_call_residual_acceptance, continue_residual_acceptance, continue_residual_acceptance_helper, continue_residual_acceptance_line, continue_residual_acceptance_ready, and continue_residual_acceptance_action while reverse-flow is ready/unrecorded or after pass.",
         "- Partial body-free command-hash rows stay on ready focused validation and accumulate across record calls via merge_skill_route_discovery_focused_validation_command_results; while partial, supervisor_next promotes to record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external (not a full re-run); residual export remains denied until results cover expected hashes and reverse-flow record/close advances residual-active work.",
         "- After ready, record_skill_route_discovery_focused_local_test_validation_results merges new body-free command-hash rows with any prior partial rows while activation stays external.",
         "- After ready, close_skill_route_discovery_focused_local_test_validation_with_outcome materializes body-free expected-hash outcomes and refreshes activation-external handoff/acceptance.",

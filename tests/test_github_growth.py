@@ -70,6 +70,7 @@ from blackhole_agent.github_growth import (
     package_reverse_flow_focused_validation_continue_residual_unlocked_apply,
     package_reverse_flow_focused_validation_continue_residual_focused_validation,
     package_reverse_flow_focused_validation_continue_residual_handoff,
+    package_reverse_flow_focused_validation_continue_residual_acceptance,
     resolve_reverse_flow_focused_validation_continue_dispatch_follow_through,
     normalize_skill_route_discovery_focused_validation_command_results,
     record_skill_route_discovery_focused_local_test_validation_results,
@@ -5677,6 +5678,30 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert "residual_export=false" in pipeline["operator_state"][
         "reverse_flow_focused_validation_continue_residual_handoff_line"
     ]
+    assert pipeline[
+        "reverse_flow_focused_validation_continue_residual_acceptance_helper"
+    ] == "package_reverse_flow_focused_validation_continue_residual_acceptance"
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_acceptance_helper"
+    ] == "package_reverse_flow_focused_validation_continue_residual_acceptance"
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_acceptance_ready"
+    ] is False
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_acceptance_action"
+    ] == "wait_for_reverse_flow"
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_acceptance_line"
+    ].startswith("residual_acceptance ready=false ")
+    assert "action=wait_for_reverse_flow" in pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_acceptance_line"
+    ]
+    assert "call_acceptance=false" in pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_acceptance_line"
+    ]
+    assert "residual_export=false" in pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_acceptance_line"
+    ]
     assert pipeline["reverse_flow_focused_validation_continue_supervisor_wake"][
         "controller_surface"
     ] == "reverse_flow_focused_validation_continue_run_supervisor_wake"
@@ -6964,6 +6989,36 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert inventory_dispatch["residual_handoff"][
         "kernel_restart_allowed"
     ] is False
+    # Inventory-only residual acceptance stays wait_for_reverse_flow;
+    # residual export denied.
+    assert inventory_dispatch["residual_acceptance"]["controller_surface"] == (
+        "reverse_flow_focused_validation_continue_residual_acceptance"
+    )
+    assert inventory_dispatch["residual_acceptance_ready"] is False
+    assert inventory_dispatch["residual_acceptance_action"] == (
+        "wait_for_reverse_flow"
+    )
+    assert inventory_dispatch["residual_acceptance_line"].startswith(
+        "residual_acceptance ready=false "
+    )
+    assert "action=wait_for_reverse_flow" in inventory_dispatch[
+        "residual_acceptance_line"
+    ]
+    assert "call_acceptance=false" in inventory_dispatch[
+        "residual_acceptance_line"
+    ]
+    assert "residual_export=false" in inventory_dispatch[
+        "residual_acceptance_line"
+    ]
+    assert inventory_dispatch["residual_acceptance"][
+        "residual_export_allowed"
+    ] is False
+    assert inventory_dispatch["residual_acceptance"][
+        "supervisor_activation_allowed"
+    ] is False
+    assert inventory_dispatch["residual_acceptance"][
+        "kernel_restart_allowed"
+    ] is False
     assert "dispatch_reverse_flow_focused_validation_continue_supervisor_wake" in (
         inventory_dispatch["record_helpers"]
     )
@@ -7417,6 +7472,61 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert standalone_residual_handoff["residual_handoff"] is False
     assert standalone_residual_handoff["call_residual_acceptance"] is False
     assert standalone_residual_handoff[
+        "residual_export_allowed"
+    ] is False
+    # Residual acceptance collapses residual handoff into activation-external
+    # acceptance readiness without residual_export. While residual handoff waits
+    # on residual focused validation, acceptance stays blocked.
+    assert full_dispatch["residual_acceptance"]["controller_surface"] == (
+        "reverse_flow_focused_validation_continue_residual_acceptance"
+    )
+    assert full_dispatch["residual_acceptance_ready"] is False
+    assert full_dispatch["residual_acceptance_action"] == (
+        "wait_for_residual_handoff"
+    )
+    assert full_dispatch["residual_acceptance"][
+        "residual_handoff_ready"
+    ] is False
+    assert full_dispatch["residual_acceptance"][
+        "residual_export_allowed"
+    ] is False
+    assert full_dispatch["residual_acceptance"][
+        "supervisor_activation_allowed"
+    ] is False
+    assert full_dispatch["residual_acceptance"][
+        "kernel_restart_allowed"
+    ] is False
+    assert full_dispatch["residual_acceptance"][
+        "raw_command_stdout_exported"
+    ] is False
+    assert full_dispatch["residual_acceptance_line"].startswith(
+        "residual_acceptance ready=false "
+    )
+    assert "action=wait_for_residual_handoff" in (
+        full_dispatch["residual_acceptance_line"]
+    )
+    assert "call_acceptance=false" in full_dispatch["residual_acceptance_line"]
+    assert "handoff_ready=false" in full_dispatch["residual_acceptance_line"]
+    assert "residual_export=false" in full_dispatch["residual_acceptance_line"]
+    # Standalone residual acceptance package matches dispatch attachment.
+    standalone_residual_acceptance = (
+        package_reverse_flow_focused_validation_continue_residual_acceptance(
+            pipeline=full_dispatch["pipeline"],
+            residual_handoff=full_dispatch["residual_handoff"],
+            residual_focused_validation=full_dispatch["residual_focused_validation"],
+            residual_unlocked_apply=full_dispatch["residual_unlocked_apply"],
+            residual_comparison=full_dispatch["residual_comparison"],
+            residual_follow=full_dispatch["residual_follow"],
+            residual_entry=full_dispatch["residual_entry"],
+            residual_open=full_dispatch["residual_open"],
+        )
+    )
+    assert standalone_residual_acceptance["controller_surface"] == (
+        "reverse_flow_focused_validation_continue_residual_acceptance"
+    )
+    assert standalone_residual_acceptance["residual_acceptance"] is False
+    assert standalone_residual_acceptance["call_residual_acceptance"] is False
+    assert standalone_residual_acceptance[
         "residual_export_allowed"
     ] is False
     # Standalone progress-transition package matches dispatch attachment.
