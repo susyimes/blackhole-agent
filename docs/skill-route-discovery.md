@@ -265,7 +265,13 @@ emits `skill_route_discovery_focused_local_test_validation`:
    continue wake: zero-row ready → `mode=run_pending` (all pending commands),
    partial ready → `mode=record_remaining` (remaining only), passed →
    `mode=keep_activation_external`, failed → `mode=repair`; residual export stays
-   denied on this surface
+   denied on this surface. Pending inventory also exports ordered
+   `pending_work_units` (`command` + `command_hash` + `inventory_index`) on the
+   continue plan, focused validation, and durable operator_state so supervisors
+   do not re-zip parallel lists. `materialize_reverse_flow_focused_validation_continue_record_rows`
+   turns per-unit outcomes into body-free record rows for pending units only;
+   `record_reverse_flow_focused_validation_continue_outcomes` is the integration
+   seam that merges those rows onto the pipeline
 
 Replay with:
 
@@ -300,12 +306,18 @@ results without treating unlock as a dead end:
    already-covered expected hashes;
    `pending_skill_route_discovery_focused_validation_commands` maps missing hashes
    back to local command text for continue wakes;
+   `pending_skill_route_discovery_focused_validation_work_units` pairs pending
+   command text with body-free hashes and inventory indexes;
    `resolve_reverse_flow_focused_validation_continue_supervisor_next` promotes
    partial ready surfaces to
    `record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external`;
    `build_reverse_flow_focused_validation_continue_plan` unifies zero-row and
-   partial wakes around `pending_commands` / `missing_command_hashes` with modes
-   `run_pending` | `record_remaining` | `repair` | `keep_activation_external`
+   partial wakes around `pending_work_units` plus `pending_commands` /
+   `missing_command_hashes` with modes
+   `run_pending` | `record_remaining` | `repair` | `keep_activation_external`;
+   `materialize_reverse_flow_focused_validation_continue_record_rows` and
+   `record_reverse_flow_focused_validation_continue_outcomes` turn pending-unit
+   outcomes into body-free merge-friendly record rows
 4. On partial ready coverage, decision is
    `record_remaining_focused_validation_command_hashes_before_activation_external`
    and supervisor next is record-remaining (not a full re-run). On pass, decision

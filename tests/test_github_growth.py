@@ -48,6 +48,9 @@ from blackhole_agent.github_growth import (
     recorded_skill_route_discovery_focused_validation_command_hashes,
     resolve_reverse_flow_focused_validation_continue_supervisor_next,
     build_reverse_flow_focused_validation_continue_plan,
+    materialize_reverse_flow_focused_validation_continue_record_rows,
+    pending_skill_route_discovery_focused_validation_work_units,
+    record_reverse_flow_focused_validation_continue_outcomes,
     normalize_skill_route_discovery_focused_validation_command_results,
     record_skill_route_discovery_focused_local_test_validation_results,
     record_skill_route_discovery_residual_adjacent_focused_local_validation_results,
@@ -5329,12 +5332,31 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         focused["focused_validation"]["commands"]
     )
     assert pipeline["reverse_flow_focused_validation_continue_plan_mode"] == "run_pending"
+    assert pipeline["reverse_flow_focused_validation_pending_work_unit_count"] == len(
+        focused["focused_validation"]["commands"]
+    )
+    assert pipeline["reverse_flow_focused_validation_pending_work_units"] == [
+        {
+            "command": command,
+            "command_hash": command_hash,
+            "inventory_index": index,
+        }
+        for index, (command, command_hash) in enumerate(
+            zip(
+                focused["focused_validation"]["commands"],
+                focused["focused_validation"]["command_hashes"],
+            )
+        )
+    ]
     assert pipeline["reverse_flow_focused_validation_record_helpers"] == [
         "record_skill_route_discovery_focused_local_test_validation_results",
         "close_skill_route_discovery_focused_local_test_validation_with_outcome",
+        "record_reverse_flow_focused_validation_continue_outcomes",
+        "materialize_reverse_flow_focused_validation_continue_record_rows",
         "merge_skill_route_discovery_focused_validation_command_results",
         "resolve_reverse_flow_focused_validation_continue_supervisor_next",
         "build_reverse_flow_focused_validation_continue_plan",
+        "pending_skill_route_discovery_focused_validation_work_units",
     ]
     assert pipeline["operator_state"]["supervisor_next_action"] == (
         pipeline["supervisor_next_action"]
@@ -5352,6 +5374,9 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert pipeline["operator_state"][
         "reverse_flow_focused_validation_continue_plan_mode"
     ] == "run_pending"
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_pending_work_units"
+    ] == pipeline["reverse_flow_focused_validation_pending_work_units"]
 
     assert unlocked_apply["status"] == "ready"
     assert focused["controller_surface"] == (
@@ -5425,6 +5450,25 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert focused["continue_plan"]["missing_command_hashes"] == list(
         focused["focused_validation"]["command_hashes"]
     )
+    assert focused["continue_plan"]["pending_work_units"] == [
+        {
+            "command": command,
+            "command_hash": command_hash,
+            "inventory_index": index,
+        }
+        for index, (command, command_hash) in enumerate(
+            zip(
+                focused["focused_validation"]["commands"],
+                focused["focused_validation"]["command_hashes"],
+            )
+        )
+    ]
+    assert focused["continue_plan"]["pending_work_unit_count"] == len(
+        focused["focused_validation"]["commands"]
+    )
+    assert focused["focused_validation"]["pending_work_units"] == focused["continue_plan"][
+        "pending_work_units"
+    ]
     assert focused["continue_plan"]["residual_export_allowed"] is False
     assert focused["continue_plan"]["body_free"] is True
     assert focused["focused_validation"]["continue_plan"]["mode"] == "run_pending"
@@ -5444,9 +5488,12 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert focused["record_helpers"] == [
         "record_skill_route_discovery_focused_local_test_validation_results",
         "close_skill_route_discovery_focused_local_test_validation_with_outcome",
+        "record_reverse_flow_focused_validation_continue_outcomes",
+        "materialize_reverse_flow_focused_validation_continue_record_rows",
         "merge_skill_route_discovery_focused_validation_command_results",
         "resolve_reverse_flow_focused_validation_continue_supervisor_next",
         "build_reverse_flow_focused_validation_continue_plan",
+        "pending_skill_route_discovery_focused_validation_work_units",
     ]
     assert focused["activation_external_handoff_after_record"] == (
         "skill_route_discovery_focused_validation_activation_external_handoff"
@@ -5857,6 +5904,29 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         "pending_commands"
     ] == focused["focused_validation"]["commands"][1:]
     assert partial["focused_local_test_validation"]["continue_plan"][
+        "pending_work_units"
+    ] == [
+        {
+            "command": command,
+            "command_hash": command_hash,
+            "inventory_index": index,
+        }
+        for index, (command, command_hash) in enumerate(
+            zip(
+                focused["focused_validation"]["commands"],
+                focused["focused_validation"]["command_hashes"],
+            ),
+            start=0,
+        )
+        if index >= 1
+    ]
+    assert partial["reverse_flow_focused_validation_pending_work_unit_count"] == (
+        len(command_hashes) - 1
+    )
+    assert partial["reverse_flow_focused_validation_pending_work_units"] == partial[
+        "focused_local_test_validation"
+    ]["continue_plan"]["pending_work_units"]
+    assert partial["focused_local_test_validation"]["continue_plan"][
         "supervisor_next_action"
     ] == (
         "record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external"
@@ -5984,6 +6054,62 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         command_hashes=command_hashes,
         missing_command_hashes=command_hashes[1:],
     ) == focused["focused_validation"]["commands"][1:]
+    assert pending_skill_route_discovery_focused_validation_work_units(
+        commands=focused["focused_validation"]["commands"],
+        command_hashes=command_hashes,
+        missing_command_hashes=command_hashes[1:],
+    ) == [
+        {
+            "command": focused["focused_validation"]["commands"][1],
+            "command_hash": command_hashes[1],
+            "inventory_index": 1,
+        },
+        {
+            "command": focused["focused_validation"]["commands"][2],
+            "command_hash": command_hashes[2],
+            "inventory_index": 2,
+        },
+    ]
+    # Continue-plan materializer builds body-free rows for pending units only.
+    assert materialize_reverse_flow_focused_validation_continue_record_rows(
+        continue_plan=partial["focused_local_test_validation"]["continue_plan"],
+        outcomes={command_hashes[1]: True, command_hashes[2]: False},
+    ) == [
+        {
+            "command_hash": command_hashes[1],
+            "passed": True,
+            "in_expected_set": True,
+        },
+        {
+            "command_hash": command_hashes[2],
+            "passed": False,
+            "in_expected_set": True,
+        },
+    ]
+    assert materialize_reverse_flow_focused_validation_continue_record_rows(
+        continue_plan=partial["focused_local_test_validation"]["continue_plan"],
+        outcomes=[True],
+    ) == [
+        {
+            "command_hash": command_hashes[1],
+            "passed": True,
+            "in_expected_set": True,
+        }
+    ]
+    # Integration seam: record continue outcomes from pending work units only.
+    continue_partial = record_reverse_flow_focused_validation_continue_outcomes(
+        pipeline,
+        {command_hashes[0]: True},
+        source_digest="github-growth-20260713T053123.445910Z",
+    )
+    assert continue_partial["focused_local_test_validation"]["status"] == "ready"
+    assert continue_partial["focused_local_test_validation"]["focused_validation"][
+        "recorded_command_hashes"
+    ] == [command_hashes[0]]
+    assert continue_partial["reverse_flow_focused_validation_continue_plan_mode"] == (
+        "record_remaining"
+    )
+    assert continue_partial["residual_export_allowed"] is False
     # Final remaining hash closes reverse-flow focused validation via merge.
     merged_pass = record_skill_route_discovery_focused_local_test_validation_results(
         merged_partial,
@@ -6011,9 +6137,24 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert merged_pass["focused_local_test_validation"]["continue_plan"][
         "pending_command_count"
     ] == 0
+    assert merged_pass["focused_local_test_validation"]["continue_plan"][
+        "pending_work_unit_count"
+    ] == 0
+    assert merged_pass["reverse_flow_focused_validation_pending_work_units"] == []
     assert merged_pass["reverse_flow_focused_validation_continue_plan_mode"] == (
         "keep_activation_external"
     )
+    # Closing remaining pending units through continue-outcomes helper also passes.
+    continue_pass = record_reverse_flow_focused_validation_continue_outcomes(
+        continue_partial,
+        {hash_item: True for hash_item in command_hashes[1:]},
+        source_digest="github-growth-20260713T053123.445910Z",
+    )
+    assert continue_pass["focused_local_test_validation"]["status"] == "passed"
+    assert continue_pass["focused_local_test_validation"]["continue_plan"]["mode"] == (
+        "keep_activation_external"
+    )
+    assert continue_pass["reverse_flow_focused_validation_pending_work_unit_count"] == 0
     assert merged_pass["supervisor_next_action"] != (
         "record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external"
     )
