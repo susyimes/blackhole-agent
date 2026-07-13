@@ -66,6 +66,7 @@ from blackhole_agent.github_growth import (
     package_reverse_flow_focused_validation_continue_residual_open,
     package_reverse_flow_focused_validation_continue_residual_entry,
     package_reverse_flow_focused_validation_continue_residual_follow,
+    package_reverse_flow_focused_validation_continue_residual_comparison,
     resolve_reverse_flow_focused_validation_continue_dispatch_follow_through,
     normalize_skill_route_discovery_focused_validation_command_results,
     record_skill_route_discovery_focused_local_test_validation_results,
@@ -5565,6 +5566,33 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert "residual_export=false" in pipeline["operator_state"][
         "reverse_flow_focused_validation_continue_residual_follow_line"
     ]
+    assert pipeline[
+        "reverse_flow_focused_validation_continue_residual_comparison_helper"
+    ] == "package_reverse_flow_focused_validation_continue_residual_comparison"
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_comparison_helper"
+    ] == "package_reverse_flow_focused_validation_continue_residual_comparison"
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_comparison_ready"
+    ] is False
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_comparison_action"
+    ] == "wait_for_reverse_flow"
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_call_residual_unlocked_apply"
+    ] is False
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_comparison_line"
+    ].startswith("residual_comparison ready=false ")
+    assert "action=wait_for_reverse_flow" in pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_comparison_line"
+    ]
+    assert "call_unlocked_apply=false" in pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_comparison_line"
+    ]
+    assert "residual_export=false" in pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_residual_comparison_line"
+    ]
     assert pipeline["reverse_flow_focused_validation_continue_supervisor_wake"][
         "controller_surface"
     ] == "reverse_flow_focused_validation_continue_run_supervisor_wake"
@@ -6743,6 +6771,24 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert inventory_dispatch["residual_follow"]["residual_export_allowed"] is False
     assert inventory_dispatch["residual_follow"]["supervisor_activation_allowed"] is False
     assert inventory_dispatch["residual_follow"]["kernel_restart_allowed"] is False
+    # Inventory-only residual comparison stays wait_for_reverse_flow; unlocked apply denied.
+    assert inventory_dispatch["residual_comparison"]["controller_surface"] == (
+        "reverse_flow_focused_validation_continue_residual_comparison"
+    )
+    assert inventory_dispatch["residual_comparison_ready"] is False
+    assert inventory_dispatch["residual_comparison_action"] == "wait_for_reverse_flow"
+    assert inventory_dispatch["call_residual_unlocked_apply"] is False
+    assert inventory_dispatch["residual_comparison_line"].startswith(
+        "residual_comparison ready=false "
+    )
+    assert "action=wait_for_reverse_flow" in inventory_dispatch["residual_comparison_line"]
+    assert "call_unlocked_apply=false" in inventory_dispatch["residual_comparison_line"]
+    assert "residual_export=false" in inventory_dispatch["residual_comparison_line"]
+    assert inventory_dispatch["residual_comparison"]["residual_export_allowed"] is False
+    assert inventory_dispatch["residual_comparison"][
+        "supervisor_activation_allowed"
+    ] is False
+    assert inventory_dispatch["residual_comparison"]["kernel_restart_allowed"] is False
     assert "dispatch_reverse_flow_focused_validation_continue_supervisor_wake" in (
         inventory_dispatch["record_helpers"]
     )
@@ -6958,6 +7004,59 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         or "run_agent_harness_eval_local_comparison_for_residual_adjacent_row"
         in full_dispatch["residual_follow_line"]
     )
+    # Residual comparison collapses residual follow into comparison readiness /
+    # unlocked-lane policy without residual_export on continue surfaces.
+    assert full_dispatch["residual_comparison"]["controller_surface"] == (
+        "reverse_flow_focused_validation_continue_residual_comparison"
+    )
+    assert full_dispatch["residual_comparison_ready"] is True
+    assert full_dispatch["residual_comparison_action"] == (
+        "open_residual_unlocked_local_lane_apply"
+    )
+    assert full_dispatch["call_residual_unlocked_apply"] is True
+    assert full_dispatch["residual_comparison"]["selected_residual_proposal_id"] == (
+        full_dispatch["selected_residual_proposal_id"]
+    )
+    assert full_dispatch["residual_comparison"]["local_comparison_status"] == (
+        "passed_local_comparison"
+    )
+    assert full_dispatch["residual_comparison"]["unlocked_local_lanes"]
+    assert full_dispatch["residual_comparison"]["residual_export_allowed"] is False
+    assert full_dispatch["residual_comparison"]["supervisor_activation_allowed"] is False
+    assert full_dispatch["residual_comparison"]["kernel_restart_allowed"] is False
+    assert full_dispatch["residual_comparison"]["raw_command_stdout_exported"] is False
+    assert full_dispatch["residual_comparison_line"].startswith(
+        "residual_comparison ready=true "
+    )
+    assert "action=open_residual_unlocked_local_lane_apply" in (
+        full_dispatch["residual_comparison_line"]
+    )
+    assert "call_unlocked_apply=true" in full_dispatch["residual_comparison_line"]
+    assert "comparison=passed_local_comparison" in full_dispatch[
+        "residual_comparison_line"
+    ]
+    assert "residual_export=false" in full_dispatch["residual_comparison_line"]
+    assert (
+        "build_skill_route_discovery_residual_adjacent_harness_eval_local_comparison"
+        in full_dispatch["residual_comparison_line"]
+        or "apply_unlocked_documentation_test_or_code_patch"
+        in full_dispatch["residual_comparison_line"]
+    )
+    # Standalone residual comparison package matches dispatch attachment.
+    standalone_residual_comparison = (
+        package_reverse_flow_focused_validation_continue_residual_comparison(
+            pipeline=full_dispatch["pipeline"],
+            residual_follow=full_dispatch["residual_follow"],
+            residual_entry=full_dispatch["residual_entry"],
+            residual_open=full_dispatch["residual_open"],
+        )
+    )
+    assert standalone_residual_comparison["controller_surface"] == (
+        "reverse_flow_focused_validation_continue_residual_comparison"
+    )
+    assert standalone_residual_comparison["residual_comparison"] is True
+    assert standalone_residual_comparison["call_residual_unlocked_apply"] is True
+    assert standalone_residual_comparison["residual_export_allowed"] is False
     # Standalone progress-transition package matches dispatch attachment.
     standalone_transition = (
         package_reverse_flow_focused_validation_continue_progress_transition(
