@@ -388,6 +388,7 @@ def test_skill_route_discovery_doc_records_capability_pipeline_pass1():
         "package_reverse_flow_focused_validation_continue_residual_follow",
         "package_reverse_flow_focused_validation_continue_residual_comparison",
         "package_reverse_flow_focused_validation_continue_residual_unlocked_apply",
+        "package_reverse_flow_focused_validation_continue_residual_focused_validation",
         "follow_reverse_flow_focused_validation_continue_dispatch",
         "dispatch_reverse_flow_focused_validation_continue_supervisor_wake",
         "reverse_flow_focused_validation_continue_local_command_allowed",
