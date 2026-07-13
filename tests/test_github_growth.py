@@ -59,6 +59,7 @@ from blackhole_agent.github_growth import (
     dispatch_reverse_flow_focused_validation_continue_supervisor_wake,
     follow_reverse_flow_focused_validation_continue_dispatch,
     package_reverse_flow_focused_validation_continue_dispatch_inventory,
+    package_reverse_flow_focused_validation_continue_operator_card,
     resolve_reverse_flow_focused_validation_continue_dispatch_follow_through,
     normalize_skill_route_discovery_focused_validation_command_results,
     record_skill_route_discovery_focused_local_test_validation_results,
@@ -5360,6 +5361,7 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert pipeline["reverse_flow_focused_validation_record_helpers"] == [
         "record_skill_route_discovery_focused_local_test_validation_results",
         "close_skill_route_discovery_focused_local_test_validation_with_outcome",
+        "package_reverse_flow_focused_validation_continue_operator_card",
         "follow_reverse_flow_focused_validation_continue_dispatch",
         "resolve_reverse_flow_focused_validation_continue_dispatch_follow_through",
         "dispatch_reverse_flow_focused_validation_continue_supervisor_wake",
@@ -5425,6 +5427,38 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert pipeline["reverse_flow_focused_validation_continue_dispatch_follow_through"][
         "residual_export_allowed"
     ] is False
+    # Compact operator card: progress 0/N + follow-through policy without nested re-derive.
+    expected_count = len(focused["focused_validation"]["command_hashes"])
+    assert pipeline["reverse_flow_focused_validation_continue_progress_label"] == (
+        f"0/{expected_count}"
+    )
+    assert pipeline[
+        "reverse_flow_focused_validation_continue_operator_card_helper"
+    ] == "package_reverse_flow_focused_validation_continue_operator_card"
+    operator_card = pipeline["reverse_flow_focused_validation_continue_operator_card"]
+    assert operator_card["controller_surface"] == (
+        "reverse_flow_focused_validation_continue_operator_card"
+    )
+    assert operator_card["progress_label"] == f"0/{expected_count}"
+    assert operator_card["progress_complete"] is False
+    assert operator_card["recorded_result_count"] == 0
+    assert operator_card["expected_command_count"] == expected_count
+    assert operator_card["follow_through_action"] == "execute_now"
+    assert operator_card["call_dispatch_with_execute"] is True
+    assert operator_card["preferred_helper"] == (
+        "follow_reverse_flow_focused_validation_continue_dispatch"
+    )
+    assert operator_card["supervisor_next_action"] == (
+        "run_focused_local_test_validation_then_keep_activation_external"
+    )
+    assert operator_card["residual_hold_active"] is True
+    assert operator_card["residual_export_allowed"] is False
+    assert operator_card["supervisor_activation_allowed"] is False
+    assert operator_card["kernel_restart_allowed"] is False
+    assert operator_card["raw_command_stdout_exported"] is False
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_progress_label"
+    ] == f"0/{expected_count}"
     assert pipeline["reverse_flow_focused_validation_continue_supervisor_wake"][
         "controller_surface"
     ] == "reverse_flow_focused_validation_continue_run_supervisor_wake"
@@ -6448,6 +6482,27 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         "resolve_reverse_flow_focused_validation_continue_dispatch_follow_through"
     )
 
+    # Compact operator card packages 0/N progress with follow-through policy.
+    card = package_reverse_flow_focused_validation_continue_operator_card(
+        pipeline=pipeline,
+        follow_through=follow_through,
+    )
+    assert card["controller_surface"] == (
+        "reverse_flow_focused_validation_continue_operator_card"
+    )
+    assert card["progress_label"] == f"0/{len(command_hashes)}"
+    assert card["progress_complete"] is False
+    assert card["follow_through_action"] == "execute_now"
+    assert card["call_dispatch_with_execute"] is True
+    assert card["preferred_helper"] == (
+        "follow_reverse_flow_focused_validation_continue_dispatch"
+    )
+    assert card["residual_hold_active"] is True
+    assert card["residual_export_allowed"] is False
+    assert card["supervisor_activation_allowed"] is False
+    assert card["kernel_restart_allowed"] is False
+    assert card["raw_command_stdout_exported"] is False
+
     # Preferred single operator entry: inventory-only dispatch (no execute).
     inventory_dispatch = dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
         pipeline,
@@ -6476,7 +6531,15 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     # execute=False forces inventory-only even when follow-through would execute.
     assert inventory_dispatch["call_dispatch_with_execute"] is False
     assert inventory_dispatch["follow_through"]["follow_through_action"] == "execute_now"
+    assert inventory_dispatch["progress_label"] == f"0/{len(command_hashes)}"
+    assert inventory_dispatch["operator_card"]["progress_label"] == (
+        f"0/{len(command_hashes)}"
+    )
+    assert inventory_dispatch["operator_card"]["follow_through_action"] == "execute_now"
     assert "dispatch_reverse_flow_focused_validation_continue_supervisor_wake" in (
+        inventory_dispatch["record_helpers"]
+    )
+    assert "package_reverse_flow_focused_validation_continue_operator_card" in (
         inventory_dispatch["record_helpers"]
     )
     assert "package_reverse_flow_focused_validation_continue_dispatch_inventory" in (
@@ -6532,6 +6595,15 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert full_dispatch["post_follow_through_action"] == "keep_activation_external"
     assert full_dispatch["post_follow_through"]["call_dispatch_with_execute"] is False
     assert full_dispatch["post_follow_through"]["residual_export_allowed"] is False
+    assert full_dispatch["progress_label"] == f"0/{len(command_hashes)}"
+    assert full_dispatch["post_progress_label"] == f"{len(command_hashes)}/{len(command_hashes)}"
+    assert full_dispatch["operator_card"]["progress_complete"] is False
+    assert full_dispatch["post_operator_card"]["progress_complete"] is True
+    assert full_dispatch["post_operator_card"]["follow_through_action"] == (
+        "keep_activation_external"
+    )
+    assert full_dispatch["post_operator_card"]["call_dispatch_with_execute"] is False
+    assert full_dispatch["post_operator_card"]["residual_export_allowed"] is False
 
     # Policy-aware follow-through entry: execute_now → run_and_record without
     # supervisors re-deriving execute from nested action fields.
@@ -6556,6 +6628,15 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     )
     assert follow_packet["post_follow_through_action"] == "keep_activation_external"
     assert follow_packet["post_follow_through"]["call_dispatch_with_execute"] is False
+    assert follow_packet["progress_label"] == f"0/{len(command_hashes)}"
+    assert follow_packet["post_progress_label"] == (
+        f"{len(command_hashes)}/{len(command_hashes)}"
+    )
+    assert follow_packet["operator_card"]["follow_through_action"] == "execute_now"
+    assert follow_packet["post_operator_card"]["progress_complete"] is True
+    assert follow_packet["post_operator_card"]["follow_through_action"] == (
+        "keep_activation_external"
+    )
     assert follow_packet["residual_export_allowed"] is False
     assert follow_packet["supervisor_activation_allowed"] is False
     assert follow_packet["kernel_restart_allowed"] is False
