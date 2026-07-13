@@ -364,6 +364,8 @@ def test_skill_route_discovery_doc_records_capability_pipeline_pass1():
         "`prop-skill-reverse-flow-focused-test-validation`",
         "record_skill_route_discovery_focused_local_test_validation_results",
         "normalize_skill_route_discovery_focused_validation_command_results",
+        "merge_skill_route_discovery_focused_validation_command_results",
+        "missing_skill_route_discovery_focused_validation_command_hashes",
         "### Focused validation activation-external handoff",
         "Source digest: `github-growth-20260712T213308.729900Z`",
         "`skill_route_discovery_focused_validation_activation_external_handoff`",

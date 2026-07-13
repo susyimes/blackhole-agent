@@ -232,9 +232,10 @@ emits `skill_route_discovery_focused_local_test_validation`:
    empty residual adjacent IDs while reverse-flow-waiting
    (`residual_adjacent_export_held_until_ready=true` until ready/accepted)
 10. Record helpers
-   `record_skill_route_discovery_focused_local_test_validation_results` and
-   `close_skill_route_discovery_focused_local_test_validation_with_outcome` are
-   named on the packet; activation-external handoff follows only after record
+   `record_skill_route_discovery_focused_local_test_validation_results`,
+   `close_skill_route_discovery_focused_local_test_validation_with_outcome`, and
+   `merge_skill_route_discovery_focused_validation_command_results` are named on
+   the packet; activation-external handoff follows only after record
 11. Durable pipeline `operator_state` (also top-level fields) exports
    `supervisor_next_action`, residual hold/export flags,
    `residual_export_allowed`, reverse-flow-skill evidence binding
@@ -242,12 +243,17 @@ emits `skill_route_discovery_focused_local_test_validation`:
    `reverse_flow_bound_source_marker` / nested `reverse_flow_evidence_binding`,
    body-free with no raw evidence URLs), partial command-hash coverage
    (`reverse_flow_focused_validation_partial_results_recorded`, recorded/expected
-   counts), `reverse_flow_continue_decision`, and record helpers after pipeline
-   build and after record/close so supervisors continue reverse-flow without
-   re-rendering markdown. While ready/unrecorded with no partial rows:
+   counts, `reverse_flow_focused_validation_missing_command_hashes` /
+   `missing_command_hash_count`), `reverse_flow_continue_decision`, and record
+   helpers after pipeline build and after record/close so supervisors continue
+   reverse-flow without re-rendering markdown. While ready/unrecorded with no
+   partial rows:
    `reverse_flow_continue_decision=record_or_close_reverse_flow_focused_validation_before_residual_export`.
-   Partial body-free command-hash rows stay on ready focused validation; while
-   coverage is incomplete residual export stays denied and continue decision is
+   Partial body-free command-hash rows stay on ready focused validation and
+   accumulate across record wakes via
+   `merge_skill_route_discovery_focused_validation_command_results` (later rows
+   for the same hash win). While coverage is incomplete residual export stays
+   denied, missing hashes stay listed body-free, and continue decision is
    `record_remaining_reverse_flow_focused_validation_command_hashes_before_residual_export`
 
 Replay with:
@@ -269,10 +275,16 @@ results without treating unlock as a dead end:
 1. `build_skill_route_discovery_capability_pipeline(..., focused_validation_command_results=[...])`
    closes `ready` → `passed`/`failed` in one pipeline build
 2. `record_skill_route_discovery_focused_local_test_validation_results(pipeline, results)`
-   updates an existing pipeline packet after the focused commands run
+   updates an existing pipeline packet after the focused commands run, merging
+   new body-free rows with any prior partial `command_results` so coverage can
+   accumulate across wakes without dropping earlier hashes
 3. `normalize_skill_route_discovery_focused_validation_command_results` accepts
    `command_hash` or raw `command` text but exports only
-   `{command_hash, passed, in_expected_set}`
+   `{command_hash, passed, in_expected_set}`;
+   `merge_skill_route_discovery_focused_validation_command_results` combines prior
+   and new rows (later same-hash wins);
+   `missing_skill_route_discovery_focused_validation_command_hashes` lists still-
+   open expected hashes body-free for operator_state
 4. On pass, decision remains
    `record_focused_local_test_validation_pass_and_keep_activation_external` and
    supervisor next action remains

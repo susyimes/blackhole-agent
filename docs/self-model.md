@@ -46,45 +46,39 @@ residual adjacent focused validation activation-external handoff →
 residual adjacent focused validation activation-external acceptance →
 (optional) selected-step adjacent harness-eval.
 
-Observed this run (digest `github-growth-20260713T041123.699547Z`,
+Observed this run (digest `github-growth-20260713T043123.469301Z`,
 `prop-reverse-flow-skill-route-discovery` bound against
 `lingbol088-spec/reverse-flow-skill`, residual fortress adjacent):
 
-- Reverse-flow focused validation is still `ready` / unrecorded until supervisors
-  record/close body-free command-hash results; residual stages stay blocked
-  waiting on reverse-flow record/close and activation-external acceptance
-- New: `operator_state` binds reverse-flow evidence body-free
-  (`reverse_flow_bound`, `reverse_flow_bound_proposal_id`,
-  `reverse_flow_bound_source_marker=lingbol088-spec/reverse-flow-skill`, nested
-  `reverse_flow_evidence_binding` with no raw evidence URLs) and exports
-  `residual_export_allowed=false` while reverse-flow remains unrecorded
-- New: partial body-free command-hash rows stay on ready focused validation;
-  `reverse_flow_focused_validation_partial_results_recorded` plus recorded/expected
-  counts surface coverage without releasing residual export. Continue decision
-  becomes
-  `record_remaining_reverse_flow_focused_validation_command_hashes_before_residual_export`
+- Reverse-flow focused validation remains `ready` / unrecorded (0/3 command
+  hashes) until supervisors record/close body-free results; residual stages stay
+  blocked waiting on reverse-flow record/close and activation-external acceptance
+- New: partial body-free command-hash rows **accumulate across record wakes**
+  via `merge_skill_route_discovery_focused_validation_command_results` (later
+  same-hash rows win). Earlier wakes no longer drop prior partial coverage when
+  recording remaining hashes
+- New: body-free missing-hash inventory on focused validation and operator_state
+  (`missing_command_hashes` / `missing_command_hash_count`, mirrored as
+  `reverse_flow_focused_validation_missing_command_hashes` /
+  `reverse_flow_focused_validation_missing_command_hash_count`) so supervisors
+  know which expected hashes remain without re-deriving from command text
+- While ready/unrecorded with partial rows:
+  `reverse_flow_continue_decision=record_remaining_reverse_flow_focused_validation_command_hashes_before_residual_export`
+  and residual export stays denied until full cover + residual-active cascade
 - While ready/unrecorded with zero partial rows:
   `reverse_flow_continue_decision=record_or_close_reverse_flow_focused_validation_before_residual_export`
   and `supervisor_next_action=run_focused_local_test_validation_then_keep_activation_external`
-- Prior durable operator_state still holds: pipeline build and record/close attach
-  top-level + nested `operator_state` (`supervisor_next_action`, residual
-  hold/export flags, continue decision, record helpers)
-- Prior residual acceptance repair still holds: residual acceptance inherits
-  cascaded handoff next when handoff is blocked, and only owns render priority
-  when residual handoff is residual-active
-- Prior residual-active render ownership still holds: residual stages that are
-  only reverse-flow-waiting do not own `supervisor_next` at all
-- Prior residual selection hold still holds: residual stage packets leave
-  fortress `selected_residual_proposal_id` / residual `proposal_id` empty while
-  reverse-flow-waiting (`residual_selection_held_until_residual_active=true`)
-- Prior residual adjacent export hold still holds: reverse-flow surfaces do not
-  pre-export residual fortress adjacent IDs or residual availability while
-  reverse-flow-waiting (`residual_adjacent_ids_held_until_recorded` /
-  `residual_adjacent_export_held_until_ready`)
-- After record/close pass, operator_state refreshes: residual holds release,
-  `residual_export_allowed=true` when residual-active, fortress selected residual
-  id re-exports only when residual-active, and `supervisor_next_action` advances
-  to residual focused validation when the residual cascade is ready
+- Prior durable operator_state still holds: reverse-flow evidence binding
+  (`reverse_flow_bound`, `reverse_flow_bound_source_marker=lingbol088-spec/reverse-flow-skill`,
+  nested body-free `reverse_flow_evidence_binding`), residual hold/export flags,
+  `residual_export_allowed=false` while reverse-flow waits, partial coverage counts
+- Prior residual acceptance / selection / adjacent-export holds still hold:
+  residual stages reverse-flow-waiting do not own `supervisor_next`, leave fortress
+  selection empty, and do not pre-export residual adjacent IDs
+- After multi-wake merge covers expected hashes and record/close passes,
+  operator_state refreshes: residual holds release, `residual_export_allowed=true`
+  when residual-active, fortress selected residual id re-exports only when
+  residual-active
 - Activation, push, promotion, provider launch, remote apply, external skill
   execution, and kernel restart stay denied
 - agent-chief remains privacy review-only

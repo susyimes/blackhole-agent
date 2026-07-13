@@ -4550,6 +4550,77 @@ def normalize_skill_route_discovery_focused_validation_command_results(
     return rows
 
 
+def merge_skill_route_discovery_focused_validation_command_results(
+    prior_command_results: list[dict[str, Any]] | None = None,
+    new_command_results: list[dict[str, Any]] | None = None,
+    *,
+    expected_command_hashes: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Merge body-free command-hash rows so partial coverage accumulates across wakes.
+
+    Prior reverse-flow focused validation rows stay until a newer row for the same
+    ``command_hash`` replaces them. Output remains body-free
+    ``{command_hash, passed, in_expected_set}`` only — no command text, stdout,
+    evidence URLs, or upstream bodies. Residual export still requires full
+    expected-hash coverage after merge.
+    """
+
+    expected = [
+        str(item).strip()
+        for item in list(expected_command_hashes or [])
+        if str(item).strip()
+    ]
+    prior_rows = normalize_skill_route_discovery_focused_validation_command_results(
+        prior_command_results,
+        expected_command_hashes=expected,
+    )
+    new_rows = normalize_skill_route_discovery_focused_validation_command_results(
+        new_command_results,
+        expected_command_hashes=expected,
+    )
+    by_hash: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
+    for row in [*prior_rows, *new_rows]:
+        command_hash = str(row.get("command_hash") or "").strip()
+        if not command_hash:
+            continue
+        if command_hash not in by_hash:
+            order.append(command_hash)
+        by_hash[command_hash] = {
+            "command_hash": command_hash,
+            "passed": bool(row.get("passed")),
+            "in_expected_set": (
+                (command_hash in set(expected)) if expected else bool(row.get("in_expected_set", True))
+            ),
+        }
+    return [by_hash[command_hash] for command_hash in order]
+
+
+def missing_skill_route_discovery_focused_validation_command_hashes(
+    *,
+    expected_command_hashes: list[str] | None = None,
+    command_results: list[dict[str, Any]] | None = None,
+) -> list[str]:
+    """List expected body-free command hashes still missing from recorded results.
+
+    Returns hashes only (no command text). Used by reverse-flow operator_state so
+    supervisors can record remaining hashes without re-deriving the expected set
+    from command strings.
+    """
+
+    expected = [
+        str(item).strip()
+        for item in list(expected_command_hashes or [])
+        if str(item).strip()
+    ]
+    recorded = {
+        str(row.get("command_hash") or "").strip()
+        for row in list(command_results or [])
+        if isinstance(row, dict) and str(row.get("command_hash") or "").strip()
+    }
+    return [command_hash for command_hash in expected if command_hash not in recorded]
+
+
 def record_skill_route_discovery_focused_local_test_validation_results(
     pipeline: dict[str, Any],
     command_results: list[dict[str, Any]] | None = None,
@@ -4575,6 +4646,10 @@ def record_skill_route_discovery_focused_local_test_validation_results(
     ``skill_route_discovery_residual_adjacent_focused_validation_activation_external_acceptance``
     without enabling activation, push, promotion, provider launch, remote apply,
     external skill execution, or kernel restart.
+
+    Partial body-free rows already on the pipeline are merged with the new rows
+    so reverse-flow coverage can accumulate across wakes; later rows for the same
+    hash win. Residual export remains denied until results cover the expected set.
     """
 
     if not isinstance(pipeline, dict):
@@ -4610,13 +4685,19 @@ def record_skill_route_discovery_focused_local_test_validation_results(
         )
         if str(item).strip()
     ]
-    normalized = normalize_skill_route_discovery_focused_validation_command_results(
+    prior_results = list(
+        (prior_focused.get("focused_validation") or {}).get("command_results") or []
+        if isinstance(prior_focused.get("focused_validation"), dict)
+        else []
+    )
+    merged = merge_skill_route_discovery_focused_validation_command_results(
+        prior_results,
         command_results,
         expected_command_hashes=expected_hashes,
     )
     focused = build_skill_route_discovery_focused_local_test_validation(
         unlocked_local_test_lane_apply=unlocked_apply,
-        command_results=normalized,
+        command_results=merged,
         theme_window=theme,
         source_digest=source_digest
         or str(prior_focused.get("source_digest") or unlocked_apply.get("source_digest") or ""),
@@ -4995,6 +5076,14 @@ def build_skill_route_discovery_focused_local_test_validation(
     # accumulate coverage across wakes without re-exporting command text/stdout.
     # Full close still requires results_cover_expected; residual export stays held.
     export_results = result_rows if status in {"ready", "passed", "failed"} else []
+    missing_hashes = (
+        missing_skill_route_discovery_focused_validation_command_hashes(
+            expected_command_hashes=export_hashes,
+            command_results=export_results,
+        )
+        if status in {"ready", "failed"}
+        else []
+    )
     recorded = status in {"passed", "failed"}
     residual_hold_until_recorded = status == "ready" and not recorded
     residual_hold_active = residual_hold_until_recorded or status == "failed"
@@ -5066,6 +5155,8 @@ def build_skill_route_discovery_focused_local_test_validation(
             "command_results": export_results,
             "expected_command_count": len(export_hashes),
             "recorded_result_count": len(export_results),
+            "missing_command_hashes": missing_hashes,
+            "missing_command_hash_count": len(missing_hashes),
             "unit_test_signal": status in {"ready", "passed", "failed"},
             "coverage_required": False,
             "results_cover_expected": bool(results_cover_expected and export_results),
@@ -5140,6 +5231,7 @@ def build_skill_route_discovery_focused_local_test_validation(
         "record_helpers": [
             "record_skill_route_discovery_focused_local_test_validation_results",
             "close_skill_route_discovery_focused_local_test_validation_with_outcome",
+            "merge_skill_route_discovery_focused_validation_command_results",
         ]
         if status in {"ready", "passed", "failed"}
         else [],
@@ -7933,7 +8025,13 @@ def record_skill_route_discovery_residual_adjacent_focused_local_validation_resu
         )
         if str(item).strip()
     ]
-    normalized = normalize_skill_route_discovery_focused_validation_command_results(
+    prior_results = list(
+        (prior_focused.get("focused_validation") or {}).get("command_results") or []
+        if isinstance(prior_focused.get("focused_validation"), dict)
+        else []
+    )
+    merged = merge_skill_route_discovery_focused_validation_command_results(
+        prior_results,
         command_results,
         expected_command_hashes=expected_hashes,
     )
@@ -7942,7 +8040,7 @@ def record_skill_route_discovery_residual_adjacent_focused_local_validation_resu
     )
     residual_focused = build_skill_route_discovery_residual_adjacent_focused_local_validation(
         residual_adjacent_unlocked_local_lane_apply=unlocked_apply,
-        command_results=normalized,
+        command_results=merged,
         theme_window=theme,
         source_digest=digest,
     )
@@ -9868,6 +9966,8 @@ def resolve_skill_route_discovery_pipeline_operator_state(
             "reverse_flow_focused_validation_recorded_result_count": 0,
             "reverse_flow_focused_validation_expected_command_count": 0,
             "reverse_flow_focused_validation_partial_results_recorded": False,
+            "reverse_flow_focused_validation_missing_command_hashes": [],
+            "reverse_flow_focused_validation_missing_command_hash_count": 0,
             "reverse_flow_continue_decision": "none",
             "reverse_flow_bound": False,
             "reverse_flow_bound_proposal_id": "",
@@ -10127,6 +10227,28 @@ def resolve_skill_route_discovery_pipeline_operator_state(
         or len(list(focused_validation.get("command_hashes") or []))
         or 0
     )
+    missing_command_hashes = [
+        str(item).strip()
+        for item in list(
+            focused_validation.get("missing_command_hashes")
+            or missing_skill_route_discovery_focused_validation_command_hashes(
+                expected_command_hashes=list(
+                    focused_validation.get("command_hashes") or []
+                ),
+                command_results=list(focused_validation.get("command_results") or []),
+            )
+        )
+        if str(item).strip()
+    ]
+    # Only surface missing hashes while reverse-flow still needs record/close or repair.
+    if focused_status not in {"ready", "failed"}:
+        missing_command_hashes = []
+    missing_command_hash_count = int(
+        focused_validation.get("missing_command_hash_count")
+        if focused_status in {"ready", "failed"}
+        and focused_validation.get("missing_command_hash_count") is not None
+        else len(missing_command_hashes)
+    )
     partial_results_recorded = bool(
         reverse_flow_ready_unrecorded
         and (
@@ -10142,6 +10264,7 @@ def resolve_skill_route_discovery_pipeline_operator_state(
     record_helpers = [
         "record_skill_route_discovery_focused_local_test_validation_results",
         "close_skill_route_discovery_focused_local_test_validation_with_outcome",
+        "merge_skill_route_discovery_focused_validation_command_results",
     ]
     if reverse_flow_ready_unrecorded:
         if partial_results_recorded:
@@ -10185,6 +10308,10 @@ def resolve_skill_route_discovery_pipeline_operator_state(
         "reverse_flow_focused_validation_recorded_result_count": recorded_result_count,
         "reverse_flow_focused_validation_expected_command_count": expected_command_count,
         "reverse_flow_focused_validation_partial_results_recorded": partial_results_recorded,
+        "reverse_flow_focused_validation_missing_command_hashes": missing_command_hashes,
+        "reverse_flow_focused_validation_missing_command_hash_count": (
+            missing_command_hash_count
+        ),
         "reverse_flow_continue_decision": reverse_flow_continue_decision,
         "reverse_flow_bound": bool(reverse_flow_binding.get("bound")),
         "reverse_flow_bound_proposal_id": str(
@@ -10439,6 +10566,8 @@ def render_skill_route_discovery_capability_pipeline_lines(
         f"- Reverse-flow focused validation recorded result count: `"
         f"{int(operator_state.get('reverse_flow_focused_validation_recorded_result_count') or 0)}`"
         f" / `{int(operator_state.get('reverse_flow_focused_validation_expected_command_count') or 0)}`",
+        f"- Reverse-flow focused validation missing command hash count: `"
+        f"{int(operator_state.get('reverse_flow_focused_validation_missing_command_hash_count') or 0)}`",
         f"- Reverse-flow continue decision: `"
         f"{operator_state.get('reverse_flow_continue_decision') or 'none'}`",
         f"- Adjacent agent harness-eval handoff: `{adjacent_handoff.get('status') or 'none'}`",
@@ -10459,9 +10588,9 @@ def render_skill_route_discovery_capability_pipeline_lines(
         "- While reverse-flow focused validation is ready/unrecorded or failed, residual fortress/Hy3 stages stay held; supervisor_next stays on reverse-flow focused validation and residual selected proposal is not advertised on residual packets or render.",
         "- Residual fortress/Hy3 selected_residual_proposal_id is exported only when residual work is residual-active; reverse-flow-waiting residual stages leave selection empty.",
         "- Reverse-flow focused validation, activation-external handoff/acceptance, and residual queue also hold residual adjacent_general_agent_proposal_ids and residual_adjacent_harness_eval_available until reverse-flow record/close and residual-active readiness; do not pre-export fortress IDs while reverse-flow waits.",
-        "- Pipeline operator_state durably exports supervisor_next_action, residual hold/export flags, reverse_flow_continue_decision, reverse-flow-skill evidence binding, residual_export_allowed, and partial body-free command-hash coverage after build and after record/close so supervisors continue reverse-flow without re-rendering markdown.",
-        "- Partial body-free command-hash rows stay on ready focused validation; residual export remains denied until results cover expected hashes and reverse-flow record/close advances residual-active work.",
-        "- After ready, record_skill_route_discovery_focused_local_test_validation_results closes body-free command-hash results while activation stays external.",
+        "- Pipeline operator_state durably exports supervisor_next_action, residual hold/export flags, reverse_flow_continue_decision, reverse-flow-skill evidence binding, residual_export_allowed, partial body-free command-hash coverage, and missing command-hash inventory after build and after record/close so supervisors continue reverse-flow without re-rendering markdown.",
+        "- Partial body-free command-hash rows stay on ready focused validation and accumulate across record calls via merge_skill_route_discovery_focused_validation_command_results; residual export remains denied until results cover expected hashes and reverse-flow record/close advances residual-active work.",
+        "- After ready, record_skill_route_discovery_focused_local_test_validation_results merges new body-free command-hash rows with any prior partial rows while activation stays external.",
         "- After ready, close_skill_route_discovery_focused_local_test_validation_with_outcome materializes body-free expected-hash outcomes and refreshes activation-external handoff/acceptance.",
         "- After recorded pass, skill_route_discovery_focused_validation_activation_external_handoff packages keep_activation_external while push/promotion/restart stay denied.",
         "- After ready handoff, skill_route_discovery_focused_validation_activation_external_acceptance accepts the package while activation stays external.",
