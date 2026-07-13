@@ -8613,7 +8613,14 @@ def build_skill_route_discovery_residual_adjacent_focused_validation_activation_
         decision = (
             "hold_residual_adjacent_activation_external_acceptance_until_handoff_ready"
         )
-        if handoff_status == "blocked_until_residual_adjacent_focused_validation_recorded":
+        # Prefer residual handoff's cascaded next action. Without this, acceptance
+        # defaulted to repair_skill_route_discovery_residual_adjacent_focused_validation_activation_external_handoff
+        # while reverse-flow focused validation was still unrecorded, which
+        # poisoned operator-visible supervisor_next via pipeline render priority.
+        handoff_next = str(handoff.get("supervisor_next_action") or "").strip()
+        if handoff_next:
+            supervisor_next_action = handoff_next
+        elif handoff_status == "blocked_until_residual_adjacent_focused_validation_recorded":
             supervisor_next_action = (
                 "run_focused_local_validation_for_residual_adjacent_unlocked_lane_and_keep_activation_external"
             )
@@ -8621,9 +8628,14 @@ def build_skill_route_discovery_residual_adjacent_focused_validation_activation_
             supervisor_next_action = (
                 "repair_failed_residual_adjacent_focused_local_validation_commands"
             )
-        else:
+        elif handoff_status == "blocked":
+            # Isolation or gate failure on residual handoff itself.
             supervisor_next_action = (
                 "repair_skill_route_discovery_residual_adjacent_focused_validation_activation_external_handoff"
+            )
+        else:
+            supervisor_next_action = (
+                "wait_for_skill_route_discovery_residual_adjacent_focused_validation_activation_external_handoff"
             )
     elif handoff_ready:
         status = "accepted"
@@ -9757,6 +9769,25 @@ def render_skill_route_discovery_capability_pipeline_lines(
         or ""
     )
     unlocked_status = str(unlocked_test_lane_apply.get("status") or "")
+    # Residual acceptance only owns supervisor_next when residual work is active.
+    # blocked_until_residual_adjacent_focused_validation_ready means residual is still
+    # waiting on earlier reverse-flow stages; do not let residual acceptance override
+    # reverse-flow focused validation / activation-external next actions.
+    residual_acceptance_owns_supervisor_next = (
+        residual_adjacent_activation_external_acceptance_status == "accepted"
+        or (
+            residual_adjacent_activation_external_acceptance_status
+            == "blocked_until_residual_adjacent_activation_external_handoff_ready"
+            and residual_adjacent_activation_external_status
+            in {
+                "ready",
+                "blocked_until_residual_adjacent_focused_validation_recorded",
+                "blocked_until_residual_adjacent_focused_validation_repaired",
+                "blocked_until_residual_adjacent_focused_validation_pass",
+                "blocked",
+            }
+        )
+    )
     supervisor_next = (
         adjacent_handoff.get("supervisor_next_action")
         if str(adjacent_handoff.get("status") or "") == "ready"
@@ -9765,11 +9796,7 @@ def render_skill_route_discovery_capability_pipeline_lines(
         residual_adjacent_focused_validation_activation_external_acceptance.get(
             "supervisor_next_action"
         )
-        if residual_adjacent_activation_external_acceptance_status
-        in {
-            "accepted",
-            "blocked_until_residual_adjacent_activation_external_handoff_ready",
-        }
+        if residual_acceptance_owns_supervisor_next
         else None
     ) or (
         residual_adjacent_focused_validation_activation_external_handoff.get(
@@ -9784,11 +9811,7 @@ def render_skill_route_discovery_capability_pipeline_lines(
             "blocked_until_residual_adjacent_focused_validation_pass",
             "blocked",
         }
-        and residual_adjacent_activation_external_acceptance_status
-        not in {
-            "accepted",
-            "blocked_until_residual_adjacent_activation_external_handoff_ready",
-        }
+        and not residual_acceptance_owns_supervisor_next
         else None
     ) or (
         residual_adjacent_focused_local_validation.get("supervisor_next_action")

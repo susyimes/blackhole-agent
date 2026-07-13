@@ -223,7 +223,10 @@ handoff is `ready`,
 accepts the residual keep_activation_external package
 (`accept_activation_external_package_after_residual_adjacent_focused_validation_pass`)
 while remaining residual fortress/Hy3 rows stay noted without skill unlock
-inheritance and activation remains external.
+inheritance and activation remains external. While residual handoff is still
+blocked waiting on earlier reverse-flow stages, residual acceptance inherits the
+handoff's cascaded supervisor next action and does not override operator-visible
+pipeline next with a spurious residual-handoff repair signal.
 Use
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_unlocked_local_test_lane_apply`
 and

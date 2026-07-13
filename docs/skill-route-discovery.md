@@ -572,14 +572,25 @@ After residual adjacent focused validation activation-external handoff is
 6. Remaining residual fortress/Hy3 proposal IDs may be noted as
    `remaining_residual_adjacent_proposal_ids` without skill unlock inheritance
 7. While residual handoff is still blocked/unready, this surface stays
-   `blocked_until_residual_adjacent_activation_external_handoff_ready`
-8. Activation, push, promotion, provider launch, remote apply, external skill
+   `blocked_until_residual_adjacent_activation_external_handoff_ready` and
+   inherits residual handoff's cascaded `supervisor_next_action` rather than
+   inventing a residual-handoff repair signal. Isolation failures on residual
+   handoff itself may still surface
+   `repair_skill_route_discovery_residual_adjacent_focused_validation_activation_external_handoff`
+8. Operator-visible pipeline `supervisor_next` only lets residual acceptance own
+   the slot when residual handoff is residual-active (`ready`, recorded/repaired/
+   pass blocked, isolation `blocked`). When residual handoff is merely
+   `blocked_until_residual_adjacent_focused_validation_ready`, earlier reverse-flow
+   stages (for example unrecorded focused local test validation) keep priority so
+   the next action remains
+   `run_focused_local_test_validation_then_keep_activation_external`
+9. Activation, push, promotion, provider launch, remote apply, external skill
    execution, and kernel restart stay denied; agent-chief privacy rows stay
    review-only
-9. Distinct from reverse-flow
-   `skill_route_discovery_focused_validation_activation_external_acceptance`:
-   residual acceptance does not re-open reverse-flow skill unlocks or residual
-   queue inheritance
+10. Distinct from reverse-flow
+    `skill_route_discovery_focused_validation_activation_external_acceptance`:
+    residual acceptance does not re-open reverse-flow skill unlocks or residual
+    queue inheritance
 
 Replay with:
 

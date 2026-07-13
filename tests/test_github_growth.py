@@ -5469,6 +5469,35 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert residual_blocked["skill_route_discovery_inherited"] is False
     assert residual_blocked["general_agent_inherits_skill_unlock"] is False
 
+    # Operator-visible pipeline next action must stay on reverse-flow focused
+    # validation while residual acceptance is only blocked waiting on earlier stages.
+    # Regression: residual acceptance used to emit
+    # repair_skill_route_discovery_residual_adjacent_focused_validation_activation_external_handoff
+    # and win render priority over the ready reverse-flow focused validation stage.
+    residual_accept_blocked = pipeline[
+        "residual_adjacent_focused_validation_activation_external_acceptance"
+    ]
+    assert residual_accept_blocked["status"] == (
+        "blocked_until_residual_adjacent_activation_external_handoff_ready"
+    )
+    assert residual_accept_blocked["supervisor_next_action"] == (
+        "run_focused_local_test_validation_then_keep_activation_external"
+    )
+    assert residual_accept_blocked["supervisor_next_action"] != (
+        "repair_skill_route_discovery_residual_adjacent_focused_validation_activation_external_handoff"
+    )
+    pipeline_rendered = "\n".join(
+        github_growth.render_skill_route_discovery_capability_pipeline_lines(pipeline)
+    )
+    assert (
+        "Supervisor next action: `run_focused_local_test_validation_then_keep_activation_external`"
+        in pipeline_rendered
+    )
+    assert (
+        "Supervisor next action: `repair_skill_route_discovery_residual_adjacent_focused_validation_activation_external_handoff`"
+        not in pipeline_rendered
+    )
+
     # Deferred comparison keeps focused validation blocked.
     assert deferred["focused_local_test_validation"]["status"] in {
         "blocked_until_unlocked_local_test_lane_apply",
@@ -6241,12 +6270,43 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert residual_acceptance_failed["decision"] == (
         "hold_residual_adjacent_activation_external_acceptance_until_handoff_ready"
     )
+    # Acceptance inherits residual handoff's cascaded repair next action.
     assert residual_acceptance_failed["supervisor_next_action"] == (
         "repair_failed_residual_adjacent_focused_local_validation_commands"
     )
     assert residual_acceptance_failed["supervisor_activation_allowed"] is False
     assert residual_acceptance_failed["skill_route_unlocked_local_lanes"] == []
     assert residual_acceptance_failed["skill_route_discovery_inherited"] is False
+
+    # While residual handoff is only blocked_until_focused_validation_ready,
+    # residual acceptance must inherit the cascaded reverse-flow next action
+    # instead of emitting a spurious residual-handoff repair signal.
+    residual_acceptance_premature = (
+        build_skill_route_discovery_residual_adjacent_focused_validation_activation_external_acceptance(
+            residual_adjacent_focused_validation_activation_external_handoff=(
+                residual_activation_blocked
+            ),
+            residual_adjacent_focused_local_validation=pipeline[
+                "residual_adjacent_focused_local_validation"
+            ],
+            residual_adjacent_unlocked_local_lane_apply=pipeline[
+                "residual_adjacent_unlocked_local_lane_apply"
+            ],
+            adjacent_general_agent_rows=pipeline["adjacent_general_agent_rows"],
+            retained_boundaries=pipeline["retained_boundaries"],
+            theme_window=theme,
+        )
+    )
+    assert residual_acceptance_premature["status"] == (
+        "blocked_until_residual_adjacent_activation_external_handoff_ready"
+    )
+    assert residual_acceptance_premature["supervisor_next_action"] == (
+        residual_activation_blocked["supervisor_next_action"]
+    )
+    assert residual_acceptance_premature["supervisor_next_action"] != (
+        "repair_skill_route_discovery_residual_adjacent_focused_validation_activation_external_handoff"
+    )
+    assert residual_acceptance_premature["supervisor_activation_allowed"] is False
 
     residual_blocked = build_skill_route_discovery_residual_adjacent_focused_local_validation(
         residual_adjacent_unlocked_local_lane_apply={

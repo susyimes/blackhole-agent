@@ -29,13 +29,9 @@ touches multiple files or behavior paths.
 ## Skill Route Discovery Habit
 
 Shared pipeline
-`skill_route_discovery_capability_pipeline` now ends with an operator-visible
-**residual adjacent focused validation activation-external acceptance** after
-reverse-flow focused validation records, activation-external handoff/acceptance,
-residual adjacent queue, residual harness-eval local apply, residual
-harness-eval local comparison, residual unlocked local lane apply, residual
-adjacent focused local validation, and residual adjacent focused validation
-activation-external handoff:
+`skill_route_discovery_capability_pipeline` still ends with residual adjacent
+focused validation activation-external handoff → acceptance. Operator-visible
+`supervisor_next` must follow reverse-flow work before residual repair noise.
 
 classifier → route_profiles → bounded_local_apply_lanes → local comparison →
 reverse-flow test lane → rnskill docs companion → config gates → local apply →
@@ -47,40 +43,31 @@ residual adjacent harness-eval local comparison →
 residual adjacent unlocked local lane apply →
 residual adjacent focused local validation →
 residual adjacent focused validation activation-external handoff →
-**residual adjacent focused validation activation-external acceptance** →
+residual adjacent focused validation activation-external acceptance →
 (optional) selected-step adjacent harness-eval.
 
-Observed this run (`prop-fortress-residual-adjacent-harness-eval` /
-`tiliondev/fortress` residual after residual activation-external handoff ready,
-digest `github-growth-20260713T021123.550143Z`):
+Observed this run (digest `github-growth-20260713T023123.638634Z`,
+`prop-reverse-flow-skill-route-test` with residual fortress adjacent):
 
-- Reverse-flow still classifies as `skill_route_discovery` with
-  `codex_workflow_gate` + `skill_route_discovery_first`
-- Preferred / unlocked reverse-flow lane remains local `test` only after
-  comparison; focused validation still closes via body-free command-hash rows
-- After acceptance, residual fortress/Hy3 IDs enter
-  `skill_route_discovery_focused_validation_residual_adjacent_queue`
-- Residual queue → residual harness local apply → residual harness local
-  comparison → residual unlocked local lane apply → residual focused local
-  validation → residual activation-external handoff remain ready for fortress
-- When residual focused validation is `passed`, pipeline emits
-  `skill_route_discovery_residual_adjacent_focused_validation_activation_external_handoff`
-  with decision
-  `package_activation_external_handoff_after_residual_adjacent_focused_validation_pass`
-- When residual handoff is `ready`, pipeline emits
-  `skill_route_discovery_residual_adjacent_focused_validation_activation_external_acceptance`
-  with decision
-  `accept_activation_external_package_after_residual_adjacent_focused_validation_pass`
-- Residual activation-external acceptance keeps skill unlocks closed and
-  activation external; may note remaining residual fortress/Hy3 IDs without
-  inheritance
-- When remaining residual IDs exist, supervisor next becomes
-  `keep_activation_external_and_note_remaining_residual_adjacent_rows`
-- While residual handoff is unready, residual activation-external acceptance
-  stays `blocked_until_residual_adjacent_activation_external_handoff_ready`
-- Residual activation-external acceptance is distinct from reverse-flow
-  `skill_route_discovery_focused_validation_activation_external_acceptance` and
-  from residual activation-external handoff packaging
+- Reverse-flow focused validation was `ready` / unrecorded while residual
+  stages stayed blocked waiting on earlier reverse-flow completion
+- Residual acceptance previously defaulted
+  `repair_skill_route_discovery_residual_adjacent_focused_validation_activation_external_handoff`
+  whenever residual handoff status started with `blocked`, and render priority
+  promoted that over reverse-flow focused validation
+- Repair: residual acceptance now inherits residual handoff's cascaded
+  `supervisor_next_action` when handoff is blocked; render only lets residual
+  acceptance own supervisor_next when residual handoff is residual-active
+  (`ready`, recorded/repaired/pass blocked, isolation `blocked`) — not when
+  residual handoff is merely
+  `blocked_until_residual_adjacent_focused_validation_ready`
+- Correct operator next while reverse-flow focused validation is unrecorded:
+  `run_focused_local_test_validation_then_keep_activation_external`
+- Residual acceptance still inherits repair-failed residual focused validation
+  when residual handoff is
+  `blocked_until_residual_adjacent_focused_validation_repaired`
+- Isolation failures on residual handoff itself may still surface
+  `repair_skill_route_discovery_residual_adjacent_focused_validation_activation_external_handoff`
 - Activation, push, promotion, provider launch, remote apply, external skill
   execution, and kernel restart stay denied
 - agent-chief remains privacy review-only
