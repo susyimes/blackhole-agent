@@ -190,13 +190,18 @@ no activation). After inventory or run/record,
 `resolve_reverse_flow_focused_validation_continue_run_supervisor_wake` packages
 reverse-flow-first `supervisor_next` and residual-hold state so residual
 fortress stages stay blocked until reverse-flow record/close and
-activation-external acceptance. Preferred single operator entry is
+activation-external acceptance.
+`package_reverse_flow_focused_validation_continue_dispatch_inventory` packages a
+body-free inventory dispatch packet (`action`, `execute_recommended`, residual
+hold) without running commands. Preferred single operator entry is
 `dispatch_reverse_flow_focused_validation_continue_supervisor_wake` (inventory
-wake, optional allowlisted run/record when executable, always reverse-flow-first
-`supervisor_wake`; residual export stays denied on the dispatch surface). Durable
-`operator_state` also exports `continue_run_recommended`, inventory
-`continue_supervisor_wake`, and `continue_dispatch_helper` while reverse-flow is
-ready/unrecorded. After a
+packet, optional allowlisted run/record when executable, always reverse-flow-first
+`supervisor_wake` plus `post_dispatch_inventory`; residual export stays denied on
+the dispatch surface). Durable `operator_state` also exports
+`continue_run_recommended`, inventory `continue_supervisor_wake`, nested
+`continue_dispatch`, `continue_dispatch_action`,
+`continue_dispatch_execute_recommended`, `continue_dispatch_helper`, and
+`continue_dispatch_inventory_helper` while reverse-flow is ready/unrecorded. After a
 recorded pass,
 `skill_route_discovery_focused_validation_activation_external_handoff` packages
 `keep_activation_external_after_focused_local_test_validation` into one

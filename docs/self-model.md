@@ -46,7 +46,7 @@ residual adjacent focused validation activation-external handoff →
 residual adjacent focused validation activation-external acceptance →
 (optional) selected-step adjacent harness-eval.
 
-Observed this run (digest `github-growth-20260713T063123.715169Z`,
+Observed this run (digest `github-growth-20260713T065123.898754Z`,
 `prop-reverse-flow-skill-route-discovery-continue` bound against
 `lingbol088-spec/reverse-flow-skill`, residual fortress adjacent):
 
@@ -54,34 +54,36 @@ Observed this run (digest `github-growth-20260713T063123.715169Z`,
   `continue_plan.mode=run_pending` until supervisors dispatch continue work and
   record/close body-free results; residual stages stay blocked waiting on
   reverse-flow record/close and activation-external acceptance
-- Prior: continue plan + `pending_work_units` + local allowlist +
-  `build/execute/run_reverse_flow_focused_validation_continue_*` +
-  `resolve_reverse_flow_focused_validation_continue_run_supervisor_wake` already
-  package inventory, run allowlisted pytest units, merge body-free outcomes, and
-  attach reverse-flow-first `supervisor_wake`
-- New: `dispatch_reverse_flow_focused_validation_continue_supervisor_wake` is the
-  preferred single operator entry — inventory wake first, optional allowlisted
-  run/record when `continue_run_executable`, always reverse-flow-first
-  `supervisor_wake` / `supervisor_next_action` so residual fortress stages cannot
-  outrank reverse-flow before acceptance
-- New: operator_state exports
-  `reverse_flow_focused_validation_continue_run_recommended`, nested inventory
-  `reverse_flow_focused_validation_continue_supervisor_wake`, and
-  `reverse_flow_focused_validation_continue_dispatch_helper` while
-  ready/unrecorded (alongside continue_run_executable / runnable count); zero-row
-  and partial ready wakes always prefer the reverse-flow continue resolver over
-  residual repair noise
-- Inventory-only dispatch (`execute=False`): action=`inventory_only`, residual
-  hold active, residual export denied, continue_run_executable when local pytest
-  inventory units are present
+- Prior: continue plan + pending work units + local allowlist + continue-run
+  plan/execute/record + `resolve_reverse_flow_focused_validation_continue_run_supervisor_wake`
+  + `dispatch_reverse_flow_focused_validation_continue_supervisor_wake` already
+  inventory, run allowlisted pytest units, merge body-free outcomes, and return
+  reverse-flow-first `supervisor_wake`
+- New: `package_reverse_flow_focused_validation_continue_dispatch_inventory` is the
+  durable body-free inventory dispatch packet — `action`, `execute_recommended`,
+  residual hold, residual export denied — without running commands, so supervisors
+  can decide execute without re-deriving nested wake fields
+- New: dispatch reuses that packager for inventory-only paths and attaches
+  `inventory_dispatch` + `post_dispatch_inventory` on `run_and_record` so the next
+  durable action is inspectable after execute
+- New: operator_state exports nested
+  `reverse_flow_focused_validation_continue_dispatch` (no pipeline snapshot),
+  `continue_dispatch_action`, `continue_dispatch_execute_recommended`,
+  `continue_dispatch_helper`, and `continue_dispatch_inventory_helper` while
+  ready/unrecorded (alongside continue_run_recommended / wake / runnable count);
+  zero-row and partial ready wakes always prefer reverse-flow continue over residual
+  repair noise
+- Ready/unrecorded inventory: action=`inventory_only`,
+  execute_recommended=true when local pytest units are allowlisted, residual hold
+  active, residual export denied
 - Full dispatch after pass + record: action=`run_and_record`,
-  mode=`keep_activation_external`, handoff ready, acceptance accepted,
-  continue_run not recommended; residual export still denied on the dispatch
-  surface itself
+  post_dispatch_inventory action=`keep_activation_external`, handoff ready,
+  acceptance accepted, execute not recommended; residual export still denied on
+  the dispatch surface itself
 - Partial dispatch: runs remaining units only (`mode=record_remaining`) then
-  packages keep_activation_external wake
+  packages keep_activation_external post_dispatch_inventory
 - Post-pass dispatch with execute still requested: action=`keep_activation_external`,
-  does not re-run units
+  execute_recommended=false, does not re-run units
 - While ready/unrecorded with zero partial rows:
   `continue_plan.mode=run_pending`,
   `supervisor_next_action=run_focused_local_test_validation_then_keep_activation_external`,
