@@ -46,7 +46,7 @@ residual adjacent focused validation activation-external handoff →
 residual adjacent focused validation activation-external acceptance →
 (optional) selected-step adjacent harness-eval.
 
-Observed this run (digest `github-growth-20260713T075123.779833Z`,
+Observed this run (digest `github-growth-20260713T081123.638501Z`,
 `prop-reverse-flow-skill-route-discovery-continue` bound against
 `lingbol088-spec/reverse-flow-skill`, residual fortress adjacent):
 
@@ -56,27 +56,24 @@ Observed this run (digest `github-growth-20260713T075123.779833Z`,
   on reverse-flow record/close and activation-external acceptance
 - Prior: continue plan + pending work units + local allowlist + continue-run
   plan/execute/record + run supervisor_wake + inventory dispatch + follow-through
-  resolve/follow + operator_card packaging + pre/post progress labels already
-  inventory, optional allowlisted run/record, reverse-flow-first
-  `supervisor_wake`, `post_dispatch_inventory`, `follow_through`, and
-  `operator_card` / `post_operator_card`
-- New: `package_reverse_flow_focused_validation_continue_progress_transition`
-  collapses pre/post operator cards into `progress_transition_label` (for
-  example `0/3→3/3`), `progress_advanced`, `follow_through_transition`
-  (`execute_now→keep_activation_external`), `recorded_delta`, and a body-free
-  `transition_line` so supervisors do not compare nested progress_label fields
-  after continue wakes
-- New: operator_card adds body-free `action_line`
-  (`progress=0/3 action=execute_now call_execute=true helper=follow_...
-  residual_hold=true next=...`) for one-line supervisor logging without nested
-  re-assembly
-- New: follow and dispatch attach `progress_transition`,
-  `progress_transition_label`, `progress_advanced`, `transition_line`,
-  `action_line`, and `post_action_line` alongside operator cards; inventory-only
-  wakes export `0/N→0/N` with `progress_advanced=false`
-- New: operator_state exports `continue_action_line` and
-  `continue_progress_transition_helper` while ready/unrecorded (alongside
-  continue_operator_card / continue_progress_label)
+  resolve/follow + operator_card packaging + pre/post progress labels +
+  progress_transition + action_line already inventory, optional allowlisted
+  run/record, reverse-flow-first `supervisor_wake`, `post_dispatch_inventory`,
+  `follow_through`, `operator_card` / `post_operator_card`, and
+  `progress_transition`
+- New: `package_reverse_flow_focused_validation_continue_exec_receipt` collapses
+  continue-run plan/result into body-free `exec_line` (for example
+  `exec mode=run_pending ran=3 passed=3 failed=0 skipped=0 recorded=true
+  executed=true residual_hold=true residual_export=false`) and `exec_plan_line`
+  (`plan mode=run_pending runnable=3 skipped=0 executable=true
+  residual_export=false`) so supervisors do not re-derive nested `unit_results`
+  after continue execute wakes
+- New: continue-run plan exports `exec_plan_line`; run_result, run_and_record,
+  follow, and dispatch attach `exec_receipt`, `exec_line`, and `exec_plan_line`
+- New: inventory-only wakes still package a not-executed receipt
+  (`executed=false`, `ran=0`) with pre-exec `exec_plan_line` for runnable audit
+- New: operator_state exports `continue_exec_receipt_helper` while ready/unrecorded
+  (alongside continue_action_line / continue_progress_transition_helper)
 - Ready/unrecorded operator card: progress_label=`0/3` (or `0/N`),
   follow_through_action=`execute_now`, call_dispatch_with_execute=true when
   local pytest units are allowlisted, preferred_helper=`follow_...`, residual

@@ -5597,6 +5597,15 @@ def build_reverse_flow_focused_validation_continue_run_plan(
         )
     runnable = [unit for unit in units if unit["local_allowed"]]
     skipped = [unit for unit in units if not unit["local_allowed"]]
+    executable = mode in {"run_pending", "record_remaining"} and bool(runnable)
+    # One body-free line supervisors can log before execute without nested re-assembly.
+    exec_plan_line = (
+        f"plan mode={mode} "
+        f"runnable={len(runnable)} "
+        f"skipped={len(skipped)} "
+        f"executable={'true' if executable else 'false'} "
+        f"residual_export=false"
+    )
     return {
         "schema_version": 1,
         "controller_surface": "reverse_flow_focused_validation_continue_run_plan",
@@ -5611,7 +5620,8 @@ def build_reverse_flow_focused_validation_continue_run_plan(
         "runnable_work_unit_count": len(runnable),
         "skipped_work_units": skipped,
         "skipped_work_unit_count": len(skipped),
-        "executable": mode in {"run_pending", "record_remaining"} and bool(runnable),
+        "executable": executable,
+        "exec_plan_line": exec_plan_line,
         "residual_export_allowed": False,
         "activation_external_only": True,
         "supervisor_activation_allowed": False,
@@ -5626,6 +5636,7 @@ def build_reverse_flow_focused_validation_continue_run_plan(
         "raw_upstream_bodies_exported": False,
         "raw_command_stdout_exported": False,
         "record_helpers": [
+            "package_reverse_flow_focused_validation_continue_exec_receipt",
             "dispatch_reverse_flow_focused_validation_continue_supervisor_wake",
             "package_reverse_flow_focused_validation_continue_dispatch_inventory",
             "run_reverse_flow_focused_validation_continue_pending_work_units",
@@ -5745,11 +5756,27 @@ def execute_reverse_flow_focused_validation_continue_run_plan(
     passed_count = sum(1 for row in unit_results if row.get("ran") and row.get("passed"))
     failed_count = sum(1 for row in unit_results if row.get("ran") and not row.get("passed"))
     skipped_count = sum(1 for row in unit_results if row.get("skipped"))
+    mode = str(plan.get("mode") or "none")
+    # Partial receipt without record flag; run_and_record / dispatch re-package with recorded.
+    exec_receipt = package_reverse_flow_focused_validation_continue_exec_receipt(
+        run_plan=plan,
+        run_result={
+            "mode": mode,
+            "ran_count": ran_count,
+            "passed_count": passed_count,
+            "failed_count": failed_count,
+            "skipped_count": skipped_count,
+            "outcome_count": len(outcomes),
+            "outcomes": outcomes,
+        },
+        recorded=False,
+        executed=True,
+    )
     return {
         "schema_version": 1,
         "controller_surface": "reverse_flow_focused_validation_continue_run_result",
         "proposal_track": "prop-reverse-flow-skill-route-discovery-continue",
-        "mode": str(plan.get("mode") or "none"),
+        "mode": mode,
         "outcomes": outcomes,
         "unit_results": unit_results,
         "ran_count": ran_count,
@@ -5757,6 +5784,8 @@ def execute_reverse_flow_focused_validation_continue_run_plan(
         "failed_count": failed_count,
         "skipped_count": skipped_count,
         "outcome_count": len(outcomes),
+        "exec_receipt": exec_receipt,
+        "exec_line": str(exec_receipt.get("exec_line") or ""),
         "residual_export_allowed": False,
         "activation_external_only": True,
         "supervisor_activation_allowed": False,
@@ -5771,6 +5800,7 @@ def execute_reverse_flow_focused_validation_continue_run_plan(
         "raw_upstream_bodies_exported": False,
         "raw_command_stdout_exported": False,
         "record_helpers": [
+            "package_reverse_flow_focused_validation_continue_exec_receipt",
             "record_reverse_flow_focused_validation_continue_outcomes",
             "materialize_reverse_flow_focused_validation_continue_record_rows",
         ],
@@ -6027,12 +6057,32 @@ def run_reverse_flow_focused_validation_continue_pending_work_units(
         run_result=run_result,
         recorded=recorded,
     )
+    residual_hold_active = bool(supervisor_wake.get("residual_hold_active", True))
+    exec_receipt = package_reverse_flow_focused_validation_continue_exec_receipt(
+        run_plan=run_plan,
+        run_result=run_result,
+        recorded=recorded,
+        executed=True,
+        residual_hold_active=residual_hold_active,
+    )
+    # Re-stamp run_result receipt with post-record residual hold and recorded flag.
+    if isinstance(run_result, dict):
+        run_result = dict(run_result)
+        run_result["exec_receipt"] = exec_receipt
+        run_result["exec_line"] = str(exec_receipt.get("exec_line") or "")
     return {
         "schema_version": 1,
         "controller_surface": "reverse_flow_focused_validation_continue_run_and_record",
         "proposal_track": "prop-reverse-flow-skill-route-discovery-continue",
         "run_plan": run_plan,
         "run_result": run_result,
+        "exec_receipt": exec_receipt,
+        "exec_line": str(exec_receipt.get("exec_line") or ""),
+        "exec_plan_line": str(
+            exec_receipt.get("exec_plan_line")
+            or run_plan.get("exec_plan_line")
+            or ""
+        ),
         "pipeline": updated_pipeline,
         "recorded": recorded,
         "record_requested": bool(record),
@@ -6048,7 +6098,7 @@ def run_reverse_flow_focused_validation_continue_pending_work_units(
         "activation_external_acceptance_status": str(
             supervisor_wake.get("activation_external_acceptance_status") or "none"
         ),
-        "residual_hold_active": bool(supervisor_wake.get("residual_hold_active")),
+        "residual_hold_active": residual_hold_active,
         "residual_export_allowed": bool(
             supervisor_wake.get("residual_export_allowed")
         ),
@@ -6064,6 +6114,17 @@ def run_reverse_flow_focused_validation_continue_pending_work_units(
         "raw_evidence_urls_exported": False,
         "raw_upstream_bodies_exported": False,
         "raw_command_stdout_exported": False,
+        "exec_receipt_helper": (
+            "package_reverse_flow_focused_validation_continue_exec_receipt"
+        ),
+        "record_helpers": [
+            "package_reverse_flow_focused_validation_continue_exec_receipt",
+            "run_reverse_flow_focused_validation_continue_pending_work_units",
+            "execute_reverse_flow_focused_validation_continue_run_plan",
+            "build_reverse_flow_focused_validation_continue_run_plan",
+            "resolve_reverse_flow_focused_validation_continue_run_supervisor_wake",
+            "record_reverse_flow_focused_validation_continue_outcomes",
+        ],
     }
 
 
@@ -6634,11 +6695,138 @@ def package_reverse_flow_focused_validation_continue_progress_transition(
         "raw_command_stdout_exported": False,
         "record_helpers": [
             "package_reverse_flow_focused_validation_continue_progress_transition",
+            "package_reverse_flow_focused_validation_continue_exec_receipt",
             "package_reverse_flow_focused_validation_continue_operator_card",
             "follow_reverse_flow_focused_validation_continue_dispatch",
             "dispatch_reverse_flow_focused_validation_continue_supervisor_wake",
             "resolve_reverse_flow_focused_validation_continue_dispatch_follow_through",
             "package_reverse_flow_focused_validation_continue_dispatch_inventory",
+        ],
+    }
+
+
+def package_reverse_flow_focused_validation_continue_exec_receipt(
+    *,
+    run_plan: dict[str, Any] | None = None,
+    run_result: dict[str, Any] | None = None,
+    recorded: bool = False,
+    executed: bool = False,
+    residual_hold_active: bool | None = None,
+) -> dict[str, Any]:
+    """Collapse continue-run plan/result into one body-free exec receipt.
+
+    Supervisors read ``exec_line`` (for example
+    ``exec mode=run_pending ran=3 passed=3 failed=0 skipped=0 recorded=true``)
+    without re-deriving nested ``run_result`` / ``unit_results`` fields after a
+    continue execute wake. Does not export stdout, evidence URLs, or upstream
+    bodies. Residual export stays denied; activation, push, promotion, provider
+    launch, remote apply, external skill execution, and kernel restart stay
+    denied.
+    """
+
+    plan = run_plan if isinstance(run_plan, dict) else {}
+    result = run_result if isinstance(run_result, dict) else {}
+    mode = str(
+        result.get("mode")
+        or plan.get("mode")
+        or "none"
+    )
+    ran_count = int(result.get("ran_count") or 0)
+    passed_count = int(result.get("passed_count") or 0)
+    failed_count = int(result.get("failed_count") or 0)
+    skipped_count = int(result.get("skipped_count") or 0)
+    outcome_count = int(
+        result.get("outcome_count")
+        if result.get("outcome_count") is not None
+        else len(result.get("outcomes") or {})
+    )
+    runnable_count = int(
+        plan.get("runnable_work_unit_count")
+        if plan.get("runnable_work_unit_count") is not None
+        else len(list(plan.get("runnable_work_units") or []))
+    )
+    all_passed = bool(executed and ran_count > 0 and failed_count == 0 and ran_count == passed_count)
+    residual_hold = (
+        bool(residual_hold_active)
+        if residual_hold_active is not None
+        else True
+    )
+    exec_plan_line = str(
+        plan.get("exec_plan_line")
+        or (
+            f"plan mode={mode} "
+            f"runnable={runnable_count} "
+            f"skipped={int(plan.get('skipped_work_unit_count') or 0)} "
+            f"executable={'true' if plan.get('executable') else 'false'} "
+            f"residual_export=false"
+        )
+    )
+    exec_line = (
+        f"exec mode={mode} "
+        f"ran={ran_count} "
+        f"passed={passed_count} "
+        f"failed={failed_count} "
+        f"skipped={skipped_count} "
+        f"recorded={'true' if recorded else 'false'} "
+        f"executed={'true' if executed else 'false'} "
+        f"residual_hold={'true' if residual_hold else 'false'} "
+        f"residual_export=false"
+    )
+    return {
+        "schema_version": 1,
+        "controller_surface": (
+            "reverse_flow_focused_validation_continue_exec_receipt"
+        ),
+        "proposal_track": "prop-reverse-flow-skill-route-discovery-continue",
+        "mode": mode,
+        "executed": bool(executed),
+        "recorded": bool(recorded),
+        "ran_count": ran_count,
+        "passed_count": passed_count,
+        "failed_count": failed_count,
+        "skipped_count": skipped_count,
+        "outcome_count": outcome_count,
+        "runnable_work_unit_count": runnable_count,
+        "all_passed": all_passed,
+        "residual_hold_active": residual_hold,
+        "residual_export_allowed": False,
+        "exec_plan_line": exec_plan_line,
+        "exec_line": exec_line,
+        "exec_receipt_helper": (
+            "package_reverse_flow_focused_validation_continue_exec_receipt"
+        ),
+        "run_plan_helper": (
+            "build_reverse_flow_focused_validation_continue_run_plan"
+        ),
+        "run_result_helper": (
+            "execute_reverse_flow_focused_validation_continue_run_plan"
+        ),
+        "run_and_record_helper": (
+            "run_reverse_flow_focused_validation_continue_pending_work_units"
+        ),
+        "follow_through_helper": (
+            "follow_reverse_flow_focused_validation_continue_dispatch"
+        ),
+        "activation_external_only": True,
+        "supervisor_activation_allowed": False,
+        "runtime_action": "none",
+        "external_skill_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_apply_allowed": False,
+        "push_or_promotion_allowed": False,
+        "kernel_restart_allowed": False,
+        "body_free": True,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_bodies_exported": False,
+        "raw_command_stdout_exported": False,
+        "record_helpers": [
+            "package_reverse_flow_focused_validation_continue_exec_receipt",
+            "package_reverse_flow_focused_validation_continue_progress_transition",
+            "run_reverse_flow_focused_validation_continue_pending_work_units",
+            "execute_reverse_flow_focused_validation_continue_run_plan",
+            "build_reverse_flow_focused_validation_continue_run_plan",
+            "follow_reverse_flow_focused_validation_continue_dispatch",
+            "dispatch_reverse_flow_focused_validation_continue_supervisor_wake",
         ],
     }
 
@@ -6765,6 +6953,35 @@ def follow_reverse_flow_focused_validation_continue_dispatch(
     )
     result["action_line"] = str(operator_card.get("action_line") or "")
     result["post_action_line"] = str(post_operator_card.get("action_line") or "")
+    exec_receipt = (
+        dispatch_packet.get("exec_receipt")
+        if isinstance(dispatch_packet.get("exec_receipt"), dict)
+        else package_reverse_flow_focused_validation_continue_exec_receipt(
+            run_plan=(
+                dispatch_packet.get("run_plan")
+                if isinstance(dispatch_packet.get("run_plan"), dict)
+                else None
+            ),
+            run_result=(
+                dispatch_packet.get("run_result")
+                if isinstance(dispatch_packet.get("run_result"), dict)
+                else None
+            ),
+            recorded=bool(result.get("recorded")),
+            executed=bool(result.get("executed")),
+            residual_hold_active=bool(result.get("residual_hold_active", True)),
+        )
+    )
+    result["exec_receipt"] = exec_receipt
+    result["exec_line"] = str(exec_receipt.get("exec_line") or "")
+    result["exec_plan_line"] = str(
+        exec_receipt.get("exec_plan_line")
+        or dispatch_packet.get("exec_plan_line")
+        or ""
+    )
+    result["exec_receipt_helper"] = (
+        "package_reverse_flow_focused_validation_continue_exec_receipt"
+    )
     result["call_dispatch_with_execute"] = bool(should_execute)
     result["followed_recommendation"] = execute is None
     result["execute_requested"] = execute
@@ -6789,6 +7006,7 @@ def follow_reverse_flow_focused_validation_continue_dispatch(
     result["residual_export_allowed"] = False
     helpers = list(result.get("record_helpers") or [])
     for name in (
+        "package_reverse_flow_focused_validation_continue_exec_receipt",
         "package_reverse_flow_focused_validation_continue_progress_transition",
         "package_reverse_flow_focused_validation_continue_operator_card",
         "follow_reverse_flow_focused_validation_continue_dispatch",
@@ -6903,6 +7121,27 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
                 recorded=bool(run_packet.get("recorded")),
             )
         )
+        exec_receipt = (
+            run_packet.get("exec_receipt")
+            if isinstance(run_packet.get("exec_receipt"), dict)
+            else package_reverse_flow_focused_validation_continue_exec_receipt(
+                run_plan=(
+                    run_packet.get("run_plan")
+                    if isinstance(run_packet.get("run_plan"), dict)
+                    else None
+                ),
+                run_result=(
+                    run_packet.get("run_result")
+                    if isinstance(run_packet.get("run_result"), dict)
+                    else None
+                ),
+                recorded=bool(run_packet.get("recorded")),
+                executed=True,
+                residual_hold_active=bool(
+                    supervisor_wake.get("residual_hold_active", True)
+                ),
+            )
+        )
         return {
             "schema_version": 1,
             "controller_surface": (
@@ -6944,6 +7183,17 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
             ),
             "action_line": str(operator_card.get("action_line") or ""),
             "post_action_line": str(post_operator_card.get("action_line") or ""),
+            "exec_receipt": exec_receipt,
+            "exec_line": str(exec_receipt.get("exec_line") or ""),
+            "exec_plan_line": str(
+                exec_receipt.get("exec_plan_line")
+                or (
+                    (run_packet.get("run_plan") or {}).get("exec_plan_line")
+                    if isinstance(run_packet.get("run_plan"), dict)
+                    else ""
+                )
+                or ""
+            ),
             "call_dispatch_with_execute": True,
             "run_and_record": run_packet,
             "pipeline": updated_pipeline,
@@ -7005,6 +7255,9 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
             "progress_transition_helper": (
                 "package_reverse_flow_focused_validation_continue_progress_transition"
             ),
+            "exec_receipt_helper": (
+                "package_reverse_flow_focused_validation_continue_exec_receipt"
+            ),
             "activation_external_only": True,
             "supervisor_activation_allowed": False,
             "runtime_action": "none",
@@ -7018,6 +7271,7 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
             "raw_upstream_bodies_exported": False,
             "raw_command_stdout_exported": False,
             "record_helpers": [
+                "package_reverse_flow_focused_validation_continue_exec_receipt",
                 "package_reverse_flow_focused_validation_continue_progress_transition",
                 "package_reverse_flow_focused_validation_continue_operator_card",
                 "follow_reverse_flow_focused_validation_continue_dispatch",
@@ -7064,11 +7318,34 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
     result["progress_advanced"] = bool(progress_transition.get("progress_advanced"))
     result["transition_line"] = str(progress_transition.get("transition_line") or "")
     result["action_line"] = str(operator_card.get("action_line") or "")
+    # Pre-exec inventory still packages a not-executed receipt so supervisors can
+    # log exec_line / exec_plan_line without re-deriving runnable counts.
+    inventory_run_plan = build_reverse_flow_focused_validation_continue_run_plan(
+        pipeline=pipeline,
+    )
+    exec_receipt = package_reverse_flow_focused_validation_continue_exec_receipt(
+        run_plan=inventory_run_plan,
+        run_result=None,
+        recorded=False,
+        executed=False,
+        residual_hold_active=bool(result.get("residual_hold_active", True)),
+    )
+    result["run_plan"] = inventory_run_plan
+    result["exec_receipt"] = exec_receipt
+    result["exec_line"] = str(exec_receipt.get("exec_line") or "")
+    result["exec_plan_line"] = str(
+        inventory_run_plan.get("exec_plan_line")
+        or exec_receipt.get("exec_plan_line")
+        or ""
+    )
     result["operator_card_helper"] = (
         "package_reverse_flow_focused_validation_continue_operator_card"
     )
     result["progress_transition_helper"] = (
         "package_reverse_flow_focused_validation_continue_progress_transition"
+    )
+    result["exec_receipt_helper"] = (
+        "package_reverse_flow_focused_validation_continue_exec_receipt"
     )
     result["follow_through_helper"] = (
         "follow_reverse_flow_focused_validation_continue_dispatch"
@@ -7078,6 +7355,7 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
     )
     helpers = list(result.get("record_helpers") or [])
     for name in (
+        "package_reverse_flow_focused_validation_continue_exec_receipt",
         "package_reverse_flow_focused_validation_continue_progress_transition",
         "package_reverse_flow_focused_validation_continue_operator_card",
         "follow_reverse_flow_focused_validation_continue_dispatch",
@@ -12231,6 +12509,9 @@ def resolve_skill_route_discovery_pipeline_operator_state(
             "reverse_flow_focused_validation_continue_progress_transition_helper": (
                 "package_reverse_flow_focused_validation_continue_progress_transition"
             ),
+            "reverse_flow_focused_validation_continue_exec_receipt_helper": (
+                "package_reverse_flow_focused_validation_continue_exec_receipt"
+            ),
             "reverse_flow_continue_decision": "none",
             "reverse_flow_bound": False,
             "reverse_flow_bound_proposal_id": "",
@@ -12930,6 +13211,9 @@ def resolve_skill_route_discovery_pipeline_operator_state(
     state["reverse_flow_focused_validation_continue_progress_transition_helper"] = (
         "package_reverse_flow_focused_validation_continue_progress_transition"
     )
+    state["reverse_flow_focused_validation_continue_exec_receipt_helper"] = (
+        "package_reverse_flow_focused_validation_continue_exec_receipt"
+    )
     return state
 
 
@@ -13213,6 +13497,8 @@ def render_skill_route_discovery_capability_pipeline_lines(
         f"{operator_state.get('reverse_flow_focused_validation_continue_operator_card_helper') or 'package_reverse_flow_focused_validation_continue_operator_card'}`",
         f"- Reverse-flow focused validation continue progress transition helper: `"
         f"{operator_state.get('reverse_flow_focused_validation_continue_progress_transition_helper') or 'package_reverse_flow_focused_validation_continue_progress_transition'}`",
+        f"- Reverse-flow focused validation continue exec receipt helper: `"
+        f"{operator_state.get('reverse_flow_focused_validation_continue_exec_receipt_helper') or 'package_reverse_flow_focused_validation_continue_exec_receipt'}`",
         f"- Reverse-flow continue decision: `"
         f"{operator_state.get('reverse_flow_continue_decision') or 'none'}`",
         f"- Adjacent agent harness-eval handoff: `{adjacent_handoff.get('status') or 'none'}`",
@@ -13242,8 +13528,9 @@ def render_skill_route_discovery_capability_pipeline_lines(
         "- resolve_reverse_flow_focused_validation_continue_dispatch_follow_through collapses inventory action + execute_recommended into follow_through_action (execute_now|wait_for_local_allowlist|keep_activation_external|repair|noop) and call_dispatch_with_execute so supervisors do not re-derive execute policy from nested wake fields; residual export stays denied.",
         "- package_reverse_flow_focused_validation_continue_operator_card collapses progress (recorded/expected label such as 0/3), follow_through_action, preferred helper, residual hold, supervisor_next, and a body-free action_line into one operator card so supervisors do not re-assemble nested operator_state fields; residual export stays denied.",
         "- package_reverse_flow_focused_validation_continue_progress_transition collapses pre/post operator cards into progress_transition_label (for example 0/3→3/3), progress_advanced, follow_through_transition, recorded_delta, and transition_line so supervisors do not compare nested progress_label fields after continue wakes; residual export stays denied.",
-        "- follow_reverse_flow_focused_validation_continue_dispatch is the preferred policy-aware operator entry: package inventory, resolve follow-through, call dispatch with execute only when call_dispatch_with_execute is true, and attach post_follow_through plus operator_card/post_operator_card and progress_transition after run/record; residual fortress stages stay blocked until reverse-flow record/close and activation-external acceptance.",
-        "- dispatch_reverse_flow_focused_validation_continue_supervisor_wake remains the low-level single operator entry: inventory packet first (via package_reverse_flow_focused_validation_continue_dispatch_inventory), optional allowlisted run/record when continue_run_executable, always reverse-flow-first supervisor_wake plus post_dispatch_inventory, follow_through, operator_card progress labels, and progress_transition; residual fortress stages stay blocked until reverse-flow record/close and activation-external acceptance. operator_state also exports continue_run_recommended, continue_supervisor_wake, continue_dispatch (inventory packet without pipeline snapshot), continue_dispatch_action, continue_dispatch_execute_recommended, continue_dispatch_follow_through, continue_dispatch_follow_through_action, continue_dispatch_call_with_execute, continue_dispatch_helper, continue_dispatch_inventory_helper, continue_dispatch_follow_through_helper, continue_operator_card, continue_operator_card_helper, continue_progress_label, continue_action_line, and continue_progress_transition_helper while reverse-flow is ready/unrecorded.",
+        "- package_reverse_flow_focused_validation_continue_exec_receipt collapses run_plan + run_result + recorded into exec_line (for example exec mode=run_pending ran=3 passed=3 failed=0 skipped=0 recorded=true) and exec_plan_line so supervisors do not re-derive nested unit_results after continue execute wakes; residual export stays denied and stdout is never exported.",
+        "- follow_reverse_flow_focused_validation_continue_dispatch is the preferred policy-aware operator entry: package inventory, resolve follow-through, call dispatch with execute only when call_dispatch_with_execute is true, and attach post_follow_through plus operator_card/post_operator_card, progress_transition, and exec_receipt after run/record; residual fortress stages stay blocked until reverse-flow record/close and activation-external acceptance.",
+        "- dispatch_reverse_flow_focused_validation_continue_supervisor_wake remains the low-level single operator entry: inventory packet first (via package_reverse_flow_focused_validation_continue_dispatch_inventory), optional allowlisted run/record when continue_run_executable, always reverse-flow-first supervisor_wake plus post_dispatch_inventory, follow_through, operator_card progress labels, progress_transition, and exec_receipt; residual fortress stages stay blocked until reverse-flow record/close and activation-external acceptance. operator_state also exports continue_run_recommended, continue_supervisor_wake, continue_dispatch (inventory packet without pipeline snapshot), continue_dispatch_action, continue_dispatch_execute_recommended, continue_dispatch_follow_through, continue_dispatch_follow_through_action, continue_dispatch_call_with_execute, continue_dispatch_helper, continue_dispatch_inventory_helper, continue_dispatch_follow_through_helper, continue_operator_card, continue_operator_card_helper, continue_progress_label, continue_action_line, continue_progress_transition_helper, and continue_exec_receipt_helper while reverse-flow is ready/unrecorded.",
         "- Partial body-free command-hash rows stay on ready focused validation and accumulate across record calls via merge_skill_route_discovery_focused_validation_command_results; while partial, supervisor_next promotes to record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external (not a full re-run); residual export remains denied until results cover expected hashes and reverse-flow record/close advances residual-active work.",
         "- After ready, record_skill_route_discovery_focused_local_test_validation_results merges new body-free command-hash rows with any prior partial rows while activation stays external.",
         "- After ready, close_skill_route_discovery_focused_local_test_validation_with_outcome materializes body-free expected-hash outcomes and refreshes activation-external handoff/acceptance.",

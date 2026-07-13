@@ -301,16 +301,22 @@ emits `skill_route_discovery_focused_local_test_validation`:
    example `0/3→3/3`), `progress_advanced`, `follow_through_transition`,
    `recorded_delta`, and `transition_line` so supervisors do not compare nested
    progress labels after continue wakes.
+   `package_reverse_flow_focused_validation_continue_exec_receipt` collapses
+   continue-run plan/result into body-free `exec_line` (for example
+   `exec mode=run_pending ran=3 passed=3 failed=0 skipped=0 recorded=true`) and
+   `exec_plan_line` so supervisors do not re-derive nested `unit_results` after
+   execute wakes; stdout stays unexported and residual export stays denied.
    Preferred policy-aware operator entry is
    `follow_reverse_flow_focused_validation_continue_dispatch`: package inventory,
    resolve follow-through, call dispatch with execute only when recommended, and
-   attach `post_follow_through` plus `operator_card` / `post_operator_card` and
-   `progress_transition` after run/record. Low-level single operator entry remains
+   attach `post_follow_through` plus `operator_card` / `post_operator_card`,
+   `progress_transition`, and `exec_receipt` after run/record. Low-level single
+   operator entry remains
    `dispatch_reverse_flow_focused_validation_continue_supervisor_wake`:
    package inventory first, optionally run/record when `continue_run_executable`,
    always return reverse-flow-first `supervisor_wake` plus
    `post_dispatch_inventory`, `follow_through`, operator card progress
-   labels, and `progress_transition`. Durable `operator_state`
+   labels, `progress_transition`, and `exec_receipt`. Durable `operator_state`
    exports `reverse_flow_focused_validation_continue_run_recommended`, nested
    inventory `reverse_flow_focused_validation_continue_supervisor_wake`, nested
    `reverse_flow_focused_validation_continue_dispatch` (without pipeline
@@ -321,9 +327,9 @@ emits `skill_route_discovery_focused_local_test_validation`:
    `continue_dispatch_inventory_helper`,
    `continue_dispatch_follow_through_helper`, nested
    `continue_operator_card`, `continue_operator_card_helper`,
-   `continue_progress_label`, `continue_action_line`, and
-   `continue_progress_transition_helper` while reverse-flow focused
-   validation is ready/unrecorded
+   `continue_progress_label`, `continue_action_line`,
+   `continue_progress_transition_helper`, and `continue_exec_receipt_helper`
+   while reverse-flow focused validation is ready/unrecorded
 
 Replay with:
 

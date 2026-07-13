@@ -61,6 +61,7 @@ from blackhole_agent.github_growth import (
     package_reverse_flow_focused_validation_continue_dispatch_inventory,
     package_reverse_flow_focused_validation_continue_operator_card,
     package_reverse_flow_focused_validation_continue_progress_transition,
+    package_reverse_flow_focused_validation_continue_exec_receipt,
     resolve_reverse_flow_focused_validation_continue_dispatch_follow_through,
     normalize_skill_route_discovery_focused_validation_command_results,
     record_skill_route_discovery_focused_local_test_validation_results,
@@ -5470,6 +5471,12 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert pipeline[
         "reverse_flow_focused_validation_continue_progress_transition_helper"
     ] == "package_reverse_flow_focused_validation_continue_progress_transition"
+    assert pipeline[
+        "reverse_flow_focused_validation_continue_exec_receipt_helper"
+    ] == "package_reverse_flow_focused_validation_continue_exec_receipt"
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_exec_receipt_helper"
+    ] == "package_reverse_flow_focused_validation_continue_exec_receipt"
     assert pipeline["reverse_flow_focused_validation_continue_supervisor_wake"][
         "controller_surface"
     ] == "reverse_flow_focused_validation_continue_run_supervisor_wake"
@@ -6320,8 +6327,15 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert run_plan["residual_export_allowed"] is False
     assert run_plan["supervisor_activation_allowed"] is False
     assert run_plan["raw_command_stdout_exported"] is False
+    assert run_plan["exec_plan_line"].startswith("plan mode=run_pending ")
+    assert f"runnable={len(command_hashes)}" in run_plan["exec_plan_line"]
+    assert "executable=true" in run_plan["exec_plan_line"]
+    assert "residual_export=false" in run_plan["exec_plan_line"]
     assert all(unit["local_allowed"] for unit in run_plan["pending_work_units"])
     assert "run_reverse_flow_focused_validation_continue_pending_work_units" in (
+        run_plan["record_helpers"]
+    )
+    assert "package_reverse_flow_focused_validation_continue_exec_receipt" in (
         run_plan["record_helpers"]
     )
 
@@ -6348,6 +6362,17 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert run_result["raw_command_stdout_exported"] is False
     assert "stdout" not in run_result
     assert "command" not in run_result["unit_results"][0]
+    assert run_result["exec_receipt"]["controller_surface"] == (
+        "reverse_flow_focused_validation_continue_exec_receipt"
+    )
+    assert run_result["exec_line"].startswith("exec mode=run_pending ")
+    assert f"ran={len(command_hashes)}" in run_result["exec_line"]
+    assert f"passed={len(command_hashes)}" in run_result["exec_line"]
+    assert "failed=0" in run_result["exec_line"]
+    assert "executed=true" in run_result["exec_line"]
+    assert "recorded=false" in run_result["exec_line"]
+    assert run_result["exec_receipt"]["residual_export_allowed"] is False
+    assert run_result["exec_receipt"]["raw_command_stdout_exported"] is False
 
     # Pre-run wake: inventory only, residual hold stays active, residual export denied.
     pre_run_wake = resolve_reverse_flow_focused_validation_continue_run_supervisor_wake(
@@ -6389,6 +6414,15 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert run_and_record["recorded"] is True
     assert run_and_record["run_plan"]["mode"] == "run_pending"
     assert run_and_record["run_result"]["ran_count"] == len(command_hashes)
+    assert run_and_record["exec_receipt"]["controller_surface"] == (
+        "reverse_flow_focused_validation_continue_exec_receipt"
+    )
+    assert run_and_record["exec_receipt"]["recorded"] is True
+    assert run_and_record["exec_receipt"]["all_passed"] is True
+    assert f"ran={len(command_hashes)}" in run_and_record["exec_line"]
+    assert "recorded=true" in run_and_record["exec_line"]
+    assert "executed=true" in run_and_record["exec_line"]
+    assert run_and_record["exec_receipt"]["residual_export_allowed"] is False
     assert run_and_record["pipeline"]["focused_local_test_validation"]["status"] == "passed"
     assert run_and_record["pipeline"]["focused_local_test_validation"]["continue_plan"][
         "mode"
@@ -6557,6 +6591,17 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert inventory_dispatch["action_line"].startswith(
         f"progress=0/{len(command_hashes)} "
     )
+    # Inventory-only still packages a not-executed exec receipt + plan line.
+    assert inventory_dispatch["exec_receipt"]["controller_surface"] == (
+        "reverse_flow_focused_validation_continue_exec_receipt"
+    )
+    assert inventory_dispatch["exec_receipt"]["executed"] is False
+    assert inventory_dispatch["exec_receipt"]["ran_count"] == 0
+    assert inventory_dispatch["exec_receipt"]["residual_export_allowed"] is False
+    assert inventory_dispatch["exec_line"].startswith("exec mode=run_pending ")
+    assert "executed=false" in inventory_dispatch["exec_line"]
+    assert inventory_dispatch["exec_plan_line"].startswith("plan mode=run_pending ")
+    assert f"runnable={len(command_hashes)}" in inventory_dispatch["exec_plan_line"]
     assert "dispatch_reverse_flow_focused_validation_continue_supervisor_wake" in (
         inventory_dispatch["record_helpers"]
     )
@@ -6564,6 +6609,9 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         inventory_dispatch["record_helpers"]
     )
     assert "package_reverse_flow_focused_validation_continue_progress_transition" in (
+        inventory_dispatch["record_helpers"]
+    )
+    assert "package_reverse_flow_focused_validation_continue_exec_receipt" in (
         inventory_dispatch["record_helpers"]
     )
     assert "package_reverse_flow_focused_validation_continue_dispatch_inventory" in (
@@ -6640,6 +6688,25 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert full_dispatch["progress_transition"]["raw_command_stdout_exported"] is False
     assert "transition=0/" in full_dispatch["transition_line"]
     assert "residual_export=false" in full_dispatch["transition_line"]
+    # Exec receipt: body-free ran/passed/failed after full continue execute.
+    assert full_dispatch["exec_receipt"]["controller_surface"] == (
+        "reverse_flow_focused_validation_continue_exec_receipt"
+    )
+    assert full_dispatch["exec_receipt"]["executed"] is True
+    assert full_dispatch["exec_receipt"]["recorded"] is True
+    assert full_dispatch["exec_receipt"]["ran_count"] == n
+    assert full_dispatch["exec_receipt"]["passed_count"] == n
+    assert full_dispatch["exec_receipt"]["failed_count"] == 0
+    assert full_dispatch["exec_receipt"]["all_passed"] is True
+    assert full_dispatch["exec_receipt"]["residual_export_allowed"] is False
+    assert full_dispatch["exec_receipt"]["raw_command_stdout_exported"] is False
+    assert full_dispatch["exec_line"].startswith("exec mode=run_pending ")
+    assert f"ran={n}" in full_dispatch["exec_line"]
+    assert f"passed={n}" in full_dispatch["exec_line"]
+    assert "recorded=true" in full_dispatch["exec_line"]
+    assert "executed=true" in full_dispatch["exec_line"]
+    assert "residual_export=false" in full_dispatch["exec_line"]
+    assert full_dispatch["exec_plan_line"].startswith("plan mode=run_pending ")
     # Standalone progress-transition package matches dispatch attachment.
     standalone_transition = (
         package_reverse_flow_focused_validation_continue_progress_transition(
@@ -6658,6 +6725,22 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert standalone_transition["progress_advanced"] is True
     assert standalone_transition["supervisor_activation_allowed"] is False
     assert standalone_transition["kernel_restart_allowed"] is False
+    # Standalone exec receipt matches dispatch attachment.
+    standalone_exec = package_reverse_flow_focused_validation_continue_exec_receipt(
+        run_plan=full_dispatch["run_plan"],
+        run_result=full_dispatch["run_result"],
+        recorded=True,
+        executed=True,
+        residual_hold_active=bool(full_dispatch.get("residual_hold_active")),
+    )
+    assert standalone_exec["controller_surface"] == (
+        "reverse_flow_focused_validation_continue_exec_receipt"
+    )
+    assert standalone_exec["ran_count"] == n
+    assert standalone_exec["all_passed"] is True
+    assert standalone_exec["residual_export_allowed"] is False
+    assert standalone_exec["supervisor_activation_allowed"] is False
+    assert standalone_exec["kernel_restart_allowed"] is False
 
     # Policy-aware follow-through entry: execute_now → run_and_record without
     # supervisors re-deriving execute from nested action fields.
@@ -6697,6 +6780,13 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         "execute_now→keep_activation_external"
     )
     assert follow_packet["progress_transition"]["residual_export_allowed"] is False
+    assert follow_packet["exec_receipt"]["executed"] is True
+    assert follow_packet["exec_receipt"]["recorded"] is True
+    assert follow_packet["exec_receipt"]["ran_count"] == n
+    assert follow_packet["exec_receipt"]["all_passed"] is True
+    assert f"ran={n}" in follow_packet["exec_line"]
+    assert "recorded=true" in follow_packet["exec_line"]
+    assert follow_packet["exec_receipt"]["residual_export_allowed"] is False
     assert follow_packet["residual_export_allowed"] is False
     assert follow_packet["supervisor_activation_allowed"] is False
     assert follow_packet["kernel_restart_allowed"] is False
