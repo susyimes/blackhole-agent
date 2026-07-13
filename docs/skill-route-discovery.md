@@ -235,6 +235,12 @@ emits `skill_route_discovery_focused_local_test_validation`:
    `record_skill_route_discovery_focused_local_test_validation_results` and
    `close_skill_route_discovery_focused_local_test_validation_with_outcome` are
    named on the packet; activation-external handoff follows only after record
+11. Durable pipeline `operator_state` (also top-level fields) exports
+   `supervisor_next_action`, residual hold/export flags,
+   `reverse_flow_continue_decision`, and record helpers after pipeline build and
+   after record/close so supervisors continue reverse-flow without re-rendering
+   markdown. While ready/unrecorded:
+   `reverse_flow_continue_decision=record_or_close_reverse_flow_focused_validation_before_residual_export`
 
 Replay with:
 

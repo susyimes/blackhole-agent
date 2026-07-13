@@ -3231,7 +3231,7 @@ def build_skill_route_discovery_capability_pipeline(
         >= int(theme.get("target_passes") or DEFAULT_THEME_WINDOW_TARGET_PASSES)
     ):
         status = "complete"
-    return {
+    pipeline = {
         "schema_version": 1,
         "controller_surface": "skill_route_discovery_capability_pipeline",
         "policy": "translate_skill_workflow_signals_into_bounded_local_lanes",
@@ -3351,6 +3351,7 @@ def build_skill_route_discovery_capability_pipeline(
             "agent_harness_eval_cluster_local_apply instead of failing skill-route comparison."
         ),
     }
+    return attach_skill_route_discovery_pipeline_operator_state(pipeline)
 
 
 def evaluate_skill_route_discovery_local_comparison(
@@ -4768,7 +4769,7 @@ def record_skill_route_discovery_focused_local_test_validation_results(
     updated["residual_adjacent_focused_validation_activation_external_acceptance"] = (
         residual_adjacent_focused_validation_activation_external_acceptance
     )
-    return updated
+    return attach_skill_route_discovery_pipeline_operator_state(updated)
 
 
 def build_skill_route_discovery_focused_validation_body_free_command_results(
@@ -7983,7 +7984,7 @@ def record_skill_route_discovery_residual_adjacent_focused_local_validation_resu
     updated["residual_adjacent_focused_validation_activation_external_acceptance"] = (
         residual_activation_external_acceptance
     )
-    return updated
+    return attach_skill_route_discovery_pipeline_operator_state(updated)
 
 
 def close_skill_route_discovery_residual_adjacent_focused_local_validation_with_outcome(
@@ -9741,122 +9742,62 @@ def render_upstream_evidence_capability_step_lines(capability_step: dict[str, An
     return lines
 
 
-def render_skill_route_discovery_capability_pipeline_lines(
-    pipeline: dict[str, Any],
-) -> list[str]:
-    """Render the skill-route capability pipeline for kernel tasks."""
+def resolve_skill_route_discovery_pipeline_operator_state(
+    pipeline: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Compute durable operator-visible continue state for a skill-route pipeline.
 
-    if not pipeline:
-        return []
-    selected = pipeline.get("selected_step") if isinstance(pipeline.get("selected_step"), dict) else {}
-    local_comparison = (
-        pipeline.get("local_comparison")
-        if isinstance(pipeline.get("local_comparison"), dict)
-        else {}
+    Supervisors and record/close helpers attach these fields onto the pipeline
+    packet so reverse-flow focused validation continue does not require re-rendering
+    markdown to learn supervisor_next or residual fortress hold/export state.
+    Residual fortress IDs stay held while reverse-flow focused validation is
+    ready/unrecorded or failed.
+    """
+
+    if not isinstance(pipeline, dict) or not pipeline:
+        return {
+            "supervisor_next_action": "none",
+            "residual_adjacent_held_until_reverse_flow_focused_validation_recorded": False,
+            "residual_adjacent_selection_held_until_residual_active": False,
+            "residual_adjacent_export_held_on_reverse_flow_surfaces": False,
+            "residual_adjacent_selected_proposal_id": "",
+            "residual_work_is_residual_active": False,
+            "reverse_flow_focused_validation_ready_unrecorded": False,
+            "reverse_flow_focused_validation_record_helpers": [],
+            "reverse_flow_continue_decision": "none",
+        }
+
+    def _packet(key: str) -> dict[str, Any]:
+        value = pipeline.get(key)
+        return value if isinstance(value, dict) else {}
+
+    local_apply = _packet("local_apply")
+    local_apply_completion = _packet("local_apply_completion")
+    unlocked_test_lane_apply = _packet("unlocked_local_test_lane_apply")
+    focused_local_test_validation = _packet("focused_local_test_validation")
+    activation_external_handoff = _packet("focused_validation_activation_external_handoff")
+    activation_external_acceptance = _packet(
+        "focused_validation_activation_external_acceptance"
     )
-    reverse_flow_lane = (
-        pipeline.get("reverse_flow_test_validation_lane")
-        if isinstance(pipeline.get("reverse_flow_test_validation_lane"), dict)
-        else {}
+    residual_adjacent_queue = _packet("focused_validation_residual_adjacent_queue")
+    residual_adjacent_local_apply = _packet("residual_adjacent_harness_eval_local_apply")
+    residual_adjacent_local_comparison = _packet(
+        "residual_adjacent_harness_eval_local_comparison"
     )
-    rnskill_docs_lane = (
-        pipeline.get("rnskill_docs_validation_lane")
-        if isinstance(pipeline.get("rnskill_docs_validation_lane"), dict)
-        else {}
+    residual_adjacent_unlocked_lane_apply = _packet(
+        "residual_adjacent_unlocked_local_lane_apply"
     )
-    config_gates = (
-        pipeline.get("config_gate_boundary")
-        if isinstance(pipeline.get("config_gate_boundary"), dict)
-        else {}
+    residual_adjacent_focused_local_validation = _packet(
+        "residual_adjacent_focused_local_validation"
     )
-    local_apply = (
-        pipeline.get("local_apply") if isinstance(pipeline.get("local_apply"), dict) else {}
+    residual_adjacent_focused_validation_activation_external_handoff = _packet(
+        "residual_adjacent_focused_validation_activation_external_handoff"
     )
-    local_apply_completion = (
-        pipeline.get("local_apply_completion")
-        if isinstance(pipeline.get("local_apply_completion"), dict)
-        else {}
+    residual_adjacent_focused_validation_activation_external_acceptance = _packet(
+        "residual_adjacent_focused_validation_activation_external_acceptance"
     )
-    unlocked_test_lane_apply = (
-        pipeline.get("unlocked_local_test_lane_apply")
-        if isinstance(pipeline.get("unlocked_local_test_lane_apply"), dict)
-        else {}
-    )
-    focused_local_test_validation = (
-        pipeline.get("focused_local_test_validation")
-        if isinstance(pipeline.get("focused_local_test_validation"), dict)
-        else {}
-    )
-    activation_external_handoff = (
-        pipeline.get("focused_validation_activation_external_handoff")
-        if isinstance(pipeline.get("focused_validation_activation_external_handoff"), dict)
-        else {}
-    )
-    activation_external_acceptance = (
-        pipeline.get("focused_validation_activation_external_acceptance")
-        if isinstance(pipeline.get("focused_validation_activation_external_acceptance"), dict)
-        else {}
-    )
-    residual_adjacent_queue = (
-        pipeline.get("focused_validation_residual_adjacent_queue")
-        if isinstance(pipeline.get("focused_validation_residual_adjacent_queue"), dict)
-        else {}
-    )
-    residual_adjacent_local_apply = (
-        pipeline.get("residual_adjacent_harness_eval_local_apply")
-        if isinstance(pipeline.get("residual_adjacent_harness_eval_local_apply"), dict)
-        else {}
-    )
-    residual_adjacent_local_comparison = (
-        pipeline.get("residual_adjacent_harness_eval_local_comparison")
-        if isinstance(
-            pipeline.get("residual_adjacent_harness_eval_local_comparison"), dict
-        )
-        else {}
-    )
-    residual_adjacent_unlocked_lane_apply = (
-        pipeline.get("residual_adjacent_unlocked_local_lane_apply")
-        if isinstance(
-            pipeline.get("residual_adjacent_unlocked_local_lane_apply"), dict
-        )
-        else {}
-    )
-    residual_adjacent_focused_local_validation = (
-        pipeline.get("residual_adjacent_focused_local_validation")
-        if isinstance(
-            pipeline.get("residual_adjacent_focused_local_validation"), dict
-        )
-        else {}
-    )
-    residual_adjacent_focused_validation_activation_external_handoff = (
-        pipeline.get("residual_adjacent_focused_validation_activation_external_handoff")
-        if isinstance(
-            pipeline.get(
-                "residual_adjacent_focused_validation_activation_external_handoff"
-            ),
-            dict,
-        )
-        else {}
-    )
-    residual_adjacent_focused_validation_activation_external_acceptance = (
-        pipeline.get(
-            "residual_adjacent_focused_validation_activation_external_acceptance"
-        )
-        if isinstance(
-            pipeline.get(
-                "residual_adjacent_focused_validation_activation_external_acceptance"
-            ),
-            dict,
-        )
-        else {}
-    )
-    adjacent_handoff = (
-        pipeline.get("adjacent_agent_harness_eval_handoff")
-        if isinstance(pipeline.get("adjacent_agent_harness_eval_handoff"), dict)
-        else {}
-    )
-    stages = ", ".join(str(stage) for stage in pipeline.get("pipeline_stages") or [])
-    profiles = ", ".join(str(profile) for profile in selected.get("route_profiles") or [])
+    adjacent_handoff = _packet("adjacent_agent_harness_eval_handoff")
+
     focused_status = str(focused_local_test_validation.get("status") or "")
     activation_external_status = str(activation_external_handoff.get("status") or "")
     activation_external_acceptance_status = str(
@@ -9884,12 +9825,10 @@ def render_skill_route_discovery_capability_pipeline_lines(
         or ""
     )
     unlocked_status = str(unlocked_test_lane_apply.get("status") or "")
+
     # Residual stages only own supervisor_next when residual work is residual-active.
     # Statuses that merely wait on reverse-flow focused validation / activation-external
-    # acceptance (for example blocked_until_activation_external_acceptance or
-    # blocked_until_residual_adjacent_focused_validation_ready) must not override the
-    # reverse-flow primary stage. Cascade inheritance still fills those residual
-    # packets for later residual-active use; render prioritizes reverse-flow first.
+    # acceptance must not override the reverse-flow primary stage.
     residual_handoff_is_residual_active = residual_adjacent_activation_external_status in {
         "ready",
         "blocked_until_residual_adjacent_focused_validation_recorded",
@@ -10020,7 +9959,7 @@ def render_skill_route_discovery_capability_pipeline_lines(
     ) or local_apply_completion.get("supervisor_next_action") or local_apply.get(
         "supervisor_next_action"
     ) or "none"
-    residual_selected_proposal_for_render = (
+    residual_selected_proposal_id = (
         residual_adjacent_focused_validation_activation_external_acceptance.get(
             "selected_residual_proposal_id"
         )
@@ -10034,10 +9973,8 @@ def render_skill_route_discovery_capability_pipeline_lines(
         or residual_adjacent_queue.get("selected_residual_proposal_id")
         or ""
     )
-    # Do not advertise a residual fortress/Hy3 selection while residual stages are
-    # still held waiting on reverse-flow focused validation record/close.
     if not residual_work_is_residual_active:
-        residual_selected_proposal_for_render = ""
+        residual_selected_proposal_id = ""
     reverse_flow_focused_hold_active = bool(
         focused_local_test_validation.get("residual_adjacent_hold_active")
     ) or (
@@ -10059,6 +9996,205 @@ def render_skill_route_discovery_capability_pipeline_lines(
         )
         if isinstance(packet, dict)
     )
+    residual_export_held = bool(
+        focused_local_test_validation.get("residual_adjacent_ids_held_until_recorded")
+        or activation_external_handoff.get("residual_adjacent_export_held_until_ready")
+        or activation_external_acceptance.get("residual_adjacent_export_held_until_ready")
+        or residual_adjacent_queue.get("residual_adjacent_export_held_until_ready")
+        or reverse_flow_focused_hold_active
+    )
+    reverse_flow_ready_unrecorded = focused_status == "ready" and not bool(
+        focused_local_test_validation.get("focused_validation_recorded")
+        or pipeline.get("focused_local_test_validation_recorded")
+    )
+    record_helpers = [
+        "record_skill_route_discovery_focused_local_test_validation_results",
+        "close_skill_route_discovery_focused_local_test_validation_with_outcome",
+    ]
+    if reverse_flow_ready_unrecorded:
+        reverse_flow_continue_decision = (
+            "record_or_close_reverse_flow_focused_validation_before_residual_export"
+        )
+        helpers = list(record_helpers)
+    elif focused_status == "failed":
+        reverse_flow_continue_decision = (
+            "repair_failed_focused_local_test_validation_commands"
+        )
+        helpers = list(record_helpers)
+    elif focused_status == "passed":
+        reverse_flow_continue_decision = str(supervisor_next or "none")
+        helpers = []
+    else:
+        reverse_flow_continue_decision = str(supervisor_next or "none")
+        helpers = []
+
+    return {
+        "supervisor_next_action": str(supervisor_next or "none"),
+        "residual_adjacent_held_until_reverse_flow_focused_validation_recorded": (
+            reverse_flow_focused_hold_active
+        ),
+        "residual_adjacent_selection_held_until_residual_active": (
+            residual_selection_held
+            or reverse_flow_focused_hold_active
+            or not residual_work_is_residual_active
+        ),
+        "residual_adjacent_export_held_on_reverse_flow_surfaces": residual_export_held,
+        "residual_adjacent_selected_proposal_id": str(residual_selected_proposal_id or ""),
+        "residual_work_is_residual_active": residual_work_is_residual_active,
+        "reverse_flow_focused_validation_ready_unrecorded": reverse_flow_ready_unrecorded,
+        "reverse_flow_focused_validation_record_helpers": helpers,
+        "reverse_flow_continue_decision": reverse_flow_continue_decision,
+    }
+
+
+def attach_skill_route_discovery_pipeline_operator_state(
+    pipeline: dict[str, Any],
+) -> dict[str, Any]:
+    """Attach durable operator-state fields onto a skill-route pipeline packet.
+
+    Build and record/close helpers call this so supervisors can continue reverse-flow
+    focused validation from packet fields without re-rendering markdown.
+    """
+
+    if not isinstance(pipeline, dict):
+        raise TypeError("pipeline must be a dict")
+    state = resolve_skill_route_discovery_pipeline_operator_state(pipeline)
+    updated = dict(pipeline)
+    updated.update(state)
+    updated["operator_state"] = dict(state)
+    return updated
+
+
+def render_skill_route_discovery_capability_pipeline_lines(
+    pipeline: dict[str, Any],
+) -> list[str]:
+    """Render the skill-route capability pipeline for kernel tasks."""
+
+    if not pipeline:
+        return []
+    selected = pipeline.get("selected_step") if isinstance(pipeline.get("selected_step"), dict) else {}
+    local_comparison = (
+        pipeline.get("local_comparison")
+        if isinstance(pipeline.get("local_comparison"), dict)
+        else {}
+    )
+    reverse_flow_lane = (
+        pipeline.get("reverse_flow_test_validation_lane")
+        if isinstance(pipeline.get("reverse_flow_test_validation_lane"), dict)
+        else {}
+    )
+    rnskill_docs_lane = (
+        pipeline.get("rnskill_docs_validation_lane")
+        if isinstance(pipeline.get("rnskill_docs_validation_lane"), dict)
+        else {}
+    )
+    config_gates = (
+        pipeline.get("config_gate_boundary")
+        if isinstance(pipeline.get("config_gate_boundary"), dict)
+        else {}
+    )
+    local_apply = (
+        pipeline.get("local_apply") if isinstance(pipeline.get("local_apply"), dict) else {}
+    )
+    local_apply_completion = (
+        pipeline.get("local_apply_completion")
+        if isinstance(pipeline.get("local_apply_completion"), dict)
+        else {}
+    )
+    unlocked_test_lane_apply = (
+        pipeline.get("unlocked_local_test_lane_apply")
+        if isinstance(pipeline.get("unlocked_local_test_lane_apply"), dict)
+        else {}
+    )
+    focused_local_test_validation = (
+        pipeline.get("focused_local_test_validation")
+        if isinstance(pipeline.get("focused_local_test_validation"), dict)
+        else {}
+    )
+    activation_external_handoff = (
+        pipeline.get("focused_validation_activation_external_handoff")
+        if isinstance(pipeline.get("focused_validation_activation_external_handoff"), dict)
+        else {}
+    )
+    activation_external_acceptance = (
+        pipeline.get("focused_validation_activation_external_acceptance")
+        if isinstance(pipeline.get("focused_validation_activation_external_acceptance"), dict)
+        else {}
+    )
+    residual_adjacent_queue = (
+        pipeline.get("focused_validation_residual_adjacent_queue")
+        if isinstance(pipeline.get("focused_validation_residual_adjacent_queue"), dict)
+        else {}
+    )
+    residual_adjacent_local_apply = (
+        pipeline.get("residual_adjacent_harness_eval_local_apply")
+        if isinstance(pipeline.get("residual_adjacent_harness_eval_local_apply"), dict)
+        else {}
+    )
+    residual_adjacent_local_comparison = (
+        pipeline.get("residual_adjacent_harness_eval_local_comparison")
+        if isinstance(
+            pipeline.get("residual_adjacent_harness_eval_local_comparison"), dict
+        )
+        else {}
+    )
+    residual_adjacent_unlocked_lane_apply = (
+        pipeline.get("residual_adjacent_unlocked_local_lane_apply")
+        if isinstance(
+            pipeline.get("residual_adjacent_unlocked_local_lane_apply"), dict
+        )
+        else {}
+    )
+    residual_adjacent_focused_local_validation = (
+        pipeline.get("residual_adjacent_focused_local_validation")
+        if isinstance(
+            pipeline.get("residual_adjacent_focused_local_validation"), dict
+        )
+        else {}
+    )
+    residual_adjacent_focused_validation_activation_external_handoff = (
+        pipeline.get("residual_adjacent_focused_validation_activation_external_handoff")
+        if isinstance(
+            pipeline.get(
+                "residual_adjacent_focused_validation_activation_external_handoff"
+            ),
+            dict,
+        )
+        else {}
+    )
+    residual_adjacent_focused_validation_activation_external_acceptance = (
+        pipeline.get(
+            "residual_adjacent_focused_validation_activation_external_acceptance"
+        )
+        if isinstance(
+            pipeline.get(
+                "residual_adjacent_focused_validation_activation_external_acceptance"
+            ),
+            dict,
+        )
+        else {}
+    )
+    adjacent_handoff = (
+        pipeline.get("adjacent_agent_harness_eval_handoff")
+        if isinstance(pipeline.get("adjacent_agent_harness_eval_handoff"), dict)
+        else {}
+    )
+    stages = ", ".join(str(stage) for stage in pipeline.get("pipeline_stages") or [])
+    profiles = ", ".join(str(profile) for profile in selected.get("route_profiles") or [])
+    operator_state = resolve_skill_route_discovery_pipeline_operator_state(pipeline)
+    supervisor_next = operator_state["supervisor_next_action"]
+    residual_selected_proposal_for_render = operator_state[
+        "residual_adjacent_selected_proposal_id"
+    ]
+    reverse_flow_focused_hold_active = operator_state[
+        "residual_adjacent_held_until_reverse_flow_focused_validation_recorded"
+    ]
+    residual_selection_held = operator_state[
+        "residual_adjacent_selection_held_until_residual_active"
+    ]
+    residual_export_held = operator_state[
+        "residual_adjacent_export_held_on_reverse_flow_surfaces"
+    ]
     lines = [
         "Skill route discovery capability pipeline:",
         f"- Status: `{pipeline.get('status', '')}`",
@@ -10138,9 +10274,11 @@ def render_skill_route_discovery_capability_pipeline_lines(
         f"- Residual adjacent held until reverse-flow focused validation recorded: `"
         f"{reverse_flow_focused_hold_active}`",
         f"- Residual adjacent selection held until residual-active: `"
-        f"{residual_selection_held or reverse_flow_focused_hold_active or not residual_work_is_residual_active}`",
+        f"{residual_selection_held}`",
         f"- Residual adjacent export held on reverse-flow surfaces: `"
-        f"{bool(focused_local_test_validation.get('residual_adjacent_ids_held_until_recorded') or activation_external_handoff.get('residual_adjacent_export_held_until_ready') or activation_external_acceptance.get('residual_adjacent_export_held_until_ready') or residual_adjacent_queue.get('residual_adjacent_export_held_until_ready') or reverse_flow_focused_hold_active)}`",
+        f"{residual_export_held}`",
+        f"- Reverse-flow continue decision: `"
+        f"{operator_state.get('reverse_flow_continue_decision') or 'none'}`",
         f"- Adjacent agent harness-eval handoff: `{adjacent_handoff.get('status') or 'none'}`",
         f"- Adjacent handoff decision: `{adjacent_handoff.get('decision') or 'none'}`",
         f"- Theme complete: `{bool(local_apply_completion.get('theme_complete'))}`",
@@ -10159,6 +10297,7 @@ def render_skill_route_discovery_capability_pipeline_lines(
         "- While reverse-flow focused validation is ready/unrecorded or failed, residual fortress/Hy3 stages stay held; supervisor_next stays on reverse-flow focused validation and residual selected proposal is not advertised on residual packets or render.",
         "- Residual fortress/Hy3 selected_residual_proposal_id is exported only when residual work is residual-active; reverse-flow-waiting residual stages leave selection empty.",
         "- Reverse-flow focused validation, activation-external handoff/acceptance, and residual queue also hold residual adjacent_general_agent_proposal_ids and residual_adjacent_harness_eval_available until reverse-flow record/close and residual-active readiness; do not pre-export fortress IDs while reverse-flow waits.",
+        "- Pipeline operator_state durably exports supervisor_next_action, residual hold/export flags, and reverse_flow_continue_decision after build and after record/close so supervisors continue reverse-flow without re-rendering markdown.",
         "- After ready, record_skill_route_discovery_focused_local_test_validation_results closes body-free command-hash results while activation stays external.",
         "- After ready, close_skill_route_discovery_focused_local_test_validation_with_outcome materializes body-free expected-hash outcomes and refreshes activation-external handoff/acceptance.",
         "- After recorded pass, skill_route_discovery_focused_validation_activation_external_handoff packages keep_activation_external while push/promotion/restart stay denied.",

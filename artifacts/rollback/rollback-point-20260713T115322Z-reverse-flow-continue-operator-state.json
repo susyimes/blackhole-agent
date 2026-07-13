@@ -1,0 +1,7 @@
+{
+  "created_at": "20260713T115322Z",
+  "branch": "grok/blackhole-evolve/20260713T035157.542882-continue-bounded-skill-route-discovery-for-rever",
+  "head": "113829c0bde3ff5b0098ff565c85189443e88011",
+  "rollback_ref": "refs/blackhole-rollback/20260713T115322Z",
+  "purpose": "reverse-flow-continue-operator-state"
+}

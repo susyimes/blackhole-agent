@@ -5280,6 +5280,32 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     unlocked_apply = pipeline["unlocked_local_test_lane_apply"]
     focused = pipeline["focused_local_test_validation"]
 
+    # Durable operator state: reverse-flow continue without re-rendering markdown.
+    assert pipeline["supervisor_next_action"] == (
+        "run_focused_local_test_validation_then_keep_activation_external"
+    )
+    assert pipeline["reverse_flow_focused_validation_ready_unrecorded"] is True
+    assert pipeline["reverse_flow_continue_decision"] == (
+        "record_or_close_reverse_flow_focused_validation_before_residual_export"
+    )
+    assert pipeline["reverse_flow_focused_validation_record_helpers"] == [
+        "record_skill_route_discovery_focused_local_test_validation_results",
+        "close_skill_route_discovery_focused_local_test_validation_with_outcome",
+    ]
+    assert pipeline[
+        "residual_adjacent_held_until_reverse_flow_focused_validation_recorded"
+    ] is True
+    assert pipeline["residual_adjacent_selection_held_until_residual_active"] is True
+    assert pipeline["residual_adjacent_export_held_on_reverse_flow_surfaces"] is True
+    assert pipeline["residual_adjacent_selected_proposal_id"] == ""
+    assert pipeline["residual_work_is_residual_active"] is False
+    assert pipeline["operator_state"]["supervisor_next_action"] == (
+        pipeline["supervisor_next_action"]
+    )
+    assert pipeline["operator_state"]["reverse_flow_continue_decision"] == (
+        pipeline["reverse_flow_continue_decision"]
+    )
+
     assert unlocked_apply["status"] == "ready"
     assert focused["controller_surface"] == (
         "skill_route_discovery_focused_local_test_validation"
@@ -5582,6 +5608,14 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     )
     assert (
         "hold residual adjacent_general_agent_proposal_ids and residual_adjacent_harness_eval_available"
+        in pipeline_rendered
+    )
+    assert (
+        "Reverse-flow continue decision: `record_or_close_reverse_flow_focused_validation_before_residual_export`"
+        in pipeline_rendered
+    )
+    assert (
+        "Pipeline operator_state durably exports supervisor_next_action"
         in pipeline_rendered
     )
 
@@ -6475,6 +6509,24 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert closed is not pipeline
     assert closed["focused_local_test_validation_recorded"] is True
     assert closed["focused_local_test_validation"]["status"] == "passed"
+    # Record/close refreshes durable operator state and releases residual holds.
+    assert closed["reverse_flow_focused_validation_ready_unrecorded"] is False
+    assert closed["reverse_flow_continue_decision"] == (
+        "run_focused_local_validation_for_residual_adjacent_unlocked_lane_and_keep_activation_external"
+    )
+    assert closed["reverse_flow_focused_validation_record_helpers"] == []
+    assert closed["supervisor_next_action"] == (
+        "run_focused_local_validation_for_residual_adjacent_unlocked_lane_and_keep_activation_external"
+    )
+    assert closed[
+        "residual_adjacent_held_until_reverse_flow_focused_validation_recorded"
+    ] is False
+    assert closed["residual_adjacent_export_held_on_reverse_flow_surfaces"] is False
+    assert closed["residual_work_is_residual_active"] is True
+    assert "fortress" in closed["residual_adjacent_selected_proposal_id"]
+    assert closed["operator_state"]["supervisor_next_action"] == (
+        closed["supervisor_next_action"]
+    )
     assert closed["focused_validation_activation_external_handoff"]["status"] == "ready"
     assert closed["focused_validation_activation_external_handoff"]["decision"] == (
         "package_activation_external_handoff_after_focused_validation_pass"

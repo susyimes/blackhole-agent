@@ -46,12 +46,19 @@ residual adjacent focused validation activation-external handoff →
 residual adjacent focused validation activation-external acceptance →
 (optional) selected-step adjacent harness-eval.
 
-Observed this run (digest `github-growth-20260713T033123.572996Z`,
+Observed this run (digest `github-growth-20260713T035123.555299Z`,
 `prop-reverse-flow-skill-route-discovery` with residual fortress adjacent):
 
-- Reverse-flow focused validation is still `ready` / unrecorded; residual stages
-  stay blocked waiting on reverse-flow record/close and activation-external
-  acceptance
+- Reverse-flow focused validation is still `ready` / unrecorded until supervisors
+  record/close body-free command-hash results; residual stages stay blocked
+  waiting on reverse-flow record/close and activation-external acceptance
+- New: pipeline build and record/close attach durable `operator_state` (also
+  top-level): `supervisor_next_action`, residual hold/export flags,
+  `reverse_flow_continue_decision`, and reverse-flow record helpers. Supervisors
+  continue reverse-flow without re-rendering markdown
+- While ready/unrecorded:
+  `reverse_flow_continue_decision=record_or_close_reverse_flow_focused_validation_before_residual_export`
+  and `supervisor_next_action=run_focused_local_test_validation_then_keep_activation_external`
 - Prior residual acceptance repair still holds: residual acceptance inherits
   cascaded handoff next when handoff is blocked, and only owns render priority
   when residual handoff is residual-active
@@ -60,31 +67,14 @@ Observed this run (digest `github-growth-20260713T033123.572996Z`,
 - Prior residual selection hold still holds: residual stage packets leave
   fortress `selected_residual_proposal_id` / residual `proposal_id` empty while
   reverse-flow-waiting (`residual_selection_held_until_residual_active=true`)
-- New: reverse-flow surfaces no longer pre-export residual fortress adjacent
-  IDs or residual availability while reverse-flow-waiting. Focused validation
-  holds `adjacent_general_agent_proposal_ids` while residual hold is active
-  (`residual_adjacent_ids_held_until_recorded=true`); activation-external
-  handoff/acceptance and residual queue leave
-  `residual_adjacent_harness_eval_available=false` and empty residual adjacent
-  IDs (`residual_adjacent_export_held_until_ready=true`) until ready/accepted
-- Residual apply/comparison/unlocked also gate residual availability to residual-
-  active export sets only
-- Focused validation packets still mark `residual_adjacent_hold_until_recorded`
-  / `residual_adjacent_hold_active` while ready/unrecorded or failed
-- Pipeline render surfaces residual selection held, residual export held on
-  reverse-flow surfaces, and residual selected proposal `none` while reverse-
-  flow waits
-- Correct operator next while reverse-flow focused validation is unrecorded:
-  `run_focused_local_test_validation_then_keep_activation_external`
-- After record/close pass, reverse-flow activation-external handoff/acceptance
-  re-export residual fortress availability before residual stages become
-  residual-active; residual fortress is not advertised early while reverse-flow
-  waits
-- Residual acceptance still inherits repair-failed residual focused validation
-  when residual handoff is
-  `blocked_until_residual_adjacent_focused_validation_repaired`
-- Isolation failures on residual handoff itself may still surface
-  `repair_skill_route_discovery_residual_adjacent_focused_validation_activation_external_handoff`
+- Prior residual adjacent export hold still holds: reverse-flow surfaces do not
+  pre-export residual fortress adjacent IDs or residual availability while
+  reverse-flow-waiting (`residual_adjacent_ids_held_until_recorded` /
+  `residual_adjacent_export_held_until_ready`)
+- After record/close pass, operator_state refreshes: residual holds release,
+  fortress selected residual id re-exports only when residual-active, and
+  `supervisor_next_action` advances to residual focused validation when the
+  residual cascade is ready
 - Activation, push, promotion, provider launch, remote apply, external skill
   execution, and kernel restart stay denied
 - agent-chief remains privacy review-only
