@@ -169,7 +169,12 @@ external. Supervisors close results via
 existing packet (`prop-skill-reverse-flow-focused-test-validation`). Partial
 body-free rows accumulate across record wakes via
 `merge_skill_route_discovery_focused_validation_command_results`; operator_state
-exports missing expected hashes body-free until coverage is complete. After a
+exports recorded/missing expected hashes and pending command counts body-free
+until coverage is complete, and while partial
+`supervisor_next_action` promotes to
+`record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external`
+via `resolve_reverse_flow_focused_validation_continue_supervisor_next` (not a
+full focused re-run). After a
 recorded pass,
 `skill_route_discovery_focused_validation_activation_external_handoff` packages
 `keep_activation_external_after_focused_local_test_validation` into one

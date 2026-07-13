@@ -44,6 +44,9 @@ from blackhole_agent.github_growth import (
     close_skill_route_discovery_residual_adjacent_focused_local_validation_with_outcome,
     merge_skill_route_discovery_focused_validation_command_results,
     missing_skill_route_discovery_focused_validation_command_hashes,
+    pending_skill_route_discovery_focused_validation_commands,
+    recorded_skill_route_discovery_focused_validation_command_hashes,
+    resolve_reverse_flow_focused_validation_continue_supervisor_next,
     normalize_skill_route_discovery_focused_validation_command_results,
     record_skill_route_discovery_focused_local_test_validation_results,
     record_skill_route_discovery_residual_adjacent_focused_local_validation_results,
@@ -5310,16 +5313,22 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert pipeline["reverse_flow_focused_validation_expected_command_count"] == len(
         focused["focused_validation"]["command_hashes"]
     )
+    assert pipeline["reverse_flow_focused_validation_recorded_command_hashes"] == []
+    assert pipeline["reverse_flow_focused_validation_recorded_command_hash_count"] == 0
     assert pipeline["reverse_flow_focused_validation_missing_command_hash_count"] == len(
         focused["focused_validation"]["command_hashes"]
     )
     assert pipeline["reverse_flow_focused_validation_missing_command_hashes"] == list(
         focused["focused_validation"]["command_hashes"]
     )
+    assert pipeline["reverse_flow_focused_validation_pending_command_count"] == len(
+        focused["focused_validation"]["commands"]
+    )
     assert pipeline["reverse_flow_focused_validation_record_helpers"] == [
         "record_skill_route_discovery_focused_local_test_validation_results",
         "close_skill_route_discovery_focused_local_test_validation_with_outcome",
         "merge_skill_route_discovery_focused_validation_command_results",
+        "resolve_reverse_flow_focused_validation_continue_supervisor_next",
     ]
     assert pipeline["operator_state"]["supervisor_next_action"] == (
         pipeline["supervisor_next_action"]
@@ -5382,6 +5391,14 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert focused["focused_validation"]["missing_command_hash_count"] == len(
         focused["focused_validation"]["command_hashes"]
     )
+    assert focused["focused_validation"]["recorded_command_hashes"] == []
+    assert focused["focused_validation"]["recorded_command_hash_count"] == 0
+    assert focused["focused_validation"]["pending_commands"] == list(
+        focused["focused_validation"]["commands"]
+    )
+    assert focused["focused_validation"]["pending_command_count"] == len(
+        focused["focused_validation"]["commands"]
+    )
     # Residual fortress stages stay held until reverse-flow focused results record.
     assert focused["residual_adjacent_hold_until_recorded"] is True
     assert focused["residual_adjacent_hold_active"] is True
@@ -5396,6 +5413,7 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         "record_skill_route_discovery_focused_local_test_validation_results",
         "close_skill_route_discovery_focused_local_test_validation_with_outcome",
         "merge_skill_route_discovery_focused_validation_command_results",
+        "resolve_reverse_flow_focused_validation_continue_supervisor_next",
     ]
     assert focused["activation_external_handoff_after_record"] == (
         "skill_route_discovery_focused_validation_activation_external_handoff"
@@ -5721,6 +5739,7 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert passed["activation_external_only"] is True
 
     # Partial body-free command-hash results stay on ready and keep residual export held.
+    # supervisor_next promotes to record-remaining (not full re-run) while partial.
     partial = record_skill_route_discovery_focused_local_test_validation_results(
         pipeline,
         [{"command_hash": command_hashes[0], "passed": True}],
@@ -5728,6 +5747,15 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     )
     assert partial is not pipeline
     assert partial["focused_local_test_validation"]["status"] == "ready"
+    assert partial["focused_local_test_validation"]["decision"] == (
+        "record_remaining_focused_validation_command_hashes_before_activation_external"
+    )
+    assert partial["focused_local_test_validation"]["supervisor_next_action"] == (
+        "record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external"
+    )
+    assert partial["supervisor_next_action"] == (
+        "record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external"
+    )
     assert partial["focused_local_test_validation"]["focused_validation"][
         "partial_results_recorded"
     ] is True
@@ -5747,10 +5775,22 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         }
     ]
     assert partial["focused_local_test_validation"]["focused_validation"][
+        "recorded_command_hashes"
+    ] == [command_hashes[0]]
+    assert partial["focused_local_test_validation"]["focused_validation"][
+        "recorded_command_hash_count"
+    ] == 1
+    assert partial["focused_local_test_validation"]["focused_validation"][
         "missing_command_hashes"
     ] == command_hashes[1:]
     assert partial["focused_local_test_validation"]["focused_validation"][
         "missing_command_hash_count"
+    ] == len(command_hashes) - 1
+    assert partial["focused_local_test_validation"]["focused_validation"][
+        "pending_commands"
+    ] == focused["focused_validation"]["commands"][1:]
+    assert partial["focused_local_test_validation"]["focused_validation"][
+        "pending_command_count"
     ] == len(command_hashes) - 1
     assert partial["focused_local_test_validation"]["adjacent_general_agent_proposal_ids"] == []
     assert partial["residual_export_allowed"] is False
@@ -5758,10 +5798,17 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert partial["residual_adjacent_selected_proposal_id"] == ""
     assert partial["reverse_flow_focused_validation_partial_results_recorded"] is True
     assert partial["reverse_flow_focused_validation_recorded_result_count"] == 1
+    assert partial["reverse_flow_focused_validation_recorded_command_hashes"] == [
+        command_hashes[0]
+    ]
+    assert partial["reverse_flow_focused_validation_recorded_command_hash_count"] == 1
     assert partial["reverse_flow_focused_validation_missing_command_hashes"] == (
         command_hashes[1:]
     )
     assert partial["reverse_flow_focused_validation_missing_command_hash_count"] == (
+        len(command_hashes) - 1
+    )
+    assert partial["reverse_flow_focused_validation_pending_command_count"] == (
         len(command_hashes) - 1
     )
     assert partial["reverse_flow_continue_decision"] == (
@@ -5770,10 +5817,29 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert partial["operator_state"]["reverse_flow_continue_decision"] == (
         partial["reverse_flow_continue_decision"]
     )
+    assert partial["operator_state"]["supervisor_next_action"] == (
+        partial["supervisor_next_action"]
+    )
     assert partial["operator_state"]["residual_export_allowed"] is False
     assert partial["reverse_flow_bound"] is True
     assert partial["reverse_flow_bound_source_marker"] == (
         "lingbol088-spec/reverse-flow-skill"
+    )
+    # Blocked reverse-flow-waiting handoff/acceptance also promote record-remaining.
+    assert partial["focused_validation_activation_external_handoff"][
+        "supervisor_next_action"
+    ] == (
+        "record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external"
+    )
+    assert partial["focused_validation_activation_external_acceptance"][
+        "supervisor_next_action"
+    ] == (
+        "record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external"
+    )
+    assert partial["focused_validation_residual_adjacent_queue"][
+        "supervisor_next_action"
+    ] == (
+        "record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external"
     )
     assert "command" not in partial["focused_local_test_validation"]["focused_validation"][
         "command_results"
@@ -5781,6 +5847,22 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert "stdout" not in partial["focused_local_test_validation"]["focused_validation"][
         "command_results"
     ][0]
+    partial_rendered = "\n".join(
+        github_growth.render_skill_route_discovery_capability_pipeline_lines(partial)
+    )
+    assert (
+        "Supervisor next action: `record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external`"
+        in partial_rendered
+    )
+    assert (
+        "Reverse-flow continue decision: `record_remaining_reverse_flow_focused_validation_command_hashes_before_residual_export`"
+        in partial_rendered
+    )
+    assert resolve_reverse_flow_focused_validation_continue_supervisor_next(
+        focused_local_test_validation=partial["focused_local_test_validation"]
+    ) == (
+        "record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external"
+    )
 
     # Second record wake merges remaining hashes instead of replacing prior partial rows.
     merged_partial = record_skill_route_discovery_focused_local_test_validation_results(
@@ -5789,6 +5871,12 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         source_digest="github-growth-20260713T043123.469301Z",
     )
     assert merged_partial["focused_local_test_validation"]["status"] == "ready"
+    assert merged_partial["focused_local_test_validation"]["decision"] == (
+        "record_remaining_focused_validation_command_hashes_before_activation_external"
+    )
+    assert merged_partial["supervisor_next_action"] == (
+        "record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external"
+    )
     assert merged_partial["focused_local_test_validation"]["focused_validation"][
         "recorded_result_count"
     ] == 2
@@ -5799,9 +5887,16 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         ]
     } == {command_hashes[0], command_hashes[1]}
     assert merged_partial["focused_local_test_validation"]["focused_validation"][
+        "recorded_command_hashes"
+    ] == [command_hashes[0], command_hashes[1]]
+    assert merged_partial["focused_local_test_validation"]["focused_validation"][
         "missing_command_hashes"
     ] == [command_hashes[2]]
+    assert merged_partial["focused_local_test_validation"]["focused_validation"][
+        "pending_commands"
+    ] == [focused["focused_validation"]["commands"][2]]
     assert merged_partial["reverse_flow_focused_validation_missing_command_hash_count"] == 1
+    assert merged_partial["reverse_flow_focused_validation_pending_command_count"] == 1
     assert merged_partial["residual_export_allowed"] is False
     assert merged_partial["reverse_flow_continue_decision"] == (
         "record_remaining_reverse_flow_focused_validation_command_hashes_before_residual_export"
@@ -5822,6 +5917,15 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         expected_command_hashes=command_hashes,
         command_results=[{"command_hash": command_hashes[0], "passed": True}],
     ) == command_hashes[1:]
+    assert recorded_skill_route_discovery_focused_validation_command_hashes(
+        expected_command_hashes=command_hashes,
+        command_results=[{"command_hash": command_hashes[0], "passed": True}],
+    ) == [command_hashes[0]]
+    assert pending_skill_route_discovery_focused_validation_commands(
+        commands=focused["focused_validation"]["commands"],
+        command_hashes=command_hashes,
+        missing_command_hashes=command_hashes[1:],
+    ) == focused["focused_validation"]["commands"][1:]
     # Final remaining hash closes reverse-flow focused validation via merge.
     merged_pass = record_skill_route_discovery_focused_local_test_validation_results(
         merged_partial,
@@ -5835,8 +5939,17 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert merged_pass["focused_local_test_validation"]["focused_validation"][
         "missing_command_hash_count"
     ] == 0
+    assert merged_pass["focused_local_test_validation"]["focused_validation"][
+        "pending_command_count"
+    ] == 0
+    assert merged_pass["focused_local_test_validation"]["focused_validation"][
+        "recorded_command_hashes"
+    ] == command_hashes
     assert merged_pass["reverse_flow_focused_validation_missing_command_hashes"] == []
     assert merged_pass["reverse_flow_focused_validation_ready_unrecorded"] is False
+    assert merged_pass["supervisor_next_action"] != (
+        "record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external"
+    )
 
     # Failed reverse-flow focused validation keeps residual hold active for repair.
     failed = build_skill_route_discovery_focused_local_test_validation(

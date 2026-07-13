@@ -253,8 +253,13 @@ emits `skill_route_discovery_focused_local_test_validation`:
    accumulate across record wakes via
    `merge_skill_route_discovery_focused_validation_command_results` (later rows
    for the same hash win). While coverage is incomplete residual export stays
-   denied, missing hashes stay listed body-free, and continue decision is
-   `record_remaining_reverse_flow_focused_validation_command_hashes_before_residual_export`
+   denied, missing hashes stay listed body-free, recorded/pending inventories
+   export (`recorded_command_hashes`, `pending_commands`), continue decision is
+   `record_remaining_reverse_flow_focused_validation_command_hashes_before_residual_export`,
+   and operator-visible `supervisor_next_action` promotes to
+   `record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external`
+   (via `resolve_reverse_flow_focused_validation_continue_supervisor_next`) so
+   reverse-flow multi-wake continue does not re-advertise a full focused re-run
 
 Replay with:
 
@@ -284,10 +289,19 @@ results without treating unlock as a dead end:
    `merge_skill_route_discovery_focused_validation_command_results` combines prior
    and new rows (later same-hash wins);
    `missing_skill_route_discovery_focused_validation_command_hashes` lists still-
-   open expected hashes body-free for operator_state
-4. On pass, decision remains
-   `record_focused_local_test_validation_pass_and_keep_activation_external` and
-   supervisor next action remains
+   open expected hashes body-free for operator_state;
+   `recorded_skill_route_discovery_focused_validation_command_hashes` lists
+   already-covered expected hashes;
+   `pending_skill_route_discovery_focused_validation_commands` maps missing hashes
+   back to local command text for continue wakes;
+   `resolve_reverse_flow_focused_validation_continue_supervisor_next` promotes
+   partial ready surfaces to
+   `record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external`
+4. On partial ready coverage, decision is
+   `record_remaining_focused_validation_command_hashes_before_activation_external`
+   and supervisor next is record-remaining (not a full re-run). On pass, decision
+   remains `record_focused_local_test_validation_pass_and_keep_activation_external`
+   and supervisor next action remains
    `keep_activation_external_after_focused_local_test_validation`
 5. Activation, push, promotion, provider launch, remote apply, external skill
    execution, and kernel restart stay denied; no raw evidence URLs or stdout
