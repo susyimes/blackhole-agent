@@ -327,19 +327,31 @@ emits `skill_route_discovery_focused_local_test_validation`:
    plus `residual_open` / `residual_adjacent_count` so residual pipeline entry is
    legible without nested residual-queue re-assembly. Residual export stays denied
    on continue surfaces even when residual open is ready.
+   `package_reverse_flow_focused_validation_continue_residual_entry` collapses
+   residual open plus residual adjacent harness-eval local apply selection into
+   body-free `residual_entry_line` (for example
+   `residual_entry ready=true selected=prop-harness-fortress-local-eval
+   status=ready count=1
+   next=run_agent_harness_eval_local_comparison_for_residual_adjacent_row
+   residual_export=false
+   helper=build_skill_route_discovery_residual_adjacent_harness_eval_local_apply`)
+   plus `residual_entry` / `selected_residual_proposal_id` so residual selection
+   is legible without nested residual-apply re-assembly. Residual export stays
+   denied on continue surfaces even when residual entry is ready; selected residual
+   IDs stay empty while residual open is blocked.
    Preferred policy-aware operator entry is
    `follow_reverse_flow_focused_validation_continue_dispatch`: package inventory,
    resolve follow-through, call dispatch with execute only when recommended, and
    attach `post_follow_through` plus `operator_card` / `post_operator_card`,
-   `progress_transition`, `exec_receipt`, `finish_receipt`, and `residual_open`
-   after run/record.
+   `progress_transition`, `exec_receipt`, `finish_receipt`, `residual_open`, and
+   `residual_entry` after run/record.
    Low-level single operator entry remains
    `dispatch_reverse_flow_focused_validation_continue_supervisor_wake`:
    package inventory first, optionally run/record when `continue_run_executable`,
    always return reverse-flow-first `supervisor_wake` plus
    `post_dispatch_inventory`, `follow_through`, operator card progress
-   labels, `progress_transition`, `exec_receipt`, `finish_receipt`, and
-   `residual_open`. Durable
+   labels, `progress_transition`, `exec_receipt`, `finish_receipt`,
+   `residual_open`, and `residual_entry`. Durable
    `operator_state` exports `reverse_flow_focused_validation_continue_run_recommended`,
    nested inventory `reverse_flow_focused_validation_continue_supervisor_wake`, nested
    `reverse_flow_focused_validation_continue_dispatch` (without pipeline
@@ -356,8 +368,11 @@ emits `skill_route_discovery_focused_local_test_validation`:
    `continue_finish_line`, `continue_finished`,
    `continue_residual_queue_ready`, nested `continue_residual_open`,
    `continue_residual_open_helper`, `continue_residual_open_line`,
-   `continue_residual_open_ready`, and `continue_residual_adjacent_count` while
-   reverse-flow focused validation is ready/unrecorded or after pass
+   `continue_residual_open_ready`, `continue_residual_adjacent_count`, nested
+   `continue_residual_entry`, `continue_residual_entry_helper`,
+   `continue_residual_entry_line`, `continue_residual_entry_ready`, and
+   `continue_selected_residual_proposal_id` while reverse-flow focused validation
+   is ready/unrecorded or after pass
 
 Replay with:
 
