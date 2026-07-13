@@ -5324,6 +5324,18 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert focused["focused_validation"]["expected_command_count"] == len(
         focused["focused_validation"]["command_hashes"]
     )
+    # Residual fortress stages stay held until reverse-flow focused results record.
+    assert focused["residual_adjacent_hold_until_recorded"] is True
+    assert focused["residual_adjacent_hold_reason"] == (
+        "blocked_until_focused_validation_recorded_and_activation_external_accepted"
+    )
+    assert focused["record_helpers"] == [
+        "record_skill_route_discovery_focused_local_test_validation_results",
+        "close_skill_route_discovery_focused_local_test_validation_with_outcome",
+    ]
+    assert focused["activation_external_handoff_after_record"] == (
+        "skill_route_discovery_focused_validation_activation_external_handoff"
+    )
     assert "skill_route_discovery_focused_local_test_validation" in focused[
         "capability_pipeline"
     ]
@@ -5474,6 +5486,8 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     # Regression: residual acceptance used to emit
     # repair_skill_route_discovery_residual_adjacent_focused_validation_activation_external_handoff
     # and win render priority over the ready reverse-flow focused validation stage.
+    # Reverse-flow-waiting residual statuses (queue/apply/handoff) also must not
+    # own supervisor_next or advertise residual fortress selection yet.
     residual_accept_blocked = pipeline[
         "residual_adjacent_focused_validation_activation_external_acceptance"
     ]
@@ -5486,6 +5500,15 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert residual_accept_blocked["supervisor_next_action"] != (
         "repair_skill_route_discovery_residual_adjacent_focused_validation_activation_external_handoff"
     )
+    residual_handoff_blocked = pipeline[
+        "residual_adjacent_focused_validation_activation_external_handoff"
+    ]
+    assert residual_handoff_blocked["status"] == (
+        "blocked_until_residual_adjacent_focused_validation_ready"
+    )
+    assert residual_apply_blocked["selected_residual_proposal_id"] == (
+        "prop-harness-fortress-local-eval"
+    )
     pipeline_rendered = "\n".join(
         github_growth.render_skill_route_discovery_capability_pipeline_lines(pipeline)
     )
@@ -5496,6 +5519,18 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert (
         "Supervisor next action: `repair_skill_route_discovery_residual_adjacent_focused_validation_activation_external_handoff`"
         not in pipeline_rendered
+    )
+    assert (
+        "Residual adjacent held until reverse-flow focused validation recorded: `True`"
+        in pipeline_rendered
+    )
+    assert "Residual adjacent selected proposal: `none`" in pipeline_rendered
+    assert "prop-harness-fortress-local-eval" not in pipeline_rendered.split(
+        "Supervisor next action:"
+    )[0].split("Residual adjacent selected proposal:")[-1]
+    assert (
+        "While reverse-flow focused validation is ready/unrecorded, residual fortress/Hy3 stages stay held"
+        in pipeline_rendered
     )
 
     # Deferred comparison keeps focused validation blocked.
@@ -5537,6 +5572,8 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         "keep_activation_external_after_focused_local_test_validation"
     )
     assert passed["focused_validation"]["results_cover_expected"] is True
+    assert passed["residual_adjacent_hold_until_recorded"] is False
+    assert passed["residual_adjacent_hold_reason"] == "not_held"
     assert passed["focused_validation"]["all_expected_passed"] is True
     assert passed["focused_validation"]["recorded"] is True
     assert passed["focused_validation_recorded"] is True

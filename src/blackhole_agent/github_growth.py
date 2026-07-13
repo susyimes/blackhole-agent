@@ -5105,6 +5105,28 @@ def build_skill_route_discovery_focused_local_test_validation(
         "raw_upstream_bodies_exported": False,
         "raw_command_stdout_exported": False,
         "focused_validation_recorded": recorded,
+        # Residual fortress/Hy3 stages stay held until reverse-flow focused
+        # validation command-hash results are recorded/closed. Operators must not
+        # jump to residual harness-eval while this surface is ready/unrecorded.
+        "residual_adjacent_hold_until_recorded": status == "ready" and not recorded,
+        "residual_adjacent_hold_reason": (
+            "blocked_until_focused_validation_recorded_and_activation_external_accepted"
+            if status == "ready" and not recorded
+            else "blocked_until_focused_validation_repaired"
+            if status == "failed"
+            else "not_held"
+        ),
+        "record_helpers": [
+            "record_skill_route_discovery_focused_local_test_validation_results",
+            "close_skill_route_discovery_focused_local_test_validation_with_outcome",
+        ]
+        if status in {"ready", "passed", "failed"}
+        else [],
+        "activation_external_handoff_after_record": (
+            "skill_route_discovery_focused_validation_activation_external_handoff"
+            if status in {"ready", "passed"}
+            else "none"
+        ),
     }
 
 
@@ -9769,24 +9791,75 @@ def render_skill_route_discovery_capability_pipeline_lines(
         or ""
     )
     unlocked_status = str(unlocked_test_lane_apply.get("status") or "")
-    # Residual acceptance only owns supervisor_next when residual work is active.
-    # blocked_until_residual_adjacent_focused_validation_ready means residual is still
-    # waiting on earlier reverse-flow stages; do not let residual acceptance override
-    # reverse-flow focused validation / activation-external next actions.
+    # Residual stages only own supervisor_next when residual work is residual-active.
+    # Statuses that merely wait on reverse-flow focused validation / activation-external
+    # acceptance (for example blocked_until_activation_external_acceptance or
+    # blocked_until_residual_adjacent_focused_validation_ready) must not override the
+    # reverse-flow primary stage. Cascade inheritance still fills those residual
+    # packets for later residual-active use; render prioritizes reverse-flow first.
+    residual_handoff_is_residual_active = residual_adjacent_activation_external_status in {
+        "ready",
+        "blocked_until_residual_adjacent_focused_validation_recorded",
+        "blocked_until_residual_adjacent_focused_validation_repaired",
+        "blocked_until_residual_adjacent_focused_validation_pass",
+        "blocked",
+    }
+    residual_focused_is_residual_active = residual_adjacent_focused_status in {
+        "ready",
+        "passed",
+        "failed",
+        "blocked",
+    }
+    residual_unlocked_is_residual_active = residual_adjacent_unlocked_lane_apply_status in {
+        "ready",
+        "blocked",
+    }
+    residual_comparison_is_residual_active = residual_adjacent_local_comparison_status in {
+        "ready",
+        "blocked",
+    }
+    residual_apply_is_residual_active = residual_adjacent_local_apply_status in {
+        "ready",
+        "blocked",
+    }
+    residual_queue_is_residual_active = residual_adjacent_queue_status in {
+        "ready",
+        "blocked",
+    }
     residual_acceptance_owns_supervisor_next = (
         residual_adjacent_activation_external_acceptance_status == "accepted"
         or (
             residual_adjacent_activation_external_acceptance_status
             == "blocked_until_residual_adjacent_activation_external_handoff_ready"
-            and residual_adjacent_activation_external_status
-            in {
-                "ready",
-                "blocked_until_residual_adjacent_focused_validation_recorded",
-                "blocked_until_residual_adjacent_focused_validation_repaired",
-                "blocked_until_residual_adjacent_focused_validation_pass",
-                "blocked",
-            }
+            and residual_handoff_is_residual_active
         )
+    )
+    residual_handoff_owns_supervisor_next = (
+        residual_handoff_is_residual_active and not residual_acceptance_owns_supervisor_next
+    )
+    residual_focused_owns_supervisor_next = (
+        residual_focused_is_residual_active and not residual_handoff_is_residual_active
+    )
+    residual_unlocked_owns_supervisor_next = (
+        residual_unlocked_is_residual_active and not residual_focused_is_residual_active
+    )
+    residual_comparison_owns_supervisor_next = (
+        residual_comparison_is_residual_active and not residual_unlocked_is_residual_active
+    )
+    residual_apply_owns_supervisor_next = (
+        residual_apply_is_residual_active and not residual_comparison_is_residual_active
+    )
+    residual_queue_owns_supervisor_next = (
+        residual_queue_is_residual_active and not residual_apply_is_residual_active
+    )
+    residual_work_is_residual_active = (
+        residual_acceptance_owns_supervisor_next
+        or residual_handoff_owns_supervisor_next
+        or residual_focused_owns_supervisor_next
+        or residual_unlocked_owns_supervisor_next
+        or residual_comparison_owns_supervisor_next
+        or residual_apply_owns_supervisor_next
+        or residual_queue_owns_supervisor_next
     )
     supervisor_next = (
         adjacent_handoff.get("supervisor_next_action")
@@ -9802,92 +9875,27 @@ def render_skill_route_discovery_capability_pipeline_lines(
         residual_adjacent_focused_validation_activation_external_handoff.get(
             "supervisor_next_action"
         )
-        if residual_adjacent_activation_external_status
-        in {
-            "ready",
-            "blocked_until_residual_adjacent_focused_validation_recorded",
-            "blocked_until_residual_adjacent_focused_validation_repaired",
-            "blocked_until_residual_adjacent_focused_validation_ready",
-            "blocked_until_residual_adjacent_focused_validation_pass",
-            "blocked",
-        }
-        and not residual_acceptance_owns_supervisor_next
+        if residual_handoff_owns_supervisor_next
         else None
     ) or (
         residual_adjacent_focused_local_validation.get("supervisor_next_action")
-        if residual_adjacent_focused_status
-        in {
-            "ready",
-            "passed",
-            "failed",
-            "blocked_until_residual_adjacent_unlocked_local_lane_apply_ready",
-            "blocked",
-        }
-        and residual_adjacent_activation_external_status
-        not in {
-            "ready",
-            "blocked",
-            "blocked_until_residual_adjacent_focused_validation_recorded",
-            "blocked_until_residual_adjacent_focused_validation_repaired",
-            "blocked_until_residual_adjacent_focused_validation_ready",
-            "blocked_until_residual_adjacent_focused_validation_pass",
-        }
+        if residual_focused_owns_supervisor_next
         else None
     ) or (
         residual_adjacent_unlocked_lane_apply.get("supervisor_next_action")
-        if residual_adjacent_unlocked_lane_apply_status
-        in {
-            "ready",
-            "blocked_until_residual_adjacent_harness_local_comparison_ready",
-            "blocked",
-        }
-        and residual_adjacent_focused_status
-        not in {
-            "ready",
-            "passed",
-            "failed",
-            "blocked",
-            "blocked_until_residual_adjacent_unlocked_local_lane_apply_ready",
-        }
+        if residual_unlocked_owns_supervisor_next
         else None
     ) or (
         residual_adjacent_local_comparison.get("supervisor_next_action")
-        if residual_adjacent_local_comparison_status
-        in {
-            "ready",
-            "blocked_until_residual_adjacent_harness_eval_local_apply_ready",
-            "blocked",
-        }
-        and residual_adjacent_unlocked_lane_apply_status
-        not in {
-            "ready",
-            "blocked",
-            "blocked_until_residual_adjacent_harness_local_comparison_ready",
-        }
+        if residual_comparison_owns_supervisor_next
         else None
     ) or (
         residual_adjacent_local_apply.get("supervisor_next_action")
-        if residual_adjacent_local_apply_status
-        in {
-            "ready",
-            "blocked_until_residual_adjacent_queue_ready",
-            "blocked",
-        }
-        and residual_adjacent_local_comparison_status
-        not in {
-            "ready",
-            "blocked",
-            "blocked_until_residual_adjacent_harness_eval_local_apply_ready",
-        }
+        if residual_apply_owns_supervisor_next
         else None
     ) or (
         residual_adjacent_queue.get("supervisor_next_action")
-        if residual_adjacent_queue_status
-        in {
-            "ready",
-            "blocked_until_activation_external_acceptance",
-            "blocked",
-        }
+        if residual_queue_owns_supervisor_next
         else None
     ) or (
         activation_external_acceptance.get("supervisor_next_action")
@@ -9919,6 +9927,31 @@ def render_skill_route_discovery_capability_pipeline_lines(
     ) or local_apply_completion.get("supervisor_next_action") or local_apply.get(
         "supervisor_next_action"
     ) or "none"
+    residual_selected_proposal_for_render = (
+        residual_adjacent_focused_validation_activation_external_acceptance.get(
+            "selected_residual_proposal_id"
+        )
+        or residual_adjacent_focused_validation_activation_external_handoff.get(
+            "selected_residual_proposal_id"
+        )
+        or residual_adjacent_focused_local_validation.get("selected_residual_proposal_id")
+        or residual_adjacent_unlocked_lane_apply.get("selected_residual_proposal_id")
+        or residual_adjacent_local_comparison.get("selected_residual_proposal_id")
+        or residual_adjacent_local_apply.get("selected_residual_proposal_id")
+        or residual_adjacent_queue.get("selected_residual_proposal_id")
+        or ""
+    )
+    # Do not advertise a residual fortress/Hy3 selection while residual stages are
+    # still held waiting on reverse-flow focused validation record/close.
+    if not residual_work_is_residual_active:
+        residual_selected_proposal_for_render = ""
+    reverse_flow_focused_hold_active = (
+        focused_status == "ready"
+        and not bool(
+            focused_local_test_validation.get("focused_validation_recorded")
+            or pipeline.get("focused_local_test_validation_recorded")
+        )
+    )
     lines = [
         "Skill route discovery capability pipeline:",
         f"- Status: `{pipeline.get('status', '')}`",
@@ -9994,7 +10027,9 @@ def render_skill_route_discovery_capability_pipeline_lines(
         f"- Residual adjacent remaining residual rows: `"
         f"{', '.join(residual_adjacent_focused_validation_activation_external_acceptance.get('remaining_residual_adjacent_proposal_ids') or residual_adjacent_focused_validation_activation_external_handoff.get('remaining_residual_adjacent_proposal_ids') or []) or 'none'}`",
         f"- Residual adjacent selected proposal: `"
-        f"{residual_adjacent_focused_validation_activation_external_acceptance.get('selected_residual_proposal_id') or residual_adjacent_focused_validation_activation_external_handoff.get('selected_residual_proposal_id') or residual_adjacent_focused_local_validation.get('selected_residual_proposal_id') or residual_adjacent_unlocked_lane_apply.get('selected_residual_proposal_id') or residual_adjacent_local_comparison.get('selected_residual_proposal_id') or residual_adjacent_local_apply.get('selected_residual_proposal_id') or 'none'}`",
+        f"{residual_selected_proposal_for_render or 'none'}`",
+        f"- Residual adjacent held until reverse-flow focused validation recorded: `"
+        f"{reverse_flow_focused_hold_active}`",
         f"- Adjacent agent harness-eval handoff: `{adjacent_handoff.get('status') or 'none'}`",
         f"- Adjacent handoff decision: `{adjacent_handoff.get('decision') or 'none'}`",
         f"- Theme complete: `{bool(local_apply_completion.get('theme_complete'))}`",
@@ -10010,6 +10045,7 @@ def render_skill_route_discovery_capability_pipeline_lines(
         "- Pass 4 completes the reverse-flow local test validation lane via skill_route_discovery_local_apply_completion.",
         "- After completion, skill_route_discovery_unlocked_local_test_lane_apply packages focused local test validation while activation stays external.",
         "- After unlock, skill_route_discovery_focused_local_test_validation records body-free command-hash results and keeps activation external.",
+        "- While reverse-flow focused validation is ready/unrecorded, residual fortress/Hy3 stages stay held; supervisor_next stays on reverse-flow focused validation and residual selected proposal is not advertised.",
         "- After ready, record_skill_route_discovery_focused_local_test_validation_results closes body-free command-hash results while activation stays external.",
         "- After ready, close_skill_route_discovery_focused_local_test_validation_with_outcome materializes body-free expected-hash outcomes and refreshes activation-external handoff/acceptance.",
         "- After recorded pass, skill_route_discovery_focused_validation_activation_external_handoff packages keep_activation_external while push/promotion/restart stay denied.",

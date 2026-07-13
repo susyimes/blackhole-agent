@@ -226,7 +226,14 @@ while remaining residual fortress/Hy3 rows stay noted without skill unlock
 inheritance and activation remains external. While residual handoff is still
 blocked waiting on earlier reverse-flow stages, residual acceptance inherits the
 handoff's cascaded supervisor next action and does not override operator-visible
-pipeline next with a spurious residual-handoff repair signal.
+pipeline next with a spurious residual-handoff repair signal. Render priority
+goes further: residual stages that are only reverse-flow-waiting (for example
+`blocked_until_activation_external_acceptance` or
+`blocked_until_residual_adjacent_focused_validation_ready`) do not own
+`supervisor_next` at all, so reverse-flow focused validation stays primary while
+ready/unrecorded. Residual selected proposal is not advertised in pipeline
+render until residual work is residual-active; focused validation packets mark
+`residual_adjacent_hold_until_recorded` while unrecorded.
 Use
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_unlocked_local_test_lane_apply`
 and
