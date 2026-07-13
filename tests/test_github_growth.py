@@ -75,6 +75,7 @@ from blackhole_agent.github_growth import (
     package_reverse_flow_focused_validation_continue_cascade,
     package_reverse_flow_focused_validation_continue_cascade_transition,
     package_reverse_flow_focused_validation_continue_cascade_wake,
+    package_reverse_flow_focused_validation_continue_cascade_wake_route,
     resolve_reverse_flow_focused_validation_continue_dispatch_follow_through,
     normalize_skill_route_discovery_focused_validation_command_results,
     record_skill_route_discovery_focused_local_test_validation_results,
@@ -5933,6 +5934,82 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert residual_open_wake["residual_export_allowed"] is False
     assert "outcome=residual_open_ready" in residual_open_wake[
         "continue_cascade_wake_line"
+    ]
+    # Body-free continue cascade wake route maps wake_outcome → route_action
+    # without residual_export so supervisors pin one next-helper policy.
+    assert pipeline[
+        "reverse_flow_focused_validation_continue_cascade_wake_route_helper"
+    ] == "package_reverse_flow_focused_validation_continue_cascade_wake_route"
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_cascade_wake_route_helper"
+    ] == "package_reverse_flow_focused_validation_continue_cascade_wake_route"
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_cascade_wake_route_action"
+    ] in {"execute_now", "inventory_only"}
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_cascade_wake_route_line"
+    ].startswith("continue_cascade_wake_route outcome=")
+    assert "residual_export=false" in pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_cascade_wake_route_line"
+    ]
+    assert "route_helper=package_reverse_flow_focused_validation_continue_cascade_wake_route" in (
+        pipeline["operator_state"][
+            "reverse_flow_focused_validation_continue_cascade_wake_route_line"
+        ]
+    )
+    execute_route = package_reverse_flow_focused_validation_continue_cascade_wake_route(
+        cascade_wake={
+            "wake_outcome": "execute_recommended",
+            "follow_through_action": "execute_now",
+            "supervisor_next_action": (
+                "run_focused_local_test_validation_then_keep_activation_external"
+            ),
+            "reverse_progress_transition": "0/3→0/3",
+            "residual_progress_transition": "0/8→0/8",
+            "residual_open_ready": False,
+        }
+    )
+    assert execute_route["controller_surface"] == (
+        "reverse_flow_focused_validation_continue_cascade_wake_route"
+    )
+    assert execute_route["route_action"] == "execute_now"
+    assert execute_route["call_follow_with_execute"] is True
+    assert execute_route["residual_route_ready"] is False
+    assert execute_route["residual_export_allowed"] is False
+    assert execute_route["preferred_helper"] == (
+        "follow_reverse_flow_focused_validation_continue_dispatch"
+    )
+    assert execute_route["continue_cascade_wake_route_line"].startswith(
+        "continue_cascade_wake_route outcome=execute_recommended "
+    )
+    assert "action=execute_now" in execute_route["continue_cascade_wake_route_line"]
+    assert "call_execute=true" in execute_route["continue_cascade_wake_route_line"]
+    assert "residual_export=false" in execute_route["continue_cascade_wake_route_line"]
+    finished_route = package_reverse_flow_focused_validation_continue_cascade_wake_route(
+        cascade_wake=cascade_wake,
+    )
+    assert finished_route["route_action"] == "keep_activation_external"
+    assert finished_route["call_follow_with_execute"] is False
+    assert finished_route["preferred_helper"] == (
+        "package_reverse_flow_focused_validation_continue_finish_receipt"
+    )
+    residual_open_route = (
+        package_reverse_flow_focused_validation_continue_cascade_wake_route(
+            cascade_wake=residual_open_wake,
+        )
+    )
+    assert residual_open_route["route_action"] == "open_residual_entry"
+    assert residual_open_route["residual_route_ready"] is True
+    assert residual_open_route["call_follow_with_execute"] is False
+    assert residual_open_route["residual_export_allowed"] is False
+    assert residual_open_route["preferred_helper"] == (
+        "package_reverse_flow_focused_validation_continue_residual_entry"
+    )
+    assert "action=open_residual_entry" in residual_open_route[
+        "continue_cascade_wake_route_line"
+    ]
+    assert "residual_route=true" in residual_open_route[
+        "continue_cascade_wake_route_line"
     ]
     assert pipeline["reverse_flow_focused_validation_continue_supervisor_wake"][
         "controller_surface"

@@ -483,7 +483,24 @@ emits `skill_route_discovery_focused_local_test_validation`:
    `continue_cascade_wake_outcome` so supervisors pin one wake outcome enum
    instead of re-assembling cascade_transition + exec + finish + residual_open.
    Residual export stays denied on continue surfaces even when residual_open
-   becomes ready. Preferred policy-aware operator entry is
+   becomes ready.
+   `package_reverse_flow_focused_validation_continue_cascade_wake_route`
+   collapses continue_cascade_wake into body-free
+   `continue_cascade_wake_route_line` with classified `route_action` (for
+   example
+   `continue_cascade_wake_route outcome=execute_recommended action=execute_now
+   call_execute=true residual_route=false reverse=0/3→0/3 residual=0/8→0/8
+   residual_export=false
+   next=run_focused_local_test_validation_then_keep_activation_external
+   helper=follow_reverse_flow_focused_validation_continue_dispatch
+   route_helper=package_reverse_flow_focused_validation_continue_cascade_wake_route`)
+   plus nested `continue_cascade_wake_route` /
+   `continue_cascade_wake_route_line` / `continue_cascade_wake_route_action` /
+   `continue_cascade_wake_route_call_execute` so supervisors pin one route
+   action enum and preferred helper instead of re-assembling wake_outcome +
+   follow policy. Residual export stays denied on continue surfaces even when
+   residual route opens after residual_open_ready. Preferred policy-aware
+   operator entry is
    `follow_reverse_flow_focused_validation_continue_dispatch`: package inventory,
    resolve follow-through, call dispatch with execute only when recommended, and
    attach `post_follow_through` plus `operator_card` / `post_operator_card`,
@@ -491,8 +508,8 @@ emits `skill_route_discovery_focused_local_test_validation`:
    `residual_entry`, `residual_follow`, `residual_comparison`,
    `residual_unlocked_apply`, `residual_focused_validation`,
    `residual_handoff`, `residual_acceptance`, `residual_cascade`,
-   `continue_cascade`, `continue_cascade_transition`, and
-   `continue_cascade_wake` after run/record.
+   `continue_cascade`, `continue_cascade_transition`,
+   `continue_cascade_wake`, and `continue_cascade_wake_route` after run/record.
    Low-level single operator entry remains
    `dispatch_reverse_flow_focused_validation_continue_supervisor_wake`:
    package inventory first, optionally run/record when `continue_run_executable`,
@@ -502,8 +519,8 @@ emits `skill_route_discovery_focused_local_test_validation`:
    `residual_open`, `residual_entry`, `residual_follow`, `residual_comparison`,
    `residual_unlocked_apply`, `residual_focused_validation`,
    `residual_handoff`, `residual_acceptance`, `residual_cascade`,
-   `continue_cascade`, `continue_cascade_transition`, and
-   `continue_cascade_wake`. Durable
+   `continue_cascade`, `continue_cascade_transition`,
+   `continue_cascade_wake`, and `continue_cascade_wake_route`. Durable
    `operator_state` exports `reverse_flow_focused_validation_continue_run_recommended`,
    nested inventory `reverse_flow_focused_validation_continue_supervisor_wake`, nested
    `reverse_flow_focused_validation_continue_dispatch` (without pipeline
@@ -560,8 +577,11 @@ emits `skill_route_discovery_focused_local_test_validation`:
    `continue_cascade_reverse_progress_transition`,
    `continue_cascade_residual_progress_transition`, nested
    `continue_cascade_wake`, `continue_cascade_wake_helper`,
-   `continue_cascade_wake_line`, and `continue_cascade_wake_outcome` while
-   reverse-flow focused validation is ready/unrecorded or after pass
+   `continue_cascade_wake_line`, `continue_cascade_wake_outcome`, nested
+   `continue_cascade_wake_route`, `continue_cascade_wake_route_helper`,
+   `continue_cascade_wake_route_line`, `continue_cascade_wake_route_action`,
+   and `continue_cascade_wake_route_call_execute` while reverse-flow focused
+   validation is ready/unrecorded or after pass
 
 Replay with:
 

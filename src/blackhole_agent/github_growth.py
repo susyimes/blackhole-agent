@@ -11859,6 +11859,169 @@ def package_reverse_flow_focused_validation_continue_cascade_wake(
     }
 
 
+def package_reverse_flow_focused_validation_continue_cascade_wake_route(
+    *,
+    cascade_wake: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Map cascade wake_outcome to a durable body-free next-route policy.
+
+    After continue cascade wake classifies a single ``wake_outcome``, supervisors
+    still re-derived which helper to call next and whether execute is allowed by
+    combining nested ``wake_outcome``, ``follow_through_action``, and
+    ``supervisor_next_action``. This surface packages a body-free
+    ``continue_cascade_wake_route_line`` with classified ``route_action`` (for
+    example
+    ``continue_cascade_wake_route outcome=execute_recommended
+    action=execute_now call_execute=true residual_route=false residual_export=false
+    next=run_focused_local_test_validation_then_keep_activation_external
+    helper=follow_reverse_flow_focused_validation_continue_dispatch
+    route_helper=package_reverse_flow_focused_validation_continue_cascade_wake_route``)
+    so supervisors pin one route action enum instead of re-assembling wake
+    outcome + follow policy after continue wakes.
+
+    Route actions: ``open_residual_entry``, ``keep_activation_external``,
+    ``record_remaining``, ``continue_residual_cascade``, ``repair``,
+    ``execute_now``, ``inventory_only``.
+
+    Residual export stays denied on this continue surface even when residual
+    route opens after residual_open_ready. Does not enable activation, push,
+    promotion, provider launch, remote apply, external skill execution, or
+    kernel restart. Does not export raw evidence URLs, bodies, or command stdout.
+    """
+
+    wake = cascade_wake if isinstance(cascade_wake, dict) else {}
+    wake_outcome = str(wake.get("wake_outcome") or "identity")
+    supervisor_next = str(wake.get("supervisor_next_action") or "none")
+    follow_through_action = str(wake.get("follow_through_action") or "none")
+    residual_open_ready = bool(wake.get("residual_open_ready"))
+    reverse_progress_transition = str(
+        wake.get("reverse_progress_transition") or "0/0→0/0"
+    )
+    residual_progress_transition = str(
+        wake.get("residual_progress_transition") or "0/8→0/8"
+    )
+
+    # Map classified wake outcome → durable route action + preferred helper so
+    # supervisors do not re-derive execute vs residual-entry vs keep policy.
+    if wake_outcome == "residual_open_ready" or residual_open_ready:
+        route_action = "open_residual_entry"
+        preferred_helper = (
+            "package_reverse_flow_focused_validation_continue_residual_entry"
+        )
+        call_follow_with_execute = False
+        residual_route_ready = True
+    elif wake_outcome in {"continue_finished", "reverse_complete"}:
+        route_action = "keep_activation_external"
+        preferred_helper = (
+            "package_reverse_flow_focused_validation_continue_finish_receipt"
+        )
+        call_follow_with_execute = False
+        residual_route_ready = False
+    elif wake_outcome == "reverse_progress_advanced":
+        route_action = "record_remaining"
+        preferred_helper = (
+            "follow_reverse_flow_focused_validation_continue_dispatch"
+        )
+        call_follow_with_execute = True
+        residual_route_ready = False
+    elif wake_outcome == "residual_progress_advanced":
+        route_action = "continue_residual_cascade"
+        preferred_helper = (
+            "package_reverse_flow_focused_validation_continue_residual_cascade"
+        )
+        call_follow_with_execute = False
+        residual_route_ready = True
+    elif wake_outcome == "cascade_advanced":
+        route_action = "keep_activation_external"
+        preferred_helper = (
+            "package_reverse_flow_focused_validation_continue_cascade_transition"
+        )
+        call_follow_with_execute = False
+        residual_route_ready = False
+    elif wake_outcome == "executed_no_advance":
+        route_action = "repair"
+        preferred_helper = (
+            "dispatch_reverse_flow_focused_validation_continue_supervisor_wake"
+        )
+        call_follow_with_execute = False
+        residual_route_ready = False
+    elif wake_outcome == "execute_recommended" or follow_through_action == "execute_now":
+        route_action = "execute_now"
+        preferred_helper = (
+            "follow_reverse_flow_focused_validation_continue_dispatch"
+        )
+        call_follow_with_execute = True
+        residual_route_ready = False
+    else:
+        route_action = "inventory_only"
+        preferred_helper = (
+            "package_reverse_flow_focused_validation_continue_dispatch_inventory"
+        )
+        call_follow_with_execute = False
+        residual_route_ready = False
+
+    continue_cascade_wake_route_line = (
+        f"continue_cascade_wake_route "
+        f"outcome={wake_outcome} "
+        f"action={route_action} "
+        f"call_execute={'true' if call_follow_with_execute else 'false'} "
+        f"residual_route={'true' if residual_route_ready else 'false'} "
+        f"reverse={reverse_progress_transition} "
+        f"residual={residual_progress_transition} "
+        f"residual_export=false "
+        f"next={supervisor_next} "
+        f"helper={preferred_helper} "
+        f"route_helper=package_reverse_flow_focused_validation_continue_cascade_wake_route"
+    )
+    return {
+        "schema_version": 1,
+        "controller_surface": (
+            "reverse_flow_focused_validation_continue_cascade_wake_route"
+        ),
+        "proposal_track": "prop-reverse-flow-skill-route-discovery-continue",
+        "wake_outcome": wake_outcome,
+        "route_action": route_action,
+        "call_follow_with_execute": bool(call_follow_with_execute),
+        "residual_route_ready": bool(residual_route_ready),
+        "preferred_helper": preferred_helper,
+        "reverse_progress_transition": reverse_progress_transition,
+        "residual_progress_transition": residual_progress_transition,
+        "residual_export_allowed": False,
+        "follow_through_action": follow_through_action,
+        "supervisor_next_action": supervisor_next,
+        "continue_cascade_wake_route_line": continue_cascade_wake_route_line,
+        "continue_cascade_wake_route_helper": (
+            "package_reverse_flow_focused_validation_continue_cascade_wake_route"
+        ),
+        "continue_cascade_wake_helper": (
+            "package_reverse_flow_focused_validation_continue_cascade_wake"
+        ),
+        "follow_through_helper": (
+            "follow_reverse_flow_focused_validation_continue_dispatch"
+        ),
+        "activation_external_only": True,
+        "supervisor_activation_allowed": False,
+        "runtime_action": "none",
+        "external_skill_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_apply_allowed": False,
+        "push_or_promotion_allowed": False,
+        "kernel_restart_allowed": False,
+        "body_free": True,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_bodies_exported": False,
+        "raw_command_stdout_exported": False,
+        "record_helpers": [
+            "package_reverse_flow_focused_validation_continue_cascade_wake_route",
+            "package_reverse_flow_focused_validation_continue_cascade_wake",
+            "package_reverse_flow_focused_validation_continue_cascade_transition",
+            "package_reverse_flow_focused_validation_continue_cascade",
+            "follow_reverse_flow_focused_validation_continue_dispatch",
+            "dispatch_reverse_flow_focused_validation_continue_supervisor_wake",
+        ],
+    }
+
+
 def follow_reverse_flow_focused_validation_continue_dispatch(
     pipeline: dict[str, Any],
     *,
@@ -11881,10 +12044,11 @@ def follow_reverse_flow_focused_validation_continue_dispatch(
     run/record attaches residual_open, residual_entry, residual_follow,
     residual_comparison, residual_unlocked_apply, residual_focused_validation,
     residual_handoff, residual_acceptance, residual_cascade, continue_cascade,
-    continue_cascade_transition, and continue_cascade_wake so reverse-flow
-    progress plus residual cascade stage progress, pre/post cascade transitions,
-    classified wake outcomes, and activation-external acceptance policy are
-    legible without nested re-assembly.
+    continue_cascade_transition, continue_cascade_wake, and
+    continue_cascade_wake_route so reverse-flow progress plus residual cascade
+    stage progress, pre/post cascade transitions, classified wake outcomes,
+    wake route actions, and activation-external acceptance policy are legible
+    without nested re-assembly.
 
     ``execute=None`` follows the durable recommendation. ``execute=True`` still
     only runs allowlisted continue units (never forces re-run after pass).
@@ -12383,6 +12547,26 @@ def follow_reverse_flow_focused_validation_continue_dispatch(
         "package_reverse_flow_focused_validation_continue_cascade_wake"
     )
     result["wake_outcome"] = str(cascade_wake.get("wake_outcome") or "identity")
+    cascade_wake_route = (
+        dispatch_packet.get("continue_cascade_wake_route")
+        if isinstance(dispatch_packet.get("continue_cascade_wake_route"), dict)
+        else package_reverse_flow_focused_validation_continue_cascade_wake_route(
+            cascade_wake=cascade_wake,
+        )
+    )
+    result["continue_cascade_wake_route"] = cascade_wake_route
+    result["continue_cascade_wake_route_line"] = str(
+        cascade_wake_route.get("continue_cascade_wake_route_line") or ""
+    )
+    result["continue_cascade_wake_route_helper"] = (
+        "package_reverse_flow_focused_validation_continue_cascade_wake_route"
+    )
+    result["wake_route_action"] = str(
+        cascade_wake_route.get("route_action") or "inventory_only"
+    )
+    result["wake_route_call_execute"] = bool(
+        cascade_wake_route.get("call_follow_with_execute")
+    )
     result["call_dispatch_with_execute"] = bool(should_execute)
     result["followed_recommendation"] = execute is None
     result["execute_requested"] = execute
@@ -12407,6 +12591,7 @@ def follow_reverse_flow_focused_validation_continue_dispatch(
     result["residual_export_allowed"] = False
     helpers = list(result.get("record_helpers") or [])
     for name in (
+        "package_reverse_flow_focused_validation_continue_cascade_wake_route",
         "package_reverse_flow_focused_validation_continue_cascade_wake",
         "package_reverse_flow_focused_validation_continue_cascade_transition",
         "package_reverse_flow_focused_validation_continue_cascade",
@@ -12460,8 +12645,9 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
     Also packages residual_open, residual_entry, residual_follow,
     residual_comparison, residual_unlocked_apply, residual_focused_validation,
     residual_handoff, residual_acceptance, residual_cascade, continue_cascade,
-    continue_cascade_transition (pre/post reverse + residual progress), and
-    continue_cascade_wake (classified wake_outcome)
+    continue_cascade_transition (pre/post reverse + residual progress),
+    continue_cascade_wake (classified wake_outcome), and
+    continue_cascade_wake_route (wake_outcome → route_action)
     (blocked while reverse-flow waits; ready after pass) without residual_export.
     Never enables activation, push, promotion, provider launch, remote apply,
     external skill execution, or kernel restart. Does not export stdout.
@@ -13088,8 +13274,27 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
         execute_result["wake_outcome"] = str(
             cascade_wake.get("wake_outcome") or "identity"
         )
+        cascade_wake_route = (
+            package_reverse_flow_focused_validation_continue_cascade_wake_route(
+                cascade_wake=cascade_wake,
+            )
+        )
+        execute_result["continue_cascade_wake_route"] = cascade_wake_route
+        execute_result["continue_cascade_wake_route_line"] = str(
+            cascade_wake_route.get("continue_cascade_wake_route_line") or ""
+        )
+        execute_result["continue_cascade_wake_route_helper"] = (
+            "package_reverse_flow_focused_validation_continue_cascade_wake_route"
+        )
+        execute_result["wake_route_action"] = str(
+            cascade_wake_route.get("route_action") or "inventory_only"
+        )
+        execute_result["wake_route_call_execute"] = bool(
+            cascade_wake_route.get("call_follow_with_execute")
+        )
         helpers = list(execute_result.get("record_helpers") or [])
         for name in (
+            "package_reverse_flow_focused_validation_continue_cascade_wake_route",
             "package_reverse_flow_focused_validation_continue_cascade_wake",
             "package_reverse_flow_focused_validation_continue_cascade_transition",
             "package_reverse_flow_focused_validation_continue_cascade",
@@ -13473,6 +13678,24 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
         "package_reverse_flow_focused_validation_continue_cascade_wake"
     )
     result["wake_outcome"] = str(cascade_wake.get("wake_outcome") or "identity")
+    cascade_wake_route = (
+        package_reverse_flow_focused_validation_continue_cascade_wake_route(
+            cascade_wake=cascade_wake,
+        )
+    )
+    result["continue_cascade_wake_route"] = cascade_wake_route
+    result["continue_cascade_wake_route_line"] = str(
+        cascade_wake_route.get("continue_cascade_wake_route_line") or ""
+    )
+    result["continue_cascade_wake_route_helper"] = (
+        "package_reverse_flow_focused_validation_continue_cascade_wake_route"
+    )
+    result["wake_route_action"] = str(
+        cascade_wake_route.get("route_action") or "inventory_only"
+    )
+    result["wake_route_call_execute"] = bool(
+        cascade_wake_route.get("call_follow_with_execute")
+    )
     result["follow_through_helper"] = (
         "follow_reverse_flow_focused_validation_continue_dispatch"
     )
@@ -13481,6 +13704,7 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
     )
     helpers = list(result.get("record_helpers") or [])
     for name in (
+        "package_reverse_flow_focused_validation_continue_cascade_wake_route",
         "package_reverse_flow_focused_validation_continue_cascade_wake",
         "package_reverse_flow_focused_validation_continue_cascade_transition",
         "package_reverse_flow_focused_validation_continue_cascade",
@@ -19392,6 +19616,9 @@ def resolve_skill_route_discovery_pipeline_operator_state(
     state[
         "reverse_flow_focused_validation_continue_cascade_wake_helper"
     ] = "package_reverse_flow_focused_validation_continue_cascade_wake"
+    state[
+        "reverse_flow_focused_validation_continue_cascade_wake_route_helper"
+    ] = "package_reverse_flow_focused_validation_continue_cascade_wake_route"
     # Body-free finish receipt so supervisors can log continue_finished /
     # residual_queue_ready without nested post-card / handoff re-assembly.
     finish_receipt = package_reverse_flow_focused_validation_continue_finish_receipt(
@@ -19756,6 +19983,30 @@ def resolve_skill_route_discovery_pipeline_operator_state(
     state[
         "reverse_flow_focused_validation_continue_cascade_wake_outcome"
     ] = str(continue_cascade_wake.get("wake_outcome") or "identity")
+    # Identity continue_cascade_wake_route maps wake_outcome → route_action so
+    # supervisors pin one next-helper policy without nested re-assembly.
+    continue_cascade_wake_route = (
+        package_reverse_flow_focused_validation_continue_cascade_wake_route(
+            cascade_wake=continue_cascade_wake,
+        )
+    )
+    state[
+        "reverse_flow_focused_validation_continue_cascade_wake_route"
+    ] = continue_cascade_wake_route
+    state[
+        "reverse_flow_focused_validation_continue_cascade_wake_route_line"
+    ] = str(
+        continue_cascade_wake_route.get("continue_cascade_wake_route_line") or ""
+    )
+    state[
+        "reverse_flow_focused_validation_continue_cascade_wake_route_helper"
+    ] = "package_reverse_flow_focused_validation_continue_cascade_wake_route"
+    state[
+        "reverse_flow_focused_validation_continue_cascade_wake_route_action"
+    ] = str(continue_cascade_wake_route.get("route_action") or "inventory_only")
+    state[
+        "reverse_flow_focused_validation_continue_cascade_wake_route_call_execute"
+    ] = bool(continue_cascade_wake_route.get("call_follow_with_execute"))
     return state
 
 
@@ -20143,6 +20394,14 @@ def render_skill_route_discovery_capability_pipeline_lines(
         f"{operator_state.get('reverse_flow_focused_validation_continue_cascade_wake_line') or 'none'}`",
         f"- Reverse-flow focused validation continue cascade wake outcome: `"
         f"{operator_state.get('reverse_flow_focused_validation_continue_cascade_wake_outcome') or 'identity'}`",
+        f"- Reverse-flow focused validation continue cascade wake route helper: `"
+        f"{operator_state.get('reverse_flow_focused_validation_continue_cascade_wake_route_helper') or 'package_reverse_flow_focused_validation_continue_cascade_wake_route'}`",
+        f"- Reverse-flow focused validation continue cascade wake route line: `"
+        f"{operator_state.get('reverse_flow_focused_validation_continue_cascade_wake_route_line') or 'none'}`",
+        f"- Reverse-flow focused validation continue cascade wake route action: `"
+        f"{operator_state.get('reverse_flow_focused_validation_continue_cascade_wake_route_action') or 'inventory_only'}`",
+        f"- Reverse-flow focused validation continue cascade wake route call execute: `"
+        f"{bool(operator_state.get('reverse_flow_focused_validation_continue_cascade_wake_route_call_execute'))}`",
         f"- Reverse-flow continue decision: `"
         f"{operator_state.get('reverse_flow_continue_decision') or 'none'}`",
         f"- Adjacent agent harness-eval handoff: `{adjacent_handoff.get('status') or 'none'}`",
@@ -20186,8 +20445,9 @@ def render_skill_route_discovery_capability_pipeline_lines(
         "- package_reverse_flow_focused_validation_continue_cascade collapses reverse-flow continue progress plus residual cascade into body-free continue_cascade_line (for example continue_cascade ready=false reverse_progress=0/3 residual_progress=0/8 residual_blocked_at=open reverse_action=execute_now residual_action=wait_for_reverse_flow action=execute_now call_execute=true residual_export=false next=run_focused_local_test_validation_then_keep_activation_external helper=follow_reverse_flow_focused_validation_continue_dispatch) so reverse-flow progress, residual cascade progress/blocked_at, and reverse-flow-first next action are legible without nested re-assembly; residual export stays denied on continue surfaces even when continue cascade is complete.",
         "- package_reverse_flow_focused_validation_continue_cascade_transition collapses pre/post continue_cascade packages into body-free continue_cascade_transition_line (for example continue_cascade_transition reverse=0/3→3/3 residual=0/8→0/8 blocked_at=open→open action=execute_now→keep_activation_external reverse_advanced=true residual_advanced=false cascade_advanced=true ready=false→false executed=true recorded=true residual_export=false next=keep_activation_external_after_focused_local_test_validation helper=package_reverse_flow_focused_validation_continue_cascade_transition) so reverse-flow progress, residual cascade progress/blocked_at, and cascade action transitions are legible after continue wakes without nested pre/post comparison; residual export stays denied on continue surfaces even when reverse progress completes.",
         "- package_reverse_flow_focused_validation_continue_cascade_wake collapses continue_cascade_transition plus exec_receipt, finish_receipt, and residual_open into body-free continue_cascade_wake_line with classified wake_outcome (for example continue_cascade_wake outcome=reverse_complete reverse=0/3→3/3 residual=0/8→0/8 cascade_advanced=true executed=true recorded=true finished=true residual_open=false residual_export=false next=keep_activation_external_after_focused_local_test_validation helper=package_reverse_flow_focused_validation_continue_cascade_wake) so supervisors pin one wake outcome enum instead of re-assembling cascade_transition + exec + finish + residual_open; residual export stays denied on continue surfaces even when residual_open becomes ready.",
-        "- follow_reverse_flow_focused_validation_continue_dispatch is the preferred policy-aware operator entry: package inventory, resolve follow-through, call dispatch with execute only when call_dispatch_with_execute is true, and attach post_follow_through plus operator_card/post_operator_card, progress_transition, exec_receipt, finish_receipt, residual_open, residual_entry, residual_follow, residual_comparison, residual_unlocked_apply, residual_focused_validation, residual_handoff, residual_acceptance, residual_cascade, continue_cascade, continue_cascade_transition, and continue_cascade_wake after run/record; residual fortress stages stay blocked until reverse-flow record/close and activation-external acceptance.",
-        "- dispatch_reverse_flow_focused_validation_continue_supervisor_wake remains the low-level single operator entry: inventory packet first (via package_reverse_flow_focused_validation_continue_dispatch_inventory), optional allowlisted run/record when continue_run_executable, always reverse-flow-first supervisor_wake plus post_dispatch_inventory, follow_through, operator_card progress labels, progress_transition, exec_receipt, finish_receipt, residual_open, residual_entry, residual_follow, residual_comparison, residual_unlocked_apply, residual_focused_validation, residual_handoff, residual_acceptance, residual_cascade, continue_cascade, continue_cascade_transition, and continue_cascade_wake; residual fortress stages stay blocked until reverse-flow record/close and activation-external acceptance. operator_state also exports continue_run_recommended, continue_supervisor_wake, continue_dispatch (inventory packet without pipeline snapshot), continue_dispatch_action, continue_dispatch_execute_recommended, continue_dispatch_follow_through, continue_dispatch_follow_through_action, continue_dispatch_call_with_execute, continue_dispatch_helper, continue_dispatch_inventory_helper, continue_dispatch_follow_through_helper, continue_operator_card, continue_operator_card_helper, continue_progress_label, continue_action_line, continue_progress_transition_helper, continue_exec_receipt_helper, continue_finish_receipt, continue_finish_receipt_helper, continue_finish_line, continue_finished, continue_residual_queue_ready, continue_residual_open, continue_residual_open_helper, continue_residual_open_line, continue_residual_open_ready, continue_residual_adjacent_count, continue_residual_entry, continue_residual_entry_helper, continue_residual_entry_line, continue_residual_entry_ready, continue_selected_residual_proposal_id, continue_residual_follow, continue_residual_follow_helper, continue_residual_follow_line, continue_residual_follow_ready, continue_residual_follow_action, continue_call_residual_comparison, continue_residual_comparison, continue_residual_comparison_helper, continue_residual_comparison_line, continue_residual_comparison_ready, continue_residual_comparison_action, continue_call_residual_unlocked_apply, continue_residual_unlocked_apply, continue_residual_unlocked_apply_helper, continue_residual_unlocked_apply_line, continue_residual_unlocked_apply_ready, continue_residual_unlocked_apply_action, continue_call_residual_focused_validation, continue_residual_focused_validation, continue_residual_focused_validation_helper, continue_residual_focused_validation_line, continue_residual_focused_validation_ready, continue_residual_focused_validation_action, continue_call_residual_handoff, continue_residual_handoff, continue_residual_handoff_helper, continue_residual_handoff_line, continue_residual_handoff_ready, continue_residual_handoff_action, continue_call_residual_acceptance, continue_residual_acceptance, continue_residual_acceptance_helper, continue_residual_acceptance_line, continue_residual_acceptance_ready, continue_residual_acceptance_action, nested continue_residual_cascade, continue_residual_cascade_helper, continue_residual_cascade_line, continue_residual_cascade_ready, continue_residual_cascade_action, continue_residual_cascade_progress_label, continue_residual_cascade_blocked_at, nested continue_cascade, continue_cascade_helper, continue_cascade_line, continue_cascade_ready, continue_cascade_action, continue_cascade_reverse_progress_label, continue_cascade_residual_progress_label, continue_cascade_residual_blocked_at, nested continue_cascade_transition, continue_cascade_transition_helper, continue_cascade_transition_line, continue_cascade_advanced, continue_cascade_reverse_progress_transition, continue_cascade_residual_progress_transition, nested continue_cascade_wake, continue_cascade_wake_helper, continue_cascade_wake_line, and continue_cascade_wake_outcome while reverse-flow is ready/unrecorded or after pass.",
+        "- package_reverse_flow_focused_validation_continue_cascade_wake_route collapses continue_cascade_wake into body-free continue_cascade_wake_route_line with classified route_action (for example continue_cascade_wake_route outcome=execute_recommended action=execute_now call_execute=true residual_route=false reverse=0/3→0/3 residual=0/8→0/8 residual_export=false next=run_focused_local_test_validation_then_keep_activation_external helper=follow_reverse_flow_focused_validation_continue_dispatch route_helper=package_reverse_flow_focused_validation_continue_cascade_wake_route) so supervisors pin one route action enum and preferred helper instead of re-assembling wake_outcome + follow policy; residual export stays denied on continue surfaces even when residual_route opens after residual_open_ready.",
+        "- follow_reverse_flow_focused_validation_continue_dispatch is the preferred policy-aware operator entry: package inventory, resolve follow-through, call dispatch with execute only when call_dispatch_with_execute is true, and attach post_follow_through plus operator_card/post_operator_card, progress_transition, exec_receipt, finish_receipt, residual_open, residual_entry, residual_follow, residual_comparison, residual_unlocked_apply, residual_focused_validation, residual_handoff, residual_acceptance, residual_cascade, continue_cascade, continue_cascade_transition, continue_cascade_wake, and continue_cascade_wake_route after run/record; residual fortress stages stay blocked until reverse-flow record/close and activation-external acceptance.",
+        "- dispatch_reverse_flow_focused_validation_continue_supervisor_wake remains the low-level single operator entry: inventory packet first (via package_reverse_flow_focused_validation_continue_dispatch_inventory), optional allowlisted run/record when continue_run_executable, always reverse-flow-first supervisor_wake plus post_dispatch_inventory, follow_through, operator_card progress labels, progress_transition, exec_receipt, finish_receipt, residual_open, residual_entry, residual_follow, residual_comparison, residual_unlocked_apply, residual_focused_validation, residual_handoff, residual_acceptance, residual_cascade, continue_cascade, continue_cascade_transition, continue_cascade_wake, and continue_cascade_wake_route; residual fortress stages stay blocked until reverse-flow record/close and activation-external acceptance. operator_state also exports continue_run_recommended, continue_supervisor_wake, continue_dispatch (inventory packet without pipeline snapshot), continue_dispatch_action, continue_dispatch_execute_recommended, continue_dispatch_follow_through, continue_dispatch_follow_through_action, continue_dispatch_call_with_execute, continue_dispatch_helper, continue_dispatch_inventory_helper, continue_dispatch_follow_through_helper, continue_operator_card, continue_operator_card_helper, continue_progress_label, continue_action_line, continue_progress_transition_helper, continue_exec_receipt_helper, continue_finish_receipt, continue_finish_receipt_helper, continue_finish_line, continue_finished, continue_residual_queue_ready, continue_residual_open, continue_residual_open_helper, continue_residual_open_line, continue_residual_open_ready, continue_residual_adjacent_count, continue_residual_entry, continue_residual_entry_helper, continue_residual_entry_line, continue_residual_entry_ready, continue_selected_residual_proposal_id, continue_residual_follow, continue_residual_follow_helper, continue_residual_follow_line, continue_residual_follow_ready, continue_residual_follow_action, continue_call_residual_comparison, continue_residual_comparison, continue_residual_comparison_helper, continue_residual_comparison_line, continue_residual_comparison_ready, continue_residual_comparison_action, continue_call_residual_unlocked_apply, continue_residual_unlocked_apply, continue_residual_unlocked_apply_helper, continue_residual_unlocked_apply_line, continue_residual_unlocked_apply_ready, continue_residual_unlocked_apply_action, continue_call_residual_focused_validation, continue_residual_focused_validation, continue_residual_focused_validation_helper, continue_residual_focused_validation_line, continue_residual_focused_validation_ready, continue_residual_focused_validation_action, continue_call_residual_handoff, continue_residual_handoff, continue_residual_handoff_helper, continue_residual_handoff_line, continue_residual_handoff_ready, continue_residual_handoff_action, continue_call_residual_acceptance, continue_residual_acceptance, continue_residual_acceptance_helper, continue_residual_acceptance_line, continue_residual_acceptance_ready, continue_residual_acceptance_action, nested continue_residual_cascade, continue_residual_cascade_helper, continue_residual_cascade_line, continue_residual_cascade_ready, continue_residual_cascade_action, continue_residual_cascade_progress_label, continue_residual_cascade_blocked_at, nested continue_cascade, continue_cascade_helper, continue_cascade_line, continue_cascade_ready, continue_cascade_action, continue_cascade_reverse_progress_label, continue_cascade_residual_progress_label, continue_cascade_residual_blocked_at, nested continue_cascade_transition, continue_cascade_transition_helper, continue_cascade_transition_line, continue_cascade_advanced, continue_cascade_reverse_progress_transition, continue_cascade_residual_progress_transition, nested continue_cascade_wake, continue_cascade_wake_helper, continue_cascade_wake_line, continue_cascade_wake_outcome, nested continue_cascade_wake_route, continue_cascade_wake_route_helper, continue_cascade_wake_route_line, continue_cascade_wake_route_action, and continue_cascade_wake_route_call_execute while reverse-flow is ready/unrecorded or after pass.",
         "- Partial body-free command-hash rows stay on ready focused validation and accumulate across record calls via merge_skill_route_discovery_focused_validation_command_results; while partial, supervisor_next promotes to record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external (not a full re-run); residual export remains denied until results cover expected hashes and reverse-flow record/close advances residual-active work.",
         "- After ready, record_skill_route_discovery_focused_local_test_validation_results merges new body-free command-hash rows with any prior partial rows while activation stays external.",
         "- After ready, close_skill_route_discovery_focused_local_test_validation_with_outcome materializes body-free expected-hash outcomes and refreshes activation-external handoff/acceptance.",
