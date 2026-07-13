@@ -231,9 +231,12 @@ goes further: residual stages that are only reverse-flow-waiting (for example
 `blocked_until_activation_external_acceptance` or
 `blocked_until_residual_adjacent_focused_validation_ready`) do not own
 `supervisor_next` at all, so reverse-flow focused validation stays primary while
-ready/unrecorded. Residual selected proposal is not advertised in pipeline
-render until residual work is residual-active; focused validation packets mark
-`residual_adjacent_hold_until_recorded` while unrecorded.
+ready/unrecorded or failed. Residual selected proposal is not advertised in
+pipeline render until residual work is residual-active; residual stage packets
+also leave `selected_residual_proposal_id` empty while reverse-flow-waiting
+(`residual_selection_held_until_residual_active`). Focused validation packets
+mark `residual_adjacent_hold_until_recorded` while unrecorded and
+`residual_adjacent_hold_active` while unrecorded or failed.
 Use
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_unlocked_local_test_lane_apply`
 and

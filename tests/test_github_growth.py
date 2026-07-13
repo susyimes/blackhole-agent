@@ -5326,6 +5326,7 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     )
     # Residual fortress stages stay held until reverse-flow focused results record.
     assert focused["residual_adjacent_hold_until_recorded"] is True
+    assert focused["residual_adjacent_hold_active"] is True
     assert focused["residual_adjacent_hold_reason"] == (
         "blocked_until_focused_validation_recorded_and_activation_external_accepted"
     )
@@ -5506,9 +5507,20 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert residual_handoff_blocked["status"] == (
         "blocked_until_residual_adjacent_focused_validation_ready"
     )
-    assert residual_apply_blocked["selected_residual_proposal_id"] == (
-        "prop-harness-fortress-local-eval"
-    )
+    # Residual fortress selection is computed for residual-active readiness but not
+    # exported while residual stages are only reverse-flow-waiting.
+    assert residual_apply_blocked["selected_residual_proposal_id"] == ""
+    assert residual_apply_blocked["proposal_id"] == ""
+    assert residual_apply_blocked["residual_selection_held_until_residual_active"] is True
+    assert residual_comparison_blocked["selected_residual_proposal_id"] == ""
+    assert residual_unlocked_lane_blocked["selected_residual_proposal_id"] == ""
+    residual_focused_blocked = pipeline["residual_adjacent_focused_local_validation"]
+    assert residual_focused_blocked["selected_residual_proposal_id"] == ""
+    assert residual_focused_blocked["proposal_id"] == ""
+    assert residual_handoff_blocked["selected_residual_proposal_id"] == ""
+    assert residual_handoff_blocked["proposal_id"] == ""
+    assert residual_accept_blocked["selected_residual_proposal_id"] == ""
+    assert residual_accept_blocked["proposal_id"] == ""
     pipeline_rendered = "\n".join(
         github_growth.render_skill_route_discovery_capability_pipeline_lines(pipeline)
     )
@@ -5524,12 +5536,24 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         "Residual adjacent held until reverse-flow focused validation recorded: `True`"
         in pipeline_rendered
     )
+    assert (
+        "Residual adjacent selection held until residual-active: `True`"
+        in pipeline_rendered
+    )
     assert "Residual adjacent selected proposal: `none`" in pipeline_rendered
     assert "prop-harness-fortress-local-eval" not in pipeline_rendered.split(
         "Supervisor next action:"
     )[0].split("Residual adjacent selected proposal:")[-1]
+    # Residual packets themselves must not pre-advertise fortress while reverse-flow waits.
+    assert "prop-harness-fortress-local-eval" not in pipeline_rendered.split(
+        "Residual adjacent selected proposal:"
+    )[0]
     assert (
-        "While reverse-flow focused validation is ready/unrecorded, residual fortress/Hy3 stages stay held"
+        "While reverse-flow focused validation is ready/unrecorded or failed, residual fortress/Hy3 stages stay held"
+        in pipeline_rendered
+    )
+    assert (
+        "Residual fortress/Hy3 selected_residual_proposal_id is exported only when residual work is residual-active"
         in pipeline_rendered
     )
 
@@ -5573,12 +5597,29 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     )
     assert passed["focused_validation"]["results_cover_expected"] is True
     assert passed["residual_adjacent_hold_until_recorded"] is False
+    assert passed["residual_adjacent_hold_active"] is False
     assert passed["residual_adjacent_hold_reason"] == "not_held"
     assert passed["focused_validation"]["all_expected_passed"] is True
     assert passed["focused_validation"]["recorded"] is True
     assert passed["focused_validation_recorded"] is True
     assert passed["supervisor_activation_allowed"] is False
     assert passed["activation_external_only"] is True
+
+    # Failed reverse-flow focused validation keeps residual hold active for repair.
+    failed = build_skill_route_discovery_focused_local_test_validation(
+        unlocked_local_test_lane_apply=unlocked_apply,
+        command_results=[
+            {"command_hash": command_hash, "passed": False} for command_hash in command_hashes
+        ],
+        theme_window=theme,
+        source_digest="github-growth-20260713T031123.591532Z",
+    )
+    assert failed["status"] == "failed"
+    assert failed["residual_adjacent_hold_until_recorded"] is False
+    assert failed["residual_adjacent_hold_active"] is True
+    assert failed["residual_adjacent_hold_reason"] == (
+        "blocked_until_focused_validation_repaired"
+    )
 
     # Recorded pass packages operator-visible activation-external handoff.
     activation_ready = build_skill_route_discovery_focused_validation_activation_external_handoff(

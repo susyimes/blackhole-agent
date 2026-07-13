@@ -213,11 +213,18 @@ emits `skill_route_discovery_focused_local_test_validation`:
    execution, and kernel restart stay denied (`activation_external_only=true`)
 6. Adjacent fortress-style rows remain outside this surface; agent-chief privacy
    rows stay review-only
-7. While this surface is `ready`/unrecorded, residual fortress/Hy3 stages stay
-   held (`residual_adjacent_hold_until_recorded=true`); pipeline render keeps
-   supervisor_next on reverse-flow focused validation and does not advertise a
-   residual selected proposal until residual work is residual-active
-8. Record helpers
+7. While this surface is `ready`/unrecorded or `failed`, residual fortress/Hy3
+   stages stay held (`residual_adjacent_hold_until_recorded=true` while
+   unrecorded; `residual_adjacent_hold_active=true` for both unrecorded and
+   failed). Pipeline render keeps supervisor_next on reverse-flow focused
+   validation and does not advertise a residual selected proposal until residual
+   work is residual-active
+8. Residual stage packets themselves leave
+   `selected_residual_proposal_id` / residual `proposal_id` empty while only
+   reverse-flow-waiting (`residual_selection_held_until_residual_active=true` on
+   residual apply and later residual stages). Fortress selection is exported only
+   when residual work is residual-active
+9. Record helpers
    `record_skill_route_discovery_focused_local_test_validation_results` and
    `close_skill_route_discovery_focused_local_test_validation_with_outcome` are
    named on the packet; activation-external handoff follows only after record

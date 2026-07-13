@@ -1,0 +1,8 @@
+{
+  "created_at": "2026-07-13T03:14:43.9709774Z",
+  "branch": "grok/blackhole-evolve/20260713T031208.074727-continue-reverse-flow-skill-route-discovery-on-t",
+  "head": "1d591ef9a3aa528f845367559ecdb8eba2ce289e",
+  "rollback_ref": "refs/blackhole-rollback/20260713T111443Z",
+  "theme": "reverse-flow-residual-selection-hold",
+  "source_digest": "github-growth-20260713T031123.591532Z"
+}

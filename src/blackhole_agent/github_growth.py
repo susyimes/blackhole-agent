@@ -5107,8 +5107,12 @@ def build_skill_route_discovery_focused_local_test_validation(
         "focused_validation_recorded": recorded,
         # Residual fortress/Hy3 stages stay held until reverse-flow focused
         # validation command-hash results are recorded/closed. Operators must not
-        # jump to residual harness-eval while this surface is ready/unrecorded.
+        # jump to residual harness-eval while this surface is ready/unrecorded or
+        # failed (repair required). Residual selection also stays suppressed on
+        # residual stage packets until residual work is residual-active.
         "residual_adjacent_hold_until_recorded": status == "ready" and not recorded,
+        "residual_adjacent_hold_active": (status == "ready" and not recorded)
+        or status == "failed",
         "residual_adjacent_hold_reason": (
             "blocked_until_focused_validation_recorded_and_activation_external_accepted"
             if status == "ready" and not recorded
@@ -6216,6 +6220,42 @@ def _select_residual_adjacent_harness_eval_proposal_id(
     return residual_ids[0]
 
 
+def _export_residual_selected_proposal_id(
+    status: str,
+    selected_residual_id: str,
+    *,
+    residual_active_statuses: frozenset[str] | set[str] | None = None,
+) -> str:
+    """Export residual fortress/Hy3 selection only when residual work is residual-active.
+
+    Reverse-flow-waiting statuses (for example
+    ``blocked_until_activation_external_acceptance`` or
+    ``blocked_until_residual_adjacent_queue_ready``) must not advertise a residual
+    selected proposal early. Residual-active statuses include ``ready``, isolation
+    ``blocked``, recorded residual outcomes, and residual-path hold states that own
+    residual work after reverse-flow gates clear.
+    """
+
+    residual_id = str(selected_residual_id or "").strip()
+    if not residual_id:
+        return ""
+    status_text = str(status or "").strip()
+    if residual_active_statuses is not None:
+        return residual_id if status_text in residual_active_statuses else ""
+    if status_text in {
+        "ready",
+        "blocked",
+        "passed",
+        "failed",
+        "accepted",
+        "blocked_until_residual_adjacent_focused_validation_recorded",
+        "blocked_until_residual_adjacent_focused_validation_repaired",
+        "blocked_until_residual_adjacent_focused_validation_pass",
+    }:
+        return residual_id
+    return ""
+
+
 def build_skill_route_discovery_residual_adjacent_harness_eval_local_apply(
     *,
     focused_validation_residual_adjacent_queue: dict[str, Any] | None = None,
@@ -6365,6 +6405,14 @@ def build_skill_route_discovery_residual_adjacent_harness_eval_local_apply(
         )
 
     export_residual_ids = residual_ids if status in {"ready", "blocked"} else []
+    # Do not advertise residual fortress/Hy3 selection while residual apply is only
+    # reverse-flow-waiting (blocked_until_residual_adjacent_queue_ready). Selection is
+    # computed for residual-active readiness but exported only when residual-active.
+    export_selected_residual = _export_residual_selected_proposal_id(
+        status,
+        selected_residual_id,
+        residual_active_statuses={"ready", "blocked"},
+    )
     comparison_notes = [
         {
             "criterion_id": "residual_adjacent_queue_ready",
@@ -6429,16 +6477,18 @@ def build_skill_route_discovery_residual_adjacent_harness_eval_local_apply(
             "prop-skill-rnskill-docs-companion",
             "prop-skill-pipeline-config-gates",
         ],
-        "proposal_id": selected_residual_id
-        or str(residual_queue.get("selected_proposal_id") or residual_queue.get("proposal_id") or ""),
-        "selected_proposal_id": selected_residual_id
-        or str(residual_queue.get("selected_proposal_id") or residual_queue.get("proposal_id") or ""),
-        "selected_residual_proposal_id": selected_residual_id,
+        "proposal_id": export_selected_residual,
+        "selected_proposal_id": export_selected_residual,
+        "selected_residual_proposal_id": export_selected_residual,
         "selected_residual_route_class": str(
             (selected_row or {}).get("route_class")
             or residual_queue.get("evaluation_lane")
             or "agent_harness_eval_required"
-        ),
+        )
+        if export_selected_residual
+        else "none",
+        "residual_selection_held_until_residual_active": not bool(export_selected_residual)
+        and bool(selected_residual_id),
         "status": status,
         "decision": decision,
         "capability_action": "apply_one_residual_adjacent_harness_eval_local_candidate",
@@ -6797,6 +6847,11 @@ def build_skill_route_discovery_residual_adjacent_harness_eval_local_comparison(
     export_residual_ids = residual_ids if status in {"ready", "blocked"} else []
     export_notes = comparison_notes if status in {"ready", "blocked"} else []
     export_failed = failed_criteria if status == "blocked" else []
+    export_selected_residual = _export_residual_selected_proposal_id(
+        status,
+        selected_residual_id,
+        residual_active_statuses={"ready", "blocked"},
+    )
 
     return {
         "schema_version": 1,
@@ -6820,17 +6875,19 @@ def build_skill_route_discovery_residual_adjacent_harness_eval_local_comparison(
             "prop-skill-rnskill-docs-companion",
             "prop-skill-pipeline-config-gates",
         ],
-        "proposal_id": selected_residual_id
-        or str(residual_apply.get("selected_proposal_id") or residual_apply.get("proposal_id") or ""),
-        "selected_proposal_id": selected_residual_id
-        or str(residual_apply.get("selected_proposal_id") or residual_apply.get("proposal_id") or ""),
-        "selected_residual_proposal_id": selected_residual_id,
+        "proposal_id": export_selected_residual,
+        "selected_proposal_id": export_selected_residual,
+        "selected_residual_proposal_id": export_selected_residual,
         "selected_residual_route_class": str(
             (selected_row or {}).get("route_class")
             or residual_apply.get("selected_residual_route_class")
             or residual_apply.get("route_class")
             or "agent_harness_eval_required"
-        ),
+        )
+        if export_selected_residual
+        else "none",
+        "residual_selection_held_until_residual_active": not bool(export_selected_residual)
+        and bool(selected_residual_id),
         "status": status,
         "decision": decision,
         "capability_action": "compare_one_residual_adjacent_harness_eval_local_candidate",
@@ -7225,6 +7282,12 @@ def build_skill_route_discovery_residual_adjacent_unlocked_local_lane_apply(
         if row.get("required") is True and row.get("passed") is not True
     ]
 
+    export_selected_residual = _export_residual_selected_proposal_id(
+        status,
+        selected_residual_id,
+        residual_active_statuses={"ready", "blocked"},
+    )
+
     return {
         "schema_version": 1,
         "controller_surface": (
@@ -7247,25 +7310,19 @@ def build_skill_route_discovery_residual_adjacent_unlocked_local_lane_apply(
             "prop-skill-rnskill-docs-companion",
             "prop-skill-pipeline-config-gates",
         ],
-        "proposal_id": selected_residual_id
-        or str(
-            residual_comparison.get("selected_proposal_id")
-            or residual_comparison.get("proposal_id")
-            or ""
-        ),
-        "selected_proposal_id": selected_residual_id
-        or str(
-            residual_comparison.get("selected_proposal_id")
-            or residual_comparison.get("proposal_id")
-            or ""
-        ),
-        "selected_residual_proposal_id": selected_residual_id,
+        "proposal_id": export_selected_residual,
+        "selected_proposal_id": export_selected_residual,
+        "selected_residual_proposal_id": export_selected_residual,
         "selected_residual_route_class": str(
             (selected_row or {}).get("route_class")
             or residual_comparison.get("selected_residual_route_class")
             or residual_comparison.get("route_class")
             or "agent_harness_eval_required"
-        ),
+        )
+        if export_selected_residual
+        else "none",
+        "residual_selection_held_until_residual_active": not bool(export_selected_residual)
+        and bool(selected_residual_id),
         "status": status,
         "decision": decision,
         "capability_action": "apply_one_residual_adjacent_unlocked_local_lane_candidate",
@@ -7597,8 +7654,10 @@ def build_skill_route_discovery_residual_adjacent_focused_local_validation(
     recorded = status in {"passed", "failed"}
     export_unlocked = unlocked_lanes if status in {"ready", "passed", "failed"} else []
     export_selected_lane = selected_lane if status in {"ready", "passed", "failed"} else "none"
-    export_residual_id = (
-        selected_residual_id if status in {"ready", "passed", "failed", "blocked"} else ""
+    export_residual_id = _export_residual_selected_proposal_id(
+        status,
+        selected_residual_id,
+        residual_active_statuses={"ready", "passed", "failed", "blocked"},
     )
 
     return {
@@ -7623,16 +7682,19 @@ def build_skill_route_discovery_residual_adjacent_focused_local_validation(
             "prop-skill-rnskill-docs-companion",
             "prop-skill-pipeline-config-gates",
         ],
-        "proposal_id": export_residual_id
-        or str(unlocked_apply.get("selected_proposal_id") or unlocked_apply.get("proposal_id") or ""),
-        "selected_proposal_id": export_residual_id
-        or str(unlocked_apply.get("selected_proposal_id") or unlocked_apply.get("proposal_id") or ""),
+        # No fortress proposal_id fallback while reverse-flow-waiting.
+        "proposal_id": export_residual_id,
+        "selected_proposal_id": export_residual_id,
         "selected_residual_proposal_id": export_residual_id,
         "selected_residual_route_class": str(
             unlocked_apply.get("selected_residual_route_class")
             or unlocked_apply.get("route_class")
             or "agent_harness_eval_required"
-        ),
+        )
+        if export_residual_id
+        else "none",
+        "residual_selection_held_until_residual_active": not bool(export_residual_id)
+        and bool(selected_residual_id),
         "status": status,
         "decision": decision,
         "capability_action": "validate_one_residual_adjacent_unlocked_local_lane_candidate",
@@ -8173,17 +8235,16 @@ def build_skill_route_discovery_residual_adjacent_focused_validation_activation_
         selected_lane if status in {"ready", "blocked_until_residual_adjacent_focused_validation_repaired"} else "none"
     )
     export_unlocked = unlocked_lanes if status == "ready" else []
-    export_selected_residual = (
-        selected_residual_id
-        if status
-        in {
+    export_selected_residual = _export_residual_selected_proposal_id(
+        status,
+        selected_residual_id,
+        residual_active_statuses={
             "ready",
             "blocked",
             "blocked_until_residual_adjacent_focused_validation_recorded",
             "blocked_until_residual_adjacent_focused_validation_repaired",
             "blocked_until_residual_adjacent_focused_validation_pass",
-        }
-        else ""
+        },
     )
     export_adjacent_ids = adjacent_ids if status == "ready" else []
     export_remaining_ids = remaining_residual_ids if status == "ready" else []
@@ -8224,29 +8285,21 @@ def build_skill_route_discovery_residual_adjacent_focused_validation_activation_
             "prop-skill-rnskill-docs-companion",
             "prop-skill-pipeline-config-gates",
         ],
-        "proposal_id": export_selected_residual
-        or str(
-            residual_focused.get("selected_proposal_id")
-            or residual_focused.get("proposal_id")
-            or unlocked_apply.get("selected_proposal_id")
-            or unlocked_apply.get("proposal_id")
-            or ""
-        ),
-        "selected_proposal_id": export_selected_residual
-        or str(
-            residual_focused.get("selected_proposal_id")
-            or residual_focused.get("proposal_id")
-            or unlocked_apply.get("selected_proposal_id")
-            or unlocked_apply.get("proposal_id")
-            or ""
-        ),
+        # No fortress proposal_id fallback while reverse-flow-waiting
+        # (blocked_until_residual_adjacent_focused_validation_ready).
+        "proposal_id": export_selected_residual,
+        "selected_proposal_id": export_selected_residual,
         "selected_residual_proposal_id": export_selected_residual,
         "selected_residual_route_class": str(
             residual_focused.get("selected_residual_route_class")
             or unlocked_apply.get("selected_residual_route_class")
             or residual_focused.get("route_class")
             or "agent_harness_eval_required"
-        ),
+        )
+        if export_selected_residual
+        else "none",
+        "residual_selection_held_until_residual_active": not bool(export_selected_residual)
+        and bool(selected_residual_id),
         "status": status,
         "decision": decision,
         "capability_action": (
@@ -8685,7 +8738,23 @@ def build_skill_route_discovery_residual_adjacent_focused_validation_activation_
     export_results = result_rows if status == "accepted" else []
     export_unlocked = unlocked_lanes if status == "accepted" else []
     export_selected_lane = selected_lane if status == "accepted" else "none"
+    # Residual acceptance may advertise selection only when residual-active:
+    # accepted, or blocked waiting on a residual-active handoff (not reverse-flow-
+    # waiting handoff statuses such as blocked_until_focused_validation_ready).
+    handoff_is_residual_active = handoff_status in {
+        "ready",
+        "blocked",
+        "blocked_until_residual_adjacent_focused_validation_recorded",
+        "blocked_until_residual_adjacent_focused_validation_repaired",
+        "blocked_until_residual_adjacent_focused_validation_pass",
+    }
     export_selected_residual = selected_residual_id if status == "accepted" else ""
+    if (
+        not export_selected_residual
+        and status == "blocked_until_residual_adjacent_activation_external_handoff_ready"
+        and handoff_is_residual_active
+    ):
+        export_selected_residual = selected_residual_id
     export_adjacent_ids = adjacent_ids if status == "accepted" else []
     export_remaining_ids = remaining_residual_ids if status == "accepted" else []
     export_retained_ids = retained_ids if status in {
@@ -8716,37 +8785,20 @@ def build_skill_route_discovery_residual_adjacent_focused_validation_activation_
             "prop-skill-rnskill-docs-companion",
             "prop-skill-pipeline-config-gates",
         ],
-        "proposal_id": export_selected_residual
-        or str(
-            handoff.get("selected_proposal_id")
-            or residual_focused.get("selected_proposal_id")
-            or residual_focused.get("proposal_id")
-            or unlocked_apply.get("selected_proposal_id")
-            or unlocked_apply.get("proposal_id")
-            or ""
-        ),
-        "selected_proposal_id": export_selected_residual
-        or str(
-            handoff.get("selected_proposal_id")
-            or residual_focused.get("selected_proposal_id")
-            or residual_focused.get("proposal_id")
-            or unlocked_apply.get("selected_proposal_id")
-            or unlocked_apply.get("proposal_id")
-            or ""
-        ),
-        "selected_residual_proposal_id": export_selected_residual
-        or (
-            selected_residual_id
-            if status == "blocked_until_residual_adjacent_activation_external_handoff_ready"
-            else ""
-        ),
+        "proposal_id": export_selected_residual,
+        "selected_proposal_id": export_selected_residual,
+        "selected_residual_proposal_id": export_selected_residual,
         "selected_residual_route_class": str(
             handoff.get("selected_residual_route_class")
             or residual_focused.get("selected_residual_route_class")
             or unlocked_apply.get("selected_residual_route_class")
             or residual_focused.get("route_class")
             or "agent_harness_eval_required"
-        ),
+        )
+        if export_selected_residual
+        else "none",
+        "residual_selection_held_until_residual_active": not bool(export_selected_residual)
+        and bool(selected_residual_id),
         "status": status,
         "decision": decision,
         "capability_action": (
@@ -9945,12 +9997,26 @@ def render_skill_route_discovery_capability_pipeline_lines(
     # still held waiting on reverse-flow focused validation record/close.
     if not residual_work_is_residual_active:
         residual_selected_proposal_for_render = ""
-    reverse_flow_focused_hold_active = (
+    reverse_flow_focused_hold_active = bool(
+        focused_local_test_validation.get("residual_adjacent_hold_active")
+    ) or (
         focused_status == "ready"
         and not bool(
             focused_local_test_validation.get("focused_validation_recorded")
             or pipeline.get("focused_local_test_validation_recorded")
         )
+    ) or focused_status == "failed"
+    residual_selection_held = (not residual_work_is_residual_active) and any(
+        bool(packet.get("residual_selection_held_until_residual_active"))
+        for packet in (
+            residual_adjacent_local_apply,
+            residual_adjacent_local_comparison,
+            residual_adjacent_unlocked_lane_apply,
+            residual_adjacent_focused_local_validation,
+            residual_adjacent_focused_validation_activation_external_handoff,
+            residual_adjacent_focused_validation_activation_external_acceptance,
+        )
+        if isinstance(packet, dict)
     )
     lines = [
         "Skill route discovery capability pipeline:",
@@ -10030,6 +10096,8 @@ def render_skill_route_discovery_capability_pipeline_lines(
         f"{residual_selected_proposal_for_render or 'none'}`",
         f"- Residual adjacent held until reverse-flow focused validation recorded: `"
         f"{reverse_flow_focused_hold_active}`",
+        f"- Residual adjacent selection held until residual-active: `"
+        f"{residual_selection_held or reverse_flow_focused_hold_active or not residual_work_is_residual_active}`",
         f"- Adjacent agent harness-eval handoff: `{adjacent_handoff.get('status') or 'none'}`",
         f"- Adjacent handoff decision: `{adjacent_handoff.get('decision') or 'none'}`",
         f"- Theme complete: `{bool(local_apply_completion.get('theme_complete'))}`",
@@ -10045,7 +10113,8 @@ def render_skill_route_discovery_capability_pipeline_lines(
         "- Pass 4 completes the reverse-flow local test validation lane via skill_route_discovery_local_apply_completion.",
         "- After completion, skill_route_discovery_unlocked_local_test_lane_apply packages focused local test validation while activation stays external.",
         "- After unlock, skill_route_discovery_focused_local_test_validation records body-free command-hash results and keeps activation external.",
-        "- While reverse-flow focused validation is ready/unrecorded, residual fortress/Hy3 stages stay held; supervisor_next stays on reverse-flow focused validation and residual selected proposal is not advertised.",
+        "- While reverse-flow focused validation is ready/unrecorded or failed, residual fortress/Hy3 stages stay held; supervisor_next stays on reverse-flow focused validation and residual selected proposal is not advertised on residual packets or render.",
+        "- Residual fortress/Hy3 selected_residual_proposal_id is exported only when residual work is residual-active; reverse-flow-waiting residual stages leave selection empty.",
         "- After ready, record_skill_route_discovery_focused_local_test_validation_results closes body-free command-hash results while activation stays external.",
         "- After ready, close_skill_route_discovery_focused_local_test_validation_with_outcome materializes body-free expected-hash outcomes and refreshes activation-external handoff/acceptance.",
         "- After recorded pass, skill_route_discovery_focused_validation_activation_external_handoff packages keep_activation_external while push/promotion/restart stay denied.",
