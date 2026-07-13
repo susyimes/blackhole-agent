@@ -46,7 +46,7 @@ residual adjacent focused validation activation-external handoff →
 residual adjacent focused validation activation-external acceptance →
 (optional) selected-step adjacent harness-eval.
 
-Observed this run (digest `github-growth-20260713T195418.632720Z`,
+Observed this run (digest `github-growth-20260713T205418.691908Z`,
 `prop-skill-reverse-flow-continue` / reverse-flow bound against
 `lingbol088-spec/reverse-flow-skill`, residual fortress/Hy3 adjacent):
 
@@ -54,57 +54,51 @@ Observed this run (digest `github-growth-20260713T195418.632720Z`,
   `continue_plan.mode=run_pending` until supervisors follow continue dispatch
   policy and record/close body-free results; residual stages stay blocked waiting
   on reverse-flow record/close and activation-external acceptance
-- Prior: residual cascade packaging already collapses eight residual stages into
-  body-free `residual_cascade_line` (progress N/8, blocked_at, action) without
-  residual_export
-- New: `package_reverse_flow_focused_validation_continue_cascade`
-  collapses reverse-flow continue progress plus residual cascade into body-free
-  `continue_cascade_line` (for example
-  `continue_cascade ready=false reverse_progress=0/3 residual_progress=0/8
-  residual_blocked_at=open reverse_action=execute_now
-  residual_action=wait_for_reverse_flow action=execute_now call_execute=true
-  residual_export=false
-  next=run_focused_local_test_validation_then_keep_activation_external
-  helper=follow_reverse_flow_focused_validation_continue_dispatch`)
-  so supervisors do not re-derive full continue state from separate action_line
-  and residual_cascade_line surfaces
-- New: follow and dispatch attach `continue_cascade`,
-  `continue_cascade_line`, `continue_cascade_ready`,
-  `continue_cascade_action`, `continue_cascade_reverse_progress_label`,
-  `continue_cascade_residual_progress_label`, and
-  `continue_cascade_residual_blocked_at`
-- New: inventory-only wakes package blocked continue cascade
-  (`ready=false`, `action=execute_now`, `reverse_progress=0/3`,
-  `residual_progress=0/8`, `residual_blocked_at=open`, residual_export denied)
-  for pre-exec audit while reverse-flow is still unrecorded
-- New: operator_state exports nested `continue_cascade`,
-  `continue_cascade_helper`,
-  `continue_cascade_line`,
-  `continue_cascade_ready`,
-  `continue_cascade_action`,
-  `continue_cascade_reverse_progress_label`,
-  `continue_cascade_residual_progress_label`, and
-  `continue_cascade_residual_blocked_at` (alongside continue_residual_cascade /
-  continue_residual_acceptance / continue_residual_handoff /
-  continue_call_residual_acceptance / continue_residual_focused_validation /
+- Prior: continue cascade packaging already collapses reverse-flow progress plus
+  residual cascade into body-free `continue_cascade_line` without residual_export
+- New: `package_reverse_flow_focused_validation_continue_cascade_transition`
+  collapses pre/post continue_cascade packages into body-free
+  `continue_cascade_transition_line` (for example
+  `continue_cascade_transition reverse=0/3→3/3 residual=0/8→0/8
+  blocked_at=open→open action=execute_now→keep_activation_external
+  reverse_advanced=true residual_advanced=false cascade_advanced=true
+  ready=false→false executed=true recorded=true residual_export=false
+  next=keep_activation_external_after_focused_local_test_validation
+  helper=package_reverse_flow_focused_validation_continue_cascade_transition`)
+  so supervisors do not compare nested pre/post reverse_progress,
+  residual_progress, blocked_at, or cascade action fields after continue wakes
+- New: follow and dispatch attach `pre_continue_cascade`,
+  `continue_cascade_transition`, `continue_cascade_transition_line`,
+  `continue_cascade_transition_helper`, `cascade_advanced`,
+  `reverse_progress_transition`, and `residual_progress_transition`
+- New: inventory-only / operator_state snapshot wakes package identity
+  continue cascade transition (`reverse=0/3→0/3`, `residual=0/8→0/8`,
+  `cascade_advanced=false`, residual_export denied) so the surface format is
+  legible before execute
+- New: operator_state exports nested `continue_cascade_transition`,
+  `continue_cascade_transition_helper`,
+  `continue_cascade_transition_line`,
+  `continue_cascade_advanced`,
+  `continue_cascade_reverse_progress_transition`, and
+  `continue_cascade_residual_progress_transition` (alongside continue_cascade /
+  continue_residual_cascade / continue_residual_acceptance /
+  continue_residual_handoff / continue_residual_focused_validation /
   continue_residual_unlocked_apply / continue_residual_comparison /
   continue_residual_follow / continue_residual_entry / continue_residual_open /
   continue_finish_receipt / continue_finished)
-- Ready/unrecorded continue cascade:
-  `continue_cascade_ready=false`,
-  `continue_cascade_action=execute_now`,
-  `continue_cascade_reverse_progress_label=0/3`,
-  `continue_cascade_residual_progress_label=0/8`,
-  `continue_cascade_residual_blocked_at=open`,
-  residual_export denied; finish stays incomplete while reverse progress is 0/N
-- Full follow after reverse-flow pass + residual cascade complete: continue
-  cascade becomes ready/complete with reverse_progress=N/N residual_progress=8/8
-  residual_blocked_at=none and residual cascade keep_activation_external /
-  note_remaining_residual_rows action; residual export still denied on
+- Ready/unrecorded continue cascade transition:
+  `continue_cascade_advanced=false`,
+  `continue_cascade_reverse_progress_transition=0/3→0/3`,
+  `continue_cascade_residual_progress_transition=0/8→0/8`,
+  residual_export denied; reverse_advanced becomes true only after reverse
+  progress or reverse complete flips across a follow/dispatch wake
+- Full follow after reverse-flow pass: continue cascade transition reports
+  reverse progress N/N, cascade_advanced when reverse or residual stage fields
+  change, and residual cascade still hold residual_export denied on
   continue/dispatch/follow/finish/residual_open/residual_entry/residual_follow/
   residual_comparison/residual_unlocked_apply/residual_focused_validation/
-  residual_handoff/residual_acceptance/residual_cascade/continue_cascade
-  surfaces themselves
+  residual_handoff/residual_acceptance/residual_cascade/continue_cascade/
+  continue_cascade_transition surfaces themselves
 - While residual focused validation is ready/unrecorded after reverse-flow pass:
   residual cascade reports `blocked_at=handoff` with partial stage progress
   (for example 6/8); continue cascade keeps reverse progress complete and

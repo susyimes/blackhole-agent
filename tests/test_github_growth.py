@@ -73,6 +73,7 @@ from blackhole_agent.github_growth import (
     package_reverse_flow_focused_validation_continue_residual_acceptance,
     package_reverse_flow_focused_validation_continue_residual_cascade,
     package_reverse_flow_focused_validation_continue_cascade,
+    package_reverse_flow_focused_validation_continue_cascade_transition,
     resolve_reverse_flow_focused_validation_continue_dispatch_follow_through,
     normalize_skill_route_discovery_focused_validation_command_results,
     record_skill_route_discovery_focused_local_test_validation_results,
@@ -5776,6 +5777,82 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert "residual_export=false" in pipeline["operator_state"][
         "reverse_flow_focused_validation_continue_cascade_line"
     ]
+    assert pipeline[
+        "reverse_flow_focused_validation_continue_cascade_transition_helper"
+    ] == "package_reverse_flow_focused_validation_continue_cascade_transition"
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_cascade_transition_helper"
+    ] == "package_reverse_flow_focused_validation_continue_cascade_transition"
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_cascade_advanced"
+    ] is False
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_cascade_reverse_progress_transition"
+    ] == "0/3→0/3"
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_cascade_residual_progress_transition"
+    ] == "0/8→0/8"
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_cascade_transition_line"
+    ].startswith("continue_cascade_transition reverse=0/3→0/3 ")
+    assert "residual=0/8→0/8" in pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_cascade_transition_line"
+    ]
+    assert "cascade_advanced=false" in pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_cascade_transition_line"
+    ]
+    assert "residual_export=false" in pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_cascade_transition_line"
+    ]
+    # Body-free continue cascade transition packages pre/post reverse + residual
+    # progress without nested re-assembly or residual_export.
+    pre_cascade = package_reverse_flow_focused_validation_continue_cascade(
+        pipeline=pipeline,
+    )
+    advanced_cascade = dict(pre_cascade)
+    advanced_cascade["reverse_progress_label"] = "3/3"
+    advanced_cascade["reverse_progress_complete"] = True
+    advanced_cascade["continue_cascade_action"] = "keep_activation_external"
+    advanced_cascade["reverse_action"] = "keep_activation_external"
+    advanced_cascade["call_dispatch_with_execute"] = False
+    advanced_cascade["supervisor_next_action"] = (
+        "keep_activation_external_after_focused_local_test_validation"
+    )
+    cascade_transition = (
+        package_reverse_flow_focused_validation_continue_cascade_transition(
+            pre_cascade=pre_cascade,
+            post_cascade=advanced_cascade,
+            executed=True,
+            recorded=True,
+        )
+    )
+    assert cascade_transition["controller_surface"] == (
+        "reverse_flow_focused_validation_continue_cascade_transition"
+    )
+    assert cascade_transition["reverse_progress_transition"] == "0/3→3/3"
+    assert cascade_transition["residual_progress_transition"] == "0/8→0/8"
+    assert cascade_transition["reverse_advanced"] is True
+    assert cascade_transition["residual_advanced"] is False
+    assert cascade_transition["cascade_advanced"] is True
+    assert cascade_transition["action_transition"] == (
+        "execute_now→keep_activation_external"
+    )
+    assert cascade_transition["residual_export_allowed"] is False
+    assert cascade_transition["continue_cascade_transition_line"].startswith(
+        "continue_cascade_transition reverse=0/3→3/3 "
+    )
+    assert "action=execute_now→keep_activation_external" in cascade_transition[
+        "continue_cascade_transition_line"
+    ]
+    assert "cascade_advanced=true" in cascade_transition[
+        "continue_cascade_transition_line"
+    ]
+    assert "residual_export=false" in cascade_transition[
+        "continue_cascade_transition_line"
+    ]
+    assert cascade_transition["continue_cascade_transition_helper"] == (
+        "package_reverse_flow_focused_validation_continue_cascade_transition"
+    )
     assert pipeline["reverse_flow_focused_validation_continue_supervisor_wake"][
         "controller_surface"
     ] == "reverse_flow_focused_validation_continue_run_supervisor_wake"
