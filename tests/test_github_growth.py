@@ -56,6 +56,7 @@ from blackhole_agent.github_growth import (
     resolve_reverse_flow_focused_validation_continue_run_supervisor_wake,
     reverse_flow_focused_validation_continue_local_command_allowed,
     run_reverse_flow_focused_validation_continue_pending_work_units,
+    dispatch_reverse_flow_focused_validation_continue_supervisor_wake,
     normalize_skill_route_discovery_focused_validation_command_results,
     record_skill_route_discovery_focused_local_test_validation_results,
     record_skill_route_discovery_residual_adjacent_focused_local_validation_results,
@@ -5356,6 +5357,7 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert pipeline["reverse_flow_focused_validation_record_helpers"] == [
         "record_skill_route_discovery_focused_local_test_validation_results",
         "close_skill_route_discovery_focused_local_test_validation_with_outcome",
+        "dispatch_reverse_flow_focused_validation_continue_supervisor_wake",
         "run_reverse_flow_focused_validation_continue_pending_work_units",
         "execute_reverse_flow_focused_validation_continue_run_plan",
         "build_reverse_flow_focused_validation_continue_run_plan",
@@ -5368,6 +5370,22 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         "build_reverse_flow_focused_validation_continue_plan",
         "pending_skill_route_discovery_focused_validation_work_units",
     ]
+    assert pipeline["reverse_flow_focused_validation_continue_run_recommended"] is True
+    assert pipeline["reverse_flow_focused_validation_continue_dispatch_helper"] == (
+        "dispatch_reverse_flow_focused_validation_continue_supervisor_wake"
+    )
+    assert pipeline["reverse_flow_focused_validation_continue_supervisor_wake"][
+        "controller_surface"
+    ] == "reverse_flow_focused_validation_continue_run_supervisor_wake"
+    assert pipeline["reverse_flow_focused_validation_continue_supervisor_wake"][
+        "continue_run_executable"
+    ] is True
+    assert pipeline["reverse_flow_focused_validation_continue_supervisor_wake"][
+        "residual_export_allowed"
+    ] is False
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_dispatch_helper"
+    ] == "dispatch_reverse_flow_focused_validation_continue_supervisor_wake"
     assert pipeline["operator_state"]["supervisor_next_action"] == (
         pipeline["supervisor_next_action"]
     )
@@ -5498,6 +5516,7 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert focused["record_helpers"] == [
         "record_skill_route_discovery_focused_local_test_validation_results",
         "close_skill_route_discovery_focused_local_test_validation_with_outcome",
+        "dispatch_reverse_flow_focused_validation_continue_supervisor_wake",
         "run_reverse_flow_focused_validation_continue_pending_work_units",
         "execute_reverse_flow_focused_validation_continue_run_plan",
         "build_reverse_flow_focused_validation_continue_run_plan",
@@ -6318,6 +6337,89 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert partial_run["supervisor_wake"]["mode"] == "keep_activation_external"
     assert partial_run["supervisor_wake"]["status"] == "passed"
     assert partial_run["residual_export_allowed"] is False
+
+    # Preferred single operator entry: inventory-only dispatch (no execute).
+    inventory_dispatch = dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
+        pipeline,
+        execute=False,
+    )
+    assert inventory_dispatch["controller_surface"] == (
+        "reverse_flow_focused_validation_continue_supervisor_dispatch"
+    )
+    assert inventory_dispatch["action"] == "inventory_only"
+    assert inventory_dispatch["executed"] is False
+    assert inventory_dispatch["recorded"] is False
+    assert inventory_dispatch["continue_run_executable"] is True
+    assert inventory_dispatch["continue_run_recommended"] is True
+    assert inventory_dispatch["supervisor_wake"]["mode"] == "run_pending"
+    assert inventory_dispatch["supervisor_wake"]["status"] == "ready"
+    assert inventory_dispatch["supervisor_next_action"] == (
+        "run_focused_local_test_validation_then_keep_activation_external"
+    )
+    assert inventory_dispatch["residual_hold_active"] is True
+    assert inventory_dispatch["residual_export_allowed"] is False
+    assert inventory_dispatch["supervisor_activation_allowed"] is False
+    assert inventory_dispatch["kernel_restart_allowed"] is False
+    assert inventory_dispatch["raw_command_stdout_exported"] is False
+    assert "dispatch_reverse_flow_focused_validation_continue_supervisor_wake" in (
+        inventory_dispatch["record_helpers"]
+    )
+
+    # Preferred single operator entry: execute + record when continue_run_executable.
+    full_dispatch = dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
+        pipeline,
+        command_runner=_fake_runner,
+        cwd=".",
+        source_digest="github-growth-20260713T063123.715169Z",
+    )
+    assert full_dispatch["action"] == "run_and_record"
+    assert full_dispatch["executed"] is True
+    assert full_dispatch["recorded"] is True
+    assert full_dispatch["run_and_record"]["controller_surface"] == (
+        "reverse_flow_focused_validation_continue_run_and_record"
+    )
+    assert full_dispatch["pipeline"]["focused_local_test_validation"]["status"] == "passed"
+    assert full_dispatch["supervisor_wake"]["mode"] == "keep_activation_external"
+    assert full_dispatch["supervisor_wake"]["status"] == "passed"
+    assert full_dispatch["supervisor_next_action"] == (
+        "keep_activation_external_after_focused_local_test_validation"
+    )
+    assert full_dispatch["activation_external_handoff_status"] == "ready"
+    assert full_dispatch["activation_external_acceptance_status"] == "accepted"
+    assert full_dispatch["supervisor_wake"]["decision"] == (
+        "keep_activation_external_and_queue_residual_adjacent_harness_eval"
+    )
+    assert full_dispatch["continue_run_recommended"] is False
+    assert full_dispatch["residual_export_allowed"] is False
+    assert full_dispatch["supervisor_activation_allowed"] is False
+    assert full_dispatch["kernel_restart_allowed"] is False
+
+    # Partial inventory through dispatch runs remaining units only.
+    partial_dispatch = dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
+        continue_partial,
+        command_runner=_fake_runner,
+        cwd=".",
+        source_digest="github-growth-20260713T063123.715169Z",
+    )
+    assert partial_dispatch["action"] == "run_and_record"
+    assert partial_dispatch["run_plan"]["mode"] == "record_remaining"
+    assert partial_dispatch["run_result"]["ran_count"] == len(command_hashes) - 1
+    assert partial_dispatch["pipeline"]["focused_local_test_validation"]["status"] == (
+        "passed"
+    )
+    assert partial_dispatch["supervisor_wake"]["mode"] == "keep_activation_external"
+    assert partial_dispatch["residual_export_allowed"] is False
+
+    # Post-pass inventory-only dispatch keeps activation external (no re-run).
+    post_pass_dispatch = dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
+        full_dispatch["pipeline"],
+        execute=True,
+    )
+    assert post_pass_dispatch["executed"] is False
+    assert post_pass_dispatch["action"] == "keep_activation_external"
+    assert post_pass_dispatch["supervisor_wake"]["mode"] == "keep_activation_external"
+    assert post_pass_dispatch["residual_export_allowed"] is False
+
     # Skipped non-allowed unit leaves no outcome (partial stays partial when record empty).
     denied_plan = {
         "mode": "run_pending",

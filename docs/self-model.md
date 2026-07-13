@@ -46,43 +46,51 @@ residual adjacent focused validation activation-external handoff →
 residual adjacent focused validation activation-external acceptance →
 (optional) selected-step adjacent harness-eval.
 
-Observed this run (digest `github-growth-20260713T061123.552918Z`,
+Observed this run (digest `github-growth-20260713T063123.715169Z`,
 `prop-reverse-flow-skill-route-discovery-continue` bound against
 `lingbol088-spec/reverse-flow-skill`, residual fortress adjacent):
 
 - Reverse-flow focused validation remains `ready` / unrecorded (0/3) with
-  `continue_plan.mode=run_pending` until supervisors run pending work units and
+  `continue_plan.mode=run_pending` until supervisors dispatch continue work and
   record/close body-free results; residual stages stay blocked waiting on
   reverse-flow record/close and activation-external acceptance
 - Prior: continue plan + `pending_work_units` + local allowlist +
-  `build/execute/run_reverse_flow_focused_validation_continue_*` already package
-  inventory, run allowlisted pytest units, and merge body-free outcomes
-- New: `resolve_reverse_flow_focused_validation_continue_run_supervisor_wake`
-  packages reverse-flow-first `supervisor_next` after continue-run inventory or
-  run/record (mode, residual hold, handoff/acceptance status) so residual
-  fortress stages cannot outrank reverse-flow before acceptance
-- New: `run_reverse_flow_focused_validation_continue_pending_work_units` attaches
-  `supervisor_wake` plus top-level `supervisor_next_action`,
-  `continue_plan_mode`, handoff/acceptance status on the run-and-record return
+  `build/execute/run_reverse_flow_focused_validation_continue_*` +
+  `resolve_reverse_flow_focused_validation_continue_run_supervisor_wake` already
+  package inventory, run allowlisted pytest units, merge body-free outcomes, and
+  attach reverse-flow-first `supervisor_wake`
+- New: `dispatch_reverse_flow_focused_validation_continue_supervisor_wake` is the
+  preferred single operator entry — inventory wake first, optional allowlisted
+  run/record when `continue_run_executable`, always reverse-flow-first
+  `supervisor_wake` / `supervisor_next_action` so residual fortress stages cannot
+  outrank reverse-flow before acceptance
 - New: operator_state exports
-  `reverse_flow_focused_validation_continue_run_executable` and
-  `reverse_flow_focused_validation_continue_runnable_work_unit_count` while
-  ready/unrecorded; zero-row and partial ready wakes always prefer the reverse-
-  flow continue supervisor resolver over residual repair noise
-- Pre-run wake (mode=run_pending): residual_hold_active, residual_export denied,
-  continue_run_executable when local pytest inventory units are present
-- Post-run wake after full pass + record: mode=keep_activation_external,
-  handoff ready, acceptance accepted, continue_run not recommended; residual
-  export still denied on the continue-run surface itself
+  `reverse_flow_focused_validation_continue_run_recommended`, nested inventory
+  `reverse_flow_focused_validation_continue_supervisor_wake`, and
+  `reverse_flow_focused_validation_continue_dispatch_helper` while
+  ready/unrecorded (alongside continue_run_executable / runnable count); zero-row
+  and partial ready wakes always prefer the reverse-flow continue resolver over
+  residual repair noise
+- Inventory-only dispatch (`execute=False`): action=`inventory_only`, residual
+  hold active, residual export denied, continue_run_executable when local pytest
+  inventory units are present
+- Full dispatch after pass + record: action=`run_and_record`,
+  mode=`keep_activation_external`, handoff ready, acceptance accepted,
+  continue_run not recommended; residual export still denied on the dispatch
+  surface itself
+- Partial dispatch: runs remaining units only (`mode=record_remaining`) then
+  packages keep_activation_external wake
+- Post-pass dispatch with execute still requested: action=`keep_activation_external`,
+  does not re-run units
 - While ready/unrecorded with zero partial rows:
   `continue_plan.mode=run_pending`,
   `supervisor_next_action=run_focused_local_test_validation_then_keep_activation_external`,
-  pending work units list the full local command set; run seam executes all
+  pending work units list the full local command set; dispatch executes all
 - While ready/unrecorded with partial rows:
   `continue_plan.mode=record_remaining`,
   pending work units shrink to remaining pairs only,
   `supervisor_next_action=record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external`;
-  run seam executes remaining only
+  dispatch executes remaining only
 - After multi-wake merge covers expected hashes and record/close passes,
   continue_plan mode becomes `keep_activation_external`, pending work units
   clear, residual holds release when residual-active

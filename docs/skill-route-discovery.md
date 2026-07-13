@@ -283,7 +283,15 @@ emits `skill_route_discovery_focused_local_test_validation`:
    reverse-flow-first `supervisor_next` (mode, residual hold, handoff/acceptance
    status) so residual fortress stages stay blocked until reverse-flow
    record/close and activation-external acceptance; run-and-record attaches
-   `supervisor_wake` on the operator-visible return packet
+   `supervisor_wake` on the operator-visible return packet. Preferred single
+   operator entry is
+   `dispatch_reverse_flow_focused_validation_continue_supervisor_wake`: resolve
+   inventory wake, optionally run/record when `continue_run_executable`, always
+   return reverse-flow-first `supervisor_wake`. Durable `operator_state` exports
+   `reverse_flow_focused_validation_continue_run_recommended`, nested inventory
+   `reverse_flow_focused_validation_continue_supervisor_wake`, and
+   `reverse_flow_focused_validation_continue_dispatch_helper` while reverse-flow
+   focused validation is ready/unrecorded
 
 Replay with:
 
@@ -337,7 +345,9 @@ results without treating unlock as a dead end:
    `resolve_reverse_flow_focused_validation_continue_run_supervisor_wake`
    resolves reverse-flow-first supervisor_next after continue-run inventory/run
    so residual stages stay blocked until reverse-flow record/close and
-   activation-external acceptance
+   activation-external acceptance;
+   `dispatch_reverse_flow_focused_validation_continue_supervisor_wake` is the
+   preferred single operator entry (inventory wake + optional run/record)
 4. On partial ready coverage, decision is
    `record_remaining_focused_validation_command_hashes_before_activation_external`
    and supervisor next is record-remaining (not a full re-run). On pass, decision
