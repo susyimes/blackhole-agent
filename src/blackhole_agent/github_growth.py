@@ -4992,6 +4992,17 @@ def build_skill_route_discovery_focused_local_test_validation(
     export_hashes = command_hashes if status in {"ready", "passed", "failed"} else []
     export_results = result_rows if status in {"passed", "failed"} else []
     recorded = status in {"passed", "failed"}
+    residual_hold_until_recorded = status == "ready" and not recorded
+    residual_hold_active = residual_hold_until_recorded or status == "failed"
+    # Fortress/Hy3 adjacent IDs are known for later residual stages, but reverse-flow
+    # focused validation must not pre-export them while residual work is held
+    # (ready/unrecorded or failed). Export resumes on recorded pass.
+    adjacent_ids = [
+        str(item).strip()
+        for item in list(unlocked_apply.get("adjacent_general_agent_proposal_ids") or [])
+        if str(item).strip()
+    ]
+    export_adjacent_ids = [] if residual_hold_active else adjacent_ids
 
     return {
         "schema_version": 1,
@@ -5063,9 +5074,8 @@ def build_skill_route_discovery_focused_local_test_validation(
         "retained_boundary_proposal_ids": list(
             unlocked_apply.get("retained_boundary_proposal_ids") or []
         ),
-        "adjacent_general_agent_proposal_ids": list(
-            unlocked_apply.get("adjacent_general_agent_proposal_ids") or []
-        ),
+        "adjacent_general_agent_proposal_ids": export_adjacent_ids,
+        "residual_adjacent_ids_held_until_recorded": residual_hold_active and bool(adjacent_ids),
         "general_agent_inherits_skill_unlock": False,
         "privacy_rows_selectable_for_local_apply": False,
         "general_agent_isolation_passed": bool(
@@ -5109,13 +5119,13 @@ def build_skill_route_discovery_focused_local_test_validation(
         # validation command-hash results are recorded/closed. Operators must not
         # jump to residual harness-eval while this surface is ready/unrecorded or
         # failed (repair required). Residual selection also stays suppressed on
-        # residual stage packets until residual work is residual-active.
-        "residual_adjacent_hold_until_recorded": status == "ready" and not recorded,
-        "residual_adjacent_hold_active": (status == "ready" and not recorded)
-        or status == "failed",
+        # residual stage packets until residual work is residual-active. Adjacent
+        # fortress proposal IDs are likewise not exported while this hold is active.
+        "residual_adjacent_hold_until_recorded": residual_hold_until_recorded,
+        "residual_adjacent_hold_active": residual_hold_active,
         "residual_adjacent_hold_reason": (
             "blocked_until_focused_validation_recorded_and_activation_external_accepted"
-            if status == "ready" and not recorded
+            if residual_hold_until_recorded
             else "blocked_until_focused_validation_repaired"
             if status == "failed"
             else "not_held"
@@ -5290,6 +5300,11 @@ def build_skill_route_discovery_focused_validation_activation_external_handoff(
 
     export_hashes = command_hashes if status in {"ready", "blocked_until_focused_validation_repaired"} else []
     export_results = result_rows if status in {"ready", "blocked_until_focused_validation_repaired"} else []
+    # Residual fortress/Hy3 adjacent IDs and availability only export when the
+    # reverse-flow activation-external handoff is ready (recorded pass). While
+    # blocked waiting on record/repair, do not pre-advertise residual work.
+    export_adjacent_ids = adjacent_ids if status == "ready" else []
+    export_residual_available = bool(export_adjacent_ids)
 
     return {
         "schema_version": 1,
@@ -5371,11 +5386,13 @@ def build_skill_route_discovery_focused_validation_activation_external_handoff(
         "activation_external_only": True,
         "supervisor_activation_allowed": False,
         "retained_boundary_proposal_ids": retained_ids,
-        "adjacent_general_agent_proposal_ids": adjacent_ids,
-        "residual_adjacent_harness_eval_available": residual_adjacent_available,
+        "adjacent_general_agent_proposal_ids": export_adjacent_ids,
+        "residual_adjacent_harness_eval_available": export_residual_available,
         "residual_adjacent_handoff_surface": (
-            "agent_harness_eval_cluster_local_apply" if residual_adjacent_available else "none"
+            "agent_harness_eval_cluster_local_apply" if export_residual_available else "none"
         ),
+        "residual_adjacent_export_held_until_ready": status != "ready"
+        and bool(residual_adjacent_available),
         "general_agent_inherits_skill_unlock": False,
         "privacy_rows_selectable_for_local_apply": False,
         "general_agent_isolation_passed": bool(
@@ -5644,6 +5661,13 @@ def build_skill_route_discovery_focused_validation_activation_external_acceptanc
 
     export_hashes = command_hashes if status == "accepted" else []
     export_results = result_rows if status == "accepted" else []
+    # Residual fortress/Hy3 IDs and availability export only after reverse-flow
+    # acceptance. While acceptance is blocked on handoff/record, do not
+    # pre-advertise residual adjacent work.
+    export_adjacent_ids = adjacent_ids if status == "accepted" else []
+    export_residual_available = (
+        bool(residual_adjacent_available) if status == "accepted" else False
+    )
 
     return {
         "schema_version": 1,
@@ -5753,11 +5777,13 @@ def build_skill_route_discovery_focused_validation_activation_external_acceptanc
         "activation_external_only": True,
         "supervisor_activation_allowed": False,
         "retained_boundary_proposal_ids": retained_ids,
-        "adjacent_general_agent_proposal_ids": adjacent_ids,
-        "residual_adjacent_harness_eval_available": residual_adjacent_available,
+        "adjacent_general_agent_proposal_ids": export_adjacent_ids,
+        "residual_adjacent_harness_eval_available": export_residual_available,
         "residual_adjacent_handoff_surface": (
-            "agent_harness_eval_cluster_local_apply" if residual_adjacent_available else "none"
+            "agent_harness_eval_cluster_local_apply" if export_residual_available else "none"
         ),
+        "residual_adjacent_export_held_until_ready": status != "accepted"
+        and bool(residual_adjacent_available),
         "general_agent_inherits_skill_unlock": False,
         "privacy_rows_selectable_for_local_apply": False,
         "general_agent_isolation_passed": bool(
@@ -5921,11 +5947,18 @@ def build_skill_route_discovery_focused_validation_residual_adjacent_queue(
                 )
             )
         )
-    if "residual_adjacent_harness_eval_available" in acceptance:
+    # Acceptance/handoff residual_adjacent_harness_eval_available is an export gate
+    # while reverse-flow is blocked (False means held, not absent). Trust those flags
+    # only after reverse-flow acceptance (or ready handoff) completes; otherwise
+    # residual existence follows adjacent row/id presence.
+    if acceptance_status == "accepted" and "residual_adjacent_harness_eval_available" in acceptance:
         residual_available = bool(acceptance.get("residual_adjacent_harness_eval_available")) and bool(
             adjacent_ids
         )
-    elif "residual_adjacent_harness_eval_available" in handoff:
+    elif (
+        str(handoff.get("status") or "") == "ready"
+        and "residual_adjacent_harness_eval_available" in handoff
+    ):
         residual_available = bool(handoff.get("residual_adjacent_harness_eval_available")) and bool(
             adjacent_ids
         )
@@ -6031,6 +6064,10 @@ def build_skill_route_discovery_focused_validation_residual_adjacent_queue(
 
     export_adjacent_ids = adjacent_ids if status == "ready" else []
     export_retained_ids = retained_ids if status in {"ready", "blocked", "not_applicable"} else []
+    # Residual availability is only advertised when the residual queue itself is
+    # residual-active (ready). Reverse-flow-waiting blocked statuses keep
+    # availability false so operators do not jump past reverse-flow gates.
+    export_residual_available = bool(residual_available) if status == "ready" else False
 
     return {
         "schema_version": 1,
@@ -6113,10 +6150,12 @@ def build_skill_route_discovery_focused_validation_residual_adjacent_queue(
         "supervisor_activation_allowed": False,
         "retained_boundary_proposal_ids": export_retained_ids,
         "adjacent_general_agent_proposal_ids": export_adjacent_ids,
-        "residual_adjacent_harness_eval_available": residual_available,
+        "residual_adjacent_harness_eval_available": export_residual_available,
         "residual_adjacent_handoff_surface": (
-            "agent_harness_eval_cluster_local_apply" if residual_available else "none"
+            "agent_harness_eval_cluster_local_apply" if export_residual_available else "none"
         ),
+        "residual_adjacent_export_held_until_ready": status != "ready"
+        and bool(residual_available),
         "general_agent_inherits_skill_unlock": False,
         "privacy_rows_selectable_for_local_apply": False,
         "general_agent_isolation_passed": general_agent_isolated,
@@ -6540,9 +6579,11 @@ def build_skill_route_discovery_residual_adjacent_harness_eval_local_apply(
         "supervisor_activation_allowed": False,
         "retained_boundary_proposal_ids": retained_ids if status in {"ready", "blocked", "not_applicable"} else [],
         "adjacent_general_agent_proposal_ids": export_residual_ids,
-        "residual_adjacent_harness_eval_available": bool(residual_ids),
+        # Availability tracks residual-active export only; reverse-flow-waiting
+        # statuses leave residual IDs and availability empty.
+        "residual_adjacent_harness_eval_available": bool(export_residual_ids),
         "residual_adjacent_handoff_surface": (
-            "agent_harness_eval_cluster_local_apply" if residual_ids else "none"
+            "agent_harness_eval_cluster_local_apply" if export_residual_ids else "none"
         ),
         "general_agent_inherits_skill_unlock": False,
         "privacy_rows_selectable_for_local_apply": False,
@@ -6954,9 +6995,9 @@ def build_skill_route_discovery_residual_adjacent_harness_eval_local_comparison(
         if status in {"ready", "blocked", "not_applicable"}
         else [],
         "adjacent_general_agent_proposal_ids": export_residual_ids,
-        "residual_adjacent_harness_eval_available": bool(residual_ids),
+        "residual_adjacent_harness_eval_available": bool(export_residual_ids),
         "residual_adjacent_handoff_surface": (
-            "agent_harness_eval_cluster_local_apply" if residual_ids else "none"
+            "agent_harness_eval_cluster_local_apply" if export_residual_ids else "none"
         ),
         "general_agent_inherits_skill_unlock": False,
         "privacy_rows_selectable_for_local_apply": False,
@@ -7423,9 +7464,9 @@ def build_skill_route_discovery_residual_adjacent_unlocked_local_lane_apply(
         if status in {"ready", "blocked", "not_applicable"}
         else [],
         "adjacent_general_agent_proposal_ids": export_residual_ids,
-        "residual_adjacent_harness_eval_available": bool(residual_ids),
+        "residual_adjacent_harness_eval_available": bool(export_residual_ids),
         "residual_adjacent_handoff_surface": (
-            "agent_harness_eval_cluster_local_apply" if residual_ids else "none"
+            "agent_harness_eval_cluster_local_apply" if export_residual_ids else "none"
         ),
         "general_agent_inherits_skill_unlock": False,
         "privacy_rows_selectable_for_local_apply": False,
@@ -10098,6 +10139,8 @@ def render_skill_route_discovery_capability_pipeline_lines(
         f"{reverse_flow_focused_hold_active}`",
         f"- Residual adjacent selection held until residual-active: `"
         f"{residual_selection_held or reverse_flow_focused_hold_active or not residual_work_is_residual_active}`",
+        f"- Residual adjacent export held on reverse-flow surfaces: `"
+        f"{bool(focused_local_test_validation.get('residual_adjacent_ids_held_until_recorded') or activation_external_handoff.get('residual_adjacent_export_held_until_ready') or activation_external_acceptance.get('residual_adjacent_export_held_until_ready') or residual_adjacent_queue.get('residual_adjacent_export_held_until_ready') or reverse_flow_focused_hold_active)}`",
         f"- Adjacent agent harness-eval handoff: `{adjacent_handoff.get('status') or 'none'}`",
         f"- Adjacent handoff decision: `{adjacent_handoff.get('decision') or 'none'}`",
         f"- Theme complete: `{bool(local_apply_completion.get('theme_complete'))}`",
@@ -10115,6 +10158,7 @@ def render_skill_route_discovery_capability_pipeline_lines(
         "- After unlock, skill_route_discovery_focused_local_test_validation records body-free command-hash results and keeps activation external.",
         "- While reverse-flow focused validation is ready/unrecorded or failed, residual fortress/Hy3 stages stay held; supervisor_next stays on reverse-flow focused validation and residual selected proposal is not advertised on residual packets or render.",
         "- Residual fortress/Hy3 selected_residual_proposal_id is exported only when residual work is residual-active; reverse-flow-waiting residual stages leave selection empty.",
+        "- Reverse-flow focused validation, activation-external handoff/acceptance, and residual queue also hold residual adjacent_general_agent_proposal_ids and residual_adjacent_harness_eval_available until reverse-flow record/close and residual-active readiness; do not pre-export fortress IDs while reverse-flow waits.",
         "- After ready, record_skill_route_discovery_focused_local_test_validation_results closes body-free command-hash results while activation stays external.",
         "- After ready, close_skill_route_discovery_focused_local_test_validation_with_outcome materializes body-free expected-hash outcomes and refreshes activation-external handoff/acceptance.",
         "- After recorded pass, skill_route_discovery_focused_validation_activation_external_handoff packages keep_activation_external while push/promotion/restart stay denied.",

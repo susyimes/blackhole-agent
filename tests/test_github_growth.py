@@ -5330,6 +5330,10 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert focused["residual_adjacent_hold_reason"] == (
         "blocked_until_focused_validation_recorded_and_activation_external_accepted"
     )
+    # Fortress adjacent IDs are not pre-exported on reverse-flow focused validation
+    # while residual hold is active (ready/unrecorded).
+    assert focused["adjacent_general_agent_proposal_ids"] == []
+    assert focused["residual_adjacent_ids_held_until_recorded"] is True
     assert focused["record_helpers"] == [
         "record_skill_route_discovery_focused_local_test_validation_results",
         "close_skill_route_discovery_focused_local_test_validation_with_outcome",
@@ -5376,6 +5380,11 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert activation_blocked["provider_launch_allowed"] is False
     assert activation_blocked["remote_apply_allowed"] is False
     assert activation_blocked["focused_validation"]["commands_exported"] is False
+    # Blocked reverse-flow handoff does not pre-export residual fortress IDs.
+    assert activation_blocked["adjacent_general_agent_proposal_ids"] == []
+    assert activation_blocked["residual_adjacent_harness_eval_available"] is False
+    assert activation_blocked["residual_adjacent_handoff_surface"] == "none"
+    assert activation_blocked["residual_adjacent_export_held_until_ready"] is True
 
     # Unrecorded focused validation also blocks activation-external acceptance.
     acceptance_blocked = pipeline["focused_validation_activation_external_acceptance"]
@@ -5402,6 +5411,10 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert acceptance_blocked["external_skill_execution_allowed"] is False
     assert acceptance_blocked["provider_launch_allowed"] is False
     assert acceptance_blocked["remote_apply_allowed"] is False
+    assert acceptance_blocked["adjacent_general_agent_proposal_ids"] == []
+    assert acceptance_blocked["residual_adjacent_harness_eval_available"] is False
+    assert acceptance_blocked["residual_adjacent_handoff_surface"] == "none"
+    assert acceptance_blocked["residual_adjacent_export_held_until_ready"] is True
 
     # Unrecorded focused validation also blocks residual adjacent queue.
     residual_blocked = pipeline["focused_validation_residual_adjacent_queue"]
@@ -5422,6 +5435,9 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert residual_apply_blocked["supervisor_activation_allowed"] is False
     assert residual_apply_blocked["unlocked_local_lanes"] == []
     assert residual_apply_blocked["skill_route_discovery_inherited"] is False
+    assert residual_apply_blocked["residual_adjacent_harness_eval_available"] is False
+    assert residual_apply_blocked["residual_adjacent_handoff_surface"] == "none"
+    assert residual_apply_blocked["adjacent_general_agent_proposal_ids"] == []
     residual_comparison_blocked = pipeline[
         "residual_adjacent_harness_eval_local_comparison"
     ]
@@ -5481,6 +5497,10 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert residual_blocked["unlocked_local_lanes"] == []
     assert residual_blocked["skill_route_discovery_inherited"] is False
     assert residual_blocked["general_agent_inherits_skill_unlock"] is False
+    assert residual_blocked["adjacent_general_agent_proposal_ids"] == []
+    assert residual_blocked["residual_adjacent_harness_eval_available"] is False
+    assert residual_blocked["residual_adjacent_handoff_surface"] == "none"
+    assert residual_blocked["residual_adjacent_export_held_until_ready"] is True
 
     # Operator-visible pipeline next action must stay on reverse-flow focused
     # validation while residual acceptance is only blocked waiting on earlier stages.
@@ -5540,6 +5560,10 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         "Residual adjacent selection held until residual-active: `True`"
         in pipeline_rendered
     )
+    assert (
+        "Residual adjacent export held on reverse-flow surfaces: `True`"
+        in pipeline_rendered
+    )
     assert "Residual adjacent selected proposal: `none`" in pipeline_rendered
     assert "prop-harness-fortress-local-eval" not in pipeline_rendered.split(
         "Supervisor next action:"
@@ -5554,6 +5578,10 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     )
     assert (
         "Residual fortress/Hy3 selected_residual_proposal_id is exported only when residual work is residual-active"
+        in pipeline_rendered
+    )
+    assert (
+        "hold residual adjacent_general_agent_proposal_ids and residual_adjacent_harness_eval_available"
         in pipeline_rendered
     )
 
@@ -5599,6 +5627,9 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert passed["residual_adjacent_hold_until_recorded"] is False
     assert passed["residual_adjacent_hold_active"] is False
     assert passed["residual_adjacent_hold_reason"] == "not_held"
+    # Recorded pass re-exports residual adjacent fortress IDs for downstream stages.
+    assert "prop-harness-fortress-local-eval" in passed["adjacent_general_agent_proposal_ids"]
+    assert passed["residual_adjacent_ids_held_until_recorded"] is False
     assert passed["focused_validation"]["all_expected_passed"] is True
     assert passed["focused_validation"]["recorded"] is True
     assert passed["focused_validation_recorded"] is True
@@ -5620,6 +5651,8 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert failed["residual_adjacent_hold_reason"] == (
         "blocked_until_focused_validation_repaired"
     )
+    assert failed["adjacent_general_agent_proposal_ids"] == []
+    assert failed["residual_adjacent_ids_held_until_recorded"] is True
 
     # Recorded pass packages operator-visible activation-external handoff.
     activation_ready = build_skill_route_discovery_focused_validation_activation_external_handoff(
@@ -5659,6 +5692,10 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert activation_ready["residual_adjacent_handoff_surface"] == (
         "agent_harness_eval_cluster_local_apply"
     )
+    assert "prop-harness-fortress-local-eval" in activation_ready[
+        "adjacent_general_agent_proposal_ids"
+    ]
+    assert activation_ready["residual_adjacent_export_held_until_ready"] is False
     assert activation_ready["general_agent_inherits_skill_unlock"] is False
 
     # Ready activation-external handoff packages terminal acceptance without activation.

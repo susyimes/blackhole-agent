@@ -46,32 +46,40 @@ residual adjacent focused validation activation-external handoff →
 residual adjacent focused validation activation-external acceptance →
 (optional) selected-step adjacent harness-eval.
 
-Observed this run (digest `github-growth-20260713T031123.591532Z`,
-`prop-reverse-flow-skill-route-test` with residual fortress adjacent):
+Observed this run (digest `github-growth-20260713T033123.572996Z`,
+`prop-reverse-flow-skill-route-discovery` with residual fortress adjacent):
 
-- Reverse-flow focused validation is `ready` / unrecorded; residual stages stay
-  blocked waiting on reverse-flow record/close and activation-external acceptance
+- Reverse-flow focused validation is still `ready` / unrecorded; residual stages
+  stay blocked waiting on reverse-flow record/close and activation-external
+  acceptance
 - Prior residual acceptance repair still holds: residual acceptance inherits
   cascaded handoff next when handoff is blocked, and only owns render priority
   when residual handoff is residual-active
 - Prior residual-active render ownership still holds: residual stages that are
   only reverse-flow-waiting do not own `supervisor_next` at all
-- New: residual stage packets no longer pre-export fortress
-  `selected_residual_proposal_id` / residual `proposal_id` while reverse-flow-
-  waiting (`residual_selection_held_until_residual_active=true` on residual
-  apply, comparison, unlocked apply, focused validation, residual handoff, and
-  residual acceptance). Selection exports only when residual work is residual-
-  active after reverse-flow gates clear
-- Focused validation packets mark `residual_adjacent_hold_until_recorded=true`
-  while ready/unrecorded and `residual_adjacent_hold_active=true` while
-  ready/unrecorded or failed (repair path keeps residual held)
-- Pipeline render surfaces residual selection held until residual-active and
-  keeps residual selected proposal `none` while reverse-flow waits
+- Prior residual selection hold still holds: residual stage packets leave
+  fortress `selected_residual_proposal_id` / residual `proposal_id` empty while
+  reverse-flow-waiting (`residual_selection_held_until_residual_active=true`)
+- New: reverse-flow surfaces no longer pre-export residual fortress adjacent
+  IDs or residual availability while reverse-flow-waiting. Focused validation
+  holds `adjacent_general_agent_proposal_ids` while residual hold is active
+  (`residual_adjacent_ids_held_until_recorded=true`); activation-external
+  handoff/acceptance and residual queue leave
+  `residual_adjacent_harness_eval_available=false` and empty residual adjacent
+  IDs (`residual_adjacent_export_held_until_ready=true`) until ready/accepted
+- Residual apply/comparison/unlocked also gate residual availability to residual-
+  active export sets only
+- Focused validation packets still mark `residual_adjacent_hold_until_recorded`
+  / `residual_adjacent_hold_active` while ready/unrecorded or failed
+- Pipeline render surfaces residual selection held, residual export held on
+  reverse-flow surfaces, and residual selected proposal `none` while reverse-
+  flow waits
 - Correct operator next while reverse-flow focused validation is unrecorded:
   `run_focused_local_test_validation_then_keep_activation_external`
 - After record/close pass, reverse-flow activation-external handoff/acceptance
-  may surface before residual becomes residual-active; residual fortress is not
-  advertised early on residual packets
+  re-export residual fortress availability before residual stages become
+  residual-active; residual fortress is not advertised early while reverse-flow
+  waits
 - Residual acceptance still inherits repair-failed residual focused validation
   when residual handoff is
   `blocked_until_residual_adjacent_focused_validation_repaired`

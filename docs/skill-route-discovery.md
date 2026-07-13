@@ -224,7 +224,14 @@ emits `skill_route_discovery_focused_local_test_validation`:
    reverse-flow-waiting (`residual_selection_held_until_residual_active=true` on
    residual apply and later residual stages). Fortress selection is exported only
    when residual work is residual-active
-9. Record helpers
+9. Reverse-flow focused validation also holds
+   `adjacent_general_agent_proposal_ids` while residual hold is active
+   (`residual_adjacent_ids_held_until_recorded=true`). Fortress IDs re-export
+   only after recorded pass. Activation-external handoff/acceptance and residual
+   queue likewise leave `residual_adjacent_harness_eval_available=false` and
+   empty residual adjacent IDs while reverse-flow-waiting
+   (`residual_adjacent_export_held_until_ready=true` until ready/accepted)
+10. Record helpers
    `record_skill_route_discovery_focused_local_test_validation_results` and
    `close_skill_route_discovery_focused_local_test_validation_with_outcome` are
    named on the packet; activation-external handoff follows only after record
@@ -286,6 +293,9 @@ results that cover the expected set, the pipeline emits
    `blocked_until_focused_validation_repaired`
 7. Residual fortress-style adjacent rows may be noted as
    `residual_adjacent_harness_eval_available` without inheriting skill unlocks
+   **only when this handoff is `ready`**. While blocked on record/repair, residual
+   adjacent IDs stay empty and availability is false
+   (`residual_adjacent_export_held_until_ready=true`)
 
 Replay with:
 
