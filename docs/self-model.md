@@ -46,7 +46,7 @@ residual adjacent focused validation activation-external handoff →
 residual adjacent focused validation activation-external acceptance →
 (optional) selected-step adjacent harness-eval.
 
-Observed this run (digest `github-growth-20260713T104922.375514Z`,
+Observed this run (digest `github-growth-20260713T125418.632802Z`,
 `prop-reverse-flow-skill-route-discovery-continue` bound against
 `lingbol088-spec/reverse-flow-skill`, residual fortress adjacent):
 
@@ -57,50 +57,56 @@ Observed this run (digest `github-growth-20260713T104922.375514Z`,
 - Prior: continue plan + pending work units + local allowlist + continue-run
   plan/execute/record + run supervisor_wake + inventory dispatch + follow-through
   resolve/follow + operator_card + progress_transition + action_line +
-  exec_receipt / finish_receipt / residual_open already inventory, optional
-  allowlisted run/record, reverse-flow-first `supervisor_wake`,
-  `post_dispatch_inventory`, `follow_through`, `operator_card` /
-  `post_operator_card`, `progress_transition`, `exec_receipt`,
-  `finish_receipt`, and `residual_open`
-- New: `package_reverse_flow_focused_validation_continue_residual_entry` collapses
-  residual open plus residual adjacent harness-eval local apply selection into
-  body-free `residual_entry_line` (for example
-  `residual_entry ready=true selected=prop-harness-fortress-local-eval
-  status=ready count=1
-  next=run_agent_harness_eval_local_comparison_for_residual_adjacent_row
+  exec_receipt / finish_receipt / residual_open / residual_entry already
+  inventory, optional allowlisted run/record, reverse-flow-first
+  `supervisor_wake`, `post_dispatch_inventory`, `follow_through`,
+  `operator_card` / `post_operator_card`, `progress_transition`,
+  `exec_receipt`, `finish_receipt`, `residual_open`, and `residual_entry`
+- New: `package_reverse_flow_focused_validation_continue_residual_follow`
+  collapses residual entry into body-free `residual_follow_line` (for example
+  `residual_follow ready=true selected=prop-harness-fortress-local-eval
+  action=open_residual_harness_eval_local_comparison call_comparison=true
   residual_export=false
-  helper=build_skill_route_discovery_residual_adjacent_harness_eval_local_apply`)
-  so supervisors do not re-derive selected residual fortress/Hy3 IDs after
-  residual open is ready
-- New: follow and dispatch attach `residual_entry`, `residual_entry_line`,
-  `residual_entry_ready`, and `selected_residual_proposal_id`
-- New: inventory-only wakes package blocked residual entry
-  (`ready=false`, `selected=none`) for pre-exec audit while residual open is
-  still blocked
-- New: operator_state exports nested `continue_residual_entry`,
-  `continue_residual_entry_helper`, `continue_residual_entry_line`,
-  `continue_residual_entry_ready`, and
-  `continue_selected_residual_proposal_id` (alongside continue_residual_open /
-  continue_finish_receipt / continue_finished / continue_residual_queue_ready)
-- Ready/unrecorded residual entry: `residual_entry_ready=false`, selected residual
-  held empty, residual_export denied; finish stays incomplete while progress is 0/N
+  next=run_agent_harness_eval_local_comparison_for_residual_adjacent_row
+  helper=build_skill_route_discovery_residual_adjacent_harness_eval_local_comparison`)
+  so supervisors do not re-derive residual comparison follow-through after
+  residual entry is ready
+- New: follow and dispatch attach `residual_follow`, `residual_follow_line`,
+  `residual_follow_ready`, `residual_follow_action`, and
+  `call_residual_comparison`
+- New: inventory-only wakes package blocked residual follow
+  (`ready=false`, `action=wait_for_reverse_flow`, `call_comparison=false`) for
+  pre-exec audit while residual entry is still blocked
+- New: operator_state exports nested `continue_residual_follow`,
+  `continue_residual_follow_helper`, `continue_residual_follow_line`,
+  `continue_residual_follow_ready`, `continue_residual_follow_action`, and
+  `continue_call_residual_comparison` (alongside continue_residual_entry /
+  continue_residual_open / continue_finish_receipt / continue_finished)
+- Ready/unrecorded residual follow: `residual_follow_ready=false`,
+  `residual_follow_action=wait_for_reverse_flow`,
+  `call_residual_comparison=false`, residual_export denied; finish stays
+  incomplete while progress is 0/N
 - Full follow after pass + record: `continue_finished=true`,
-  `residual_queue_ready=true`, `residual_open_ready=true`, and
-  `residual_entry_ready=true` when residual apply status is ready with selected
-  fortress/Hy3 ID; residual export still denied on continue/dispatch/follow/
-  finish/residual_open/residual_entry surfaces themselves (residual stages open
+  `residual_queue_ready=true`, `residual_open_ready=true`,
+  `residual_entry_ready=true`, and `residual_follow_ready=true` with
+  `residual_follow_action=open_residual_harness_eval_local_comparison` and
+  `call_residual_comparison=true` when residual apply status is ready with
+  selected fortress/Hy3 ID; residual export still denied on continue/dispatch/
+  follow/finish/residual_open/residual_entry/residual_follow surfaces themselves
+  (`call_residual_comparison` is informational policy only; residual stages open
   only via residual pipeline helpers)
 - Partial follow: runs remaining units only (`mode=record_remaining`) then
-  packages keep_activation_external post_follow_through; residual entry becomes
+  packages keep_activation_external post_follow_through; residual follow becomes
   ready only when remaining units close, acceptance is accepted, residual queue
-  is residual-active, and residual apply selection is residual-active ready
+  is residual-active, residual entry is residual-active ready, and residual apply
+  selection is residual-active ready
 - Post-pass follow with recommendation still defaulted: action=`keep_activation_external`,
-  call_dispatch_with_execute=false, does not re-run units; residual open and
-  residual entry stay ready with residual_export denied when residual queue and
-  residual apply are ready
+  call_dispatch_with_execute=false, does not re-run units; residual open, residual
+  entry, and residual follow stay ready with residual_export denied when residual
+  queue and residual apply are ready
 - Explicit `execute=False` on follow or dispatch stays inventory-only even when
-  follow_through_action would be `execute_now`; residual open and residual entry
-  stay blocked while progress is 0/N
+  follow_through_action would be `execute_now`; residual open, residual entry,
+  and residual follow stay blocked while progress is 0/N
 - While ready/unrecorded with zero partial rows:
   `continue_plan.mode=run_pending`,
   `supervisor_next_action=run_focused_local_test_validation_then_keep_activation_external`,
@@ -113,8 +119,9 @@ Observed this run (digest `github-growth-20260713T104922.375514Z`,
 - After multi-wake merge covers expected hashes and record/close passes,
   continue_plan mode becomes `keep_activation_external`, pending work units
   clear, residual holds release when residual-active, finish receipt marks
-  residual_queue ready, residual open packages residual next, and residual entry
-  packages selected residual without enabling residual_export on continue surfaces
+  residual_queue ready, residual open packages residual next, residual entry
+  packages selected residual, and residual follow packages comparison policy
+  without enabling residual_export on continue surfaces
 - Activation, push, promotion, provider launch, remote apply, external skill
   execution, and kernel restart stay denied
 - agent-chief remains privacy review-only
