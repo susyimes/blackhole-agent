@@ -46,7 +46,7 @@ residual adjacent focused validation activation-external handoff →
 residual adjacent focused validation activation-external acceptance →
 (optional) selected-step adjacent harness-eval.
 
-Observed this run (digest `github-growth-20260713T053123.445910Z`,
+Observed this run (digest `github-growth-20260713T055123.668432Z`,
 `prop-reverse-flow-skill-route-discovery-continue` bound against
 `lingbol088-spec/reverse-flow-skill`, residual fortress adjacent):
 
@@ -54,30 +54,32 @@ Observed this run (digest `github-growth-20260713T053123.445910Z`,
   `continue_plan.mode=run_pending` until supervisors run pending work units and
   record/close body-free results; residual stages stay blocked waiting on
   reverse-flow record/close and activation-external acceptance
-- Prior: continue plan + durable pending command texts/counts and continue_plan
-  mode already unify zero-row (`run_pending`) and partial (`record_remaining`)
-  wakes; partial supervisor_next promotes via
-  `resolve_reverse_flow_focused_validation_continue_supervisor_next`
-- New: ordered `pending_work_units` pair each pending local command with its
-  body-free `command_hash` and original `inventory_index` on continue_plan,
-  focused_validation, and operator_state
-  (`reverse_flow_focused_validation_pending_work_units`) so supervisors do not
-  re-zip `pending_commands` against `missing_command_hashes`
-- New: `materialize_reverse_flow_focused_validation_continue_record_rows` accepts
-  hash-map, parallel bool, or row-dict outcomes for pending units only and emits
-  body-free `{command_hash, passed, in_expected_set}` rows
-- New: `record_reverse_flow_focused_validation_continue_outcomes` is the
-  operator-visible integration seam — run pending units, supply outcomes, merge
-  through existing record path; residual export stays denied until coverage is
-  complete
+- Prior: continue plan + `pending_work_units` +
+  `record_reverse_flow_focused_validation_continue_outcomes` already package
+  ordered pending inventory and body-free merge; partial supervisor_next
+  promotes via `resolve_reverse_flow_focused_validation_continue_supervisor_next`
+- New: `reverse_flow_focused_validation_continue_local_command_allowed` admits
+  only local pytest inventory lines targeting `tests/` with no shell
+  metacharacters (not a general command executor)
+- New: `build_reverse_flow_focused_validation_continue_run_plan` annotates each
+  pending unit with `local_allowed` / `skip_reason` for inspectable run_pending
+  and record_remaining wakes without executing
+- New: `execute_reverse_flow_focused_validation_continue_run_plan` runs allowed
+  units via injected `command_runner` (no shell, no stdout export) and returns
+  body-free `{command_hash → passed}` outcomes plus unit_results
+- New: `run_reverse_flow_focused_validation_continue_pending_work_units` is the
+  operator-visible run-and-record seam — build plan → execute pending units →
+  `record_reverse_flow_focused_validation_continue_outcomes`; residual export
+  stays denied until coverage is complete
 - While ready/unrecorded with zero partial rows:
   `continue_plan.mode=run_pending`,
   `supervisor_next_action=run_focused_local_test_validation_then_keep_activation_external`,
-  pending work units list the full local command set
+  pending work units list the full local command set; run seam executes all
 - While ready/unrecorded with partial rows:
   `continue_plan.mode=record_remaining`,
   pending work units shrink to remaining pairs only,
-  `supervisor_next_action=record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external`
+  `supervisor_next_action=record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external`;
+  run seam executes remaining only
 - After multi-wake merge covers expected hashes and record/close passes,
   continue_plan mode becomes `keep_activation_external`, pending work units
   clear, residual holds release when residual-active

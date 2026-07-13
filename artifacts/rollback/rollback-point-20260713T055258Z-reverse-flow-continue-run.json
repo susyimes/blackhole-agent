@@ -1,0 +1,13 @@
+{
+  "theme": "reverse-flow-continue-run-pending-work-units",
+  "recovery_commands": [
+    "git checkout grok/blackhole-evolve/20260713T055149.833466-continue-skill-route-discovery-for-reverse-flow-",
+    "git reset --hard refs/blackhole/rollback/20260713T055258Z",
+    "git clean -fd"
+  ],
+  "original_head": "6d634fd4baa8e3fd528840fca27a872a1df0f406",
+  "original_branch": "grok/blackhole-evolve/20260713T055149.833466-continue-skill-route-discovery-for-reverse-flow-",
+  "created_at": "2026-07-13T05:52:59.1826577Z",
+  "rollback_id": "20260713T055258Z",
+  "local_rollback_ref": "refs/blackhole/rollback/20260713T055258Z"
+}

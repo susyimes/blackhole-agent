@@ -180,7 +180,13 @@ and while partial `supervisor_next_action` promotes to
 via `resolve_reverse_flow_focused_validation_continue_supervisor_next` (not a
 full focused re-run). Supervisors may record only pending units through
 `record_reverse_flow_focused_validation_continue_outcomes` after
-`materialize_reverse_flow_focused_validation_continue_record_rows`. After a
+`materialize_reverse_flow_focused_validation_continue_record_rows`, or run and
+record them through
+`run_reverse_flow_focused_validation_continue_pending_work_units` (local pytest
+inventory allowlist via
+`build_reverse_flow_focused_validation_continue_run_plan` +
+`execute_reverse_flow_focused_validation_continue_run_plan`; no stdout export,
+no activation). After a
 recorded pass,
 `skill_route_discovery_focused_validation_activation_external_handoff` packages
 `keep_activation_external_after_focused_local_test_validation` into one

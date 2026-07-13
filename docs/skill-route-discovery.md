@@ -270,8 +270,14 @@ emits `skill_route_discovery_focused_local_test_validation`:
    continue plan, focused validation, and durable operator_state so supervisors
    do not re-zip parallel lists. `materialize_reverse_flow_focused_validation_continue_record_rows`
    turns per-unit outcomes into body-free record rows for pending units only;
-   `record_reverse_flow_focused_validation_continue_outcomes` is the integration
-   seam that merges those rows onto the pipeline
+   `record_reverse_flow_focused_validation_continue_outcomes` merges those rows
+   onto the pipeline. Supervisors may also call
+   `run_reverse_flow_focused_validation_continue_pending_work_units` to package a
+   local continue-run plan (`build_reverse_flow_focused_validation_continue_run_plan`),
+   execute only allowlisted local pytest inventory lines
+   (`execute_reverse_flow_focused_validation_continue_run_plan`,
+   `reverse_flow_focused_validation_continue_local_command_allowed`), and record
+   body-free outcomes without exporting stdout or enabling activation
 
 Replay with:
 
@@ -317,7 +323,11 @@ results without treating unlock as a dead end:
    `run_pending` | `record_remaining` | `repair` | `keep_activation_external`;
    `materialize_reverse_flow_focused_validation_continue_record_rows` and
    `record_reverse_flow_focused_validation_continue_outcomes` turn pending-unit
-   outcomes into body-free merge-friendly record rows
+   outcomes into body-free merge-friendly record rows;
+   `build_reverse_flow_focused_validation_continue_run_plan`,
+   `execute_reverse_flow_focused_validation_continue_run_plan`, and
+   `run_reverse_flow_focused_validation_continue_pending_work_units` run only
+   local-allowlisted pytest inventory units and optionally record outcomes
 4. On partial ready coverage, decision is
    `record_remaining_focused_validation_command_hashes_before_activation_external`
    and supervisor next is record-remaining (not a full re-run). On pass, decision

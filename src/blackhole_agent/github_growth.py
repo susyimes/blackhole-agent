@@ -5068,6 +5068,10 @@ def build_reverse_flow_focused_validation_continue_plan(
         "record_helpers": [
             "record_skill_route_discovery_focused_local_test_validation_results",
             "close_skill_route_discovery_focused_local_test_validation_with_outcome",
+            "run_reverse_flow_focused_validation_continue_pending_work_units",
+            "execute_reverse_flow_focused_validation_continue_run_plan",
+            "build_reverse_flow_focused_validation_continue_run_plan",
+            "reverse_flow_focused_validation_continue_local_command_allowed",
             "record_reverse_flow_focused_validation_continue_outcomes",
             "materialize_reverse_flow_focused_validation_continue_record_rows",
             "merge_skill_route_discovery_focused_validation_command_results",
@@ -5457,6 +5461,386 @@ def record_reverse_flow_focused_validation_continue_outcomes(
     )
 
 
+REVERSE_FLOW_FOCUSED_VALIDATION_CONTINUE_LOCAL_COMMAND_PREFIXES = (
+    "pytest ",
+    "python -m pytest ",
+    "python3 -m pytest ",
+    "py -m pytest ",
+)
+REVERSE_FLOW_FOCUSED_VALIDATION_CONTINUE_SHELL_METACHARS = (
+    ";",
+    "&&",
+    "||",
+    "|",
+    "`",
+    "$(",
+    "\n",
+    "\r",
+    ">",
+    "<",
+)
+
+
+def reverse_flow_focused_validation_continue_local_command_allowed(
+    command: str | None,
+) -> bool:
+    """Return True when a pending unit is a local pytest inventory command.
+
+    Continue-run is not a general shell executor. Only body-free local pytest
+    inventory lines that target ``tests/`` and contain no shell metacharacters
+    are auto-runnable. Remote apply, network tools, and compound shells stay denied.
+    """
+
+    text = str(command or "").strip()
+    if not text:
+        return False
+    for token in REVERSE_FLOW_FOCUSED_VALIDATION_CONTINUE_SHELL_METACHARS:
+        if token in text:
+            return False
+    lowered = text.lower()
+    if not any(
+        lowered.startswith(prefix)
+        for prefix in REVERSE_FLOW_FOCUSED_VALIDATION_CONTINUE_LOCAL_COMMAND_PREFIXES
+    ):
+        return False
+    if "tests/" not in text and "tests\\" not in text:
+        return False
+    return True
+
+
+def _resolve_reverse_flow_focused_validation_continue_plan(
+    *,
+    continue_plan: dict[str, Any] | None = None,
+    focused_local_test_validation: dict[str, Any] | None = None,
+    pipeline: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Resolve the operator-visible reverse-flow continue plan from common inputs."""
+
+    if isinstance(continue_plan, dict) and continue_plan:
+        return continue_plan
+    focused = (
+        focused_local_test_validation
+        if isinstance(focused_local_test_validation, dict)
+        else {}
+    )
+    if not focused and isinstance(pipeline, dict):
+        focused = (
+            pipeline.get("focused_local_test_validation")
+            if isinstance(pipeline.get("focused_local_test_validation"), dict)
+            else {}
+        )
+    plan = focused.get("continue_plan") if isinstance(focused.get("continue_plan"), dict) else None
+    if isinstance(plan, dict) and plan:
+        return plan
+    if focused:
+        return build_reverse_flow_focused_validation_continue_plan(
+            focused_local_test_validation=focused,
+        )
+    return {}
+
+
+def build_reverse_flow_focused_validation_continue_run_plan(
+    *,
+    continue_plan: dict[str, Any] | None = None,
+    focused_local_test_validation: dict[str, Any] | None = None,
+    pipeline: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Package pending work units as an inspectable local continue-run plan.
+
+    Does not execute commands. Each unit is annotated with ``local_allowed`` and
+    optional ``skip_reason`` so supervisors can audit what would run under
+    ``mode=run_pending`` / ``mode=record_remaining``. Body-free only (no stdout,
+    evidence URLs, or upstream bodies). Activation and residual export stay denied.
+    """
+
+    plan = _resolve_reverse_flow_focused_validation_continue_plan(
+        continue_plan=continue_plan,
+        focused_local_test_validation=focused_local_test_validation,
+        pipeline=pipeline,
+    )
+    mode = str(plan.get("mode") or "none")
+    status = str(plan.get("status") or "none")
+    units: list[dict[str, Any]] = []
+    for unit in list(plan.get("pending_work_units") or []):
+        if not isinstance(unit, dict):
+            continue
+        command = str(unit.get("command") or "").strip()
+        command_hash = str(unit.get("command_hash") or "").strip()
+        if not command_hash and command:
+            command_hash = hashlib.sha256(command.encode("utf-8")).hexdigest()[:16]
+        inventory_index = unit.get("inventory_index")
+        skip_reason = ""
+        local_allowed = reverse_flow_focused_validation_continue_local_command_allowed(
+            command
+        )
+        if not command:
+            local_allowed = False
+            skip_reason = "missing_command"
+        elif not local_allowed:
+            skip_reason = "command_not_local_pytest_inventory"
+        elif command and command_hash:
+            expected_hash = hashlib.sha256(command.encode("utf-8")).hexdigest()[:16]
+            if command_hash != expected_hash:
+                local_allowed = False
+                skip_reason = "command_hash_mismatch"
+        units.append(
+            {
+                "command": command,
+                "command_hash": command_hash,
+                "inventory_index": inventory_index,
+                "local_allowed": bool(local_allowed),
+                "skip_reason": skip_reason,
+            }
+        )
+    runnable = [unit for unit in units if unit["local_allowed"]]
+    skipped = [unit for unit in units if not unit["local_allowed"]]
+    return {
+        "schema_version": 1,
+        "controller_surface": "reverse_flow_focused_validation_continue_run_plan",
+        "proposal_track": "prop-reverse-flow-skill-route-discovery-continue",
+        "status": status,
+        "mode": mode,
+        "decision": str(plan.get("decision") or plan.get("reverse_flow_continue_decision") or "none"),
+        "supervisor_next_action": str(plan.get("supervisor_next_action") or "none"),
+        "pending_work_units": units,
+        "pending_work_unit_count": len(units),
+        "runnable_work_units": runnable,
+        "runnable_work_unit_count": len(runnable),
+        "skipped_work_units": skipped,
+        "skipped_work_unit_count": len(skipped),
+        "executable": mode in {"run_pending", "record_remaining"} and bool(runnable),
+        "residual_export_allowed": False,
+        "activation_external_only": True,
+        "supervisor_activation_allowed": False,
+        "runtime_action": "none",
+        "external_skill_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_apply_allowed": False,
+        "push_or_promotion_allowed": False,
+        "kernel_restart_allowed": False,
+        "body_free": True,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_bodies_exported": False,
+        "raw_command_stdout_exported": False,
+        "record_helpers": [
+            "run_reverse_flow_focused_validation_continue_pending_work_units",
+            "execute_reverse_flow_focused_validation_continue_run_plan",
+            "build_reverse_flow_focused_validation_continue_run_plan",
+            "reverse_flow_focused_validation_continue_local_command_allowed",
+            "record_reverse_flow_focused_validation_continue_outcomes",
+            "materialize_reverse_flow_focused_validation_continue_record_rows",
+            "build_reverse_flow_focused_validation_continue_plan",
+        ],
+    }
+
+
+def execute_reverse_flow_focused_validation_continue_run_plan(
+    run_plan: dict[str, Any] | None,
+    *,
+    command_runner: Any = subprocess.run,
+    cwd: Path | str | None = None,
+    timeout: int = 120,
+) -> dict[str, Any]:
+    """Execute allowed continue-run units and return body-free outcomes only.
+
+    Runs local pytest inventory lines without shell expansion. Does not record
+    onto a pipeline and never exports stdout/stderr, evidence URLs, or upstream
+    bodies. Skipped units leave no outcome so partial wakes stay partial.
+    """
+
+    plan = run_plan if isinstance(run_plan, dict) else {}
+    workdir = Path(cwd) if cwd is not None else Path.cwd()
+    unit_results: list[dict[str, Any]] = []
+    outcomes: dict[str, bool] = {}
+    for unit in list(plan.get("pending_work_units") or []):
+        if not isinstance(unit, dict):
+            continue
+        command = str(unit.get("command") or "").strip()
+        command_hash = str(unit.get("command_hash") or "").strip()
+        if not command_hash and command:
+            command_hash = hashlib.sha256(command.encode("utf-8")).hexdigest()[:16]
+        local_allowed = bool(unit.get("local_allowed"))
+        skip_reason = str(unit.get("skip_reason") or "").strip()
+        if not local_allowed:
+            unit_results.append(
+                {
+                    "command_hash": command_hash,
+                    "passed": False,
+                    "ran": False,
+                    "skipped": True,
+                    "skip_reason": skip_reason or "not_local_allowed",
+                    "in_expected_set": True,
+                }
+            )
+            continue
+        if not reverse_flow_focused_validation_continue_local_command_allowed(command):
+            unit_results.append(
+                {
+                    "command_hash": command_hash,
+                    "passed": False,
+                    "ran": False,
+                    "skipped": True,
+                    "skip_reason": "command_not_local_pytest_inventory",
+                    "in_expected_set": True,
+                }
+            )
+            continue
+        try:
+            # Inventory commands use POSIX-style pytest paths; split without shell.
+            argv = shlex.split(command, posix=True)
+        except ValueError:
+            unit_results.append(
+                {
+                    "command_hash": command_hash,
+                    "passed": False,
+                    "ran": False,
+                    "skipped": True,
+                    "skip_reason": "command_parse_error",
+                    "in_expected_set": True,
+                }
+            )
+            continue
+        if not argv:
+            unit_results.append(
+                {
+                    "command_hash": command_hash,
+                    "passed": False,
+                    "ran": False,
+                    "skipped": True,
+                    "skip_reason": "empty_argv",
+                    "in_expected_set": True,
+                }
+            )
+            continue
+        try:
+            completed = command_runner(
+                argv,
+                cwd=str(workdir),
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
+            returncode = int(getattr(completed, "returncode", 1) or 0)
+            passed = returncode == 0
+        except Exception:
+            passed = False
+        outcomes[command_hash] = bool(passed)
+        unit_results.append(
+            {
+                "command_hash": command_hash,
+                "passed": bool(passed),
+                "ran": True,
+                "skipped": False,
+                "skip_reason": "",
+                "in_expected_set": True,
+            }
+        )
+    ran_count = sum(1 for row in unit_results if row.get("ran"))
+    passed_count = sum(1 for row in unit_results if row.get("ran") and row.get("passed"))
+    failed_count = sum(1 for row in unit_results if row.get("ran") and not row.get("passed"))
+    skipped_count = sum(1 for row in unit_results if row.get("skipped"))
+    return {
+        "schema_version": 1,
+        "controller_surface": "reverse_flow_focused_validation_continue_run_result",
+        "proposal_track": "prop-reverse-flow-skill-route-discovery-continue",
+        "mode": str(plan.get("mode") or "none"),
+        "outcomes": outcomes,
+        "unit_results": unit_results,
+        "ran_count": ran_count,
+        "passed_count": passed_count,
+        "failed_count": failed_count,
+        "skipped_count": skipped_count,
+        "outcome_count": len(outcomes),
+        "residual_export_allowed": False,
+        "activation_external_only": True,
+        "supervisor_activation_allowed": False,
+        "runtime_action": "none",
+        "external_skill_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_apply_allowed": False,
+        "push_or_promotion_allowed": False,
+        "kernel_restart_allowed": False,
+        "body_free": True,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_bodies_exported": False,
+        "raw_command_stdout_exported": False,
+        "record_helpers": [
+            "record_reverse_flow_focused_validation_continue_outcomes",
+            "materialize_reverse_flow_focused_validation_continue_record_rows",
+        ],
+    }
+
+
+def run_reverse_flow_focused_validation_continue_pending_work_units(
+    pipeline: dict[str, Any],
+    *,
+    command_runner: Any = subprocess.run,
+    cwd: Path | str | None = None,
+    timeout: int = 120,
+    source_digest: str | None = None,
+    theme_window: dict[str, Any] | None = None,
+    record: bool = True,
+) -> dict[str, Any]:
+    """Build, execute, and optionally record reverse-flow continue pending units.
+
+    Operator-visible integration seam for ``mode=run_pending`` and
+    ``mode=record_remaining`` wakes: package the continue-run plan from
+    ``continue_plan.pending_work_units``, run only local-allowed pytest inventory
+    lines, materialize body-free outcomes, and merge through
+    ``record_reverse_flow_focused_validation_continue_outcomes`` when ``record``
+    is true. Never enables activation, push, promotion, provider launch, remote
+    apply, external skill execution, or kernel restart. Does not export stdout.
+    """
+
+    if not isinstance(pipeline, dict):
+        raise TypeError("pipeline must be a dict")
+
+    run_plan = build_reverse_flow_focused_validation_continue_run_plan(pipeline=pipeline)
+    run_result = execute_reverse_flow_focused_validation_continue_run_plan(
+        run_plan,
+        command_runner=command_runner,
+        cwd=cwd,
+        timeout=timeout,
+    )
+    updated_pipeline = pipeline
+    recorded = False
+    if record and run_result.get("outcomes"):
+        updated_pipeline = record_reverse_flow_focused_validation_continue_outcomes(
+            pipeline,
+            run_result.get("outcomes"),
+            source_digest=source_digest,
+            theme_window=theme_window,
+        )
+        recorded = True
+    return {
+        "schema_version": 1,
+        "controller_surface": "reverse_flow_focused_validation_continue_run_and_record",
+        "proposal_track": "prop-reverse-flow-skill-route-discovery-continue",
+        "run_plan": run_plan,
+        "run_result": run_result,
+        "pipeline": updated_pipeline,
+        "recorded": recorded,
+        "record_requested": bool(record),
+        "residual_export_allowed": bool(
+            updated_pipeline.get("residual_export_allowed")
+            if isinstance(updated_pipeline, dict)
+            else False
+        ),
+        "activation_external_only": True,
+        "supervisor_activation_allowed": False,
+        "runtime_action": "none",
+        "external_skill_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_apply_allowed": False,
+        "push_or_promotion_allowed": False,
+        "kernel_restart_allowed": False,
+        "body_free": True,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_bodies_exported": False,
+        "raw_command_stdout_exported": False,
+    }
+
+
 def build_skill_route_discovery_focused_local_test_validation(
     *,
     unlocked_local_test_lane_apply: dict[str, Any] | None = None,
@@ -5782,6 +6166,10 @@ def build_skill_route_discovery_focused_local_test_validation(
         "record_helpers": [
             "record_skill_route_discovery_focused_local_test_validation_results",
             "close_skill_route_discovery_focused_local_test_validation_with_outcome",
+            "run_reverse_flow_focused_validation_continue_pending_work_units",
+            "execute_reverse_flow_focused_validation_continue_run_plan",
+            "build_reverse_flow_focused_validation_continue_run_plan",
+            "reverse_flow_focused_validation_continue_local_command_allowed",
             "record_reverse_flow_focused_validation_continue_outcomes",
             "materialize_reverse_flow_focused_validation_continue_record_rows",
             "merge_skill_route_discovery_focused_validation_command_results",
@@ -10889,6 +11277,10 @@ def resolve_skill_route_discovery_pipeline_operator_state(
     record_helpers = [
         "record_skill_route_discovery_focused_local_test_validation_results",
         "close_skill_route_discovery_focused_local_test_validation_with_outcome",
+        "run_reverse_flow_focused_validation_continue_pending_work_units",
+        "execute_reverse_flow_focused_validation_continue_run_plan",
+        "build_reverse_flow_focused_validation_continue_run_plan",
+        "reverse_flow_focused_validation_continue_local_command_allowed",
         "record_reverse_flow_focused_validation_continue_outcomes",
         "materialize_reverse_flow_focused_validation_continue_record_rows",
         "merge_skill_route_discovery_focused_validation_command_results",
@@ -11312,6 +11704,7 @@ def render_skill_route_discovery_capability_pipeline_lines(
         "- Pipeline operator_state durably exports supervisor_next_action, residual hold/export flags, reverse_flow_continue_decision, reverse-flow-skill evidence binding, residual_export_allowed, partial body-free command-hash coverage, recorded/missing command-hash inventories, pending command texts/counts, pending work unit pairs (command + hash), and continue_plan mode after build and after record/close so supervisors continue reverse-flow without re-rendering markdown.",
         "- build_reverse_flow_focused_validation_continue_plan unifies zero-row first wakes (mode=run_pending) and multi-wake partial continue (mode=record_remaining) around pending_work_units (command + command_hash pairs) plus pending_commands / missing_command_hashes; residual export stays denied until reverse-flow record/close and residual-active cascade.",
         "- record_reverse_flow_focused_validation_continue_outcomes materializes body-free rows from continue-plan pending work unit outcomes and merges them; materialize_reverse_flow_focused_validation_continue_record_rows accepts hash-map, parallel bool, or row-dict outcomes for pending units only.",
+        "- run_reverse_flow_focused_validation_continue_pending_work_units builds a local continue-run plan from pending_work_units, executes only allowlisted local pytest inventory lines (no shell metacharacters), and optionally records body-free outcomes; build_reverse_flow_focused_validation_continue_run_plan and execute_reverse_flow_focused_validation_continue_run_plan stay inspectable and never export stdout or enable activation.",
         "- Partial body-free command-hash rows stay on ready focused validation and accumulate across record calls via merge_skill_route_discovery_focused_validation_command_results; while partial, supervisor_next promotes to record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external (not a full re-run); residual export remains denied until results cover expected hashes and reverse-flow record/close advances residual-active work.",
         "- After ready, record_skill_route_discovery_focused_local_test_validation_results merges new body-free command-hash rows with any prior partial rows while activation stays external.",
         "- After ready, close_skill_route_discovery_focused_local_test_validation_with_outcome materializes body-free expected-hash outcomes and refreshes activation-external handoff/acceptance.",
