@@ -46,7 +46,7 @@ residual adjacent focused validation activation-external handoff →
 residual adjacent focused validation activation-external acceptance →
 (optional) selected-step adjacent harness-eval.
 
-Observed this run (digest `github-growth-20260713T081123.638501Z`,
+Observed this run (digest `github-growth-20260713T083123.644897Z`,
 `prop-reverse-flow-skill-route-discovery-continue` bound against
 `lingbol088-spec/reverse-flow-skill`, residual fortress adjacent):
 
@@ -56,42 +56,42 @@ Observed this run (digest `github-growth-20260713T081123.638501Z`,
   on reverse-flow record/close and activation-external acceptance
 - Prior: continue plan + pending work units + local allowlist + continue-run
   plan/execute/record + run supervisor_wake + inventory dispatch + follow-through
-  resolve/follow + operator_card packaging + pre/post progress labels +
-  progress_transition + action_line already inventory, optional allowlisted
-  run/record, reverse-flow-first `supervisor_wake`, `post_dispatch_inventory`,
-  `follow_through`, `operator_card` / `post_operator_card`, and
-  `progress_transition`
-- New: `package_reverse_flow_focused_validation_continue_exec_receipt` collapses
-  continue-run plan/result into body-free `exec_line` (for example
-  `exec mode=run_pending ran=3 passed=3 failed=0 skipped=0 recorded=true
-  executed=true residual_hold=true residual_export=false`) and `exec_plan_line`
-  (`plan mode=run_pending runnable=3 skipped=0 executable=true
-  residual_export=false`) so supervisors do not re-derive nested `unit_results`
-  after continue execute wakes
-- New: continue-run plan exports `exec_plan_line`; run_result, run_and_record,
-  follow, and dispatch attach `exec_receipt`, `exec_line`, and `exec_plan_line`
-- New: inventory-only wakes still package a not-executed receipt
-  (`executed=false`, `ran=0`) with pre-exec `exec_plan_line` for runnable audit
-- New: operator_state exports `continue_exec_receipt_helper` while ready/unrecorded
-  (alongside continue_action_line / continue_progress_transition_helper)
-- Ready/unrecorded operator card: progress_label=`0/3` (or `0/N`),
-  follow_through_action=`execute_now`, call_dispatch_with_execute=true when
-  local pytest units are allowlisted, preferred_helper=`follow_...`, residual
-  hold active, residual export denied, action_line carries the same policy
-- Full follow after pass + record: progress_transition_label=`0/N→N/N` with
-  progress_advanced=true, progress_complete_after=true,
-  follow_through_transition=`execute_now→keep_activation_external`, handoff
-  ready, acceptance accepted; residual export still denied on the
-  dispatch/follow/transition surfaces themselves
+  resolve/follow + operator_card + progress_transition + action_line +
+  exec_receipt / exec_line / exec_plan_line already inventory, optional
+  allowlisted run/record, reverse-flow-first `supervisor_wake`,
+  `post_dispatch_inventory`, `follow_through`, `operator_card` /
+  `post_operator_card`, `progress_transition`, and `exec_receipt`
+- New: `package_reverse_flow_focused_validation_continue_finish_receipt` collapses
+  post-continue progress, focused status, handoff/acceptance, residual hold, and
+  residual-queue readiness into body-free `finish_line` (for example
+  `finish complete=true progress=3/3 status=passed mode=keep_activation_external
+  handoff=ready acceptance=accepted residual_hold=false residual_queue=ready
+  residual_export=false next=keep_activation_external_after_...`) so supervisors
+  do not re-derive nested post cards after reverse-flow continue finishes
+- New: follow and dispatch attach `finish_receipt`, `finish_line`,
+  `continue_finished`, and `residual_queue_ready`
+- New: inventory-only wakes package incomplete finish receipt
+  (`complete=false`, `residual_queue=blocked`) for pre-exec audit
+- New: operator_state exports nested `continue_finish_receipt`,
+  `continue_finish_receipt_helper`, `continue_finish_line`, `continue_finished`,
+  and `continue_residual_queue_ready` (alongside continue_exec_receipt_helper /
+  continue_action_line / continue_progress_transition_helper)
+- Ready/unrecorded finish: `continue_finished=false`, residual_queue blocked,
+  residual export denied; operator card still recommends execute_now when units
+  are local-allowlisted
+- Full follow after pass + record: `continue_finished=true`,
+  `residual_queue_ready=true` when handoff=ready and acceptance=accepted;
+  residual export still denied on continue/dispatch/follow/finish surfaces
+  themselves (residual stages open only via residual pipeline)
 - Partial follow: runs remaining units only (`mode=record_remaining`) then
-  packages keep_activation_external post_follow_through with updated progress
-  transition reflecting partial→complete when remaining units close
+  packages keep_activation_external post_follow_through; finish receipt becomes
+  complete only when remaining units close and acceptance is accepted
 - Post-pass follow with recommendation still defaulted: action=`keep_activation_external`,
-  call_dispatch_with_execute=false, does not re-run units; progress_transition
-  stays `N/N→N/N` with progress_advanced=false
+  call_dispatch_with_execute=false, does not re-run units; finish receipt stays
+  complete with residual_queue_ready when acceptance accepted
 - Explicit `execute=False` on follow or dispatch stays inventory-only even when
-  follow_through_action would be `execute_now`; progress_transition stays
-  `0/N→0/N` while operator_card still shows execute_now recommendation
+  follow_through_action would be `execute_now`; finish stays incomplete while
+  progress is 0/N
 - While ready/unrecorded with zero partial rows:
   `continue_plan.mode=run_pending`,
   `supervisor_next_action=run_focused_local_test_validation_then_keep_activation_external`,
@@ -103,7 +103,8 @@ Observed this run (digest `github-growth-20260713T081123.638501Z`,
   follow executes remaining only
 - After multi-wake merge covers expected hashes and record/close passes,
   continue_plan mode becomes `keep_activation_external`, pending work units
-  clear, residual holds release when residual-active
+  clear, residual holds release when residual-active, finish receipt marks
+  residual_queue ready without enabling residual_export on continue surfaces
 - Activation, push, promotion, provider launch, remote apply, external skill
   execution, and kernel restart stay denied
 - agent-chief remains privacy review-only
