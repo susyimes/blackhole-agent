@@ -53,6 +53,7 @@ from blackhole_agent.github_growth import (
     materialize_reverse_flow_focused_validation_continue_record_rows,
     pending_skill_route_discovery_focused_validation_work_units,
     record_reverse_flow_focused_validation_continue_outcomes,
+    resolve_reverse_flow_focused_validation_continue_run_supervisor_wake,
     reverse_flow_focused_validation_continue_local_command_allowed,
     run_reverse_flow_focused_validation_continue_pending_work_units,
     normalize_skill_route_discovery_focused_validation_command_results,
@@ -5358,6 +5359,7 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         "run_reverse_flow_focused_validation_continue_pending_work_units",
         "execute_reverse_flow_focused_validation_continue_run_plan",
         "build_reverse_flow_focused_validation_continue_run_plan",
+        "resolve_reverse_flow_focused_validation_continue_run_supervisor_wake",
         "reverse_flow_focused_validation_continue_local_command_allowed",
         "record_reverse_flow_focused_validation_continue_outcomes",
         "materialize_reverse_flow_focused_validation_continue_record_rows",
@@ -5499,6 +5501,7 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         "run_reverse_flow_focused_validation_continue_pending_work_units",
         "execute_reverse_flow_focused_validation_continue_run_plan",
         "build_reverse_flow_focused_validation_continue_run_plan",
+        "resolve_reverse_flow_focused_validation_continue_run_supervisor_wake",
         "reverse_flow_focused_validation_continue_local_command_allowed",
         "record_reverse_flow_focused_validation_continue_outcomes",
         "materialize_reverse_flow_focused_validation_continue_record_rows",
@@ -6224,12 +6227,39 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert "stdout" not in run_result
     assert "command" not in run_result["unit_results"][0]
 
+    # Pre-run wake: inventory only, residual hold stays active, residual export denied.
+    pre_run_wake = resolve_reverse_flow_focused_validation_continue_run_supervisor_wake(
+        pipeline=pipeline,
+        run_plan=run_plan,
+    )
+    assert pre_run_wake["controller_surface"] == (
+        "reverse_flow_focused_validation_continue_run_supervisor_wake"
+    )
+    assert pre_run_wake["mode"] == "run_pending"
+    assert pre_run_wake["status"] == "ready"
+    assert pre_run_wake["supervisor_next_action"] == (
+        "run_focused_local_test_validation_then_keep_activation_external"
+    )
+    assert pre_run_wake["continue_run_executable"] is True
+    assert pre_run_wake["runnable_work_unit_count"] == len(command_hashes)
+    assert pre_run_wake["residual_hold_active"] is True
+    assert pre_run_wake["residual_export_allowed"] is False
+    assert pre_run_wake["supervisor_activation_allowed"] is False
+    assert pre_run_wake["kernel_restart_allowed"] is False
+    assert pipeline["reverse_flow_focused_validation_continue_run_executable"] is True
+    assert pipeline["reverse_flow_focused_validation_continue_runnable_work_unit_count"] == (
+        len(command_hashes)
+    )
+    assert "resolve_reverse_flow_focused_validation_continue_run_supervisor_wake" in (
+        pipeline["reverse_flow_focused_validation_record_helpers"]
+    )
+
     # End-to-end: run pending units through injected runner and record body-free pass.
     run_and_record = run_reverse_flow_focused_validation_continue_pending_work_units(
         pipeline,
         command_runner=_fake_runner,
         cwd=".",
-        source_digest="github-growth-20260713T055123.668432Z",
+        source_digest="github-growth-20260713T061123.552918Z",
     )
     assert run_and_record["controller_surface"] == (
         "reverse_flow_focused_validation_continue_run_and_record"
@@ -6244,6 +6274,24 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert run_and_record["pipeline"][
         "reverse_flow_focused_validation_pending_work_unit_count"
     ] == 0
+    # Post-run supervisor_wake resolves reverse-flow next before residual stages.
+    assert run_and_record["supervisor_wake"]["controller_surface"] == (
+        "reverse_flow_focused_validation_continue_run_supervisor_wake"
+    )
+    assert run_and_record["supervisor_wake"]["status"] == "passed"
+    assert run_and_record["supervisor_wake"]["mode"] == "keep_activation_external"
+    assert run_and_record["supervisor_next_action"] == (
+        "keep_activation_external_after_focused_local_test_validation"
+    )
+    assert run_and_record["continue_plan_mode"] == "keep_activation_external"
+    assert run_and_record["focused_validation_status"] == "passed"
+    assert run_and_record["activation_external_handoff_status"] == "ready"
+    assert run_and_record["activation_external_acceptance_status"] == "accepted"
+    assert run_and_record["supervisor_wake"]["decision"] == (
+        "keep_activation_external_and_queue_residual_adjacent_harness_eval"
+    )
+    assert run_and_record["supervisor_wake"]["continue_run_recommended"] is False
+    assert run_and_record["supervisor_wake"]["residual_export_allowed"] is False
     # Run-and-record surface keeps activation denied; residual export may release
     # only after reverse-flow record/close completes residual-active cascade.
     assert run_and_record["run_plan"]["residual_export_allowed"] is False
@@ -6259,7 +6307,7 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         continue_partial,
         command_runner=_fake_runner,
         cwd=".",
-        source_digest="github-growth-20260713T055123.668432Z",
+        source_digest="github-growth-20260713T061123.552918Z",
     )
     assert partial_run["run_plan"]["mode"] == "record_remaining"
     assert partial_run["run_result"]["ran_count"] == len(command_hashes) - 1
@@ -6267,6 +6315,9 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert partial_run["pipeline"]["reverse_flow_focused_validation_continue_plan_mode"] == (
         "keep_activation_external"
     )
+    assert partial_run["supervisor_wake"]["mode"] == "keep_activation_external"
+    assert partial_run["supervisor_wake"]["status"] == "passed"
+    assert partial_run["residual_export_allowed"] is False
     # Skipped non-allowed unit leaves no outcome (partial stays partial when record empty).
     denied_plan = {
         "mode": "run_pending",

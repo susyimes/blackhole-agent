@@ -46,7 +46,7 @@ residual adjacent focused validation activation-external handoff →
 residual adjacent focused validation activation-external acceptance →
 (optional) selected-step adjacent harness-eval.
 
-Observed this run (digest `github-growth-20260713T055123.668432Z`,
+Observed this run (digest `github-growth-20260713T061123.552918Z`,
 `prop-reverse-flow-skill-route-discovery-continue` bound against
 `lingbol088-spec/reverse-flow-skill`, residual fortress adjacent):
 
@@ -54,23 +54,26 @@ Observed this run (digest `github-growth-20260713T055123.668432Z`,
   `continue_plan.mode=run_pending` until supervisors run pending work units and
   record/close body-free results; residual stages stay blocked waiting on
   reverse-flow record/close and activation-external acceptance
-- Prior: continue plan + `pending_work_units` +
-  `record_reverse_flow_focused_validation_continue_outcomes` already package
-  ordered pending inventory and body-free merge; partial supervisor_next
-  promotes via `resolve_reverse_flow_focused_validation_continue_supervisor_next`
-- New: `reverse_flow_focused_validation_continue_local_command_allowed` admits
-  only local pytest inventory lines targeting `tests/` with no shell
-  metacharacters (not a general command executor)
-- New: `build_reverse_flow_focused_validation_continue_run_plan` annotates each
-  pending unit with `local_allowed` / `skip_reason` for inspectable run_pending
-  and record_remaining wakes without executing
-- New: `execute_reverse_flow_focused_validation_continue_run_plan` runs allowed
-  units via injected `command_runner` (no shell, no stdout export) and returns
-  body-free `{command_hash → passed}` outcomes plus unit_results
-- New: `run_reverse_flow_focused_validation_continue_pending_work_units` is the
-  operator-visible run-and-record seam — build plan → execute pending units →
-  `record_reverse_flow_focused_validation_continue_outcomes`; residual export
-  stays denied until coverage is complete
+- Prior: continue plan + `pending_work_units` + local allowlist +
+  `build/execute/run_reverse_flow_focused_validation_continue_*` already package
+  inventory, run allowlisted pytest units, and merge body-free outcomes
+- New: `resolve_reverse_flow_focused_validation_continue_run_supervisor_wake`
+  packages reverse-flow-first `supervisor_next` after continue-run inventory or
+  run/record (mode, residual hold, handoff/acceptance status) so residual
+  fortress stages cannot outrank reverse-flow before acceptance
+- New: `run_reverse_flow_focused_validation_continue_pending_work_units` attaches
+  `supervisor_wake` plus top-level `supervisor_next_action`,
+  `continue_plan_mode`, handoff/acceptance status on the run-and-record return
+- New: operator_state exports
+  `reverse_flow_focused_validation_continue_run_executable` and
+  `reverse_flow_focused_validation_continue_runnable_work_unit_count` while
+  ready/unrecorded; zero-row and partial ready wakes always prefer the reverse-
+  flow continue supervisor resolver over residual repair noise
+- Pre-run wake (mode=run_pending): residual_hold_active, residual_export denied,
+  continue_run_executable when local pytest inventory units are present
+- Post-run wake after full pass + record: mode=keep_activation_external,
+  handoff ready, acceptance accepted, continue_run not recommended; residual
+  export still denied on the continue-run surface itself
 - While ready/unrecorded with zero partial rows:
   `continue_plan.mode=run_pending`,
   `supervisor_next_action=run_focused_local_test_validation_then_keep_activation_external`,

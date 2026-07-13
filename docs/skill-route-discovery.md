@@ -277,7 +277,13 @@ emits `skill_route_discovery_focused_local_test_validation`:
    execute only allowlisted local pytest inventory lines
    (`execute_reverse_flow_focused_validation_continue_run_plan`,
    `reverse_flow_focused_validation_continue_local_command_allowed`), and record
-   body-free outcomes without exporting stdout or enabling activation
+   body-free outcomes without exporting stdout or enabling activation.
+   After inventory or run/record,
+   `resolve_reverse_flow_focused_validation_continue_run_supervisor_wake` packages
+   reverse-flow-first `supervisor_next` (mode, residual hold, handoff/acceptance
+   status) so residual fortress stages stay blocked until reverse-flow
+   record/close and activation-external acceptance; run-and-record attaches
+   `supervisor_wake` on the operator-visible return packet
 
 Replay with:
 
@@ -327,7 +333,11 @@ results without treating unlock as a dead end:
    `build_reverse_flow_focused_validation_continue_run_plan`,
    `execute_reverse_flow_focused_validation_continue_run_plan`, and
    `run_reverse_flow_focused_validation_continue_pending_work_units` run only
-   local-allowlisted pytest inventory units and optionally record outcomes
+   local-allowlisted pytest inventory units and optionally record outcomes;
+   `resolve_reverse_flow_focused_validation_continue_run_supervisor_wake`
+   resolves reverse-flow-first supervisor_next after continue-run inventory/run
+   so residual stages stay blocked until reverse-flow record/close and
+   activation-external acceptance
 4. On partial ready coverage, decision is
    `record_remaining_focused_validation_command_hashes_before_activation_external`
    and supervisor next is record-remaining (not a full re-run). On pass, decision

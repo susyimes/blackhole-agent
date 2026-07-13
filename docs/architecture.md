@@ -186,7 +186,11 @@ record them through
 inventory allowlist via
 `build_reverse_flow_focused_validation_continue_run_plan` +
 `execute_reverse_flow_focused_validation_continue_run_plan`; no stdout export,
-no activation). After a
+no activation). After inventory or run/record,
+`resolve_reverse_flow_focused_validation_continue_run_supervisor_wake` packages
+reverse-flow-first `supervisor_next` and residual-hold state so residual
+fortress stages stay blocked until reverse-flow record/close and
+activation-external acceptance. After a
 recorded pass,
 `skill_route_discovery_focused_validation_activation_external_handoff` packages
 `keep_activation_external_after_focused_local_test_validation` into one

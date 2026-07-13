@@ -376,6 +376,7 @@ def test_skill_route_discovery_doc_records_capability_pipeline_pass1():
         "build_reverse_flow_focused_validation_continue_run_plan",
         "execute_reverse_flow_focused_validation_continue_run_plan",
         "run_reverse_flow_focused_validation_continue_pending_work_units",
+        "resolve_reverse_flow_focused_validation_continue_run_supervisor_wake",
         "reverse_flow_focused_validation_continue_local_command_allowed",
         "record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external",
         "### Focused validation activation-external handoff",
