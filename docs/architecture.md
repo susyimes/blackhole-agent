@@ -193,15 +193,25 @@ fortress stages stay blocked until reverse-flow record/close and
 activation-external acceptance.
 `package_reverse_flow_focused_validation_continue_dispatch_inventory` packages a
 body-free inventory dispatch packet (`action`, `execute_recommended`, residual
-hold) without running commands. Preferred single operator entry is
+hold) without running commands.
+`resolve_reverse_flow_focused_validation_continue_dispatch_follow_through`
+collapses that inventory into `follow_through_action`
+(`execute_now` | `wait_for_local_allowlist` | `keep_activation_external` |
+`repair` | `noop`) and `call_dispatch_with_execute`. Preferred policy-aware
+operator entry is `follow_reverse_flow_focused_validation_continue_dispatch`
+(inventory → follow-through → dispatch execute only when recommended, with
+`post_follow_through` after run/record). Low-level single operator entry remains
 `dispatch_reverse_flow_focused_validation_continue_supervisor_wake` (inventory
 packet, optional allowlisted run/record when executable, always reverse-flow-first
-`supervisor_wake` plus `post_dispatch_inventory`; residual export stays denied on
-the dispatch surface). Durable `operator_state` also exports
+`supervisor_wake` plus `post_dispatch_inventory` and `follow_through`; residual
+export stays denied on the dispatch surface). Durable `operator_state` also exports
 `continue_run_recommended`, inventory `continue_supervisor_wake`, nested
 `continue_dispatch`, `continue_dispatch_action`,
-`continue_dispatch_execute_recommended`, `continue_dispatch_helper`, and
-`continue_dispatch_inventory_helper` while reverse-flow is ready/unrecorded. After a
+`continue_dispatch_execute_recommended`, nested
+`continue_dispatch_follow_through`, `continue_dispatch_follow_through_action`,
+`continue_dispatch_call_with_execute`, `continue_dispatch_helper`,
+`continue_dispatch_inventory_helper`, and
+`continue_dispatch_follow_through_helper` while reverse-flow is ready/unrecorded. After a
 recorded pass,
 `skill_route_discovery_focused_validation_activation_external_handoff` packages
 `keep_activation_external_after_focused_local_test_validation` into one

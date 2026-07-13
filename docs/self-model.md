@@ -46,53 +46,63 @@ residual adjacent focused validation activation-external handoff →
 residual adjacent focused validation activation-external acceptance →
 (optional) selected-step adjacent harness-eval.
 
-Observed this run (digest `github-growth-20260713T065123.898754Z`,
+Observed this run (digest `github-growth-20260713T071123.677935Z`,
 `prop-reverse-flow-skill-route-discovery-continue` bound against
 `lingbol088-spec/reverse-flow-skill`, residual fortress adjacent):
 
 - Reverse-flow focused validation remains `ready` / unrecorded (0/3) with
-  `continue_plan.mode=run_pending` until supervisors dispatch continue work and
-  record/close body-free results; residual stages stay blocked waiting on
-  reverse-flow record/close and activation-external acceptance
+  `continue_plan.mode=run_pending` until supervisors follow continue dispatch
+  policy and record/close body-free results; residual stages stay blocked waiting
+  on reverse-flow record/close and activation-external acceptance
 - Prior: continue plan + pending work units + local allowlist + continue-run
-  plan/execute/record + `resolve_reverse_flow_focused_validation_continue_run_supervisor_wake`
-  + `dispatch_reverse_flow_focused_validation_continue_supervisor_wake` already
-  inventory, run allowlisted pytest units, merge body-free outcomes, and return
-  reverse-flow-first `supervisor_wake`
-- New: `package_reverse_flow_focused_validation_continue_dispatch_inventory` is the
-  durable body-free inventory dispatch packet — `action`, `execute_recommended`,
-  residual hold, residual export denied — without running commands, so supervisors
-  can decide execute without re-deriving nested wake fields
-- New: dispatch reuses that packager for inventory-only paths and attaches
-  `inventory_dispatch` + `post_dispatch_inventory` on `run_and_record` so the next
-  durable action is inspectable after execute
+  plan/execute/record + run supervisor_wake + inventory dispatch packager +
+  `dispatch_reverse_flow_focused_validation_continue_supervisor_wake` already
+  inventory, optional allowlisted run/record, and reverse-flow-first
+  `supervisor_wake` plus `post_dispatch_inventory`
+- New: `resolve_reverse_flow_focused_validation_continue_dispatch_follow_through`
+  collapses inventory `action` + `execute_recommended` into one durable
+  `follow_through_action` (`execute_now` | `wait_for_local_allowlist` |
+  `keep_activation_external` | `repair` | `noop`) and
+  `call_dispatch_with_execute` so supervisors do not re-derive execute policy
+  from nested wake fields
+- New: `follow_reverse_flow_focused_validation_continue_dispatch` is the preferred
+  policy-aware operator entry — packages inventory, resolves follow-through,
+  calls dispatch with execute only when `call_dispatch_with_execute` is true,
+  and attaches `post_follow_through` after run/record
+- New: dispatch inventory and run_and_record paths attach `follow_through` /
+  `post_follow_through` alongside inventory_dispatch / post_dispatch_inventory
 - New: operator_state exports nested
-  `reverse_flow_focused_validation_continue_dispatch` (no pipeline snapshot),
-  `continue_dispatch_action`, `continue_dispatch_execute_recommended`,
-  `continue_dispatch_helper`, and `continue_dispatch_inventory_helper` while
-  ready/unrecorded (alongside continue_run_recommended / wake / runnable count);
-  zero-row and partial ready wakes always prefer reverse-flow continue over residual
-  repair noise
-- Ready/unrecorded inventory: action=`inventory_only`,
-  execute_recommended=true when local pytest units are allowlisted, residual hold
-  active, residual export denied
-- Full dispatch after pass + record: action=`run_and_record`,
-  post_dispatch_inventory action=`keep_activation_external`, handoff ready,
-  acceptance accepted, execute not recommended; residual export still denied on
-  the dispatch surface itself
-- Partial dispatch: runs remaining units only (`mode=record_remaining`) then
-  packages keep_activation_external post_dispatch_inventory
-- Post-pass dispatch with execute still requested: action=`keep_activation_external`,
-  execute_recommended=false, does not re-run units
+  `reverse_flow_focused_validation_continue_dispatch_follow_through`,
+  `continue_dispatch_follow_through_action`,
+  `continue_dispatch_call_with_execute`,
+  `continue_dispatch_follow_through_helper`, and
+  `continue_dispatch_follow_through_resolve_helper` while ready/unrecorded
+  (alongside continue_dispatch_action / execute_recommended / helper names);
+  zero-row and partial ready wakes always prefer reverse-flow continue over
+  residual repair noise
+- Ready/unrecorded follow-through: action=`inventory_only`,
+  execute_recommended=true, follow_through_action=`execute_now`,
+  call_dispatch_with_execute=true when local pytest units are allowlisted;
+  residual hold active, residual export denied
+- Full follow after pass + record: follow_through_action=`execute_now` then
+  post_follow_through_action=`keep_activation_external`, handoff ready,
+  acceptance accepted, call_dispatch_with_execute becomes false; residual export
+  still denied on the dispatch/follow surface itself
+- Partial follow: runs remaining units only (`mode=record_remaining`) then
+  packages keep_activation_external post_follow_through
+- Post-pass follow with recommendation still defaulted: action=`keep_activation_external`,
+  call_dispatch_with_execute=false, does not re-run units
+- Explicit `execute=False` on follow or dispatch stays inventory-only even when
+  follow_through_action would be `execute_now`
 - While ready/unrecorded with zero partial rows:
   `continue_plan.mode=run_pending`,
   `supervisor_next_action=run_focused_local_test_validation_then_keep_activation_external`,
-  pending work units list the full local command set; dispatch executes all
+  pending work units list the full local command set; follow executes all
 - While ready/unrecorded with partial rows:
   `continue_plan.mode=record_remaining`,
   pending work units shrink to remaining pairs only,
   `supervisor_next_action=record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external`;
-  dispatch executes remaining only
+  follow executes remaining only
 - After multi-wake merge covers expected hashes and record/close passes,
   continue_plan mode becomes `keep_activation_external`, pending work units
   clear, residual holds release when residual-active

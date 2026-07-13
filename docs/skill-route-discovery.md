@@ -286,17 +286,29 @@ emits `skill_route_discovery_focused_local_test_validation`:
    `supervisor_wake` on the operator-visible return packet.
    `package_reverse_flow_focused_validation_continue_dispatch_inventory` packages
    a body-free inventory dispatch packet (`action`, `execute_recommended`, residual
-   hold) without running commands. Preferred single operator entry is
-   `dispatch_reverse_flow_focused_validation_continue_supervisor_wake`: package
-   inventory first, optionally run/record when `continue_run_executable`, always
-   return reverse-flow-first `supervisor_wake` plus `post_dispatch_inventory`.
-   Durable `operator_state` exports
-   `reverse_flow_focused_validation_continue_run_recommended`, nested inventory
-   `reverse_flow_focused_validation_continue_supervisor_wake`, nested
+   hold) without running commands.
+   `resolve_reverse_flow_focused_validation_continue_dispatch_follow_through`
+   collapses inventory `action` + `execute_recommended` into
+   `follow_through_action` (`execute_now` | `wait_for_local_allowlist` |
+   `keep_activation_external` | `repair` | `noop`) and
+   `call_dispatch_with_execute`. Preferred policy-aware operator entry is
+   `follow_reverse_flow_focused_validation_continue_dispatch`: package inventory,
+   resolve follow-through, call dispatch with execute only when recommended, and
+   attach `post_follow_through` after run/record. Low-level single operator entry
+   remains `dispatch_reverse_flow_focused_validation_continue_supervisor_wake`:
+   package inventory first, optionally run/record when `continue_run_executable`,
+   always return reverse-flow-first `supervisor_wake` plus
+   `post_dispatch_inventory` and `follow_through`. Durable `operator_state`
+   exports `reverse_flow_focused_validation_continue_run_recommended`, nested
+   inventory `reverse_flow_focused_validation_continue_supervisor_wake`, nested
    `reverse_flow_focused_validation_continue_dispatch` (without pipeline
    snapshot), `continue_dispatch_action`, `continue_dispatch_execute_recommended`,
-   `continue_dispatch_helper`, and `continue_dispatch_inventory_helper` while
-   reverse-flow focused validation is ready/unrecorded
+   nested `continue_dispatch_follow_through`,
+   `continue_dispatch_follow_through_action`,
+   `continue_dispatch_call_with_execute`, `continue_dispatch_helper`,
+   `continue_dispatch_inventory_helper`, and
+   `continue_dispatch_follow_through_helper` while reverse-flow focused
+   validation is ready/unrecorded
 
 Replay with:
 
@@ -353,9 +365,14 @@ results without treating unlock as a dead end:
    activation-external acceptance;
    `package_reverse_flow_focused_validation_continue_dispatch_inventory` packages
    the durable inventory dispatch packet without execute;
-   `dispatch_reverse_flow_focused_validation_continue_supervisor_wake` is the
-   preferred single operator entry (inventory packet + optional run/record +
-   post_dispatch_inventory)
+   `resolve_reverse_flow_focused_validation_continue_dispatch_follow_through`
+   collapses inventory into follow-through action + call_dispatch_with_execute;
+   `follow_reverse_flow_focused_validation_continue_dispatch` is the preferred
+   policy-aware operator entry (follow recommendation → optional run/record +
+   post_follow_through);
+   `dispatch_reverse_flow_focused_validation_continue_supervisor_wake` remains
+   the low-level single operator entry (inventory packet + optional run/record +
+   post_dispatch_inventory + follow_through)
 4. On partial ready coverage, decision is
    `record_remaining_focused_validation_command_hashes_before_activation_external`
    and supervisor next is record-remaining (not a full re-run). On pass, decision

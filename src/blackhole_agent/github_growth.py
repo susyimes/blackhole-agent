@@ -6168,6 +6168,8 @@ def package_reverse_flow_focused_validation_continue_dispatch_inventory(
         "raw_upstream_bodies_exported": False,
         "raw_command_stdout_exported": False,
         "record_helpers": [
+            "follow_reverse_flow_focused_validation_continue_dispatch",
+            "resolve_reverse_flow_focused_validation_continue_dispatch_follow_through",
             "dispatch_reverse_flow_focused_validation_continue_supervisor_wake",
             "package_reverse_flow_focused_validation_continue_dispatch_inventory",
             "run_reverse_flow_focused_validation_continue_pending_work_units",
@@ -6180,6 +6182,234 @@ def package_reverse_flow_focused_validation_continue_dispatch_inventory(
             "build_reverse_flow_focused_validation_continue_plan",
         ],
     }
+
+
+def resolve_reverse_flow_focused_validation_continue_dispatch_follow_through(
+    *,
+    inventory_dispatch: dict[str, Any] | None = None,
+    pipeline: dict[str, Any] | None = None,
+    execute_requested: bool | None = None,
+) -> dict[str, Any]:
+    """Map inventory dispatch into one durable follow-through decision.
+
+    Collapses ``action`` + ``execute_recommended`` into
+    ``follow_through_action`` and ``call_dispatch_with_execute`` so supervisors
+    do not re-derive execute policy from nested wake fields. Residual export
+    stays denied. Does not execute commands, export stdout, or enable
+    activation, push, promotion, provider launch, remote apply, external skill
+    execution, or kernel restart.
+
+    ``follow_through_action`` values:
+    - ``execute_now`` — inventory_only with allowlisted units
+    - ``wait_for_local_allowlist`` — units exist but are not local-allowed
+    - ``keep_activation_external`` — reverse-flow already passed / keep path
+    - ``repair`` — focused validation failed
+    - ``noop`` — no reverse-flow continue work
+    """
+
+    packet = (
+        inventory_dispatch
+        if isinstance(inventory_dispatch, dict) and inventory_dispatch
+        else package_reverse_flow_focused_validation_continue_dispatch_inventory(
+            pipeline=pipeline if isinstance(pipeline, dict) else {},
+            execute_requested=bool(execute_requested)
+            if execute_requested is not None
+            else False,
+            record_requested=True,
+        )
+    )
+    action = str(packet.get("action") or "noop")
+    execute_recommended = bool(packet.get("execute_recommended"))
+    mode = str(packet.get("continue_plan_mode") or packet.get("mode") or "none")
+    status = str(packet.get("focused_validation_status") or packet.get("status") or "none")
+
+    if action == "repair" or status == "failed" or mode == "repair":
+        follow_through_action = "repair"
+    elif action == "keep_activation_external" or mode == "keep_activation_external":
+        follow_through_action = "keep_activation_external"
+    elif action == "inventory_not_executable":
+        follow_through_action = "wait_for_local_allowlist"
+    elif action == "inventory_only" and (
+        execute_recommended or bool(packet.get("continue_run_executable"))
+    ):
+        follow_through_action = "execute_now"
+    elif action == "inventory_only":
+        follow_through_action = "wait_for_local_allowlist"
+    else:
+        follow_through_action = "noop"
+
+    # execute_requested=None follows the durable recommendation; explicit bool
+    # forces inventory-only or execute attempt without re-deriving action.
+    if execute_requested is False:
+        call_dispatch_with_execute = False
+    elif execute_requested is True:
+        call_dispatch_with_execute = follow_through_action == "execute_now"
+    else:
+        call_dispatch_with_execute = follow_through_action == "execute_now"
+
+    return {
+        "schema_version": 1,
+        "controller_surface": (
+            "reverse_flow_focused_validation_continue_dispatch_follow_through"
+        ),
+        "proposal_track": "prop-reverse-flow-skill-route-discovery-continue",
+        "follow_through_action": follow_through_action,
+        "call_dispatch_with_execute": bool(call_dispatch_with_execute),
+        "inventory_action": action,
+        "execute_recommended": bool(execute_recommended),
+        "execute_requested": execute_requested,
+        "continue_plan_mode": mode,
+        "focused_validation_status": status,
+        "supervisor_next_action": str(packet.get("supervisor_next_action") or "none"),
+        "continue_run_executable": bool(packet.get("continue_run_executable")),
+        "continue_run_recommended": bool(packet.get("continue_run_recommended")),
+        "runnable_work_unit_count": int(packet.get("runnable_work_unit_count") or 0),
+        "residual_hold_active": bool(packet.get("residual_hold_active", True)),
+        "residual_export_allowed": False,
+        "dispatch_helper": (
+            "dispatch_reverse_flow_focused_validation_continue_supervisor_wake"
+        ),
+        "inventory_helper": (
+            "package_reverse_flow_focused_validation_continue_dispatch_inventory"
+        ),
+        "follow_through_helper": (
+            "follow_reverse_flow_focused_validation_continue_dispatch"
+        ),
+        "resolve_helper": (
+            "resolve_reverse_flow_focused_validation_continue_dispatch_follow_through"
+        ),
+        "activation_external_only": True,
+        "supervisor_activation_allowed": False,
+        "runtime_action": "none",
+        "external_skill_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_apply_allowed": False,
+        "push_or_promotion_allowed": False,
+        "kernel_restart_allowed": False,
+        "body_free": True,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_bodies_exported": False,
+        "raw_command_stdout_exported": False,
+        "record_helpers": [
+            "follow_reverse_flow_focused_validation_continue_dispatch",
+            "resolve_reverse_flow_focused_validation_continue_dispatch_follow_through",
+            "dispatch_reverse_flow_focused_validation_continue_supervisor_wake",
+            "package_reverse_flow_focused_validation_continue_dispatch_inventory",
+            "run_reverse_flow_focused_validation_continue_pending_work_units",
+            "resolve_reverse_flow_focused_validation_continue_run_supervisor_wake",
+            "resolve_reverse_flow_focused_validation_continue_supervisor_next",
+            "build_reverse_flow_focused_validation_continue_plan",
+        ],
+    }
+
+
+def follow_reverse_flow_focused_validation_continue_dispatch(
+    pipeline: dict[str, Any],
+    *,
+    execute: bool | None = None,
+    command_runner: Any = subprocess.run,
+    cwd: Path | str | None = None,
+    timeout: int = 120,
+    source_digest: str | None = None,
+    theme_window: dict[str, Any] | None = None,
+    record: bool = True,
+) -> dict[str, Any]:
+    """Apply inventory follow-through: execute only when the durable policy says so.
+
+    Preferred policy-aware operator entry for reverse-flow continue. Packages
+    inventory, resolves follow-through (``execute_now`` /
+    ``keep_activation_external`` / ``repair`` / ``wait_for_local_allowlist`` /
+    ``noop``), then calls
+    ``dispatch_reverse_flow_focused_validation_continue_supervisor_wake`` with
+    ``execute=True`` only when ``call_dispatch_with_execute`` is true.
+
+    ``execute=None`` follows the durable recommendation. ``execute=True`` still
+    only runs allowlisted continue units (never forces re-run after pass).
+    ``execute=False`` stays inventory-only. Residual export stays denied; no
+    activation, push, promotion, provider launch, remote apply, external skill
+    execution, or kernel restart. Does not export stdout.
+    """
+
+    if not isinstance(pipeline, dict):
+        raise TypeError("pipeline must be a dict")
+
+    inventory_packet = package_reverse_flow_focused_validation_continue_dispatch_inventory(
+        pipeline=pipeline,
+        execute_requested=bool(execute) if execute is not None else False,
+        record_requested=bool(record),
+    )
+    follow_through = resolve_reverse_flow_focused_validation_continue_dispatch_follow_through(
+        inventory_dispatch=inventory_packet,
+        execute_requested=execute,
+    )
+    should_execute = bool(follow_through.get("call_dispatch_with_execute"))
+    dispatch_packet = dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
+        pipeline,
+        execute=should_execute,
+        command_runner=command_runner,
+        cwd=cwd,
+        timeout=timeout,
+        source_digest=source_digest,
+        theme_window=theme_window,
+        record=record,
+    )
+    updated_pipeline = (
+        dispatch_packet.get("pipeline")
+        if isinstance(dispatch_packet.get("pipeline"), dict)
+        else pipeline
+    )
+    post_inventory = (
+        dispatch_packet.get("post_dispatch_inventory")
+        if isinstance(dispatch_packet.get("post_dispatch_inventory"), dict)
+        else package_reverse_flow_focused_validation_continue_dispatch_inventory(
+            pipeline=updated_pipeline,
+            execute_requested=False,
+            record_requested=bool(record),
+        )
+    )
+    post_follow_through = (
+        resolve_reverse_flow_focused_validation_continue_dispatch_follow_through(
+            inventory_dispatch=post_inventory,
+            execute_requested=False,
+        )
+    )
+    result = dict(dispatch_packet)
+    result["controller_surface"] = (
+        "reverse_flow_focused_validation_continue_dispatch_follow_through"
+    )
+    result["follow_through"] = follow_through
+    result["post_follow_through"] = post_follow_through
+    result["follow_through_action"] = str(
+        follow_through.get("follow_through_action") or "noop"
+    )
+    result["post_follow_through_action"] = str(
+        post_follow_through.get("follow_through_action") or "noop"
+    )
+    result["call_dispatch_with_execute"] = bool(should_execute)
+    result["followed_recommendation"] = execute is None
+    result["execute_requested"] = execute
+    result["inventory_dispatch"] = (
+        dispatch_packet.get("inventory_dispatch")
+        if isinstance(dispatch_packet.get("inventory_dispatch"), dict)
+        else inventory_packet
+    )
+    result["post_dispatch_inventory"] = post_inventory
+    result["follow_through_helper"] = (
+        "follow_reverse_flow_focused_validation_continue_dispatch"
+    )
+    result["resolve_helper"] = (
+        "resolve_reverse_flow_focused_validation_continue_dispatch_follow_through"
+    )
+    result["residual_export_allowed"] = False
+    helpers = list(result.get("record_helpers") or [])
+    for name in (
+        "follow_reverse_flow_focused_validation_continue_dispatch",
+        "resolve_reverse_flow_focused_validation_continue_dispatch_follow_through",
+    ):
+        if name not in helpers:
+            helpers.insert(0, name)
+    result["record_helpers"] = helpers
+    return result
 
 
 def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
@@ -6205,8 +6435,13 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
     Inventory-only wakes (``execute=False`` or not executable) still package
     mode, residual hold, and next action without running commands via
     ``package_reverse_flow_focused_validation_continue_dispatch_inventory``.
+    Attaches durable ``follow_through`` so supervisors can read
+    ``call_dispatch_with_execute`` without re-deriving action + recommendation.
     Never enables activation, push, promotion, provider launch, remote apply,
     external skill execution, or kernel restart. Does not export stdout.
+
+    Policy-aware callers that want recommendation-following defaults should use
+    ``follow_reverse_flow_focused_validation_continue_dispatch`` instead.
     """
 
     if not isinstance(pipeline, dict):
@@ -6221,6 +6456,10 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
         inventory_packet.get("inventory_wake")
         if isinstance(inventory_packet.get("inventory_wake"), dict)
         else {}
+    )
+    follow_through = resolve_reverse_flow_focused_validation_continue_dispatch_follow_through(
+        inventory_dispatch=inventory_packet,
+        execute_requested=bool(execute),
     )
     continue_run_executable = bool(inventory_packet.get("continue_run_executable"))
     should_execute = bool(execute) and continue_run_executable
@@ -6252,6 +6491,12 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
             execute_requested=False,
             record_requested=bool(record),
         )
+        post_follow_through = (
+            resolve_reverse_flow_focused_validation_continue_dispatch_follow_through(
+                inventory_dispatch=post_inventory,
+                execute_requested=False,
+            )
+        )
         return {
             "schema_version": 1,
             "controller_surface": (
@@ -6267,6 +6512,15 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
             "inventory_wake": inventory_wake,
             "inventory_dispatch": inventory_packet,
             "post_dispatch_inventory": post_inventory,
+            "follow_through": follow_through,
+            "post_follow_through": post_follow_through,
+            "follow_through_action": str(
+                follow_through.get("follow_through_action") or "noop"
+            ),
+            "post_follow_through_action": str(
+                post_follow_through.get("follow_through_action") or "noop"
+            ),
+            "call_dispatch_with_execute": True,
             "run_and_record": run_packet,
             "pipeline": updated_pipeline,
             "recorded": bool(run_packet.get("recorded")),
@@ -6315,6 +6569,12 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
             "inventory_helper": (
                 "package_reverse_flow_focused_validation_continue_dispatch_inventory"
             ),
+            "follow_through_helper": (
+                "follow_reverse_flow_focused_validation_continue_dispatch"
+            ),
+            "resolve_helper": (
+                "resolve_reverse_flow_focused_validation_continue_dispatch_follow_through"
+            ),
             "activation_external_only": True,
             "supervisor_activation_allowed": False,
             "runtime_action": "none",
@@ -6328,6 +6588,8 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
             "raw_upstream_bodies_exported": False,
             "raw_command_stdout_exported": False,
             "record_helpers": [
+                "follow_reverse_flow_focused_validation_continue_dispatch",
+                "resolve_reverse_flow_focused_validation_continue_dispatch_follow_through",
                 "dispatch_reverse_flow_focused_validation_continue_supervisor_wake",
                 "package_reverse_flow_focused_validation_continue_dispatch_inventory",
                 "run_reverse_flow_focused_validation_continue_pending_work_units",
@@ -6341,8 +6603,31 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
             ],
         }
 
-    # Inventory-only / not-executable / keep / repair / noop: return durable packet.
-    return inventory_packet
+    # Inventory-only / not-executable / keep / repair / noop: return durable packet
+    # with follow-through so supervisors can decide execute without re-deriving.
+    result = dict(inventory_packet)
+    result["follow_through"] = follow_through
+    result["follow_through_action"] = str(
+        follow_through.get("follow_through_action") or "noop"
+    )
+    result["call_dispatch_with_execute"] = bool(
+        follow_through.get("call_dispatch_with_execute")
+    )
+    result["follow_through_helper"] = (
+        "follow_reverse_flow_focused_validation_continue_dispatch"
+    )
+    result["resolve_helper"] = (
+        "resolve_reverse_flow_focused_validation_continue_dispatch_follow_through"
+    )
+    helpers = list(result.get("record_helpers") or [])
+    for name in (
+        "follow_reverse_flow_focused_validation_continue_dispatch",
+        "resolve_reverse_flow_focused_validation_continue_dispatch_follow_through",
+    ):
+        if name not in helpers:
+            helpers.insert(0, name)
+    result["record_helpers"] = helpers
+    return result
 
 
 def build_skill_route_discovery_focused_local_test_validation(
@@ -11467,6 +11752,17 @@ def resolve_skill_route_discovery_pipeline_operator_state(
             "reverse_flow_focused_validation_continue_dispatch_inventory_helper": (
                 "package_reverse_flow_focused_validation_continue_dispatch_inventory"
             ),
+            "reverse_flow_focused_validation_continue_dispatch_follow_through": {},
+            "reverse_flow_focused_validation_continue_dispatch_follow_through_action": (
+                "none"
+            ),
+            "reverse_flow_focused_validation_continue_dispatch_call_with_execute": False,
+            "reverse_flow_focused_validation_continue_dispatch_follow_through_helper": (
+                "follow_reverse_flow_focused_validation_continue_dispatch"
+            ),
+            "reverse_flow_focused_validation_continue_dispatch_follow_through_resolve_helper": (
+                "resolve_reverse_flow_focused_validation_continue_dispatch_follow_through"
+            ),
             "reverse_flow_continue_decision": "none",
             "reverse_flow_bound": False,
             "reverse_flow_bound_proposal_id": "",
@@ -11797,6 +12093,8 @@ def resolve_skill_route_discovery_pipeline_operator_state(
     record_helpers = [
         "record_skill_route_discovery_focused_local_test_validation_results",
         "close_skill_route_discovery_focused_local_test_validation_with_outcome",
+        "follow_reverse_flow_focused_validation_continue_dispatch",
+        "resolve_reverse_flow_focused_validation_continue_dispatch_follow_through",
         "dispatch_reverse_flow_focused_validation_continue_supervisor_wake",
         "package_reverse_flow_focused_validation_continue_dispatch_inventory",
         "run_reverse_flow_focused_validation_continue_pending_work_units",
@@ -11848,6 +12146,9 @@ def resolve_skill_route_discovery_pipeline_operator_state(
     continue_dispatch: dict[str, Any] = {}
     continue_dispatch_action = "none"
     continue_dispatch_execute_recommended = False
+    continue_dispatch_follow_through: dict[str, Any] = {}
+    continue_dispatch_follow_through_action = "none"
+    continue_dispatch_call_with_execute = False
     if reverse_flow_ready_unrecorded:
         continue_supervisor_next = (
             resolve_reverse_flow_focused_validation_continue_supervisor_next(
@@ -11931,6 +12232,18 @@ def resolve_skill_route_discovery_pipeline_operator_state(
         continue_dispatch_execute_recommended = bool(
             continue_dispatch.get("execute_recommended")
         )
+        continue_dispatch_follow_through = (
+            resolve_reverse_flow_focused_validation_continue_dispatch_follow_through(
+                inventory_dispatch=continue_dispatch,
+                execute_requested=None,
+            )
+        )
+        continue_dispatch_follow_through_action = str(
+            continue_dispatch_follow_through.get("follow_through_action") or "none"
+        )
+        continue_dispatch_call_with_execute = bool(
+            continue_dispatch_follow_through.get("call_dispatch_with_execute")
+        )
     elif focused_status == "failed":
         reverse_flow_continue_decision = (
             "repair_failed_focused_local_test_validation_commands"
@@ -11970,6 +12283,18 @@ def resolve_skill_route_discovery_pipeline_operator_state(
         continue_dispatch_execute_recommended = bool(
             continue_dispatch.get("execute_recommended")
         )
+        continue_dispatch_follow_through = (
+            resolve_reverse_flow_focused_validation_continue_dispatch_follow_through(
+                inventory_dispatch=continue_dispatch,
+                execute_requested=None,
+            )
+        )
+        continue_dispatch_follow_through_action = str(
+            continue_dispatch_follow_through.get("follow_through_action") or "repair"
+        )
+        continue_dispatch_call_with_execute = bool(
+            continue_dispatch_follow_through.get("call_dispatch_with_execute")
+        )
     elif focused_status == "passed":
         reverse_flow_continue_decision = str(supervisor_next or "none")
         helpers = []
@@ -12006,6 +12331,19 @@ def resolve_skill_route_discovery_pipeline_operator_state(
         )
         continue_dispatch_execute_recommended = bool(
             continue_dispatch.get("execute_recommended")
+        )
+        continue_dispatch_follow_through = (
+            resolve_reverse_flow_focused_validation_continue_dispatch_follow_through(
+                inventory_dispatch=continue_dispatch,
+                execute_requested=None,
+            )
+        )
+        continue_dispatch_follow_through_action = str(
+            continue_dispatch_follow_through.get("follow_through_action")
+            or "keep_activation_external"
+        )
+        continue_dispatch_call_with_execute = bool(
+            continue_dispatch_follow_through.get("call_dispatch_with_execute")
         )
     else:
         reverse_flow_continue_decision = str(supervisor_next or "none")
@@ -12074,6 +12412,23 @@ def resolve_skill_route_discovery_pipeline_operator_state(
         ),
         "reverse_flow_focused_validation_continue_dispatch_inventory_helper": (
             "package_reverse_flow_focused_validation_continue_dispatch_inventory"
+        ),
+        "reverse_flow_focused_validation_continue_dispatch_follow_through": (
+            dict(continue_dispatch_follow_through)
+            if continue_dispatch_follow_through
+            else {}
+        ),
+        "reverse_flow_focused_validation_continue_dispatch_follow_through_action": (
+            continue_dispatch_follow_through_action
+        ),
+        "reverse_flow_focused_validation_continue_dispatch_call_with_execute": (
+            continue_dispatch_call_with_execute
+        ),
+        "reverse_flow_focused_validation_continue_dispatch_follow_through_helper": (
+            "follow_reverse_flow_focused_validation_continue_dispatch"
+        ),
+        "reverse_flow_focused_validation_continue_dispatch_follow_through_resolve_helper": (
+            "resolve_reverse_flow_focused_validation_continue_dispatch_follow_through"
         ),
         "reverse_flow_continue_decision": reverse_flow_continue_decision,
         "reverse_flow_bound": bool(reverse_flow_binding.get("bound")),
@@ -12349,10 +12704,16 @@ def render_skill_route_discovery_capability_pipeline_lines(
         f"{operator_state.get('reverse_flow_focused_validation_continue_dispatch_action') or 'none'}`",
         f"- Reverse-flow focused validation continue dispatch execute recommended: `"
         f"{bool(operator_state.get('reverse_flow_focused_validation_continue_dispatch_execute_recommended'))}`",
+        f"- Reverse-flow focused validation continue dispatch follow-through action: `"
+        f"{operator_state.get('reverse_flow_focused_validation_continue_dispatch_follow_through_action') or 'none'}`",
+        f"- Reverse-flow focused validation continue dispatch call with execute: `"
+        f"{bool(operator_state.get('reverse_flow_focused_validation_continue_dispatch_call_with_execute'))}`",
         f"- Reverse-flow focused validation continue dispatch helper: `"
         f"{operator_state.get('reverse_flow_focused_validation_continue_dispatch_helper') or 'dispatch_reverse_flow_focused_validation_continue_supervisor_wake'}`",
         f"- Reverse-flow focused validation continue dispatch inventory helper: `"
         f"{operator_state.get('reverse_flow_focused_validation_continue_dispatch_inventory_helper') or 'package_reverse_flow_focused_validation_continue_dispatch_inventory'}`",
+        f"- Reverse-flow focused validation continue dispatch follow-through helper: `"
+        f"{operator_state.get('reverse_flow_focused_validation_continue_dispatch_follow_through_helper') or 'follow_reverse_flow_focused_validation_continue_dispatch'}`",
         f"- Reverse-flow continue decision: `"
         f"{operator_state.get('reverse_flow_continue_decision') or 'none'}`",
         f"- Adjacent agent harness-eval handoff: `{adjacent_handoff.get('status') or 'none'}`",
@@ -12379,7 +12740,9 @@ def render_skill_route_discovery_capability_pipeline_lines(
         "- run_reverse_flow_focused_validation_continue_pending_work_units builds a local continue-run plan from pending_work_units, executes only allowlisted local pytest inventory lines (no shell metacharacters), and optionally records body-free outcomes; build_reverse_flow_focused_validation_continue_run_plan and execute_reverse_flow_focused_validation_continue_run_plan stay inspectable and never export stdout or enable activation.",
         "- resolve_reverse_flow_focused_validation_continue_run_supervisor_wake packages reverse-flow-first supervisor_next after continue-run inventory/run (mode, residual hold, handoff/acceptance status) so residual fortress stages stay blocked until reverse-flow record/close and activation-external acceptance; run-and-record attaches supervisor_wake without enabling activation.",
         "- package_reverse_flow_focused_validation_continue_dispatch_inventory packages a body-free inventory dispatch packet (action, execute_recommended, residual hold) without running commands so supervisors can decide whether to execute without re-deriving nested wake fields; residual export stays denied.",
-        "- dispatch_reverse_flow_focused_validation_continue_supervisor_wake is the preferred single operator entry: inventory packet first (via package_reverse_flow_focused_validation_continue_dispatch_inventory), optional allowlisted run/record when continue_run_executable, always reverse-flow-first supervisor_wake plus post_dispatch_inventory; residual fortress stages stay blocked until reverse-flow record/close and activation-external acceptance. operator_state also exports continue_run_recommended, continue_supervisor_wake, continue_dispatch (inventory packet without pipeline snapshot), continue_dispatch_action, continue_dispatch_execute_recommended, continue_dispatch_helper, and continue_dispatch_inventory_helper while reverse-flow is ready/unrecorded.",
+        "- resolve_reverse_flow_focused_validation_continue_dispatch_follow_through collapses inventory action + execute_recommended into follow_through_action (execute_now|wait_for_local_allowlist|keep_activation_external|repair|noop) and call_dispatch_with_execute so supervisors do not re-derive execute policy from nested wake fields; residual export stays denied.",
+        "- follow_reverse_flow_focused_validation_continue_dispatch is the preferred policy-aware operator entry: package inventory, resolve follow-through, call dispatch with execute only when call_dispatch_with_execute is true, and attach post_follow_through after run/record; residual fortress stages stay blocked until reverse-flow record/close and activation-external acceptance.",
+        "- dispatch_reverse_flow_focused_validation_continue_supervisor_wake remains the low-level single operator entry: inventory packet first (via package_reverse_flow_focused_validation_continue_dispatch_inventory), optional allowlisted run/record when continue_run_executable, always reverse-flow-first supervisor_wake plus post_dispatch_inventory and follow_through; residual fortress stages stay blocked until reverse-flow record/close and activation-external acceptance. operator_state also exports continue_run_recommended, continue_supervisor_wake, continue_dispatch (inventory packet without pipeline snapshot), continue_dispatch_action, continue_dispatch_execute_recommended, continue_dispatch_follow_through, continue_dispatch_follow_through_action, continue_dispatch_call_with_execute, continue_dispatch_helper, continue_dispatch_inventory_helper, and continue_dispatch_follow_through_helper while reverse-flow is ready/unrecorded.",
         "- Partial body-free command-hash rows stay on ready focused validation and accumulate across record calls via merge_skill_route_discovery_focused_validation_command_results; while partial, supervisor_next promotes to record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external (not a full re-run); residual export remains denied until results cover expected hashes and reverse-flow record/close advances residual-active work.",
         "- After ready, record_skill_route_discovery_focused_local_test_validation_results merges new body-free command-hash rows with any prior partial rows while activation stays external.",
         "- After ready, close_skill_route_discovery_focused_local_test_validation_with_outcome materializes body-free expected-hash outcomes and refreshes activation-external handoff/acceptance.",
