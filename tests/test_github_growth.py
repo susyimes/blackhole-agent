@@ -82,6 +82,7 @@ from blackhole_agent.github_growth import (
     package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call,
     package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next,
     package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call,
+    package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow,
     resolve_reverse_flow_focused_validation_continue_dispatch_follow_through,
     normalize_skill_route_discovery_focused_validation_command_results,
     record_skill_route_discovery_focused_local_test_validation_results,
@@ -6647,6 +6648,121 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     ]
     assert "residual_route=false→true" in residual_pin_call_next_call[
         "continue_cascade_wake_route_apply_follow_pin_call_next_call_line"
+    ]
+    # Body-free continue cascade wake route apply follow pin call next call
+    # follow maps next-call receipts into one durable follow policy.
+    assert pipeline[
+        "reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_helper"
+    ] == (
+        "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow"
+    )
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_helper"
+    ] == (
+        "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow"
+    )
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_line"
+    ].startswith(
+        "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow applied="
+    )
+    assert "residual_export=false" in pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_line"
+    ]
+    assert "next_call_helper=package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call" in (
+        pipeline["operator_state"][
+            "reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_line"
+        ]
+    )
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_action"
+    ] == "execute_now"
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_mode"
+    ] == "execute_helper"
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_call_execute"
+    ] is True
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_ready"
+    ] is True
+    identity_pin_call_next_call_follow = (
+        package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow(
+            next_call=identity_pin_call_next_call,
+        )
+    )
+    assert identity_pin_call_next_call_follow["controller_surface"] == (
+        "reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow"
+    )
+    assert identity_pin_call_next_call_follow["follow_action"] == "execute_now"
+    assert identity_pin_call_next_call_follow["follow_mode"] == "execute_helper"
+    assert identity_pin_call_next_call_follow["call_follow_with_execute"] is True
+    assert identity_pin_call_next_call_follow["follow_ready"] is True
+    assert identity_pin_call_next_call_follow["next_advanced"] is False
+    assert identity_pin_call_next_call_follow["residual_export_allowed"] is False
+    assert identity_pin_call_next_call_follow["runtime_action"] == "none"
+    assert identity_pin_call_next_call_follow[
+        "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_line"
+    ].startswith(
+        "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow "
+        "applied=execute_now "
+    )
+    assert "mode=execute_helper" in identity_pin_call_next_call_follow[
+        "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_line"
+    ]
+    assert "call_execute=true" in identity_pin_call_next_call_follow[
+        "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_line"
+    ]
+    assert "follow_ready=true" in identity_pin_call_next_call_follow[
+        "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_line"
+    ]
+    assert "residual_export=false" in identity_pin_call_next_call_follow[
+        "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_line"
+    ]
+    advanced_pin_call_next_call_follow = (
+        package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow(
+            next_call=advanced_pin_call_next_call,
+        )
+    )
+    assert advanced_pin_call_next_call_follow["follow_action"] == (
+        "keep_activation_external"
+    )
+    assert advanced_pin_call_next_call_follow["follow_mode"] == "package_helper"
+    assert advanced_pin_call_next_call_follow["call_follow_with_execute"] is False
+    assert advanced_pin_call_next_call_follow["follow_ready"] is True
+    assert advanced_pin_call_next_call_follow["next_advanced"] is True
+    assert advanced_pin_call_next_call_follow["applied_next_action"] == (
+        "keep_activation_external"
+    )
+    assert advanced_pin_call_next_call_follow["applied_next_invoke"] == "package_helper"
+    assert advanced_pin_call_next_call_follow["residual_export_allowed"] is False
+    assert "applied=keep_activation_external" in advanced_pin_call_next_call_follow[
+        "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_line"
+    ]
+    assert "mode=package_helper" in advanced_pin_call_next_call_follow[
+        "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_line"
+    ]
+    assert "advanced=true" in advanced_pin_call_next_call_follow[
+        "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_line"
+    ]
+    assert "call_execute=false" in advanced_pin_call_next_call_follow[
+        "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_line"
+    ]
+    residual_pin_call_next_call_follow = (
+        package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow(
+            next_call=residual_pin_call_next_call,
+        )
+    )
+    assert residual_pin_call_next_call_follow["follow_action"] == "open_residual_entry"
+    assert residual_pin_call_next_call_follow["follow_mode"] == "package_helper"
+    assert residual_pin_call_next_call_follow["call_follow_with_execute"] is False
+    assert residual_pin_call_next_call_follow["post_residual_route_ready"] is True
+    assert residual_pin_call_next_call_follow["residual_export_allowed"] is False
+    assert "applied=open_residual_entry" in residual_pin_call_next_call_follow[
+        "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_line"
+    ]
+    assert "residual_route=true" in residual_pin_call_next_call_follow[
+        "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_line"
     ]
     assert pipeline["reverse_flow_focused_validation_continue_supervisor_wake"][
         "controller_surface"

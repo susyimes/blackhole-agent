@@ -1,0 +1,19 @@
+{
+  "surface": "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow",
+  "self_model_changed": true,
+  "source_digest": "github-growth-20260714T064753.067377Z",
+  "residual_export_allowed": false,
+  "runtime_action": "none",
+  "validation": "17+34 passed (focused skill-route pipeline + docs contracts)",
+  "hypothesis": "After pin_call_next_call collapses pre/post next-invoke recipes into a next-call receipt, supervisors still re-mapped applied_next_action, applied_next_invoke, post_call_next_with_execute, and next_advanced into which helper to call next after continue wakes. Mapping next_call into a body-free next_call_follow receipt removes that nested re-assembly without residual_export or activation.",
+  "changed_paths": [
+    "src/blackhole_agent/github_growth.py",
+    "tests/test_github_growth.py",
+    "tests/test_docs_contracts.py",
+    "docs/skill-route-discovery.md",
+    "docs/architecture.md",
+    "docs/self-model.md"
+  ],
+  "proposal_id": "prop-skill-reverse-flow-continue",
+  "rollback_ref": "refs/blackhole/rollback/20260714T145100Z"
+}
