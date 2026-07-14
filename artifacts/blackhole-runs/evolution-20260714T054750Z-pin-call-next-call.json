@@ -1,0 +1,19 @@
+{
+  "residual_export_allowed": false,
+  "runtime_action": "none",
+  "changed_paths": [
+    "src/blackhole_agent/github_growth.py",
+    "tests/test_github_growth.py",
+    "tests/test_docs_contracts.py",
+    "docs/skill-route-discovery.md",
+    "docs/architecture.md",
+    "docs/self-model.md"
+  ],
+  "validation": "9+34 passed (focused skill-route pipeline + docs contracts)",
+  "source_digest": "github-growth-20260714T054752.485772Z",
+  "proposal_id": "prop-skill-reverse-flow-continue",
+  "self_model_changed": true,
+  "surface": "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call",
+  "rollback_ref": "refs/blackhole/rollback/20260714T055018Z",
+  "hypothesis": "After pin_call_next seals a next-invoke recipe, supervisors still re-compared nested pre/post next_action, next_invoke, call_next_with_execute, and next_ready after continue wakes. Collapsing pre/post pin_call_next into a body-free next_call receipt removes that nested re-assembly without residual_export or activation."
+}
