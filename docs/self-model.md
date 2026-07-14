@@ -46,7 +46,7 @@ residual adjacent focused validation activation-external handoff →
 residual adjacent focused validation activation-external acceptance →
 (optional) selected-step adjacent harness-eval.
 
-Observed this run (digest `github-growth-20260714T005419.520584Z`,
+Observed this run (digest `github-growth-20260714T024805.275894Z`,
 `prop-skill-reverse-flow-continue` / reverse-flow bound against
 `lingbol088-spec/reverse-flow-skill`, residual fortress/Hy3 adjacent):
 
@@ -56,52 +56,62 @@ Observed this run (digest `github-growth-20260714T005419.520584Z`,
   on reverse-flow record/close and activation-external acceptance
 - Prior: continue cascade wake classifies `wake_outcome`; wake route maps
   wake_outcome → durable `route_action` + preferred helper; wake route apply
-  collapses pre/post routes into body-free apply receipt without residual_export
-- New: `package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow`
-  collapses continue_cascade_wake_route_apply into body-free
-  `continue_cascade_wake_route_apply_follow_line` with applied route → preferred
-  helper (for example
-  `continue_cascade_wake_route_apply_follow applied=keep_activation_external
-  advanced=true executed=true recorded=true call_execute=false
-  residual_route=false reverse=0/3→3/3 residual=0/8→0/8 residual_export=false
-  next=keep_activation_external_after_focused_local_test_validation
-  helper=package_reverse_flow_focused_validation_continue_finish_receipt
-  apply_helper=package_reverse_flow_focused_validation_continue_cascade_wake_route_apply`)
-  so supervisors pin one follow receipt instead of re-mapping applied route
-  actions after continue wakes
-- Apply-follow fields: `applied_route_action`, `follow_action`,
-  `preferred_helper`, `call_follow_with_execute`, `route_advanced`,
-  `executed`, `recorded`, `residual_route_ready`, reverse/residual progress
-  transitions
-- Identity / inventory snapshot: applied=`execute_now`,
-  `call_execute=true`, preferred helper =
+  collapses pre/post routes into body-free apply receipt; apply follow maps
+  applied route → preferred helper without residual_export
+- New: `package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin`
+  collapses continue_cascade_wake_route_apply_follow into body-free
+  `continue_cascade_wake_route_apply_follow_pin_line` with classified pin mode
+  (for example
+  `continue_cascade_wake_route_apply_follow_pin action=execute_now
+  mode=execute_helper call_execute=true pin_ready=true residual_route=false
+  reverse=0/3→0/3 residual=0/8→0/8 residual_export=false
+  next=run_focused_local_test_validation_then_keep_activation_external
+  helper=follow_reverse_flow_focused_validation_continue_dispatch
+  follow_helper=package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow`)
+  so supervisors pin one call recipe instead of re-deriving execute vs package
+  policy after continue wakes
+- Pin modes: `execute_helper` (call preferred helper with execute for
+  `execute_now` / `record_remaining`), `package_helper` (call preferred helper
+  packaging-only for `keep_activation_external` / residual open / residual
+  cascade / repair), `inventory_only` (no preferred helper call beyond inventory)
+- Pin fields: `pin_action`, `pin_mode`, `pin_ready`, `preferred_helper`,
+  `call_pin_with_execute`, `route_advanced`, `executed`, `recorded`,
+  `residual_route_ready`, reverse/residual progress transitions
+- Identity / inventory snapshot: pin `action=execute_now mode=execute_helper
+  call_execute=true pin_ready=true`, preferred helper =
   `follow_reverse_flow_focused_validation_continue_dispatch`, residual_export
   denied
-- Full follow after reverse-flow pass: apply-follow reports
-  `applied=keep_activation_external` (or residual open
-  `applied=open_residual_entry`) with finish/residual-entry preferred helpers,
-  `call_execute=false`, residual_export denied
-- New: follow and dispatch attach `continue_cascade_wake_route_apply_follow`,
-  `continue_cascade_wake_route_apply_follow_line`,
-  `continue_cascade_wake_route_apply_follow_helper`,
-  `wake_route_apply_follow_action`, `wake_route_apply_follow_helper`, and
-  `wake_route_apply_follow_call_execute` after cascade_wake_route_apply packaging
-- New: operator_state exports nested `continue_cascade_wake_route_apply_follow`,
-  `continue_cascade_wake_route_apply_follow_helper`,
-  `continue_cascade_wake_route_apply_follow_line`,
-  `continue_cascade_wake_route_apply_follow_action`,
-  `continue_cascade_wake_route_apply_follow_preferred_helper`, and
-  `continue_cascade_wake_route_apply_follow_call_execute` (alongside
-  continue_cascade_wake_route_apply / continue_cascade_wake_route /
-  continue_cascade_wake / continue_cascade_transition / continue_cascade /
-  continue_residual_cascade / continue_residual_acceptance /
-  continue_residual_handoff / continue_residual_focused_validation /
-  continue_residual_unlocked_apply / continue_residual_comparison /
-  continue_residual_follow / continue_residual_entry / continue_residual_open /
-  continue_finish_receipt / continue_finished)
-- Ready/unrecorded continue cascade wake route apply follow:
-  identity `applied=execute_now call_execute=true advanced=false` (or
-  inventory_only when execute is not recommended); residual_export denied
+- Full follow after reverse-flow pass: pin reports
+  `action=keep_activation_external mode=package_helper` (or residual open
+  `action=open_residual_entry mode=package_helper`) with finish/residual-entry
+  preferred helpers, `call_execute=false`, residual_export denied
+- New: follow and dispatch attach `continue_cascade_wake_route_apply_follow_pin`,
+  `continue_cascade_wake_route_apply_follow_pin_line`,
+  `continue_cascade_wake_route_apply_follow_pin_helper`,
+  `wake_route_apply_follow_pin_action`, `wake_route_apply_follow_pin_mode`,
+  `wake_route_apply_follow_pin_helper`, `wake_route_apply_follow_pin_call_execute`,
+  and `wake_route_apply_follow_pin_ready` after cascade_wake_route_apply_follow
+  packaging
+- New: operator_state exports nested `continue_cascade_wake_route_apply_follow_pin`,
+  `continue_cascade_wake_route_apply_follow_pin_helper`,
+  `continue_cascade_wake_route_apply_follow_pin_line`,
+  `continue_cascade_wake_route_apply_follow_pin_action`,
+  `continue_cascade_wake_route_apply_follow_pin_mode`,
+  `continue_cascade_wake_route_apply_follow_pin_preferred_helper`,
+  `continue_cascade_wake_route_apply_follow_pin_call_execute`, and
+  `continue_cascade_wake_route_apply_follow_pin_ready` (alongside
+  continue_cascade_wake_route_apply_follow / continue_cascade_wake_route_apply /
+  continue_cascade_wake_route / continue_cascade_wake /
+  continue_cascade_transition / continue_cascade / continue_residual_cascade /
+  continue_residual_acceptance / continue_residual_handoff /
+  continue_residual_focused_validation / continue_residual_unlocked_apply /
+  continue_residual_comparison / continue_residual_follow /
+  continue_residual_entry / continue_residual_open / continue_finish_receipt /
+  continue_finished)
+- Ready/unrecorded continue cascade wake route apply follow pin:
+  identity `action=execute_now mode=execute_helper call_execute=true
+  pin_ready=true` (or inventory_only when execute is not recommended);
+  residual_export denied
 - Full follow after reverse-flow pass: continue cascade wake route still reports
   `action=keep_activation_external` when reverse progress reaches N/N,
   residual_route remains false until residual_open_ready maps to
@@ -110,8 +120,8 @@ Observed this run (digest `github-growth-20260714T005419.520584Z`,
   residual_comparison/residual_unlocked_apply/residual_focused_validation/
   residual_handoff/residual_acceptance/residual_cascade/continue_cascade/
   continue_cascade_transition/continue_cascade_wake/continue_cascade_wake_route/
-  continue_cascade_wake_route_apply/continue_cascade_wake_route_apply_follow
-  surfaces themselves
+  continue_cascade_wake_route_apply/continue_cascade_wake_route_apply_follow/
+  continue_cascade_wake_route_apply_follow_pin surfaces themselves
 - While residual focused validation is ready/unrecorded after reverse-flow pass:
   residual cascade reports `blocked_at=handoff` with partial stage progress
   (for example 6/8); continue cascade keeps reverse progress complete and

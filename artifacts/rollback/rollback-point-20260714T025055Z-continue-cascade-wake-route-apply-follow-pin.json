@@ -1,0 +1,14 @@
+{
+  "recovery_commands": [
+    "git checkout grok/blackhole-evolve/20260714T024911.720982-continue-reverse-flow-skill-route-discovery-run-",
+    "git reset --hard refs/blackhole/rollback/20260714T025055Z-continue-cascade-wake-route-apply-follow-pin",
+    "git clean -fd  # destructive; operator must choose"
+  ],
+  "created_at": "2026-07-14T02:51:12.1749712Z",
+  "head": "49f614c410f9fab96b4a38e17e95b7000b405158",
+  "surface": "continue_cascade_wake_route_apply_follow_pin",
+  "source_digest": "github-growth-20260714T024805.275894Z",
+  "original_branch": "grok/blackhole-evolve/20260714T024911.720982-continue-reverse-flow-skill-route-discovery-run-",
+  "local_rollback_ref": "refs/blackhole/rollback/20260714T025055Z-continue-cascade-wake-route-apply-follow-pin",
+  "proposal": "prop-skill-reverse-flow-continue"
+}
