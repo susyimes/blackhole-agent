@@ -80,6 +80,7 @@ from blackhole_agent.github_growth import (
     package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow,
     package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin,
     package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call,
+    package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next,
     resolve_reverse_flow_focused_validation_continue_dispatch_follow_through,
     normalize_skill_route_discovery_focused_validation_command_results,
     record_skill_route_discovery_focused_local_test_validation_results,
@@ -6427,6 +6428,110 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     ]
     assert "residual_route=false→true" in residual_pin_call[
         "continue_cascade_wake_route_apply_follow_pin_call_line"
+    ]
+    # Body-free continue cascade wake route apply follow pin call next seals
+    # pin_call into one next-invoke recipe (execute_helper/package_helper/inventory).
+    assert pipeline[
+        "reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_helper"
+    ] == (
+        "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next"
+    )
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_helper"
+    ] == (
+        "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next"
+    )
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_line"
+    ].startswith("continue_cascade_wake_route_apply_follow_pin_call_next action=")
+    assert "residual_export=false" in pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_line"
+    ]
+    assert "pin_call_helper=package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call" in (
+        pipeline["operator_state"][
+            "reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_line"
+        ]
+    )
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_invoke"
+    ] in {"execute_helper", "package_helper", "inventory_only"}
+    assert pipeline["operator_state"][
+        "reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_ready"
+    ] is True
+    identity_pin_call_next = (
+        package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next(
+            pin_call=identity_pin_call,
+        )
+    )
+    assert identity_pin_call_next["controller_surface"] == (
+        "reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next"
+    )
+    assert identity_pin_call_next["next_action"] == "execute_now"
+    assert identity_pin_call_next["next_invoke"] == "execute_helper"
+    assert identity_pin_call_next["call_next_with_execute"] is True
+    assert identity_pin_call_next["next_ready"] is True
+    assert identity_pin_call_next["pin_advanced"] is False
+    assert identity_pin_call_next["preferred_helper"] == (
+        "follow_reverse_flow_focused_validation_continue_dispatch"
+    )
+    assert identity_pin_call_next["residual_export_allowed"] is False
+    assert identity_pin_call_next["runtime_action"] == "none"
+    assert identity_pin_call_next[
+        "continue_cascade_wake_route_apply_follow_pin_call_next_line"
+    ].startswith(
+        "continue_cascade_wake_route_apply_follow_pin_call_next action=execute_now "
+    )
+    assert "invoke=execute_helper" in identity_pin_call_next[
+        "continue_cascade_wake_route_apply_follow_pin_call_next_line"
+    ]
+    assert "call_execute=true" in identity_pin_call_next[
+        "continue_cascade_wake_route_apply_follow_pin_call_next_line"
+    ]
+    assert "advanced=false" in identity_pin_call_next[
+        "continue_cascade_wake_route_apply_follow_pin_call_next_line"
+    ]
+    assert "residual_export=false" in identity_pin_call_next[
+        "continue_cascade_wake_route_apply_follow_pin_call_next_line"
+    ]
+    advanced_pin_call_next = (
+        package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next(
+            pin_call=advanced_pin_call,
+        )
+    )
+    assert advanced_pin_call_next["next_action"] == "keep_activation_external"
+    assert advanced_pin_call_next["next_invoke"] == "package_helper"
+    assert advanced_pin_call_next["call_next_with_execute"] is False
+    assert advanced_pin_call_next["next_ready"] is True
+    assert advanced_pin_call_next["pin_advanced"] is True
+    assert advanced_pin_call_next["applied_pin_mode"] == "package_helper"
+    assert advanced_pin_call_next["residual_export_allowed"] is False
+    assert "action=keep_activation_external" in advanced_pin_call_next[
+        "continue_cascade_wake_route_apply_follow_pin_call_next_line"
+    ]
+    assert "invoke=package_helper" in advanced_pin_call_next[
+        "continue_cascade_wake_route_apply_follow_pin_call_next_line"
+    ]
+    assert "advanced=true" in advanced_pin_call_next[
+        "continue_cascade_wake_route_apply_follow_pin_call_next_line"
+    ]
+    assert "call_execute=false" in advanced_pin_call_next[
+        "continue_cascade_wake_route_apply_follow_pin_call_next_line"
+    ]
+    residual_pin_call_next = (
+        package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next(
+            pin_call=residual_pin_call,
+        )
+    )
+    assert residual_pin_call_next["next_action"] == "open_residual_entry"
+    assert residual_pin_call_next["next_invoke"] == "package_helper"
+    assert residual_pin_call_next["call_next_with_execute"] is False
+    assert residual_pin_call_next["post_residual_route_ready"] is True
+    assert residual_pin_call_next["residual_export_allowed"] is False
+    assert "action=open_residual_entry" in residual_pin_call_next[
+        "continue_cascade_wake_route_apply_follow_pin_call_next_line"
+    ]
+    assert "residual_route=true" in residual_pin_call_next[
+        "continue_cascade_wake_route_apply_follow_pin_call_next_line"
     ]
     assert pipeline["reverse_flow_focused_validation_continue_supervisor_wake"][
         "controller_surface"

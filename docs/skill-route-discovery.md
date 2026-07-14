@@ -576,7 +576,29 @@ emits `skill_route_discovery_focused_local_test_validation`:
    `continue_cascade_wake_route_apply_follow_pin_advanced` so supervisors pin
    one call receipt instead of re-comparing nested pin packets after continue
    wakes. Residual export stays denied on continue surfaces even when residual
-   route opens after residual_open_ready. Preferred policy-aware
+   route opens after residual_open_ready.
+   `package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next`
+   seals continue_cascade_wake_route_apply_follow_pin_call into body-free
+   `continue_cascade_wake_route_apply_follow_pin_call_next_line` with next
+   invoke policy (for example
+   `continue_cascade_wake_route_apply_follow_pin_call_next
+   action=keep_activation_external mode=package_helper invoke=package_helper
+   advanced=true call_execute=false next_ready=true residual_route=false
+   reverse=0/3→3/3 residual=0/8→0/8 residual_export=false
+   next=keep_activation_external_after_focused_local_test_validation
+   helper=package_reverse_flow_focused_validation_continue_finish_receipt
+   pin_call_helper=package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call`)
+   plus nested `continue_cascade_wake_route_apply_follow_pin_call_next` /
+   `continue_cascade_wake_route_apply_follow_pin_call_next_line` /
+   `continue_cascade_wake_route_apply_follow_pin_call_next_action` /
+   `continue_cascade_wake_route_apply_follow_pin_call_next_invoke` /
+   `continue_cascade_wake_route_apply_follow_pin_call_next_preferred_helper` /
+   `continue_cascade_wake_route_apply_follow_pin_call_next_call_execute` /
+   `continue_cascade_wake_route_apply_follow_pin_call_next_ready` so supervisors
+   pin one next-invoke recipe instead of re-deriving execute vs package policy
+   from nested pin_call transitions after continue wakes. Residual export stays
+   denied on continue surfaces even when residual route opens after
+   residual_open_ready. Preferred policy-aware
    operator entry is
    `follow_reverse_flow_focused_validation_continue_dispatch`: package inventory,
    resolve follow-through, call dispatch with execute only when recommended, and
@@ -589,8 +611,9 @@ emits `skill_route_discovery_focused_local_test_validation`:
    `continue_cascade_wake`, `continue_cascade_wake_route`,
    `continue_cascade_wake_route_apply`,
    `continue_cascade_wake_route_apply_follow`,
-   `continue_cascade_wake_route_apply_follow_pin`, and
-   `continue_cascade_wake_route_apply_follow_pin_call` after run/record.
+   `continue_cascade_wake_route_apply_follow_pin`,
+   `continue_cascade_wake_route_apply_follow_pin_call`, and
+   `continue_cascade_wake_route_apply_follow_pin_call_next` after run/record.
    Low-level single operator entry remains
    `dispatch_reverse_flow_focused_validation_continue_supervisor_wake`:
    package inventory first, optionally run/record when `continue_run_executable`,
@@ -604,8 +627,9 @@ emits `skill_route_discovery_focused_local_test_validation`:
    `continue_cascade_wake`, `continue_cascade_wake_route`,
    `continue_cascade_wake_route_apply`,
    `continue_cascade_wake_route_apply_follow`,
-   `continue_cascade_wake_route_apply_follow_pin`, and
-   `continue_cascade_wake_route_apply_follow_pin_call`. Durable
+   `continue_cascade_wake_route_apply_follow_pin`,
+   `continue_cascade_wake_route_apply_follow_pin_call`, and
+   `continue_cascade_wake_route_apply_follow_pin_call_next`. Durable
    `operator_state` exports `reverse_flow_focused_validation_continue_run_recommended`,
    nested inventory `reverse_flow_focused_validation_continue_supervisor_wake`, nested
    `reverse_flow_focused_validation_continue_dispatch` (without pipeline
@@ -689,8 +713,16 @@ emits `skill_route_discovery_focused_local_test_validation`:
    `continue_cascade_wake_route_apply_follow_pin_call_helper`,
    `continue_cascade_wake_route_apply_follow_pin_call_line`,
    `continue_cascade_wake_route_apply_follow_pin_action_transition`,
-   `continue_cascade_wake_route_apply_follow_pin_mode_transition`, and
-   `continue_cascade_wake_route_apply_follow_pin_advanced` while reverse-flow
+   `continue_cascade_wake_route_apply_follow_pin_mode_transition`,
+   `continue_cascade_wake_route_apply_follow_pin_advanced`, nested
+   `continue_cascade_wake_route_apply_follow_pin_call_next`,
+   `continue_cascade_wake_route_apply_follow_pin_call_next_helper`,
+   `continue_cascade_wake_route_apply_follow_pin_call_next_line`,
+   `continue_cascade_wake_route_apply_follow_pin_call_next_action`,
+   `continue_cascade_wake_route_apply_follow_pin_call_next_invoke`,
+   `continue_cascade_wake_route_apply_follow_pin_call_next_preferred_helper`,
+   `continue_cascade_wake_route_apply_follow_pin_call_next_call_execute`, and
+   `continue_cascade_wake_route_apply_follow_pin_call_next_ready` while reverse-flow
    focused validation is ready/unrecorded or after pass
 
 Replay with:

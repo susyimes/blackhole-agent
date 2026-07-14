@@ -1,0 +1,19 @@
+{
+  "surface": "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next",
+  "runtime_action": "none",
+  "source_digest": "github-growth-20260714T044752.425762Z",
+  "self_model_changed": true,
+  "rollback_ref": "refs/blackhole/rollback/20260714T044933Z",
+  "validation": "36+ passed (focused skill-route + docs contracts)",
+  "proposal_id": "prop-skill-reverse-flow-continue",
+  "residual_export_allowed": false,
+  "hypothesis": "After pin_call collapses pre/post pin into a call receipt, supervisors still re-derived execute vs package vs inventory invoke policy from nested applied_pin_mode + post_call_pin_with_execute + pin_advanced. Sealing a body-free pin_call_next next-invoke recipe removes that nested re-assembly without residual_export or activation.",
+  "changed_paths": [
+    "src/blackhole_agent/github_growth.py",
+    "tests/test_github_growth.py",
+    "tests/test_docs_contracts.py",
+    "docs/skill-route-discovery.md",
+    "docs/architecture.md",
+    "docs/self-model.md"
+  ]
+}
