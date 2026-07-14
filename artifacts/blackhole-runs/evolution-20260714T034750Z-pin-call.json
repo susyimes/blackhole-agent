@@ -1,0 +1,10 @@
+{
+  "surface": "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call",
+  "runtime_action": "none",
+  "source_digest": "github-growth-20260714T034752.861616Z",
+  "self_model_changed": true,
+  "rollback_ref": "refs/blackhole/rollback/20260714T115011Z",
+  "validation": "36 passed (focused + docs contracts)",
+  "proposal_id": "prop-skill-reverse-flow-continue",
+  "residual_export_allowed": false
+}
