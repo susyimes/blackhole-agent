@@ -13518,6 +13518,204 @@ def package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_fo
     }
 
 
+def package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call(
+    *,
+    pre_pin: dict[str, Any] | None = None,
+    post_pin: dict[str, Any] | None = None,
+    executed: bool = False,
+    recorded: bool = False,
+) -> dict[str, Any]:
+    """Collapse pre/post next_call_follow pin recipes into a body-free pin call receipt.
+
+    After continue cascade wake route apply follow pin call next call follow pin
+    classifies a single pin mode, supervisors still re-derived whether the pin
+    advanced by comparing nested pre/post ``pin_action``, ``pin_mode``,
+    ``call_pin_with_execute``, and residual-route flags after follow/dispatch.
+    This surface packages a body-free
+    ``continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_line``
+    with pre→post pin action/mode transition (for example
+    ``continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call
+    pre_action=execute_now post_action=keep_activation_external
+    action=execute_now→keep_activation_external mode=execute_helper→package_helper
+    call_execute=true→false pin_advanced=true pin_ready=true→true
+    residual_route=false→false reverse=0/3→3/3 residual=0/8→0/8 executed=true
+    recorded=true residual_export=false
+    next=keep_activation_external_after_focused_local_test_validation
+    helper=package_reverse_flow_focused_validation_continue_finish_receipt
+    pin_helper=package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin``)
+    so supervisors pin one call receipt instead of re-comparing nested pin
+    packets after continue wakes.
+
+    Residual export stays denied on this continue surface even when residual
+    route opens after residual_open_ready. Does not enable activation, push,
+    promotion, provider launch, remote apply, external skill execution, or
+    kernel restart. Does not export raw evidence URLs, bodies, or command stdout.
+    """
+
+    pre = pre_pin if isinstance(pre_pin, dict) else {}
+    post = post_pin if isinstance(post_pin, dict) else {}
+    pre_action = str(pre.get("pin_action") or "inventory_only")
+    post_action = str(post.get("pin_action") or pre_action or "inventory_only")
+    pre_mode = str(pre.get("pin_mode") or "inventory_only")
+    post_mode = str(post.get("pin_mode") or pre_mode or "inventory_only")
+    pre_call_execute = bool(pre.get("call_pin_with_execute"))
+    post_call_execute = bool(post.get("call_pin_with_execute"))
+    pre_pin_ready = bool(pre.get("pin_ready"))
+    post_pin_ready = bool(post.get("pin_ready"))
+    pre_residual_route = bool(
+        pre.get("post_residual_route_ready") or pre.get("residual_route_ready")
+    )
+    post_residual_route = bool(
+        post.get("post_residual_route_ready") or post.get("residual_route_ready")
+    )
+    pre_reverse = str(pre.get("reverse_progress_transition") or "0/0→0/0")
+    post_reverse = str(post.get("reverse_progress_transition") or pre_reverse)
+    pre_residual = str(pre.get("residual_progress_transition") or "0/8→0/8")
+    post_residual = str(post.get("residual_progress_transition") or pre_residual)
+    reverse_progress_transition = (
+        f"{pre_reverse.split('→')[0]}→{post_reverse.split('→')[-1]}"
+        if "→" in pre_reverse and "→" in post_reverse
+        else post_reverse
+    )
+    residual_progress_transition = (
+        f"{pre_residual.split('→')[0]}→{post_residual.split('→')[-1]}"
+        if "→" in pre_residual and "→" in post_residual
+        else post_residual
+    )
+    pin_action_transition = f"{pre_action}→{post_action}"
+    pin_mode_transition = f"{pre_mode}→{post_mode}"
+    pin_advanced = bool(
+        pre_action != post_action
+        or pre_mode != post_mode
+        or pre_call_execute != post_call_execute
+        or pre_pin_ready != post_pin_ready
+        or pre_residual_route != post_residual_route
+        or reverse_progress_transition.split("→")[0]
+        != reverse_progress_transition.split("→")[-1]
+        or residual_progress_transition.split("→")[0]
+        != residual_progress_transition.split("→")[-1]
+    )
+    supervisor_next = str(
+        post.get("supervisor_next_action")
+        or pre.get("supervisor_next_action")
+        or "none"
+    )
+    preferred_helper = str(
+        post.get("preferred_helper")
+        or pre.get("preferred_helper")
+        or "package_reverse_flow_focused_validation_continue_dispatch_inventory"
+    )
+    applied_pin_action = post_action if executed or pin_advanced else pre_action
+    applied_pin_mode = post_mode if executed or pin_advanced else pre_mode
+    continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_line = (
+        f"continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call "
+        f"pre_action={pre_action} "
+        f"post_action={post_action} "
+        f"action={pin_action_transition} "
+        f"mode={pin_mode_transition} "
+        f"call_execute="
+        f"{'true' if pre_call_execute else 'false'}→"
+        f"{'true' if post_call_execute else 'false'} "
+        f"pin_advanced={'true' if pin_advanced else 'false'} "
+        f"pin_ready="
+        f"{'true' if pre_pin_ready else 'false'}→"
+        f"{'true' if post_pin_ready else 'false'} "
+        f"residual_route="
+        f"{'true' if pre_residual_route else 'false'}→"
+        f"{'true' if post_residual_route else 'false'} "
+        f"reverse={reverse_progress_transition} "
+        f"residual={residual_progress_transition} "
+        f"executed={'true' if executed else 'false'} "
+        f"recorded={'true' if recorded else 'false'} "
+        f"residual_export=false "
+        f"next={supervisor_next} "
+        f"helper={preferred_helper} "
+        f"pin_helper=package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin"
+    )
+    return {
+        "schema_version": 1,
+        "controller_surface": (
+            "reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call"
+        ),
+        "proposal_track": "prop-reverse-flow-skill-route-discovery-continue",
+        "pre_pin_action": pre_action,
+        "post_pin_action": post_action,
+        "pin_action_transition": pin_action_transition,
+        "applied_pin_action": applied_pin_action,
+        "pre_pin_mode": pre_mode,
+        "post_pin_mode": post_mode,
+        "pin_mode_transition": pin_mode_transition,
+        "applied_pin_mode": applied_pin_mode,
+        "pin_advanced": bool(pin_advanced),
+        "pre_call_pin_with_execute": bool(pre_call_execute),
+        "post_call_pin_with_execute": bool(post_call_execute),
+        "pre_pin_ready": bool(pre_pin_ready),
+        "post_pin_ready": bool(post_pin_ready),
+        "pre_residual_route_ready": bool(pre_residual_route),
+        "post_residual_route_ready": bool(post_residual_route),
+        "reverse_progress_transition": reverse_progress_transition,
+        "residual_progress_transition": residual_progress_transition,
+        "executed": bool(executed),
+        "recorded": bool(recorded),
+        "preferred_helper": preferred_helper,
+        "residual_export_allowed": False,
+        "supervisor_next_action": supervisor_next,
+        "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_line": (
+            continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_line
+        ),
+        "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_helper": (
+            "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call"
+        ),
+        "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_helper": (
+            "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin"
+        ),
+        "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_helper": (
+            "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow"
+        ),
+        "continue_cascade_wake_route_apply_follow_pin_call_next_call_helper": (
+            "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call"
+        ),
+        "continue_cascade_wake_route_apply_follow_pin_call_next_helper": (
+            "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next"
+        ),
+        "continue_cascade_wake_route_apply_follow_pin_call_helper": (
+            "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call"
+        ),
+        "follow_through_helper": (
+            "follow_reverse_flow_focused_validation_continue_dispatch"
+        ),
+        "activation_external_only": True,
+        "supervisor_activation_allowed": False,
+        "runtime_action": "none",
+        "external_skill_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_apply_allowed": False,
+        "push_or_promotion_allowed": False,
+        "kernel_restart_allowed": False,
+        "body_free": True,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_bodies_exported": False,
+        "raw_command_stdout_exported": False,
+        "record_helpers": [
+            "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call",
+            "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin",
+            "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow",
+            "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call",
+            "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next",
+            "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call",
+            "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin",
+            "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow",
+            "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply",
+            "package_reverse_flow_focused_validation_continue_cascade_wake_route",
+            "package_reverse_flow_focused_validation_continue_cascade_wake",
+            "package_reverse_flow_focused_validation_continue_cascade_transition",
+            "package_reverse_flow_focused_validation_continue_cascade",
+            "follow_reverse_flow_focused_validation_continue_dispatch",
+            "dispatch_reverse_flow_focused_validation_continue_supervisor_wake",
+        ],
+    }
+
+
 def follow_reverse_flow_focused_validation_continue_dispatch(
     pipeline: dict[str, Any],
     *,
@@ -14446,6 +14644,60 @@ def follow_reverse_flow_focused_validation_continue_dispatch(
     result["wake_route_apply_follow_pin_call_next_call_follow_pin_ready"] = bool(
         cascade_wake_route_apply_follow_pin_call_next_call_follow_pin.get("pin_ready")
     )
+    cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call = (
+        dispatch_packet.get(
+            "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call"
+        )
+        if isinstance(
+            dispatch_packet.get(
+                "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call"
+            ),
+            dict,
+        )
+        else package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call(
+            pre_pin=cascade_wake_route_apply_follow_pin_call_next_call_follow_pin,
+            post_pin=cascade_wake_route_apply_follow_pin_call_next_call_follow_pin,
+            executed=False,
+            recorded=False,
+        )
+    )
+    result[
+        "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call"
+    ] = cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call
+    result[
+        "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_line"
+    ] = str(
+        cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call.get(
+            "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_line"
+        )
+        or ""
+    )
+    result[
+        "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_helper"
+    ] = (
+        "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call"
+    )
+    result[
+        "wake_route_apply_follow_pin_call_next_call_follow_pin_action_transition"
+    ] = str(
+        cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call.get(
+            "pin_action_transition"
+        )
+        or "inventory_only→inventory_only"
+    )
+    result[
+        "wake_route_apply_follow_pin_call_next_call_follow_pin_mode_transition"
+    ] = str(
+        cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call.get(
+            "pin_mode_transition"
+        )
+        or "inventory_only→inventory_only"
+    )
+    result["wake_route_apply_follow_pin_call_next_call_follow_pin_advanced"] = bool(
+        cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call.get(
+            "pin_advanced"
+        )
+    )
     result["call_dispatch_with_execute"] = bool(should_execute)
     result["followed_recommendation"] = execute is None
     result["execute_requested"] = execute
@@ -14470,6 +14722,7 @@ def follow_reverse_flow_focused_validation_continue_dispatch(
     result["residual_export_allowed"] = False
     helpers = list(result.get("record_helpers") or [])
     for name in (
+        "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call",
         "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin",
         "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow",
         "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call",
@@ -15540,8 +15793,79 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
                 "pin_ready"
             )
         )
+        # Pre next_call_follow_pin is identity from the pre next_call so pin_call
+        # can expose pre→post pin transitions after execute/record.
+        pre_next_call_for_follow_pin = (
+            package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call(
+                pre_next=pre_cascade_wake_route_apply_follow_pin_call_next,
+                post_next=pre_cascade_wake_route_apply_follow_pin_call_next,
+                executed=False,
+                recorded=False,
+            )
+        )
+        pre_cascade_wake_route_apply_follow_pin_call_next_call_follow = (
+            package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow(
+                next_call=pre_next_call_for_follow_pin,
+            )
+        )
+        pre_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin = (
+            package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin(
+                next_call_follow=pre_cascade_wake_route_apply_follow_pin_call_next_call_follow,
+            )
+        )
+        cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call = (
+            package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call(
+                pre_pin=pre_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin,
+                post_pin=cascade_wake_route_apply_follow_pin_call_next_call_follow_pin,
+                executed=True,
+                recorded=bool(run_packet.get("recorded")),
+            )
+        )
+        execute_result[
+            "pre_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin"
+        ] = pre_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin
+        execute_result[
+            "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call"
+        ] = cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call
+        execute_result[
+            "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_line"
+        ] = str(
+            cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call.get(
+                "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_line"
+            )
+            or ""
+        )
+        execute_result[
+            "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_helper"
+        ] = (
+            "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call"
+        )
+        execute_result[
+            "wake_route_apply_follow_pin_call_next_call_follow_pin_action_transition"
+        ] = str(
+            cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call.get(
+                "pin_action_transition"
+            )
+            or "inventory_only→inventory_only"
+        )
+        execute_result[
+            "wake_route_apply_follow_pin_call_next_call_follow_pin_mode_transition"
+        ] = str(
+            cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call.get(
+                "pin_mode_transition"
+            )
+            or "inventory_only→inventory_only"
+        )
+        execute_result[
+            "wake_route_apply_follow_pin_call_next_call_follow_pin_advanced"
+        ] = bool(
+            cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call.get(
+                "pin_advanced"
+            )
+        )
         helpers = list(execute_result.get("record_helpers") or [])
         for name in (
+            "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call",
             "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin",
             "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow",
             "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call",
@@ -16235,6 +16559,53 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
     result["wake_route_apply_follow_pin_call_next_call_follow_pin_ready"] = bool(
         cascade_wake_route_apply_follow_pin_call_next_call_follow_pin.get("pin_ready")
     )
+    # Inventory-only pin_call maps identity pin into a durable pre→post receipt
+    # without inventing a false advanced transition.
+    cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call = (
+        package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call(
+            pre_pin=cascade_wake_route_apply_follow_pin_call_next_call_follow_pin,
+            post_pin=cascade_wake_route_apply_follow_pin_call_next_call_follow_pin,
+            executed=False,
+            recorded=False,
+        )
+    )
+    result[
+        "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call"
+    ] = cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call
+    result[
+        "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_line"
+    ] = str(
+        cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call.get(
+            "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_line"
+        )
+        or ""
+    )
+    result[
+        "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_helper"
+    ] = (
+        "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call"
+    )
+    result[
+        "wake_route_apply_follow_pin_call_next_call_follow_pin_action_transition"
+    ] = str(
+        cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call.get(
+            "pin_action_transition"
+        )
+        or "inventory_only→inventory_only"
+    )
+    result[
+        "wake_route_apply_follow_pin_call_next_call_follow_pin_mode_transition"
+    ] = str(
+        cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call.get(
+            "pin_mode_transition"
+        )
+        or "inventory_only→inventory_only"
+    )
+    result["wake_route_apply_follow_pin_call_next_call_follow_pin_advanced"] = bool(
+        cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call.get(
+            "pin_advanced"
+        )
+    )
     result["follow_through_helper"] = (
         "follow_reverse_flow_focused_validation_continue_dispatch"
     )
@@ -16243,6 +16614,7 @@ def dispatch_reverse_flow_focused_validation_continue_supervisor_wake(
     )
     helpers = list(result.get("record_helpers") or [])
     for name in (
+        "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call",
         "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin",
         "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow",
         "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call",
@@ -22937,6 +23309,56 @@ def resolve_skill_route_discovery_pipeline_operator_state(
             "pin_ready"
         )
     )
+    # Identity next_call_follow_pin_call maps identity pin into a durable
+    # pre→post receipt so supervisors can read pin transitions before execute
+    # without inventing a false advanced transition.
+    continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call = (
+        package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call(
+            pre_pin=continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin,
+            post_pin=continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin,
+            executed=False,
+            recorded=False,
+        )
+    )
+    state[
+        "reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call"
+    ] = continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call
+    state[
+        "reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_line"
+    ] = str(
+        continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call.get(
+            "continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_line"
+        )
+        or ""
+    )
+    state[
+        "reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_helper"
+    ] = (
+        "package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call"
+    )
+    state[
+        "reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_action_transition"
+    ] = str(
+        continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call.get(
+            "pin_action_transition"
+        )
+        or "inventory_only→inventory_only"
+    )
+    state[
+        "reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_mode_transition"
+    ] = str(
+        continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call.get(
+            "pin_mode_transition"
+        )
+        or "inventory_only→inventory_only"
+    )
+    state[
+        "reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_advanced"
+    ] = bool(
+        continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call.get(
+            "pin_advanced"
+        )
+    )
     return state
 
 
@@ -23426,6 +23848,16 @@ def render_skill_route_discovery_capability_pipeline_lines(
         f"{bool(operator_state.get('reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_execute'))}`",
         f"- Reverse-flow focused validation continue cascade wake route apply follow pin call next call follow pin ready: `"
         f"{bool(operator_state.get('reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_ready'))}`",
+        f"- Reverse-flow focused validation continue cascade wake route apply follow pin call next call follow pin call helper: `"
+        f"{operator_state.get('reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_helper') or 'package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call'}`",
+        f"- Reverse-flow focused validation continue cascade wake route apply follow pin call next call follow pin call line: `"
+        f"{operator_state.get('reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_line') or 'none'}`",
+        f"- Reverse-flow focused validation continue cascade wake route apply follow pin call next call follow pin action transition: `"
+        f"{operator_state.get('reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_action_transition') or 'inventory_only→inventory_only'}`",
+        f"- Reverse-flow focused validation continue cascade wake route apply follow pin call next call follow pin mode transition: `"
+        f"{operator_state.get('reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_mode_transition') or 'inventory_only→inventory_only'}`",
+        f"- Reverse-flow focused validation continue cascade wake route apply follow pin call next call follow pin advanced: `"
+        f"{bool(operator_state.get('reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_advanced'))}`",
         f"- Reverse-flow continue decision: `"
         f"{operator_state.get('reverse_flow_continue_decision') or 'none'}`",
         f"- Adjacent agent harness-eval handoff: `{adjacent_handoff.get('status') or 'none'}`",
@@ -23478,8 +23910,9 @@ def render_skill_route_discovery_capability_pipeline_lines(
         "- package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call collapses pre/post continue_cascade_wake_route_apply_follow_pin_call_next into body-free continue_cascade_wake_route_apply_follow_pin_call_next_call_line with pre→post next action/invoke transition (for example continue_cascade_wake_route_apply_follow_pin_call_next_call pre_action=execute_now post_action=keep_activation_external action=execute_now→keep_activation_external invoke=execute_helper→package_helper call_execute=true→false next_advanced=true next_ready=true→true residual_route=false→false reverse=0/3→3/3 residual=0/8→0/8 executed=true recorded=true residual_export=false next=keep_activation_external_after_focused_local_test_validation helper=package_reverse_flow_focused_validation_continue_finish_receipt pin_call_next_helper=package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next) so supervisors pin one next-call receipt instead of re-comparing nested pin_call_next packets after continue wakes; residual export stays denied on continue surfaces even when residual_route opens after residual_open_ready.",
         "- package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow maps continue_cascade_wake_route_apply_follow_pin_call_next_call into body-free continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_line with applied next → preferred helper (for example continue_cascade_wake_route_apply_follow_pin_call_next_call_follow applied=keep_activation_external invoke=package_helper mode=package_helper advanced=true call_execute=false follow_ready=true residual_route=false reverse=0/3→3/3 residual=0/8→0/8 executed=true recorded=true residual_export=false next=keep_activation_external_after_focused_local_test_validation helper=package_reverse_flow_focused_validation_continue_finish_receipt next_call_helper=package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call) so supervisors pin one next-call follow receipt instead of re-mapping applied next action/invoke after continue wakes; residual export stays denied on continue surfaces even when residual_route opens after residual_open_ready.",
         "- package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin collapses continue_cascade_wake_route_apply_follow_pin_call_next_call_follow into body-free continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_line with classified pin mode (for example continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin action=execute_now mode=execute_helper call_execute=true pin_ready=true residual_route=false reverse=0/3→0/3 residual=0/8→0/8 residual_export=false next=run_focused_local_test_validation_then_keep_activation_external helper=follow_reverse_flow_focused_validation_continue_dispatch follow_helper=package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow) so supervisors pin one call recipe instead of re-deriving execute vs package policy after continue wakes; residual export stays denied on continue surfaces even when residual_route opens after residual_open_ready.",
-        "- follow_reverse_flow_focused_validation_continue_dispatch is the preferred policy-aware operator entry: package inventory, resolve follow-through, call dispatch with execute only when call_dispatch_with_execute is true, and attach post_follow_through plus operator_card/post_operator_card, progress_transition, exec_receipt, finish_receipt, residual_open, residual_entry, residual_follow, residual_comparison, residual_unlocked_apply, residual_focused_validation, residual_handoff, residual_acceptance, residual_cascade, continue_cascade, continue_cascade_transition, continue_cascade_wake, continue_cascade_wake_route, continue_cascade_wake_route_apply, continue_cascade_wake_route_apply_follow, continue_cascade_wake_route_apply_follow_pin, continue_cascade_wake_route_apply_follow_pin_call, continue_cascade_wake_route_apply_follow_pin_call_next, continue_cascade_wake_route_apply_follow_pin_call_next_call, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow, and continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin after run/record; residual fortress stages stay blocked until reverse-flow record/close and activation-external acceptance.",
-        "- dispatch_reverse_flow_focused_validation_continue_supervisor_wake remains the low-level single operator entry: inventory packet first (via package_reverse_flow_focused_validation_continue_dispatch_inventory), optional allowlisted run/record when continue_run_executable, always reverse-flow-first supervisor_wake plus post_dispatch_inventory, follow_through, operator_card progress labels, progress_transition, exec_receipt, finish_receipt, residual_open, residual_entry, residual_follow, residual_comparison, residual_unlocked_apply, residual_focused_validation, residual_handoff, residual_acceptance, residual_cascade, continue_cascade, continue_cascade_transition, continue_cascade_wake, continue_cascade_wake_route, continue_cascade_wake_route_apply, continue_cascade_wake_route_apply_follow, continue_cascade_wake_route_apply_follow_pin, continue_cascade_wake_route_apply_follow_pin_call, continue_cascade_wake_route_apply_follow_pin_call_next, continue_cascade_wake_route_apply_follow_pin_call_next_call, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow, and continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin; residual fortress stages stay blocked until reverse-flow record/close and activation-external acceptance. operator_state also exports continue_run_recommended, continue_supervisor_wake, continue_dispatch (inventory packet without pipeline snapshot), continue_dispatch_action, continue_dispatch_execute_recommended, continue_dispatch_follow_through, continue_dispatch_follow_through_action, continue_dispatch_call_with_execute, continue_dispatch_helper, continue_dispatch_inventory_helper, continue_dispatch_follow_through_helper, continue_operator_card, continue_operator_card_helper, continue_progress_label, continue_action_line, continue_progress_transition_helper, continue_exec_receipt_helper, continue_finish_receipt, continue_finish_receipt_helper, continue_finish_line, continue_finished, continue_residual_queue_ready, continue_residual_open, continue_residual_open_helper, continue_residual_open_line, continue_residual_open_ready, continue_residual_adjacent_count, continue_residual_entry, continue_residual_entry_helper, continue_residual_entry_line, continue_residual_entry_ready, continue_selected_residual_proposal_id, continue_residual_follow, continue_residual_follow_helper, continue_residual_follow_line, continue_residual_follow_ready, continue_residual_follow_action, continue_call_residual_comparison, continue_residual_comparison, continue_residual_comparison_helper, continue_residual_comparison_line, continue_residual_comparison_ready, continue_residual_comparison_action, continue_call_residual_unlocked_apply, continue_residual_unlocked_apply, continue_residual_unlocked_apply_helper, continue_residual_unlocked_apply_line, continue_residual_unlocked_apply_ready, continue_residual_unlocked_apply_action, continue_call_residual_focused_validation, continue_residual_focused_validation, continue_residual_focused_validation_helper, continue_residual_focused_validation_line, continue_residual_focused_validation_ready, continue_residual_focused_validation_action, continue_call_residual_handoff, continue_residual_handoff, continue_residual_handoff_helper, continue_residual_handoff_line, continue_residual_handoff_ready, continue_residual_handoff_action, continue_call_residual_acceptance, continue_residual_acceptance, continue_residual_acceptance_helper, continue_residual_acceptance_line, continue_residual_acceptance_ready, continue_residual_acceptance_action, nested continue_residual_cascade, continue_residual_cascade_helper, continue_residual_cascade_line, continue_residual_cascade_ready, continue_residual_cascade_action, continue_residual_cascade_progress_label, continue_residual_cascade_blocked_at, nested continue_cascade, continue_cascade_helper, continue_cascade_line, continue_cascade_ready, continue_cascade_action, continue_cascade_reverse_progress_label, continue_cascade_residual_progress_label, continue_cascade_residual_blocked_at, nested continue_cascade_transition, continue_cascade_transition_helper, continue_cascade_transition_line, continue_cascade_advanced, continue_cascade_reverse_progress_transition, continue_cascade_residual_progress_transition, nested continue_cascade_wake, continue_cascade_wake_helper, continue_cascade_wake_line, continue_cascade_wake_outcome, nested continue_cascade_wake_route, continue_cascade_wake_route_helper, continue_cascade_wake_route_line, continue_cascade_wake_route_action, continue_cascade_wake_route_call_execute, nested continue_cascade_wake_route_apply, continue_cascade_wake_route_apply_helper, continue_cascade_wake_route_apply_line, continue_cascade_wake_route_action_transition, continue_cascade_wake_route_advanced, nested continue_cascade_wake_route_apply_follow, continue_cascade_wake_route_apply_follow_helper, continue_cascade_wake_route_apply_follow_line, continue_cascade_wake_route_apply_follow_action, continue_cascade_wake_route_apply_follow_preferred_helper, continue_cascade_wake_route_apply_follow_call_execute, nested continue_cascade_wake_route_apply_follow_pin, continue_cascade_wake_route_apply_follow_pin_helper, continue_cascade_wake_route_apply_follow_pin_line, continue_cascade_wake_route_apply_follow_pin_action, continue_cascade_wake_route_apply_follow_pin_mode, continue_cascade_wake_route_apply_follow_pin_preferred_helper, continue_cascade_wake_route_apply_follow_pin_call_execute, continue_cascade_wake_route_apply_follow_pin_ready, nested continue_cascade_wake_route_apply_follow_pin_call, continue_cascade_wake_route_apply_follow_pin_call_helper, continue_cascade_wake_route_apply_follow_pin_call_line, continue_cascade_wake_route_apply_follow_pin_action_transition, continue_cascade_wake_route_apply_follow_pin_mode_transition, continue_cascade_wake_route_apply_follow_pin_advanced, nested continue_cascade_wake_route_apply_follow_pin_call_next, continue_cascade_wake_route_apply_follow_pin_call_next_helper, continue_cascade_wake_route_apply_follow_pin_call_next_line, continue_cascade_wake_route_apply_follow_pin_call_next_action, continue_cascade_wake_route_apply_follow_pin_call_next_invoke, continue_cascade_wake_route_apply_follow_pin_call_next_preferred_helper, continue_cascade_wake_route_apply_follow_pin_call_next_call_execute, continue_cascade_wake_route_apply_follow_pin_call_next_ready, nested continue_cascade_wake_route_apply_follow_pin_call_next_call, continue_cascade_wake_route_apply_follow_pin_call_next_call_helper, continue_cascade_wake_route_apply_follow_pin_call_next_call_line, continue_cascade_wake_route_apply_follow_pin_call_next_action_transition, continue_cascade_wake_route_apply_follow_pin_call_next_invoke_transition, continue_cascade_wake_route_apply_follow_pin_call_next_advanced, nested continue_cascade_wake_route_apply_follow_pin_call_next_call_follow, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_helper, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_line, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_action, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_mode, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_preferred_helper, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_call_execute, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_ready, nested continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_helper, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_line, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_action, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_mode, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_preferred_helper, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_execute, and continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_ready while reverse-flow is ready/unrecorded or after pass.",
+        "- package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call collapses pre/post continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin into body-free continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_line with pre→post pin action/mode transition (for example continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call pre_action=execute_now post_action=keep_activation_external action=execute_now→keep_activation_external mode=execute_helper→package_helper call_execute=true→false pin_advanced=true pin_ready=true→true residual_route=false→false reverse=0/3→3/3 residual=0/8→0/8 executed=true recorded=true residual_export=false next=keep_activation_external_after_focused_local_test_validation helper=package_reverse_flow_focused_validation_continue_finish_receipt pin_helper=package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin) so supervisors pin one call receipt instead of re-comparing nested pin packets after continue wakes; residual export stays denied on continue surfaces even when residual_route opens after residual_open_ready.",
+        "- follow_reverse_flow_focused_validation_continue_dispatch is the preferred policy-aware operator entry: package inventory, resolve follow-through, call dispatch with execute only when call_dispatch_with_execute is true, and attach post_follow_through plus operator_card/post_operator_card, progress_transition, exec_receipt, finish_receipt, residual_open, residual_entry, residual_follow, residual_comparison, residual_unlocked_apply, residual_focused_validation, residual_handoff, residual_acceptance, residual_cascade, continue_cascade, continue_cascade_transition, continue_cascade_wake, continue_cascade_wake_route, continue_cascade_wake_route_apply, continue_cascade_wake_route_apply_follow, continue_cascade_wake_route_apply_follow_pin, continue_cascade_wake_route_apply_follow_pin_call, continue_cascade_wake_route_apply_follow_pin_call_next, continue_cascade_wake_route_apply_follow_pin_call_next_call, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin, and continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call after run/record; residual fortress stages stay blocked until reverse-flow record/close and activation-external acceptance.",
+        "- dispatch_reverse_flow_focused_validation_continue_supervisor_wake remains the low-level single operator entry: inventory packet first (via package_reverse_flow_focused_validation_continue_dispatch_inventory), optional allowlisted run/record when continue_run_executable, always reverse-flow-first supervisor_wake plus post_dispatch_inventory, follow_through, operator_card progress labels, progress_transition, exec_receipt, finish_receipt, residual_open, residual_entry, residual_follow, residual_comparison, residual_unlocked_apply, residual_focused_validation, residual_handoff, residual_acceptance, residual_cascade, continue_cascade, continue_cascade_transition, continue_cascade_wake, continue_cascade_wake_route, continue_cascade_wake_route_apply, continue_cascade_wake_route_apply_follow, continue_cascade_wake_route_apply_follow_pin, continue_cascade_wake_route_apply_follow_pin_call, continue_cascade_wake_route_apply_follow_pin_call_next, continue_cascade_wake_route_apply_follow_pin_call_next_call, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin, and continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call; residual fortress stages stay blocked until reverse-flow record/close and activation-external acceptance. operator_state also exports continue_run_recommended, continue_supervisor_wake, continue_dispatch (inventory packet without pipeline snapshot), continue_dispatch_action, continue_dispatch_execute_recommended, continue_dispatch_follow_through, continue_dispatch_follow_through_action, continue_dispatch_call_with_execute, continue_dispatch_helper, continue_dispatch_inventory_helper, continue_dispatch_follow_through_helper, continue_operator_card, continue_operator_card_helper, continue_progress_label, continue_action_line, continue_progress_transition_helper, continue_exec_receipt_helper, continue_finish_receipt, continue_finish_receipt_helper, continue_finish_line, continue_finished, continue_residual_queue_ready, continue_residual_open, continue_residual_open_helper, continue_residual_open_line, continue_residual_open_ready, continue_residual_adjacent_count, continue_residual_entry, continue_residual_entry_helper, continue_residual_entry_line, continue_residual_entry_ready, continue_selected_residual_proposal_id, continue_residual_follow, continue_residual_follow_helper, continue_residual_follow_line, continue_residual_follow_ready, continue_residual_follow_action, continue_call_residual_comparison, continue_residual_comparison, continue_residual_comparison_helper, continue_residual_comparison_line, continue_residual_comparison_ready, continue_residual_comparison_action, continue_call_residual_unlocked_apply, continue_residual_unlocked_apply, continue_residual_unlocked_apply_helper, continue_residual_unlocked_apply_line, continue_residual_unlocked_apply_ready, continue_residual_unlocked_apply_action, continue_call_residual_focused_validation, continue_residual_focused_validation, continue_residual_focused_validation_helper, continue_residual_focused_validation_line, continue_residual_focused_validation_ready, continue_residual_focused_validation_action, continue_call_residual_handoff, continue_residual_handoff, continue_residual_handoff_helper, continue_residual_handoff_line, continue_residual_handoff_ready, continue_residual_handoff_action, continue_call_residual_acceptance, continue_residual_acceptance, continue_residual_acceptance_helper, continue_residual_acceptance_line, continue_residual_acceptance_ready, continue_residual_acceptance_action, nested continue_residual_cascade, continue_residual_cascade_helper, continue_residual_cascade_line, continue_residual_cascade_ready, continue_residual_cascade_action, continue_residual_cascade_progress_label, continue_residual_cascade_blocked_at, nested continue_cascade, continue_cascade_helper, continue_cascade_line, continue_cascade_ready, continue_cascade_action, continue_cascade_reverse_progress_label, continue_cascade_residual_progress_label, continue_cascade_residual_blocked_at, nested continue_cascade_transition, continue_cascade_transition_helper, continue_cascade_transition_line, continue_cascade_advanced, continue_cascade_reverse_progress_transition, continue_cascade_residual_progress_transition, nested continue_cascade_wake, continue_cascade_wake_helper, continue_cascade_wake_line, continue_cascade_wake_outcome, nested continue_cascade_wake_route, continue_cascade_wake_route_helper, continue_cascade_wake_route_line, continue_cascade_wake_route_action, continue_cascade_wake_route_call_execute, nested continue_cascade_wake_route_apply, continue_cascade_wake_route_apply_helper, continue_cascade_wake_route_apply_line, continue_cascade_wake_route_action_transition, continue_cascade_wake_route_advanced, nested continue_cascade_wake_route_apply_follow, continue_cascade_wake_route_apply_follow_helper, continue_cascade_wake_route_apply_follow_line, continue_cascade_wake_route_apply_follow_action, continue_cascade_wake_route_apply_follow_preferred_helper, continue_cascade_wake_route_apply_follow_call_execute, nested continue_cascade_wake_route_apply_follow_pin, continue_cascade_wake_route_apply_follow_pin_helper, continue_cascade_wake_route_apply_follow_pin_line, continue_cascade_wake_route_apply_follow_pin_action, continue_cascade_wake_route_apply_follow_pin_mode, continue_cascade_wake_route_apply_follow_pin_preferred_helper, continue_cascade_wake_route_apply_follow_pin_call_execute, continue_cascade_wake_route_apply_follow_pin_ready, nested continue_cascade_wake_route_apply_follow_pin_call, continue_cascade_wake_route_apply_follow_pin_call_helper, continue_cascade_wake_route_apply_follow_pin_call_line, continue_cascade_wake_route_apply_follow_pin_action_transition, continue_cascade_wake_route_apply_follow_pin_mode_transition, continue_cascade_wake_route_apply_follow_pin_advanced, nested continue_cascade_wake_route_apply_follow_pin_call_next, continue_cascade_wake_route_apply_follow_pin_call_next_helper, continue_cascade_wake_route_apply_follow_pin_call_next_line, continue_cascade_wake_route_apply_follow_pin_call_next_action, continue_cascade_wake_route_apply_follow_pin_call_next_invoke, continue_cascade_wake_route_apply_follow_pin_call_next_preferred_helper, continue_cascade_wake_route_apply_follow_pin_call_next_call_execute, continue_cascade_wake_route_apply_follow_pin_call_next_ready, nested continue_cascade_wake_route_apply_follow_pin_call_next_call, continue_cascade_wake_route_apply_follow_pin_call_next_call_helper, continue_cascade_wake_route_apply_follow_pin_call_next_call_line, continue_cascade_wake_route_apply_follow_pin_call_next_action_transition, continue_cascade_wake_route_apply_follow_pin_call_next_invoke_transition, continue_cascade_wake_route_apply_follow_pin_call_next_advanced, nested continue_cascade_wake_route_apply_follow_pin_call_next_call_follow, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_helper, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_line, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_action, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_mode, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_preferred_helper, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_call_execute, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_ready, nested continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_helper, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_line, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_action, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_mode, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_preferred_helper, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_execute, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_ready, nested continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_helper, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_line, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_action_transition, continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_mode_transition, and continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_advanced while reverse-flow is ready/unrecorded or after pass.",
         "- Partial body-free command-hash rows stay on ready focused validation and accumulate across record calls via merge_skill_route_discovery_focused_validation_command_results; while partial, supervisor_next promotes to record_remaining_reverse_flow_focused_validation_command_hashes_then_keep_activation_external (not a full re-run); residual export remains denied until results cover expected hashes and reverse-flow record/close advances residual-active work.",
         "- After ready, record_skill_route_discovery_focused_local_test_validation_results merges new body-free command-hash rows with any prior partial rows while activation stays external.",
         "- After ready, close_skill_route_discovery_focused_local_test_validation_with_outcome materializes body-free expected-hash outcomes and refreshes activation-external handoff/acceptance.",
