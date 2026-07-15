@@ -828,6 +828,30 @@ emits `skill_route_discovery_focused_local_test_validation`:
    package policy from nested deep pin_call transitions after continue wakes.
    Residual export stays denied on continue surfaces even when residual route opens
    after residual_open_ready.
+   `package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next_call_follow_pin_call_next_call_follow`
+   maps `continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next_call_follow_pin_call_next_call`
+   into body-free
+   `continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next_call_follow_pin_call_next_call_follow_line`
+   with applied next → preferred helper (for example
+   `continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next_call_follow_pin_call_next_call_follow
+   applied=keep_activation_external invoke=package_helper mode=package_helper
+   advanced=true call_execute=false follow_ready=true residual_route=false
+   reverse=0/3→3/3 residual=0/8→0/8 executed=true recorded=true
+   residual_export=false
+   next=keep_activation_external_after_focused_local_test_validation
+   helper=package_reverse_flow_focused_validation_continue_finish_receipt
+   next_call_helper=package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next_call_follow_pin_call_next_call`)
+   plus nested
+   `continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next_call_follow_pin_call_next_call_follow` /
+   `continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next_call_follow_pin_call_next_call_follow_line` /
+   `continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next_call_follow_pin_call_next_call_follow_action` /
+   `continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next_call_follow_pin_call_next_call_follow_mode` /
+   `continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next_call_follow_pin_call_next_call_follow_preferred_helper` /
+   `continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next_call_follow_pin_call_next_call_follow_call_execute` /
+   `continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next_call_follow_pin_call_next_call_follow_ready` so
+   supervisors pin one deeper next-call follow receipt instead of re-mapping applied
+   next action/invoke after continue wakes. Residual export stays denied on continue
+   surfaces even when residual route opens after residual_open_ready.
    Preferred
    policy-aware operator entry is
    `follow_reverse_flow_focused_validation_continue_dispatch`: package inventory,
@@ -852,8 +876,10 @@ emits `skill_route_discovery_focused_local_test_validation`:
    `continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next_call`,
    `continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next_call_follow`,
    `continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next_call_follow_pin`,
-   `continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next_call_follow_pin_call`, and
-   `continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next_call_follow_pin_call_next` after
+   `continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next_call_follow_pin_call`,
+   `continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next_call_follow_pin_call_next`,
+   `continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next_call_follow_pin_call_next_call`, and
+   `continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next_call_follow_pin_call_next_call_follow` after
    run/record.
    Low-level single operator entry remains
    `dispatch_reverse_flow_focused_validation_continue_supervisor_wake`:
