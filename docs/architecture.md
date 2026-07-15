@@ -613,6 +613,30 @@ plus nested
 supervisors pin one next-invoke recipe instead of re-deriving execute vs package
 policy from nested pin_call transitions after continue wakes. Residual export stays
 denied on continue surfaces even when residual route opens after residual_open_ready.
+`package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next_call`
+collapses pre/post continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next
+into body-free
+`continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next_call_line`
+with pre→post next action/invoke transition (for example
+`continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next_call
+pre_action=execute_now post_action=keep_activation_external
+action=execute_now→keep_activation_external
+invoke=execute_helper→package_helper call_execute=true→false
+next_advanced=true next_ready=true→true residual_route=false→false
+reverse=0/3→3/3 residual=0/8→0/8 executed=true recorded=true
+residual_export=false
+next=keep_activation_external_after_focused_local_test_validation
+helper=package_reverse_flow_focused_validation_continue_finish_receipt
+pin_call_next_helper=package_reverse_flow_focused_validation_continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next`)
+plus nested
+`continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next_call` /
+`continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next_call_line` /
+`continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next_action_transition` /
+`continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next_invoke_transition` /
+`continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next_advanced` so
+supervisors pin one next-call receipt instead of re-comparing nested pin_call_next
+packets after continue wakes. Residual export stays denied on continue surfaces even
+when residual route opens after residual_open_ready.
 Preferred
 policy-aware operator entry is
 `follow_reverse_flow_focused_validation_continue_dispatch`
@@ -631,8 +655,9 @@ policy-aware operator entry is
 `continue_cascade_wake_route_apply_follow_pin_call_next_call`,
 `continue_cascade_wake_route_apply_follow_pin_call_next_call_follow`,
 `continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin`,
-`continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call`, and
-`continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next` after
+`continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call`,
+`continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next`, and
+`continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next_call` after
 run/record).
 Low-level single operator entry remains
 `dispatch_reverse_flow_focused_validation_continue_supervisor_wake` (inventory
@@ -651,8 +676,9 @@ card progress labels, `progress_transition`, `exec_receipt`, `finish_receipt`,
 `continue_cascade_wake_route_apply_follow_pin_call_next_call`,
 `continue_cascade_wake_route_apply_follow_pin_call_next_call_follow`,
 `continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin`,
-`continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call`, and
-`continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next`; residual
+`continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call`,
+`continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next`, and
+`continue_cascade_wake_route_apply_follow_pin_call_next_call_follow_pin_call_next_call`; residual
 export stays denied on the dispatch surface).
 Durable `operator_state` also exports
 `continue_run_recommended`, inventory `continue_supervisor_wake`, nested
