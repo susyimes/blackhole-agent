@@ -1,0 +1,10 @@
+{
+  "original_branch": "grok/blackhole-evolve/20260715T085222.829781-advance-skill-route-discovery-from-pluviobyte-rn",
+  "local_rollback_ref": "refs/blackhole/rollback/20260715T085316Z",
+  "created_at_utc": "20260715T085316Z",
+  "head": "36f1c23b045a37ed68bc1ade1d5902557c2e5e46",
+  "recovery_commands": [
+    "git checkout grok/blackhole-evolve/20260715T085222.829781-advance-skill-route-discovery-from-pluviobyte-rn",
+    "git reset --hard refs/blackhole/rollback/20260715T085316Z"
+  ]
+}
