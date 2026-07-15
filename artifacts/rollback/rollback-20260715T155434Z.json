@@ -1,0 +1,12 @@
+{
+  "local_rollback_ref": "refs/blackhole/rollback/20260715T155434Z",
+  "recovery_commands": [
+    "git checkout grok/blackhole-evolve/20260715T075246.479974-continue-skill-route-discovery-against-pluviobyt",
+    "git reset --hard refs/blackhole/rollback/20260715T155434Z",
+    "git clean -fd"
+  ],
+  "created_at": "2026-07-15T07:54:34.6851383Z",
+  "note": "Rollback point before pin_call_next_call_follow_pin_call_next seal layer for reverse-flow continue cascade",
+  "original_branch": "grok/blackhole-evolve/20260715T075246.479974-continue-skill-route-discovery-against-pluviobyt",
+  "original_head": "b7bd23237b2c633226a862b5a4c9cc2ba38bfcef"
+}
