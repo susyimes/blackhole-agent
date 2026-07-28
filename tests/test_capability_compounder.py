@@ -12,8 +12,12 @@ import pytest
 from blackhole_agent.capability_compounder import (
     Capability,
     CapabilityLedger,
+    absorb_domain_surface,
+    builtin_harness_activation_gate,
+    builtin_local_memory_roundtrip,
     builtin_milestone_gate_smoke,
     builtin_repo_import_health,
+    builtin_tool_routing_preflight,
     default_ledger_path,
     load_ledger,
     promote_composition,
@@ -219,6 +223,7 @@ def test_cli_demo_exits_zero():
 
 def test_scout_ranks_ready_composition(tmp_path: Path):
     ledger = seed_bootstrap_capabilities(CapabilityLedger())
+    # Without package sources, domain absorb is blocked; composition remains recommended.
     scout = scout_capability_gaps(ledger, repo_path=tmp_path)
     assert scout["ok"] is True
     assert scout["used_skill_route_discovery"] is False
@@ -227,6 +232,42 @@ def test_scout_ranks_ready_composition(tmp_path: Path):
     assert scout["recommended"]["status"] == "ready"
     assert "capability.scout-gaps" in ledger.capabilities
     assert "capability.growth-loop" in ledger.capabilities
+
+
+def test_domain_builtins_smoke():
+    memory = builtin_local_memory_roundtrip()
+    tools = builtin_tool_routing_preflight()
+    harness = builtin_harness_activation_gate()
+    assert memory["ok"] is True and memory["privacy_guard"] is True
+    assert tools["ok"] is True and "local_memory" in tools["executable_tool_names"]
+    assert harness["ok"] is True
+    assert harness["ready_decision"] == "ready_for_local_eval_activation"
+
+
+def test_scout_and_absorb_domain_surfaces_on_repo():
+    repo = Path(__file__).resolve().parents[1]
+    ledger = seed_bootstrap_capabilities(CapabilityLedger())
+    scout = scout_capability_gaps(ledger, repo_path=repo)
+    assert scout["ok"] is True
+    assert "domain.local-memory" in scout["domain_pending"]
+    assert any(
+        item["status"] == "ready_to_absorb" and item["suggested_id"] == "domain.local-memory"
+        for item in scout["opportunities"]
+    )
+    # Composition still outranks domain absorb while ready meta recipes exist.
+    assert scout["recommended"]["status"] == "ready"
+    assert scout["recommended"]["suggested_id"] == "capability.composed-core-health"
+
+    ledger, absorbed = absorb_domain_surface(ledger, "domain.local-memory")
+    assert absorbed.id == "domain.local-memory"
+    assert "domain" in absorbed.tags
+    assert absorbed.kind == "python"
+    assert "builtin_local_memory_roundtrip" in absorbed.entry
+    assert "domain.local-memory" in ledger.capabilities
+
+    after = scout_capability_gaps(ledger, repo_path=repo)
+    assert "domain.local-memory" in after["domain_absorbed"]
+    assert "domain.local-memory" not in after["domain_pending"]
 
 
 def test_promote_composition_registers_invocable_unit(tmp_path: Path):
@@ -255,13 +296,17 @@ def test_promote_composition_registers_invocable_unit(tmp_path: Path):
 
 def test_growth_loop_promotes_and_proves_on_repo():
     repo = Path(__file__).resolve().parents[1]
-    # Ensure a clean growth path: seed first, remove promoted compositions from prior runs.
+    # Ensure a clean growth path: seed first, remove promoted compositions and domain absorbs.
     from blackhole_agent.capability_compounder import ensure_seeded_ledger, remove_capability
 
     path, ledger = ensure_seeded_ledger(repo)
     for composed_id in (
         "capability.composed-core-health",
         "capability.composed-evolution-ready",
+        "capability.composed-domain-core",
+        "domain.local-memory",
+        "domain.tool-routing",
+        "domain.harness-activation",
     ):
         if composed_id in ledger.capabilities:
             try:
@@ -281,7 +326,8 @@ def test_growth_loop_promotes_and_proves_on_repo():
     ledger = load_ledger(path)
     assert "capability.composed-core-health" in ledger.capabilities
     assert ledger.capabilities["capability.composed-core-health"].last_proof_exit_code == 0
-    # Second pass may promote the next ready recipe or re-prove an existing one.
+    # Second pass promotes the domain composition only after domains exist, or evolution-ready,
+    # or absorbs a domain surface once meta compositions with present members are handled.
     again = run_growth_loop(repo, timeout=180)
     assert again["ok"] is True, again
     assert again["used_skill_route_discovery"] is False
@@ -289,19 +335,50 @@ def test_growth_loop_promotes_and_proves_on_repo():
     assert again.get("proof", {}).get("ok") is True
     assert again.get("run", {}).get("ok") is True
     if again.get("grew"):
-        assert again["promoted_id"] == "capability.composed-evolution-ready"
+        assert again["promoted_id"] in {
+            "capability.composed-evolution-ready",
+            "domain.local-memory",
+            "domain.tool-routing",
+            "domain.harness-activation",
+            "capability.composed-domain-core",
+        }
     else:
-        assert again.get("reason") == "already_promoted_reproved"
-    # Exhaust remaining recipes, then grow must re-prove without failing.
+        assert again.get("reason") in {
+            "already_promoted_reproved",
+            "already_absorbed_reproved",
+        }
+    # Further growth continues via domain absorb / domain composition without skill-route.
     third = run_growth_loop(repo, timeout=180)
     assert third["ok"] is True, third
     assert third.get("promoted_id")
     assert third.get("proof", {}).get("ok") is True
-    fourth = run_growth_loop(repo, timeout=180)
-    assert fourth["ok"] is True, fourth
-    assert fourth["grew"] is False
-    assert fourth["reason"] == "already_promoted_reproved"
-    assert fourth.get("promoted_id")
+    assert third.get("used_skill_route_discovery") is False
+    # Keep growing until domain surfaces and domain composition are exhausted, then re-prove.
+    last = third
+    for _ in range(6):
+        last = run_growth_loop(repo, timeout=180)
+        assert last["ok"] is True, last
+        assert last.get("used_skill_route_discovery") is False
+        assert last.get("proof", {}).get("ok") is True
+        if not last.get("grew"):
+            break
+    assert last.get("grew") is False
+    assert last.get("reason") in {
+        "already_promoted_reproved",
+        "already_absorbed_reproved",
+    }
+    assert last.get("promoted_id")
+    ledger = load_ledger(path)
+    # Domain absorption + multi-domain composition must be reachable from pure growth.
+    for domain_id in (
+        "domain.local-memory",
+        "domain.tool-routing",
+        "domain.harness-activation",
+    ):
+        assert domain_id in ledger.capabilities
+        assert ledger.capabilities[domain_id].last_proof_exit_code == 0
+    assert "capability.composed-domain-core" in ledger.capabilities
+    assert ledger.capabilities["capability.composed-domain-core"].last_proof_exit_code == 0
 
 
 def test_cli_scout_and_grow_exit_zero():

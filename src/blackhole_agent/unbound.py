@@ -27,6 +27,7 @@ from rich.console import Console
 
 from blackhole_agent.capability_compounder import (
     Capability,
+    absorb_domain_surface,
     capability_from_milestone,
     compose_capabilities,
     default_ledger_path,
@@ -1481,7 +1482,10 @@ def capability_demo(
         raise typer.Exit(1)
 
 
-@capability_app.command("scout", help="Scout the ledger for composition-promotion growth opportunities.")
+@capability_app.command(
+    "scout",
+    help="Scout the ledger for composition and domain-surface growth opportunities.",
+)
 def capability_scout(
     repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
 ) -> None:
@@ -1492,6 +1496,58 @@ def capability_scout(
     console.print_json(data=result)
     if not result.get("ok"):
         raise typer.Exit(1)
+
+
+@capability_app.command(
+    "absorb",
+    help="Absorb a catalogued domain package surface into the durable capability ledger.",
+)
+def capability_absorb(
+    surface_id: str = typer.Argument(
+        ...,
+        help="Domain surface id (e.g. domain.local-memory, domain.tool-routing).",
+    ),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    replace: bool = typer.Option(False, "--replace", help="Replace an existing capability id."),
+    prove: bool = typer.Option(True, "--prove/--no-prove", help="Prove after absorption."),
+    timeout_seconds: int = typer.Option(120, "--timeout-seconds", min=1),
+) -> None:
+    root = repo_path.resolve()
+    path, ledger = ensure_seeded_ledger(root)
+    try:
+        ledger, absorbed = absorb_domain_surface(ledger, surface_id, replace=replace)
+        save_ledger(path, ledger)
+        proof_payload: dict[str, Any] | None = None
+        if prove:
+            ledger, proof = prove_capability(
+                ledger,
+                absorbed.id,
+                cwd=root,
+                timeout=timeout_seconds,
+            )
+            save_ledger(path, ledger)
+            proof_payload = proof.to_dict()
+            if not proof.ok:
+                console.print_json(
+                    data={
+                        "ok": False,
+                        "ledger_path": str(path),
+                        "absorbed": absorbed.to_dict(),
+                        "proof": proof_payload,
+                    }
+                )
+                raise typer.Exit(proof.exit_code or 1)
+    except (KeyError, ValueError, OSError) as error:
+        console.print(f"Absorb failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(
+        data={
+            "ok": True,
+            "ledger_path": str(path),
+            "absorbed": absorbed.to_dict(),
+            "proof": proof_payload,
+        }
+    )
 
 
 @capability_app.command(
@@ -1554,7 +1610,7 @@ def capability_promote(
 
 @capability_app.command(
     "grow",
-    help="Closed growth loop: scout → promote ready composition → prove (no skill-route).",
+    help="Closed growth loop: scout → absorb domain or promote composition → prove (no skill-route).",
 )
 def capability_grow(
     repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),

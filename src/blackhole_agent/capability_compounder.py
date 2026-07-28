@@ -770,7 +770,182 @@ def builtin_evolution_route_redirect() -> dict[str, Any]:
     }
 
 
-# --- Growth loop: scout → promote composition → prove ---
+def builtin_local_memory_roundtrip() -> dict[str, Any]:
+    """Prove local memory write/read/delete and privacy rejection without skill-route."""
+
+    import tempfile
+
+    from blackhole_agent.local_memory import LocalMemoryStore, MemoryPrivacyError
+
+    with tempfile.TemporaryDirectory(prefix="blackhole-cap-memory-") as tmp:
+        store = LocalMemoryStore(Path(tmp), namespace="cap-smoke")
+        store.write("hello", "public note", tags=("smoke",))
+        entry = store.read("hello")
+        listed = store.list(tag="smoke")
+        deleted = store.delete("hello")
+        privacy_blocked = False
+        try:
+            store.write("secret-key", "sk-" + ("x" * 24))
+        except MemoryPrivacyError:
+            privacy_blocked = True
+        ok = bool(entry is not None and listed and deleted and privacy_blocked)
+        return {
+            "ok": ok,
+            "read_key": entry.key if entry else None,
+            "list_count": len(listed),
+            "deleted": deleted,
+            "privacy_guard": privacy_blocked,
+            "used_skill_route_discovery": "skill_routing" in sys.modules
+            or "blackhole_agent.skill_routing" in sys.modules,
+        }
+
+
+def builtin_tool_routing_preflight() -> dict[str, Any]:
+    """Prove tool routing preflight + executable registry for local tools."""
+
+    from blackhole_agent.tool_routing import (
+        ToolDescriptor,
+        build_tool_routing_preflight,
+        executable_tool_registry,
+    )
+
+    descriptors = (
+        ToolDescriptor(
+            name="local_memory",
+            description="Local memory tool",
+            provider="local",
+            tool_type="function",
+        ),
+        ToolDescriptor(
+            name="review_only_tool",
+            description="Needs human review",
+            provider="local",
+            tool_type="function",
+            risk_flags=("privacy-leakage",),
+        ),
+    )
+    preflight = build_tool_routing_preflight(
+        descriptors,
+        required_tool_names=("local_memory",),
+    )
+    registry = executable_tool_registry(descriptors)
+    ok = (
+        bool(preflight.get("ok"))
+        and "local_memory" in preflight.get("executable_tool_names", [])
+        and "local_memory" in registry
+        and "local_memory" not in preflight.get("missing_required_tool_names", [])
+    )
+    return {
+        "ok": ok,
+        "executable_tool_names": list(preflight.get("executable_tool_names") or []),
+        "route_counts": dict(preflight.get("route_counts") or {}),
+        "registry_keys": sorted(registry),
+        "missing_required": list(preflight.get("missing_required_tool_names") or []),
+        "used_skill_route_discovery": "skill_routing" in sys.modules
+        or "blackhole_agent.skill_routing" in sys.modules,
+    }
+
+
+def builtin_harness_activation_gate() -> dict[str, Any]:
+    """Prove harness eval activation gate decisions for ready vs blocked modes."""
+
+    from blackhole_agent.harness_eval import agent_harness_eval_activation_gate
+
+    ready = agent_harness_eval_activation_gate("none")
+    blocked = agent_harness_eval_activation_gate("review_only_safety_boundary")
+    weak = agent_harness_eval_activation_gate("weak_harness_evidence")
+    ok = (
+        bool(ready.get("local_eval_activation_allowed"))
+        and not bool(blocked.get("local_eval_activation_allowed"))
+        and not bool(weak.get("local_eval_activation_allowed"))
+        and ready.get("decision") == "ready_for_local_eval_activation"
+        and not bool(ready.get("external_harness_execution_allowed"))
+    )
+    return {
+        "ok": ok,
+        "ready_decision": ready.get("decision"),
+        "blocked_decision": blocked.get("decision"),
+        "weak_decision": weak.get("decision"),
+        "local_eval_activation_allowed": ready.get("local_eval_activation_allowed"),
+        "used_skill_route_discovery": "skill_routing" in sys.modules
+        or "blackhole_agent.skill_routing" in sys.modules,
+    }
+
+
+# --- Growth loop: scout → absorb domain / promote composition → prove ---
+
+# Domain package surfaces the compounder can absorb into the ledger (beyond meta self-composition).
+DOMAIN_SURFACE_CATALOG: tuple[dict[str, Any], ...] = (
+    {
+        "id": "domain.local-memory",
+        "name": "Local memory privacy roundtrip",
+        "description": (
+            "Write/read/list/delete through LocalMemoryStore and reject secret payloads."
+        ),
+        "module": "blackhole_agent.local_memory",
+        "module_path": "src/blackhole_agent/local_memory.py",
+        "entry": "blackhole_agent.capability_compounder:builtin_local_memory_roundtrip",
+        "function": "builtin_local_memory_roundtrip",
+        "capability_delta": (
+            "Local memory with privacy guards is invocable as a first-class ledger capability."
+        ),
+        "tags": ("domain", "memory", "absorbable"),
+        "priority": 70,
+        "dependencies": ("repo.import-health",),
+    },
+    {
+        "id": "domain.tool-routing",
+        "name": "Tool routing preflight",
+        "description": (
+            "Route local tool descriptors, report executable tools, and build a registry."
+        ),
+        "module": "blackhole_agent.tool_routing",
+        "module_path": "src/blackhole_agent/tool_routing.py",
+        "entry": "blackhole_agent.capability_compounder:builtin_tool_routing_preflight",
+        "function": "builtin_tool_routing_preflight",
+        "capability_delta": (
+            "Tool routing preflight is invocable as a first-class ledger capability."
+        ),
+        "tags": ("domain", "tools", "absorbable"),
+        "priority": 65,
+        "dependencies": ("repo.import-health",),
+    },
+    {
+        "id": "domain.harness-activation",
+        "name": "Harness activation gate",
+        "description": (
+            "Decide whether local agent harness evaluation may activate for a failure mode."
+        ),
+        "module": "blackhole_agent.harness_eval",
+        "module_path": "src/blackhole_agent/harness_eval.py",
+        "entry": "blackhole_agent.capability_compounder:builtin_harness_activation_gate",
+        "function": "builtin_harness_activation_gate",
+        "capability_delta": (
+            "Harness activation gating is invocable as a first-class ledger capability."
+        ),
+        "tags": ("domain", "harness", "absorbable"),
+        "priority": 60,
+        "dependencies": ("repo.import-health",),
+    },
+)
+
+# Modules that are runtime/control surfaces, not domain absorption candidates.
+_DOMAIN_SCOUT_SKIP_STEMS = frozenset(
+    {
+        "__init__",
+        "capability_compounder",
+        "unbound",
+        "cli",
+        "evolution_route",
+        "supervisor",
+        "github_growth",
+        "skill_routing",
+        "self_model",
+        "persona",
+        "ci_security",
+        "proposal_synthesis",
+    }
+)
 
 # Canonical multi-capability recipes the compounder can promote into durable capabilities.
 KNOWN_GROWTH_RECIPES: tuple[dict[str, Any], ...] = (
@@ -785,6 +960,21 @@ KNOWN_GROWTH_RECIPES: tuple[dict[str, Any], ...] = (
         "reason": "Core health/inventory/gate chain is composable and operator-useful as one invocable unit.",
         "priority": 100,
         "tags": ("composed", "promoted", "growth"),
+    },
+    {
+        "suggested_id": "capability.composed-domain-core",
+        "name": "Composed domain core chain",
+        "members": (
+            "domain.local-memory",
+            "domain.tool-routing",
+            "domain.harness-activation",
+        ),
+        "reason": (
+            "Domain memory, tool routing, and harness activation form a non-meta "
+            "composition the growth loop can promote once absorbed."
+        ),
+        "priority": 90,
+        "tags": ("composed", "promoted", "growth", "domain"),
     },
     {
         "suggested_id": "capability.composed-evolution-ready",
@@ -816,14 +1006,177 @@ def existing_promoted_member_sets(ledger: CapabilityLedger) -> set[frozenset[str
     return promoted
 
 
+def resolve_domain_surface(surface_id: str) -> dict[str, Any]:
+    """Return one domain surface catalog entry or raise KeyError."""
+
+    for surface in DOMAIN_SURFACE_CATALOG:
+        if surface["id"] == surface_id:
+            return dict(surface)
+    raise KeyError(surface_id)
+
+
+def capability_from_domain_surface(surface: Mapping[str, Any]) -> Capability:
+    """Materialize a domain catalog entry as a durable Capability record."""
+
+    function_name = str(surface["function"])
+    proof_command = (
+        f'"{sys.executable}" -c '
+        f'"from blackhole_agent.capability_compounder import {function_name}; '
+        f"r={function_name}(); assert r['ok']\""
+    )
+    dependencies = tuple(str(item) for item in (surface.get("dependencies") or ()) if str(item).strip())
+    tags = tuple(str(item) for item in (surface.get("tags") or ()) if str(item).strip())
+    module_path = str(surface.get("module_path") or "")
+    behavior_paths = tuple(
+        path for path in (module_path, "src/blackhole_agent/capability_compounder.py") if path
+    )
+    return Capability(
+        id=str(surface["id"]),
+        name=str(surface.get("name") or surface["id"]),
+        description=str(surface.get("description") or surface.get("name") or surface["id"]),
+        kind="python",
+        entry=str(surface["entry"]),
+        proof_command=proof_command,
+        dependencies=dependencies,
+        behavior_paths=behavior_paths,
+        capability_delta=str(surface.get("capability_delta") or ""),
+        tags=tags,
+        created_at=utc_now_iso(),
+        updated_at=utc_now_iso(),
+    )
+
+
+def scout_package_surfaces(
+    repo_path: Path,
+    *,
+    ledger: CapabilityLedger | None = None,
+) -> list[dict[str, Any]]:
+    """Filesystem scout for package modules not yet catalogued as domain surfaces."""
+
+    package_dir = (repo_path / "src" / "blackhole_agent").resolve()
+    if not package_dir.is_dir():
+        return []
+    catalogued_paths = {
+        str(surface.get("module_path") or "").replace("\\", "/") for surface in DOMAIN_SURFACE_CATALOG
+    }
+    ledger_ids = set(ledger.capabilities) if ledger is not None else set()
+    rows: list[dict[str, Any]] = []
+    for path in sorted(package_dir.glob("*.py")):
+        stem = path.stem
+        if stem in _DOMAIN_SCOUT_SKIP_STEMS or stem.startswith("test"):
+            continue
+        rel = f"src/blackhole_agent/{path.name}"
+        if rel in catalogued_paths:
+            continue
+        suggested_id = f"domain.{slugify_capability_id(stem)}"
+        rows.append(
+            {
+                "module": f"blackhole_agent.{stem}",
+                "module_path": rel,
+                "suggested_id": suggested_id,
+                "status": "already_absorbed" if suggested_id in ledger_ids else "uncatalogued_surface",
+                "reason": "Package module present but not in DOMAIN_SURFACE_CATALOG.",
+            }
+        )
+    return rows
+
+
+def scout_domain_surfaces(
+    ledger: CapabilityLedger,
+    *,
+    repo_path: Path,
+) -> list[dict[str, Any]]:
+    """Rank absorbable domain surfaces from the catalog against the filesystem and ledger."""
+
+    root = repo_path.resolve()
+    opportunities: list[dict[str, Any]] = []
+    for surface in DOMAIN_SURFACE_CATALOG:
+        module_path = root / str(surface["module_path"])
+        present = module_path.is_file()
+        surface_id = str(surface["id"])
+        if surface_id in ledger.capabilities:
+            status = "already_absorbed"
+        elif not present:
+            status = "blocked_missing_module"
+        else:
+            status = "ready_to_absorb"
+        opportunities.append(
+            {
+                "kind": "domain_absorb",
+                "suggested_id": surface_id,
+                "name": surface["name"],
+                "members": [surface_id],
+                "reason": (
+                    f"Absorb package surface {surface['module']} into the durable ledger."
+                    if status == "ready_to_absorb"
+                    else surface.get("description") or surface["name"]
+                ),
+                "priority": int(surface.get("priority") or 50),
+                "status": status,
+                "missing_members": [],
+                "module": surface["module"],
+                "module_path": surface["module_path"],
+                "module_present": present,
+            }
+        )
+    opportunities.sort(
+        key=lambda item: (
+            0 if item["status"] == "ready_to_absorb" else 1 if item["status"] == "already_absorbed" else 2,
+            -int(item["priority"]),
+            item["suggested_id"],
+        )
+    )
+    return opportunities
+
+
+def absorb_domain_surface(
+    ledger: CapabilityLedger,
+    surface_id: str,
+    *,
+    replace: bool = False,
+) -> tuple[CapabilityLedger, Capability]:
+    """Register one catalogued domain surface as a durable invocable capability."""
+
+    surface = resolve_domain_surface(surface_id)
+    capability = capability_from_domain_surface(surface)
+    if capability.id in ledger.capabilities and not replace:
+        # Idempotent absorb: return existing record without error.
+        return ledger, ledger.capabilities[capability.id]
+    ledger = register_capability(ledger, capability, replace=replace or capability.id in ledger.capabilities)
+    return ledger, ledger.capabilities[capability.id]
+
+
+def absorb_ready_domain_surfaces(
+    ledger: CapabilityLedger,
+    *,
+    repo_path: Path,
+    limit: int = 1,
+) -> tuple[CapabilityLedger, list[Capability]]:
+    """Absorb up to `limit` ready domain surfaces (filesystem-present, not yet in ledger)."""
+
+    absorbed: list[Capability] = []
+    for opportunity in scout_domain_surfaces(ledger, repo_path=repo_path):
+        if opportunity["status"] != "ready_to_absorb":
+            continue
+        ledger, capability = absorb_domain_surface(ledger, opportunity["suggested_id"], replace=False)
+        absorbed.append(capability)
+        if len(absorbed) >= max(1, int(limit)):
+            break
+    return ledger, absorbed
+
+
 def scout_capability_gaps(
     ledger: CapabilityLedger,
     *,
     repo_path: Path | None = None,
 ) -> dict[str, Any]:
-    """Rank ledger growth opportunities without skill-route machinery."""
+    """Rank ledger growth opportunities without skill-route machinery.
 
-    del repo_path  # reserved for future filesystem surface scouting
+    Includes composition-promotion recipes and domain-surface absorption from the
+    package filesystem, so growth continues after meta self-composition is exhausted.
+    """
+
+    root = (repo_path or Path(__file__).resolve().parents[2]).resolve()
     unproved = sorted(
         item.id
         for item in ledger.capabilities.values()
@@ -846,6 +1199,7 @@ def scout_capability_gaps(
             status = "already_promoted"
         opportunities.append(
             {
+                "kind": "composition",
                 "suggested_id": recipe["suggested_id"],
                 "name": recipe["name"],
                 "members": list(members),
@@ -855,20 +1209,45 @@ def scout_capability_gaps(
                 "missing_members": missing,
             }
         )
-    # Prefer ready recipes, then higher priority.
+    domain_opportunities = scout_domain_surfaces(ledger, repo_path=root)
+    opportunities.extend(domain_opportunities)
+    # Prefer ready compositions, then ready domain absorbs, then already-done, then blocked.
+    status_rank = {
+        "ready": 0,
+        "ready_to_absorb": 1,
+        "already_promoted": 2,
+        "already_absorbed": 3,
+        "blocked_missing_members": 4,
+        "blocked_missing_module": 5,
+    }
     opportunities.sort(
         key=lambda item: (
-            0 if item["status"] == "ready" else 1 if item["status"] == "already_promoted" else 2,
+            status_rank.get(str(item["status"]), 9),
             -int(item["priority"]),
             item["suggested_id"],
         )
     )
-    recommended = next((item for item in opportunities if item["status"] == "ready"), None)
+    recommended = next(
+        (
+            item
+            for item in opportunities
+            if item["status"] in {"ready", "ready_to_absorb"}
+        ),
+        None,
+    )
     growth_surface_missing = [
         capability_id
         for capability_id in ("capability.scout-gaps", "capability.growth-loop")
         if capability_id not in ledger.capabilities
     ]
+    uncatalogued = scout_package_surfaces(root, ledger=ledger)
+    domain_ids = {surface["id"] for surface in DOMAIN_SURFACE_CATALOG}
+    domain_absorbed = sorted(domain_ids.intersection(ledger.capabilities))
+    domain_pending = sorted(
+        item["suggested_id"]
+        for item in domain_opportunities
+        if item["status"] == "ready_to_absorb"
+    )
     return {
         "ok": True,
         "count": len(ledger.capabilities),
@@ -876,10 +1255,14 @@ def scout_capability_gaps(
         "unproved": unproved,
         "never_proved": never_proved,
         "growth_surface_missing": growth_surface_missing,
+        "domain_absorbed": domain_absorbed,
+        "domain_pending": domain_pending,
+        "uncatalogued_surfaces": uncatalogued,
         "opportunities": opportunities,
         "recommended": recommended,
         "used_skill_route_discovery": "skill_routing" in sys.modules
         or "blackhole_agent.skill_routing" in sys.modules,
+        "ledger_path": str(default_ledger_path(root)),
     }
 
 
@@ -1025,7 +1408,12 @@ def run_growth_loop(
     timeout: int = 120,
     recipe_id: str | None = None,
 ) -> dict[str, Any]:
-    """Scout → promote recommended composition → prove. Grows the ledger without skill-route."""
+    """Scout → absorb domain surface or promote composition → prove.
+
+    Grows the ledger without skill-route machinery. When meta compositions are
+    exhausted, absorbs catalogued domain package surfaces and can promote a
+    multi-domain composition.
+    """
 
     root = repo_path.resolve()
     path, ledger = ensure_seeded_ledger(root)
@@ -1042,7 +1430,37 @@ def run_growth_loop(
         if selected is None:
             # Allow direct member promotion by suggested id even if not in scout list.
             known = next((item for item in KNOWN_GROWTH_RECIPES if item["suggested_id"] == recipe_id), None)
-            if known is None:
+            domain = next((item for item in DOMAIN_SURFACE_CATALOG if item["id"] == recipe_id), None)
+            if known is not None:
+                selected = {
+                    "kind": "composition",
+                    "suggested_id": known["suggested_id"],
+                    "name": known["name"],
+                    "members": list(known["members"]),
+                    "reason": known["reason"],
+                    "priority": known["priority"],
+                    "status": "ready"
+                    if all(member in ledger.capabilities for member in known["members"])
+                    and known["suggested_id"] not in ledger.capabilities
+                    else "blocked",
+                    "missing_members": [
+                        member for member in known["members"] if member not in ledger.capabilities
+                    ],
+                }
+            elif domain is not None:
+                selected = {
+                    "kind": "domain_absorb",
+                    "suggested_id": domain["id"],
+                    "name": domain["name"],
+                    "members": [domain["id"]],
+                    "reason": f"Absorb package surface {domain['module']}.",
+                    "priority": int(domain.get("priority") or 50),
+                    "status": "already_absorbed"
+                    if domain["id"] in ledger.capabilities
+                    else "ready_to_absorb",
+                    "missing_members": [],
+                }
+            else:
                 return {
                     "ok": False,
                     "grew": False,
@@ -1052,20 +1470,6 @@ def run_growth_loop(
                     "after_count": before_count,
                     "used_skill_route_discovery": scout["used_skill_route_discovery"],
                 }
-            selected = {
-                "suggested_id": known["suggested_id"],
-                "name": known["name"],
-                "members": list(known["members"]),
-                "reason": known["reason"],
-                "priority": known["priority"],
-                "status": "ready"
-                if all(member in ledger.capabilities for member in known["members"])
-                and known["suggested_id"] not in ledger.capabilities
-                else "blocked",
-                "missing_members": [
-                    member for member in known["members"] if member not in ledger.capabilities
-                ],
-            }
     else:
         selected = scout.get("recommended")
 
@@ -1074,7 +1478,8 @@ def run_growth_loop(
         already = [
             item
             for item in scout["opportunities"]
-            if item["status"] == "already_promoted" and item["suggested_id"] in ledger.capabilities
+            if item["status"] in {"already_promoted", "already_absorbed"}
+            and item["suggested_id"] in ledger.capabilities
         ]
         if not already:
             return {
@@ -1091,29 +1496,46 @@ def run_growth_loop(
         selected = already[0]
         # Fall through into the already_promoted re-prove path below.
 
-    if selected.get("status") == "already_promoted" or selected["suggested_id"] in ledger.capabilities:
-        # Re-prove the existing promoted capability instead of no-op failure.
-        promoted_id = selected["suggested_id"]
+    # Domain absorption path — grows beyond meta self-composition.
+    if selected.get("status") == "ready_to_absorb" or (
+        selected.get("kind") == "domain_absorb" and selected["suggested_id"] not in ledger.capabilities
+    ):
+        surface_id = str(selected["suggested_id"])
+        ledger, absorbed = absorb_domain_surface(ledger, surface_id, replace=False)
+        save_ledger(path, ledger)
         ledger, proof = prove_capability(
             ledger,
-            promoted_id,
+            absorbed.id,
             cwd=root,
             command_runner=command_runner,
             timeout=timeout,
         )
         save_ledger(path, ledger)
         run_result = run_capability(
-            ledger.capabilities[promoted_id],
+            ledger.capabilities[absorbed.id],
             cwd=root,
             command_runner=command_runner,
             timeout=timeout,
             use_proof=False,
         )
+        after_ids = sorted(ledger.capabilities)
+        grew = absorbed.id not in before_ids and absorbed.id in ledger.capabilities
+        ok = (
+            proof.ok
+            and run_result.ok
+            and grew
+            and len(ledger.capabilities) > before_count
+            and not (
+                "skill_routing" in sys.modules or "blackhole_agent.skill_routing" in sys.modules
+            )
+        )
         return {
-            "ok": proof.ok and run_result.ok,
-            "grew": False,
-            "reason": "already_promoted_reproved",
-            "promoted_id": promoted_id,
+            "ok": ok,
+            "grew": grew,
+            "action": "absorb_domain",
+            "promoted_id": absorbed.id,
+            "absorbed_id": absorbed.id,
+            "absorbed": absorbed.to_dict(),
             "scout": scout,
             "selected": selected,
             "proof": proof.to_dict(),
@@ -1121,10 +1543,77 @@ def run_growth_loop(
             "before_count": before_count,
             "after_count": len(ledger.capabilities),
             "before_ids": before_ids,
-            "after_ids": sorted(ledger.capabilities),
+            "after_ids": after_ids,
             "used_skill_route_discovery": "skill_routing" in sys.modules
             or "blackhole_agent.skill_routing" in sys.modules,
         }
+
+    if (
+        selected.get("status") in {"already_promoted", "already_absorbed"}
+        or selected["suggested_id"] in ledger.capabilities
+    ):
+        # Re-prove the existing capability instead of no-op failure.
+        # Skip this branch for multi-member compositions that are still missing.
+        if selected.get("status") == "ready" and selected.get("kind") == "composition":
+            pass  # fall through to promote
+        elif selected.get("missing_members"):
+            return {
+                "ok": False,
+                "grew": False,
+                "error": f"missing members: {', '.join(selected['missing_members'])}",
+                "selected": selected,
+                "scout": scout,
+                "before_count": before_count,
+                "after_count": before_count,
+                "used_skill_route_discovery": scout["used_skill_route_discovery"],
+            }
+        else:
+            promoted_id = selected["suggested_id"]
+            if promoted_id not in ledger.capabilities:
+                return {
+                    "ok": False,
+                    "grew": False,
+                    "error": f"capability {promoted_id} not in ledger",
+                    "selected": selected,
+                    "scout": scout,
+                    "before_count": before_count,
+                    "after_count": before_count,
+                    "used_skill_route_discovery": scout["used_skill_route_discovery"],
+                }
+            ledger, proof = prove_capability(
+                ledger,
+                promoted_id,
+                cwd=root,
+                command_runner=command_runner,
+                timeout=timeout,
+            )
+            save_ledger(path, ledger)
+            run_result = run_capability(
+                ledger.capabilities[promoted_id],
+                cwd=root,
+                command_runner=command_runner,
+                timeout=timeout,
+                use_proof=False,
+            )
+            return {
+                "ok": proof.ok and run_result.ok,
+                "grew": False,
+                "action": "reprove",
+                "reason": "already_promoted_reproved"
+                if selected.get("status") == "already_promoted"
+                else "already_absorbed_reproved",
+                "promoted_id": promoted_id,
+                "scout": scout,
+                "selected": selected,
+                "proof": proof.to_dict(),
+                "run": run_result.to_dict(),
+                "before_count": before_count,
+                "after_count": len(ledger.capabilities),
+                "before_ids": before_ids,
+                "after_ids": sorted(ledger.capabilities),
+                "used_skill_route_discovery": "skill_routing" in sys.modules
+                or "blackhole_agent.skill_routing" in sys.modules,
+            }
 
     if selected.get("missing_members"):
         return {
@@ -1181,6 +1670,7 @@ def run_growth_loop(
     return {
         "ok": ok,
         "grew": grew,
+        "action": "promote_composition",
         "promoted_id": promoted.id,
         "promoted": promoted.to_dict(),
         "scout": scout,

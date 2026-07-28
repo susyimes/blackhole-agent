@@ -97,6 +97,7 @@ uv run blackhole-unbound capability prove repo.import-health
 uv run blackhole-unbound capability compose repo.import-health,unbound.milestone-gate,capability.ledger-inventory
 uv run blackhole-unbound capability demo
 uv run blackhole-unbound capability scout
+uv run blackhole-unbound capability absorb domain.local-memory
 uv run blackhole-unbound capability promote repo.import-health,capability.ledger-inventory,unbound.milestone-gate
 uv run blackhole-unbound capability grow
 ```
@@ -107,15 +108,23 @@ prompts inject a compact ledger summary so later turns can compound rather than
 re-derive the same ability. Milestone acceptance best-effort registers a
 capability when a successful validation command is present.
 
-### Growth loop (scout → promote → prove)
+### Growth loop (scout → absorb/promote → prove)
 
 The compounder can grow beyond bootstrap seeds without skill-route discovery:
 
-- `capability scout` ranks ready multi-capability recipes and unproved ids.
+- `capability scout` ranks ready multi-capability recipes, absorbable domain
+  package surfaces (memory, tool routing, harness activation), and unproved ids.
+- `capability absorb` registers a catalogued domain module surface as a durable
+  invocable capability (filesystem-present, not skill-route derived).
 - `capability promote` materializes a member set as one durable python capability
   whose entry re-composes its dependencies (`BLACKHOLE_CAPABILITY_ID`).
-- `capability grow` runs the closed loop once: scout a ready recipe, promote it,
-  prove and run the new capability, and persist the larger ledger.
+- `capability grow` runs the closed loop once: scout a ready composition or
+  domain surface, absorb/promote it, prove and run the new capability, and
+  persist the larger ledger.
+
+When meta health compositions are exhausted, growth continues by absorbing
+domain surfaces and promoting multi-domain compositions (e.g.
+`capability.composed-domain-core`).
 
 Promoted compositions are tagged `composed`/`promoted` and become ordinary
 ledger citizens that later turns can list, prove, run, and compose further.
