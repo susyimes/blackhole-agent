@@ -25,11 +25,32 @@ from typing import Any, Callable, Iterator
 import typer
 from rich.console import Console
 
+from blackhole_agent.capability_compounder import (
+    Capability,
+    capability_from_milestone,
+    compose_capabilities,
+    default_ledger_path,
+    ensure_seeded_ledger,
+    ledger_prompt_summary,
+    load_ledger,
+    prove_capability,
+    register_capability,
+    run_capability,
+    run_end_to_end_demo,
+    save_ledger,
+    slugify_capability_id,
+)
 from blackhole_agent.kernels.codex_cli import CodexCliConfig, CodexCliKernel
 from blackhole_agent.kernels.grok_cli import GrokCliConfig, GrokCliKernel
 
 
 app = typer.Typer(rich_markup_mode="rich", add_completion=False)
+capability_app = typer.Typer(
+    rich_markup_mode="rich",
+    add_completion=False,
+    help="Durable capability ledger: register, prove, run, and compose compounded abilities.",
+)
+app.add_typer(capability_app, name="capability")
 console = Console(highlight=False)
 
 SCHEMA_VERSION = 1
@@ -451,6 +472,21 @@ def repository_snapshot(
     }
 
 
+def capability_ledger_for_prompt(workspace: Path) -> str:
+    """Load the in-repo capability ledger for turn context, seeding if needed."""
+
+    try:
+        ledger_path = default_ledger_path(workspace)
+        if ledger_path.exists():
+            ledger = load_ledger(ledger_path)
+        else:
+            # Prefer empty summary when the ledger has not been created yet.
+            return "(no capability ledger at capabilities/ledger.json yet)"
+        return ledger_prompt_summary(ledger)
+    except Exception as error:  # pragma: no cover - defensive prompt path
+        return f"(capability ledger unavailable: {error})"
+
+
 def build_turn_prompt(state: UnboundMission, snapshot: dict[str, Any], *, state_path: Path) -> str:
     """Render compact, outcome-oriented context for one continuing turn."""
 
@@ -476,6 +512,7 @@ def build_turn_prompt(state: UnboundMission, snapshot: dict[str, Any], *, state_
         }
         for item in state.recent_turns[-RECENT_TURN_LIMIT:]
     ]
+    ledger_block = capability_ledger_for_prompt(Path(state.workspace_path))
     prompt = f"""You are Blackhole Unbound, the single long-running agent responsible for this mission.
 
 There are no child agents in this version. Do not spawn, delegate to, fork, or simulate subagents. Work directly.
@@ -503,6 +540,11 @@ git diff --stat
 
 recent commits
 {snapshot.get("recent_commits") or "(none)"}
+```
+
+Compounded capability ledger (durable, invocable; prefer growing this over legacy skill-route paperwork):
+```json
+{ledger_block}
 ```
 
 Recent mission turns:
@@ -747,6 +789,55 @@ def semantic_commit_message(decision: TurnDecision, milestone_number: int) -> st
     return f"Blackhole unbound milestone {milestone_number}: {first_line or 'capability increment'}"
 
 
+def register_milestone_capability(
+    *,
+    workspace: Path,
+    mission_id: str,
+    milestone_number: int,
+    decision: TurnDecision,
+    behavior_paths: tuple[str, ...],
+) -> str:
+    """Compound an accepted milestone into the durable capability ledger when possible.
+
+    Uses the first successful validation command as both entry and proof. Failures
+    are non-fatal: the milestone still counts; compounding is best-effort growth.
+    """
+
+    proof = ""
+    for item in decision.validation:
+        command = str(item.get("command") or "").strip()
+        if command and item.get("exit_code") == 0:
+            proof = command
+            break
+    if not proof or not decision.capability_delta:
+        return ""
+    capability_id = slugify_capability_id(
+        f"m{milestone_number}-{decision.capability_delta}",
+        limit=56,
+    )
+    capability = capability_from_milestone(
+        capability_id=capability_id,
+        name=decision.capability_delta[:80] or capability_id,
+        description=decision.summary or decision.capability_delta,
+        capability_delta=decision.capability_delta,
+        proof_command=proof,
+        entry=proof,
+        kind="command",
+        behavior_paths=behavior_paths,
+        mission_id=mission_id,
+        milestone_number=milestone_number,
+        tags=("unbound-milestone",),
+    )
+    try:
+        ledger_path = default_ledger_path(workspace)
+        ledger = load_ledger(ledger_path)
+        register_capability(ledger, capability, replace=capability_id in ledger.capabilities)
+        save_ledger(ledger_path, ledger)
+    except Exception:
+        return ""
+    return capability_id
+
+
 def commit_milestone(
     workspace: Path,
     decision: TurnDecision,
@@ -899,6 +990,15 @@ def run_unbound_turn(
                     "capability_delta": decision.capability_delta,
                     "outcome_evidence": list(decision.outcome_evidence),
                 }
+                registered_capability_id = register_milestone_capability(
+                    workspace=workspace,
+                    mission_id=state.mission_id,
+                    milestone_number=milestone_number,
+                    decision=decision,
+                    behavior_paths=gate.behavior_paths,
+                )
+                if registered_capability_id:
+                    milestone["capability_id"] = registered_capability_id
                 state.milestones.append(milestone)
                 append_jsonl(
                     state_path.parent / "events.jsonl",
@@ -1186,6 +1286,196 @@ def stop(
     except (ValueError, FileNotFoundError) as error:
         raise typer.BadParameter(str(error)) from error
     console.print(f"stopped {state.mission_id}")
+
+
+@capability_app.command("seed", help="Install bootstrap capabilities into the durable ledger.")
+def capability_seed(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+) -> None:
+    path, ledger = ensure_seeded_ledger(repo_path.resolve())
+    console.print_json(
+        data={
+            "ledger_path": str(path),
+            "count": len(ledger.capabilities),
+            "ids": sorted(ledger.capabilities),
+        }
+    )
+
+
+@capability_app.command("list", help="List compounded capabilities in the durable ledger.")
+def capability_list(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+) -> None:
+    path = default_ledger_path(repo_path.resolve())
+    ledger = load_ledger(path)
+    rows = [
+        {
+            "id": item.id,
+            "name": item.name,
+            "kind": item.kind,
+            "dependencies": list(item.dependencies),
+            "last_proof_exit_code": item.last_proof_exit_code,
+            "capability_delta": item.capability_delta,
+        }
+        for item in sorted(ledger.capabilities.values(), key=lambda value: value.id)
+    ]
+    console.print_json(data={"ledger_path": str(path), "count": len(rows), "capabilities": rows})
+
+
+@capability_app.command("show", help="Show one capability record.")
+def capability_show(
+    capability_id: str = typer.Argument(..., help="Capability id."),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+) -> None:
+    path = default_ledger_path(repo_path.resolve())
+    ledger = load_ledger(path)
+    capability = ledger.capabilities.get(capability_id)
+    if capability is None:
+        console.print(f"Unknown capability: {capability_id}", style="red")
+        raise typer.Exit(1)
+    console.print_json(data=capability.to_dict())
+
+
+@capability_app.command("register", help="Register or replace a capability in the durable ledger.")
+def capability_register(
+    capability_id: str = typer.Option(..., "--id", help="Stable capability id."),
+    name: str = typer.Option(..., "--name", help="Human-readable name."),
+    entry: str = typer.Option(..., "--entry", help="Shell command or module:function."),
+    proof_command: str = typer.Option(..., "--proof", help="Exact proof command that must exit 0."),
+    kind: str = typer.Option("command", "--kind", help="command or python."),
+    description: str = typer.Option("", "--description", help="What the capability does."),
+    capability_delta: str = typer.Option("", "--delta", help="Demonstrated ability summary."),
+    depends_on: str = typer.Option("", "--depends-on", help="Comma-separated dependency ids."),
+    behavior_paths: str = typer.Option("", "--behavior-paths", help="Comma-separated behavior paths."),
+    tags: str = typer.Option("", "--tags", help="Comma-separated tags."),
+    replace: bool = typer.Option(False, "--replace", help="Replace an existing capability id."),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+) -> None:
+    deps = tuple(part.strip() for part in depends_on.split(",") if part.strip())
+    paths = tuple(part.strip() for part in behavior_paths.split(",") if part.strip())
+    tag_values = tuple(part.strip() for part in tags.split(",") if part.strip())
+    capability = Capability(
+        id=capability_id,
+        name=name,
+        description=description or name,
+        kind=kind,
+        entry=entry,
+        proof_command=proof_command,
+        dependencies=deps,
+        behavior_paths=paths,
+        capability_delta=capability_delta or description or name,
+        tags=tag_values,
+    )
+    path = default_ledger_path(repo_path.resolve())
+    try:
+        ledger = load_ledger(path)
+        register_capability(ledger, capability, replace=replace)
+        save_ledger(path, ledger)
+    except (ValueError, OSError) as error:
+        console.print(f"Register failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data={"ledger_path": str(path), "capability": capability.to_dict()})
+
+
+@capability_app.command("prove", help="Run proof_command for one capability (and its dependencies).")
+def capability_prove(
+    capability_id: str = typer.Argument(..., help="Capability id."),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    timeout_seconds: int = typer.Option(120, "--timeout-seconds", min=1),
+) -> None:
+    root = repo_path.resolve()
+    path = default_ledger_path(root)
+    ledger = load_ledger(path)
+    if capability_id not in ledger.capabilities:
+        console.print(f"Unknown capability: {capability_id}", style="red")
+        raise typer.Exit(1)
+    try:
+        ledger, result = prove_capability(
+            ledger,
+            capability_id,
+            cwd=root,
+            timeout=timeout_seconds,
+        )
+        save_ledger(path, ledger)
+    except Exception as error:
+        console.print(f"Prove failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result.to_dict())
+    if not result.ok:
+        raise typer.Exit(result.exit_code or 1)
+
+
+@capability_app.command("run", help="Execute one capability entry.")
+def capability_run(
+    capability_id: str = typer.Argument(..., help="Capability id."),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    timeout_seconds: int = typer.Option(120, "--timeout-seconds", min=1),
+    prove_first: bool = typer.Option(True, "--prove-first/--no-prove-first"),
+) -> None:
+    root = repo_path.resolve()
+    path = default_ledger_path(root)
+    ledger = load_ledger(path)
+    capability = ledger.capabilities.get(capability_id)
+    if capability is None:
+        console.print(f"Unknown capability: {capability_id}", style="red")
+        raise typer.Exit(1)
+    if prove_first:
+        ledger, proof = prove_capability(ledger, capability_id, cwd=root, timeout=timeout_seconds)
+        save_ledger(path, ledger)
+        if not proof.ok:
+            console.print_json(data=proof.to_dict())
+            raise typer.Exit(proof.exit_code or 1)
+    result = run_capability(capability, cwd=root, timeout=timeout_seconds, use_proof=False)
+    console.print_json(data=result.to_dict())
+    if not result.ok:
+        raise typer.Exit(result.exit_code or 1)
+
+
+@capability_app.command("compose", help="Prove and run a dependency-ordered capability chain.")
+def capability_compose(
+    capability_ids: str = typer.Argument(..., help="Comma-separated capability ids."),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    timeout_seconds: int = typer.Option(120, "--timeout-seconds", min=1),
+    prove_first: bool = typer.Option(True, "--prove-first/--no-prove-first"),
+) -> None:
+    root = repo_path.resolve()
+    path = default_ledger_path(root)
+    ledger = load_ledger(path)
+    ids = [part.strip() for part in capability_ids.split(",") if part.strip()]
+    try:
+        results = compose_capabilities(
+            ledger,
+            ids,
+            cwd=root,
+            timeout=timeout_seconds,
+            prove_first=prove_first,
+        )
+        save_ledger(path, ledger)
+    except (KeyError, ValueError) as error:
+        console.print(f"Compose failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    payload = {
+        "ok": all(item.ok for item in results),
+        "results": [item.to_dict() for item in results],
+    }
+    console.print_json(data=payload)
+    if not payload["ok"]:
+        raise typer.Exit(1)
+
+
+@capability_app.command("demo", help="End-to-end bootstrap: seed, prove, and compose without skill-route imports.")
+def capability_demo(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    timeout_seconds: int = typer.Option(120, "--timeout-seconds", min=1),
+) -> None:
+    try:
+        result = run_end_to_end_demo(repo_path.resolve(), timeout=timeout_seconds)
+    except Exception as error:
+        console.print(f"Demo failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":

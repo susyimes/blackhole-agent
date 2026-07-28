@@ -150,6 +150,15 @@ uv run blackhole-unbound start \
   --done-when "An end-to-end demo proves the new capability and the legacy complexity is reduced"
 ```
 
+Compound demonstrated abilities into a durable, invocable ledger (no skill-route labyrinth):
+
+```bash
+uv run blackhole-unbound capability demo
+uv run blackhole-unbound capability list
+uv run blackhole-unbound capability compose \
+  repo.import-health,unbound.milestone-gate,capability.ledger-inventory
+```
+
 Continue the latest mission until it completes or reports a real blocker:
 
 ```bash

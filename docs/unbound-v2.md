@@ -84,6 +84,26 @@ Grok is configured with memory enabled, web search enabled, full workspace
 access, and `--no-subagents`. Codex runs with a durable JSON session and full
 access. Both session types are resumed on later turns.
 
+## Capability Compounder
+
+Accepted milestones can become durable, invocable capabilities stored in
+`capabilities/ledger.json`. The ledger is independent of the legacy
+`skill_route_discovery` pipeline. Operators and the Unbound agent can:
+
+```bash
+uv run blackhole-unbound capability seed
+uv run blackhole-unbound capability list
+uv run blackhole-unbound capability prove repo.import-health
+uv run blackhole-unbound capability compose repo.import-health,unbound.milestone-gate,capability.ledger-inventory
+uv run blackhole-unbound capability demo
+```
+
+Each capability has an `entry` (command or `module:function`), a
+`proof_command`, optional dependencies, and behavior-path provenance. Turn
+prompts inject a compact ledger summary so later turns can compound rather than
+re-derive the same ability. Milestone acceptance best-effort registers a
+capability when a successful validation command is present.
+
 ## Self-Reload
 
 The default `run` loop starts each tick in a fresh Python interpreter with
