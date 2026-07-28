@@ -13,9 +13,12 @@ from blackhole_agent.capability_compounder import (
     Capability,
     CapabilityLedger,
     absorb_domain_surface,
+    builtin_ci_security_gate,
     builtin_harness_activation_gate,
+    builtin_issue_triage_smoke,
     builtin_local_memory_roundtrip,
     builtin_milestone_gate_smoke,
+    builtin_proposal_eval_smoke,
     builtin_repo_import_health,
     builtin_tool_routing_preflight,
     default_ledger_path,
@@ -27,6 +30,7 @@ from blackhole_agent.capability_compounder import (
     save_ledger,
     scout_capability_gaps,
     seed_bootstrap_capabilities,
+    synthesize_dynamic_domain_compositions,
     topological_order,
 )
 from blackhole_agent.unbound import (
@@ -238,10 +242,19 @@ def test_domain_builtins_smoke():
     memory = builtin_local_memory_roundtrip()
     tools = builtin_tool_routing_preflight()
     harness = builtin_harness_activation_gate()
+    triage = builtin_issue_triage_smoke()
+    security = builtin_ci_security_gate()
+    proposal = builtin_proposal_eval_smoke()
     assert memory["ok"] is True and memory["privacy_guard"] is True
     assert tools["ok"] is True and "local_memory" in tools["executable_tool_names"]
     assert harness["ok"] is True
     assert harness["ready_decision"] == "ready_for_local_eval_activation"
+    assert triage["ok"] is True and triage["validation_lane"] == "validation"
+    assert security["ok"] is True and security["waived_outcome"] == "waiver_label_applied"
+    assert proposal["ok"] is True and proposal["accepted_count"] >= 1
+    assert not triage["used_skill_route_discovery"]
+    assert not security["used_skill_route_discovery"]
+    assert not proposal["used_skill_route_discovery"]
 
 
 def test_scout_and_absorb_domain_surfaces_on_repo():
@@ -300,17 +313,17 @@ def test_growth_loop_promotes_and_proves_on_repo():
     from blackhole_agent.capability_compounder import ensure_seeded_ledger, remove_capability
 
     path, ledger = ensure_seeded_ledger(repo)
-    for composed_id in (
-        "capability.composed-core-health",
-        "capability.composed-evolution-ready",
-        "capability.composed-domain-core",
-        "domain.local-memory",
-        "domain.tool-routing",
-        "domain.harness-activation",
-    ):
-        if composed_id in ledger.capabilities:
+    removable = [
+        capability_id
+        for capability_id in list(ledger.capabilities)
+        if capability_id.startswith("capability.composed-")
+        or capability_id.startswith("domain.")
+    ]
+    # Remove dependents first so graph constraints do not block cleanup.
+    for capability_id in sorted(removable, key=lambda item: (0 if item.startswith("capability.composed-") else 1, item)):
+        if capability_id in ledger.capabilities:
             try:
-                remove_capability(ledger, composed_id)
+                remove_capability(ledger, capability_id)
             except ValueError:
                 pass
     save_ledger(path, ledger)
@@ -335,13 +348,7 @@ def test_growth_loop_promotes_and_proves_on_repo():
     assert again.get("proof", {}).get("ok") is True
     assert again.get("run", {}).get("ok") is True
     if again.get("grew"):
-        assert again["promoted_id"] in {
-            "capability.composed-evolution-ready",
-            "domain.local-memory",
-            "domain.tool-routing",
-            "domain.harness-activation",
-            "capability.composed-domain-core",
-        }
+        assert again["promoted_id"].startswith(("capability.composed-", "domain."))
     else:
         assert again.get("reason") in {
             "already_promoted_reproved",
@@ -353,9 +360,9 @@ def test_growth_loop_promotes_and_proves_on_repo():
     assert third.get("promoted_id")
     assert third.get("proof", {}).get("ok") is True
     assert third.get("used_skill_route_discovery") is False
-    # Keep growing until domain surfaces and domain composition are exhausted, then re-prove.
+    # Keep growing until known recipes, domain absorbs, and dynamic compositions stall.
     last = third
-    for _ in range(6):
+    for _ in range(16):
         last = run_growth_loop(repo, timeout=180)
         assert last["ok"] is True, last
         assert last.get("used_skill_route_discovery") is False
@@ -374,11 +381,55 @@ def test_growth_loop_promotes_and_proves_on_repo():
         "domain.local-memory",
         "domain.tool-routing",
         "domain.harness-activation",
+        "domain.issue-triage",
+        "domain.ci-security",
+        "domain.proposal-eval",
     ):
         assert domain_id in ledger.capabilities
         assert ledger.capabilities[domain_id].last_proof_exit_code == 0
     assert "capability.composed-domain-core" in ledger.capabilities
     assert ledger.capabilities["capability.composed-domain-core"].last_proof_exit_code == 0
+    assert "capability.composed-domain-ops" in ledger.capabilities
+    assert ledger.capabilities["capability.composed-domain-ops"].last_proof_exit_code == 0
+    # Dynamic synthesis should have produced at least one extra composed unit once leaves exist.
+    dynamic_ids = [
+        capability_id
+        for capability_id, capability in ledger.capabilities.items()
+        if "dynamic" in capability.tags or capability_id.startswith("capability.composed-dyn-")
+    ]
+    assert dynamic_ids, "expected at least one synthesized dynamic domain composition"
+
+
+def test_synthesize_dynamic_domain_compositions_skips_known_sets():
+    ledger = seed_bootstrap_capabilities(CapabilityLedger())
+    for domain_id, name in (
+        ("domain.local-memory", "Local memory"),
+        ("domain.tool-routing", "Tool routing"),
+        ("domain.harness-activation", "Harness"),
+        ("domain.issue-triage", "Triage"),
+    ):
+        register_capability(
+            ledger,
+            Capability(
+                id=domain_id,
+                name=name,
+                description=name,
+                kind="python",
+                entry="blackhole_agent.capability_compounder:builtin_repo_import_health",
+                proof_command="echo ok",
+                dependencies=("repo.import-health",),
+                tags=("domain", "absorbable"),
+            ),
+        )
+    # Known domain-core member set must not be re-synthesized.
+    synthesized = synthesize_dynamic_domain_compositions(ledger, limit=20)
+    member_sets = {frozenset(item["members"]) for item in synthesized}
+    assert frozenset(
+        {"domain.local-memory", "domain.tool-routing", "domain.harness-activation"}
+    ) not in member_sets
+    # Novel mixes that include ops surfaces should appear as ready dynamic recipes.
+    assert any(item.get("synthesized") and item["status"] == "ready" for item in synthesized)
+    assert any("domain.issue-triage" in item["members"] for item in synthesized)
 
 
 def test_cli_scout_and_grow_exit_zero():

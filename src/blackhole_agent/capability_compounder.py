@@ -872,6 +872,129 @@ def builtin_harness_activation_gate() -> dict[str, Any]:
     }
 
 
+def builtin_issue_triage_smoke() -> dict[str, Any]:
+    """Prove local issue triage lanes without remote mutation or skill-route discovery."""
+
+    from blackhole_agent.issue_triage import (
+        TRIAGE_FOLLOW_UP,
+        TRIAGE_NO_ACTION,
+        TRIAGE_VALIDATION,
+        triage_issue_input,
+    )
+
+    validation = triage_issue_input(
+        {
+            "title": "tests failing on main",
+            "body": "regression in harness coverage",
+            "labels": ["bug"],
+        },
+        allow_remote_mutation=False,
+    )
+    follow_up = triage_issue_input(
+        {
+            "title": "should we clarify the docs?",
+            "body": "question about configuration",
+            "labels": ["question"],
+        },
+        allow_remote_mutation=False,
+    )
+    no_action = triage_issue_input(
+        {
+            "title": "duplicate spam issue",
+            "body": "this is spam / won't fix",
+            "labels": ["duplicate"],
+        },
+        allow_remote_mutation=False,
+    )
+    ok = (
+        validation.lane == TRIAGE_VALIDATION
+        and follow_up.lane == TRIAGE_FOLLOW_UP
+        and no_action.lane == TRIAGE_NO_ACTION
+        and validation.recommendation is not None
+        and not bool(getattr(validation, "remote_mutation_allowed", False))
+    )
+    return {
+        "ok": ok,
+        "validation_lane": validation.lane,
+        "follow_up_lane": follow_up.lane,
+        "no_action_lane": no_action.lane,
+        "remote_mutation_allowed": bool(getattr(validation, "remote_mutation_allowed", False)),
+        "used_skill_route_discovery": "skill_routing" in sys.modules
+        or "blackhole_agent.skill_routing" in sys.modules,
+    }
+
+
+def builtin_ci_security_gate() -> dict[str, Any]:
+    """Prove fail-closed security-scan gate pass/block/waiver paths offline."""
+
+    from blackhole_agent.ci_security import SecurityScanGateInput, evaluate_security_scan_gate
+
+    passed = evaluate_security_scan_gate(SecurityScanGateInput(scan_conclusion="success"))
+    blocked = evaluate_security_scan_gate(SecurityScanGateInput(scan_conclusion="failure"))
+    waived = evaluate_security_scan_gate(
+        SecurityScanGateInput(
+            scan_conclusion="failure",
+            pull_request_labels=("security-scan-waiver",),
+            current_run_attempt=1,
+            label_snapshot_run_attempt=1,
+        )
+    )
+    stale = evaluate_security_scan_gate(
+        SecurityScanGateInput(
+            scan_conclusion="failure",
+            pull_request_labels=("security-scan-waiver",),
+            current_run_attempt=2,
+            label_snapshot_run_attempt=1,
+        )
+    )
+    ok = (
+        passed.allowed
+        and passed.outcome == "security_scan_passed"
+        and not blocked.allowed
+        and waived.allowed
+        and waived.waiver_applied
+        and not stale.allowed
+    )
+    return {
+        "ok": ok,
+        "passed_outcome": passed.outcome,
+        "blocked_outcome": blocked.outcome,
+        "waived_outcome": waived.outcome,
+        "stale_outcome": stale.outcome,
+        "used_skill_route_discovery": "skill_routing" in sys.modules
+        or "blackhole_agent.skill_routing" in sys.modules,
+    }
+
+
+def builtin_proposal_eval_smoke() -> dict[str, Any]:
+    """Prove one frozen proposal replay case offline without skill-route discovery."""
+
+    from blackhole_agent.proposal_eval import load_proposal_replay_case, run_proposal_replay_case
+
+    repo_root = Path(__file__).resolve().parents[2]
+    case_path = repo_root / "tests" / "fixtures" / "proposal_replay" / "benign_agent_harness.json"
+    if not case_path.is_file():
+        return {
+            "ok": False,
+            "error": f"missing fixture {case_path}",
+            "used_skill_route_discovery": "skill_routing" in sys.modules
+            or "blackhole_agent.skill_routing" in sys.modules,
+        }
+    case = load_proposal_replay_case(case_path)
+    result = run_proposal_replay_case(case)
+    return {
+        "ok": bool(result.passed),
+        "case_name": result.name,
+        "review_status": result.review_status,
+        "accepted_count": result.accepted_count,
+        "rejected_count": result.rejected_count,
+        "failures": list(result.failures),
+        "fixture": str(case_path.as_posix()),
+        "used_skill_route_discovery": "skill_routing" in sys.modules
+        or "blackhole_agent.skill_routing" in sys.modules,
+    }
+
+
 # --- Growth loop: scout → absorb domain / promote composition → prove ---
 
 # Domain package surfaces the compounder can absorb into the ledger (beyond meta self-composition).
@@ -927,6 +1050,57 @@ DOMAIN_SURFACE_CATALOG: tuple[dict[str, Any], ...] = (
         "priority": 60,
         "dependencies": ("repo.import-health",),
     },
+    {
+        "id": "domain.issue-triage",
+        "name": "Issue triage lane smoke",
+        "description": (
+            "Classify issue-like inputs into validation/follow-up/no-action lanes without remote mutation."
+        ),
+        "module": "blackhole_agent.issue_triage",
+        "module_path": "src/blackhole_agent/issue_triage.py",
+        "entry": "blackhole_agent.capability_compounder:builtin_issue_triage_smoke",
+        "function": "builtin_issue_triage_smoke",
+        "capability_delta": (
+            "Local issue triage is invocable as a first-class ledger capability."
+        ),
+        "tags": ("domain", "triage", "absorbable"),
+        "priority": 58,
+        "dependencies": ("repo.import-health",),
+    },
+    {
+        "id": "domain.ci-security",
+        "name": "CI security scan gate",
+        "description": (
+            "Evaluate fail-closed security-scan pass, block, waiver, and stale-snapshot decisions offline."
+        ),
+        "module": "blackhole_agent.ci_security",
+        "module_path": "src/blackhole_agent/ci_security.py",
+        "entry": "blackhole_agent.capability_compounder:builtin_ci_security_gate",
+        "function": "builtin_ci_security_gate",
+        "capability_delta": (
+            "CI security-scan gating is invocable as a first-class ledger capability."
+        ),
+        "tags": ("domain", "security", "absorbable"),
+        "priority": 56,
+        "dependencies": ("repo.import-health",),
+    },
+    {
+        "id": "domain.proposal-eval",
+        "name": "Proposal eval replay smoke",
+        "description": (
+            "Replay one frozen proposal evidence package offline without skill-route discovery."
+        ),
+        "module": "blackhole_agent.proposal_eval",
+        "module_path": "src/blackhole_agent/proposal_eval.py",
+        "entry": "blackhole_agent.capability_compounder:builtin_proposal_eval_smoke",
+        "function": "builtin_proposal_eval_smoke",
+        "capability_delta": (
+            "Proposal evaluation replay is invocable as a first-class ledger capability."
+        ),
+        "tags": ("domain", "proposal", "absorbable"),
+        "priority": 54,
+        "dependencies": ("repo.import-health",),
+    },
 )
 
 # Modules that are runtime/control surfaces, not domain absorption candidates.
@@ -942,7 +1116,6 @@ _DOMAIN_SCOUT_SKIP_STEMS = frozenset(
         "skill_routing",
         "self_model",
         "persona",
-        "ci_security",
         "proposal_synthesis",
     }
 )
@@ -977,6 +1150,21 @@ KNOWN_GROWTH_RECIPES: tuple[dict[str, Any], ...] = (
         "tags": ("composed", "promoted", "growth", "domain"),
     },
     {
+        "suggested_id": "capability.composed-domain-ops",
+        "name": "Composed domain ops chain",
+        "members": (
+            "domain.issue-triage",
+            "domain.ci-security",
+            "domain.proposal-eval",
+        ),
+        "reason": (
+            "Issue triage, CI security gating, and proposal replay form an operational "
+            "domain composition beyond the original meta/domain-core plateau."
+        ),
+        "priority": 85,
+        "tags": ("composed", "promoted", "growth", "domain", "ops"),
+    },
+    {
         "suggested_id": "capability.composed-evolution-ready",
         "name": "Composed evolution-ready chain",
         "members": (
@@ -1004,6 +1192,96 @@ def existing_promoted_member_sets(ledger: CapabilityLedger) -> set[frozenset[str
         if tags.intersection({"composed", "promoted"}) and capability.dependencies:
             promoted.add(_member_set_key(capability.dependencies))
     return promoted
+
+
+def domain_leaf_ids(ledger: CapabilityLedger) -> list[str]:
+    """Return sorted domain leaf capability ids (not composed meta units)."""
+
+    leaves: list[str] = []
+    for capability in ledger.capabilities.values():
+        tags = set(capability.tags)
+        if "domain" not in tags:
+            continue
+        if tags.intersection({"composed", "promoted"}):
+            continue
+        if not capability.id.startswith("domain."):
+            continue
+        leaves.append(capability.id)
+    return sorted(leaves)
+
+
+def synthesize_dynamic_domain_compositions(
+    ledger: CapabilityLedger,
+    *,
+    limit: int = 1,
+) -> list[dict[str, Any]]:
+    """Synthesize one frontier composition from absorbed domain leaves.
+
+    When hand-written recipes no longer expand the ledger, growth continues by
+    promoting a single deterministic cross-cut of current domain leaves (ops
+    surfaces preferred). New domain absorbs change the frontier; we do not
+    enumerate every combination.
+    """
+
+    already = existing_promoted_member_sets(ledger)
+    known_member_sets = {_member_set_key(recipe["members"]) for recipe in KNOWN_GROWTH_RECIPES}
+    known_ids = {str(recipe["suggested_id"]) for recipe in KNOWN_GROWTH_RECIPES}
+    leaves = domain_leaf_ids(ledger)
+    if len(leaves) < 2:
+        return []
+
+    ops_ids = {
+        "domain.issue-triage",
+        "domain.ci-security",
+        "domain.proposal-eval",
+    }
+    ops = [leaf for leaf in leaves if leaf in ops_ids]
+    core = [leaf for leaf in leaves if leaf not in ops_ids]
+    # Deterministic cross-cut: prefer mixing ops + core so we do not merely
+    # restate catalogued domain-core / domain-ops member sets.
+    mixed: list[str] = []
+    if ops and core:
+        mixed.append(ops[0])
+        for leaf in core:
+            if len(mixed) >= 3:
+                break
+            mixed.append(leaf)
+        for leaf in ops[1:]:
+            if len(mixed) >= 3:
+                break
+            mixed.append(leaf)
+    else:
+        mixed = list(leaves[:3])
+    frontier = tuple(mixed)
+    if len(frontier) < 2:
+        return []
+    member_key = _member_set_key(frontier)
+    if member_key in already or member_key in known_member_sets:
+        return []
+    slug = slugify_capability_id(
+        "-".join(member.removeprefix("domain.") for member in frontier),
+        limit=36,
+    )
+    suggested_id = f"capability.composed-dyn-{slug}"
+    if suggested_id in ledger.capabilities or suggested_id in known_ids:
+        return []
+    missing = [member for member in frontier if member not in ledger.capabilities]
+    opportunity = {
+        "kind": "composition",
+        "suggested_id": suggested_id,
+        "name": f"Dynamic domain composition ({' + '.join(frontier)})",
+        "members": list(frontier),
+        "reason": (
+            "Synthesized multi-domain frontier composition from absorbed package surfaces "
+            "after catalogued recipes were exhausted."
+        ),
+        "priority": 48,
+        "status": "blocked_missing_members" if missing else "ready",
+        "missing_members": missing,
+        "synthesized": True,
+        "tags": ["composed", "promoted", "growth", "domain", "dynamic"],
+    }
+    return [opportunity][: max(1, int(limit))]
 
 
 def resolve_domain_surface(surface_id: str) -> dict[str, Any]:
@@ -1211,6 +1489,8 @@ def scout_capability_gaps(
         )
     domain_opportunities = scout_domain_surfaces(ledger, repo_path=root)
     opportunities.extend(domain_opportunities)
+    dynamic_opportunities = synthesize_dynamic_domain_compositions(ledger)
+    opportunities.extend(dynamic_opportunities)
     # Prefer ready compositions, then ready domain absorbs, then already-done, then blocked.
     status_rank = {
         "ready": 0,
@@ -1257,6 +1537,12 @@ def scout_capability_gaps(
         "growth_surface_missing": growth_surface_missing,
         "domain_absorbed": domain_absorbed,
         "domain_pending": domain_pending,
+        "domain_leaves": domain_leaf_ids(ledger),
+        "dynamic_ready": [
+            item["suggested_id"]
+            for item in dynamic_opportunities
+            if item.get("status") == "ready"
+        ],
         "uncatalogued_surfaces": uncatalogued,
         "opportunities": opportunities,
         "recommended": recommended,
@@ -1631,13 +1917,22 @@ def run_growth_loop(
         (item for item in KNOWN_GROWTH_RECIPES if item["suggested_id"] == selected["suggested_id"]),
         None,
     )
+    selected_tags = selected.get("tags")
+    if known is not None:
+        promote_tags: tuple[str, ...] = tuple(known["tags"])
+    elif selected_tags:
+        promote_tags = tuple(str(item) for item in selected_tags if str(item).strip())
+    elif selected.get("synthesized"):
+        promote_tags = ("composed", "promoted", "growth", "domain", "dynamic")
+    else:
+        promote_tags = ("composed", "promoted", "growth")
     ledger, promoted = promote_composition(
         ledger,
         selected["members"],
         capability_id=selected["suggested_id"],
         name=selected.get("name"),
         description=selected.get("reason", ""),
-        tags=tuple(known["tags"]) if known else ("composed", "promoted", "growth"),
+        tags=promote_tags,
         replace=False,
     )
     save_ledger(path, ledger)

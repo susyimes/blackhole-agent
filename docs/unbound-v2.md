@@ -124,7 +124,14 @@ The compounder can grow beyond bootstrap seeds without skill-route discovery:
 
 When meta health compositions are exhausted, growth continues by absorbing
 domain surfaces and promoting multi-domain compositions (e.g.
-`capability.composed-domain-core`).
+`capability.composed-domain-core`, then operational surfaces such as
+`domain.issue-triage`, `domain.ci-security`, `domain.proposal-eval` and
+`capability.composed-domain-ops`).
+
+After catalogued recipes and domain absorbs are promoted, scout synthesizes
+**dynamic multi-domain compositions** from absorbed domain leaves so growth
+does not plateau on re-prove-only. Synthesized capabilities are tagged
+`dynamic` in addition to `composed`/`promoted`.
 
 Promoted compositions are tagged `composed`/`promoted` and become ordinary
 ledger citizens that later turns can list, prove, run, and compose further.
