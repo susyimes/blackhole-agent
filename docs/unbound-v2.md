@@ -104,6 +104,20 @@ prompts inject a compact ledger summary so later turns can compound rather than
 re-derive the same ability. Milestone acceptance best-effort registers a
 capability when a successful validation command is present.
 
+### Evolution surface redirect
+
+When the ledger is ready (≥2 capabilities), growth prefers the compounder:
+
+- Supervisor wakes with `evolution_mode=compound`, or `codex` with
+  `--prefer-capability-compounder` (default), launch
+  `blackhole-unbound capability demo` instead of the github_growth skill-route
+  mutation path.
+- Digest attachment of `skill_route_discovery_capability_pipeline` short-circuits
+  to a compact `capability_compounder_redirect` surface that freezes pin/cascade
+  packaging and sets `supervisor_next_action=run_capability_compounder_compose_or_demo`.
+- Force the legacy pipeline with `BLACKHOLE_FORCE_SKILL_ROUTE_PIPELINE=1` or
+  `--prefer-legacy-growth`.
+
 ## Self-Reload
 
 The default `run` loop starts each tick in a fresh Python interpreter with

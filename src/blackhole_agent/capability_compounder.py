@@ -718,6 +718,42 @@ def builtin_ledger_inventory() -> dict[str, Any]:
     }
 
 
+def builtin_evolution_route_redirect() -> dict[str, Any]:
+    """Prove supervisor/skill-route surfaces redirect to the compounder when ready."""
+
+    from blackhole_agent.evolution_route import (
+        COMPOUND_SURFACE,
+        build_skill_route_compounder_redirect_pipeline,
+        resolve_supervisor_evolution_surface,
+        should_redirect_skill_route_pipeline,
+    )
+
+    repo_root = Path(__file__).resolve().parents[2]
+    redirected = should_redirect_skill_route_pipeline(repo_root)
+    surface = resolve_supervisor_evolution_surface(
+        evolution_mode="codex",
+        repo_path=repo_root,
+        prefer_capability_compounder=True,
+    )
+    pipeline = build_skill_route_compounder_redirect_pipeline(repo_path=repo_root)
+    ok = (
+        redirected
+        and surface.get("surface") == COMPOUND_SURFACE
+        and surface.get("effective_mode") == "compound"
+        and pipeline.get("skill_route_pin_cascade_frozen") is True
+        and pipeline.get("supervisor_next_action") == "run_capability_compounder_compose_or_demo"
+    )
+    return {
+        "ok": ok,
+        "redirected": redirected,
+        "surface": surface.get("surface"),
+        "effective_mode": surface.get("effective_mode"),
+        "reason": surface.get("reason"),
+        "pipeline_status": pipeline.get("status"),
+        "pin_cascade_frozen": pipeline.get("skill_route_pin_cascade_frozen"),
+    }
+
+
 def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
     """Install the minimal compoundable bootstrap set if missing."""
 
@@ -782,6 +818,33 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
             created_at=utc_now_iso(),
             updated_at=utc_now_iso(),
         ),
+        Capability(
+            id="evolution.compounder-redirect",
+            name="Evolution surface compounder redirect",
+            description=(
+                "Supervisor codex wakes and skill-route digest attachment redirect to "
+                "capability compounder prove/compose instead of pin/cascade paperwork."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_evolution_route_redirect",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_evolution_route_redirect; '
+                "r=builtin_evolution_route_redirect(); assert r['ok'] and r['pin_cascade_frozen']\""
+            ),
+            dependencies=("repo.import-health", "capability.ledger-inventory"),
+            behavior_paths=(
+                "src/blackhole_agent/evolution_route.py",
+                "src/blackhole_agent/supervisor.py",
+                "src/blackhole_agent/github_growth.py",
+            ),
+            capability_delta=(
+                "Legacy evolution surfaces redirect to the compounder when the ledger is ready."
+            ),
+            tags=("bootstrap", "evolution-route"),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
     ]
     for seed in seeds:
         if seed.id not in ledger.capabilities:
@@ -815,18 +878,28 @@ def run_end_to_end_demo(
     path, ledger = ensure_seeded_ledger(repo_path)
     # Explicitly avoid importing skill_routing during the demo path.
     import_probe = builtin_repo_import_health()
-    compose_ids = ["repo.import-health", "unbound.milestone-gate", "capability.ledger-inventory"]
+    compose_ids = [
+        "repo.import-health",
+        "unbound.milestone-gate",
+        "capability.ledger-inventory",
+        "evolution.compounder-redirect",
+    ]
+    # Compose the bootstrap set that is present (redirect capability may be new).
+    present = [item for item in compose_ids if item in ledger.capabilities]
     results = compose_capabilities(
         ledger,
-        compose_ids,
+        present,
         cwd=repo_path,
         command_runner=command_runner,
         timeout=timeout,
         prove_first=True,
     )
     save_ledger(path, ledger)
-    ok = all(item.ok for item in results) and len(results) == len(
-        topological_order(ledger, compose_ids)
+    ok = (
+        bool(results)
+        and all(item.ok for item in results)
+        and len(results) == len(topological_order(ledger, present))
+        and len(present) >= 3
     )
     return {
         "ok": ok,

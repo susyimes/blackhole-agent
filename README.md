@@ -159,6 +159,15 @@ uv run blackhole-unbound capability compose \
   repo.import-health,unbound.milestone-gate,capability.ledger-inventory
 ```
 
+When the ledger is ready, supervisor codex wakes redirect to the compounder by
+default (`--prefer-capability-compounder`). Force legacy github_growth skill-route
+evolution with `--prefer-legacy-growth` or `BLACKHOLE_FORCE_SKILL_ROUTE_PIPELINE=1`.
+Explicit compound mode:
+
+```bash
+uv run blackhole-supervisor --repo-path . --evolution-mode compound --max-passes 1
+```
+
 Continue the latest mission until it completes or reports a real blocker:
 
 ```bash
