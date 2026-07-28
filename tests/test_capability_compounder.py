@@ -16,9 +16,12 @@ from blackhole_agent.capability_compounder import (
     builtin_repo_import_health,
     default_ledger_path,
     load_ledger,
+    promote_composition,
     register_capability,
     run_end_to_end_demo,
+    run_growth_loop,
     save_ledger,
+    scout_capability_gaps,
     seed_bootstrap_capabilities,
     topological_order,
 )
@@ -212,3 +215,124 @@ def test_cli_demo_exits_zero():
     payload = json.loads(completed.stdout)
     assert payload["ok"] is True
     assert payload["used_skill_route_discovery"] is False
+
+
+def test_scout_ranks_ready_composition(tmp_path: Path):
+    ledger = seed_bootstrap_capabilities(CapabilityLedger())
+    scout = scout_capability_gaps(ledger, repo_path=tmp_path)
+    assert scout["ok"] is True
+    assert scout["used_skill_route_discovery"] is False
+    assert scout["recommended"] is not None
+    assert scout["recommended"]["suggested_id"] == "capability.composed-core-health"
+    assert scout["recommended"]["status"] == "ready"
+    assert "capability.scout-gaps" in ledger.capabilities
+    assert "capability.growth-loop" in ledger.capabilities
+
+
+def test_promote_composition_registers_invocable_unit(tmp_path: Path):
+    ledger = seed_bootstrap_capabilities(CapabilityLedger())
+    save_ledger(default_ledger_path(tmp_path), ledger)
+    # Promotion against a temp ledger path still validates graph; run uses repo builtins.
+    ledger, promoted = promote_composition(
+        ledger,
+        (
+            "repo.import-health",
+            "capability.ledger-inventory",
+            "unbound.milestone-gate",
+        ),
+        capability_id="capability.composed-core-health",
+    )
+    assert promoted.id == "capability.composed-core-health"
+    assert set(promoted.dependencies) == {
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "unbound.milestone-gate",
+    }
+    assert "composed" in promoted.tags
+    assert promoted.kind == "python"
+    assert "builtin_execute_composed_capability" in promoted.entry
+
+
+def test_growth_loop_promotes_and_proves_on_repo():
+    repo = Path(__file__).resolve().parents[1]
+    # Ensure a clean growth path: seed first, remove promoted compositions from prior runs.
+    from blackhole_agent.capability_compounder import ensure_seeded_ledger, remove_capability
+
+    path, ledger = ensure_seeded_ledger(repo)
+    for composed_id in (
+        "capability.composed-core-health",
+        "capability.composed-evolution-ready",
+    ):
+        if composed_id in ledger.capabilities:
+            try:
+                remove_capability(ledger, composed_id)
+            except ValueError:
+                pass
+    save_ledger(path, ledger)
+    before = len(load_ledger(path).capabilities)
+    result = run_growth_loop(repo, timeout=180)
+    assert result["ok"] is True, result
+    assert result["used_skill_route_discovery"] is False
+    assert result["grew"] is True
+    assert result["promoted_id"] == "capability.composed-core-health"
+    assert result["after_count"] > before
+    assert result["proof"]["ok"] is True
+    assert result["run"]["ok"] is True
+    ledger = load_ledger(path)
+    assert "capability.composed-core-health" in ledger.capabilities
+    assert ledger.capabilities["capability.composed-core-health"].last_proof_exit_code == 0
+    # Second pass may promote the next ready recipe or re-prove an existing one.
+    again = run_growth_loop(repo, timeout=180)
+    assert again["ok"] is True, again
+    assert again["used_skill_route_discovery"] is False
+    assert again.get("promoted_id")
+    assert again.get("proof", {}).get("ok") is True
+    assert again.get("run", {}).get("ok") is True
+    if again.get("grew"):
+        assert again["promoted_id"] == "capability.composed-evolution-ready"
+    else:
+        assert again.get("reason") == "already_promoted_reproved"
+    # Exhaust remaining recipes, then grow must re-prove without failing.
+    third = run_growth_loop(repo, timeout=180)
+    assert third["ok"] is True, third
+    assert third.get("promoted_id")
+    assert third.get("proof", {}).get("ok") is True
+    fourth = run_growth_loop(repo, timeout=180)
+    assert fourth["ok"] is True, fourth
+    assert fourth["grew"] is False
+    assert fourth["reason"] == "already_promoted_reproved"
+    assert fourth.get("promoted_id")
+
+
+def test_cli_scout_and_grow_exit_zero():
+    repo = Path(__file__).resolve().parents[1]
+    env = {
+        **dict(**{k: v for k, v in __import__("os").environ.items()}),
+        "PYTHONPATH": str(repo / "src"),
+    }
+    scout = subprocess.run(
+        [sys.executable, "-m", "blackhole_agent.unbound", "capability", "scout", "--repo-path", str(repo)],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=120,
+    )
+    assert scout.returncode == 0, scout.stdout + scout.stderr
+    scout_payload = json.loads(scout.stdout)
+    assert scout_payload["ok"] is True
+    assert isinstance(scout_payload["opportunities"], list)
+
+    grow = subprocess.run(
+        [sys.executable, "-m", "blackhole_agent.unbound", "capability", "grow", "--repo-path", str(repo)],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=240,
+    )
+    assert grow.returncode == 0, grow.stdout + grow.stderr
+    grow_payload = json.loads(grow.stdout)
+    assert grow_payload["ok"] is True
+    assert grow_payload["used_skill_route_discovery"] is False
+    assert grow_payload.get("promoted_id") or grow_payload.get("grew") is False

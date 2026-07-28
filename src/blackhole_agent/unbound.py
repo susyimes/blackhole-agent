@@ -33,11 +33,14 @@ from blackhole_agent.capability_compounder import (
     ensure_seeded_ledger,
     ledger_prompt_summary,
     load_ledger,
+    promote_composition,
     prove_capability,
     register_capability,
     run_capability,
     run_end_to_end_demo,
+    run_growth_loop,
     save_ledger,
+    scout_capability_gaps,
     slugify_capability_id,
 )
 from blackhole_agent.kernels.codex_cli import CodexCliConfig, CodexCliKernel
@@ -1472,6 +1475,100 @@ def capability_demo(
         result = run_end_to_end_demo(repo_path.resolve(), timeout=timeout_seconds)
     except Exception as error:
         console.print(f"Demo failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+@capability_app.command("scout", help="Scout the ledger for composition-promotion growth opportunities.")
+def capability_scout(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+) -> None:
+    root = repo_path.resolve()
+    path, ledger = ensure_seeded_ledger(root)
+    result = scout_capability_gaps(ledger, repo_path=root)
+    result["ledger_path"] = str(path)
+    console.print_json(data=result)
+    if not result.get("ok"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "promote",
+    help="Promote a multi-capability composition into one durable invocable capability.",
+)
+def capability_promote(
+    members: str = typer.Argument(..., help="Comma-separated member capability ids."),
+    capability_id: str = typer.Option("", "--id", help="Optional id for the promoted capability."),
+    name: str = typer.Option("", "--name", help="Optional human-readable name."),
+    replace: bool = typer.Option(False, "--replace", help="Replace an existing promoted id."),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    prove: bool = typer.Option(True, "--prove/--no-prove", help="Prove after promotion."),
+    timeout_seconds: int = typer.Option(120, "--timeout-seconds", min=1),
+) -> None:
+    root = repo_path.resolve()
+    path, ledger = ensure_seeded_ledger(root)
+    member_ids = [part.strip() for part in members.split(",") if part.strip()]
+    try:
+        ledger, promoted = promote_composition(
+            ledger,
+            member_ids,
+            capability_id=capability_id or None,
+            name=name or None,
+            replace=replace,
+        )
+        save_ledger(path, ledger)
+        proof_payload: dict[str, Any] | None = None
+        if prove:
+            ledger, proof = prove_capability(
+                ledger,
+                promoted.id,
+                cwd=root,
+                timeout=timeout_seconds,
+            )
+            save_ledger(path, ledger)
+            proof_payload = proof.to_dict()
+            if not proof.ok:
+                console.print_json(
+                    data={
+                        "ok": False,
+                        "ledger_path": str(path),
+                        "promoted": promoted.to_dict(),
+                        "proof": proof_payload,
+                    }
+                )
+                raise typer.Exit(proof.exit_code or 1)
+    except (ValueError, KeyError, OSError) as error:
+        console.print(f"Promote failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(
+        data={
+            "ok": True,
+            "ledger_path": str(path),
+            "promoted": promoted.to_dict(),
+            "proof": proof_payload,
+        }
+    )
+
+
+@capability_app.command(
+    "grow",
+    help="Closed growth loop: scout → promote ready composition → prove (no skill-route).",
+)
+def capability_grow(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    recipe_id: str = typer.Option("", "--recipe-id", help="Optional known recipe id to promote."),
+    timeout_seconds: int = typer.Option(180, "--timeout-seconds", min=1),
+) -> None:
+    try:
+        result = run_growth_loop(
+            repo_path.resolve(),
+            timeout=timeout_seconds,
+            recipe_id=recipe_id or None,
+        )
+    except Exception as error:
+        console.print(f"Grow failed: {error}", style="red")
         raise typer.Exit(1) from error
     console.print_json(data=result)
     if not result.get("ok") or result.get("used_skill_route_discovery"):

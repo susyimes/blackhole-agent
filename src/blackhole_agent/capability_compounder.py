@@ -362,8 +362,16 @@ def topological_order(ledger: CapabilityLedger, capability_ids: Sequence[str]) -
     return ordered
 
 
-def _pythonpath_env(cwd: Path, env: dict[str, str] | None = None) -> dict[str, str]:
-    merged = dict(env or os.environ)
+def _pythonpath_env(cwd: Path, env: Mapping[str, str] | None = None) -> dict[str, str]:
+    """Build a subprocess env that always inherits the parent process environment.
+
+    Callers may pass overrides (e.g. BLACKHOLE_CAPABILITY_ID); those are merged
+    on top of os.environ so Windows shell proofs still see ComSpec/SystemRoot.
+    """
+
+    merged = dict(os.environ)
+    if env:
+        merged.update({str(key): str(value) for key, value in env.items()})
     source_root = str((cwd / "src").resolve()) if (cwd / "src").exists() else str(cwd.resolve())
     existing = merged.get("PYTHONPATH", "")
     merged["PYTHONPATH"] = source_root + (os.pathsep + existing if existing else "")
@@ -389,12 +397,16 @@ def _run_shell(
     )
 
 
+ACTIVE_CAPABILITY_ENV = "BLACKHOLE_CAPABILITY_ID"
+
+
 def run_python_entry(
     entry: str,
     *,
     cwd: Path,
     timeout: int = 120,
     command_runner: Callable[..., Any] = subprocess.run,
+    env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Execute `module:function` in a subprocess for isolation."""
 
@@ -421,7 +433,7 @@ def run_python_entry(
         capture_output=True,
         text=True,
         timeout=timeout,
-        env=_pythonpath_env(cwd),
+        env=_pythonpath_env(cwd, env),
     )
 
 
@@ -435,6 +447,7 @@ def run_capability(
 ) -> CapabilityRunResult:
     """Run a capability entry (or its proof command)."""
 
+    active_env = {ACTIVE_CAPABILITY_ENV: capability.id}
     if use_proof:
         command_text = capability.proof_command
         completed = _run_shell(
@@ -442,6 +455,7 @@ def run_capability(
             cwd=cwd,
             command_runner=command_runner,
             timeout=timeout,
+            env=active_env,
         )
         command_tuple = ("shell", command_text)
         kind = "proof"
@@ -452,6 +466,7 @@ def run_capability(
             cwd=cwd,
             command_runner=command_runner,
             timeout=timeout,
+            env=active_env,
         )
         command_tuple = ("shell", command_text)
         kind = "command"
@@ -461,6 +476,7 @@ def run_capability(
             cwd=cwd,
             timeout=timeout,
             command_runner=command_runner,
+            env=active_env,
         )
         command_tuple = (sys.executable, "-c", f"<run {capability.entry}>")
         kind = "python"
@@ -754,6 +770,450 @@ def builtin_evolution_route_redirect() -> dict[str, Any]:
     }
 
 
+# --- Growth loop: scout → promote composition → prove ---
+
+# Canonical multi-capability recipes the compounder can promote into durable capabilities.
+KNOWN_GROWTH_RECIPES: tuple[dict[str, Any], ...] = (
+    {
+        "suggested_id": "capability.composed-core-health",
+        "name": "Composed core health chain",
+        "members": (
+            "repo.import-health",
+            "capability.ledger-inventory",
+            "unbound.milestone-gate",
+        ),
+        "reason": "Core health/inventory/gate chain is composable and operator-useful as one invocable unit.",
+        "priority": 100,
+        "tags": ("composed", "promoted", "growth"),
+    },
+    {
+        "suggested_id": "capability.composed-evolution-ready",
+        "name": "Composed evolution-ready chain",
+        "members": (
+            "repo.import-health",
+            "capability.ledger-inventory",
+            "evolution.compounder-redirect",
+        ),
+        "reason": "Evolution redirect readiness can be re-proved as a single composed capability.",
+        "priority": 80,
+        "tags": ("composed", "promoted", "growth", "evolution-route"),
+    },
+)
+
+
+def _member_set_key(member_ids: Sequence[str]) -> frozenset[str]:
+    return frozenset(str(item).strip() for item in member_ids if str(item).strip())
+
+
+def existing_promoted_member_sets(ledger: CapabilityLedger) -> set[frozenset[str]]:
+    """Return dependency sets already represented by promoted/composed capabilities."""
+
+    promoted: set[frozenset[str]] = set()
+    for capability in ledger.capabilities.values():
+        tags = set(capability.tags)
+        if tags.intersection({"composed", "promoted"}) and capability.dependencies:
+            promoted.add(_member_set_key(capability.dependencies))
+    return promoted
+
+
+def scout_capability_gaps(
+    ledger: CapabilityLedger,
+    *,
+    repo_path: Path | None = None,
+) -> dict[str, Any]:
+    """Rank ledger growth opportunities without skill-route machinery."""
+
+    del repo_path  # reserved for future filesystem surface scouting
+    unproved = sorted(
+        item.id
+        for item in ledger.capabilities.values()
+        if item.last_proof_exit_code not in (0,)
+    )
+    never_proved = sorted(
+        item.id for item in ledger.capabilities.values() if not item.last_proved_at
+    )
+    already = existing_promoted_member_sets(ledger)
+    opportunities: list[dict[str, Any]] = []
+    for recipe in KNOWN_GROWTH_RECIPES:
+        members = tuple(recipe["members"])
+        missing = [member for member in members if member not in ledger.capabilities]
+        member_key = _member_set_key(members)
+        already_promoted = member_key in already or recipe["suggested_id"] in ledger.capabilities
+        status = "ready"
+        if missing:
+            status = "blocked_missing_members"
+        elif already_promoted:
+            status = "already_promoted"
+        opportunities.append(
+            {
+                "suggested_id": recipe["suggested_id"],
+                "name": recipe["name"],
+                "members": list(members),
+                "reason": recipe["reason"],
+                "priority": int(recipe["priority"]),
+                "status": status,
+                "missing_members": missing,
+            }
+        )
+    # Prefer ready recipes, then higher priority.
+    opportunities.sort(
+        key=lambda item: (
+            0 if item["status"] == "ready" else 1 if item["status"] == "already_promoted" else 2,
+            -int(item["priority"]),
+            item["suggested_id"],
+        )
+    )
+    recommended = next((item for item in opportunities if item["status"] == "ready"), None)
+    growth_surface_missing = [
+        capability_id
+        for capability_id in ("capability.scout-gaps", "capability.growth-loop")
+        if capability_id not in ledger.capabilities
+    ]
+    return {
+        "ok": True,
+        "count": len(ledger.capabilities),
+        "ids": sorted(ledger.capabilities),
+        "unproved": unproved,
+        "never_proved": never_proved,
+        "growth_surface_missing": growth_surface_missing,
+        "opportunities": opportunities,
+        "recommended": recommended,
+        "used_skill_route_discovery": "skill_routing" in sys.modules
+        or "blackhole_agent.skill_routing" in sys.modules,
+    }
+
+
+def run_named_recipe(
+    member_ids: Sequence[str],
+    *,
+    repo_path: Path | None = None,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 120,
+    prove_first: bool = True,
+) -> dict[str, Any]:
+    """Compose an explicit member list against the in-repo ledger."""
+
+    root = (repo_path or Path(__file__).resolve().parents[2]).resolve()
+    path = default_ledger_path(root)
+    ledger = load_ledger(path)
+    order = topological_order(ledger, member_ids)
+    results = compose_capabilities(
+        ledger,
+        member_ids,
+        cwd=root,
+        command_runner=command_runner,
+        timeout=timeout,
+        prove_first=prove_first,
+    )
+    save_ledger(path, ledger)
+    ok = bool(results) and all(item.ok for item in results) and len(results) == len(order)
+    return {
+        "ok": ok,
+        "members": list(member_ids),
+        "order": order,
+        "results": [item.to_dict() for item in results],
+        "ledger_path": str(path),
+    }
+
+
+def builtin_execute_composed_capability() -> dict[str, Any]:
+    """Execute the composition defined by the active capability's dependencies.
+
+    `run_capability` injects BLACKHOLE_CAPABILITY_ID so promoted recipes remain
+    zero-arg python entries while still knowing which dependency set to compose.
+    """
+
+    capability_id = (os.environ.get(ACTIVE_CAPABILITY_ENV) or "").strip()
+    root = Path(__file__).resolve().parents[2]
+    path = default_ledger_path(root)
+    ledger = load_ledger(path)
+    if not capability_id:
+        return {"ok": False, "error": f"{ACTIVE_CAPABILITY_ENV} is not set"}
+    capability = ledger.capabilities.get(capability_id)
+    if capability is None:
+        return {"ok": False, "error": f"unknown capability {capability_id}", "capability_id": capability_id}
+    members = list(capability.dependencies)
+    if not members:
+        return {
+            "ok": False,
+            "error": "composed capability has no dependencies to run",
+            "capability_id": capability_id,
+        }
+    recipe = run_named_recipe(members, repo_path=root)
+    return {
+        "ok": bool(recipe.get("ok")),
+        "capability_id": capability_id,
+        "members": members,
+        "order": recipe.get("order"),
+        "results": recipe.get("results"),
+        "ledger_path": recipe.get("ledger_path"),
+    }
+
+
+def promote_composition(
+    ledger: CapabilityLedger,
+    member_ids: Sequence[str],
+    *,
+    capability_id: str | None = None,
+    name: str | None = None,
+    description: str = "",
+    capability_delta: str = "",
+    tags: Sequence[str] = ("composed", "promoted", "growth"),
+    replace: bool = False,
+) -> tuple[CapabilityLedger, Capability]:
+    """Materialize a successful multi-capability chain as one durable capability."""
+
+    members = tuple(dict.fromkeys(str(item).strip() for item in member_ids if str(item).strip()))
+    if len(members) < 2:
+        raise ValueError("promote_composition requires at least two member capability ids")
+    missing = [member for member in members if member not in ledger.capabilities]
+    if missing:
+        raise ValueError(f"cannot promote; missing members: {', '.join(missing)}")
+    # Validate the graph can order the members.
+    topological_order(ledger, members)
+
+    known = next(
+        (
+            recipe
+            for recipe in KNOWN_GROWTH_RECIPES
+            if _member_set_key(recipe["members"]) == _member_set_key(members)
+        ),
+        None,
+    )
+    resolved_id = capability_id or (known["suggested_id"] if known else None)
+    if not resolved_id:
+        resolved_id = "capability.composed-" + slugify_capability_id("-".join(members), limit=40)
+    resolved_name = name or (known["name"] if known else f"Composed {' + '.join(members)}")
+    resolved_delta = capability_delta or (
+        f"Promoted multi-capability composition of {', '.join(members)} into one invocable unit."
+    )
+    resolved_description = description or (
+        f"Dependency-ordered composition of: {', '.join(members)}."
+    )
+    proof = (
+        f'"{sys.executable}" -c '
+        '"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; '
+        "import os; "
+        f"os.environ[{ACTIVE_CAPABILITY_ENV!r}]={resolved_id!r}; "
+        "r=builtin_execute_composed_capability(); assert r['ok']\""
+    )
+    capability = Capability(
+        id=resolved_id,
+        name=resolved_name,
+        description=resolved_description,
+        kind="python",
+        entry="blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+        proof_command=proof,
+        dependencies=members,
+        behavior_paths=(
+            "src/blackhole_agent/capability_compounder.py",
+            "capabilities/ledger.json",
+        ),
+        capability_delta=resolved_delta,
+        tags=tuple(dict.fromkeys(tags)),
+        created_at=utc_now_iso(),
+        updated_at=utc_now_iso(),
+    )
+    register_capability(ledger, capability, replace=replace or resolved_id in ledger.capabilities)
+    return ledger, capability
+
+
+def run_growth_loop(
+    repo_path: Path,
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 120,
+    recipe_id: str | None = None,
+) -> dict[str, Any]:
+    """Scout → promote recommended composition → prove. Grows the ledger without skill-route."""
+
+    root = repo_path.resolve()
+    path, ledger = ensure_seeded_ledger(root)
+    before_count = len(ledger.capabilities)
+    before_ids = sorted(ledger.capabilities)
+    scout = scout_capability_gaps(ledger, repo_path=root)
+
+    selected: dict[str, Any] | None = None
+    if recipe_id:
+        selected = next(
+            (item for item in scout["opportunities"] if item["suggested_id"] == recipe_id),
+            None,
+        )
+        if selected is None:
+            # Allow direct member promotion by suggested id even if not in scout list.
+            known = next((item for item in KNOWN_GROWTH_RECIPES if item["suggested_id"] == recipe_id), None)
+            if known is None:
+                return {
+                    "ok": False,
+                    "grew": False,
+                    "error": f"unknown recipe_id {recipe_id!r}",
+                    "scout": scout,
+                    "before_count": before_count,
+                    "after_count": before_count,
+                    "used_skill_route_discovery": scout["used_skill_route_discovery"],
+                }
+            selected = {
+                "suggested_id": known["suggested_id"],
+                "name": known["name"],
+                "members": list(known["members"]),
+                "reason": known["reason"],
+                "priority": known["priority"],
+                "status": "ready"
+                if all(member in ledger.capabilities for member in known["members"])
+                and known["suggested_id"] not in ledger.capabilities
+                else "blocked",
+                "missing_members": [
+                    member for member in known["members"] if member not in ledger.capabilities
+                ],
+            }
+    else:
+        selected = scout.get("recommended")
+
+    if not selected:
+        # All known recipes already promoted (or blocked): re-prove the best existing one.
+        already = [
+            item
+            for item in scout["opportunities"]
+            if item["status"] == "already_promoted" and item["suggested_id"] in ledger.capabilities
+        ]
+        if not already:
+            return {
+                "ok": True,
+                "grew": False,
+                "reason": "no_ready_growth_opportunities",
+                "scout": scout,
+                "before_count": before_count,
+                "after_count": before_count,
+                "before_ids": before_ids,
+                "after_ids": before_ids,
+                "used_skill_route_discovery": scout["used_skill_route_discovery"],
+            }
+        selected = already[0]
+        # Fall through into the already_promoted re-prove path below.
+
+    if selected.get("status") == "already_promoted" or selected["suggested_id"] in ledger.capabilities:
+        # Re-prove the existing promoted capability instead of no-op failure.
+        promoted_id = selected["suggested_id"]
+        ledger, proof = prove_capability(
+            ledger,
+            promoted_id,
+            cwd=root,
+            command_runner=command_runner,
+            timeout=timeout,
+        )
+        save_ledger(path, ledger)
+        run_result = run_capability(
+            ledger.capabilities[promoted_id],
+            cwd=root,
+            command_runner=command_runner,
+            timeout=timeout,
+            use_proof=False,
+        )
+        return {
+            "ok": proof.ok and run_result.ok,
+            "grew": False,
+            "reason": "already_promoted_reproved",
+            "promoted_id": promoted_id,
+            "scout": scout,
+            "selected": selected,
+            "proof": proof.to_dict(),
+            "run": run_result.to_dict(),
+            "before_count": before_count,
+            "after_count": len(ledger.capabilities),
+            "before_ids": before_ids,
+            "after_ids": sorted(ledger.capabilities),
+            "used_skill_route_discovery": "skill_routing" in sys.modules
+            or "blackhole_agent.skill_routing" in sys.modules,
+        }
+
+    if selected.get("missing_members"):
+        return {
+            "ok": False,
+            "grew": False,
+            "error": f"missing members: {', '.join(selected['missing_members'])}",
+            "selected": selected,
+            "scout": scout,
+            "before_count": before_count,
+            "after_count": before_count,
+            "used_skill_route_discovery": scout["used_skill_route_discovery"],
+        }
+
+    known = next(
+        (item for item in KNOWN_GROWTH_RECIPES if item["suggested_id"] == selected["suggested_id"]),
+        None,
+    )
+    ledger, promoted = promote_composition(
+        ledger,
+        selected["members"],
+        capability_id=selected["suggested_id"],
+        name=selected.get("name"),
+        description=selected.get("reason", ""),
+        tags=tuple(known["tags"]) if known else ("composed", "promoted", "growth"),
+        replace=False,
+    )
+    save_ledger(path, ledger)
+    ledger, proof = prove_capability(
+        ledger,
+        promoted.id,
+        cwd=root,
+        command_runner=command_runner,
+        timeout=timeout,
+    )
+    save_ledger(path, ledger)
+    run_result = run_capability(
+        ledger.capabilities[promoted.id],
+        cwd=root,
+        command_runner=command_runner,
+        timeout=timeout,
+        use_proof=False,
+    )
+    after_ids = sorted(ledger.capabilities)
+    grew = promoted.id not in before_ids and promoted.id in ledger.capabilities
+    ok = (
+        proof.ok
+        and run_result.ok
+        and grew
+        and len(ledger.capabilities) > before_count
+        and not (
+            "skill_routing" in sys.modules or "blackhole_agent.skill_routing" in sys.modules
+        )
+    )
+    return {
+        "ok": ok,
+        "grew": grew,
+        "promoted_id": promoted.id,
+        "promoted": promoted.to_dict(),
+        "scout": scout,
+        "selected": selected,
+        "proof": proof.to_dict(),
+        "run": run_result.to_dict(),
+        "before_count": before_count,
+        "after_count": len(ledger.capabilities),
+        "before_ids": before_ids,
+        "after_ids": after_ids,
+        "used_skill_route_discovery": "skill_routing" in sys.modules
+        or "blackhole_agent.skill_routing" in sys.modules,
+    }
+
+
+def builtin_scout_gaps() -> dict[str, Any]:
+    """Invocable capability: scout the durable ledger for growth opportunities."""
+
+    root = Path(__file__).resolve().parents[2]
+    path = default_ledger_path(root)
+    ledger = load_ledger(path)
+    result = scout_capability_gaps(ledger, repo_path=root)
+    result["ledger_path"] = str(path)
+    return result
+
+
+def builtin_growth_loop() -> dict[str, Any]:
+    """Invocable capability: run scout → promote → prove growth once."""
+
+    root = Path(__file__).resolve().parents[2]
+    return run_growth_loop(root)
+
+
 def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
     """Install the minimal compoundable bootstrap set if missing."""
 
@@ -842,6 +1302,64 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "Legacy evolution surfaces redirect to the compounder when the ledger is ready."
             ),
             tags=("bootstrap", "evolution-route"),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.scout-gaps",
+            name="Capability growth gap scout",
+            description=(
+                "Inspect the durable ledger for unproved capabilities and ranked "
+                "composition-promotion opportunities without skill-route discovery."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_scout_gaps",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_scout_gaps; '
+                "r=builtin_scout_gaps(); assert r['ok'] and isinstance(r.get('opportunities'), list)\""
+            ),
+            dependencies=("repo.import-health", "capability.ledger-inventory"),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Ledger growth opportunities are scannable as a first-class invocable capability."
+            ),
+            tags=("bootstrap", "compounder", "growth"),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.growth-loop",
+            name="Capability compounder growth loop",
+            description=(
+                "Scout the ledger, promote a ready multi-capability composition into a durable "
+                "capability, then prove and run it — the closed compounding loop."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_growth_loop",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_growth_loop; '
+                "r=builtin_growth_loop(); assert r['ok'] and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.scout-gaps",
+                "unbound.milestone-gate",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "src/blackhole_agent/unbound.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "The compounder can grow itself by promoting compositions without skill-route machinery."
+            ),
+            tags=("bootstrap", "compounder", "growth"),
             created_at=utc_now_iso(),
             updated_at=utc_now_iso(),
         ),
