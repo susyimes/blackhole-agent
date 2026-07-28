@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "blackhole-agent"
 dynamic = ["version"]
-description = "A review-gated GitHub growth agent with selectable local Codex and Grok CLI kernels"
+description = "A GitHub growth agent with selectable kernels and a long-horizon single-agent evolution runtime"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -24,6 +24,7 @@ dev = [
 blackhole = "blackhole_agent.cli:app"
 blackhole-agent = "blackhole_agent.cli:app"
 blackhole-supervisor = "blackhole_agent.supervisor:app"
+blackhole-unbound = "blackhole_agent.unbound:app"
 
 [tool.setuptools.dynamic]
 version = {attr = "blackhole_agent.__version__"}

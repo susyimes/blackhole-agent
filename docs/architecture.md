@@ -6,6 +6,17 @@ Build an agent that periodically tracks public GitHub trends and converts them i
 
 ## Components
 
+### Unbound Single-Agent Runtime
+
+`blackhole_agent.unbound` is an independent long-horizon path. One logical agent
+owns one durable mission, one resumable CLI session, and one persistent mission
+worktree. It does not consume the generated GitHub-growth proposal pipeline and
+does not create child agents. Turns may preserve unfinished changes without
+committing; only demonstrated capability milestones receive controller commits.
+The fresh-process run loop reloads worker code from the mission worktree so the
+agent can change its own controller for subsequent turns. The complete contract
+is documented in `docs/unbound-v2.md`.
+
 ### Native Supervisor
 
 Runs the intake job once per hour by launching a fresh one-shot child process in an isolated candidate worktree. It owns wake cadence, heartbeat artifacts, pass records, candidate worktree cleanup, health-gated promotion, restart requests, and optional pushes for successful autonomous source changes. It should never assume the previous run completed successfully unless the digest and pass record were persisted.

@@ -27,6 +27,8 @@ class GrokCliConfig:
     disable_web_search: bool = True
     max_turns: int | None = None
     deny_rules: tuple[str, ...] = ("Bash(git commit *)", "Bash(git push *)")
+    session_id: str | None = None
+    resume_session_id: str | None = None
     extra_args: tuple[str, ...] = ()
 
 
@@ -175,6 +177,10 @@ def build_grok_command(config: GrokCliConfig, *, cwd: Path, prompt_file: Path) -
         command.append("--disable-web-search")
     if config.max_turns is not None:
         command.extend(["--max-turns", str(config.max_turns)])
+    if config.resume_session_id:
+        command.extend(["--resume", config.resume_session_id])
+    elif config.session_id:
+        command.extend(["--session-id", config.session_id])
     for rule in config.deny_rules:
         command.extend(["--deny", rule])
     command.extend(config.extra_args)

@@ -59,6 +59,8 @@ class CodexCliConfig:
     ignore_user_config: bool = True
     skip_git_repo_check: bool = False
     bypass_approvals_and_sandbox: bool = False
+    resume_session_id: str | None = None
+    json_output: bool = False
     color: str = "never"
     extra_args: tuple[str, ...] = ()
 
@@ -77,6 +79,7 @@ class CodexCliRunResult:
     stdout_tail: str
     stderr_tail: str
     last_message: str
+    session_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -227,6 +230,7 @@ class CodexCliKernel:
             stdout_tail=tail_text(stdout),
             stderr_tail=tail_text(stderr),
             last_message=last_message,
+            session_id=extract_codex_session_id(stdout),
         )
         payload = serialize_run_result(result, cwd=cwd)
         result_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -269,25 +273,35 @@ def build_codex_exec_command(
     """Build a `codex exec` command that reads the task from stdin."""
 
     codex_bin = shutil.which(config.codex_bin) or config.codex_bin
-    command = [
-        codex_bin,
-        "exec",
-        "--cd",
-        str(cwd),
-        "--color",
-        config.color,
-        "--output-last-message",
-        str(output_last_message),
-    ]
+    if config.resume_session_id:
+        command = [
+            codex_bin,
+            "exec",
+            "resume",
+            config.resume_session_id,
+            "--output-last-message",
+            str(output_last_message),
+        ]
+    else:
+        command = [
+            codex_bin,
+            "exec",
+            "--cd",
+            str(cwd),
+            "--color",
+            config.color,
+            "--output-last-message",
+            str(output_last_message),
+        ]
     if config.model:
         command.extend(["--model", config.model])
-    if config.profile:
+    if config.profile and not config.resume_session_id:
         command.extend(["--profile", config.profile])
     if config.ignore_user_config:
         command.append("--ignore-user-config")
     if config.bypass_approvals_and_sandbox:
         command.append("--dangerously-bypass-approvals-and-sandbox")
-    else:
+    elif not config.resume_session_id:
         command.extend(["--sandbox", config.sandbox])
         # Modern `codex exec` is non-interactive and no longer accepts an
         # approval-policy flag. Keep the config field for controller/API
@@ -296,9 +310,33 @@ def build_codex_exec_command(
         command.append("--ephemeral")
     if config.skip_git_repo_check:
         command.append("--skip-git-repo-check")
+    if config.json_output:
+        command.append("--json")
     command.extend(config.extra_args)
     command.append("-")
     return command
+
+
+def extract_codex_session_id(stdout: str) -> str:
+    """Extract a durable Codex thread/session id from JSONL output."""
+
+    for line in stdout.splitlines():
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        for key in ("thread_id", "session_id", "conversation_id"):
+            value = payload.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        nested = payload.get("thread")
+        if isinstance(nested, dict):
+            value = nested.get("id")
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+    return ""
 
 
 def summarize_codex_local_execution_controls(

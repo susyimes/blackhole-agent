@@ -5,8 +5,8 @@
 [![Kernel](https://img.shields.io/badge/kernel-Codex_or_Grok_CLI-111827?style=for-the-badge)](#cli-kernels)
 [![Mode](https://img.shields.io/badge/mode-autonomous_local_evolution-111827?style=for-the-badge)](#autonomy-model)
 
-> A GitHub trend-eating growth agent.
-> It watches the public ecosystem, distills useful signals, and applies rollback-backed local self-improvements.
+> A GitHub trend-eating growth agent with an optional long-horizon Unbound runtime.
+> It can either distill public signals or pursue one durable capability mission across as many turns as the outcome needs.
 
 <p align="center">
   <img src="docs/assets/blackhole-agent-hero.svg" alt="blackhole-agent control loop" width="100%" />
@@ -25,6 +25,11 @@
 - keep every material action traceable through artifacts
 
 It borrows the deliberately small controller style of `susyimes/mini-swe-agent`, but this repository is its own bounded growth loop.
+
+The newer `blackhole-unbound` entry point is intentionally separate from that
+legacy proposal loop. It gives one agent a persistent mission worktree, durable
+session, compact context, broad local authority, and outcome-level milestones.
+It does not create child agents.
 
 ## Control Loop
 
@@ -133,6 +138,56 @@ uv run blackhole \
   --output-dir .blackhole-agent/github-growth
 ```
 
+## Unbound Single-Agent Runtime
+
+Create a long-horizon mission without starting the execution loop:
+
+```bash
+uv run blackhole-unbound start \
+  --repo-path . \
+  --kernel grok \
+  --goal "Replace append-only evolution with a demonstrably stronger runtime capability" \
+  --done-when "An end-to-end demo proves the new capability and the legacy complexity is reduced"
+```
+
+Continue the latest mission until it completes or reports a real blocker:
+
+```bash
+uv run blackhole-unbound run --repo-path .
+```
+
+To let the agent select its own high-impact mission after inspecting the
+repository, omit both `--goal` and `--done-when`:
+
+```bash
+uv run blackhole-unbound start --repo-path . --kernel grok
+uv run blackhole-unbound run --repo-path .
+```
+
+Each mission receives a persistent `unbound/<mission>` branch and sibling Git
+worktree. A turn with `status=continue` leaves its work in place without making
+a checkpoint commit. A milestone is committed only when the agent reports a
+working capability delta, concrete outcome evidence, an exact successful
+validation command, and a changed behavior path outside docs, tests, and
+artifacts.
+
+Unbound uses one logical agent only. Grok subagents remain disabled, while the
+same Grok or Codex session is resumed between turns. The runtime enables network,
+tool, dependency, refactor, deletion, Git, and self-modification capabilities;
+the worker is reloaded from the evolving mission worktree between turns so a
+milestone can change the controller used by the following turn.
+
+Inspect or pause a mission:
+
+```bash
+uv run blackhole-unbound status --repo-path .
+uv run blackhole-unbound stop --state-path <state.json>
+uv run blackhole-unbound resume --state-path <state.json>
+```
+
+See [`docs/unbound-v2.md`](docs/unbound-v2.md) for the state and milestone
+contracts.
+
 ## System Map
 
 | Layer | Module | Job |
@@ -140,6 +195,7 @@ uv run blackhole \
 | CLI | `blackhole_agent.cli` | Typer entry point |
 | Trend controller | `blackhole_agent.github_growth` | Search trends, fetch events, write digests, plan evolution |
 | Native supervisor | `blackhole_agent.supervisor` | Hourly wake loop for one-shot autonomous growth passes |
+| Unbound runtime | `blackhole_agent.unbound` | One persistent agent pursuing one long-horizon capability mission |
 | Memory layer | `memory.json` | Repo/topic/lesson statistics that bias future proposal selection |
 | Persona layer | `blackhole_agent.persona` | Mission, selection policy, rollback contract, restart boundary |
 | Self-model layer | `docs/self-model.md` | Blank, revisable self-description maintained by the agent itself |
