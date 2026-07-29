@@ -119,6 +119,15 @@ proven milestone commit rather than resetting to `main`. An active latest
 mission is resumed after a controller restart. This produces one serial
 single-agent lineage; it does not introduce child agents or parallel work.
 
+After a mission reaches `complete`, the CLI defaults to publishing the exact
+proven lineage commit to `origin/main` with a normal non-force push. The remote
+ref is read before the push and verified afterward. A rejected or unavailable
+push leaves `pending_publish_ref` in loop state, waits 30 minutes, and retries;
+the controller does not create the next mission until publication succeeds.
+
+Use another configured remote with `--publish-remote <name>`. Pass an empty
+value only when a deliberately local-only loop is wanted.
+
 Loop state and events are durable:
 
 ```text
@@ -127,6 +136,10 @@ Loop state and events are durable:
   continuous-loop-events.jsonl
   continuous-loop.lock
 ```
+
+`continuous-loop.json` records `publish_attempt_count`, `publish_count`,
+`pending_publish_ref`, `last_published_ref`, and `last_publish_error` so remote
+delivery is observable independently from local milestone creation.
 
 Inspect the scheduler or request a cooperative stop:
 

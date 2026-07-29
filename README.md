@@ -170,14 +170,18 @@ Run continuous single-agent self-evolution on a 30-minute outer cadence:
 uv run blackhole-unbound loop \
   --repo-path . \
   --kernel grok \
-  --interval-seconds 1800
+  --interval-seconds 1800 \
+  --publish-remote origin
 ```
 
 Mission-internal turns still run back-to-back. When a mission completes, the
 loop waits 30 minutes, then creates a new autonomous-genesis mission from the
 latest proven milestone commit. This preserves capability growth across
 missions instead of restarting from `main`. The first mission starts
-immediately by default.
+immediately by default. Each completed lineage is pushed to `origin/main`
+without force and verified before the next mission is allowed to start. A
+failed push is retained as pending state and retried on the same 30-minute
+cadence.
 
 Each mission receives a persistent `unbound/<mission>` branch and sibling Git
 worktree. A turn with `status=continue` leaves its work in place without making

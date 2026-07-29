@@ -160,6 +160,23 @@ class MilestoneGate:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class PublicationResult:
+    """Result of publishing one proven lineage commit to a remote branch."""
+
+    ok: bool
+    commit_sha: str
+    remote: str
+    branch: str
+    remote_before: str
+    remote_after: str
+    error: str
+    command: tuple[str, ...]
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -370,6 +387,148 @@ def git_commit_exists(
         check=False,
     )
     return completed.returncode == 0
+
+
+def git_is_ancestor(
+    repo_path: Path,
+    ancestor: str,
+    descendant: str,
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+) -> bool:
+    completed = run_command(
+        ["git", "merge-base", "--is-ancestor", ancestor, descendant],
+        cwd=repo_path,
+        command_runner=command_runner,
+        check=False,
+    )
+    if completed.returncode not in {0, 1}:
+        details = (completed.stderr or completed.stdout or "").strip()
+        raise RuntimeError(f"Unable to compare lineage ancestry: {details or completed.returncode}")
+    return completed.returncode == 0
+
+
+def remote_branch_head(
+    repo_path: Path,
+    remote: str,
+    branch: str,
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+) -> tuple[str, str]:
+    completed = run_command(
+        ["git", "ls-remote", "--heads", remote, f"refs/heads/{branch}"],
+        cwd=repo_path,
+        command_runner=command_runner,
+        check=False,
+    )
+    if completed.returncode != 0:
+        details = (completed.stderr or completed.stdout or "").strip()
+        return "", details or f"git ls-remote exited {completed.returncode}"
+    output = (completed.stdout or "").strip()
+    if not output:
+        return "", ""
+    return output.split(maxsplit=1)[0].strip(), ""
+
+
+def publish_lineage(
+    repo_path: Path,
+    commit_sha: str,
+    remote: str,
+    branch: str,
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+) -> PublicationResult:
+    """Fast-forward one proven local commit to the configured remote branch."""
+
+    command = ("git", "push", remote, f"{commit_sha}:refs/heads/{branch}")
+    if not git_commit_exists(repo_path, commit_sha, command_runner=command_runner):
+        return PublicationResult(
+            ok=False,
+            commit_sha=commit_sha,
+            remote=remote,
+            branch=branch,
+            remote_before="",
+            remote_after="",
+            error=f"Lineage commit does not exist: {commit_sha}",
+            command=command,
+        )
+    remote_before, lookup_error = remote_branch_head(
+        repo_path,
+        remote,
+        branch,
+        command_runner=command_runner,
+    )
+    if lookup_error:
+        return PublicationResult(
+            ok=False,
+            commit_sha=commit_sha,
+            remote=remote,
+            branch=branch,
+            remote_before="",
+            remote_after="",
+            error=lookup_error,
+            command=command,
+        )
+    if remote_before == commit_sha:
+        return PublicationResult(
+            ok=True,
+            commit_sha=commit_sha,
+            remote=remote,
+            branch=branch,
+            remote_before=remote_before,
+            remote_after=remote_before,
+            error="",
+            command=command,
+        )
+    pushed = run_command(
+        list(command),
+        cwd=repo_path,
+        command_runner=command_runner,
+        timeout=300,
+        check=False,
+    )
+    if pushed.returncode != 0:
+        details = (pushed.stderr or pushed.stdout or "").strip()
+        return PublicationResult(
+            ok=False,
+            commit_sha=commit_sha,
+            remote=remote,
+            branch=branch,
+            remote_before=remote_before,
+            remote_after="",
+            error=details or f"git push exited {pushed.returncode}",
+            command=command,
+        )
+    remote_after, lookup_error = remote_branch_head(
+        repo_path,
+        remote,
+        branch,
+        command_runner=command_runner,
+    )
+    if lookup_error or remote_after != commit_sha:
+        details = lookup_error or (
+            f"Remote verification mismatch: expected {commit_sha}, observed {remote_after or '(missing)'}"
+        )
+        return PublicationResult(
+            ok=False,
+            commit_sha=commit_sha,
+            remote=remote,
+            branch=branch,
+            remote_before=remote_before,
+            remote_after=remote_after,
+            error=details,
+            command=command,
+        )
+    return PublicationResult(
+        ok=True,
+        commit_sha=commit_sha,
+        remote=remote,
+        branch=branch,
+        remote_before=remote_before,
+        remote_after=remote_after,
+        error="",
+        command=command,
+    )
 
 
 def create_mission(
@@ -1194,7 +1353,20 @@ def latest_proven_lineage(
     state_path, state = latest
     lineage_ref = target_ref
     if git_commit_exists(repo_path, state.last_milestone_head, command_runner=command_runner):
-        lineage_ref = state.last_milestone_head
+        target_head = git_text(
+            repo_path,
+            ["git", "rev-parse", "--verify", target_ref],
+            command_runner=command_runner,
+        )
+        if git_is_ancestor(
+            repo_path,
+            state.last_milestone_head,
+            target_head,
+            command_runner=command_runner,
+        ):
+            lineage_ref = target_head
+        else:
+            lineage_ref = state.last_milestone_head
     if state.status == "active":
         return state_path, lineage_ref
     return None, lineage_ref
@@ -1215,8 +1387,10 @@ def run_continuous_loop(
     wait_first: bool = False,
     resume_latest: bool = True,
     max_missions: int = 0,
+    publish_remote: str = "",
     mission_creator: Callable[..., Path] = create_mission,
     mission_runner: Callable[..., int] = run_mission_loop,
+    lineage_publisher: Callable[..., PublicationResult] = publish_lineage,
     interval_waiter: Callable[[int, Path], bool] = wait_for_continuous_interval,
     command_runner: Callable[..., Any] = subprocess.run,
 ) -> int:
@@ -1271,6 +1445,15 @@ def run_continuous_loop(
         "last_mission_status": "",
         "last_exit_code": None,
         "lineage_ref": target_branch,
+        "publish_remote": publish_remote,
+        "publish_branch": target_branch,
+        "publish_attempt_count": 0,
+        "publish_count": 0,
+        "pending_publish_ref": "",
+        "pending_publish_mission_id": "",
+        "last_published_ref": "",
+        "last_published_at": "",
+        "last_publish_error": "",
         "next_wake_at": "",
         "last_error": "",
         "stop_reason": "",
@@ -1283,6 +1466,7 @@ def run_continuous_loop(
             pass
         current_state_path: Path | None = None
         lineage_ref = target_branch
+        latest = load_latest_mission_if_present(repo_path, output_dir) if resume_latest else None
         if resume_latest:
             current_state_path, lineage_ref = latest_proven_lineage(
                 repo_path,
@@ -1295,6 +1479,9 @@ def run_continuous_loop(
             current = load_mission(current_state_path)
             loop_state["current_mission_id"] = current.mission_id
             loop_state["current_state_path"] = str(current_state_path)
+        elif publish_remote and latest is not None and latest[1].status == "complete":
+            loop_state["pending_publish_ref"] = lineage_ref
+            loop_state["pending_publish_mission_id"] = latest[1].mission_id
         loop_state["status"] = "running"
         save_continuous_loop_state(state_path, loop_state)
         append_jsonl(
@@ -1307,15 +1494,93 @@ def run_continuous_loop(
                 "interval_seconds": interval_seconds,
                 "lineage_ref": lineage_ref,
                 "resumed_state_path": str(current_state_path or ""),
+                "publish_remote": publish_remote,
+                "publish_branch": target_branch,
             },
         )
 
-        should_wait = wait_first
+        def attempt_publication() -> bool:
+            commit_sha = str(loop_state["pending_publish_ref"])
+            mission_id = str(loop_state["pending_publish_mission_id"])
+            loop_state["status"] = "publishing"
+            loop_state["publish_attempt_count"] = int(loop_state["publish_attempt_count"]) + 1
+            save_continuous_loop_state(state_path, loop_state)
+            try:
+                result = lineage_publisher(
+                    repo_path,
+                    commit_sha,
+                    publish_remote,
+                    target_branch,
+                    command_runner=command_runner,
+                )
+            except Exception as error:
+                result = PublicationResult(
+                    ok=False,
+                    commit_sha=commit_sha,
+                    remote=publish_remote,
+                    branch=target_branch,
+                    remote_before="",
+                    remote_after="",
+                    error=str(error),
+                    command=(),
+                )
+            append_jsonl(
+                events_path,
+                {
+                    "event": "continuous_loop.publication",
+                    "at": utc_now_iso(),
+                    "loop_id": loop_id,
+                    "mission_id": mission_id,
+                    **result.to_dict(),
+                },
+            )
+            if result.ok:
+                loop_state["publish_count"] = int(loop_state["publish_count"]) + 1
+                loop_state["pending_publish_ref"] = ""
+                loop_state["pending_publish_mission_id"] = ""
+                loop_state["last_published_ref"] = result.remote_after
+                loop_state["last_published_at"] = utc_now_iso()
+                loop_state["last_publish_error"] = ""
+            else:
+                loop_state["last_publish_error"] = result.error
+            loop_state["status"] = "running"
+            save_continuous_loop_state(state_path, loop_state)
+            return result.ok
+
+        if loop_state["pending_publish_ref"] and not attempt_publication():
+            should_wait = True
+        else:
+            should_wait = wait_first
         try:
             while True:
                 if stop_path.exists():
                     loop_state["stop_reason"] = "stop_requested"
                     break
+                if loop_state["pending_publish_ref"]:
+                    if should_wait:
+                        next_wake = datetime.now(timezone.utc) + timedelta(seconds=interval_seconds)
+                        loop_state["status"] = "sleeping_publish_retry"
+                        loop_state["next_wake_at"] = next_wake.isoformat().replace("+00:00", "Z")
+                        save_continuous_loop_state(state_path, loop_state)
+                        append_jsonl(
+                            events_path,
+                            {
+                                "event": "continuous_loop.publish_retry_sleeping",
+                                "at": utc_now_iso(),
+                                "loop_id": loop_id,
+                                "interval_seconds": interval_seconds,
+                                "next_wake_at": loop_state["next_wake_at"],
+                                "commit_sha": loop_state["pending_publish_ref"],
+                            },
+                        )
+                        if interval_waiter(interval_seconds, stop_path):
+                            loop_state["stop_reason"] = "stop_requested"
+                            break
+                        loop_state["next_wake_at"] = ""
+                    if not attempt_publication():
+                        should_wait = True
+                        continue
+                    should_wait = False
                 if current_state_path is None and max_missions:
                     if int(loop_state["mission_count"]) >= max_missions:
                         loop_state["stop_reason"] = "max_missions_reached"
@@ -1404,6 +1669,9 @@ def run_continuous_loop(
                     loop_state["lineage_ref"] = lineage_ref
                     loop_state["last_mission_id"] = current.mission_id
                     loop_state["last_mission_status"] = current.status
+                    if current.status == "complete" and publish_remote:
+                        loop_state["pending_publish_ref"] = lineage_ref
+                        loop_state["pending_publish_mission_id"] = current.mission_id
                     if current.status != "active":
                         current_state_path = None
                         loop_state["current_mission_id"] = ""
@@ -1430,6 +1698,8 @@ def run_continuous_loop(
                         "lineage_ref": lineage_ref,
                     },
                 )
+                if loop_state["pending_publish_ref"] and not attempt_publication():
+                    should_wait = True
         except KeyboardInterrupt:
             loop_state["stop_reason"] = "keyboard_interrupt"
         finally:
@@ -1594,6 +1864,11 @@ def loop(
         min=0,
         help="Stop after creating this many missions; 0 runs continuously.",
     ),
+    publish_remote: str = typer.Option(
+        "origin",
+        "--publish-remote",
+        help="Push each completed proven lineage to this remote; use an empty value to disable.",
+    ),
 ) -> None:
     try:
         exit_code = run_continuous_loop(
@@ -1610,6 +1885,7 @@ def loop(
             wait_first=wait_first,
             resume_latest=resume_latest,
             max_missions=max_missions,
+            publish_remote=publish_remote.strip(),
         )
     except (ValueError, RuntimeError, FileNotFoundError) as error:
         console.print(f"Unbound continuous loop failed: {error}", style="red")

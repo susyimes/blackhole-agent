@@ -6,6 +6,7 @@ from pathlib import Path
 from blackhole_agent.unbound import (
     DEFAULT_CONTINUOUS_INTERVAL_SECONDS,
     KernelTurnResult,
+    PublicationResult,
     TurnDecision,
     UnboundMission,
     build_turn_prompt,
@@ -17,6 +18,7 @@ from blackhole_agent.unbound import (
     invoke_kernel_turn,
     load_mission,
     mission_turn_lock,
+    publish_lineage,
     run_continuous_loop,
     run_unbound_turn,
     save_mission,
@@ -401,3 +403,95 @@ def test_continuous_loop_starts_new_genesis_missions_and_compounds_proven_heads(
     assert loop_state["lineage_ref"] == completed_heads[1]
     assert loop_state["status"] == "stopped"
     assert loop_state["stop_reason"] == "max_missions_reached"
+
+
+def test_publish_lineage_pushes_and_verifies_exact_remote_head(tmp_path):
+    repo = tmp_path / "repo"
+    remote = tmp_path / "remote.git"
+    repo.mkdir()
+    init_repository(repo)
+    subprocess.run(["git", "init", "--bare", str(remote)], check=True, capture_output=True, text=True)
+    commit_sha = git_head(repo)
+
+    result = publish_lineage(repo, commit_sha, str(remote), "main")
+    remote_head = subprocess.run(
+        ["git", "--git-dir", str(remote), "rev-parse", "refs/heads/main"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    assert result.ok is True
+    assert result.remote_before == ""
+    assert result.remote_after == commit_sha
+    assert remote_head == commit_sha
+
+
+def test_continuous_loop_retries_failed_publication_before_creating_another_mission(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    init_repository(repo)
+    worktrees = tmp_path / "worktrees"
+    waits = []
+    publish_attempts = []
+
+    def completing_runner(state_path, **kwargs):
+        state = load_mission(state_path)
+        workspace = Path(state.workspace_path)
+        capability = workspace / "src" / "published_capability.py"
+        capability.write_text("PUBLISHED = True\n", encoding="utf-8")
+        subprocess.run(["git", "add", str(capability)], cwd=workspace, check=True)
+        subprocess.run(
+            ["git", "commit", "-m", "complete publishable capability"],
+            cwd=workspace,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        state.status = "complete"
+        state.milestone_count = 1
+        state.last_milestone_head = git_head(workspace)
+        save_mission(state_path, state)
+        return 0
+
+    def flaky_publisher(repo_path, commit_sha, remote, branch, **kwargs):
+        publish_attempts.append(commit_sha)
+        if len(publish_attempts) == 1:
+            raise RuntimeError("simulated remote failure")
+        return PublicationResult(
+            ok=True,
+            commit_sha=commit_sha,
+            remote=remote,
+            branch=branch,
+            remote_before="",
+            remote_after=commit_sha,
+            error="",
+            command=("git", "push"),
+        )
+
+    def recording_waiter(seconds, stop_path):
+        waits.append(seconds)
+        return False
+
+    result = run_continuous_loop(
+        repo_path=repo,
+        interval_seconds=DEFAULT_CONTINUOUS_INTERVAL_SECONDS,
+        max_missions=1,
+        resume_latest=False,
+        publish_remote="origin",
+        worktree_parent=worktrees,
+        mission_runner=completing_runner,
+        lineage_publisher=flaky_publisher,
+        interval_waiter=recording_waiter,
+    )
+    loop_state = json.loads(continuous_loop_state_path(repo).read_text(encoding="utf-8"))
+
+    assert result == 0
+    assert len(publish_attempts) == 2
+    assert waits == [1800]
+    assert loop_state["mission_count"] == 1
+    assert loop_state["publish_attempt_count"] == 2
+    assert loop_state["publish_count"] == 1
+    assert loop_state["pending_publish_ref"] == ""
+    assert loop_state["last_publish_error"] == ""
+    assert loop_state["last_published_ref"] == publish_attempts[-1]
