@@ -326,6 +326,23 @@ def test_mission_turn_lock_reclaims_stale_pid(tmp_path):
     assert not lock_path.exists()
 
 
+def test_mission_turn_lock_preserves_live_owner(tmp_path):
+    state_path = tmp_path / "mission" / "state.json"
+    state_path.parent.mkdir()
+    lock_path = state_path.parent / "turn.lock"
+    lock_path.write_text(f"{os.getpid()}\n", encoding="utf-8")
+
+    try:
+        with mission_turn_lock(state_path):
+            raise AssertionError("live lock must not be acquired")
+    except RuntimeError as error:
+        assert "Another Unbound turn owns this mission" in str(error)
+    else:
+        raise AssertionError("live lock must fail closed")
+
+    assert lock_path.read_text(encoding="utf-8").strip() == str(os.getpid())
+
+
 def test_continuous_loop_starts_new_genesis_missions_and_compounds_proven_heads(tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()
