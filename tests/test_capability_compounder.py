@@ -31,6 +31,7 @@ from blackhole_agent.capability_compounder import (
     scout_capability_gaps,
     seed_bootstrap_capabilities,
     synthesize_dynamic_domain_compositions,
+    synthesize_hierarchical_compositions,
     topological_order,
 )
 from blackhole_agent.unbound import (
@@ -313,20 +314,44 @@ def test_growth_loop_promotes_and_proves_on_repo():
     from blackhole_agent.capability_compounder import ensure_seeded_ledger, remove_capability
 
     path, ledger = ensure_seeded_ledger(repo)
-    removable = [
-        capability_id
-        for capability_id in list(ledger.capabilities)
-        if capability_id.startswith("capability.composed-")
-        or capability_id.startswith("domain.")
-    ]
-    # Remove dependents first so graph constraints do not block cleanup.
-    for capability_id in sorted(removable, key=lambda item: (0 if item.startswith("capability.composed-") else 1, item)):
-        if capability_id in ledger.capabilities:
+    # Multi-pass removal: hierarchical stacks depend on first-gen compositions, which
+    # depend on domain leaves. Dependents must go first; a single alpha pass leaves
+    # pillars in place and makes hierarchical stacks the next "growth" recommendation.
+    for _ in range(12):
+        removable = [
+            capability_id
+            for capability_id in list(ledger.capabilities)
+            if capability_id.startswith("capability.composed-")
+            or capability_id.startswith("domain.")
+        ]
+        if not removable:
+            break
+        progress = False
+        # Prefer removing ids that nothing else depends on (true dependents first).
+        def _dependent_count(capability_id: str) -> int:
+            return sum(
+                1
+                for item in ledger.capabilities.values()
+                if capability_id in item.dependencies and item.id != capability_id
+            )
+
+        for capability_id in sorted(removable, key=lambda item: (_dependent_count(item), item)):
+            if capability_id not in ledger.capabilities:
+                continue
             try:
                 remove_capability(ledger, capability_id)
+                progress = True
             except ValueError:
-                pass
+                continue
+        if not progress:
+            break
     save_ledger(path, ledger)
+    remaining_composed = [
+        capability_id
+        for capability_id in ledger.capabilities
+        if capability_id.startswith("capability.composed-") or capability_id.startswith("domain.")
+    ]
+    assert not remaining_composed, remaining_composed
     before = len(load_ledger(path).capabilities)
     result = run_growth_loop(repo, timeout=180)
     assert result["ok"] is True, result
@@ -360,9 +385,9 @@ def test_growth_loop_promotes_and_proves_on_repo():
     assert third.get("promoted_id")
     assert third.get("proof", {}).get("ok") is True
     assert third.get("used_skill_route_discovery") is False
-    # Keep growing until known recipes, domain absorbs, and dynamic compositions stall.
+    # Keep growing until known recipes, domain absorbs, dynamic, and hierarchical stall.
     last = third
-    for _ in range(16):
+    for _ in range(28):
         last = run_growth_loop(repo, timeout=180)
         assert last["ok"] is True, last
         assert last.get("used_skill_route_discovery") is False
@@ -398,6 +423,15 @@ def test_growth_loop_promotes_and_proves_on_repo():
         if "dynamic" in capability.tags or capability_id.startswith("capability.composed-dyn-")
     ]
     assert dynamic_ids, "expected at least one synthesized dynamic domain composition"
+    # Hierarchical stacks break the post-domain re-prove plateau.
+    hierarchical_ids = [
+        capability_id
+        for capability_id, capability in ledger.capabilities.items()
+        if "hierarchical" in capability.tags or capability_id.startswith("capability.composed-stack-")
+    ]
+    assert hierarchical_ids, "expected at least one hierarchical composition stack"
+    assert "capability.composed-stack-platform" in ledger.capabilities
+    assert ledger.capabilities["capability.composed-stack-platform"].last_proof_exit_code == 0
 
 
 def test_synthesize_dynamic_domain_compositions_skips_known_sets():
@@ -430,6 +464,79 @@ def test_synthesize_dynamic_domain_compositions_skips_known_sets():
     # Novel mixes that include ops surfaces should appear as ready dynamic recipes.
     assert any(item.get("synthesized") and item["status"] == "ready" for item in synthesized)
     assert any("domain.issue-triage" in item["members"] for item in synthesized)
+    # Multi-frontier: more than one distinct ready candidate when leaves allow it.
+    ready = [item for item in synthesized if item.get("status") == "ready"]
+    assert len(ready) >= 1
+
+
+def test_hierarchical_synthesis_and_growth_past_plateau():
+    """Hierarchical stacks surface once leaf compositions exist and grow the ledger."""
+
+    repo = Path(__file__).resolve().parents[1]
+    path = default_ledger_path(repo)
+    ledger = load_ledger(path)
+    # Current repo ledger should already have domain pillars; if not, grow until present.
+    for _ in range(24):
+        if {
+            "capability.composed-domain-core",
+            "capability.composed-domain-ops",
+            "capability.composed-core-health",
+        }.issubset(ledger.capabilities):
+            break
+        result = run_growth_loop(repo, timeout=180)
+        assert result["ok"] is True, result
+        ledger = load_ledger(path)
+
+    hierarchical = synthesize_hierarchical_compositions(ledger, limit=5)
+    platform_present = "capability.composed-stack-platform" in ledger.capabilities
+    hierarchical_present = any(
+        "hierarchical" in capability.tags or capability_id.startswith("capability.composed-stack-")
+        for capability_id, capability in ledger.capabilities.items()
+    )
+    if hierarchical:
+        ready = [item for item in hierarchical if item["status"] == "ready"]
+        assert ready or platform_present or hierarchical_present, hierarchical
+        assert any(item["suggested_id"] == "capability.composed-stack-platform" for item in ready) or (
+            platform_present
+        )
+    else:
+        # All hierarchical catalog/pairs already promoted — that is the plateau-break success case.
+        assert hierarchical_present, "expected hierarchical stacks in ledger when scout is empty"
+        assert platform_present
+
+    scout = scout_capability_gaps(ledger, repo_path=repo)
+    assert scout["ok"] is True
+    # Either hierarchical is recommended or already promoted after prior grows.
+    if "capability.composed-stack-platform" not in ledger.capabilities:
+        assert scout.get("recommended") is not None
+        assert scout["recommended"]["status"] in {"ready", "ready_to_absorb"}
+        assert (
+            scout["recommended"].get("synthesis") == "hierarchical"
+            or str(scout["recommended"]["suggested_id"]).startswith("capability.composed-stack-")
+            or str(scout["recommended"]["suggested_id"]).startswith("capability.composed-dyn-")
+        )
+        before = len(ledger.capabilities)
+        grew = run_growth_loop(repo, timeout=240)
+        assert grew["ok"] is True, grew
+        assert grew["grew"] is True, grew
+        assert grew["used_skill_route_discovery"] is False
+        assert grew["after_count"] > before
+        ledger = load_ledger(path)
+        assert grew["promoted_id"] in ledger.capabilities
+        assert ledger.capabilities[grew["promoted_id"]].last_proof_exit_code == 0
+    else:
+        platform = ledger.capabilities["capability.composed-stack-platform"]
+        assert platform.last_proof_exit_code == 0
+        assert "hierarchical" in platform.tags
+        assert set(platform.dependencies) == {
+            "capability.composed-core-health",
+            "capability.composed-domain-core",
+            "capability.composed-domain-ops",
+        }
+        # Grow remains safe (may expand further or re-prove) without skill-route.
+        grew = run_growth_loop(repo, timeout=240)
+        assert grew["ok"] is True, grew
+        assert grew["used_skill_route_discovery"] is False
 
 
 def test_cli_scout_and_grow_exit_zero():

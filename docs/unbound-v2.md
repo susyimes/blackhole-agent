@@ -130,8 +130,15 @@ domain surfaces and promoting multi-domain compositions (e.g.
 
 After catalogued recipes and domain absorbs are promoted, scout synthesizes
 **dynamic multi-domain compositions** from absorbed domain leaves so growth
-does not plateau on re-prove-only. Synthesized capabilities are tagged
-`dynamic` in addition to `composed`/`promoted`.
+does not plateau on re-prove-only. Multiple deterministic frontiers are ranked;
+promoting one dynamic unit does not exhaust the scout. Synthesized capabilities
+are tagged `dynamic` in addition to `composed`/`promoted`.
+
+When leaf and dynamic frontiers still leave room, scout promotes **hierarchical
+stacks**: compositions of already-promoted compositions (catalog pillars such as
+`capability.composed-stack-platform`, plus synthesized pillar pairs). These are
+tagged `hierarchical` and keep `capability grow` expanding past the domain-ops
+re-prove plateau without skill-route machinery.
 
 Promoted compositions are tagged `composed`/`promoted` and become ordinary
 ledger citizens that later turns can list, prove, run, and compose further.
