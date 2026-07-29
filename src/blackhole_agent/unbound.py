@@ -59,6 +59,7 @@ from blackhole_agent.capability_compounder import (
     run_continuity_plane,
     run_federation_plane,
     run_quorum_plane,
+    run_finality_plane,
     run_lineage_plane,
     run_reconciliation_plane,
     run_sovereignty_plane,
@@ -1047,6 +1048,7 @@ def evaluate_milestone(
         cc.run_federation_plane if cc is not None else run_federation_plane
     )
     run_quorum = cc.run_quorum_plane if cc is not None else run_quorum_plane
+    run_finality = cc.run_finality_plane if cc is not None else run_finality_plane
     run_recon = (
         cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
     )
@@ -1102,6 +1104,15 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_finality = bool(
+                        kinds
+                        & {
+                            "finality_ok",
+                            "finalized_ok",
+                            "min_epochs",
+                            "finality_cert_valid",
+                        }
+                    )
                     needs_quorum = bool(
                         kinds
                         & {
@@ -1111,7 +1122,7 @@ def evaluate_milestone(
                             "byzantine_excluded",
                             "quorum_cert_valid",
                         }
-                    )
+                    ) and not needs_finality
                     needs_federation = bool(
                         kinds
                         & {
@@ -1120,7 +1131,7 @@ def evaluate_milestone(
                             "min_origins",
                             "federation_cert_valid",
                         }
-                    ) and not needs_quorum
+                    ) and not needs_quorum and not needs_finality
                     needs_continuity = bool(
                         kinds
                         & {
@@ -1155,7 +1166,121 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     )
-                    if needs_quorum:
+                    if needs_finality:
+                        plane_done_when = strip_context(
+                            contract_text,
+                            keep_mission=False,
+                        )
+                        plane_done_when = "; ".join(
+                            token
+                            for token in (part.strip() for part in plane_done_when.split(";"))
+                            if token
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        finality = run_finality(
+                            workspace,
+                            goal=decision.mission_goal
+                            or decision.summary
+                            or "epoch finality over quorum consensus",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            run_quorum=True,
+                            run_continuity=False,
+                            run_reconciliation=False,
+                            force_synthetic_drift=True,
+                            inject_byzantine=True,
+                            epoch_count=2,
+                            timeout=520,
+                        )
+                        origin_count = int(finality.get("origin_count") or 0)
+                        tip_height = int(finality.get("tip_height") or 0)
+                        epoch_count = int(finality.get("epoch_count") or 0)
+                        byzantine_count = int(finality.get("byzantine_count") or 0)
+                        context = {
+                            "used_skill_route_discovery": bool(
+                                finality.get("used_skill_route_discovery")
+                            ),
+                            "chain": finality.get("chain") or {},
+                            "epoch_chain": finality.get("chain") or {},
+                            "lineage_chain": finality.get("chain") or {},
+                            "lineage": {
+                                "ok": bool((finality.get("chain") or {}).get("valid")),
+                                "entry_count": (finality.get("finality") or {}).get(
+                                    "lineage_entry_count"
+                                ),
+                                "chain": finality.get("chain") or {},
+                            },
+                            "quorum": {
+                                "ok": bool((finality.get("quorum") or {}).get("ok", True)),
+                                "quorum_met": bool(
+                                    (finality.get("quorum") or {}).get("quorum_met", True)
+                                ),
+                                "origin_count": origin_count,
+                                "quorum_size": finality.get("agreeing_count"),
+                                "agreeing_count": finality.get("agreeing_count"),
+                                "byzantine_excluded": byzantine_count >= 1,
+                                "byzantine_count": byzantine_count,
+                                "quorum_hash": (finality.get("quorum") or {}).get(
+                                    "quorum_hash"
+                                ),
+                                "quorum_cert_valid": True,
+                            },
+                            "quorum_plane": {
+                                "ok": bool((finality.get("quorum") or {}).get("ok", True)),
+                                "quorum_met": bool(
+                                    (finality.get("quorum") or {}).get("quorum_met", True)
+                                ),
+                            },
+                            "finality": {
+                                "ok": bool(finality.get("ok")),
+                                "finalized": bool(finality.get("finalized")),
+                                "epoch_count": epoch_count,
+                                "tip_height": tip_height,
+                                "tip_hash": finality.get("tip_hash"),
+                                "finality_hash": (finality.get("finality") or {}).get(
+                                    "finality_hash"
+                                ),
+                                "finality_cert_valid": bool(
+                                    (finality.get("finality_certificate") or {}).get("valid")
+                                ),
+                                "certificate_valid": bool(
+                                    (finality.get("finality_certificate") or {}).get("valid")
+                                ),
+                                "irreversible": True,
+                                "multi_epoch": epoch_count >= 2,
+                                "finality_certificate": finality.get(
+                                    "finality_certificate"
+                                ),
+                            },
+                            "finality_plane": {
+                                "ok": bool(finality.get("ok")),
+                                "finalized": bool(finality.get("finalized")),
+                                "epoch_count": epoch_count,
+                                "tip_height": tip_height,
+                                "finality_cert_valid": bool(
+                                    (finality.get("finality_certificate") or {}).get("valid")
+                                ),
+                            },
+                            "origin_count": origin_count,
+                            "epoch_count": epoch_count,
+                            "tip_height": tip_height,
+                            "finality_certificate": finality.get("finality_certificate"),
+                            "finality_hash": (finality.get("finality") or {}).get(
+                                "finality_hash"
+                            ),
+                        }
+                        if not finality.get("ok"):
+                            reasons.append(
+                                "finality plane failed for machine-checkable complete"
+                            )
+                    elif needs_quorum:
                         plane_done_when = strip_context(
                             contract_text,
                             keep_mission=False,
@@ -3665,6 +3790,94 @@ def capability_assurance(
         )
     except Exception as error:
         console.print(f"Assurance plane failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "finality",
+    help=(
+        "Finality plane: Byzantine-tolerant quorum → multi-epoch irreversible hash-chained "
+        "seals → finality certificates → sterile rehydrate+prove → adversarial rewrite/"
+        "fork/gap/stale-supersession falsification."
+    ),
+)
+def capability_finality(
+    goal: str = typer.Option(
+        "epoch finality over quorum consensus",
+        "--goal",
+        help="Mission goal for finality phases.",
+    ),
+    done_when: str = typer.Option(
+        "",
+        "--done-when",
+        help="Contract done_when predicates for inner quorum phases.",
+    ),
+    lineage_path: Path | None = typer.Option(
+        None,
+        "--lineage-path",
+        help="Where to read/write origin-A lineage log JSON.",
+    ),
+    bundle_path: Path | None = typer.Option(
+        None,
+        "--bundle-path",
+        help="Where to write origin-A continuity bundle JSON.",
+    ),
+    quorum_path: Path | None = typer.Option(
+        None,
+        "--quorum-path",
+        help="Where to write the source quorum bundle JSON.",
+    ),
+    finality_path: Path | None = typer.Option(
+        None,
+        "--finality-path",
+        help="Where to write the portable finality bundle JSON.",
+    ),
+    epoch_count: int = typer.Option(
+        2,
+        "--epoch-count",
+        min=2,
+        help="Number of irreversible epochs to seal (minimum 2).",
+    ),
+    no_quorum: bool = typer.Option(
+        False,
+        "--no-quorum",
+        help="Reuse existing quorum bundle path instead of running a fresh quorum plane.",
+    ),
+    with_continuity: bool = typer.Option(
+        False,
+        "--with-continuity",
+        help="Run full continuity inside the source quorum plane.",
+    ),
+    no_byzantine: bool = typer.Option(
+        False,
+        "--no-byzantine",
+        help="Do not inject a Byzantine minority origin (honest-only quorum).",
+    ),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    timeout_seconds: int = typer.Option(520, "--timeout-seconds", min=1),
+) -> None:
+    root = repo_path.resolve()
+    try:
+        result = run_finality_plane(
+            root,
+            goal,
+            done_when,
+            lineage_path=lineage_path,
+            bundle_path=bundle_path,
+            quorum_path=quorum_path,
+            finality_path=finality_path,
+            epoch_count=epoch_count,
+            run_quorum=not no_quorum,
+            run_continuity=with_continuity,
+            run_reconciliation=with_continuity,
+            inject_byzantine=not no_byzantine,
+            timeout=timeout_seconds,
+        )
+    except Exception as error:
+        console.print(f"Finality plane failed: {error}", style="red")
         raise typer.Exit(1) from error
     console.print_json(data=result)
     if not result.get("ok") or result.get("used_skill_route_discovery"):

@@ -3248,12 +3248,71 @@
       },
       "package_hash": "7878a785b9718369",
       "parent_hash": "13111f8a992370cfbb77074f"
+    },
+    {
+      "certificate_hash": "df10637d62001d0e21508590",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T162316Z-43482865\\artifacts\\sovereignty-certificates\\sovereignty-df10637d62001d0e21508590.json",
+      "claims": {
+        "ablation_ok": true,
+        "adversarial_ok": true,
+        "assurance_ok": true,
+        "contract_met": true,
+        "contract_ok": true,
+        "machine_checkable": true,
+        "no_skill_route": true,
+        "transfer_ok": true
+      },
+      "detail": {
+        "sovereignty_ok": true,
+        "verify_valid": true
+      },
+      "entry_hash": "9cec97ac2d51a107d1c5d122",
+      "entry_kind": "sovereignty_certificate",
+      "goal": "Build a durable epoch finality plane that seals Byzantine-tolerant quorum consensus into irreversible, hash-chained epochs with finality certificates — forks, rewrites, gaps, stale supersession, and single-epoch bundles fail adversarially; sterile tip rehydrate+prove works without skill-route discovery.",
+      "index": 107,
+      "issued_at": "2026-07-29T16:31:37.019988Z",
+      "metrics": {
+        "count": 87,
+        "primitive_count": 38,
+        "proved_count": 87,
+        "proved_ratio": 1.0
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "7b9376b397bd2249daa93fc1"
+    },
+    {
+      "certificate_hash": "df10637d62001d0e21508590",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T162316Z-43482865\\artifacts\\sovereignty-certificates\\sovereignty-df10637d62001d0e21508590.json",
+      "claims": {
+        "no_skill_route": true,
+        "sealed": true
+      },
+      "detail": {
+        "certificate_hash": "df10637d62001d0e21508590",
+        "chain_pre_valid": true,
+        "live_count": 87,
+        "live_proved": 87,
+        "prior_head": "9cec97ac2d51a107d1c5d122"
+      },
+      "entry_hash": "36be4f0e21387e45f69bff6d",
+      "entry_kind": "continuity_seal",
+      "goal": "seal:Build a durable epoch finality plane that seals Byzantine-tolerant quorum consensus into irreversible, hash-chained epochs with finality certificates — forks, rewrites, gaps, stale supersession, and single-epoch bundles fail adversarially; sterile tip rehydrate+prove works without skill-route discovery.",
+      "index": 108,
+      "issued_at": "2026-07-29T16:31:37.021116Z",
+      "metrics": {
+        "count": 87,
+        "primitive_count": 38,
+        "proved_count": 87,
+        "proved_ratio": 1.0
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "9cec97ac2d51a107d1c5d122"
     }
   ],
-  "entry_count": 107,
-  "head_hash": "7b9376b397bd2249daa93fc1",
+  "entry_count": 109,
+  "head_hash": "36be4f0e21387e45f69bff6d",
   "kind": "capability_lineage",
   "ok": true,
   "schema_version": 1,
-  "updated_at": "2026-07-29T15:53:09.113299Z"
+  "updated_at": "2026-07-29T16:31:37.044928Z"
 }

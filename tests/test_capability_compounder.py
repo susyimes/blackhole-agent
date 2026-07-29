@@ -1681,6 +1681,119 @@ def test_reconciliation_plane_heals_synthetic_drift():
     assert path.name == "ledger.json"
 
 
+def test_finality_plane_multi_epoch_seal_and_adversarial():
+    """Finality plane seals ≥2 irreversible epochs over quorum and falsifies forks/rewrites."""
+
+    from blackhole_agent.capability_compounder import (
+        ensure_seeded_ledger,
+        load_finality_bundle,
+        parse_outcome_contract,
+        run_finality_plane,
+        verify_finality_bundle_integrity,
+    )
+
+    repo = Path(__file__).resolve().parents[1]
+    path, ledger = ensure_seeded_ledger(repo)
+    assert "capability.finality-plane" in ledger.capabilities
+    assert "capability.quorum-plane" in ledger.capabilities
+
+    parsed = parse_outcome_contract(
+        "no_skill_route; finality_ok; finalized_ok; min_epochs:2; "
+        "finality_cert_valid; chain_valid; quorum_met; min_origins:3"
+    )
+    kinds = {item["kind"] for item in parsed["predicates"]}
+    assert "finality_ok" in kinds
+    assert "finalized_ok" in kinds
+    assert "min_epochs" in kinds
+    assert "finality_cert_valid" in kinds
+
+    lineage_path = repo / "artifacts" / "capability-lineage" / "test-finality-plane.json"
+    quorum_path = repo / "artifacts" / "quorum-bundles" / "test-finality-quorum.json"
+    finality_path = repo / "artifacts" / "finality-bundles" / "test-finality-plane.json"
+    for target in (lineage_path, quorum_path, finality_path):
+        if target.exists():
+            target.unlink()
+
+    plane = run_finality_plane(
+        repo,
+        "epoch finality over quorum consensus",
+        "min_capabilities:5; capability_exists:repo.import-health; no_skill_route",
+        max_steps=3,
+        run_quorum=True,
+        run_continuity=False,
+        run_reconciliation=False,
+        inject_byzantine=True,
+        epoch_count=2,
+        lineage_path=lineage_path,
+        quorum_path=quorum_path,
+        finality_path=finality_path,
+        timeout=240,
+    )
+    assert plane["ok"] is True, plane
+    assert plane["action"] == "finality_plane"
+    assert plane["finalized"] is True
+    assert int(plane["epoch_count"]) >= 2
+    assert int(plane["tip_height"]) >= 2
+    assert int(plane["origin_count"]) >= 3
+    assert plane["integrity"]["ok"] is True
+    assert plane["integrity"]["multi_epoch"] is True
+    assert plane["rehydrate"]["ok"] is True
+    assert plane["prove"]["ok"] is True
+    assert int(plane["prove"]["proved_count"]) >= 1
+    assert plane["chain"]["valid"] is True
+    assert plane["finality_certificate"]["valid"] is True
+    assert plane["adversarial"]["ok"] is True
+    assert plane["adversarial"]["rewrite_fails_as_expected"] is True
+    assert plane["adversarial"]["fork_fails_as_expected"] is True
+    assert plane["adversarial"]["gap_fails_as_expected"] is True
+    assert plane["adversarial"]["stale_supersession_fails_as_expected"] is True
+    assert plane["adversarial"]["single_epoch_fails_as_expected"] is True
+    assert plane["used_skill_route_discovery"] is False
+    assert finality_path.is_file()
+
+    loaded = load_finality_bundle(finality_path)
+    assert verify_finality_bundle_integrity(loaded)["ok"] is True
+    assert loaded.get("finality_hash")
+    assert int(loaded.get("epoch_count") or 0) >= 2
+    assert int(loaded.get("tip_height") or 0) >= 2
+
+    env = {
+        **dict(**{k: v for k, v in __import__("os").environ.items()}),
+        "PYTHONPATH": str(repo / "src"),
+    }
+    finality_cli = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "blackhole_agent.unbound",
+            "capability",
+            "finality",
+            "--repo-path",
+            str(repo),
+            "--lineage-path",
+            str(repo / "artifacts" / "capability-lineage" / "cli-finality.json"),
+            "--quorum-path",
+            str(repo / "artifacts" / "quorum-bundles" / "cli-finality-quorum.json"),
+            "--finality-path",
+            str(repo / "artifacts" / "finality-bundles" / "cli-finality.json"),
+            "--timeout-seconds",
+            "240",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=300,
+    )
+    assert finality_cli.returncode == 0, finality_cli.stdout + finality_cli.stderr
+    finality_payload = json.loads(finality_cli.stdout)
+    assert finality_payload["ok"] is True
+    assert finality_payload["action"] == "finality_plane"
+    assert finality_payload["finalized"] is True
+    assert int(finality_payload["epoch_count"]) >= 2
+    assert path.name == "ledger.json"
+
+
 def test_quorum_plane_majority_byzantine_and_adversarial():
     """Quorum plane votes ≥3 origins, excludes Byzantine poison, and falsifies below-quorum."""
 

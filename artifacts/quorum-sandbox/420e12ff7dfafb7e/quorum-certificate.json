@@ -1,0 +1,41 @@
+{
+  "agreeing_count": 2,
+  "agreeing_origins": [
+    "origin-a",
+    "origin-b"
+  ],
+  "byzantine_count": 1,
+  "byzantine_origins": [
+    "origin-byzantine"
+  ],
+  "certificate_hash": "f6f6fa2cf834f651dcb2a7cc",
+  "claims": {
+    "origin_ids": [
+      "origin-a",
+      "origin-b",
+      "origin-byzantine"
+    ],
+    "roots": [
+      "repo.import-health",
+      "capability.ledger-inventory",
+      "unbound.milestone-gate"
+    ],
+    "votes_accepted": 3
+  },
+  "goal": "Revalidated the epoch finality plane end-to-end: ledger entry proved, multi-epoch seal (≥2) with finality cert, sterile tip re-prove, full adversarial suite, CLI path, and machine-checkable done_when contract (9/9 predicates; milestone gate accepts).",
+  "issued_at": "2026-07-29T16:33:06.191490Z",
+  "kind": "quorum_certificate",
+  "lineage_head_hash": "4270597d6634c66a33be71a6",
+  "member_count": 3,
+  "ok": true,
+  "origin_count": 3,
+  "origin_hashes": [
+    "82800aa85753ef4c18b27888",
+    "a479b44c473507b268e30b4c",
+    "c1e2719b0173f93fc8dc3147"
+  ],
+  "package_hash": "066545df3053adf5",
+  "schema_version": 1,
+  "threshold": 2,
+  "used_skill_route_discovery": false
+}

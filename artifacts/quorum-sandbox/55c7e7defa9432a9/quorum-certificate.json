@@ -1,0 +1,41 @@
+{
+  "agreeing_count": 2,
+  "agreeing_origins": [
+    "origin-a",
+    "origin-b"
+  ],
+  "byzantine_count": 1,
+  "byzantine_origins": [
+    "origin-byzantine"
+  ],
+  "certificate_hash": "0f5ee673b3ef7087b8664fd8",
+  "claims": {
+    "origin_ids": [
+      "origin-a",
+      "origin-b",
+      "origin-byzantine"
+    ],
+    "roots": [
+      "repo.import-health",
+      "capability.ledger-inventory",
+      "unbound.milestone-gate"
+    ],
+    "votes_accepted": 3
+  },
+  "goal": "Build a durable epoch finality plane that seals Byzantine-tolerant quorum consensus into irreversible, hash-chained epochs with finality certificates — forks, rewrites, gaps, stale supersession, and single-epoch bundles fail adversarially; sterile tip rehydrate+prove works without skill-route discovery.",
+  "issued_at": "2026-07-29T16:32:44.742877Z",
+  "kind": "quorum_certificate",
+  "lineage_head_hash": "b87cf0a89a2af7a90c6c0389",
+  "member_count": 3,
+  "ok": true,
+  "origin_count": 3,
+  "origin_hashes": [
+    "d0350213832316724c07ca2a",
+    "2fcb057908745362cc7b5921",
+    "6367b8314e24d39e9a83d2b8"
+  ],
+  "package_hash": "066545df3053adf5",
+  "schema_version": 1,
+  "threshold": 2,
+  "used_skill_route_discovery": false
+}

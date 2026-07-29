@@ -14,15 +14,15 @@
         "origin_id": "origin-b",
         "plane": "federation"
       },
-      "entry_hash": "e5cda1dd76f6f86484f5e033",
+      "entry_hash": "ac8a174388f12c55337e5419",
       "entry_kind": "federation_origin_seed",
-      "goal": "Closed remaining done_when gaps from iteration 1: stamped capability.quorum-plane as proved (exit 0), re-ran plane/CLI/pytest, and confirmed outcome predicates and Byzantine-tolerant majority consensus end-to-end. (honest origin-b)",
+      "goal": "Revalidated the epoch finality plane end-to-end: ledger entry proved, multi-epoch seal (≥2) with finality cert, sterile tip re-prove, full adversarial suite, CLI path, and machine-checkable done_when contract (9/9 predicates; milestone gate accepts). (honest origin-b)",
       "index": 0,
-      "issued_at": "2026-07-29T15:53:10.108779Z",
+      "issued_at": "2026-07-29T16:33:06.183048Z",
       "metrics": {
-        "count": 86,
-        "primitive_count": 37,
-        "proved_count": 86,
+        "count": 87,
+        "primitive_count": 38,
+        "proved_count": 87,
         "proved_ratio": null
       },
       "package_hash": "8ece9182045d973a",
@@ -42,11 +42,11 @@
         ],
         "origin_id": "origin-b"
       },
-      "entry_hash": "6d7a859947108b6a05c52215",
+      "entry_hash": "83071a8fc8b8b4a8842462bd",
       "entry_kind": "federation_origin_seal",
-      "goal": "Closed remaining done_when gaps from iteration 1: stamped capability.quorum-plane as proved (exit 0), re-ran plane/CLI/pytest, and confirmed outcome predicates and Byzantine-tolerant majority consensus end-to-end. (honest origin-b)",
+      "goal": "Revalidated the epoch finality plane end-to-end: ledger entry proved, multi-epoch seal (≥2) with finality cert, sterile tip re-prove, full adversarial suite, CLI path, and machine-checkable done_when contract (9/9 predicates; milestone gate accepts). (honest origin-b)",
       "index": 1,
-      "issued_at": "2026-07-29T15:53:10.108812Z",
+      "issued_at": "2026-07-29T16:33:06.183077Z",
       "metrics": {
         "count": 2,
         "primitive_count": null,
@@ -54,13 +54,13 @@
         "proved_ratio": null
       },
       "package_hash": "8ece9182045d973a",
-      "parent_hash": "e5cda1dd76f6f86484f5e033"
+      "parent_hash": "ac8a174388f12c55337e5419"
     }
   ],
   "entry_count": 2,
-  "head_hash": "6d7a859947108b6a05c52215",
+  "head_hash": "83071a8fc8b8b4a8842462bd",
   "kind": "capability_lineage",
   "ok": true,
   "schema_version": 1,
-  "updated_at": "2026-07-29T15:53:10.109125Z"
+  "updated_at": "2026-07-29T16:33:06.183304Z"
 }

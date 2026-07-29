@@ -1,0 +1,29 @@
+{
+  "agreeing_count": 2,
+  "byzantine_count": 1,
+  "certificate_hash": "d1fa7ad3532fcbb1a72543fa",
+  "claims": {
+    "epoch_index": 2,
+    "member_count": 3,
+    "plane": "finality",
+    "roots": [
+      "repo.import-health",
+      "capability.ledger-inventory",
+      "unbound.milestone-gate"
+    ]
+  },
+  "epoch_hash": "72eac3d6c384ad5b8a98b219",
+  "epoch_height": 2,
+  "goal": "Revalidated the epoch finality plane end-to-end: ledger entry proved, multi-epoch seal (≥2) with finality cert, sterile tip re-prove, full adversarial suite, CLI path, and machine-checkable done_when contract (9/9 predicates; milestone gate accepts). (epoch 2)",
+  "irreversible": true,
+  "issued_at": "2026-07-29T16:33:06.645957Z",
+  "kind": "finality_certificate",
+  "lineage_head_hash": "ec1716cc817f55ec094b0039",
+  "ok": true,
+  "origin_count": 3,
+  "package_hash": "d6e87efd3c83f393",
+  "parent_epoch_hash": "e67b7167a64bf79b18bf9a79",
+  "quorum_hash": "529fd025edaaa59c38269c61",
+  "schema_version": 1,
+  "used_skill_route_discovery": false
+}

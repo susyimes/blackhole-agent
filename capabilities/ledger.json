@@ -29,7 +29,7 @@
         "ablation",
         "evidence"
       ],
-      "updated_at": "2026-07-29T15:53:10.630460Z"
+      "updated_at": "2026-07-29T16:33:07.126322Z"
     },
     "capability.adaptive-grow": {
       "behavior_paths": [
@@ -61,7 +61,7 @@
         "growth",
         "adaptive"
       ],
-      "updated_at": "2026-07-29T15:53:10.628995Z"
+      "updated_at": "2026-07-29T16:33:07.125752Z"
     },
     "capability.adversarial-contract": {
       "behavior_paths": [
@@ -94,7 +94,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-07-29T15:53:10.630690Z"
+      "updated_at": "2026-07-29T16:33:07.126416Z"
     },
     "capability.assurance-plane": {
       "behavior_paths": [
@@ -131,7 +131,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-07-29T15:53:10.630803Z"
+      "updated_at": "2026-07-29T16:33:07.126463Z"
     },
     "capability.autonomic-cycle": {
       "behavior_paths": [
@@ -166,7 +166,7 @@
         "autonomic",
         "novelty"
       ],
-      "updated_at": "2026-07-29T15:53:10.629618Z"
+      "updated_at": "2026-07-29T16:33:07.125987Z"
     },
     "capability.composed-core-health": {
       "behavior_paths": [
@@ -1700,7 +1700,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-07-29T15:53:10.631328Z"
+      "updated_at": "2026-07-29T16:33:07.126650Z"
     },
     "capability.contract-plane": {
       "behavior_paths": [
@@ -1735,7 +1735,7 @@
         "evidence",
         "growth"
       ],
-      "updated_at": "2026-07-29T15:53:10.630347Z"
+      "updated_at": "2026-07-29T16:33:07.126274Z"
     },
     "capability.distill-ledger": {
       "behavior_paths": [
@@ -1765,7 +1765,7 @@
         "growth",
         "distill"
       ],
-      "updated_at": "2026-07-29T15:53:10.629414Z"
+      "updated_at": "2026-07-29T16:33:07.125934Z"
     },
     "capability.federation-plane": {
       "behavior_paths": [
@@ -1810,7 +1810,56 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-07-29T15:53:10.631488Z"
+      "updated_at": "2026-07-29T16:33:07.126697Z"
+    },
+    "capability.finality-plane": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_compounder.py",
+        "src/blackhole_agent/unbound.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Finality plane seals Byzantine-tolerant quorum consensus into irreversible hash-chained epochs with finality certificates, sterile tip re-prove, and adversarial falsification of rewrite/fork/gap/stale supersession without skill-route.",
+      "created_at": "2026-07-29T16:30:43.606332Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.outcome-contract",
+        "capability.contract-plane",
+        "capability.assurance-plane",
+        "capability.sovereignty-plane",
+        "capability.lineage-plane",
+        "capability.reconciliation-plane",
+        "capability.continuity-plane",
+        "capability.federation-plane",
+        "capability.quorum-plane",
+        "capability.transfer-plane",
+        "capability.ablation-proof",
+        "capability.adversarial-contract"
+      ],
+      "description": "Closed finality plane: Byzantine-tolerant quorum consensus → multi-epoch irreversible hash-chained seals → finality certificates → sterile rehydrate+prove → adversarial rewrite/fork/gap/stale-supersession/single-epoch falsification — past one-shot quorum without durable epochs.",
+      "entry": "blackhole_agent.capability_compounder:builtin_finality_plane",
+      "id": "capability.finality-plane",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-07-29T16:31:09.796914Z",
+      "name": "Epoch finality plane over quorum consensus",
+      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_finality_plane; from pathlib import Path; import os; os.environ['BLACKHOLE_MISSION_GOAL']='epoch finality over quorum consensus'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_FINALITY_RUN_QUORUM']='1'; os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='0'; os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='0'; os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; os.environ['BLACKHOLE_FINALITY_EPOCH_COUNT']='2'; os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-finality.json')); os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-finality-quorum.json')); os.environ.setdefault('BLACKHOLE_FINALITY_BUNDLE_PATH', str(Path('artifacts')/'finality-bundles'/'proof-finality.json')); r=builtin_finality_plane(); assert r['ok'] and r.get('action')=='finality_plane' and r.get('finalized') is True and int(r.get('epoch_count') or 0) >= 2 and int(r.get('tip_height') or 0) >= 2 and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') and r.get('finality_certificate',{}).get('valid') and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "bootstrap",
+        "compounder",
+        "finality",
+        "epoch",
+        "irreversible",
+        "quorum",
+        "consensus",
+        "byzantine",
+        "multi-origin",
+        "lineage",
+        "evidence"
+      ],
+      "updated_at": "2026-07-29T16:33:07.126806Z"
     },
     "capability.frontier-novelty": {
       "behavior_paths": [
@@ -1840,7 +1889,7 @@
         "growth",
         "novelty"
       ],
-      "updated_at": "2026-07-29T15:53:10.629267Z"
+      "updated_at": "2026-07-29T16:33:07.125879Z"
     },
     "capability.goal-plan": {
       "behavior_paths": [
@@ -1869,7 +1918,7 @@
         "mission",
         "planner"
       ],
-      "updated_at": "2026-07-29T15:53:10.629775Z"
+      "updated_at": "2026-07-29T16:33:07.126036Z"
     },
     "capability.growth-loop": {
       "behavior_paths": [
@@ -1900,7 +1949,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-07-29T15:53:10.628780Z"
+      "updated_at": "2026-07-29T16:33:07.125701Z"
     },
     "capability.ledger-integrity": {
       "behavior_paths": [
@@ -1928,7 +1977,7 @@
         "compounder",
         "integrity"
       ],
-      "updated_at": "2026-07-29T15:53:10.629132Z"
+      "updated_at": "2026-07-29T16:33:07.125808Z"
     },
     "capability.ledger-inventory": {
       "behavior_paths": [
@@ -1954,7 +2003,7 @@
         "bootstrap",
         "compounder"
       ],
-      "updated_at": "2026-07-29T15:53:10.628343Z"
+      "updated_at": "2026-07-29T16:33:07.125518Z"
     },
     "capability.lineage-plane": {
       "behavior_paths": [
@@ -1995,7 +2044,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-07-29T15:53:10.631024Z"
+      "updated_at": "2026-07-29T16:33:07.126557Z"
     },
     "capability.mission-plane": {
       "behavior_paths": [
@@ -2030,7 +2079,7 @@
         "growth",
         "second-wave"
       ],
-      "updated_at": "2026-07-29T15:53:10.630122Z"
+      "updated_at": "2026-07-29T16:33:07.126179Z"
     },
     "capability.outcome-contract": {
       "behavior_paths": [
@@ -2062,7 +2111,7 @@
         "contract",
         "evidence"
       ],
-      "updated_at": "2026-07-29T15:53:10.630234Z"
+      "updated_at": "2026-07-29T16:33:07.126227Z"
     },
     "capability.program-run": {
       "behavior_paths": [
@@ -2092,7 +2141,7 @@
         "mission",
         "program"
       ],
-      "updated_at": "2026-07-29T15:53:10.629897Z"
+      "updated_at": "2026-07-29T16:33:07.126084Z"
     },
     "capability.quorum-plane": {
       "behavior_paths": [
@@ -2139,7 +2188,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-29T15:53:10.631670Z"
+      "updated_at": "2026-07-29T16:33:07.126745Z"
     },
     "capability.reconciliation-plane": {
       "behavior_paths": [
@@ -2182,7 +2231,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-07-29T15:53:10.631207Z"
+      "updated_at": "2026-07-29T16:33:07.126603Z"
     },
     "capability.scout-gaps": {
       "behavior_paths": [
@@ -2210,7 +2259,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-07-29T15:53:10.628644Z"
+      "updated_at": "2026-07-29T16:33:07.125619Z"
     },
     "capability.second-wave-absorb": {
       "behavior_paths": [
@@ -2244,7 +2293,7 @@
         "second-wave",
         "domain"
       ],
-      "updated_at": "2026-07-29T15:53:10.630012Z"
+      "updated_at": "2026-07-29T16:33:07.126132Z"
     },
     "capability.sovereignty-plane": {
       "behavior_paths": [
@@ -2283,7 +2332,7 @@
         "certificate",
         "evidence"
       ],
-      "updated_at": "2026-07-29T15:53:10.630912Z"
+      "updated_at": "2026-07-29T16:33:07.126511Z"
     },
     "capability.transfer-plane": {
       "behavior_paths": [
@@ -2314,7 +2363,7 @@
         "transfer",
         "package"
       ],
-      "updated_at": "2026-07-29T15:53:10.630576Z"
+      "updated_at": "2026-07-29T16:33:07.126369Z"
     },
     "domain.ci-security": {
       "behavior_paths": [
@@ -2620,7 +2669,7 @@
         "bootstrap",
         "evolution-route"
       ],
-      "updated_at": "2026-07-29T15:53:10.628489Z"
+      "updated_at": "2026-07-29T16:33:07.125569Z"
     },
     "repo.import-health": {
       "behavior_paths": [
@@ -2635,7 +2684,7 @@
       "id": "repo.import-health",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-07-29T15:53:08.680722Z",
+      "last_proved_at": "2026-07-29T16:31:36.955630Z",
       "name": "Repository import health",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_repo_import_health; r=builtin_repo_import_health(); assert r['ok'] and not r['skill_route_symbols_in_compounder']\"",
       "source_milestone": null,
@@ -2644,7 +2693,7 @@
         "bootstrap",
         "health"
       ],
-      "updated_at": "2026-07-29T15:53:10.627983Z"
+      "updated_at": "2026-07-29T16:33:07.125395Z"
     },
     "unbound.milestone-gate": {
       "behavior_paths": [
@@ -2669,9 +2718,9 @@
         "bootstrap",
         "unbound"
       ],
-      "updated_at": "2026-07-29T15:53:10.628179Z"
+      "updated_at": "2026-07-29T16:33:07.125463Z"
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-07-29T15:53:10.631966Z"
+  "updated_at": "2026-07-29T16:33:07.126883Z"
 }
