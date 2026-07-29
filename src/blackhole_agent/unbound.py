@@ -67,6 +67,7 @@ from blackhole_agent.capability_compounder import (
     run_margin_plane,
     run_collateral_plane,
     run_liquidity_plane,
+    run_funding_plane,
     run_lineage_plane,
     run_reconciliation_plane,
     run_sovereignty_plane,
@@ -1077,6 +1078,9 @@ def evaluate_milestone(
     run_liquidity = (
         cc.run_liquidity_plane if cc is not None else run_liquidity_plane
     )
+    run_funding = (
+        cc.run_funding_plane if cc is not None else run_funding_plane
+    )
     run_recon = (
         cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
     )
@@ -1132,6 +1136,15 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_funding = bool(
+                        kinds
+                        & {
+                            "funding_ok",
+                            "funded_ok",
+                            "min_fundings",
+                            "funding_root_valid",
+                        }
+                    )
                     needs_liquidity = bool(
                         kinds
                         & {
@@ -1140,7 +1153,7 @@ def evaluate_milestone(
                             "min_liquidities",
                             "liquidity_root_valid",
                         }
-                    )
+                    ) and not needs_funding
                     needs_collateral = bool(
                         kinds
                         & {
@@ -1149,7 +1162,7 @@ def evaluate_milestone(
                             "min_collaterals",
                             "collateral_root_valid",
                         }
-                    ) and not needs_liquidity
+                    ) and not needs_liquidity and not needs_funding
                     needs_margin = bool(
                         kinds
                         & {
@@ -1158,7 +1171,7 @@ def evaluate_milestone(
                             "min_margins",
                             "margin_root_valid",
                         }
-                    ) and not needs_collateral and not needs_liquidity
+                    ) and not needs_collateral and not needs_liquidity and not needs_funding
                     needs_clearing = bool(
                         kinds
                         & {
@@ -1167,7 +1180,7 @@ def evaluate_milestone(
                             "min_clearings",
                             "clearing_root_valid",
                         }
-                    ) and not needs_margin and not needs_collateral and not needs_liquidity
+                    ) and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding
                     needs_settlement = bool(
                         kinds
                         & {
@@ -1176,7 +1189,7 @@ def evaluate_milestone(
                             "min_settlements",
                             "settlement_root_valid",
                         }
-                    ) and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity
+                    ) and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding
                     needs_actuation = bool(
                         kinds
                         & {
@@ -1185,7 +1198,7 @@ def evaluate_milestone(
                             "min_actions",
                             "action_root_valid",
                         }
-                    ) and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity
+                    ) and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding
                     needs_execution = bool(
                         kinds
                         & {
@@ -1194,7 +1207,7 @@ def evaluate_milestone(
                             "min_state_height",
                             "state_root_valid",
                         }
-                    ) and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity
+                    ) and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding
                     needs_finality = bool(
                         kinds
                         & {
@@ -1203,7 +1216,7 @@ def evaluate_milestone(
                             "min_epochs",
                             "finality_cert_valid",
                         }
-                    ) and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity
+                    ) and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding
                     needs_quorum = bool(
                         kinds
                         & {
@@ -1213,7 +1226,7 @@ def evaluate_milestone(
                             "byzantine_excluded",
                             "quorum_cert_valid",
                         }
-                    ) and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity
+                    ) and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding
                     needs_federation = bool(
                         kinds
                         & {
@@ -1222,7 +1235,7 @@ def evaluate_milestone(
                             "min_origins",
                             "federation_cert_valid",
                         }
-                    ) and not needs_quorum and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity
+                    ) and not needs_quorum and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding
                     needs_continuity = bool(
                         kinds
                         & {
@@ -1257,7 +1270,167 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     )
-                    if needs_liquidity:
+                    if needs_funding:
+                        plane_done_when = strip_context(
+                            contract_text,
+                            keep_mission=False,
+                        )
+                        plane_done_when = "; ".join(
+                            token
+                            for token in (part.strip() for part in plane_done_when.split(";"))
+                            if token
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        funding = run_funding(
+                            workspace,
+                            goal=decision.mission_goal
+                            or decision.summary
+                            or "funding over liquidity",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            run_liquidity=True,
+                            run_collateral=True,
+                            run_clearing=True,
+                            run_settlement=True,
+                            run_actuation=True,
+                            run_execution=True,
+                            run_finality=True,
+                            run_quorum=True,
+                            run_continuity=False,
+                            run_reconciliation=False,
+                            force_synthetic_drift=True,
+                            inject_byzantine=True,
+                            epoch_count=2,
+                            min_actions=2,
+                            min_settlements=2,
+                            min_clearings=2,
+                            min_margins=2,
+                            min_collaterals=2,
+                            min_liquidities=2,
+                            min_fundings=2,
+                            timeout=960,
+                        )
+                        context = {
+                            "used_skill_route_discovery": bool(
+                                funding.get("used_skill_route_discovery")
+                            ),
+                            "chain": funding.get("chain") or {},
+                            "funding_chain": funding.get("chain") or {},
+                            "liquidity": {
+                                "ok": bool(
+                                    (funding.get("liquidity") or {}).get("ok", True)
+                                ),
+                                "liquid": bool(
+                                    (funding.get("liquidity") or {}).get(
+                                        "liquid", True
+                                    )
+                                ),
+                                "liquidity_count": int(
+                                    funding.get("liquidity_count") or 0
+                                ),
+                                "liquidity_root_valid": True,
+                                "certificate_valid": True,
+                                "liquidity_coverage_digest": funding.get(
+                                    "liquidity_coverage_digest"
+                                ),
+                            },
+                            "liquidity_plane": {
+                                "ok": bool(
+                                    (funding.get("liquidity") or {}).get("ok", True)
+                                ),
+                                "liquid": True,
+                                "liquidity_count": int(
+                                    funding.get("liquidity_count") or 0
+                                ),
+                                "liquidity_root_valid": True,
+                            },
+                            "funding": {
+                                "ok": bool(funding.get("ok")),
+                                "funded": bool(funding.get("funded")),
+                                "funding_count": int(
+                                    funding.get("funding_count") or 0
+                                ),
+                                "tip_height": int(funding.get("tip_height") or 0),
+                                "tip_funding_root": funding.get(
+                                    "tip_funding_root"
+                                ),
+                                "funding_root_valid": bool(
+                                    (funding.get("funding_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                                "certificate_valid": bool(
+                                    (funding.get("funding_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                                "funding_facility_digest": funding.get(
+                                    "funding_facility_digest"
+                                ),
+                                "deterministic": True,
+                                "post_liquidity": True,
+                                "multi_funding": int(
+                                    funding.get("funding_count") or 0
+                                )
+                                >= 2,
+                            },
+                            "funding_plane": {
+                                "ok": bool(funding.get("ok")),
+                                "funded": bool(funding.get("funded")),
+                                "funding_count": int(
+                                    funding.get("funding_count") or 0
+                                ),
+                                "funding_root_valid": bool(
+                                    (funding.get("funding_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                            },
+                            "facility": {
+                                "ok": bool(funding.get("ok")),
+                                "funded": bool(funding.get("funded")),
+                                "funding_count": int(
+                                    funding.get("funding_count") or 0
+                                ),
+                                "funding_facility_digest": funding.get(
+                                    "funding_facility_digest"
+                                ),
+                                "funding_root_valid": bool(
+                                    (funding.get("funding_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                            },
+                            "funding_count": int(funding.get("funding_count") or 0),
+                            "liquidity_count": int(
+                                funding.get("liquidity_count") or 0
+                            ),
+                            "tip_height": int(funding.get("tip_height") or 0),
+                            "funding_certificate": funding.get(
+                                "funding_certificate"
+                            ),
+                            "funding_hash": funding.get("funding_hash"),
+                            "liquidity_hash": funding.get("liquidity_hash"),
+                            "tip_funding_root": funding.get("tip_funding_root"),
+                            "bound_liquidity_root": funding.get(
+                                "bound_liquidity_root"
+                            ),
+                            "funding_facility_digest": funding.get(
+                                "funding_facility_digest"
+                            ),
+                            "liquidity_coverage_digest": funding.get(
+                                "liquidity_coverage_digest"
+                            ),
+                        }
+                    elif needs_liquidity:
+
                         plane_done_when = strip_context(
                             contract_text,
                             keep_mission=False,

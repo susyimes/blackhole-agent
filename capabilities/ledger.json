@@ -29,7 +29,7 @@
         "ablation",
         "evidence"
       ],
-      "updated_at": "2026-07-29T21:28:42.198801Z"
+      "updated_at": "2026-07-29T22:05:54.678162Z"
     },
     "capability.actuation-plane": {
       "behavior_paths": [
@@ -84,7 +84,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-29T21:28:42.200325Z"
+      "updated_at": "2026-07-29T22:05:54.679468Z"
     },
     "capability.adaptive-grow": {
       "behavior_paths": [
@@ -116,7 +116,7 @@
         "growth",
         "adaptive"
       ],
-      "updated_at": "2026-07-29T21:28:42.196573Z"
+      "updated_at": "2026-07-29T22:05:54.676397Z"
     },
     "capability.adversarial-contract": {
       "behavior_paths": [
@@ -149,7 +149,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-07-29T21:28:42.199218Z"
+      "updated_at": "2026-07-29T22:05:54.678486Z"
     },
     "capability.assurance-plane": {
       "behavior_paths": [
@@ -186,7 +186,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-07-29T21:28:42.199432Z"
+      "updated_at": "2026-07-29T22:05:54.678667Z"
     },
     "capability.autonomic-cycle": {
       "behavior_paths": [
@@ -221,7 +221,7 @@
         "autonomic",
         "novelty"
       ],
-      "updated_at": "2026-07-29T21:28:42.197401Z"
+      "updated_at": "2026-07-29T22:05:54.677068Z"
     },
     "capability.clearing-plane": {
       "behavior_paths": [
@@ -280,7 +280,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-29T21:28:42.200461Z"
+      "updated_at": "2026-07-29T22:05:54.679618Z"
     },
     "capability.collateral-plane": {
       "behavior_paths": [
@@ -343,7 +343,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-29T21:28:42.200799Z"
+      "updated_at": "2026-07-29T22:05:54.679761Z"
     },
     "capability.composed-core-health": {
       "behavior_paths": [
@@ -1877,7 +1877,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-07-29T21:28:42.199989Z"
+      "updated_at": "2026-07-29T22:05:54.679060Z"
     },
     "capability.contract-plane": {
       "behavior_paths": [
@@ -1912,7 +1912,7 @@
         "evidence",
         "growth"
       ],
-      "updated_at": "2026-07-29T21:28:42.198594Z"
+      "updated_at": "2026-07-29T22:05:54.678010Z"
     },
     "capability.distill-ledger": {
       "behavior_paths": [
@@ -1942,7 +1942,7 @@
         "growth",
         "distill"
       ],
-      "updated_at": "2026-07-29T21:28:42.197177Z"
+      "updated_at": "2026-07-29T22:05:54.676930Z"
     },
     "capability.execution-plane": {
       "behavior_paths": [
@@ -1995,7 +1995,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-29T21:28:42.200258Z"
+      "updated_at": "2026-07-29T22:05:54.679395Z"
     },
     "capability.federation-plane": {
       "behavior_paths": [
@@ -2040,7 +2040,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-07-29T21:28:42.200055Z"
+      "updated_at": "2026-07-29T22:05:54.679136Z"
     },
     "capability.finality-plane": {
       "behavior_paths": [
@@ -2089,7 +2089,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-29T21:28:42.200191Z"
+      "updated_at": "2026-07-29T22:05:54.679281Z"
     },
     "capability.frontier-novelty": {
       "behavior_paths": [
@@ -2119,7 +2119,74 @@
         "growth",
         "novelty"
       ],
-      "updated_at": "2026-07-29T21:28:42.196966Z"
+      "updated_at": "2026-07-29T22:05:54.676741Z"
+    },
+    "capability.funding-plane": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_compounder.py",
+        "src/blackhole_agent/unbound.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Funding plane posts multi-liquidity coverages into deterministic hash-chained funding facilities with funding facility digests and funding certificates bound to liquidity roots, sterile rehydrate+prove, genesis replay matching tip, and adversarial falsification of wrong-liquidity/reorder/double-funding/forged-root/digest-tamper without skill-route.",
+      "created_at": "2026-07-29T22:04:07.485554Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.outcome-contract",
+        "capability.contract-plane",
+        "capability.assurance-plane",
+        "capability.sovereignty-plane",
+        "capability.lineage-plane",
+        "capability.reconciliation-plane",
+        "capability.continuity-plane",
+        "capability.federation-plane",
+        "capability.quorum-plane",
+        "capability.finality-plane",
+        "capability.execution-plane",
+        "capability.actuation-plane",
+        "capability.settlement-plane",
+        "capability.clearing-plane",
+        "capability.margin-plane",
+        "capability.collateral-plane",
+        "capability.liquidity-plane",
+        "capability.transfer-plane",
+        "capability.ablation-proof",
+        "capability.adversarial-contract"
+      ],
+      "description": "Closed funding plane: multi-liquidity coverages → deterministic hash-chained funding facilities with funding facility digests bound to liquidity roots → funding certificates → sterile rehydrate+prove → adversarial mutation/reorder/wrong-liquidity/double-funding/forged-root/gap/digest-tamper/single-funding falsification with genesis replay matching tip — past liquid positions without funding facilities.",
+      "entry": "blackhole_agent.capability_compounder:builtin_funding_plane",
+      "id": "capability.funding-plane",
+      "kind": "python",
+      "last_proof_exit_code": null,
+      "last_proved_at": "",
+      "name": "Funding plane over liquidity",
+      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_funding_plane; from pathlib import Path; import os; os.environ['BLACKHOLE_MISSION_GOAL']='funding over liquidity'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_FUNDING_RUN_LIQUIDITY']='1'; os.environ['BLACKHOLE_LIQUIDITY_RUN_COLLATERAL']='1'; os.environ['BLACKHOLE_COLLATERAL_RUN_MARGIN']='1'; os.environ['BLACKHOLE_MARGIN_RUN_CLEARING']='1'; os.environ['BLACKHOLE_CLEARING_RUN_SETTLEMENT']='1'; os.environ['BLACKHOLE_SETTLEMENT_RUN_ACTUATION']='1'; os.environ['BLACKHOLE_ACTUATION_RUN_EXECUTION']='1'; os.environ['BLACKHOLE_EXECUTION_RUN_FINALITY']='1'; os.environ['BLACKHOLE_FINALITY_RUN_QUORUM']='1'; os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='0'; os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='0'; os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; os.environ['BLACKHOLE_FINALITY_EPOCH_COUNT']='2'; os.environ['BLACKHOLE_ACTUATION_MIN_ACTIONS']='2'; os.environ['BLACKHOLE_SETTLEMENT_MIN_SETTLEMENTS']='2'; os.environ['BLACKHOLE_CLEARING_MIN_CLEARINGS']='2'; os.environ['BLACKHOLE_MARGIN_MIN_MARGINS']='2'; os.environ['BLACKHOLE_COLLATERAL_MIN_COLLATERALS']='2'; os.environ['BLACKHOLE_LIQUIDITY_MIN_LIQUIDITIES']='2'; os.environ['BLACKHOLE_FUNDING_MIN_FUNDINGS']='2'; os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-funding.json')); os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-funding-quorum.json')); os.environ.setdefault('BLACKHOLE_FINALITY_BUNDLE_PATH', str(Path('artifacts')/'finality-bundles'/'proof-funding-finality.json')); os.environ.setdefault('BLACKHOLE_EXECUTION_BUNDLE_PATH', str(Path('artifacts')/'execution-bundles'/'proof-funding-execution.json')); os.environ.setdefault('BLACKHOLE_ACTUATION_BUNDLE_PATH', str(Path('artifacts')/'actuation-bundles'/'proof-funding-actuation.json')); os.environ.setdefault('BLACKHOLE_SETTLEMENT_BUNDLE_PATH', str(Path('artifacts')/'settlement-bundles'/'proof-funding-settlement.json')); os.environ.setdefault('BLACKHOLE_CLEARING_BUNDLE_PATH', str(Path('artifacts')/'clearing-bundles'/'proof-funding-clearing.json')); os.environ.setdefault('BLACKHOLE_MARGIN_BUNDLE_PATH', str(Path('artifacts')/'margin-bundles'/'proof-funding-margin.json')); os.environ.setdefault('BLACKHOLE_COLLATERAL_BUNDLE_PATH', str(Path('artifacts')/'collateral-bundles'/'proof-funding-collateral.json')); os.environ.setdefault('BLACKHOLE_LIQUIDITY_BUNDLE_PATH', str(Path('artifacts')/'liquidity-bundles'/'proof-funding-liquidity.json')); os.environ.setdefault('BLACKHOLE_FUNDING_BUNDLE_PATH', str(Path('artifacts')/'funding-bundles'/'proof-funding.json')); r=builtin_funding_plane(); assert r['ok'] and r.get('action')=='funding_plane' and r.get('funded') is True and int(r.get('funding_count') or 0) >= 2 and int(r.get('tip_height') or 0) >= 2 and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') and r.get('funding_certificate',{}).get('valid') and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "bootstrap",
+        "compounder",
+        "funding",
+        "facility",
+        "funding-root",
+        "liquidity",
+        "treasury",
+        "deterministic",
+        "collateral",
+        "margin",
+        "clearing",
+        "settlement",
+        "actuation",
+        "execution",
+        "finality",
+        "quorum",
+        "consensus",
+        "byzantine",
+        "multi-origin",
+        "lineage",
+        "evidence"
+      ],
+      "updated_at": "2026-07-29T22:05:54.679902Z"
     },
     "capability.goal-plan": {
       "behavior_paths": [
@@ -2148,7 +2215,7 @@
         "mission",
         "planner"
       ],
-      "updated_at": "2026-07-29T21:28:42.197612Z"
+      "updated_at": "2026-07-29T22:05:54.677143Z"
     },
     "capability.growth-loop": {
       "behavior_paths": [
@@ -2179,7 +2246,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-07-29T21:28:42.196362Z"
+      "updated_at": "2026-07-29T22:05:54.676222Z"
     },
     "capability.ledger-integrity": {
       "behavior_paths": [
@@ -2207,7 +2274,7 @@
         "compounder",
         "integrity"
       ],
-      "updated_at": "2026-07-29T21:28:42.196782Z"
+      "updated_at": "2026-07-29T22:05:54.676549Z"
     },
     "capability.ledger-inventory": {
       "behavior_paths": [
@@ -2233,7 +2300,7 @@
         "bootstrap",
         "compounder"
       ],
-      "updated_at": "2026-07-29T21:28:42.195702Z"
+      "updated_at": "2026-07-29T22:05:54.675927Z"
     },
     "capability.lineage-plane": {
       "behavior_paths": [
@@ -2274,7 +2341,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-07-29T21:28:42.199820Z"
+      "updated_at": "2026-07-29T22:05:54.678914Z"
     },
     "capability.liquidity-plane": {
       "behavior_paths": [
@@ -2339,7 +2406,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-29T21:28:42.201331Z"
+      "updated_at": "2026-07-29T22:05:54.679832Z"
     },
     "capability.margin-plane": {
       "behavior_paths": [
@@ -2400,7 +2467,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-29T21:28:42.200623Z"
+      "updated_at": "2026-07-29T22:05:54.679689Z"
     },
     "capability.mission-plane": {
       "behavior_paths": [
@@ -2435,7 +2502,7 @@
         "growth",
         "second-wave"
       ],
-      "updated_at": "2026-07-29T21:28:42.198180Z"
+      "updated_at": "2026-07-29T22:05:54.677641Z"
     },
     "capability.outcome-contract": {
       "behavior_paths": [
@@ -2467,7 +2534,7 @@
         "contract",
         "evidence"
       ],
-      "updated_at": "2026-07-29T21:28:42.198388Z"
+      "updated_at": "2026-07-29T22:05:54.677823Z"
     },
     "capability.program-run": {
       "behavior_paths": [
@@ -2497,7 +2564,7 @@
         "mission",
         "program"
       ],
-      "updated_at": "2026-07-29T21:28:42.197818Z"
+      "updated_at": "2026-07-29T22:05:54.677313Z"
     },
     "capability.quorum-plane": {
       "behavior_paths": [
@@ -2544,7 +2611,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-29T21:28:42.200124Z"
+      "updated_at": "2026-07-29T22:05:54.679209Z"
     },
     "capability.reconciliation-plane": {
       "behavior_paths": [
@@ -2587,7 +2654,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-07-29T21:28:42.199922Z"
+      "updated_at": "2026-07-29T22:05:54.678986Z"
     },
     "capability.scout-gaps": {
       "behavior_paths": [
@@ -2615,7 +2682,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-07-29T21:28:42.196122Z"
+      "updated_at": "2026-07-29T22:05:54.676144Z"
     },
     "capability.second-wave-absorb": {
       "behavior_paths": [
@@ -2649,7 +2716,7 @@
         "second-wave",
         "domain"
       ],
-      "updated_at": "2026-07-29T21:28:42.197973Z"
+      "updated_at": "2026-07-29T22:05:54.677468Z"
     },
     "capability.settlement-plane": {
       "behavior_paths": [
@@ -2706,7 +2773,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-29T21:28:42.200395Z"
+      "updated_at": "2026-07-29T22:05:54.679545Z"
     },
     "capability.sovereignty-plane": {
       "behavior_paths": [
@@ -2745,7 +2812,7 @@
         "certificate",
         "evidence"
       ],
-      "updated_at": "2026-07-29T21:28:42.199623Z"
+      "updated_at": "2026-07-29T22:05:54.678841Z"
     },
     "capability.transfer-plane": {
       "behavior_paths": [
@@ -2776,7 +2843,7 @@
         "transfer",
         "package"
       ],
-      "updated_at": "2026-07-29T21:28:42.199010Z"
+      "updated_at": "2026-07-29T22:05:54.678309Z"
     },
     "domain.ci-security": {
       "behavior_paths": [
@@ -3082,7 +3149,7 @@
         "bootstrap",
         "evolution-route"
       ],
-      "updated_at": "2026-07-29T21:28:42.195897Z"
+      "updated_at": "2026-07-29T22:05:54.676018Z"
     },
     "repo.import-health": {
       "behavior_paths": [
@@ -3106,7 +3173,7 @@
         "bootstrap",
         "health"
       ],
-      "updated_at": "2026-07-29T21:28:42.195230Z"
+      "updated_at": "2026-07-29T22:05:54.675415Z"
     },
     "unbound.milestone-gate": {
       "behavior_paths": [
@@ -3131,9 +3198,9 @@
         "bootstrap",
         "unbound"
       ],
-      "updated_at": "2026-07-29T21:28:42.195440Z"
+      "updated_at": "2026-07-29T22:05:54.675698Z"
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-07-29T21:28:42.201813Z"
+  "updated_at": "2026-07-29T22:05:54.680041Z"
 }
