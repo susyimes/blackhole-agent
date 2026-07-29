@@ -1,0 +1,41 @@
+{
+  "agreeing_count": 2,
+  "agreeing_origins": [
+    "origin-a",
+    "origin-b"
+  ],
+  "byzantine_count": 1,
+  "byzantine_origins": [
+    "origin-byzantine"
+  ],
+  "certificate_hash": "16b3b62476ca29084c8f133f",
+  "claims": {
+    "origin_ids": [
+      "origin-a",
+      "origin-b",
+      "origin-byzantine"
+    ],
+    "roots": [
+      "repo.import-health",
+      "capability.ledger-inventory",
+      "unbound.milestone-gate"
+    ],
+    "votes_accepted": 3
+  },
+  "goal": "Build a closed actuation plane over world-state execution: sealed tip state roots dispatch deterministic hash-chained capability effects with actuation certificates, sterile rehydrate+prove, and adversarial falsification of wrong-state binding/reorder/forged action roots without skill-route discovery.",
+  "issued_at": "2026-07-29T17:52:13.406129Z",
+  "kind": "quorum_certificate",
+  "lineage_head_hash": "7bef2c95a1b8313bd732d471",
+  "member_count": 3,
+  "ok": true,
+  "origin_count": 3,
+  "origin_hashes": [
+    "f716a3b871ebec458813c277",
+    "d38f8480a84d6c536603c5a2",
+    "4683b75239c06a2190210584"
+  ],
+  "package_hash": "066545df3053adf5",
+  "schema_version": 1,
+  "threshold": 2,
+  "used_skill_route_discovery": false
+}

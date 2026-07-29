@@ -15,14 +15,14 @@
         "origin_id": "origin-c",
         "plane": "federation"
       },
-      "entry_hash": "7ee33a8c06b0327244ddf4e9",
+      "entry_hash": "d8c13817c5bf71270357ecc5",
       "entry_kind": "federation_origin_seed",
-      "goal": "Build a deterministic world-state execution plane that materializes irreversible multi-epoch finality into hash-chained state transitions with re-verifiable execution certificates, sterile rehydrate+prove, genesis-replay tip match, and adversarial falsification of post-finality mutation/reorder/forged-root attacks — without skill-route. (honest origin-c)",
+      "goal": "Build a closed actuation plane over world-state execution: sealed tip state roots dispatch deterministic hash-chained capability effects with actuation certificates, sterile rehydrate+prove, and adversarial falsification of wrong-state binding/reorder/forged action roots without skill-route discovery. (honest origin-c)",
       "index": 0,
-      "issued_at": "2026-07-29T17:12:35.377433Z",
+      "issued_at": "2026-07-29T17:52:13.400554Z",
       "metrics": {
-        "count": 88,
-        "primitive_count": 39,
+        "count": 89,
+        "primitive_count": 40,
         "proved_count": 88,
         "proved_ratio": null
       },
@@ -44,11 +44,11 @@
         ],
         "origin_id": "origin-c"
       },
-      "entry_hash": "1f312898d064b1f8ffb97e94",
+      "entry_hash": "f9ae51c2e9b6b96919681194",
       "entry_kind": "federation_origin_seal",
-      "goal": "Build a deterministic world-state execution plane that materializes irreversible multi-epoch finality into hash-chained state transitions with re-verifiable execution certificates, sterile rehydrate+prove, genesis-replay tip match, and adversarial falsification of post-finality mutation/reorder/forged-root attacks — without skill-route. (honest origin-c)",
+      "goal": "Build a closed actuation plane over world-state execution: sealed tip state roots dispatch deterministic hash-chained capability effects with actuation certificates, sterile rehydrate+prove, and adversarial falsification of wrong-state binding/reorder/forged action roots without skill-route discovery. (honest origin-c)",
       "index": 1,
-      "issued_at": "2026-07-29T17:12:35.377460Z",
+      "issued_at": "2026-07-29T17:52:13.400625Z",
       "metrics": {
         "count": 3,
         "primitive_count": null,
@@ -56,13 +56,13 @@
         "proved_ratio": null
       },
       "package_hash": "7878a785b9718369",
-      "parent_hash": "7ee33a8c06b0327244ddf4e9"
+      "parent_hash": "d8c13817c5bf71270357ecc5"
     }
   ],
   "entry_count": 2,
-  "head_hash": "1f312898d064b1f8ffb97e94",
+  "head_hash": "f9ae51c2e9b6b96919681194",
   "kind": "capability_lineage",
   "ok": true,
   "schema_version": 1,
-  "updated_at": "2026-07-29T17:12:35.377648Z"
+  "updated_at": "2026-07-29T17:52:13.401241Z"
 }

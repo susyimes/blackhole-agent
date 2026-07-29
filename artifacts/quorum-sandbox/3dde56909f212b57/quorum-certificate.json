@@ -1,0 +1,41 @@
+{
+  "agreeing_count": 2,
+  "agreeing_origins": [
+    "origin-a",
+    "origin-b"
+  ],
+  "byzantine_count": 1,
+  "byzantine_origins": [
+    "origin-byzantine"
+  ],
+  "certificate_hash": "22918e43bc375e2aa975a3fb",
+  "claims": {
+    "origin_ids": [
+      "origin-a",
+      "origin-b",
+      "origin-byzantine"
+    ],
+    "roots": [
+      "repo.import-health",
+      "capability.ledger-inventory",
+      "unbound.milestone-gate"
+    ],
+    "votes_accepted": 3
+  },
+  "goal": "actuation over world-state execution",
+  "issued_at": "2026-07-29T17:51:44.534180Z",
+  "kind": "quorum_certificate",
+  "lineage_head_hash": "ce9c39926abaa57ef671d47c",
+  "member_count": 3,
+  "ok": true,
+  "origin_count": 3,
+  "origin_hashes": [
+    "d3a0c522ee3342822f94d5f4",
+    "6c88e7b8de6a144cb2e21dc6",
+    "c61b95c6632529cbf2ac2d9b"
+  ],
+  "package_hash": "066545df3053adf5",
+  "schema_version": 1,
+  "threshold": 2,
+  "used_skill_route_discovery": false
+}

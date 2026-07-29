@@ -1794,6 +1794,132 @@ def test_finality_plane_multi_epoch_seal_and_adversarial():
     assert path.name == "ledger.json"
 
 
+def test_actuation_plane_effects_and_adversarial():
+    """Actuation plane dispatches multi-action effects over world-state and falsifies wrong-state binds."""
+
+    from blackhole_agent.capability_compounder import (
+        ensure_seeded_ledger,
+        load_actuation_bundle,
+        parse_outcome_contract,
+        run_actuation_plane,
+        verify_actuation_bundle_integrity,
+    )
+
+    repo = Path(__file__).resolve().parents[1]
+    path, ledger = ensure_seeded_ledger(repo)
+    assert "capability.actuation-plane" in ledger.capabilities
+    assert "capability.execution-plane" in ledger.capabilities
+
+    parsed = parse_outcome_contract(
+        "no_skill_route; actuation_ok; effects_applied_ok; min_actions:2; "
+        "action_root_valid; execution_ok; state_applied_ok; min_state_height:2; "
+        "state_root_valid; chain_valid"
+    )
+    kinds = {item["kind"] for item in parsed["predicates"]}
+    assert "actuation_ok" in kinds
+    assert "effects_applied_ok" in kinds
+    assert "min_actions" in kinds
+    assert "action_root_valid" in kinds
+
+    lineage_path = repo / "artifacts" / "capability-lineage" / "test-actuation-plane.json"
+    quorum_path = repo / "artifacts" / "quorum-bundles" / "test-actuation-quorum.json"
+    finality_path = repo / "artifacts" / "finality-bundles" / "test-actuation-finality.json"
+    execution_path = repo / "artifacts" / "execution-bundles" / "test-actuation-execution.json"
+    actuation_path = repo / "artifacts" / "actuation-bundles" / "test-actuation-plane.json"
+    for target in (lineage_path, quorum_path, finality_path, execution_path, actuation_path):
+        if target.exists():
+            target.unlink()
+
+    plane = run_actuation_plane(
+        repo,
+        "actuation over world-state execution",
+        "min_capabilities:5; capability_exists:repo.import-health; no_skill_route",
+        max_steps=3,
+        run_execution=True,
+        run_finality=True,
+        run_quorum=True,
+        run_continuity=False,
+        run_reconciliation=False,
+        inject_byzantine=True,
+        epoch_count=2,
+        min_actions=2,
+        lineage_path=lineage_path,
+        quorum_path=quorum_path,
+        finality_path=finality_path,
+        execution_path=execution_path,
+        actuation_path=actuation_path,
+        timeout=300,
+    )
+    assert plane["ok"] is True, plane
+    assert plane["action"] == "actuation_plane"
+    assert plane["effects_applied"] is True
+    assert int(plane["action_count"]) >= 2
+    assert int(plane["tip_height"]) >= 2
+    assert int(plane["state_height"] or 0) >= 2
+    assert int(plane["origin_count"]) >= 3
+    assert plane["integrity"]["ok"] is True
+    assert plane["integrity"]["multi_action"] is True
+    assert plane["rehydrate"]["ok"] is True
+    assert plane["prove"]["ok"] is True
+    assert int(plane["prove"]["proved_count"]) >= 1
+    assert plane["chain"]["valid"] is True
+    assert plane["actuation_certificate"]["valid"] is True
+    assert plane["adversarial"]["ok"] is True
+    assert plane["adversarial"]["wrong_state_fails_as_expected"] is True
+    assert plane["adversarial"]["reorder_fails_as_expected"] is True
+    assert plane["adversarial"]["single_action_fails_as_expected"] is True
+    assert plane["adversarial"]["replay_matches_tip"] is True
+    assert plane["used_skill_route_discovery"] is False
+    assert actuation_path.is_file()
+
+    loaded = load_actuation_bundle(actuation_path)
+    assert verify_actuation_bundle_integrity(loaded)["ok"] is True
+    assert loaded.get("actuation_hash")
+    assert int(loaded.get("action_count") or 0) >= 2
+    assert int(loaded.get("tip_height") or 0) >= 2
+    assert loaded.get("bound_state_root")
+
+    env = {
+        **dict(**{k: v for k, v in __import__("os").environ.items()}),
+        "PYTHONPATH": str(repo / "src"),
+    }
+    actuate_cli = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "blackhole_agent.unbound",
+            "capability",
+            "actuate",
+            "--repo-path",
+            str(repo),
+            "--lineage-path",
+            str(repo / "artifacts" / "capability-lineage" / "cli-actuation.json"),
+            "--quorum-path",
+            str(repo / "artifacts" / "quorum-bundles" / "cli-actuation-quorum.json"),
+            "--finality-path",
+            str(repo / "artifacts" / "finality-bundles" / "cli-actuation-finality.json"),
+            "--execution-path",
+            str(repo / "artifacts" / "execution-bundles" / "cli-actuation-execution.json"),
+            "--actuation-path",
+            str(repo / "artifacts" / "actuation-bundles" / "cli-actuation.json"),
+            "--timeout-seconds",
+            "300",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=360,
+    )
+    assert actuate_cli.returncode == 0, actuate_cli.stdout + actuate_cli.stderr
+    actuate_payload = json.loads(actuate_cli.stdout)
+    assert actuate_payload["ok"] is True
+    assert actuate_payload["action"] == "actuation_plane"
+    assert actuate_payload["effects_applied"] is True
+    assert int(actuate_payload["action_count"]) >= 2
+    assert path.name == "ledger.json"
+
+
 def test_quorum_plane_majority_byzantine_and_adversarial():
     """Quorum plane votes ≥3 origins, excludes Byzantine poison, and falsifies below-quorum."""
 

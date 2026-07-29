@@ -1,0 +1,189 @@
+{
+  "entries": [
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "origin_ids": [
+          "origin-a",
+          "origin-b",
+          "origin-byzantine"
+        ],
+        "threshold": 2
+      },
+      "detail": {
+        "origins": [
+          {
+            "bundle_hash": "11a411f25029d437a31a7e83",
+            "byzantine": false,
+            "lineage_entry_count": 109,
+            "lineage_head_hash": "36be4f0e21387e45f69bff6d",
+            "member_count": 3,
+            "origin_id": "origin-a",
+            "package_hash": "7878a785b9718369"
+          },
+          {
+            "bundle_hash": "5a702103eb6f02199ba5379c",
+            "byzantine": false,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "66931699e98c45a0483c213d",
+            "member_count": 2,
+            "origin_id": "origin-b",
+            "package_hash": "8ece9182045d973a"
+          },
+          {
+            "bundle_hash": "7fee561b5c3077d2733cd70b",
+            "byzantine": true,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "fc94a4353c952b13e6fbe99c",
+            "member_count": 3,
+            "origin_id": "origin-byzantine",
+            "package_hash": "7d88f7661e8407af"
+          }
+        ]
+      },
+      "entry_hash": "072fe0b957a6f358cba01523",
+      "entry_kind": "quorum_origin_manifest",
+      "goal": "Build a closed actuation plane over world-state execution: sealed tip state roots dispatch deterministic hash-chained capability effects with actuation certificates, sterile rehydrate+prove, and adversarial falsification of wrong-state binding/reorder/forged action roots without skill-route discovery.",
+      "index": 0,
+      "issued_at": "2026-07-29T17:51:20.563184Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": ""
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "package_hash": "066545df3053adf5",
+        "threshold": 2
+      },
+      "detail": {
+        "origin_heads": [
+          "36be4f0e21387e45f69bff6d",
+          "66931699e98c45a0483c213d",
+          "fc94a4353c952b13e6fbe99c"
+        ]
+      },
+      "entry_hash": "4f0eb766cfdce1dcd082e09d",
+      "entry_kind": "quorum_vote",
+      "goal": "Build a closed actuation plane over world-state execution: sealed tip state roots dispatch deterministic hash-chained capability effects with actuation certificates, sterile rehydrate+prove, and adversarial falsification of wrong-state binding/reorder/forged action roots without skill-route discovery.",
+      "index": 1,
+      "issued_at": "2026-07-29T17:51:20.563253Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "072fe0b957a6f358cba01523"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "byzantine_count": 1,
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "excluded": true
+      },
+      "detail": {
+        "byzantine_origins": [
+          "origin-byzantine"
+        ]
+      },
+      "entry_hash": "7bb9706454d125c97b689425",
+      "entry_kind": "quorum_byzantine_exclude",
+      "goal": "Build a closed actuation plane over world-state execution: sealed tip state roots dispatch deterministic hash-chained capability effects with actuation certificates, sterile rehydrate+prove, and adversarial falsification of wrong-state binding/reorder/forged action roots without skill-route discovery.",
+      "index": 2,
+      "issued_at": "2026-07-29T17:51:20.563540Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "4f0eb766cfdce1dcd082e09d"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "quorum": true,
+        "quorum_met": true
+      },
+      "detail": {
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "origin_bundle_hashes": [
+          "11a411f25029d437a31a7e83",
+          "5a702103eb6f02199ba5379c",
+          "7fee561b5c3077d2733cd70b"
+        ]
+      },
+      "entry_hash": "4f30544a0af60f4b54d4e4e6",
+      "entry_kind": "quorum_seal",
+      "goal": "Build a closed actuation plane over world-state execution: sealed tip state roots dispatch deterministic hash-chained capability effects with actuation certificates, sterile rehydrate+prove, and adversarial falsification of wrong-state binding/reorder/forged action roots without skill-route discovery.",
+      "index": 3,
+      "issued_at": "2026-07-29T17:51:20.563649Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "7bb9706454d125c97b689425"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "prior_lineage_head": "4f30544a0af60f4b54d4e4e6",
+        "prior_package_hash": "066545df3053adf5",
+        "prior_quorum_hash": "97a9a115229af6ed9a9d6287",
+        "progress_tag": "epoch-progress-2"
+      },
+      "detail": {},
+      "entry_hash": "2e682fd5b5d17f0260075ebb",
+      "entry_kind": "finality_epoch_progress",
+      "goal": "Build a closed actuation plane over world-state execution: sealed tip state roots dispatch deterministic hash-chained capability effects with actuation certificates, sterile rehydrate+prove, and adversarial falsification of wrong-state binding/reorder/forged action roots without skill-route discovery. (progress 2)",
+      "index": 4,
+      "issued_at": "2026-07-29T17:51:21.056268Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "",
+      "parent_hash": "4f30544a0af60f4b54d4e4e6"
+    }
+  ],
+  "entry_count": 5,
+  "head_hash": "2e682fd5b5d17f0260075ebb",
+  "kind": "capability_lineage",
+  "schema_version": 1,
+  "updated_at": "2026-07-29T17:51:21.578707Z"
+}

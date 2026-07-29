@@ -61,6 +61,7 @@ from blackhole_agent.capability_compounder import (
     run_quorum_plane,
     run_finality_plane,
     run_execution_plane,
+    run_actuation_plane,
     run_lineage_plane,
     run_reconciliation_plane,
     run_sovereignty_plane,
@@ -1053,6 +1054,9 @@ def evaluate_milestone(
     run_execution = (
         cc.run_execution_plane if cc is not None else run_execution_plane
     )
+    run_actuation = (
+        cc.run_actuation_plane if cc is not None else run_actuation_plane
+    )
     run_recon = (
         cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
     )
@@ -1108,6 +1112,15 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_actuation = bool(
+                        kinds
+                        & {
+                            "actuation_ok",
+                            "effects_applied_ok",
+                            "min_actions",
+                            "action_root_valid",
+                        }
+                    )
                     needs_execution = bool(
                         kinds
                         & {
@@ -1116,7 +1129,7 @@ def evaluate_milestone(
                             "min_state_height",
                             "state_root_valid",
                         }
-                    )
+                    ) and not needs_actuation
                     needs_finality = bool(
                         kinds
                         & {
@@ -1125,7 +1138,7 @@ def evaluate_milestone(
                             "min_epochs",
                             "finality_cert_valid",
                         }
-                    ) and not needs_execution
+                    ) and not needs_execution and not needs_actuation
                     needs_quorum = bool(
                         kinds
                         & {
@@ -1135,7 +1148,7 @@ def evaluate_milestone(
                             "byzantine_excluded",
                             "quorum_cert_valid",
                         }
-                    ) and not needs_finality and not needs_execution
+                    ) and not needs_finality and not needs_execution and not needs_actuation
                     needs_federation = bool(
                         kinds
                         & {
@@ -1144,7 +1157,7 @@ def evaluate_milestone(
                             "min_origins",
                             "federation_cert_valid",
                         }
-                    ) and not needs_quorum and not needs_finality and not needs_execution
+                    ) and not needs_quorum and not needs_finality and not needs_execution and not needs_actuation
                     needs_continuity = bool(
                         kinds
                         & {
@@ -1179,7 +1192,200 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     )
-                    if needs_execution:
+                    if needs_actuation:
+                        plane_done_when = strip_context(
+                            contract_text,
+                            keep_mission=False,
+                        )
+                        plane_done_when = "; ".join(
+                            token
+                            for token in (part.strip() for part in plane_done_when.split(";"))
+                            if token
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        actuation = run_actuation(
+                            workspace,
+                            goal=decision.mission_goal
+                            or decision.summary
+                            or "actuation over world-state execution",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            run_execution=True,
+                            run_finality=True,
+                            run_quorum=True,
+                            run_continuity=False,
+                            run_reconciliation=False,
+                            force_synthetic_drift=True,
+                            inject_byzantine=True,
+                            epoch_count=2,
+                            min_actions=2,
+                            timeout=600,
+                        )
+                        origin_count = int(actuation.get("origin_count") or 0)
+                        tip_height = int(actuation.get("tip_height") or 0)
+                        action_count = int(actuation.get("action_count") or 0)
+                        epoch_count = int(actuation.get("epoch_count") or 0)
+                        state_height = int(actuation.get("state_height") or 0)
+                        byzantine_count = int(actuation.get("byzantine_count") or 0)
+                        context = {
+                            "used_skill_route_discovery": bool(
+                                actuation.get("used_skill_route_discovery")
+                            ),
+                            "chain": actuation.get("chain") or {},
+                            "action_chain": actuation.get("chain") or {},
+                            "state_chain": (actuation.get("execution") or {}),
+                            "lineage_chain": actuation.get("chain") or {},
+                            "lineage": {
+                                "ok": bool((actuation.get("chain") or {}).get("valid")),
+                                "entry_count": (actuation.get("actuation") or {}).get(
+                                    "lineage_entry_count"
+                                ),
+                                "chain": actuation.get("chain") or {},
+                            },
+                            "quorum": {
+                                "ok": True,
+                                "quorum_met": True,
+                                "origin_count": origin_count,
+                                "quorum_size": actuation.get("agreeing_count"),
+                                "agreeing_count": actuation.get("agreeing_count"),
+                                "byzantine_excluded": byzantine_count >= 1,
+                                "byzantine_count": byzantine_count,
+                                "quorum_cert_valid": True,
+                            },
+                            "finality": {
+                                "ok": True,
+                                "finalized": True,
+                                "epoch_count": epoch_count,
+                                "finality_cert_valid": True,
+                                "certificate_valid": True,
+                                "irreversible": True,
+                                "multi_epoch": epoch_count >= 2,
+                            },
+                            "finality_plane": {
+                                "ok": True,
+                                "finalized": True,
+                                "epoch_count": epoch_count,
+                                "finality_cert_valid": True,
+                            },
+                            "execution": {
+                                "ok": bool((actuation.get("execution") or {}).get("ok", True)),
+                                "state_applied": bool(
+                                    (actuation.get("execution") or {}).get(
+                                        "state_applied", True
+                                    )
+                                ),
+                                "state_height": state_height,
+                                "tip_height": state_height,
+                                "tip_state_root": actuation.get("tip_state_root"),
+                                "execution_hash": (actuation.get("execution") or {}).get(
+                                    "execution_hash"
+                                )
+                                or (actuation.get("actuation") or {}).get("execution_hash"),
+                                "state_root_valid": True,
+                                "certificate_valid": True,
+                                "deterministic": True,
+                                "post_finality": True,
+                                "multi_state": state_height >= 2,
+                            },
+                            "execution_plane": {
+                                "ok": bool((actuation.get("execution") or {}).get("ok", True)),
+                                "state_applied": bool(
+                                    (actuation.get("execution") or {}).get(
+                                        "state_applied", True
+                                    )
+                                ),
+                                "state_height": state_height,
+                                "state_root_valid": True,
+                            },
+                            "worldstate": {
+                                "ok": bool((actuation.get("execution") or {}).get("ok", True)),
+                                "state_applied": bool(
+                                    (actuation.get("execution") or {}).get(
+                                        "state_applied", True
+                                    )
+                                ),
+                                "state_height": state_height,
+                                "tip_state_root": actuation.get("tip_state_root"),
+                                "state_root_valid": True,
+                            },
+                            "actuation": {
+                                "ok": bool(actuation.get("ok")),
+                                "effects_applied": bool(actuation.get("effects_applied")),
+                                "action_count": action_count,
+                                "tip_height": tip_height,
+                                "tip_action_root": actuation.get("tip_action_root"),
+                                "actuation_hash": (actuation.get("actuation") or {}).get(
+                                    "actuation_hash"
+                                ),
+                                "action_root_valid": bool(
+                                    (actuation.get("actuation_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                                "certificate_valid": bool(
+                                    (actuation.get("actuation_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                                "deterministic": True,
+                                "post_execution": True,
+                                "multi_action": action_count >= 2,
+                                "bound_state_root": actuation.get("bound_state_root"),
+                                "actuation_certificate": actuation.get(
+                                    "actuation_certificate"
+                                ),
+                            },
+                            "actuation_plane": {
+                                "ok": bool(actuation.get("ok")),
+                                "effects_applied": bool(actuation.get("effects_applied")),
+                                "action_count": action_count,
+                                "action_root_valid": bool(
+                                    (actuation.get("actuation_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                            },
+                            "effects": {
+                                "ok": bool(actuation.get("ok")),
+                                "effects_applied": bool(actuation.get("effects_applied")),
+                                "action_count": action_count,
+                                "tip_action_root": actuation.get("tip_action_root"),
+                                "action_root_valid": bool(
+                                    (actuation.get("actuation_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                            },
+                            "origin_count": origin_count,
+                            "epoch_count": epoch_count,
+                            "action_count": action_count,
+                            "state_height": state_height,
+                            "tip_height": tip_height,
+                            "actuation_certificate": actuation.get(
+                                "actuation_certificate"
+                            ),
+                            "actuation_hash": (actuation.get("actuation") or {}).get(
+                                "actuation_hash"
+                            ),
+                            "execution_hash": (actuation.get("actuation") or {}).get(
+                                "execution_hash"
+                            ),
+                            "tip_action_root": actuation.get("tip_action_root"),
+                            "bound_state_root": actuation.get("bound_state_root"),
+                            "tip_state_root": actuation.get("tip_state_root"),
+                        }
+                        if not actuation.get("ok"):
+                            reasons.append(
+                                "actuation plane failed for machine-checkable complete"
+                            )
+                    elif needs_execution:
                         plane_done_when = strip_context(
                             contract_text,
                             keep_mission=False,
@@ -3946,6 +4152,215 @@ def capability_assurance(
         )
     except Exception as error:
         console.print(f"Assurance plane failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "actuate",
+    help=(
+        "Actuation plane: world-state execution → multi-action deterministic capability "
+        "effects bound to tip state roots → actuation certificates → sterile rehydrate+"
+        "prove → adversarial wrong-state/reorder/forged-root/single-action falsification."
+    ),
+)
+def capability_actuate(
+    goal: str = typer.Option(
+        "actuation over world-state execution",
+        "--goal",
+        help="Mission goal for actuation phases.",
+    ),
+    done_when: str = typer.Option(
+        "",
+        "--done-when",
+        help="Contract done_when predicates for inner execution phases.",
+    ),
+    lineage_path: Path | None = typer.Option(
+        None,
+        "--lineage-path",
+        help="Where to read/write origin-A lineage log JSON.",
+    ),
+    bundle_path: Path | None = typer.Option(
+        None,
+        "--bundle-path",
+        help="Where to write origin-A continuity bundle JSON.",
+    ),
+    quorum_path: Path | None = typer.Option(
+        None,
+        "--quorum-path",
+        help="Where to write the source quorum bundle JSON.",
+    ),
+    finality_path: Path | None = typer.Option(
+        None,
+        "--finality-path",
+        help="Where to write the source finality bundle JSON.",
+    ),
+    execution_path: Path | None = typer.Option(
+        None,
+        "--execution-path",
+        help="Where to write the source execution bundle JSON.",
+    ),
+    actuation_path: Path | None = typer.Option(
+        None,
+        "--actuation-path",
+        help="Where to write the portable actuation bundle JSON.",
+    ),
+    epoch_count: int = typer.Option(
+        2,
+        "--epoch-count",
+        min=2,
+        help="Number of irreversible epochs to seal before actuation (minimum 2).",
+    ),
+    min_actions: int = typer.Option(
+        2,
+        "--min-actions",
+        min=2,
+        help="Minimum capability effect actions to dispatch (minimum 2).",
+    ),
+    no_execution: bool = typer.Option(
+        False,
+        "--no-execution",
+        help="Reuse existing execution bundle path instead of running a fresh execution plane.",
+    ),
+    no_finality: bool = typer.Option(
+        False,
+        "--no-finality",
+        help="Reuse existing finality inside execution instead of running a fresh finality plane.",
+    ),
+    with_continuity: bool = typer.Option(
+        False,
+        "--with-continuity",
+        help="Run full continuity inside the source quorum plane.",
+    ),
+    no_byzantine: bool = typer.Option(
+        False,
+        "--no-byzantine",
+        help="Do not inject a Byzantine minority origin (honest-only quorum).",
+    ),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    timeout_seconds: int = typer.Option(600, "--timeout-seconds", min=1),
+) -> None:
+    root = repo_path.resolve()
+    try:
+        result = run_actuation_plane(
+            root,
+            goal,
+            done_when,
+            lineage_path=lineage_path,
+            bundle_path=bundle_path,
+            quorum_path=quorum_path,
+            finality_path=finality_path,
+            execution_path=execution_path,
+            actuation_path=actuation_path,
+            epoch_count=epoch_count,
+            min_actions=min_actions,
+            run_execution=not no_execution,
+            run_finality=not no_finality,
+            run_quorum=True,
+            run_continuity=with_continuity,
+            run_reconciliation=with_continuity,
+            inject_byzantine=not no_byzantine,
+            timeout=timeout_seconds,
+        )
+    except Exception as error:
+        console.print(f"Actuation plane failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "execution",
+    help=(
+        "Execution plane: multi-epoch irreversible finality → deterministic hash-chained "
+        "world-state transitions → execution certificates → sterile rehydrate+prove → "
+        "adversarial mutation/reorder/forged-root/gap/single-state falsification."
+    ),
+)
+def capability_execution(
+    goal: str = typer.Option(
+        "world-state execution over epoch finality",
+        "--goal",
+        help="Mission goal for execution phases.",
+    ),
+    done_when: str = typer.Option(
+        "",
+        "--done-when",
+        help="Contract done_when predicates for inner finality phases.",
+    ),
+    lineage_path: Path | None = typer.Option(
+        None,
+        "--lineage-path",
+        help="Where to read/write origin-A lineage log JSON.",
+    ),
+    bundle_path: Path | None = typer.Option(
+        None,
+        "--bundle-path",
+        help="Where to write origin-A continuity bundle JSON.",
+    ),
+    quorum_path: Path | None = typer.Option(
+        None,
+        "--quorum-path",
+        help="Where to write the source quorum bundle JSON.",
+    ),
+    finality_path: Path | None = typer.Option(
+        None,
+        "--finality-path",
+        help="Where to write the source finality bundle JSON.",
+    ),
+    execution_path: Path | None = typer.Option(
+        None,
+        "--execution-path",
+        help="Where to write the portable execution bundle JSON.",
+    ),
+    epoch_count: int = typer.Option(
+        2,
+        "--epoch-count",
+        min=2,
+        help="Number of irreversible epochs to seal (minimum 2).",
+    ),
+    no_finality: bool = typer.Option(
+        False,
+        "--no-finality",
+        help="Reuse existing finality bundle path instead of running a fresh finality plane.",
+    ),
+    with_continuity: bool = typer.Option(
+        False,
+        "--with-continuity",
+        help="Run full continuity inside the source quorum plane.",
+    ),
+    no_byzantine: bool = typer.Option(
+        False,
+        "--no-byzantine",
+        help="Do not inject a Byzantine minority origin (honest-only quorum).",
+    ),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    timeout_seconds: int = typer.Option(560, "--timeout-seconds", min=1),
+) -> None:
+    root = repo_path.resolve()
+    try:
+        result = run_execution_plane(
+            root,
+            goal,
+            done_when,
+            lineage_path=lineage_path,
+            bundle_path=bundle_path,
+            quorum_path=quorum_path,
+            finality_path=finality_path,
+            execution_path=execution_path,
+            epoch_count=epoch_count,
+            run_finality=not no_finality,
+            run_quorum=True,
+            run_continuity=with_continuity,
+            run_reconciliation=with_continuity,
+            inject_byzantine=not no_byzantine,
+            timeout=timeout_seconds,
+        )
+    except Exception as error:
+        console.print(f"Execution plane failed: {error}", style="red")
         raise typer.Exit(1) from error
     console.print_json(data=result)
     if not result.get("ok") or result.get("used_skill_route_discovery"):

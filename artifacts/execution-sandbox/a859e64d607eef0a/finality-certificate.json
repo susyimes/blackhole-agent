@@ -1,0 +1,29 @@
+{
+  "agreeing_count": 2,
+  "byzantine_count": 1,
+  "certificate_hash": "c6ad293e0cc3f93c58bcceeb",
+  "claims": {
+    "epoch_index": 2,
+    "member_count": 3,
+    "plane": "finality",
+    "roots": [
+      "repo.import-health",
+      "capability.ledger-inventory",
+      "unbound.milestone-gate"
+    ]
+  },
+  "epoch_hash": "7346a2989a4b2ac1a3da2d16",
+  "epoch_height": 2,
+  "goal": "Build a closed actuation plane over world-state execution: sealed tip state roots dispatch deterministic hash-chained capability effects with actuation certificates, sterile rehydrate+prove, and adversarial falsification of wrong-state binding/reorder/forged action roots without skill-route discovery. (epoch 2)",
+  "irreversible": true,
+  "issued_at": "2026-07-29T17:52:13.912532Z",
+  "kind": "finality_certificate",
+  "lineage_head_hash": "f07d5c355f49415a79bea5f5",
+  "ok": true,
+  "origin_count": 3,
+  "package_hash": "cdb85ebad872dab9",
+  "parent_epoch_hash": "deb1f43221ca6b57d6da5933",
+  "quorum_hash": "1da5972637b47c984f160f74",
+  "schema_version": 1,
+  "used_skill_route_discovery": false
+}

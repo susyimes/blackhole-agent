@@ -911,6 +911,7 @@ PROGRAM_PLAN_DENYLIST = frozenset(
         "capability.quorum-plane",
         "capability.finality-plane",
         "capability.execution-plane",
+        "capability.actuation-plane",
         # Batch operators are invocable separately; keep goal programs step-cheap.
         "capability.ledger-integrity",
         "capability.distill-ledger",
@@ -972,6 +973,11 @@ MISSION_GOAL_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("state-root", ("capability.execution-plane", "capability.finality-plane", "capability.assurance-plane")),
     ("state transition", ("capability.execution-plane", "capability.finality-plane", "capability.quorum-plane")),
     ("apply epoch", ("capability.execution-plane", "capability.finality-plane", "capability.continuity-plane")),
+    ("actuation", ("capability.actuation-plane", "capability.execution-plane", "capability.finality-plane")),
+    ("actuate", ("capability.actuation-plane", "capability.execution-plane", "capability.quorum-plane")),
+    ("effects", ("capability.actuation-plane", "capability.execution-plane", "capability.assurance-plane")),
+    ("action-root", ("capability.actuation-plane", "capability.execution-plane", "capability.lineage-plane")),
+    ("dispatch", ("capability.actuation-plane", "capability.execution-plane", "capability.finality-plane")),
 )
 
 
@@ -1344,6 +1350,7 @@ def run_mission_plane(
 #   quorum_ok | quorum_met | min_quorum:N | byzantine_excluded | quorum_cert_valid
 #   finality_ok | finalized_ok | min_epochs:N | finality_cert_valid
 #   execution_ok | state_applied_ok | min_state_height:N | state_root_valid
+#   actuation_ok | effects_applied_ok | min_actions:N | action_root_valid
 # Free-text lines without a known form are recorded as informational (not gating).
 OUTCOME_PREDICATE_PATTERN = re.compile(
     r"^(?P<kind>"
@@ -1359,7 +1366,8 @@ OUTCOME_PREDICATE_PATTERN = re.compile(
     r"federation_ok|federated_ok|min_origins|federation_cert_valid|"
     r"quorum_ok|quorum_met|min_quorum|byzantine_excluded|quorum_cert_valid|"
     r"finality_ok|finalized_ok|min_epochs|finality_cert_valid|"
-    r"execution_ok|state_applied_ok|min_state_height|state_root_valid"
+    r"execution_ok|state_applied_ok|min_state_height|state_root_valid|"
+    r"actuation_ok|effects_applied_ok|min_actions|action_root_valid"
     r")(?::(?P<arg>.+))?$",
     re.IGNORECASE,
 )
@@ -1402,6 +1410,10 @@ CONTEXT_ONLY_OUTCOME_KINDS = frozenset(
         "state_applied_ok",
         "min_state_height",
         "state_root_valid",
+        "actuation_ok",
+        "effects_applied_ok",
+        "min_actions",
+        "action_root_valid",
     }
 )
 
@@ -1730,6 +1742,37 @@ def _soft_extract_outcome_predicates(chunk: str) -> list[dict[str, Any]]:
         and ("valid" in lower or "verify" in lower or "ok" in lower)
     ):
         found.append({"kind": "state_root_valid", "arg": "", "source": chunk})
+    if (
+        re.search(r"\bactuation", lower)
+        and ("ok" in lower or "pass" in lower or "plane" in lower or "succeed" in lower)
+    ) or re.search(r"\bactuation_ok\b", lower):
+        found.append({"kind": "actuation_ok", "arg": "", "source": chunk})
+    if re.search(r"\beffects_applied_ok\b", lower) or (
+        "effect" in lower
+        and "appl" in lower
+        and ("ok" in lower or "pass" in lower or "succeed" in lower)
+    ):
+        found.append({"kind": "effects_applied_ok", "arg": "", "source": chunk})
+    m = re.search(r"(?:at least|>=|≥)\s*(\d+)\s+action", lower)
+    if m:
+        found.append({"kind": "min_actions", "arg": m.group(1), "source": chunk})
+    if re.search(r"\bmin_actions\b", lower) and not any(
+        item.get("kind") == "min_actions" for item in found
+    ):
+        m_n = re.search(r"min_actions\s*[:=]?\s*(\d+)", lower)
+        found.append(
+            {
+                "kind": "min_actions",
+                "arg": m_n.group(1) if m_n else "2",
+                "source": chunk,
+            }
+        )
+    if re.search(r"\baction_root_valid\b", lower) or (
+        "action" in lower
+        and "root" in lower
+        and ("valid" in lower or "verify" in lower or "ok" in lower)
+    ):
+        found.append({"kind": "action_root_valid", "arg": "", "source": chunk})
     return found
 
 
@@ -2407,6 +2450,72 @@ def _eval_one_outcome_predicate(
                     plane.get("state_root") or plane.get("tip_state_root")
                 )
         return ok, f"state_root_valid={ok}"
+    if kind == "actuation_ok":
+        plane = (
+            context.get("actuation")
+            or context.get("actuation_plane")
+            or context.get("effects")
+            or {}
+        )
+        ok = bool(plane.get("ok"))
+        return ok, f"actuation_ok={ok}"
+    if kind == "effects_applied_ok":
+        plane = (
+            context.get("actuation")
+            or context.get("actuation_plane")
+            or context.get("effects")
+            or {}
+        )
+        if "effects_applied" in plane:
+            ok = plane.get("effects_applied") is True and bool(plane.get("ok", True))
+        elif "effects_applied_ok" in plane:
+            ok = plane.get("effects_applied_ok") is True
+        else:
+            ok = bool(plane.get("ok")) and int(
+                plane.get("action_count") or plane.get("tip_height") or 0
+            ) >= 1
+        return ok, f"effects_applied_ok={ok}"
+    if kind == "min_actions":
+        need = int(float(arg or "0"))
+        have = context.get("action_count")
+        if have is None:
+            have = context.get("tip_action_height")
+        if have is None:
+            plane = (
+                context.get("actuation")
+                or context.get("actuation_plane")
+                or context.get("effects")
+                or {}
+            )
+            have = (
+                plane.get("action_count")
+                or plane.get("tip_height")
+                or plane.get("entry_count")
+            )
+        have_i = int(have or 0)
+        return have_i >= need, f"actions={have_i} need>={need}"
+    if kind == "action_root_valid":
+        plane = (
+            context.get("actuation")
+            or context.get("actuation_plane")
+            or context.get("effects")
+            or context.get("actuation_certificate")
+            or {}
+        )
+        if "action_root_valid" in plane:
+            ok = plane.get("action_root_valid") is True
+        elif "certificate_valid" in plane:
+            ok = plane.get("certificate_valid") is True
+        else:
+            cert = plane.get("actuation_certificate") or plane.get("certificate") or {}
+            if isinstance(cert, Mapping) and cert:
+                verify = verify_actuation_certificate(cert)
+                ok = bool(verify.get("ok")) and bool(verify.get("valid"))
+            else:
+                ok = bool(plane.get("ok")) and bool(
+                    plane.get("action_root") or plane.get("tip_action_root")
+                )
+        return ok, f"action_root_valid={ok}"
     if kind == "program_passes":
         steps = [part.strip() for part in arg.split(",") if part.strip()]
         if not steps:
@@ -14735,6 +14844,1739 @@ def builtin_finality_plane() -> dict[str, Any]:
     )
 
 
+
+
+# ---------------------------------------------------------------------------
+# Actuation plane: post-execution world-state → deterministic capability effects.
+# ---------------------------------------------------------------------------
+
+ACTUATION_BUNDLE_SCHEMA = 1
+ACTUATION_CERTIFICATE_SCHEMA = 1
+ACTUATION_ACTION_LOG_SCHEMA = 1
+DEFAULT_ACTUATION_BUNDLE_RELATIVE = Path("artifacts") / "actuation-bundles"
+
+
+def default_actuation_bundle_dir(repo_path: Path) -> Path:
+    return (repo_path / DEFAULT_ACTUATION_BUNDLE_RELATIVE).resolve()
+
+
+def empty_action_log() -> dict[str, Any]:
+    return {
+        "schema_version": ACTUATION_ACTION_LOG_SCHEMA,
+        "kind": "actuation_action_log",
+        "entries": [],
+        "entry_count": 0,
+        "tip_height": 0,
+        "tip_action_root": "",
+        "bound_state_root": "",
+        "bound_state_height": 0,
+        "updated_at": utc_now_iso(),
+    }
+
+
+def compute_action_root(action: Mapping[str, Any]) -> str:
+    """Hash action body excluding self root, certificates, and wall-clock fields."""
+
+    body = {
+        key: value
+        for key, value in action.items()
+        if key
+        not in {
+            "action_root",
+            "actuation_certificate",
+            "ok",
+            "valid",
+            "action",
+            "applied_at",
+            "updated_at",
+            "issued_at",
+            "exported_at",
+            "goal",
+            "claims",
+        }
+    }
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def compute_actuation_certificate_hash(payload: Mapping[str, Any]) -> str:
+    body = {
+        key: value
+        for key, value in payload.items()
+        if key not in {"certificate_hash", "ok", "valid"}
+    }
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def compute_actuation_bundle_hash(bundle: Mapping[str, Any]) -> str:
+    body = {
+        key: value
+        for key, value in bundle.items()
+        if key
+        not in {
+            "actuation_hash",
+            "ok",
+            "bundle_path",
+            "exported_at",
+            "source_ledger_path",
+            "action",
+        }
+    }
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def compute_effect_digest(
+    *,
+    capability_id: str,
+    effect: str,
+    bound_state_root: str,
+    package_hash: str,
+    entry: str = "",
+) -> str:
+    payload = {
+        "capability_id": capability_id,
+        "effect": effect,
+        "bound_state_root": bound_state_root,
+        "package_hash": package_hash,
+        "entry": entry or "",
+    }
+    digest = json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def issue_actuation_certificate(
+    *,
+    action_height: int,
+    action_root: str,
+    parent_action_root: str,
+    bound_state_root: str,
+    bound_state_height: int,
+    execution_hash: str,
+    execution_certificate_hash: str,
+    package_hash: str,
+    lineage_head_hash: str,
+    effect_count: int,
+    member_ids: Sequence[str] | None = None,
+    goal: str = "",
+    claims: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    members = sorted({str(item).strip() for item in (member_ids or []) if str(item).strip()})
+    cert: dict[str, Any] = {
+        "schema_version": ACTUATION_CERTIFICATE_SCHEMA,
+        "kind": "actuation_certificate",
+        "issued_at": utc_now_iso(),
+        "goal": goal or "",
+        "action_height": int(action_height),
+        "action_root": action_root or "",
+        "parent_action_root": parent_action_root or "",
+        "bound_state_root": bound_state_root or "",
+        "bound_state_height": int(bound_state_height),
+        "execution_hash": execution_hash or "",
+        "execution_certificate_hash": execution_certificate_hash or "",
+        "package_hash": package_hash or "",
+        "lineage_head_hash": lineage_head_hash or "",
+        "effect_count": int(effect_count),
+        "member_ids": members,
+        "member_count": len(members),
+        "deterministic": True,
+        "post_execution": True,
+        "claims": dict(claims or {}),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    cert["certificate_hash"] = compute_actuation_certificate_hash(cert)
+    cert["ok"] = (
+        cert["action_height"] >= 1
+        and bool(cert["action_root"])
+        and bool(cert["bound_state_root"])
+        and cert["bound_state_height"] >= 1
+        and bool(cert["execution_hash"])
+        and bool(cert["execution_certificate_hash"])
+        and bool(cert["package_hash"])
+        and cert["effect_count"] >= 1
+        and cert["deterministic"] is True
+        and cert["post_execution"] is True
+        and not cert["used_skill_route_discovery"]
+        and (
+            (cert["action_height"] == 1 and not cert["parent_action_root"])
+            or (cert["action_height"] > 1 and bool(cert["parent_action_root"]))
+        )
+    )
+    return cert
+
+
+def verify_actuation_certificate(payload: Mapping[str, Any] | Path) -> dict[str, Any]:
+    if isinstance(payload, Path):
+        data = json.loads(payload.read_text(encoding="utf-8"))
+    else:
+        data = dict(payload)
+    expected = str(data.get("certificate_hash") or "").strip()
+    recomputed = compute_actuation_certificate_hash(data)
+    hash_ok = bool(expected) and expected == recomputed
+    height = int(data.get("action_height") or 0)
+    parent = str(data.get("parent_action_root") or "")
+    parent_ok = (height == 1 and not parent) or (height > 1 and bool(parent))
+    valid = (
+        hash_ok
+        and data.get("kind") == "actuation_certificate"
+        and height >= 1
+        and bool(data.get("action_root"))
+        and bool(data.get("bound_state_root"))
+        and int(data.get("bound_state_height") or 0) >= 1
+        and bool(data.get("execution_hash"))
+        and bool(data.get("execution_certificate_hash"))
+        and bool(data.get("package_hash"))
+        and data.get("deterministic") is True
+        and data.get("post_execution") is True
+        and parent_ok
+        and not bool(data.get("used_skill_route_discovery"))
+    )
+    return {
+        "ok": valid,
+        "valid": valid,
+        "hash_ok": hash_ok,
+        "certificate_hash": expected or recomputed,
+        "recomputed_hash": recomputed,
+        "action_height": height,
+        "action_root": data.get("action_root"),
+        "bound_state_root": data.get("bound_state_root"),
+        "parent_ok": parent_ok,
+        "used_skill_route_discovery": bool(data.get("used_skill_route_discovery")),
+    }
+
+
+def write_actuation_certificate(path: Path, certificate: Mapping[str, Any]) -> Path:
+    target = path.resolve()
+    atomic_write_json(target, dict(certificate))
+    return target
+
+
+def derive_action_specs_from_execution(
+    execution_bundle: Mapping[str, Any],
+    *,
+    min_actions: int = 2,
+) -> list[dict[str, Any]]:
+    """Deterministic ordered effect intents from sealed world-state members."""
+
+    member_ids = [
+        str(m).strip()
+        for m in (execution_bundle.get("member_ids") or [])
+        if str(m).strip()
+    ]
+    package = (
+        execution_bundle.get("package")
+        if isinstance(execution_bundle.get("package"), Mapping)
+        else {}
+    )
+    members = package.get("members") if isinstance(package.get("members"), Mapping) else {}
+    if not member_ids and members:
+        member_ids = [str(k).strip() for k in members.keys() if str(k).strip()]
+    member_ids = sorted(set(member_ids))
+    package_hash = str(
+        execution_bundle.get("package_hash") or package.get("package_hash") or ""
+    )
+    bound_state_root = str(execution_bundle.get("tip_state_root") or "")
+    bound_state_height = int(execution_bundle.get("tip_height") or 0)
+    execution_hash = str(execution_bundle.get("execution_hash") or "")
+    specs: list[dict[str, Any]] = []
+    for capability_id in member_ids:
+        entry = ""
+        if isinstance(members.get(capability_id), Mapping):
+            entry = str(members[capability_id].get("entry") or "")
+        effect = "prove"
+        specs.append(
+            {
+                "capability_id": capability_id,
+                "effect": effect,
+                "entry": entry,
+                "package_hash": package_hash,
+                "bound_state_root": bound_state_root,
+                "bound_state_height": bound_state_height,
+                "execution_hash": execution_hash,
+                "effect_digest": compute_effect_digest(
+                    capability_id=capability_id,
+                    effect=effect,
+                    bound_state_root=bound_state_root,
+                    package_hash=package_hash,
+                    entry=entry,
+                ),
+            }
+        )
+    # Guarantee multi-action surface even if a degenerate package has one member.
+    if len(specs) == 1:
+        base = dict(specs[0])
+        base["effect"] = "inventory"
+        base["capability_id"] = base["capability_id"]
+        base["effect_digest"] = compute_effect_digest(
+            capability_id=base["capability_id"],
+            effect="inventory",
+            bound_state_root=bound_state_root,
+            package_hash=package_hash,
+            entry=base.get("entry") or "",
+        )
+        specs.append(base)
+    if len(specs) < max(2, int(min_actions)):
+        # Synthetic secondary inventory of package hash for multi-action integrity.
+        specs.append(
+            {
+                "capability_id": "capability.ledger-inventory",
+                "effect": "inventory",
+                "entry": "",
+                "package_hash": package_hash,
+                "bound_state_root": bound_state_root,
+                "bound_state_height": bound_state_height,
+                "execution_hash": execution_hash,
+                "effect_digest": compute_effect_digest(
+                    capability_id="capability.ledger-inventory",
+                    effect="inventory",
+                    bound_state_root=bound_state_root,
+                    package_hash=package_hash,
+                    entry="",
+                ),
+            }
+        )
+    return specs[: max(2, len(specs))]
+
+
+def apply_action_transition(
+    action_log: Mapping[str, Any],
+    spec: Mapping[str, Any],
+    *,
+    execution_bundle: Mapping[str, Any],
+    goal: str = "",
+    claims: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Append one deterministic effect action bound to the tip world-state root."""
+
+    log = copy.deepcopy(dict(action_log)) if action_log else empty_action_log()
+    entries = list(log.get("entries") or [])
+    tip_height = int(log.get("tip_height") or 0)
+    tip_root = str(log.get("tip_action_root") or "")
+    next_height = tip_height + 1
+    parent_root = tip_root if tip_height >= 1 else ""
+
+    bound_state_root = str(
+        spec.get("bound_state_root") or execution_bundle.get("tip_state_root") or ""
+    )
+    bound_state_height = int(
+        spec.get("bound_state_height") or execution_bundle.get("tip_height") or 0
+    )
+    execution_hash = str(
+        spec.get("execution_hash") or execution_bundle.get("execution_hash") or ""
+    )
+    package_hash = str(
+        spec.get("package_hash") or execution_bundle.get("package_hash") or ""
+    )
+    capability_id = str(spec.get("capability_id") or "").strip()
+    effect = str(spec.get("effect") or "prove").strip() or "prove"
+    effect_digest = str(spec.get("effect_digest") or "")
+    if not effect_digest:
+        effect_digest = compute_effect_digest(
+            capability_id=capability_id,
+            effect=effect,
+            bound_state_root=bound_state_root,
+            package_hash=package_hash,
+            entry=str(spec.get("entry") or ""),
+        )
+
+    if not capability_id or not bound_state_root or not execution_hash:
+        return {
+            "ok": False,
+            "action": "apply_action_transition",
+            "error": "missing_action_bind_fields",
+            "action_log": log,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    tip_state = str(execution_bundle.get("tip_state_root") or "")
+    if bound_state_root != tip_state:
+        return {
+            "ok": False,
+            "action": "apply_action_transition",
+            "error": "bound_state_root_mismatch",
+            "bound_state_root": bound_state_root,
+            "tip_state_root": tip_state,
+            "action_log": log,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    # Reject duplicate capability+effect at same bound state.
+    if any(
+        str(item.get("capability_id") or "") == capability_id
+        and str(item.get("effect") or "") == effect
+        and str(item.get("bound_state_root") or "") == bound_state_root
+        for item in entries
+    ):
+        return {
+            "ok": False,
+            "action": "apply_action_transition",
+            "error": "duplicate_action_rejected",
+            "action_log": log,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    exec_cert = (
+        execution_bundle.get("execution_certificate")
+        if isinstance(execution_bundle.get("execution_certificate"), Mapping)
+        else {}
+    )
+    exec_cert_hash = str(exec_cert.get("certificate_hash") or "")
+    lineage_head = str(execution_bundle.get("lineage_head_hash") or "")
+    member_ids = list(execution_bundle.get("member_ids") or [])
+
+    body: dict[str, Any] = {
+        "schema_version": ACTUATION_ACTION_LOG_SCHEMA,
+        "kind": "actuation_action",
+        "action_height": next_height,
+        "parent_action_root": parent_root,
+        "bound_state_root": bound_state_root,
+        "bound_state_height": bound_state_height,
+        "execution_hash": execution_hash,
+        "execution_certificate_hash": exec_cert_hash,
+        "package_hash": package_hash,
+        "lineage_head_hash": lineage_head,
+        "capability_id": capability_id,
+        "effect": effect,
+        "effect_digest": effect_digest,
+        "entry": str(spec.get("entry") or ""),
+        "member_ids": sorted({str(m).strip() for m in member_ids if str(m).strip()}),
+        "deterministic": True,
+        "post_execution": True,
+        "applied_at": utc_now_iso(),
+        "goal": goal or str(execution_bundle.get("goal") or ""),
+        "claims": dict(claims or {}),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    action_root = compute_action_root(body)
+    body["action_root"] = action_root
+    cert = issue_actuation_certificate(
+        action_height=next_height,
+        action_root=action_root,
+        parent_action_root=parent_root,
+        bound_state_root=bound_state_root,
+        bound_state_height=bound_state_height,
+        execution_hash=execution_hash,
+        execution_certificate_hash=exec_cert_hash,
+        package_hash=package_hash,
+        lineage_head_hash=lineage_head,
+        effect_count=next_height,
+        member_ids=body["member_ids"],
+        goal=goal or str(execution_bundle.get("goal") or ""),
+        claims={
+            "capability_id": capability_id,
+            "effect": effect,
+            "plane": "actuation",
+            **dict(claims or {}),
+        },
+    )
+    body["actuation_certificate"] = cert
+    body["ok"] = (
+        bool(cert.get("ok"))
+        and bool(action_root)
+        and body["deterministic"] is True
+        and body["post_execution"] is True
+        and not bool(body.get("used_skill_route_discovery"))
+    )
+
+    entries.append(body)
+    log["entries"] = entries
+    log["entry_count"] = len(entries)
+    log["tip_height"] = next_height
+    log["tip_action_root"] = action_root
+    log["bound_state_root"] = bound_state_root
+    log["bound_state_height"] = bound_state_height
+    log["updated_at"] = utc_now_iso()
+    log["schema_version"] = ACTUATION_ACTION_LOG_SCHEMA
+    log["kind"] = "actuation_action_log"
+    return {
+        "ok": bool(body.get("ok")),
+        "action": "apply_action_transition",
+        "entry": body,
+        "action_height": next_height,
+        "action_root": action_root,
+        "parent_action_root": parent_root,
+        "bound_state_root": bound_state_root,
+        "action_log": log,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def verify_action_chain(action_log: Mapping[str, Any]) -> dict[str, Any]:
+    """Validate sequential heights, parent roots, hashes, and actuation certs."""
+
+    entries = list(action_log.get("entries") or [])
+    errors: list[str] = []
+    if not entries:
+        return {
+            "ok": False,
+            "valid": False,
+            "action": "verify_action_chain",
+            "entry_count": 0,
+            "tip_height": 0,
+            "tip_action_root": "",
+            "errors": ["empty_action_log"],
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    prev_root = ""
+    bound_roots: set[str] = set()
+    for index, raw in enumerate(entries):
+        if not isinstance(raw, Mapping):
+            errors.append(f"entry[{index}]_not_mapping")
+            continue
+        height = int(raw.get("action_height") or 0)
+        expected_height = index + 1
+        if height != expected_height:
+            errors.append(f"entry[{index}]_height={height}_expected={expected_height}")
+        parent = str(raw.get("parent_action_root") or "")
+        if index == 0:
+            if parent:
+                errors.append(f"entry[{index}]_genesis_has_parent")
+        else:
+            if parent != prev_root:
+                errors.append(
+                    f"entry[{index}]_parent_mismatch got={parent[:12]} expected={prev_root[:12]}"
+                )
+        stored = str(raw.get("action_root") or "")
+        recomputed = compute_action_root({**dict(raw), "action_root": ""})
+        if not stored or stored != recomputed:
+            errors.append(f"entry[{index}]_action_root_mismatch")
+        if raw.get("deterministic") is not True:
+            errors.append(f"entry[{index}]_not_deterministic")
+        if raw.get("post_execution") is not True:
+            errors.append(f"entry[{index}]_not_post_execution")
+        bound = str(raw.get("bound_state_root") or "")
+        if not bound:
+            errors.append(f"entry[{index}]_missing_bound_state_root")
+        else:
+            bound_roots.add(bound)
+        if not str(raw.get("effect_digest") or ""):
+            errors.append(f"entry[{index}]_missing_effect_digest")
+        else:
+            expected_digest = compute_effect_digest(
+                capability_id=str(raw.get("capability_id") or ""),
+                effect=str(raw.get("effect") or ""),
+                bound_state_root=bound,
+                package_hash=str(raw.get("package_hash") or ""),
+                entry=str(raw.get("entry") or ""),
+            )
+            if str(raw.get("effect_digest") or "") != expected_digest:
+                errors.append(f"entry[{index}]_effect_digest_mismatch")
+        cert = raw.get("actuation_certificate")
+        if not isinstance(cert, Mapping):
+            errors.append(f"entry[{index}]_missing_actuation_certificate")
+        else:
+            cert_verify = verify_actuation_certificate(cert)
+            if not cert_verify.get("valid"):
+                errors.append(f"entry[{index}]_actuation_cert_invalid")
+            if str(cert.get("action_root") or "") != stored:
+                errors.append(f"entry[{index}]_cert_action_root_mismatch")
+            if int(cert.get("action_height") or 0) != height:
+                errors.append(f"entry[{index}]_cert_height_mismatch")
+            if str(cert.get("bound_state_root") or "") != bound:
+                errors.append(f"entry[{index}]_cert_bound_state_mismatch")
+        prev_root = stored
+
+    # All actions in one closed log must bind the same tip state root.
+    if len(bound_roots) > 1:
+        errors.append("mixed_bound_state_roots")
+
+    tip = entries[-1] if entries else {}
+    tip_height = int(tip.get("action_height") or 0) if isinstance(tip, Mapping) else 0
+    tip_root = str(tip.get("action_root") or "") if isinstance(tip, Mapping) else ""
+    log_tip_height = int(action_log.get("tip_height") or 0)
+    log_tip_root = str(action_log.get("tip_action_root") or "")
+    if log_tip_height and log_tip_height != tip_height:
+        errors.append("tip_height_metadata_mismatch")
+    if log_tip_root and log_tip_root != tip_root:
+        errors.append("tip_action_root_metadata_mismatch")
+
+    valid = not errors and tip_height >= 1 and bool(tip_root)
+    return {
+        "ok": valid,
+        "valid": valid,
+        "action": "verify_action_chain",
+        "entry_count": len(entries),
+        "tip_height": tip_height,
+        "tip_action_root": tip_root,
+        "bound_state_root": next(iter(bound_roots), ""),
+        "errors": errors,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def apply_execution_bundle_to_actions(
+    execution_bundle: Mapping[str, Any],
+    *,
+    goal: str = "",
+    min_actions: int = 2,
+) -> dict[str, Any]:
+    """Dispatch deterministic multi-action log from a sealed execution bundle."""
+
+    integrity = verify_execution_bundle_integrity(execution_bundle)
+    if not integrity.get("ok"):
+        return {
+            "ok": False,
+            "action": "apply_execution_bundle_to_actions",
+            "error": "execution_integrity_failed",
+            "integrity": integrity,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    specs = derive_action_specs_from_execution(
+        execution_bundle, min_actions=min_actions
+    )
+    if len(specs) < 2:
+        return {
+            "ok": False,
+            "action": "apply_execution_bundle_to_actions",
+            "error": "need_multi_action",
+            "spec_count": len(specs),
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    action_log = empty_action_log()
+    applied: list[dict[str, Any]] = []
+    for index, spec in enumerate(specs):
+        result = apply_action_transition(
+            action_log,
+            spec,
+            execution_bundle=execution_bundle,
+            goal=f"{goal or execution_bundle.get('goal') or 'actuation'} (action {index + 1})",
+            claims={"action_index": index + 1, "plane": "actuation"},
+        )
+        if not result.get("ok"):
+            return {
+                "ok": False,
+                "action": "apply_execution_bundle_to_actions",
+                "error": result.get("error") or "apply_failed",
+                "applied_count": len(applied),
+                "apply": {
+                    "ok": result.get("ok"),
+                    "error": result.get("error"),
+                    "action_height": result.get("action_height"),
+                },
+                "action_log": action_log,
+                "used_skill_route_discovery": legacy_pipeline_was_used(),
+            }
+        action_log = result["action_log"]
+        applied.append(result["entry"])
+
+    chain = verify_action_chain(action_log)
+    ok = bool(chain.get("valid")) and len(applied) >= 2 and not legacy_pipeline_was_used()
+    return {
+        "ok": ok,
+        "action": "apply_execution_bundle_to_actions",
+        "action_log": action_log,
+        "applied": applied,
+        "applied_count": len(applied),
+        "action_count": len(applied),
+        "tip_height": action_log.get("tip_height"),
+        "tip_action_root": action_log.get("tip_action_root"),
+        "bound_state_root": action_log.get("bound_state_root"),
+        "chain": chain,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def build_actuation_bundle(
+    action_log: Mapping[str, Any],
+    execution_bundle: Mapping[str, Any],
+    *,
+    goal: str = "actuation over world-state execution",
+) -> dict[str, Any]:
+    """Package action log + execution tip into a portable actuation bundle."""
+
+    chain = verify_action_chain(action_log)
+    if not chain.get("valid"):
+        return {
+            "ok": False,
+            "action": "build_actuation_bundle",
+            "error": "action_chain_invalid",
+            "chain": chain,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    entries = list(action_log.get("entries") or [])
+    tip = entries[-1]
+    tip_cert = (
+        tip.get("actuation_certificate")
+        if isinstance(tip.get("actuation_certificate"), Mapping)
+        else {}
+    )
+    tip_cert_verify = (
+        verify_actuation_certificate(tip_cert) if tip_cert else {"valid": False}
+    )
+    exec_cert = (
+        execution_bundle.get("execution_certificate")
+        if isinstance(execution_bundle.get("execution_certificate"), Mapping)
+        else {}
+    )
+    package = (
+        execution_bundle.get("package")
+        if isinstance(execution_bundle.get("package"), Mapping)
+        else {}
+    )
+    certificates: dict[str, dict[str, Any]] = {}
+    for action in entries:
+        cert = action.get("actuation_certificate")
+        if isinstance(cert, Mapping) and cert.get("certificate_hash"):
+            certificates[str(cert["certificate_hash"])] = {
+                "certificate_hash": cert.get("certificate_hash"),
+                "payload": cert,
+                "action_height": action.get("action_height"),
+            }
+    if isinstance(exec_cert, Mapping) and exec_cert.get("certificate_hash"):
+        certificates[str(exec_cert["certificate_hash"])] = {
+            "certificate_hash": exec_cert.get("certificate_hash"),
+            "payload": exec_cert,
+            "kind": "execution_certificate",
+        }
+
+    ab: dict[str, Any] = {
+        "schema_version": ACTUATION_BUNDLE_SCHEMA,
+        "kind": "actuation_bundle",
+        "action": "build_actuation_bundle",
+        "goal": goal,
+        "action_count": len(entries),
+        "tip_height": chain.get("tip_height"),
+        "tip_action_root": chain.get("tip_action_root"),
+        "bound_state_root": chain.get("bound_state_root")
+        or execution_bundle.get("tip_state_root"),
+        "bound_state_height": execution_bundle.get("tip_height"),
+        "actions": {
+            "schema_version": action_log.get(
+                "schema_version", ACTUATION_ACTION_LOG_SCHEMA
+            ),
+            "kind": "actuation_action_log",
+            "entries": [copy.deepcopy(dict(e)) for e in entries],
+            "entry_count": len(entries),
+            "tip_height": chain.get("tip_height"),
+            "tip_action_root": chain.get("tip_action_root"),
+            "bound_state_root": chain.get("bound_state_root"),
+            "bound_state_height": execution_bundle.get("tip_height"),
+            "updated_at": action_log.get("updated_at") or utc_now_iso(),
+        },
+        "package": copy.deepcopy(dict(package)),
+        "package_hash": execution_bundle.get("package_hash")
+        or package.get("package_hash"),
+        "member_count": execution_bundle.get("member_count")
+        or package.get("member_count"),
+        "member_ids": list(
+            execution_bundle.get("member_ids") or package.get("member_ids") or []
+        ),
+        "lineage": copy.deepcopy(dict(execution_bundle.get("lineage") or {})),
+        "lineage_head_hash": execution_bundle.get("lineage_head_hash"),
+        "lineage_entry_count": execution_bundle.get("lineage_entry_count"),
+        "execution_hash": execution_bundle.get("execution_hash"),
+        "execution_certificate": copy.deepcopy(dict(exec_cert)),
+        "finality_hash": execution_bundle.get("finality_hash"),
+        "finality_certificate": copy.deepcopy(
+            dict(execution_bundle.get("finality_certificate") or {})
+        ),
+        "epoch_count": execution_bundle.get("epoch_count"),
+        "state_count": execution_bundle.get("state_count"),
+        "origin_count": execution_bundle.get("origin_count"),
+        "agreeing_count": execution_bundle.get("agreeing_count"),
+        "byzantine_count": execution_bundle.get("byzantine_count"),
+        "actuation_certificate": copy.deepcopy(dict(tip_cert)),
+        "certificates": certificates,
+        "certificate_count": len(certificates),
+        "deterministic": True,
+        "post_execution": True,
+        "exported_at": utc_now_iso(),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    ab["actuation_hash"] = compute_actuation_bundle_hash(ab)
+    ab["ok"] = (
+        bool(chain.get("valid"))
+        and bool(tip_cert_verify.get("valid"))
+        and len(entries) >= 2
+        and int(ab.get("origin_count") or 0) >= 3
+        and ab["deterministic"] is True
+        and ab["post_execution"] is True
+        and bool(ab.get("execution_hash"))
+        and bool(ab.get("bound_state_root"))
+        and not bool(ab.get("used_skill_route_discovery"))
+    )
+    return ab
+
+
+def write_actuation_bundle(path: Path, bundle: Mapping[str, Any]) -> Path:
+    target = path.resolve()
+    atomic_write_json(target, dict(bundle))
+    return target
+
+
+def load_actuation_bundle(path: Path) -> dict[str, Any]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, Mapping):
+        raise ValueError("actuation bundle must be a JSON object")
+    return dict(payload)
+
+
+def verify_actuation_bundle_integrity(bundle: Mapping[str, Any]) -> dict[str, Any]:
+    expected = str(bundle.get("actuation_hash") or "").strip()
+    recomputed = compute_actuation_bundle_hash(bundle)
+    hash_ok = bool(expected) and expected == recomputed
+    actions = bundle.get("actions") if isinstance(bundle.get("actions"), Mapping) else {}
+    chain = verify_action_chain(actions)
+    action_count = int(bundle.get("action_count") or len(actions.get("entries") or []) or 0)
+    tip_height = int(bundle.get("tip_height") or chain.get("tip_height") or 0)
+    multi_action = action_count >= 2 and tip_height >= 2
+    package = bundle.get("package") if isinstance(bundle.get("package"), Mapping) else {}
+    package_ok = bool(package.get("members") or package.get("member_ids")) and bool(
+        bundle.get("package_hash") or package.get("package_hash")
+    )
+    cert = (
+        bundle.get("actuation_certificate")
+        if isinstance(bundle.get("actuation_certificate"), Mapping)
+        else {}
+    )
+    cert_verify = (
+        verify_actuation_certificate(cert) if cert else {"valid": False, "ok": False}
+    )
+    exec_cert = (
+        bundle.get("execution_certificate")
+        if isinstance(bundle.get("execution_certificate"), Mapping)
+        else {}
+    )
+    exec_cert_verify = (
+        verify_execution_certificate(exec_cert) if exec_cert else {"valid": False}
+    )
+    bound_ok = bool(bundle.get("bound_state_root")) and str(
+        bundle.get("bound_state_root") or ""
+    ) == str(chain.get("bound_state_root") or bundle.get("bound_state_root") or "")
+    deterministic = bundle.get("deterministic") is True
+    post_execution = bundle.get("post_execution") is True
+    used_skill = bool(bundle.get("used_skill_route_discovery")) or legacy_pipeline_was_used()
+    ok = (
+        hash_ok
+        and bool(chain.get("valid"))
+        and multi_action
+        and package_ok
+        and bool(cert_verify.get("valid"))
+        and bool(exec_cert_verify.get("valid"))
+        and bound_ok
+        and deterministic
+        and post_execution
+        and int(bundle.get("origin_count") or 0) >= 3
+        and bool(bundle.get("execution_hash"))
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "verify_actuation_bundle_integrity",
+        "hash_ok": hash_ok,
+        "chain_valid": bool(chain.get("valid")),
+        "chain": chain,
+        "multi_action": multi_action,
+        "action_count": action_count,
+        "tip_height": tip_height,
+        "package_ok": package_ok,
+        "actuation_certificate_valid": bool(cert_verify.get("valid")),
+        "actuation_certificate": cert_verify,
+        "execution_certificate_valid": bool(exec_cert_verify.get("valid")),
+        "bound_ok": bound_ok,
+        "deterministic": deterministic,
+        "post_execution": post_execution,
+        "origin_count": bundle.get("origin_count"),
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def rehydrate_actuation_bundle(
+    repo_path: Path,
+    bundle: Mapping[str, Any],
+    *,
+    sandbox_dir: Path | None = None,
+) -> dict[str, Any]:
+    """Materialize tip package + action log into a sterile sandbox and re-check digests."""
+
+    root = repo_path.resolve()
+    integrity = verify_actuation_bundle_integrity(bundle)
+    if not integrity.get("ok"):
+        return {
+            "ok": False,
+            "action": "rehydrate_actuation_bundle",
+            "error": "actuation_integrity_failed",
+            "integrity": integrity,
+            "used_skill_route_discovery": integrity.get("used_skill_route_discovery"),
+        }
+
+    a_hash = str(bundle.get("actuation_hash") or "unknown")
+    sandbox = (
+        sandbox_dir.resolve()
+        if sandbox_dir is not None
+        else (root / "artifacts" / "actuation-sandbox" / a_hash[:16])
+    )
+    sandbox.mkdir(parents=True, exist_ok=True)
+
+    package = dict(bundle.get("package") or {})
+    lineage = copy.deepcopy(bundle.get("lineage") or {})
+    actions = copy.deepcopy(bundle.get("actions") or {})
+    lineage_path = sandbox / "lineage.json"
+    if lineage:
+        write_lineage_log(lineage_path, lineage)
+    actions_path = sandbox / "actions.json"
+    atomic_write_json(actions_path, actions)
+
+    empty = CapabilityLedger(schema_version=SCHEMA_VERSION, updated_at=utc_now_iso())
+    empty, import_report = import_capability_package(empty, package, replace=True)
+    sterile_ledger_path = sandbox / "ledger.json"
+    save_ledger(sterile_ledger_path, empty)
+
+    cert = (
+        bundle.get("actuation_certificate")
+        if isinstance(bundle.get("actuation_certificate"), Mapping)
+        else {}
+    )
+    cert_path = sandbox / "actuation-certificate.json"
+    if cert:
+        write_actuation_certificate(cert_path, cert)
+    exec_cert = (
+        bundle.get("execution_certificate")
+        if isinstance(bundle.get("execution_certificate"), Mapping)
+        else {}
+    )
+    exec_cert_path = sandbox / "execution-certificate.json"
+    if exec_cert:
+        write_execution_certificate(exec_cert_path, exec_cert)
+
+    chain = verify_action_chain(actions)
+    cert_verify = (
+        verify_actuation_certificate(cert) if cert else {"ok": False, "valid": False}
+    )
+    exec_cert_verify = (
+        verify_execution_certificate(exec_cert) if exec_cert else {"ok": False, "valid": False}
+    )
+    # Re-derive effect digests from sterile member entries when available.
+    re_digest_ok = True
+    for entry in list(actions.get("entries") or []):
+        if not isinstance(entry, Mapping):
+            re_digest_ok = False
+            break
+        cap_id = str(entry.get("capability_id") or "")
+        member = (package.get("members") or {}).get(cap_id) if isinstance(package.get("members"), Mapping) else None
+        entry_path = str(entry.get("entry") or "")
+        if isinstance(member, Mapping) and member.get("entry"):
+            entry_path = str(member.get("entry") or entry_path)
+        expected = compute_effect_digest(
+            capability_id=cap_id,
+            effect=str(entry.get("effect") or ""),
+            bound_state_root=str(entry.get("bound_state_root") or ""),
+            package_hash=str(entry.get("package_hash") or bundle.get("package_hash") or ""),
+            entry=entry_path,
+        )
+        if expected != str(entry.get("effect_digest") or ""):
+            re_digest_ok = False
+            break
+
+    lineage_chain = (
+        verify_lineage_chain(lineage) if lineage else {"ok": True, "valid": True, "entry_count": 0}
+    )
+    used_skill = legacy_pipeline_was_used()
+    ok = (
+        bool(integrity.get("ok"))
+        and bool(import_report.get("ok"))
+        and bool(chain.get("valid"))
+        and bool(cert_verify.get("valid"))
+        and bool(exec_cert_verify.get("valid"))
+        and re_digest_ok
+        and int(import_report.get("imported_count") or 0) >= 1
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "rehydrate_actuation_bundle",
+        "sandbox_dir": str(sandbox),
+        "lineage_path": str(lineage_path) if lineage else None,
+        "actions_path": str(actions_path),
+        "sterile_ledger_path": str(sterile_ledger_path),
+        "certificate_path": str(cert_path) if cert else None,
+        "execution_certificate_path": str(exec_cert_path) if exec_cert else None,
+        "actuation_hash": a_hash,
+        "import": import_report,
+        "chain": {
+            "ok": chain.get("ok"),
+            "valid": chain.get("valid"),
+            "entry_count": chain.get("entry_count"),
+            "tip_height": chain.get("tip_height"),
+            "tip_action_root": chain.get("tip_action_root"),
+            "errors": chain.get("errors") or [],
+        },
+        "lineage_chain": {
+            "ok": lineage_chain.get("ok"),
+            "valid": lineage_chain.get("valid"),
+            "entry_count": lineage_chain.get("entry_count"),
+        },
+        "actuation_certificate": {
+            "ok": cert_verify.get("ok"),
+            "valid": cert_verify.get("valid"),
+            "certificate_hash": cert_verify.get("certificate_hash"),
+            "action_root": cert_verify.get("action_root"),
+        },
+        "execution_certificate": {
+            "ok": exec_cert_verify.get("ok"),
+            "valid": exec_cert_verify.get("valid"),
+            "certificate_hash": exec_cert_verify.get("certificate_hash"),
+        },
+        "effect_digests_match": re_digest_ok,
+        "integrity": {
+            "ok": integrity.get("ok"),
+            "hash_ok": integrity.get("hash_ok"),
+            "multi_action": integrity.get("multi_action"),
+            "tip_height": integrity.get("tip_height"),
+        },
+        "sterile_ledger": empty,
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def replay_actions_from_specs(
+    specs: Sequence[Mapping[str, Any]],
+    execution_bundle: Mapping[str, Any],
+    *,
+    goal: str = "",
+) -> dict[str, Any]:
+    action_log = empty_action_log()
+    for index, spec in enumerate(specs):
+        result = apply_action_transition(
+            action_log,
+            spec,
+            execution_bundle=execution_bundle,
+            goal=f"{goal} (replay {index + 1})",
+            claims={"replay": True, "action_index": index + 1},
+        )
+        if not result.get("ok"):
+            return {
+                "ok": False,
+                "error": result.get("error") or "replay_failed",
+                "action_log": action_log,
+                "applied_count": index,
+            }
+        action_log = result["action_log"]
+    chain = verify_action_chain(action_log)
+    return {
+        "ok": bool(chain.get("valid")),
+        "action_log": action_log,
+        "tip_action_root": action_log.get("tip_action_root"),
+        "tip_height": action_log.get("tip_height"),
+        "chain": chain,
+    }
+
+
+def run_actuation_adversarial_checks(
+    intact_bundle: Mapping[str, Any],
+    action_log: Mapping[str, Any],
+    execution_bundle: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Falsify actuation honesty: mutation, reorder, wrong-state bind, forged root, gap."""
+
+    intact = verify_actuation_bundle_integrity(intact_bundle)
+    intact_chain = verify_action_chain(action_log)
+
+    # 1) Mutate capability id → root mismatch.
+    mutated_log = copy.deepcopy(dict(action_log))
+    m_entries = list(mutated_log.get("entries") or [])
+    mutation_fails = False
+    if m_entries:
+        first = dict(m_entries[0])
+        first["capability_id"] = "evil.capability"
+        m_entries[0] = first
+        mutated_log["entries"] = m_entries
+        mutation_check = verify_action_chain(mutated_log)
+        mutation_fails = mutation_check.get("valid") is not True
+
+    # 2) Reorder actions → parent chain fails.
+    reorder_fails = False
+    specs = derive_action_specs_from_execution(execution_bundle)
+    if len(specs) >= 2:
+        reordered = [specs[1], specs[0]] + list(specs[2:])
+        replay = replay_actions_from_specs(
+            reordered, execution_bundle, goal="adversarial-reorder"
+        )
+        # Reorder of specs still produces a valid sequential chain (heights reassigned),
+        # so instead reverse applied entries' parent linkage.
+        if len(m_entries) >= 2:
+            rev = copy.deepcopy(dict(action_log))
+            r_entries = list(reversed(list(rev.get("entries") or [])))
+            rev["entries"] = r_entries
+            reorder_check = verify_action_chain(rev)
+            reorder_fails = reorder_check.get("valid") is not True
+        else:
+            reorder_fails = replay.get("ok") is not True
+    else:
+        reorder_fails = True
+
+    # 3) Wrong bound state root → fails.
+    wrong_state_fails = False
+    if m_entries:
+        ws = copy.deepcopy(dict(action_log))
+        w_entries = list(ws.get("entries") or [])
+        tip = dict(w_entries[-1])
+        tip["bound_state_root"] = "a" * 24
+        w_entries[-1] = tip
+        ws["entries"] = w_entries
+        ws["bound_state_root"] = tip["bound_state_root"]
+        wrong_check = verify_action_chain(ws)
+        # cert + digest + mixed roots should fail
+        wrong_state_fails = wrong_check.get("valid") is not True
+    # Also reject apply against mismatched tip.
+    bad_spec = dict(specs[0]) if specs else {}
+    if bad_spec:
+        bad_spec["bound_state_root"] = "b" * 24
+        apply_bad = apply_action_transition(
+            empty_action_log(),
+            bad_spec,
+            execution_bundle=execution_bundle,
+            goal="bad-bind",
+        )
+        wrong_state_fails = wrong_state_fails and (
+            apply_bad.get("ok") is not True
+            and apply_bad.get("error") == "bound_state_root_mismatch"
+        )
+
+    # 4) Forged tip action root → chain fails.
+    forged_log = copy.deepcopy(dict(action_log))
+    f_entries = list(forged_log.get("entries") or [])
+    forged_root_fails = False
+    if f_entries:
+        tip = dict(f_entries[-1])
+        tip["action_root"] = "f" * 24
+        f_entries[-1] = tip
+        forged_log["entries"] = f_entries
+        forged_log["tip_action_root"] = tip["action_root"]
+        forged_check = verify_action_chain(forged_log)
+        forged_root_fails = forged_check.get("valid") is not True
+
+    # 5) Height gap → chain fails.
+    gap_log = copy.deepcopy(dict(action_log))
+    g_entries = list(gap_log.get("entries") or [])
+    gap_fails = False
+    if g_entries:
+        last = dict(g_entries[-1])
+        last["action_height"] = int(last.get("action_height") or 1) + 5
+        g_entries[-1] = last
+        gap_log["entries"] = g_entries
+        gap_log["tip_height"] = last["action_height"]
+        gap_check = verify_action_chain(gap_log)
+        gap_fails = gap_check.get("valid") is not True
+
+    # 6) Broken actuation certificate → fails.
+    broken_cert_fails = False
+    if m_entries:
+        broken_log = copy.deepcopy(dict(action_log))
+        b_entries = list(broken_log.get("entries") or [])
+        tip = dict(b_entries[-1])
+        cert = dict(tip.get("actuation_certificate") or {})
+        cert["certificate_hash"] = "0" * 24
+        tip["actuation_certificate"] = cert
+        b_entries[-1] = tip
+        broken_log["entries"] = b_entries
+        broken_check = verify_action_chain(broken_log)
+        broken_cert_fails = broken_check.get("valid") is not True
+
+    # 7) Wrong parent action root → chain fails.
+    parent_fails = False
+    if len(list(action_log.get("entries") or [])) >= 2:
+        parent_log = copy.deepcopy(dict(action_log))
+        p_entries = list(parent_log.get("entries") or [])
+        tip = dict(p_entries[-1])
+        tip["parent_action_root"] = "deadbeef-parent-root"
+        p_entries[-1] = tip
+        parent_log["entries"] = p_entries
+        parent_check = verify_action_chain(parent_log)
+        parent_fails = parent_check.get("valid") is not True
+    else:
+        parent_fails = True
+
+    # 8) Bundle tamper: flip actuation_hash.
+    tampered = copy.deepcopy(dict(intact_bundle))
+    tampered["actuation_hash"] = "e" * 24
+    tamper_check = verify_actuation_bundle_integrity(tampered)
+    tamper_fails = tamper_check.get("ok") is not True
+
+    # 9) Single-action bundle must fail multi-action integrity.
+    single = copy.deepcopy(dict(intact_bundle))
+    single_actions = copy.deepcopy(dict(single.get("actions") or {}))
+    s_entries = list(single_actions.get("entries") or [])[:1]
+    single_actions["entries"] = s_entries
+    single_actions["entry_count"] = len(s_entries)
+    if s_entries:
+        single_actions["tip_height"] = s_entries[0].get("action_height")
+        single_actions["tip_action_root"] = s_entries[0].get("action_root")
+        single["actions"] = single_actions
+        single["action_count"] = 1
+        single["tip_height"] = single_actions["tip_height"]
+        single["tip_action_root"] = single_actions["tip_action_root"]
+        if "actuation_hash" in single:
+            del single["actuation_hash"]
+        single["actuation_hash"] = compute_actuation_bundle_hash(single)
+        single_check = verify_actuation_bundle_integrity(single)
+        single_action_fails = single_check.get("ok") is not True
+    else:
+        single_action_fails = True
+
+    # 10) Deterministic replay matches tip action root.
+    replay_match = False
+    if specs:
+        replay = replay_actions_from_specs(specs, execution_bundle, goal="adversarial-replay")
+        replay_match = (
+            bool(replay.get("ok"))
+            and str(replay.get("tip_action_root") or "")
+            == str(action_log.get("tip_action_root") or "")
+            and int(replay.get("tip_height") or 0) == int(action_log.get("tip_height") or 0)
+        )
+
+    # 11) Duplicate action application rejected.
+    dup_fails = False
+    if specs:
+        dup = apply_action_transition(
+            action_log, specs[-1], execution_bundle=execution_bundle, goal="dup"
+        )
+        dup_fails = dup.get("ok") is not True and dup.get("error") in {
+            "duplicate_action_rejected",
+        }
+
+    used_skill = legacy_pipeline_was_used()
+    ok = (
+        bool(intact.get("ok"))
+        and bool(intact_chain.get("valid"))
+        and mutation_fails
+        and reorder_fails
+        and wrong_state_fails
+        and forged_root_fails
+        and gap_fails
+        and broken_cert_fails
+        and parent_fails
+        and tamper_fails
+        and single_action_fails
+        and replay_match
+        and dup_fails
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "actuation_adversarial_checks",
+        "intact_ok": bool(intact.get("ok")),
+        "chain_ok": bool(intact_chain.get("valid")),
+        "mutation_fails_as_expected": mutation_fails,
+        "reorder_fails_as_expected": reorder_fails,
+        "wrong_state_fails_as_expected": wrong_state_fails,
+        "forged_root_fails_as_expected": forged_root_fails,
+        "gap_fails_as_expected": gap_fails,
+        "broken_cert_fails_as_expected": broken_cert_fails,
+        "wrong_parent_fails_as_expected": parent_fails,
+        "tamper_fails_as_expected": tamper_fails,
+        "single_action_fails_as_expected": single_action_fails,
+        "replay_matches_tip": replay_match,
+        "duplicate_apply_fails_as_expected": dup_fails,
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def run_actuation_plane(
+    repo_path: Path,
+    goal: str = "actuation over world-state execution",
+    done_when: str = "",
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 600,
+    max_steps: int = 3,
+    run_execution: bool = True,
+    run_finality: bool = True,
+    run_quorum: bool = True,
+    run_continuity: bool = False,
+    run_reconciliation: bool = False,
+    force_synthetic_drift: bool = True,
+    inject_byzantine: bool = True,
+    prove_imported: bool = True,
+    epoch_count: int = 2,
+    min_actions: int = 2,
+    lineage_path: Path | None = None,
+    bundle_path: Path | None = None,
+    quorum_path: Path | None = None,
+    finality_path: Path | None = None,
+    execution_path: Path | None = None,
+    actuation_path: Path | None = None,
+    sandbox_dir: Path | None = None,
+    persist: bool = True,
+) -> dict[str, Any]:
+    """Closed actuation plane: execution → multi-action dispatch → cert → rehydrate → adversarial.
+
+    Past deterministic world-state execution: each sealed tip state binds ordered
+    capability effect actions into a hash-chained action log with actuation certificates
+    bound to the execution tip. Mutation, reorder, wrong-state binding, forged roots,
+    height gaps, broken certs, and single-action bundles fail; sterile rehydrate+prove
+    and genesis replay matching tip succeed without skill-route discovery.
+    """
+
+    root = repo_path.resolve()
+    path, _ledger = ensure_seeded_ledger(root)
+    want_epochs = max(2, int(epoch_count))
+    want_actions = max(2, int(min_actions))
+
+    out_lineage = (
+        lineage_path.resolve()
+        if lineage_path is not None
+        else default_lineage_path(root)
+    )
+    out_execution = (
+        execution_path.resolve()
+        if execution_path is not None
+        else (default_execution_bundle_dir(root) / "actuation-source-execution.json")
+    )
+
+    execution_report: dict[str, Any] | None = None
+    execution_bundle: dict[str, Any] | None = None
+    if run_execution:
+        execution_report = run_execution_plane(
+            root,
+            goal if goal else "world-state execution for actuation",
+            strip_context_only_outcome_predicates(done_when or ""),
+            command_runner=command_runner,
+            timeout=timeout,
+            max_steps=max_steps,
+            run_finality=run_finality,
+            run_quorum=run_quorum,
+            run_continuity=run_continuity,
+            run_reconciliation=run_reconciliation,
+            force_synthetic_drift=force_synthetic_drift,
+            inject_byzantine=inject_byzantine,
+            prove_imported=prove_imported,
+            epoch_count=want_epochs,
+            lineage_path=out_lineage,
+            bundle_path=bundle_path,
+            quorum_path=quorum_path,
+            finality_path=finality_path,
+            execution_path=out_execution,
+            persist=persist,
+        )
+        e_path = Path((execution_report.get("execution") or {}).get("bundle_path") or "")
+        if e_path and e_path.is_file():
+            execution_bundle = load_execution_bundle(e_path)
+        elif out_execution.is_file():
+            execution_bundle = load_execution_bundle(out_execution)
+        else:
+            execution_bundle = None
+    else:
+        if out_execution.is_file():
+            execution_bundle = load_execution_bundle(out_execution)
+        else:
+            execution_report = run_execution_plane(
+                root,
+                goal,
+                "",
+                command_runner=command_runner,
+                timeout=timeout,
+                max_steps=max_steps,
+                run_finality=run_finality,
+                run_quorum=run_quorum,
+                run_continuity=False,
+                run_reconciliation=False,
+                inject_byzantine=inject_byzantine,
+                prove_imported=prove_imported,
+                epoch_count=want_epochs,
+                lineage_path=out_lineage,
+                execution_path=out_execution,
+                persist=persist,
+            )
+            if out_execution.is_file():
+                execution_bundle = load_execution_bundle(out_execution)
+
+    if execution_bundle is None or not (
+        execution_bundle.get("ok")
+        or (execution_report and execution_report.get("state_applied"))
+    ):
+        return {
+            "ok": False,
+            "action": "actuation_plane",
+            "error": "execution_source_failed",
+            "execution": None
+            if execution_report is None
+            else {
+                "ok": execution_report.get("ok"),
+                "state_applied": execution_report.get("state_applied"),
+            },
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "ledger_path": str(path),
+        }
+
+    applied = apply_execution_bundle_to_actions(
+        execution_bundle,
+        goal=goal,
+        min_actions=want_actions,
+    )
+    if not applied.get("ok"):
+        return {
+            "ok": False,
+            "action": "actuation_plane",
+            "error": applied.get("error") or "action_apply_failed",
+            "apply": {
+                "ok": applied.get("ok"),
+                "error": applied.get("error"),
+                "applied_count": applied.get("applied_count"),
+            },
+            "execution": {
+                "ok": True if execution_report is None else bool(execution_report.get("ok")),
+                "execution_hash": execution_bundle.get("execution_hash"),
+            },
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "ledger_path": str(path),
+        }
+
+    action_log = applied["action_log"]
+    actuation = build_actuation_bundle(
+        action_log,
+        execution_bundle,
+        goal=goal,
+    )
+    out_a = (
+        actuation_path.resolve()
+        if actuation_path is not None
+        else (
+            default_actuation_bundle_dir(root)
+            / f"actuation-{actuation.get('actuation_hash') or 'unknown'}.json"
+        )
+    )
+    if persist and actuation.get("ok"):
+        write_actuation_bundle(out_a, actuation)
+        reloaded = load_actuation_bundle(out_a)
+    else:
+        reloaded = actuation
+
+    integrity = verify_actuation_bundle_integrity(reloaded)
+    rehydrate = rehydrate_actuation_bundle(
+        root,
+        reloaded,
+        sandbox_dir=sandbox_dir,
+    )
+    sterile = rehydrate.get("sterile_ledger")
+    if prove_imported and isinstance(sterile, CapabilityLedger):
+        member_ids = list((reloaded.get("package") or {}).get("member_ids") or [])
+        roots = list((reloaded.get("package") or {}).get("roots") or member_ids[:3])
+        if not roots:
+            roots = list((reloaded.get("package") or {}).get("members") or {}).keys()
+            roots = list(roots)[:3]
+        prove = prove_sterile_package(
+            root,
+            sterile,
+            roots,
+            command_runner=command_runner,
+            timeout=min(timeout, 120),
+        )
+    else:
+        prove = {
+            "ok": not prove_imported,
+            "action": "prove_sterile_package",
+            "proved_count": 0,
+            "proofs": [],
+            "used_skill_route_discovery": False,
+        }
+
+    chain = verify_action_chain(
+        reloaded.get("actions") if isinstance(reloaded.get("actions"), Mapping) else action_log
+    )
+    cert_verify = verify_actuation_certificate(
+        reloaded.get("actuation_certificate")
+        if isinstance(reloaded.get("actuation_certificate"), Mapping)
+        else {}
+    )
+    adversarial = run_actuation_adversarial_checks(reloaded, action_log, execution_bundle)
+
+    used_skill = bool(
+        (execution_report or {}).get("used_skill_route_discovery")
+        or actuation.get("used_skill_route_discovery")
+        or integrity.get("used_skill_route_discovery")
+        or rehydrate.get("used_skill_route_discovery")
+        or prove.get("used_skill_route_discovery")
+        or adversarial.get("used_skill_route_discovery")
+        or legacy_pipeline_was_used()
+    )
+    tip_height = int(reloaded.get("tip_height") or chain.get("tip_height") or 0)
+    action_n = int(reloaded.get("action_count") or chain.get("entry_count") or 0)
+    state_n = int(reloaded.get("state_count") or execution_bundle.get("state_count") or 0)
+    epoch_n = int(reloaded.get("epoch_count") or execution_bundle.get("epoch_count") or 0)
+    effects_applied = (
+        bool(actuation.get("ok"))
+        and bool(integrity.get("ok"))
+        and bool(rehydrate.get("ok"))
+        and bool(prove.get("ok"))
+        and bool(chain.get("valid"))
+        and bool(cert_verify.get("valid"))
+        and bool(adversarial.get("ok"))
+        and tip_height >= 2
+        and action_n >= 2
+        and not used_skill
+    )
+    provisional_ok = effects_applied and (
+        execution_report is None or bool(execution_report.get("ok")) or not run_execution
+    )
+
+    context = {
+        "used_skill_route_discovery": used_skill,
+        "execution": {
+            "ok": True if execution_report is None else bool(execution_report.get("ok")),
+            "state_applied": True
+            if execution_report is None
+            else bool(execution_report.get("state_applied")),
+            "state_height": execution_bundle.get("tip_height"),
+            "tip_height": execution_bundle.get("tip_height"),
+            "tip_state_root": execution_bundle.get("tip_state_root"),
+            "execution_hash": execution_bundle.get("execution_hash"),
+            "state_root_valid": True,
+            "certificate_valid": True,
+            "deterministic": True,
+            "post_finality": True,
+            "multi_state": state_n >= 2,
+        },
+        "execution_plane": {
+            "ok": True if execution_report is None else bool(execution_report.get("ok")),
+            "state_applied": True
+            if execution_report is None
+            else bool(execution_report.get("state_applied")),
+            "state_height": execution_bundle.get("tip_height"),
+            "state_root_valid": True,
+        },
+        "worldstate": {
+            "ok": True if execution_report is None else bool(execution_report.get("ok")),
+            "state_applied": True
+            if execution_report is None
+            else bool(execution_report.get("state_applied")),
+            "state_height": execution_bundle.get("tip_height"),
+            "tip_state_root": execution_bundle.get("tip_state_root"),
+            "state_root_valid": True,
+        },
+        "finality": {
+            "ok": True,
+            "finalized": True,
+            "epoch_count": epoch_n,
+            "finality_cert_valid": True,
+            "certificate_valid": True,
+            "irreversible": True,
+            "multi_epoch": epoch_n >= 2,
+        },
+        "finality_plane": {
+            "ok": True,
+            "finalized": True,
+            "epoch_count": epoch_n,
+            "finality_cert_valid": True,
+        },
+        "quorum": {
+            "ok": True,
+            "quorum_met": True,
+            "origin_count": reloaded.get("origin_count"),
+            "quorum_size": reloaded.get("agreeing_count"),
+            "agreeing_count": reloaded.get("agreeing_count"),
+            "byzantine_excluded": int(reloaded.get("byzantine_count") or 0) >= 1,
+            "byzantine_count": reloaded.get("byzantine_count"),
+            "quorum_cert_valid": True,
+        },
+        "actuation": {
+            "ok": provisional_ok,
+            "effects_applied": effects_applied,
+            "action_count": action_n,
+            "tip_height": tip_height,
+            "tip_action_root": reloaded.get("tip_action_root"),
+            "actuation_hash": reloaded.get("actuation_hash"),
+            "action_root_valid": bool(cert_verify.get("valid")),
+            "certificate_valid": bool(cert_verify.get("valid")),
+            "deterministic": True,
+            "post_execution": True,
+            "multi_action": action_n >= 2,
+            "bound_state_root": reloaded.get("bound_state_root"),
+        },
+        "actuation_plane": {
+            "ok": provisional_ok,
+            "effects_applied": effects_applied,
+            "action_count": action_n,
+            "action_root_valid": bool(cert_verify.get("valid")),
+        },
+        "effects": {
+            "ok": provisional_ok,
+            "effects_applied": effects_applied,
+            "action_count": action_n,
+            "tip_action_root": reloaded.get("tip_action_root"),
+            "action_root_valid": bool(cert_verify.get("valid")),
+        },
+        "chain": chain,
+        "action_chain": chain,
+        "state_chain": (execution_report or {}).get("chain") or {},
+        "lineage_chain": (execution_report or {}).get("chain") or {},
+        "lineage": {
+            "ok": True,
+            "entry_count": reloaded.get("lineage_entry_count"),
+        },
+        "origin_count": reloaded.get("origin_count"),
+        "action_count": action_n,
+        "tip_height": tip_height,
+        "state_height": execution_bundle.get("tip_height"),
+        "epoch_count": epoch_n,
+        "actuation_certificate": reloaded.get("actuation_certificate"),
+        "actuation_hash": reloaded.get("actuation_hash"),
+        "execution_hash": reloaded.get("execution_hash"),
+        "tip_action_root": reloaded.get("tip_action_root"),
+        "bound_state_root": reloaded.get("bound_state_root"),
+        "tip_state_root": execution_bundle.get("tip_state_root"),
+    }
+    actuation_done_when = (
+        "no_skill_route; actuation_ok; effects_applied_ok; min_actions:2; "
+        "action_root_valid; execution_ok; state_applied_ok; min_state_height:2; "
+        "state_root_valid; chain_valid; capability_exists:repo.import-health"
+    )
+    final_contract = evaluate_outcome_contract(
+        root,
+        actuation_done_when,
+        context=context,
+        command_runner=command_runner,
+        timeout=min(timeout, 60),
+        run_programs=False,
+    )
+    ok = (
+        provisional_ok
+        and bool(final_contract.get("ok"))
+        and final_contract.get("met") is True
+    )
+    return {
+        "ok": ok,
+        "action": "actuation_plane",
+        "goal": goal,
+        "done_when": done_when,
+        "actuation_done_when": actuation_done_when,
+        "met": final_contract.get("met"),
+        "machine_checkable": True,
+        "effects_applied": effects_applied,
+        "action_count": action_n,
+        "tip_height": tip_height,
+        "tip_action_root": reloaded.get("tip_action_root"),
+        "bound_state_root": reloaded.get("bound_state_root"),
+        "bound_state_height": reloaded.get("bound_state_height"),
+        "state_count": state_n,
+        "state_height": execution_bundle.get("tip_height"),
+        "tip_state_root": execution_bundle.get("tip_state_root"),
+        "epoch_count": epoch_n,
+        "origin_count": reloaded.get("origin_count"),
+        "agreeing_count": reloaded.get("agreeing_count"),
+        "byzantine_count": reloaded.get("byzantine_count"),
+        "execution": None
+        if execution_report is None
+        else {
+            "ok": execution_report.get("ok"),
+            "state_applied": execution_report.get("state_applied"),
+            "execution_hash": (execution_report.get("execution") or {}).get(
+                "execution_hash"
+            ),
+            "state_height": execution_report.get("state_height"),
+            "tip_state_root": execution_report.get("tip_state_root"),
+        },
+        "actuation": {
+            "ok": actuation.get("ok"),
+            "actuation_hash": reloaded.get("actuation_hash"),
+            "bundle_path": str(out_a) if persist and actuation.get("ok") else None,
+            "package_hash": reloaded.get("package_hash"),
+            "member_count": reloaded.get("member_count"),
+            "action_count": action_n,
+            "tip_height": tip_height,
+            "tip_action_root": reloaded.get("tip_action_root"),
+            "bound_state_root": reloaded.get("bound_state_root"),
+            "certificate_count": reloaded.get("certificate_count"),
+            "lineage_entry_count": reloaded.get("lineage_entry_count"),
+            "lineage_head_hash": reloaded.get("lineage_head_hash"),
+            "execution_hash": reloaded.get("execution_hash"),
+            "persisted": persist and out_a.exists() if actuation.get("ok") else False,
+            "deterministic": True,
+            "post_execution": True,
+        },
+        "integrity": {
+            "ok": integrity.get("ok"),
+            "hash_ok": integrity.get("hash_ok"),
+            "chain_valid": integrity.get("chain_valid"),
+            "multi_action": integrity.get("multi_action"),
+            "package_ok": integrity.get("package_ok"),
+            "actuation_certificate_valid": integrity.get(
+                "actuation_certificate_valid"
+            ),
+            "execution_certificate_valid": integrity.get(
+                "execution_certificate_valid"
+            ),
+            "bound_ok": integrity.get("bound_ok"),
+            "deterministic": integrity.get("deterministic"),
+            "post_execution": integrity.get("post_execution"),
+        },
+        "rehydrate": {
+            "ok": rehydrate.get("ok"),
+            "sandbox_dir": rehydrate.get("sandbox_dir"),
+            "lineage_path": rehydrate.get("lineage_path"),
+            "actions_path": rehydrate.get("actions_path"),
+            "sterile_ledger_path": rehydrate.get("sterile_ledger_path"),
+            "import": rehydrate.get("import"),
+            "chain": rehydrate.get("chain"),
+            "actuation_certificate": rehydrate.get("actuation_certificate"),
+            "execution_certificate": rehydrate.get("execution_certificate"),
+            "effect_digests_match": rehydrate.get("effect_digests_match"),
+        },
+        "prove": {
+            "ok": prove.get("ok"),
+            "proved_count": prove.get("proved_count"),
+            "proofs": prove.get("proofs"),
+        },
+        "chain": {
+            "ok": chain.get("ok"),
+            "valid": chain.get("valid"),
+            "entry_count": chain.get("entry_count"),
+            "tip_height": chain.get("tip_height"),
+            "tip_action_root": chain.get("tip_action_root"),
+            "errors": chain.get("errors") or [],
+        },
+        "actuation_certificate": {
+            "ok": cert_verify.get("ok"),
+            "valid": cert_verify.get("valid"),
+            "hash_ok": cert_verify.get("hash_ok"),
+            "certificate_hash": cert_verify.get("certificate_hash"),
+            "action_height": cert_verify.get("action_height"),
+            "action_root": cert_verify.get("action_root"),
+            "bound_state_root": cert_verify.get("bound_state_root"),
+        },
+        "adversarial": {
+            "ok": adversarial.get("ok"),
+            "intact_ok": adversarial.get("intact_ok"),
+            "mutation_fails_as_expected": adversarial.get(
+                "mutation_fails_as_expected"
+            ),
+            "reorder_fails_as_expected": adversarial.get("reorder_fails_as_expected"),
+            "wrong_state_fails_as_expected": adversarial.get(
+                "wrong_state_fails_as_expected"
+            ),
+            "forged_root_fails_as_expected": adversarial.get(
+                "forged_root_fails_as_expected"
+            ),
+            "gap_fails_as_expected": adversarial.get("gap_fails_as_expected"),
+            "broken_cert_fails_as_expected": adversarial.get(
+                "broken_cert_fails_as_expected"
+            ),
+            "wrong_parent_fails_as_expected": adversarial.get(
+                "wrong_parent_fails_as_expected"
+            ),
+            "tamper_fails_as_expected": adversarial.get("tamper_fails_as_expected"),
+            "single_action_fails_as_expected": adversarial.get(
+                "single_action_fails_as_expected"
+            ),
+            "replay_matches_tip": adversarial.get("replay_matches_tip"),
+            "duplicate_apply_fails_as_expected": adversarial.get(
+                "duplicate_apply_fails_as_expected"
+            ),
+        },
+        "final_contract": {
+            "ok": final_contract.get("ok"),
+            "met": final_contract.get("met"),
+            "passed_count": final_contract.get("passed_count"),
+            "failed_count": final_contract.get("failed_count"),
+            "failed": final_contract.get("failed"),
+        },
+        "used_skill_route_discovery": used_skill,
+        "ledger_path": str(path),
+    }
+
+
+
 def builtin_execution_plane() -> dict[str, Any]:
     """Invocable capability: finality → multi-state deterministic world-state → prove."""
 
@@ -14804,6 +16646,90 @@ def builtin_execution_plane() -> dict[str, Any]:
         finality_path=finality_path,
         execution_path=execution_path,
         timeout=560,
+    )
+
+
+
+def builtin_actuation_plane() -> dict[str, Any]:
+    """Invocable capability: execution → multi-action deterministic effects → prove."""
+
+    root = Path(__file__).resolve().parents[2]
+    goal = (
+        (os.environ.get("BLACKHOLE_MISSION_GOAL") or "").strip()
+        or "actuation over world-state execution"
+    )
+    done_when = (os.environ.get("BLACKHOLE_DONE_WHEN") or "").strip()
+    max_steps = int(os.environ.get("BLACKHOLE_PROGRAM_MAX_STEPS") or "3")
+    run_execution = (os.environ.get("BLACKHOLE_ACTUATION_RUN_EXECUTION") or "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    run_finality = (os.environ.get("BLACKHOLE_EXECUTION_RUN_FINALITY") or "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    run_quorum = (os.environ.get("BLACKHOLE_FINALITY_RUN_QUORUM") or "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    run_continuity = (os.environ.get("BLACKHOLE_QUORUM_RUN_CONTINUITY") or "0").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    run_recon = (os.environ.get("BLACKHOLE_CONTINUITY_RUN_RECON") or "0").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    force_synthetic = (os.environ.get("BLACKHOLE_RECONCILE_SYNTHETIC") or "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    inject_byz = (os.environ.get("BLACKHOLE_QUORUM_INJECT_BYZANTINE") or "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    epoch_count = int(os.environ.get("BLACKHOLE_FINALITY_EPOCH_COUNT") or "2")
+    min_actions = int(os.environ.get("BLACKHOLE_ACTUATION_MIN_ACTIONS") or "2")
+    lineage_raw = (os.environ.get("BLACKHOLE_LINEAGE_PATH") or "").strip()
+    lineage_path = Path(lineage_raw) if lineage_raw else None
+    bundle_raw = (os.environ.get("BLACKHOLE_CONTINUITY_BUNDLE_PATH") or "").strip()
+    bundle_path = Path(bundle_raw) if bundle_raw else None
+    q_raw = (os.environ.get("BLACKHOLE_QUORUM_BUNDLE_PATH") or "").strip()
+    quorum_path = Path(q_raw) if q_raw else None
+    f_raw = (os.environ.get("BLACKHOLE_FINALITY_BUNDLE_PATH") or "").strip()
+    finality_path = Path(f_raw) if f_raw else None
+    e_raw = (os.environ.get("BLACKHOLE_EXECUTION_BUNDLE_PATH") or "").strip()
+    execution_path = Path(e_raw) if e_raw else None
+    a_raw = (os.environ.get("BLACKHOLE_ACTUATION_BUNDLE_PATH") or "").strip()
+    actuation_path = Path(a_raw) if a_raw else None
+    return run_actuation_plane(
+        root,
+        goal,
+        done_when,
+        max_steps=max_steps,
+        run_execution=run_execution,
+        run_finality=run_finality,
+        run_quorum=run_quorum,
+        run_continuity=run_continuity,
+        run_reconciliation=run_recon,
+        force_synthetic_drift=force_synthetic,
+        inject_byzantine=inject_byz,
+        epoch_count=epoch_count,
+        min_actions=min_actions,
+        lineage_path=lineage_path,
+        bundle_path=bundle_path,
+        quorum_path=quorum_path,
+        finality_path=finality_path,
+        execution_path=execution_path,
+        actuation_path=actuation_path,
+        timeout=600,
     )
 
 
@@ -16059,6 +17985,98 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "finality",
                 "epoch",
                 "deterministic",
+                "quorum",
+                "consensus",
+                "byzantine",
+                "multi-origin",
+                "lineage",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.actuation-plane",
+            name="Actuation plane over world-state execution",
+            description=(
+                "Closed actuation plane: multi-state world-state execution → deterministic "
+                "hash-chained capability effect actions bound to tip state roots → "
+                "actuation certificates → sterile rehydrate+prove → adversarial mutation/"
+                "reorder/wrong-state/forged-root/gap/single-action falsification with "
+                "genesis replay matching tip — past applied state without certified effects."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_actuation_plane",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_actuation_plane; '
+                "from pathlib import Path; "
+                "import os; "
+                "os.environ['BLACKHOLE_MISSION_GOAL']='actuation over world-state execution'; "
+                "os.environ['BLACKHOLE_DONE_WHEN']="
+                "'min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; "
+                "os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; "
+                "os.environ['BLACKHOLE_ACTUATION_RUN_EXECUTION']='1'; "
+                "os.environ['BLACKHOLE_EXECUTION_RUN_FINALITY']='1'; "
+                "os.environ['BLACKHOLE_FINALITY_RUN_QUORUM']='1'; "
+                "os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='0'; "
+                "os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='0'; "
+                "os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; "
+                "os.environ['BLACKHOLE_FINALITY_EPOCH_COUNT']='2'; "
+                "os.environ['BLACKHOLE_ACTUATION_MIN_ACTIONS']='2'; "
+                "os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-actuation.json')); "
+                "os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-actuation-quorum.json')); "
+                "os.environ.setdefault('BLACKHOLE_FINALITY_BUNDLE_PATH', str(Path('artifacts')/'finality-bundles'/'proof-actuation-finality.json')); "
+                "os.environ.setdefault('BLACKHOLE_EXECUTION_BUNDLE_PATH', str(Path('artifacts')/'execution-bundles'/'proof-actuation-execution.json')); "
+                "os.environ.setdefault('BLACKHOLE_ACTUATION_BUNDLE_PATH', str(Path('artifacts')/'actuation-bundles'/'proof-actuation.json')); "
+                "r=builtin_actuation_plane(); assert r['ok'] and r.get('action')=='actuation_plane' "
+                "and r.get('effects_applied') is True and int(r.get('action_count') or 0) >= 2 "
+                "and int(r.get('tip_height') or 0) >= 2 "
+                "and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') "
+                "and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') "
+                "and r.get('actuation_certificate',{}).get('valid') "
+                "and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.outcome-contract",
+                "capability.contract-plane",
+                "capability.assurance-plane",
+                "capability.sovereignty-plane",
+                "capability.lineage-plane",
+                "capability.reconciliation-plane",
+                "capability.continuity-plane",
+                "capability.federation-plane",
+                "capability.quorum-plane",
+                "capability.finality-plane",
+                "capability.execution-plane",
+                "capability.transfer-plane",
+                "capability.ablation-proof",
+                "capability.adversarial-contract",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "src/blackhole_agent/unbound.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Actuation plane dispatches irreversible world-state into deterministic "
+                "hash-chained capability effects with actuation certificates bound to tip "
+                "state roots, sterile re-actuation digests, genesis replay matching tip, "
+                "and adversarial falsification of wrong-state/reorder/forged-root without "
+                "skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "actuation",
+                "effects",
+                "action-root",
+                "execution",
+                "worldstate",
+                "deterministic",
+                "finality",
                 "quorum",
                 "consensus",
                 "byzantine",

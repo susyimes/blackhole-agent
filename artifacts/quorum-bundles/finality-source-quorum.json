@@ -11,52 +11,6 @@
   ],
   "certificate_count": 46,
   "certificates": {
-    "0606439ae0045c9fabb36297": {
-      "certificate_hash": "0606439ae0045c9fabb36297",
-      "certificate_path": "artifacts/quorum-bundles/quorum-certificate.json",
-      "origin_id": "quorum",
-      "payload": {
-        "agreeing_count": 2,
-        "agreeing_origins": [
-          "origin-a",
-          "origin-b"
-        ],
-        "byzantine_count": 1,
-        "byzantine_origins": [
-          "origin-byzantine"
-        ],
-        "certificate_hash": "0606439ae0045c9fabb36297",
-        "claims": {
-          "origin_ids": [
-            "origin-a",
-            "origin-b",
-            "origin-byzantine"
-          ],
-          "roots": [
-            "repo.import-health",
-            "capability.ledger-inventory",
-            "unbound.milestone-gate"
-          ],
-          "votes_accepted": 3
-        },
-        "goal": "Build a deterministic world-state execution plane that materializes irreversible multi-epoch finality into hash-chained state transitions with re-verifiable execution certificates, sterile rehydrate+prove, genesis-replay tip match, and adversarial falsification of post-finality mutation/reorder/forged-root attacks — without skill-route.",
-        "issued_at": "2026-07-29T17:12:35.379191Z",
-        "kind": "quorum_certificate",
-        "lineage_head_hash": "2b7ad1615fc11d3b824b0fd5",
-        "member_count": 3,
-        "ok": true,
-        "origin_count": 3,
-        "origin_hashes": [
-          "3fb1b5e8976091e15f150eb3",
-          "244f2d5a94c0ae8b37c495e2",
-          "592be7bab63af7dbe5ed7aa9"
-        ],
-        "package_hash": "066545df3053adf5",
-        "schema_version": 1,
-        "threshold": 2,
-        "used_skill_route_discovery": false
-      }
-    },
     "085bf6317cab0eb6fba382ea": {
       "certificate_hash": "085bf6317cab0eb6fba382ea",
       "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T134211Z-d3e39855\\artifacts\\sovereignty-certificates\\sovereignty-085bf6317cab0eb6fba382ea.json",
@@ -250,6 +204,52 @@
         "package_hash": "7878a785b9718369",
         "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T134211Z-d3e39855",
         "schema_version": 1
+      }
+    },
+    "16b3b62476ca29084c8f133f": {
+      "certificate_hash": "16b3b62476ca29084c8f133f",
+      "certificate_path": "artifacts/quorum-bundles/quorum-certificate.json",
+      "origin_id": "quorum",
+      "payload": {
+        "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "byzantine_count": 1,
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "certificate_hash": "16b3b62476ca29084c8f133f",
+        "claims": {
+          "origin_ids": [
+            "origin-a",
+            "origin-b",
+            "origin-byzantine"
+          ],
+          "roots": [
+            "repo.import-health",
+            "capability.ledger-inventory",
+            "unbound.milestone-gate"
+          ],
+          "votes_accepted": 3
+        },
+        "goal": "Build a closed actuation plane over world-state execution: sealed tip state roots dispatch deterministic hash-chained capability effects with actuation certificates, sterile rehydrate+prove, and adversarial falsification of wrong-state binding/reorder/forged action roots without skill-route discovery.",
+        "issued_at": "2026-07-29T17:52:13.406129Z",
+        "kind": "quorum_certificate",
+        "lineage_head_hash": "7bef2c95a1b8313bd732d471",
+        "member_count": 3,
+        "ok": true,
+        "origin_count": 3,
+        "origin_hashes": [
+          "f716a3b871ebec458813c277",
+          "d38f8480a84d6c536603c5a2",
+          "4683b75239c06a2190210584"
+        ],
+        "package_hash": "066545df3053adf5",
+        "schema_version": 1,
+        "threshold": 2,
+        "used_skill_route_discovery": false
       }
     },
     "1d152a213db42ecbcc099340": {
@@ -1289,25 +1289,6 @@
         "ok": true,
         "package_hash": "7878a785b9718369",
         "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T134211Z-d3e39855",
-        "schema_version": 1
-      }
-    },
-    "68b5e6fa50d163b00723e524": {
-      "certificate_hash": "68b5e6fa50d163b00723e524",
-      "certificate_path": "artifacts/federation-origins/origin-b-attest.json",
-      "origin_id": "origin-b",
-      "payload": {
-        "certificate_hash": "68b5e6fa50d163b00723e524",
-        "issued_at": "2026-07-29T17:12:35.371485Z",
-        "kind": "federation_origin_attestation",
-        "lineage_head_hash": "d4db24e71047c2b7d676960c",
-        "member_count": 2,
-        "origin_id": "origin-b",
-        "package_hash": "8ece9182045d973a",
-        "roots": [
-          "repo.import-health",
-          "capability.ledger-inventory"
-        ],
         "schema_version": 1
       }
     },
@@ -2546,6 +2527,25 @@
         "schema_version": 1
       }
     },
+    "deb8b32cf56a93f681d224b0": {
+      "certificate_hash": "deb8b32cf56a93f681d224b0",
+      "certificate_path": "artifacts/federation-origins/origin-b-attest.json",
+      "origin_id": "origin-b",
+      "payload": {
+        "certificate_hash": "deb8b32cf56a93f681d224b0",
+        "issued_at": "2026-07-29T17:52:13.392048Z",
+        "kind": "federation_origin_attestation",
+        "lineage_head_hash": "ba15588181bc1ed83372a354",
+        "member_count": 2,
+        "origin_id": "origin-b",
+        "package_hash": "8ece9182045d973a",
+        "roots": [
+          "repo.import-health",
+          "capability.ledger-inventory"
+        ],
+        "schema_version": 1
+      }
+    },
     "df10637d62001d0e21508590": {
       "certificate_hash": "df10637d62001d0e21508590",
       "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T162316Z-43482865\\artifacts\\sovereignty-certificates\\sovereignty-df10637d62001d0e21508590.json",
@@ -2608,26 +2608,6 @@
         "ok": true,
         "package_hash": "7878a785b9718369",
         "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T162316Z-43482865",
-        "schema_version": 1
-      }
-    },
-    "df38f2cd0b64e97b7eeb456e": {
-      "certificate_hash": "df38f2cd0b64e97b7eeb456e",
-      "certificate_path": "artifacts/federation-origins/origin-c-attest.json",
-      "origin_id": "origin-byzantine",
-      "payload": {
-        "certificate_hash": "df38f2cd0b64e97b7eeb456e",
-        "issued_at": "2026-07-29T17:12:35.378565Z",
-        "kind": "federation_origin_attestation",
-        "lineage_head_hash": "1f312898d064b1f8ffb97e94",
-        "member_count": 3,
-        "origin_id": "origin-c",
-        "package_hash": "7878a785b9718369",
-        "roots": [
-          "repo.import-health",
-          "capability.ledger-inventory",
-          "unbound.milestone-gate"
-        ],
         "schema_version": 1
       }
     },
@@ -2890,9 +2870,29 @@
         "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T101624Z-884205ef",
         "schema_version": 1
       }
+    },
+    "f1a15d64c2824340fcf7b654": {
+      "certificate_hash": "f1a15d64c2824340fcf7b654",
+      "certificate_path": "artifacts/federation-origins/origin-c-attest.json",
+      "origin_id": "origin-byzantine",
+      "payload": {
+        "certificate_hash": "f1a15d64c2824340fcf7b654",
+        "issued_at": "2026-07-29T17:52:13.404657Z",
+        "kind": "federation_origin_attestation",
+        "lineage_head_hash": "f9ae51c2e9b6b96919681194",
+        "member_count": 3,
+        "origin_id": "origin-c",
+        "package_hash": "7878a785b9718369",
+        "roots": [
+          "repo.import-health",
+          "capability.ledger-inventory",
+          "unbound.milestone-gate"
+        ],
+        "schema_version": 1
+      }
     }
   },
-  "goal": "Build a deterministic world-state execution plane that materializes irreversible multi-epoch finality into hash-chained state transitions with re-verifiable execution certificates, sterile rehydrate+prove, genesis-replay tip match, and adversarial falsification of post-finality mutation/reorder/forged-root attacks — without skill-route.",
+  "goal": "Build a closed actuation plane over world-state execution: sealed tip state roots dispatch deterministic hash-chained capability effects with actuation certificates, sterile rehydrate+prove, and adversarial falsification of wrong-state binding/reorder/forged action roots without skill-route discovery.",
   "kind": "quorum_bundle",
   "lineage": {
     "entries": [
@@ -2911,7 +2911,7 @@
         "detail": {
           "origins": [
             {
-              "bundle_hash": "3fb1b5e8976091e15f150eb3",
+              "bundle_hash": "f716a3b871ebec458813c277",
               "byzantine": false,
               "lineage_entry_count": 109,
               "lineage_head_hash": "36be4f0e21387e45f69bff6d",
@@ -2920,30 +2920,30 @@
               "package_hash": "7878a785b9718369"
             },
             {
-              "bundle_hash": "244f2d5a94c0ae8b37c495e2",
+              "bundle_hash": "d38f8480a84d6c536603c5a2",
               "byzantine": false,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "d4db24e71047c2b7d676960c",
+              "lineage_head_hash": "ba15588181bc1ed83372a354",
               "member_count": 2,
               "origin_id": "origin-b",
               "package_hash": "8ece9182045d973a"
             },
             {
-              "bundle_hash": "592be7bab63af7dbe5ed7aa9",
+              "bundle_hash": "4683b75239c06a2190210584",
               "byzantine": true,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "1f312898d064b1f8ffb97e94",
+              "lineage_head_hash": "f9ae51c2e9b6b96919681194",
               "member_count": 3,
               "origin_id": "origin-byzantine",
               "package_hash": "7d88f7661e8407af"
             }
           ]
         },
-        "entry_hash": "51dfb9e3c18007711eb77389",
+        "entry_hash": "ad69b4ec0508a43a439b61e9",
         "entry_kind": "quorum_origin_manifest",
-        "goal": "Build a deterministic world-state execution plane that materializes irreversible multi-epoch finality into hash-chained state transitions with re-verifiable execution certificates, sterile rehydrate+prove, genesis-replay tip match, and adversarial falsification of post-finality mutation/reorder/forged-root attacks — without skill-route.",
+        "goal": "Build a closed actuation plane over world-state execution: sealed tip state roots dispatch deterministic hash-chained capability effects with actuation certificates, sterile rehydrate+prove, and adversarial falsification of wrong-state binding/reorder/forged action roots without skill-route discovery.",
         "index": 0,
-        "issued_at": "2026-07-29T17:12:35.378989Z",
+        "issued_at": "2026-07-29T17:52:13.405710Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -2968,15 +2968,15 @@
         "detail": {
           "origin_heads": [
             "36be4f0e21387e45f69bff6d",
-            "d4db24e71047c2b7d676960c",
-            "1f312898d064b1f8ffb97e94"
+            "ba15588181bc1ed83372a354",
+            "f9ae51c2e9b6b96919681194"
           ]
         },
-        "entry_hash": "50d29b48330484edf26719f2",
+        "entry_hash": "73da3febfaedcf7916793485",
         "entry_kind": "quorum_vote",
-        "goal": "Build a deterministic world-state execution plane that materializes irreversible multi-epoch finality into hash-chained state transitions with re-verifiable execution certificates, sterile rehydrate+prove, genesis-replay tip match, and adversarial falsification of post-finality mutation/reorder/forged-root attacks — without skill-route.",
+        "goal": "Build a closed actuation plane over world-state execution: sealed tip state roots dispatch deterministic hash-chained capability effects with actuation certificates, sterile rehydrate+prove, and adversarial falsification of wrong-state binding/reorder/forged action roots without skill-route discovery.",
         "index": 1,
-        "issued_at": "2026-07-29T17:12:35.379032Z",
+        "issued_at": "2026-07-29T17:52:13.405795Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -2984,7 +2984,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "51dfb9e3c18007711eb77389"
+        "parent_hash": "ad69b4ec0508a43a439b61e9"
       },
       {
         "certificate_hash": "",
@@ -3001,11 +3001,11 @@
             "origin-byzantine"
           ]
         },
-        "entry_hash": "c6499020eb276cdf0e1c7d46",
+        "entry_hash": "ec2127b95ef8233279579881",
         "entry_kind": "quorum_byzantine_exclude",
-        "goal": "Build a deterministic world-state execution plane that materializes irreversible multi-epoch finality into hash-chained state transitions with re-verifiable execution certificates, sterile rehydrate+prove, genesis-replay tip match, and adversarial falsification of post-finality mutation/reorder/forged-root attacks — without skill-route.",
+        "goal": "Build a closed actuation plane over world-state execution: sealed tip state roots dispatch deterministic hash-chained capability effects with actuation certificates, sterile rehydrate+prove, and adversarial falsification of wrong-state binding/reorder/forged action roots without skill-route discovery.",
         "index": 2,
-        "issued_at": "2026-07-29T17:12:35.379048Z",
+        "issued_at": "2026-07-29T17:52:13.405840Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -3013,7 +3013,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "50d29b48330484edf26719f2"
+        "parent_hash": "73da3febfaedcf7916793485"
       },
       {
         "certificate_hash": "",
@@ -3033,16 +3033,16 @@
             "origin-byzantine"
           ],
           "origin_bundle_hashes": [
-            "3fb1b5e8976091e15f150eb3",
-            "244f2d5a94c0ae8b37c495e2",
-            "592be7bab63af7dbe5ed7aa9"
+            "f716a3b871ebec458813c277",
+            "d38f8480a84d6c536603c5a2",
+            "4683b75239c06a2190210584"
           ]
         },
-        "entry_hash": "2b7ad1615fc11d3b824b0fd5",
+        "entry_hash": "7bef2c95a1b8313bd732d471",
         "entry_kind": "quorum_seal",
-        "goal": "Build a deterministic world-state execution plane that materializes irreversible multi-epoch finality into hash-chained state transitions with re-verifiable execution certificates, sterile rehydrate+prove, genesis-replay tip match, and adversarial falsification of post-finality mutation/reorder/forged-root attacks — without skill-route.",
+        "goal": "Build a closed actuation plane over world-state execution: sealed tip state roots dispatch deterministic hash-chained capability effects with actuation certificates, sterile rehydrate+prove, and adversarial falsification of wrong-state binding/reorder/forged action roots without skill-route discovery.",
         "index": 3,
-        "issued_at": "2026-07-29T17:12:35.379063Z",
+        "issued_at": "2026-07-29T17:52:13.405864Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -3050,23 +3050,23 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "c6499020eb276cdf0e1c7d46"
+        "parent_hash": "ec2127b95ef8233279579881"
       }
     ],
     "entry_count": 4,
-    "head_hash": "2b7ad1615fc11d3b824b0fd5",
+    "head_hash": "7bef2c95a1b8313bd732d471",
     "kind": "capability_lineage",
     "schema_version": 1,
-    "updated_at": "2026-07-29T17:12:35.379076Z"
+    "updated_at": "2026-07-29T17:52:13.405883Z"
   },
   "lineage_entry_count": 4,
-  "lineage_head_hash": "2b7ad1615fc11d3b824b0fd5",
+  "lineage_head_hash": "7bef2c95a1b8313bd732d471",
   "member_count": 3,
   "ok": true,
   "origin_count": 3,
   "origins": [
     {
-      "bundle_hash": "3fb1b5e8976091e15f150eb3",
+      "bundle_hash": "f716a3b871ebec458813c277",
       "byzantine": false,
       "lineage_head_hash": "36be4f0e21387e45f69bff6d",
       "member_count": 3,
@@ -3074,17 +3074,17 @@
       "package_hash": "7878a785b9718369"
     },
     {
-      "bundle_hash": "244f2d5a94c0ae8b37c495e2",
+      "bundle_hash": "d38f8480a84d6c536603c5a2",
       "byzantine": false,
-      "lineage_head_hash": "d4db24e71047c2b7d676960c",
+      "lineage_head_hash": "ba15588181bc1ed83372a354",
       "member_count": 2,
       "origin_id": "origin-b",
       "package_hash": "8ece9182045d973a"
     },
     {
-      "bundle_hash": "592be7bab63af7dbe5ed7aa9",
+      "bundle_hash": "4683b75239c06a2190210584",
       "byzantine": true,
-      "lineage_head_hash": "1f312898d064b1f8ffb97e94",
+      "lineage_head_hash": "f9ae51c2e9b6b96919681194",
       "member_count": 3,
       "origin_id": "origin-byzantine",
       "package_hash": "7d88f7661e8407af"
@@ -3099,7 +3099,7 @@
     "byzantine_origins": [
       "origin-byzantine"
     ],
-    "exported_at": "2026-07-29T17:12:35.378958Z",
+    "exported_at": "2026-07-29T17:52:13.405606Z",
     "federated": true,
     "member_count": 3,
     "member_ids": [
@@ -3145,7 +3145,7 @@
           "bootstrap",
           "compounder"
         ],
-        "updated_at": "2026-07-29T17:12:35.348292Z"
+        "updated_at": "2026-07-29T17:52:13.336125Z"
       },
       "repo.import-health": {
         "behavior_paths": [
@@ -3169,7 +3169,7 @@
           "bootstrap",
           "health"
         ],
-        "updated_at": "2026-07-29T17:12:35.348165Z"
+        "updated_at": "2026-07-29T17:52:13.335922Z"
       },
       "unbound.milestone-gate": {
         "behavior_paths": [
@@ -3194,7 +3194,7 @@
           "bootstrap",
           "unbound"
         ],
-        "updated_at": "2026-07-29T17:12:35.348235Z"
+        "updated_at": "2026-07-29T17:52:13.336012Z"
       }
     },
     "ok": true,
@@ -3221,7 +3221,7 @@
     "byzantine_origins": [
       "origin-byzantine"
     ],
-    "certificate_hash": "0606439ae0045c9fabb36297",
+    "certificate_hash": "16b3b62476ca29084c8f133f",
     "claims": {
       "origin_ids": [
         "origin-a",
@@ -3235,24 +3235,24 @@
       ],
       "votes_accepted": 3
     },
-    "goal": "Build a deterministic world-state execution plane that materializes irreversible multi-epoch finality into hash-chained state transitions with re-verifiable execution certificates, sterile rehydrate+prove, genesis-replay tip match, and adversarial falsification of post-finality mutation/reorder/forged-root attacks — without skill-route.",
-    "issued_at": "2026-07-29T17:12:35.379191Z",
+    "goal": "Build a closed actuation plane over world-state execution: sealed tip state roots dispatch deterministic hash-chained capability effects with actuation certificates, sterile rehydrate+prove, and adversarial falsification of wrong-state binding/reorder/forged action roots without skill-route discovery.",
+    "issued_at": "2026-07-29T17:52:13.406129Z",
     "kind": "quorum_certificate",
-    "lineage_head_hash": "2b7ad1615fc11d3b824b0fd5",
+    "lineage_head_hash": "7bef2c95a1b8313bd732d471",
     "member_count": 3,
     "ok": true,
     "origin_count": 3,
     "origin_hashes": [
-      "3fb1b5e8976091e15f150eb3",
-      "244f2d5a94c0ae8b37c495e2",
-      "592be7bab63af7dbe5ed7aa9"
+      "f716a3b871ebec458813c277",
+      "d38f8480a84d6c536603c5a2",
+      "4683b75239c06a2190210584"
     ],
     "package_hash": "066545df3053adf5",
     "schema_version": 1,
     "threshold": 2,
     "used_skill_route_discovery": false
   },
-  "quorum_hash": "4eab0db9e6b7eca4272a6d8a",
+  "quorum_hash": "9372b6d62c17e742dc99a12e",
   "quorum_met": true,
   "quorum_size": 2,
   "schema_version": 1,

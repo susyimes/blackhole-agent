@@ -1,0 +1,167 @@
+{
+  "entries": [
+    {
+      "agreeing_count": 2,
+      "applied_at": "2026-07-29T17:51:21.574330Z",
+      "byzantine_count": 1,
+      "claims": {
+        "plane": "execution",
+        "state_index": 1
+      },
+      "deterministic": true,
+      "epoch_hash": "005f895b7334c822f3af22e6",
+      "epoch_height": 1,
+      "execution_certificate": {
+        "certificate_hash": "2f4e044413d544a64083c640",
+        "claims": {
+          "member_count": 3,
+          "plane": "execution",
+          "state_index": 1
+        },
+        "deterministic": true,
+        "epoch_hash": "005f895b7334c822f3af22e6",
+        "epoch_height": 1,
+        "finality_certificate_hash": "2cec14ee09293f676986b501",
+        "goal": "Build a closed actuation plane over world-state execution: sealed tip state roots dispatch deterministic hash-chained capability effects with actuation certificates, sterile rehydrate+prove, and adversarial falsification of wrong-state binding/reorder/forged action roots without skill-route discovery. (state 1)",
+        "issued_at": "2026-07-29T17:51:21.574364Z",
+        "kind": "execution_certificate",
+        "lineage_head_hash": "4f30544a0af60f4b54d4e4e6",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "066545df3053adf5",
+        "parent_state_root": "",
+        "post_finality": true,
+        "schema_version": 1,
+        "state_height": 1,
+        "state_root": "16c503e5e2bf91f04f8121ea",
+        "used_skill_route_discovery": false
+      },
+      "finality_certificate_hash": "2cec14ee09293f676986b501",
+      "goal": "Build a closed actuation plane over world-state execution: sealed tip state roots dispatch deterministic hash-chained capability effects with actuation certificates, sterile rehydrate+prove, and adversarial falsification of wrong-state binding/reorder/forged action roots without skill-route discovery. (state 1)",
+      "kind": "execution_state",
+      "lineage_head_hash": "4f30544a0af60f4b54d4e4e6",
+      "member_count": 3,
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "origin_count": 3,
+      "package_hash": "066545df3053adf5",
+      "parent_state_root": "",
+      "post_finality": true,
+      "projection": {
+        "agreeing_count": 2,
+        "applied_from": "finality_epoch",
+        "byzantine_count": 1,
+        "epoch_hash": "005f895b7334c822f3af22e6",
+        "finality_certificate_hash": "2cec14ee09293f676986b501",
+        "height": 1,
+        "lineage_head_hash": "4f30544a0af60f4b54d4e4e6",
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "parent_state_root": ""
+      },
+      "schema_version": 1,
+      "state_height": 1,
+      "state_root": "16c503e5e2bf91f04f8121ea",
+      "used_skill_route_discovery": false
+    },
+    {
+      "agreeing_count": 2,
+      "applied_at": "2026-07-29T17:51:21.574433Z",
+      "byzantine_count": 1,
+      "claims": {
+        "plane": "execution",
+        "state_index": 2
+      },
+      "deterministic": true,
+      "epoch_hash": "f6e032505644eaecbf087205",
+      "epoch_height": 2,
+      "execution_certificate": {
+        "certificate_hash": "842c5b71b36847edcb69ca73",
+        "claims": {
+          "member_count": 3,
+          "plane": "execution",
+          "state_index": 2
+        },
+        "deterministic": true,
+        "epoch_hash": "f6e032505644eaecbf087205",
+        "epoch_height": 2,
+        "finality_certificate_hash": "de219cb1ca2a5038f18f85e4",
+        "goal": "Build a closed actuation plane over world-state execution: sealed tip state roots dispatch deterministic hash-chained capability effects with actuation certificates, sterile rehydrate+prove, and adversarial falsification of wrong-state binding/reorder/forged action roots without skill-route discovery. (state 2)",
+        "issued_at": "2026-07-29T17:51:21.574458Z",
+        "kind": "execution_certificate",
+        "lineage_head_hash": "2e682fd5b5d17f0260075ebb",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "b3b22330412f1229",
+        "parent_state_root": "16c503e5e2bf91f04f8121ea",
+        "post_finality": true,
+        "schema_version": 1,
+        "state_height": 2,
+        "state_root": "29f1bb4633c510879d2ca5e9",
+        "used_skill_route_discovery": false
+      },
+      "finality_certificate_hash": "de219cb1ca2a5038f18f85e4",
+      "goal": "Build a closed actuation plane over world-state execution: sealed tip state roots dispatch deterministic hash-chained capability effects with actuation certificates, sterile rehydrate+prove, and adversarial falsification of wrong-state binding/reorder/forged action roots without skill-route discovery. (state 2)",
+      "kind": "execution_state",
+      "lineage_head_hash": "2e682fd5b5d17f0260075ebb",
+      "member_count": 3,
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "origin_count": 3,
+      "package_hash": "b3b22330412f1229",
+      "parent_state_root": "16c503e5e2bf91f04f8121ea",
+      "post_finality": true,
+      "projection": {
+        "agreeing_count": 2,
+        "applied_from": "finality_epoch",
+        "byzantine_count": 1,
+        "epoch_hash": "f6e032505644eaecbf087205",
+        "finality_certificate_hash": "de219cb1ca2a5038f18f85e4",
+        "height": 2,
+        "lineage_head_hash": "2e682fd5b5d17f0260075ebb",
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "origin_count": 3,
+        "package_hash": "b3b22330412f1229",
+        "parent_state_root": "16c503e5e2bf91f04f8121ea"
+      },
+      "schema_version": 1,
+      "state_height": 2,
+      "state_root": "29f1bb4633c510879d2ca5e9",
+      "used_skill_route_discovery": false
+    }
+  ],
+  "entry_count": 2,
+  "kind": "execution_state_log",
+  "schema_version": 1,
+  "tip_epoch_hash": "f6e032505644eaecbf087205",
+  "tip_height": 2,
+  "tip_state_root": "29f1bb4633c510879d2ca5e9",
+  "updated_at": "2026-07-29T17:51:21.574477Z"
+}
