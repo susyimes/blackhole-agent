@@ -14,14 +14,14 @@
         "origin_id": "origin-b",
         "plane": "federation"
       },
-      "entry_hash": "bb1c5a6250e3f6bfd7df7776",
+      "entry_hash": "864f4c1d81165085d15d4418",
       "entry_kind": "federation_origin_seed",
-      "goal": "Build a clearing plane over settlement that nets multi-settlement receipts into deterministic hash-chained clearing positions with net position digests, clearing certificates, sterile rehydrate+prove, and adversarial falsification past settled outcomes without skill-route. (honest origin-b)",
+      "goal": "margin over clearing (honest origin-b)",
       "index": 0,
-      "issued_at": "2026-07-29T19:24:19.745453Z",
+      "issued_at": "2026-07-29T20:10:28.904383Z",
       "metrics": {
-        "count": 91,
-        "primitive_count": 42,
+        "count": 92,
+        "primitive_count": 43,
         "proved_count": 88,
         "proved_ratio": null
       },
@@ -42,11 +42,11 @@
         ],
         "origin_id": "origin-b"
       },
-      "entry_hash": "d4768987f882627f29dba0a9",
+      "entry_hash": "a7d0b8ce5cec78f6fc57c107",
       "entry_kind": "federation_origin_seal",
-      "goal": "Build a clearing plane over settlement that nets multi-settlement receipts into deterministic hash-chained clearing positions with net position digests, clearing certificates, sterile rehydrate+prove, and adversarial falsification past settled outcomes without skill-route. (honest origin-b)",
+      "goal": "margin over clearing (honest origin-b)",
       "index": 1,
-      "issued_at": "2026-07-29T19:24:19.745560Z",
+      "issued_at": "2026-07-29T20:10:28.904410Z",
       "metrics": {
         "count": 2,
         "primitive_count": null,
@@ -54,13 +54,13 @@
         "proved_ratio": null
       },
       "package_hash": "8ece9182045d973a",
-      "parent_hash": "bb1c5a6250e3f6bfd7df7776"
+      "parent_hash": "864f4c1d81165085d15d4418"
     }
   ],
   "entry_count": 2,
-  "head_hash": "d4768987f882627f29dba0a9",
+  "head_hash": "a7d0b8ce5cec78f6fc57c107",
   "kind": "capability_lineage",
   "ok": true,
   "schema_version": 1,
-  "updated_at": "2026-07-29T19:24:19.746450Z"
+  "updated_at": "2026-07-29T20:10:28.904606Z"
 }

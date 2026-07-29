@@ -64,6 +64,7 @@ from blackhole_agent.capability_compounder import (
     run_actuation_plane,
     run_settlement_plane,
     run_clearing_plane,
+    run_margin_plane,
     run_lineage_plane,
     run_reconciliation_plane,
     run_sovereignty_plane,
@@ -1065,6 +1066,9 @@ def evaluate_milestone(
     run_clearing = (
         cc.run_clearing_plane if cc is not None else run_clearing_plane
     )
+    run_margin = (
+        cc.run_margin_plane if cc is not None else run_margin_plane
+    )
     run_recon = (
         cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
     )
@@ -1120,6 +1124,15 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_margin = bool(
+                        kinds
+                        & {
+                            "margin_ok",
+                            "margined_ok",
+                            "min_margins",
+                            "margin_root_valid",
+                        }
+                    )
                     needs_clearing = bool(
                         kinds
                         & {
@@ -1128,7 +1141,7 @@ def evaluate_milestone(
                             "min_clearings",
                             "clearing_root_valid",
                         }
-                    )
+                    ) and not needs_margin
                     needs_settlement = bool(
                         kinds
                         & {
@@ -1146,7 +1159,7 @@ def evaluate_milestone(
                             "min_actions",
                             "action_root_valid",
                         }
-                    ) and not needs_settlement and not needs_clearing
+                    ) and not needs_settlement and not needs_clearing and not needs_margin
                     needs_execution = bool(
                         kinds
                         & {
@@ -1155,7 +1168,7 @@ def evaluate_milestone(
                             "min_state_height",
                             "state_root_valid",
                         }
-                    ) and not needs_actuation and not needs_settlement and not needs_clearing
+                    ) and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_margin
                     needs_finality = bool(
                         kinds
                         & {
@@ -1164,7 +1177,7 @@ def evaluate_milestone(
                             "min_epochs",
                             "finality_cert_valid",
                         }
-                    ) and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing
+                    ) and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_margin and not needs_margin
                     needs_quorum = bool(
                         kinds
                         & {
@@ -1174,7 +1187,7 @@ def evaluate_milestone(
                             "byzantine_excluded",
                             "quorum_cert_valid",
                         }
-                    ) and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing
+                    ) and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_margin and not needs_margin and not needs_margin
                     needs_federation = bool(
                         kinds
                         & {
@@ -1183,7 +1196,7 @@ def evaluate_milestone(
                             "min_origins",
                             "federation_cert_valid",
                         }
-                    ) and not needs_quorum and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing
+                    ) and not needs_quorum and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_margin and not needs_margin and not needs_margin and not needs_margin
                     needs_continuity = bool(
                         kinds
                         & {
@@ -1218,7 +1231,121 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     )
-                    if needs_clearing:
+                    if needs_margin:
+                        plane_done_when = strip_context(
+                            contract_text,
+                            keep_mission=False,
+                        )
+                        plane_done_when = "; ".join(
+                            token
+                            for token in (part.strip() for part in plane_done_when.split(";"))
+                            if token
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        margin = run_margin(
+                            workspace,
+                            goal=decision.mission_goal
+                            or decision.summary
+                            or "margin over clearing",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            run_clearing=True,
+                            run_settlement=True,
+                            run_actuation=True,
+                            run_execution=True,
+                            run_finality=True,
+                            run_quorum=True,
+                            run_continuity=False,
+                            run_reconciliation=False,
+                            force_synthetic_drift=True,
+                            inject_byzantine=True,
+                            epoch_count=2,
+                            min_actions=2,
+                            min_settlements=2,
+                            min_clearings=2,
+                            min_margins=2,
+                            timeout=780,
+                        )
+                        context = {
+                            "used_skill_route_discovery": bool(
+                                margin.get("used_skill_route_discovery")
+                            ),
+                            "chain": margin.get("chain") or {},
+                            "margin_chain": margin.get("chain") or {},
+                            "clearing": {
+                                "ok": bool((margin.get("clearing") or {}).get("ok", True)),
+                                "cleared": bool(
+                                    (margin.get("clearing") or {}).get("cleared", True)
+                                ),
+                                "clearing_count": int(margin.get("clearing_count") or 0),
+                                "clearing_root_valid": True,
+                                "certificate_valid": True,
+                                "net_position_digest": margin.get("net_position_digest"),
+                            },
+                            "clearing_plane": {
+                                "ok": bool((margin.get("clearing") or {}).get("ok", True)),
+                                "cleared": bool(
+                                    (margin.get("clearing") or {}).get("cleared", True)
+                                ),
+                                "clearing_count": int(margin.get("clearing_count") or 0),
+                                "clearing_root_valid": True,
+                            },
+                            "margin": {
+                                "ok": bool(margin.get("ok")),
+                                "margined": bool(margin.get("margined")),
+                                "margin_count": int(margin.get("margin_count") or 0),
+                                "tip_height": int(margin.get("tip_height") or 0),
+                                "tip_margin_root": margin.get("tip_margin_root"),
+                                "margin_root_valid": bool(
+                                    (margin.get("margin_certificate") or {}).get("valid")
+                                ),
+                                "certificate_valid": bool(
+                                    (margin.get("margin_certificate") or {}).get("valid")
+                                ),
+                                "margin_requirement_digest": margin.get(
+                                    "margin_requirement_digest"
+                                ),
+                                "margin_certificate": margin.get("margin_certificate"),
+                            },
+                            "margin_plane": {
+                                "ok": bool(margin.get("ok")),
+                                "margined": bool(margin.get("margined")),
+                                "margin_count": int(margin.get("margin_count") or 0),
+                                "margin_root_valid": bool(
+                                    (margin.get("margin_certificate") or {}).get("valid")
+                                ),
+                            },
+                            "cover": {
+                                "ok": bool(margin.get("ok")),
+                                "margined": bool(margin.get("margined")),
+                                "margin_count": int(margin.get("margin_count") or 0),
+                                "margin_root_valid": bool(
+                                    (margin.get("margin_certificate") or {}).get("valid")
+                                ),
+                            },
+                            "margin_count": int(margin.get("margin_count") or 0),
+                            "clearing_count": int(margin.get("clearing_count") or 0),
+                            "tip_height": int(margin.get("tip_height") or 0),
+                            "margin_certificate": margin.get("margin_certificate"),
+                            "margin_requirement_digest": margin.get(
+                                "margin_requirement_digest"
+                            ),
+                            "net_position_digest": margin.get("net_position_digest"),
+                            "repo_path": str(workspace),
+                            "workspace_path": str(workspace),
+                        }
+                        if not margin.get("ok"):
+                            reasons.append(
+                                "margin plane failed for machine-checkable complete"
+                            )
+                    elif needs_clearing:
                         plane_done_when = strip_context(
                             contract_text,
                             keep_mission=False,
@@ -4686,6 +4813,81 @@ def capability_assurance(
         )
     except Exception as error:
         console.print(f"Assurance plane failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+
+@capability_app.command(
+    "margin",
+    help=(
+        "Margin plane: multi-clearing net positions → deterministic hash-chained margin "
+        "requirements bound to clearing roots → margin certificates → sterile rehydrate+"
+        "prove → adversarial wrong-clearing/reorder/double-margin/forged-root falsification."
+    ),
+)
+def capability_margin(
+    goal: str = typer.Option("margin over clearing", "--goal"),
+    done_when: str = typer.Option("", "--done-when"),
+    lineage_path: Path | None = typer.Option(None, "--lineage-path"),
+    bundle_path: Path | None = typer.Option(None, "--bundle-path"),
+    quorum_path: Path | None = typer.Option(None, "--quorum-path"),
+    finality_path: Path | None = typer.Option(None, "--finality-path"),
+    execution_path: Path | None = typer.Option(None, "--execution-path"),
+    actuation_path: Path | None = typer.Option(None, "--actuation-path"),
+    settlement_path: Path | None = typer.Option(None, "--settlement-path"),
+    clearing_path: Path | None = typer.Option(None, "--clearing-path"),
+    margin_path: Path | None = typer.Option(None, "--margin-path"),
+    epoch_count: int = typer.Option(2, "--epoch-count", min=2),
+    min_actions: int = typer.Option(2, "--min-actions", min=2),
+    min_settlements: int = typer.Option(2, "--min-settlements", min=2),
+    min_clearings: int = typer.Option(2, "--min-clearings", min=2),
+    min_margins: int = typer.Option(2, "--min-margins", min=2),
+    no_clearing: bool = typer.Option(False, "--no-clearing"),
+    no_settlement: bool = typer.Option(False, "--no-settlement"),
+    no_actuation: bool = typer.Option(False, "--no-actuation"),
+    no_execution: bool = typer.Option(False, "--no-execution"),
+    no_finality: bool = typer.Option(False, "--no-finality"),
+    with_continuity: bool = typer.Option(False, "--with-continuity"),
+    no_byzantine: bool = typer.Option(False, "--no-byzantine"),
+    repo_path: Path = typer.Option(Path("."), "--repo-path"),
+    timeout_seconds: int = typer.Option(780, "--timeout-seconds", min=1),
+) -> None:
+    root = repo_path.resolve()
+    try:
+        result = run_margin_plane(
+            root,
+            goal,
+            done_when,
+            lineage_path=lineage_path,
+            bundle_path=bundle_path,
+            quorum_path=quorum_path,
+            finality_path=finality_path,
+            execution_path=execution_path,
+            actuation_path=actuation_path,
+            settlement_path=settlement_path,
+            clearing_path=clearing_path,
+            margin_path=margin_path,
+            epoch_count=epoch_count,
+            min_actions=min_actions,
+            min_settlements=min_settlements,
+            min_clearings=min_clearings,
+            min_margins=min_margins,
+            run_clearing=not no_clearing,
+            run_settlement=not no_settlement,
+            run_actuation=not no_actuation,
+            run_execution=not no_execution,
+            run_finality=not no_finality,
+            run_quorum=True,
+            run_continuity=with_continuity,
+            run_reconciliation=with_continuity,
+            inject_byzantine=not no_byzantine,
+            timeout=timeout_seconds,
+        )
+    except Exception as error:
+        console.print(f"Margin plane failed: {error}", style="red")
         raise typer.Exit(1) from error
     console.print_json(data=result)
     if not result.get("ok") or result.get("used_skill_route_discovery"):

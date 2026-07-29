@@ -29,7 +29,7 @@
         "ablation",
         "evidence"
       ],
-      "updated_at": "2026-07-29T19:24:22.799861Z"
+      "updated_at": "2026-07-29T20:10:52.263307Z"
     },
     "capability.actuation-plane": {
       "behavior_paths": [
@@ -84,7 +84,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-29T19:24:22.802999Z"
+      "updated_at": "2026-07-29T20:10:52.264148Z"
     },
     "capability.adaptive-grow": {
       "behavior_paths": [
@@ -116,7 +116,7 @@
         "growth",
         "adaptive"
       ],
-      "updated_at": "2026-07-29T19:24:22.798189Z"
+      "updated_at": "2026-07-29T20:10:52.262551Z"
     },
     "capability.adversarial-contract": {
       "behavior_paths": [
@@ -149,7 +149,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-07-29T19:24:22.800171Z"
+      "updated_at": "2026-07-29T20:10:52.263438Z"
     },
     "capability.assurance-plane": {
       "behavior_paths": [
@@ -186,7 +186,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-07-29T19:24:22.800324Z"
+      "updated_at": "2026-07-29T20:10:52.263504Z"
     },
     "capability.autonomic-cycle": {
       "behavior_paths": [
@@ -221,7 +221,7 @@
         "autonomic",
         "novelty"
       ],
-      "updated_at": "2026-07-29T19:24:22.798717Z"
+      "updated_at": "2026-07-29T20:10:52.262845Z"
     },
     "capability.clearing-plane": {
       "behavior_paths": [
@@ -280,7 +280,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-29T19:24:22.803447Z"
+      "updated_at": "2026-07-29T20:10:52.264278Z"
     },
     "capability.composed-core-health": {
       "behavior_paths": [
@@ -1814,7 +1814,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-07-29T19:24:22.800940Z"
+      "updated_at": "2026-07-29T20:10:52.263785Z"
     },
     "capability.contract-plane": {
       "behavior_paths": [
@@ -1849,7 +1849,7 @@
         "evidence",
         "growth"
       ],
-      "updated_at": "2026-07-29T19:24:22.799692Z"
+      "updated_at": "2026-07-29T20:10:52.263241Z"
     },
     "capability.distill-ledger": {
       "behavior_paths": [
@@ -1879,7 +1879,7 @@
         "growth",
         "distill"
       ],
-      "updated_at": "2026-07-29T19:24:22.798532Z"
+      "updated_at": "2026-07-29T20:10:52.262763Z"
     },
     "capability.execution-plane": {
       "behavior_paths": [
@@ -1932,7 +1932,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-29T19:24:22.802643Z"
+      "updated_at": "2026-07-29T20:10:52.264082Z"
     },
     "capability.federation-plane": {
       "behavior_paths": [
@@ -1977,7 +1977,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-07-29T19:24:22.801093Z"
+      "updated_at": "2026-07-29T20:10:52.263884Z"
     },
     "capability.finality-plane": {
       "behavior_paths": [
@@ -2026,7 +2026,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-29T19:24:22.801665Z"
+      "updated_at": "2026-07-29T20:10:52.264016Z"
     },
     "capability.frontier-novelty": {
       "behavior_paths": [
@@ -2056,7 +2056,7 @@
         "growth",
         "novelty"
       ],
-      "updated_at": "2026-07-29T19:24:22.798416Z"
+      "updated_at": "2026-07-29T20:10:52.262694Z"
     },
     "capability.goal-plan": {
       "behavior_paths": [
@@ -2085,7 +2085,7 @@
         "mission",
         "planner"
       ],
-      "updated_at": "2026-07-29T19:24:22.798919Z"
+      "updated_at": "2026-07-29T20:10:52.262911Z"
     },
     "capability.growth-loop": {
       "behavior_paths": [
@@ -2116,7 +2116,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-07-29T19:24:22.798064Z"
+      "updated_at": "2026-07-29T20:10:52.262482Z"
     },
     "capability.ledger-integrity": {
       "behavior_paths": [
@@ -2144,7 +2144,7 @@
         "compounder",
         "integrity"
       ],
-      "updated_at": "2026-07-29T19:24:22.798305Z"
+      "updated_at": "2026-07-29T20:10:52.262626Z"
     },
     "capability.ledger-inventory": {
       "behavior_paths": [
@@ -2170,7 +2170,7 @@
         "bootstrap",
         "compounder"
       ],
-      "updated_at": "2026-07-29T19:24:22.797541Z"
+      "updated_at": "2026-07-29T20:10:52.262266Z"
     },
     "capability.lineage-plane": {
       "behavior_paths": [
@@ -2211,7 +2211,68 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-07-29T19:24:22.800630Z"
+      "updated_at": "2026-07-29T20:10:52.263654Z"
+    },
+    "capability.margin-plane": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_compounder.py",
+        "src/blackhole_agent/unbound.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Margin plane posts multi-clearing net positions into deterministic hash-chained margin requirements with margin requirement digests and margin certificates bound to clearing roots, sterile rehydrate+prove, genesis replay matching tip, and adversarial falsification of wrong-clearing/reorder/double-margin/forged-root/digest-tamper without skill-route.",
+      "created_at": "2026-07-29T20:07:31.627397Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.outcome-contract",
+        "capability.contract-plane",
+        "capability.assurance-plane",
+        "capability.sovereignty-plane",
+        "capability.lineage-plane",
+        "capability.reconciliation-plane",
+        "capability.continuity-plane",
+        "capability.federation-plane",
+        "capability.quorum-plane",
+        "capability.finality-plane",
+        "capability.execution-plane",
+        "capability.actuation-plane",
+        "capability.settlement-plane",
+        "capability.clearing-plane",
+        "capability.transfer-plane",
+        "capability.ablation-proof",
+        "capability.adversarial-contract"
+      ],
+      "description": "Closed margin plane: multi-clearing net positions → deterministic hash-chained margin requirements with margin requirement digests bound to clearing roots → margin certificates → sterile rehydrate+prove → adversarial mutation/reorder/wrong-clearing/double-margin/forged-root/gap/digest-tamper/single-margin falsification with genesis replay matching tip — past netted clearing without margined risk coverage.",
+      "entry": "blackhole_agent.capability_compounder:builtin_margin_plane",
+      "id": "capability.margin-plane",
+      "kind": "python",
+      "last_proof_exit_code": null,
+      "last_proved_at": "",
+      "name": "Margin plane over clearing",
+      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_margin_plane; from pathlib import Path; import os; os.environ['BLACKHOLE_MISSION_GOAL']='margin over clearing'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_MARGIN_RUN_CLEARING']='1'; os.environ['BLACKHOLE_CLEARING_RUN_SETTLEMENT']='1'; os.environ['BLACKHOLE_SETTLEMENT_RUN_ACTUATION']='1'; os.environ['BLACKHOLE_ACTUATION_RUN_EXECUTION']='1'; os.environ['BLACKHOLE_EXECUTION_RUN_FINALITY']='1'; os.environ['BLACKHOLE_FINALITY_RUN_QUORUM']='1'; os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='0'; os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='0'; os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; os.environ['BLACKHOLE_FINALITY_EPOCH_COUNT']='2'; os.environ['BLACKHOLE_ACTUATION_MIN_ACTIONS']='2'; os.environ['BLACKHOLE_SETTLEMENT_MIN_SETTLEMENTS']='2'; os.environ['BLACKHOLE_CLEARING_MIN_CLEARINGS']='2'; os.environ['BLACKHOLE_MARGIN_MIN_MARGINS']='2'; os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-margin.json')); os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-margin-quorum.json')); os.environ.setdefault('BLACKHOLE_FINALITY_BUNDLE_PATH', str(Path('artifacts')/'finality-bundles'/'proof-margin-finality.json')); os.environ.setdefault('BLACKHOLE_EXECUTION_BUNDLE_PATH', str(Path('artifacts')/'execution-bundles'/'proof-margin-execution.json')); os.environ.setdefault('BLACKHOLE_ACTUATION_BUNDLE_PATH', str(Path('artifacts')/'actuation-bundles'/'proof-margin-actuation.json')); os.environ.setdefault('BLACKHOLE_SETTLEMENT_BUNDLE_PATH', str(Path('artifacts')/'settlement-bundles'/'proof-margin-settlement.json')); os.environ.setdefault('BLACKHOLE_CLEARING_BUNDLE_PATH', str(Path('artifacts')/'clearing-bundles'/'proof-margin-clearing.json')); os.environ.setdefault('BLACKHOLE_MARGIN_BUNDLE_PATH', str(Path('artifacts')/'margin-bundles'/'proof-margin.json')); r=builtin_margin_plane(); assert r['ok'] and r.get('action')=='margin_plane' and r.get('margined') is True and int(r.get('margin_count') or 0) >= 2 and int(r.get('tip_height') or 0) >= 2 and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') and r.get('margin_certificate',{}).get('valid') and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "bootstrap",
+        "compounder",
+        "margin",
+        "cover",
+        "margin-root",
+        "clearing",
+        "net",
+        "deterministic",
+        "settlement",
+        "actuation",
+        "execution",
+        "finality",
+        "quorum",
+        "consensus",
+        "byzantine",
+        "multi-origin",
+        "lineage",
+        "evidence"
+      ],
+      "updated_at": "2026-07-29T20:10:52.264343Z"
     },
     "capability.mission-plane": {
       "behavior_paths": [
@@ -2246,7 +2307,7 @@
         "growth",
         "second-wave"
       ],
-      "updated_at": "2026-07-29T19:24:22.799386Z"
+      "updated_at": "2026-07-29T20:10:52.263109Z"
     },
     "capability.outcome-contract": {
       "behavior_paths": [
@@ -2278,7 +2339,7 @@
         "contract",
         "evidence"
       ],
-      "updated_at": "2026-07-29T19:24:22.799539Z"
+      "updated_at": "2026-07-29T20:10:52.263175Z"
     },
     "capability.program-run": {
       "behavior_paths": [
@@ -2308,7 +2369,7 @@
         "mission",
         "program"
       ],
-      "updated_at": "2026-07-29T19:24:22.799075Z"
+      "updated_at": "2026-07-29T20:10:52.262978Z"
     },
     "capability.quorum-plane": {
       "behavior_paths": [
@@ -2355,7 +2416,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-29T19:24:22.801247Z"
+      "updated_at": "2026-07-29T20:10:52.263950Z"
     },
     "capability.reconciliation-plane": {
       "behavior_paths": [
@@ -2398,7 +2459,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-07-29T19:24:22.800786Z"
+      "updated_at": "2026-07-29T20:10:52.263719Z"
     },
     "capability.scout-gaps": {
       "behavior_paths": [
@@ -2426,7 +2487,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-07-29T19:24:22.797912Z"
+      "updated_at": "2026-07-29T20:10:52.262413Z"
     },
     "capability.second-wave-absorb": {
       "behavior_paths": [
@@ -2460,7 +2521,7 @@
         "second-wave",
         "domain"
       ],
-      "updated_at": "2026-07-29T19:24:22.799231Z"
+      "updated_at": "2026-07-29T20:10:52.263043Z"
     },
     "capability.settlement-plane": {
       "behavior_paths": [
@@ -2517,7 +2578,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-29T19:24:22.803256Z"
+      "updated_at": "2026-07-29T20:10:52.264213Z"
     },
     "capability.sovereignty-plane": {
       "behavior_paths": [
@@ -2556,7 +2617,7 @@
         "certificate",
         "evidence"
       ],
-      "updated_at": "2026-07-29T19:24:22.800477Z"
+      "updated_at": "2026-07-29T20:10:52.263587Z"
     },
     "capability.transfer-plane": {
       "behavior_paths": [
@@ -2587,7 +2648,7 @@
         "transfer",
         "package"
       ],
-      "updated_at": "2026-07-29T19:24:22.800016Z"
+      "updated_at": "2026-07-29T20:10:52.263372Z"
     },
     "domain.ci-security": {
       "behavior_paths": [
@@ -2893,7 +2954,7 @@
         "bootstrap",
         "evolution-route"
       ],
-      "updated_at": "2026-07-29T19:24:22.797710Z"
+      "updated_at": "2026-07-29T20:10:52.262341Z"
     },
     "repo.import-health": {
       "behavior_paths": [
@@ -2917,7 +2978,7 @@
         "bootstrap",
         "health"
       ],
-      "updated_at": "2026-07-29T19:24:22.797135Z"
+      "updated_at": "2026-07-29T20:10:52.261862Z"
     },
     "unbound.milestone-gate": {
       "behavior_paths": [
@@ -2942,9 +3003,9 @@
         "bootstrap",
         "unbound"
       ],
-      "updated_at": "2026-07-29T19:24:22.797358Z"
+      "updated_at": "2026-07-29T20:10:52.262118Z"
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-07-29T19:24:22.803776Z"
+  "updated_at": "2026-07-29T20:10:52.264473Z"
 }

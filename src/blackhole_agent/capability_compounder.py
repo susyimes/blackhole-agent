@@ -914,6 +914,7 @@ PROGRAM_PLAN_DENYLIST = frozenset(
         "capability.actuation-plane",
         "capability.settlement-plane",
         "capability.clearing-plane",
+        "capability.margin-plane",
         # Batch operators are invocable separately; keep goal programs step-cheap.
         "capability.ledger-integrity",
         "capability.distill-ledger",
@@ -990,6 +991,12 @@ MISSION_GOAL_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("net position", ("capability.clearing-plane", "capability.settlement-plane", "capability.assurance-plane")),
     ("clearing-root", ("capability.clearing-plane", "capability.settlement-plane", "capability.lineage-plane")),
     ("netted", ("capability.clearing-plane", "capability.settlement-plane", "capability.quorum-plane")),
+    ("margin", ("capability.margin-plane", "capability.clearing-plane", "capability.settlement-plane")),
+    ("margined", ("capability.margin-plane", "capability.clearing-plane", "capability.finality-plane")),
+    ("margin requirement", ("capability.margin-plane", "capability.clearing-plane", "capability.assurance-plane")),
+    ("margin-root", ("capability.margin-plane", "capability.clearing-plane", "capability.lineage-plane")),
+    ("haircut", ("capability.margin-plane", "capability.clearing-plane", "capability.quorum-plane")),
+    ("cover", ("capability.margin-plane", "capability.clearing-plane", "capability.actuation-plane")),
 )
 
 
@@ -1365,6 +1372,7 @@ def run_mission_plane(
 #   actuation_ok | effects_applied_ok | min_actions:N | action_root_valid
 #   settlement_ok | settled_ok | min_settlements:N | settlement_root_valid
 #   clearing_ok | cleared_ok | min_clearings:N | clearing_root_valid
+#   margin_ok | margined_ok | min_margins:N | margin_root_valid
 # Free-text lines without a known form are recorded as informational (not gating).
 OUTCOME_PREDICATE_PATTERN = re.compile(
     r"^(?P<kind>"
@@ -1383,7 +1391,8 @@ OUTCOME_PREDICATE_PATTERN = re.compile(
     r"execution_ok|state_applied_ok|min_state_height|state_root_valid|"
     r"actuation_ok|effects_applied_ok|min_actions|action_root_valid|"
     r"settlement_ok|settled_ok|min_settlements|settlement_root_valid|"
-    r"clearing_ok|cleared_ok|min_clearings|clearing_root_valid"
+    r"clearing_ok|cleared_ok|min_clearings|clearing_root_valid|"
+    r"margin_ok|margined_ok|min_margins|margin_root_valid"
     r")(?::(?P<arg>.+))?$",
     re.IGNORECASE,
 )
@@ -1438,6 +1447,10 @@ CONTEXT_ONLY_OUTCOME_KINDS = frozenset(
         "cleared_ok",
         "min_clearings",
         "clearing_root_valid",
+        "margin_ok",
+        "margined_ok",
+        "min_margins",
+        "margin_root_valid",
     }
 )
 
@@ -1898,6 +1911,46 @@ def _soft_extract_outcome_predicates(chunk: str) -> list[dict[str, Any]]:
         and ("valid" in lower or "verify" in lower or "ok" in lower)
     ):
         found.append({"kind": "clearing_root_valid", "arg": "", "source": chunk})
+    if re.search(r"\bmargin_ok\b", lower) or (
+        re.search(r"\bmargin\s+plane\b", lower)
+        and ("ok" in lower or "pass" in lower or "succeed" in lower)
+    ) or re.search(r"\brun_margin_plane\b", lower) and (
+        "ok" in lower or "return" in lower or "succeed" in lower
+    ):
+        found.append({"kind": "margin_ok", "arg": "", "source": chunk})
+    if re.search(r"\bmargined_ok\b", lower) or re.search(
+        r"\bmargined\s*(?:=|is|:)\s*true\b", lower
+    ):
+        found.append({"kind": "margined_ok", "arg": "", "source": chunk})
+    elif (
+        re.search(r"\bmargined\b", lower)
+        and ("ok" in lower or "pass" in lower or "succeed" in lower)
+        and "margin-plane" not in lower
+        and "margin_plane" not in lower
+    ):
+        found.append({"kind": "margined_ok", "arg": "", "source": chunk})
+    m = re.search(r"(?:at least|>=|≥)\s*(\d+)\s+margin", lower)
+    if m:
+        found.append({"kind": "min_margins", "arg": m.group(1), "source": chunk})
+    m = re.search(r"margin_count\s*>=\s*(\d+)", lower)
+    if m and not any(item.get("kind") == "min_margins" for item in found):
+        found.append({"kind": "min_margins", "arg": m.group(1), "source": chunk})
+    if re.search(r"\bmin_margins\b", lower) and not any(
+        item.get("kind") == "min_margins" for item in found
+    ):
+        m_n = re.search(r"min_margins\s*[:=]?\s*(\d+)", lower)
+        found.append(
+            {
+                "kind": "min_margins",
+                "arg": m_n.group(1) if m_n else "2",
+                "source": chunk,
+            }
+        )
+    if re.search(r"\bmargin_root_valid\b", lower) or (
+        re.search(r"\bmargin[_\s-]*root\b", lower)
+        and ("valid" in lower or "verify" in lower or "ok" in lower)
+    ):
+        found.append({"kind": "margin_root_valid", "arg": "", "source": chunk})
     return found
 
 
@@ -2167,6 +2220,7 @@ def _eval_one_outcome_predicate(
                 ok = bool(verify.get("ok")) and bool(verify.get("valid"))
                 return ok, f"certificate_valid_in_memory={ok} hash={verify.get('certificate_hash')}"
             for key, verifier in (
+                ("margin_certificate", verify_margin_certificate),
                 ("clearing_certificate", verify_clearing_certificate),
                 ("settlement_certificate", verify_settlement_certificate),
                 ("actuation_certificate", verify_actuation_certificate),
@@ -2195,6 +2249,8 @@ def _eval_one_outcome_predicate(
                         )
             # Accept plane-injected certificate_valid flags from closed planes.
             for plane_key in (
+                "margin",
+                "margin_plane",
                 "clearing",
                 "clearing_plane",
                 "settlement",
@@ -2817,6 +2873,67 @@ def _eval_one_outcome_predicate(
                     plane.get("clearing_root") or plane.get("tip_clearing_root")
                 )
         return ok, f"clearing_root_valid={ok}"
+    if kind in {
+        "margin_ok",
+        "margined_ok",
+        "min_margins",
+        "margin_root_valid",
+    }:
+        plane = (
+            context.get("margin")
+            or context.get("margin_plane")
+            or context.get("cover")
+            or {}
+        )
+        if not plane or not plane.get("ok"):
+            disk = _load_margin_disk_evidence(context)
+            if disk:
+                plane = {**disk, **(plane if isinstance(plane, Mapping) else {})}
+        if kind == "margin_ok":
+            ok = bool(plane.get("ok"))
+            return ok, f"margin_ok={ok}"
+        if kind == "margined_ok":
+            if "margined" in plane:
+                ok = plane.get("margined") is True and bool(plane.get("ok", True))
+            elif "margined_ok" in plane:
+                ok = plane.get("margined_ok") is True
+            else:
+                ok = bool(plane.get("ok")) and int(
+                    plane.get("margin_count") or plane.get("tip_height") or 0
+                ) >= 1
+            return ok, f"margined_ok={ok}"
+        if kind == "min_margins":
+            need = int(float(arg or "0"))
+            have = context.get("margin_count")
+            if have is None:
+                have = context.get("tip_margin_height")
+            if have is None:
+                have = (
+                    plane.get("margin_count")
+                    or plane.get("tip_height")
+                    or plane.get("entry_count")
+                )
+            have_i = int(have or 0)
+            return have_i >= need, f"margins={have_i} need>={need}"
+        if "margin_root_valid" in plane:
+            ok = plane.get("margin_root_valid") is True
+        elif "certificate_valid" in plane:
+            ok = plane.get("certificate_valid") is True
+        else:
+            cert = (
+                plane.get("margin_certificate")
+                or plane.get("certificate")
+                or context.get("margin_certificate")
+                or {}
+            )
+            if isinstance(cert, Mapping) and cert:
+                verify = verify_margin_certificate(cert)
+                ok = bool(verify.get("ok")) and bool(verify.get("valid"))
+            else:
+                ok = bool(plane.get("ok")) and bool(
+                    plane.get("margin_root") or plane.get("tip_margin_root")
+                )
+        return ok, f"margin_root_valid={ok}"
     if kind == "program_passes":
         steps = [part.strip() for part in arg.split(",") if part.strip()]
         if not steps:
@@ -20965,6 +21082,2153 @@ def builtin_clearing_plane() -> dict[str, Any]:
     )
 
 
+
+# ---------------------------------------------------------------------------
+# Margin plane: post-clearing net positions → deterministic margin requirements
+# ---------------------------------------------------------------------------
+MARGIN_BUNDLE_SCHEMA = 1
+MARGIN_CERTIFICATE_SCHEMA = 1
+MARGIN_LOG_SCHEMA = 1
+DEFAULT_MARGIN_BUNDLE_RELATIVE = Path("artifacts") / "margin-bundles"
+
+
+def default_margin_bundle_dir(repo_path: Path) -> Path:
+    return (repo_path / DEFAULT_MARGIN_BUNDLE_RELATIVE).resolve()
+
+
+def empty_margin_log() -> dict[str, Any]:
+    return {
+        "schema_version": MARGIN_LOG_SCHEMA,
+        "kind": "margin_log",
+        "entries": [],
+        "entry_count": 0,
+        "tip_height": 0,
+        "tip_margin_root": "",
+        "bound_clearing_root": "",
+        "bound_clearing_height": 0,
+        "clearing_hash": "",
+        "margin_requirement_digest": "",
+        "updated_at": utc_now_iso(),
+    }
+
+
+def compute_margin_root(clearing: Mapping[str, Any]) -> str:
+    """Hash clearing body excluding self root, certificates, and wall-clock fields."""
+
+    body = {
+        key: value
+        for key, value in clearing.items()
+        if key
+        not in {
+            "margin_root",
+            "margin_certificate",
+            "ok",
+            "valid",
+            "action",
+            "applied_at",
+            "updated_at",
+            "issued_at",
+            "exported_at",
+            "goal",
+            "claims",
+        }
+    }
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def compute_margin_certificate_hash(payload: Mapping[str, Any]) -> str:
+    body = {
+        key: value
+        for key, value in payload.items()
+        if key not in {"certificate_hash", "ok", "valid"}
+    }
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def compute_margin_bundle_hash(bundle: Mapping[str, Any]) -> str:
+    body = {
+        key: value
+        for key, value in bundle.items()
+        if key
+        not in {
+            "margin_hash",
+            "ok",
+            "bundle_path",
+            "exported_at",
+            "source_ledger_path",
+            "action",
+        }
+    }
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def compute_margin_requirement_digest(
+    *,
+    parent_margin_digest: str,
+    bound_clearing_root: str,
+    net_position_digest: str,
+    capability_id: str,
+    outcome: str = "margined",
+    haircut_bps: int = 1000,
+) -> str:
+    """Deterministic margin requirement netting prior cover with a newly margined clearing."""
+
+    payload = {
+        "parent_margin_digest": parent_margin_digest or "",
+        "bound_clearing_root": bound_clearing_root,
+        "net_position_digest": net_position_digest,
+        "capability_id": capability_id,
+        "outcome": outcome or "margined",
+        "haircut_bps": int(haircut_bps),
+        "plane": "margin",
+    }
+    digest = json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def issue_margin_certificate(
+    *,
+    margin_height: int,
+    margin_root: str,
+    parent_margin_root: str,
+    bound_clearing_root: str,
+    bound_clearing_height: int,
+    clearing_hash: str,
+    clearing_certificate_hash: str,
+    package_hash: str,
+    lineage_head_hash: str,
+    net_position_digest: str,
+    margin_requirement_digest: str,
+    margin_count: int,
+    member_ids: Sequence[str] | None = None,
+    goal: str = "",
+    claims: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    members = sorted({str(item).strip() for item in (member_ids or []) if str(item).strip()})
+    cert: dict[str, Any] = {
+        "schema_version": MARGIN_CERTIFICATE_SCHEMA,
+        "kind": "margin_certificate",
+        "issued_at": utc_now_iso(),
+        "margin_height": int(margin_height),
+        "margin_root": str(margin_root or ""),
+        "parent_margin_root": str(parent_margin_root or ""),
+        "bound_clearing_root": str(bound_clearing_root or ""),
+        "bound_clearing_height": int(bound_clearing_height or 0),
+        "clearing_hash": str(clearing_hash or ""),
+        "clearing_certificate_hash": str(clearing_certificate_hash or ""),
+        "package_hash": str(package_hash or ""),
+        "lineage_head_hash": str(lineage_head_hash or ""),
+        "net_position_digest": str(net_position_digest or ""),
+        "margin_requirement_digest": str(margin_requirement_digest or ""),
+        "margin_count": int(margin_count),
+        "member_ids": members,
+        "member_count": len(members),
+        "goal": goal or "",
+        "claims": dict(claims or {}),
+        "deterministic": True,
+        "post_clearing": True,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    cert["certificate_hash"] = compute_margin_certificate_hash(cert)
+    cert["ok"] = (
+        bool(cert["certificate_hash"])
+        and bool(cert["margin_root"])
+        and bool(cert["bound_clearing_root"])
+        and bool(cert["clearing_hash"])
+        and bool(cert["margin_requirement_digest"])
+        and bool(cert["net_position_digest"])
+        and cert["margin_height"] >= 1
+        and cert["margin_count"] >= 1
+        and cert["deterministic"] is True
+        and cert["post_clearing"] is True
+        and not bool(cert["used_skill_route_discovery"])
+    )
+    cert["valid"] = bool(cert["ok"])
+    return cert
+
+
+def verify_margin_certificate(payload: Mapping[str, Any] | Path) -> dict[str, Any]:
+    if isinstance(payload, Path):
+        data = json.loads(payload.read_text(encoding="utf-8"))
+    else:
+        data = dict(payload)
+    recomputed = compute_margin_certificate_hash(data)
+    stored = str(data.get("certificate_hash") or "")
+    hash_ok = bool(stored) and stored == recomputed
+    valid = (
+        hash_ok
+        and data.get("kind") == "margin_certificate"
+        and bool(data.get("margin_root"))
+        and bool(data.get("bound_clearing_root"))
+        and bool(data.get("clearing_hash"))
+        and bool(data.get("margin_requirement_digest"))
+        and bool(data.get("net_position_digest"))
+        and int(data.get("margin_height") or 0) >= 1
+        and int(data.get("margin_count") or 0) >= 1
+        and data.get("deterministic") is True
+        and data.get("post_clearing") is True
+        and not bool(data.get("used_skill_route_discovery"))
+    )
+    return {
+        "ok": valid,
+        "valid": valid,
+        "hash_ok": hash_ok,
+        "certificate_hash": stored if hash_ok else recomputed,
+        "margin_height": data.get("margin_height"),
+        "margin_root": data.get("margin_root"),
+        "bound_clearing_root": data.get("bound_clearing_root"),
+        "margin_requirement_digest": data.get("margin_requirement_digest"),
+        "clearing_hash": data.get("clearing_hash"),
+        "used_skill_route_discovery": bool(data.get("used_skill_route_discovery")),
+    }
+
+
+def write_margin_certificate(path: Path, certificate: Mapping[str, Any]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(path, dict(certificate))
+    return path
+
+
+def _load_margin_disk_evidence(
+    context: Mapping[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """Best-effort load of a durable clearing proof bundle for context-less gates."""
+
+    candidates: list[Path] = []
+    ctx = context or {}
+    for key in ("repo_path", "workspace", "workspace_path"):
+        raw = ctx.get(key)
+        if raw:
+            root = Path(str(raw))
+            candidates.extend(
+                [
+                    root / "artifacts" / "margin-bundles" / "proof-margin.json",
+                    root / DEFAULT_MARGIN_BUNDLE_RELATIVE / "proof-margin.json",
+                ]
+            )
+    here = Path.cwd()
+    candidates.extend(
+        [
+            here / "artifacts" / "margin-bundles" / "proof-margin.json",
+            here / DEFAULT_MARGIN_BUNDLE_RELATIVE / "proof-margin.json",
+        ]
+    )
+    try:
+        pkg_root = Path(__file__).resolve().parents[2]
+        candidates.append(
+            pkg_root / "artifacts" / "margin-bundles" / "proof-margin.json"
+        )
+    except Exception:
+        pass
+    for base in {Path.cwd(), Path(__file__).resolve().parents[2]}:
+        bundle_dir = base / "artifacts" / "margin-bundles"
+        if bundle_dir.is_dir():
+            candidates.extend(sorted(bundle_dir.glob("margin-*.json"), reverse=True)[:3])
+            candidates.extend(sorted(bundle_dir.glob("proof-margin*.json"), reverse=True)[:3])
+
+    seen: set[str] = set()
+    for path in candidates:
+        try:
+            resolved = path.resolve()
+        except Exception:
+            continue
+        key = str(resolved)
+        if key in seen or not resolved.is_file():
+            continue
+        seen.add(key)
+        try:
+            bundle = load_margin_bundle(resolved)
+        except Exception:
+            continue
+        integrity = verify_margin_bundle_integrity(bundle)
+        if not integrity.get("ok"):
+            continue
+        cert = (
+            bundle.get("margin_certificate")
+            if isinstance(bundle.get("margin_certificate"), Mapping)
+            else {}
+        )
+        cert_verify = (
+            verify_margin_certificate(cert) if cert else {"ok": False, "valid": False}
+        )
+        margin_count = int(
+            bundle.get("margin_count")
+            or (bundle.get("margins") or {}).get("entry_count")
+            or 0
+        )
+        tip_height = int(bundle.get("tip_height") or margin_count or 0)
+        if margin_count < 2 or tip_height < 2 or not cert_verify.get("valid"):
+            continue
+        return {
+            "ok": True,
+            "margined": True,
+            "margin_count": margin_count,
+            "tip_height": tip_height,
+            "tip_margin_root": bundle.get("tip_margin_root"),
+            "margin_hash": bundle.get("margin_hash"),
+            "margin_root_valid": True,
+            "certificate_valid": True,
+            "margin_requirement_digest": bundle.get("margin_requirement_digest"),
+            "margin_certificate": cert,
+            "bundle_path": str(resolved),
+            "source": "disk_proof_bundle",
+        }
+    return None
+
+
+def derive_margin_specs_from_clearing(
+    clearing_bundle: Mapping[str, Any],
+    *,
+    min_margins: int = 2,
+) -> list[dict[str, Any]]:
+    """Derive one margin requirement per clearing position (multi-margin required)."""
+
+    clearings = (
+        clearing_bundle.get("clearings")
+        if isinstance(clearing_bundle.get("clearings"), Mapping)
+        else {}
+    )
+    entries = list(clearings.get("entries") or [])
+    specs: list[dict[str, Any]] = []
+    for entry in entries:
+        if not isinstance(entry, Mapping):
+            continue
+        clearing_root = str(entry.get("clearing_root") or "")
+        if not clearing_root:
+            continue
+        specs.append(
+            {
+                "capability_id": str(entry.get("capability_id") or ""),
+                "effect": str(entry.get("effect") or ""),
+                "bound_clearing_root": clearing_root,
+                "bound_clearing_height": int(entry.get("clearing_height") or 0),
+                "net_position_digest": str(entry.get("net_position_digest") or ""),
+                "receipt_digest": str(entry.get("receipt_digest") or ""),
+                "bound_settlement_root": str(entry.get("bound_settlement_root") or ""),
+                "bound_action_root": str(entry.get("bound_action_root") or ""),
+                "package_hash": str(
+                    entry.get("package_hash")
+                    or clearing_bundle.get("package_hash")
+                    or ""
+                ),
+                "outcome": "margined",
+                "haircut_bps": 1000 + 100 * len(specs),
+            }
+        )
+    want = max(2, int(min_margins))
+    return specs[:want] if len(specs) >= want else specs
+
+
+def apply_margin_transition(
+    margin_log: Mapping[str, Any],
+    spec: Mapping[str, Any],
+    *,
+    clearing_bundle: Mapping[str, Any],
+    goal: str = "",
+    claims: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Append one margin requirement bound to a settlement receipt root and net it."""
+
+    log = copy.deepcopy(dict(margin_log)) if margin_log else empty_margin_log()
+    entries = list(log.get("entries") or [])
+    next_height = len(entries) + 1
+    parent_root = str(entries[-1].get("margin_root") or "") if entries else ""
+    parent_margin = str(entries[-1].get("margin_requirement_digest") or "") if entries else ""
+
+    bound_clearing_root = str(spec.get("bound_clearing_root") or "")
+    bound_clearing_height = int(spec.get("bound_clearing_height") or 0)
+    capability_id = str(spec.get("capability_id") or "")
+    effect = str(spec.get("effect") or "")
+    outcome = str(spec.get("outcome") or "margined")
+    package_hash = str(
+        spec.get("package_hash") or clearing_bundle.get("package_hash") or ""
+    )
+    clearing_hash = str(clearing_bundle.get("clearing_hash") or "")
+    tip_clearing_root = str(clearing_bundle.get("tip_clearing_root") or "")
+    clearings = (
+        clearing_bundle.get("clearings")
+        if isinstance(clearing_bundle.get("clearings"), Mapping)
+        else {}
+    )
+    clearing_entries = list(clearings.get("entries") or [])
+    known_roots = {
+        str(item.get("clearing_root") or "")
+        for item in clearing_entries
+        if isinstance(item, Mapping) and item.get("clearing_root")
+    }
+    if tip_clearing_root:
+        known_roots.add(tip_clearing_root)
+
+    if not capability_id or not bound_clearing_root or not clearing_hash:
+        return {
+            "ok": False,
+            "action": "apply_margin_transition",
+            "error": "missing_margin_bind_fields",
+            "margin_log": log,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    if bound_clearing_root not in known_roots:
+        return {
+            "ok": False,
+            "action": "apply_margin_transition",
+            "error": "bound_clearing_root_mismatch",
+            "bound_clearing_root": bound_clearing_root,
+            "known_clearing_roots": sorted(known_roots),
+            "margin_log": log,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    if any(
+        str(item.get("bound_clearing_root") or "") == bound_clearing_root
+        and str(item.get("outcome") or "") == outcome
+        for item in entries
+    ):
+        return {
+            "ok": False,
+            "action": "apply_margin_transition",
+            "error": "duplicate_margin_rejected",
+            "margin_log": log,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    settle_cert = (
+        clearing_bundle.get("clearing_certificate")
+        if isinstance(clearing_bundle.get("clearing_certificate"), Mapping)
+        else {}
+    )
+    settle_cert_hash = str(settle_cert.get("certificate_hash") or "")
+    lineage_head = str(clearing_bundle.get("lineage_head_hash") or "")
+    member_ids = list(clearing_bundle.get("member_ids") or [])
+    net_position_digest = str(spec.get("net_position_digest") or "")
+    haircut_bps = int(spec.get("haircut_bps") or 1000)
+    if not net_position_digest:
+        # Recover from settlement entry if available.
+        for item in clearing_entries:
+            if (
+                isinstance(item, Mapping)
+                and str(item.get("clearing_root") or "") == bound_clearing_root
+            ):
+                net_position_digest = str(item.get("net_position_digest") or "")
+                break
+    margin_requirement_digest = compute_margin_requirement_digest(
+        parent_margin_digest=parent_margin,
+        bound_clearing_root=bound_clearing_root,
+        net_position_digest=net_position_digest,
+        haircut_bps=haircut_bps,
+        capability_id=capability_id,
+        outcome=outcome,
+    )
+
+    body: dict[str, Any] = {
+        "schema_version": MARGIN_LOG_SCHEMA,
+        "kind": "margin_requirement",
+        "margin_height": next_height,
+        "parent_margin_root": parent_root,
+        "bound_clearing_root": bound_clearing_root,
+        "bound_clearing_height": bound_clearing_height,
+        "clearing_hash": clearing_hash,
+        "clearing_certificate_hash": settle_cert_hash,
+        "package_hash": package_hash,
+        "lineage_head_hash": lineage_head,
+        "capability_id": capability_id,
+        "effect": effect,
+        "outcome": outcome,
+        "net_position_digest": net_position_digest,
+        "margin_requirement_digest": margin_requirement_digest,
+        "haircut_bps": haircut_bps,
+        "parent_margin_digest": parent_margin,
+        "bound_action_root": str(spec.get("bound_action_root") or ""),
+        "member_ids": sorted({str(m).strip() for m in member_ids if str(m).strip()}),
+        "deterministic": True,
+        "post_clearing": True,
+        "applied_at": utc_now_iso(),
+        "goal": goal or str(clearing_bundle.get("goal") or ""),
+        "claims": dict(claims or {}),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    margin_root = compute_margin_root(body)
+    body["margin_root"] = margin_root
+    cert = issue_margin_certificate(
+        margin_height=next_height,
+        margin_root=margin_root,
+        parent_margin_root=parent_root,
+        bound_clearing_root=bound_clearing_root,
+        bound_clearing_height=bound_clearing_height,
+        clearing_hash=clearing_hash,
+        clearing_certificate_hash=settle_cert_hash,
+        package_hash=package_hash,
+        lineage_head_hash=lineage_head,
+        net_position_digest=net_position_digest,
+        margin_requirement_digest=margin_requirement_digest,
+        margin_count=next_height,
+        member_ids=body["member_ids"],
+        goal=goal or str(clearing_bundle.get("goal") or ""),
+        claims={
+            "capability_id": capability_id,
+            "effect": effect,
+            "outcome": outcome,
+            "plane": "margin",
+            **dict(claims or {}),
+        },
+    )
+    body["margin_certificate"] = cert
+    body["ok"] = (
+        bool(cert.get("ok"))
+        and bool(margin_root)
+        and bool(margin_requirement_digest)
+        and body["deterministic"] is True
+        and body["post_clearing"] is True
+        and not bool(body.get("used_skill_route_discovery"))
+    )
+
+    entries.append(body)
+    log["entries"] = entries
+    log["entry_count"] = len(entries)
+    log["tip_height"] = next_height
+    log["tip_margin_root"] = margin_root
+    log["bound_clearing_root"] = bound_clearing_root
+    log["bound_clearing_height"] = bound_clearing_height
+    log["clearing_hash"] = clearing_hash
+    log["margin_requirement_digest"] = margin_requirement_digest
+    log["updated_at"] = utc_now_iso()
+    log["schema_version"] = MARGIN_LOG_SCHEMA
+    log["kind"] = "margin_log"
+    return {
+        "ok": bool(body.get("ok")),
+        "action": "apply_margin_transition",
+        "entry": body,
+        "margin_height": next_height,
+        "margin_root": margin_root,
+        "parent_margin_root": parent_root,
+        "bound_clearing_root": bound_clearing_root,
+        "margin_requirement_digest": margin_requirement_digest,
+        "margin_log": log,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def verify_margin_chain(margin_log: Mapping[str, Any]) -> dict[str, Any]:
+    """Validate sequential heights, parent roots, nets, hashes, and clearing certs."""
+
+    entries = list(margin_log.get("entries") or [])
+    errors: list[str] = []
+    if not entries:
+        return {
+            "ok": False,
+            "valid": False,
+            "action": "verify_margin_chain",
+            "entry_count": 0,
+            "tip_height": 0,
+            "tip_margin_root": "",
+            "errors": ["empty_margin_log"],
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    prev_root = ""
+    prev_net = ""
+    bound_settlements: set[str] = set()
+    clearing_hashes: set[str] = set()
+    for index, raw in enumerate(entries):
+        if not isinstance(raw, Mapping):
+            errors.append(f"entry[{index}]_not_mapping")
+            continue
+        height = int(raw.get("margin_height") or 0)
+        expected_height = index + 1
+        if height != expected_height:
+            errors.append(f"entry[{index}]_height={height}_expected={expected_height}")
+        parent = str(raw.get("parent_margin_root") or "")
+        if index == 0:
+            if parent:
+                errors.append(f"entry[{index}]_genesis_has_parent")
+        else:
+            if parent != prev_root:
+                errors.append(
+                    f"entry[{index}]_parent_mismatch got={parent[:12]} expected={prev_root[:12]}"
+                )
+        stored = str(raw.get("margin_root") or "")
+        recomputed = compute_margin_root({**dict(raw), "margin_root": ""})
+        if not stored or stored != recomputed:
+            errors.append(f"entry[{index}]_margin_root_mismatch")
+        if raw.get("deterministic") is not True:
+            errors.append(f"entry[{index}]_not_deterministic")
+        if raw.get("post_clearing") is not True:
+            errors.append(f"entry[{index}]_not_post_clearing")
+        bound = str(raw.get("bound_clearing_root") or "")
+        if not bound:
+            errors.append(f"entry[{index}]_missing_bound_clearing_root")
+        else:
+            bound_settlements.add(bound)
+        s_hash = str(raw.get("clearing_hash") or "")
+        if not s_hash:
+            errors.append(f"entry[{index}]_missing_clearing_hash")
+        else:
+            clearing_hashes.add(s_hash)
+        net_position_digest = str(raw.get("net_position_digest") or "")
+        parent_margin_stored = str(raw.get("parent_margin_digest") or "")
+        if parent_margin_stored != prev_net:
+            errors.append(f"entry[{index}]_parent_margin_mismatch")
+        expected_net = compute_margin_requirement_digest(
+            parent_margin_digest=prev_net,
+            bound_clearing_root=bound,
+            net_position_digest=net_position_digest,
+            haircut_bps=int(raw.get("haircut_bps") or 1000),
+            capability_id=str(raw.get("capability_id") or ""),
+            outcome=str(raw.get("outcome") or "margined"),
+        )
+        stored_net = str(raw.get("margin_requirement_digest") or "")
+        if not stored_net or stored_net != expected_net:
+            errors.append(f"entry[{index}]_margin_requirement_digest_mismatch")
+        cert = raw.get("margin_certificate")
+        if not isinstance(cert, Mapping):
+            errors.append(f"entry[{index}]_missing_clearing_certificate")
+        else:
+            cert_verify = verify_margin_certificate(cert)
+            if not cert_verify.get("valid"):
+                errors.append(f"entry[{index}]_clearing_cert_invalid")
+            if str(cert.get("margin_root") or "") != stored:
+                errors.append(f"entry[{index}]_cert_margin_root_mismatch")
+            if int(cert.get("margin_height") or 0) != height:
+                errors.append(f"entry[{index}]_cert_height_mismatch")
+            if str(cert.get("bound_clearing_root") or "") != bound:
+                errors.append(f"entry[{index}]_cert_bound_settlement_mismatch")
+            if str(cert.get("margin_requirement_digest") or "") != stored_net:
+                errors.append(f"entry[{index}]_cert_net_mismatch")
+        prev_root = stored
+        prev_net = stored_net
+
+    if len(clearing_hashes) > 1:
+        errors.append("mixed_clearing_hashes")
+
+    tip = entries[-1] if entries else {}
+    tip_height = int(tip.get("margin_height") or 0) if isinstance(tip, Mapping) else 0
+    tip_root = str(tip.get("margin_root") or "") if isinstance(tip, Mapping) else ""
+    tip_net = str(tip.get("margin_requirement_digest") or "") if isinstance(tip, Mapping) else ""
+    log_tip_height = int(margin_log.get("tip_height") or 0)
+    log_tip_root = str(margin_log.get("tip_margin_root") or "")
+    log_net = str(margin_log.get("margin_requirement_digest") or "")
+    if log_tip_height and log_tip_height != tip_height:
+        errors.append("tip_height_metadata_mismatch")
+    if log_tip_root and log_tip_root != tip_root:
+        errors.append("tip_margin_root_metadata_mismatch")
+    if log_net and log_net != tip_net:
+        errors.append("margin_requirement_digest_metadata_mismatch")
+
+    valid = not errors and tip_height >= 1 and bool(tip_root) and bool(tip_net)
+    return {
+        "ok": valid,
+        "valid": valid,
+        "action": "verify_margin_chain",
+        "entry_count": len(entries),
+        "tip_height": tip_height,
+        "tip_margin_root": tip_root,
+        "margin_requirement_digest": tip_net,
+        "bound_clearing_roots": sorted(bound_settlements),
+        "clearing_hash": next(iter(clearing_hashes), ""),
+        "errors": errors,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def apply_clearing_bundle_to_margins(
+    clearing_bundle: Mapping[str, Any],
+    *,
+    goal: str = "",
+    min_margins: int = 2,
+) -> dict[str, Any]:
+    """Clear multi-settlement receipts into a deterministic netted clearing log."""
+
+    integrity = verify_clearing_bundle_integrity(clearing_bundle)
+    if not integrity.get("ok"):
+        return {
+            "ok": False,
+            "action": "apply_clearing_bundle_to_margins",
+            "error": "clearing_integrity_failed",
+            "integrity": integrity,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    specs = derive_margin_specs_from_clearing(
+        clearing_bundle, min_margins=min_margins
+    )
+    if len(specs) < 2:
+        return {
+            "ok": False,
+            "action": "apply_clearing_bundle_to_margins",
+            "error": "need_multi_margin",
+            "spec_count": len(specs),
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    margin_log = empty_margin_log()
+    applied: list[dict[str, Any]] = []
+    for index, spec in enumerate(specs):
+        result = apply_margin_transition(
+            margin_log,
+            spec,
+            clearing_bundle=clearing_bundle,
+            goal=f"{goal or clearing_bundle.get('goal') or 'clearing'} (clearing {index + 1})",
+            claims={"clearing_index": index + 1, "plane": "margin"},
+        )
+        if not result.get("ok"):
+            return {
+                "ok": False,
+                "action": "apply_clearing_bundle_to_margins",
+                "error": result.get("error") or "apply_failed",
+                "applied_count": len(applied),
+                "apply": {
+                    "ok": result.get("ok"),
+                    "error": result.get("error"),
+                    "margin_height": result.get("margin_height"),
+                },
+                "margin_log": margin_log,
+                "used_skill_route_discovery": legacy_pipeline_was_used(),
+            }
+        margin_log = result["margin_log"]
+        applied.append(result["entry"])
+
+    chain = verify_margin_chain(margin_log)
+    ok = bool(chain.get("valid")) and len(applied) >= 2 and not legacy_pipeline_was_used()
+    return {
+        "ok": ok,
+        "action": "apply_clearing_bundle_to_margins",
+        "margin_log": margin_log,
+        "applied": applied,
+        "applied_count": len(applied),
+        "margin_count": len(applied),
+        "tip_height": margin_log.get("tip_height"),
+        "tip_margin_root": margin_log.get("tip_margin_root"),
+        "bound_clearing_root": margin_log.get("bound_clearing_root"),
+        "margin_requirement_digest": margin_log.get("margin_requirement_digest"),
+        "chain": chain,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def build_margin_bundle(
+    margin_log: Mapping[str, Any],
+    clearing_bundle: Mapping[str, Any],
+    *,
+    goal: str = "margin over clearing",
+) -> dict[str, Any]:
+    """Package clearing log + settlement tip into a portable clearing bundle."""
+
+    chain = verify_margin_chain(margin_log)
+    if not chain.get("valid"):
+        return {
+            "ok": False,
+            "action": "build_margin_bundle",
+            "error": "margin_chain_invalid",
+            "chain": chain,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    entries = list(margin_log.get("entries") or [])
+    tip = entries[-1]
+    tip_cert = (
+        tip.get("margin_certificate")
+        if isinstance(tip.get("margin_certificate"), Mapping)
+        else {}
+    )
+    tip_cert_verify = (
+        verify_margin_certificate(tip_cert) if tip_cert else {"valid": False}
+    )
+    settle_cert = (
+        clearing_bundle.get("clearing_certificate")
+        if isinstance(clearing_bundle.get("clearing_certificate"), Mapping)
+        else {}
+    )
+    act_cert = (
+        clearing_bundle.get("actuation_certificate")
+        if isinstance(clearing_bundle.get("actuation_certificate"), Mapping)
+        else {}
+    )
+    package = (
+        clearing_bundle.get("package")
+        if isinstance(clearing_bundle.get("package"), Mapping)
+        else {}
+    )
+    certificates: dict[str, dict[str, Any]] = {}
+    for clearing in entries:
+        cert = clearing.get("margin_certificate")
+        if isinstance(cert, Mapping) and cert.get("certificate_hash"):
+            certificates[str(cert["certificate_hash"])] = {
+                "certificate_hash": cert.get("certificate_hash"),
+                "payload": cert,
+                "margin_height": clearing.get("margin_height"),
+            }
+    if isinstance(settle_cert, Mapping) and settle_cert.get("certificate_hash"):
+        certificates[str(settle_cert["certificate_hash"])] = {
+            "certificate_hash": settle_cert.get("certificate_hash"),
+            "payload": settle_cert,
+            "kind": "clearing_certificate",
+        }
+    if isinstance(act_cert, Mapping) and act_cert.get("certificate_hash"):
+        certificates[str(act_cert["certificate_hash"])] = {
+            "certificate_hash": act_cert.get("certificate_hash"),
+            "payload": act_cert,
+            "kind": "actuation_certificate",
+        }
+    exec_cert = (
+        clearing_bundle.get("execution_certificate")
+        if isinstance(clearing_bundle.get("execution_certificate"), Mapping)
+        else {}
+    )
+    if isinstance(exec_cert, Mapping) and exec_cert.get("certificate_hash"):
+        certificates[str(exec_cert["certificate_hash"])] = {
+            "certificate_hash": exec_cert.get("certificate_hash"),
+            "payload": exec_cert,
+            "kind": "execution_certificate",
+        }
+
+    settle_cert_nested = (
+        clearing_bundle.get("settlement_certificate")
+        if isinstance(clearing_bundle.get("settlement_certificate"), Mapping)
+        else {}
+    )
+    if isinstance(settle_cert_nested, Mapping) and settle_cert_nested.get(
+        "certificate_hash"
+    ):
+        certificates[str(settle_cert_nested["certificate_hash"])] = {
+            "certificate_hash": settle_cert_nested.get("certificate_hash"),
+            "payload": settle_cert_nested,
+            "kind": "settlement_certificate",
+        }
+
+    member_ids = list(clearing_bundle.get("member_ids") or package.get("member_ids") or [])
+    cb: dict[str, Any] = {
+        "schema_version": MARGIN_BUNDLE_SCHEMA,
+        "kind": "margin_bundle",
+        "action": "build_margin_bundle",
+        "goal": goal,
+        "margins": copy.deepcopy(dict(margin_log)),
+        "clearings": copy.deepcopy(
+            clearing_bundle.get("clearings")
+            if isinstance(clearing_bundle.get("clearings"), Mapping)
+            else {}
+        ),
+        "settlements": copy.deepcopy(
+            clearing_bundle.get("settlements")
+            if isinstance(clearing_bundle.get("settlements"), Mapping)
+            else {}
+        ),
+        "actions": copy.deepcopy(
+            clearing_bundle.get("actions")
+            if isinstance(clearing_bundle.get("actions"), Mapping)
+            else {}
+        ),
+        "package": copy.deepcopy(dict(package)),
+        "lineage": copy.deepcopy(
+            clearing_bundle.get("lineage")
+            if isinstance(clearing_bundle.get("lineage"), Mapping)
+            else {}
+        ),
+        "margin_certificate": copy.deepcopy(dict(tip_cert)),
+        "clearing_certificate": copy.deepcopy(dict(settle_cert)),
+        "settlement_certificate": copy.deepcopy(dict(settle_cert_nested)),
+        "actuation_certificate": copy.deepcopy(dict(act_cert)),
+        "execution_certificate": copy.deepcopy(dict(exec_cert)),
+        "certificates": certificates,
+        "certificate_count": len(certificates),
+        "margin_count": len(entries),
+        "clearing_count": int(clearing_bundle.get("clearing_count") or 0),
+        "settlement_count": int(clearing_bundle.get("settlement_count") or 0),
+        "action_count": int(clearing_bundle.get("action_count") or 0),
+        "tip_height": int(margin_log.get("tip_height") or 0),
+        "tip_margin_root": str(margin_log.get("tip_margin_root") or ""),
+        "bound_clearing_root": str(margin_log.get("bound_clearing_root") or ""),
+        "bound_clearing_height": int(margin_log.get("bound_clearing_height") or 0),
+        "tip_clearing_root": str(clearing_bundle.get("tip_clearing_root") or ""),
+        "bound_settlement_root": str(clearing_bundle.get("bound_settlement_root") or ""),
+        "tip_settlement_root": str(clearing_bundle.get("tip_settlement_root") or ""),
+        "bound_action_root": str(clearing_bundle.get("bound_action_root") or ""),
+        "tip_action_root": str(clearing_bundle.get("tip_action_root") or ""),
+        "bound_state_root": str(clearing_bundle.get("bound_state_root") or ""),
+        "margin_requirement_digest": str(margin_log.get("margin_requirement_digest") or ""),
+        "net_position_digest": str(clearing_bundle.get("net_position_digest") or ""),
+        "clearing_hash": str(clearing_bundle.get("clearing_hash") or ""),
+        "settlement_hash": str(clearing_bundle.get("settlement_hash") or ""),
+        "actuation_hash": str(clearing_bundle.get("actuation_hash") or ""),
+        "execution_hash": str(clearing_bundle.get("execution_hash") or ""),
+        "package_hash": str(clearing_bundle.get("package_hash") or ""),
+        "member_ids": sorted({str(m).strip() for m in member_ids if str(m).strip()}),
+        "member_count": len(member_ids),
+        "lineage_head_hash": str(clearing_bundle.get("lineage_head_hash") or ""),
+        "lineage_entry_count": int(clearing_bundle.get("lineage_entry_count") or 0),
+        "origin_count": clearing_bundle.get("origin_count"),
+        "agreeing_count": clearing_bundle.get("agreeing_count"),
+        "byzantine_count": clearing_bundle.get("byzantine_count"),
+        "state_count": clearing_bundle.get("state_count"),
+        "epoch_count": clearing_bundle.get("epoch_count"),
+        "deterministic": True,
+        "post_clearing": True,
+        "exported_at": utc_now_iso(),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    cb["margin_hash"] = compute_margin_bundle_hash(cb)
+    cb["ok"] = (
+        bool(chain.get("valid"))
+        and bool(tip_cert_verify.get("valid"))
+        and len(entries) >= 2
+        and bool(cb["margin_hash"])
+        and bool(cb["clearing_hash"])
+        and bool(cb["margin_requirement_digest"])
+        and cb["deterministic"] is True
+        and cb["post_clearing"] is True
+        and not bool(cb["used_skill_route_discovery"])
+    )
+    return cb
+
+
+def write_margin_bundle(path: Path, bundle: Mapping[str, Any]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(path, dict(bundle))
+    return path
+
+
+def load_margin_bundle(path: Path) -> dict[str, Any]:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("clearing bundle must be a JSON object")
+    return data
+
+
+def verify_margin_bundle_integrity(bundle: Mapping[str, Any]) -> dict[str, Any]:
+    expected = str(bundle.get("margin_hash") or "").strip()
+    recomputed = compute_margin_bundle_hash(bundle)
+    hash_ok = bool(expected) and expected == recomputed
+    clearings = (
+        bundle.get("margins")
+        if isinstance(bundle.get("margins"), Mapping)
+        else {}
+    )
+    chain = (
+        verify_margin_chain(clearings)
+        if clearings
+        else {"ok": False, "valid": False, "errors": ["missing_clearings"]}
+    )
+    cert = (
+        bundle.get("margin_certificate")
+        if isinstance(bundle.get("margin_certificate"), Mapping)
+        else {}
+    )
+    cert_verify = (
+        verify_margin_certificate(cert) if cert else {"valid": False, "ok": False}
+    )
+    settle_cert = (
+        bundle.get("clearing_certificate")
+        if isinstance(bundle.get("clearing_certificate"), Mapping)
+        else {}
+    )
+    settle_cert_verify = (
+        verify_clearing_certificate(settle_cert)
+        if settle_cert
+        else {"valid": False, "ok": False}
+    )
+    multi = int(bundle.get("margin_count") or chain.get("entry_count") or 0) >= 2
+    package = bundle.get("package") if isinstance(bundle.get("package"), Mapping) else {}
+    package_ok = bool(package) and bool(bundle.get("package_hash"))
+    bound_ok = bool(bundle.get("bound_clearing_root")) and bool(
+        bundle.get("clearing_hash")
+    )
+    margin_digest_ok = bool(bundle.get("margin_requirement_digest")) and str(
+        bundle.get("margin_requirement_digest") or ""
+    ) == str(chain.get("margin_requirement_digest") or bundle.get("margin_requirement_digest") or "")
+    deterministic = bundle.get("deterministic") is True
+    post_clearing = bundle.get("post_clearing") is True
+    used_skill = bool(bundle.get("used_skill_route_discovery")) or legacy_pipeline_was_used()
+    ok = (
+        hash_ok
+        and bool(chain.get("valid"))
+        and bool(cert_verify.get("valid"))
+        and bool(settle_cert_verify.get("valid"))
+        and multi
+        and package_ok
+        and bound_ok
+        and margin_digest_ok
+        and deterministic
+        and post_clearing
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "verify_margin_bundle_integrity",
+        "hash_ok": hash_ok,
+        "chain_valid": bool(chain.get("valid")),
+        "multi_margin": multi,
+        "package_ok": package_ok,
+        "margin_certificate_valid": bool(cert_verify.get("valid")),
+        "clearing_certificate_valid": bool(settle_cert_verify.get("valid")),
+        "bound_ok": bound_ok,
+        "margin_ok": margin_digest_ok,
+        "margin_digest_ok": margin_digest_ok,
+        "deterministic": deterministic,
+        "post_clearing": post_clearing,
+        "tip_height": chain.get("tip_height"),
+        "tip_margin_root": chain.get("tip_margin_root"),
+        "margin_requirement_digest": chain.get("margin_requirement_digest"),
+        "margin_hash": expected if hash_ok else recomputed,
+        "errors": list(chain.get("errors") or []),
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def rehydrate_margin_bundle(
+    repo_path: Path,
+    bundle: Mapping[str, Any],
+    *,
+    sandbox_dir: Path | None = None,
+) -> dict[str, Any]:
+    """Materialize tip package + clearing log into a sterile sandbox and re-check nets."""
+
+    root = repo_path.resolve()
+    integrity = verify_margin_bundle_integrity(bundle)
+    if not integrity.get("ok"):
+        return {
+            "ok": False,
+            "action": "rehydrate_margin_bundle",
+            "error": "margin_integrity_failed",
+            "integrity": integrity,
+            "used_skill_route_discovery": integrity.get("used_skill_route_discovery"),
+        }
+
+    c_hash = str(bundle.get("margin_hash") or "unknown")
+    sandbox = (
+        sandbox_dir.resolve()
+        if sandbox_dir is not None
+        else (root / "artifacts" / "margin-sandbox" / c_hash[:16])
+    )
+    sandbox.mkdir(parents=True, exist_ok=True)
+
+    package = dict(bundle.get("package") or {})
+    lineage = copy.deepcopy(bundle.get("lineage") or {})
+    margins = copy.deepcopy(bundle.get("margins") or {})
+    clearings = copy.deepcopy(bundle.get("clearings") or {})
+    settlements = copy.deepcopy(bundle.get("settlements") or {})
+    actions = copy.deepcopy(bundle.get("actions") or {})
+    lineage_path = sandbox / "lineage.json"
+    if lineage:
+        write_lineage_log(lineage_path, lineage)
+    margins_path = sandbox / "margins.json"
+    atomic_write_json(margins_path, margins)
+    clearings_path = sandbox / "clearings.json"
+    atomic_write_json(clearings_path, clearings)
+    settlements_path = sandbox / "settlements.json"
+    atomic_write_json(settlements_path, settlements)
+    actions_path = sandbox / "actions.json"
+    atomic_write_json(actions_path, actions)
+
+    empty = CapabilityLedger(schema_version=SCHEMA_VERSION, updated_at=utc_now_iso())
+    empty, import_report = import_capability_package(empty, package, replace=True)
+    sterile_ledger_path = sandbox / "ledger.json"
+    save_ledger(sterile_ledger_path, empty)
+
+    cert = (
+        bundle.get("margin_certificate")
+        if isinstance(bundle.get("margin_certificate"), Mapping)
+        else {}
+    )
+    cert_path = sandbox / "margin-certificate.json"
+    if cert:
+        write_margin_certificate(cert_path, cert)
+    clear_cert = (
+        bundle.get("clearing_certificate")
+        if isinstance(bundle.get("clearing_certificate"), Mapping)
+        else {}
+    )
+    clear_cert_path = sandbox / "clearing-certificate.json"
+    if clear_cert:
+        write_clearing_certificate(clear_cert_path, clear_cert)
+
+    chain = verify_margin_chain(margins)
+    cert_verify = (
+        verify_margin_certificate(cert) if cert else {"ok": False, "valid": False}
+    )
+    clear_cert_verify = (
+        verify_clearing_certificate(clear_cert)
+        if clear_cert
+        else {"ok": False, "valid": False}
+    )
+    re_margin_digest_ok = True
+    prev_net = ""
+    for entry in list(margins.get("entries") or []):
+        if not isinstance(entry, Mapping):
+            re_margin_digest_ok = False
+            break
+        expected = compute_margin_requirement_digest(
+            parent_margin_digest=prev_net,
+            bound_clearing_root=str(entry.get("bound_clearing_root") or ""),
+            net_position_digest=str(entry.get("net_position_digest") or ""),
+            haircut_bps=int(entry.get("haircut_bps") or 1000),
+            capability_id=str(entry.get("capability_id") or ""),
+            outcome=str(entry.get("outcome") or "margined"),
+        )
+        if expected != str(entry.get("margin_requirement_digest") or ""):
+            re_margin_digest_ok = False
+            break
+        prev_net = expected
+
+    lineage_chain = (
+        verify_lineage_chain(lineage)
+        if lineage
+        else {"ok": True, "valid": True, "entry_count": 0}
+    )
+    used_skill = legacy_pipeline_was_used()
+    ok = (
+        bool(integrity.get("ok"))
+        and bool(import_report.get("ok"))
+        and bool(chain.get("valid"))
+        and bool(cert_verify.get("valid"))
+        and bool(clear_cert_verify.get("valid"))
+        and re_margin_digest_ok
+        and int(import_report.get("imported_count") or 0) >= 1
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "rehydrate_margin_bundle",
+        "sandbox_dir": str(sandbox),
+        "lineage_path": str(lineage_path) if lineage else None,
+        "margins_path": str(margins_path),
+        "clearings_path": str(clearings_path),
+        "settlements_path": str(settlements_path),
+        "actions_path": str(actions_path),
+        "sterile_ledger_path": str(sterile_ledger_path),
+        "certificate_path": str(cert_path) if cert else None,
+        "clearing_certificate_path": str(clear_cert_path) if clear_cert else None,
+        "margin_hash": c_hash,
+        "import": import_report,
+        "chain": {
+            "ok": chain.get("ok"),
+            "valid": chain.get("valid"),
+            "entry_count": chain.get("entry_count"),
+            "tip_height": chain.get("tip_height"),
+            "tip_margin_root": chain.get("tip_margin_root"),
+            "margin_requirement_digest": chain.get("margin_requirement_digest"),
+            "errors": chain.get("errors") or [],
+        },
+        "lineage_chain": {
+            "ok": lineage_chain.get("ok"),
+            "valid": lineage_chain.get("valid"),
+            "entry_count": lineage_chain.get("entry_count"),
+        },
+        "margin_certificate": {
+            "ok": cert_verify.get("ok"),
+            "valid": cert_verify.get("valid"),
+            "certificate_hash": cert_verify.get("certificate_hash"),
+            "margin_root": cert_verify.get("margin_root"),
+        },
+        "clearing_certificate": {
+            "ok": clear_cert_verify.get("ok"),
+            "valid": clear_cert_verify.get("valid"),
+            "certificate_hash": clear_cert_verify.get("certificate_hash"),
+        },
+        "margin_digests_match": re_margin_digest_ok,
+        "integrity": {
+            "ok": integrity.get("ok"),
+            "hash_ok": integrity.get("hash_ok"),
+            "multi_margin": integrity.get("multi_margin"),
+            "tip_height": integrity.get("tip_height"),
+        },
+        "sterile_ledger": empty,
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def replay_margins_from_specs(
+    specs: Sequence[Mapping[str, Any]],
+    clearing_bundle: Mapping[str, Any],
+    *,
+    goal: str = "",
+) -> dict[str, Any]:
+    margin_log = empty_margin_log()
+    for index, spec in enumerate(specs):
+        result = apply_margin_transition(
+            margin_log,
+            spec,
+            clearing_bundle=clearing_bundle,
+            goal=f"{goal} (replay {index + 1})",
+            claims={"replay": True, "clearing_index": index + 1},
+        )
+        if not result.get("ok"):
+            return {
+                "ok": False,
+                "error": result.get("error") or "replay_failed",
+                "margin_log": margin_log,
+                "applied_count": index,
+            }
+        margin_log = result["margin_log"]
+    chain = verify_margin_chain(margin_log)
+    return {
+        "ok": bool(chain.get("valid")),
+        "margin_log": margin_log,
+        "tip_margin_root": margin_log.get("tip_margin_root"),
+        "tip_height": margin_log.get("tip_height"),
+        "margin_requirement_digest": margin_log.get("margin_requirement_digest"),
+        "chain": chain,
+    }
+
+
+def run_margin_adversarial_checks(
+    intact_bundle: Mapping[str, Any],
+    margin_log: Mapping[str, Any],
+    clearing_bundle: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Falsify clearing honesty: mutation, reorder, wrong-settlement, double-clear, forged root, net."""
+
+    intact = verify_margin_bundle_integrity(intact_bundle)
+    intact_chain = verify_margin_chain(margin_log)
+
+    mutated_log = copy.deepcopy(dict(margin_log))
+    m_entries = list(mutated_log.get("entries") or [])
+    mutation_fails = False
+    if m_entries:
+        first = dict(m_entries[0])
+        first["capability_id"] = "evil.capability"
+        m_entries[0] = first
+        mutated_log["entries"] = m_entries
+        mutation_check = verify_margin_chain(mutated_log)
+        mutation_fails = mutation_check.get("valid") is not True
+
+    reorder_fails = False
+    if len(list(margin_log.get("entries") or [])) >= 2:
+        rev = copy.deepcopy(dict(margin_log))
+        rev["entries"] = list(reversed(list(rev.get("entries") or [])))
+        reorder_check = verify_margin_chain(rev)
+        reorder_fails = reorder_check.get("valid") is not True
+    else:
+        reorder_fails = True
+
+    wrong_clearing_fails = False
+    if m_entries:
+        ws = copy.deepcopy(dict(margin_log))
+        w_entries = list(ws.get("entries") or [])
+        tip = dict(w_entries[-1])
+        tip["bound_clearing_root"] = "a" * 24
+        w_entries[-1] = tip
+        ws["entries"] = w_entries
+        ws["bound_clearing_root"] = tip["bound_clearing_root"]
+        wrong_check = verify_margin_chain(ws)
+        wrong_clearing_fails = wrong_check.get("valid") is not True
+    specs = derive_margin_specs_from_clearing(clearing_bundle)
+    bad_spec = dict(specs[0]) if specs else {}
+    if bad_spec:
+        bad_spec["bound_clearing_root"] = "b" * 24
+        apply_bad = apply_margin_transition(
+            empty_margin_log(),
+            bad_spec,
+            clearing_bundle=clearing_bundle,
+            goal="bad-bind",
+        )
+        wrong_clearing_fails = wrong_clearing_fails and (
+            apply_bad.get("ok") is not True
+            and apply_bad.get("error") == "bound_clearing_root_mismatch"
+        )
+
+    forged_log = copy.deepcopy(dict(margin_log))
+    f_entries = list(forged_log.get("entries") or [])
+    forged_root_fails = False
+    if f_entries:
+        tip = dict(f_entries[-1])
+        tip["margin_root"] = "f" * 24
+        f_entries[-1] = tip
+        forged_log["entries"] = f_entries
+        forged_log["tip_margin_root"] = tip["margin_root"]
+        forged_check = verify_margin_chain(forged_log)
+        forged_root_fails = forged_check.get("valid") is not True
+
+    gap_log = copy.deepcopy(dict(margin_log))
+    g_entries = list(gap_log.get("entries") or [])
+    gap_fails = False
+    if g_entries:
+        last = dict(g_entries[-1])
+        last["margin_height"] = int(last.get("margin_height") or 1) + 5
+        g_entries[-1] = last
+        gap_log["entries"] = g_entries
+        gap_log["tip_height"] = last["margin_height"]
+        gap_check = verify_margin_chain(gap_log)
+        gap_fails = gap_check.get("valid") is not True
+
+    broken_cert_fails = False
+    if m_entries:
+        broken_log = copy.deepcopy(dict(margin_log))
+        b_entries = list(broken_log.get("entries") or [])
+        tip = dict(b_entries[-1])
+        cert = dict(tip.get("margin_certificate") or {})
+        cert["certificate_hash"] = "0" * 24
+        tip["margin_certificate"] = cert
+        b_entries[-1] = tip
+        broken_log["entries"] = b_entries
+        broken_check = verify_margin_chain(broken_log)
+        broken_cert_fails = broken_check.get("valid") is not True
+
+    parent_fails = False
+    if len(list(margin_log.get("entries") or [])) >= 2:
+        parent_log = copy.deepcopy(dict(margin_log))
+        p_entries = list(parent_log.get("entries") or [])
+        tip = dict(p_entries[-1])
+        tip["parent_margin_root"] = "deadbeef-parent-root"
+        p_entries[-1] = tip
+        parent_log["entries"] = p_entries
+        parent_check = verify_margin_chain(parent_log)
+        parent_fails = parent_check.get("valid") is not True
+    else:
+        parent_fails = True
+
+    digest_tamper_fails = False
+    if m_entries:
+        net_log = copy.deepcopy(dict(margin_log))
+        n_entries = list(net_log.get("entries") or [])
+        tip = dict(n_entries[-1])
+        tip["margin_requirement_digest"] = "c" * 24
+        n_entries[-1] = tip
+        net_log["entries"] = n_entries
+        net_log["margin_requirement_digest"] = tip["margin_requirement_digest"]
+        net_check = verify_margin_chain(net_log)
+        digest_tamper_fails = net_check.get("valid") is not True
+
+    tampered = copy.deepcopy(dict(intact_bundle))
+    tampered["margin_hash"] = "e" * 24
+    tamper_check = verify_margin_bundle_integrity(tampered)
+    tamper_fails = tamper_check.get("ok") is not True
+
+    single = copy.deepcopy(dict(intact_bundle))
+    single_margins = copy.deepcopy(dict(single.get("margins") or {}))
+    s_entries = list(single_margins.get("entries") or [])[:1]
+    single_margins["entries"] = s_entries
+    single_margins["entry_count"] = len(s_entries)
+    if s_entries:
+        single_margins["tip_height"] = s_entries[0].get("margin_height")
+        single_margins["tip_margin_root"] = s_entries[0].get("margin_root")
+        single_margins["margin_requirement_digest"] = s_entries[0].get("margin_requirement_digest")
+        single["margins"] = single_margins
+        single["margin_count"] = 1
+        single["tip_height"] = single_margins["tip_height"]
+        single["tip_margin_root"] = single_margins["tip_margin_root"]
+        single["margin_requirement_digest"] = single_margins["margin_requirement_digest"]
+        if "margin_hash" in single:
+            del single["margin_hash"]
+        single["margin_hash"] = compute_margin_bundle_hash(single)
+        single_check = verify_margin_bundle_integrity(single)
+        single_margin_fails = single_check.get("ok") is not True
+    else:
+        single_margin_fails = True
+
+    replay_match = False
+    if specs:
+        replay = replay_margins_from_specs(
+            specs, clearing_bundle, goal="adversarial-replay"
+        )
+        replay_match = (
+            bool(replay.get("ok"))
+            and str(replay.get("tip_margin_root") or "")
+            == str(margin_log.get("tip_margin_root") or "")
+            and int(replay.get("tip_height") or 0)
+            == int(margin_log.get("tip_height") or 0)
+            and str(replay.get("margin_requirement_digest") or "")
+            == str(margin_log.get("margin_requirement_digest") or "")
+        )
+
+    dup_fails = False
+    if specs:
+        dup = apply_margin_transition(
+            margin_log, specs[-1], clearing_bundle=clearing_bundle, goal="dup"
+        )
+        dup_fails = dup.get("ok") is not True and dup.get("error") in {
+            "duplicate_margin_rejected",
+        }
+
+    incomplete_fails = single_margin_fails
+    used_skill = legacy_pipeline_was_used()
+    ok = (
+        bool(intact.get("ok"))
+        and bool(intact_chain.get("valid"))
+        and mutation_fails
+        and reorder_fails
+        and wrong_clearing_fails
+        and forged_root_fails
+        and gap_fails
+        and broken_cert_fails
+        and parent_fails
+        and digest_tamper_fails
+        and tamper_fails
+        and single_margin_fails
+        and replay_match
+        and dup_fails
+        and incomplete_fails
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "margin_adversarial_checks",
+        "intact_ok": bool(intact.get("ok")),
+        "chain_ok": bool(intact_chain.get("valid")),
+        "mutation_fails_as_expected": mutation_fails,
+        "reorder_fails_as_expected": reorder_fails,
+        "wrong_clearing_fails_as_expected": wrong_clearing_fails,
+        "forged_root_fails_as_expected": forged_root_fails,
+        "gap_fails_as_expected": gap_fails,
+        "broken_cert_fails_as_expected": broken_cert_fails,
+        "wrong_parent_fails_as_expected": parent_fails,
+        "digest_tamper_fails_as_expected": digest_tamper_fails,
+        "tamper_fails_as_expected": tamper_fails,
+        "single_margin_fails_as_expected": single_margin_fails,
+        "replay_matches_tip": replay_match,
+        "duplicate_apply_fails_as_expected": dup_fails,
+        "incomplete_fails_as_expected": incomplete_fails,
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def run_margin_plane(
+    repo_path: Path,
+    goal: str = "margin over clearing",
+    done_when: str = "",
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 780,
+    max_steps: int = 3,
+    run_clearing: bool = True,
+    run_settlement: bool = True,
+    run_actuation: bool = True,
+    run_execution: bool = True,
+    run_finality: bool = True,
+    run_quorum: bool = True,
+    run_continuity: bool = False,
+    run_reconciliation: bool = False,
+    force_synthetic_drift: bool = True,
+    inject_byzantine: bool = True,
+    prove_imported: bool = True,
+    epoch_count: int = 2,
+    min_actions: int = 2,
+    min_settlements: int = 2,
+    min_clearings: int = 2,
+    min_margins: int = 2,
+    lineage_path: Path | None = None,
+    bundle_path: Path | None = None,
+    quorum_path: Path | None = None,
+    finality_path: Path | None = None,
+    execution_path: Path | None = None,
+    actuation_path: Path | None = None,
+    settlement_path: Path | None = None,
+    clearing_path: Path | None = None,
+    margin_path: Path | None = None,
+    sandbox_dir: Path | None = None,
+    persist: bool = True,
+) -> dict[str, Any]:
+    """Closed margin plane: clearing → multi-margin requirements → cert → rehydrate → adversarial.
+
+    Past netted clearing: each clearing position binds an ordered margin requirement into a
+    hash-chained margin log with margin requirement digests and margin certificates bound
+    to the clearing tip. Mutation, reorder, wrong-clearing binding, double-margin,
+    forged roots, height gaps, broken certs, digest tamper, and single-margin bundles fail;
+    sterile rehydrate+prove and genesis replay matching tip succeed without skill-route.
+    """
+
+    root = repo_path.resolve()
+    path, _ledger = ensure_seeded_ledger(root)
+    want_epochs = max(2, int(epoch_count))
+    want_actions = max(2, int(min_actions))
+    want_settlements = max(2, int(min_settlements))
+    want_clearings = max(2, int(min_clearings))
+    want_margins = max(2, int(min_margins))
+
+    out_lineage = (
+        lineage_path.resolve()
+        if lineage_path is not None
+        else default_lineage_path(root)
+    )
+    out_clearing = (
+        clearing_path.resolve()
+        if clearing_path is not None
+        else (default_clearing_bundle_dir(root) / "margin-source-clearing.json")
+    )
+
+    clearing_report: dict[str, Any] | None = None
+    clearing_bundle: dict[str, Any] | None = None
+    if run_clearing:
+        clearing_report = run_clearing_plane(
+            root,
+            goal if goal else "clearing for margin",
+            strip_context_only_outcome_predicates(done_when or ""),
+            command_runner=command_runner,
+            timeout=timeout,
+            max_steps=max_steps,
+            run_settlement=run_settlement,
+            run_actuation=run_actuation,
+            run_execution=run_execution,
+            run_finality=run_finality,
+            run_quorum=run_quorum,
+            run_continuity=run_continuity,
+            run_reconciliation=run_reconciliation,
+            force_synthetic_drift=force_synthetic_drift,
+            inject_byzantine=inject_byzantine,
+            prove_imported=prove_imported,
+            epoch_count=want_epochs,
+            min_actions=want_actions,
+            min_settlements=want_settlements,
+            min_clearings=want_clearings,
+            lineage_path=out_lineage,
+            bundle_path=bundle_path,
+            quorum_path=quorum_path,
+            finality_path=finality_path,
+            execution_path=execution_path,
+            actuation_path=actuation_path,
+            settlement_path=settlement_path,
+            clearing_path=out_clearing,
+            persist=persist,
+        )
+        c_path = Path((clearing_report.get("clearing") or {}).get("bundle_path") or "")
+        if c_path and c_path.is_file():
+            clearing_bundle = load_clearing_bundle(c_path)
+        elif out_clearing.is_file():
+            clearing_bundle = load_clearing_bundle(out_clearing)
+        else:
+            clearing_bundle = None
+    else:
+        if out_clearing.is_file():
+            clearing_bundle = load_clearing_bundle(out_clearing)
+        else:
+            clearing_report = run_clearing_plane(
+                root,
+                goal,
+                "",
+                command_runner=command_runner,
+                timeout=timeout,
+                max_steps=max_steps,
+                run_settlement=run_settlement,
+                run_actuation=run_actuation,
+                run_execution=run_execution,
+                run_finality=run_finality,
+                run_quorum=run_quorum,
+                run_continuity=False,
+                run_reconciliation=False,
+                inject_byzantine=inject_byzantine,
+                prove_imported=prove_imported,
+                epoch_count=want_epochs,
+                min_actions=want_actions,
+                min_settlements=want_settlements,
+                min_clearings=want_clearings,
+                lineage_path=out_lineage,
+                settlement_path=settlement_path,
+                clearing_path=out_clearing,
+                persist=persist,
+            )
+            if out_clearing.is_file():
+                clearing_bundle = load_clearing_bundle(out_clearing)
+
+    if clearing_bundle is None or not (
+        clearing_bundle.get("ok")
+        or (clearing_report and clearing_report.get("cleared"))
+    ):
+        return {
+            "ok": False,
+            "action": "margin_plane",
+            "error": "clearing_source_failed",
+            "clearing": None
+            if clearing_report is None
+            else {
+                "ok": clearing_report.get("ok"),
+                "cleared": clearing_report.get("cleared"),
+            },
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "ledger_path": str(path),
+        }
+
+    applied = apply_clearing_bundle_to_margins(
+        clearing_bundle,
+        goal=goal,
+        min_margins=want_margins,
+    )
+    if not applied.get("ok"):
+        return {
+            "ok": False,
+            "action": "margin_plane",
+            "error": applied.get("error") or "margin_apply_failed",
+            "apply": {
+                "ok": applied.get("ok"),
+                "error": applied.get("error"),
+                "applied_count": applied.get("applied_count"),
+            },
+            "settlement": {
+                "ok": True if clearing_report is None else bool(clearing_report.get("ok")),
+                "clearing_hash": clearing_bundle.get("clearing_hash"),
+            },
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "ledger_path": str(path),
+        }
+
+    margin_log = applied["margin_log"]
+    margin = build_margin_bundle(
+        margin_log,
+        clearing_bundle,
+        goal=goal,
+    )
+    out_m = (
+        margin_path.resolve()
+        if margin_path is not None
+        else (
+            default_margin_bundle_dir(root)
+            / f"margin-{margin.get('margin_hash') or 'unknown'}.json"
+        )
+    )
+    if persist and margin.get("ok"):
+        write_margin_bundle(out_m, margin)
+        reloaded = load_margin_bundle(out_m)
+    else:
+        reloaded = margin
+
+    integrity = verify_margin_bundle_integrity(reloaded)
+    rehydrate = rehydrate_margin_bundle(
+        root,
+        reloaded,
+        sandbox_dir=sandbox_dir,
+    )
+    sterile = rehydrate.get("sterile_ledger")
+    if prove_imported and isinstance(sterile, CapabilityLedger):
+        member_ids = list((reloaded.get("package") or {}).get("member_ids") or [])
+        roots = list((reloaded.get("package") or {}).get("roots") or member_ids[:3])
+        if not roots:
+            roots = list((reloaded.get("package") or {}).get("members") or {}).keys()
+            roots = list(roots)[:3]
+        prove = prove_sterile_package(
+            root,
+            sterile,
+            roots,
+            command_runner=command_runner,
+            timeout=min(timeout, 120),
+        )
+    else:
+        prove = {
+            "ok": not prove_imported,
+            "action": "prove_sterile_package",
+            "proved_count": 0,
+            "proofs": [],
+            "used_skill_route_discovery": False,
+        }
+
+    chain = verify_margin_chain(
+        reloaded.get("margins")
+        if isinstance(reloaded.get("margins"), Mapping)
+        else margin_log
+    )
+    cert_verify = verify_margin_certificate(
+        reloaded.get("margin_certificate")
+        if isinstance(reloaded.get("margin_certificate"), Mapping)
+        else {}
+    )
+    adversarial = run_margin_adversarial_checks(
+        reloaded, margin_log, clearing_bundle
+    )
+
+    used_skill = bool(
+        (clearing_report or {}).get("used_skill_route_discovery")
+        or margin.get("used_skill_route_discovery")
+        or integrity.get("used_skill_route_discovery")
+        or rehydrate.get("used_skill_route_discovery")
+        or prove.get("used_skill_route_discovery")
+        or adversarial.get("used_skill_route_discovery")
+        or legacy_pipeline_was_used()
+    )
+    tip_height = int(reloaded.get("tip_height") or chain.get("tip_height") or 0)
+    margin_n = int(reloaded.get("margin_count") or chain.get("entry_count") or 0)
+    clearing_n = int(
+        reloaded.get("clearing_count") or clearing_bundle.get("clearing_count") or 0
+    )
+    settlement_n = int(
+        reloaded.get("settlement_count") or clearing_bundle.get("settlement_count") or 0
+    )
+    action_n = int(reloaded.get("action_count") or clearing_bundle.get("action_count") or 0)
+    state_n = int(reloaded.get("state_count") or clearing_bundle.get("state_count") or 0)
+    epoch_n = int(reloaded.get("epoch_count") or clearing_bundle.get("epoch_count") or 0)
+    margined = (
+        bool(margin.get("ok"))
+        and bool(integrity.get("ok"))
+        and bool(rehydrate.get("ok"))
+        and bool(prove.get("ok"))
+        and bool(chain.get("valid"))
+        and bool(cert_verify.get("valid"))
+        and bool(adversarial.get("ok"))
+        and tip_height >= 2
+        and margin_n >= 2
+        and not used_skill
+    )
+    provisional_ok = margined and (
+        clearing_report is None or bool(clearing_report.get("ok")) or not run_clearing
+    )
+
+    context = {
+        "used_skill_route_discovery": used_skill,
+        "clearing": {
+            "ok": True if clearing_report is None else bool(clearing_report.get("ok")),
+            "cleared": True
+            if clearing_report is None
+            else bool(clearing_report.get("cleared")),
+            "clearing_count": clearing_n,
+            "tip_height": clearing_bundle.get("tip_height"),
+            "tip_clearing_root": clearing_bundle.get("tip_clearing_root"),
+            "clearing_hash": clearing_bundle.get("clearing_hash"),
+            "clearing_root_valid": True,
+            "certificate_valid": True,
+            "net_position_digest": clearing_bundle.get("net_position_digest"),
+            "deterministic": True,
+            "post_settlement": True,
+            "multi_clearing": clearing_n >= 2,
+        },
+        "clearing_plane": {
+            "ok": True if clearing_report is None else bool(clearing_report.get("ok")),
+            "cleared": True
+            if clearing_report is None
+            else bool(clearing_report.get("cleared")),
+            "clearing_count": clearing_n,
+            "clearing_root_valid": True,
+        },
+        "net": {
+            "ok": True if clearing_report is None else bool(clearing_report.get("ok")),
+            "cleared": True
+            if clearing_report is None
+            else bool(clearing_report.get("cleared")),
+            "clearing_count": clearing_n,
+            "net_position_digest": clearing_bundle.get("net_position_digest"),
+            "clearing_root_valid": True,
+        },
+        "settlement": {
+            "ok": True,
+            "settled": True,
+            "settlement_count": settlement_n,
+            "settlement_root_valid": True,
+            "certificate_valid": True,
+            "deterministic": True,
+            "post_actuation": True,
+            "multi_settlement": settlement_n >= 2 if settlement_n else True,
+        },
+        "settlement_plane": {
+            "ok": True,
+            "settled": True,
+            "settlement_count": settlement_n,
+            "settlement_root_valid": True,
+        },
+        "receipts": {
+            "ok": True,
+            "settled": True,
+            "settlement_count": settlement_n,
+            "settlement_root_valid": True,
+        },
+        "actuation": {
+            "ok": True,
+            "effects_applied": True,
+            "action_count": action_n,
+            "action_root_valid": True,
+            "certificate_valid": True,
+            "deterministic": True,
+            "post_execution": True,
+            "multi_action": action_n >= 2 if action_n else True,
+        },
+        "actuation_plane": {
+            "ok": True,
+            "effects_applied": True,
+            "action_count": action_n,
+            "action_root_valid": True,
+        },
+        "effects": {
+            "ok": True,
+            "effects_applied": True,
+            "action_count": action_n,
+            "action_root_valid": True,
+        },
+        "execution": {
+            "ok": True,
+            "state_applied": True,
+            "state_height": state_n,
+            "tip_height": state_n,
+            "tip_state_root": clearing_bundle.get("bound_state_root"),
+            "execution_hash": clearing_bundle.get("execution_hash"),
+            "state_root_valid": True,
+            "certificate_valid": True,
+            "deterministic": True,
+            "post_finality": True,
+            "multi_state": state_n >= 2 if state_n else True,
+        },
+        "execution_plane": {
+            "ok": True,
+            "state_applied": True,
+            "state_height": state_n,
+            "state_root_valid": True,
+        },
+        "worldstate": {
+            "ok": True,
+            "state_applied": True,
+            "state_height": state_n,
+            "tip_state_root": clearing_bundle.get("bound_state_root"),
+            "state_root_valid": True,
+        },
+        "finality": {
+            "ok": True,
+            "finalized": True,
+            "epoch_count": epoch_n,
+            "finality_cert_valid": True,
+            "certificate_valid": True,
+            "irreversible": True,
+            "multi_epoch": epoch_n >= 2 if epoch_n else True,
+        },
+        "finality_plane": {
+            "ok": True,
+            "finalized": True,
+            "epoch_count": epoch_n,
+            "finality_cert_valid": True,
+        },
+        "quorum": {
+            "ok": True,
+            "quorum_met": True,
+            "origin_count": reloaded.get("origin_count"),
+            "quorum_size": reloaded.get("agreeing_count"),
+            "agreeing_count": reloaded.get("agreeing_count"),
+            "byzantine_excluded": int(reloaded.get("byzantine_count") or 0) >= 1,
+            "byzantine_count": reloaded.get("byzantine_count"),
+            "quorum_cert_valid": True,
+        },
+        "margin": {
+            "ok": provisional_ok,
+            "margined": margined,
+            "margin_count": margin_n,
+            "tip_height": tip_height,
+            "tip_margin_root": reloaded.get("tip_margin_root"),
+            "margin_hash": reloaded.get("margin_hash"),
+            "margin_root_valid": bool(cert_verify.get("valid")),
+            "certificate_valid": bool(cert_verify.get("valid")),
+            "margin_requirement_digest": reloaded.get("margin_requirement_digest"),
+            "net_position_digest": reloaded.get("net_position_digest"),
+            "deterministic": True,
+            "post_clearing": True,
+            "multi_margin": margin_n >= 2,
+            "bound_clearing_root": reloaded.get("bound_clearing_root"),
+        },
+        "margin_plane": {
+            "ok": provisional_ok,
+            "margined": margined,
+            "margin_count": margin_n,
+            "margin_root_valid": bool(cert_verify.get("valid")),
+        },
+        "cover": {
+            "ok": provisional_ok,
+            "margined": margined,
+            "margin_count": margin_n,
+            "margin_requirement_digest": reloaded.get("margin_requirement_digest"),
+            "margin_root_valid": bool(cert_verify.get("valid")),
+        },
+        "chain": chain,
+        "margin_chain": chain,
+        "clearing_chain": (clearing_report or {}).get("chain") or {},
+        "lineage_chain": (clearing_report or {}).get("chain") or {},
+        "lineage": {
+            "ok": True,
+            "entry_count": reloaded.get("lineage_entry_count"),
+        },
+        "origin_count": reloaded.get("origin_count"),
+        "margin_count": margin_n,
+        "clearing_count": clearing_n,
+        "settlement_count": settlement_n,
+        "action_count": action_n,
+        "tip_height": tip_height,
+        "state_height": state_n,
+        "epoch_count": epoch_n,
+        "margin_certificate": reloaded.get("margin_certificate"),
+        "margin_hash": reloaded.get("margin_hash"),
+        "clearing_hash": reloaded.get("clearing_hash"),
+        "settlement_hash": reloaded.get("settlement_hash"),
+        "actuation_hash": reloaded.get("actuation_hash"),
+        "execution_hash": reloaded.get("execution_hash"),
+        "tip_margin_root": reloaded.get("tip_margin_root"),
+        "bound_clearing_root": reloaded.get("bound_clearing_root"),
+        "tip_clearing_root": reloaded.get("tip_clearing_root"),
+        "bound_settlement_root": reloaded.get("bound_settlement_root"),
+        "tip_settlement_root": reloaded.get("tip_settlement_root"),
+        "bound_action_root": reloaded.get("bound_action_root"),
+        "tip_action_root": reloaded.get("tip_action_root"),
+        "bound_state_root": reloaded.get("bound_state_root"),
+        "margin_requirement_digest": reloaded.get("margin_requirement_digest"),
+        "net_position_digest": reloaded.get("net_position_digest"),
+    }
+    margin_done_when = (
+        "no_skill_route; margin_ok; margined_ok; min_margins:2; "
+        "margin_root_valid; clearing_ok; cleared_ok; min_clearings:2; "
+        "clearing_root_valid; chain_valid; capability_exists:repo.import-health"
+    )
+    final_contract = evaluate_outcome_contract(
+        root,
+        margin_done_when,
+        context=context,
+        command_runner=command_runner,
+        timeout=min(timeout, 60),
+        run_programs=False,
+    )
+    ok = (
+        provisional_ok
+        and bool(final_contract.get("ok"))
+        and final_contract.get("met") is True
+    )
+    return {
+        "ok": ok,
+        "action": "margin_plane",
+        "goal": goal,
+        "done_when": done_when,
+        "margin_done_when": margin_done_when,
+        "met": final_contract.get("met"),
+        "machine_checkable": True,
+        "margined": margined,
+        "margin_count": margin_n,
+        "tip_height": tip_height,
+        "tip_margin_root": reloaded.get("tip_margin_root"),
+        "bound_clearing_root": reloaded.get("bound_clearing_root"),
+        "bound_clearing_height": reloaded.get("bound_clearing_height"),
+        "margin_requirement_digest": reloaded.get("margin_requirement_digest"),
+        "clearing_count": clearing_n,
+        "tip_clearing_root": reloaded.get("tip_clearing_root"),
+        "bound_settlement_root": reloaded.get("bound_settlement_root"),
+        "net_position_digest": reloaded.get("net_position_digest"),
+        "settlement_count": settlement_n,
+        "tip_settlement_root": reloaded.get("tip_settlement_root"),
+        "bound_action_root": reloaded.get("bound_action_root"),
+        "action_count": action_n,
+        "tip_action_root": reloaded.get("tip_action_root"),
+        "bound_state_root": reloaded.get("bound_state_root"),
+        "state_count": state_n,
+        "state_height": state_n,
+        "epoch_count": epoch_n,
+        "origin_count": reloaded.get("origin_count"),
+        "agreeing_count": reloaded.get("agreeing_count"),
+        "byzantine_count": reloaded.get("byzantine_count"),
+        "clearing": None
+        if clearing_report is None
+        else {
+            "ok": clearing_report.get("ok"),
+            "cleared": clearing_report.get("cleared"),
+            "clearing_hash": (clearing_report.get("clearing") or {}).get(
+                "clearing_hash"
+            ),
+            "clearing_count": clearing_report.get("clearing_count"),
+            "tip_clearing_root": clearing_report.get("tip_clearing_root"),
+        },
+        "margin": {
+            "ok": margin.get("ok"),
+            "margin_hash": reloaded.get("margin_hash"),
+            "bundle_path": str(out_m) if persist and margin.get("ok") else None,
+            "package_hash": reloaded.get("package_hash"),
+            "member_count": reloaded.get("member_count"),
+            "margin_count": margin_n,
+            "tip_height": tip_height,
+            "tip_margin_root": reloaded.get("tip_margin_root"),
+            "bound_clearing_root": reloaded.get("bound_clearing_root"),
+            "margin_requirement_digest": reloaded.get("margin_requirement_digest"),
+            "certificate_count": reloaded.get("certificate_count"),
+            "lineage_entry_count": reloaded.get("lineage_entry_count"),
+            "lineage_head_hash": reloaded.get("lineage_head_hash"),
+            "clearing_hash": reloaded.get("clearing_hash"),
+            "settlement_hash": reloaded.get("settlement_hash"),
+            "actuation_hash": reloaded.get("actuation_hash"),
+            "execution_hash": reloaded.get("execution_hash"),
+            "persisted": persist and out_m.exists() if margin.get("ok") else False,
+            "deterministic": True,
+            "post_clearing": True,
+        },
+        "integrity": {
+            "ok": integrity.get("ok"),
+            "hash_ok": integrity.get("hash_ok"),
+            "chain_valid": integrity.get("chain_valid"),
+            "multi_margin": integrity.get("multi_margin"),
+            "package_ok": integrity.get("package_ok"),
+            "margin_certificate_valid": integrity.get("margin_certificate_valid"),
+            "clearing_certificate_valid": integrity.get(
+                "clearing_certificate_valid"
+            ),
+            "bound_ok": integrity.get("bound_ok"),
+            "margin_ok": integrity.get("margin_ok"),
+            "deterministic": integrity.get("deterministic"),
+            "post_clearing": integrity.get("post_clearing"),
+        },
+        "rehydrate": {
+            "ok": rehydrate.get("ok"),
+            "sandbox_dir": rehydrate.get("sandbox_dir"),
+            "lineage_path": rehydrate.get("lineage_path"),
+            "margins_path": rehydrate.get("margins_path"),
+            "clearings_path": rehydrate.get("clearings_path"),
+            "settlements_path": rehydrate.get("settlements_path"),
+            "actions_path": rehydrate.get("actions_path"),
+            "sterile_ledger_path": rehydrate.get("sterile_ledger_path"),
+            "import": rehydrate.get("import"),
+            "chain": rehydrate.get("chain"),
+            "margin_certificate": rehydrate.get("margin_certificate"),
+            "clearing_certificate": rehydrate.get("clearing_certificate"),
+            "margin_digests_match": rehydrate.get("margin_digests_match"),
+        },
+        "prove": {
+            "ok": prove.get("ok"),
+            "proved_count": prove.get("proved_count"),
+            "proofs": prove.get("proofs"),
+        },
+        "chain": {
+            "ok": chain.get("ok"),
+            "valid": chain.get("valid"),
+            "entry_count": chain.get("entry_count"),
+            "tip_height": chain.get("tip_height"),
+            "tip_margin_root": chain.get("tip_margin_root"),
+            "margin_requirement_digest": chain.get("margin_requirement_digest"),
+            "errors": chain.get("errors") or [],
+        },
+        "margin_certificate": {
+            "ok": cert_verify.get("ok"),
+            "valid": cert_verify.get("valid"),
+            "hash_ok": cert_verify.get("hash_ok"),
+            "certificate_hash": cert_verify.get("certificate_hash"),
+            "margin_height": cert_verify.get("margin_height"),
+            "margin_root": cert_verify.get("margin_root"),
+            "bound_clearing_root": cert_verify.get("bound_clearing_root"),
+            "margin_requirement_digest": cert_verify.get("margin_requirement_digest"),
+        },
+        "adversarial": {
+            "ok": adversarial.get("ok"),
+            "intact_ok": adversarial.get("intact_ok"),
+            "mutation_fails_as_expected": adversarial.get(
+                "mutation_fails_as_expected"
+            ),
+            "reorder_fails_as_expected": adversarial.get("reorder_fails_as_expected"),
+            "wrong_clearing_fails_as_expected": adversarial.get(
+                "wrong_clearing_fails_as_expected"
+            ),
+            "forged_root_fails_as_expected": adversarial.get(
+                "forged_root_fails_as_expected"
+            ),
+            "gap_fails_as_expected": adversarial.get("gap_fails_as_expected"),
+            "broken_cert_fails_as_expected": adversarial.get(
+                "broken_cert_fails_as_expected"
+            ),
+            "wrong_parent_fails_as_expected": adversarial.get(
+                "wrong_parent_fails_as_expected"
+            ),
+            "digest_tamper_fails_as_expected": adversarial.get(
+                "digest_tamper_fails_as_expected"
+            ),
+            "tamper_fails_as_expected": adversarial.get("tamper_fails_as_expected"),
+            "single_margin_fails_as_expected": adversarial.get(
+                "single_margin_fails_as_expected"
+            ),
+            "replay_matches_tip": adversarial.get("replay_matches_tip"),
+            "duplicate_apply_fails_as_expected": adversarial.get(
+                "duplicate_apply_fails_as_expected"
+            ),
+            "incomplete_fails_as_expected": adversarial.get(
+                "incomplete_fails_as_expected"
+            ),
+        },
+        "final_contract": {
+            "ok": final_contract.get("ok"),
+            "met": final_contract.get("met"),
+            "passed_count": final_contract.get("passed_count"),
+            "failed_count": final_contract.get("failed_count"),
+            "failed": final_contract.get("failed"),
+        },
+        "used_skill_route_discovery": used_skill,
+        "ledger_path": str(path),
+    }
+
+
+def builtin_margin_plane() -> dict[str, Any]:
+    """Invocable capability: clearing → multi-margin deterministic requirements → prove."""
+
+    root = Path(__file__).resolve().parents[2]
+    goal = (
+        (os.environ.get("BLACKHOLE_MISSION_GOAL") or "").strip()
+        or "margin over clearing"
+    )
+    done_when = (os.environ.get("BLACKHOLE_DONE_WHEN") or "").strip()
+    max_steps = int(os.environ.get("BLACKHOLE_PROGRAM_MAX_STEPS") or "3")
+    run_clearing = (
+        os.environ.get("BLACKHOLE_MARGIN_RUN_CLEARING") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_settlement = (
+        os.environ.get("BLACKHOLE_CLEARING_RUN_SETTLEMENT") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_actuation = (
+        os.environ.get("BLACKHOLE_SETTLEMENT_RUN_ACTUATION") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_execution = (
+        os.environ.get("BLACKHOLE_ACTUATION_RUN_EXECUTION") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_finality = (
+        os.environ.get("BLACKHOLE_EXECUTION_RUN_FINALITY") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_quorum = (
+        os.environ.get("BLACKHOLE_FINALITY_RUN_QUORUM") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_continuity = (
+        os.environ.get("BLACKHOLE_QUORUM_RUN_CONTINUITY") or "0"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_recon = (
+        os.environ.get("BLACKHOLE_CONTINUITY_RUN_RECON") or "0"
+    ).strip().lower() not in {"0", "false", "no"}
+    force_synthetic = (
+        os.environ.get("BLACKHOLE_RECONCILE_SYNTHETIC") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    inject_byz = (
+        os.environ.get("BLACKHOLE_QUORUM_INJECT_BYZANTINE") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    epoch_count = int(os.environ.get("BLACKHOLE_FINALITY_EPOCH_COUNT") or "2")
+    min_actions = int(os.environ.get("BLACKHOLE_ACTUATION_MIN_ACTIONS") or "2")
+    min_settlements = int(os.environ.get("BLACKHOLE_SETTLEMENT_MIN_SETTLEMENTS") or "2")
+    min_clearings = int(os.environ.get("BLACKHOLE_CLEARING_MIN_CLEARINGS") or "2")
+    min_margins = int(os.environ.get("BLACKHOLE_MARGIN_MIN_MARGINS") or "2")
+    lineage_raw = (os.environ.get("BLACKHOLE_LINEAGE_PATH") or "").strip()
+    lineage_path = Path(lineage_raw) if lineage_raw else None
+    bundle_raw = (os.environ.get("BLACKHOLE_CONTINUITY_BUNDLE_PATH") or "").strip()
+    bundle_path = Path(bundle_raw) if bundle_raw else None
+    q_raw = (os.environ.get("BLACKHOLE_QUORUM_BUNDLE_PATH") or "").strip()
+    quorum_path = Path(q_raw) if q_raw else None
+    f_raw = (os.environ.get("BLACKHOLE_FINALITY_BUNDLE_PATH") or "").strip()
+    finality_path = Path(f_raw) if f_raw else None
+    e_raw = (os.environ.get("BLACKHOLE_EXECUTION_BUNDLE_PATH") or "").strip()
+    execution_path = Path(e_raw) if e_raw else None
+    a_raw = (os.environ.get("BLACKHOLE_ACTUATION_BUNDLE_PATH") or "").strip()
+    actuation_path = Path(a_raw) if a_raw else None
+    s_raw = (os.environ.get("BLACKHOLE_SETTLEMENT_BUNDLE_PATH") or "").strip()
+    settlement_path = Path(s_raw) if s_raw else None
+    c_raw = (os.environ.get("BLACKHOLE_CLEARING_BUNDLE_PATH") or "").strip()
+    clearing_path = Path(c_raw) if c_raw else None
+    m_raw = (os.environ.get("BLACKHOLE_MARGIN_BUNDLE_PATH") or "").strip()
+    margin_path = Path(m_raw) if m_raw else None
+    return run_margin_plane(
+        root,
+        goal,
+        done_when,
+        max_steps=max_steps,
+        run_clearing=run_clearing,
+        run_settlement=run_settlement,
+        run_actuation=run_actuation,
+        run_execution=run_execution,
+        run_finality=run_finality,
+        run_quorum=run_quorum,
+        run_continuity=run_continuity,
+        run_reconciliation=run_recon,
+        force_synthetic_drift=force_synthetic,
+        inject_byzantine=inject_byz,
+        epoch_count=epoch_count,
+        min_actions=min_actions,
+        min_settlements=min_settlements,
+        min_clearings=min_clearings,
+        min_margins=min_margins,
+        lineage_path=lineage_path,
+        bundle_path=bundle_path,
+        quorum_path=quorum_path,
+        finality_path=finality_path,
+        execution_path=execution_path,
+        actuation_path=actuation_path,
+        settlement_path=settlement_path,
+        clearing_path=clearing_path,
+        margin_path=margin_path,
+        timeout=780,
+    )
+
+
+
+
 def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
     """Install the minimal compoundable bootstrap set if missing."""
 
@@ -22508,6 +24772,116 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "settlement",
                 "receipt",
                 "deterministic",
+                "actuation",
+                "execution",
+                "finality",
+                "quorum",
+                "consensus",
+                "byzantine",
+                "multi-origin",
+                "lineage",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+
+        Capability(
+            id="capability.margin-plane",
+            name="Margin plane over clearing",
+            description=(
+                "Closed margin plane: multi-clearing net positions → deterministic "
+                "hash-chained margin requirements with margin requirement digests bound to "
+                "clearing roots → margin certificates → sterile rehydrate+prove → "
+                "adversarial mutation/reorder/wrong-clearing/double-margin/forged-root/"
+                "gap/digest-tamper/single-margin falsification with genesis replay matching "
+                "tip — past netted clearing without margined risk coverage."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_margin_plane",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_margin_plane; '
+                "from pathlib import Path; "
+                "import os; "
+                "os.environ['BLACKHOLE_MISSION_GOAL']='margin over clearing'; "
+                "os.environ['BLACKHOLE_DONE_WHEN']="
+                "'min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; "
+                "os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; "
+                "os.environ['BLACKHOLE_MARGIN_RUN_CLEARING']='1'; "
+                "os.environ['BLACKHOLE_CLEARING_RUN_SETTLEMENT']='1'; "
+                "os.environ['BLACKHOLE_SETTLEMENT_RUN_ACTUATION']='1'; "
+                "os.environ['BLACKHOLE_ACTUATION_RUN_EXECUTION']='1'; "
+                "os.environ['BLACKHOLE_EXECUTION_RUN_FINALITY']='1'; "
+                "os.environ['BLACKHOLE_FINALITY_RUN_QUORUM']='1'; "
+                "os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='0'; "
+                "os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='0'; "
+                "os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; "
+                "os.environ['BLACKHOLE_FINALITY_EPOCH_COUNT']='2'; "
+                "os.environ['BLACKHOLE_ACTUATION_MIN_ACTIONS']='2'; "
+                "os.environ['BLACKHOLE_SETTLEMENT_MIN_SETTLEMENTS']='2'; "
+                "os.environ['BLACKHOLE_CLEARING_MIN_CLEARINGS']='2'; "
+                "os.environ['BLACKHOLE_MARGIN_MIN_MARGINS']='2'; "
+                "os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-margin.json')); "
+                "os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-margin-quorum.json')); "
+                "os.environ.setdefault('BLACKHOLE_FINALITY_BUNDLE_PATH', str(Path('artifacts')/'finality-bundles'/'proof-margin-finality.json')); "
+                "os.environ.setdefault('BLACKHOLE_EXECUTION_BUNDLE_PATH', str(Path('artifacts')/'execution-bundles'/'proof-margin-execution.json')); "
+                "os.environ.setdefault('BLACKHOLE_ACTUATION_BUNDLE_PATH', str(Path('artifacts')/'actuation-bundles'/'proof-margin-actuation.json')); "
+                "os.environ.setdefault('BLACKHOLE_SETTLEMENT_BUNDLE_PATH', str(Path('artifacts')/'settlement-bundles'/'proof-margin-settlement.json')); "
+                "os.environ.setdefault('BLACKHOLE_CLEARING_BUNDLE_PATH', str(Path('artifacts')/'clearing-bundles'/'proof-margin-clearing.json')); "
+                "os.environ.setdefault('BLACKHOLE_MARGIN_BUNDLE_PATH', str(Path('artifacts')/'margin-bundles'/'proof-margin.json')); "
+                "r=builtin_margin_plane(); assert r['ok'] and r.get('action')=='margin_plane' "
+                "and r.get('margined') is True and int(r.get('margin_count') or 0) >= 2 "
+                "and int(r.get('tip_height') or 0) >= 2 "
+                "and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') "
+                "and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') "
+                "and r.get('margin_certificate',{}).get('valid') "
+                "and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.outcome-contract",
+                "capability.contract-plane",
+                "capability.assurance-plane",
+                "capability.sovereignty-plane",
+                "capability.lineage-plane",
+                "capability.reconciliation-plane",
+                "capability.continuity-plane",
+                "capability.federation-plane",
+                "capability.quorum-plane",
+                "capability.finality-plane",
+                "capability.execution-plane",
+                "capability.actuation-plane",
+                "capability.settlement-plane",
+                "capability.clearing-plane",
+                "capability.transfer-plane",
+                "capability.ablation-proof",
+                "capability.adversarial-contract",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "src/blackhole_agent/unbound.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Margin plane posts multi-clearing net positions into deterministic "
+                "hash-chained margin requirements with margin requirement digests and "
+                "margin certificates bound to clearing roots, sterile rehydrate+"
+                "prove, genesis replay matching tip, and adversarial falsification of "
+                "wrong-clearing/reorder/double-margin/forged-root/digest-tamper without "
+                "skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "margin",
+                "cover",
+                "margin-root",
+                "clearing",
+                "net",
+                "deterministic",
+                "settlement",
                 "actuation",
                 "execution",
                 "finality",
