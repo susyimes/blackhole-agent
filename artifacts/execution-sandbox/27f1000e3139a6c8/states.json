@@ -1,0 +1,167 @@
+{
+  "entries": [
+    {
+      "agreeing_count": 2,
+      "applied_at": "2026-07-29T17:12:36.277715Z",
+      "byzantine_count": 1,
+      "claims": {
+        "plane": "execution",
+        "state_index": 1
+      },
+      "deterministic": true,
+      "epoch_hash": "48089f81083e568bee0d63ba",
+      "epoch_height": 1,
+      "execution_certificate": {
+        "certificate_hash": "fd07a708dd855699b819ce22",
+        "claims": {
+          "member_count": 3,
+          "plane": "execution",
+          "state_index": 1
+        },
+        "deterministic": true,
+        "epoch_hash": "48089f81083e568bee0d63ba",
+        "epoch_height": 1,
+        "finality_certificate_hash": "db78ad1d86093644c159ae3c",
+        "goal": "Build a deterministic world-state execution plane that materializes irreversible multi-epoch finality into hash-chained state transitions with re-verifiable execution certificates, sterile rehydrate+prove, genesis-replay tip match, and adversarial falsification of post-finality mutation/reorder/forged-root attacks — without skill-route. (state 1)",
+        "issued_at": "2026-07-29T17:12:36.277741Z",
+        "kind": "execution_certificate",
+        "lineage_head_hash": "2b7ad1615fc11d3b824b0fd5",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "066545df3053adf5",
+        "parent_state_root": "",
+        "post_finality": true,
+        "schema_version": 1,
+        "state_height": 1,
+        "state_root": "b00b2f2fd3be7f89bb2b39d9",
+        "used_skill_route_discovery": false
+      },
+      "finality_certificate_hash": "db78ad1d86093644c159ae3c",
+      "goal": "Build a deterministic world-state execution plane that materializes irreversible multi-epoch finality into hash-chained state transitions with re-verifiable execution certificates, sterile rehydrate+prove, genesis-replay tip match, and adversarial falsification of post-finality mutation/reorder/forged-root attacks — without skill-route. (state 1)",
+      "kind": "execution_state",
+      "lineage_head_hash": "2b7ad1615fc11d3b824b0fd5",
+      "member_count": 3,
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "origin_count": 3,
+      "package_hash": "066545df3053adf5",
+      "parent_state_root": "",
+      "post_finality": true,
+      "projection": {
+        "agreeing_count": 2,
+        "applied_from": "finality_epoch",
+        "byzantine_count": 1,
+        "epoch_hash": "48089f81083e568bee0d63ba",
+        "finality_certificate_hash": "db78ad1d86093644c159ae3c",
+        "height": 1,
+        "lineage_head_hash": "2b7ad1615fc11d3b824b0fd5",
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "parent_state_root": ""
+      },
+      "schema_version": 1,
+      "state_height": 1,
+      "state_root": "b00b2f2fd3be7f89bb2b39d9",
+      "used_skill_route_discovery": false
+    },
+    {
+      "agreeing_count": 2,
+      "applied_at": "2026-07-29T17:12:36.277801Z",
+      "byzantine_count": 1,
+      "claims": {
+        "plane": "execution",
+        "state_index": 2
+      },
+      "deterministic": true,
+      "epoch_hash": "48828c44ad6deca61e763cc9",
+      "epoch_height": 2,
+      "execution_certificate": {
+        "certificate_hash": "c6d2a229c1cd27df91934a92",
+        "claims": {
+          "member_count": 3,
+          "plane": "execution",
+          "state_index": 2
+        },
+        "deterministic": true,
+        "epoch_hash": "48828c44ad6deca61e763cc9",
+        "epoch_height": 2,
+        "finality_certificate_hash": "e7b5f492ae0cb4f89eee359b",
+        "goal": "Build a deterministic world-state execution plane that materializes irreversible multi-epoch finality into hash-chained state transitions with re-verifiable execution certificates, sterile rehydrate+prove, genesis-replay tip match, and adversarial falsification of post-finality mutation/reorder/forged-root attacks — without skill-route. (state 2)",
+        "issued_at": "2026-07-29T17:12:36.277822Z",
+        "kind": "execution_certificate",
+        "lineage_head_hash": "9b96da72ddf104d86b85b914",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "98aaea144a8ebd3d",
+        "parent_state_root": "b00b2f2fd3be7f89bb2b39d9",
+        "post_finality": true,
+        "schema_version": 1,
+        "state_height": 2,
+        "state_root": "d15dc7755ff0f8109ab0be56",
+        "used_skill_route_discovery": false
+      },
+      "finality_certificate_hash": "e7b5f492ae0cb4f89eee359b",
+      "goal": "Build a deterministic world-state execution plane that materializes irreversible multi-epoch finality into hash-chained state transitions with re-verifiable execution certificates, sterile rehydrate+prove, genesis-replay tip match, and adversarial falsification of post-finality mutation/reorder/forged-root attacks — without skill-route. (state 2)",
+      "kind": "execution_state",
+      "lineage_head_hash": "9b96da72ddf104d86b85b914",
+      "member_count": 3,
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "origin_count": 3,
+      "package_hash": "98aaea144a8ebd3d",
+      "parent_state_root": "b00b2f2fd3be7f89bb2b39d9",
+      "post_finality": true,
+      "projection": {
+        "agreeing_count": 2,
+        "applied_from": "finality_epoch",
+        "byzantine_count": 1,
+        "epoch_hash": "48828c44ad6deca61e763cc9",
+        "finality_certificate_hash": "e7b5f492ae0cb4f89eee359b",
+        "height": 2,
+        "lineage_head_hash": "9b96da72ddf104d86b85b914",
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "origin_count": 3,
+        "package_hash": "98aaea144a8ebd3d",
+        "parent_state_root": "b00b2f2fd3be7f89bb2b39d9"
+      },
+      "schema_version": 1,
+      "state_height": 2,
+      "state_root": "d15dc7755ff0f8109ab0be56",
+      "used_skill_route_discovery": false
+    }
+  ],
+  "entry_count": 2,
+  "kind": "execution_state_log",
+  "schema_version": 1,
+  "tip_epoch_hash": "48828c44ad6deca61e763cc9",
+  "tip_height": 2,
+  "tip_state_root": "d15dc7755ff0f8109ab0be56",
+  "updated_at": "2026-07-29T17:12:36.277840Z"
+}

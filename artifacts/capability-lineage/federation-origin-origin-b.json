@@ -14,15 +14,15 @@
         "origin_id": "origin-b",
         "plane": "federation"
       },
-      "entry_hash": "ac8a174388f12c55337e5419",
+      "entry_hash": "bb1f728b3db9df7a152e2f00",
       "entry_kind": "federation_origin_seed",
-      "goal": "Revalidated the epoch finality plane end-to-end: ledger entry proved, multi-epoch seal (≥2) with finality cert, sterile tip re-prove, full adversarial suite, CLI path, and machine-checkable done_when contract (9/9 predicates; milestone gate accepts). (honest origin-b)",
+      "goal": "Build a deterministic world-state execution plane that materializes irreversible multi-epoch finality into hash-chained state transitions with re-verifiable execution certificates, sterile rehydrate+prove, genesis-replay tip match, and adversarial falsification of post-finality mutation/reorder/forged-root attacks — without skill-route. (honest origin-b)",
       "index": 0,
-      "issued_at": "2026-07-29T16:33:06.183048Z",
+      "issued_at": "2026-07-29T17:12:35.370159Z",
       "metrics": {
-        "count": 87,
-        "primitive_count": 38,
-        "proved_count": 87,
+        "count": 88,
+        "primitive_count": 39,
+        "proved_count": 88,
         "proved_ratio": null
       },
       "package_hash": "8ece9182045d973a",
@@ -42,11 +42,11 @@
         ],
         "origin_id": "origin-b"
       },
-      "entry_hash": "83071a8fc8b8b4a8842462bd",
+      "entry_hash": "d4db24e71047c2b7d676960c",
       "entry_kind": "federation_origin_seal",
-      "goal": "Revalidated the epoch finality plane end-to-end: ledger entry proved, multi-epoch seal (≥2) with finality cert, sterile tip re-prove, full adversarial suite, CLI path, and machine-checkable done_when contract (9/9 predicates; milestone gate accepts). (honest origin-b)",
+      "goal": "Build a deterministic world-state execution plane that materializes irreversible multi-epoch finality into hash-chained state transitions with re-verifiable execution certificates, sterile rehydrate+prove, genesis-replay tip match, and adversarial falsification of post-finality mutation/reorder/forged-root attacks — without skill-route. (honest origin-b)",
       "index": 1,
-      "issued_at": "2026-07-29T16:33:06.183077Z",
+      "issued_at": "2026-07-29T17:12:35.370190Z",
       "metrics": {
         "count": 2,
         "primitive_count": null,
@@ -54,13 +54,13 @@
         "proved_ratio": null
       },
       "package_hash": "8ece9182045d973a",
-      "parent_hash": "ac8a174388f12c55337e5419"
+      "parent_hash": "bb1f728b3db9df7a152e2f00"
     }
   ],
   "entry_count": 2,
-  "head_hash": "83071a8fc8b8b4a8842462bd",
+  "head_hash": "d4db24e71047c2b7d676960c",
   "kind": "capability_lineage",
   "ok": true,
   "schema_version": 1,
-  "updated_at": "2026-07-29T16:33:06.183304Z"
+  "updated_at": "2026-07-29T17:12:35.370423Z"
 }

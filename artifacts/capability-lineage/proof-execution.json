@@ -1,0 +1,53 @@
+{
+  "entries": [
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_id": "origin-a"
+      },
+      "detail": {},
+      "entry_hash": "99814c8918bf26edbdd00b66",
+      "entry_kind": "quorum_bootstrap",
+      "goal": "world-state execution over epoch finality",
+      "index": 0,
+      "issued_at": "2026-07-29T17:09:45.797491Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "",
+      "parent_hash": ""
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_id": "origin-a",
+        "sealed": true
+      },
+      "detail": {},
+      "entry_hash": "5da78a1ba6b646addbdb492e",
+      "entry_kind": "quorum_bootstrap_seal",
+      "goal": "world-state execution over epoch finality",
+      "index": 1,
+      "issued_at": "2026-07-29T17:09:45.797565Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "",
+      "parent_hash": "99814c8918bf26edbdd00b66"
+    }
+  ],
+  "entry_count": 2,
+  "head_hash": "5da78a1ba6b646addbdb492e",
+  "kind": "capability_lineage",
+  "ok": true,
+  "schema_version": 1,
+  "updated_at": "2026-07-29T17:09:45.797713Z"
+}

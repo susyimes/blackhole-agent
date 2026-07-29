@@ -11,6 +11,52 @@
   ],
   "certificate_count": 46,
   "certificates": {
+    "0606439ae0045c9fabb36297": {
+      "certificate_hash": "0606439ae0045c9fabb36297",
+      "certificate_path": "artifacts/quorum-bundles/quorum-certificate.json",
+      "origin_id": "quorum",
+      "payload": {
+        "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "byzantine_count": 1,
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "certificate_hash": "0606439ae0045c9fabb36297",
+        "claims": {
+          "origin_ids": [
+            "origin-a",
+            "origin-b",
+            "origin-byzantine"
+          ],
+          "roots": [
+            "repo.import-health",
+            "capability.ledger-inventory",
+            "unbound.milestone-gate"
+          ],
+          "votes_accepted": 3
+        },
+        "goal": "Build a deterministic world-state execution plane that materializes irreversible multi-epoch finality into hash-chained state transitions with re-verifiable execution certificates, sterile rehydrate+prove, genesis-replay tip match, and adversarial falsification of post-finality mutation/reorder/forged-root attacks — without skill-route.",
+        "issued_at": "2026-07-29T17:12:35.379191Z",
+        "kind": "quorum_certificate",
+        "lineage_head_hash": "2b7ad1615fc11d3b824b0fd5",
+        "member_count": 3,
+        "ok": true,
+        "origin_count": 3,
+        "origin_hashes": [
+          "3fb1b5e8976091e15f150eb3",
+          "244f2d5a94c0ae8b37c495e2",
+          "592be7bab63af7dbe5ed7aa9"
+        ],
+        "package_hash": "066545df3053adf5",
+        "schema_version": 1,
+        "threshold": 2,
+        "used_skill_route_discovery": false
+      }
+    },
     "085bf6317cab0eb6fba382ea": {
       "certificate_hash": "085bf6317cab0eb6fba382ea",
       "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T134211Z-d3e39855\\artifacts\\sovereignty-certificates\\sovereignty-085bf6317cab0eb6fba382ea.json",
@@ -1246,6 +1292,25 @@
         "schema_version": 1
       }
     },
+    "68b5e6fa50d163b00723e524": {
+      "certificate_hash": "68b5e6fa50d163b00723e524",
+      "certificate_path": "artifacts/federation-origins/origin-b-attest.json",
+      "origin_id": "origin-b",
+      "payload": {
+        "certificate_hash": "68b5e6fa50d163b00723e524",
+        "issued_at": "2026-07-29T17:12:35.371485Z",
+        "kind": "federation_origin_attestation",
+        "lineage_head_hash": "d4db24e71047c2b7d676960c",
+        "member_count": 2,
+        "origin_id": "origin-b",
+        "package_hash": "8ece9182045d973a",
+        "roots": [
+          "repo.import-health",
+          "capability.ledger-inventory"
+        ],
+        "schema_version": 1
+      }
+    },
     "7c3b53047f610fee4434be44": {
       "certificate_hash": "7c3b53047f610fee4434be44",
       "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T154400Z-ae124944\\artifacts\\sovereignty-certificates\\sovereignty-7c3b53047f610fee4434be44.json",
@@ -1961,25 +2026,6 @@
         "schema_version": 1
       }
     },
-    "a8b776b570f7ddc8c88dc309": {
-      "certificate_hash": "a8b776b570f7ddc8c88dc309",
-      "certificate_path": "artifacts/federation-origins/origin-b-attest.json",
-      "origin_id": "origin-b",
-      "payload": {
-        "certificate_hash": "a8b776b570f7ddc8c88dc309",
-        "issued_at": "2026-07-29T16:33:06.184286Z",
-        "kind": "federation_origin_attestation",
-        "lineage_head_hash": "83071a8fc8b8b4a8842462bd",
-        "member_count": 2,
-        "origin_id": "origin-b",
-        "package_hash": "8ece9182045d973a",
-        "roots": [
-          "repo.import-health",
-          "capability.ledger-inventory"
-        ],
-        "schema_version": 1
-      }
-    },
     "acc9d4d143cbab74ec658a50": {
       "certificate_hash": "acc9d4d143cbab74ec658a50",
       "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T134211Z-d3e39855\\artifacts\\sovereignty-certificates\\sovereignty-acc9d4d143cbab74ec658a50.json",
@@ -2435,26 +2481,6 @@
         "schema_version": 1
       }
     },
-    "d41aeb562fc73ff9c16936bb": {
-      "certificate_hash": "d41aeb562fc73ff9c16936bb",
-      "certificate_path": "artifacts/federation-origins/origin-c-attest.json",
-      "origin_id": "origin-byzantine",
-      "payload": {
-        "certificate_hash": "d41aeb562fc73ff9c16936bb",
-        "issued_at": "2026-07-29T16:33:06.190866Z",
-        "kind": "federation_origin_attestation",
-        "lineage_head_hash": "f87e0dce748351cc7d5f4e43",
-        "member_count": 3,
-        "origin_id": "origin-c",
-        "package_hash": "7878a785b9718369",
-        "roots": [
-          "repo.import-health",
-          "capability.ledger-inventory",
-          "unbound.milestone-gate"
-        ],
-        "schema_version": 1
-      }
-    },
     "d9b76bd30bf1b55497ae864d": {
       "certificate_hash": "d9b76bd30bf1b55497ae864d",
       "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T134211Z-d3e39855\\artifacts\\sovereignty-certificates\\sovereignty-d9b76bd30bf1b55497ae864d.json",
@@ -2582,6 +2608,26 @@
         "ok": true,
         "package_hash": "7878a785b9718369",
         "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T162316Z-43482865",
+        "schema_version": 1
+      }
+    },
+    "df38f2cd0b64e97b7eeb456e": {
+      "certificate_hash": "df38f2cd0b64e97b7eeb456e",
+      "certificate_path": "artifacts/federation-origins/origin-c-attest.json",
+      "origin_id": "origin-byzantine",
+      "payload": {
+        "certificate_hash": "df38f2cd0b64e97b7eeb456e",
+        "issued_at": "2026-07-29T17:12:35.378565Z",
+        "kind": "federation_origin_attestation",
+        "lineage_head_hash": "1f312898d064b1f8ffb97e94",
+        "member_count": 3,
+        "origin_id": "origin-c",
+        "package_hash": "7878a785b9718369",
+        "roots": [
+          "repo.import-health",
+          "capability.ledger-inventory",
+          "unbound.milestone-gate"
+        ],
         "schema_version": 1
       }
     },
@@ -2844,55 +2890,9 @@
         "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T101624Z-884205ef",
         "schema_version": 1
       }
-    },
-    "f6f6fa2cf834f651dcb2a7cc": {
-      "certificate_hash": "f6f6fa2cf834f651dcb2a7cc",
-      "certificate_path": "artifacts/quorum-bundles/quorum-certificate.json",
-      "origin_id": "quorum",
-      "payload": {
-        "agreeing_count": 2,
-        "agreeing_origins": [
-          "origin-a",
-          "origin-b"
-        ],
-        "byzantine_count": 1,
-        "byzantine_origins": [
-          "origin-byzantine"
-        ],
-        "certificate_hash": "f6f6fa2cf834f651dcb2a7cc",
-        "claims": {
-          "origin_ids": [
-            "origin-a",
-            "origin-b",
-            "origin-byzantine"
-          ],
-          "roots": [
-            "repo.import-health",
-            "capability.ledger-inventory",
-            "unbound.milestone-gate"
-          ],
-          "votes_accepted": 3
-        },
-        "goal": "Revalidated the epoch finality plane end-to-end: ledger entry proved, multi-epoch seal (≥2) with finality cert, sterile tip re-prove, full adversarial suite, CLI path, and machine-checkable done_when contract (9/9 predicates; milestone gate accepts).",
-        "issued_at": "2026-07-29T16:33:06.191490Z",
-        "kind": "quorum_certificate",
-        "lineage_head_hash": "4270597d6634c66a33be71a6",
-        "member_count": 3,
-        "ok": true,
-        "origin_count": 3,
-        "origin_hashes": [
-          "82800aa85753ef4c18b27888",
-          "a479b44c473507b268e30b4c",
-          "c1e2719b0173f93fc8dc3147"
-        ],
-        "package_hash": "066545df3053adf5",
-        "schema_version": 1,
-        "threshold": 2,
-        "used_skill_route_discovery": false
-      }
     }
   },
-  "goal": "Revalidated the epoch finality plane end-to-end: ledger entry proved, multi-epoch seal (≥2) with finality cert, sterile tip re-prove, full adversarial suite, CLI path, and machine-checkable done_when contract (9/9 predicates; milestone gate accepts).",
+  "goal": "Build a deterministic world-state execution plane that materializes irreversible multi-epoch finality into hash-chained state transitions with re-verifiable execution certificates, sterile rehydrate+prove, genesis-replay tip match, and adversarial falsification of post-finality mutation/reorder/forged-root attacks — without skill-route.",
   "kind": "quorum_bundle",
   "lineage": {
     "entries": [
@@ -2911,7 +2911,7 @@
         "detail": {
           "origins": [
             {
-              "bundle_hash": "82800aa85753ef4c18b27888",
+              "bundle_hash": "3fb1b5e8976091e15f150eb3",
               "byzantine": false,
               "lineage_entry_count": 109,
               "lineage_head_hash": "36be4f0e21387e45f69bff6d",
@@ -2920,30 +2920,30 @@
               "package_hash": "7878a785b9718369"
             },
             {
-              "bundle_hash": "a479b44c473507b268e30b4c",
+              "bundle_hash": "244f2d5a94c0ae8b37c495e2",
               "byzantine": false,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "83071a8fc8b8b4a8842462bd",
+              "lineage_head_hash": "d4db24e71047c2b7d676960c",
               "member_count": 2,
               "origin_id": "origin-b",
               "package_hash": "8ece9182045d973a"
             },
             {
-              "bundle_hash": "c1e2719b0173f93fc8dc3147",
+              "bundle_hash": "592be7bab63af7dbe5ed7aa9",
               "byzantine": true,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "f87e0dce748351cc7d5f4e43",
+              "lineage_head_hash": "1f312898d064b1f8ffb97e94",
               "member_count": 3,
               "origin_id": "origin-byzantine",
               "package_hash": "7d88f7661e8407af"
             }
           ]
         },
-        "entry_hash": "91974238b7f4ba13f1e31c62",
+        "entry_hash": "51dfb9e3c18007711eb77389",
         "entry_kind": "quorum_origin_manifest",
-        "goal": "Revalidated the epoch finality plane end-to-end: ledger entry proved, multi-epoch seal (≥2) with finality cert, sterile tip re-prove, full adversarial suite, CLI path, and machine-checkable done_when contract (9/9 predicates; milestone gate accepts).",
+        "goal": "Build a deterministic world-state execution plane that materializes irreversible multi-epoch finality into hash-chained state transitions with re-verifiable execution certificates, sterile rehydrate+prove, genesis-replay tip match, and adversarial falsification of post-finality mutation/reorder/forged-root attacks — without skill-route.",
         "index": 0,
-        "issued_at": "2026-07-29T16:33:06.191307Z",
+        "issued_at": "2026-07-29T17:12:35.378989Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -2968,15 +2968,15 @@
         "detail": {
           "origin_heads": [
             "36be4f0e21387e45f69bff6d",
-            "83071a8fc8b8b4a8842462bd",
-            "f87e0dce748351cc7d5f4e43"
+            "d4db24e71047c2b7d676960c",
+            "1f312898d064b1f8ffb97e94"
           ]
         },
-        "entry_hash": "215acd702c8152dd985b70c3",
+        "entry_hash": "50d29b48330484edf26719f2",
         "entry_kind": "quorum_vote",
-        "goal": "Revalidated the epoch finality plane end-to-end: ledger entry proved, multi-epoch seal (≥2) with finality cert, sterile tip re-prove, full adversarial suite, CLI path, and machine-checkable done_when contract (9/9 predicates; milestone gate accepts).",
+        "goal": "Build a deterministic world-state execution plane that materializes irreversible multi-epoch finality into hash-chained state transitions with re-verifiable execution certificates, sterile rehydrate+prove, genesis-replay tip match, and adversarial falsification of post-finality mutation/reorder/forged-root attacks — without skill-route.",
         "index": 1,
-        "issued_at": "2026-07-29T16:33:06.191331Z",
+        "issued_at": "2026-07-29T17:12:35.379032Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -2984,7 +2984,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "91974238b7f4ba13f1e31c62"
+        "parent_hash": "51dfb9e3c18007711eb77389"
       },
       {
         "certificate_hash": "",
@@ -3001,11 +3001,11 @@
             "origin-byzantine"
           ]
         },
-        "entry_hash": "7e1a2f65b05ea694e8e52ac7",
+        "entry_hash": "c6499020eb276cdf0e1c7d46",
         "entry_kind": "quorum_byzantine_exclude",
-        "goal": "Revalidated the epoch finality plane end-to-end: ledger entry proved, multi-epoch seal (≥2) with finality cert, sterile tip re-prove, full adversarial suite, CLI path, and machine-checkable done_when contract (9/9 predicates; milestone gate accepts).",
+        "goal": "Build a deterministic world-state execution plane that materializes irreversible multi-epoch finality into hash-chained state transitions with re-verifiable execution certificates, sterile rehydrate+prove, genesis-replay tip match, and adversarial falsification of post-finality mutation/reorder/forged-root attacks — without skill-route.",
         "index": 2,
-        "issued_at": "2026-07-29T16:33:06.191348Z",
+        "issued_at": "2026-07-29T17:12:35.379048Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -3013,7 +3013,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "215acd702c8152dd985b70c3"
+        "parent_hash": "50d29b48330484edf26719f2"
       },
       {
         "certificate_hash": "",
@@ -3033,16 +3033,16 @@
             "origin-byzantine"
           ],
           "origin_bundle_hashes": [
-            "82800aa85753ef4c18b27888",
-            "a479b44c473507b268e30b4c",
-            "c1e2719b0173f93fc8dc3147"
+            "3fb1b5e8976091e15f150eb3",
+            "244f2d5a94c0ae8b37c495e2",
+            "592be7bab63af7dbe5ed7aa9"
           ]
         },
-        "entry_hash": "4270597d6634c66a33be71a6",
+        "entry_hash": "2b7ad1615fc11d3b824b0fd5",
         "entry_kind": "quorum_seal",
-        "goal": "Revalidated the epoch finality plane end-to-end: ledger entry proved, multi-epoch seal (≥2) with finality cert, sterile tip re-prove, full adversarial suite, CLI path, and machine-checkable done_when contract (9/9 predicates; milestone gate accepts).",
+        "goal": "Build a deterministic world-state execution plane that materializes irreversible multi-epoch finality into hash-chained state transitions with re-verifiable execution certificates, sterile rehydrate+prove, genesis-replay tip match, and adversarial falsification of post-finality mutation/reorder/forged-root attacks — without skill-route.",
         "index": 3,
-        "issued_at": "2026-07-29T16:33:06.191362Z",
+        "issued_at": "2026-07-29T17:12:35.379063Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -3050,23 +3050,23 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "7e1a2f65b05ea694e8e52ac7"
+        "parent_hash": "c6499020eb276cdf0e1c7d46"
       }
     ],
     "entry_count": 4,
-    "head_hash": "4270597d6634c66a33be71a6",
+    "head_hash": "2b7ad1615fc11d3b824b0fd5",
     "kind": "capability_lineage",
     "schema_version": 1,
-    "updated_at": "2026-07-29T16:33:06.191373Z"
+    "updated_at": "2026-07-29T17:12:35.379076Z"
   },
   "lineage_entry_count": 4,
-  "lineage_head_hash": "4270597d6634c66a33be71a6",
+  "lineage_head_hash": "2b7ad1615fc11d3b824b0fd5",
   "member_count": 3,
   "ok": true,
   "origin_count": 3,
   "origins": [
     {
-      "bundle_hash": "82800aa85753ef4c18b27888",
+      "bundle_hash": "3fb1b5e8976091e15f150eb3",
       "byzantine": false,
       "lineage_head_hash": "36be4f0e21387e45f69bff6d",
       "member_count": 3,
@@ -3074,17 +3074,17 @@
       "package_hash": "7878a785b9718369"
     },
     {
-      "bundle_hash": "a479b44c473507b268e30b4c",
+      "bundle_hash": "244f2d5a94c0ae8b37c495e2",
       "byzantine": false,
-      "lineage_head_hash": "83071a8fc8b8b4a8842462bd",
+      "lineage_head_hash": "d4db24e71047c2b7d676960c",
       "member_count": 2,
       "origin_id": "origin-b",
       "package_hash": "8ece9182045d973a"
     },
     {
-      "bundle_hash": "c1e2719b0173f93fc8dc3147",
+      "bundle_hash": "592be7bab63af7dbe5ed7aa9",
       "byzantine": true,
-      "lineage_head_hash": "f87e0dce748351cc7d5f4e43",
+      "lineage_head_hash": "1f312898d064b1f8ffb97e94",
       "member_count": 3,
       "origin_id": "origin-byzantine",
       "package_hash": "7d88f7661e8407af"
@@ -3099,7 +3099,7 @@
     "byzantine_origins": [
       "origin-byzantine"
     ],
-    "exported_at": "2026-07-29T16:33:06.191278Z",
+    "exported_at": "2026-07-29T17:12:35.378958Z",
     "federated": true,
     "member_count": 3,
     "member_ids": [
@@ -3145,7 +3145,7 @@
           "bootstrap",
           "compounder"
         ],
-        "updated_at": "2026-07-29T16:33:06.161124Z"
+        "updated_at": "2026-07-29T17:12:35.348292Z"
       },
       "repo.import-health": {
         "behavior_paths": [
@@ -3169,7 +3169,7 @@
           "bootstrap",
           "health"
         ],
-        "updated_at": "2026-07-29T16:33:06.161003Z"
+        "updated_at": "2026-07-29T17:12:35.348165Z"
       },
       "unbound.milestone-gate": {
         "behavior_paths": [
@@ -3194,7 +3194,7 @@
           "bootstrap",
           "unbound"
         ],
-        "updated_at": "2026-07-29T16:33:06.161069Z"
+        "updated_at": "2026-07-29T17:12:35.348235Z"
       }
     },
     "ok": true,
@@ -3221,7 +3221,7 @@
     "byzantine_origins": [
       "origin-byzantine"
     ],
-    "certificate_hash": "f6f6fa2cf834f651dcb2a7cc",
+    "certificate_hash": "0606439ae0045c9fabb36297",
     "claims": {
       "origin_ids": [
         "origin-a",
@@ -3235,24 +3235,24 @@
       ],
       "votes_accepted": 3
     },
-    "goal": "Revalidated the epoch finality plane end-to-end: ledger entry proved, multi-epoch seal (≥2) with finality cert, sterile tip re-prove, full adversarial suite, CLI path, and machine-checkable done_when contract (9/9 predicates; milestone gate accepts).",
-    "issued_at": "2026-07-29T16:33:06.191490Z",
+    "goal": "Build a deterministic world-state execution plane that materializes irreversible multi-epoch finality into hash-chained state transitions with re-verifiable execution certificates, sterile rehydrate+prove, genesis-replay tip match, and adversarial falsification of post-finality mutation/reorder/forged-root attacks — without skill-route.",
+    "issued_at": "2026-07-29T17:12:35.379191Z",
     "kind": "quorum_certificate",
-    "lineage_head_hash": "4270597d6634c66a33be71a6",
+    "lineage_head_hash": "2b7ad1615fc11d3b824b0fd5",
     "member_count": 3,
     "ok": true,
     "origin_count": 3,
     "origin_hashes": [
-      "82800aa85753ef4c18b27888",
-      "a479b44c473507b268e30b4c",
-      "c1e2719b0173f93fc8dc3147"
+      "3fb1b5e8976091e15f150eb3",
+      "244f2d5a94c0ae8b37c495e2",
+      "592be7bab63af7dbe5ed7aa9"
     ],
     "package_hash": "066545df3053adf5",
     "schema_version": 1,
     "threshold": 2,
     "used_skill_route_discovery": false
   },
-  "quorum_hash": "420e12ff7dfafb7e0f6435b7",
+  "quorum_hash": "4eab0db9e6b7eca4272a6d8a",
   "quorum_met": true,
   "quorum_size": 2,
   "schema_version": 1,

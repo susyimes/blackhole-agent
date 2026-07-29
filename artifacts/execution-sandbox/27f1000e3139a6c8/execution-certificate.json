@@ -1,0 +1,30 @@
+{
+  "certificate_hash": "c6d2a229c1cd27df91934a92",
+  "claims": {
+    "member_count": 3,
+    "plane": "execution",
+    "state_index": 2
+  },
+  "deterministic": true,
+  "epoch_hash": "48828c44ad6deca61e763cc9",
+  "epoch_height": 2,
+  "finality_certificate_hash": "e7b5f492ae0cb4f89eee359b",
+  "goal": "Build a deterministic world-state execution plane that materializes irreversible multi-epoch finality into hash-chained state transitions with re-verifiable execution certificates, sterile rehydrate+prove, genesis-replay tip match, and adversarial falsification of post-finality mutation/reorder/forged-root attacks — without skill-route. (state 2)",
+  "issued_at": "2026-07-29T17:12:36.277822Z",
+  "kind": "execution_certificate",
+  "lineage_head_hash": "9b96da72ddf104d86b85b914",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "98aaea144a8ebd3d",
+  "parent_state_root": "b00b2f2fd3be7f89bb2b39d9",
+  "post_finality": true,
+  "schema_version": 1,
+  "state_height": 2,
+  "state_root": "d15dc7755ff0f8109ab0be56",
+  "used_skill_route_discovery": false
+}

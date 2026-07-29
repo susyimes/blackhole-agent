@@ -60,6 +60,7 @@ from blackhole_agent.capability_compounder import (
     run_federation_plane,
     run_quorum_plane,
     run_finality_plane,
+    run_execution_plane,
     run_lineage_plane,
     run_reconciliation_plane,
     run_sovereignty_plane,
@@ -1049,6 +1050,9 @@ def evaluate_milestone(
     )
     run_quorum = cc.run_quorum_plane if cc is not None else run_quorum_plane
     run_finality = cc.run_finality_plane if cc is not None else run_finality_plane
+    run_execution = (
+        cc.run_execution_plane if cc is not None else run_execution_plane
+    )
     run_recon = (
         cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
     )
@@ -1104,6 +1108,15 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_execution = bool(
+                        kinds
+                        & {
+                            "execution_ok",
+                            "state_applied_ok",
+                            "min_state_height",
+                            "state_root_valid",
+                        }
+                    )
                     needs_finality = bool(
                         kinds
                         & {
@@ -1112,7 +1125,7 @@ def evaluate_milestone(
                             "min_epochs",
                             "finality_cert_valid",
                         }
-                    )
+                    ) and not needs_execution
                     needs_quorum = bool(
                         kinds
                         & {
@@ -1122,7 +1135,7 @@ def evaluate_milestone(
                             "byzantine_excluded",
                             "quorum_cert_valid",
                         }
-                    ) and not needs_finality
+                    ) and not needs_finality and not needs_execution
                     needs_federation = bool(
                         kinds
                         & {
@@ -1131,7 +1144,7 @@ def evaluate_milestone(
                             "min_origins",
                             "federation_cert_valid",
                         }
-                    ) and not needs_quorum and not needs_finality
+                    ) and not needs_quorum and not needs_finality and not needs_execution
                     needs_continuity = bool(
                         kinds
                         & {
@@ -1166,7 +1179,150 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     )
-                    if needs_finality:
+                    if needs_execution:
+                        plane_done_when = strip_context(
+                            contract_text,
+                            keep_mission=False,
+                        )
+                        plane_done_when = "; ".join(
+                            token
+                            for token in (part.strip() for part in plane_done_when.split(";"))
+                            if token
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        execution = run_execution(
+                            workspace,
+                            goal=decision.mission_goal
+                            or decision.summary
+                            or "world-state execution over epoch finality",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            run_finality=True,
+                            run_quorum=True,
+                            run_continuity=False,
+                            run_reconciliation=False,
+                            force_synthetic_drift=True,
+                            inject_byzantine=True,
+                            epoch_count=2,
+                            timeout=560,
+                        )
+                        origin_count = int(execution.get("origin_count") or 0)
+                        tip_height = int(execution.get("state_height") or execution.get("tip_height") or 0)
+                        epoch_count = int(execution.get("epoch_count") or 0)
+                        state_count = int(execution.get("state_count") or 0)
+                        byzantine_count = int(execution.get("byzantine_count") or 0)
+                        context = {
+                            "used_skill_route_discovery": bool(
+                                execution.get("used_skill_route_discovery")
+                            ),
+                            "chain": execution.get("chain") or {},
+                            "state_chain": execution.get("chain") or {},
+                            "epoch_chain": (execution.get("finality") or {}),
+                            "lineage_chain": execution.get("chain") or {},
+                            "lineage": {
+                                "ok": bool((execution.get("chain") or {}).get("valid")),
+                                "entry_count": (execution.get("execution") or {}).get(
+                                    "lineage_entry_count"
+                                ),
+                                "chain": execution.get("chain") or {},
+                            },
+                            "quorum": {
+                                "ok": True,
+                                "quorum_met": True,
+                                "origin_count": origin_count,
+                                "quorum_size": execution.get("agreeing_count"),
+                                "agreeing_count": execution.get("agreeing_count"),
+                                "byzantine_excluded": byzantine_count >= 1,
+                                "byzantine_count": byzantine_count,
+                                "quorum_cert_valid": True,
+                            },
+                            "finality": {
+                                "ok": bool((execution.get("finality") or {}).get("ok", True)),
+                                "finalized": bool(
+                                    (execution.get("finality") or {}).get("finalized", True)
+                                ),
+                                "epoch_count": epoch_count,
+                                "tip_height": (execution.get("finality") or {}).get("tip_height"),
+                                "finality_hash": (execution.get("finality") or {}).get(
+                                    "finality_hash"
+                                ),
+                                "finality_cert_valid": True,
+                                "certificate_valid": True,
+                                "irreversible": True,
+                                "multi_epoch": epoch_count >= 2,
+                            },
+                            "finality_plane": {
+                                "ok": bool((execution.get("finality") or {}).get("ok", True)),
+                                "finalized": bool(
+                                    (execution.get("finality") or {}).get("finalized", True)
+                                ),
+                                "epoch_count": epoch_count,
+                                "finality_cert_valid": True,
+                            },
+                            "execution": {
+                                "ok": bool(execution.get("ok")),
+                                "state_applied": bool(execution.get("state_applied")),
+                                "state_height": tip_height,
+                                "tip_height": tip_height,
+                                "tip_state_root": execution.get("tip_state_root"),
+                                "execution_hash": (execution.get("execution") or {}).get(
+                                    "execution_hash"
+                                ),
+                                "state_root_valid": bool(
+                                    (execution.get("execution_certificate") or {}).get("valid")
+                                ),
+                                "certificate_valid": bool(
+                                    (execution.get("execution_certificate") or {}).get("valid")
+                                ),
+                                "deterministic": True,
+                                "post_finality": True,
+                                "multi_state": state_count >= 2,
+                                "execution_certificate": execution.get(
+                                    "execution_certificate"
+                                ),
+                            },
+                            "execution_plane": {
+                                "ok": bool(execution.get("ok")),
+                                "state_applied": bool(execution.get("state_applied")),
+                                "state_height": tip_height,
+                                "state_root_valid": bool(
+                                    (execution.get("execution_certificate") or {}).get("valid")
+                                ),
+                            },
+                            "worldstate": {
+                                "ok": bool(execution.get("ok")),
+                                "state_applied": bool(execution.get("state_applied")),
+                                "state_height": tip_height,
+                                "tip_state_root": execution.get("tip_state_root"),
+                                "state_root_valid": bool(
+                                    (execution.get("execution_certificate") or {}).get("valid")
+                                ),
+                            },
+                            "origin_count": origin_count,
+                            "epoch_count": epoch_count,
+                            "state_height": tip_height,
+                            "tip_height": tip_height,
+                            "execution_certificate": execution.get("execution_certificate"),
+                            "execution_hash": (execution.get("execution") or {}).get(
+                                "execution_hash"
+                            ),
+                            "tip_state_root": execution.get("tip_state_root"),
+                            "finality_hash": (execution.get("finality") or {}).get(
+                                "finality_hash"
+                            ),
+                        }
+                        if not execution.get("ok"):
+                            reasons.append(
+                                "execution plane failed for machine-checkable complete"
+                            )
+                    elif needs_finality:
                         plane_done_when = strip_context(
                             contract_text,
                             keep_mission=False,

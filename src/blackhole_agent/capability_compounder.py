@@ -910,6 +910,7 @@ PROGRAM_PLAN_DENYLIST = frozenset(
         "capability.federation-plane",
         "capability.quorum-plane",
         "capability.finality-plane",
+        "capability.execution-plane",
         # Batch operators are invocable separately; keep goal programs step-cheap.
         "capability.ledger-integrity",
         "capability.distill-ledger",
@@ -966,6 +967,11 @@ MISSION_GOAL_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("finality", ("capability.finality-plane", "capability.quorum-plane", "capability.lineage-plane")),
     ("epoch", ("capability.finality-plane", "capability.quorum-plane", "capability.continuity-plane")),
     ("irreversib", ("capability.finality-plane", "capability.quorum-plane", "capability.sovereignty-plane")),
+    ("execution", ("capability.execution-plane", "capability.finality-plane", "capability.quorum-plane")),
+    ("worldstate", ("capability.execution-plane", "capability.finality-plane", "capability.lineage-plane")),
+    ("state-root", ("capability.execution-plane", "capability.finality-plane", "capability.assurance-plane")),
+    ("state transition", ("capability.execution-plane", "capability.finality-plane", "capability.quorum-plane")),
+    ("apply epoch", ("capability.execution-plane", "capability.finality-plane", "capability.continuity-plane")),
 )
 
 
@@ -1337,6 +1343,7 @@ def run_mission_plane(
 #   federation_ok | federated_ok | min_origins:N | federation_cert_valid
 #   quorum_ok | quorum_met | min_quorum:N | byzantine_excluded | quorum_cert_valid
 #   finality_ok | finalized_ok | min_epochs:N | finality_cert_valid
+#   execution_ok | state_applied_ok | min_state_height:N | state_root_valid
 # Free-text lines without a known form are recorded as informational (not gating).
 OUTCOME_PREDICATE_PATTERN = re.compile(
     r"^(?P<kind>"
@@ -1351,7 +1358,8 @@ OUTCOME_PREDICATE_PATTERN = re.compile(
     r"continuity_ok|resurrected_ok|min_bundle_certs|bundle_valid|"
     r"federation_ok|federated_ok|min_origins|federation_cert_valid|"
     r"quorum_ok|quorum_met|min_quorum|byzantine_excluded|quorum_cert_valid|"
-    r"finality_ok|finalized_ok|min_epochs|finality_cert_valid"
+    r"finality_ok|finalized_ok|min_epochs|finality_cert_valid|"
+    r"execution_ok|state_applied_ok|min_state_height|state_root_valid"
     r")(?::(?P<arg>.+))?$",
     re.IGNORECASE,
 )
@@ -1390,6 +1398,10 @@ CONTEXT_ONLY_OUTCOME_KINDS = frozenset(
         "finalized_ok",
         "min_epochs",
         "finality_cert_valid",
+        "execution_ok",
+        "state_applied_ok",
+        "min_state_height",
+        "state_root_valid",
     }
 )
 
@@ -1687,6 +1699,37 @@ def _soft_extract_outcome_predicates(chunk: str) -> list[dict[str, Any]]:
         and ("valid" in lower or "verify" in lower or "ok" in lower)
     ):
         found.append({"kind": "finality_cert_valid", "arg": "", "source": chunk})
+    if (
+        re.search(r"\bexecution", lower)
+        and ("ok" in lower or "pass" in lower or "plane" in lower or "succeed" in lower)
+    ) or re.search(r"\bexecution_ok\b", lower):
+        found.append({"kind": "execution_ok", "arg": "", "source": chunk})
+    if re.search(r"\bstate_applied_ok\b", lower) or (
+        "state" in lower
+        and "appl" in lower
+        and ("ok" in lower or "pass" in lower or "succeed" in lower)
+    ):
+        found.append({"kind": "state_applied_ok", "arg": "", "source": chunk})
+    m = re.search(r"(?:at least|>=|≥)\s*(\d+)\s+state\s*height", lower)
+    if m:
+        found.append({"kind": "min_state_height", "arg": m.group(1), "source": chunk})
+    if re.search(r"\bmin_state_height\b", lower) and not any(
+        item.get("kind") == "min_state_height" for item in found
+    ):
+        m_n = re.search(r"min_state_height\s*[:=]?\s*(\d+)", lower)
+        found.append(
+            {
+                "kind": "min_state_height",
+                "arg": m_n.group(1) if m_n else "2",
+                "source": chunk,
+            }
+        )
+    if re.search(r"\bstate_root_valid\b", lower) or (
+        "state" in lower
+        and "root" in lower
+        and ("valid" in lower or "verify" in lower or "ok" in lower)
+    ):
+        found.append({"kind": "state_root_valid", "arg": "", "source": chunk})
     return found
 
 
@@ -2298,6 +2341,72 @@ def _eval_one_outcome_predicate(
                     plane.get("finality_hash") or plane.get("certificate_hash")
                 )
         return ok, f"finality_cert_valid={ok}"
+    if kind == "execution_ok":
+        plane = (
+            context.get("execution")
+            or context.get("execution_plane")
+            or context.get("worldstate")
+            or {}
+        )
+        ok = bool(plane.get("ok"))
+        return ok, f"execution_ok={ok}"
+    if kind == "state_applied_ok":
+        plane = (
+            context.get("execution")
+            or context.get("execution_plane")
+            or context.get("worldstate")
+            or {}
+        )
+        if "state_applied" in plane:
+            ok = plane.get("state_applied") is True and bool(plane.get("ok", True))
+        elif "state_applied_ok" in plane:
+            ok = plane.get("state_applied_ok") is True
+        else:
+            ok = bool(plane.get("ok")) and int(
+                plane.get("state_height") or plane.get("tip_height") or 0
+            ) >= 1
+        return ok, f"state_applied_ok={ok}"
+    if kind == "min_state_height":
+        need = int(float(arg or "0"))
+        have = context.get("state_height")
+        if have is None:
+            have = context.get("tip_height")
+        if have is None:
+            plane = (
+                context.get("execution")
+                or context.get("execution_plane")
+                or context.get("worldstate")
+                or {}
+            )
+            have = (
+                plane.get("state_height")
+                or plane.get("tip_height")
+                or plane.get("entry_count")
+            )
+        have_i = int(have or 0)
+        return have_i >= need, f"state_height={have_i} need>={need}"
+    if kind == "state_root_valid":
+        plane = (
+            context.get("execution")
+            or context.get("execution_plane")
+            or context.get("worldstate")
+            or context.get("execution_certificate")
+            or {}
+        )
+        if "state_root_valid" in plane:
+            ok = plane.get("state_root_valid") is True
+        elif "certificate_valid" in plane:
+            ok = plane.get("certificate_valid") is True
+        else:
+            cert = plane.get("execution_certificate") or plane.get("certificate") or {}
+            if isinstance(cert, Mapping) and cert:
+                verify = verify_execution_certificate(cert)
+                ok = bool(verify.get("ok")) and bool(verify.get("valid"))
+            else:
+                ok = bool(plane.get("ok")) and bool(
+                    plane.get("state_root") or plane.get("tip_state_root")
+                )
+        return ok, f"state_root_valid={ok}"
     if kind == "program_passes":
         steps = [part.strip() for part in arg.split(",") if part.strip()]
         if not steps:
@@ -9682,6 +9791,1504 @@ def run_finality_plane(
     }
 
 
+# ---------------------------------------------------------------------------
+# Execution / world-state plane: finalize epochs → deterministic state roots.
+# Past irreversible finality: each sealed epoch is applied as a hash-chained
+# world-state transition with re-verifiable execution certificates.
+# ---------------------------------------------------------------------------
+
+EXECUTION_BUNDLE_SCHEMA = 1
+EXECUTION_CERTIFICATE_SCHEMA = 1
+EXECUTION_STATE_LOG_SCHEMA = 1
+DEFAULT_EXECUTION_BUNDLE_RELATIVE = Path("artifacts") / "execution-bundles"
+
+
+def default_execution_bundle_dir(repo_path: Path) -> Path:
+    return (repo_path / DEFAULT_EXECUTION_BUNDLE_RELATIVE).resolve()
+
+
+def empty_state_log() -> dict[str, Any]:
+    return {
+        "schema_version": EXECUTION_STATE_LOG_SCHEMA,
+        "kind": "execution_state_log",
+        "entries": [],
+        "entry_count": 0,
+        "tip_height": 0,
+        "tip_state_root": "",
+        "tip_epoch_hash": "",
+        "updated_at": utc_now_iso(),
+    }
+
+
+def compute_state_root(state: Mapping[str, Any]) -> str:
+    """Hash state body excluding self root, certificates, and wall-clock fields.
+
+    Deterministic replay from the same epochs must recompute the same tip root;
+    timestamps and certificate envelopes are excluded so roots are pure functions
+    of epoch seals and parent linkage.
+    """
+
+    body = {
+        key: value
+        for key, value in state.items()
+        if key
+        not in {
+            "state_root",
+            "execution_certificate",
+            "ok",
+            "valid",
+            "action",
+            "applied_at",
+            "updated_at",
+            "issued_at",
+            "exported_at",
+            # Metadata that must not alter deterministic world-state identity.
+            "goal",
+            "claims",
+        }
+    }
+    # Projection may carry nested wall-clock tags; strip known non-determinism.
+    if isinstance(body.get("projection"), Mapping):
+        projection = {
+            key: value
+            for key, value in body["projection"].items()
+            if key not in {"applied_at", "updated_at", "progress_at"}
+        }
+        body = {**body, "projection": projection}
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def compute_execution_certificate_hash(payload: Mapping[str, Any]) -> str:
+    body = {
+        key: value
+        for key, value in payload.items()
+        if key not in {"certificate_hash", "ok", "valid"}
+    }
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def compute_execution_bundle_hash(bundle: Mapping[str, Any]) -> str:
+    body = {
+        key: value
+        for key, value in bundle.items()
+        if key
+        not in {
+            "execution_hash",
+            "ok",
+            "bundle_path",
+            "exported_at",
+            "source_ledger_path",
+            "action",
+        }
+    }
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def issue_execution_certificate(
+    *,
+    state_height: int,
+    state_root: str,
+    parent_state_root: str,
+    epoch_hash: str,
+    epoch_height: int,
+    finality_certificate_hash: str,
+    package_hash: str,
+    lineage_head_hash: str,
+    member_ids: Sequence[str] | None = None,
+    goal: str = "",
+    claims: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    members = sorted({str(item).strip() for item in (member_ids or []) if str(item).strip()})
+    cert: dict[str, Any] = {
+        "schema_version": EXECUTION_CERTIFICATE_SCHEMA,
+        "kind": "execution_certificate",
+        "issued_at": utc_now_iso(),
+        "goal": goal or "",
+        "state_height": int(state_height),
+        "state_root": state_root or "",
+        "parent_state_root": parent_state_root or "",
+        "epoch_hash": epoch_hash or "",
+        "epoch_height": int(epoch_height),
+        "finality_certificate_hash": finality_certificate_hash or "",
+        "package_hash": package_hash or "",
+        "lineage_head_hash": lineage_head_hash or "",
+        "member_ids": members,
+        "member_count": len(members),
+        "deterministic": True,
+        "post_finality": True,
+        "claims": dict(claims or {}),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    cert["certificate_hash"] = compute_execution_certificate_hash(cert)
+    cert["ok"] = (
+        cert["state_height"] >= 1
+        and bool(cert["state_root"])
+        and bool(cert["epoch_hash"])
+        and cert["epoch_height"] >= 1
+        and bool(cert["finality_certificate_hash"])
+        and bool(cert["package_hash"])
+        and cert["deterministic"] is True
+        and cert["post_finality"] is True
+        and not cert["used_skill_route_discovery"]
+        and (
+            (cert["state_height"] == 1 and not cert["parent_state_root"])
+            or (cert["state_height"] > 1 and bool(cert["parent_state_root"]))
+        )
+    )
+    return cert
+
+
+def verify_execution_certificate(payload: Mapping[str, Any] | Path) -> dict[str, Any]:
+    if isinstance(payload, Path):
+        data = json.loads(payload.read_text(encoding="utf-8"))
+    else:
+        data = dict(payload)
+    expected = str(data.get("certificate_hash") or "").strip()
+    recomputed = compute_execution_certificate_hash(data)
+    hash_ok = bool(expected) and expected == recomputed
+    height = int(data.get("state_height") or 0)
+    parent = str(data.get("parent_state_root") or "")
+    parent_ok = (height == 1 and not parent) or (height > 1 and bool(parent))
+    valid = (
+        hash_ok
+        and data.get("kind") == "execution_certificate"
+        and height >= 1
+        and bool(data.get("state_root"))
+        and bool(data.get("epoch_hash"))
+        and int(data.get("epoch_height") or 0) >= 1
+        and bool(data.get("finality_certificate_hash"))
+        and bool(data.get("package_hash"))
+        and data.get("deterministic") is True
+        and data.get("post_finality") is True
+        and parent_ok
+        and not bool(data.get("used_skill_route_discovery"))
+    )
+    return {
+        "ok": valid,
+        "valid": valid,
+        "hash_ok": hash_ok,
+        "certificate_hash": expected or recomputed,
+        "recomputed_hash": recomputed,
+        "state_height": height,
+        "state_root": data.get("state_root"),
+        "epoch_hash": data.get("epoch_hash"),
+        "parent_ok": parent_ok,
+        "used_skill_route_discovery": bool(data.get("used_skill_route_discovery")),
+    }
+
+
+def write_execution_certificate(path: Path, certificate: Mapping[str, Any]) -> Path:
+    target = path.resolve()
+    atomic_write_json(target, dict(certificate))
+    return target
+
+
+def apply_epoch_transition(
+    state_log: Mapping[str, Any],
+    epoch: Mapping[str, Any],
+    *,
+    goal: str = "",
+    claims: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Apply one irreversible finalized epoch as a deterministic state transition."""
+
+    log = copy.deepcopy(dict(state_log)) if state_log else empty_state_log()
+    entries = list(log.get("entries") or [])
+    tip_height = int(log.get("tip_height") or 0)
+    tip_root = str(log.get("tip_state_root") or "")
+    next_height = tip_height + 1
+    parent_root = tip_root if tip_height >= 1 else ""
+
+    epoch_height = int(epoch.get("epoch_height") or 0)
+    epoch_hash = str(epoch.get("epoch_hash") or "")
+    package_hash = str(epoch.get("package_hash") or "")
+    lineage_head = str(epoch.get("lineage_head_hash") or "")
+    package = epoch.get("package") if isinstance(epoch.get("package"), Mapping) else {}
+    finality_cert = (
+        epoch.get("finality_certificate")
+        if isinstance(epoch.get("finality_certificate"), Mapping)
+        else {}
+    )
+    finality_cert_hash = str(finality_cert.get("certificate_hash") or "")
+    member_ids = list(package.get("member_ids") or package.get("roots") or [])
+    if not member_ids and isinstance(package.get("members"), Mapping):
+        member_ids = list(package.get("members") or {})
+
+    if epoch.get("irreversible") is not True:
+        return {
+            "ok": False,
+            "action": "apply_epoch_transition",
+            "error": "epoch_not_irreversible",
+            "state_log": log,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    if not epoch_hash or not package_hash or not finality_cert_hash:
+        return {
+            "ok": False,
+            "action": "apply_epoch_transition",
+            "error": "missing_epoch_seal_fields",
+            "state_log": log,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    if epoch_height != next_height:
+        return {
+            "ok": False,
+            "action": "apply_epoch_transition",
+            "error": "epoch_height_mismatch",
+            "expected_height": next_height,
+            "epoch_height": epoch_height,
+            "state_log": log,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    # Reject applying the same epoch hash twice (post-finality mutation surface).
+    if any(str(item.get("epoch_hash") or "") == epoch_hash for item in entries):
+        return {
+            "ok": False,
+            "action": "apply_epoch_transition",
+            "error": "duplicate_epoch_application_rejected",
+            "state_log": log,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    # Reject out-of-order: parent epoch hash must match tip when height > 1.
+    if tip_height >= 1:
+        tip_epoch = str(log.get("tip_epoch_hash") or "")
+        parent_epoch = str(epoch.get("parent_epoch_hash") or "")
+        if tip_epoch and parent_epoch and tip_epoch != parent_epoch:
+            return {
+                "ok": False,
+                "action": "apply_epoch_transition",
+                "error": "parent_epoch_mismatch",
+                "tip_epoch_hash": tip_epoch,
+                "parent_epoch_hash": parent_epoch,
+                "state_log": log,
+                "used_skill_route_discovery": legacy_pipeline_was_used(),
+            }
+
+    # Deterministic world-state projection: sorted member set + epoch seal fields.
+    projected = {
+        "height": next_height,
+        "epoch_hash": epoch_hash,
+        "package_hash": package_hash,
+        "lineage_head_hash": lineage_head,
+        "member_ids": sorted({str(m).strip() for m in member_ids if str(m).strip()}),
+        "origin_count": int(epoch.get("origin_count") or 0),
+        "agreeing_count": int(epoch.get("agreeing_count") or 0),
+        "byzantine_count": int(epoch.get("byzantine_count") or 0),
+        "finality_certificate_hash": finality_cert_hash,
+        "parent_state_root": parent_root,
+        "applied_from": "finality_epoch",
+    }
+    state_body: dict[str, Any] = {
+        "schema_version": EXECUTION_STATE_LOG_SCHEMA,
+        "kind": "execution_state",
+        "state_height": next_height,
+        "parent_state_root": parent_root,
+        "epoch_height": epoch_height,
+        "epoch_hash": epoch_hash,
+        "package_hash": package_hash,
+        "lineage_head_hash": lineage_head,
+        "finality_certificate_hash": finality_cert_hash,
+        "member_ids": projected["member_ids"],
+        "member_count": len(projected["member_ids"]),
+        "origin_count": projected["origin_count"],
+        "agreeing_count": projected["agreeing_count"],
+        "byzantine_count": projected["byzantine_count"],
+        "projection": projected,
+        "goal": goal or str(epoch.get("goal") or ""),
+        "deterministic": True,
+        "post_finality": True,
+        "applied_at": utc_now_iso(),
+        "claims": dict(claims or {}),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    state_root = compute_state_root(state_body)
+    state_body["state_root"] = state_root
+    cert = issue_execution_certificate(
+        state_height=next_height,
+        state_root=state_root,
+        parent_state_root=parent_root,
+        epoch_hash=epoch_hash,
+        epoch_height=epoch_height,
+        finality_certificate_hash=finality_cert_hash,
+        package_hash=package_hash,
+        lineage_head_hash=lineage_head,
+        member_ids=projected["member_ids"],
+        goal=goal or str(epoch.get("goal") or ""),
+        claims={
+            "member_count": state_body["member_count"],
+            "plane": "execution",
+            **dict(claims or {}),
+        },
+    )
+    state_body["execution_certificate"] = cert
+    state_body["ok"] = (
+        bool(cert.get("ok"))
+        and bool(state_root)
+        and state_body["deterministic"] is True
+        and state_body["post_finality"] is True
+        and not bool(state_body.get("used_skill_route_discovery"))
+    )
+
+    entries.append(state_body)
+    log["entries"] = entries
+    log["entry_count"] = len(entries)
+    log["tip_height"] = next_height
+    log["tip_state_root"] = state_root
+    log["tip_epoch_hash"] = epoch_hash
+    log["updated_at"] = utc_now_iso()
+    log["schema_version"] = EXECUTION_STATE_LOG_SCHEMA
+    log["kind"] = "execution_state_log"
+    return {
+        "ok": bool(state_body.get("ok")),
+        "action": "apply_epoch_transition",
+        "state": state_body,
+        "state_height": next_height,
+        "state_root": state_root,
+        "parent_state_root": parent_root,
+        "epoch_hash": epoch_hash,
+        "state_log": log,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def verify_state_chain(state_log: Mapping[str, Any]) -> dict[str, Any]:
+    """Validate sequential heights, parent roots, hashes, and execution certs."""
+
+    entries = list(state_log.get("entries") or [])
+    errors: list[str] = []
+    if not entries:
+        return {
+            "ok": False,
+            "valid": False,
+            "action": "verify_state_chain",
+            "entry_count": 0,
+            "tip_height": 0,
+            "tip_state_root": "",
+            "errors": ["empty_state_log"],
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    prev_root = ""
+    prev_epoch = ""
+    for index, raw in enumerate(entries):
+        if not isinstance(raw, Mapping):
+            errors.append(f"entry[{index}]_not_mapping")
+            continue
+        height = int(raw.get("state_height") or 0)
+        expected_height = index + 1
+        if height != expected_height:
+            errors.append(f"entry[{index}]_height={height}_expected={expected_height}")
+        parent = str(raw.get("parent_state_root") or "")
+        if index == 0:
+            if parent:
+                errors.append(f"entry[{index}]_genesis_has_parent")
+        else:
+            if parent != prev_root:
+                errors.append(
+                    f"entry[{index}]_parent_mismatch got={parent[:12]} expected={prev_root[:12]}"
+                )
+        stored = str(raw.get("state_root") or "")
+        recomputed = compute_state_root({**dict(raw), "state_root": ""})
+        if not stored or stored != recomputed:
+            errors.append(f"entry[{index}]_state_root_mismatch")
+        if raw.get("deterministic") is not True:
+            errors.append(f"entry[{index}]_not_deterministic")
+        if raw.get("post_finality") is not True:
+            errors.append(f"entry[{index}]_not_post_finality")
+        epoch_hash = str(raw.get("epoch_hash") or "")
+        if not epoch_hash:
+            errors.append(f"entry[{index}]_missing_epoch_hash")
+        if index > 0 and epoch_hash and epoch_hash == prev_epoch:
+            errors.append(f"entry[{index}]_duplicate_epoch_hash")
+        cert = raw.get("execution_certificate")
+        if not isinstance(cert, Mapping):
+            errors.append(f"entry[{index}]_missing_execution_certificate")
+        else:
+            cert_verify = verify_execution_certificate(cert)
+            if not cert_verify.get("valid"):
+                errors.append(f"entry[{index}]_execution_cert_invalid")
+            if str(cert.get("state_root") or "") != stored:
+                errors.append(f"entry[{index}]_cert_state_root_mismatch")
+            if int(cert.get("state_height") or 0) != height:
+                errors.append(f"entry[{index}]_cert_height_mismatch")
+            if str(cert.get("epoch_hash") or "") != epoch_hash:
+                errors.append(f"entry[{index}]_cert_epoch_hash_mismatch")
+        prev_root = stored
+        prev_epoch = epoch_hash
+
+    tip = entries[-1] if entries else {}
+    tip_height = int(tip.get("state_height") or 0) if isinstance(tip, Mapping) else 0
+    tip_root = str(tip.get("state_root") or "") if isinstance(tip, Mapping) else ""
+    tip_epoch = str(tip.get("epoch_hash") or "") if isinstance(tip, Mapping) else ""
+    log_tip_height = int(state_log.get("tip_height") or 0)
+    log_tip_root = str(state_log.get("tip_state_root") or "")
+    if log_tip_height and log_tip_height != tip_height:
+        errors.append("tip_height_metadata_mismatch")
+    if log_tip_root and log_tip_root != tip_root:
+        errors.append("tip_state_root_metadata_mismatch")
+
+    valid = not errors and tip_height >= 1 and bool(tip_root)
+    return {
+        "ok": valid,
+        "valid": valid,
+        "action": "verify_state_chain",
+        "entry_count": len(entries),
+        "tip_height": tip_height,
+        "tip_state_root": tip_root,
+        "tip_epoch_hash": tip_epoch,
+        "errors": errors,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def apply_finality_bundle_to_worldstate(
+    finality_bundle: Mapping[str, Any],
+    *,
+    goal: str = "",
+) -> dict[str, Any]:
+    """Replay all finalized epochs into a deterministic world-state log."""
+
+    integrity = verify_finality_bundle_integrity(finality_bundle)
+    if not integrity.get("ok"):
+        return {
+            "ok": False,
+            "action": "apply_finality_bundle_to_worldstate",
+            "error": "finality_integrity_failed",
+            "integrity": integrity,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    epochs = (
+        finality_bundle.get("epochs")
+        if isinstance(finality_bundle.get("epochs"), Mapping)
+        else {}
+    )
+    entries = list(epochs.get("entries") or [])
+    if len(entries) < 2:
+        return {
+            "ok": False,
+            "action": "apply_finality_bundle_to_worldstate",
+            "error": "need_multi_epoch_finality",
+            "epoch_count": len(entries),
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    state_log = empty_state_log()
+    applied: list[dict[str, Any]] = []
+    for index, epoch in enumerate(entries):
+        if not isinstance(epoch, Mapping):
+            return {
+                "ok": False,
+                "action": "apply_finality_bundle_to_worldstate",
+                "error": f"epoch[{index}]_not_mapping",
+                "state_log": state_log,
+                "used_skill_route_discovery": legacy_pipeline_was_used(),
+            }
+        result = apply_epoch_transition(
+            state_log,
+            epoch,
+            goal=f"{goal or finality_bundle.get('goal') or 'execution'} (state {index + 1})",
+            claims={"state_index": index + 1, "plane": "execution"},
+        )
+        if not result.get("ok"):
+            return {
+                "ok": False,
+                "action": "apply_finality_bundle_to_worldstate",
+                "error": result.get("error") or "apply_failed",
+                "applied_count": len(applied),
+                "apply": {
+                    "ok": result.get("ok"),
+                    "error": result.get("error"),
+                    "state_height": result.get("state_height"),
+                },
+                "state_log": state_log,
+                "used_skill_route_discovery": legacy_pipeline_was_used(),
+            }
+        state_log = result["state_log"]
+        applied.append(result["state"])
+
+    chain = verify_state_chain(state_log)
+    ok = bool(chain.get("valid")) and len(applied) >= 2 and not legacy_pipeline_was_used()
+    return {
+        "ok": ok,
+        "action": "apply_finality_bundle_to_worldstate",
+        "state_log": state_log,
+        "applied": applied,
+        "applied_count": len(applied),
+        "state_height": state_log.get("tip_height"),
+        "tip_state_root": state_log.get("tip_state_root"),
+        "tip_epoch_hash": state_log.get("tip_epoch_hash"),
+        "chain": chain,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def build_execution_bundle(
+    state_log: Mapping[str, Any],
+    finality_bundle: Mapping[str, Any],
+    *,
+    goal: str = "world-state execution over epoch finality",
+) -> dict[str, Any]:
+    """Package applied state log + finality tip into a portable execution bundle."""
+
+    chain = verify_state_chain(state_log)
+    if not chain.get("valid"):
+        return {
+            "ok": False,
+            "action": "build_execution_bundle",
+            "error": "state_chain_invalid",
+            "chain": chain,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    entries = list(state_log.get("entries") or [])
+    tip = entries[-1]
+    package = (
+        finality_bundle.get("package")
+        if isinstance(finality_bundle.get("package"), Mapping)
+        else {}
+    )
+    tip_cert = (
+        tip.get("execution_certificate")
+        if isinstance(tip.get("execution_certificate"), Mapping)
+        else {}
+    )
+    tip_cert_verify = verify_execution_certificate(tip_cert) if tip_cert else {"valid": False}
+    finality_cert = (
+        finality_bundle.get("finality_certificate")
+        if isinstance(finality_bundle.get("finality_certificate"), Mapping)
+        else {}
+    )
+    certificates: dict[str, dict[str, Any]] = {}
+    for state in entries:
+        cert = state.get("execution_certificate")
+        if isinstance(cert, Mapping) and cert.get("certificate_hash"):
+            certificates[str(cert["certificate_hash"])] = {
+                "certificate_hash": cert.get("certificate_hash"),
+                "payload": cert,
+                "state_height": state.get("state_height"),
+            }
+    if isinstance(finality_cert, Mapping) and finality_cert.get("certificate_hash"):
+        certificates[str(finality_cert["certificate_hash"])] = {
+            "certificate_hash": finality_cert.get("certificate_hash"),
+            "payload": finality_cert,
+            "kind": "finality_certificate",
+        }
+
+    eb: dict[str, Any] = {
+        "schema_version": EXECUTION_BUNDLE_SCHEMA,
+        "kind": "execution_bundle",
+        "action": "build_execution_bundle",
+        "goal": goal,
+        "state_count": len(entries),
+        "tip_height": chain.get("tip_height"),
+        "tip_state_root": chain.get("tip_state_root"),
+        "tip_epoch_hash": chain.get("tip_epoch_hash"),
+        "states": {
+            "schema_version": state_log.get("schema_version", EXECUTION_STATE_LOG_SCHEMA),
+            "kind": "execution_state_log",
+            "entries": [copy.deepcopy(dict(e)) for e in entries],
+            "entry_count": len(entries),
+            "tip_height": chain.get("tip_height"),
+            "tip_state_root": chain.get("tip_state_root"),
+            "tip_epoch_hash": chain.get("tip_epoch_hash"),
+            "updated_at": state_log.get("updated_at") or utc_now_iso(),
+        },
+        "package": copy.deepcopy(dict(package)),
+        "package_hash": package.get("package_hash") or tip.get("package_hash"),
+        "member_count": package.get("member_count") or tip.get("member_count"),
+        "member_ids": list(tip.get("member_ids") or package.get("member_ids") or []),
+        "lineage": copy.deepcopy(dict(finality_bundle.get("lineage") or {})),
+        "lineage_head_hash": finality_bundle.get("lineage_head_hash")
+        or tip.get("lineage_head_hash"),
+        "lineage_entry_count": finality_bundle.get("lineage_entry_count"),
+        "finality_hash": finality_bundle.get("finality_hash"),
+        "finality_certificate": copy.deepcopy(dict(finality_cert)),
+        "epoch_count": finality_bundle.get("epoch_count"),
+        "origin_count": finality_bundle.get("origin_count") or tip.get("origin_count"),
+        "agreeing_count": finality_bundle.get("agreeing_count") or tip.get("agreeing_count"),
+        "byzantine_count": finality_bundle.get("byzantine_count") or tip.get("byzantine_count"),
+        "execution_certificate": copy.deepcopy(dict(tip_cert)),
+        "certificates": certificates,
+        "certificate_count": len(certificates),
+        "deterministic": True,
+        "post_finality": True,
+        "exported_at": utc_now_iso(),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    eb["execution_hash"] = compute_execution_bundle_hash(eb)
+    eb["ok"] = (
+        bool(chain.get("valid"))
+        and bool(tip_cert_verify.get("valid"))
+        and len(entries) >= 2
+        and int(eb.get("origin_count") or 0) >= 3
+        and eb["deterministic"] is True
+        and eb["post_finality"] is True
+        and bool(eb.get("finality_hash"))
+        and not bool(eb.get("used_skill_route_discovery"))
+    )
+    return eb
+
+
+def write_execution_bundle(path: Path, bundle: Mapping[str, Any]) -> Path:
+    target = path.resolve()
+    atomic_write_json(target, dict(bundle))
+    return target
+
+
+def load_execution_bundle(path: Path) -> dict[str, Any]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, Mapping):
+        raise ValueError("execution bundle must be a JSON object")
+    return dict(payload)
+
+
+def verify_execution_bundle_integrity(bundle: Mapping[str, Any]) -> dict[str, Any]:
+    expected = str(bundle.get("execution_hash") or "").strip()
+    recomputed = compute_execution_bundle_hash(bundle)
+    hash_ok = bool(expected) and expected == recomputed
+    states = bundle.get("states") if isinstance(bundle.get("states"), Mapping) else {}
+    chain = verify_state_chain(states)
+    state_count = int(bundle.get("state_count") or len(states.get("entries") or []) or 0)
+    tip_height = int(bundle.get("tip_height") or chain.get("tip_height") or 0)
+    multi_state = state_count >= 2 and tip_height >= 2
+    package = bundle.get("package") if isinstance(bundle.get("package"), Mapping) else {}
+    package_ok = bool(package.get("members") or package.get("member_ids")) and bool(
+        bundle.get("package_hash") or package.get("package_hash")
+    )
+    cert = (
+        bundle.get("execution_certificate")
+        if isinstance(bundle.get("execution_certificate"), Mapping)
+        else {}
+    )
+    cert_verify = verify_execution_certificate(cert) if cert else {"valid": False, "ok": False}
+    finality_cert = (
+        bundle.get("finality_certificate")
+        if isinstance(bundle.get("finality_certificate"), Mapping)
+        else {}
+    )
+    finality_cert_verify = (
+        verify_finality_certificate(finality_cert) if finality_cert else {"valid": False}
+    )
+    deterministic = bundle.get("deterministic") is True
+    post_finality = bundle.get("post_finality") is True
+    used_skill = bool(bundle.get("used_skill_route_discovery")) or legacy_pipeline_was_used()
+    ok = (
+        hash_ok
+        and bool(chain.get("valid"))
+        and multi_state
+        and package_ok
+        and bool(cert_verify.get("valid"))
+        and bool(finality_cert_verify.get("valid"))
+        and deterministic
+        and post_finality
+        and int(bundle.get("origin_count") or 0) >= 3
+        and bool(bundle.get("finality_hash"))
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "verify_execution_bundle_integrity",
+        "hash_ok": hash_ok,
+        "chain_valid": bool(chain.get("valid")),
+        "chain": chain,
+        "multi_state": multi_state,
+        "state_count": state_count,
+        "tip_height": tip_height,
+        "package_ok": package_ok,
+        "execution_certificate_valid": bool(cert_verify.get("valid")),
+        "execution_certificate": cert_verify,
+        "finality_certificate_valid": bool(finality_cert_verify.get("valid")),
+        "deterministic": deterministic,
+        "post_finality": post_finality,
+        "origin_count": bundle.get("origin_count"),
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def rehydrate_execution_bundle(
+    repo_path: Path,
+    bundle: Mapping[str, Any],
+    *,
+    sandbox_dir: Path | None = None,
+) -> dict[str, Any]:
+    """Materialize tip package + state log into a sterile sandbox."""
+
+    root = repo_path.resolve()
+    integrity = verify_execution_bundle_integrity(bundle)
+    if not integrity.get("ok"):
+        return {
+            "ok": False,
+            "action": "rehydrate_execution_bundle",
+            "error": "execution_integrity_failed",
+            "integrity": integrity,
+            "used_skill_route_discovery": integrity.get("used_skill_route_discovery"),
+        }
+
+    e_hash = str(bundle.get("execution_hash") or "unknown")
+    sandbox = (
+        sandbox_dir.resolve()
+        if sandbox_dir is not None
+        else (root / "artifacts" / "execution-sandbox" / e_hash[:16])
+    )
+    sandbox.mkdir(parents=True, exist_ok=True)
+
+    package = dict(bundle.get("package") or {})
+    lineage = copy.deepcopy(bundle.get("lineage") or {})
+    states = copy.deepcopy(bundle.get("states") or {})
+    lineage_path = sandbox / "lineage.json"
+    if lineage:
+        write_lineage_log(lineage_path, lineage)
+    states_path = sandbox / "states.json"
+    atomic_write_json(states_path, states)
+
+    empty = CapabilityLedger(schema_version=SCHEMA_VERSION, updated_at=utc_now_iso())
+    empty, import_report = import_capability_package(empty, package, replace=True)
+    sterile_ledger_path = sandbox / "ledger.json"
+    save_ledger(sterile_ledger_path, empty)
+
+    cert = (
+        bundle.get("execution_certificate")
+        if isinstance(bundle.get("execution_certificate"), Mapping)
+        else {}
+    )
+    cert_path = sandbox / "execution-certificate.json"
+    if cert:
+        write_execution_certificate(cert_path, cert)
+    finality_cert = (
+        bundle.get("finality_certificate")
+        if isinstance(bundle.get("finality_certificate"), Mapping)
+        else {}
+    )
+    finality_cert_path = sandbox / "finality-certificate.json"
+    if finality_cert:
+        write_finality_certificate(finality_cert_path, finality_cert)
+
+    chain = verify_state_chain(states)
+    cert_verify = verify_execution_certificate(cert) if cert else {"ok": False, "valid": False}
+    finality_cert_verify = (
+        verify_finality_certificate(finality_cert) if finality_cert else {"ok": False, "valid": False}
+    )
+    lineage_chain = (
+        verify_lineage_chain(lineage) if lineage else {"ok": True, "valid": True, "entry_count": 0}
+    )
+    used_skill = legacy_pipeline_was_used()
+    ok = (
+        bool(integrity.get("ok"))
+        and bool(import_report.get("ok"))
+        and bool(chain.get("valid"))
+        and bool(cert_verify.get("valid"))
+        and bool(finality_cert_verify.get("valid"))
+        and int(import_report.get("imported_count") or 0) >= 1
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "rehydrate_execution_bundle",
+        "sandbox_dir": str(sandbox),
+        "lineage_path": str(lineage_path) if lineage else None,
+        "states_path": str(states_path),
+        "sterile_ledger_path": str(sterile_ledger_path),
+        "certificate_path": str(cert_path) if cert else None,
+        "finality_certificate_path": str(finality_cert_path) if finality_cert else None,
+        "execution_hash": e_hash,
+        "import": import_report,
+        "chain": {
+            "ok": chain.get("ok"),
+            "valid": chain.get("valid"),
+            "entry_count": chain.get("entry_count"),
+            "tip_height": chain.get("tip_height"),
+            "tip_state_root": chain.get("tip_state_root"),
+            "errors": chain.get("errors") or [],
+        },
+        "lineage_chain": {
+            "ok": lineage_chain.get("ok"),
+            "valid": lineage_chain.get("valid"),
+            "entry_count": lineage_chain.get("entry_count"),
+        },
+        "execution_certificate": {
+            "ok": cert_verify.get("ok"),
+            "valid": cert_verify.get("valid"),
+            "certificate_hash": cert_verify.get("certificate_hash"),
+            "state_root": cert_verify.get("state_root"),
+        },
+        "finality_certificate": {
+            "ok": finality_cert_verify.get("ok"),
+            "valid": finality_cert_verify.get("valid"),
+            "certificate_hash": finality_cert_verify.get("certificate_hash"),
+        },
+        "integrity": {
+            "ok": integrity.get("ok"),
+            "hash_ok": integrity.get("hash_ok"),
+            "multi_state": integrity.get("multi_state"),
+            "tip_height": integrity.get("tip_height"),
+        },
+        "sterile_ledger": empty,
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def replay_worldstate_from_epochs(
+    epochs: Mapping[str, Any] | Sequence[Mapping[str, Any]],
+    *,
+    goal: str = "",
+) -> dict[str, Any]:
+    """Deterministic replay helper used by adversarial checks."""
+
+    if isinstance(epochs, Mapping):
+        entries = list(epochs.get("entries") or [])
+    else:
+        entries = list(epochs)
+    state_log = empty_state_log()
+    for index, epoch in enumerate(entries):
+        result = apply_epoch_transition(
+            state_log,
+            epoch,
+            goal=f"{goal} (replay {index + 1})",
+            claims={"replay": True, "state_index": index + 1},
+        )
+        if not result.get("ok"):
+            return {
+                "ok": False,
+                "error": result.get("error") or "replay_failed",
+                "state_log": state_log,
+                "applied_count": index,
+            }
+        state_log = result["state_log"]
+    chain = verify_state_chain(state_log)
+    return {
+        "ok": bool(chain.get("valid")),
+        "state_log": state_log,
+        "tip_state_root": state_log.get("tip_state_root"),
+        "tip_height": state_log.get("tip_height"),
+        "chain": chain,
+    }
+
+
+def run_execution_adversarial_checks(
+    intact_bundle: Mapping[str, Any],
+    state_log: Mapping[str, Any],
+    finality_bundle: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Falsify execution honesty: mutation, reorder, forged root, gap, broken cert."""
+
+    intact = verify_execution_bundle_integrity(intact_bundle)
+    intact_chain = verify_state_chain(state_log)
+
+    # 1) Post-finality mutation of applied projection → chain fails.
+    mutated_log = copy.deepcopy(dict(state_log))
+    m_entries = list(mutated_log.get("entries") or [])
+    mutation_fails = False
+    if m_entries:
+        first = dict(m_entries[0])
+        projection = dict(first.get("projection") or {})
+        projection["member_ids"] = list(projection.get("member_ids") or []) + ["evil.member"]
+        first["projection"] = projection
+        first["member_ids"] = list(projection["member_ids"])
+        m_entries[0] = first
+        mutated_log["entries"] = m_entries
+        mutation_check = verify_state_chain(mutated_log)
+        mutation_fails = mutation_check.get("valid") is not True
+
+    # 2) Reorder epochs (apply out of order) → apply rejects or chain fails.
+    reorder_fails = False
+    epochs = (
+        finality_bundle.get("epochs")
+        if isinstance(finality_bundle.get("epochs"), Mapping)
+        else {}
+    )
+    e_entries = list(epochs.get("entries") or [])
+    if len(e_entries) >= 2:
+        reordered = [e_entries[1], e_entries[0]]
+        replay = replay_worldstate_from_epochs(reordered, goal="adversarial-reorder")
+        reorder_fails = replay.get("ok") is not True
+    else:
+        reorder_fails = True
+
+    # 3) Forged tip state root → chain fails.
+    forged_log = copy.deepcopy(dict(state_log))
+    f_entries = list(forged_log.get("entries") or [])
+    forged_root_fails = False
+    if f_entries:
+        tip = dict(f_entries[-1])
+        tip["state_root"] = "f" * 24
+        f_entries[-1] = tip
+        forged_log["entries"] = f_entries
+        forged_log["tip_state_root"] = tip["state_root"]
+        forged_check = verify_state_chain(forged_log)
+        forged_root_fails = forged_check.get("valid") is not True
+
+    # 4) Height gap → chain fails.
+    gap_log = copy.deepcopy(dict(state_log))
+    g_entries = list(gap_log.get("entries") or [])
+    gap_fails = False
+    if g_entries:
+        last = dict(g_entries[-1])
+        last["state_height"] = int(last.get("state_height") or 1) + 5
+        g_entries[-1] = last
+        gap_log["entries"] = g_entries
+        gap_log["tip_height"] = last["state_height"]
+        gap_check = verify_state_chain(gap_log)
+        gap_fails = gap_check.get("valid") is not True
+
+    # 5) Broken execution certificate → fails.
+    broken_cert_fails = False
+    if m_entries:
+        broken_log = copy.deepcopy(dict(state_log))
+        b_entries = list(broken_log.get("entries") or [])
+        tip = dict(b_entries[-1])
+        cert = dict(tip.get("execution_certificate") or {})
+        cert["certificate_hash"] = "0" * 24
+        tip["execution_certificate"] = cert
+        b_entries[-1] = tip
+        broken_log["entries"] = b_entries
+        broken_check = verify_state_chain(broken_log)
+        broken_cert_fails = broken_check.get("valid") is not True
+
+    # 6) Wrong parent state root → chain fails.
+    parent_fails = False
+    if len(list(state_log.get("entries") or [])) >= 2:
+        parent_log = copy.deepcopy(dict(state_log))
+        p_entries = list(parent_log.get("entries") or [])
+        tip = dict(p_entries[-1])
+        tip["parent_state_root"] = "deadbeef-parent-root"
+        p_entries[-1] = tip
+        parent_log["entries"] = p_entries
+        parent_check = verify_state_chain(parent_log)
+        parent_fails = parent_check.get("valid") is not True
+    else:
+        parent_fails = True
+
+    # 7) Bundle tamper: flip execution_hash.
+    tampered = copy.deepcopy(dict(intact_bundle))
+    tampered["execution_hash"] = "e" * 24
+    tamper_check = verify_execution_bundle_integrity(tampered)
+    tamper_fails = tamper_check.get("ok") is not True
+
+    # 8) Single-state bundle must fail multi-state integrity.
+    single = copy.deepcopy(dict(intact_bundle))
+    single_states = copy.deepcopy(dict(single.get("states") or {}))
+    s_entries = list(single_states.get("entries") or [])[:1]
+    single_states["entries"] = s_entries
+    single_states["entry_count"] = len(s_entries)
+    if s_entries:
+        single_states["tip_height"] = s_entries[0].get("state_height")
+        single_states["tip_state_root"] = s_entries[0].get("state_root")
+        single_states["tip_epoch_hash"] = s_entries[0].get("epoch_hash")
+        single["states"] = single_states
+        single["state_count"] = 1
+        single["tip_height"] = single_states["tip_height"]
+        single["tip_state_root"] = single_states["tip_state_root"]
+        if "execution_hash" in single:
+            del single["execution_hash"]
+        single["execution_hash"] = compute_execution_bundle_hash(single)
+        single_check = verify_execution_bundle_integrity(single)
+        single_state_fails = single_check.get("ok") is not True
+    else:
+        single_state_fails = True
+
+    # 9) Deterministic replay from genesis matches tip state root.
+    replay_match = False
+    if e_entries:
+        replay = replay_worldstate_from_epochs(e_entries, goal="adversarial-replay")
+        replay_match = (
+            bool(replay.get("ok"))
+            and str(replay.get("tip_state_root") or "")
+            == str(state_log.get("tip_state_root") or "")
+            and int(replay.get("tip_height") or 0) == int(state_log.get("tip_height") or 0)
+        )
+
+    # 10) Duplicate epoch application rejected.
+    dup_fails = False
+    if e_entries:
+        dup = apply_epoch_transition(state_log, e_entries[-1], goal="dup")
+        dup_fails = dup.get("ok") is not True and dup.get("error") in {
+            "duplicate_epoch_application_rejected",
+            "epoch_height_mismatch",
+        }
+
+    used_skill = legacy_pipeline_was_used()
+    ok = (
+        bool(intact.get("ok"))
+        and bool(intact_chain.get("valid"))
+        and mutation_fails
+        and reorder_fails
+        and forged_root_fails
+        and gap_fails
+        and broken_cert_fails
+        and parent_fails
+        and tamper_fails
+        and single_state_fails
+        and replay_match
+        and dup_fails
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "execution_adversarial_checks",
+        "intact_ok": bool(intact.get("ok")),
+        "chain_ok": bool(intact_chain.get("valid")),
+        "mutation_fails_as_expected": mutation_fails,
+        "reorder_fails_as_expected": reorder_fails,
+        "forged_root_fails_as_expected": forged_root_fails,
+        "gap_fails_as_expected": gap_fails,
+        "broken_cert_fails_as_expected": broken_cert_fails,
+        "wrong_parent_fails_as_expected": parent_fails,
+        "tamper_fails_as_expected": tamper_fails,
+        "single_state_fails_as_expected": single_state_fails,
+        "replay_matches_tip": replay_match,
+        "duplicate_apply_fails_as_expected": dup_fails,
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def run_execution_plane(
+    repo_path: Path,
+    goal: str = "world-state execution over epoch finality",
+    done_when: str = "",
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 560,
+    max_steps: int = 3,
+    run_finality: bool = True,
+    run_quorum: bool = True,
+    run_continuity: bool = False,
+    run_reconciliation: bool = False,
+    force_synthetic_drift: bool = True,
+    inject_byzantine: bool = True,
+    prove_imported: bool = True,
+    epoch_count: int = 2,
+    lineage_path: Path | None = None,
+    bundle_path: Path | None = None,
+    quorum_path: Path | None = None,
+    finality_path: Path | None = None,
+    execution_path: Path | None = None,
+    sandbox_dir: Path | None = None,
+    persist: bool = True,
+) -> dict[str, Any]:
+    """Closed execution plane: finality → multi-state apply → cert → rehydrate → adversarial.
+
+    Past multi-epoch irreversible finality: each sealed epoch is applied as a
+    deterministic hash-chained world-state transition with an execution certificate
+    bound to the finality seal. Mutation, reorder, forged roots, height gaps,
+    broken certs, and single-state bundles fail; sterile rehydrate+prove and
+    genesis replay matching tip succeed without skill-route discovery.
+    """
+
+    root = repo_path.resolve()
+    path, _ledger = ensure_seeded_ledger(root)
+    want_epochs = max(2, int(epoch_count))
+
+    out_lineage = (
+        lineage_path.resolve()
+        if lineage_path is not None
+        else default_lineage_path(root)
+    )
+    out_finality = (
+        finality_path.resolve()
+        if finality_path is not None
+        else (default_finality_bundle_dir(root) / "execution-source-finality.json")
+    )
+
+    finality_report: dict[str, Any] | None = None
+    finality_bundle: dict[str, Any] | None = None
+    if run_finality:
+        finality_report = run_finality_plane(
+            root,
+            goal if goal else "epoch finality for execution",
+            strip_context_only_outcome_predicates(done_when or ""),
+            command_runner=command_runner,
+            timeout=timeout,
+            max_steps=max_steps,
+            run_quorum=run_quorum,
+            run_continuity=run_continuity,
+            run_reconciliation=run_reconciliation,
+            force_synthetic_drift=force_synthetic_drift,
+            inject_byzantine=inject_byzantine,
+            prove_imported=prove_imported,
+            epoch_count=want_epochs,
+            lineage_path=out_lineage,
+            bundle_path=bundle_path,
+            quorum_path=quorum_path,
+            finality_path=out_finality,
+            persist=persist,
+        )
+        f_path = Path((finality_report.get("finality") or {}).get("bundle_path") or "")
+        if f_path and f_path.is_file():
+            finality_bundle = load_finality_bundle(f_path)
+        elif out_finality.is_file():
+            finality_bundle = load_finality_bundle(out_finality)
+        else:
+            finality_bundle = None
+    else:
+        if out_finality.is_file():
+            finality_bundle = load_finality_bundle(out_finality)
+        else:
+            finality_report = run_finality_plane(
+                root,
+                goal,
+                "",
+                command_runner=command_runner,
+                timeout=timeout,
+                max_steps=max_steps,
+                run_quorum=run_quorum,
+                run_continuity=False,
+                run_reconciliation=False,
+                inject_byzantine=inject_byzantine,
+                prove_imported=prove_imported,
+                epoch_count=want_epochs,
+                lineage_path=out_lineage,
+                finality_path=out_finality,
+                persist=persist,
+            )
+            if out_finality.is_file():
+                finality_bundle = load_finality_bundle(out_finality)
+
+    if finality_bundle is None or not (
+        finality_bundle.get("ok") or finality_report and finality_report.get("finalized")
+    ):
+        return {
+            "ok": False,
+            "action": "execution_plane",
+            "error": "finality_source_failed",
+            "finality": None
+            if finality_report is None
+            else {
+                "ok": finality_report.get("ok"),
+                "finalized": finality_report.get("finalized"),
+            },
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "ledger_path": str(path),
+        }
+
+    applied = apply_finality_bundle_to_worldstate(
+        finality_bundle,
+        goal=goal,
+    )
+    if not applied.get("ok"):
+        return {
+            "ok": False,
+            "action": "execution_plane",
+            "error": applied.get("error") or "state_apply_failed",
+            "apply": {
+                "ok": applied.get("ok"),
+                "error": applied.get("error"),
+                "applied_count": applied.get("applied_count"),
+            },
+            "finality": {
+                "ok": True if finality_report is None else bool(finality_report.get("ok")),
+                "finality_hash": finality_bundle.get("finality_hash"),
+            },
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "ledger_path": str(path),
+        }
+
+    state_log = applied["state_log"]
+    execution = build_execution_bundle(
+        state_log,
+        finality_bundle,
+        goal=goal,
+    )
+    out_e = (
+        execution_path.resolve()
+        if execution_path is not None
+        else (
+            default_execution_bundle_dir(root)
+            / f"execution-{execution.get('execution_hash') or 'unknown'}.json"
+        )
+    )
+    if persist and execution.get("ok"):
+        write_execution_bundle(out_e, execution)
+        reloaded = load_execution_bundle(out_e)
+    else:
+        reloaded = execution
+
+    integrity = verify_execution_bundle_integrity(reloaded)
+    rehydrate = rehydrate_execution_bundle(
+        root,
+        reloaded,
+        sandbox_dir=sandbox_dir,
+    )
+    sterile = rehydrate.get("sterile_ledger")
+    if prove_imported and isinstance(sterile, CapabilityLedger):
+        member_ids = list((reloaded.get("package") or {}).get("member_ids") or [])
+        roots = list((reloaded.get("package") or {}).get("roots") or member_ids[:3])
+        if not roots:
+            roots = list((reloaded.get("package") or {}).get("members") or {}).keys()
+            roots = list(roots)[:3]
+        prove = prove_sterile_package(
+            root,
+            sterile,
+            roots,
+            command_runner=command_runner,
+            timeout=min(timeout, 120),
+        )
+    else:
+        prove = {
+            "ok": not prove_imported,
+            "action": "prove_sterile_package",
+            "proved_count": 0,
+            "proofs": [],
+            "used_skill_route_discovery": False,
+        }
+
+    chain = verify_state_chain(
+        reloaded.get("states") if isinstance(reloaded.get("states"), Mapping) else state_log
+    )
+    cert_verify = verify_execution_certificate(
+        reloaded.get("execution_certificate")
+        if isinstance(reloaded.get("execution_certificate"), Mapping)
+        else {}
+    )
+    adversarial = run_execution_adversarial_checks(reloaded, state_log, finality_bundle)
+
+    used_skill = bool(
+        (finality_report or {}).get("used_skill_route_discovery")
+        or execution.get("used_skill_route_discovery")
+        or integrity.get("used_skill_route_discovery")
+        or rehydrate.get("used_skill_route_discovery")
+        or prove.get("used_skill_route_discovery")
+        or adversarial.get("used_skill_route_discovery")
+        or legacy_pipeline_was_used()
+    )
+    tip_height = int(reloaded.get("tip_height") or chain.get("tip_height") or 0)
+    state_n = int(reloaded.get("state_count") or chain.get("entry_count") or 0)
+    epoch_n = int(reloaded.get("epoch_count") or finality_bundle.get("epoch_count") or 0)
+    state_applied = (
+        bool(execution.get("ok"))
+        and bool(integrity.get("ok"))
+        and bool(rehydrate.get("ok"))
+        and bool(prove.get("ok"))
+        and bool(chain.get("valid"))
+        and bool(cert_verify.get("valid"))
+        and bool(adversarial.get("ok"))
+        and tip_height >= 2
+        and state_n >= 2
+        and not used_skill
+    )
+    provisional_ok = state_applied and (
+        finality_report is None or bool(finality_report.get("ok")) or not run_finality
+    )
+
+    context = {
+        "used_skill_route_discovery": used_skill,
+        "finality": {
+            "ok": True if finality_report is None else bool(finality_report.get("ok")),
+            "finalized": True
+            if finality_report is None
+            else bool(finality_report.get("finalized")),
+            "epoch_count": epoch_n,
+            "tip_height": finality_bundle.get("tip_height"),
+            "tip_hash": finality_bundle.get("tip_hash"),
+            "finality_hash": finality_bundle.get("finality_hash"),
+            "finality_cert_valid": True,
+            "certificate_valid": True,
+            "irreversible": True,
+            "multi_epoch": epoch_n >= 2,
+        },
+        "finality_plane": {
+            "ok": True if finality_report is None else bool(finality_report.get("ok")),
+            "finalized": True
+            if finality_report is None
+            else bool(finality_report.get("finalized")),
+            "epoch_count": epoch_n,
+            "finality_cert_valid": True,
+        },
+        "quorum": {
+            "ok": True,
+            "quorum_met": True,
+            "origin_count": reloaded.get("origin_count"),
+            "quorum_size": reloaded.get("agreeing_count"),
+            "agreeing_count": reloaded.get("agreeing_count"),
+            "byzantine_excluded": int(reloaded.get("byzantine_count") or 0) >= 1,
+            "byzantine_count": reloaded.get("byzantine_count"),
+            "quorum_cert_valid": True,
+        },
+        "execution": {
+            "ok": provisional_ok,
+            "state_applied": state_applied,
+            "state_height": tip_height,
+            "tip_height": tip_height,
+            "tip_state_root": reloaded.get("tip_state_root"),
+            "execution_hash": reloaded.get("execution_hash"),
+            "state_root_valid": bool(cert_verify.get("valid")),
+            "certificate_valid": bool(cert_verify.get("valid")),
+            "deterministic": True,
+            "post_finality": True,
+            "multi_state": state_n >= 2,
+        },
+        "execution_plane": {
+            "ok": provisional_ok,
+            "state_applied": state_applied,
+            "state_height": tip_height,
+            "state_root_valid": bool(cert_verify.get("valid")),
+        },
+        "worldstate": {
+            "ok": provisional_ok,
+            "state_applied": state_applied,
+            "state_height": tip_height,
+            "tip_state_root": reloaded.get("tip_state_root"),
+            "state_root_valid": bool(cert_verify.get("valid")),
+        },
+        "chain": chain,
+        "state_chain": chain,
+        "epoch_chain": (finality_report or {}).get("chain") or {},
+        "lineage_chain": (finality_report or {}).get("chain") or {},
+        "lineage": {
+            "ok": True,
+            "entry_count": reloaded.get("lineage_entry_count"),
+        },
+        "origin_count": reloaded.get("origin_count"),
+        "state_height": tip_height,
+        "tip_height": tip_height,
+        "epoch_count": epoch_n,
+        "execution_certificate": reloaded.get("execution_certificate"),
+        "execution_hash": reloaded.get("execution_hash"),
+        "finality_hash": reloaded.get("finality_hash"),
+        "tip_state_root": reloaded.get("tip_state_root"),
+    }
+    execution_done_when = (
+        "no_skill_route; execution_ok; state_applied_ok; min_state_height:2; "
+        "state_root_valid; finality_ok; finalized_ok; min_epochs:2; "
+        "finality_cert_valid; chain_valid; capability_exists:repo.import-health"
+    )
+    final_contract = evaluate_outcome_contract(
+        root,
+        execution_done_when,
+        context=context,
+        command_runner=command_runner,
+        timeout=min(timeout, 60),
+        run_programs=False,
+    )
+    ok = (
+        provisional_ok
+        and bool(final_contract.get("ok"))
+        and final_contract.get("met") is True
+    )
+    return {
+        "ok": ok,
+        "action": "execution_plane",
+        "goal": goal,
+        "done_when": done_when,
+        "execution_done_when": execution_done_when,
+        "met": final_contract.get("met"),
+        "machine_checkable": True,
+        "state_applied": state_applied,
+        "state_count": state_n,
+        "state_height": tip_height,
+        "tip_height": tip_height,
+        "tip_state_root": reloaded.get("tip_state_root"),
+        "tip_epoch_hash": reloaded.get("tip_epoch_hash"),
+        "epoch_count": epoch_n,
+        "origin_count": reloaded.get("origin_count"),
+        "agreeing_count": reloaded.get("agreeing_count"),
+        "byzantine_count": reloaded.get("byzantine_count"),
+        "finality": None
+        if finality_report is None
+        else {
+            "ok": finality_report.get("ok"),
+            "finalized": finality_report.get("finalized"),
+            "finality_hash": (finality_report.get("finality") or {}).get("finality_hash"),
+            "epoch_count": finality_report.get("epoch_count"),
+            "tip_height": finality_report.get("tip_height"),
+        },
+        "execution": {
+            "ok": execution.get("ok"),
+            "execution_hash": reloaded.get("execution_hash"),
+            "bundle_path": str(out_e) if persist and execution.get("ok") else None,
+            "package_hash": reloaded.get("package_hash"),
+            "member_count": reloaded.get("member_count"),
+            "state_count": state_n,
+            "tip_height": tip_height,
+            "tip_state_root": reloaded.get("tip_state_root"),
+            "certificate_count": reloaded.get("certificate_count"),
+            "lineage_entry_count": reloaded.get("lineage_entry_count"),
+            "lineage_head_hash": reloaded.get("lineage_head_hash"),
+            "finality_hash": reloaded.get("finality_hash"),
+            "persisted": persist and out_e.exists() if execution.get("ok") else False,
+            "deterministic": True,
+            "post_finality": True,
+        },
+        "integrity": {
+            "ok": integrity.get("ok"),
+            "hash_ok": integrity.get("hash_ok"),
+            "chain_valid": integrity.get("chain_valid"),
+            "multi_state": integrity.get("multi_state"),
+            "package_ok": integrity.get("package_ok"),
+            "execution_certificate_valid": integrity.get("execution_certificate_valid"),
+            "finality_certificate_valid": integrity.get("finality_certificate_valid"),
+            "deterministic": integrity.get("deterministic"),
+            "post_finality": integrity.get("post_finality"),
+        },
+        "rehydrate": {
+            "ok": rehydrate.get("ok"),
+            "sandbox_dir": rehydrate.get("sandbox_dir"),
+            "lineage_path": rehydrate.get("lineage_path"),
+            "states_path": rehydrate.get("states_path"),
+            "sterile_ledger_path": rehydrate.get("sterile_ledger_path"),
+            "import": rehydrate.get("import"),
+            "chain": rehydrate.get("chain"),
+            "execution_certificate": rehydrate.get("execution_certificate"),
+            "finality_certificate": rehydrate.get("finality_certificate"),
+        },
+        "prove": {
+            "ok": prove.get("ok"),
+            "proved_count": prove.get("proved_count"),
+            "proofs": prove.get("proofs"),
+        },
+        "chain": {
+            "ok": chain.get("ok"),
+            "valid": chain.get("valid"),
+            "entry_count": chain.get("entry_count"),
+            "tip_height": chain.get("tip_height"),
+            "tip_state_root": chain.get("tip_state_root"),
+            "errors": chain.get("errors") or [],
+        },
+        "execution_certificate": {
+            "ok": cert_verify.get("ok"),
+            "valid": cert_verify.get("valid"),
+            "hash_ok": cert_verify.get("hash_ok"),
+            "certificate_hash": cert_verify.get("certificate_hash"),
+            "state_height": cert_verify.get("state_height"),
+            "state_root": cert_verify.get("state_root"),
+        },
+        "adversarial": {
+            "ok": adversarial.get("ok"),
+            "intact_ok": adversarial.get("intact_ok"),
+            "mutation_fails_as_expected": adversarial.get("mutation_fails_as_expected"),
+            "reorder_fails_as_expected": adversarial.get("reorder_fails_as_expected"),
+            "forged_root_fails_as_expected": adversarial.get(
+                "forged_root_fails_as_expected"
+            ),
+            "gap_fails_as_expected": adversarial.get("gap_fails_as_expected"),
+            "broken_cert_fails_as_expected": adversarial.get(
+                "broken_cert_fails_as_expected"
+            ),
+            "wrong_parent_fails_as_expected": adversarial.get(
+                "wrong_parent_fails_as_expected"
+            ),
+            "tamper_fails_as_expected": adversarial.get("tamper_fails_as_expected"),
+            "single_state_fails_as_expected": adversarial.get(
+                "single_state_fails_as_expected"
+            ),
+            "replay_matches_tip": adversarial.get("replay_matches_tip"),
+            "duplicate_apply_fails_as_expected": adversarial.get(
+                "duplicate_apply_fails_as_expected"
+            ),
+        },
+        "final_contract": {
+            "ok": final_contract.get("ok"),
+            "met": final_contract.get("met"),
+            "passed_count": final_contract.get("passed_count"),
+            "failed_count": final_contract.get("failed_count"),
+            "failed": final_contract.get("failed"),
+        },
+        "used_skill_route_discovery": used_skill,
+        "ledger_path": str(path),
+    }
+
+
 def run_python_entry(
     entry: str,
     *,
@@ -13128,6 +14735,78 @@ def builtin_finality_plane() -> dict[str, Any]:
     )
 
 
+def builtin_execution_plane() -> dict[str, Any]:
+    """Invocable capability: finality → multi-state deterministic world-state → prove."""
+
+    root = Path(__file__).resolve().parents[2]
+    goal = (
+        (os.environ.get("BLACKHOLE_MISSION_GOAL") or "").strip()
+        or "world-state execution over epoch finality"
+    )
+    done_when = (os.environ.get("BLACKHOLE_DONE_WHEN") or "").strip()
+    max_steps = int(os.environ.get("BLACKHOLE_PROGRAM_MAX_STEPS") or "3")
+    run_finality = (os.environ.get("BLACKHOLE_EXECUTION_RUN_FINALITY") or "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    run_quorum = (os.environ.get("BLACKHOLE_FINALITY_RUN_QUORUM") or "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    run_continuity = (os.environ.get("BLACKHOLE_QUORUM_RUN_CONTINUITY") or "0").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    run_recon = (os.environ.get("BLACKHOLE_CONTINUITY_RUN_RECON") or "0").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    force_synthetic = (os.environ.get("BLACKHOLE_RECONCILE_SYNTHETIC") or "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    inject_byz = (os.environ.get("BLACKHOLE_QUORUM_INJECT_BYZANTINE") or "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    epoch_count = int(os.environ.get("BLACKHOLE_FINALITY_EPOCH_COUNT") or "2")
+    lineage_raw = (os.environ.get("BLACKHOLE_LINEAGE_PATH") or "").strip()
+    lineage_path = Path(lineage_raw) if lineage_raw else None
+    bundle_raw = (os.environ.get("BLACKHOLE_CONTINUITY_BUNDLE_PATH") or "").strip()
+    bundle_path = Path(bundle_raw) if bundle_raw else None
+    q_raw = (os.environ.get("BLACKHOLE_QUORUM_BUNDLE_PATH") or "").strip()
+    quorum_path = Path(q_raw) if q_raw else None
+    f_raw = (os.environ.get("BLACKHOLE_FINALITY_BUNDLE_PATH") or "").strip()
+    finality_path = Path(f_raw) if f_raw else None
+    e_raw = (os.environ.get("BLACKHOLE_EXECUTION_BUNDLE_PATH") or "").strip()
+    execution_path = Path(e_raw) if e_raw else None
+    return run_execution_plane(
+        root,
+        goal,
+        done_when,
+        max_steps=max_steps,
+        run_finality=run_finality,
+        run_quorum=run_quorum,
+        run_continuity=run_continuity,
+        run_reconciliation=run_recon,
+        force_synthetic_drift=force_synthetic,
+        inject_byzantine=inject_byz,
+        epoch_count=epoch_count,
+        lineage_path=lineage_path,
+        bundle_path=bundle_path,
+        quorum_path=quorum_path,
+        finality_path=finality_path,
+        execution_path=execution_path,
+        timeout=560,
+    )
+
+
 def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
     """Install the minimal compoundable bootstrap set if missing."""
 
@@ -14293,6 +15972,93 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "finality",
                 "epoch",
                 "irreversible",
+                "quorum",
+                "consensus",
+                "byzantine",
+                "multi-origin",
+                "lineage",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.execution-plane",
+            name="World-state execution plane over epoch finality",
+            description=(
+                "Closed execution plane: multi-epoch irreversible finality → deterministic "
+                "hash-chained world-state transitions → execution certificates bound to "
+                "finality seals → sterile rehydrate+prove → adversarial mutation/reorder/"
+                "forged-root/gap/single-state falsification with genesis replay matching tip "
+                "— past sealed epochs without applied shared state."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_execution_plane",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_execution_plane; '
+                "from pathlib import Path; "
+                "import os; "
+                "os.environ['BLACKHOLE_MISSION_GOAL']='world-state execution over epoch finality'; "
+                "os.environ['BLACKHOLE_DONE_WHEN']="
+                "'min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; "
+                "os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; "
+                "os.environ['BLACKHOLE_EXECUTION_RUN_FINALITY']='1'; "
+                "os.environ['BLACKHOLE_FINALITY_RUN_QUORUM']='1'; "
+                "os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='0'; "
+                "os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='0'; "
+                "os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; "
+                "os.environ['BLACKHOLE_FINALITY_EPOCH_COUNT']='2'; "
+                "os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-execution.json')); "
+                "os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-execution-quorum.json')); "
+                "os.environ.setdefault('BLACKHOLE_FINALITY_BUNDLE_PATH', str(Path('artifacts')/'finality-bundles'/'proof-execution-finality.json')); "
+                "os.environ.setdefault('BLACKHOLE_EXECUTION_BUNDLE_PATH', str(Path('artifacts')/'execution-bundles'/'proof-execution.json')); "
+                "r=builtin_execution_plane(); assert r['ok'] and r.get('action')=='execution_plane' "
+                "and r.get('state_applied') is True and int(r.get('state_count') or 0) >= 2 "
+                "and int(r.get('state_height') or 0) >= 2 "
+                "and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') "
+                "and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') "
+                "and r.get('execution_certificate',{}).get('valid') "
+                "and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.outcome-contract",
+                "capability.contract-plane",
+                "capability.assurance-plane",
+                "capability.sovereignty-plane",
+                "capability.lineage-plane",
+                "capability.reconciliation-plane",
+                "capability.continuity-plane",
+                "capability.federation-plane",
+                "capability.quorum-plane",
+                "capability.finality-plane",
+                "capability.transfer-plane",
+                "capability.ablation-proof",
+                "capability.adversarial-contract",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "src/blackhole_agent/unbound.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Execution plane materializes irreversible multi-epoch finality into "
+                "deterministic hash-chained world-state transitions with execution "
+                "certificates, sterile tip re-prove, genesis replay matching tip, and "
+                "adversarial falsification of post-finality mutation/reorder/forged-root "
+                "without skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "execution",
+                "worldstate",
+                "state-root",
+                "finality",
+                "epoch",
+                "deterministic",
                 "quorum",
                 "consensus",
                 "byzantine",

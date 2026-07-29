@@ -1,0 +1,189 @@
+{
+  "entries": [
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "origin_ids": [
+          "origin-a",
+          "origin-b",
+          "origin-byzantine"
+        ],
+        "threshold": 2
+      },
+      "detail": {
+        "origins": [
+          {
+            "bundle_hash": "3fb1b5e8976091e15f150eb3",
+            "byzantine": false,
+            "lineage_entry_count": 109,
+            "lineage_head_hash": "36be4f0e21387e45f69bff6d",
+            "member_count": 3,
+            "origin_id": "origin-a",
+            "package_hash": "7878a785b9718369"
+          },
+          {
+            "bundle_hash": "244f2d5a94c0ae8b37c495e2",
+            "byzantine": false,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "d4db24e71047c2b7d676960c",
+            "member_count": 2,
+            "origin_id": "origin-b",
+            "package_hash": "8ece9182045d973a"
+          },
+          {
+            "bundle_hash": "592be7bab63af7dbe5ed7aa9",
+            "byzantine": true,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "1f312898d064b1f8ffb97e94",
+            "member_count": 3,
+            "origin_id": "origin-byzantine",
+            "package_hash": "7d88f7661e8407af"
+          }
+        ]
+      },
+      "entry_hash": "51dfb9e3c18007711eb77389",
+      "entry_kind": "quorum_origin_manifest",
+      "goal": "Build a deterministic world-state execution plane that materializes irreversible multi-epoch finality into hash-chained state transitions with re-verifiable execution certificates, sterile rehydrate+prove, genesis-replay tip match, and adversarial falsification of post-finality mutation/reorder/forged-root attacks — without skill-route.",
+      "index": 0,
+      "issued_at": "2026-07-29T17:12:35.378989Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": ""
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "package_hash": "066545df3053adf5",
+        "threshold": 2
+      },
+      "detail": {
+        "origin_heads": [
+          "36be4f0e21387e45f69bff6d",
+          "d4db24e71047c2b7d676960c",
+          "1f312898d064b1f8ffb97e94"
+        ]
+      },
+      "entry_hash": "50d29b48330484edf26719f2",
+      "entry_kind": "quorum_vote",
+      "goal": "Build a deterministic world-state execution plane that materializes irreversible multi-epoch finality into hash-chained state transitions with re-verifiable execution certificates, sterile rehydrate+prove, genesis-replay tip match, and adversarial falsification of post-finality mutation/reorder/forged-root attacks — without skill-route.",
+      "index": 1,
+      "issued_at": "2026-07-29T17:12:35.379032Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "51dfb9e3c18007711eb77389"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "byzantine_count": 1,
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "excluded": true
+      },
+      "detail": {
+        "byzantine_origins": [
+          "origin-byzantine"
+        ]
+      },
+      "entry_hash": "c6499020eb276cdf0e1c7d46",
+      "entry_kind": "quorum_byzantine_exclude",
+      "goal": "Build a deterministic world-state execution plane that materializes irreversible multi-epoch finality into hash-chained state transitions with re-verifiable execution certificates, sterile rehydrate+prove, genesis-replay tip match, and adversarial falsification of post-finality mutation/reorder/forged-root attacks — without skill-route.",
+      "index": 2,
+      "issued_at": "2026-07-29T17:12:35.379048Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "50d29b48330484edf26719f2"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "quorum": true,
+        "quorum_met": true
+      },
+      "detail": {
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "origin_bundle_hashes": [
+          "3fb1b5e8976091e15f150eb3",
+          "244f2d5a94c0ae8b37c495e2",
+          "592be7bab63af7dbe5ed7aa9"
+        ]
+      },
+      "entry_hash": "2b7ad1615fc11d3b824b0fd5",
+      "entry_kind": "quorum_seal",
+      "goal": "Build a deterministic world-state execution plane that materializes irreversible multi-epoch finality into hash-chained state transitions with re-verifiable execution certificates, sterile rehydrate+prove, genesis-replay tip match, and adversarial falsification of post-finality mutation/reorder/forged-root attacks — without skill-route.",
+      "index": 3,
+      "issued_at": "2026-07-29T17:12:35.379063Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "c6499020eb276cdf0e1c7d46"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "prior_lineage_head": "2b7ad1615fc11d3b824b0fd5",
+        "prior_package_hash": "066545df3053adf5",
+        "prior_quorum_hash": "4eab0db9e6b7eca4272a6d8a",
+        "progress_tag": "epoch-progress-2"
+      },
+      "detail": {},
+      "entry_hash": "9b96da72ddf104d86b85b914",
+      "entry_kind": "finality_epoch_progress",
+      "goal": "Build a deterministic world-state execution plane that materializes irreversible multi-epoch finality into hash-chained state transitions with re-verifiable execution certificates, sterile rehydrate+prove, genesis-replay tip match, and adversarial falsification of post-finality mutation/reorder/forged-root attacks — without skill-route. (progress 2)",
+      "index": 4,
+      "issued_at": "2026-07-29T17:12:35.830314Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "",
+      "parent_hash": "2b7ad1615fc11d3b824b0fd5"
+    }
+  ],
+  "entry_count": 5,
+  "head_hash": "9b96da72ddf104d86b85b914",
+  "kind": "capability_lineage",
+  "schema_version": 1,
+  "updated_at": "2026-07-29T17:12:35.835209Z"
+}
