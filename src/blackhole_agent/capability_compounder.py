@@ -902,6 +902,9 @@ PROGRAM_PLAN_DENYLIST = frozenset(
         "capability.transfer-plane",
         "capability.adversarial-contract",
         "capability.assurance-plane",
+        "capability.sovereignty-plane",
+        "capability.lineage-plane",
+        "capability.reconciliation-plane",
         # Batch operators are invocable separately; keep goal programs step-cheap.
         "capability.ledger-integrity",
         "capability.distill-ledger",
@@ -938,6 +941,11 @@ MISSION_GOAL_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("transfer", ("capability.transfer-plane", "capability.ledger-inventory", "repo.import-health")),
     ("adversarial", ("capability.adversarial-contract", "capability.outcome-contract")),
     ("package", ("capability.transfer-plane", "capability.ledger-inventory")),
+    ("lineage", ("capability.lineage-plane", "capability.sovereignty-plane", "capability.assurance-plane")),
+    ("sovereignty", ("capability.sovereignty-plane", "capability.assurance-plane", "capability.contract-plane")),
+    ("reconcil", ("capability.reconciliation-plane", "capability.lineage-plane", "capability.sovereignty-plane")),
+    ("heal", ("capability.reconciliation-plane", "capability.lineage-plane", "capability.assurance-plane")),
+    ("drift", ("capability.reconciliation-plane", "capability.lineage-plane", "capability.sovereignty-plane")),
 )
 
 
@@ -1304,6 +1312,7 @@ def run_mission_plane(
 #   novel_ready_le:N | mission_plane_ok | contract_plane_ok
 #   assurance_plane_ok | sovereignty_ok | certificate_valid[:path]
 #   lineage_ok | chain_valid | no_drift | min_lineage_entries:N
+#   reconciliation_ok | healed_ok | min_heal_entries:N
 # Free-text lines without a known form are recorded as informational (not gating).
 OUTCOME_PREDICATE_PATTERN = re.compile(
     r"^(?P<kind>"
@@ -1313,7 +1322,8 @@ OUTCOME_PREDICATE_PATTERN = re.compile(
     r"program_passes|has_tag|no_skill_route|"
     r"novel_ready_le|mission_plane_ok|contract_plane_ok|"
     r"assurance_plane_ok|sovereignty_ok|certificate_valid|"
-    r"lineage_ok|chain_valid|no_drift|min_lineage_entries"
+    r"lineage_ok|chain_valid|no_drift|min_lineage_entries|"
+    r"reconciliation_ok|healed_ok|min_heal_entries"
     r")(?::(?P<arg>.+))?$",
     re.IGNORECASE,
 )
@@ -1332,6 +1342,9 @@ CONTEXT_ONLY_OUTCOME_KINDS = frozenset(
         "chain_valid",
         "no_drift",
         "min_lineage_entries",
+        "reconciliation_ok",
+        "healed_ok",
+        "min_heal_entries",
     }
 )
 
@@ -1443,10 +1456,18 @@ def _soft_extract_outcome_predicates(chunk: str) -> list[dict[str, Any]]:
     m = re.search(r"integrity(?:\s+score)?\s*(?:>=|≥|at least)\s*(0?\.\d+|1(?:\.0+)?|\d+(?:\.\d+)?)", lower)
     if m:
         found.append({"kind": "integrity_score_ge", "arg": m.group(1), "source": chunk})
-    m = re.search(r"(?:prove[sd]?|capability_proved)\s+([a-z][a-z0-9._-]{2,})", lower)
+    # Require a namespaced id (contains '.') so English "prove unhealed" never
+    # becomes capability_proved:unhealed and false-fails complete gates.
+    m = re.search(
+        r"(?:prove[sd]?|capability_proved)\s+([a-z][a-z0-9_-]*\.[a-z0-9._-]{2,})",
+        lower,
+    )
     if m and "min_" not in m.group(0):
         found.append({"kind": "capability_proved", "arg": m.group(1), "source": chunk})
-    m = re.search(r"(?:ledger\s+has|capability_exists|includes)\s+([a-z][a-z0-9._-]{2,})", lower)
+    m = re.search(
+        r"(?:ledger\s+has|capability_exists|includes)\s+([a-z][a-z0-9_-]*\.[a-z0-9._-]{2,})",
+        lower,
+    )
     if m:
         found.append({"kind": "capability_exists", "arg": m.group(1), "source": chunk})
     if "mission plane" in lower and ("ok" in lower or "pass" in lower or "succeed" in lower):
@@ -1463,11 +1484,40 @@ def _soft_extract_outcome_predicates(chunk: str) -> list[dict[str, Any]]:
         found.append({"kind": "lineage_ok", "arg": "", "source": chunk})
     if "chain" in lower and ("valid" in lower or "ok" in lower or "intact" in lower):
         found.append({"kind": "chain_valid", "arg": "", "source": chunk})
-    if "no drift" in lower or "without drift" in lower or "drift-free" in lower:
+    if (
+        "no drift" in lower
+        or "no_drift" in lower
+        or "without drift" in lower
+        or "drift-free" in lower
+    ):
         found.append({"kind": "no_drift", "arg": "", "source": chunk})
     m = re.search(r"(?:at least|>=|≥)\s*(\d+)\s+lineage", lower)
     if m:
         found.append({"kind": "min_lineage_entries", "arg": m.group(1), "source": chunk})
+    if "reconcil" in lower and ("ok" in lower or "pass" in lower or "heal" in lower or "succeed" in lower):
+        found.append({"kind": "reconciliation_ok", "arg": "", "source": chunk})
+    # Prefer explicit healed_ok token; avoid "unhealed" false positives.
+    if re.search(r"\bhealed_ok\b", lower) or (
+        re.search(r"\bhealed\b", lower)
+        and not re.search(r"\bunhealed\b", lower)
+        and ("ok" in lower or "pass" in lower or "succeed" in lower or "complete" in lower)
+    ):
+        found.append({"kind": "healed_ok", "arg": "", "source": chunk})
+    m = re.search(r"(?:at least|>=|≥)\s*(\d+)\s+heal", lower)
+    if m:
+        found.append({"kind": "min_heal_entries", "arg": m.group(1), "source": chunk})
+    # Explicit predicate token forms embedded in prose lists.
+    if re.search(r"\bmin_heal_entries\b", lower) and not any(
+        item.get("kind") == "min_heal_entries" for item in found
+    ):
+        m_n = re.search(r"min_heal_entries\s*[:=]?\s*(\d+)", lower)
+        found.append(
+            {
+                "kind": "min_heal_entries",
+                "arg": m_n.group(1) if m_n else "2",
+                "source": chunk,
+            }
+        )
     return found
 
 
@@ -1775,6 +1825,50 @@ def _eval_one_outcome_predicate(
                 have = (lineage_ctx.get("lineage") or {}).get("entry_count")
         have_i = int(have or 0)
         return have_i >= need, f"lineage_entries={have_i} need>={need}"
+    if kind == "reconciliation_ok":
+        plane = (
+            context.get("reconciliation")
+            or context.get("reconciliation_plane")
+            or context.get("heal")
+            or context.get("heal_plane")
+            or {}
+        )
+        ok = bool(plane.get("ok"))
+        return ok, f"reconciliation_ok={ok}"
+    if kind == "healed_ok":
+        plane = (
+            context.get("reconciliation")
+            or context.get("reconciliation_plane")
+            or context.get("heal")
+            or {}
+        )
+        if "healed" in plane:
+            ok = plane.get("healed") is True and bool(plane.get("ok", True))
+        elif "healed_ok" in plane:
+            ok = plane.get("healed_ok") is True
+        else:
+            ok = bool(plane.get("ok")) and int(plane.get("heal_entry_count") or 0) >= 1
+        return ok, f"healed_ok={ok}"
+    if kind == "min_heal_entries":
+        need = int(float(arg or "0"))
+        have = context.get("heal_entry_count")
+        if have is None:
+            plane = (
+                context.get("reconciliation")
+                or context.get("reconciliation_plane")
+                or context.get("heal")
+                or {}
+            )
+            have = plane.get("heal_entry_count")
+            if have is None:
+                kinds = plane.get("heal_entry_kinds") or plane.get("entry_kinds") or []
+                have = sum(
+                    1
+                    for item in kinds
+                    if str(item).startswith("heal") or str(item) == "drift_diagnosis"
+                )
+        have_i = int(have or 0)
+        return have_i >= need, f"heal_entries={have_i} need>={need}"
     if kind == "program_passes":
         steps = [part.strip() for part in arg.split(",") if part.strip()]
         if not steps:
@@ -3118,10 +3212,14 @@ def detect_lineage_drift(
         }
 
     head = dict(entries[-1]) if isinstance(entries[-1], Mapping) else {}
-    # Prefer the latest sovereignty_certificate entry for cert recheck.
+    # Prefer the latest heal_certificate, else sovereignty_certificate, for cert recheck.
+    # Heal entries supersede older (possibly drifted) sovereignty certificates.
     cert_entry = head
     for item in reversed(entries):
-        if isinstance(item, Mapping) and item.get("entry_kind") == "sovereignty_certificate":
+        if isinstance(item, Mapping) and item.get("entry_kind") in {
+            "heal_certificate",
+            "sovereignty_certificate",
+        }:
             cert_entry = dict(item)
             break
 
@@ -3489,6 +3587,654 @@ def run_lineage_plane(
             "tamper_failed_as_expected": adversarial.get("tamper_failed_as_expected"),
             "parent_tamper_valid": adversarial.get("parent_tamper_valid"),
             "content_tamper_valid": adversarial.get("content_tamper_valid"),
+        },
+        "final_contract": {
+            "ok": final_contract.get("ok"),
+            "met": final_contract.get("met"),
+            "passed_count": final_contract.get("passed_count"),
+            "failed_count": final_contract.get("failed_count"),
+            "failed": final_contract.get("failed"),
+        },
+        "used_skill_route_discovery": used_skill,
+        "ledger_path": str(path),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Reconciliation / self-healing continuity plane: detect drift → diagnose →
+# re-certify → heal-seal → re-verify. Closes the open loop left by lineage
+# (detect-only) so long-running autonomy can restore certified continuity.
+# ---------------------------------------------------------------------------
+
+
+def inject_synthetic_lineage_drift(lineage: Mapping[str, Any]) -> dict[str, Any]:
+    """Append a deliberately broken certificate entry that must trip drift detection.
+
+    Chain links remain hash-valid (honest append); live drift fails because the
+    certificate path is missing and recorded metrics exceed any real ledger.
+    """
+
+    return append_lineage_entry(
+        lineage,
+        entry_kind="sovereignty_certificate",
+        certificate_hash="0" * 24,
+        certificate_path=str(
+            Path("artifacts")
+            / "capability-lineage"
+            / "__synthetic_missing_certificate__.json"
+        ),
+        goal="synthetic-drift-injection",
+        claims={
+            "contract_ok": True,
+            "assurance_ok": True,
+            "ablation_ok": True,
+            "transfer_ok": True,
+            "adversarial_ok": True,
+            "no_skill_route": True,
+            "synthetic_drift": True,
+        },
+        metrics={
+            "count": 10**9,
+            "proved_count": 10**9,
+            "primitive_count": 10**9,
+            "proved_ratio": 1.0,
+        },
+        package_hash="synthetic-drift",
+        detail={"synthetic_drift": True, "reason": "force_detectable_drift"},
+    )
+
+
+def diagnose_lineage_drift(drift: Mapping[str, Any]) -> dict[str, Any]:
+    """Normalize a drift detector result into a heal diagnosis record."""
+
+    reasons = [str(item) for item in (drift.get("reasons") or [])]
+    return {
+        "ok": bool(drift.get("ok", True)) and not bool(drift.get("used_skill_route_discovery")),
+        "action": "diagnose_lineage_drift",
+        "drift": drift.get("drift") is True,
+        "reasons": reasons,
+        "reason_count": len(reasons),
+        "head_entry_kind": drift.get("head_entry_kind"),
+        "certificate_path": drift.get("certificate_path"),
+        "certificate_hash": drift.get("certificate_hash"),
+        "live": dict(drift.get("live") or {}),
+        "recorded_metrics": dict(drift.get("recorded_metrics") or {}),
+        "used_skill_route_discovery": bool(drift.get("used_skill_route_discovery")),
+    }
+
+
+def heal_lineage_from_drift(
+    repo_path: Path,
+    lineage: Mapping[str, Any],
+    *,
+    goal: str = "heal continuity",
+    done_when: str = "",
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 180,
+    max_steps: int = 3,
+    absorb_ready: bool = False,
+    grow_budget: int = 0,
+    run_mission: bool = False,
+    run_assurance: bool = True,
+    certificate_path: Path | None = None,
+    capability_id: str = "repo.import-health",
+    diagnosis: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Re-issue sovereignty evidence and append heal entries onto the lineage chain.
+
+    Starts from a (possibly drifted) lineage log, diagnoses, re-runs sovereignty
+    for a fresh portable certificate, then appends:
+      drift_diagnosis → heal_certificate → heal_seal
+    """
+
+    root = repo_path.resolve()
+    path, ledger = ensure_seeded_ledger(root)
+    working = dict(lineage)
+    if "entries" not in working:
+        working = empty_lineage_log()
+
+    pre_drift = detect_lineage_drift(
+        root,
+        working,
+        command_runner=command_runner,
+        timeout=min(timeout, 60),
+    )
+    diag = dict(diagnosis) if diagnosis is not None else diagnose_lineage_drift(pre_drift)
+
+    sovereignty_done_when = strip_context_only_outcome_predicates(
+        done_when or "",
+        keep_mission=bool(run_mission),
+    )
+    sovereignty = run_sovereignty_plane(
+        root,
+        goal,
+        sovereignty_done_when,
+        command_runner=command_runner,
+        timeout=timeout,
+        max_steps=max_steps,
+        absorb_ready=absorb_ready,
+        grow_budget=grow_budget,
+        run_mission=run_mission,
+        run_assurance=run_assurance,
+        certificate_path=certificate_path,
+        capability_id=capability_id,
+    )
+    cert = (
+        sovereignty.get("certificate")
+        if isinstance(sovereignty.get("certificate"), Mapping)
+        else {}
+    )
+    cert_path_str = str(cert.get("certificate_path") or "")
+    cert_hash = str(cert.get("certificate_hash") or "")
+    metrics = snapshot_outcome_metrics(root, ledger=load_ledger(path))
+
+    claims: dict[str, Any] = {}
+    if cert_path_str and Path(cert_path_str).is_file():
+        try:
+            full_cert = load_sovereignty_certificate(Path(cert_path_str))
+            claims = dict(full_cert.get("claims") or {})
+        except (OSError, ValueError, json.JSONDecodeError):
+            claims = {
+                "contract_ok": bool((sovereignty.get("contract") or {}).get("ok")),
+                "assurance_ok": bool((sovereignty.get("assurance") or {}).get("ok")),
+            }
+    else:
+        claims = {
+            "contract_ok": bool((sovereignty.get("contract") or {}).get("ok")),
+            "assurance_ok": bool((sovereignty.get("assurance") or {}).get("ok")),
+        }
+
+    heal_kinds: list[str] = []
+    working = append_lineage_entry(
+        working,
+        entry_kind="drift_diagnosis",
+        certificate_hash=str(diag.get("certificate_hash") or ""),
+        certificate_path=str(diag.get("certificate_path") or ""),
+        goal=f"diagnose:{goal}",
+        claims={"drift": True, "diagnosed": True},
+        metrics=metrics,
+        detail={
+            "reasons": list(diag.get("reasons") or []),
+            "reason_count": diag.get("reason_count"),
+            "pre_drift": {
+                "drift": pre_drift.get("drift"),
+                "reasons": pre_drift.get("reasons") or [],
+            },
+        },
+    )
+    heal_kinds.append("drift_diagnosis")
+
+    if sovereignty.get("ok") and cert_hash:
+        working = append_lineage_entry(
+            working,
+            entry_kind="heal_certificate",
+            certificate_hash=cert_hash,
+            certificate_path=cert_path_str,
+            goal=f"heal:{goal}",
+            claims=claims,
+            metrics=metrics,
+            package_hash=str(cert.get("package_hash") or ""),
+            detail={
+                "healed": True,
+                "sovereignty_ok": True,
+                "verify_valid": bool((sovereignty.get("verify") or {}).get("valid")),
+            },
+        )
+        heal_kinds.append("heal_certificate")
+
+    working = append_lineage_entry(
+        working,
+        entry_kind="heal_seal",
+        certificate_hash=cert_hash,
+        certificate_path=cert_path_str,
+        goal=f"heal-seal:{goal}",
+        claims={
+            "healed": True,
+            "sealed": True,
+            "no_skill_route": not bool(sovereignty.get("used_skill_route_discovery")),
+        },
+        metrics=metrics,
+        package_hash=str(cert.get("package_hash") or ""),
+        detail={
+            "prior_head_before_heal_seal": working.get("head_hash"),
+            "live_count": metrics.get("count"),
+            "live_proved": metrics.get("proved_count"),
+            "certificate_hash": cert_hash,
+        },
+    )
+    heal_kinds.append("heal_seal")
+
+    chain = verify_lineage_chain(working)
+    post_drift = detect_lineage_drift(
+        root,
+        working,
+        command_runner=command_runner,
+        timeout=min(timeout, 60),
+    )
+    used_skill = bool(
+        sovereignty.get("used_skill_route_discovery")
+        or pre_drift.get("used_skill_route_discovery")
+        or post_drift.get("used_skill_route_discovery")
+        or legacy_pipeline_was_used()
+    )
+    healed = (
+        bool(sovereignty.get("ok"))
+        and bool(chain.get("ok"))
+        and bool(chain.get("valid"))
+        and post_drift.get("drift") is False
+        and "heal_certificate" in heal_kinds
+        and "heal_seal" in heal_kinds
+        and not used_skill
+    )
+    return {
+        "ok": healed and not used_skill,
+        "action": "heal_lineage_from_drift",
+        "healed": healed,
+        "heal_entry_count": len(heal_kinds),
+        "heal_entry_kinds": heal_kinds,
+        "diagnosis": diag,
+        "pre_drift": {
+            "drift": pre_drift.get("drift"),
+            "reasons": pre_drift.get("reasons") or [],
+        },
+        "post_drift": {
+            "drift": post_drift.get("drift"),
+            "no_drift": post_drift.get("no_drift"),
+            "reasons": post_drift.get("reasons") or [],
+        },
+        "chain": {
+            "ok": chain.get("ok"),
+            "valid": chain.get("valid"),
+            "entry_count": chain.get("entry_count"),
+            "errors": chain.get("errors") or [],
+        },
+        "sovereignty": {
+            "ok": sovereignty.get("ok"),
+            "certificate_hash": cert_hash,
+            "certificate_path": cert_path_str,
+            "assurance_ok": (sovereignty.get("assurance") or {}).get("ok"),
+            "contract_ok": (sovereignty.get("contract") or {}).get("ok"),
+        },
+        "lineage": working,
+        "used_skill_route_discovery": used_skill,
+        "ledger_path": str(path),
+    }
+
+
+def run_reconciliation_adversarial_checks(
+    repo_path: Path,
+    *,
+    healthy_lineage: Mapping[str, Any],
+    drifted_lineage: Mapping[str, Any],
+    healed_lineage: Mapping[str, Any],
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 60,
+) -> dict[str, Any]:
+    """Falsify reconciliation honesty: unhealed drift must fail; healed must pass."""
+
+    root = repo_path.resolve()
+    healthy_drift = detect_lineage_drift(
+        root, healthy_lineage, command_runner=command_runner, timeout=timeout
+    )
+    drifted_drift = detect_lineage_drift(
+        root, drifted_lineage, command_runner=command_runner, timeout=timeout
+    )
+    healed_drift = detect_lineage_drift(
+        root, healed_lineage, command_runner=command_runner, timeout=timeout
+    )
+    healthy_chain = verify_lineage_chain(healthy_lineage)
+    drifted_chain = verify_lineage_chain(drifted_lineage)
+    healed_chain = verify_lineage_chain(healed_lineage)
+
+    unhealed_fails = drifted_drift.get("drift") is True
+    healed_passes = (
+        healed_drift.get("drift") is False
+        and bool(healed_chain.get("valid"))
+        and bool(healed_chain.get("ok"))
+    )
+    healthy_ok = healthy_drift.get("drift") is False and bool(healthy_chain.get("valid"))
+    # Tamper mid-heal chain must still fail lineage verify (reuse lineage adversarial).
+    tamper = run_lineage_adversarial_checks(healed_lineage)
+    used_skill = legacy_pipeline_was_used()
+    ok = (
+        unhealed_fails
+        and healed_passes
+        and healthy_ok
+        and bool(tamper.get("ok"))
+        and bool(drifted_chain.get("valid"))  # synthetic inject is honest append
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "reconciliation_adversarial",
+        "unhealed_fails_as_expected": unhealed_fails,
+        "healed_passes_as_expected": healed_passes,
+        "healthy_ok": healthy_ok,
+        "drifted_chain_valid": drifted_chain.get("valid"),
+        "healed_chain_valid": healed_chain.get("valid"),
+        "lineage_tamper_ok": tamper.get("ok"),
+        "healthy_drift": healthy_drift.get("drift"),
+        "drifted_drift": drifted_drift.get("drift"),
+        "healed_drift": healed_drift.get("drift"),
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def run_reconciliation_plane(
+    repo_path: Path,
+    goal: str = "health inventory milestone",
+    done_when: str = "",
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 240,
+    max_steps: int = 3,
+    absorb_ready: bool = False,
+    grow_budget: int = 0,
+    run_mission: bool = True,
+    run_assurance: bool = True,
+    run_lineage: bool = True,
+    force_synthetic_drift: bool = True,
+    lineage_path: Path | None = None,
+    certificate_path: Path | None = None,
+    capability_id: str = "repo.import-health",
+    persist: bool = True,
+) -> dict[str, Any]:
+    """Closed reconciliation plane: lineage → (optional synthetic) drift → heal → seal.
+
+    Turns detect-only lineage continuity into active self-healing continuity:
+    diagnose drift, re-certify via sovereignty, append heal evidence, prove
+    unhealed fails and healed passes, then machine-check outcome contracts.
+    """
+
+    root = repo_path.resolve()
+    path, ledger = ensure_seeded_ledger(root)
+    out_lineage = (
+        lineage_path.resolve()
+        if lineage_path is not None
+        else default_lineage_path(root)
+    )
+
+    lineage_done_when = strip_context_only_outcome_predicates(
+        done_when or "",
+        keep_mission=bool(run_mission),
+    )
+
+    lineage_result: dict[str, Any]
+    if run_lineage:
+        lineage_result = run_lineage_plane(
+            root,
+            goal,
+            lineage_done_when,
+            command_runner=command_runner,
+            timeout=timeout,
+            max_steps=max_steps,
+            absorb_ready=absorb_ready,
+            grow_budget=grow_budget,
+            run_mission=run_mission,
+            run_assurance=run_assurance,
+            run_sovereignty=True,
+            lineage_path=out_lineage,
+            certificate_path=certificate_path,
+            capability_id=capability_id,
+            persist=persist,
+        )
+    else:
+        existing = load_lineage_log(out_lineage) if out_lineage.exists() else empty_lineage_log()
+        lineage_result = {
+            "ok": int(existing.get("entry_count") or 0) >= 2,
+            "action": "lineage_plane",
+            "lineage": {
+                "path": str(out_lineage),
+                "entry_count": existing.get("entry_count"),
+                "head_hash": existing.get("head_hash"),
+                "entry_kinds": [
+                    str(item.get("entry_kind") or "")
+                    for item in (existing.get("entries") or [])
+                    if isinstance(item, Mapping)
+                ],
+                "persisted": out_lineage.exists(),
+            },
+            "chain": verify_lineage_chain(existing),
+            "drift": detect_lineage_drift(
+                root, existing, command_runner=command_runner, timeout=min(timeout, 60)
+            ),
+            "sovereignty": {"ok": True},
+            "used_skill_route_discovery": False,
+            "_loaded_lineage": existing,
+        }
+
+    if run_lineage:
+        healthy = (
+            load_lineage_log(out_lineage)
+            if out_lineage.exists()
+            else empty_lineage_log()
+        )
+    else:
+        healthy = lineage_result.get("_loaded_lineage") or (
+            load_lineage_log(out_lineage) if out_lineage.exists() else empty_lineage_log()
+        )
+
+    natural_drift = detect_lineage_drift(
+        root,
+        healthy,
+        command_runner=command_runner,
+        timeout=min(timeout, 60),
+    )
+
+    synthetic_used = False
+    working = healthy
+    if natural_drift.get("drift") is True:
+        # Real drift already present — heal that.
+        drifted = healthy
+    elif force_synthetic_drift:
+        synthetic_used = True
+        drifted = inject_synthetic_lineage_drift(healthy)
+    else:
+        drifted = healthy
+
+    drifted_view = detect_lineage_drift(
+        root,
+        drifted,
+        command_runner=command_runner,
+        timeout=min(timeout, 60),
+    )
+    diagnosis = diagnose_lineage_drift(drifted_view)
+
+    heal_goal = f"reconcile:{goal}"
+    heal = heal_lineage_from_drift(
+        root,
+        drifted,
+        goal=heal_goal,
+        done_when=lineage_done_when,
+        command_runner=command_runner,
+        timeout=timeout,
+        max_steps=max_steps,
+        absorb_ready=absorb_ready,
+        grow_budget=0,
+        run_mission=False,
+        run_assurance=run_assurance,
+        certificate_path=certificate_path,
+        capability_id=capability_id,
+        diagnosis=diagnosis,
+    )
+    healed_lineage = heal.get("lineage") if isinstance(heal.get("lineage"), Mapping) else drifted
+    working = dict(healed_lineage)
+
+    adversarial = run_reconciliation_adversarial_checks(
+        root,
+        healthy_lineage=healthy,
+        drifted_lineage=drifted,
+        healed_lineage=working,
+        command_runner=command_runner,
+        timeout=min(timeout, 60),
+    )
+    chain = verify_lineage_chain(working)
+    final_drift = detect_lineage_drift(
+        root,
+        working,
+        command_runner=command_runner,
+        timeout=min(timeout, 60),
+    )
+
+    if persist:
+        write_lineage_log(out_lineage, working)
+
+    heal_kinds = list(heal.get("heal_entry_kinds") or [])
+    heal_entry_count = int(heal.get("heal_entry_count") or len(heal_kinds))
+    used_skill = bool(
+        lineage_result.get("used_skill_route_discovery")
+        or heal.get("used_skill_route_discovery")
+        or adversarial.get("used_skill_route_discovery")
+        or final_drift.get("used_skill_route_discovery")
+        or legacy_pipeline_was_used()
+    )
+    provisional_ok = (
+        bool(lineage_result.get("ok") or not run_lineage)
+        and bool(heal.get("ok"))
+        and heal.get("healed") is True
+        and bool(chain.get("ok"))
+        and bool(chain.get("valid"))
+        and final_drift.get("drift") is False
+        and bool(adversarial.get("ok"))
+        and heal_entry_count >= 2
+        and (drifted_view.get("drift") is True or not force_synthetic_drift)
+        and not used_skill
+    )
+    # When force_synthetic_drift, we require that the inject actually created drift.
+    if force_synthetic_drift and drifted_view.get("drift") is not True:
+        provisional_ok = False
+
+    context = {
+        "used_skill_route_discovery": used_skill,
+        "sovereignty": {
+            "ok": bool((heal.get("sovereignty") or {}).get("ok"))
+            or bool((lineage_result.get("sovereignty") or {}).get("ok"))
+        },
+        "sovereignty_plane": {
+            "ok": bool((heal.get("sovereignty") or {}).get("ok"))
+            or bool((lineage_result.get("sovereignty") or {}).get("ok"))
+        },
+        "assurance": {
+            "ok": bool((heal.get("sovereignty") or {}).get("assurance_ok"))
+        },
+        "assurance_plane": {
+            "ok": bool((heal.get("sovereignty") or {}).get("assurance_ok"))
+        },
+        "certificate_path": (heal.get("sovereignty") or {}).get("certificate_path"),
+        "lineage": {
+            "ok": bool(lineage_result.get("ok")),
+            "entry_count": working.get("entry_count"),
+            "chain": chain,
+            "drift": final_drift,
+        },
+        "lineage_plane": {
+            "ok": bool(lineage_result.get("ok")),
+            "entry_count": working.get("entry_count"),
+        },
+        "chain": chain,
+        "lineage_chain": chain,
+        "drift": final_drift,
+        "lineage_drift": final_drift,
+        "lineage_entry_count": working.get("entry_count"),
+        "reconciliation": {
+            "ok": provisional_ok,
+            "healed": heal.get("healed") is True,
+            "healed_ok": heal.get("healed") is True,
+            "heal_entry_count": heal_entry_count,
+            "heal_entry_kinds": heal_kinds,
+        },
+        "reconciliation_plane": {
+            "ok": provisional_ok,
+            "healed": heal.get("healed") is True,
+            "heal_entry_count": heal_entry_count,
+        },
+        "heal": {
+            "ok": bool(heal.get("ok")),
+            "healed": heal.get("healed") is True,
+            "heal_entry_count": heal_entry_count,
+            "heal_entry_kinds": heal_kinds,
+        },
+        "heal_entry_count": heal_entry_count,
+    }
+    recon_done_when = (
+        "no_skill_route; sovereignty_ok; lineage_ok; chain_valid; no_drift; "
+        "reconciliation_ok; healed_ok; min_heal_entries:2; "
+        "min_lineage_entries:3; capability_exists:repo.import-health"
+    )
+    final_contract = evaluate_outcome_contract(
+        root,
+        recon_done_when,
+        context=context,
+        command_runner=command_runner,
+        timeout=min(timeout, 60),
+        run_programs=False,
+    )
+    ok = (
+        provisional_ok
+        and bool(final_contract.get("ok"))
+        and final_contract.get("met") is True
+    )
+    return {
+        "ok": ok,
+        "action": "reconciliation_plane",
+        "goal": goal,
+        "done_when": done_when,
+        "reconciliation_done_when": recon_done_when,
+        "met": final_contract.get("met"),
+        "machine_checkable": True,
+        "synthetic_drift_used": synthetic_used,
+        "lineage_plane": {
+            "ok": lineage_result.get("ok"),
+            "entry_count": (lineage_result.get("lineage") or {}).get("entry_count"),
+            "sovereignty_ok": (lineage_result.get("sovereignty") or {}).get("ok"),
+        },
+        "diagnosis": {
+            "ok": diagnosis.get("ok"),
+            "drift": diagnosis.get("drift"),
+            "reasons": diagnosis.get("reasons") or [],
+            "reason_count": diagnosis.get("reason_count"),
+        },
+        "heal": {
+            "ok": heal.get("ok"),
+            "healed": heal.get("healed"),
+            "heal_entry_count": heal_entry_count,
+            "heal_entry_kinds": heal_kinds,
+            "pre_drift": heal.get("pre_drift"),
+            "post_drift": heal.get("post_drift"),
+            "sovereignty": heal.get("sovereignty"),
+        },
+        "lineage": {
+            "path": str(out_lineage),
+            "entry_count": working.get("entry_count"),
+            "head_hash": working.get("head_hash"),
+            "entry_kinds": [
+                str(item.get("entry_kind") or "")
+                for item in (working.get("entries") or [])
+                if isinstance(item, Mapping)
+            ],
+            "persisted": persist and out_lineage.exists(),
+        },
+        "chain": {
+            "ok": chain.get("ok"),
+            "valid": chain.get("valid"),
+            "entry_count": chain.get("entry_count"),
+            "checked": chain.get("checked"),
+            "head_hash": chain.get("head_hash"),
+            "errors": chain.get("errors") or [],
+        },
+        "drift": {
+            "ok": final_drift.get("ok"),
+            "drift": final_drift.get("drift"),
+            "no_drift": final_drift.get("no_drift"),
+            "reasons": final_drift.get("reasons") or [],
+            "live": final_drift.get("live"),
+        },
+        "adversarial": {
+            "ok": adversarial.get("ok"),
+            "unhealed_fails_as_expected": adversarial.get("unhealed_fails_as_expected"),
+            "healed_passes_as_expected": adversarial.get("healed_passes_as_expected"),
+            "healthy_ok": adversarial.get("healthy_ok"),
+            "lineage_tamper_ok": adversarial.get("lineage_tamper_ok"),
         },
         "final_contract": {
             "ok": final_contract.get("ok"),
@@ -6696,6 +7442,50 @@ def builtin_lineage_plane() -> dict[str, Any]:
     )
 
 
+def builtin_reconciliation_plane() -> dict[str, Any]:
+    """Invocable capability: lineage → drift diagnose → heal re-certify → adversarial."""
+
+    root = Path(__file__).resolve().parents[2]
+    goal = (os.environ.get("BLACKHOLE_MISSION_GOAL") or "").strip() or "health inventory milestone"
+    done_when = (os.environ.get("BLACKHOLE_DONE_WHEN") or "").strip()
+    max_steps = int(os.environ.get("BLACKHOLE_PROGRAM_MAX_STEPS") or "3")
+    grow_budget = int(os.environ.get("BLACKHOLE_MISSION_GROW_BUDGET") or "0")
+    absorb_ready = (os.environ.get("BLACKHOLE_MISSION_ABSORB") or "0").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    run_mission = (os.environ.get("BLACKHOLE_CONTRACT_RUN_MISSION") or "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    force_synthetic = (os.environ.get("BLACKHOLE_RECONCILE_SYNTHETIC") or "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    capability_id = (os.environ.get("BLACKHOLE_ABLATION_ID") or "repo.import-health").strip()
+    cert_raw = (os.environ.get("BLACKHOLE_SOVEREIGNTY_CERT_PATH") or "").strip()
+    certificate_path = Path(cert_raw) if cert_raw else None
+    lineage_raw = (os.environ.get("BLACKHOLE_LINEAGE_PATH") or "").strip()
+    lineage_path = Path(lineage_raw) if lineage_raw else None
+    return run_reconciliation_plane(
+        root,
+        goal,
+        done_when,
+        max_steps=max_steps,
+        absorb_ready=absorb_ready,
+        grow_budget=grow_budget,
+        run_mission=run_mission,
+        force_synthetic_drift=force_synthetic,
+        capability_id=capability_id,
+        certificate_path=certificate_path,
+        lineage_path=lineage_path,
+        timeout=300,
+    )
+
+
 def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
     """Install the minimal compoundable bootstrap set if missing."""
 
@@ -7498,6 +8288,73 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "continuity",
                 "sovereignty",
                 "certificate",
+                "drift",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.reconciliation-plane",
+            name="Reconciliation self-healing continuity plane",
+            description=(
+                "Closed reconciliation plane: lineage continuity → detect/diagnose drift "
+                "→ re-certify via sovereignty → append heal_certificate/heal_seal → "
+                "prove unhealed drift fails and healed continuity passes — active "
+                "self-healing past detect-only lineage."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_reconciliation_plane",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_reconciliation_plane; '
+                "import os; "
+                "os.environ['BLACKHOLE_MISSION_GOAL']='health inventory milestone'; "
+                "os.environ['BLACKHOLE_DONE_WHEN']="
+                "'min_capabilities:5;min_primitives:3;capability_exists:repo.import-health;"
+                "capability_proved:repo.import-health;program_passes:repo.import-health;"
+                "no_skill_route;mission_plane_ok'; "
+                "os.environ['BLACKHOLE_MISSION_GROW_BUDGET']='0'; "
+                "os.environ['BLACKHOLE_MISSION_ABSORB']='0'; "
+                "os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; "
+                "os.environ['BLACKHOLE_CONTRACT_RUN_MISSION']='1'; "
+                "os.environ['BLACKHOLE_RECONCILE_SYNTHETIC']='1'; "
+                "r=builtin_reconciliation_plane(); assert r['ok'] and r.get('action')=='reconciliation_plane' "
+                "and r.get('heal',{}).get('healed') is True and r.get('chain',{}).get('valid') "
+                "and r.get('drift',{}).get('drift') is False and r.get('adversarial',{}).get('ok') "
+                "and int(r.get('heal',{}).get('heal_entry_count') or 0) >= 2 "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.outcome-contract",
+                "capability.contract-plane",
+                "capability.assurance-plane",
+                "capability.sovereignty-plane",
+                "capability.lineage-plane",
+                "capability.ablation-proof",
+                "capability.transfer-plane",
+                "capability.adversarial-contract",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "src/blackhole_agent/unbound.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Reconciliation plane closes detect-only lineage into active self-healing: "
+                "diagnose drift, re-certify, heal-seal, and adversarially prove unhealed "
+                "fails while healed continuity passes without skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "reconciliation",
+                "heal",
+                "lineage",
+                "continuity",
+                "sovereignty",
                 "drift",
                 "evidence",
             ),

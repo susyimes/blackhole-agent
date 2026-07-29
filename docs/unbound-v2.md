@@ -200,6 +200,16 @@ uv run blackhole-unbound capability integrity --limit 16
   `--verify-only`. Outcome predicates `assurance_plane_ok`, `sovereignty_ok`,
   and `certificate_valid` gate machine-checkable completion; Unbound refuses
   `complete` when those predicates fail.
+- `capability lineage` chains sovereignty certificates into an append-only
+  hash log with continuity seals, live drift detection, and adversarial
+  tamper falsification (`capability.lineage-plane`). Predicates include
+  `lineage_ok`, `chain_valid`, `no_drift`, and `min_lineage_entries:N`.
+- `capability reconcile` is the self-healing continuity plane: lineage →
+  detect/diagnose drift → re-certify → heal-seal → prove unhealed drift fails
+  and healed continuity passes (`capability.reconciliation-plane`). When
+  natural drift is absent, a synthetic drift inject proves the heal path.
+  Predicates `reconciliation_ok`, `healed_ok`, and `min_heal_entries:N` gate
+  machine-checkable completion.
 
 Promoted compositions are tagged `composed`/`promoted` and become ordinary
 ledger citizens that later turns can list, prove, run, and compose further.

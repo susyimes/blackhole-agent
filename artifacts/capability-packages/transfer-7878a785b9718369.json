@@ -1,6 +1,6 @@
 {
   "action": "export_capability_package",
-  "exported_at": "2026-07-29T11:08:54.948700Z",
+  "exported_at": "2026-07-29T13:55:52.157887Z",
   "member_count": 3,
   "member_ids": [
     "repo.import-health",
@@ -32,7 +32,7 @@
         "bootstrap",
         "compounder"
       ],
-      "updated_at": "2026-07-29T11:08:54.945259Z"
+      "updated_at": "2026-07-29T13:55:52.153944Z"
     },
     "repo.import-health": {
       "behavior_paths": [
@@ -47,7 +47,7 @@
       "id": "repo.import-health",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-07-29T11:08:34.827071Z",
+      "last_proved_at": "2026-07-29T13:55:51.465901Z",
       "name": "Repository import health",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_repo_import_health; r=builtin_repo_import_health(); assert r['ok'] and not r['skill_route_symbols_in_compounder']\"",
       "source_milestone": null,
@@ -56,7 +56,7 @@
         "bootstrap",
         "health"
       ],
-      "updated_at": "2026-07-29T11:08:54.945148Z"
+      "updated_at": "2026-07-29T13:55:52.153813Z"
     },
     "unbound.milestone-gate": {
       "behavior_paths": [
@@ -81,7 +81,7 @@
         "bootstrap",
         "unbound"
       ],
-      "updated_at": "2026-07-29T11:08:54.945210Z"
+      "updated_at": "2026-07-29T13:55:52.153887Z"
     }
   },
   "ok": true,
@@ -92,6 +92,6 @@
     "unbound.milestone-gate"
   ],
   "schema_version": 1,
-  "source_ledger_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T101624Z-884205ef\\capabilities\\ledger.json",
+  "source_ledger_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T134211Z-d3e39855\\capabilities\\ledger.json",
   "used_skill_route_discovery": false
 }

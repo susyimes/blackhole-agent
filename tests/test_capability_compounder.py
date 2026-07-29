@@ -1566,3 +1566,116 @@ def test_lineage_plane_chain_drift_and_adversarial():
     assert int(verify_payload.get("entry_count") or 0) >= 2
     # Keep path reference live for linters; ledger path is a side effect of seed.
     assert path.name == "ledger.json"
+
+
+def test_reconciliation_plane_heals_synthetic_drift():
+    """Reconciliation plane injects drift, heals, and adversarially proves honesty."""
+
+    from blackhole_agent.capability_compounder import (
+        detect_lineage_drift,
+        ensure_seeded_ledger,
+        inject_synthetic_lineage_drift,
+        load_lineage_log,
+        parse_outcome_contract,
+        run_reconciliation_plane,
+        verify_lineage_chain,
+    )
+
+    repo = Path(__file__).resolve().parents[1]
+    path, ledger = ensure_seeded_ledger(repo)
+    assert "capability.reconciliation-plane" in ledger.capabilities
+    assert "capability.lineage-plane" in ledger.capabilities
+
+    parsed = parse_outcome_contract(
+        "no_skill_route; reconciliation_ok; healed_ok; min_heal_entries:2; "
+        "chain_valid; no_drift"
+    )
+    kinds = {item["kind"] for item in parsed["predicates"]}
+    assert "reconciliation_ok" in kinds
+    assert "healed_ok" in kinds
+    assert "min_heal_entries" in kinds
+
+    lineage_path = (
+        repo / "artifacts" / "capability-lineage" / "test-reconciliation-plane.json"
+    )
+    if lineage_path.exists():
+        lineage_path.unlink()
+
+    plane = run_reconciliation_plane(
+        repo,
+        "health inventory milestone",
+        (
+            "min_capabilities:5; min_primitives:3; capability_exists:repo.import-health; "
+            "capability_proved:repo.import-health; program_passes:repo.import-health; "
+            "no_skill_route; mission_plane_ok"
+        ),
+        max_steps=3,
+        absorb_ready=False,
+        grow_budget=0,
+        run_mission=True,
+        force_synthetic_drift=True,
+        lineage_path=lineage_path,
+        timeout=300,
+    )
+    assert plane["ok"] is True, plane
+    assert plane["action"] == "reconciliation_plane"
+    assert plane["synthetic_drift_used"] is True
+    assert plane["heal"]["healed"] is True
+    assert plane["heal"]["ok"] is True
+    assert int(plane["heal"]["heal_entry_count"]) >= 2
+    assert "drift_diagnosis" in plane["heal"]["heal_entry_kinds"]
+    assert "heal_certificate" in plane["heal"]["heal_entry_kinds"]
+    assert "heal_seal" in plane["heal"]["heal_entry_kinds"]
+    assert plane["chain"]["valid"] is True
+    assert plane["drift"]["drift"] is False
+    assert plane["adversarial"]["ok"] is True
+    assert plane["adversarial"]["unhealed_fails_as_expected"] is True
+    assert plane["adversarial"]["healed_passes_as_expected"] is True
+    assert plane["used_skill_route_discovery"] is False
+    assert lineage_path.is_file()
+
+    loaded = load_lineage_log(lineage_path)
+    assert verify_lineage_chain(loaded)["valid"] is True
+    assert detect_lineage_drift(repo, loaded, timeout=60)["drift"] is False
+    kinds_present = {
+        str(item.get("entry_kind") or "") for item in (loaded.get("entries") or [])
+    }
+    assert "heal_certificate" in kinds_present
+    assert "heal_seal" in kinds_present
+
+    # Unit: synthetic inject alone must trip drift detection.
+    drifted = inject_synthetic_lineage_drift(loaded)
+    assert detect_lineage_drift(repo, drifted, timeout=60)["drift"] is True
+
+    env = {
+        **dict(**{k: v for k, v in __import__("os").environ.items()}),
+        "PYTHONPATH": str(repo / "src"),
+    }
+    recon_cli = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "blackhole_agent.unbound",
+            "capability",
+            "reconcile",
+            "--repo-path",
+            str(repo),
+            "--no-mission",
+            "--lineage-path",
+            str(repo / "artifacts" / "capability-lineage" / "cli-reconciliation.json"),
+            "--timeout-seconds",
+            "300",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=360,
+    )
+    assert recon_cli.returncode == 0, recon_cli.stdout + recon_cli.stderr
+    recon_payload = json.loads(recon_cli.stdout)
+    assert recon_payload["ok"] is True
+    assert recon_payload["action"] == "reconciliation_plane"
+    assert recon_payload["heal"]["healed"] is True
+    assert recon_payload["chain"]["valid"] is True
+    assert path.name == "ledger.json"

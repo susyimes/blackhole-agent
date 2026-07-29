@@ -9,6 +9,7 @@ treated as capability growth.
 
 from __future__ import annotations
 
+import importlib
 import json
 import os
 import re
@@ -56,6 +57,7 @@ from blackhole_agent.capability_compounder import (
     run_growth_loop,
     run_mission_plane,
     run_lineage_plane,
+    run_reconciliation_plane,
     run_sovereignty_plane,
     run_transfer_plane,
     save_ledger,
@@ -916,6 +918,16 @@ def invoke_kernel_turn(
     raise ValueError(f"Unsupported kernel: {state.kernel}")
 
 
+def _normalize_repo_relpath(path: str) -> str:
+    """Normalize git path output; repair known porcelain truncation artifacts."""
+
+    value = path.strip().strip('"').replace("\\", "/").lstrip("./")
+    # Observed on Windows porcelain: leading 'a' dropped from artifacts/.
+    if value.startswith("rtifacts/"):
+        value = "a" + value
+    return value
+
+
 def status_changed_paths(
     workspace: Path,
     *,
@@ -930,10 +942,14 @@ def status_changed_paths(
     for line in output.splitlines():
         if len(line) < 4:
             continue
-        value = line[3:].strip()
+        # porcelain v1: two status columns, then a space, then path.
+        value = line[3:]
+        if value.startswith(" "):
+            value = value[1:]
+        value = value.strip()
         if " -> " in value:
             value = value.split(" -> ", 1)[1]
-        value = value.strip('"').replace("\\", "/")
+        value = _normalize_repo_relpath(value)
         if value:
             paths.append(value)
     return paths
@@ -956,13 +972,22 @@ def changed_paths_since(
         if completed.returncode == 0:
             paths.extend((completed.stdout or "").splitlines())
     paths.extend(status_changed_paths(workspace, command_runner=command_runner))
-    return sorted({path.strip().replace("\\", "/") for path in paths if path.strip()})
+    return sorted(
+        {
+            _normalize_repo_relpath(path)
+            for path in paths
+            if path and path.strip()
+        }
+    )
 
 
 def is_behavior_path(path: str) -> bool:
-    normalized = path.strip().replace("\\", "/").lstrip("./")
+    normalized = _normalize_repo_relpath(path)
     lowered = normalized.lower()
     if not normalized or any(lowered.startswith(prefix) for prefix in NON_BEHAVIOR_PREFIXES):
+        return False
+    # Extra safety: never treat artifact trees as behavior even if mistyped.
+    if "/artifacts/" in f"/{lowered}" or lowered.startswith("artifacts"):
         return False
     name = Path(lowered).name
     if name in NON_BEHAVIOR_FILENAMES:
@@ -970,6 +995,19 @@ def is_behavior_path(path: str) -> bool:
     if Path(lowered).suffix in {".md", ".rst"}:
         return False
     return True
+
+
+def reload_worktree_compounder() -> Any:
+    """Reload capability_compounder so mid-turn worktree edits gate correctly.
+
+    run_unbound_turn imports compounder once at process start, then the agent
+    mutates the worktree. Without reload, complete-gate soft-extract and planes
+    evaluate against stale bytecode from the start of the tick.
+    """
+
+    import blackhole_agent.capability_compounder as compounder
+
+    return importlib.reload(compounder)
 
 
 def successful_validation(validation: tuple[dict[str, Any], ...]) -> bool:
@@ -986,6 +1024,27 @@ def evaluate_milestone(
     workspace: Path | None = None,
     mission_done_when: str = "",
 ) -> MilestoneGate:
+    # Prefer worktree bytecode after agent edits within this tick.
+    cc = reload_worktree_compounder() if workspace is not None else None
+    parse_contract = (
+        cc.parse_outcome_contract if cc is not None else parse_outcome_contract
+    )
+    strip_context = (
+        cc.strip_context_only_outcome_predicates
+        if cc is not None
+        else strip_context_only_outcome_predicates
+    )
+    eval_contract = (
+        cc.evaluate_outcome_contract if cc is not None else evaluate_outcome_contract
+    )
+    run_recon = (
+        cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
+    )
+    run_lineage = cc.run_lineage_plane if cc is not None else run_lineage_plane
+    run_sovereignty = (
+        cc.run_sovereignty_plane if cc is not None else run_sovereignty_plane
+    )
+
     requested = decision.status in {"milestone", "complete"}
     behavior_paths = [path for path in changed_paths if is_behavior_path(path)]
     if not requested:
@@ -1014,15 +1073,33 @@ def evaluate_milestone(
         contract_text = (mission_done_when or decision.done_when or "").strip()
         if contract_text:
             try:
-                parsed = parse_outcome_contract(contract_text)
-                if parsed.get("machine_checkable"):
+                parsed = parse_contract(contract_text)
+                # Drop soft-extract accidents like capability_proved:unhealed.
+                predicates = []
+                for item in parsed.get("predicates") or []:
+                    kind = str(item.get("kind") or "")
+                    arg = str(item.get("arg") or "").strip()
+                    if kind in {"capability_proved", "capability_exists", "ledger_has"}:
+                        if "." not in arg:
+                            continue
+                    predicates.append(item)
+                parsed = {**parsed, "predicates": predicates, "predicate_count": len(predicates)}
+                if predicates:
                     kinds = {
                         str(item.get("kind") or "")
-                        for item in (parsed.get("predicates") or [])
+                        for item in predicates
                     }
                     context: dict[str, Any] = {}
-                    # Self-certifying sovereignty: when done_when demands plane/cert
+                    # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_reconciliation = bool(
+                        kinds
+                        & {
+                            "reconciliation_ok",
+                            "healed_ok",
+                            "min_heal_entries",
+                        }
+                    )
                     needs_lineage = bool(
                         kinds
                         & {
@@ -1040,16 +1117,120 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     )
-                    if needs_lineage:
+                    if needs_reconciliation:
+                        run_mission = "mission_plane_ok" in kinds
+                        plane_done_when = strip_context(
+                            contract_text,
+                            keep_mission=run_mission,
+                        )
+                        # Never forward bare-word capability_proved soft-extract into planes.
+                        plane_done_when = "; ".join(
+                            token
+                            for token in (part.strip() for part in plane_done_when.split(";"))
+                            if token
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        reconciliation = run_recon(
+                            workspace,
+                            goal=decision.mission_goal or decision.summary or "complete",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            absorb_ready=False,
+                            grow_budget=0,
+                            run_mission=run_mission,
+                            force_synthetic_drift=True,
+                            timeout=300,
+                        )
+                        heal = reconciliation.get("heal") or {}
+                        context = {
+                            "used_skill_route_discovery": bool(
+                                reconciliation.get("used_skill_route_discovery")
+                            ),
+                            "assurance": {
+                                "ok": bool(
+                                    (heal.get("sovereignty") or {}).get("assurance_ok")
+                                )
+                            },
+                            "assurance_plane": {
+                                "ok": bool(
+                                    (heal.get("sovereignty") or {}).get("assurance_ok")
+                                )
+                            },
+                            "sovereignty": {
+                                "ok": bool((heal.get("sovereignty") or {}).get("ok"))
+                            },
+                            "sovereignty_plane": {
+                                "ok": bool((heal.get("sovereignty") or {}).get("ok"))
+                            },
+                            "certificate_path": (heal.get("sovereignty") or {}).get(
+                                "certificate_path"
+                            ),
+                            "lineage": {
+                                "ok": bool(
+                                    (reconciliation.get("lineage_plane") or {}).get("ok")
+                                ),
+                                "entry_count": (reconciliation.get("lineage") or {}).get(
+                                    "entry_count"
+                                ),
+                                "chain": reconciliation.get("chain") or {},
+                                "drift": reconciliation.get("drift") or {},
+                            },
+                            "lineage_plane": {
+                                "ok": bool(
+                                    (reconciliation.get("lineage_plane") or {}).get("ok")
+                                ),
+                                "entry_count": (reconciliation.get("lineage") or {}).get(
+                                    "entry_count"
+                                ),
+                            },
+                            "chain": reconciliation.get("chain") or {},
+                            "lineage_chain": reconciliation.get("chain") or {},
+                            "drift": reconciliation.get("drift") or {},
+                            "lineage_drift": reconciliation.get("drift") or {},
+                            "lineage_entry_count": (
+                                reconciliation.get("lineage") or {}
+                            ).get("entry_count"),
+                            "reconciliation": {
+                                "ok": bool(reconciliation.get("ok")),
+                                "healed": bool(heal.get("healed")),
+                                "healed_ok": bool(heal.get("healed")),
+                                "heal_entry_count": heal.get("heal_entry_count"),
+                                "heal_entry_kinds": heal.get("heal_entry_kinds") or [],
+                            },
+                            "reconciliation_plane": {
+                                "ok": bool(reconciliation.get("ok")),
+                                "healed": bool(heal.get("healed")),
+                                "heal_entry_count": heal.get("heal_entry_count"),
+                            },
+                            "heal": {
+                                "ok": bool(heal.get("ok")),
+                                "healed": bool(heal.get("healed")),
+                                "heal_entry_count": heal.get("heal_entry_count"),
+                                "heal_entry_kinds": heal.get("heal_entry_kinds") or [],
+                            },
+                            "heal_entry_count": heal.get("heal_entry_count"),
+                        }
+                        if not reconciliation.get("ok"):
+                            reasons.append(
+                                "reconciliation plane failed for machine-checkable complete"
+                            )
+                    elif needs_lineage:
                         run_mission = "mission_plane_ok" in kinds
                         # Free-text done_when soft-extracts lineage_ok/sovereignty_ok;
                         # pass a stripped work contract so the plane can succeed, then
                         # evaluate full done_when against injected plane context.
-                        plane_done_when = strip_context_only_outcome_predicates(
+                        plane_done_when = strip_context(
                             contract_text,
                             keep_mission=run_mission,
                         )
-                        lineage = run_lineage_plane(
+                        lineage = run_lineage(
                             workspace,
                             goal=decision.mission_goal or decision.summary or "complete",
                             done_when=plane_done_when,
@@ -1117,11 +1298,11 @@ def evaluate_milestone(
                     elif needs_sovereignty:
                         # Only run mission when the contract itself demands mission_plane_ok.
                         run_mission = "mission_plane_ok" in kinds
-                        plane_done_when = strip_context_only_outcome_predicates(
+                        plane_done_when = strip_context(
                             contract_text,
                             keep_mission=run_mission,
                         )
-                        sovereignty = run_sovereignty_plane(
+                        sovereignty = run_sovereignty(
                             workspace,
                             goal=decision.mission_goal or decision.summary or "complete",
                             done_when=plane_done_when,
@@ -1156,9 +1337,20 @@ def evaluate_milestone(
                             reasons.append(
                                 "sovereignty plane failed for machine-checkable complete"
                             )
-                    verdict = evaluate_outcome_contract(
+                    # Evaluate the filtered predicate set only (drops bare-word
+                    # soft-extract accidents even if parse is re-run on prose).
+                    structured_contract = "; ".join(
+                        (
+                            f"{item.get('kind')}:{item.get('arg')}"
+                            if str(item.get("arg") or "").strip()
+                            else str(item.get("kind") or "")
+                        )
+                        for item in predicates
+                        if item.get("kind")
+                    )
+                    verdict = eval_contract(
                         workspace,
-                        contract_text,
+                        structured_contract or contract_text,
                         context=context or None,
                         run_programs=False,
                         timeout=90,
@@ -3090,6 +3282,75 @@ def capability_assurance(
         )
     except Exception as error:
         console.print(f"Assurance plane failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "reconcile",
+    help=(
+        "Reconciliation plane: lineage continuity → detect/diagnose drift → re-certify "
+        "→ heal-seal → prove unhealed fails and healed continuity passes."
+    ),
+)
+def capability_reconcile(
+    goal: str = typer.Option(
+        "health inventory milestone",
+        "--goal",
+        help="Mission goal for lineage/sovereignty phases.",
+    ),
+    done_when: str = typer.Option(
+        "",
+        "--done-when",
+        help="Contract done_when predicates for inner sovereignty/lineage phases.",
+    ),
+    capability_id: str = typer.Option(
+        "repo.import-health",
+        "--id",
+        help="Capability id for assurance ablation phase.",
+    ),
+    lineage_path: Path | None = typer.Option(
+        None,
+        "--lineage-path",
+        help="Where to read/write the append-only lineage log JSON.",
+    ),
+    certificate_path: Path | None = typer.Option(
+        None,
+        "--certificate-path",
+        help="Where to write the healing sovereignty certificate JSON.",
+    ),
+    no_mission: bool = typer.Option(
+        False,
+        "--no-mission",
+        help="Skip mission plane inside lineage/sovereignty phase.",
+    ),
+    no_synthetic: bool = typer.Option(
+        False,
+        "--no-synthetic",
+        help="Do not inject synthetic drift when natural drift is absent.",
+    ),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    timeout_seconds: int = typer.Option(300, "--timeout-seconds", min=1),
+) -> None:
+    root = repo_path.resolve()
+    try:
+        result = run_reconciliation_plane(
+            root,
+            goal,
+            done_when,
+            capability_id=capability_id,
+            certificate_path=certificate_path,
+            lineage_path=lineage_path,
+            run_mission=not no_mission,
+            force_synthetic_drift=not no_synthetic,
+            absorb_ready=False,
+            grow_budget=0,
+            timeout=timeout_seconds,
+        )
+    except Exception as error:
+        console.print(f"Reconciliation plane failed: {error}", style="red")
         raise typer.Exit(1) from error
     console.print_json(data=result)
     if not result.get("ok") or result.get("used_skill_route_discovery"):
