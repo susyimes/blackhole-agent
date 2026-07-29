@@ -1,0 +1,165 @@
+{
+  "entries": [
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "origin_ids": [
+          "origin-a",
+          "origin-b",
+          "origin-byzantine"
+        ],
+        "threshold": 2
+      },
+      "detail": {
+        "origins": [
+          {
+            "bundle_hash": "7863ac221caa9a1cd3f62129",
+            "byzantine": false,
+            "lineage_entry_count": 107,
+            "lineage_head_hash": "7b9376b397bd2249daa93fc1",
+            "member_count": 3,
+            "origin_id": "origin-a",
+            "package_hash": "7878a785b9718369"
+          },
+          {
+            "bundle_hash": "c96de7c97333b91a6c05c368",
+            "byzantine": false,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "6d7a859947108b6a05c52215",
+            "member_count": 2,
+            "origin_id": "origin-b",
+            "package_hash": "8ece9182045d973a"
+          },
+          {
+            "bundle_hash": "4c1da47f4c6d8c18c498d3d0",
+            "byzantine": true,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "6f4551d2950c4c638ace9a31",
+            "member_count": 3,
+            "origin_id": "origin-byzantine",
+            "package_hash": "7d88f7661e8407af"
+          }
+        ]
+      },
+      "entry_hash": "2b6564d748ac699f303d8f61",
+      "entry_kind": "quorum_origin_manifest",
+      "goal": "Closed remaining done_when gaps from iteration 1: stamped capability.quorum-plane as proved (exit 0), re-ran plane/CLI/pytest, and confirmed outcome predicates and Byzantine-tolerant majority consensus end-to-end.",
+      "index": 0,
+      "issued_at": "2026-07-29T15:53:10.128011Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": ""
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "package_hash": "066545df3053adf5",
+        "threshold": 2
+      },
+      "detail": {
+        "origin_heads": [
+          "7b9376b397bd2249daa93fc1",
+          "6d7a859947108b6a05c52215",
+          "6f4551d2950c4c638ace9a31"
+        ]
+      },
+      "entry_hash": "5b49d7d98f1038bc551c9020",
+      "entry_kind": "quorum_vote",
+      "goal": "Closed remaining done_when gaps from iteration 1: stamped capability.quorum-plane as proved (exit 0), re-ran plane/CLI/pytest, and confirmed outcome predicates and Byzantine-tolerant majority consensus end-to-end.",
+      "index": 1,
+      "issued_at": "2026-07-29T15:53:10.128040Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "2b6564d748ac699f303d8f61"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "byzantine_count": 1,
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "excluded": true
+      },
+      "detail": {
+        "byzantine_origins": [
+          "origin-byzantine"
+        ]
+      },
+      "entry_hash": "5f6ba512fa409d82d670bab9",
+      "entry_kind": "quorum_byzantine_exclude",
+      "goal": "Closed remaining done_when gaps from iteration 1: stamped capability.quorum-plane as proved (exit 0), re-ran plane/CLI/pytest, and confirmed outcome predicates and Byzantine-tolerant majority consensus end-to-end.",
+      "index": 2,
+      "issued_at": "2026-07-29T15:53:10.128061Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "5b49d7d98f1038bc551c9020"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "quorum": true,
+        "quorum_met": true
+      },
+      "detail": {
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "origin_bundle_hashes": [
+          "7863ac221caa9a1cd3f62129",
+          "c96de7c97333b91a6c05c368",
+          "4c1da47f4c6d8c18c498d3d0"
+        ]
+      },
+      "entry_hash": "c7e8b30d83882a338684da81",
+      "entry_kind": "quorum_seal",
+      "goal": "Closed remaining done_when gaps from iteration 1: stamped capability.quorum-plane as proved (exit 0), re-ran plane/CLI/pytest, and confirmed outcome predicates and Byzantine-tolerant majority consensus end-to-end.",
+      "index": 3,
+      "issued_at": "2026-07-29T15:53:10.128079Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "5f6ba512fa409d82d670bab9"
+    }
+  ],
+  "entry_count": 4,
+  "head_hash": "c7e8b30d83882a338684da81",
+  "kind": "capability_lineage",
+  "schema_version": 1,
+  "updated_at": "2026-07-29T15:53:10.137202Z"
+}

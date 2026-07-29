@@ -58,6 +58,7 @@ from blackhole_agent.capability_compounder import (
     run_mission_plane,
     run_continuity_plane,
     run_federation_plane,
+    run_quorum_plane,
     run_lineage_plane,
     run_reconciliation_plane,
     run_sovereignty_plane,
@@ -1045,6 +1046,7 @@ def evaluate_milestone(
     run_federation = (
         cc.run_federation_plane if cc is not None else run_federation_plane
     )
+    run_quorum = cc.run_quorum_plane if cc is not None else run_quorum_plane
     run_recon = (
         cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
     )
@@ -1100,6 +1102,16 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_quorum = bool(
+                        kinds
+                        & {
+                            "quorum_ok",
+                            "quorum_met",
+                            "min_quorum",
+                            "byzantine_excluded",
+                            "quorum_cert_valid",
+                        }
+                    )
                     needs_federation = bool(
                         kinds
                         & {
@@ -1108,7 +1120,7 @@ def evaluate_milestone(
                             "min_origins",
                             "federation_cert_valid",
                         }
-                    )
+                    ) and not needs_quorum
                     needs_continuity = bool(
                         kinds
                         & {
@@ -1143,7 +1155,110 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     )
-                    if needs_federation:
+                    if needs_quorum:
+                        plane_done_when = strip_context(
+                            contract_text,
+                            keep_mission=False,
+                        )
+                        plane_done_when = "; ".join(
+                            token
+                            for token in (part.strip() for part in plane_done_when.split(";"))
+                            if token
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        quorum = run_quorum(
+                            workspace,
+                            goal=decision.mission_goal or decision.summary or "complete",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            run_continuity=True,
+                            run_reconciliation=True,
+                            force_synthetic_drift=True,
+                            inject_byzantine=True,
+                            timeout=480,
+                        )
+                        origin_count = int(quorum.get("origin_count") or 0)
+                        byzantine_count = int(quorum.get("byzantine_count") or 0)
+                        context = {
+                            "used_skill_route_discovery": bool(
+                                quorum.get("used_skill_route_discovery")
+                            ),
+                            "chain": quorum.get("chain") or {},
+                            "lineage_chain": quorum.get("chain") or {},
+                            "lineage": {
+                                "ok": bool((quorum.get("chain") or {}).get("valid")),
+                                "entry_count": (quorum.get("quorum") or {}).get(
+                                    "lineage_entry_count"
+                                ),
+                                "chain": quorum.get("chain") or {},
+                            },
+                            "continuity": {
+                                "ok": bool(
+                                    ((quorum.get("continuity") or {}) or {}).get("ok", True)
+                                ),
+                                "resurrected": bool(
+                                    ((quorum.get("continuity") or {}) or {}).get(
+                                        "resurrected", True
+                                    )
+                                ),
+                            },
+                            "continuity_plane": {
+                                "ok": bool(
+                                    ((quorum.get("continuity") or {}) or {}).get("ok", True)
+                                ),
+                            },
+                            "quorum": {
+                                "ok": bool(quorum.get("ok")),
+                                "quorum_met": bool(quorum.get("quorum_met")),
+                                "quorum_size": quorum.get("quorum_size")
+                                or quorum.get("agreeing_count"),
+                                "agreeing_count": quorum.get("agreeing_count"),
+                                "threshold": quorum.get("threshold"),
+                                "origin_count": origin_count,
+                                "byzantine_excluded": byzantine_count >= 1,
+                                "byzantine_count": byzantine_count,
+                                "byzantine_origins": quorum.get("byzantine_origins") or [],
+                                "quorum_hash": (quorum.get("quorum") or {}).get("quorum_hash"),
+                                "quorum_cert_valid": bool(
+                                    (quorum.get("quorum_certificate") or {}).get("valid")
+                                ),
+                                "certificate_valid": bool(
+                                    (quorum.get("quorum_certificate") or {}).get("valid")
+                                ),
+                                "quorum_certificate": quorum.get("quorum_certificate"),
+                            },
+                            "quorum_plane": {
+                                "ok": bool(quorum.get("ok")),
+                                "quorum_met": bool(quorum.get("quorum_met")),
+                                "origin_count": origin_count,
+                                "byzantine_excluded": byzantine_count >= 1,
+                                "quorum_cert_valid": bool(
+                                    (quorum.get("quorum_certificate") or {}).get("valid")
+                                ),
+                            },
+                            "consensus": {
+                                "ok": bool(quorum.get("consensus")),
+                                "quorum_met": bool(quorum.get("quorum_met")),
+                                "origin_count": origin_count,
+                            },
+                            "origin_count": origin_count,
+                            "quorum_size": quorum.get("quorum_size")
+                            or quorum.get("agreeing_count"),
+                            "quorum_certificate": quorum.get("quorum_certificate"),
+                            "quorum_hash": (quorum.get("quorum") or {}).get("quorum_hash"),
+                        }
+                        if not quorum.get("ok"):
+                            reasons.append(
+                                "quorum plane failed for machine-checkable complete"
+                            )
+                    elif needs_federation:
                         plane_done_when = strip_context(
                             contract_text,
                             keep_mission=False,
@@ -3550,6 +3665,86 @@ def capability_assurance(
         )
     except Exception as error:
         console.print(f"Assurance plane failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "quorum",
+    help=(
+        "Quorum consensus plane: ≥3 independent continuity origins → strict-majority member "
+        "vote → Byzantine minority exclusion → quorum certificate → sterile rehydrate+prove "
+        "→ adversarial dual-origin/below-quorum/tamper/poison falsification."
+    ),
+)
+def capability_quorum(
+    goal: str = typer.Option(
+        "quorum multi-origin consensus",
+        "--goal",
+        help="Mission goal for quorum phases.",
+    ),
+    done_when: str = typer.Option(
+        "",
+        "--done-when",
+        help="Contract done_when predicates for inner continuity phases.",
+    ),
+    lineage_path: Path | None = typer.Option(
+        None,
+        "--lineage-path",
+        help="Where to read/write origin-A lineage log JSON.",
+    ),
+    bundle_path: Path | None = typer.Option(
+        None,
+        "--bundle-path",
+        help="Where to write origin-A continuity bundle JSON.",
+    ),
+    quorum_path: Path | None = typer.Option(
+        None,
+        "--quorum-path",
+        help="Where to write the portable quorum bundle JSON.",
+    ),
+    no_continuity: bool = typer.Option(
+        False,
+        "--no-continuity",
+        help="Skip full continuity plane; export origin-A from existing lineage only.",
+    ),
+    no_recon: bool = typer.Option(
+        False,
+        "--no-recon",
+        help="Skip reconciliation inside continuity when continuity is enabled.",
+    ),
+    no_synthetic: bool = typer.Option(
+        False,
+        "--no-synthetic",
+        help="Do not inject synthetic drift when natural drift is absent.",
+    ),
+    no_byzantine: bool = typer.Option(
+        False,
+        "--no-byzantine",
+        help="Do not inject a Byzantine minority origin (honest-only quorum).",
+    ),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    timeout_seconds: int = typer.Option(480, "--timeout-seconds", min=1),
+) -> None:
+    root = repo_path.resolve()
+    try:
+        result = run_quorum_plane(
+            root,
+            goal,
+            done_when,
+            lineage_path=lineage_path,
+            bundle_path=bundle_path,
+            quorum_path=quorum_path,
+            run_continuity=not no_continuity,
+            run_reconciliation=not no_recon,
+            force_synthetic_drift=not no_synthetic,
+            inject_byzantine=not no_byzantine,
+            timeout=timeout_seconds,
+        )
+    except Exception as error:
+        console.print(f"Quorum plane failed: {error}", style="red")
         raise typer.Exit(1) from error
     console.print_json(data=result)
     if not result.get("ok") or result.get("used_skill_route_discovery"):

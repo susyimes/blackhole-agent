@@ -29,7 +29,7 @@
         "ablation",
         "evidence"
       ],
-      "updated_at": "2026-07-29T15:13:52.040777Z"
+      "updated_at": "2026-07-29T15:53:10.630460Z"
     },
     "capability.adaptive-grow": {
       "behavior_paths": [
@@ -61,7 +61,7 @@
         "growth",
         "adaptive"
       ],
-      "updated_at": "2026-07-29T15:13:52.039824Z"
+      "updated_at": "2026-07-29T15:53:10.628995Z"
     },
     "capability.adversarial-contract": {
       "behavior_paths": [
@@ -94,7 +94,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-07-29T15:13:52.040882Z"
+      "updated_at": "2026-07-29T15:53:10.630690Z"
     },
     "capability.assurance-plane": {
       "behavior_paths": [
@@ -131,7 +131,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-07-29T15:13:52.040934Z"
+      "updated_at": "2026-07-29T15:53:10.630803Z"
     },
     "capability.autonomic-cycle": {
       "behavior_paths": [
@@ -166,7 +166,7 @@
         "autonomic",
         "novelty"
       ],
-      "updated_at": "2026-07-29T15:13:52.040406Z"
+      "updated_at": "2026-07-29T15:53:10.629618Z"
     },
     "capability.composed-core-health": {
       "behavior_paths": [
@@ -1700,7 +1700,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-07-29T15:13:52.041184Z"
+      "updated_at": "2026-07-29T15:53:10.631328Z"
     },
     "capability.contract-plane": {
       "behavior_paths": [
@@ -1735,7 +1735,7 @@
         "evidence",
         "growth"
       ],
-      "updated_at": "2026-07-29T15:13:52.040726Z"
+      "updated_at": "2026-07-29T15:53:10.630347Z"
     },
     "capability.distill-ledger": {
       "behavior_paths": [
@@ -1765,7 +1765,7 @@
         "growth",
         "distill"
       ],
-      "updated_at": "2026-07-29T15:13:52.040344Z"
+      "updated_at": "2026-07-29T15:53:10.629414Z"
     },
     "capability.federation-plane": {
       "behavior_paths": [
@@ -1810,7 +1810,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-07-29T15:13:52.041239Z"
+      "updated_at": "2026-07-29T15:53:10.631488Z"
     },
     "capability.frontier-novelty": {
       "behavior_paths": [
@@ -1840,7 +1840,7 @@
         "growth",
         "novelty"
       ],
-      "updated_at": "2026-07-29T15:13:52.040267Z"
+      "updated_at": "2026-07-29T15:53:10.629267Z"
     },
     "capability.goal-plan": {
       "behavior_paths": [
@@ -1869,7 +1869,7 @@
         "mission",
         "planner"
       ],
-      "updated_at": "2026-07-29T15:13:52.040462Z"
+      "updated_at": "2026-07-29T15:53:10.629775Z"
     },
     "capability.growth-loop": {
       "behavior_paths": [
@@ -1900,7 +1900,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-07-29T15:13:52.039673Z"
+      "updated_at": "2026-07-29T15:53:10.628780Z"
     },
     "capability.ledger-integrity": {
       "behavior_paths": [
@@ -1928,7 +1928,7 @@
         "compounder",
         "integrity"
       ],
-      "updated_at": "2026-07-29T15:13:52.040120Z"
+      "updated_at": "2026-07-29T15:53:10.629132Z"
     },
     "capability.ledger-inventory": {
       "behavior_paths": [
@@ -1954,7 +1954,7 @@
         "bootstrap",
         "compounder"
       ],
-      "updated_at": "2026-07-29T15:13:52.039261Z"
+      "updated_at": "2026-07-29T15:53:10.628343Z"
     },
     "capability.lineage-plane": {
       "behavior_paths": [
@@ -1995,7 +1995,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-07-29T15:13:52.041059Z"
+      "updated_at": "2026-07-29T15:53:10.631024Z"
     },
     "capability.mission-plane": {
       "behavior_paths": [
@@ -2030,7 +2030,7 @@
         "growth",
         "second-wave"
       ],
-      "updated_at": "2026-07-29T15:13:52.040622Z"
+      "updated_at": "2026-07-29T15:53:10.630122Z"
     },
     "capability.outcome-contract": {
       "behavior_paths": [
@@ -2062,7 +2062,7 @@
         "contract",
         "evidence"
       ],
-      "updated_at": "2026-07-29T15:13:52.040674Z"
+      "updated_at": "2026-07-29T15:53:10.630234Z"
     },
     "capability.program-run": {
       "behavior_paths": [
@@ -2092,7 +2092,54 @@
         "mission",
         "program"
       ],
-      "updated_at": "2026-07-29T15:13:52.040517Z"
+      "updated_at": "2026-07-29T15:53:10.629897Z"
+    },
+    "capability.quorum-plane": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_compounder.py",
+        "src/blackhole_agent/unbound.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Quorum plane forms strict-majority consensus across ≥3 continuity origins, excludes Byzantine minority package conflicts, seals a re-verifiable quorum certificate, sterile re-proves, and adversarially falsifies below-quorum/tamper/poison without skill-route.",
+      "created_at": "2026-07-29T15:50:39.919001Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.outcome-contract",
+        "capability.contract-plane",
+        "capability.assurance-plane",
+        "capability.sovereignty-plane",
+        "capability.lineage-plane",
+        "capability.reconciliation-plane",
+        "capability.continuity-plane",
+        "capability.federation-plane",
+        "capability.transfer-plane",
+        "capability.ablation-proof",
+        "capability.adversarial-contract"
+      ],
+      "description": "Closed quorum plane: ≥3 independent continuity origins → strict-majority member vote → Byzantine minority conflict exclusion → quorum lineage seal → quorum certificate → sterile rehydrate+prove → adversarial dual-origin/below-quorum/tamper/poison falsification — past dual-origin hard-fail federation.",
+      "entry": "blackhole_agent.capability_compounder:builtin_quorum_plane",
+      "id": "capability.quorum-plane",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-07-29T15:52:35.619329Z",
+      "name": "Byzantine-tolerant quorum consensus plane",
+      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_quorum_plane; from pathlib import Path; import os; os.environ['BLACKHOLE_MISSION_GOAL']='quorum multi-origin consensus'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='1'; os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='1'; os.environ['BLACKHOLE_RECONCILE_SYNTHETIC']='1'; os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-quorum.json')); os.environ.setdefault('BLACKHOLE_CONTINUITY_BUNDLE_PATH', str(Path('artifacts')/'continuity-bundles'/'proof-quorum-origin-a.json')); os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-quorum.json')); r=builtin_quorum_plane(); assert r['ok'] and r.get('action')=='quorum_plane' and r.get('quorum_met') is True and int(r.get('origin_count') or 0) >= 3 and int(r.get('byzantine_count') or 0) >= 1 and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') and r.get('quorum_certificate',{}).get('valid') and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "bootstrap",
+        "compounder",
+        "quorum",
+        "consensus",
+        "byzantine",
+        "multi-origin",
+        "federation",
+        "continuity",
+        "lineage",
+        "evidence"
+      ],
+      "updated_at": "2026-07-29T15:53:10.631670Z"
     },
     "capability.reconciliation-plane": {
       "behavior_paths": [
@@ -2135,7 +2182,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-07-29T15:13:52.041127Z"
+      "updated_at": "2026-07-29T15:53:10.631207Z"
     },
     "capability.scout-gaps": {
       "behavior_paths": [
@@ -2163,7 +2210,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-07-29T15:13:52.039541Z"
+      "updated_at": "2026-07-29T15:53:10.628644Z"
     },
     "capability.second-wave-absorb": {
       "behavior_paths": [
@@ -2197,7 +2244,7 @@
         "second-wave",
         "domain"
       ],
-      "updated_at": "2026-07-29T15:13:52.040570Z"
+      "updated_at": "2026-07-29T15:53:10.630012Z"
     },
     "capability.sovereignty-plane": {
       "behavior_paths": [
@@ -2236,7 +2283,7 @@
         "certificate",
         "evidence"
       ],
-      "updated_at": "2026-07-29T15:13:52.040986Z"
+      "updated_at": "2026-07-29T15:53:10.630912Z"
     },
     "capability.transfer-plane": {
       "behavior_paths": [
@@ -2267,7 +2314,7 @@
         "transfer",
         "package"
       ],
-      "updated_at": "2026-07-29T15:13:52.040830Z"
+      "updated_at": "2026-07-29T15:53:10.630576Z"
     },
     "domain.ci-security": {
       "behavior_paths": [
@@ -2573,7 +2620,7 @@
         "bootstrap",
         "evolution-route"
       ],
-      "updated_at": "2026-07-29T15:13:52.039405Z"
+      "updated_at": "2026-07-29T15:53:10.628489Z"
     },
     "repo.import-health": {
       "behavior_paths": [
@@ -2588,7 +2635,7 @@
       "id": "repo.import-health",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-07-29T15:13:50.399614Z",
+      "last_proved_at": "2026-07-29T15:53:08.680722Z",
       "name": "Repository import health",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_repo_import_health; r=builtin_repo_import_health(); assert r['ok'] and not r['skill_route_symbols_in_compounder']\"",
       "source_milestone": null,
@@ -2597,7 +2644,7 @@
         "bootstrap",
         "health"
       ],
-      "updated_at": "2026-07-29T15:13:52.038904Z"
+      "updated_at": "2026-07-29T15:53:10.627983Z"
     },
     "unbound.milestone-gate": {
       "behavior_paths": [
@@ -2622,9 +2669,9 @@
         "bootstrap",
         "unbound"
       ],
-      "updated_at": "2026-07-29T15:13:52.039102Z"
+      "updated_at": "2026-07-29T15:53:10.628179Z"
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-07-29T15:13:52.041355Z"
+  "updated_at": "2026-07-29T15:53:10.631966Z"
 }

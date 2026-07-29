@@ -1,0 +1,68 @@
+{
+  "entries": [
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_id": "origin-c",
+        "roots": [
+          "repo.import-health",
+          "capability.ledger-inventory",
+          "unbound.milestone-gate"
+        ]
+      },
+      "detail": {
+        "origin_id": "origin-c",
+        "plane": "federation"
+      },
+      "entry_hash": "e10296ba3a683ae2f58c49a2",
+      "entry_kind": "federation_origin_seed",
+      "goal": "Closed remaining done_when gaps from iteration 1: stamped capability.quorum-plane as proved (exit 0), re-ran plane/CLI/pytest, and confirmed outcome predicates and Byzantine-tolerant majority consensus end-to-end. (honest origin-c)",
+      "index": 0,
+      "issued_at": "2026-07-29T15:53:10.125368Z",
+      "metrics": {
+        "count": 86,
+        "primitive_count": 37,
+        "proved_count": 86,
+        "proved_ratio": null
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": ""
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_id": "origin-c",
+        "sealed": true
+      },
+      "detail": {
+        "member_ids": [
+          "repo.import-health",
+          "capability.ledger-inventory",
+          "unbound.milestone-gate"
+        ],
+        "origin_id": "origin-c"
+      },
+      "entry_hash": "6f4551d2950c4c638ace9a31",
+      "entry_kind": "federation_origin_seal",
+      "goal": "Closed remaining done_when gaps from iteration 1: stamped capability.quorum-plane as proved (exit 0), re-ran plane/CLI/pytest, and confirmed outcome predicates and Byzantine-tolerant majority consensus end-to-end. (honest origin-c)",
+      "index": 1,
+      "issued_at": "2026-07-29T15:53:10.125422Z",
+      "metrics": {
+        "count": 3,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "e10296ba3a683ae2f58c49a2"
+    }
+  ],
+  "entry_count": 2,
+  "head_hash": "6f4551d2950c4c638ace9a31",
+  "kind": "capability_lineage",
+  "ok": true,
+  "schema_version": 1,
+  "updated_at": "2026-07-29T15:53:10.125835Z"
+}

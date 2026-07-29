@@ -908,6 +908,7 @@ PROGRAM_PLAN_DENYLIST = frozenset(
         "capability.reconciliation-plane",
         "capability.continuity-plane",
         "capability.federation-plane",
+        "capability.quorum-plane",
         # Batch operators are invocable separately; keep goal programs step-cheap.
         "capability.ledger-integrity",
         "capability.distill-ledger",
@@ -957,6 +958,10 @@ MISSION_GOAL_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("federat", ("capability.federation-plane", "capability.continuity-plane", "capability.transfer-plane")),
     ("multi-origin", ("capability.federation-plane", "capability.continuity-plane", "capability.lineage-plane")),
     ("merge", ("capability.federation-plane", "capability.transfer-plane", "capability.continuity-plane")),
+    ("quorum", ("capability.quorum-plane", "capability.federation-plane", "capability.continuity-plane")),
+    ("byzantine", ("capability.quorum-plane", "capability.federation-plane", "capability.adversarial-contract")),
+    ("consensus", ("capability.quorum-plane", "capability.federation-plane", "capability.lineage-plane")),
+    ("majority", ("capability.quorum-plane", "capability.federation-plane", "capability.assurance-plane")),
 )
 
 
@@ -1326,6 +1331,7 @@ def run_mission_plane(
 #   reconciliation_ok | healed_ok | min_heal_entries:N
 #   continuity_ok | resurrected_ok | min_bundle_certs:N | bundle_valid
 #   federation_ok | federated_ok | min_origins:N | federation_cert_valid
+#   quorum_ok | quorum_met | min_quorum:N | byzantine_excluded | quorum_cert_valid
 # Free-text lines without a known form are recorded as informational (not gating).
 OUTCOME_PREDICATE_PATTERN = re.compile(
     r"^(?P<kind>"
@@ -1338,7 +1344,8 @@ OUTCOME_PREDICATE_PATTERN = re.compile(
     r"lineage_ok|chain_valid|no_drift|min_lineage_entries|"
     r"reconciliation_ok|healed_ok|min_heal_entries|"
     r"continuity_ok|resurrected_ok|min_bundle_certs|bundle_valid|"
-    r"federation_ok|federated_ok|min_origins|federation_cert_valid"
+    r"federation_ok|federated_ok|min_origins|federation_cert_valid|"
+    r"quorum_ok|quorum_met|min_quorum|byzantine_excluded|quorum_cert_valid"
     r")(?::(?P<arg>.+))?$",
     re.IGNORECASE,
 )
@@ -1368,6 +1375,11 @@ CONTEXT_ONLY_OUTCOME_KINDS = frozenset(
         "federated_ok",
         "min_origins",
         "federation_cert_valid",
+        "quorum_ok",
+        "quorum_met",
+        "min_quorum",
+        "byzantine_excluded",
+        "quorum_cert_valid",
     }
 )
 
@@ -1602,6 +1614,39 @@ def _soft_extract_outcome_predicates(chunk: str) -> list[dict[str, Any]]:
         and ("valid" in lower or "verify" in lower or "ok" in lower)
     ):
         found.append({"kind": "federation_cert_valid", "arg": "", "source": chunk})
+    if (
+        re.search(r"\bquorum", lower)
+        and ("ok" in lower or "pass" in lower or "plane" in lower or "succeed" in lower)
+    ) or re.search(r"\bquorum_ok\b", lower):
+        found.append({"kind": "quorum_ok", "arg": "", "source": chunk})
+    if re.search(r"\bquorum_met\b", lower) or (
+        "quorum" in lower and ("met" in lower or "reached" in lower or "majority" in lower)
+    ):
+        found.append({"kind": "quorum_met", "arg": "", "source": chunk})
+    m = re.search(r"(?:at least|>=|≥)\s*(\d+)\s+quorum", lower)
+    if m:
+        found.append({"kind": "min_quorum", "arg": m.group(1), "source": chunk})
+    if re.search(r"\bmin_quorum\b", lower) and not any(
+        item.get("kind") == "min_quorum" for item in found
+    ):
+        m_n = re.search(r"min_quorum\s*[:=]?\s*(\d+)", lower)
+        found.append(
+            {
+                "kind": "min_quorum",
+                "arg": m_n.group(1) if m_n else "2",
+                "source": chunk,
+            }
+        )
+    if re.search(r"\bbyzantine_excluded\b", lower) or (
+        "byzantine" in lower and ("exclud" in lower or "isolat" in lower or "reject" in lower)
+    ):
+        found.append({"kind": "byzantine_excluded", "arg": "", "source": chunk})
+    if re.search(r"\bquorum_cert_valid\b", lower) or (
+        "quorum" in lower
+        and "cert" in lower
+        and ("valid" in lower or "verify" in lower or "ok" in lower)
+    ):
+        found.append({"kind": "quorum_cert_valid", "arg": "", "source": chunk})
     return found
 
 
@@ -2066,6 +2111,90 @@ def _eval_one_outcome_predicate(
                     plane.get("federation_hash") or plane.get("certificate_hash")
                 )
         return ok, f"federation_cert_valid={ok}"
+    if kind == "quorum_ok":
+        plane = (
+            context.get("quorum")
+            or context.get("quorum_plane")
+            or context.get("consensus")
+            or {}
+        )
+        ok = bool(plane.get("ok"))
+        return ok, f"quorum_ok={ok}"
+    if kind == "quorum_met":
+        plane = (
+            context.get("quorum")
+            or context.get("quorum_plane")
+            or context.get("consensus")
+            or {}
+        )
+        if "quorum_met" in plane:
+            ok = plane.get("quorum_met") is True
+        elif "met" in plane and "quorum" in str(plane.get("action") or "quorum"):
+            ok = plane.get("met") is True
+        else:
+            ok = bool(plane.get("ok")) and int(plane.get("agreeing_count") or plane.get("quorum_size") or 0) >= int(
+                plane.get("threshold") or plane.get("quorum_threshold") or 2
+            )
+        return ok, f"quorum_met={ok}"
+    if kind == "min_quorum":
+        need = int(float(arg or "0"))
+        have = context.get("quorum_size")
+        if have is None:
+            plane = (
+                context.get("quorum")
+                or context.get("quorum_plane")
+                or context.get("consensus")
+                or {}
+            )
+            have = (
+                plane.get("quorum_size")
+                or plane.get("agreeing_count")
+                or plane.get("origin_count")
+            )
+        have_i = int(have or 0)
+        return have_i >= need, f"quorum_size={have_i} need>={need}"
+    if kind == "byzantine_excluded":
+        plane = (
+            context.get("quorum")
+            or context.get("quorum_plane")
+            or context.get("consensus")
+            or {}
+        )
+        if "byzantine_excluded" in plane:
+            val = plane.get("byzantine_excluded")
+            if isinstance(val, bool):
+                ok = val is True
+            else:
+                ok = int(val or 0) >= 1 or (
+                    isinstance(val, (list, tuple)) and len(val) >= 1
+                )
+        else:
+            excluded = plane.get("byzantine_origins") or plane.get("excluded_origins") or []
+            ok = int(plane.get("byzantine_count") or 0) >= 1 or (
+                isinstance(excluded, (list, tuple)) and len(excluded) >= 1
+            )
+        return ok, f"byzantine_excluded={ok}"
+    if kind == "quorum_cert_valid":
+        plane = (
+            context.get("quorum")
+            or context.get("quorum_plane")
+            or context.get("quorum_certificate")
+            or {}
+        )
+        if "quorum_cert_valid" in plane:
+            ok = plane.get("quorum_cert_valid") is True
+        elif "certificate_valid" in plane:
+            ok = plane.get("certificate_valid") is True
+        else:
+            cert = plane.get("quorum_certificate") or plane.get("certificate") or {}
+            if isinstance(cert, Mapping) and cert:
+                verify = verify_quorum_certificate(cert)
+                ok = bool(verify.get("ok")) and bool(verify.get("valid"))
+            else:
+                ok = bool(plane.get("ok")) and bool(
+                    plane.get("quorum_hash") or plane.get("certificate_hash")
+                )
+        return ok, f"quorum_cert_valid={ok}"
     if kind == "program_passes":
         steps = [part.strip() for part in arg.split(",") if part.strip()]
         if not steps:
@@ -6641,6 +6770,1397 @@ def run_federation_plane(
     }
 
 
+# ---------------------------------------------------------------------------
+# Quorum consensus plane: N≥3 origins with majority vote past dual-origin
+# hard-fail federation. Byzantine minority package conflicts are excluded;
+# quorum certificates seal re-verifiable majority agreement.
+# ---------------------------------------------------------------------------
+
+QUORUM_BUNDLE_SCHEMA = 1
+QUORUM_CERTIFICATE_SCHEMA = 1
+DEFAULT_QUORUM_BUNDLE_RELATIVE = Path("artifacts") / "quorum-bundles"
+
+
+def default_quorum_bundle_dir(repo_path: Path) -> Path:
+    return (repo_path / DEFAULT_QUORUM_BUNDLE_RELATIVE).resolve()
+
+
+def default_quorum_threshold(origin_count: int) -> int:
+    """Strict majority: floor(n/2)+1."""
+
+    n = max(0, int(origin_count))
+    if n <= 0:
+        return 0
+    return (n // 2) + 1
+
+
+def quorum_merge_capability_packages(
+    packages: Sequence[Mapping[str, Any]],
+    *,
+    origin_ids: Sequence[str] | None = None,
+    threshold: int | None = None,
+) -> dict[str, Any]:
+    """Vote member-by-member; accept signatures with ≥threshold origin support.
+
+    Unlike hard-fail merge_capability_packages, conflicting signatures from a
+    minority are excluded rather than aborting the entire merge. Origins that
+    lose one or more votes are recorded as byzantine/dissenting.
+    """
+
+    if len(packages) < 3:
+        return {
+            "ok": False,
+            "action": "quorum_merge_capability_packages",
+            "error": "need_at_least_three_packages",
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    labels = list(origin_ids) if origin_ids else [f"origin-{i}" for i in range(len(packages))]
+    while len(labels) < len(packages):
+        labels.append(f"origin-{len(labels)}")
+    n = len(packages)
+    thresh = int(threshold) if threshold is not None else default_quorum_threshold(n)
+    if thresh < 2 or thresh > n:
+        return {
+            "ok": False,
+            "action": "quorum_merge_capability_packages",
+            "error": "invalid_threshold",
+            "threshold": thresh,
+            "origin_count": n,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    # origin -> {cid -> (sig, member)}
+    per_origin: list[dict[str, tuple[str, dict[str, Any]]]] = []
+    all_ids: set[str] = set()
+    roots: list[str] = []
+    for index, package in enumerate(packages):
+        bucket: dict[str, tuple[str, dict[str, Any]]] = {}
+        members = package.get("members") if isinstance(package.get("members"), Mapping) else {}
+        for capability_id, raw in members.items():
+            if not isinstance(raw, Mapping):
+                continue
+            member = dict(raw)
+            member["id"] = str(member.get("id") or capability_id)
+            cid = member["id"]
+            sig = _member_identity_signature(member)
+            bucket[cid] = (sig, member)
+            all_ids.add(cid)
+        per_origin.append(bucket)
+        for root in package.get("roots") or []:
+            root_s = str(root).strip()
+            if root_s and root_s not in roots:
+                roots.append(root_s)
+
+    accepted: dict[str, dict[str, Any]] = {}
+    member_origins: dict[str, list[str]] = {}
+    votes: list[dict[str, Any]] = []
+    dissent_by_origin: dict[str, list[str]] = {label: [] for label in labels[:n]}
+    unresolved: list[dict[str, Any]] = []
+    pending_uncontested: list[dict[str, Any]] = []
+
+    # Pass 1: majority for contested ids; record dissent; park uncontested.
+    for cid in sorted(all_ids):
+        tally: dict[str, list[str]] = {}
+        samples: dict[str, dict[str, Any]] = {}
+        for index, bucket in enumerate(per_origin):
+            if cid not in bucket:
+                continue
+            sig, member = bucket[cid]
+            tally.setdefault(sig, []).append(labels[index])
+            samples.setdefault(sig, member)
+        if not tally:
+            continue
+        ranked = sorted(tally.items(), key=lambda item: (-len(item[1]), item[0]))
+        win_sig, win_origins = ranked[0]
+        win_count = len(win_origins)
+        contested = len(tally) > 1
+        vote_record = {
+            "capability_id": cid,
+            "winning_signature": win_sig,
+            "vote_count": win_count,
+            "threshold": thresh,
+            "agreeing_origins": list(win_origins),
+            "tally": {sig: list(origins) for sig, origins in tally.items()},
+            "contested": contested,
+            "accepted": False,
+        }
+        if contested:
+            if win_count >= thresh:
+                accepted[cid] = dict(samples[win_sig])
+                member_origins[cid] = list(win_origins)
+                vote_record["accepted"] = True
+                for sig, origins in tally.items():
+                    if sig == win_sig:
+                        continue
+                    for origin in origins:
+                        if cid not in dissent_by_origin.setdefault(origin, []):
+                            dissent_by_origin[origin].append(cid)
+            else:
+                unresolved.append(vote_record)
+        else:
+            # Uncontested: accept after Byzantine set is known (pass 2).
+            pending_uncontested.append(
+                {
+                    "record": vote_record,
+                    "sig": win_sig,
+                    "member": samples[win_sig],
+                    "origins": list(win_origins),
+                }
+            )
+        votes.append(vote_record)
+
+    byzantine_origins = [
+        origin for origin, cids in dissent_by_origin.items() if cids
+    ]
+    agreeing_origins = [label for label in labels[:n] if label not in byzantine_origins]
+
+    # Pass 2: uncontested members accepted only from non-byzantine origins
+    # (or any origin when there is no Byzantine set yet and count ≥ 1).
+    for item in pending_uncontested:
+        origins_for = [
+            origin for origin in item["origins"] if origin not in byzantine_origins
+        ]
+        record = item["record"]
+        if not origins_for:
+            # Solely proposed by Byzantine origins — drop.
+            record["accepted"] = False
+            record["dropped_byzantine_only"] = True
+            continue
+        accepted[item["record"]["capability_id"]] = dict(item["member"])
+        member_origins[item["record"]["capability_id"]] = list(origins_for)
+        record["accepted"] = True
+        record["agreeing_origins"] = list(origins_for)
+        record["vote_count"] = len(origins_for)
+
+    accepted_count = len(accepted)
+    pure_agreement = accepted_count >= 1 and not byzantine_origins and not unresolved
+    quorum_met = (
+        accepted_count >= 1
+        and len(agreeing_origins) >= thresh
+        and not unresolved
+    )
+
+    if not accepted:
+        return {
+            "ok": False,
+            "action": "quorum_merge_capability_packages",
+            "error": "no_quorum_accepted_members",
+            "threshold": thresh,
+            "origin_count": n,
+            "votes": votes,
+            "unresolved": unresolved,
+            "byzantine_origins": byzantine_origins,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    if not roots:
+        roots = sorted(accepted.keys())[:3]
+    present_roots = [r for r in roots if r in accepted]
+    if not present_roots:
+        present_roots = sorted(accepted.keys())[:3]
+
+    scratch = CapabilityLedger(schema_version=SCHEMA_VERSION, updated_at=utc_now_iso())
+    for cid, raw in accepted.items():
+        scratch.capabilities[cid] = Capability.from_dict({**raw, "id": cid})
+    try:
+        ordered = dependency_closure(scratch, present_roots)
+    except (ValueError, KeyError):
+        ordered = sorted(accepted.keys())
+
+    package = {
+        "ok": True,
+        "action": "export_capability_package",
+        "schema_version": ASSURANCE_PACKAGE_SCHEMA,
+        "roots": present_roots,
+        "member_ids": ordered,
+        "member_count": len(ordered),
+        "members": {cid: accepted[cid] for cid in ordered},
+        "source_ledger_path": "quorum-merge",
+        "exported_at": utc_now_iso(),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+        "member_origins": {cid: member_origins.get(cid, []) for cid in ordered},
+        "federated": True,
+        "quorum": True,
+        "quorum_threshold": thresh,
+        "byzantine_origins": list(byzantine_origins),
+        "agreeing_origins": list(agreeing_origins),
+    }
+    digest_source = json.dumps(
+        {
+            "roots": present_roots,
+            "members": sorted(package["members"]),
+            "threshold": thresh,
+            "byzantine": sorted(byzantine_origins),
+        },
+        sort_keys=True,
+        ensure_ascii=False,
+    )
+    package["package_hash"] = hashlib.sha256(digest_source.encode("utf-8")).hexdigest()[:16]
+
+    ok = quorum_met and bool(package.get("ok")) and not unresolved
+    return {
+        "ok": ok,
+        "action": "quorum_merge_capability_packages",
+        "package": package,
+        "threshold": thresh,
+        "origin_count": n,
+        "origin_ids": labels[:n],
+        "accepted_count": accepted_count,
+        "member_count": package["member_count"],
+        "member_origins": package["member_origins"],
+        "votes": votes,
+        "unresolved": unresolved,
+        "unresolved_count": len(unresolved),
+        "byzantine_origins": list(byzantine_origins),
+        "byzantine_count": len(byzantine_origins),
+        "agreeing_origins": list(agreeing_origins),
+        "agreeing_count": len(agreeing_origins),
+        "quorum_met": ok,
+        "quorum_size": len(agreeing_origins),
+        "pure_agreement": pure_agreement,
+        "dissent_by_origin": {k: list(v) for k, v in dissent_by_origin.items() if v},
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def inject_byzantine_package_conflict(
+    bundle: Mapping[str, Any],
+    *,
+    origin_id: str = "origin-byzantine",
+    poison_id: str | None = None,
+) -> dict[str, Any]:
+    """Clone a continuity-style bundle and poison one shared member identity."""
+
+    cloned = copy.deepcopy(dict(bundle))
+    cloned["origin_id"] = origin_id
+    package = dict(cloned.get("package") or {})
+    members = dict(package.get("members") or {})
+    target_id = poison_id
+    if not target_id or target_id not in members:
+        target_id = next(iter(members), "")
+    if not target_id:
+        cloned["ok"] = False
+        cloned["error"] = "no_member_to_poison"
+        return cloned
+    plant = dict(members[target_id])
+    plant["entry"] = "blackhole_agent.capability_compounder:__byzantine_poison__"
+    plant["proof_command"] = "false"
+    plant["name"] = f"BYZANTINE-{plant.get('name') or target_id}"
+    members[target_id] = plant
+    package["members"] = members
+    package["package_hash"] = hashlib.sha256(
+        json.dumps(
+            {"origin": origin_id, "poison": target_id, "members": sorted(members)},
+            sort_keys=True,
+            ensure_ascii=False,
+        ).encode("utf-8")
+    ).hexdigest()[:16]
+    package["byzantine_poison_id"] = target_id
+    cloned["package"] = package
+    cloned["package_hash"] = package["package_hash"]
+    cloned["byzantine"] = True
+    cloned["byzantine_poison_id"] = target_id
+    # Re-hash continuity bundle body so origin is distinct.
+    if "bundle_hash" in cloned:
+        cloned["bundle_hash"] = compute_continuity_bundle_hash(cloned)
+    cloned["ok"] = bool(members) and not legacy_pipeline_was_used()
+    cloned["used_skill_route_discovery"] = legacy_pipeline_was_used()
+    return cloned
+
+
+def compute_quorum_certificate_hash(payload: Mapping[str, Any]) -> str:
+    body = {
+        key: value
+        for key, value in payload.items()
+        if key not in {"certificate_hash", "ok", "valid"}
+    }
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def issue_quorum_certificate(
+    *,
+    origin_hashes: Sequence[str],
+    package_hash: str,
+    lineage_head_hash: str,
+    member_count: int,
+    origin_count: int,
+    threshold: int,
+    agreeing_origins: Sequence[str],
+    byzantine_origins: Sequence[str],
+    goal: str = "",
+    claims: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    cert: dict[str, Any] = {
+        "schema_version": QUORUM_CERTIFICATE_SCHEMA,
+        "kind": "quorum_certificate",
+        "issued_at": utc_now_iso(),
+        "goal": goal or "",
+        "origin_hashes": [str(h) for h in origin_hashes if str(h).strip()],
+        "package_hash": package_hash or "",
+        "lineage_head_hash": lineage_head_hash or "",
+        "member_count": int(member_count),
+        "origin_count": int(origin_count),
+        "threshold": int(threshold),
+        "agreeing_origins": [str(x) for x in agreeing_origins],
+        "byzantine_origins": [str(x) for x in byzantine_origins],
+        "agreeing_count": len(list(agreeing_origins)),
+        "byzantine_count": len(list(byzantine_origins)),
+        "claims": dict(claims or {}),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    cert["certificate_hash"] = compute_quorum_certificate_hash(cert)
+    cert["ok"] = (
+        len(cert["origin_hashes"]) >= 3
+        and cert["origin_count"] >= 3
+        and cert["threshold"] >= 2
+        and cert["agreeing_count"] >= cert["threshold"]
+        and bool(cert["package_hash"])
+        and bool(cert["lineage_head_hash"])
+        and cert["member_count"] >= 1
+        and not cert["used_skill_route_discovery"]
+    )
+    return cert
+
+
+def verify_quorum_certificate(payload: Mapping[str, Any] | Path) -> dict[str, Any]:
+    if isinstance(payload, Path):
+        data = json.loads(payload.read_text(encoding="utf-8"))
+    else:
+        data = dict(payload)
+    expected = str(data.get("certificate_hash") or "").strip()
+    recomputed = compute_quorum_certificate_hash(data)
+    hash_ok = bool(expected) and expected == recomputed
+    origin_hashes = list(data.get("origin_hashes") or [])
+    agreeing = list(data.get("agreeing_origins") or [])
+    threshold = int(data.get("threshold") or 0)
+    claims_ok = (
+        str(data.get("kind") or "") == "quorum_certificate"
+        and len(origin_hashes) >= 3
+        and int(data.get("origin_count") or 0) >= 3
+        and threshold >= 2
+        and len(agreeing) >= threshold
+        and bool(data.get("package_hash"))
+        and bool(data.get("lineage_head_hash"))
+        and int(data.get("member_count") or 0) >= 1
+        and not bool(data.get("used_skill_route_discovery"))
+    )
+    valid = hash_ok and claims_ok
+    return {
+        "ok": valid,
+        "valid": valid,
+        "hash_ok": hash_ok,
+        "claims_ok": claims_ok,
+        "certificate_hash": expected,
+        "recomputed_hash": recomputed,
+        "origin_count": len(origin_hashes),
+        "agreeing_count": len(agreeing),
+        "threshold": threshold,
+        "byzantine_count": int(data.get("byzantine_count") or len(data.get("byzantine_origins") or [])),
+        "used_skill_route_discovery": bool(data.get("used_skill_route_discovery")),
+    }
+
+
+def write_quorum_certificate(path: Path, certificate: Mapping[str, Any]) -> Path:
+    target = path.resolve()
+    atomic_write_json(target, dict(certificate))
+    return target
+
+
+def stitch_quorum_lineage(
+    origin_bundles: Sequence[Mapping[str, Any]],
+    *,
+    package_hash: str = "",
+    goal: str = "quorum multi-origin consensus",
+    origin_ids: Sequence[str] | None = None,
+    threshold: int = 2,
+    agreeing_origins: Sequence[str] | None = None,
+    byzantine_origins: Sequence[str] | None = None,
+) -> dict[str, Any]:
+    """Seal a fresh quorum lineage: manifest → vote → byzantine exclude → seal."""
+
+    labels = list(origin_ids) if origin_ids else []
+    while len(labels) < len(origin_bundles):
+        labels.append(f"origin-{len(labels)}")
+
+    origin_manifest: list[dict[str, Any]] = []
+    for index, bundle in enumerate(origin_bundles):
+        lineage = bundle.get("lineage") if isinstance(bundle.get("lineage"), Mapping) else {}
+        origin_manifest.append(
+            {
+                "origin_id": labels[index],
+                "bundle_hash": bundle.get("bundle_hash"),
+                "package_hash": bundle.get("package_hash")
+                or (bundle.get("package") or {}).get("package_hash"),
+                "lineage_head_hash": lineage.get("head_hash") or bundle.get("lineage_head_hash"),
+                "lineage_entry_count": lineage.get("entry_count")
+                or bundle.get("lineage_entry_count"),
+                "member_count": bundle.get("member_count")
+                or (bundle.get("package") or {}).get("member_count"),
+                "byzantine": bool(bundle.get("byzantine")),
+            }
+        )
+
+    agreeing = list(agreeing_origins or [])
+    byzantine = list(byzantine_origins or [])
+    lineage = empty_lineage_log()
+    lineage = append_lineage_entry(
+        lineage,
+        entry_kind="quorum_origin_manifest",
+        goal=goal,
+        claims={
+            "origin_count": len(origin_manifest),
+            "origin_ids": [item["origin_id"] for item in origin_manifest],
+            "threshold": threshold,
+        },
+        package_hash=package_hash,
+        detail={"origins": origin_manifest},
+    )
+    lineage = append_lineage_entry(
+        lineage,
+        entry_kind="quorum_vote",
+        goal=goal,
+        claims={
+            "threshold": threshold,
+            "agreeing_origins": agreeing,
+            "agreeing_count": len(agreeing),
+            "package_hash": package_hash,
+        },
+        package_hash=package_hash,
+        detail={"origin_heads": [item.get("lineage_head_hash") for item in origin_manifest]},
+    )
+    lineage = append_lineage_entry(
+        lineage,
+        entry_kind="quorum_byzantine_exclude",
+        goal=goal,
+        claims={
+            "byzantine_origins": byzantine,
+            "byzantine_count": len(byzantine),
+            "excluded": len(byzantine) >= 1,
+        },
+        package_hash=package_hash,
+        detail={"byzantine_origins": byzantine},
+    )
+    lineage = append_lineage_entry(
+        lineage,
+        entry_kind="quorum_seal",
+        goal=goal,
+        claims={
+            "quorum": True,
+            "quorum_met": len(agreeing) >= threshold,
+            "origin_count": len(origin_manifest),
+            "package_hash": package_hash,
+        },
+        package_hash=package_hash,
+        detail={
+            "origin_bundle_hashes": [item.get("bundle_hash") for item in origin_manifest],
+            "agreeing_origins": agreeing,
+            "byzantine_origins": byzantine,
+        },
+    )
+    chain = verify_lineage_chain(lineage)
+    lineage["ok"] = bool(chain.get("valid")) and int(lineage.get("entry_count") or 0) >= 4
+    return lineage
+
+
+def compute_quorum_bundle_hash(bundle: Mapping[str, Any]) -> str:
+    body = {
+        key: value
+        for key, value in bundle.items()
+        if key
+        not in {
+            "quorum_hash",
+            "ok",
+            "bundle_path",
+            "exported_at",
+            "source_ledger_path",
+            "action",
+        }
+    }
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def build_quorum_bundle(
+    origin_bundles: Sequence[Mapping[str, Any]],
+    *,
+    origin_ids: Sequence[str] | None = None,
+    goal: str = "quorum multi-origin consensus",
+    threshold: int | None = None,
+) -> dict[str, Any]:
+    """Vote ≥3 continuity bundles into one quorum-sealed portable bundle."""
+
+    if len(origin_bundles) < 3:
+        return {
+            "ok": False,
+            "action": "build_quorum_bundle",
+            "error": "need_at_least_three_origins",
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    labels = list(origin_ids) if origin_ids else []
+    for index, bundle in enumerate(origin_bundles):
+        if index >= len(labels):
+            labels.append(str(bundle.get("origin_id") or f"origin-{index}"))
+
+    packages = []
+    for bundle in origin_bundles:
+        package = bundle.get("package") if isinstance(bundle.get("package"), Mapping) else {}
+        packages.append(package)
+
+    merge = quorum_merge_capability_packages(
+        packages,
+        origin_ids=labels,
+        threshold=threshold,
+    )
+    if not merge.get("ok"):
+        return {
+            "ok": False,
+            "action": "build_quorum_bundle",
+            "error": merge.get("error") or "quorum_merge_failed",
+            "merge": merge,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    package = merge["package"]
+    thresh = int(merge.get("threshold") or default_quorum_threshold(len(origin_bundles)))
+    agreeing = list(merge.get("agreeing_origins") or [])
+    byzantine = list(merge.get("byzantine_origins") or [])
+    lineage = stitch_quorum_lineage(
+        origin_bundles,
+        package_hash=str(package.get("package_hash") or ""),
+        goal=goal,
+        origin_ids=labels,
+        threshold=thresh,
+        agreeing_origins=agreeing,
+        byzantine_origins=byzantine,
+    )
+    chain = verify_lineage_chain(lineage)
+
+    certificates: dict[str, dict[str, Any]] = {}
+    for index, bundle in enumerate(origin_bundles):
+        certs = bundle.get("certificates") if isinstance(bundle.get("certificates"), Mapping) else {}
+        for key, raw in certs.items():
+            if not isinstance(raw, Mapping):
+                continue
+            cert_key = str(raw.get("certificate_hash") or key)
+            if cert_key in certificates:
+                continue
+            certificates[cert_key] = {
+                "certificate_hash": raw.get("certificate_hash"),
+                "certificate_path": raw.get("certificate_path"),
+                "payload": raw.get("payload"),
+                "origin_id": labels[index],
+            }
+
+    origin_hashes = [str(b.get("bundle_hash") or "") for b in origin_bundles]
+    quorum_cert = issue_quorum_certificate(
+        origin_hashes=origin_hashes,
+        package_hash=str(package.get("package_hash") or ""),
+        lineage_head_hash=str(lineage.get("head_hash") or ""),
+        member_count=int(package.get("member_count") or 0),
+        origin_count=len(origin_bundles),
+        threshold=thresh,
+        agreeing_origins=agreeing,
+        byzantine_origins=byzantine,
+        goal=goal,
+        claims={
+            "origin_ids": labels[: len(origin_bundles)],
+            "roots": package.get("roots"),
+            "votes_accepted": merge.get("accepted_count"),
+        },
+    )
+    certificates[str(quorum_cert.get("certificate_hash") or "quorum")] = {
+        "certificate_hash": quorum_cert.get("certificate_hash"),
+        "certificate_path": "artifacts/quorum-bundles/quorum-certificate.json",
+        "payload": quorum_cert,
+        "origin_id": "quorum",
+    }
+
+    origins_summary = []
+    for index, bundle in enumerate(origin_bundles):
+        lineage_b = bundle.get("lineage") if isinstance(bundle.get("lineage"), Mapping) else {}
+        origins_summary.append(
+            {
+                "origin_id": labels[index],
+                "bundle_hash": bundle.get("bundle_hash"),
+                "package_hash": bundle.get("package_hash")
+                or (bundle.get("package") or {}).get("package_hash"),
+                "lineage_head_hash": lineage_b.get("head_hash") or bundle.get("lineage_head_hash"),
+                "member_count": bundle.get("member_count")
+                or (bundle.get("package") or {}).get("member_count"),
+                "byzantine": bool(bundle.get("byzantine")) or labels[index] in byzantine,
+            }
+        )
+
+    qb: dict[str, Any] = {
+        "schema_version": QUORUM_BUNDLE_SCHEMA,
+        "kind": "quorum_bundle",
+        "action": "build_quorum_bundle",
+        "goal": goal,
+        "origin_count": len(origin_bundles),
+        "origins": origins_summary,
+        "threshold": thresh,
+        "agreeing_origins": agreeing,
+        "agreeing_count": len(agreeing),
+        "byzantine_origins": byzantine,
+        "byzantine_count": len(byzantine),
+        "quorum_met": bool(merge.get("quorum_met")),
+        "quorum_size": int(merge.get("quorum_size") or len(agreeing)),
+        "votes": merge.get("votes") or [],
+        "package": package,
+        "lineage": {
+            "schema_version": lineage.get("schema_version", LINEAGE_LOG_SCHEMA),
+            "kind": "capability_lineage",
+            "entries": [dict(item) for item in (lineage.get("entries") or [])],
+            "entry_count": lineage.get("entry_count"),
+            "head_hash": lineage.get("head_hash"),
+            "updated_at": lineage.get("updated_at"),
+        },
+        "certificates": certificates,
+        "certificate_count": len(certificates),
+        "quorum_certificate": quorum_cert,
+        "package_hash": package.get("package_hash"),
+        "member_count": package.get("member_count"),
+        "lineage_entry_count": lineage.get("entry_count"),
+        "lineage_head_hash": lineage.get("head_hash"),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    qb["quorum_hash"] = compute_quorum_bundle_hash(qb)
+    qb["ok"] = (
+        bool(merge.get("ok"))
+        and bool(package.get("ok"))
+        and bool(chain.get("valid"))
+        and bool(quorum_cert.get("ok"))
+        and int(qb["origin_count"]) >= 3
+        and bool(qb["quorum_met"])
+        and int(qb["member_count"] or 0) >= 1
+        and not bool(qb.get("used_skill_route_discovery"))
+    )
+    return qb
+
+
+def write_quorum_bundle(path: Path, bundle: Mapping[str, Any]) -> Path:
+    target = path.resolve()
+    atomic_write_json(target, dict(bundle))
+    return target
+
+
+def load_quorum_bundle(path: Path) -> dict[str, Any]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, Mapping):
+        raise ValueError("quorum bundle must be a JSON object")
+    return dict(payload)
+
+
+def verify_quorum_bundle_integrity(bundle: Mapping[str, Any]) -> dict[str, Any]:
+    """Check quorum hash, ≥3 origins, majority, package, chain, and cert."""
+
+    expected = str(bundle.get("quorum_hash") or "").strip()
+    recomputed = compute_quorum_bundle_hash(bundle)
+    hash_ok = bool(expected) and expected == recomputed
+    origin_count = int(bundle.get("origin_count") or len(bundle.get("origins") or []) or 0)
+    origins_ok = origin_count >= 3
+    threshold = int(bundle.get("threshold") or default_quorum_threshold(origin_count))
+    agreeing = list(bundle.get("agreeing_origins") or [])
+    quorum_met = bool(bundle.get("quorum_met")) and len(agreeing) >= threshold
+    lineage = bundle.get("lineage") if isinstance(bundle.get("lineage"), Mapping) else {}
+    chain = (
+        verify_lineage_chain(lineage)
+        if lineage
+        else {"ok": False, "valid": False, "errors": ["missing_lineage"]}
+    )
+    package = bundle.get("package") if isinstance(bundle.get("package"), Mapping) else {}
+    package_ok = bool(package.get("ok")) and int(package.get("member_count") or 0) >= 1
+    q_cert = (
+        bundle.get("quorum_certificate")
+        if isinstance(bundle.get("quorum_certificate"), Mapping)
+        else {}
+    )
+    cert_verify = verify_quorum_certificate(q_cert) if q_cert else {
+        "ok": False,
+        "valid": False,
+        "hash_ok": False,
+    }
+    origin_heads = []
+    origin_bundle_hashes = []
+    for item in bundle.get("origins") or []:
+        if isinstance(item, Mapping):
+            head = str(item.get("lineage_head_hash") or "").strip()
+            bhash = str(item.get("bundle_hash") or "").strip()
+            if head:
+                origin_heads.append(head)
+            if bhash:
+                origin_bundle_hashes.append(bhash)
+    distinct_heads = len(set(origin_heads)) >= 2 if len(origin_heads) >= 2 else False
+    distinct_bundles = (
+        len(set(origin_bundle_hashes)) >= 2 if len(origin_bundle_hashes) >= 2 else False
+    )
+    distinct_ok = distinct_heads or distinct_bundles
+    # Poison must not survive: package members must not include byzantine entry marker.
+    poison_free = True
+    for raw in (package.get("members") or {}).values():
+        if not isinstance(raw, Mapping):
+            continue
+        entry = str(raw.get("entry") or "")
+        if "__byzantine_poison__" in entry or "__conflict_plant__" in entry:
+            poison_free = False
+            break
+    used_skill = bool(bundle.get("used_skill_route_discovery")) or legacy_pipeline_was_used()
+    ok = (
+        hash_ok
+        and origins_ok
+        and distinct_ok
+        and quorum_met
+        and package_ok
+        and poison_free
+        and bool(chain.get("valid"))
+        and bool(cert_verify.get("valid"))
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "valid": ok,
+        "action": "verify_quorum_bundle",
+        "hash_ok": hash_ok,
+        "expected_hash": expected,
+        "recomputed_hash": recomputed,
+        "origins_ok": origins_ok,
+        "origin_count": origin_count,
+        "distinct_origins_ok": distinct_ok,
+        "quorum_met": quorum_met,
+        "threshold": threshold,
+        "agreeing_count": len(agreeing),
+        "byzantine_count": int(bundle.get("byzantine_count") or len(bundle.get("byzantine_origins") or [])),
+        "package_ok": package_ok,
+        "poison_free": poison_free,
+        "chain": {
+            "ok": chain.get("ok"),
+            "valid": chain.get("valid"),
+            "entry_count": chain.get("entry_count"),
+            "errors": chain.get("errors") or [],
+        },
+        "quorum_certificate": {
+            "ok": cert_verify.get("ok"),
+            "valid": cert_verify.get("valid"),
+            "hash_ok": cert_verify.get("hash_ok"),
+            "certificate_hash": cert_verify.get("certificate_hash"),
+        },
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def rehydrate_quorum_bundle(
+    repo_path: Path,
+    bundle: Mapping[str, Any],
+    *,
+    sandbox_dir: Path | None = None,
+) -> dict[str, Any]:
+    """Materialize a quorum bundle into a sterile sandbox ledger + lineage."""
+
+    root = repo_path.resolve()
+    integrity = verify_quorum_bundle_integrity(bundle)
+    if not integrity.get("ok"):
+        return {
+            "ok": False,
+            "action": "rehydrate_quorum_bundle",
+            "error": "quorum_integrity_failed",
+            "integrity": integrity,
+            "used_skill_route_discovery": integrity.get("used_skill_route_discovery"),
+        }
+
+    q_hash = str(bundle.get("quorum_hash") or "unknown")
+    sandbox = (
+        sandbox_dir.resolve()
+        if sandbox_dir is not None
+        else (root / "artifacts" / "quorum-sandbox" / q_hash[:16])
+    )
+    sandbox.mkdir(parents=True, exist_ok=True)
+
+    package = dict(bundle.get("package") or {})
+    lineage = copy.deepcopy(bundle.get("lineage") or {})
+    lineage_path = sandbox / "lineage.json"
+    write_lineage_log(lineage_path, lineage)
+
+    empty = CapabilityLedger(schema_version=SCHEMA_VERSION, updated_at=utc_now_iso())
+    empty, import_report = import_capability_package(empty, package, replace=True)
+    sterile_ledger_path = sandbox / "ledger.json"
+    save_ledger(sterile_ledger_path, empty)
+
+    cert = (
+        bundle.get("quorum_certificate")
+        if isinstance(bundle.get("quorum_certificate"), Mapping)
+        else {}
+    )
+    cert_path = sandbox / "quorum-certificate.json"
+    if cert:
+        write_quorum_certificate(cert_path, cert)
+
+    chain = verify_lineage_chain(lineage)
+    cert_verify = verify_quorum_certificate(cert) if cert else {"ok": False, "valid": False}
+    used_skill = legacy_pipeline_was_used()
+    ok = (
+        bool(integrity.get("ok"))
+        and bool(import_report.get("ok"))
+        and bool(chain.get("valid"))
+        and bool(cert_verify.get("valid"))
+        and int(import_report.get("imported_count") or 0) >= 1
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "rehydrate_quorum_bundle",
+        "sandbox_dir": str(sandbox),
+        "lineage_path": str(lineage_path),
+        "sterile_ledger_path": str(sterile_ledger_path),
+        "certificate_path": str(cert_path) if cert else None,
+        "quorum_hash": q_hash,
+        "import": import_report,
+        "chain": {
+            "ok": chain.get("ok"),
+            "valid": chain.get("valid"),
+            "entry_count": chain.get("entry_count"),
+            "errors": chain.get("errors") or [],
+        },
+        "quorum_certificate": {
+            "ok": cert_verify.get("ok"),
+            "valid": cert_verify.get("valid"),
+            "certificate_hash": cert_verify.get("certificate_hash"),
+        },
+        "integrity": {
+            "ok": integrity.get("ok"),
+            "hash_ok": integrity.get("hash_ok"),
+            "origin_count": integrity.get("origin_count"),
+            "quorum_met": integrity.get("quorum_met"),
+            "package_ok": integrity.get("package_ok"),
+        },
+        "sterile_ledger": empty,
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def run_quorum_adversarial_checks(
+    intact_bundle: Mapping[str, Any],
+    origin_bundles: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Falsify quorum honesty: below-quorum fails, tamper fails, dual-origin fails."""
+
+    intact = verify_quorum_bundle_integrity(intact_bundle)
+
+    # 1) Dual-origin (n=2) must fail quorum build.
+    dual_ok = False
+    if len(origin_bundles) >= 2:
+        dual = build_quorum_bundle(
+            list(origin_bundles)[:2],
+            origin_ids=["origin-a", "origin-b"],
+            goal="adversarial dual-origin",
+        )
+        dual_ok = dual.get("ok") is False and str(dual.get("error") or "") == "need_at_least_three_origins"
+
+    # 2) Tamper quorum hash body without updating quorum_hash.
+    tampered = copy.deepcopy(dict(intact_bundle))
+    package = dict(tampered.get("package") or {})
+    package["package_hash"] = "deadbeefdeadbeef"
+    tampered["package"] = package
+    tamper_check = verify_quorum_bundle_integrity(tampered)
+    tamper_fails = tamper_check.get("ok") is False
+
+    # 3) Below-threshold: force threshold above agreeing count.
+    below = copy.deepcopy(dict(intact_bundle))
+    below["threshold"] = int(below.get("origin_count") or 3) + 1
+    below["quorum_met"] = True  # lie in the flag; integrity must still fail
+    below["quorum_hash"] = compute_quorum_bundle_hash(below)
+    below_check = verify_quorum_bundle_integrity(below)
+    below_fails = below_check.get("ok") is False
+
+    # 4) Broken quorum certificate hash must fail.
+    broken_cert = copy.deepcopy(dict(intact_bundle))
+    q_cert = dict(broken_cert.get("quorum_certificate") or {})
+    q_cert["certificate_hash"] = "0" * 24
+    broken_cert["quorum_certificate"] = q_cert
+    broken_cert["quorum_hash"] = compute_quorum_bundle_hash(broken_cert)
+    broken_cert_check = verify_quorum_bundle_integrity(broken_cert)
+    broken_cert_fails = broken_cert_check.get("ok") is False
+
+    # 5) Poisoned package member must fail integrity.
+    poisoned = copy.deepcopy(dict(intact_bundle))
+    p_pkg = dict(poisoned.get("package") or {})
+    p_members = dict(p_pkg.get("members") or {})
+    if p_members:
+        pid = next(iter(p_members))
+        plant = dict(p_members[pid])
+        plant["entry"] = "blackhole_agent.capability_compounder:__byzantine_poison__"
+        p_members[pid] = plant
+        p_pkg["members"] = p_members
+        poisoned["package"] = p_pkg
+        poisoned["quorum_hash"] = compute_quorum_bundle_hash(poisoned)
+    poison_check = verify_quorum_bundle_integrity(poisoned)
+    poison_fails = poison_check.get("ok") is False
+
+    intact_ok = bool(intact.get("ok")) and bool(intact.get("valid"))
+    byzantine_seen = int(intact_bundle.get("byzantine_count") or 0) >= 1
+    used_skill = legacy_pipeline_was_used()
+    ok = (
+        intact_ok
+        and dual_ok
+        and tamper_fails
+        and below_fails
+        and broken_cert_fails
+        and poison_fails
+        and byzantine_seen
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "quorum_adversarial",
+        "intact_ok": intact_ok,
+        "dual_origin_fails_as_expected": dual_ok,
+        "tamper_fails_as_expected": tamper_fails,
+        "below_quorum_fails_as_expected": below_fails,
+        "broken_cert_fails_as_expected": broken_cert_fails,
+        "poison_fails_as_expected": poison_fails,
+        "byzantine_excluded_as_expected": byzantine_seen,
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def run_quorum_plane(
+    repo_path: Path,
+    goal: str = "quorum multi-origin consensus",
+    done_when: str = "",
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 420,
+    max_steps: int = 3,
+    run_continuity: bool = True,
+    run_reconciliation: bool = True,
+    force_synthetic_drift: bool = True,
+    prove_imported: bool = True,
+    inject_byzantine: bool = True,
+    threshold: int | None = None,
+    lineage_path: Path | None = None,
+    bundle_path: Path | None = None,
+    quorum_path: Path | None = None,
+    sandbox_dir: Path | None = None,
+    capability_roots_a: Sequence[str] | None = None,
+    capability_roots_b: Sequence[str] | None = None,
+    capability_roots_c: Sequence[str] | None = None,
+    persist: bool = True,
+) -> dict[str, Any]:
+    """Closed quorum plane: ≥3 origins → majority vote → exclude Byzantine → seal → prove.
+
+    Past dual-origin hard-fail federation: three independent continuity-style
+    origins form a strict-majority quorum; a Byzantine minority that poisons a
+    shared package member is excluded; a re-verifiable quorum certificate seals
+    agreement; sterile rehydrate+prove and adversarial checks pass without
+    skill-route discovery.
+    """
+
+    root = repo_path.resolve()
+    path, _ledger = ensure_seeded_ledger(root)
+
+    out_lineage_a = (
+        lineage_path.resolve()
+        if lineage_path is not None
+        else default_lineage_path(root)
+    )
+    continuity_report: dict[str, Any] | None = None
+    if run_continuity:
+        continuity_report = run_continuity_plane(
+            root,
+            goal if goal else "health inventory milestone",
+            strip_context_only_outcome_predicates(done_when or ""),
+            command_runner=command_runner,
+            timeout=timeout,
+            max_steps=max_steps,
+            absorb_ready=False,
+            grow_budget=0,
+            run_mission=False,
+            run_reconciliation=run_reconciliation,
+            force_synthetic_drift=force_synthetic_drift,
+            prove_imported=True,
+            lineage_path=out_lineage_a,
+            bundle_path=bundle_path,
+            capability_roots=capability_roots_a
+            or ("repo.import-health", "capability.ledger-inventory", "unbound.milestone-gate"),
+            persist=persist,
+        )
+        origin_a_path = Path(
+            (continuity_report.get("bundle") or {}).get("bundle_path") or ""
+        )
+        if origin_a_path and origin_a_path.is_file():
+            origin_a = load_continuity_bundle(origin_a_path)
+        else:
+            lineage_a = load_lineage_log(out_lineage_a) if out_lineage_a.exists() else empty_lineage_log()
+            origin_a = export_continuity_bundle(
+                root,
+                lineage_a,
+                capability_roots=capability_roots_a
+                or ("repo.import-health", "capability.ledger-inventory", "unbound.milestone-gate"),
+                source_ledger_path=str(path),
+                source_lineage_path=str(out_lineage_a),
+            )
+        origin_a["origin_id"] = "origin-a"
+    else:
+        lineage_a = load_lineage_log(out_lineage_a) if out_lineage_a.exists() else empty_lineage_log()
+        if int(lineage_a.get("entry_count") or 0) < 1:
+            lineage_a = append_lineage_entry(
+                empty_lineage_log(),
+                entry_kind="quorum_bootstrap",
+                goal=goal,
+                claims={"origin_id": "origin-a"},
+            )
+            lineage_a = append_lineage_entry(
+                lineage_a,
+                entry_kind="quorum_bootstrap_seal",
+                goal=goal,
+                claims={"origin_id": "origin-a", "sealed": True},
+            )
+            if persist:
+                write_lineage_log(out_lineage_a, lineage_a)
+        origin_a = export_continuity_bundle(
+            root,
+            lineage_a,
+            capability_roots=capability_roots_a
+            or ("repo.import-health", "capability.ledger-inventory", "unbound.milestone-gate"),
+            source_ledger_path=str(path),
+            source_lineage_path=str(out_lineage_a),
+        )
+        origin_a["origin_id"] = "origin-a"
+
+    origin_b = build_alternate_origin_bundle(
+        root,
+        origin_id="origin-b",
+        capability_roots=capability_roots_b
+        or ("repo.import-health", "capability.ledger-inventory"),
+        goal=f"{goal} (honest origin-b)",
+    )
+    origin_c = build_alternate_origin_bundle(
+        root,
+        origin_id="origin-c",
+        capability_roots=capability_roots_c
+        or ("repo.import-health", "capability.ledger-inventory", "unbound.milestone-gate"),
+        goal=f"{goal} (honest origin-c)",
+    )
+
+    origins: list[dict[str, Any]] = [origin_a, origin_b, origin_c]
+    origin_labels = ["origin-a", "origin-b", "origin-c"]
+    byzantine_bundle: dict[str, Any] | None = None
+    if inject_byzantine:
+        # Poison a shared triple-covered member so honest majority (A+B) wins
+        # the contested vote and the Byzantine minority is excluded.
+        byzantine_bundle = inject_byzantine_package_conflict(
+            origin_c,
+            origin_id="origin-byzantine",
+            poison_id="repo.import-health",
+        )
+        # Replace origin-c with byzantine so N=3 with 1 liar (classic majority).
+        origins = [origin_a, origin_b, byzantine_bundle]
+        origin_labels = ["origin-a", "origin-b", "origin-byzantine"]
+
+    if any(not o.get("ok") for o in origins):
+        return {
+            "ok": False,
+            "action": "quorum_plane",
+            "error": "origin_export_failed",
+            "origins": {
+                label: {
+                    "ok": o.get("ok"),
+                    "bundle_hash": o.get("bundle_hash"),
+                    "error": o.get("error"),
+                }
+                for label, o in zip(origin_labels, origins)
+            },
+            "continuity": None
+            if continuity_report is None
+            else {
+                "ok": continuity_report.get("ok"),
+                "resurrected": continuity_report.get("resurrected"),
+            },
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "ledger_path": str(path),
+        }
+
+    quorum = build_quorum_bundle(
+        origins,
+        origin_ids=origin_labels,
+        goal=goal,
+        threshold=threshold,
+    )
+    out_q = (
+        quorum_path.resolve()
+        if quorum_path is not None
+        else (
+            default_quorum_bundle_dir(root)
+            / f"quorum-{quorum.get('quorum_hash') or 'unknown'}.json"
+        )
+    )
+    if persist and quorum.get("ok"):
+        write_quorum_bundle(out_q, quorum)
+        reloaded = load_quorum_bundle(out_q)
+    else:
+        reloaded = quorum
+
+    integrity = verify_quorum_bundle_integrity(reloaded)
+    rehydrate = rehydrate_quorum_bundle(
+        root,
+        reloaded,
+        sandbox_dir=sandbox_dir,
+    )
+    sterile = rehydrate.get("sterile_ledger")
+    if prove_imported and isinstance(sterile, CapabilityLedger):
+        member_ids = list((reloaded.get("package") or {}).get("member_ids") or [])
+        roots = list((reloaded.get("package") or {}).get("roots") or member_ids[:3])
+        prove = prove_sterile_package(
+            root,
+            sterile,
+            roots,
+            command_runner=command_runner,
+            timeout=min(timeout, 120),
+        )
+    else:
+        prove = {
+            "ok": not prove_imported,
+            "action": "prove_sterile_package",
+            "proved_count": 0,
+            "proofs": [],
+            "used_skill_route_discovery": False,
+        }
+
+    post_chain = verify_lineage_chain(
+        reloaded.get("lineage") if isinstance(reloaded.get("lineage"), Mapping) else {}
+    )
+    cert_verify = verify_quorum_certificate(
+        reloaded.get("quorum_certificate")
+        if isinstance(reloaded.get("quorum_certificate"), Mapping)
+        else {}
+    )
+    adversarial = run_quorum_adversarial_checks(reloaded, origins)
+
+    used_skill = bool(
+        (continuity_report or {}).get("used_skill_route_discovery")
+        or any(o.get("used_skill_route_discovery") for o in origins)
+        or quorum.get("used_skill_route_discovery")
+        or integrity.get("used_skill_route_discovery")
+        or rehydrate.get("used_skill_route_discovery")
+        or prove.get("used_skill_route_discovery")
+        or adversarial.get("used_skill_route_discovery")
+        or legacy_pipeline_was_used()
+    )
+    origin_count = int(reloaded.get("origin_count") or 0)
+    byzantine_count = int(reloaded.get("byzantine_count") or 0)
+    quorum_met = bool(reloaded.get("quorum_met"))
+    consensus = (
+        bool(quorum.get("ok"))
+        and bool(integrity.get("ok"))
+        and bool(rehydrate.get("ok"))
+        and bool(prove.get("ok"))
+        and bool(post_chain.get("valid"))
+        and bool(cert_verify.get("valid"))
+        and bool(adversarial.get("ok"))
+        and origin_count >= 3
+        and quorum_met
+        and (byzantine_count >= 1 if inject_byzantine else True)
+        and not used_skill
+    )
+    provisional_ok = consensus and (
+        continuity_report is None or bool(continuity_report.get("ok")) or not run_continuity
+    )
+
+    context = {
+        "used_skill_route_discovery": used_skill,
+        "continuity": {
+            "ok": True
+            if continuity_report is None
+            else bool(continuity_report.get("ok")),
+            "resurrected": True
+            if continuity_report is None
+            else bool(continuity_report.get("resurrected")),
+        },
+        "continuity_plane": {
+            "ok": True
+            if continuity_report is None
+            else bool(continuity_report.get("ok")),
+        },
+        "chain": post_chain,
+        "lineage_chain": post_chain,
+        "lineage": {
+            "ok": bool(post_chain.get("valid")),
+            "entry_count": reloaded.get("lineage_entry_count"),
+            "chain": post_chain,
+        },
+        "quorum": {
+            "ok": provisional_ok,
+            "quorum_met": quorum_met,
+            "quorum_size": reloaded.get("quorum_size") or reloaded.get("agreeing_count"),
+            "agreeing_count": reloaded.get("agreeing_count"),
+            "threshold": reloaded.get("threshold"),
+            "origin_count": origin_count,
+            "byzantine_excluded": byzantine_count >= 1,
+            "byzantine_count": byzantine_count,
+            "byzantine_origins": reloaded.get("byzantine_origins") or [],
+            "quorum_hash": reloaded.get("quorum_hash"),
+            "quorum_cert_valid": bool(cert_verify.get("valid")),
+            "certificate_valid": bool(cert_verify.get("valid")),
+            "quorum_certificate": reloaded.get("quorum_certificate"),
+        },
+        "quorum_plane": {
+            "ok": provisional_ok,
+            "quorum_met": quorum_met,
+            "origin_count": origin_count,
+            "byzantine_excluded": byzantine_count >= 1,
+            "quorum_cert_valid": bool(cert_verify.get("valid")),
+        },
+        "consensus": {
+            "ok": consensus,
+            "quorum_met": quorum_met,
+            "origin_count": origin_count,
+        },
+        "origin_count": origin_count,
+        "quorum_size": reloaded.get("quorum_size") or reloaded.get("agreeing_count"),
+        "quorum_certificate": reloaded.get("quorum_certificate"),
+        "quorum_hash": reloaded.get("quorum_hash"),
+    }
+    quorum_done_when = (
+        "no_skill_route; quorum_ok; quorum_met; min_origins:3; min_quorum:2; "
+        "byzantine_excluded; quorum_cert_valid; chain_valid; "
+        "capability_exists:repo.import-health"
+    )
+    final_contract = evaluate_outcome_contract(
+        root,
+        quorum_done_when,
+        context=context,
+        command_runner=command_runner,
+        timeout=min(timeout, 60),
+        run_programs=False,
+    )
+    ok = (
+        provisional_ok
+        and bool(final_contract.get("ok"))
+        and final_contract.get("met") is True
+    )
+    return {
+        "ok": ok,
+        "action": "quorum_plane",
+        "goal": goal,
+        "done_when": done_when,
+        "quorum_done_when": quorum_done_when,
+        "met": final_contract.get("met"),
+        "machine_checkable": True,
+        "quorum_met": quorum_met,
+        "consensus": consensus,
+        "origin_count": origin_count,
+        "threshold": reloaded.get("threshold"),
+        "agreeing_count": reloaded.get("agreeing_count"),
+        "quorum_size": reloaded.get("quorum_size") or reloaded.get("agreeing_count"),
+        "byzantine_count": byzantine_count,
+        "byzantine_origins": reloaded.get("byzantine_origins") or [],
+        "agreeing_origins": reloaded.get("agreeing_origins") or [],
+        "origins": {
+            label: {
+                "ok": o.get("ok"),
+                "bundle_hash": o.get("bundle_hash"),
+                "package_hash": o.get("package_hash"),
+                "lineage_head_hash": o.get("lineage_head_hash"),
+                "member_count": o.get("member_count"),
+                "byzantine": bool(o.get("byzantine")),
+            }
+            for label, o in zip(origin_labels, origins)
+        },
+        "continuity": None
+        if continuity_report is None
+        else {
+            "ok": continuity_report.get("ok"),
+            "resurrected": continuity_report.get("resurrected"),
+            "bundle": continuity_report.get("bundle"),
+        },
+        "quorum": {
+            "ok": quorum.get("ok"),
+            "quorum_hash": reloaded.get("quorum_hash"),
+            "bundle_path": str(out_q) if persist and quorum.get("ok") else None,
+            "package_hash": reloaded.get("package_hash"),
+            "member_count": reloaded.get("member_count"),
+            "origin_count": origin_count,
+            "threshold": reloaded.get("threshold"),
+            "agreeing_count": reloaded.get("agreeing_count"),
+            "byzantine_count": byzantine_count,
+            "certificate_count": reloaded.get("certificate_count"),
+            "lineage_entry_count": reloaded.get("lineage_entry_count"),
+            "lineage_head_hash": reloaded.get("lineage_head_hash"),
+            "persisted": persist and out_q.exists() if quorum.get("ok") else False,
+        },
+        "integrity": {
+            "ok": integrity.get("ok"),
+            "hash_ok": integrity.get("hash_ok"),
+            "origins_ok": integrity.get("origins_ok"),
+            "distinct_origins_ok": integrity.get("distinct_origins_ok"),
+            "quorum_met": integrity.get("quorum_met"),
+            "package_ok": integrity.get("package_ok"),
+            "poison_free": integrity.get("poison_free"),
+            "chain_valid": (integrity.get("chain") or {}).get("valid"),
+            "quorum_certificate_valid": (integrity.get("quorum_certificate") or {}).get(
+                "valid"
+            ),
+        },
+        "rehydrate": {
+            "ok": rehydrate.get("ok"),
+            "sandbox_dir": rehydrate.get("sandbox_dir"),
+            "lineage_path": rehydrate.get("lineage_path"),
+            "sterile_ledger_path": rehydrate.get("sterile_ledger_path"),
+            "import": rehydrate.get("import"),
+            "chain": rehydrate.get("chain"),
+            "quorum_certificate": rehydrate.get("quorum_certificate"),
+        },
+        "prove": {
+            "ok": prove.get("ok"),
+            "proved_count": prove.get("proved_count"),
+            "proofs": prove.get("proofs"),
+        },
+        "chain": {
+            "ok": post_chain.get("ok"),
+            "valid": post_chain.get("valid"),
+            "entry_count": post_chain.get("entry_count"),
+            "errors": post_chain.get("errors") or [],
+        },
+        "quorum_certificate": {
+            "ok": cert_verify.get("ok"),
+            "valid": cert_verify.get("valid"),
+            "hash_ok": cert_verify.get("hash_ok"),
+            "certificate_hash": cert_verify.get("certificate_hash"),
+            "origin_count": cert_verify.get("origin_count"),
+            "agreeing_count": cert_verify.get("agreeing_count"),
+            "byzantine_count": cert_verify.get("byzantine_count"),
+        },
+        "adversarial": {
+            "ok": adversarial.get("ok"),
+            "intact_ok": adversarial.get("intact_ok"),
+            "dual_origin_fails_as_expected": adversarial.get(
+                "dual_origin_fails_as_expected"
+            ),
+            "tamper_fails_as_expected": adversarial.get("tamper_fails_as_expected"),
+            "below_quorum_fails_as_expected": adversarial.get(
+                "below_quorum_fails_as_expected"
+            ),
+            "broken_cert_fails_as_expected": adversarial.get(
+                "broken_cert_fails_as_expected"
+            ),
+            "poison_fails_as_expected": adversarial.get("poison_fails_as_expected"),
+            "byzantine_excluded_as_expected": adversarial.get(
+                "byzantine_excluded_as_expected"
+            ),
+        },
+        "final_contract": {
+            "ok": final_contract.get("ok"),
+            "met": final_contract.get("met"),
+            "passed_count": final_contract.get("passed_count"),
+            "failed_count": final_contract.get("failed_count"),
+            "failed": final_contract.get("failed"),
+        },
+        "used_skill_route_discovery": used_skill,
+        "ledger_path": str(path),
+    }
+
+
 def run_python_entry(
     entry: str,
     *,
@@ -9975,6 +11495,55 @@ def builtin_federation_plane() -> dict[str, Any]:
     )
 
 
+def builtin_quorum_plane() -> dict[str, Any]:
+    """Invocable capability: ≥3 origins → majority vote → exclude Byzantine → prove."""
+
+    root = Path(__file__).resolve().parents[2]
+    goal = (os.environ.get("BLACKHOLE_MISSION_GOAL") or "").strip() or "quorum multi-origin consensus"
+    done_when = (os.environ.get("BLACKHOLE_DONE_WHEN") or "").strip()
+    max_steps = int(os.environ.get("BLACKHOLE_PROGRAM_MAX_STEPS") or "3")
+    run_continuity = (os.environ.get("BLACKHOLE_QUORUM_RUN_CONTINUITY") or "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    run_recon = (os.environ.get("BLACKHOLE_CONTINUITY_RUN_RECON") or "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    force_synthetic = (os.environ.get("BLACKHOLE_RECONCILE_SYNTHETIC") or "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    inject_byz = (os.environ.get("BLACKHOLE_QUORUM_INJECT_BYZANTINE") or "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    lineage_raw = (os.environ.get("BLACKHOLE_LINEAGE_PATH") or "").strip()
+    lineage_path = Path(lineage_raw) if lineage_raw else None
+    bundle_raw = (os.environ.get("BLACKHOLE_CONTINUITY_BUNDLE_PATH") or "").strip()
+    bundle_path = Path(bundle_raw) if bundle_raw else None
+    q_raw = (os.environ.get("BLACKHOLE_QUORUM_BUNDLE_PATH") or "").strip()
+    quorum_path = Path(q_raw) if q_raw else None
+    return run_quorum_plane(
+        root,
+        goal,
+        done_when,
+        max_steps=max_steps,
+        run_continuity=run_continuity,
+        run_reconciliation=run_recon,
+        force_synthetic_drift=force_synthetic,
+        inject_byzantine=inject_byz,
+        lineage_path=lineage_path,
+        bundle_path=bundle_path,
+        quorum_path=quorum_path,
+        timeout=480,
+    )
+
+
 def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
     """Install the minimal compoundable bootstrap set if missing."""
 
@@ -10990,6 +12559,82 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "continuity",
                 "lineage",
                 "transfer",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.quorum-plane",
+            name="Byzantine-tolerant quorum consensus plane",
+            description=(
+                "Closed quorum plane: ≥3 independent continuity origins → strict-majority "
+                "member vote → Byzantine minority conflict exclusion → quorum lineage seal → "
+                "quorum certificate → sterile rehydrate+prove → adversarial dual-origin/"
+                "below-quorum/tamper/poison falsification — past dual-origin hard-fail federation."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_quorum_plane",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_quorum_plane; '
+                "from pathlib import Path; "
+                "import os; "
+                "os.environ['BLACKHOLE_MISSION_GOAL']='quorum multi-origin consensus'; "
+                "os.environ['BLACKHOLE_DONE_WHEN']="
+                "'min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; "
+                "os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; "
+                "os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='1'; "
+                "os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='1'; "
+                "os.environ['BLACKHOLE_RECONCILE_SYNTHETIC']='1'; "
+                "os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; "
+                "os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-quorum.json')); "
+                "os.environ.setdefault('BLACKHOLE_CONTINUITY_BUNDLE_PATH', str(Path('artifacts')/'continuity-bundles'/'proof-quorum-origin-a.json')); "
+                "os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-quorum.json')); "
+                "r=builtin_quorum_plane(); assert r['ok'] and r.get('action')=='quorum_plane' "
+                "and r.get('quorum_met') is True and int(r.get('origin_count') or 0) >= 3 "
+                "and int(r.get('byzantine_count') or 0) >= 1 "
+                "and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') "
+                "and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') "
+                "and r.get('quorum_certificate',{}).get('valid') "
+                "and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.outcome-contract",
+                "capability.contract-plane",
+                "capability.assurance-plane",
+                "capability.sovereignty-plane",
+                "capability.lineage-plane",
+                "capability.reconciliation-plane",
+                "capability.continuity-plane",
+                "capability.federation-plane",
+                "capability.transfer-plane",
+                "capability.ablation-proof",
+                "capability.adversarial-contract",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "src/blackhole_agent/unbound.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Quorum plane forms strict-majority consensus across ≥3 continuity origins, "
+                "excludes Byzantine minority package conflicts, seals a re-verifiable quorum "
+                "certificate, sterile re-proves, and adversarially falsifies below-quorum/"
+                "tamper/poison without skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "quorum",
+                "consensus",
+                "byzantine",
+                "multi-origin",
+                "federation",
+                "continuity",
+                "lineage",
                 "evidence",
             ),
             created_at=utc_now_iso(),

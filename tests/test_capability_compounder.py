@@ -1681,6 +1681,113 @@ def test_reconciliation_plane_heals_synthetic_drift():
     assert path.name == "ledger.json"
 
 
+def test_quorum_plane_majority_byzantine_and_adversarial():
+    """Quorum plane votes ≥3 origins, excludes Byzantine poison, and falsifies below-quorum."""
+
+    from blackhole_agent.capability_compounder import (
+        ensure_seeded_ledger,
+        load_quorum_bundle,
+        parse_outcome_contract,
+        run_quorum_plane,
+        verify_quorum_bundle_integrity,
+    )
+
+    repo = Path(__file__).resolve().parents[1]
+    path, ledger = ensure_seeded_ledger(repo)
+    assert "capability.quorum-plane" in ledger.capabilities
+    assert "capability.federation-plane" in ledger.capabilities
+
+    parsed = parse_outcome_contract(
+        "no_skill_route; quorum_ok; quorum_met; min_origins:3; min_quorum:2; "
+        "byzantine_excluded; quorum_cert_valid; chain_valid"
+    )
+    kinds = {item["kind"] for item in parsed["predicates"]}
+    assert "quorum_ok" in kinds
+    assert "quorum_met" in kinds
+    assert "byzantine_excluded" in kinds
+    assert "quorum_cert_valid" in kinds
+    assert "min_quorum" in kinds
+
+    lineage_path = repo / "artifacts" / "capability-lineage" / "test-quorum-plane.json"
+    quorum_path = repo / "artifacts" / "quorum-bundles" / "test-quorum-plane.json"
+    for target in (lineage_path, quorum_path):
+        if target.exists():
+            target.unlink()
+
+    plane = run_quorum_plane(
+        repo,
+        "quorum multi-origin consensus",
+        "min_capabilities:5; capability_exists:repo.import-health; no_skill_route",
+        max_steps=3,
+        run_continuity=False,
+        run_reconciliation=False,
+        inject_byzantine=True,
+        lineage_path=lineage_path,
+        quorum_path=quorum_path,
+        timeout=180,
+    )
+    assert plane["ok"] is True, plane
+    assert plane["action"] == "quorum_plane"
+    assert plane["quorum_met"] is True
+    assert int(plane["origin_count"]) >= 3
+    assert int(plane["byzantine_count"]) >= 1
+    assert "origin-byzantine" in (plane.get("byzantine_origins") or [])
+    assert plane["integrity"]["ok"] is True
+    assert plane["integrity"]["poison_free"] is True
+    assert plane["rehydrate"]["ok"] is True
+    assert plane["prove"]["ok"] is True
+    assert int(plane["prove"]["proved_count"]) >= 1
+    assert plane["chain"]["valid"] is True
+    assert plane["quorum_certificate"]["valid"] is True
+    assert plane["adversarial"]["ok"] is True
+    assert plane["adversarial"]["dual_origin_fails_as_expected"] is True
+    assert plane["adversarial"]["below_quorum_fails_as_expected"] is True
+    assert plane["adversarial"]["byzantine_excluded_as_expected"] is True
+    assert plane["used_skill_route_discovery"] is False
+    assert quorum_path.is_file()
+
+    loaded = load_quorum_bundle(quorum_path)
+    assert verify_quorum_bundle_integrity(loaded)["ok"] is True
+    assert loaded.get("quorum_hash")
+    assert int(loaded.get("origin_count") or 0) >= 3
+    assert int(loaded.get("byzantine_count") or 0) >= 1
+
+    env = {
+        **dict(**{k: v for k, v in __import__("os").environ.items()}),
+        "PYTHONPATH": str(repo / "src"),
+    }
+    quorum_cli = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "blackhole_agent.unbound",
+            "capability",
+            "quorum",
+            "--repo-path",
+            str(repo),
+            "--no-continuity",
+            "--lineage-path",
+            str(repo / "artifacts" / "capability-lineage" / "cli-quorum.json"),
+            "--quorum-path",
+            str(repo / "artifacts" / "quorum-bundles" / "cli-quorum.json"),
+            "--timeout-seconds",
+            "180",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=240,
+    )
+    assert quorum_cli.returncode == 0, quorum_cli.stdout + quorum_cli.stderr
+    quorum_payload = json.loads(quorum_cli.stdout)
+    assert quorum_payload["ok"] is True
+    assert quorum_payload["action"] == "quorum_plane"
+    assert quorum_payload["quorum_met"] is True
+    assert int(quorum_payload["byzantine_count"]) >= 1
+    assert path.name == "ledger.json"
+
+
 def test_continuity_plane_export_rehydrate_and_adversarial():
     """Continuity plane exports a bundle, rehydrates, re-proves, and falsifies tamper."""
 

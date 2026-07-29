@@ -2880,12 +2880,380 @@
       },
       "package_hash": "7878a785b9718369",
       "parent_hash": "f16f7d2a927ffb7d36a37ad5"
+    },
+    {
+      "certificate_hash": "7c3b53047f610fee4434be44",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T154400Z-ae124944\\artifacts\\sovereignty-certificates\\sovereignty-7c3b53047f610fee4434be44.json",
+      "claims": {
+        "ablation_ok": true,
+        "adversarial_ok": true,
+        "assurance_ok": true,
+        "contract_met": true,
+        "contract_ok": true,
+        "machine_checkable": true,
+        "no_skill_route": true,
+        "transfer_ok": true
+      },
+      "detail": {
+        "sovereignty_ok": true,
+        "verify_valid": true
+      },
+      "entry_hash": "a15932ca6a472801d8865ec3",
+      "entry_kind": "sovereignty_certificate",
+      "goal": "Build a Byzantine-tolerant quorum consensus plane past dual-origin hard-fail federation: N≥3 independent continuity origins form strict-majority package consensus, exclude a Byzantine minority that poisons shared members, seal a re-verifiable quorum certificate, sterile rehydrate+prove, and adversarially falsify dual-origin/below-quorum/tamper/poison without skill-route discovery.",
+      "index": 95,
+      "issued_at": "2026-07-29T15:51:52.364508Z",
+      "metrics": {
+        "count": 86,
+        "primitive_count": 37,
+        "proved_count": 85,
+        "proved_ratio": 0.9883720930232558
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "fd25d4680c334bae6d429dd4"
+    },
+    {
+      "certificate_hash": "7c3b53047f610fee4434be44",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T154400Z-ae124944\\artifacts\\sovereignty-certificates\\sovereignty-7c3b53047f610fee4434be44.json",
+      "claims": {
+        "no_skill_route": true,
+        "sealed": true
+      },
+      "detail": {
+        "certificate_hash": "7c3b53047f610fee4434be44",
+        "chain_pre_valid": true,
+        "live_count": 86,
+        "live_proved": 85,
+        "prior_head": "a15932ca6a472801d8865ec3"
+      },
+      "entry_hash": "ccd288ea69c1839797e961b8",
+      "entry_kind": "continuity_seal",
+      "goal": "seal:Build a Byzantine-tolerant quorum consensus plane past dual-origin hard-fail federation: N≥3 independent continuity origins form strict-majority package consensus, exclude a Byzantine minority that poisons shared members, seal a re-verifiable quorum certificate, sterile rehydrate+prove, and adversarially falsify dual-origin/below-quorum/tamper/poison without skill-route discovery.",
+      "index": 96,
+      "issued_at": "2026-07-29T15:51:52.365737Z",
+      "metrics": {
+        "count": 86,
+        "primitive_count": 37,
+        "proved_count": 85,
+        "proved_ratio": 0.9883720930232558
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "a15932ca6a472801d8865ec3"
+    },
+    {
+      "certificate_hash": "000000000000000000000000",
+      "certificate_path": "artifacts\\capability-lineage\\__synthetic_missing_certificate__.json",
+      "claims": {
+        "ablation_ok": true,
+        "adversarial_ok": true,
+        "assurance_ok": true,
+        "contract_ok": true,
+        "no_skill_route": true,
+        "synthetic_drift": true,
+        "transfer_ok": true
+      },
+      "detail": {
+        "reason": "force_detectable_drift",
+        "synthetic_drift": true
+      },
+      "entry_hash": "973351b393a9ee7f91dd94bd",
+      "entry_kind": "sovereignty_certificate",
+      "goal": "synthetic-drift-injection",
+      "index": 97,
+      "issued_at": "2026-07-29T15:51:52.430534Z",
+      "metrics": {
+        "count": 1000000000,
+        "primitive_count": 1000000000,
+        "proved_count": 1000000000,
+        "proved_ratio": 1.0
+      },
+      "package_hash": "synthetic-drift",
+      "parent_hash": "ccd288ea69c1839797e961b8"
+    },
+    {
+      "certificate_hash": "000000000000000000000000",
+      "certificate_path": "artifacts\\capability-lineage\\__synthetic_missing_certificate__.json",
+      "claims": {
+        "diagnosed": true,
+        "drift": true
+      },
+      "detail": {
+        "pre_drift": {
+          "drift": true,
+          "reasons": [
+            "missing_certificate_path",
+            "count_regressed live=86 recorded=1000000000"
+          ]
+        },
+        "reason_count": 2,
+        "reasons": [
+          "missing_certificate_path",
+          "count_regressed live=86 recorded=1000000000"
+        ]
+      },
+      "entry_hash": "242760f4cbd5460dbd602e9a",
+      "entry_kind": "drift_diagnosis",
+      "goal": "diagnose:reconcile:Build a Byzantine-tolerant quorum consensus plane past dual-origin hard-fail federation: N≥3 independent continuity origins form strict-majority package consensus, exclude a Byzantine minority that poisons shared members, seal a re-verifiable quorum certificate, sterile rehydrate+prove, and adversarially falsify dual-origin/below-quorum/tamper/poison without skill-route discovery.",
+      "index": 98,
+      "issued_at": "2026-07-29T15:51:54.116753Z",
+      "metrics": {
+        "count": 86,
+        "primitive_count": 37,
+        "proved_count": 85,
+        "proved_ratio": 0.9883720930232558
+      },
+      "package_hash": "",
+      "parent_hash": "973351b393a9ee7f91dd94bd"
+    },
+    {
+      "certificate_hash": "89393f779d9193c64b000be2",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T154400Z-ae124944\\artifacts\\sovereignty-certificates\\sovereignty-89393f779d9193c64b000be2.json",
+      "claims": {
+        "ablation_ok": true,
+        "adversarial_ok": true,
+        "assurance_ok": true,
+        "contract_met": true,
+        "contract_ok": true,
+        "machine_checkable": true,
+        "no_skill_route": true,
+        "transfer_ok": true
+      },
+      "detail": {
+        "healed": true,
+        "sovereignty_ok": true,
+        "verify_valid": true
+      },
+      "entry_hash": "045c43742f980e21774028f4",
+      "entry_kind": "heal_certificate",
+      "goal": "heal:reconcile:Build a Byzantine-tolerant quorum consensus plane past dual-origin hard-fail federation: N≥3 independent continuity origins form strict-majority package consensus, exclude a Byzantine minority that poisons shared members, seal a re-verifiable quorum certificate, sterile rehydrate+prove, and adversarially falsify dual-origin/below-quorum/tamper/poison without skill-route discovery.",
+      "index": 99,
+      "issued_at": "2026-07-29T15:51:54.116923Z",
+      "metrics": {
+        "count": 86,
+        "primitive_count": 37,
+        "proved_count": 85,
+        "proved_ratio": 0.9883720930232558
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "242760f4cbd5460dbd602e9a"
+    },
+    {
+      "certificate_hash": "89393f779d9193c64b000be2",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T154400Z-ae124944\\artifacts\\sovereignty-certificates\\sovereignty-89393f779d9193c64b000be2.json",
+      "claims": {
+        "healed": true,
+        "no_skill_route": true,
+        "sealed": true
+      },
+      "detail": {
+        "certificate_hash": "89393f779d9193c64b000be2",
+        "live_count": 86,
+        "live_proved": 85,
+        "prior_head_before_heal_seal": "045c43742f980e21774028f4"
+      },
+      "entry_hash": "d3d365f8b44f87b181c1389c",
+      "entry_kind": "heal_seal",
+      "goal": "heal-seal:reconcile:Build a Byzantine-tolerant quorum consensus plane past dual-origin hard-fail federation: N≥3 independent continuity origins form strict-majority package consensus, exclude a Byzantine minority that poisons shared members, seal a re-verifiable quorum certificate, sterile rehydrate+prove, and adversarially falsify dual-origin/below-quorum/tamper/poison without skill-route discovery.",
+      "index": 100,
+      "issued_at": "2026-07-29T15:51:54.117034Z",
+      "metrics": {
+        "count": 86,
+        "primitive_count": 37,
+        "proved_count": 85,
+        "proved_ratio": 0.9883720930232558
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "045c43742f980e21774028f4"
+    },
+    {
+      "certificate_hash": "8c73bc84793f95da47d0f502",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T154400Z-ae124944\\artifacts\\sovereignty-certificates\\sovereignty-8c73bc84793f95da47d0f502.json",
+      "claims": {
+        "ablation_ok": true,
+        "adversarial_ok": true,
+        "assurance_ok": true,
+        "contract_met": true,
+        "contract_ok": true,
+        "machine_checkable": true,
+        "no_skill_route": true,
+        "transfer_ok": true
+      },
+      "detail": {
+        "sovereignty_ok": true,
+        "verify_valid": true
+      },
+      "entry_hash": "0ffd1dba0695e0e2f14be4a8",
+      "entry_kind": "sovereignty_certificate",
+      "goal": "Closed remaining done_when gaps from iteration 1: stamped capability.quorum-plane as proved (exit 0), re-ran plane/CLI/pytest, and confirmed outcome predicates and Byzantine-tolerant majority consensus end-to-end.",
+      "index": 101,
+      "issued_at": "2026-07-29T15:53:07.123746Z",
+      "metrics": {
+        "count": 86,
+        "primitive_count": 37,
+        "proved_count": 86,
+        "proved_ratio": 1.0
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "d3d365f8b44f87b181c1389c"
+    },
+    {
+      "certificate_hash": "8c73bc84793f95da47d0f502",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T154400Z-ae124944\\artifacts\\sovereignty-certificates\\sovereignty-8c73bc84793f95da47d0f502.json",
+      "claims": {
+        "no_skill_route": true,
+        "sealed": true
+      },
+      "detail": {
+        "certificate_hash": "8c73bc84793f95da47d0f502",
+        "chain_pre_valid": true,
+        "live_count": 86,
+        "live_proved": 86,
+        "prior_head": "0ffd1dba0695e0e2f14be4a8"
+      },
+      "entry_hash": "c5016629eac2de7fe53b3991",
+      "entry_kind": "continuity_seal",
+      "goal": "seal:Closed remaining done_when gaps from iteration 1: stamped capability.quorum-plane as proved (exit 0), re-ran plane/CLI/pytest, and confirmed outcome predicates and Byzantine-tolerant majority consensus end-to-end.",
+      "index": 102,
+      "issued_at": "2026-07-29T15:53:07.126717Z",
+      "metrics": {
+        "count": 86,
+        "primitive_count": 37,
+        "proved_count": 86,
+        "proved_ratio": 1.0
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "0ffd1dba0695e0e2f14be4a8"
+    },
+    {
+      "certificate_hash": "000000000000000000000000",
+      "certificate_path": "artifacts\\capability-lineage\\__synthetic_missing_certificate__.json",
+      "claims": {
+        "ablation_ok": true,
+        "adversarial_ok": true,
+        "assurance_ok": true,
+        "contract_ok": true,
+        "no_skill_route": true,
+        "synthetic_drift": true,
+        "transfer_ok": true
+      },
+      "detail": {
+        "reason": "force_detectable_drift",
+        "synthetic_drift": true
+      },
+      "entry_hash": "ec8c82e6a0b498be569ff32d",
+      "entry_kind": "sovereignty_certificate",
+      "goal": "synthetic-drift-injection",
+      "index": 103,
+      "issued_at": "2026-07-29T15:53:07.208177Z",
+      "metrics": {
+        "count": 1000000000,
+        "primitive_count": 1000000000,
+        "proved_count": 1000000000,
+        "proved_ratio": 1.0
+      },
+      "package_hash": "synthetic-drift",
+      "parent_hash": "c5016629eac2de7fe53b3991"
+    },
+    {
+      "certificate_hash": "000000000000000000000000",
+      "certificate_path": "artifacts\\capability-lineage\\__synthetic_missing_certificate__.json",
+      "claims": {
+        "diagnosed": true,
+        "drift": true
+      },
+      "detail": {
+        "pre_drift": {
+          "drift": true,
+          "reasons": [
+            "missing_certificate_path",
+            "count_regressed live=86 recorded=1000000000"
+          ]
+        },
+        "reason_count": 2,
+        "reasons": [
+          "missing_certificate_path",
+          "count_regressed live=86 recorded=1000000000"
+        ]
+      },
+      "entry_hash": "f6e3de440f32b856622e25be",
+      "entry_kind": "drift_diagnosis",
+      "goal": "diagnose:reconcile:Closed remaining done_when gaps from iteration 1: stamped capability.quorum-plane as proved (exit 0), re-ran plane/CLI/pytest, and confirmed outcome predicates and Byzantine-tolerant majority consensus end-to-end.",
+      "index": 104,
+      "issued_at": "2026-07-29T15:53:08.874737Z",
+      "metrics": {
+        "count": 86,
+        "primitive_count": 37,
+        "proved_count": 86,
+        "proved_ratio": 1.0
+      },
+      "package_hash": "",
+      "parent_hash": "ec8c82e6a0b498be569ff32d"
+    },
+    {
+      "certificate_hash": "25e4d82b298c48e7bb1b8fc1",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T154400Z-ae124944\\artifacts\\sovereignty-certificates\\sovereignty-25e4d82b298c48e7bb1b8fc1.json",
+      "claims": {
+        "ablation_ok": true,
+        "adversarial_ok": true,
+        "assurance_ok": true,
+        "contract_met": true,
+        "contract_ok": true,
+        "machine_checkable": true,
+        "no_skill_route": true,
+        "transfer_ok": true
+      },
+      "detail": {
+        "healed": true,
+        "sovereignty_ok": true,
+        "verify_valid": true
+      },
+      "entry_hash": "13111f8a992370cfbb77074f",
+      "entry_kind": "heal_certificate",
+      "goal": "heal:reconcile:Closed remaining done_when gaps from iteration 1: stamped capability.quorum-plane as proved (exit 0), re-ran plane/CLI/pytest, and confirmed outcome predicates and Byzantine-tolerant majority consensus end-to-end.",
+      "index": 105,
+      "issued_at": "2026-07-29T15:53:08.874934Z",
+      "metrics": {
+        "count": 86,
+        "primitive_count": 37,
+        "proved_count": 86,
+        "proved_ratio": 1.0
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "f6e3de440f32b856622e25be"
+    },
+    {
+      "certificate_hash": "25e4d82b298c48e7bb1b8fc1",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T154400Z-ae124944\\artifacts\\sovereignty-certificates\\sovereignty-25e4d82b298c48e7bb1b8fc1.json",
+      "claims": {
+        "healed": true,
+        "no_skill_route": true,
+        "sealed": true
+      },
+      "detail": {
+        "certificate_hash": "25e4d82b298c48e7bb1b8fc1",
+        "live_count": 86,
+        "live_proved": 86,
+        "prior_head_before_heal_seal": "13111f8a992370cfbb77074f"
+      },
+      "entry_hash": "7b9376b397bd2249daa93fc1",
+      "entry_kind": "heal_seal",
+      "goal": "heal-seal:reconcile:Closed remaining done_when gaps from iteration 1: stamped capability.quorum-plane as proved (exit 0), re-ran plane/CLI/pytest, and confirmed outcome predicates and Byzantine-tolerant majority consensus end-to-end.",
+      "index": 106,
+      "issued_at": "2026-07-29T15:53:08.875054Z",
+      "metrics": {
+        "count": 86,
+        "primitive_count": 37,
+        "proved_count": 86,
+        "proved_ratio": 1.0
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "13111f8a992370cfbb77074f"
     }
   ],
-  "entry_count": 95,
-  "head_hash": "fd25d4680c334bae6d429dd4",
+  "entry_count": 107,
+  "head_hash": "7b9376b397bd2249daa93fc1",
   "kind": "capability_lineage",
   "ok": true,
   "schema_version": 1,
-  "updated_at": "2026-07-29T15:13:50.756441Z"
+  "updated_at": "2026-07-29T15:53:09.113299Z"
 }

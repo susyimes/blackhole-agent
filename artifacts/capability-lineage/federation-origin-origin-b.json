@@ -14,15 +14,15 @@
         "origin_id": "origin-b",
         "plane": "federation"
       },
-      "entry_hash": "631b995531af3638427fdc57",
+      "entry_hash": "e5cda1dd76f6f86484f5e033",
       "entry_kind": "federation_origin_seed",
-      "goal": "Build a multi-origin federated continuity plane that merges independent continuity bundles (ledger packages + lineages + certificates) into one re-provable federated ledger with dual-origin lineage seal, federation certificate, sterile rehydrate+prove, and adversarial conflict/tamper/single-origin falsification — past single-origin cold-start only. (alternate origin)",
+      "goal": "Closed remaining done_when gaps from iteration 1: stamped capability.quorum-plane as proved (exit 0), re-ran plane/CLI/pytest, and confirmed outcome predicates and Byzantine-tolerant majority consensus end-to-end. (honest origin-b)",
       "index": 0,
-      "issued_at": "2026-07-29T15:13:51.532061Z",
+      "issued_at": "2026-07-29T15:53:10.108779Z",
       "metrics": {
-        "count": 85,
-        "primitive_count": 36,
-        "proved_count": 85,
+        "count": 86,
+        "primitive_count": 37,
+        "proved_count": 86,
         "proved_ratio": null
       },
       "package_hash": "8ece9182045d973a",
@@ -42,11 +42,11 @@
         ],
         "origin_id": "origin-b"
       },
-      "entry_hash": "3165265c2f841b4952ece331",
+      "entry_hash": "6d7a859947108b6a05c52215",
       "entry_kind": "federation_origin_seal",
-      "goal": "Build a multi-origin federated continuity plane that merges independent continuity bundles (ledger packages + lineages + certificates) into one re-provable federated ledger with dual-origin lineage seal, federation certificate, sterile rehydrate+prove, and adversarial conflict/tamper/single-origin falsification — past single-origin cold-start only. (alternate origin)",
+      "goal": "Closed remaining done_when gaps from iteration 1: stamped capability.quorum-plane as proved (exit 0), re-ran plane/CLI/pytest, and confirmed outcome predicates and Byzantine-tolerant majority consensus end-to-end. (honest origin-b)",
       "index": 1,
-      "issued_at": "2026-07-29T15:13:51.532111Z",
+      "issued_at": "2026-07-29T15:53:10.108812Z",
       "metrics": {
         "count": 2,
         "primitive_count": null,
@@ -54,13 +54,13 @@
         "proved_ratio": null
       },
       "package_hash": "8ece9182045d973a",
-      "parent_hash": "631b995531af3638427fdc57"
+      "parent_hash": "e5cda1dd76f6f86484f5e033"
     }
   ],
   "entry_count": 2,
-  "head_hash": "3165265c2f841b4952ece331",
+  "head_hash": "6d7a859947108b6a05c52215",
   "kind": "capability_lineage",
   "ok": true,
   "schema_version": 1,
-  "updated_at": "2026-07-29T15:13:51.532507Z"
+  "updated_at": "2026-07-29T15:53:10.109125Z"
 }
