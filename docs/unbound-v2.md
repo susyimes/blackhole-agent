@@ -210,6 +210,13 @@ uv run blackhole-unbound capability integrity --limit 16
   natural drift is absent, a synthetic drift inject proves the heal path.
   Predicates `reconciliation_ok`, `healed_ok`, and `min_heal_entries:N` gate
   machine-checkable completion.
+- `capability continuity` is the cold-start resurrection plane: reconciliation
+  → export portable continuity bundle (ledger package + lineage + sovereignty
+  certificates) → rehydrate into a sterile sandbox with certificate restore →
+  re-prove package members → adversarial falsification of tampered/empty
+  bundles (`capability.continuity-plane`). Bundles land under
+  `artifacts/continuity-bundles/`. Predicates `continuity_ok`, `resurrected_ok`,
+  `bundle_valid`, and `min_bundle_certs:N` gate machine-checkable completion.
 
 Promoted compositions are tagged `composed`/`promoted` and become ordinary
 ledger citizens that later turns can list, prove, run, and compose further.

@@ -29,7 +29,7 @@
         "ablation",
         "evidence"
       ],
-      "updated_at": "2026-07-29T13:55:53.119477Z"
+      "updated_at": "2026-07-29T14:36:32.299926Z"
     },
     "capability.adaptive-grow": {
       "behavior_paths": [
@@ -61,7 +61,7 @@
         "growth",
         "adaptive"
       ],
-      "updated_at": "2026-07-29T13:55:53.118995Z"
+      "updated_at": "2026-07-29T14:36:32.299361Z"
     },
     "capability.adversarial-contract": {
       "behavior_paths": [
@@ -94,7 +94,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-07-29T13:55:53.119558Z"
+      "updated_at": "2026-07-29T14:36:32.300025Z"
     },
     "capability.assurance-plane": {
       "behavior_paths": [
@@ -131,7 +131,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-07-29T13:55:53.119598Z"
+      "updated_at": "2026-07-29T14:36:32.300076Z"
     },
     "capability.autonomic-cycle": {
       "behavior_paths": [
@@ -166,7 +166,7 @@
         "autonomic",
         "novelty"
       ],
-      "updated_at": "2026-07-29T13:55:53.119168Z"
+      "updated_at": "2026-07-29T14:36:32.299558Z"
     },
     "capability.composed-core-health": {
       "behavior_paths": [
@@ -1657,6 +1657,51 @@
       ],
       "updated_at": "2026-07-29T08:24:14.543116Z"
     },
+    "capability.continuity-plane": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_compounder.py",
+        "src/blackhole_agent/unbound.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Continuity plane packages ledger+lineage+certificates into a portable cold-start bundle, rehydrates into a sterile sandbox, re-proves members, and adversarially falsifies broken bundles without skill-route.",
+      "created_at": "2026-07-29T14:32:28.078481Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.outcome-contract",
+        "capability.contract-plane",
+        "capability.assurance-plane",
+        "capability.sovereignty-plane",
+        "capability.lineage-plane",
+        "capability.reconciliation-plane",
+        "capability.transfer-plane",
+        "capability.ablation-proof",
+        "capability.adversarial-contract"
+      ],
+      "description": "Closed continuity plane: reconciliation-healed lineage → export portable bundle (ledger package + lineage + sovereignty certificates) → rehydrate into sterile sandbox with cert restore → re-prove members → adversarial bundle falsification — cold-start resurrection past in-place heal only.",
+      "entry": "blackhole_agent.capability_compounder:builtin_continuity_plane",
+      "id": "capability.continuity-plane",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-07-29T14:34:25.062126Z",
+      "name": "Cold-start continuity resurrection plane",
+      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_continuity_plane; from pathlib import Path; import os; root=Path(__file__).resolve().parents[2] if '__file__' in dir() else Path('.').resolve(); os.environ['BLACKHOLE_MISSION_GOAL']='health inventory milestone'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;min_primitives:3;capability_exists:repo.import-health;capability_proved:repo.import-health;program_passes:repo.import-health;no_skill_route'; os.environ['BLACKHOLE_MISSION_GROW_BUDGET']='0'; os.environ['BLACKHOLE_MISSION_ABSORB']='0'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_CONTRACT_RUN_MISSION']='0'; os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='1'; os.environ['BLACKHOLE_RECONCILE_SYNTHETIC']='1'; os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-continuity.json')); os.environ.setdefault('BLACKHOLE_CONTINUITY_BUNDLE_PATH', str(Path('artifacts')/'continuity-bundles'/'proof-continuity.json')); r=builtin_continuity_plane(); assert r['ok'] and r.get('action')=='continuity_plane' and r.get('resurrected') is True and r.get('bundle',{}).get('ok') and r.get('rehydrate',{}).get('ok') and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') and r.get('drift',{}).get('drift') is False and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "bootstrap",
+        "compounder",
+        "continuity",
+        "resurrection",
+        "rehydrate",
+        "bundle",
+        "reconciliation",
+        "lineage",
+        "transfer",
+        "evidence"
+      ],
+      "updated_at": "2026-07-29T14:36:32.300275Z"
+    },
     "capability.contract-plane": {
       "behavior_paths": [
         "src/blackhole_agent/capability_compounder.py",
@@ -1690,7 +1735,7 @@
         "evidence",
         "growth"
       ],
-      "updated_at": "2026-07-29T13:55:53.119436Z"
+      "updated_at": "2026-07-29T14:36:32.299865Z"
     },
     "capability.distill-ledger": {
       "behavior_paths": [
@@ -1720,7 +1765,7 @@
         "growth",
         "distill"
       ],
-      "updated_at": "2026-07-29T13:55:53.119124Z"
+      "updated_at": "2026-07-29T14:36:32.299509Z"
     },
     "capability.frontier-novelty": {
       "behavior_paths": [
@@ -1750,7 +1795,7 @@
         "growth",
         "novelty"
       ],
-      "updated_at": "2026-07-29T13:55:53.119082Z"
+      "updated_at": "2026-07-29T14:36:32.299460Z"
     },
     "capability.goal-plan": {
       "behavior_paths": [
@@ -1779,7 +1824,7 @@
         "mission",
         "planner"
       ],
-      "updated_at": "2026-07-29T13:55:53.119211Z"
+      "updated_at": "2026-07-29T14:36:32.299607Z"
     },
     "capability.growth-loop": {
       "behavior_paths": [
@@ -1810,7 +1855,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-07-29T13:55:53.118949Z"
+      "updated_at": "2026-07-29T14:36:32.299311Z"
     },
     "capability.ledger-integrity": {
       "behavior_paths": [
@@ -1838,7 +1883,7 @@
         "compounder",
         "integrity"
       ],
-      "updated_at": "2026-07-29T13:55:53.119039Z"
+      "updated_at": "2026-07-29T14:36:32.299411Z"
     },
     "capability.ledger-inventory": {
       "behavior_paths": [
@@ -1864,7 +1909,7 @@
         "bootstrap",
         "compounder"
       ],
-      "updated_at": "2026-07-29T13:55:53.118811Z"
+      "updated_at": "2026-07-29T14:36:32.299154Z"
     },
     "capability.lineage-plane": {
       "behavior_paths": [
@@ -1905,7 +1950,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-07-29T13:55:53.119681Z"
+      "updated_at": "2026-07-29T14:36:32.300174Z"
     },
     "capability.mission-plane": {
       "behavior_paths": [
@@ -1940,7 +1985,7 @@
         "growth",
         "second-wave"
       ],
-      "updated_at": "2026-07-29T13:55:53.119343Z"
+      "updated_at": "2026-07-29T14:36:32.299753Z"
     },
     "capability.outcome-contract": {
       "behavior_paths": [
@@ -1972,7 +2017,7 @@
         "contract",
         "evidence"
       ],
-      "updated_at": "2026-07-29T13:55:53.119395Z"
+      "updated_at": "2026-07-29T14:36:32.299815Z"
     },
     "capability.program-run": {
       "behavior_paths": [
@@ -2002,7 +2047,7 @@
         "mission",
         "program"
       ],
-      "updated_at": "2026-07-29T13:55:53.119255Z"
+      "updated_at": "2026-07-29T14:36:32.299656Z"
     },
     "capability.reconciliation-plane": {
       "behavior_paths": [
@@ -2045,7 +2090,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-07-29T13:55:53.119722Z"
+      "updated_at": "2026-07-29T14:36:32.300225Z"
     },
     "capability.scout-gaps": {
       "behavior_paths": [
@@ -2073,7 +2118,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-07-29T13:55:53.118904Z"
+      "updated_at": "2026-07-29T14:36:32.299261Z"
     },
     "capability.second-wave-absorb": {
       "behavior_paths": [
@@ -2107,7 +2152,7 @@
         "second-wave",
         "domain"
       ],
-      "updated_at": "2026-07-29T13:55:53.119298Z"
+      "updated_at": "2026-07-29T14:36:32.299705Z"
     },
     "capability.sovereignty-plane": {
       "behavior_paths": [
@@ -2146,7 +2191,7 @@
         "certificate",
         "evidence"
       ],
-      "updated_at": "2026-07-29T13:55:53.119639Z"
+      "updated_at": "2026-07-29T14:36:32.300124Z"
     },
     "capability.transfer-plane": {
       "behavior_paths": [
@@ -2177,7 +2222,7 @@
         "transfer",
         "package"
       ],
-      "updated_at": "2026-07-29T13:55:53.119518Z"
+      "updated_at": "2026-07-29T14:36:32.299977Z"
     },
     "domain.ci-security": {
       "behavior_paths": [
@@ -2483,7 +2528,7 @@
         "bootstrap",
         "evolution-route"
       ],
-      "updated_at": "2026-07-29T13:55:53.118859Z"
+      "updated_at": "2026-07-29T14:36:32.299208Z"
     },
     "repo.import-health": {
       "behavior_paths": [
@@ -2498,7 +2543,7 @@
       "id": "repo.import-health",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-07-29T13:55:52.938198Z",
+      "last_proved_at": "2026-07-29T14:36:31.200372Z",
       "name": "Repository import health",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_repo_import_health; r=builtin_repo_import_health(); assert r['ok'] and not r['skill_route_symbols_in_compounder']\"",
       "source_milestone": null,
@@ -2507,7 +2552,7 @@
         "bootstrap",
         "health"
       ],
-      "updated_at": "2026-07-29T13:55:53.118685Z"
+      "updated_at": "2026-07-29T14:36:32.299018Z"
     },
     "unbound.milestone-gate": {
       "behavior_paths": [
@@ -2532,9 +2577,9 @@
         "bootstrap",
         "unbound"
       ],
-      "updated_at": "2026-07-29T13:55:53.118759Z"
+      "updated_at": "2026-07-29T14:36:32.299094Z"
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-07-29T13:55:53.119816Z"
+  "updated_at": "2026-07-29T14:36:32.300374Z"
 }

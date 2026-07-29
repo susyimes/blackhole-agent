@@ -56,6 +56,7 @@ from blackhole_agent.capability_compounder import (
     run_end_to_end_demo,
     run_growth_loop,
     run_mission_plane,
+    run_continuity_plane,
     run_lineage_plane,
     run_reconciliation_plane,
     run_sovereignty_plane,
@@ -1037,6 +1038,9 @@ def evaluate_milestone(
     eval_contract = (
         cc.evaluate_outcome_contract if cc is not None else evaluate_outcome_contract
     )
+    run_continuity = (
+        cc.run_continuity_plane if cc is not None else run_continuity_plane
+    )
     run_recon = (
         cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
     )
@@ -1092,6 +1096,15 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_continuity = bool(
+                        kinds
+                        & {
+                            "continuity_ok",
+                            "resurrected_ok",
+                            "bundle_valid",
+                            "min_bundle_certs",
+                        }
+                    )
                     needs_reconciliation = bool(
                         kinds
                         & {
@@ -1117,7 +1130,149 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     )
-                    if needs_reconciliation:
+                    if needs_continuity:
+                        run_mission = "mission_plane_ok" in kinds
+                        plane_done_when = strip_context(
+                            contract_text,
+                            keep_mission=run_mission,
+                        )
+                        plane_done_when = "; ".join(
+                            token
+                            for token in (part.strip() for part in plane_done_when.split(";"))
+                            if token
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        continuity = run_continuity(
+                            workspace,
+                            goal=decision.mission_goal or decision.summary or "complete",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            absorb_ready=False,
+                            grow_budget=0,
+                            run_mission=run_mission,
+                            run_reconciliation=True,
+                            force_synthetic_drift=True,
+                            timeout=360,
+                        )
+                        heal = (continuity.get("reconciliation") or {}).get("heal") or {}
+                        cert_count = int(
+                            (continuity.get("bundle") or {}).get("certificate_count") or 0
+                        )
+                        context = {
+                            "used_skill_route_discovery": bool(
+                                continuity.get("used_skill_route_discovery")
+                            ),
+                            "assurance": {"ok": True},
+                            "assurance_plane": {"ok": True},
+                            "sovereignty": {
+                                "ok": bool((continuity.get("reconciliation") or {}).get("ok"))
+                            },
+                            "sovereignty_plane": {
+                                "ok": bool((continuity.get("reconciliation") or {}).get("ok"))
+                            },
+                            "lineage": {
+                                "ok": True,
+                                "entry_count": (continuity.get("lineage") or {}).get(
+                                    "entry_count"
+                                ),
+                                "chain": continuity.get("chain") or {},
+                                "drift": continuity.get("drift") or {},
+                            },
+                            "lineage_plane": {
+                                "ok": True,
+                                "entry_count": (continuity.get("lineage") or {}).get(
+                                    "entry_count"
+                                ),
+                            },
+                            "chain": continuity.get("chain") or {},
+                            "lineage_chain": continuity.get("chain") or {},
+                            "drift": continuity.get("drift") or {},
+                            "lineage_drift": continuity.get("drift") or {},
+                            "lineage_entry_count": (continuity.get("lineage") or {}).get(
+                                "entry_count"
+                            ),
+                            "reconciliation": {
+                                "ok": bool(
+                                    (continuity.get("reconciliation") or {}).get("ok")
+                                ),
+                                "healed": bool(heal.get("healed")),
+                                "healed_ok": bool(heal.get("healed")),
+                                "heal_entry_count": heal.get("heal_entry_count"),
+                                "heal_entry_kinds": heal.get("heal_entry_kinds") or [],
+                            },
+                            "reconciliation_plane": {
+                                "ok": bool(
+                                    (continuity.get("reconciliation") or {}).get("ok")
+                                ),
+                                "healed": bool(heal.get("healed")),
+                                "heal_entry_count": heal.get("heal_entry_count"),
+                            },
+                            "heal": {
+                                "ok": bool(heal.get("healed") or heal.get("ok")),
+                                "healed": bool(heal.get("healed")),
+                                "heal_entry_count": heal.get("heal_entry_count"),
+                                "heal_entry_kinds": heal.get("heal_entry_kinds") or [],
+                            },
+                            "heal_entry_count": heal.get("heal_entry_count"),
+                            "continuity": {
+                                "ok": bool(continuity.get("ok")),
+                                "resurrected": bool(continuity.get("resurrected")),
+                                "resurrected_ok": bool(continuity.get("resurrected")),
+                                "rehydrate_ok": bool(
+                                    (continuity.get("rehydrate") or {}).get("ok")
+                                ),
+                                "bundle_valid": bool(
+                                    (continuity.get("integrity") or {}).get("ok")
+                                ),
+                                "bundle_hash": (continuity.get("bundle") or {}).get(
+                                    "bundle_hash"
+                                ),
+                                "bundle_cert_count": cert_count,
+                                "certificate_count": cert_count,
+                                "proved": bool((continuity.get("prove") or {}).get("ok")),
+                                "chain_valid": bool(
+                                    (continuity.get("chain") or {}).get("valid")
+                                ),
+                            },
+                            "continuity_plane": {
+                                "ok": bool(continuity.get("ok")),
+                                "resurrected": bool(continuity.get("resurrected")),
+                                "bundle_hash": (continuity.get("bundle") or {}).get(
+                                    "bundle_hash"
+                                ),
+                                "bundle_cert_count": cert_count,
+                            },
+                            "resurrection": {
+                                "ok": bool(continuity.get("resurrected")),
+                                "resurrected": bool(continuity.get("resurrected")),
+                            },
+                            "bundle": {
+                                "ok": bool((continuity.get("bundle") or {}).get("ok")),
+                                "bundle_valid": bool(
+                                    (continuity.get("integrity") or {}).get("ok")
+                                ),
+                                "bundle_hash": (continuity.get("bundle") or {}).get(
+                                    "bundle_hash"
+                                ),
+                                "bundle_cert_count": cert_count,
+                            },
+                            "bundle_cert_count": cert_count,
+                            "bundle_hash": (continuity.get("bundle") or {}).get(
+                                "bundle_hash"
+                            ),
+                        }
+                        if not continuity.get("ok"):
+                            reasons.append(
+                                "continuity plane failed for machine-checkable complete"
+                            )
+                    elif needs_reconciliation:
                         run_mission = "mission_plane_ok" in kinds
                         plane_done_when = strip_context(
                             contract_text,
@@ -3282,6 +3437,87 @@ def capability_assurance(
         )
     except Exception as error:
         console.print(f"Assurance plane failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "continuity",
+    help=(
+        "Continuity resurrection plane: reconcile → export portable ledger+lineage+cert "
+        "bundle → rehydrate sterile sandbox → re-prove members → adversarial bundle checks."
+    ),
+)
+def capability_continuity(
+    goal: str = typer.Option(
+        "health inventory milestone",
+        "--goal",
+        help="Mission goal for reconciliation/continuity phases.",
+    ),
+    done_when: str = typer.Option(
+        "",
+        "--done-when",
+        help="Contract done_when predicates for inner reconciliation phases.",
+    ),
+    capability_id: str = typer.Option(
+        "repo.import-health",
+        "--id",
+        help="Capability id for assurance ablation phase.",
+    ),
+    lineage_path: Path | None = typer.Option(
+        None,
+        "--lineage-path",
+        help="Where to read/write the append-only lineage log JSON.",
+    ),
+    certificate_path: Path | None = typer.Option(
+        None,
+        "--certificate-path",
+        help="Where to write healing sovereignty certificate JSON.",
+    ),
+    bundle_path: Path | None = typer.Option(
+        None,
+        "--bundle-path",
+        help="Where to write the portable continuity bundle JSON.",
+    ),
+    with_mission: bool = typer.Option(
+        False,
+        "--with-mission",
+        help="Include mission plane inside reconciliation (default: skip for speed).",
+    ),
+    no_recon: bool = typer.Option(
+        False,
+        "--no-recon",
+        help="Reuse existing lineage without running reconciliation first.",
+    ),
+    no_synthetic: bool = typer.Option(
+        False,
+        "--no-synthetic",
+        help="Do not inject synthetic drift when natural drift is absent.",
+    ),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    timeout_seconds: int = typer.Option(360, "--timeout-seconds", min=1),
+) -> None:
+    root = repo_path.resolve()
+    try:
+        result = run_continuity_plane(
+            root,
+            goal,
+            done_when,
+            capability_id=capability_id,
+            certificate_path=certificate_path,
+            lineage_path=lineage_path,
+            bundle_path=bundle_path,
+            run_mission=with_mission,
+            run_reconciliation=not no_recon,
+            force_synthetic_drift=not no_synthetic,
+            absorb_ready=False,
+            grow_budget=0,
+            timeout=timeout_seconds,
+        )
+    except Exception as error:
+        console.print(f"Continuity plane failed: {error}", style="red")
         raise typer.Exit(1) from error
     console.print_json(data=result)
     if not result.get("ok") or result.get("used_skill_route_discovery"):

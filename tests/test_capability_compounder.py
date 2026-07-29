@@ -1679,3 +1679,116 @@ def test_reconciliation_plane_heals_synthetic_drift():
     assert recon_payload["heal"]["healed"] is True
     assert recon_payload["chain"]["valid"] is True
     assert path.name == "ledger.json"
+
+
+def test_continuity_plane_export_rehydrate_and_adversarial():
+    """Continuity plane exports a bundle, rehydrates, re-proves, and falsifies tamper."""
+
+    from blackhole_agent.capability_compounder import (
+        ensure_seeded_ledger,
+        load_continuity_bundle,
+        parse_outcome_contract,
+        run_continuity_plane,
+        verify_continuity_bundle_integrity,
+    )
+
+    repo = Path(__file__).resolve().parents[1]
+    path, ledger = ensure_seeded_ledger(repo)
+    assert "capability.continuity-plane" in ledger.capabilities
+    assert "capability.reconciliation-plane" in ledger.capabilities
+
+    parsed = parse_outcome_contract(
+        "no_skill_route; continuity_ok; resurrected_ok; bundle_valid; "
+        "min_bundle_certs:1; chain_valid; no_drift"
+    )
+    kinds = {item["kind"] for item in parsed["predicates"]}
+    assert "continuity_ok" in kinds
+    assert "resurrected_ok" in kinds
+    assert "bundle_valid" in kinds
+    assert "min_bundle_certs" in kinds
+
+    lineage_path = (
+        repo / "artifacts" / "capability-lineage" / "test-continuity-plane.json"
+    )
+    bundle_path = (
+        repo / "artifacts" / "continuity-bundles" / "test-continuity-plane.json"
+    )
+    for target in (lineage_path, bundle_path):
+        if target.exists():
+            target.unlink()
+
+    plane = run_continuity_plane(
+        repo,
+        "health inventory milestone",
+        (
+            "min_capabilities:5; min_primitives:3; capability_exists:repo.import-health; "
+            "capability_proved:repo.import-health; program_passes:repo.import-health; "
+            "no_skill_route"
+        ),
+        max_steps=3,
+        absorb_ready=False,
+        grow_budget=0,
+        run_mission=False,
+        run_reconciliation=True,
+        force_synthetic_drift=True,
+        lineage_path=lineage_path,
+        bundle_path=bundle_path,
+        timeout=360,
+    )
+    assert plane["ok"] is True, plane
+    assert plane["action"] == "continuity_plane"
+    assert plane["resurrected"] is True
+    assert plane["bundle"]["ok"] is True
+    assert plane["bundle"]["persisted"] is True
+    assert int(plane["bundle"]["certificate_count"]) >= 1
+    assert plane["integrity"]["ok"] is True
+    assert plane["integrity"]["hash_ok"] is True
+    assert plane["rehydrate"]["ok"] is True
+    assert plane["prove"]["ok"] is True
+    assert int(plane["prove"]["proved_count"]) >= 1
+    assert plane["chain"]["valid"] is True
+    assert plane["drift"]["drift"] is False
+    assert plane["adversarial"]["ok"] is True
+    assert plane["adversarial"]["tamper_fails_as_expected"] is True
+    assert plane["adversarial"]["empty_lineage_fails_as_expected"] is True
+    assert plane["used_skill_route_discovery"] is False
+    assert bundle_path.is_file()
+
+    loaded = load_continuity_bundle(bundle_path)
+    assert verify_continuity_bundle_integrity(loaded)["ok"] is True
+    assert loaded.get("bundle_hash")
+    assert int(loaded.get("lineage_entry_count") or 0) >= 1
+
+    env = {
+        **dict(**{k: v for k, v in __import__("os").environ.items()}),
+        "PYTHONPATH": str(repo / "src"),
+    }
+    continuity_cli = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "blackhole_agent.unbound",
+            "capability",
+            "continuity",
+            "--repo-path",
+            str(repo),
+            "--lineage-path",
+            str(repo / "artifacts" / "capability-lineage" / "cli-continuity.json"),
+            "--bundle-path",
+            str(repo / "artifacts" / "continuity-bundles" / "cli-continuity.json"),
+            "--timeout-seconds",
+            "360",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=420,
+    )
+    assert continuity_cli.returncode == 0, continuity_cli.stdout + continuity_cli.stderr
+    continuity_payload = json.loads(continuity_cli.stdout)
+    assert continuity_payload["ok"] is True
+    assert continuity_payload["action"] == "continuity_plane"
+    assert continuity_payload["resurrected"] is True
+    assert continuity_payload["rehydrate"]["ok"] is True
+    assert path.name == "ledger.json"

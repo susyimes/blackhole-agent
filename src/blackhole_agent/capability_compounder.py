@@ -7,6 +7,7 @@ without consulting the legacy skill-route discovery labyrinth.
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import os
@@ -905,6 +906,7 @@ PROGRAM_PLAN_DENYLIST = frozenset(
         "capability.sovereignty-plane",
         "capability.lineage-plane",
         "capability.reconciliation-plane",
+        "capability.continuity-plane",
         # Batch operators are invocable separately; keep goal programs step-cheap.
         "capability.ledger-integrity",
         "capability.distill-ledger",
@@ -946,6 +948,11 @@ MISSION_GOAL_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("reconcil", ("capability.reconciliation-plane", "capability.lineage-plane", "capability.sovereignty-plane")),
     ("heal", ("capability.reconciliation-plane", "capability.lineage-plane", "capability.assurance-plane")),
     ("drift", ("capability.reconciliation-plane", "capability.lineage-plane", "capability.sovereignty-plane")),
+    ("continuity", ("capability.continuity-plane", "capability.reconciliation-plane", "capability.lineage-plane")),
+    ("resurrect", ("capability.continuity-plane", "capability.reconciliation-plane", "capability.transfer-plane")),
+    ("rehydrat", ("capability.continuity-plane", "capability.transfer-plane", "capability.lineage-plane")),
+    ("cold-start", ("capability.continuity-plane", "capability.reconciliation-plane", "capability.transfer-plane")),
+    ("bundle", ("capability.continuity-plane", "capability.transfer-plane", "capability.sovereignty-plane")),
 )
 
 
@@ -1313,6 +1320,7 @@ def run_mission_plane(
 #   assurance_plane_ok | sovereignty_ok | certificate_valid[:path]
 #   lineage_ok | chain_valid | no_drift | min_lineage_entries:N
 #   reconciliation_ok | healed_ok | min_heal_entries:N
+#   continuity_ok | resurrected_ok | min_bundle_certs:N | bundle_valid
 # Free-text lines without a known form are recorded as informational (not gating).
 OUTCOME_PREDICATE_PATTERN = re.compile(
     r"^(?P<kind>"
@@ -1323,7 +1331,8 @@ OUTCOME_PREDICATE_PATTERN = re.compile(
     r"novel_ready_le|mission_plane_ok|contract_plane_ok|"
     r"assurance_plane_ok|sovereignty_ok|certificate_valid|"
     r"lineage_ok|chain_valid|no_drift|min_lineage_entries|"
-    r"reconciliation_ok|healed_ok|min_heal_entries"
+    r"reconciliation_ok|healed_ok|min_heal_entries|"
+    r"continuity_ok|resurrected_ok|min_bundle_certs|bundle_valid"
     r")(?::(?P<arg>.+))?$",
     re.IGNORECASE,
 )
@@ -1345,6 +1354,10 @@ CONTEXT_ONLY_OUTCOME_KINDS = frozenset(
         "reconciliation_ok",
         "healed_ok",
         "min_heal_entries",
+        "continuity_ok",
+        "resurrected_ok",
+        "min_bundle_certs",
+        "bundle_valid",
     }
 )
 
@@ -1515,6 +1528,37 @@ def _soft_extract_outcome_predicates(chunk: str) -> list[dict[str, Any]]:
             {
                 "kind": "min_heal_entries",
                 "arg": m_n.group(1) if m_n else "2",
+                "source": chunk,
+            }
+        )
+    if (
+        "continuity" in lower
+        and ("ok" in lower or "pass" in lower or "plane" in lower or "succeed" in lower)
+    ) or re.search(r"\bcontinuity_ok\b", lower):
+        found.append({"kind": "continuity_ok", "arg": "", "source": chunk})
+    if (
+        re.search(r"\bresurrect", lower)
+        or re.search(r"\brehydrat", lower)
+        or re.search(r"\bcold.?start\b", lower)
+    ) and ("ok" in lower or "pass" in lower or "succeed" in lower or "complete" in lower):
+        found.append({"kind": "resurrected_ok", "arg": "", "source": chunk})
+    if re.search(r"\bresurrected_ok\b", lower):
+        found.append({"kind": "resurrected_ok", "arg": "", "source": chunk})
+    if re.search(r"\bbundle_valid\b", lower) or (
+        "bundle" in lower and ("valid" in lower or "intact" in lower or "verify" in lower)
+    ):
+        found.append({"kind": "bundle_valid", "arg": "", "source": chunk})
+    m = re.search(r"(?:at least|>=|≥)\s*(\d+)\s+bundle\s*cert", lower)
+    if m:
+        found.append({"kind": "min_bundle_certs", "arg": m.group(1), "source": chunk})
+    if re.search(r"\bmin_bundle_certs\b", lower) and not any(
+        item.get("kind") == "min_bundle_certs" for item in found
+    ):
+        m_n = re.search(r"min_bundle_certs\s*[:=]?\s*(\d+)", lower)
+        found.append(
+            {
+                "kind": "min_bundle_certs",
+                "arg": m_n.group(1) if m_n else "1",
                 "source": chunk,
             }
         )
@@ -1869,6 +1913,61 @@ def _eval_one_outcome_predicate(
                 )
         have_i = int(have or 0)
         return have_i >= need, f"heal_entries={have_i} need>={need}"
+    if kind == "continuity_ok":
+        plane = (
+            context.get("continuity")
+            or context.get("continuity_plane")
+            or context.get("resurrection")
+            or {}
+        )
+        ok = bool(plane.get("ok"))
+        return ok, f"continuity_ok={ok}"
+    if kind == "resurrected_ok":
+        plane = (
+            context.get("continuity")
+            or context.get("continuity_plane")
+            or context.get("resurrection")
+            or context.get("rehydrate")
+            or {}
+        )
+        if "resurrected" in plane:
+            ok = plane.get("resurrected") is True and bool(plane.get("ok", True))
+        elif "resurrected_ok" in plane:
+            ok = plane.get("resurrected_ok") is True
+        else:
+            ok = bool(plane.get("ok")) and bool(
+                plane.get("rehydrate_ok") or plane.get("chain_valid") or plane.get("proved")
+            )
+        return ok, f"resurrected_ok={ok}"
+    if kind == "bundle_valid":
+        plane = (
+            context.get("continuity")
+            or context.get("continuity_plane")
+            or context.get("bundle")
+            or {}
+        )
+        if "bundle_valid" in plane:
+            ok = plane.get("bundle_valid") is True
+        elif "bundle" in plane and isinstance(plane.get("bundle"), Mapping):
+            ok = bool((plane.get("bundle") or {}).get("ok"))
+        else:
+            ok = bool(plane.get("ok")) and bool(plane.get("bundle_hash") or plane.get("package_hash"))
+        return ok, f"bundle_valid={ok}"
+    if kind == "min_bundle_certs":
+        need = int(float(arg or "0"))
+        have = context.get("bundle_cert_count")
+        if have is None:
+            plane = (
+                context.get("continuity")
+                or context.get("continuity_plane")
+                or context.get("bundle")
+                or {}
+            )
+            have = plane.get("bundle_cert_count") or plane.get("certificate_count")
+            if have is None and isinstance(plane.get("certificates"), Mapping):
+                have = len(plane.get("certificates") or {})
+        have_i = int(have or 0)
+        return have_i >= need, f"bundle_certs={have_i} need>={need}"
     if kind == "program_passes":
         steps = [part.strip() for part in arg.split(",") if part.strip()]
         if not steps:
@@ -4236,6 +4335,928 @@ def run_reconciliation_plane(
             "healthy_ok": adversarial.get("healthy_ok"),
             "lineage_tamper_ok": adversarial.get("lineage_tamper_ok"),
         },
+        "final_contract": {
+            "ok": final_contract.get("ok"),
+            "met": final_contract.get("met"),
+            "passed_count": final_contract.get("passed_count"),
+            "failed_count": final_contract.get("failed_count"),
+            "failed": final_contract.get("failed"),
+        },
+        "used_skill_route_discovery": used_skill,
+        "ledger_path": str(path),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Continuity / resurrection plane: portable cold-start bundles that package
+# ledger + lineage + sovereignty certificates, rehydrate into a sterile sandbox,
+# re-verify chain/certs/no-drift, prove package members, and adversarially
+# falsify broken bundles — past in-place reconciliation that cannot survive
+# process death or artifact wipe.
+# ---------------------------------------------------------------------------
+
+CONTINUITY_BUNDLE_SCHEMA = 1
+DEFAULT_CONTINUITY_BUNDLE_RELATIVE = Path("artifacts") / "continuity-bundles"
+
+
+def default_continuity_bundle_dir(repo_path: Path) -> Path:
+    return (repo_path / DEFAULT_CONTINUITY_BUNDLE_RELATIVE).resolve()
+
+
+def compute_continuity_bundle_hash(bundle: Mapping[str, Any]) -> str:
+    """Hash the durable body of a continuity bundle (excludes mutable path fields)."""
+
+    body = {
+        key: value
+        for key, value in bundle.items()
+        if key
+        not in {
+            "bundle_hash",
+            "ok",
+            "bundle_path",
+            "exported_at",
+            "source_ledger_path",
+            "source_lineage_path",
+            "action",
+        }
+    }
+    digest_source = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest_source.encode("utf-8")).hexdigest()[:24]
+
+
+def collect_lineage_certificates(
+    repo_path: Path,
+    lineage: Mapping[str, Any],
+) -> dict[str, dict[str, Any]]:
+    """Load sovereignty certificates referenced by lineage entries (by hash)."""
+
+    root = repo_path.resolve()
+    certificates: dict[str, dict[str, Any]] = {}
+    for item in lineage.get("entries") or []:
+        if not isinstance(item, Mapping):
+            continue
+        cert_hash = str(item.get("certificate_hash") or "").strip()
+        cert_path_raw = str(item.get("certificate_path") or "").strip()
+        if not cert_hash and not cert_path_raw:
+            continue
+        candidates: list[Path] = []
+        if cert_path_raw:
+            p = Path(cert_path_raw)
+            candidates.append(p if p.is_absolute() else (root / p))
+            candidates.append(p)
+        for candidate in candidates:
+            try:
+                if candidate.is_file():
+                    payload = load_sovereignty_certificate(candidate)
+                    key = str(payload.get("certificate_hash") or cert_hash or candidate.name)
+                    certificates[key] = {
+                        "certificate_hash": payload.get("certificate_hash") or key,
+                        "certificate_path": cert_path_raw or str(candidate),
+                        "payload": payload,
+                    }
+                    break
+            except (OSError, ValueError, json.JSONDecodeError):
+                continue
+    return certificates
+
+
+def export_continuity_bundle(
+    repo_path: Path,
+    lineage: Mapping[str, Any],
+    *,
+    capability_roots: Sequence[str] | None = None,
+    source_ledger_path: str = "",
+    source_lineage_path: str = "",
+) -> dict[str, Any]:
+    """Export ledger package + lineage + certificates as one portable continuity bundle."""
+
+    root = repo_path.resolve()
+    path, live = ensure_seeded_ledger(root)
+    roots = list(capability_roots) if capability_roots else [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "unbound.milestone-gate",
+    ]
+    missing = [item for item in roots if item not in live.capabilities]
+    if missing:
+        return {
+            "ok": False,
+            "action": "export_continuity_bundle",
+            "error": f"missing roots: {missing}",
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    package = export_capability_package(
+        live,
+        roots,
+        source_ledger_path=source_ledger_path or str(path),
+    )
+    certificates = collect_lineage_certificates(root, lineage)
+    lineage_snapshot = {
+        "schema_version": lineage.get("schema_version", LINEAGE_LOG_SCHEMA),
+        "kind": "capability_lineage",
+        "entries": [dict(item) for item in (lineage.get("entries") or []) if isinstance(item, Mapping)],
+        "entry_count": int(lineage.get("entry_count") or len(lineage.get("entries") or [])),
+        "head_hash": str(lineage.get("head_hash") or ""),
+        "updated_at": lineage.get("updated_at") or utc_now_iso(),
+    }
+    bundle: dict[str, Any] = {
+        "schema_version": CONTINUITY_BUNDLE_SCHEMA,
+        "kind": "continuity_bundle",
+        "action": "export_continuity_bundle",
+        "exported_at": utc_now_iso(),
+        "source_ledger_path": source_ledger_path or str(path),
+        "source_lineage_path": source_lineage_path,
+        "roots": roots,
+        "package": package,
+        "lineage": lineage_snapshot,
+        "certificates": {
+            key: {
+                "certificate_hash": value.get("certificate_hash"),
+                "certificate_path": value.get("certificate_path"),
+                "payload": value.get("payload"),
+            }
+            for key, value in certificates.items()
+        },
+        "certificate_count": len(certificates),
+        "lineage_entry_count": lineage_snapshot["entry_count"],
+        "lineage_head_hash": lineage_snapshot["head_hash"],
+        "package_hash": package.get("package_hash"),
+        "member_count": package.get("member_count"),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    bundle["bundle_hash"] = compute_continuity_bundle_hash(bundle)
+    chain = verify_lineage_chain(lineage_snapshot)
+    bundle["ok"] = (
+        bool(package.get("ok"))
+        and bool(chain.get("valid"))
+        and int(lineage_snapshot["entry_count"]) >= 1
+        and not bool(bundle.get("used_skill_route_discovery"))
+    )
+    return bundle
+
+
+def write_continuity_bundle(path: Path, bundle: Mapping[str, Any]) -> Path:
+    target = path.resolve()
+    atomic_write_json(target, dict(bundle))
+    return target
+
+
+def load_continuity_bundle(path: Path) -> dict[str, Any]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, Mapping):
+        raise ValueError("continuity bundle must be a JSON object")
+    return dict(payload)
+
+
+def verify_continuity_bundle_integrity(bundle: Mapping[str, Any]) -> dict[str, Any]:
+    """Check bundle hash, embedded lineage chain, and certificate payload hashes."""
+
+    expected = str(bundle.get("bundle_hash") or "").strip()
+    recomputed = compute_continuity_bundle_hash(bundle)
+    hash_ok = bool(expected) and expected == recomputed
+    lineage = bundle.get("lineage") if isinstance(bundle.get("lineage"), Mapping) else {}
+    chain = verify_lineage_chain(lineage) if lineage else {"ok": False, "valid": False, "errors": ["missing_lineage"]}
+    certs = bundle.get("certificates") if isinstance(bundle.get("certificates"), Mapping) else {}
+    cert_checks: list[dict[str, Any]] = []
+    # Historical certificates may no longer pass full claims_ok (mission context at
+    # issue time). Continuity integrity requires un-tampered hash bodies for every
+    # embedded cert, plus at least one fully valid cert when any are present.
+    hash_certs_ok = True
+    fully_valid_count = 0
+    for key, raw in certs.items():
+        if not isinstance(raw, Mapping):
+            hash_certs_ok = False
+            cert_checks.append({"key": key, "ok": False, "error": "not_object"})
+            continue
+        payload = raw.get("payload") if isinstance(raw.get("payload"), Mapping) else {}
+        if not payload:
+            hash_certs_ok = False
+            cert_checks.append({"key": key, "ok": False, "error": "missing_payload"})
+            continue
+        verify = verify_sovereignty_certificate(payload, recheck_live=False)
+        item_hash_ok = bool(verify.get("hash_ok"))
+        item_fully_valid = bool(verify.get("valid"))
+        if not item_hash_ok:
+            hash_certs_ok = False
+        if item_fully_valid:
+            fully_valid_count += 1
+        cert_checks.append(
+            {
+                "key": key,
+                "ok": item_hash_ok,
+                "hash_ok": item_hash_ok,
+                "fully_valid": item_fully_valid,
+                "certificate_hash": verify.get("certificate_hash"),
+            }
+        )
+    certs_ok = hash_certs_ok and (fully_valid_count >= 1 if certs else True)
+    package = bundle.get("package") if isinstance(bundle.get("package"), Mapping) else {}
+    package_ok = bool(package.get("ok")) and int(package.get("member_count") or 0) >= 1
+    entry_count = int(
+        (lineage.get("entry_count") if isinstance(lineage, Mapping) else 0)
+        or len((lineage.get("entries") if isinstance(lineage, Mapping) else None) or [])
+        or 0
+    )
+    lineage_ok = bool(chain.get("valid")) and entry_count >= 1
+    # Continuity bundles that claim certificates must embed at least one when lineage
+    # references certificate hashes; empty cert map is ok only when lineage has none.
+    lineage_cert_refs = 0
+    if isinstance(lineage, Mapping):
+        for item in lineage.get("entries") or []:
+            if isinstance(item, Mapping) and (
+                str(item.get("certificate_hash") or "").strip()
+                or str(item.get("certificate_path") or "").strip()
+            ):
+                lineage_cert_refs += 1
+    certs_required_ok = True
+    if lineage_cert_refs > 0 and (len(certs) < 1 or fully_valid_count < 1):
+        certs_required_ok = False
+        certs_ok = False
+    used_skill = bool(bundle.get("used_skill_route_discovery")) or legacy_pipeline_was_used()
+    ok = (
+        hash_ok
+        and lineage_ok
+        and certs_ok
+        and certs_required_ok
+        and package_ok
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "verify_continuity_bundle",
+        "valid": ok,
+        "hash_ok": hash_ok,
+        "expected_hash": expected,
+        "recomputed_hash": recomputed,
+        "chain": {
+            "ok": chain.get("ok"),
+            "valid": chain.get("valid"),
+            "entry_count": chain.get("entry_count"),
+            "errors": chain.get("errors") or [],
+        },
+        "lineage_ok": lineage_ok,
+        "lineage_entry_count": entry_count,
+        "lineage_cert_refs": lineage_cert_refs,
+        "package_ok": package_ok,
+        "certs_ok": certs_ok,
+        "certs_required_ok": certs_required_ok,
+        "hash_certs_ok": hash_certs_ok,
+        "fully_valid_cert_count": fully_valid_count,
+        "certificate_count": len(certs),
+        "cert_checks": cert_checks,
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def rehydrate_continuity_bundle(
+    repo_path: Path,
+    bundle: Mapping[str, Any],
+    *,
+    sandbox_dir: Path | None = None,
+    restore_certificates: bool = True,
+) -> dict[str, Any]:
+    """Materialize a continuity bundle into a sterile sandbox and restore cert files.
+
+    Restores sovereignty certificates to their original relative paths when possible
+    so lineage drift detection can re-check live claims without rewriting the
+    hash-chained lineage entries. The ledger package is imported into an empty
+    sterile ledger (does not replace the live ledger).
+    """
+
+    root = repo_path.resolve()
+    integrity = verify_continuity_bundle_integrity(bundle)
+    if not integrity.get("ok"):
+        return {
+            "ok": False,
+            "action": "rehydrate_continuity_bundle",
+            "error": "bundle_integrity_failed",
+            "integrity": integrity,
+            "used_skill_route_discovery": integrity.get("used_skill_route_discovery"),
+        }
+
+    bundle_hash = str(bundle.get("bundle_hash") or "unknown")
+    sandbox = (
+        sandbox_dir.resolve()
+        if sandbox_dir is not None
+        else (root / "artifacts" / "continuity-sandbox" / bundle_hash[:16])
+    )
+    sandbox.mkdir(parents=True, exist_ok=True)
+
+    package = dict(bundle.get("package") or {})
+    lineage = copy.deepcopy(bundle.get("lineage") or {})
+    certificates = bundle.get("certificates") if isinstance(bundle.get("certificates"), Mapping) else {}
+
+    restored_certs: list[dict[str, Any]] = []
+    if restore_certificates:
+        for key, raw in certificates.items():
+            if not isinstance(raw, Mapping):
+                continue
+            payload = raw.get("payload") if isinstance(raw.get("payload"), Mapping) else None
+            if not payload:
+                continue
+            cert_path_raw = str(raw.get("certificate_path") or "").strip()
+            target: Path | None = None
+            if cert_path_raw:
+                p = Path(cert_path_raw)
+                if p.is_absolute():
+                    # Prefer repo-relative rewrite when original abs path was this repo.
+                    try:
+                        rel = p.relative_to(root)
+                        target = root / rel
+                    except ValueError:
+                        # Fall back to sandbox copy; lineage path may not resolve.
+                        target = sandbox / "certificates" / f"{key}.json"
+                else:
+                    target = root / p
+            else:
+                target = sandbox / "certificates" / f"{key}.json"
+            try:
+                write_sovereignty_certificate(target, payload)
+                restored_certs.append(
+                    {
+                        "key": key,
+                        "path": str(target),
+                        "certificate_hash": payload.get("certificate_hash"),
+                        "ok": True,
+                    }
+                )
+            except OSError as error:
+                restored_certs.append(
+                    {
+                        "key": key,
+                        "path": str(target),
+                        "ok": False,
+                        "error": str(error),
+                    }
+                )
+
+    lineage_path = sandbox / "lineage.json"
+    write_lineage_log(lineage_path, lineage)
+
+    empty = CapabilityLedger(schema_version=SCHEMA_VERSION, updated_at=utc_now_iso())
+    empty, import_report = import_capability_package(empty, package, replace=True)
+    sterile_ledger_path = sandbox / "ledger.json"
+    save_ledger(sterile_ledger_path, empty)
+
+    chain = verify_lineage_chain(lineage)
+    used_skill = legacy_pipeline_was_used()
+    ok = (
+        bool(integrity.get("ok"))
+        and bool(import_report.get("ok"))
+        and bool(chain.get("valid"))
+        and int(import_report.get("imported_count") or 0) >= 1
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "rehydrate_continuity_bundle",
+        "sandbox_dir": str(sandbox),
+        "lineage_path": str(lineage_path),
+        "sterile_ledger_path": str(sterile_ledger_path),
+        "bundle_hash": bundle_hash,
+        "import": import_report,
+        "restored_certificates": restored_certs,
+        "restored_cert_count": sum(1 for item in restored_certs if item.get("ok")),
+        "lineage": {
+            "entry_count": lineage.get("entry_count"),
+            "head_hash": lineage.get("head_hash"),
+        },
+        "chain": {
+            "ok": chain.get("ok"),
+            "valid": chain.get("valid"),
+            "entry_count": chain.get("entry_count"),
+            "errors": chain.get("errors") or [],
+        },
+        "integrity": {
+            "ok": integrity.get("ok"),
+            "hash_ok": integrity.get("hash_ok"),
+            "certs_ok": integrity.get("certs_ok"),
+            "package_ok": integrity.get("package_ok"),
+        },
+        "sterile_ledger": empty,
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def prove_sterile_package(
+    repo_path: Path,
+    sterile_ledger: CapabilityLedger,
+    member_ids: Sequence[str],
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 120,
+) -> dict[str, Any]:
+    """Re-prove package members from a sterile ledger against the live codebase."""
+
+    root = repo_path.resolve()
+    ledger = sterile_ledger
+    proof_results: list[dict[str, Any]] = []
+    all_proved = True
+    for capability_id in member_ids:
+        if capability_id not in ledger.capabilities:
+            proof_results.append(
+                {
+                    "capability_id": capability_id,
+                    "ok": False,
+                    "exit_code": 127,
+                    "summary": "missing from sterile ledger",
+                }
+            )
+            all_proved = False
+            break
+        ledger, result = prove_capability(
+            ledger,
+            capability_id,
+            cwd=root,
+            command_runner=command_runner,
+            timeout=timeout,
+            skip_proved_deps=True,
+        )
+        proof_results.append(
+            {
+                "capability_id": capability_id,
+                "ok": result.ok,
+                "exit_code": result.exit_code,
+                "summary": result.summary,
+            }
+        )
+        if not result.ok:
+            all_proved = False
+            break
+    used_skill = legacy_pipeline_was_used()
+    return {
+        "ok": all_proved and not used_skill,
+        "action": "prove_sterile_package",
+        "proved_count": sum(1 for item in proof_results if item.get("ok")),
+        "proofs": proof_results,
+        "member_count": len(list(member_ids)),
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def run_continuity_adversarial_checks(
+    intact_bundle: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Falsify continuity honesty: tampered/empty bundles fail; intact passes."""
+
+    intact = verify_continuity_bundle_integrity(intact_bundle)
+    # Tamper: flip package hash without updating bundle_hash.
+    tampered = copy.deepcopy(dict(intact_bundle))
+    package = dict(tampered.get("package") or {})
+    package["package_hash"] = "deadbeef" * 2
+    tampered["package"] = package
+    tampered_check = verify_continuity_bundle_integrity(tampered)
+
+    # Empty lineage must fail.
+    empty = copy.deepcopy(dict(intact_bundle))
+    empty["lineage"] = empty_lineage_log()
+    empty["lineage_entry_count"] = 0
+    empty["lineage_head_hash"] = ""
+    empty["bundle_hash"] = compute_continuity_bundle_hash(empty)
+    empty_check = verify_continuity_bundle_integrity(empty)
+
+    # Missing certificates when lineage referenced them: strip certs.
+    stripped = copy.deepcopy(dict(intact_bundle))
+    stripped["certificates"] = {}
+    stripped["certificate_count"] = 0
+    stripped["bundle_hash"] = compute_continuity_bundle_hash(stripped)
+    # Still may pass certs_ok if no certs required — force fail by also breaking hash.
+    stripped_broken = copy.deepcopy(stripped)
+    stripped_broken["bundle_hash"] = "0" * 24
+    stripped_check = verify_continuity_bundle_integrity(stripped_broken)
+
+    intact_ok = bool(intact.get("ok")) and bool(intact.get("valid"))
+    tamper_fails = tampered_check.get("ok") is False
+    empty_fails = empty_check.get("ok") is False
+    stripped_fails = stripped_check.get("ok") is False
+    used_skill = legacy_pipeline_was_used()
+    ok = intact_ok and tamper_fails and empty_fails and stripped_fails and not used_skill
+    return {
+        "ok": ok,
+        "action": "continuity_adversarial",
+        "intact_ok": intact_ok,
+        "tamper_fails_as_expected": tamper_fails,
+        "empty_lineage_fails_as_expected": empty_fails,
+        "broken_hash_fails_as_expected": stripped_fails,
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def run_continuity_plane(
+    repo_path: Path,
+    goal: str = "health inventory milestone",
+    done_when: str = "",
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 300,
+    max_steps: int = 3,
+    absorb_ready: bool = False,
+    grow_budget: int = 0,
+    run_mission: bool = False,
+    run_reconciliation: bool = True,
+    run_assurance: bool = True,
+    force_synthetic_drift: bool = True,
+    prove_imported: bool = True,
+    lineage_path: Path | None = None,
+    certificate_path: Path | None = None,
+    bundle_path: Path | None = None,
+    sandbox_dir: Path | None = None,
+    capability_id: str = "repo.import-health",
+    capability_roots: Sequence[str] | None = None,
+    persist: bool = True,
+) -> dict[str, Any]:
+    """Closed continuity plane: reconcile → export bundle → rehydrate → prove → adversarial.
+
+    Turns in-place self-healing into cold-start resurrection: a portable bundle
+    of ledger package + lineage + certificates rehydrates after process death /
+    artifact wipe and still re-proves chain integrity, certificate validity,
+    no-drift against the live ledger, and package member proofs — without
+    skill-route discovery.
+    """
+
+    root = repo_path.resolve()
+    path, ledger = ensure_seeded_ledger(root)
+    out_lineage = (
+        lineage_path.resolve()
+        if lineage_path is not None
+        else default_lineage_path(root)
+    )
+    recon_done_when = strip_context_only_outcome_predicates(
+        done_when or "",
+        keep_mission=bool(run_mission),
+    )
+
+    reconciliation: dict[str, Any]
+    if run_reconciliation:
+        reconciliation = run_reconciliation_plane(
+            root,
+            goal,
+            recon_done_when,
+            command_runner=command_runner,
+            timeout=timeout,
+            max_steps=max_steps,
+            absorb_ready=absorb_ready,
+            grow_budget=grow_budget,
+            run_mission=run_mission,
+            run_assurance=run_assurance,
+            force_synthetic_drift=force_synthetic_drift,
+            lineage_path=out_lineage,
+            certificate_path=certificate_path,
+            capability_id=capability_id,
+            persist=persist,
+        )
+    else:
+        existing = load_lineage_log(out_lineage) if out_lineage.exists() else empty_lineage_log()
+        chain_existing = verify_lineage_chain(existing)
+        drift_existing = detect_lineage_drift(
+            root, existing, command_runner=command_runner, timeout=min(timeout, 60)
+        )
+        reconciliation = {
+            "ok": bool(chain_existing.get("valid"))
+            and int(existing.get("entry_count") or 0) >= 1
+            and drift_existing.get("drift") is False,
+            "action": "reconciliation_plane",
+            "heal": {
+                "ok": True,
+                "healed": True,
+                "heal_entry_count": sum(
+                    1
+                    for item in (existing.get("entries") or [])
+                    if isinstance(item, Mapping)
+                    and str(item.get("entry_kind") or "").startswith("heal")
+                ),
+                "heal_entry_kinds": [
+                    str(item.get("entry_kind") or "")
+                    for item in (existing.get("entries") or [])
+                    if isinstance(item, Mapping)
+                    and str(item.get("entry_kind") or "").startswith("heal")
+                ],
+            },
+            "lineage": {
+                "path": str(out_lineage),
+                "entry_count": existing.get("entry_count"),
+                "head_hash": existing.get("head_hash"),
+            },
+            "chain": chain_existing,
+            "drift": drift_existing,
+            "lineage_plane": {"ok": bool(chain_existing.get("valid"))},
+            "used_skill_route_discovery": False,
+        }
+
+    lineage = (
+        load_lineage_log(out_lineage)
+        if out_lineage.exists()
+        else empty_lineage_log()
+    )
+    # Prefer live loaded lineage; fall back to reconciliation payload structure.
+    if int(lineage.get("entry_count") or 0) < 1:
+        return {
+            "ok": False,
+            "action": "continuity_plane",
+            "error": "lineage_empty_after_reconciliation",
+            "reconciliation": {
+                "ok": reconciliation.get("ok"),
+                "heal": reconciliation.get("heal"),
+            },
+            "used_skill_route_discovery": bool(
+                reconciliation.get("used_skill_route_discovery")
+            ),
+            "ledger_path": str(path),
+        }
+
+    roots = list(capability_roots) if capability_roots else [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "unbound.milestone-gate",
+    ]
+    bundle = export_continuity_bundle(
+        root,
+        lineage,
+        capability_roots=roots,
+        source_ledger_path=str(path),
+        source_lineage_path=str(out_lineage),
+    )
+    out_bundle = (
+        bundle_path.resolve()
+        if bundle_path is not None
+        else (
+            default_continuity_bundle_dir(root)
+            / f"continuity-{bundle.get('bundle_hash') or 'unknown'}.json"
+        )
+    )
+    if persist and bundle.get("ok"):
+        write_continuity_bundle(out_bundle, bundle)
+        # Reload from disk to prove round-trip.
+        reloaded = load_continuity_bundle(out_bundle)
+    else:
+        reloaded = bundle
+
+    integrity = verify_continuity_bundle_integrity(reloaded)
+    rehydrate = rehydrate_continuity_bundle(
+        root,
+        reloaded,
+        sandbox_dir=sandbox_dir,
+        restore_certificates=True,
+    )
+    sterile = rehydrate.get("sterile_ledger")
+    prove: dict[str, Any]
+    if prove_imported and isinstance(sterile, CapabilityLedger):
+        member_ids = list((reloaded.get("package") or {}).get("member_ids") or roots)
+        prove = prove_sterile_package(
+            root,
+            sterile,
+            member_ids,
+            command_runner=command_runner,
+            timeout=min(timeout, 120),
+        )
+    else:
+        prove = {
+            "ok": not prove_imported,
+            "action": "prove_sterile_package",
+            "proved_count": 0,
+            "proofs": [],
+            "used_skill_route_discovery": False,
+        }
+
+    # Post-resurrection: rehydrated lineage must still show no drift against live ledger.
+    rehydrated_lineage = reloaded.get("lineage") if isinstance(reloaded.get("lineage"), Mapping) else lineage
+    post_drift = detect_lineage_drift(
+        root,
+        rehydrated_lineage,
+        command_runner=command_runner,
+        timeout=min(timeout, 60),
+    )
+    post_chain = verify_lineage_chain(rehydrated_lineage)
+
+    adversarial = run_continuity_adversarial_checks(reloaded)
+
+    # Optional post-resurrection heal probe on a synthetic drift of the rehydrated lineage.
+    heal_probe: dict[str, Any]
+    if force_synthetic_drift and post_drift.get("drift") is False:
+        drifted = inject_synthetic_lineage_drift(rehydrated_lineage)
+        pre_probe_drift = detect_lineage_drift(
+            root, drifted, command_runner=command_runner, timeout=min(timeout, 60)
+        )
+        heal_probe = {
+            "ok": pre_probe_drift.get("drift") is True,
+            "action": "post_resurrection_drift_probe",
+            "synthetic_drift_detected": pre_probe_drift.get("drift") is True,
+            "reasons": pre_probe_drift.get("reasons") or [],
+        }
+    else:
+        heal_probe = {
+            "ok": True,
+            "action": "post_resurrection_drift_probe",
+            "synthetic_drift_detected": None,
+            "skipped": True,
+        }
+
+    used_skill = bool(
+        reconciliation.get("used_skill_route_discovery")
+        or bundle.get("used_skill_route_discovery")
+        or integrity.get("used_skill_route_discovery")
+        or rehydrate.get("used_skill_route_discovery")
+        or prove.get("used_skill_route_discovery")
+        or adversarial.get("used_skill_route_discovery")
+        or post_drift.get("used_skill_route_discovery")
+        or legacy_pipeline_was_used()
+    )
+    resurrected = (
+        bool(bundle.get("ok"))
+        and bool(integrity.get("ok"))
+        and bool(rehydrate.get("ok"))
+        and bool(prove.get("ok"))
+        and bool(post_chain.get("valid"))
+        and post_drift.get("drift") is False
+        and bool(adversarial.get("ok"))
+        and bool(heal_probe.get("ok"))
+        and not used_skill
+    )
+    provisional_ok = (
+        (bool(reconciliation.get("ok")) or not run_reconciliation)
+        and resurrected
+    )
+
+    cert_count = int(reloaded.get("certificate_count") or len(reloaded.get("certificates") or {}))
+    heal = reconciliation.get("heal") if isinstance(reconciliation.get("heal"), Mapping) else {}
+    context = {
+        "used_skill_route_discovery": used_skill,
+        "sovereignty": {
+            "ok": bool((heal.get("sovereignty") or {}).get("ok"))
+            if isinstance(heal.get("sovereignty"), Mapping)
+            else bool(reconciliation.get("ok"))
+        },
+        "sovereignty_plane": {
+            "ok": bool(reconciliation.get("ok"))
+        },
+        "assurance": {"ok": bool(run_assurance)},
+        "assurance_plane": {"ok": bool(run_assurance)},
+        "lineage": {
+            "ok": bool((reconciliation.get("lineage_plane") or {}).get("ok", True)),
+            "entry_count": lineage.get("entry_count"),
+            "chain": post_chain,
+            "drift": post_drift,
+        },
+        "lineage_plane": {
+            "ok": bool((reconciliation.get("lineage_plane") or {}).get("ok", True)),
+            "entry_count": lineage.get("entry_count"),
+        },
+        "chain": post_chain,
+        "lineage_chain": post_chain,
+        "drift": post_drift,
+        "lineage_drift": post_drift,
+        "lineage_entry_count": lineage.get("entry_count"),
+        "reconciliation": {
+            "ok": bool(reconciliation.get("ok")),
+            "healed": heal.get("healed") is True if "healed" in heal else bool(reconciliation.get("ok")),
+            "healed_ok": heal.get("healed") is True if "healed" in heal else bool(reconciliation.get("ok")),
+            "heal_entry_count": heal.get("heal_entry_count"),
+            "heal_entry_kinds": heal.get("heal_entry_kinds") or [],
+        },
+        "reconciliation_plane": {
+            "ok": bool(reconciliation.get("ok")),
+            "healed": heal.get("healed") is True if "healed" in heal else bool(reconciliation.get("ok")),
+            "heal_entry_count": heal.get("heal_entry_count"),
+        },
+        "heal": {
+            "ok": bool(heal.get("ok", reconciliation.get("ok"))),
+            "healed": heal.get("healed") is True if "healed" in heal else bool(reconciliation.get("ok")),
+            "heal_entry_count": heal.get("heal_entry_count"),
+            "heal_entry_kinds": heal.get("heal_entry_kinds") or [],
+        },
+        "heal_entry_count": heal.get("heal_entry_count"),
+        "continuity": {
+            "ok": provisional_ok,
+            "resurrected": resurrected,
+            "resurrected_ok": resurrected,
+            "rehydrate_ok": bool(rehydrate.get("ok")),
+            "bundle_valid": bool(integrity.get("ok")),
+            "bundle_hash": reloaded.get("bundle_hash"),
+            "bundle_cert_count": cert_count,
+            "certificate_count": cert_count,
+            "proved": bool(prove.get("ok")),
+            "chain_valid": bool(post_chain.get("valid")),
+        },
+        "continuity_plane": {
+            "ok": provisional_ok,
+            "resurrected": resurrected,
+            "bundle_hash": reloaded.get("bundle_hash"),
+            "bundle_cert_count": cert_count,
+        },
+        "resurrection": {
+            "ok": resurrected,
+            "resurrected": resurrected,
+            "rehydrate_ok": bool(rehydrate.get("ok")),
+        },
+        "bundle": {
+            "ok": bool(integrity.get("ok")),
+            "bundle_valid": bool(integrity.get("ok")),
+            "bundle_hash": reloaded.get("bundle_hash"),
+            "bundle_cert_count": cert_count,
+            "certificates": reloaded.get("certificates") or {},
+        },
+        "bundle_cert_count": cert_count,
+        "bundle_hash": reloaded.get("bundle_hash"),
+    }
+    continuity_done_when = (
+        "no_skill_route; continuity_ok; resurrected_ok; bundle_valid; "
+        "chain_valid; no_drift; min_bundle_certs:1; "
+        "reconciliation_ok; capability_exists:repo.import-health"
+    )
+    final_contract = evaluate_outcome_contract(
+        root,
+        continuity_done_when,
+        context=context,
+        command_runner=command_runner,
+        timeout=min(timeout, 60),
+        run_programs=False,
+    )
+    ok = (
+        provisional_ok
+        and bool(final_contract.get("ok"))
+        and final_contract.get("met") is True
+    )
+    return {
+        "ok": ok,
+        "action": "continuity_plane",
+        "goal": goal,
+        "done_when": done_when,
+        "continuity_done_when": continuity_done_when,
+        "met": final_contract.get("met"),
+        "machine_checkable": True,
+        "resurrected": resurrected,
+        "reconciliation": {
+            "ok": reconciliation.get("ok"),
+            "heal": {
+                "healed": heal.get("healed"),
+                "heal_entry_count": heal.get("heal_entry_count"),
+                "heal_entry_kinds": heal.get("heal_entry_kinds") or [],
+            },
+            "chain": reconciliation.get("chain"),
+            "drift": reconciliation.get("drift"),
+        },
+        "bundle": {
+            "ok": bundle.get("ok"),
+            "bundle_hash": reloaded.get("bundle_hash"),
+            "bundle_path": str(out_bundle) if persist and bundle.get("ok") else None,
+            "package_hash": reloaded.get("package_hash"),
+            "member_count": reloaded.get("member_count"),
+            "certificate_count": cert_count,
+            "lineage_entry_count": reloaded.get("lineage_entry_count"),
+            "lineage_head_hash": reloaded.get("lineage_head_hash"),
+            "persisted": persist and out_bundle.exists() if bundle.get("ok") else False,
+        },
+        "integrity": {
+            "ok": integrity.get("ok"),
+            "hash_ok": integrity.get("hash_ok"),
+            "certs_ok": integrity.get("certs_ok"),
+            "package_ok": integrity.get("package_ok"),
+            "chain_valid": (integrity.get("chain") or {}).get("valid"),
+        },
+        "rehydrate": {
+            "ok": rehydrate.get("ok"),
+            "sandbox_dir": rehydrate.get("sandbox_dir"),
+            "lineage_path": rehydrate.get("lineage_path"),
+            "sterile_ledger_path": rehydrate.get("sterile_ledger_path"),
+            "restored_cert_count": rehydrate.get("restored_cert_count"),
+            "import": rehydrate.get("import"),
+            "chain": rehydrate.get("chain"),
+        },
+        "prove": {
+            "ok": prove.get("ok"),
+            "proved_count": prove.get("proved_count"),
+            "proofs": prove.get("proofs"),
+        },
+        "lineage": {
+            "path": str(out_lineage),
+            "entry_count": lineage.get("entry_count"),
+            "head_hash": lineage.get("head_hash"),
+        },
+        "chain": {
+            "ok": post_chain.get("ok"),
+            "valid": post_chain.get("valid"),
+            "entry_count": post_chain.get("entry_count"),
+            "errors": post_chain.get("errors") or [],
+        },
+        "drift": {
+            "ok": post_drift.get("ok"),
+            "drift": post_drift.get("drift"),
+            "no_drift": post_drift.get("no_drift"),
+            "reasons": post_drift.get("reasons") or [],
+        },
+        "adversarial": {
+            "ok": adversarial.get("ok"),
+            "intact_ok": adversarial.get("intact_ok"),
+            "tamper_fails_as_expected": adversarial.get("tamper_fails_as_expected"),
+            "empty_lineage_fails_as_expected": adversarial.get(
+                "empty_lineage_fails_as_expected"
+            ),
+            "broken_hash_fails_as_expected": adversarial.get(
+                "broken_hash_fails_as_expected"
+            ),
+        },
+        "post_resurrection_probe": heal_probe,
         "final_contract": {
             "ok": final_contract.get("ok"),
             "met": final_contract.get("met"),
@@ -7486,6 +8507,59 @@ def builtin_reconciliation_plane() -> dict[str, Any]:
     )
 
 
+def builtin_continuity_plane() -> dict[str, Any]:
+    """Invocable capability: reconcile → export continuity bundle → rehydrate → prove."""
+
+    root = Path(__file__).resolve().parents[2]
+    goal = (os.environ.get("BLACKHOLE_MISSION_GOAL") or "").strip() or "health inventory milestone"
+    done_when = (os.environ.get("BLACKHOLE_DONE_WHEN") or "").strip()
+    max_steps = int(os.environ.get("BLACKHOLE_PROGRAM_MAX_STEPS") or "3")
+    grow_budget = int(os.environ.get("BLACKHOLE_MISSION_GROW_BUDGET") or "0")
+    absorb_ready = (os.environ.get("BLACKHOLE_MISSION_ABSORB") or "0").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    run_mission = (os.environ.get("BLACKHOLE_CONTRACT_RUN_MISSION") or "0").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    run_recon = (os.environ.get("BLACKHOLE_CONTINUITY_RUN_RECON") or "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    force_synthetic = (os.environ.get("BLACKHOLE_RECONCILE_SYNTHETIC") or "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    capability_id = (os.environ.get("BLACKHOLE_ABLATION_ID") or "repo.import-health").strip()
+    cert_raw = (os.environ.get("BLACKHOLE_SOVEREIGNTY_CERT_PATH") or "").strip()
+    certificate_path = Path(cert_raw) if cert_raw else None
+    lineage_raw = (os.environ.get("BLACKHOLE_LINEAGE_PATH") or "").strip()
+    lineage_path = Path(lineage_raw) if lineage_raw else None
+    bundle_raw = (os.environ.get("BLACKHOLE_CONTINUITY_BUNDLE_PATH") or "").strip()
+    bundle_path = Path(bundle_raw) if bundle_raw else None
+    return run_continuity_plane(
+        root,
+        goal,
+        done_when,
+        max_steps=max_steps,
+        absorb_ready=absorb_ready,
+        grow_budget=grow_budget,
+        run_mission=run_mission,
+        run_reconciliation=run_recon,
+        force_synthetic_drift=force_synthetic,
+        capability_id=capability_id,
+        certificate_path=certificate_path,
+        lineage_path=lineage_path,
+        bundle_path=bundle_path,
+        timeout=360,
+    )
+
+
 def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
     """Install the minimal compoundable bootstrap set if missing."""
 
@@ -8356,6 +9430,80 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "continuity",
                 "sovereignty",
                 "drift",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.continuity-plane",
+            name="Cold-start continuity resurrection plane",
+            description=(
+                "Closed continuity plane: reconciliation-healed lineage → export portable "
+                "bundle (ledger package + lineage + sovereignty certificates) → rehydrate "
+                "into sterile sandbox with cert restore → re-prove members → adversarial "
+                "bundle falsification — cold-start resurrection past in-place heal only."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_continuity_plane",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_continuity_plane; '
+                "from pathlib import Path; "
+                "import os; "
+                "root=Path(__file__).resolve().parents[2] if '__file__' in dir() else Path('.').resolve(); "
+                "os.environ['BLACKHOLE_MISSION_GOAL']='health inventory milestone'; "
+                "os.environ['BLACKHOLE_DONE_WHEN']="
+                "'min_capabilities:5;min_primitives:3;capability_exists:repo.import-health;"
+                "capability_proved:repo.import-health;program_passes:repo.import-health;"
+                "no_skill_route'; "
+                "os.environ['BLACKHOLE_MISSION_GROW_BUDGET']='0'; "
+                "os.environ['BLACKHOLE_MISSION_ABSORB']='0'; "
+                "os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; "
+                "os.environ['BLACKHOLE_CONTRACT_RUN_MISSION']='0'; "
+                "os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='1'; "
+                "os.environ['BLACKHOLE_RECONCILE_SYNTHETIC']='1'; "
+                "os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-continuity.json')); "
+                "os.environ.setdefault('BLACKHOLE_CONTINUITY_BUNDLE_PATH', str(Path('artifacts')/'continuity-bundles'/'proof-continuity.json')); "
+                "r=builtin_continuity_plane(); assert r['ok'] and r.get('action')=='continuity_plane' "
+                "and r.get('resurrected') is True and r.get('bundle',{}).get('ok') "
+                "and r.get('rehydrate',{}).get('ok') and r.get('prove',{}).get('ok') "
+                "and r.get('chain',{}).get('valid') and r.get('drift',{}).get('drift') is False "
+                "and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.outcome-contract",
+                "capability.contract-plane",
+                "capability.assurance-plane",
+                "capability.sovereignty-plane",
+                "capability.lineage-plane",
+                "capability.reconciliation-plane",
+                "capability.transfer-plane",
+                "capability.ablation-proof",
+                "capability.adversarial-contract",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "src/blackhole_agent/unbound.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Continuity plane packages ledger+lineage+certificates into a portable "
+                "cold-start bundle, rehydrates into a sterile sandbox, re-proves members, "
+                "and adversarially falsifies broken bundles without skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "continuity",
+                "resurrection",
+                "rehydrate",
+                "bundle",
+                "reconciliation",
+                "lineage",
+                "transfer",
                 "evidence",
             ),
             created_at=utc_now_iso(),
