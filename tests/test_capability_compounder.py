@@ -1254,3 +1254,150 @@ def test_assurance_plane_ablation_transfer_and_adversarial():
     assurance_payload = json.loads(assurance_cli.stdout)
     assert assurance_payload["ok"] is True
     assert assurance_payload["action"] == "assurance_plane"
+
+
+def test_sovereignty_plane_certificate_issue_and_verify():
+    """Sovereignty plane compounds contract+assurance into a re-verifiable certificate."""
+
+    from blackhole_agent.capability_compounder import (
+        ensure_seeded_ledger,
+        issue_sovereignty_certificate,
+        load_sovereignty_certificate,
+        parse_outcome_contract,
+        run_sovereignty_plane,
+        verify_sovereignty_certificate,
+    )
+
+    repo = Path(__file__).resolve().parents[1]
+    path, ledger = ensure_seeded_ledger(repo)
+    assert "capability.sovereignty-plane" in ledger.capabilities
+    assert "capability.assurance-plane" in ledger.capabilities
+
+    # Predicate surface accepts sovereignty forms.
+    parsed = parse_outcome_contract(
+        "no_skill_route; assurance_plane_ok; sovereignty_ok; certificate_valid"
+    )
+    kinds = {item["kind"] for item in parsed["predicates"]}
+    assert kinds == {
+        "no_skill_route",
+        "assurance_plane_ok",
+        "sovereignty_ok",
+        "certificate_valid",
+    }
+
+    plane = run_sovereignty_plane(
+        repo,
+        "health inventory milestone",
+        (
+            "min_capabilities:5; min_primitives:3; capability_exists:repo.import-health; "
+            "capability_proved:repo.import-health; program_passes:repo.import-health; "
+            "no_skill_route; mission_plane_ok"
+        ),
+        max_steps=3,
+        absorb_ready=False,
+        grow_budget=0,
+        run_mission=True,
+        timeout=180,
+    )
+    assert plane["ok"] is True, plane
+    assert plane["action"] == "sovereignty_plane"
+    assert plane["contract"]["ok"] is True
+    assert plane["assurance"]["ok"] is True
+    assert plane["certificate"]["ok"] is True
+    assert plane["verify"]["valid"] is True
+    assert plane["verify"]["hash_ok"] is True
+    assert plane["used_skill_route_discovery"] is False
+    cert_path = Path(plane["certificate"]["certificate_path"])
+    assert cert_path.is_file()
+    loaded = load_sovereignty_certificate(cert_path)
+    assert loaded["certificate_hash"] == plane["certificate"]["certificate_hash"]
+    assert loaded["kind"] == "sovereignty_certificate"
+
+    verify = verify_sovereignty_certificate(
+        cert_path, repo_path=repo, recheck_live=True, timeout=60
+    )
+    assert verify["ok"] is True, verify
+    assert verify["valid"] is True
+    assert verify["hash_ok"] is True
+    assert verify["claims_ok"] is True
+    assert verify["live_recheck"] is True
+
+    # Tampered certificate must fail hash verification.
+    tampered = dict(loaded)
+    tampered["claims"] = {**loaded["claims"], "assurance_ok": False}
+    bad = verify_sovereignty_certificate(tampered, repo_path=repo, recheck_live=False)
+    assert bad["valid"] is False
+    assert bad["hash_ok"] is False
+
+    # Issue helper produces a hash-stable payload for synthetic evidence.
+    synthetic = issue_sovereignty_certificate(
+        goal="g",
+        done_when="no_skill_route",
+        contract={"ok": True, "met": True, "machine_checkable": True, "used_skill_route_discovery": False},
+        assurance={
+            "ok": True,
+            "used_skill_route_discovery": False,
+            "ablation": {"ok": True},
+            "transfer": {"ok": True, "package_hash": "abc", "member_count": 2, "proved_count": 2},
+            "adversarial": {"ok": True},
+        },
+        metrics={"count": 10, "primitive_count": 5, "proved_count": 8, "proved_ratio": 0.8},
+        repo_path=repo,
+    )
+    assert synthetic["ok"] is True
+    assert synthetic["certificate_hash"]
+    assert verify_sovereignty_certificate(synthetic)["valid"] is True
+
+    env = {
+        **dict(**{k: v for k, v in __import__("os").environ.items()}),
+        "PYTHONPATH": str(repo / "src"),
+    }
+    sovereignty_cli = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "blackhole_agent.unbound",
+            "capability",
+            "sovereignty",
+            "--repo-path",
+            str(repo),
+            "--no-mission",
+            "--timeout-seconds",
+            "180",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=240,
+    )
+    assert sovereignty_cli.returncode == 0, sovereignty_cli.stdout + sovereignty_cli.stderr
+    sovereignty_payload = json.loads(sovereignty_cli.stdout)
+    assert sovereignty_payload["ok"] is True
+    assert sovereignty_payload["action"] == "sovereignty_plane"
+    assert sovereignty_payload["certificate"]["ok"] is True
+
+    verify_cli = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "blackhole_agent.unbound",
+            "capability",
+            "sovereignty",
+            "--repo-path",
+            str(repo),
+            "--verify-only",
+            sovereignty_payload["certificate"]["certificate_path"],
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=90,
+    )
+    assert verify_cli.returncode == 0, verify_cli.stdout + verify_cli.stderr
+    verify_payload = json.loads(verify_cli.stdout)
+    assert verify_payload["ok"] is True
+    assert verify_payload["valid"] is True
+    # Keep path reference live for linters; ledger path is a side effect of seed.
+    assert path.name == "ledger.json"

@@ -1302,6 +1302,7 @@ def run_mission_plane(
 #   capability_exists:id | capability_proved:id | ledger_has:id
 #   program_passes:id1,id2 | has_tag:tag | no_skill_route
 #   novel_ready_le:N | mission_plane_ok | contract_plane_ok
+#   assurance_plane_ok | sovereignty_ok | certificate_valid[:path]
 # Free-text lines without a known form are recorded as informational (not gating).
 OUTCOME_PREDICATE_PATTERN = re.compile(
     r"^(?P<kind>"
@@ -1309,7 +1310,8 @@ OUTCOME_PREDICATE_PATTERN = re.compile(
     r"proved_ratio_ge|integrity_score_ge|"
     r"capability_exists|capability_proved|ledger_has|"
     r"program_passes|has_tag|no_skill_route|"
-    r"novel_ready_le|mission_plane_ok|contract_plane_ok"
+    r"novel_ready_le|mission_plane_ok|contract_plane_ok|"
+    r"assurance_plane_ok|sovereignty_ok|certificate_valid"
     r")(?::(?P<arg>.+))?$",
     re.IGNORECASE,
 )
@@ -1397,6 +1399,12 @@ def _soft_extract_outcome_predicates(chunk: str) -> list[dict[str, Any]]:
         found.append({"kind": "mission_plane_ok", "arg": "", "source": chunk})
     if "contract plane" in lower and ("ok" in lower or "pass" in lower or "succeed" in lower):
         found.append({"kind": "contract_plane_ok", "arg": "", "source": chunk})
+    if "assurance plane" in lower and ("ok" in lower or "pass" in lower or "succeed" in lower):
+        found.append({"kind": "assurance_plane_ok", "arg": "", "source": chunk})
+    if "sovereignty" in lower and ("ok" in lower or "pass" in lower or "succeed" in lower or "certif" in lower):
+        found.append({"kind": "sovereignty_ok", "arg": "", "source": chunk})
+    if "certificate" in lower and ("valid" in lower or "verify" in lower or "re-verif" in lower):
+        found.append({"kind": "certificate_valid", "arg": "", "source": chunk})
     return found
 
 
@@ -1639,6 +1647,37 @@ def _eval_one_outcome_predicate(
         plane = context.get("contract_plane") or {}
         ok = bool(plane.get("ok"))
         return ok, f"contract_plane_ok={ok}"
+    if kind == "assurance_plane_ok":
+        plane = context.get("assurance") or context.get("assurance_plane") or {}
+        ok = bool(plane.get("ok"))
+        return ok, f"assurance_plane_ok={ok}"
+    if kind == "sovereignty_ok":
+        plane = context.get("sovereignty") or context.get("sovereignty_plane") or {}
+        ok = bool(plane.get("ok"))
+        return ok, f"sovereignty_ok={ok}"
+    if kind == "certificate_valid":
+        cert_path = (arg or "").strip() or str(
+            context.get("certificate_path") or context.get("certificate") or ""
+        ).strip()
+        if not cert_path:
+            # Allow in-memory certificate from the issuing plane.
+            cert_obj = context.get("certificate_payload")
+            if isinstance(cert_obj, Mapping):
+                verify = verify_sovereignty_certificate(
+                    cert_obj,
+                    repo_path=repo_path,
+                    recheck_live=False,
+                )
+                ok = bool(verify.get("ok")) and bool(verify.get("valid"))
+                return ok, f"certificate_valid_in_memory={ok} hash={verify.get('certificate_hash')}"
+            return False, "missing certificate path"
+        verify = verify_sovereignty_certificate(
+            Path(cert_path),
+            repo_path=repo_path,
+            recheck_live=False,
+        )
+        ok = bool(verify.get("ok")) and bool(verify.get("valid"))
+        return ok, f"certificate_valid={ok} path={cert_path} hash={verify.get('certificate_hash')}"
     if kind == "program_passes":
         steps = [part.strip() for part in arg.split(",") if part.strip()]
         if not steps:
@@ -2355,6 +2394,430 @@ def run_assurance_plane(
             "negatives_ok": adversarial.get("negatives_ok"),
             "negative_count": adversarial.get("negative_count"),
             "negatives_passed": adversarial.get("negatives_passed"),
+        },
+        "used_skill_route_discovery": used_skill,
+        "ledger_path": str(path),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Sovereignty plane: contract + assurance → portable, re-verifiable certificate.
+# Closes the self-certifying evidence loop past separate plane invocations.
+# ---------------------------------------------------------------------------
+
+SOVEREIGNTY_CERTIFICATE_SCHEMA = 1
+
+
+def _canonical_certificate_body(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Strip volatile/hash fields so certificate_hash is stable."""
+
+    body = {
+        key: value
+        for key, value in payload.items()
+        if key
+        not in {
+            "certificate_hash",
+            "ok",
+            "action",
+            "certificate_path",
+            "verify",
+            "used_skill_route_discovery",
+            "ledger_path",
+        }
+    }
+    return body
+
+
+def compute_sovereignty_certificate_hash(payload: Mapping[str, Any]) -> str:
+    """SHA-256 over canonical certificate body (excludes the hash field itself)."""
+
+    body = _canonical_certificate_body(payload)
+    digest_source = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest_source.encode("utf-8")).hexdigest()[:24]
+
+
+def issue_sovereignty_certificate(
+    *,
+    goal: str,
+    done_when: str,
+    contract: Mapping[str, Any],
+    assurance: Mapping[str, Any],
+    metrics: Mapping[str, Any] | None = None,
+    repo_path: Path | None = None,
+) -> dict[str, Any]:
+    """Issue a portable sovereignty certificate from plane evidence summaries."""
+
+    claims = {
+        "contract_ok": bool(contract.get("ok")),
+        "contract_met": contract.get("met") is True,
+        "machine_checkable": bool(contract.get("machine_checkable")),
+        "assurance_ok": bool(assurance.get("ok")),
+        "ablation_ok": bool((assurance.get("ablation") or {}).get("ok")),
+        "transfer_ok": bool((assurance.get("transfer") or {}).get("ok")),
+        "adversarial_ok": bool((assurance.get("adversarial") or {}).get("ok")),
+        "no_skill_route": not bool(
+            contract.get("used_skill_route_discovery")
+            or assurance.get("used_skill_route_discovery")
+        ),
+    }
+    evidence = {
+        "contract": {
+            "ok": contract.get("ok"),
+            "met": contract.get("met"),
+            "machine_checkable": contract.get("machine_checkable"),
+            "passed_count": (contract.get("contract") or contract).get("passed_count")
+            if isinstance(contract.get("contract"), Mapping)
+            else contract.get("passed_count"),
+            "failed_count": (contract.get("contract") or contract).get("failed_count")
+            if isinstance(contract.get("contract"), Mapping)
+            else contract.get("failed_count"),
+            "mission_ok": (contract.get("mission") or {}).get("ok"),
+        },
+        "assurance": {
+            "ok": assurance.get("ok"),
+            "ablation": assurance.get("ablation"),
+            "transfer": {
+                "ok": (assurance.get("transfer") or {}).get("ok"),
+                "package_hash": (assurance.get("transfer") or {}).get("package_hash"),
+                "member_count": (assurance.get("transfer") or {}).get("member_count"),
+                "proved_count": (assurance.get("transfer") or {}).get("proved_count"),
+            },
+            "adversarial": assurance.get("adversarial"),
+        },
+        "metrics": {
+            "count": (metrics or {}).get("count"),
+            "primitive_count": (metrics or {}).get("primitive_count"),
+            "proved_count": (metrics or {}).get("proved_count"),
+            "proved_ratio": (metrics or {}).get("proved_ratio"),
+        },
+    }
+    certificate: dict[str, Any] = {
+        "schema_version": SOVEREIGNTY_CERTIFICATE_SCHEMA,
+        "kind": "sovereignty_certificate",
+        "issued_at": utc_now_iso(),
+        "goal": goal,
+        "done_when": done_when,
+        "claims": claims,
+        "evidence": evidence,
+        "package_hash": (assurance.get("transfer") or {}).get("package_hash"),
+        "repo_path": str(repo_path.resolve()) if repo_path is not None else "",
+    }
+    certificate["certificate_hash"] = compute_sovereignty_certificate_hash(certificate)
+    certificate["ok"] = all(
+        (
+            claims["contract_ok"],
+            claims["contract_met"] if claims["machine_checkable"] else True,
+            claims["assurance_ok"],
+            claims["ablation_ok"],
+            claims["transfer_ok"],
+            claims["adversarial_ok"],
+            claims["no_skill_route"],
+        )
+    )
+    return certificate
+
+
+def write_sovereignty_certificate(path: Path, certificate: Mapping[str, Any]) -> Path:
+    """Persist a sovereignty certificate to disk."""
+
+    target = path.resolve()
+    atomic_write_json(target, dict(certificate))
+    return target
+
+
+def load_sovereignty_certificate(path: Path) -> dict[str, Any]:
+    """Load a sovereignty certificate from disk."""
+
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, Mapping):
+        raise ValueError("sovereignty certificate must be a JSON object")
+    return dict(payload)
+
+
+def verify_sovereignty_certificate(
+    certificate: Mapping[str, Any] | Path | str,
+    *,
+    repo_path: Path | None = None,
+    recheck_live: bool = False,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 90,
+) -> dict[str, Any]:
+    """Re-verify a sovereignty certificate's hash and optional live claims.
+
+    Hash integrity is always checked. When recheck_live is true and repo_path is
+    set, re-evaluate lightweight ledger claims without re-running full planes.
+    """
+
+    cert_path = ""
+    if isinstance(certificate, (str, Path)):
+        cert_path = str(Path(certificate).resolve())
+        payload = load_sovereignty_certificate(Path(certificate))
+    else:
+        payload = dict(certificate)
+
+    expected = str(payload.get("certificate_hash") or "").strip()
+    recomputed = compute_sovereignty_certificate_hash(payload)
+    hash_ok = bool(expected) and expected == recomputed
+    claims = payload.get("claims") if isinstance(payload.get("claims"), Mapping) else {}
+    claims_ok = bool(claims) and all(
+        bool(claims.get(key))
+        for key in (
+            "contract_ok",
+            "assurance_ok",
+            "ablation_ok",
+            "transfer_ok",
+            "adversarial_ok",
+            "no_skill_route",
+        )
+    )
+    if claims.get("machine_checkable"):
+        claims_ok = claims_ok and bool(claims.get("contract_met"))
+
+    live_ok: bool | None = None
+    live_detail: dict[str, Any] = {}
+    if recheck_live and repo_path is not None:
+        root = repo_path.resolve()
+        path, ledger = ensure_seeded_ledger(root)
+        metrics = snapshot_outcome_metrics(root, ledger=ledger)
+        live_detail = {
+            "count": metrics.get("count"),
+            "proved_count": metrics.get("proved_count"),
+            "has_assurance": "capability.assurance-plane" in ledger.capabilities,
+            "has_import_health": "repo.import-health" in ledger.capabilities,
+            "used_skill_route_discovery": metrics.get("used_skill_route_discovery"),
+            "ledger_path": str(path),
+        }
+        live_ok = (
+            int(metrics.get("count") or 0) >= 3
+            and "repo.import-health" in ledger.capabilities
+            and not bool(metrics.get("used_skill_route_discovery"))
+        )
+
+    valid = hash_ok and claims_ok and (live_ok is not False)
+    used_skill = legacy_pipeline_was_used()
+    return {
+        "ok": valid and not used_skill,
+        "action": "verify_sovereignty_certificate",
+        "valid": valid,
+        "hash_ok": hash_ok,
+        "claims_ok": claims_ok,
+        "expected_hash": expected,
+        "recomputed_hash": recomputed,
+        "certificate_hash": expected or recomputed,
+        "certificate_path": cert_path or None,
+        "live_recheck": live_ok,
+        "live_detail": live_detail,
+        "schema_version": payload.get("schema_version"),
+        "kind": payload.get("kind"),
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def run_sovereignty_plane(
+    repo_path: Path,
+    goal: str = "health inventory milestone",
+    done_when: str = "",
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 180,
+    max_steps: int = 3,
+    absorb_ready: bool = False,
+    grow_budget: int = 0,
+    run_mission: bool = True,
+    run_assurance: bool = True,
+    certificate_path: Path | None = None,
+    capability_id: str = "repo.import-health",
+) -> dict[str, Any]:
+    """Closed sovereignty plane: contract → assurance → issue/verify certificate.
+
+    Produces a portable, re-verifiable lineage certificate so mission completion
+    is self-certifying evidence rather than free-text theater or one-shot plane
+    invocations that leave no durable artifact.
+    """
+
+    root = repo_path.resolve()
+    path, ledger = ensure_seeded_ledger(root)
+    contract_done_when = (done_when or "").strip() or (
+        "min_capabilities:5; min_primitives:3; capability_exists:repo.import-health; "
+        "capability_proved:repo.import-health; program_passes:repo.import-health; "
+        "no_skill_route; mission_plane_ok"
+    )
+    # Context-only predicates are evaluated after planes produce evidence; strip them
+    # from the inner contract so sovereignty_ok/certificate_valid do not false-fail.
+    _context_only = re.compile(
+        r"^(mission_plane_ok|contract_plane_ok|assurance_plane_ok|sovereignty_ok|"
+        r"certificate_valid)(?::.*)?$",
+        re.I,
+    )
+    filtered_parts = [
+        part.strip()
+        for part in re.split(r"[\n;]+", contract_done_when)
+        if part.strip() and not _context_only.match(part.strip())
+    ]
+    # mission_plane_ok is only meaningful when the mission plane actually runs.
+    if run_mission and re.search(r"\bmission_plane_ok\b", contract_done_when, re.I):
+        filtered_parts.append("mission_plane_ok")
+    contract_done_when = "; ".join(filtered_parts) or (
+        "min_capabilities:3; capability_exists:repo.import-health; "
+        "capability_proved:repo.import-health; no_skill_route"
+    )
+    # Contract plane may include mission_plane_ok; keep mission cheap by default.
+    contract = run_contract_plane(
+        root,
+        goal,
+        contract_done_when,
+        command_runner=command_runner,
+        timeout=timeout,
+        max_steps=max_steps,
+        absorb_ready=absorb_ready,
+        grow_budget=grow_budget,
+        run_mission=run_mission,
+    )
+    assurance: dict[str, Any]
+    if run_assurance:
+        assurance = run_assurance_plane(
+            root,
+            capability_id=capability_id,
+            command_runner=command_runner,
+            timeout=timeout,
+        )
+    else:
+        assurance = {
+            "ok": False,
+            "action": "assurance_plane",
+            "error": "assurance skipped",
+            "ablation": {"ok": False},
+            "transfer": {"ok": False},
+            "adversarial": {"ok": False},
+            "used_skill_route_discovery": False,
+        }
+
+    metrics = snapshot_outcome_metrics(root, ledger=load_ledger(path))
+    certificate = issue_sovereignty_certificate(
+        goal=goal,
+        done_when=contract_done_when,
+        contract=contract,
+        assurance=assurance,
+        metrics=metrics,
+        repo_path=root,
+    )
+    out_path = (
+        certificate_path.resolve()
+        if certificate_path is not None
+        else (
+            root
+            / "artifacts"
+            / "sovereignty-certificates"
+            / f"sovereignty-{certificate['certificate_hash']}.json"
+        )
+    )
+    write_sovereignty_certificate(out_path, certificate)
+    verify = verify_sovereignty_certificate(
+        out_path,
+        repo_path=root,
+        recheck_live=True,
+        command_runner=command_runner,
+        timeout=min(timeout, 60),
+    )
+
+    # Final sovereign verdict: planes ok + certificate re-verifies + no skill-route.
+    context = {
+        "used_skill_route_discovery": bool(
+            contract.get("used_skill_route_discovery")
+            or assurance.get("used_skill_route_discovery")
+        ),
+        "mission": contract.get("mission") or {},
+        "mission_plane": contract.get("mission") or {},
+        "contract_plane": contract,
+        "assurance": assurance,
+        "assurance_plane": assurance,
+        "sovereignty": {"ok": True},  # provisional for predicate eval; corrected below
+        "sovereignty_plane": {"ok": True},
+        "certificate_path": str(out_path),
+        "certificate_payload": certificate,
+    }
+    # Sovereignty contract can reference plane outcomes + certificate validity.
+    sovereignty_done_when = (
+        "no_skill_route; assurance_plane_ok; sovereignty_ok; certificate_valid; "
+        "capability_exists:repo.import-health"
+    )
+    # First pass with provisional sovereignty_ok=True only if planes already green.
+    provisional_ok = (
+        bool(contract.get("ok"))
+        and bool(assurance.get("ok"))
+        and bool(certificate.get("ok"))
+        and bool(verify.get("valid"))
+    )
+    context["sovereignty"] = {"ok": provisional_ok}
+    context["sovereignty_plane"] = {"ok": provisional_ok}
+    final_contract = evaluate_outcome_contract(
+        root,
+        sovereignty_done_when,
+        context=context,
+        command_runner=command_runner,
+        timeout=min(timeout, 60),
+        run_programs=False,
+    )
+    used_skill = bool(
+        contract.get("used_skill_route_discovery")
+        or assurance.get("used_skill_route_discovery")
+        or verify.get("used_skill_route_discovery")
+        or final_contract.get("used_skill_route_discovery")
+        or legacy_pipeline_was_used()
+    )
+    ok = (
+        not used_skill
+        and provisional_ok
+        and bool(final_contract.get("ok"))
+        and final_contract.get("met") is True
+        and bool(verify.get("ok"))
+    )
+    return {
+        "ok": ok,
+        "action": "sovereignty_plane",
+        "goal": goal,
+        "done_when": contract_done_when,
+        "sovereignty_done_when": sovereignty_done_when,
+        "met": final_contract.get("met"),
+        "machine_checkable": True,
+        "contract": {
+            "ok": contract.get("ok"),
+            "met": contract.get("met"),
+            "machine_checkable": contract.get("machine_checkable"),
+            "mission": contract.get("mission"),
+        },
+        "assurance": {
+            "ok": assurance.get("ok"),
+            "ablation": assurance.get("ablation"),
+            "transfer": {
+                "ok": (assurance.get("transfer") or {}).get("ok"),
+                "package_hash": (assurance.get("transfer") or {}).get("package_hash"),
+                "member_count": (assurance.get("transfer") or {}).get("member_count"),
+            },
+            "adversarial": assurance.get("adversarial"),
+        },
+        "certificate": {
+            "ok": certificate.get("ok"),
+            "certificate_hash": certificate.get("certificate_hash"),
+            "certificate_path": str(out_path),
+            "claims": certificate.get("claims"),
+            "package_hash": certificate.get("package_hash"),
+            "issued_at": certificate.get("issued_at"),
+        },
+        "verify": {
+            "ok": verify.get("ok"),
+            "valid": verify.get("valid"),
+            "hash_ok": verify.get("hash_ok"),
+            "claims_ok": verify.get("claims_ok"),
+            "live_recheck": verify.get("live_recheck"),
+            "certificate_hash": verify.get("certificate_hash"),
+        },
+        "final_contract": {
+            "ok": final_contract.get("ok"),
+            "met": final_contract.get("met"),
+            "passed_count": final_contract.get("passed_count"),
+            "failed_count": final_contract.get("failed_count"),
+            "failed": final_contract.get("failed"),
         },
         "used_skill_route_discovery": used_skill,
         "ledger_path": str(path),
@@ -5482,6 +5945,41 @@ def builtin_assurance_plane() -> dict[str, Any]:
     return run_assurance_plane(root, capability_id=capability_id, timeout=120)
 
 
+def builtin_sovereignty_plane() -> dict[str, Any]:
+    """Invocable capability: contract → assurance → re-verifiable sovereignty certificate."""
+
+    root = Path(__file__).resolve().parents[2]
+    goal = (os.environ.get("BLACKHOLE_MISSION_GOAL") or "").strip() or "health inventory milestone"
+    done_when = (os.environ.get("BLACKHOLE_DONE_WHEN") or "").strip()
+    max_steps = int(os.environ.get("BLACKHOLE_PROGRAM_MAX_STEPS") or "3")
+    grow_budget = int(os.environ.get("BLACKHOLE_MISSION_GROW_BUDGET") or "0")
+    absorb_ready = (os.environ.get("BLACKHOLE_MISSION_ABSORB") or "0").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    run_mission = (os.environ.get("BLACKHOLE_CONTRACT_RUN_MISSION") or "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    capability_id = (os.environ.get("BLACKHOLE_ABLATION_ID") or "repo.import-health").strip()
+    cert_raw = (os.environ.get("BLACKHOLE_SOVEREIGNTY_CERT_PATH") or "").strip()
+    certificate_path = Path(cert_raw) if cert_raw else None
+    return run_sovereignty_plane(
+        root,
+        goal,
+        done_when,
+        max_steps=max_steps,
+        absorb_ready=absorb_ready,
+        grow_budget=grow_budget,
+        run_mission=run_mission,
+        capability_id=capability_id,
+        certificate_path=certificate_path,
+        timeout=180,
+    )
+
+
 def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
     """Install the minimal compoundable bootstrap set if missing."""
 
@@ -6164,6 +6662,65 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "ablation",
                 "transfer",
                 "adversarial",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.sovereignty-plane",
+            name="Self-certifying sovereignty plane",
+            description=(
+                "Closed sovereignty plane: contract/mission evidence → assurance "
+                "(ablation/transfer/adversarial) → portable re-verifiable lineage "
+                "certificate that gates self-certifying completion."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_sovereignty_plane",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_sovereignty_plane; '
+                "import os; "
+                "os.environ['BLACKHOLE_MISSION_GOAL']='health inventory milestone'; "
+                "os.environ['BLACKHOLE_DONE_WHEN']="
+                "'min_capabilities:5;min_primitives:3;capability_exists:repo.import-health;"
+                "capability_proved:repo.import-health;program_passes:repo.import-health;"
+                "no_skill_route;mission_plane_ok'; "
+                "os.environ['BLACKHOLE_MISSION_GROW_BUDGET']='0'; "
+                "os.environ['BLACKHOLE_MISSION_ABSORB']='0'; "
+                "os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; "
+                "os.environ['BLACKHOLE_CONTRACT_RUN_MISSION']='1'; "
+                "r=builtin_sovereignty_plane(); assert r['ok'] and r.get('action')=='sovereignty_plane' "
+                "and r.get('certificate',{}).get('ok') and r.get('verify',{}).get('valid') "
+                "and r.get('assurance',{}).get('ok') and r.get('contract',{}).get('ok') "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.outcome-contract",
+                "capability.contract-plane",
+                "capability.assurance-plane",
+                "capability.ablation-proof",
+                "capability.transfer-plane",
+                "capability.adversarial-contract",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "src/blackhole_agent/unbound.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Sovereignty plane compounds contract and assurance into one portable, "
+                "re-verifiable lineage certificate for self-certifying completion without skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "sovereignty",
+                "assurance",
+                "contract",
+                "certificate",
                 "evidence",
             ),
             created_at=utc_now_iso(),

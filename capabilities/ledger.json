@@ -19,7 +19,7 @@
       "last_proof_exit_code": 0,
       "last_proved_at": "2026-07-29T09:08:07.483608Z",
       "name": "Capability ablation proof",
-      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T090127Z-1f8f9037\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_ablation_proof; r=builtin_ablation_proof(); assert r['ok'] and r.get('action')=='ablation_proof' and r.get('live_ledger_mutated') is False and r.get('passed_count',0) >= 3 and not r.get('used_skill_route_discovery')\"",
+      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_ablation_proof; r=builtin_ablation_proof(); assert r['ok'] and r.get('action')=='ablation_proof' and r.get('live_ledger_mutated') is False and r.get('passed_count',0) >= 3 and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
       "source_mission_id": "",
       "tags": [
@@ -29,7 +29,7 @@
         "ablation",
         "evidence"
       ],
-      "updated_at": "2026-07-29T09:08:31.079984Z"
+      "updated_at": "2026-07-29T09:46:16.511003Z"
     },
     "capability.adaptive-grow": {
       "behavior_paths": [
@@ -61,7 +61,7 @@
         "growth",
         "adaptive"
       ],
-      "updated_at": "2026-07-29T09:08:47.148133Z"
+      "updated_at": "2026-07-29T09:46:16.509370Z"
     },
     "capability.adversarial-contract": {
       "behavior_paths": [
@@ -83,7 +83,7 @@
       "last_proof_exit_code": 0,
       "last_proved_at": "2026-07-29T09:08:09.009734Z",
       "name": "Adversarial outcome contract evaluator",
-      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T090127Z-1f8f9037\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_adversarial_contract; r=builtin_adversarial_contract(); assert r['ok'] and r.get('action')=='adversarial_contract' and r.get('positive_ok') and r.get('negatives_ok') and r.get('negatives_passed',0) >= 2 and not r.get('used_skill_route_discovery')\"",
+      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_adversarial_contract; r=builtin_adversarial_contract(); assert r['ok'] and r.get('action')=='adversarial_contract' and r.get('positive_ok') and r.get('negatives_ok') and r.get('negatives_passed',0) >= 2 and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
       "source_mission_id": "",
       "tags": [
@@ -94,7 +94,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-07-29T09:08:31.080073Z"
+      "updated_at": "2026-07-29T09:46:16.511266Z"
     },
     "capability.assurance-plane": {
       "behavior_paths": [
@@ -119,7 +119,7 @@
       "last_proof_exit_code": 0,
       "last_proved_at": "2026-07-29T09:08:10.742148Z",
       "name": "Capability assurance plane",
-      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T090127Z-1f8f9037\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_assurance_plane; r=builtin_assurance_plane(); assert r['ok'] and r.get('action')=='assurance_plane' and r.get('ablation',{}).get('ok') and r.get('transfer',{}).get('ok') and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
+      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_assurance_plane; r=builtin_assurance_plane(); assert r['ok'] and r.get('action')=='assurance_plane' and r.get('ablation',{}).get('ok') and r.get('transfer',{}).get('ok') and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
       "source_mission_id": "",
       "tags": [
@@ -131,7 +131,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-07-29T09:08:31.080110Z"
+      "updated_at": "2026-07-29T09:46:16.511397Z"
     },
     "capability.autonomic-cycle": {
       "behavior_paths": [
@@ -166,7 +166,7 @@
         "autonomic",
         "novelty"
       ],
-      "updated_at": "2026-07-29T09:08:47.148305Z"
+      "updated_at": "2026-07-29T09:46:16.509950Z"
     },
     "capability.composed-core-health": {
       "behavior_paths": [
@@ -1690,7 +1690,7 @@
         "evidence",
         "growth"
       ],
-      "updated_at": "2026-07-29T09:08:47.148565Z"
+      "updated_at": "2026-07-29T09:46:16.510870Z"
     },
     "capability.distill-ledger": {
       "behavior_paths": [
@@ -1720,7 +1720,7 @@
         "growth",
         "distill"
       ],
-      "updated_at": "2026-07-29T09:08:47.148263Z"
+      "updated_at": "2026-07-29T09:46:16.509815Z"
     },
     "capability.frontier-novelty": {
       "behavior_paths": [
@@ -1750,7 +1750,7 @@
         "growth",
         "novelty"
       ],
-      "updated_at": "2026-07-29T09:08:47.148217Z"
+      "updated_at": "2026-07-29T09:46:16.509676Z"
     },
     "capability.goal-plan": {
       "behavior_paths": [
@@ -1779,7 +1779,7 @@
         "mission",
         "planner"
       ],
-      "updated_at": "2026-07-29T09:08:47.148364Z"
+      "updated_at": "2026-07-29T09:46:16.510113Z"
     },
     "capability.growth-loop": {
       "behavior_paths": [
@@ -1810,7 +1810,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-07-29T09:08:47.148085Z"
+      "updated_at": "2026-07-29T09:46:16.509232Z"
     },
     "capability.ledger-integrity": {
       "behavior_paths": [
@@ -1838,7 +1838,7 @@
         "compounder",
         "integrity"
       ],
-      "updated_at": "2026-07-29T09:08:47.148176Z"
+      "updated_at": "2026-07-29T09:46:16.509509Z"
     },
     "capability.ledger-inventory": {
       "behavior_paths": [
@@ -1864,7 +1864,7 @@
         "bootstrap",
         "compounder"
       ],
-      "updated_at": "2026-07-29T09:08:47.147946Z"
+      "updated_at": "2026-07-29T09:46:16.508791Z"
     },
     "capability.mission-plane": {
       "behavior_paths": [
@@ -1899,7 +1899,7 @@
         "growth",
         "second-wave"
       ],
-      "updated_at": "2026-07-29T09:08:47.148486Z"
+      "updated_at": "2026-07-29T09:46:16.510577Z"
     },
     "capability.outcome-contract": {
       "behavior_paths": [
@@ -1931,7 +1931,7 @@
         "contract",
         "evidence"
       ],
-      "updated_at": "2026-07-29T09:08:47.148525Z"
+      "updated_at": "2026-07-29T09:46:16.510738Z"
     },
     "capability.program-run": {
       "behavior_paths": [
@@ -1961,7 +1961,7 @@
         "mission",
         "program"
       ],
-      "updated_at": "2026-07-29T09:08:47.148406Z"
+      "updated_at": "2026-07-29T09:46:16.510252Z"
     },
     "capability.scout-gaps": {
       "behavior_paths": [
@@ -1989,7 +1989,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-07-29T09:08:47.148042Z"
+      "updated_at": "2026-07-29T09:46:16.509089Z"
     },
     "capability.second-wave-absorb": {
       "behavior_paths": [
@@ -2023,7 +2023,46 @@
         "second-wave",
         "domain"
       ],
-      "updated_at": "2026-07-29T09:08:47.148446Z"
+      "updated_at": "2026-07-29T09:46:16.510395Z"
+    },
+    "capability.sovereignty-plane": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_compounder.py",
+        "src/blackhole_agent/unbound.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Sovereignty plane compounds contract and assurance into one portable, re-verifiable lineage certificate for self-certifying completion without skill-route.",
+      "created_at": "2026-07-29T09:44:20.825671Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.outcome-contract",
+        "capability.contract-plane",
+        "capability.assurance-plane",
+        "capability.ablation-proof",
+        "capability.transfer-plane",
+        "capability.adversarial-contract"
+      ],
+      "description": "Closed sovereignty plane: contract/mission evidence → assurance (ablation/transfer/adversarial) → portable re-verifiable lineage certificate that gates self-certifying completion.",
+      "entry": "blackhole_agent.capability_compounder:builtin_sovereignty_plane",
+      "id": "capability.sovereignty-plane",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-07-29T09:45:55.825022Z",
+      "name": "Self-certifying sovereignty plane",
+      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_sovereignty_plane; import os; os.environ['BLACKHOLE_MISSION_GOAL']='health inventory milestone'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;min_primitives:3;capability_exists:repo.import-health;capability_proved:repo.import-health;program_passes:repo.import-health;no_skill_route;mission_plane_ok'; os.environ['BLACKHOLE_MISSION_GROW_BUDGET']='0'; os.environ['BLACKHOLE_MISSION_ABSORB']='0'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_CONTRACT_RUN_MISSION']='1'; r=builtin_sovereignty_plane(); assert r['ok'] and r.get('action')=='sovereignty_plane' and r.get('certificate',{}).get('ok') and r.get('verify',{}).get('valid') and r.get('assurance',{}).get('ok') and r.get('contract',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "bootstrap",
+        "compounder",
+        "sovereignty",
+        "assurance",
+        "contract",
+        "certificate",
+        "evidence"
+      ],
+      "updated_at": "2026-07-29T09:46:05.139611Z"
     },
     "capability.transfer-plane": {
       "behavior_paths": [
@@ -2044,7 +2083,7 @@
       "last_proof_exit_code": 0,
       "last_proved_at": "2026-07-29T09:08:08.355967Z",
       "name": "Portable capability transfer plane",
-      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T090127Z-1f8f9037\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_transfer_plane; r=builtin_transfer_plane(); assert r['ok'] and r.get('action')=='transfer_plane' and r.get('member_count',0) >= 2 and r.get('proved_count',0) >= 2 and r.get('reexport_members_match') and not r.get('used_skill_route_discovery')\"",
+      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_transfer_plane; r=builtin_transfer_plane(); assert r['ok'] and r.get('action')=='transfer_plane' and r.get('member_count',0) >= 2 and r.get('proved_count',0) >= 2 and r.get('reexport_members_match') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
       "source_mission_id": "",
       "tags": [
@@ -2054,7 +2093,7 @@
         "transfer",
         "package"
       ],
-      "updated_at": "2026-07-29T09:08:31.080021Z"
+      "updated_at": "2026-07-29T09:46:16.511135Z"
     },
     "domain.ci-security": {
       "behavior_paths": [
@@ -2360,7 +2399,7 @@
         "bootstrap",
         "evolution-route"
       ],
-      "updated_at": "2026-07-29T09:08:47.147995Z"
+      "updated_at": "2026-07-29T09:46:16.508944Z"
     },
     "repo.import-health": {
       "behavior_paths": [
@@ -2375,7 +2414,7 @@
       "id": "repo.import-health",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-07-29T09:08:21.563884Z",
+      "last_proved_at": "2026-07-29T09:45:53.283011Z",
       "name": "Repository import health",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_repo_import_health; r=builtin_repo_import_health(); assert r['ok'] and not r['skill_route_symbols_in_compounder']\"",
       "source_milestone": null,
@@ -2384,7 +2423,7 @@
         "bootstrap",
         "health"
       ],
-      "updated_at": "2026-07-29T09:08:47.147772Z"
+      "updated_at": "2026-07-29T09:46:16.508340Z"
     },
     "unbound.milestone-gate": {
       "behavior_paths": [
@@ -2409,9 +2448,9 @@
         "bootstrap",
         "unbound"
       ],
-      "updated_at": "2026-07-29T09:08:47.147859Z"
+      "updated_at": "2026-07-29T09:46:16.508585Z"
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-07-29T09:08:47.148657Z"
+  "updated_at": "2026-07-29T09:46:16.511706Z"
 }

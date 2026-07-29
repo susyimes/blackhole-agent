@@ -54,11 +54,13 @@ from blackhole_agent.capability_compounder import (
     run_end_to_end_demo,
     run_growth_loop,
     run_mission_plane,
+    run_sovereignty_plane,
     run_transfer_plane,
     save_ledger,
     scout_capability_gaps,
     scout_frontier_novelty,
     slugify_capability_id,
+    verify_sovereignty_certificate,
 )
 from blackhole_agent.kernels.codex_cli import CodexCliConfig, CodexCliKernel
 from blackhole_agent.kernels.grok_cli import GrokCliConfig, GrokCliKernel
@@ -1009,9 +1011,63 @@ def evaluate_milestone(
             try:
                 parsed = parse_outcome_contract(contract_text)
                 if parsed.get("machine_checkable"):
+                    kinds = {
+                        str(item.get("kind") or "")
+                        for item in (parsed.get("predicates") or [])
+                    }
+                    context: dict[str, Any] = {}
+                    # Self-certifying sovereignty: when done_when demands plane/cert
+                    # outcomes, run the closed plane once and inject evidence context.
+                    needs_sovereignty = bool(
+                        kinds
+                        & {
+                            "sovereignty_ok",
+                            "assurance_plane_ok",
+                            "certificate_valid",
+                        }
+                    )
+                    if needs_sovereignty:
+                        # Only run mission when the contract itself demands mission_plane_ok.
+                        run_mission = "mission_plane_ok" in kinds
+                        sovereignty = run_sovereignty_plane(
+                            workspace,
+                            goal=decision.mission_goal or decision.summary or "complete",
+                            done_when=contract_text,
+                            max_steps=3,
+                            absorb_ready=False,
+                            grow_budget=0,
+                            run_mission=run_mission,
+                            timeout=180,
+                        )
+                        context = {
+                            "used_skill_route_discovery": bool(
+                                sovereignty.get("used_skill_route_discovery")
+                            ),
+                            "assurance": sovereignty.get("assurance") or {},
+                            "assurance_plane": sovereignty.get("assurance") or {},
+                            "sovereignty": {"ok": bool(sovereignty.get("ok"))},
+                            "sovereignty_plane": {"ok": bool(sovereignty.get("ok"))},
+                            "certificate_path": (
+                                (sovereignty.get("certificate") or {}).get(
+                                    "certificate_path"
+                                )
+                            ),
+                            "mission": sovereignty.get("contract", {}).get("mission")
+                            or {},
+                            "mission_plane": sovereignty.get("contract", {}).get(
+                                "mission"
+                            )
+                            or {},
+                            "contract_plane": sovereignty.get("contract") or {},
+                        }
+                        if not sovereignty.get("ok"):
+                            reasons.append(
+                                "sovereignty plane failed for machine-checkable complete"
+                            )
                     verdict = evaluate_outcome_contract(
                         workspace,
                         contract_text,
+                        context=context or None,
                         run_programs=False,
                         timeout=90,
                     )
@@ -2942,6 +2998,76 @@ def capability_assurance(
         )
     except Exception as error:
         console.print(f"Assurance plane failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "sovereignty",
+    help=(
+        "Sovereignty plane: contract/mission → assurance → portable re-verifiable "
+        "lineage certificate (self-certifying completion evidence)."
+    ),
+)
+def capability_sovereignty(
+    goal: str = typer.Option(
+        "health inventory milestone",
+        "--goal",
+        help="Mission goal for the contract/mission phase.",
+    ),
+    done_when: str = typer.Option(
+        "",
+        "--done-when",
+        help="Contract done_when predicates (defaults to a lean health contract).",
+    ),
+    capability_id: str = typer.Option(
+        "repo.import-health",
+        "--id",
+        help="Capability id for assurance ablation phase.",
+    ),
+    certificate_path: Path | None = typer.Option(
+        None,
+        "--certificate-path",
+        help="Where to write the sovereignty certificate JSON.",
+    ),
+    verify_only: Path | None = typer.Option(
+        None,
+        "--verify-only",
+        help="Only re-verify an existing sovereignty certificate path.",
+    ),
+    no_mission: bool = typer.Option(
+        False,
+        "--no-mission",
+        help="Skip mission plane inside contract phase (faster cert issue).",
+    ),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    timeout_seconds: int = typer.Option(180, "--timeout-seconds", min=1),
+) -> None:
+    root = repo_path.resolve()
+    try:
+        if verify_only is not None:
+            result = verify_sovereignty_certificate(
+                verify_only.resolve(),
+                repo_path=root,
+                recheck_live=True,
+                timeout=min(timeout_seconds, 90),
+            )
+        else:
+            result = run_sovereignty_plane(
+                root,
+                goal,
+                done_when,
+                capability_id=capability_id,
+                certificate_path=certificate_path,
+                run_mission=not no_mission,
+                absorb_ready=False,
+                grow_budget=0,
+                timeout=timeout_seconds,
+            )
+    except Exception as error:
+        console.print(f"Sovereignty plane failed: {error}", style="red")
         raise typer.Exit(1) from error
     console.print_json(data=result)
     if not result.get("ok") or result.get("used_skill_route_discovery"):

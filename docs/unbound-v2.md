@@ -177,7 +177,8 @@ uv run blackhole-unbound capability integrity --limit 16
   (`capability.outcome-contract`). Predicate forms include
   `min_capabilities:N`, `min_primitives:N`, `capability_exists:id`,
   `capability_proved:id`, `program_passes:id1,id2`, `no_skill_route`,
-  `mission_plane_ok`, and more.
+  `mission_plane_ok`, `assurance_plane_ok`, `sovereignty_ok`,
+  `certificate_valid`, and more.
 - `capability contract-plane` is the evidence plane: mission plane then
   outcome-contract evaluation so completion is ledger/program-backed
   (`capability.contract-plane`). Unbound milestone gating also refuses
@@ -192,6 +193,13 @@ uv run blackhole-unbound capability integrity --limit 16
 - `capability assurance` runs ablation → transfer → adversarial as one
   falsifiable evidence plane past zero-novelty superstack plateaus
   (`capability.assurance-plane`).
+- `capability sovereignty` is the self-certifying plane: contract/mission →
+  assurance → portable re-verifiable lineage certificate
+  (`capability.sovereignty-plane`). Certificates land under
+  `artifacts/sovereignty-certificates/` and can be re-checked with
+  `--verify-only`. Outcome predicates `assurance_plane_ok`, `sovereignty_ok`,
+  and `certificate_valid` gate machine-checkable completion; Unbound refuses
+  `complete` when those predicates fail.
 
 Promoted compositions are tagged `composed`/`promoted` and become ordinary
 ledger citizens that later turns can list, prove, run, and compose further.
