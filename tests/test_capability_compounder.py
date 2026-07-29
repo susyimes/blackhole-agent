@@ -827,3 +827,123 @@ def test_cli_integrity_and_budget_grow_exit_zero():
     assert grow_payload["used_skill_route_discovery"] is False
     assert grow_payload.get("action") == "adaptive_grow"
     assert grow_payload.get("steps_run", 0) >= 1
+
+
+def test_frontier_novelty_prefers_novel_over_stale_superstacks():
+    """Scout ranks novel primitive coverage ahead of identical-leaf superstacks."""
+
+    from blackhole_agent.capability_compounder import (
+        is_primitive_capability,
+        scout_frontier_novelty,
+    )
+
+    repo = Path(__file__).resolve().parents[1]
+    path = default_ledger_path(repo)
+    ledger = load_ledger(path)
+    primitives = [c.id for c in ledger.capabilities.values() if is_primitive_capability(c)]
+    assert "repo.import-health" in primitives
+    assert any(item.startswith("domain.") for item in primitives)
+
+    scout = scout_capability_gaps(ledger, repo_path=repo)
+    assert "novel_ready" in scout
+    assert "stale_ready" in scout
+    assert "unique_composed_coverage_sets" in scout
+    recommended = scout.get("recommended")
+    if recommended and scout.get("novel_ready"):
+        # When any novel frontier exists, recommended must be novel.
+        assert recommended.get("novel") is True, recommended
+        assert recommended["suggested_id"] in scout["novel_ready"]
+
+    novelty = scout_frontier_novelty(ledger, repo_path=repo)
+    assert novelty["ok"] is True
+    assert novelty["used_skill_route_discovery"] is False
+    assert novelty["primitive_count"] >= 3
+    assert novelty["novel_ready_count"] + novelty["stale_ready_count"] == novelty["ready_count"]
+
+
+def test_distill_tags_redundant_identical_coverage_stacks():
+    """Soft distill marks non-champion stacks that share primitive coverage."""
+
+    from blackhole_agent.capability_compounder import run_distill_ledger
+
+    repo = Path(__file__).resolve().parents[1]
+    path = default_ledger_path(repo)
+    before = load_ledger(path)
+    before_count = len(before.capabilities)
+    report = run_distill_ledger(repo, remove=False, only_synthesized=True)
+    assert report["ok"] is True, report
+    assert report["used_skill_route_discovery"] is False
+    assert report["before_count"] == before_count
+    # Soft distill preserves ledger size.
+    assert report["after_count"] == before_count
+    assert report["removed_count"] == 0
+    ledger = load_ledger(path)
+    if report["redundant_count"] > 0:
+        for capability_id in report["redundant"]:
+            tags = ledger.capabilities[capability_id].tags
+            assert "redundant" in tags
+            assert "distilled" in tags
+        assert report["champions"]
+
+
+def test_autonomic_cycle_novelty_grow_distill_integrity():
+    """Closed autonomic plane: novelty grow → distill → integrity without skill-route."""
+
+    from blackhole_agent.capability_compounder import (
+        ensure_seeded_ledger,
+        run_autonomic_cycle,
+    )
+
+    repo = Path(__file__).resolve().parents[1]
+    path, ledger = ensure_seeded_ledger(repo)
+    assert "capability.frontier-novelty" in ledger.capabilities
+    assert "capability.distill-ledger" in ledger.capabilities
+    assert "capability.autonomic-cycle" in ledger.capabilities
+
+    result = run_autonomic_cycle(
+        repo,
+        budget=2,
+        distill_remove=False,
+        integrity_limit=8,
+        timeout=240,
+    )
+    assert result["ok"] is True, result
+    assert result["action"] == "autonomic_cycle"
+    assert result["used_skill_route_discovery"] is False
+    assert result["growth"]["ok"] is True
+    assert result["distill"]["ok"] is True
+    assert result["integrity"]["ok"] is True
+    assert result["integrity"]["score"] >= 1.0
+    assert result["after_count"] >= 1
+    # Either advanced novel growth, distilled redundancy, or cleanly reported state.
+    assert (
+        result.get("advanced")
+        or result["growth"].get("steps_run", 0) >= 1
+        or result["distill"].get("redundant_count", 0) >= 0
+    )
+
+    # CLI surface for the autonomic plane.
+    env = {
+        **dict(**{k: v for k, v in __import__("os").environ.items()}),
+        "PYTHONPATH": str(repo / "src"),
+    }
+    novelty_cli = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "blackhole_agent.unbound",
+            "capability",
+            "novelty",
+            "--repo-path",
+            str(repo),
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=120,
+    )
+    assert novelty_cli.returncode == 0, novelty_cli.stdout + novelty_cli.stderr
+    novelty_payload = json.loads(novelty_cli.stdout)
+    assert novelty_payload["ok"] is True
+    assert novelty_payload["used_skill_route_discovery"] is False

@@ -155,9 +155,16 @@ uv run blackhole-unbound capability integrity --limit 16
 
 - `capability grow --budget N` runs adaptive multi-step growth until the budget
   is exhausted or no ready frontier remains (domain absorb, dynamic, hierarchical,
-  meta, superstack).
+  meta, superstack). Scout ranks **novel primitive coverage** ahead of combinatorial
+  superstacks that re-package the same leaves.
 - `capability integrity` batch-proves the ledger DAG in topological order and
   reports an integrity score (`capability.ledger-integrity`).
+- `capability novelty` ranks ready frontiers by primitive-coverage novelty
+  (`capability.frontier-novelty`).
+- `capability distill` collapses redundant identical-coverage stacks (soft-tag or
+  `--remove`; `capability.distill-ledger`).
+- `capability autonomic` runs novelty-aware grow → distill → integrity as one
+  invocable cycle (`capability.autonomic-cycle`).
 
 Promoted compositions are tagged `composed`/`promoted` and become ordinary
 ledger citizens that later turns can list, prove, run, and compose further.

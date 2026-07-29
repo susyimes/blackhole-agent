@@ -399,6 +399,469 @@ def _run_shell(
 
 
 ACTIVE_CAPABILITY_ENV = "BLACKHOLE_CAPABILITY_ID"
+COMPOSED_ENTRY = "blackhole_agent.capability_compounder:builtin_execute_composed_capability"
+# Tags that mark combinatorial stack growth rather than primitive behavior units.
+STACK_GROWTH_TAGS = frozenset({"composed", "promoted", "hierarchical", "meta", "superstack", "dynamic", "synthesized"})
+
+
+def is_primitive_capability(capability: Capability) -> bool:
+    """True when the capability is a behavior unit, not a re-composed dependency chain.
+
+    Composed ledger citizens share the same `builtin_execute_composed_capability` entry
+    and only re-run members. Everything else (domain surfaces, bootstrap health, growth
+    plane operators) is a primitive for novelty / coverage scoring.
+    """
+
+    if not capability.dependencies:
+        return True
+    entry = (capability.entry or "").strip()
+    if entry == COMPOSED_ENTRY or entry.endswith(":builtin_execute_composed_capability"):
+        return False
+    return True
+
+
+def primitive_coverage(
+    ledger: CapabilityLedger,
+    capability_id: str,
+    *,
+    _cache: dict[str, frozenset[str]] | None = None,
+) -> frozenset[str]:
+    """Resolve the set of primitive capability ids under a capability (or itself)."""
+
+    cache = _cache if _cache is not None else {}
+    if capability_id in cache:
+        return cache[capability_id]
+    capability = ledger.capabilities.get(capability_id)
+    if capability is None:
+        result = frozenset({capability_id})
+        cache[capability_id] = result
+        return result
+    if is_primitive_capability(capability):
+        result = frozenset({capability.id})
+        cache[capability_id] = result
+        return result
+    covered: set[str] = set()
+    for dep in capability.dependencies:
+        covered |= primitive_coverage(ledger, dep, _cache=cache)
+    result = frozenset(covered)
+    cache[capability_id] = result
+    return result
+
+
+def coverage_for_members(
+    ledger: CapabilityLedger,
+    member_ids: Sequence[str],
+    *,
+    _cache: dict[str, frozenset[str]] | None = None,
+) -> frozenset[str]:
+    """Union primitive coverage across explicit member ids (for promotion candidates)."""
+
+    cache = _cache if _cache is not None else {}
+    covered: set[str] = set()
+    for member in member_ids:
+        member_id = str(member).strip()
+        if not member_id:
+            continue
+        if member_id in ledger.capabilities:
+            covered |= primitive_coverage(ledger, member_id, _cache=cache)
+        else:
+            covered.add(member_id)
+    return frozenset(covered)
+
+
+def existing_composed_coverage_sets(ledger: CapabilityLedger) -> set[frozenset[str]]:
+    """Primitive-coverage sets already realized by promoted/composed ledger units."""
+
+    cache: dict[str, frozenset[str]] = {}
+    sets: set[frozenset[str]] = set()
+    for capability in ledger.capabilities.values():
+        if is_primitive_capability(capability):
+            continue
+        sets.add(primitive_coverage(ledger, capability.id, _cache=cache))
+    return sets
+
+
+def champion_rank(capability: Capability) -> tuple[int, int, int, str]:
+    """Higher rank wins when distilling capabilities that share coverage.
+
+    Prefer non-synthesized, first-order, proved, catalogued compositions over
+    deep superstacks that only re-package the same primitives.
+    """
+
+    tags = set(capability.tags)
+    score = 0
+    if "synthesized" not in tags:
+        score += 100
+    if "superstack" not in tags:
+        score += 50
+    if "meta" not in tags:
+        score += 40
+    if "hierarchical" not in tags:
+        score += 30
+    if "dynamic" not in tags:
+        score += 10
+    if capability.last_proof_exit_code == 0:
+        score += 20
+    known_ids = {str(recipe["suggested_id"]) for recipe in KNOWN_GROWTH_RECIPES} | {
+        str(recipe["suggested_id"]) for recipe in KNOWN_HIERARCHICAL_RECIPES
+    }
+    if capability.id in known_ids:
+        score += 25
+    # Prefer fewer direct deps (more focused units) then shorter stable ids.
+    return (score, -len(capability.dependencies), -len(capability.id), capability.id)
+
+
+def annotate_opportunities_with_novelty(
+    ledger: CapabilityLedger,
+    opportunities: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Attach primitive coverage + novelty score to scout opportunities in-place."""
+
+    existing = existing_composed_coverage_sets(ledger)
+    cache: dict[str, frozenset[str]] = {}
+    for item in opportunities:
+        status = str(item.get("status") or "")
+        kind = str(item.get("kind") or "")
+        members = [str(m) for m in (item.get("members") or []) if str(m).strip()]
+        if kind == "domain_absorb" or status == "ready_to_absorb":
+            surface_id = str(item.get("suggested_id") or "")
+            coverage = frozenset({surface_id}) if surface_id else frozenset()
+            # Absorbing a new primitive is always novel coverage expansion.
+            novel = surface_id not in ledger.capabilities
+            novelty_score = 1000 if novel else 0
+        elif status in {"ready", "already_promoted", "blocked_missing_members"} and members:
+            coverage = coverage_for_members(ledger, members, _cache=cache)
+            novel = bool(coverage) and coverage not in existing
+            # Prefer genuinely new coverage sets; break ties by coverage breadth.
+            novelty_score = (500 + len(coverage)) if novel else max(0, len(coverage) // 4)
+            # Penalize pure superstack/meta packaging of already-covered primitives.
+            if not novel and (
+                item.get("synthesis") in {"superstack", "meta_hierarchical"}
+                or "superstack" in (item.get("tags") or [])
+            ):
+                novelty_score = 0
+        else:
+            coverage = frozenset()
+            novel = False
+            novelty_score = 0
+        item["coverage"] = sorted(coverage)
+        item["coverage_size"] = len(coverage)
+        item["novel"] = novel
+        item["novelty_score"] = int(novelty_score)
+    return opportunities
+
+
+def rank_growth_opportunities(opportunities: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Rank scout opportunities: ready+novel first, then other ready, then absorbs."""
+
+    status_rank = {
+        "ready": 0,
+        "ready_to_absorb": 1,
+        "already_promoted": 2,
+        "already_absorbed": 3,
+        "blocked_missing_members": 4,
+        "blocked_missing_module": 5,
+    }
+
+    def sort_key(item: dict[str, Any]) -> tuple[Any, ...]:
+        status = str(item.get("status") or "")
+        ready = status in {"ready", "ready_to_absorb"}
+        # Among ready frontiers, novel coverage outranks combinatorial re-packages.
+        novel_rank = 0 if (ready and item.get("novel")) else 1 if ready else 2
+        return (
+            novel_rank,
+            status_rank.get(status, 9),
+            -int(item.get("novelty_score") or 0),
+            -int(item.get("priority") or 0),
+            str(item.get("suggested_id") or ""),
+        )
+
+    opportunities.sort(key=sort_key)
+    return opportunities
+
+
+def scout_frontier_novelty(
+    ledger: CapabilityLedger,
+    *,
+    repo_path: Path | None = None,
+) -> dict[str, Any]:
+    """Rank growth frontiers by primitive-coverage novelty (anti-combinatorial plane)."""
+
+    scout = scout_capability_gaps(ledger, repo_path=repo_path)
+    opportunities = list(scout.get("opportunities") or [])
+    ready = [item for item in opportunities if item.get("status") in {"ready", "ready_to_absorb"}]
+    novel_ready = [item for item in ready if item.get("novel")]
+    stale_ready = [item for item in ready if not item.get("novel")]
+    composed_sets = existing_composed_coverage_sets(ledger)
+    primitives = sorted(
+        capability.id for capability in ledger.capabilities.values() if is_primitive_capability(capability)
+    )
+    recommended = scout.get("recommended")
+    return {
+        "ok": True,
+        "action": "frontier_novelty",
+        "count": len(ledger.capabilities),
+        "primitive_count": len(primitives),
+        "primitives": primitives,
+        "unique_composed_coverage_sets": len(composed_sets),
+        "ready_count": len(ready),
+        "novel_ready_count": len(novel_ready),
+        "stale_ready_count": len(stale_ready),
+        "novel_ready": [
+            {
+                "suggested_id": item.get("suggested_id"),
+                "novelty_score": item.get("novelty_score"),
+                "coverage": item.get("coverage"),
+                "synthesis": item.get("synthesis"),
+                "priority": item.get("priority"),
+            }
+            for item in novel_ready[:12]
+        ],
+        "stale_ready": [
+            {
+                "suggested_id": item.get("suggested_id"),
+                "novelty_score": item.get("novelty_score"),
+                "coverage": item.get("coverage"),
+                "synthesis": item.get("synthesis"),
+                "priority": item.get("priority"),
+            }
+            for item in stale_ready[:12]
+        ],
+        "recommended": recommended,
+        "recommended_novel": bool(recommended and recommended.get("novel")),
+        "used_skill_route_discovery": scout.get("used_skill_route_discovery", False),
+        "ledger_path": scout.get("ledger_path"),
+    }
+
+
+def distill_ledger(
+    ledger: CapabilityLedger,
+    *,
+    remove: bool = False,
+    only_synthesized: bool = True,
+) -> tuple[CapabilityLedger, dict[str, Any]]:
+    """Collapse redundant composed units that share identical primitive coverage.
+
+    Soft distill (default): tag non-champions `redundant` so growth/inventory can ignore them.
+    Hard distill (`remove=True`): drop non-champion synthesized stacks from the ledger.
+    Primitives and bootstrap operators are never removed.
+    """
+
+    cache: dict[str, frozenset[str]] = {}
+    groups: dict[frozenset[str], list[Capability]] = {}
+    for capability in ledger.capabilities.values():
+        if is_primitive_capability(capability):
+            continue
+        if only_synthesized and "synthesized" not in capability.tags and "superstack" not in capability.tags:
+            # Still group non-synthesized when they share coverage with stacks; champions
+            # may be catalogued first-order units.
+            pass
+        coverage = primitive_coverage(ledger, capability.id, _cache=cache)
+        groups.setdefault(coverage, []).append(capability)
+
+    champions: list[str] = []
+    redundant: list[str] = []
+    removed: list[str] = []
+    retained = dict(ledger.capabilities)
+
+    for coverage, members in groups.items():
+        if len(members) < 2:
+            continue
+        ordered = sorted(members, key=champion_rank, reverse=True)
+        champion = ordered[0]
+        champions.append(champion.id)
+        for loser in ordered[1:]:
+            if only_synthesized and not (
+                "synthesized" in loser.tags
+                or "superstack" in loser.tags
+                or "meta" in loser.tags
+            ):
+                continue
+            redundant.append(loser.id)
+            if remove:
+                retained.pop(loser.id, None)
+                removed.append(loser.id)
+            else:
+                tags = tuple(dict.fromkeys((*loser.tags, "redundant", "distilled")))
+                retained[loser.id] = Capability(
+                    id=loser.id,
+                    name=loser.name,
+                    description=loser.description,
+                    kind=loser.kind,
+                    entry=loser.entry,
+                    proof_command=loser.proof_command,
+                    dependencies=loser.dependencies,
+                    behavior_paths=loser.behavior_paths,
+                    capability_delta=loser.capability_delta,
+                    tags=tags,
+                    created_at=loser.created_at,
+                    updated_at=utc_now_iso(),
+                    source_mission_id=loser.source_mission_id,
+                    source_milestone=loser.source_milestone,
+                    last_proved_at=loser.last_proved_at,
+                    last_proof_exit_code=loser.last_proof_exit_code,
+                )
+
+    new_ledger = CapabilityLedger(
+        schema_version=ledger.schema_version,
+        updated_at=utc_now_iso(),
+        capabilities=retained,
+    )
+    report = {
+        "ok": True,
+        "action": "distill_ledger",
+        "before_count": len(ledger.capabilities),
+        "after_count": len(new_ledger.capabilities),
+        "group_count": sum(1 for members in groups.values() if len(members) >= 2),
+        "champions": sorted(set(champions)),
+        "redundant": sorted(set(redundant)),
+        "removed": sorted(set(removed)),
+        "redundant_count": len(set(redundant)),
+        "removed_count": len(set(removed)),
+        "unique_composed_coverage_sets": len(groups),
+        "remove": remove,
+        "only_synthesized": only_synthesized,
+    }
+    return new_ledger, report
+
+
+def run_distill_ledger(
+    repo_path: Path,
+    *,
+    remove: bool = False,
+    only_synthesized: bool = True,
+) -> dict[str, Any]:
+    """Load ledger, distill redundant stacks, persist, return report."""
+
+    root = repo_path.resolve()
+    path, ledger = ensure_seeded_ledger(root)
+    before_ids = sorted(ledger.capabilities)
+    new_ledger, report = distill_ledger(
+        ledger,
+        remove=remove,
+        only_synthesized=only_synthesized,
+    )
+    save_ledger(path, new_ledger)
+    report["before_ids"] = before_ids
+    report["after_ids"] = sorted(new_ledger.capabilities)
+    report["ledger_path"] = str(path)
+    report["used_skill_route_discovery"] = (
+        "skill_routing" in sys.modules or "blackhole_agent.skill_routing" in sys.modules
+    )
+    report["ok"] = report["ok"] and not report["used_skill_route_discovery"]
+    return report
+
+
+def run_autonomic_cycle(
+    repo_path: Path,
+    *,
+    budget: int = 4,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 180,
+    distill_remove: bool = False,
+    integrity_limit: int = 12,
+) -> dict[str, Any]:
+    """Novelty-aware grow → distill redundant stacks → integrity prove.
+
+    Escapes the combinatorial superstack treadmill: scout ranks novel primitive
+    coverage first, adaptive growth spends budget on those frontiers, distill
+    collapses identical-coverage stacks, integrity re-proves a topo prefix.
+    """
+
+    root = repo_path.resolve()
+    path, ledger = ensure_seeded_ledger(root)
+    before_count = len(ledger.capabilities)
+    before_coverage = len(existing_composed_coverage_sets(ledger))
+    novelty_before = scout_frontier_novelty(ledger, repo_path=root)
+
+    # Autonomic growth spends budget only on novel coverage; stale superstack
+    # promotion is left to explicit `capability grow` without novel_only.
+    growth = run_adaptive_growth(
+        root,
+        budget=budget,
+        command_runner=command_runner,
+        timeout=timeout,
+        novel_only=True,
+    )
+    ledger = load_ledger(path)
+    distill = run_distill_ledger(
+        root,
+        remove=distill_remove,
+        only_synthesized=True,
+    )
+    ledger = load_ledger(path)
+    # Integrity of deep composed stacks is expensive and orthogonal to the
+    # novelty/distill plane; prove a topo prefix of primitives-first order.
+    integrity = prove_ledger_integrity(
+        root,
+        command_runner=command_runner,
+        timeout=min(timeout, 120),
+        limit=integrity_limit,
+    )
+    novelty_after = scout_frontier_novelty(load_ledger(path), repo_path=root)
+    after_count = len(load_ledger(path).capabilities)
+    after_coverage = novelty_after.get("unique_composed_coverage_sets", 0)
+    used_skill = bool(
+        growth.get("used_skill_route_discovery")
+        or distill.get("used_skill_route_discovery")
+        or integrity.get("used_skill_route_discovery")
+    )
+    # Success: no skill-route, integrity ok, and either growth advanced novel frontier,
+    # distillation reduced redundancy, or the plane cleanly reported a novelty stall.
+    advanced = bool(growth.get("grew")) or int(distill.get("redundant_count") or 0) > 0
+    ok = (
+        not used_skill
+        and bool(growth.get("ok"))
+        and bool(distill.get("ok"))
+        and bool(integrity.get("ok"))
+    )
+    return {
+        "ok": ok,
+        "action": "autonomic_cycle",
+        "advanced": advanced,
+        "before_count": before_count,
+        "after_count": after_count,
+        "before_unique_coverage_sets": before_coverage,
+        "after_unique_coverage_sets": after_coverage,
+        "novel_ready_before": novelty_before.get("novel_ready_count"),
+        "novel_ready_after": novelty_after.get("novel_ready_count"),
+        "stale_ready_before": novelty_before.get("stale_ready_count"),
+        "growth": {
+            "ok": growth.get("ok"),
+            "grew": growth.get("grew"),
+            "promoted_ids": growth.get("promoted_ids"),
+            "promoted_count": growth.get("promoted_count"),
+            "steps_run": growth.get("steps_run"),
+            "stalled": growth.get("stalled"),
+            "stall_reason": growth.get("stall_reason"),
+        },
+        "distill": {
+            "ok": distill.get("ok"),
+            "redundant_count": distill.get("redundant_count"),
+            "removed_count": distill.get("removed_count"),
+            "after_count": distill.get("after_count"),
+            "champions": distill.get("champions"),
+        },
+        "integrity": {
+            "ok": integrity.get("ok"),
+            "score": integrity.get("score"),
+            "proved_count": integrity.get("proved_count"),
+            "failed_count": integrity.get("failed_count"),
+        },
+        "novelty_before": {
+            "novel_ready_count": novelty_before.get("novel_ready_count"),
+            "stale_ready_count": novelty_before.get("stale_ready_count"),
+            "recommended_novel": novelty_before.get("recommended_novel"),
+            "recommended": (novelty_before.get("recommended") or {}).get("suggested_id"),
+        },
+        "novelty_after": {
+            "novel_ready_count": novelty_after.get("novel_ready_count"),
+            "stale_ready_count": novelty_after.get("stale_ready_count"),
+            "recommended_novel": novelty_after.get("recommended_novel"),
+        },
+        "used_skill_route_discovery": used_skill,
+        "ledger_path": str(path),
+    }
 
 
 def run_python_entry(
@@ -2257,22 +2720,10 @@ def scout_capability_gaps(
     opportunities.extend(meta_hierarchical_opportunities)
     superstack_opportunities = synthesize_superstack_compositions(ledger)
     opportunities.extend(superstack_opportunities)
-    # Prefer ready compositions, then ready domain absorbs, then already-done, then blocked.
-    status_rank = {
-        "ready": 0,
-        "ready_to_absorb": 1,
-        "already_promoted": 2,
-        "already_absorbed": 3,
-        "blocked_missing_members": 4,
-        "blocked_missing_module": 5,
-    }
-    opportunities.sort(
-        key=lambda item: (
-            status_rank.get(str(item["status"]), 9),
-            -int(item["priority"]),
-            item["suggested_id"],
-        )
-    )
+    # Annotate primitive-coverage novelty, then rank novel ready frontiers ahead of
+    # combinatorial superstacks that re-package identical primitives.
+    annotate_opportunities_with_novelty(ledger, opportunities)
+    rank_growth_opportunities(opportunities)
     recommended = next(
         (
             item
@@ -2288,6 +2739,9 @@ def scout_capability_gaps(
             "capability.growth-loop",
             "capability.adaptive-grow",
             "capability.ledger-integrity",
+            "capability.frontier-novelty",
+            "capability.distill-ledger",
+            "capability.autonomic-cycle",
         )
         if capability_id not in ledger.capabilities
     ]
@@ -2338,6 +2792,20 @@ def scout_capability_gaps(
         "uncatalogued_surfaces": uncatalogued,
         "opportunities": opportunities,
         "recommended": recommended,
+        "novel_ready": [
+            item["suggested_id"]
+            for item in opportunities
+            if item.get("status") in {"ready", "ready_to_absorb"} and item.get("novel")
+        ],
+        "stale_ready": [
+            item["suggested_id"]
+            for item in opportunities
+            if item.get("status") in {"ready", "ready_to_absorb"} and not item.get("novel")
+        ],
+        "unique_composed_coverage_sets": len(existing_composed_coverage_sets(ledger)),
+        "primitive_count": sum(
+            1 for capability in ledger.capabilities.values() if is_primitive_capability(capability)
+        ),
         "used_skill_route_discovery": "skill_routing" in sys.modules
         or "blackhole_agent.skill_routing" in sys.modules,
         "ledger_path": str(default_ledger_path(root)),
@@ -2898,11 +3366,16 @@ def run_adaptive_growth(
     command_runner: Callable[..., Any] = subprocess.run,
     timeout: int = 180,
     stop_on_reprove: bool = True,
+    novel_only: bool = False,
 ) -> dict[str, Any]:
     """Run the growth loop repeatedly until budget exhausts or growth stalls.
 
     Escapes single-step re-prove plateaus by promoting every ready frontier step
     (domain absorb, dynamic, hierarchical, meta, superstack) in one invocation.
+
+    When `novel_only` is true, stop before promoting zero-novelty (stale) frontiers
+    so adaptive/autonomic growth does not bloat the ledger with identical-coverage
+    superstacks after novel combinations are exhausted.
     """
 
     root = repo_path.resolve()
@@ -2917,6 +3390,13 @@ def run_adaptive_growth(
     used_skill = False
 
     for _ in range(max_steps):
+        if novel_only:
+            scout = scout_capability_gaps(load_ledger(path), repo_path=root)
+            recommended = scout.get("recommended")
+            if not recommended or not recommended.get("novel"):
+                stalled = True
+                stall_reason = "no_novel_ready_frontier"
+                break
         step = run_growth_loop(
             root,
             command_runner=command_runner,
@@ -2931,6 +3411,7 @@ def run_adaptive_growth(
                 "reason": step.get("reason"),
                 "error": step.get("error"),
                 "after_count": step.get("after_count"),
+                "selected_novel": (step.get("selected") or {}).get("novel"),
             }
         )
         used_skill = used_skill or bool(step.get("used_skill_route_discovery"))
@@ -2956,6 +3437,9 @@ def run_adaptive_growth(
     # or cleanly reported a stall after exhausting ready frontiers.
     if steps and not grew and stalled:
         ok = ok and steps[-1].get("ok") is True
+    # novel_only early-stop with zero steps is still a clean success (nothing novel left).
+    if novel_only and not steps and stall_reason == "no_novel_ready_frontier":
+        ok = not used_skill
     return {
         "ok": ok,
         "grew": grew,
@@ -2966,6 +3450,7 @@ def run_adaptive_growth(
         "promoted_count": len(promoted_ids),
         "stalled": stalled,
         "stall_reason": stall_reason,
+        "novel_only": novel_only,
         "steps": steps,
         "before_count": before_count,
         "after_count": after_count,
@@ -3135,6 +3620,49 @@ def builtin_ledger_integrity() -> dict[str, Any]:
     limit_raw = (os.environ.get("BLACKHOLE_INTEGRITY_LIMIT") or "").strip()
     limit = int(limit_raw) if limit_raw.isdigit() else 12
     return prove_ledger_integrity(root, timeout=120, limit=limit)
+
+
+def builtin_frontier_novelty() -> dict[str, Any]:
+    """Invocable capability: rank growth frontiers by primitive-coverage novelty."""
+
+    root = Path(__file__).resolve().parents[2]
+    path = default_ledger_path(root)
+    ledger = load_ledger(path)
+    result = scout_frontier_novelty(ledger, repo_path=root)
+    result["ledger_path"] = str(path)
+    return result
+
+
+def builtin_distill_ledger() -> dict[str, Any]:
+    """Invocable capability: soft-distill redundant identical-coverage stacks."""
+
+    root = Path(__file__).resolve().parents[2]
+    remove = (os.environ.get("BLACKHOLE_DISTILL_REMOVE") or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+    return run_distill_ledger(root, remove=remove, only_synthesized=True)
+
+
+def builtin_autonomic_cycle() -> dict[str, Any]:
+    """Invocable capability: novelty-aware grow → distill → integrity cycle."""
+
+    root = Path(__file__).resolve().parents[2]
+    budget = int(os.environ.get("BLACKHOLE_AUTONOMIC_BUDGET") or "3")
+    integrity_limit = int(os.environ.get("BLACKHOLE_INTEGRITY_LIMIT") or "10")
+    remove = (os.environ.get("BLACKHOLE_DISTILL_REMOVE") or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+    return run_autonomic_cycle(
+        root,
+        budget=budget,
+        distill_remove=remove,
+        integrity_limit=integrity_limit,
+        timeout=180,
+    )
 
 
 def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
@@ -3347,6 +3875,106 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "Ledger-wide integrity is invocable as a first-class regression guardian capability."
             ),
             tags=("bootstrap", "compounder", "integrity"),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.frontier-novelty",
+            name="Frontier novelty ranking",
+            description=(
+                "Rank scout opportunities by primitive-coverage novelty so growth prefers "
+                "new domain combinations over combinatorial superstacks with identical leaves."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_frontier_novelty",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_frontier_novelty; '
+                "r=builtin_frontier_novelty(); assert r['ok'] and 'novel_ready_count' in r "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.scout-gaps",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Growth frontiers are ranked by novel primitive coverage, not stack depth alone."
+            ),
+            tags=("bootstrap", "compounder", "growth", "novelty"),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.distill-ledger",
+            name="Ledger distillation",
+            description=(
+                "Collapse redundant composed capabilities that share identical primitive "
+                "coverage, tagging non-champions redundant (optional hard remove)."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_distill_ledger",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_distill_ledger; '
+                "r=builtin_distill_ledger(); assert r['ok'] and r.get('redundant_count',0) >= 0 "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.frontier-novelty",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Identical-coverage stack bloat can be distilled without skill-route machinery."
+            ),
+            tags=("bootstrap", "compounder", "growth", "distill"),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.autonomic-cycle",
+            name="Autonomic novelty growth cycle",
+            description=(
+                "Run novelty-aware adaptive growth, distill redundant stacks, then integrity "
+                "prove — the closed autonomic plane past combinatorial superstack plateaus."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_autonomic_cycle",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_autonomic_cycle; '
+                "import os; os.environ.setdefault('BLACKHOLE_AUTONOMIC_BUDGET','2'); "
+                "os.environ.setdefault('BLACKHOLE_INTEGRITY_LIMIT','8'); "
+                "r=builtin_autonomic_cycle(); assert r['ok'] and r.get('action')=='autonomic_cycle' "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.frontier-novelty",
+                "capability.distill-ledger",
+                "capability.adaptive-grow",
+                "capability.ledger-integrity",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "src/blackhole_agent/unbound.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Autonomic cycle prefers novel frontiers, distills redundant stacks, and "
+                "re-proves integrity without skill-route discovery."
+            ),
+            tags=("bootstrap", "compounder", "growth", "autonomic", "novelty"),
             created_at=utc_now_iso(),
             updated_at=utc_now_iso(),
         ),

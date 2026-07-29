@@ -39,11 +39,14 @@ from blackhole_agent.capability_compounder import (
     prove_ledger_integrity,
     register_capability,
     run_adaptive_growth,
+    run_autonomic_cycle,
     run_capability,
+    run_distill_ledger,
     run_end_to_end_demo,
     run_growth_loop,
     save_ledger,
     scout_capability_gaps,
+    scout_frontier_novelty,
     slugify_capability_id,
 )
 from blackhole_agent.kernels.codex_cli import CodexCliConfig, CodexCliKernel
@@ -1676,6 +1679,92 @@ def capability_integrity(
         )
     except Exception as error:
         console.print(f"Integrity failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "novelty",
+    help=(
+        "Rank growth frontiers by primitive-coverage novelty "
+        "(prefers new domain combinations over identical-leaf superstacks)."
+    ),
+)
+def capability_novelty(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+) -> None:
+    try:
+        path, ledger = ensure_seeded_ledger(repo_path.resolve())
+        result = scout_frontier_novelty(ledger, repo_path=repo_path.resolve())
+        result["ledger_path"] = str(path)
+    except Exception as error:
+        console.print(f"Novelty scout failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "distill",
+    help=(
+        "Distill redundant composed capabilities that share identical primitive coverage. "
+        "Default soft-tags non-champions; --remove drops synthesized/meta/superstack losers."
+    ),
+)
+def capability_distill(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    remove: bool = typer.Option(
+        False,
+        "--remove",
+        help="Hard-remove redundant synthesized stacks instead of only tagging them.",
+    ),
+) -> None:
+    try:
+        result = run_distill_ledger(repo_path.resolve(), remove=remove, only_synthesized=True)
+    except Exception as error:
+        console.print(f"Distill failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "autonomic",
+    help=(
+        "Autonomic cycle: novelty-aware adaptive grow → distill redundant stacks → "
+        "integrity prove (no skill-route)."
+    ),
+)
+def capability_autonomic(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    budget: int = typer.Option(3, "--budget", min=1, help="Adaptive growth steps."),
+    integrity_limit: int = typer.Option(
+        10,
+        "--integrity-limit",
+        min=1,
+        help="Topo-prefix size for integrity prove.",
+    ),
+    remove: bool = typer.Option(
+        False,
+        "--remove",
+        help="Hard-remove redundant stacks during distill phase.",
+    ),
+    timeout_seconds: int = typer.Option(180, "--timeout-seconds", min=1),
+) -> None:
+    try:
+        result = run_autonomic_cycle(
+            repo_path.resolve(),
+            budget=budget,
+            distill_remove=remove,
+            integrity_limit=integrity_limit,
+            timeout=timeout_seconds,
+        )
+    except Exception as error:
+        console.print(f"Autonomic cycle failed: {error}", style="red")
         raise typer.Exit(1) from error
     console.print_json(data=result)
     if not result.get("ok") or result.get("used_skill_route_discovery"):
