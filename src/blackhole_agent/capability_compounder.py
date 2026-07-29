@@ -912,6 +912,7 @@ PROGRAM_PLAN_DENYLIST = frozenset(
         "capability.finality-plane",
         "capability.execution-plane",
         "capability.actuation-plane",
+        "capability.settlement-plane",
         # Batch operators are invocable separately; keep goal programs step-cheap.
         "capability.ledger-integrity",
         "capability.distill-ledger",
@@ -978,6 +979,11 @@ MISSION_GOAL_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("effects", ("capability.actuation-plane", "capability.execution-plane", "capability.assurance-plane")),
     ("action-root", ("capability.actuation-plane", "capability.execution-plane", "capability.lineage-plane")),
     ("dispatch", ("capability.actuation-plane", "capability.execution-plane", "capability.finality-plane")),
+    ("settlement", ("capability.settlement-plane", "capability.actuation-plane", "capability.execution-plane")),
+    ("settle", ("capability.settlement-plane", "capability.actuation-plane", "capability.finality-plane")),
+    ("receipt", ("capability.settlement-plane", "capability.actuation-plane", "capability.assurance-plane")),
+    ("settlement-root", ("capability.settlement-plane", "capability.actuation-plane", "capability.lineage-plane")),
+    ("obligation", ("capability.settlement-plane", "capability.actuation-plane", "capability.quorum-plane")),
 )
 
 
@@ -1351,6 +1357,7 @@ def run_mission_plane(
 #   finality_ok | finalized_ok | min_epochs:N | finality_cert_valid
 #   execution_ok | state_applied_ok | min_state_height:N | state_root_valid
 #   actuation_ok | effects_applied_ok | min_actions:N | action_root_valid
+#   settlement_ok | settled_ok | min_settlements:N | settlement_root_valid
 # Free-text lines without a known form are recorded as informational (not gating).
 OUTCOME_PREDICATE_PATTERN = re.compile(
     r"^(?P<kind>"
@@ -1367,7 +1374,8 @@ OUTCOME_PREDICATE_PATTERN = re.compile(
     r"quorum_ok|quorum_met|min_quorum|byzantine_excluded|quorum_cert_valid|"
     r"finality_ok|finalized_ok|min_epochs|finality_cert_valid|"
     r"execution_ok|state_applied_ok|min_state_height|state_root_valid|"
-    r"actuation_ok|effects_applied_ok|min_actions|action_root_valid"
+    r"actuation_ok|effects_applied_ok|min_actions|action_root_valid|"
+    r"settlement_ok|settled_ok|min_settlements|settlement_root_valid"
     r")(?::(?P<arg>.+))?$",
     re.IGNORECASE,
 )
@@ -1414,6 +1422,10 @@ CONTEXT_ONLY_OUTCOME_KINDS = frozenset(
         "effects_applied_ok",
         "min_actions",
         "action_root_valid",
+        "settlement_ok",
+        "settled_ok",
+        "min_settlements",
+        "settlement_root_valid",
     }
 )
 
@@ -1551,7 +1563,11 @@ def _soft_extract_outcome_predicates(chunk: str) -> list[dict[str, Any]]:
         found.append({"kind": "certificate_valid", "arg": "", "source": chunk})
     if "lineage" in lower and ("ok" in lower or "pass" in lower or "valid" in lower or "contin" in lower):
         found.append({"kind": "lineage_ok", "arg": "", "source": chunk})
-    if "chain" in lower and ("valid" in lower or "ok" in lower or "intact" in lower):
+    if re.search(r"\bchain_valid\b", lower) or (
+        re.search(r"\bchain\b", lower)
+        and ("valid" in lower or "intact" in lower)
+        and "/" not in lower
+    ):
         found.append({"kind": "chain_valid", "arg": "", "source": chunk})
     if (
         "no drift" in lower
@@ -1592,13 +1608,16 @@ def _soft_extract_outcome_predicates(chunk: str) -> list[dict[str, Any]]:
         and ("ok" in lower or "pass" in lower or "plane" in lower or "succeed" in lower)
     ) or re.search(r"\bcontinuity_ok\b", lower):
         found.append({"kind": "continuity_ok", "arg": "", "source": chunk})
-    if (
-        re.search(r"\bresurrect", lower)
-        or re.search(r"\brehydrat", lower)
-        or re.search(r"\bcold.?start\b", lower)
-    ) and ("ok" in lower or "pass" in lower or "succeed" in lower or "complete" in lower):
-        found.append({"kind": "resurrected_ok", "arg": "", "source": chunk})
-    if re.search(r"\bresurrected_ok\b", lower):
+    # Do not treat slash-list "rehydrate" evidence enumerations as continuity resurrection.
+    if re.search(r"\bresurrected_ok\b", lower) or (
+        (
+            re.search(r"\bresurrect", lower)
+            or re.search(r"\bcold.?start\b", lower)
+            or re.search(r"\brehydrat(?:e|ion|ed)\b", lower)
+        )
+        and ("ok" in lower or "pass" in lower or "succeed" in lower or "complete" in lower)
+        and "/" not in lower  # slash lists like integrity/rehydrate/prove are not resurrection
+    ):
         found.append({"kind": "resurrected_ok", "arg": "", "source": chunk})
     if re.search(r"\bbundle_valid\b", lower) or (
         "bundle" in lower and ("valid" in lower or "intact" in lower or "verify" in lower)
@@ -1773,6 +1792,39 @@ def _soft_extract_outcome_predicates(chunk: str) -> list[dict[str, Any]]:
         and ("valid" in lower or "verify" in lower or "ok" in lower)
     ):
         found.append({"kind": "action_root_valid", "arg": "", "source": chunk})
+    # Avoid matching capability.settlement-plane ids (contains "settlement" + "plane").
+    if re.search(r"\bsettlement_ok\b", lower) or re.search(
+        r"\bsettlement\s+plane\b", lower
+    ) and ("ok" in lower or "pass" in lower or "succeed" in lower):
+        found.append({"kind": "settlement_ok", "arg": "", "source": chunk})
+    if re.search(r"\bsettled_ok\b", lower) or re.search(
+        r"\bsettled\s*(?:=|is|:)\s*true\b", lower
+    ):
+        found.append({"kind": "settled_ok", "arg": "", "source": chunk})
+    elif re.search(r"\bsettled\b", lower) and (
+        "ok" in lower or "pass" in lower or "succeed" in lower
+    ) and "settlement-plane" not in lower and "settlement_plane" not in lower:
+        found.append({"kind": "settled_ok", "arg": "", "source": chunk})
+    m = re.search(r"(?:at least|>=|≥)\s*(\d+)\s+settlement", lower)
+    if m:
+        found.append({"kind": "min_settlements", "arg": m.group(1), "source": chunk})
+    if re.search(r"\bmin_settlements\b", lower) and not any(
+        item.get("kind") == "min_settlements" for item in found
+    ):
+        m_n = re.search(r"min_settlements\s*[:=]?\s*(\d+)", lower)
+        found.append(
+            {
+                "kind": "min_settlements",
+                "arg": m_n.group(1) if m_n else "2",
+                "source": chunk,
+            }
+        )
+    if re.search(r"\bsettlement_root_valid\b", lower) or (
+        "settlement" in lower
+        and "root" in lower
+        and ("valid" in lower or "verify" in lower or "ok" in lower)
+    ):
+        found.append({"kind": "settlement_root_valid", "arg": "", "source": chunk})
     return found
 
 
@@ -1873,6 +1925,8 @@ def evaluate_outcome_contract(
         timeout=min(timeout, 90),
     )
     ctx = dict(context or {})
+    ctx.setdefault("repo_path", str(root))
+    ctx.setdefault("workspace_path", str(root))
     results: list[dict[str, Any]] = []
     for predicate in predicates:
         kind = str(predicate.get("kind") or "")
@@ -2516,6 +2570,70 @@ def _eval_one_outcome_predicate(
                     plane.get("action_root") or plane.get("tip_action_root")
                 )
         return ok, f"action_root_valid={ok}"
+    if kind in {
+        "settlement_ok",
+        "settled_ok",
+        "min_settlements",
+        "settlement_root_valid",
+    }:
+        plane = (
+            context.get("settlement")
+            or context.get("settlement_plane")
+            or context.get("receipts")
+            or {}
+        )
+        # When the complete-gate has no plane context, accept a durable proof
+        # bundle written by a prior successful settlement-plane run.
+        if not plane or not plane.get("ok"):
+            disk = _load_settlement_disk_evidence(context)
+            if disk:
+                plane = {**disk, **(plane if isinstance(plane, Mapping) else {})}
+        if kind == "settlement_ok":
+            ok = bool(plane.get("ok"))
+            return ok, f"settlement_ok={ok}"
+        if kind == "settled_ok":
+            if "settled" in plane:
+                ok = plane.get("settled") is True and bool(plane.get("ok", True))
+            elif "settled_ok" in plane:
+                ok = plane.get("settled_ok") is True
+            else:
+                ok = bool(plane.get("ok")) and int(
+                    plane.get("settlement_count") or plane.get("tip_height") or 0
+                ) >= 1
+            return ok, f"settled_ok={ok}"
+        if kind == "min_settlements":
+            need = int(float(arg or "0"))
+            have = context.get("settlement_count")
+            if have is None:
+                have = context.get("tip_settlement_height")
+            if have is None:
+                have = (
+                    plane.get("settlement_count")
+                    or plane.get("tip_height")
+                    or plane.get("entry_count")
+                )
+            have_i = int(have or 0)
+            return have_i >= need, f"settlements={have_i} need>={need}"
+        # settlement_root_valid
+        if "settlement_root_valid" in plane:
+            ok = plane.get("settlement_root_valid") is True
+        elif "certificate_valid" in plane:
+            ok = plane.get("certificate_valid") is True
+        else:
+            cert = (
+                plane.get("settlement_certificate")
+                or plane.get("certificate")
+                or context.get("settlement_certificate")
+                or {}
+            )
+            if isinstance(cert, Mapping) and cert:
+                verify = verify_settlement_certificate(cert)
+                ok = bool(verify.get("ok")) and bool(verify.get("valid"))
+            else:
+                ok = bool(plane.get("ok")) and bool(
+                    plane.get("settlement_root") or plane.get("tip_settlement_root")
+                )
+        return ok, f"settlement_root_valid={ok}"
     if kind == "program_passes":
         steps = [part.strip() for part in arg.split(",") if part.strip()]
         if not steps:
@@ -16733,6 +16851,1901 @@ def builtin_actuation_plane() -> dict[str, Any]:
     )
 
 
+# ---------------------------------------------------------------------------
+# Settlement plane: post-actuation effects → deterministic settlement receipts.
+# ---------------------------------------------------------------------------
+
+SETTLEMENT_BUNDLE_SCHEMA = 1
+SETTLEMENT_CERTIFICATE_SCHEMA = 1
+SETTLEMENT_LOG_SCHEMA = 1
+DEFAULT_SETTLEMENT_BUNDLE_RELATIVE = Path("artifacts") / "settlement-bundles"
+
+
+def default_settlement_bundle_dir(repo_path: Path) -> Path:
+    return (repo_path / DEFAULT_SETTLEMENT_BUNDLE_RELATIVE).resolve()
+
+
+def empty_settlement_log() -> dict[str, Any]:
+    return {
+        "schema_version": SETTLEMENT_LOG_SCHEMA,
+        "kind": "settlement_log",
+        "entries": [],
+        "entry_count": 0,
+        "tip_height": 0,
+        "tip_settlement_root": "",
+        "bound_action_root": "",
+        "bound_action_height": 0,
+        "actuation_hash": "",
+        "updated_at": utc_now_iso(),
+    }
+
+
+def compute_settlement_root(settlement: Mapping[str, Any]) -> str:
+    """Hash settlement body excluding self root, certificates, and wall-clock fields."""
+
+    body = {
+        key: value
+        for key, value in settlement.items()
+        if key
+        not in {
+            "settlement_root",
+            "settlement_certificate",
+            "ok",
+            "valid",
+            "action",
+            "applied_at",
+            "updated_at",
+            "issued_at",
+            "exported_at",
+            "goal",
+            "claims",
+        }
+    }
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def compute_settlement_certificate_hash(payload: Mapping[str, Any]) -> str:
+    body = {
+        key: value
+        for key, value in payload.items()
+        if key not in {"certificate_hash", "ok", "valid"}
+    }
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def compute_settlement_bundle_hash(bundle: Mapping[str, Any]) -> str:
+    body = {
+        key: value
+        for key, value in bundle.items()
+        if key
+        not in {
+            "settlement_hash",
+            "ok",
+            "bundle_path",
+            "exported_at",
+            "source_ledger_path",
+            "action",
+        }
+    }
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def compute_receipt_digest(
+    *,
+    capability_id: str,
+    effect: str,
+    bound_action_root: str,
+    actuation_hash: str,
+    package_hash: str,
+    outcome: str = "settled",
+) -> str:
+    payload = {
+        "capability_id": capability_id,
+        "effect": effect,
+        "bound_action_root": bound_action_root,
+        "actuation_hash": actuation_hash,
+        "package_hash": package_hash,
+        "outcome": outcome or "settled",
+    }
+    digest = json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def issue_settlement_certificate(
+    *,
+    settlement_height: int,
+    settlement_root: str,
+    parent_settlement_root: str,
+    bound_action_root: str,
+    bound_action_height: int,
+    actuation_hash: str,
+    actuation_certificate_hash: str,
+    package_hash: str,
+    lineage_head_hash: str,
+    settlement_count: int,
+    member_ids: Sequence[str] | None = None,
+    goal: str = "",
+    claims: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    members = sorted({str(item).strip() for item in (member_ids or []) if str(item).strip()})
+    cert: dict[str, Any] = {
+        "schema_version": SETTLEMENT_CERTIFICATE_SCHEMA,
+        "kind": "settlement_certificate",
+        "issued_at": utc_now_iso(),
+        "settlement_height": int(settlement_height),
+        "settlement_root": str(settlement_root or ""),
+        "parent_settlement_root": str(parent_settlement_root or ""),
+        "bound_action_root": str(bound_action_root or ""),
+        "bound_action_height": int(bound_action_height or 0),
+        "actuation_hash": str(actuation_hash or ""),
+        "actuation_certificate_hash": str(actuation_certificate_hash or ""),
+        "package_hash": str(package_hash or ""),
+        "lineage_head_hash": str(lineage_head_hash or ""),
+        "settlement_count": int(settlement_count),
+        "member_ids": members,
+        "member_count": len(members),
+        "goal": goal or "",
+        "claims": dict(claims or {}),
+        "deterministic": True,
+        "post_actuation": True,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    cert["certificate_hash"] = compute_settlement_certificate_hash(cert)
+    cert["ok"] = (
+        bool(cert["certificate_hash"])
+        and bool(cert["settlement_root"])
+        and bool(cert["bound_action_root"])
+        and bool(cert["actuation_hash"])
+        and cert["settlement_height"] >= 1
+        and cert["settlement_count"] >= 1
+        and cert["deterministic"] is True
+        and cert["post_actuation"] is True
+        and not bool(cert["used_skill_route_discovery"])
+    )
+    cert["valid"] = bool(cert["ok"])
+    return cert
+
+
+def verify_settlement_certificate(payload: Mapping[str, Any] | Path) -> dict[str, Any]:
+    if isinstance(payload, Path):
+        data = json.loads(payload.read_text(encoding="utf-8"))
+    else:
+        data = dict(payload)
+    recomputed = compute_settlement_certificate_hash(data)
+    stored = str(data.get("certificate_hash") or "")
+    hash_ok = bool(stored) and stored == recomputed
+    valid = (
+        hash_ok
+        and data.get("kind") == "settlement_certificate"
+        and bool(data.get("settlement_root"))
+        and bool(data.get("bound_action_root"))
+        and bool(data.get("actuation_hash"))
+        and int(data.get("settlement_height") or 0) >= 1
+        and int(data.get("settlement_count") or 0) >= 1
+        and data.get("deterministic") is True
+        and data.get("post_actuation") is True
+        and not bool(data.get("used_skill_route_discovery"))
+    )
+    return {
+        "ok": valid,
+        "valid": valid,
+        "hash_ok": hash_ok,
+        "certificate_hash": stored if hash_ok else recomputed,
+        "settlement_height": data.get("settlement_height"),
+        "settlement_root": data.get("settlement_root"),
+        "bound_action_root": data.get("bound_action_root"),
+        "actuation_hash": data.get("actuation_hash"),
+        "used_skill_route_discovery": bool(data.get("used_skill_route_discovery")),
+    }
+
+
+def write_settlement_certificate(path: Path, certificate: Mapping[str, Any]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(path, dict(certificate))
+    return path
+
+
+def _load_settlement_disk_evidence(
+    context: Mapping[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """Best-effort load of a durable settlement proof bundle for context-less gates."""
+
+    candidates: list[Path] = []
+    ctx = context or {}
+    for key in ("repo_path", "workspace", "workspace_path"):
+        raw = ctx.get(key)
+        if raw:
+            root = Path(str(raw))
+            candidates.extend(
+                [
+                    root / "artifacts" / "settlement-bundles" / "proof-settlement.json",
+                    root / DEFAULT_SETTLEMENT_BUNDLE_RELATIVE / "proof-settlement.json",
+                ]
+            )
+    # Walk common roots: CWD and package parents.
+    here = Path.cwd()
+    candidates.extend(
+        [
+            here / "artifacts" / "settlement-bundles" / "proof-settlement.json",
+            here / DEFAULT_SETTLEMENT_BUNDLE_RELATIVE / "proof-settlement.json",
+        ]
+    )
+    try:
+        pkg_root = Path(__file__).resolve().parents[2]
+        candidates.append(
+            pkg_root / "artifacts" / "settlement-bundles" / "proof-settlement.json"
+        )
+    except Exception:
+        pass
+    # Also accept any settlement-*.json under the default dir.
+    for base in {Path.cwd(), Path(__file__).resolve().parents[2]}:
+        bundle_dir = base / "artifacts" / "settlement-bundles"
+        if bundle_dir.is_dir():
+            candidates.extend(sorted(bundle_dir.glob("settlement-*.json"), reverse=True)[:3])
+            candidates.extend(sorted(bundle_dir.glob("proof-settlement*.json"), reverse=True)[:3])
+
+    seen: set[str] = set()
+    for path in candidates:
+        try:
+            resolved = path.resolve()
+        except Exception:
+            continue
+        key = str(resolved)
+        if key in seen or not resolved.is_file():
+            continue
+        seen.add(key)
+        try:
+            bundle = load_settlement_bundle(resolved)
+        except Exception:
+            continue
+        integrity = verify_settlement_bundle_integrity(bundle)
+        if not integrity.get("ok"):
+            continue
+        cert = (
+            bundle.get("settlement_certificate")
+            if isinstance(bundle.get("settlement_certificate"), Mapping)
+            else {}
+        )
+        cert_verify = (
+            verify_settlement_certificate(cert) if cert else {"ok": False, "valid": False}
+        )
+        settlement_count = int(
+            bundle.get("settlement_count")
+            or (bundle.get("settlements") or {}).get("entry_count")
+            or 0
+        )
+        tip_height = int(bundle.get("tip_height") or settlement_count or 0)
+        if settlement_count < 2 or tip_height < 2 or not cert_verify.get("valid"):
+            continue
+        return {
+            "ok": True,
+            "settled": True,
+            "settlement_count": settlement_count,
+            "tip_height": tip_height,
+            "tip_settlement_root": bundle.get("tip_settlement_root"),
+            "settlement_hash": bundle.get("settlement_hash"),
+            "settlement_root_valid": True,
+            "certificate_valid": True,
+            "settlement_certificate": cert,
+            "bundle_path": str(resolved),
+            "source": "disk_proof_bundle",
+        }
+    return None
+
+
+def derive_settlement_specs_from_actuation(
+    actuation_bundle: Mapping[str, Any],
+    *,
+    min_settlements: int = 2,
+) -> list[dict[str, Any]]:
+    """Derive one settlement receipt per actuation action (multi-settlement required)."""
+
+    actions = (
+        actuation_bundle.get("actions")
+        if isinstance(actuation_bundle.get("actions"), Mapping)
+        else {}
+    )
+    entries = list(actions.get("entries") or [])
+    specs: list[dict[str, Any]] = []
+    for entry in entries:
+        if not isinstance(entry, Mapping):
+            continue
+        action_root = str(entry.get("action_root") or "")
+        if not action_root:
+            continue
+        specs.append(
+            {
+                "capability_id": str(entry.get("capability_id") or ""),
+                "effect": str(entry.get("effect") or ""),
+                "bound_action_root": action_root,
+                "bound_action_height": int(entry.get("action_height") or 0),
+                "effect_digest": str(entry.get("effect_digest") or ""),
+                "entry": str(entry.get("entry") or ""),
+                "package_hash": str(
+                    entry.get("package_hash")
+                    or actuation_bundle.get("package_hash")
+                    or ""
+                ),
+                "outcome": "settled",
+            }
+        )
+    want = max(2, int(min_settlements))
+    return specs[:want] if len(specs) >= want else specs
+
+
+def apply_settlement_transition(
+    settlement_log: Mapping[str, Any],
+    spec: Mapping[str, Any],
+    *,
+    actuation_bundle: Mapping[str, Any],
+    goal: str = "",
+    claims: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Append one settlement receipt bound to an actuation action root."""
+
+    log = copy.deepcopy(dict(settlement_log)) if settlement_log else empty_settlement_log()
+    entries = list(log.get("entries") or [])
+    next_height = len(entries) + 1
+    parent_root = str(entries[-1].get("settlement_root") or "") if entries else ""
+
+    bound_action_root = str(spec.get("bound_action_root") or "")
+    bound_action_height = int(spec.get("bound_action_height") or 0)
+    capability_id = str(spec.get("capability_id") or "")
+    effect = str(spec.get("effect") or "")
+    outcome = str(spec.get("outcome") or "settled")
+    package_hash = str(
+        spec.get("package_hash") or actuation_bundle.get("package_hash") or ""
+    )
+    actuation_hash = str(actuation_bundle.get("actuation_hash") or "")
+    tip_action_root = str(actuation_bundle.get("tip_action_root") or "")
+    actions = (
+        actuation_bundle.get("actions")
+        if isinstance(actuation_bundle.get("actions"), Mapping)
+        else {}
+    )
+    action_entries = list(actions.get("entries") or [])
+    known_roots = {
+        str(item.get("action_root") or "")
+        for item in action_entries
+        if isinstance(item, Mapping) and item.get("action_root")
+    }
+    if tip_action_root:
+        known_roots.add(tip_action_root)
+
+    if not capability_id or not bound_action_root or not actuation_hash:
+        return {
+            "ok": False,
+            "action": "apply_settlement_transition",
+            "error": "missing_settlement_bind_fields",
+            "settlement_log": log,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    if bound_action_root not in known_roots:
+        return {
+            "ok": False,
+            "action": "apply_settlement_transition",
+            "error": "bound_action_root_mismatch",
+            "bound_action_root": bound_action_root,
+            "known_action_roots": sorted(known_roots),
+            "settlement_log": log,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    if any(
+        str(item.get("bound_action_root") or "") == bound_action_root
+        and str(item.get("outcome") or "") == outcome
+        for item in entries
+    ):
+        return {
+            "ok": False,
+            "action": "apply_settlement_transition",
+            "error": "duplicate_settlement_rejected",
+            "settlement_log": log,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    act_cert = (
+        actuation_bundle.get("actuation_certificate")
+        if isinstance(actuation_bundle.get("actuation_certificate"), Mapping)
+        else {}
+    )
+    act_cert_hash = str(act_cert.get("certificate_hash") or "")
+    lineage_head = str(actuation_bundle.get("lineage_head_hash") or "")
+    member_ids = list(actuation_bundle.get("member_ids") or [])
+    receipt_digest = compute_receipt_digest(
+        capability_id=capability_id,
+        effect=effect,
+        bound_action_root=bound_action_root,
+        actuation_hash=actuation_hash,
+        package_hash=package_hash,
+        outcome=outcome,
+    )
+
+    body: dict[str, Any] = {
+        "schema_version": SETTLEMENT_LOG_SCHEMA,
+        "kind": "settlement_receipt",
+        "settlement_height": next_height,
+        "parent_settlement_root": parent_root,
+        "bound_action_root": bound_action_root,
+        "bound_action_height": bound_action_height,
+        "actuation_hash": actuation_hash,
+        "actuation_certificate_hash": act_cert_hash,
+        "package_hash": package_hash,
+        "lineage_head_hash": lineage_head,
+        "capability_id": capability_id,
+        "effect": effect,
+        "outcome": outcome,
+        "receipt_digest": receipt_digest,
+        "effect_digest": str(spec.get("effect_digest") or ""),
+        "entry": str(spec.get("entry") or ""),
+        "member_ids": sorted({str(m).strip() for m in member_ids if str(m).strip()}),
+        "deterministic": True,
+        "post_actuation": True,
+        "applied_at": utc_now_iso(),
+        "goal": goal or str(actuation_bundle.get("goal") or ""),
+        "claims": dict(claims or {}),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    settlement_root = compute_settlement_root(body)
+    body["settlement_root"] = settlement_root
+    cert = issue_settlement_certificate(
+        settlement_height=next_height,
+        settlement_root=settlement_root,
+        parent_settlement_root=parent_root,
+        bound_action_root=bound_action_root,
+        bound_action_height=bound_action_height,
+        actuation_hash=actuation_hash,
+        actuation_certificate_hash=act_cert_hash,
+        package_hash=package_hash,
+        lineage_head_hash=lineage_head,
+        settlement_count=next_height,
+        member_ids=body["member_ids"],
+        goal=goal or str(actuation_bundle.get("goal") or ""),
+        claims={
+            "capability_id": capability_id,
+            "effect": effect,
+            "outcome": outcome,
+            "plane": "settlement",
+            **dict(claims or {}),
+        },
+    )
+    body["settlement_certificate"] = cert
+    body["ok"] = (
+        bool(cert.get("ok"))
+        and bool(settlement_root)
+        and body["deterministic"] is True
+        and body["post_actuation"] is True
+        and not bool(body.get("used_skill_route_discovery"))
+    )
+
+    entries.append(body)
+    log["entries"] = entries
+    log["entry_count"] = len(entries)
+    log["tip_height"] = next_height
+    log["tip_settlement_root"] = settlement_root
+    log["bound_action_root"] = bound_action_root
+    log["bound_action_height"] = bound_action_height
+    log["actuation_hash"] = actuation_hash
+    log["updated_at"] = utc_now_iso()
+    log["schema_version"] = SETTLEMENT_LOG_SCHEMA
+    log["kind"] = "settlement_log"
+    return {
+        "ok": bool(body.get("ok")),
+        "action": "apply_settlement_transition",
+        "entry": body,
+        "settlement_height": next_height,
+        "settlement_root": settlement_root,
+        "parent_settlement_root": parent_root,
+        "bound_action_root": bound_action_root,
+        "settlement_log": log,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def verify_settlement_chain(settlement_log: Mapping[str, Any]) -> dict[str, Any]:
+    """Validate sequential heights, parent roots, hashes, and settlement certs."""
+
+    entries = list(settlement_log.get("entries") or [])
+    errors: list[str] = []
+    if not entries:
+        return {
+            "ok": False,
+            "valid": False,
+            "action": "verify_settlement_chain",
+            "entry_count": 0,
+            "tip_height": 0,
+            "tip_settlement_root": "",
+            "errors": ["empty_settlement_log"],
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    prev_root = ""
+    bound_actions: set[str] = set()
+    actuation_hashes: set[str] = set()
+    for index, raw in enumerate(entries):
+        if not isinstance(raw, Mapping):
+            errors.append(f"entry[{index}]_not_mapping")
+            continue
+        height = int(raw.get("settlement_height") or 0)
+        expected_height = index + 1
+        if height != expected_height:
+            errors.append(f"entry[{index}]_height={height}_expected={expected_height}")
+        parent = str(raw.get("parent_settlement_root") or "")
+        if index == 0:
+            if parent:
+                errors.append(f"entry[{index}]_genesis_has_parent")
+        else:
+            if parent != prev_root:
+                errors.append(
+                    f"entry[{index}]_parent_mismatch got={parent[:12]} expected={prev_root[:12]}"
+                )
+        stored = str(raw.get("settlement_root") or "")
+        recomputed = compute_settlement_root({**dict(raw), "settlement_root": ""})
+        if not stored or stored != recomputed:
+            errors.append(f"entry[{index}]_settlement_root_mismatch")
+        if raw.get("deterministic") is not True:
+            errors.append(f"entry[{index}]_not_deterministic")
+        if raw.get("post_actuation") is not True:
+            errors.append(f"entry[{index}]_not_post_actuation")
+        bound = str(raw.get("bound_action_root") or "")
+        if not bound:
+            errors.append(f"entry[{index}]_missing_bound_action_root")
+        else:
+            bound_actions.add(bound)
+        a_hash = str(raw.get("actuation_hash") or "")
+        if not a_hash:
+            errors.append(f"entry[{index}]_missing_actuation_hash")
+        else:
+            actuation_hashes.add(a_hash)
+        if not str(raw.get("receipt_digest") or ""):
+            errors.append(f"entry[{index}]_missing_receipt_digest")
+        else:
+            expected_digest = compute_receipt_digest(
+                capability_id=str(raw.get("capability_id") or ""),
+                effect=str(raw.get("effect") or ""),
+                bound_action_root=bound,
+                actuation_hash=a_hash,
+                package_hash=str(raw.get("package_hash") or ""),
+                outcome=str(raw.get("outcome") or "settled"),
+            )
+            if str(raw.get("receipt_digest") or "") != expected_digest:
+                errors.append(f"entry[{index}]_receipt_digest_mismatch")
+        cert = raw.get("settlement_certificate")
+        if not isinstance(cert, Mapping):
+            errors.append(f"entry[{index}]_missing_settlement_certificate")
+        else:
+            cert_verify = verify_settlement_certificate(cert)
+            if not cert_verify.get("valid"):
+                errors.append(f"entry[{index}]_settlement_cert_invalid")
+            if str(cert.get("settlement_root") or "") != stored:
+                errors.append(f"entry[{index}]_cert_settlement_root_mismatch")
+            if int(cert.get("settlement_height") or 0) != height:
+                errors.append(f"entry[{index}]_cert_height_mismatch")
+            if str(cert.get("bound_action_root") or "") != bound:
+                errors.append(f"entry[{index}]_cert_bound_action_mismatch")
+        prev_root = stored
+
+    if len(actuation_hashes) > 1:
+        errors.append("mixed_actuation_hashes")
+
+    tip = entries[-1] if entries else {}
+    tip_height = int(tip.get("settlement_height") or 0) if isinstance(tip, Mapping) else 0
+    tip_root = str(tip.get("settlement_root") or "") if isinstance(tip, Mapping) else ""
+    log_tip_height = int(settlement_log.get("tip_height") or 0)
+    log_tip_root = str(settlement_log.get("tip_settlement_root") or "")
+    if log_tip_height and log_tip_height != tip_height:
+        errors.append("tip_height_metadata_mismatch")
+    if log_tip_root and log_tip_root != tip_root:
+        errors.append("tip_settlement_root_metadata_mismatch")
+
+    valid = not errors and tip_height >= 1 and bool(tip_root)
+    return {
+        "ok": valid,
+        "valid": valid,
+        "action": "verify_settlement_chain",
+        "entry_count": len(entries),
+        "tip_height": tip_height,
+        "tip_settlement_root": tip_root,
+        "bound_action_roots": sorted(bound_actions),
+        "actuation_hash": next(iter(actuation_hashes), ""),
+        "errors": errors,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def apply_actuation_bundle_to_settlements(
+    actuation_bundle: Mapping[str, Any],
+    *,
+    goal: str = "",
+    min_settlements: int = 2,
+) -> dict[str, Any]:
+    """Settle multi-action actuation into a deterministic settlement log."""
+
+    integrity = verify_actuation_bundle_integrity(actuation_bundle)
+    if not integrity.get("ok"):
+        return {
+            "ok": False,
+            "action": "apply_actuation_bundle_to_settlements",
+            "error": "actuation_integrity_failed",
+            "integrity": integrity,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    specs = derive_settlement_specs_from_actuation(
+        actuation_bundle, min_settlements=min_settlements
+    )
+    if len(specs) < 2:
+        return {
+            "ok": False,
+            "action": "apply_actuation_bundle_to_settlements",
+            "error": "need_multi_settlement",
+            "spec_count": len(specs),
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    settlement_log = empty_settlement_log()
+    applied: list[dict[str, Any]] = []
+    for index, spec in enumerate(specs):
+        result = apply_settlement_transition(
+            settlement_log,
+            spec,
+            actuation_bundle=actuation_bundle,
+            goal=f"{goal or actuation_bundle.get('goal') or 'settlement'} (settlement {index + 1})",
+            claims={"settlement_index": index + 1, "plane": "settlement"},
+        )
+        if not result.get("ok"):
+            return {
+                "ok": False,
+                "action": "apply_actuation_bundle_to_settlements",
+                "error": result.get("error") or "apply_failed",
+                "applied_count": len(applied),
+                "apply": {
+                    "ok": result.get("ok"),
+                    "error": result.get("error"),
+                    "settlement_height": result.get("settlement_height"),
+                },
+                "settlement_log": settlement_log,
+                "used_skill_route_discovery": legacy_pipeline_was_used(),
+            }
+        settlement_log = result["settlement_log"]
+        applied.append(result["entry"])
+
+    chain = verify_settlement_chain(settlement_log)
+    ok = bool(chain.get("valid")) and len(applied) >= 2 and not legacy_pipeline_was_used()
+    return {
+        "ok": ok,
+        "action": "apply_actuation_bundle_to_settlements",
+        "settlement_log": settlement_log,
+        "applied": applied,
+        "applied_count": len(applied),
+        "settlement_count": len(applied),
+        "tip_height": settlement_log.get("tip_height"),
+        "tip_settlement_root": settlement_log.get("tip_settlement_root"),
+        "bound_action_root": settlement_log.get("bound_action_root"),
+        "chain": chain,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def build_settlement_bundle(
+    settlement_log: Mapping[str, Any],
+    actuation_bundle: Mapping[str, Any],
+    *,
+    goal: str = "settlement over actuation",
+) -> dict[str, Any]:
+    """Package settlement log + actuation tip into a portable settlement bundle."""
+
+    chain = verify_settlement_chain(settlement_log)
+    if not chain.get("valid"):
+        return {
+            "ok": False,
+            "action": "build_settlement_bundle",
+            "error": "settlement_chain_invalid",
+            "chain": chain,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    entries = list(settlement_log.get("entries") or [])
+    tip = entries[-1]
+    tip_cert = (
+        tip.get("settlement_certificate")
+        if isinstance(tip.get("settlement_certificate"), Mapping)
+        else {}
+    )
+    tip_cert_verify = (
+        verify_settlement_certificate(tip_cert) if tip_cert else {"valid": False}
+    )
+    act_cert = (
+        actuation_bundle.get("actuation_certificate")
+        if isinstance(actuation_bundle.get("actuation_certificate"), Mapping)
+        else {}
+    )
+    package = (
+        actuation_bundle.get("package")
+        if isinstance(actuation_bundle.get("package"), Mapping)
+        else {}
+    )
+    certificates: dict[str, dict[str, Any]] = {}
+    for settlement in entries:
+        cert = settlement.get("settlement_certificate")
+        if isinstance(cert, Mapping) and cert.get("certificate_hash"):
+            certificates[str(cert["certificate_hash"])] = {
+                "certificate_hash": cert.get("certificate_hash"),
+                "payload": cert,
+                "settlement_height": settlement.get("settlement_height"),
+            }
+    if isinstance(act_cert, Mapping) and act_cert.get("certificate_hash"):
+        certificates[str(act_cert["certificate_hash"])] = {
+            "certificate_hash": act_cert.get("certificate_hash"),
+            "payload": act_cert,
+            "kind": "actuation_certificate",
+        }
+    exec_cert = (
+        actuation_bundle.get("execution_certificate")
+        if isinstance(actuation_bundle.get("execution_certificate"), Mapping)
+        else {}
+    )
+    if isinstance(exec_cert, Mapping) and exec_cert.get("certificate_hash"):
+        certificates[str(exec_cert["certificate_hash"])] = {
+            "certificate_hash": exec_cert.get("certificate_hash"),
+            "payload": exec_cert,
+            "kind": "execution_certificate",
+        }
+
+    member_ids = list(actuation_bundle.get("member_ids") or package.get("member_ids") or [])
+    sb: dict[str, Any] = {
+        "schema_version": SETTLEMENT_BUNDLE_SCHEMA,
+        "kind": "settlement_bundle",
+        "action": "build_settlement_bundle",
+        "goal": goal,
+        "settlements": copy.deepcopy(dict(settlement_log)),
+        "actions": copy.deepcopy(
+            actuation_bundle.get("actions")
+            if isinstance(actuation_bundle.get("actions"), Mapping)
+            else {}
+        ),
+        "package": copy.deepcopy(dict(package)),
+        "lineage": copy.deepcopy(
+            actuation_bundle.get("lineage")
+            if isinstance(actuation_bundle.get("lineage"), Mapping)
+            else {}
+        ),
+        "settlement_certificate": copy.deepcopy(dict(tip_cert)),
+        "actuation_certificate": copy.deepcopy(dict(act_cert)),
+        "execution_certificate": copy.deepcopy(dict(exec_cert)),
+        "certificates": certificates,
+        "certificate_count": len(certificates),
+        "settlement_count": len(entries),
+        "action_count": int(actuation_bundle.get("action_count") or 0),
+        "tip_height": int(settlement_log.get("tip_height") or 0),
+        "tip_settlement_root": str(settlement_log.get("tip_settlement_root") or ""),
+        "bound_action_root": str(settlement_log.get("bound_action_root") or ""),
+        "bound_action_height": int(settlement_log.get("bound_action_height") or 0),
+        "tip_action_root": str(actuation_bundle.get("tip_action_root") or ""),
+        "bound_state_root": str(actuation_bundle.get("bound_state_root") or ""),
+        "actuation_hash": str(actuation_bundle.get("actuation_hash") or ""),
+        "execution_hash": str(actuation_bundle.get("execution_hash") or ""),
+        "package_hash": str(actuation_bundle.get("package_hash") or ""),
+        "member_ids": sorted({str(m).strip() for m in member_ids if str(m).strip()}),
+        "member_count": len(member_ids),
+        "lineage_head_hash": str(actuation_bundle.get("lineage_head_hash") or ""),
+        "lineage_entry_count": int(actuation_bundle.get("lineage_entry_count") or 0),
+        "origin_count": actuation_bundle.get("origin_count"),
+        "agreeing_count": actuation_bundle.get("agreeing_count"),
+        "byzantine_count": actuation_bundle.get("byzantine_count"),
+        "state_count": actuation_bundle.get("state_count"),
+        "epoch_count": actuation_bundle.get("epoch_count"),
+        "deterministic": True,
+        "post_actuation": True,
+        "exported_at": utc_now_iso(),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    sb["settlement_hash"] = compute_settlement_bundle_hash(sb)
+    sb["ok"] = (
+        bool(chain.get("valid"))
+        and bool(tip_cert_verify.get("valid"))
+        and len(entries) >= 2
+        and bool(sb["settlement_hash"])
+        and bool(sb["actuation_hash"])
+        and sb["deterministic"] is True
+        and sb["post_actuation"] is True
+        and not bool(sb["used_skill_route_discovery"])
+    )
+    return sb
+
+
+def write_settlement_bundle(path: Path, bundle: Mapping[str, Any]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(path, dict(bundle))
+    return path
+
+
+def load_settlement_bundle(path: Path) -> dict[str, Any]:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("settlement bundle must be a JSON object")
+    return data
+
+
+def verify_settlement_bundle_integrity(bundle: Mapping[str, Any]) -> dict[str, Any]:
+    expected = str(bundle.get("settlement_hash") or "").strip()
+    recomputed = compute_settlement_bundle_hash(bundle)
+    hash_ok = bool(expected) and expected == recomputed
+    settlements = (
+        bundle.get("settlements")
+        if isinstance(bundle.get("settlements"), Mapping)
+        else {}
+    )
+    chain = (
+        verify_settlement_chain(settlements)
+        if settlements
+        else {"ok": False, "valid": False, "errors": ["missing_settlements"]}
+    )
+    cert = (
+        bundle.get("settlement_certificate")
+        if isinstance(bundle.get("settlement_certificate"), Mapping)
+        else {}
+    )
+    cert_verify = (
+        verify_settlement_certificate(cert) if cert else {"valid": False, "ok": False}
+    )
+    act_cert = (
+        bundle.get("actuation_certificate")
+        if isinstance(bundle.get("actuation_certificate"), Mapping)
+        else {}
+    )
+    act_cert_verify = (
+        verify_actuation_certificate(act_cert) if act_cert else {"valid": False, "ok": False}
+    )
+    multi = int(bundle.get("settlement_count") or chain.get("entry_count") or 0) >= 2
+    package = bundle.get("package") if isinstance(bundle.get("package"), Mapping) else {}
+    package_ok = bool(package) and bool(bundle.get("package_hash"))
+    bound_ok = bool(bundle.get("bound_action_root")) and bool(bundle.get("actuation_hash"))
+    deterministic = bundle.get("deterministic") is True
+    post_actuation = bundle.get("post_actuation") is True
+    used_skill = bool(bundle.get("used_skill_route_discovery")) or legacy_pipeline_was_used()
+    ok = (
+        hash_ok
+        and bool(chain.get("valid"))
+        and bool(cert_verify.get("valid"))
+        and bool(act_cert_verify.get("valid"))
+        and multi
+        and package_ok
+        and bound_ok
+        and deterministic
+        and post_actuation
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "verify_settlement_bundle_integrity",
+        "hash_ok": hash_ok,
+        "chain_valid": bool(chain.get("valid")),
+        "multi_settlement": multi,
+        "package_ok": package_ok,
+        "settlement_certificate_valid": bool(cert_verify.get("valid")),
+        "actuation_certificate_valid": bool(act_cert_verify.get("valid")),
+        "bound_ok": bound_ok,
+        "deterministic": deterministic,
+        "post_actuation": post_actuation,
+        "tip_height": chain.get("tip_height"),
+        "tip_settlement_root": chain.get("tip_settlement_root"),
+        "settlement_hash": expected if hash_ok else recomputed,
+        "errors": list(chain.get("errors") or []),
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def rehydrate_settlement_bundle(
+    repo_path: Path,
+    bundle: Mapping[str, Any],
+    *,
+    sandbox_dir: Path | None = None,
+) -> dict[str, Any]:
+    """Materialize tip package + settlement log into a sterile sandbox and re-check digests."""
+
+    root = repo_path.resolve()
+    integrity = verify_settlement_bundle_integrity(bundle)
+    if not integrity.get("ok"):
+        return {
+            "ok": False,
+            "action": "rehydrate_settlement_bundle",
+            "error": "settlement_integrity_failed",
+            "integrity": integrity,
+            "used_skill_route_discovery": integrity.get("used_skill_route_discovery"),
+        }
+
+    s_hash = str(bundle.get("settlement_hash") or "unknown")
+    sandbox = (
+        sandbox_dir.resolve()
+        if sandbox_dir is not None
+        else (root / "artifacts" / "settlement-sandbox" / s_hash[:16])
+    )
+    sandbox.mkdir(parents=True, exist_ok=True)
+
+    package = dict(bundle.get("package") or {})
+    lineage = copy.deepcopy(bundle.get("lineage") or {})
+    settlements = copy.deepcopy(bundle.get("settlements") or {})
+    actions = copy.deepcopy(bundle.get("actions") or {})
+    lineage_path = sandbox / "lineage.json"
+    if lineage:
+        write_lineage_log(lineage_path, lineage)
+    settlements_path = sandbox / "settlements.json"
+    atomic_write_json(settlements_path, settlements)
+    actions_path = sandbox / "actions.json"
+    atomic_write_json(actions_path, actions)
+
+    empty = CapabilityLedger(schema_version=SCHEMA_VERSION, updated_at=utc_now_iso())
+    empty, import_report = import_capability_package(empty, package, replace=True)
+    sterile_ledger_path = sandbox / "ledger.json"
+    save_ledger(sterile_ledger_path, empty)
+
+    cert = (
+        bundle.get("settlement_certificate")
+        if isinstance(bundle.get("settlement_certificate"), Mapping)
+        else {}
+    )
+    cert_path = sandbox / "settlement-certificate.json"
+    if cert:
+        write_settlement_certificate(cert_path, cert)
+    act_cert = (
+        bundle.get("actuation_certificate")
+        if isinstance(bundle.get("actuation_certificate"), Mapping)
+        else {}
+    )
+    act_cert_path = sandbox / "actuation-certificate.json"
+    if act_cert:
+        write_actuation_certificate(act_cert_path, act_cert)
+
+    chain = verify_settlement_chain(settlements)
+    cert_verify = (
+        verify_settlement_certificate(cert) if cert else {"ok": False, "valid": False}
+    )
+    act_cert_verify = (
+        verify_actuation_certificate(act_cert) if act_cert else {"ok": False, "valid": False}
+    )
+    re_digest_ok = True
+    for entry in list(settlements.get("entries") or []):
+        if not isinstance(entry, Mapping):
+            re_digest_ok = False
+            break
+        expected = compute_receipt_digest(
+            capability_id=str(entry.get("capability_id") or ""),
+            effect=str(entry.get("effect") or ""),
+            bound_action_root=str(entry.get("bound_action_root") or ""),
+            actuation_hash=str(
+                entry.get("actuation_hash") or bundle.get("actuation_hash") or ""
+            ),
+            package_hash=str(
+                entry.get("package_hash") or bundle.get("package_hash") or ""
+            ),
+            outcome=str(entry.get("outcome") or "settled"),
+        )
+        if expected != str(entry.get("receipt_digest") or ""):
+            re_digest_ok = False
+            break
+
+    lineage_chain = (
+        verify_lineage_chain(lineage)
+        if lineage
+        else {"ok": True, "valid": True, "entry_count": 0}
+    )
+    used_skill = legacy_pipeline_was_used()
+    ok = (
+        bool(integrity.get("ok"))
+        and bool(import_report.get("ok"))
+        and bool(chain.get("valid"))
+        and bool(cert_verify.get("valid"))
+        and bool(act_cert_verify.get("valid"))
+        and re_digest_ok
+        and int(import_report.get("imported_count") or 0) >= 1
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "rehydrate_settlement_bundle",
+        "sandbox_dir": str(sandbox),
+        "lineage_path": str(lineage_path) if lineage else None,
+        "settlements_path": str(settlements_path),
+        "actions_path": str(actions_path),
+        "sterile_ledger_path": str(sterile_ledger_path),
+        "certificate_path": str(cert_path) if cert else None,
+        "actuation_certificate_path": str(act_cert_path) if act_cert else None,
+        "settlement_hash": s_hash,
+        "import": import_report,
+        "chain": {
+            "ok": chain.get("ok"),
+            "valid": chain.get("valid"),
+            "entry_count": chain.get("entry_count"),
+            "tip_height": chain.get("tip_height"),
+            "tip_settlement_root": chain.get("tip_settlement_root"),
+            "errors": chain.get("errors") or [],
+        },
+        "lineage_chain": {
+            "ok": lineage_chain.get("ok"),
+            "valid": lineage_chain.get("valid"),
+            "entry_count": lineage_chain.get("entry_count"),
+        },
+        "settlement_certificate": {
+            "ok": cert_verify.get("ok"),
+            "valid": cert_verify.get("valid"),
+            "certificate_hash": cert_verify.get("certificate_hash"),
+            "settlement_root": cert_verify.get("settlement_root"),
+        },
+        "actuation_certificate": {
+            "ok": act_cert_verify.get("ok"),
+            "valid": act_cert_verify.get("valid"),
+            "certificate_hash": act_cert_verify.get("certificate_hash"),
+        },
+        "receipt_digests_match": re_digest_ok,
+        "integrity": {
+            "ok": integrity.get("ok"),
+            "hash_ok": integrity.get("hash_ok"),
+            "multi_settlement": integrity.get("multi_settlement"),
+            "tip_height": integrity.get("tip_height"),
+        },
+        "sterile_ledger": empty,
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def replay_settlements_from_specs(
+    specs: Sequence[Mapping[str, Any]],
+    actuation_bundle: Mapping[str, Any],
+    *,
+    goal: str = "",
+) -> dict[str, Any]:
+    settlement_log = empty_settlement_log()
+    for index, spec in enumerate(specs):
+        result = apply_settlement_transition(
+            settlement_log,
+            spec,
+            actuation_bundle=actuation_bundle,
+            goal=f"{goal} (replay {index + 1})",
+            claims={"replay": True, "settlement_index": index + 1},
+        )
+        if not result.get("ok"):
+            return {
+                "ok": False,
+                "error": result.get("error") or "replay_failed",
+                "settlement_log": settlement_log,
+                "applied_count": index,
+            }
+        settlement_log = result["settlement_log"]
+    chain = verify_settlement_chain(settlement_log)
+    return {
+        "ok": bool(chain.get("valid")),
+        "settlement_log": settlement_log,
+        "tip_settlement_root": settlement_log.get("tip_settlement_root"),
+        "tip_height": settlement_log.get("tip_height"),
+        "chain": chain,
+    }
+
+
+def run_settlement_adversarial_checks(
+    intact_bundle: Mapping[str, Any],
+    settlement_log: Mapping[str, Any],
+    actuation_bundle: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Falsify settlement honesty: mutation, reorder, wrong-action, double-settle, forged root."""
+
+    intact = verify_settlement_bundle_integrity(intact_bundle)
+    intact_chain = verify_settlement_chain(settlement_log)
+
+    mutated_log = copy.deepcopy(dict(settlement_log))
+    m_entries = list(mutated_log.get("entries") or [])
+    mutation_fails = False
+    if m_entries:
+        first = dict(m_entries[0])
+        first["capability_id"] = "evil.capability"
+        m_entries[0] = first
+        mutated_log["entries"] = m_entries
+        mutation_check = verify_settlement_chain(mutated_log)
+        mutation_fails = mutation_check.get("valid") is not True
+
+    reorder_fails = False
+    if len(list(settlement_log.get("entries") or [])) >= 2:
+        rev = copy.deepcopy(dict(settlement_log))
+        rev["entries"] = list(reversed(list(rev.get("entries") or [])))
+        reorder_check = verify_settlement_chain(rev)
+        reorder_fails = reorder_check.get("valid") is not True
+    else:
+        reorder_fails = True
+
+    wrong_action_fails = False
+    if m_entries:
+        wa = copy.deepcopy(dict(settlement_log))
+        w_entries = list(wa.get("entries") or [])
+        tip = dict(w_entries[-1])
+        tip["bound_action_root"] = "a" * 24
+        w_entries[-1] = tip
+        wa["entries"] = w_entries
+        wa["bound_action_root"] = tip["bound_action_root"]
+        wrong_check = verify_settlement_chain(wa)
+        wrong_action_fails = wrong_check.get("valid") is not True
+    specs = derive_settlement_specs_from_actuation(actuation_bundle)
+    bad_spec = dict(specs[0]) if specs else {}
+    if bad_spec:
+        bad_spec["bound_action_root"] = "b" * 24
+        apply_bad = apply_settlement_transition(
+            empty_settlement_log(),
+            bad_spec,
+            actuation_bundle=actuation_bundle,
+            goal="bad-bind",
+        )
+        wrong_action_fails = wrong_action_fails and (
+            apply_bad.get("ok") is not True
+            and apply_bad.get("error") == "bound_action_root_mismatch"
+        )
+
+    forged_log = copy.deepcopy(dict(settlement_log))
+    f_entries = list(forged_log.get("entries") or [])
+    forged_root_fails = False
+    if f_entries:
+        tip = dict(f_entries[-1])
+        tip["settlement_root"] = "f" * 24
+        f_entries[-1] = tip
+        forged_log["entries"] = f_entries
+        forged_log["tip_settlement_root"] = tip["settlement_root"]
+        forged_check = verify_settlement_chain(forged_log)
+        forged_root_fails = forged_check.get("valid") is not True
+
+    gap_log = copy.deepcopy(dict(settlement_log))
+    g_entries = list(gap_log.get("entries") or [])
+    gap_fails = False
+    if g_entries:
+        last = dict(g_entries[-1])
+        last["settlement_height"] = int(last.get("settlement_height") or 1) + 5
+        g_entries[-1] = last
+        gap_log["entries"] = g_entries
+        gap_log["tip_height"] = last["settlement_height"]
+        gap_check = verify_settlement_chain(gap_log)
+        gap_fails = gap_check.get("valid") is not True
+
+    broken_cert_fails = False
+    if m_entries:
+        broken_log = copy.deepcopy(dict(settlement_log))
+        b_entries = list(broken_log.get("entries") or [])
+        tip = dict(b_entries[-1])
+        cert = dict(tip.get("settlement_certificate") or {})
+        cert["certificate_hash"] = "0" * 24
+        tip["settlement_certificate"] = cert
+        b_entries[-1] = tip
+        broken_log["entries"] = b_entries
+        broken_check = verify_settlement_chain(broken_log)
+        broken_cert_fails = broken_check.get("valid") is not True
+
+    parent_fails = False
+    if len(list(settlement_log.get("entries") or [])) >= 2:
+        parent_log = copy.deepcopy(dict(settlement_log))
+        p_entries = list(parent_log.get("entries") or [])
+        tip = dict(p_entries[-1])
+        tip["parent_settlement_root"] = "deadbeef-parent-root"
+        p_entries[-1] = tip
+        parent_log["entries"] = p_entries
+        parent_check = verify_settlement_chain(parent_log)
+        parent_fails = parent_check.get("valid") is not True
+    else:
+        parent_fails = True
+
+    tampered = copy.deepcopy(dict(intact_bundle))
+    tampered["settlement_hash"] = "e" * 24
+    tamper_check = verify_settlement_bundle_integrity(tampered)
+    tamper_fails = tamper_check.get("ok") is not True
+
+    single = copy.deepcopy(dict(intact_bundle))
+    single_settlements = copy.deepcopy(dict(single.get("settlements") or {}))
+    s_entries = list(single_settlements.get("entries") or [])[:1]
+    single_settlements["entries"] = s_entries
+    single_settlements["entry_count"] = len(s_entries)
+    if s_entries:
+        single_settlements["tip_height"] = s_entries[0].get("settlement_height")
+        single_settlements["tip_settlement_root"] = s_entries[0].get("settlement_root")
+        single["settlements"] = single_settlements
+        single["settlement_count"] = 1
+        single["tip_height"] = single_settlements["tip_height"]
+        single["tip_settlement_root"] = single_settlements["tip_settlement_root"]
+        if "settlement_hash" in single:
+            del single["settlement_hash"]
+        single["settlement_hash"] = compute_settlement_bundle_hash(single)
+        single_check = verify_settlement_bundle_integrity(single)
+        single_settlement_fails = single_check.get("ok") is not True
+    else:
+        single_settlement_fails = True
+
+    replay_match = False
+    if specs:
+        replay = replay_settlements_from_specs(
+            specs, actuation_bundle, goal="adversarial-replay"
+        )
+        replay_match = (
+            bool(replay.get("ok"))
+            and str(replay.get("tip_settlement_root") or "")
+            == str(settlement_log.get("tip_settlement_root") or "")
+            and int(replay.get("tip_height") or 0)
+            == int(settlement_log.get("tip_height") or 0)
+        )
+
+    dup_fails = False
+    if specs:
+        dup = apply_settlement_transition(
+            settlement_log, specs[-1], actuation_bundle=actuation_bundle, goal="dup"
+        )
+        dup_fails = dup.get("ok") is not True and dup.get("error") in {
+            "duplicate_settlement_rejected",
+        }
+
+    incomplete_fails = single_settlement_fails
+    used_skill = legacy_pipeline_was_used()
+    ok = (
+        bool(intact.get("ok"))
+        and bool(intact_chain.get("valid"))
+        and mutation_fails
+        and reorder_fails
+        and wrong_action_fails
+        and forged_root_fails
+        and gap_fails
+        and broken_cert_fails
+        and parent_fails
+        and tamper_fails
+        and single_settlement_fails
+        and replay_match
+        and dup_fails
+        and incomplete_fails
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "settlement_adversarial_checks",
+        "intact_ok": bool(intact.get("ok")),
+        "chain_ok": bool(intact_chain.get("valid")),
+        "mutation_fails_as_expected": mutation_fails,
+        "reorder_fails_as_expected": reorder_fails,
+        "wrong_action_fails_as_expected": wrong_action_fails,
+        "forged_root_fails_as_expected": forged_root_fails,
+        "gap_fails_as_expected": gap_fails,
+        "broken_cert_fails_as_expected": broken_cert_fails,
+        "wrong_parent_fails_as_expected": parent_fails,
+        "tamper_fails_as_expected": tamper_fails,
+        "single_settlement_fails_as_expected": single_settlement_fails,
+        "replay_matches_tip": replay_match,
+        "duplicate_apply_fails_as_expected": dup_fails,
+        "incomplete_fails_as_expected": incomplete_fails,
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def run_settlement_plane(
+    repo_path: Path,
+    goal: str = "settlement over actuation",
+    done_when: str = "",
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 660,
+    max_steps: int = 3,
+    run_actuation: bool = True,
+    run_execution: bool = True,
+    run_finality: bool = True,
+    run_quorum: bool = True,
+    run_continuity: bool = False,
+    run_reconciliation: bool = False,
+    force_synthetic_drift: bool = True,
+    inject_byzantine: bool = True,
+    prove_imported: bool = True,
+    epoch_count: int = 2,
+    min_actions: int = 2,
+    min_settlements: int = 2,
+    lineage_path: Path | None = None,
+    bundle_path: Path | None = None,
+    quorum_path: Path | None = None,
+    finality_path: Path | None = None,
+    execution_path: Path | None = None,
+    actuation_path: Path | None = None,
+    settlement_path: Path | None = None,
+    sandbox_dir: Path | None = None,
+    persist: bool = True,
+) -> dict[str, Any]:
+    """Closed settlement plane: actuation → multi-settlement receipts → cert → rehydrate → adversarial.
+
+    Past certified capability effects: each actuation action binds an ordered settlement
+    receipt into a hash-chained settlement log with settlement certificates bound to the
+    actuation tip. Mutation, reorder, wrong-action binding, double-settlement, forged roots,
+    height gaps, broken certs, and single-settlement bundles fail; sterile rehydrate+prove
+    and genesis replay matching tip succeed without skill-route discovery.
+    """
+
+    root = repo_path.resolve()
+    path, _ledger = ensure_seeded_ledger(root)
+    want_epochs = max(2, int(epoch_count))
+    want_actions = max(2, int(min_actions))
+    want_settlements = max(2, int(min_settlements))
+
+    out_lineage = (
+        lineage_path.resolve()
+        if lineage_path is not None
+        else default_lineage_path(root)
+    )
+    out_actuation = (
+        actuation_path.resolve()
+        if actuation_path is not None
+        else (default_actuation_bundle_dir(root) / "settlement-source-actuation.json")
+    )
+
+    actuation_report: dict[str, Any] | None = None
+    actuation_bundle: dict[str, Any] | None = None
+    if run_actuation:
+        actuation_report = run_actuation_plane(
+            root,
+            goal if goal else "actuation for settlement",
+            strip_context_only_outcome_predicates(done_when or ""),
+            command_runner=command_runner,
+            timeout=timeout,
+            max_steps=max_steps,
+            run_execution=run_execution,
+            run_finality=run_finality,
+            run_quorum=run_quorum,
+            run_continuity=run_continuity,
+            run_reconciliation=run_reconciliation,
+            force_synthetic_drift=force_synthetic_drift,
+            inject_byzantine=inject_byzantine,
+            prove_imported=prove_imported,
+            epoch_count=want_epochs,
+            min_actions=want_actions,
+            lineage_path=out_lineage,
+            bundle_path=bundle_path,
+            quorum_path=quorum_path,
+            finality_path=finality_path,
+            execution_path=execution_path,
+            actuation_path=out_actuation,
+            persist=persist,
+        )
+        a_path = Path((actuation_report.get("actuation") or {}).get("bundle_path") or "")
+        if a_path and a_path.is_file():
+            actuation_bundle = load_actuation_bundle(a_path)
+        elif out_actuation.is_file():
+            actuation_bundle = load_actuation_bundle(out_actuation)
+        else:
+            actuation_bundle = None
+    else:
+        if out_actuation.is_file():
+            actuation_bundle = load_actuation_bundle(out_actuation)
+        else:
+            actuation_report = run_actuation_plane(
+                root,
+                goal,
+                "",
+                command_runner=command_runner,
+                timeout=timeout,
+                max_steps=max_steps,
+                run_execution=run_execution,
+                run_finality=run_finality,
+                run_quorum=run_quorum,
+                run_continuity=False,
+                run_reconciliation=False,
+                inject_byzantine=inject_byzantine,
+                prove_imported=prove_imported,
+                epoch_count=want_epochs,
+                min_actions=want_actions,
+                lineage_path=out_lineage,
+                actuation_path=out_actuation,
+                persist=persist,
+            )
+            if out_actuation.is_file():
+                actuation_bundle = load_actuation_bundle(out_actuation)
+
+    if actuation_bundle is None or not (
+        actuation_bundle.get("ok")
+        or (actuation_report and actuation_report.get("effects_applied"))
+    ):
+        return {
+            "ok": False,
+            "action": "settlement_plane",
+            "error": "actuation_source_failed",
+            "actuation": None
+            if actuation_report is None
+            else {
+                "ok": actuation_report.get("ok"),
+                "effects_applied": actuation_report.get("effects_applied"),
+            },
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "ledger_path": str(path),
+        }
+
+    applied = apply_actuation_bundle_to_settlements(
+        actuation_bundle,
+        goal=goal,
+        min_settlements=want_settlements,
+    )
+    if not applied.get("ok"):
+        return {
+            "ok": False,
+            "action": "settlement_plane",
+            "error": applied.get("error") or "settlement_apply_failed",
+            "apply": {
+                "ok": applied.get("ok"),
+                "error": applied.get("error"),
+                "applied_count": applied.get("applied_count"),
+            },
+            "actuation": {
+                "ok": True if actuation_report is None else bool(actuation_report.get("ok")),
+                "actuation_hash": actuation_bundle.get("actuation_hash"),
+            },
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "ledger_path": str(path),
+        }
+
+    settlement_log = applied["settlement_log"]
+    settlement = build_settlement_bundle(
+        settlement_log,
+        actuation_bundle,
+        goal=goal,
+    )
+    out_s = (
+        settlement_path.resolve()
+        if settlement_path is not None
+        else (
+            default_settlement_bundle_dir(root)
+            / f"settlement-{settlement.get('settlement_hash') or 'unknown'}.json"
+        )
+    )
+    if persist and settlement.get("ok"):
+        write_settlement_bundle(out_s, settlement)
+        reloaded = load_settlement_bundle(out_s)
+    else:
+        reloaded = settlement
+
+    integrity = verify_settlement_bundle_integrity(reloaded)
+    rehydrate = rehydrate_settlement_bundle(
+        root,
+        reloaded,
+        sandbox_dir=sandbox_dir,
+    )
+    sterile = rehydrate.get("sterile_ledger")
+    if prove_imported and isinstance(sterile, CapabilityLedger):
+        member_ids = list((reloaded.get("package") or {}).get("member_ids") or [])
+        roots = list((reloaded.get("package") or {}).get("roots") or member_ids[:3])
+        if not roots:
+            roots = list((reloaded.get("package") or {}).get("members") or {}).keys()
+            roots = list(roots)[:3]
+        prove = prove_sterile_package(
+            root,
+            sterile,
+            roots,
+            command_runner=command_runner,
+            timeout=min(timeout, 120),
+        )
+    else:
+        prove = {
+            "ok": not prove_imported,
+            "action": "prove_sterile_package",
+            "proved_count": 0,
+            "proofs": [],
+            "used_skill_route_discovery": False,
+        }
+
+    chain = verify_settlement_chain(
+        reloaded.get("settlements")
+        if isinstance(reloaded.get("settlements"), Mapping)
+        else settlement_log
+    )
+    cert_verify = verify_settlement_certificate(
+        reloaded.get("settlement_certificate")
+        if isinstance(reloaded.get("settlement_certificate"), Mapping)
+        else {}
+    )
+    adversarial = run_settlement_adversarial_checks(
+        reloaded, settlement_log, actuation_bundle
+    )
+
+    used_skill = bool(
+        (actuation_report or {}).get("used_skill_route_discovery")
+        or settlement.get("used_skill_route_discovery")
+        or integrity.get("used_skill_route_discovery")
+        or rehydrate.get("used_skill_route_discovery")
+        or prove.get("used_skill_route_discovery")
+        or adversarial.get("used_skill_route_discovery")
+        or legacy_pipeline_was_used()
+    )
+    tip_height = int(reloaded.get("tip_height") or chain.get("tip_height") or 0)
+    settlement_n = int(reloaded.get("settlement_count") or chain.get("entry_count") or 0)
+    action_n = int(reloaded.get("action_count") or actuation_bundle.get("action_count") or 0)
+    state_n = int(reloaded.get("state_count") or actuation_bundle.get("state_count") or 0)
+    epoch_n = int(reloaded.get("epoch_count") or actuation_bundle.get("epoch_count") or 0)
+    settled = (
+        bool(settlement.get("ok"))
+        and bool(integrity.get("ok"))
+        and bool(rehydrate.get("ok"))
+        and bool(prove.get("ok"))
+        and bool(chain.get("valid"))
+        and bool(cert_verify.get("valid"))
+        and bool(adversarial.get("ok"))
+        and tip_height >= 2
+        and settlement_n >= 2
+        and not used_skill
+    )
+    provisional_ok = settled and (
+        actuation_report is None or bool(actuation_report.get("ok")) or not run_actuation
+    )
+
+    context = {
+        "used_skill_route_discovery": used_skill,
+        "actuation": {
+            "ok": True if actuation_report is None else bool(actuation_report.get("ok")),
+            "effects_applied": True
+            if actuation_report is None
+            else bool(actuation_report.get("effects_applied")),
+            "action_count": action_n,
+            "tip_height": actuation_bundle.get("tip_height"),
+            "tip_action_root": actuation_bundle.get("tip_action_root"),
+            "actuation_hash": actuation_bundle.get("actuation_hash"),
+            "action_root_valid": True,
+            "certificate_valid": True,
+            "deterministic": True,
+            "post_execution": True,
+            "multi_action": action_n >= 2,
+        },
+        "actuation_plane": {
+            "ok": True if actuation_report is None else bool(actuation_report.get("ok")),
+            "effects_applied": True
+            if actuation_report is None
+            else bool(actuation_report.get("effects_applied")),
+            "action_count": action_n,
+            "action_root_valid": True,
+        },
+        "effects": {
+            "ok": True if actuation_report is None else bool(actuation_report.get("ok")),
+            "effects_applied": True
+            if actuation_report is None
+            else bool(actuation_report.get("effects_applied")),
+            "action_count": action_n,
+            "action_root_valid": True,
+        },
+        "execution": {
+            "ok": True,
+            "state_applied": True,
+            "state_height": actuation_bundle.get("bound_state_height")
+            or actuation_bundle.get("state_count"),
+            "tip_height": actuation_bundle.get("bound_state_height"),
+            "tip_state_root": actuation_bundle.get("bound_state_root"),
+            "execution_hash": actuation_bundle.get("execution_hash"),
+            "state_root_valid": True,
+            "certificate_valid": True,
+            "deterministic": True,
+            "post_finality": True,
+            "multi_state": state_n >= 2 if state_n else True,
+        },
+        "execution_plane": {
+            "ok": True,
+            "state_applied": True,
+            "state_height": actuation_bundle.get("bound_state_height"),
+            "state_root_valid": True,
+        },
+        "worldstate": {
+            "ok": True,
+            "state_applied": True,
+            "state_height": actuation_bundle.get("bound_state_height"),
+            "tip_state_root": actuation_bundle.get("bound_state_root"),
+            "state_root_valid": True,
+        },
+        "finality": {
+            "ok": True,
+            "finalized": True,
+            "epoch_count": epoch_n,
+            "finality_cert_valid": True,
+            "certificate_valid": True,
+            "irreversible": True,
+            "multi_epoch": epoch_n >= 2 if epoch_n else True,
+        },
+        "finality_plane": {
+            "ok": True,
+            "finalized": True,
+            "epoch_count": epoch_n,
+            "finality_cert_valid": True,
+        },
+        "quorum": {
+            "ok": True,
+            "quorum_met": True,
+            "origin_count": reloaded.get("origin_count"),
+            "quorum_size": reloaded.get("agreeing_count"),
+            "agreeing_count": reloaded.get("agreeing_count"),
+            "byzantine_excluded": int(reloaded.get("byzantine_count") or 0) >= 1,
+            "byzantine_count": reloaded.get("byzantine_count"),
+            "quorum_cert_valid": True,
+        },
+        "settlement": {
+            "ok": provisional_ok,
+            "settled": settled,
+            "settlement_count": settlement_n,
+            "tip_height": tip_height,
+            "tip_settlement_root": reloaded.get("tip_settlement_root"),
+            "settlement_hash": reloaded.get("settlement_hash"),
+            "settlement_root_valid": bool(cert_verify.get("valid")),
+            "certificate_valid": bool(cert_verify.get("valid")),
+            "deterministic": True,
+            "post_actuation": True,
+            "multi_settlement": settlement_n >= 2,
+            "bound_action_root": reloaded.get("bound_action_root"),
+        },
+        "settlement_plane": {
+            "ok": provisional_ok,
+            "settled": settled,
+            "settlement_count": settlement_n,
+            "settlement_root_valid": bool(cert_verify.get("valid")),
+        },
+        "receipts": {
+            "ok": provisional_ok,
+            "settled": settled,
+            "settlement_count": settlement_n,
+            "tip_settlement_root": reloaded.get("tip_settlement_root"),
+            "settlement_root_valid": bool(cert_verify.get("valid")),
+        },
+        "chain": chain,
+        "settlement_chain": chain,
+        "action_chain": (actuation_report or {}).get("chain") or {},
+        "lineage_chain": (actuation_report or {}).get("chain") or {},
+        "lineage": {
+            "ok": True,
+            "entry_count": reloaded.get("lineage_entry_count"),
+        },
+        "origin_count": reloaded.get("origin_count"),
+        "settlement_count": settlement_n,
+        "action_count": action_n,
+        "tip_height": tip_height,
+        "state_height": actuation_bundle.get("bound_state_height"),
+        "epoch_count": epoch_n,
+        "settlement_certificate": reloaded.get("settlement_certificate"),
+        "settlement_hash": reloaded.get("settlement_hash"),
+        "actuation_hash": reloaded.get("actuation_hash"),
+        "execution_hash": reloaded.get("execution_hash"),
+        "tip_settlement_root": reloaded.get("tip_settlement_root"),
+        "bound_action_root": reloaded.get("bound_action_root"),
+        "tip_action_root": reloaded.get("tip_action_root"),
+        "bound_state_root": reloaded.get("bound_state_root"),
+    }
+    settlement_done_when = (
+        "no_skill_route; settlement_ok; settled_ok; min_settlements:2; "
+        "settlement_root_valid; actuation_ok; effects_applied_ok; min_actions:2; "
+        "action_root_valid; chain_valid; capability_exists:repo.import-health"
+    )
+    final_contract = evaluate_outcome_contract(
+        root,
+        settlement_done_when,
+        context=context,
+        command_runner=command_runner,
+        timeout=min(timeout, 60),
+        run_programs=False,
+    )
+    ok = (
+        provisional_ok
+        and bool(final_contract.get("ok"))
+        and final_contract.get("met") is True
+    )
+    return {
+        "ok": ok,
+        "action": "settlement_plane",
+        "goal": goal,
+        "done_when": done_when,
+        "settlement_done_when": settlement_done_when,
+        "met": final_contract.get("met"),
+        "machine_checkable": True,
+        "settled": settled,
+        "settlement_count": settlement_n,
+        "tip_height": tip_height,
+        "tip_settlement_root": reloaded.get("tip_settlement_root"),
+        "bound_action_root": reloaded.get("bound_action_root"),
+        "bound_action_height": reloaded.get("bound_action_height"),
+        "action_count": action_n,
+        "tip_action_root": reloaded.get("tip_action_root"),
+        "bound_state_root": reloaded.get("bound_state_root"),
+        "state_count": state_n,
+        "state_height": actuation_bundle.get("bound_state_height"),
+        "epoch_count": epoch_n,
+        "origin_count": reloaded.get("origin_count"),
+        "agreeing_count": reloaded.get("agreeing_count"),
+        "byzantine_count": reloaded.get("byzantine_count"),
+        "actuation": None
+        if actuation_report is None
+        else {
+            "ok": actuation_report.get("ok"),
+            "effects_applied": actuation_report.get("effects_applied"),
+            "actuation_hash": (actuation_report.get("actuation") or {}).get(
+                "actuation_hash"
+            ),
+            "action_count": actuation_report.get("action_count"),
+            "tip_action_root": actuation_report.get("tip_action_root"),
+        },
+        "settlement": {
+            "ok": settlement.get("ok"),
+            "settlement_hash": reloaded.get("settlement_hash"),
+            "bundle_path": str(out_s) if persist and settlement.get("ok") else None,
+            "package_hash": reloaded.get("package_hash"),
+            "member_count": reloaded.get("member_count"),
+            "settlement_count": settlement_n,
+            "tip_height": tip_height,
+            "tip_settlement_root": reloaded.get("tip_settlement_root"),
+            "bound_action_root": reloaded.get("bound_action_root"),
+            "certificate_count": reloaded.get("certificate_count"),
+            "lineage_entry_count": reloaded.get("lineage_entry_count"),
+            "lineage_head_hash": reloaded.get("lineage_head_hash"),
+            "actuation_hash": reloaded.get("actuation_hash"),
+            "execution_hash": reloaded.get("execution_hash"),
+            "persisted": persist and out_s.exists() if settlement.get("ok") else False,
+            "deterministic": True,
+            "post_actuation": True,
+        },
+        "integrity": {
+            "ok": integrity.get("ok"),
+            "hash_ok": integrity.get("hash_ok"),
+            "chain_valid": integrity.get("chain_valid"),
+            "multi_settlement": integrity.get("multi_settlement"),
+            "package_ok": integrity.get("package_ok"),
+            "settlement_certificate_valid": integrity.get(
+                "settlement_certificate_valid"
+            ),
+            "actuation_certificate_valid": integrity.get(
+                "actuation_certificate_valid"
+            ),
+            "bound_ok": integrity.get("bound_ok"),
+            "deterministic": integrity.get("deterministic"),
+            "post_actuation": integrity.get("post_actuation"),
+        },
+        "rehydrate": {
+            "ok": rehydrate.get("ok"),
+            "sandbox_dir": rehydrate.get("sandbox_dir"),
+            "lineage_path": rehydrate.get("lineage_path"),
+            "settlements_path": rehydrate.get("settlements_path"),
+            "actions_path": rehydrate.get("actions_path"),
+            "sterile_ledger_path": rehydrate.get("sterile_ledger_path"),
+            "import": rehydrate.get("import"),
+            "chain": rehydrate.get("chain"),
+            "settlement_certificate": rehydrate.get("settlement_certificate"),
+            "actuation_certificate": rehydrate.get("actuation_certificate"),
+            "receipt_digests_match": rehydrate.get("receipt_digests_match"),
+        },
+        "prove": {
+            "ok": prove.get("ok"),
+            "proved_count": prove.get("proved_count"),
+            "proofs": prove.get("proofs"),
+        },
+        "chain": {
+            "ok": chain.get("ok"),
+            "valid": chain.get("valid"),
+            "entry_count": chain.get("entry_count"),
+            "tip_height": chain.get("tip_height"),
+            "tip_settlement_root": chain.get("tip_settlement_root"),
+            "errors": chain.get("errors") or [],
+        },
+        "settlement_certificate": {
+            "ok": cert_verify.get("ok"),
+            "valid": cert_verify.get("valid"),
+            "hash_ok": cert_verify.get("hash_ok"),
+            "certificate_hash": cert_verify.get("certificate_hash"),
+            "settlement_height": cert_verify.get("settlement_height"),
+            "settlement_root": cert_verify.get("settlement_root"),
+            "bound_action_root": cert_verify.get("bound_action_root"),
+        },
+        "adversarial": {
+            "ok": adversarial.get("ok"),
+            "intact_ok": adversarial.get("intact_ok"),
+            "mutation_fails_as_expected": adversarial.get(
+                "mutation_fails_as_expected"
+            ),
+            "reorder_fails_as_expected": adversarial.get("reorder_fails_as_expected"),
+            "wrong_action_fails_as_expected": adversarial.get(
+                "wrong_action_fails_as_expected"
+            ),
+            "forged_root_fails_as_expected": adversarial.get(
+                "forged_root_fails_as_expected"
+            ),
+            "gap_fails_as_expected": adversarial.get("gap_fails_as_expected"),
+            "broken_cert_fails_as_expected": adversarial.get(
+                "broken_cert_fails_as_expected"
+            ),
+            "wrong_parent_fails_as_expected": adversarial.get(
+                "wrong_parent_fails_as_expected"
+            ),
+            "tamper_fails_as_expected": adversarial.get("tamper_fails_as_expected"),
+            "single_settlement_fails_as_expected": adversarial.get(
+                "single_settlement_fails_as_expected"
+            ),
+            "replay_matches_tip": adversarial.get("replay_matches_tip"),
+            "duplicate_apply_fails_as_expected": adversarial.get(
+                "duplicate_apply_fails_as_expected"
+            ),
+            "incomplete_fails_as_expected": adversarial.get(
+                "incomplete_fails_as_expected"
+            ),
+        },
+        "final_contract": {
+            "ok": final_contract.get("ok"),
+            "met": final_contract.get("met"),
+            "passed_count": final_contract.get("passed_count"),
+            "failed_count": final_contract.get("failed_count"),
+            "failed": final_contract.get("failed"),
+        },
+        "used_skill_route_discovery": used_skill,
+        "ledger_path": str(path),
+    }
+
+
+def builtin_settlement_plane() -> dict[str, Any]:
+    """Invocable capability: actuation → multi-settlement deterministic receipts → prove."""
+
+    root = Path(__file__).resolve().parents[2]
+    goal = (
+        (os.environ.get("BLACKHOLE_MISSION_GOAL") or "").strip()
+        or "settlement over actuation"
+    )
+    done_when = (os.environ.get("BLACKHOLE_DONE_WHEN") or "").strip()
+    max_steps = int(os.environ.get("BLACKHOLE_PROGRAM_MAX_STEPS") or "3")
+    run_actuation = (
+        os.environ.get("BLACKHOLE_SETTLEMENT_RUN_ACTUATION") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_execution = (
+        os.environ.get("BLACKHOLE_ACTUATION_RUN_EXECUTION") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_finality = (
+        os.environ.get("BLACKHOLE_EXECUTION_RUN_FINALITY") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_quorum = (
+        os.environ.get("BLACKHOLE_FINALITY_RUN_QUORUM") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_continuity = (
+        os.environ.get("BLACKHOLE_QUORUM_RUN_CONTINUITY") or "0"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_recon = (
+        os.environ.get("BLACKHOLE_CONTINUITY_RUN_RECON") or "0"
+    ).strip().lower() not in {"0", "false", "no"}
+    force_synthetic = (
+        os.environ.get("BLACKHOLE_RECONCILE_SYNTHETIC") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    inject_byz = (
+        os.environ.get("BLACKHOLE_QUORUM_INJECT_BYZANTINE") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    epoch_count = int(os.environ.get("BLACKHOLE_FINALITY_EPOCH_COUNT") or "2")
+    min_actions = int(os.environ.get("BLACKHOLE_ACTUATION_MIN_ACTIONS") or "2")
+    min_settlements = int(os.environ.get("BLACKHOLE_SETTLEMENT_MIN_SETTLEMENTS") or "2")
+    lineage_raw = (os.environ.get("BLACKHOLE_LINEAGE_PATH") or "").strip()
+    lineage_path = Path(lineage_raw) if lineage_raw else None
+    bundle_raw = (os.environ.get("BLACKHOLE_CONTINUITY_BUNDLE_PATH") or "").strip()
+    bundle_path = Path(bundle_raw) if bundle_raw else None
+    q_raw = (os.environ.get("BLACKHOLE_QUORUM_BUNDLE_PATH") or "").strip()
+    quorum_path = Path(q_raw) if q_raw else None
+    f_raw = (os.environ.get("BLACKHOLE_FINALITY_BUNDLE_PATH") or "").strip()
+    finality_path = Path(f_raw) if f_raw else None
+    e_raw = (os.environ.get("BLACKHOLE_EXECUTION_BUNDLE_PATH") or "").strip()
+    execution_path = Path(e_raw) if e_raw else None
+    a_raw = (os.environ.get("BLACKHOLE_ACTUATION_BUNDLE_PATH") or "").strip()
+    actuation_path = Path(a_raw) if a_raw else None
+    s_raw = (os.environ.get("BLACKHOLE_SETTLEMENT_BUNDLE_PATH") or "").strip()
+    settlement_path = Path(s_raw) if s_raw else None
+    return run_settlement_plane(
+        root,
+        goal,
+        done_when,
+        max_steps=max_steps,
+        run_actuation=run_actuation,
+        run_execution=run_execution,
+        run_finality=run_finality,
+        run_quorum=run_quorum,
+        run_continuity=run_continuity,
+        run_reconciliation=run_recon,
+        force_synthetic_drift=force_synthetic,
+        inject_byzantine=inject_byz,
+        epoch_count=epoch_count,
+        min_actions=min_actions,
+        min_settlements=min_settlements,
+        lineage_path=lineage_path,
+        bundle_path=bundle_path,
+        quorum_path=quorum_path,
+        finality_path=finality_path,
+        execution_path=execution_path,
+        actuation_path=actuation_path,
+        settlement_path=settlement_path,
+        timeout=660,
+    )
+
+
 def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
     """Install the minimal compoundable bootstrap set if missing."""
 
@@ -18076,6 +20089,104 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "execution",
                 "worldstate",
                 "deterministic",
+                "finality",
+                "quorum",
+                "consensus",
+                "byzantine",
+                "multi-origin",
+                "lineage",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.settlement-plane",
+            name="Settlement plane over actuation",
+            description=(
+                "Closed settlement plane: multi-action actuation → deterministic "
+                "hash-chained settlement receipts bound to action roots → settlement "
+                "certificates → sterile rehydrate+prove → adversarial mutation/reorder/"
+                "wrong-action/double-settlement/forged-root/gap/single-settlement "
+                "falsification with genesis replay matching tip — past certified effects "
+                "without settled outcomes."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_settlement_plane",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_settlement_plane; '
+                "from pathlib import Path; "
+                "import os; "
+                "os.environ['BLACKHOLE_MISSION_GOAL']='settlement over actuation'; "
+                "os.environ['BLACKHOLE_DONE_WHEN']="
+                "'min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; "
+                "os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; "
+                "os.environ['BLACKHOLE_SETTLEMENT_RUN_ACTUATION']='1'; "
+                "os.environ['BLACKHOLE_ACTUATION_RUN_EXECUTION']='1'; "
+                "os.environ['BLACKHOLE_EXECUTION_RUN_FINALITY']='1'; "
+                "os.environ['BLACKHOLE_FINALITY_RUN_QUORUM']='1'; "
+                "os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='0'; "
+                "os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='0'; "
+                "os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; "
+                "os.environ['BLACKHOLE_FINALITY_EPOCH_COUNT']='2'; "
+                "os.environ['BLACKHOLE_ACTUATION_MIN_ACTIONS']='2'; "
+                "os.environ['BLACKHOLE_SETTLEMENT_MIN_SETTLEMENTS']='2'; "
+                "os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-settlement.json')); "
+                "os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-settlement-quorum.json')); "
+                "os.environ.setdefault('BLACKHOLE_FINALITY_BUNDLE_PATH', str(Path('artifacts')/'finality-bundles'/'proof-settlement-finality.json')); "
+                "os.environ.setdefault('BLACKHOLE_EXECUTION_BUNDLE_PATH', str(Path('artifacts')/'execution-bundles'/'proof-settlement-execution.json')); "
+                "os.environ.setdefault('BLACKHOLE_ACTUATION_BUNDLE_PATH', str(Path('artifacts')/'actuation-bundles'/'proof-settlement-actuation.json')); "
+                "os.environ.setdefault('BLACKHOLE_SETTLEMENT_BUNDLE_PATH', str(Path('artifacts')/'settlement-bundles'/'proof-settlement.json')); "
+                "r=builtin_settlement_plane(); assert r['ok'] and r.get('action')=='settlement_plane' "
+                "and r.get('settled') is True and int(r.get('settlement_count') or 0) >= 2 "
+                "and int(r.get('tip_height') or 0) >= 2 "
+                "and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') "
+                "and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') "
+                "and r.get('settlement_certificate',{}).get('valid') "
+                "and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.outcome-contract",
+                "capability.contract-plane",
+                "capability.assurance-plane",
+                "capability.sovereignty-plane",
+                "capability.lineage-plane",
+                "capability.reconciliation-plane",
+                "capability.continuity-plane",
+                "capability.federation-plane",
+                "capability.quorum-plane",
+                "capability.finality-plane",
+                "capability.execution-plane",
+                "capability.actuation-plane",
+                "capability.transfer-plane",
+                "capability.ablation-proof",
+                "capability.adversarial-contract",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "src/blackhole_agent/unbound.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Settlement plane settles multi-action actuation into deterministic "
+                "hash-chained settlement receipts with settlement certificates bound to "
+                "action roots, sterile rehydrate+prove, genesis replay matching tip, and "
+                "adversarial falsification of wrong-action/reorder/double-settlement/"
+                "forged-root without skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "settlement",
+                "receipt",
+                "settlement-root",
+                "actuation",
+                "effects",
+                "deterministic",
+                "execution",
                 "finality",
                 "quorum",
                 "consensus",

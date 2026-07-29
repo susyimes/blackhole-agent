@@ -1,0 +1,189 @@
+{
+  "entries": [
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "origin_ids": [
+          "origin-a",
+          "origin-b",
+          "origin-byzantine"
+        ],
+        "threshold": 2
+      },
+      "detail": {
+        "origins": [
+          {
+            "bundle_hash": "7990f82462a90e694f431e93",
+            "byzantine": false,
+            "lineage_entry_count": 115,
+            "lineage_head_hash": "3e49bd489bc18abc67dfdd8f",
+            "member_count": 3,
+            "origin_id": "origin-a",
+            "package_hash": "7878a785b9718369"
+          },
+          {
+            "bundle_hash": "56084533b2ab5d2a29ae4002",
+            "byzantine": false,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "759be51621cd70bf3adaa2ce",
+            "member_count": 2,
+            "origin_id": "origin-b",
+            "package_hash": "8ece9182045d973a"
+          },
+          {
+            "bundle_hash": "e39aacc55d238a1dc9be2482",
+            "byzantine": true,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "ddc2df3c189f2c5a37d6bf92",
+            "member_count": 3,
+            "origin_id": "origin-byzantine",
+            "package_hash": "7d88f7661e8407af"
+          }
+        ]
+      },
+      "entry_hash": "46b045e093dfa55f156ab9b9",
+      "entry_kind": "quorum_origin_manifest",
+      "goal": "Build a closed settlement plane over multi-action actuation",
+      "index": 0,
+      "issued_at": "2026-07-29T18:38:44.706908Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": ""
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "package_hash": "066545df3053adf5",
+        "threshold": 2
+      },
+      "detail": {
+        "origin_heads": [
+          "3e49bd489bc18abc67dfdd8f",
+          "759be51621cd70bf3adaa2ce",
+          "ddc2df3c189f2c5a37d6bf92"
+        ]
+      },
+      "entry_hash": "0e3c3d8d4bd087676abff8b5",
+      "entry_kind": "quorum_vote",
+      "goal": "Build a closed settlement plane over multi-action actuation",
+      "index": 1,
+      "issued_at": "2026-07-29T18:38:44.706930Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "46b045e093dfa55f156ab9b9"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "byzantine_count": 1,
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "excluded": true
+      },
+      "detail": {
+        "byzantine_origins": [
+          "origin-byzantine"
+        ]
+      },
+      "entry_hash": "56dfbb70a24ea038f7e69abf",
+      "entry_kind": "quorum_byzantine_exclude",
+      "goal": "Build a closed settlement plane over multi-action actuation",
+      "index": 2,
+      "issued_at": "2026-07-29T18:38:44.706944Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "0e3c3d8d4bd087676abff8b5"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "quorum": true,
+        "quorum_met": true
+      },
+      "detail": {
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "origin_bundle_hashes": [
+          "7990f82462a90e694f431e93",
+          "56084533b2ab5d2a29ae4002",
+          "e39aacc55d238a1dc9be2482"
+        ]
+      },
+      "entry_hash": "d7b718b7b73d827789ad3049",
+      "entry_kind": "quorum_seal",
+      "goal": "Build a closed settlement plane over multi-action actuation",
+      "index": 3,
+      "issued_at": "2026-07-29T18:38:44.706957Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "56dfbb70a24ea038f7e69abf"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "prior_lineage_head": "d7b718b7b73d827789ad3049",
+        "prior_package_hash": "066545df3053adf5",
+        "prior_quorum_hash": "61f60cd4e130ea4fcf388133",
+        "progress_tag": "epoch-progress-2"
+      },
+      "detail": {},
+      "entry_hash": "c649b346f36ff748e1a47a01",
+      "entry_kind": "finality_epoch_progress",
+      "goal": "Build a closed settlement plane over multi-action actuation (progress 2)",
+      "index": 4,
+      "issued_at": "2026-07-29T18:38:45.162272Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "",
+      "parent_hash": "d7b718b7b73d827789ad3049"
+    }
+  ],
+  "entry_count": 5,
+  "head_hash": "c649b346f36ff748e1a47a01",
+  "kind": "capability_lineage",
+  "schema_version": 1,
+  "updated_at": "2026-07-29T18:38:45.167012Z"
+}

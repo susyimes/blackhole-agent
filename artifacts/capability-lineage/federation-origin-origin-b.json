@@ -14,14 +14,14 @@
         "origin_id": "origin-b",
         "plane": "federation"
       },
-      "entry_hash": "a4ea4183155e6103e2bdca5e",
+      "entry_hash": "70c4527c68367fb81a19dad9",
       "entry_kind": "federation_origin_seed",
-      "goal": "Build a closed actuation plane over world-state execution: sealed tip state roots dispatch deterministic hash-chained capability effects with actuation certificates, sterile rehydrate+prove, and adversarial falsification of wrong-state binding/reorder/forged action roots without skill-route discovery. (honest origin-b)",
+      "goal": "Turn 1 complete was rejected because free-text done_when soft-extracted poisoned context-only predicates (capability.settlement-plane → settlement_ok, rehydrate slash-lists → resurrected_ok/chain_valid) and the complete gate evaluated settlement predicates without durable evidence. Fixed soft-extract precision, added disk-backed settlement proof evidence for context-less gates, and injected rehydrate continuity context into the settlement milestone path. Re-simulated evaluate_milestone(complete): accepted with empty reasons. (honest origin-b)",
       "index": 0,
-      "issued_at": "2026-07-29T17:52:13.387659Z",
+      "issued_at": "2026-07-29T18:39:12.420333Z",
       "metrics": {
-        "count": 89,
-        "primitive_count": 40,
+        "count": 90,
+        "primitive_count": 41,
         "proved_count": 88,
         "proved_ratio": null
       },
@@ -42,11 +42,11 @@
         ],
         "origin_id": "origin-b"
       },
-      "entry_hash": "ba15588181bc1ed83372a354",
+      "entry_hash": "53512244b7dc7758a6ee3782",
       "entry_kind": "federation_origin_seal",
-      "goal": "Build a closed actuation plane over world-state execution: sealed tip state roots dispatch deterministic hash-chained capability effects with actuation certificates, sterile rehydrate+prove, and adversarial falsification of wrong-state binding/reorder/forged action roots without skill-route discovery. (honest origin-b)",
+      "goal": "Turn 1 complete was rejected because free-text done_when soft-extracted poisoned context-only predicates (capability.settlement-plane → settlement_ok, rehydrate slash-lists → resurrected_ok/chain_valid) and the complete gate evaluated settlement predicates without durable evidence. Fixed soft-extract precision, added disk-backed settlement proof evidence for context-less gates, and injected rehydrate continuity context into the settlement milestone path. Re-simulated evaluate_milestone(complete): accepted with empty reasons. (honest origin-b)",
       "index": 1,
-      "issued_at": "2026-07-29T17:52:13.387736Z",
+      "issued_at": "2026-07-29T18:39:12.420442Z",
       "metrics": {
         "count": 2,
         "primitive_count": null,
@@ -54,13 +54,13 @@
         "proved_ratio": null
       },
       "package_hash": "8ece9182045d973a",
-      "parent_hash": "a4ea4183155e6103e2bdca5e"
+      "parent_hash": "70c4527c68367fb81a19dad9"
     }
   ],
   "entry_count": 2,
-  "head_hash": "ba15588181bc1ed83372a354",
+  "head_hash": "53512244b7dc7758a6ee3782",
   "kind": "capability_lineage",
   "ok": true,
   "schema_version": 1,
-  "updated_at": "2026-07-29T17:52:13.388335Z"
+  "updated_at": "2026-07-29T18:39:12.421253Z"
 }

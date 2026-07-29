@@ -9,7 +9,7 @@
   "byzantine_origins": [
     "origin-byzantine"
   ],
-  "certificate_count": 46,
+  "certificate_count": 48,
   "certificates": {
     "085bf6317cab0eb6fba382ea": {
       "certificate_hash": "085bf6317cab0eb6fba382ea",
@@ -141,6 +141,71 @@
         "schema_version": 1
       }
     },
+    "13888439d3311b7cf55efe34": {
+      "certificate_hash": "13888439d3311b7cf55efe34",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T182221Z-aef5f6d9\\artifacts\\sovereignty-certificates\\sovereignty-13888439d3311b7cf55efe34.json",
+      "origin_id": "origin-a",
+      "payload": {
+        "certificate_hash": "13888439d3311b7cf55efe34",
+        "claims": {
+          "ablation_ok": true,
+          "adversarial_ok": true,
+          "assurance_ok": true,
+          "contract_met": true,
+          "contract_ok": true,
+          "machine_checkable": true,
+          "no_skill_route": true,
+          "transfer_ok": true
+        },
+        "done_when": "no_skill_route",
+        "evidence": {
+          "assurance": {
+            "ablation": {
+              "failed_phases": [],
+              "live_ledger_mutated": false,
+              "ok": true,
+              "passed_count": 4,
+              "phase_count": 4
+            },
+            "adversarial": {
+              "negative_count": 4,
+              "negatives_ok": true,
+              "negatives_passed": 4,
+              "ok": true,
+              "positive_ok": true
+            },
+            "ok": true,
+            "transfer": {
+              "member_count": 3,
+              "ok": true,
+              "package_hash": "7878a785b9718369",
+              "proved_count": 3
+            }
+          },
+          "contract": {
+            "failed_count": 0,
+            "machine_checkable": true,
+            "met": true,
+            "mission_ok": null,
+            "ok": true,
+            "passed_count": 1
+          },
+          "metrics": {
+            "count": 90,
+            "primitive_count": 41,
+            "proved_count": 88,
+            "proved_ratio": 0.9777777777777777
+          }
+        },
+        "goal": "reconcile:Build a closed settlement plane over multi-action actuation that settles certified capability effects into deterministic hash-chained settlement receipts bound to action roots, with settlement certificates, sterile rehydrate+prove, and adversarial falsification of wrong-action/reorder/double-settlement/forged-root/gap/single-settlement failures — past certified effects without settled outcomes, without skill-route discovery.",
+        "issued_at": "2026-07-29T18:32:40.255265Z",
+        "kind": "sovereignty_certificate",
+        "ok": true,
+        "package_hash": "7878a785b9718369",
+        "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T182221Z-aef5f6d9",
+        "schema_version": 1
+      }
+    },
     "15a0381080d6e595c5ed7f20": {
       "certificate_hash": "15a0381080d6e595c5ed7f20",
       "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T134211Z-d3e39855\\artifacts\\sovereignty-certificates\\sovereignty-15a0381080d6e595c5ed7f20.json",
@@ -204,52 +269,6 @@
         "package_hash": "7878a785b9718369",
         "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T134211Z-d3e39855",
         "schema_version": 1
-      }
-    },
-    "16b3b62476ca29084c8f133f": {
-      "certificate_hash": "16b3b62476ca29084c8f133f",
-      "certificate_path": "artifacts/quorum-bundles/quorum-certificate.json",
-      "origin_id": "quorum",
-      "payload": {
-        "agreeing_count": 2,
-        "agreeing_origins": [
-          "origin-a",
-          "origin-b"
-        ],
-        "byzantine_count": 1,
-        "byzantine_origins": [
-          "origin-byzantine"
-        ],
-        "certificate_hash": "16b3b62476ca29084c8f133f",
-        "claims": {
-          "origin_ids": [
-            "origin-a",
-            "origin-b",
-            "origin-byzantine"
-          ],
-          "roots": [
-            "repo.import-health",
-            "capability.ledger-inventory",
-            "unbound.milestone-gate"
-          ],
-          "votes_accepted": 3
-        },
-        "goal": "Build a closed actuation plane over world-state execution: sealed tip state roots dispatch deterministic hash-chained capability effects with actuation certificates, sterile rehydrate+prove, and adversarial falsification of wrong-state binding/reorder/forged action roots without skill-route discovery.",
-        "issued_at": "2026-07-29T17:52:13.406129Z",
-        "kind": "quorum_certificate",
-        "lineage_head_hash": "7bef2c95a1b8313bd732d471",
-        "member_count": 3,
-        "ok": true,
-        "origin_count": 3,
-        "origin_hashes": [
-          "f716a3b871ebec458813c277",
-          "d38f8480a84d6c536603c5a2",
-          "4683b75239c06a2190210584"
-        ],
-        "package_hash": "066545df3053adf5",
-        "schema_version": 1,
-        "threshold": 2,
-        "used_skill_route_discovery": false
       }
     },
     "1d152a213db42ecbcc099340": {
@@ -837,6 +856,26 @@
         "schema_version": 1
       }
     },
+    "3b8626686e6a71542e6aa380": {
+      "certificate_hash": "3b8626686e6a71542e6aa380",
+      "certificate_path": "artifacts/federation-origins/origin-c-attest.json",
+      "origin_id": "origin-byzantine",
+      "payload": {
+        "certificate_hash": "3b8626686e6a71542e6aa380",
+        "issued_at": "2026-07-29T18:39:12.449894Z",
+        "kind": "federation_origin_attestation",
+        "lineage_head_hash": "7b062b98cba24385b439cd0d",
+        "member_count": 3,
+        "origin_id": "origin-c",
+        "package_hash": "7878a785b9718369",
+        "roots": [
+          "repo.import-health",
+          "capability.ledger-inventory",
+          "unbound.milestone-gate"
+        ],
+        "schema_version": 1
+      }
+    },
     "42a8ae5ebbd080b183a1e696": {
       "certificate_hash": "42a8ae5ebbd080b183a1e696",
       "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T142559Z-e0ddf92a\\artifacts\\sovereignty-certificates\\sovereignty-42a8ae5ebbd080b183a1e696.json",
@@ -967,6 +1006,71 @@
         "schema_version": 1
       }
     },
+    "45e755450d111603ae5d8f6b": {
+      "certificate_hash": "45e755450d111603ae5d8f6b",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T182221Z-aef5f6d9\\artifacts\\sovereignty-certificates\\sovereignty-45e755450d111603ae5d8f6b.json",
+      "origin_id": "origin-a",
+      "payload": {
+        "certificate_hash": "45e755450d111603ae5d8f6b",
+        "claims": {
+          "ablation_ok": true,
+          "adversarial_ok": true,
+          "assurance_ok": true,
+          "contract_met": true,
+          "contract_ok": true,
+          "machine_checkable": true,
+          "no_skill_route": true,
+          "transfer_ok": true
+        },
+        "done_when": "no_skill_route",
+        "evidence": {
+          "assurance": {
+            "ablation": {
+              "failed_phases": [],
+              "live_ledger_mutated": false,
+              "ok": true,
+              "passed_count": 4,
+              "phase_count": 4
+            },
+            "adversarial": {
+              "negative_count": 4,
+              "negatives_ok": true,
+              "negatives_passed": 4,
+              "ok": true,
+              "positive_ok": true
+            },
+            "ok": true,
+            "transfer": {
+              "member_count": 3,
+              "ok": true,
+              "package_hash": "7878a785b9718369",
+              "proved_count": 3
+            }
+          },
+          "contract": {
+            "failed_count": 0,
+            "machine_checkable": true,
+            "met": true,
+            "mission_ok": null,
+            "ok": true,
+            "passed_count": 1
+          },
+          "metrics": {
+            "count": 90,
+            "primitive_count": 41,
+            "proved_count": 88,
+            "proved_ratio": 0.9777777777777777
+          }
+        },
+        "goal": "Build a closed settlement plane over multi-action actuation that settles certified capability effects into deterministic hash-chained settlement receipts bound to action roots, with settlement certificates, sterile rehydrate+prove, and adversarial falsification of wrong-action/reorder/double-settlement/forged-root/gap/single-settlement failures — past certified effects without settled outcomes, without skill-route discovery.",
+        "issued_at": "2026-07-29T18:32:38.692876Z",
+        "kind": "sovereignty_certificate",
+        "ok": true,
+        "package_hash": "7878a785b9718369",
+        "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T182221Z-aef5f6d9",
+        "schema_version": 1
+      }
+    },
     "476bbcfea884a6f4d5d256b1": {
       "certificate_hash": "476bbcfea884a6f4d5d256b1",
       "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T101624Z-884205ef\\artifacts\\sovereignty-certificates\\sovereignty-476bbcfea884a6f4d5d256b1.json",
@@ -1030,6 +1134,52 @@
         "package_hash": "7878a785b9718369",
         "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T101624Z-884205ef",
         "schema_version": 1
+      }
+    },
+    "489500413f0e0919bdaca68a": {
+      "certificate_hash": "489500413f0e0919bdaca68a",
+      "certificate_path": "artifacts/quorum-bundles/quorum-certificate.json",
+      "origin_id": "quorum",
+      "payload": {
+        "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "byzantine_count": 1,
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "certificate_hash": "489500413f0e0919bdaca68a",
+        "claims": {
+          "origin_ids": [
+            "origin-a",
+            "origin-b",
+            "origin-byzantine"
+          ],
+          "roots": [
+            "repo.import-health",
+            "capability.ledger-inventory",
+            "unbound.milestone-gate"
+          ],
+          "votes_accepted": 3
+        },
+        "goal": "Turn 1 complete was rejected because free-text done_when soft-extracted poisoned context-only predicates (capability.settlement-plane → settlement_ok, rehydrate slash-lists → resurrected_ok/chain_valid) and the complete gate evaluated settlement predicates without durable evidence. Fixed soft-extract precision, added disk-backed settlement proof evidence for context-less gates, and injected rehydrate continuity context into the settlement milestone path. Re-simulated evaluate_milestone(complete): accepted with empty reasons.",
+        "issued_at": "2026-07-29T18:39:12.452845Z",
+        "kind": "quorum_certificate",
+        "lineage_head_hash": "875d23f5d3035a37c42be349",
+        "member_count": 3,
+        "ok": true,
+        "origin_count": 3,
+        "origin_hashes": [
+          "ac4a2cbeff272e8a1eb7e760",
+          "5c3a36e051caf4d255b74110",
+          "8daeaff816e65f56a6c00e31"
+        ],
+        "package_hash": "066545df3053adf5",
+        "schema_version": 1,
+        "threshold": 2,
+        "used_skill_route_discovery": false
       }
     },
     "48e5307827f8ae6bf7e4dfdf": {
@@ -1224,6 +1374,25 @@
         "ok": true,
         "package_hash": "7878a785b9718369",
         "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T101624Z-884205ef",
+        "schema_version": 1
+      }
+    },
+    "5552a9ca9ba4dfe4f24163ec": {
+      "certificate_hash": "5552a9ca9ba4dfe4f24163ec",
+      "certificate_path": "artifacts/federation-origins/origin-b-attest.json",
+      "origin_id": "origin-b",
+      "payload": {
+        "certificate_hash": "5552a9ca9ba4dfe4f24163ec",
+        "issued_at": "2026-07-29T18:39:12.426267Z",
+        "kind": "federation_origin_attestation",
+        "lineage_head_hash": "53512244b7dc7758a6ee3782",
+        "member_count": 2,
+        "origin_id": "origin-b",
+        "package_hash": "8ece9182045d973a",
+        "roots": [
+          "repo.import-health",
+          "capability.ledger-inventory"
+        ],
         "schema_version": 1
       }
     },
@@ -2527,25 +2696,6 @@
         "schema_version": 1
       }
     },
-    "deb8b32cf56a93f681d224b0": {
-      "certificate_hash": "deb8b32cf56a93f681d224b0",
-      "certificate_path": "artifacts/federation-origins/origin-b-attest.json",
-      "origin_id": "origin-b",
-      "payload": {
-        "certificate_hash": "deb8b32cf56a93f681d224b0",
-        "issued_at": "2026-07-29T17:52:13.392048Z",
-        "kind": "federation_origin_attestation",
-        "lineage_head_hash": "ba15588181bc1ed83372a354",
-        "member_count": 2,
-        "origin_id": "origin-b",
-        "package_hash": "8ece9182045d973a",
-        "roots": [
-          "repo.import-health",
-          "capability.ledger-inventory"
-        ],
-        "schema_version": 1
-      }
-    },
     "df10637d62001d0e21508590": {
       "certificate_hash": "df10637d62001d0e21508590",
       "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T162316Z-43482865\\artifacts\\sovereignty-certificates\\sovereignty-df10637d62001d0e21508590.json",
@@ -2870,29 +3020,9 @@
         "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T101624Z-884205ef",
         "schema_version": 1
       }
-    },
-    "f1a15d64c2824340fcf7b654": {
-      "certificate_hash": "f1a15d64c2824340fcf7b654",
-      "certificate_path": "artifacts/federation-origins/origin-c-attest.json",
-      "origin_id": "origin-byzantine",
-      "payload": {
-        "certificate_hash": "f1a15d64c2824340fcf7b654",
-        "issued_at": "2026-07-29T17:52:13.404657Z",
-        "kind": "federation_origin_attestation",
-        "lineage_head_hash": "f9ae51c2e9b6b96919681194",
-        "member_count": 3,
-        "origin_id": "origin-c",
-        "package_hash": "7878a785b9718369",
-        "roots": [
-          "repo.import-health",
-          "capability.ledger-inventory",
-          "unbound.milestone-gate"
-        ],
-        "schema_version": 1
-      }
     }
   },
-  "goal": "Build a closed actuation plane over world-state execution: sealed tip state roots dispatch deterministic hash-chained capability effects with actuation certificates, sterile rehydrate+prove, and adversarial falsification of wrong-state binding/reorder/forged action roots without skill-route discovery.",
+  "goal": "Turn 1 complete was rejected because free-text done_when soft-extracted poisoned context-only predicates (capability.settlement-plane → settlement_ok, rehydrate slash-lists → resurrected_ok/chain_valid) and the complete gate evaluated settlement predicates without durable evidence. Fixed soft-extract precision, added disk-backed settlement proof evidence for context-less gates, and injected rehydrate continuity context into the settlement milestone path. Re-simulated evaluate_milestone(complete): accepted with empty reasons.",
   "kind": "quorum_bundle",
   "lineage": {
     "entries": [
@@ -2911,39 +3041,39 @@
         "detail": {
           "origins": [
             {
-              "bundle_hash": "f716a3b871ebec458813c277",
+              "bundle_hash": "ac4a2cbeff272e8a1eb7e760",
               "byzantine": false,
-              "lineage_entry_count": 109,
-              "lineage_head_hash": "36be4f0e21387e45f69bff6d",
+              "lineage_entry_count": 115,
+              "lineage_head_hash": "3e49bd489bc18abc67dfdd8f",
               "member_count": 3,
               "origin_id": "origin-a",
               "package_hash": "7878a785b9718369"
             },
             {
-              "bundle_hash": "d38f8480a84d6c536603c5a2",
+              "bundle_hash": "5c3a36e051caf4d255b74110",
               "byzantine": false,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "ba15588181bc1ed83372a354",
+              "lineage_head_hash": "53512244b7dc7758a6ee3782",
               "member_count": 2,
               "origin_id": "origin-b",
               "package_hash": "8ece9182045d973a"
             },
             {
-              "bundle_hash": "4683b75239c06a2190210584",
+              "bundle_hash": "8daeaff816e65f56a6c00e31",
               "byzantine": true,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "f9ae51c2e9b6b96919681194",
+              "lineage_head_hash": "7b062b98cba24385b439cd0d",
               "member_count": 3,
               "origin_id": "origin-byzantine",
               "package_hash": "7d88f7661e8407af"
             }
           ]
         },
-        "entry_hash": "ad69b4ec0508a43a439b61e9",
+        "entry_hash": "04ed358fc630bed2a70fb6e6",
         "entry_kind": "quorum_origin_manifest",
-        "goal": "Build a closed actuation plane over world-state execution: sealed tip state roots dispatch deterministic hash-chained capability effects with actuation certificates, sterile rehydrate+prove, and adversarial falsification of wrong-state binding/reorder/forged action roots without skill-route discovery.",
+        "goal": "Turn 1 complete was rejected because free-text done_when soft-extracted poisoned context-only predicates (capability.settlement-plane → settlement_ok, rehydrate slash-lists → resurrected_ok/chain_valid) and the complete gate evaluated settlement predicates without durable evidence. Fixed soft-extract precision, added disk-backed settlement proof evidence for context-less gates, and injected rehydrate continuity context into the settlement milestone path. Re-simulated evaluate_milestone(complete): accepted with empty reasons.",
         "index": 0,
-        "issued_at": "2026-07-29T17:52:13.405710Z",
+        "issued_at": "2026-07-29T18:39:12.451940Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -2967,16 +3097,16 @@
         },
         "detail": {
           "origin_heads": [
-            "36be4f0e21387e45f69bff6d",
-            "ba15588181bc1ed83372a354",
-            "f9ae51c2e9b6b96919681194"
+            "3e49bd489bc18abc67dfdd8f",
+            "53512244b7dc7758a6ee3782",
+            "7b062b98cba24385b439cd0d"
           ]
         },
-        "entry_hash": "73da3febfaedcf7916793485",
+        "entry_hash": "73460d416f9606e9635ba08e",
         "entry_kind": "quorum_vote",
-        "goal": "Build a closed actuation plane over world-state execution: sealed tip state roots dispatch deterministic hash-chained capability effects with actuation certificates, sterile rehydrate+prove, and adversarial falsification of wrong-state binding/reorder/forged action roots without skill-route discovery.",
+        "goal": "Turn 1 complete was rejected because free-text done_when soft-extracted poisoned context-only predicates (capability.settlement-plane → settlement_ok, rehydrate slash-lists → resurrected_ok/chain_valid) and the complete gate evaluated settlement predicates without durable evidence. Fixed soft-extract precision, added disk-backed settlement proof evidence for context-less gates, and injected rehydrate continuity context into the settlement milestone path. Re-simulated evaluate_milestone(complete): accepted with empty reasons.",
         "index": 1,
-        "issued_at": "2026-07-29T17:52:13.405795Z",
+        "issued_at": "2026-07-29T18:39:12.452064Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -2984,7 +3114,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "ad69b4ec0508a43a439b61e9"
+        "parent_hash": "04ed358fc630bed2a70fb6e6"
       },
       {
         "certificate_hash": "",
@@ -3001,11 +3131,11 @@
             "origin-byzantine"
           ]
         },
-        "entry_hash": "ec2127b95ef8233279579881",
+        "entry_hash": "c47ced5995d38747448ab047",
         "entry_kind": "quorum_byzantine_exclude",
-        "goal": "Build a closed actuation plane over world-state execution: sealed tip state roots dispatch deterministic hash-chained capability effects with actuation certificates, sterile rehydrate+prove, and adversarial falsification of wrong-state binding/reorder/forged action roots without skill-route discovery.",
+        "goal": "Turn 1 complete was rejected because free-text done_when soft-extracted poisoned context-only predicates (capability.settlement-plane → settlement_ok, rehydrate slash-lists → resurrected_ok/chain_valid) and the complete gate evaluated settlement predicates without durable evidence. Fixed soft-extract precision, added disk-backed settlement proof evidence for context-less gates, and injected rehydrate continuity context into the settlement milestone path. Re-simulated evaluate_milestone(complete): accepted with empty reasons.",
         "index": 2,
-        "issued_at": "2026-07-29T17:52:13.405840Z",
+        "issued_at": "2026-07-29T18:39:12.452137Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -3013,7 +3143,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "73da3febfaedcf7916793485"
+        "parent_hash": "73460d416f9606e9635ba08e"
       },
       {
         "certificate_hash": "",
@@ -3033,16 +3163,16 @@
             "origin-byzantine"
           ],
           "origin_bundle_hashes": [
-            "f716a3b871ebec458813c277",
-            "d38f8480a84d6c536603c5a2",
-            "4683b75239c06a2190210584"
+            "ac4a2cbeff272e8a1eb7e760",
+            "5c3a36e051caf4d255b74110",
+            "8daeaff816e65f56a6c00e31"
           ]
         },
-        "entry_hash": "7bef2c95a1b8313bd732d471",
+        "entry_hash": "875d23f5d3035a37c42be349",
         "entry_kind": "quorum_seal",
-        "goal": "Build a closed actuation plane over world-state execution: sealed tip state roots dispatch deterministic hash-chained capability effects with actuation certificates, sterile rehydrate+prove, and adversarial falsification of wrong-state binding/reorder/forged action roots without skill-route discovery.",
+        "goal": "Turn 1 complete was rejected because free-text done_when soft-extracted poisoned context-only predicates (capability.settlement-plane → settlement_ok, rehydrate slash-lists → resurrected_ok/chain_valid) and the complete gate evaluated settlement predicates without durable evidence. Fixed soft-extract precision, added disk-backed settlement proof evidence for context-less gates, and injected rehydrate continuity context into the settlement milestone path. Re-simulated evaluate_milestone(complete): accepted with empty reasons.",
         "index": 3,
-        "issued_at": "2026-07-29T17:52:13.405864Z",
+        "issued_at": "2026-07-29T18:39:12.452204Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -3050,41 +3180,41 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "ec2127b95ef8233279579881"
+        "parent_hash": "c47ced5995d38747448ab047"
       }
     ],
     "entry_count": 4,
-    "head_hash": "7bef2c95a1b8313bd732d471",
+    "head_hash": "875d23f5d3035a37c42be349",
     "kind": "capability_lineage",
     "schema_version": 1,
-    "updated_at": "2026-07-29T17:52:13.405883Z"
+    "updated_at": "2026-07-29T18:39:12.452258Z"
   },
   "lineage_entry_count": 4,
-  "lineage_head_hash": "7bef2c95a1b8313bd732d471",
+  "lineage_head_hash": "875d23f5d3035a37c42be349",
   "member_count": 3,
   "ok": true,
   "origin_count": 3,
   "origins": [
     {
-      "bundle_hash": "f716a3b871ebec458813c277",
+      "bundle_hash": "ac4a2cbeff272e8a1eb7e760",
       "byzantine": false,
-      "lineage_head_hash": "36be4f0e21387e45f69bff6d",
+      "lineage_head_hash": "3e49bd489bc18abc67dfdd8f",
       "member_count": 3,
       "origin_id": "origin-a",
       "package_hash": "7878a785b9718369"
     },
     {
-      "bundle_hash": "d38f8480a84d6c536603c5a2",
+      "bundle_hash": "5c3a36e051caf4d255b74110",
       "byzantine": false,
-      "lineage_head_hash": "ba15588181bc1ed83372a354",
+      "lineage_head_hash": "53512244b7dc7758a6ee3782",
       "member_count": 2,
       "origin_id": "origin-b",
       "package_hash": "8ece9182045d973a"
     },
     {
-      "bundle_hash": "4683b75239c06a2190210584",
+      "bundle_hash": "8daeaff816e65f56a6c00e31",
       "byzantine": true,
-      "lineage_head_hash": "f9ae51c2e9b6b96919681194",
+      "lineage_head_hash": "7b062b98cba24385b439cd0d",
       "member_count": 3,
       "origin_id": "origin-byzantine",
       "package_hash": "7d88f7661e8407af"
@@ -3099,7 +3229,7 @@
     "byzantine_origins": [
       "origin-byzantine"
     ],
-    "exported_at": "2026-07-29T17:52:13.405606Z",
+    "exported_at": "2026-07-29T18:39:12.451824Z",
     "federated": true,
     "member_count": 3,
     "member_ids": [
@@ -3145,7 +3275,7 @@
           "bootstrap",
           "compounder"
         ],
-        "updated_at": "2026-07-29T17:52:13.336125Z"
+        "updated_at": "2026-07-29T18:39:12.373285Z"
       },
       "repo.import-health": {
         "behavior_paths": [
@@ -3160,7 +3290,7 @@
         "id": "repo.import-health",
         "kind": "python",
         "last_proof_exit_code": 0,
-        "last_proved_at": "2026-07-29T16:31:36.955630Z",
+        "last_proved_at": "2026-07-29T18:32:40.165062Z",
         "name": "Repository import health",
         "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_repo_import_health; r=builtin_repo_import_health(); assert r['ok'] and not r['skill_route_symbols_in_compounder']\"",
         "source_milestone": null,
@@ -3169,7 +3299,7 @@
           "bootstrap",
           "health"
         ],
-        "updated_at": "2026-07-29T17:52:13.335922Z"
+        "updated_at": "2026-07-29T18:39:12.373123Z"
       },
       "unbound.milestone-gate": {
         "behavior_paths": [
@@ -3194,7 +3324,7 @@
           "bootstrap",
           "unbound"
         ],
-        "updated_at": "2026-07-29T17:52:13.336012Z"
+        "updated_at": "2026-07-29T18:39:12.373214Z"
       }
     },
     "ok": true,
@@ -3221,7 +3351,7 @@
     "byzantine_origins": [
       "origin-byzantine"
     ],
-    "certificate_hash": "16b3b62476ca29084c8f133f",
+    "certificate_hash": "489500413f0e0919bdaca68a",
     "claims": {
       "origin_ids": [
         "origin-a",
@@ -3235,24 +3365,24 @@
       ],
       "votes_accepted": 3
     },
-    "goal": "Build a closed actuation plane over world-state execution: sealed tip state roots dispatch deterministic hash-chained capability effects with actuation certificates, sterile rehydrate+prove, and adversarial falsification of wrong-state binding/reorder/forged action roots without skill-route discovery.",
-    "issued_at": "2026-07-29T17:52:13.406129Z",
+    "goal": "Turn 1 complete was rejected because free-text done_when soft-extracted poisoned context-only predicates (capability.settlement-plane → settlement_ok, rehydrate slash-lists → resurrected_ok/chain_valid) and the complete gate evaluated settlement predicates without durable evidence. Fixed soft-extract precision, added disk-backed settlement proof evidence for context-less gates, and injected rehydrate continuity context into the settlement milestone path. Re-simulated evaluate_milestone(complete): accepted with empty reasons.",
+    "issued_at": "2026-07-29T18:39:12.452845Z",
     "kind": "quorum_certificate",
-    "lineage_head_hash": "7bef2c95a1b8313bd732d471",
+    "lineage_head_hash": "875d23f5d3035a37c42be349",
     "member_count": 3,
     "ok": true,
     "origin_count": 3,
     "origin_hashes": [
-      "f716a3b871ebec458813c277",
-      "d38f8480a84d6c536603c5a2",
-      "4683b75239c06a2190210584"
+      "ac4a2cbeff272e8a1eb7e760",
+      "5c3a36e051caf4d255b74110",
+      "8daeaff816e65f56a6c00e31"
     ],
     "package_hash": "066545df3053adf5",
     "schema_version": 1,
     "threshold": 2,
     "used_skill_route_discovery": false
   },
-  "quorum_hash": "9372b6d62c17e742dc99a12e",
+  "quorum_hash": "5bad44407ea02cd0021abee1",
   "quorum_met": true,
   "quorum_size": 2,
   "schema_version": 1,

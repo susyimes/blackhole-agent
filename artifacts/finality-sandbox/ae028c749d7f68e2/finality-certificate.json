@@ -1,0 +1,29 @@
+{
+  "agreeing_count": 2,
+  "byzantine_count": 1,
+  "certificate_hash": "c0bb90e87e2f0296b3aeb44f",
+  "claims": {
+    "epoch_index": 2,
+    "member_count": 3,
+    "plane": "finality",
+    "roots": [
+      "repo.import-health",
+      "capability.ledger-inventory",
+      "unbound.milestone-gate"
+    ]
+  },
+  "epoch_hash": "d007e32466c09d2c45f5befe",
+  "epoch_height": 2,
+  "goal": "Build a closed settlement plane over multi-action actuation (epoch 2)",
+  "irreversible": true,
+  "issued_at": "2026-07-29T18:38:45.163141Z",
+  "kind": "finality_certificate",
+  "lineage_head_hash": "c649b346f36ff748e1a47a01",
+  "ok": true,
+  "origin_count": 3,
+  "package_hash": "f66ca5d59c503588",
+  "parent_epoch_hash": "58253d3a03b3fff6a208ed94",
+  "quorum_hash": "709320e62d885c36bc021a5f",
+  "schema_version": 1,
+  "used_skill_route_discovery": false
+}

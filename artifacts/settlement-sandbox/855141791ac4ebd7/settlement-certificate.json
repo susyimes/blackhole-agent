@@ -1,0 +1,35 @@
+{
+  "actuation_certificate_hash": "6e22b7f55420e5ae042f5d59",
+  "actuation_hash": "a4098f401a960851649d96f6",
+  "bound_action_height": 2,
+  "bound_action_root": "a55252ce9514cb7892ad4b0c",
+  "certificate_hash": "495af5034555eb0d0f7f971e",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "effect": "prove",
+    "outcome": "settled",
+    "plane": "settlement",
+    "settlement_index": 2
+  },
+  "deterministic": true,
+  "goal": "Build a closed settlement plane over multi-action actuation (settlement 2)",
+  "issued_at": "2026-07-29T18:38:46.558877Z",
+  "kind": "settlement_certificate",
+  "lineage_head_hash": "c649b346f36ff748e1a47a01",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "f66ca5d59c503588",
+  "parent_settlement_root": "92203d9cd5a09ddd400b4e67",
+  "post_actuation": true,
+  "schema_version": 1,
+  "settlement_count": 2,
+  "settlement_height": 2,
+  "settlement_root": "ccb13974c2ee7f3c9b0e2fa0",
+  "used_skill_route_discovery": false,
+  "valid": true
+}

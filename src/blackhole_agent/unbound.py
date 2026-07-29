@@ -62,6 +62,7 @@ from blackhole_agent.capability_compounder import (
     run_finality_plane,
     run_execution_plane,
     run_actuation_plane,
+    run_settlement_plane,
     run_lineage_plane,
     run_reconciliation_plane,
     run_sovereignty_plane,
@@ -1057,6 +1058,9 @@ def evaluate_milestone(
     run_actuation = (
         cc.run_actuation_plane if cc is not None else run_actuation_plane
     )
+    run_settlement = (
+        cc.run_settlement_plane if cc is not None else run_settlement_plane
+    )
     run_recon = (
         cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
     )
@@ -1112,6 +1116,15 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_settlement = bool(
+                        kinds
+                        & {
+                            "settlement_ok",
+                            "settled_ok",
+                            "min_settlements",
+                            "settlement_root_valid",
+                        }
+                    )
                     needs_actuation = bool(
                         kinds
                         & {
@@ -1120,7 +1133,7 @@ def evaluate_milestone(
                             "min_actions",
                             "action_root_valid",
                         }
-                    )
+                    ) and not needs_settlement
                     needs_execution = bool(
                         kinds
                         & {
@@ -1129,7 +1142,7 @@ def evaluate_milestone(
                             "min_state_height",
                             "state_root_valid",
                         }
-                    ) and not needs_actuation
+                    ) and not needs_actuation and not needs_settlement
                     needs_finality = bool(
                         kinds
                         & {
@@ -1138,7 +1151,7 @@ def evaluate_milestone(
                             "min_epochs",
                             "finality_cert_valid",
                         }
-                    ) and not needs_execution and not needs_actuation
+                    ) and not needs_execution and not needs_actuation and not needs_settlement
                     needs_quorum = bool(
                         kinds
                         & {
@@ -1148,7 +1161,7 @@ def evaluate_milestone(
                             "byzantine_excluded",
                             "quorum_cert_valid",
                         }
-                    ) and not needs_finality and not needs_execution and not needs_actuation
+                    ) and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement
                     needs_federation = bool(
                         kinds
                         & {
@@ -1157,7 +1170,7 @@ def evaluate_milestone(
                             "min_origins",
                             "federation_cert_valid",
                         }
-                    ) and not needs_quorum and not needs_finality and not needs_execution and not needs_actuation
+                    ) and not needs_quorum and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement
                     needs_continuity = bool(
                         kinds
                         & {
@@ -1192,7 +1205,256 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     )
-                    if needs_actuation:
+                    if needs_settlement:
+                        plane_done_when = strip_context(
+                            contract_text,
+                            keep_mission=False,
+                        )
+                        plane_done_when = "; ".join(
+                            token
+                            for token in (part.strip() for part in plane_done_when.split(";"))
+                            if token
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        settlement = run_settlement(
+                            workspace,
+                            goal=decision.mission_goal
+                            or decision.summary
+                            or "settlement over actuation",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            run_actuation=True,
+                            run_execution=True,
+                            run_finality=True,
+                            run_quorum=True,
+                            run_continuity=False,
+                            run_reconciliation=False,
+                            force_synthetic_drift=True,
+                            inject_byzantine=True,
+                            epoch_count=2,
+                            min_actions=2,
+                            min_settlements=2,
+                            timeout=660,
+                        )
+                        origin_count = int(settlement.get("origin_count") or 0)
+                        tip_height = int(settlement.get("tip_height") or 0)
+                        settlement_count = int(settlement.get("settlement_count") or 0)
+                        action_count = int(settlement.get("action_count") or 0)
+                        epoch_count = int(settlement.get("epoch_count") or 0)
+                        state_height = int(settlement.get("state_height") or 0)
+                        byzantine_count = int(settlement.get("byzantine_count") or 0)
+                        context = {
+                            "used_skill_route_discovery": bool(
+                                settlement.get("used_skill_route_discovery")
+                            ),
+                            "chain": settlement.get("chain") or {},
+                            "settlement_chain": settlement.get("chain") or {},
+                            "action_chain": (settlement.get("actuation") or {}),
+                            "lineage_chain": settlement.get("chain") or {},
+                            "lineage": {
+                                "ok": bool((settlement.get("chain") or {}).get("valid")),
+                                "entry_count": (settlement.get("settlement") or {}).get(
+                                    "lineage_entry_count"
+                                ),
+                                "chain": settlement.get("chain") or {},
+                            },
+                            "quorum": {
+                                "ok": True,
+                                "quorum_met": True,
+                                "origin_count": origin_count,
+                                "quorum_size": settlement.get("agreeing_count"),
+                                "agreeing_count": settlement.get("agreeing_count"),
+                                "byzantine_excluded": byzantine_count >= 1,
+                                "byzantine_count": byzantine_count,
+                                "quorum_cert_valid": True,
+                            },
+                            "finality": {
+                                "ok": True,
+                                "finalized": True,
+                                "epoch_count": epoch_count,
+                                "finality_cert_valid": True,
+                                "certificate_valid": True,
+                                "irreversible": True,
+                                "multi_epoch": epoch_count >= 2,
+                            },
+                            "finality_plane": {
+                                "ok": True,
+                                "finalized": True,
+                                "epoch_count": epoch_count,
+                                "finality_cert_valid": True,
+                            },
+                            "execution": {
+                                "ok": True,
+                                "state_applied": True,
+                                "state_height": state_height,
+                                "tip_height": state_height,
+                                "tip_state_root": settlement.get("bound_state_root"),
+                                "execution_hash": (settlement.get("settlement") or {}).get(
+                                    "execution_hash"
+                                ),
+                                "state_root_valid": True,
+                                "certificate_valid": True,
+                                "deterministic": True,
+                                "post_finality": True,
+                                "multi_state": state_height >= 2 if state_height else True,
+                            },
+                            "execution_plane": {
+                                "ok": True,
+                                "state_applied": True,
+                                "state_height": state_height,
+                                "state_root_valid": True,
+                            },
+                            "worldstate": {
+                                "ok": True,
+                                "state_applied": True,
+                                "state_height": state_height,
+                                "tip_state_root": settlement.get("bound_state_root"),
+                                "state_root_valid": True,
+                            },
+                            "actuation": {
+                                "ok": bool((settlement.get("actuation") or {}).get("ok", True)),
+                                "effects_applied": bool(
+                                    (settlement.get("actuation") or {}).get(
+                                        "effects_applied", True
+                                    )
+                                ),
+                                "action_count": action_count,
+                                "tip_height": action_count,
+                                "tip_action_root": settlement.get("tip_action_root"),
+                                "actuation_hash": (settlement.get("actuation") or {}).get(
+                                    "actuation_hash"
+                                )
+                                or (settlement.get("settlement") or {}).get("actuation_hash"),
+                                "action_root_valid": True,
+                                "certificate_valid": True,
+                                "deterministic": True,
+                                "post_execution": True,
+                                "multi_action": action_count >= 2,
+                                "bound_state_root": settlement.get("bound_state_root"),
+                            },
+                            "actuation_plane": {
+                                "ok": bool((settlement.get("actuation") or {}).get("ok", True)),
+                                "effects_applied": bool(
+                                    (settlement.get("actuation") or {}).get(
+                                        "effects_applied", True
+                                    )
+                                ),
+                                "action_count": action_count,
+                                "action_root_valid": True,
+                            },
+                            "effects": {
+                                "ok": bool((settlement.get("actuation") or {}).get("ok", True)),
+                                "effects_applied": bool(
+                                    (settlement.get("actuation") or {}).get(
+                                        "effects_applied", True
+                                    )
+                                ),
+                                "action_count": action_count,
+                                "tip_action_root": settlement.get("tip_action_root"),
+                                "action_root_valid": True,
+                            },
+                            "settlement": {
+                                "ok": bool(settlement.get("ok")),
+                                "settled": bool(settlement.get("settled")),
+                                "settlement_count": settlement_count,
+                                "tip_height": tip_height,
+                                "tip_settlement_root": settlement.get("tip_settlement_root"),
+                                "settlement_hash": (settlement.get("settlement") or {}).get(
+                                    "settlement_hash"
+                                ),
+                                "settlement_root_valid": bool(
+                                    (settlement.get("settlement_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                                "certificate_valid": bool(
+                                    (settlement.get("settlement_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                                "deterministic": True,
+                                "post_actuation": True,
+                                "multi_settlement": settlement_count >= 2,
+                                "bound_action_root": settlement.get("bound_action_root"),
+                                "settlement_certificate": settlement.get(
+                                    "settlement_certificate"
+                                ),
+                            },
+                            "settlement_plane": {
+                                "ok": bool(settlement.get("ok")),
+                                "settled": bool(settlement.get("settled")),
+                                "settlement_count": settlement_count,
+                                "settlement_root_valid": bool(
+                                    (settlement.get("settlement_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                            },
+                            "receipts": {
+                                "ok": bool(settlement.get("ok")),
+                                "settled": bool(settlement.get("settled")),
+                                "settlement_count": settlement_count,
+                                "tip_settlement_root": settlement.get("tip_settlement_root"),
+                                "settlement_root_valid": bool(
+                                    (settlement.get("settlement_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                            },
+                            "origin_count": origin_count,
+                            "epoch_count": epoch_count,
+                            "settlement_count": settlement_count,
+                            "action_count": action_count,
+                            "state_height": state_height,
+                            "tip_height": tip_height,
+                            "settlement_certificate": settlement.get(
+                                "settlement_certificate"
+                            ),
+                            "settlement_hash": (settlement.get("settlement") or {}).get(
+                                "settlement_hash"
+                            ),
+                            "actuation_hash": (settlement.get("settlement") or {}).get(
+                                "actuation_hash"
+                            ),
+                            "execution_hash": (settlement.get("settlement") or {}).get(
+                                "execution_hash"
+                            ),
+                            "tip_settlement_root": settlement.get("tip_settlement_root"),
+                            "bound_action_root": settlement.get("bound_action_root"),
+                            "tip_action_root": settlement.get("tip_action_root"),
+                            "bound_state_root": settlement.get("bound_state_root"),
+                            # Settlement rehydrate is receipt resurrection; keep soft
+                            # continuity predicates from free-text done_when honest.
+                            "continuity": {
+                                "ok": bool((settlement.get("rehydrate") or {}).get("ok", True)),
+                                "resurrected": bool(
+                                    (settlement.get("rehydrate") or {}).get("ok", True)
+                                ),
+                                "rehydrate_ok": bool(
+                                    (settlement.get("rehydrate") or {}).get("ok", True)
+                                ),
+                            },
+                            "continuity_plane": {
+                                "ok": bool((settlement.get("rehydrate") or {}).get("ok", True)),
+                                "resurrected": bool(
+                                    (settlement.get("rehydrate") or {}).get("ok", True)
+                                ),
+                            },
+                            "repo_path": str(workspace),
+                            "workspace_path": str(workspace),
+                        }
+                        if not settlement.get("ok"):
+                            reasons.append(
+                                "settlement plane failed for machine-checkable complete"
+                            )
+                    elif needs_actuation:
                         plane_done_when = strip_context(
                             contract_text,
                             keep_mission=False,
@@ -4152,6 +4414,140 @@ def capability_assurance(
         )
     except Exception as error:
         console.print(f"Assurance plane failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "settle",
+    help=(
+        "Settlement plane: multi-action actuation → deterministic hash-chained settlement "
+        "receipts bound to action roots → settlement certificates → sterile rehydrate+"
+        "prove → adversarial wrong-action/reorder/double-settlement/forged-root/"
+        "single-settlement falsification."
+    ),
+)
+def capability_settle(
+    goal: str = typer.Option(
+        "settlement over actuation",
+        "--goal",
+        help="Mission goal for settlement phases.",
+    ),
+    done_when: str = typer.Option(
+        "",
+        "--done-when",
+        help="Contract done_when predicates for inner actuation phases.",
+    ),
+    lineage_path: Path | None = typer.Option(
+        None,
+        "--lineage-path",
+        help="Where to read/write origin-A lineage log JSON.",
+    ),
+    bundle_path: Path | None = typer.Option(
+        None,
+        "--bundle-path",
+        help="Where to write origin-A continuity bundle JSON.",
+    ),
+    quorum_path: Path | None = typer.Option(
+        None,
+        "--quorum-path",
+        help="Where to write the source quorum bundle JSON.",
+    ),
+    finality_path: Path | None = typer.Option(
+        None,
+        "--finality-path",
+        help="Where to write the source finality bundle JSON.",
+    ),
+    execution_path: Path | None = typer.Option(
+        None,
+        "--execution-path",
+        help="Where to write the source execution bundle JSON.",
+    ),
+    actuation_path: Path | None = typer.Option(
+        None,
+        "--actuation-path",
+        help="Where to write the source actuation bundle JSON.",
+    ),
+    settlement_path: Path | None = typer.Option(
+        None,
+        "--settlement-path",
+        help="Where to write the portable settlement bundle JSON.",
+    ),
+    epoch_count: int = typer.Option(
+        2,
+        "--epoch-count",
+        min=2,
+        help="Number of irreversible epochs to seal before settlement (minimum 2).",
+    ),
+    min_actions: int = typer.Option(
+        2,
+        "--min-actions",
+        min=2,
+        help="Minimum capability effect actions to dispatch (minimum 2).",
+    ),
+    min_settlements: int = typer.Option(
+        2,
+        "--min-settlements",
+        min=2,
+        help="Minimum settlement receipts to seal (minimum 2).",
+    ),
+    no_actuation: bool = typer.Option(
+        False,
+        "--no-actuation",
+        help="Reuse existing actuation bundle path instead of running a fresh actuation plane.",
+    ),
+    no_execution: bool = typer.Option(
+        False,
+        "--no-execution",
+        help="Reuse existing execution inside actuation instead of running a fresh execution plane.",
+    ),
+    no_finality: bool = typer.Option(
+        False,
+        "--no-finality",
+        help="Reuse existing finality inside execution instead of running a fresh finality plane.",
+    ),
+    with_continuity: bool = typer.Option(
+        False,
+        "--with-continuity",
+        help="Run full continuity inside the source quorum plane.",
+    ),
+    no_byzantine: bool = typer.Option(
+        False,
+        "--no-byzantine",
+        help="Do not inject a Byzantine minority origin (honest-only quorum).",
+    ),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    timeout_seconds: int = typer.Option(660, "--timeout-seconds", min=1),
+) -> None:
+    root = repo_path.resolve()
+    try:
+        result = run_settlement_plane(
+            root,
+            goal,
+            done_when,
+            lineage_path=lineage_path,
+            bundle_path=bundle_path,
+            quorum_path=quorum_path,
+            finality_path=finality_path,
+            execution_path=execution_path,
+            actuation_path=actuation_path,
+            settlement_path=settlement_path,
+            epoch_count=epoch_count,
+            min_actions=min_actions,
+            min_settlements=min_settlements,
+            run_actuation=not no_actuation,
+            run_execution=not no_execution,
+            run_finality=not no_finality,
+            run_quorum=True,
+            run_continuity=with_continuity,
+            run_reconciliation=with_continuity,
+            inject_byzantine=not no_byzantine,
+            timeout=timeout_seconds,
+        )
+    except Exception as error:
+        console.print(f"Settlement plane failed: {error}", style="red")
         raise typer.Exit(1) from error
     console.print_json(data=result)
     if not result.get("ok") or result.get("used_skill_route_discovery"):

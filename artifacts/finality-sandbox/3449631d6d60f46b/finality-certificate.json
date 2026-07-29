@@ -1,0 +1,29 @@
+{
+  "agreeing_count": 2,
+  "byzantine_count": 1,
+  "certificate_hash": "469527942d96d3a91967e062",
+  "claims": {
+    "epoch_index": 2,
+    "member_count": 3,
+    "plane": "finality",
+    "roots": [
+      "repo.import-health",
+      "capability.ledger-inventory",
+      "unbound.milestone-gate"
+    ]
+  },
+  "epoch_hash": "eea3d6a234f7d6d8dda20e1d",
+  "epoch_height": 2,
+  "goal": "Turn 1 complete was rejected because free-text done_when soft-extracted poisoned context-only predicates (capability.settlement-plane → settlement_ok, rehydrate slash-lists → resurrected_ok/chain_valid) and the complete gate evaluated settlement predicates without durable evidence. Fixed soft-extract precision, added disk-backed settlement proof evidence for context-less gates, and injected rehydrate continuity context into the settlement milestone path. Re-simulated evaluate_milestone(complete): accepted with empty reasons. (epoch 2)",
+  "irreversible": true,
+  "issued_at": "2026-07-29T18:39:12.975091Z",
+  "kind": "finality_certificate",
+  "lineage_head_hash": "4351f4d4e7028ee5291731ff",
+  "ok": true,
+  "origin_count": 3,
+  "package_hash": "d6b6165cde5369f6",
+  "parent_epoch_hash": "f778cdc3e90105bea4b6aaa6",
+  "quorum_hash": "9081224eb51a6f9d8986cb14",
+  "schema_version": 1,
+  "used_skill_route_discovery": false
+}

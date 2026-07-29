@@ -1,0 +1,30 @@
+{
+  "certificate_hash": "855a96b4ffadf61ac4beabc9",
+  "claims": {
+    "member_count": 3,
+    "plane": "execution",
+    "state_index": 2
+  },
+  "deterministic": true,
+  "epoch_hash": "cde8d5ed95140ca1fd94519d",
+  "epoch_height": 2,
+  "finality_certificate_hash": "2920eea89e7957471ae9dbbb",
+  "goal": "settlement over actuation (state 2)",
+  "issued_at": "2026-07-29T18:32:06.168976Z",
+  "kind": "execution_certificate",
+  "lineage_head_hash": "0e5ef5e2553bbe2198769d06",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "1a366ec6ef2cbbb7",
+  "parent_state_root": "4c0ea14fd58b560c0e56d96b",
+  "post_finality": true,
+  "schema_version": 1,
+  "state_height": 2,
+  "state_root": "2a0b55ef8e172952b24d5f46",
+  "used_skill_route_discovery": false
+}

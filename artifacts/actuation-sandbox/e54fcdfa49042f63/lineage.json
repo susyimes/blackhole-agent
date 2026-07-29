@@ -1,0 +1,189 @@
+{
+  "entries": [
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "origin_ids": [
+          "origin-a",
+          "origin-b",
+          "origin-byzantine"
+        ],
+        "threshold": 2
+      },
+      "detail": {
+        "origins": [
+          {
+            "bundle_hash": "f48c4f58c70bf25b419fba91",
+            "byzantine": false,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "26e5a99ed14dfc673a22ce16",
+            "member_count": 3,
+            "origin_id": "origin-a",
+            "package_hash": "7878a785b9718369"
+          },
+          {
+            "bundle_hash": "4866f8370c3a6270f1679eba",
+            "byzantine": false,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "a0085d4b9bcbc1c3a3ddc6d3",
+            "member_count": 2,
+            "origin_id": "origin-b",
+            "package_hash": "8ece9182045d973a"
+          },
+          {
+            "bundle_hash": "be94c537d57070a975d4b163",
+            "byzantine": true,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "223654f52de25d9b1a177d31",
+            "member_count": 3,
+            "origin_id": "origin-byzantine",
+            "package_hash": "7d88f7661e8407af"
+          }
+        ]
+      },
+      "entry_hash": "b5fdc7c936eff2c0eba0ced1",
+      "entry_kind": "quorum_origin_manifest",
+      "goal": "settlement over actuation",
+      "index": 0,
+      "issued_at": "2026-07-29T18:33:13.213393Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": ""
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "package_hash": "066545df3053adf5",
+        "threshold": 2
+      },
+      "detail": {
+        "origin_heads": [
+          "26e5a99ed14dfc673a22ce16",
+          "a0085d4b9bcbc1c3a3ddc6d3",
+          "223654f52de25d9b1a177d31"
+        ]
+      },
+      "entry_hash": "08ad3d57d838ae78885e6399",
+      "entry_kind": "quorum_vote",
+      "goal": "settlement over actuation",
+      "index": 1,
+      "issued_at": "2026-07-29T18:33:13.213416Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "b5fdc7c936eff2c0eba0ced1"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "byzantine_count": 1,
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "excluded": true
+      },
+      "detail": {
+        "byzantine_origins": [
+          "origin-byzantine"
+        ]
+      },
+      "entry_hash": "37ee6527da5e8124bd0dc1fd",
+      "entry_kind": "quorum_byzantine_exclude",
+      "goal": "settlement over actuation",
+      "index": 2,
+      "issued_at": "2026-07-29T18:33:13.213431Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "08ad3d57d838ae78885e6399"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "quorum": true,
+        "quorum_met": true
+      },
+      "detail": {
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "origin_bundle_hashes": [
+          "f48c4f58c70bf25b419fba91",
+          "4866f8370c3a6270f1679eba",
+          "be94c537d57070a975d4b163"
+        ]
+      },
+      "entry_hash": "6adfb5b41f340f60152abb76",
+      "entry_kind": "quorum_seal",
+      "goal": "settlement over actuation",
+      "index": 3,
+      "issued_at": "2026-07-29T18:33:13.213443Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "37ee6527da5e8124bd0dc1fd"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "prior_lineage_head": "6adfb5b41f340f60152abb76",
+        "prior_package_hash": "066545df3053adf5",
+        "prior_quorum_hash": "9029d70b1527a2c4c47636ef",
+        "progress_tag": "epoch-progress-2"
+      },
+      "detail": {},
+      "entry_hash": "18c9d6a2ec3c0d80ebdbdeae",
+      "entry_kind": "finality_epoch_progress",
+      "goal": "settlement over actuation (progress 2)",
+      "index": 4,
+      "issued_at": "2026-07-29T18:33:13.665900Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "",
+      "parent_hash": "6adfb5b41f340f60152abb76"
+    }
+  ],
+  "entry_count": 5,
+  "head_hash": "18c9d6a2ec3c0d80ebdbdeae",
+  "kind": "capability_lineage",
+  "schema_version": 1,
+  "updated_at": "2026-07-29T18:33:14.602680Z"
+}

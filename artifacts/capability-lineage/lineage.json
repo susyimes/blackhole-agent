@@ -3307,12 +3307,196 @@
       },
       "package_hash": "7878a785b9718369",
       "parent_hash": "9cec97ac2d51a107d1c5d122"
+    },
+    {
+      "certificate_hash": "45e755450d111603ae5d8f6b",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T182221Z-aef5f6d9\\artifacts\\sovereignty-certificates\\sovereignty-45e755450d111603ae5d8f6b.json",
+      "claims": {
+        "ablation_ok": true,
+        "adversarial_ok": true,
+        "assurance_ok": true,
+        "contract_met": true,
+        "contract_ok": true,
+        "machine_checkable": true,
+        "no_skill_route": true,
+        "transfer_ok": true
+      },
+      "detail": {
+        "sovereignty_ok": true,
+        "verify_valid": true
+      },
+      "entry_hash": "0677d4b3807e9f5564329a94",
+      "entry_kind": "sovereignty_certificate",
+      "goal": "Build a closed settlement plane over multi-action actuation that settles certified capability effects into deterministic hash-chained settlement receipts bound to action roots, with settlement certificates, sterile rehydrate+prove, and adversarial falsification of wrong-action/reorder/double-settlement/forged-root/gap/single-settlement failures — past certified effects without settled outcomes, without skill-route discovery.",
+      "index": 109,
+      "issued_at": "2026-07-29T18:32:38.738906Z",
+      "metrics": {
+        "count": 90,
+        "primitive_count": 41,
+        "proved_count": 88,
+        "proved_ratio": 0.9777777777777777
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "36be4f0e21387e45f69bff6d"
+    },
+    {
+      "certificate_hash": "45e755450d111603ae5d8f6b",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T182221Z-aef5f6d9\\artifacts\\sovereignty-certificates\\sovereignty-45e755450d111603ae5d8f6b.json",
+      "claims": {
+        "no_skill_route": true,
+        "sealed": true
+      },
+      "detail": {
+        "certificate_hash": "45e755450d111603ae5d8f6b",
+        "chain_pre_valid": true,
+        "live_count": 90,
+        "live_proved": 88,
+        "prior_head": "0677d4b3807e9f5564329a94"
+      },
+      "entry_hash": "790c2706f9b5a2ade00d5aed",
+      "entry_kind": "continuity_seal",
+      "goal": "seal:Build a closed settlement plane over multi-action actuation that settles certified capability effects into deterministic hash-chained settlement receipts bound to action roots, with settlement certificates, sterile rehydrate+prove, and adversarial falsification of wrong-action/reorder/double-settlement/forged-root/gap/single-settlement failures — past certified effects without settled outcomes, without skill-route discovery.",
+      "index": 110,
+      "issued_at": "2026-07-29T18:32:38.740381Z",
+      "metrics": {
+        "count": 90,
+        "primitive_count": 41,
+        "proved_count": 88,
+        "proved_ratio": 0.9777777777777777
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "0677d4b3807e9f5564329a94"
+    },
+    {
+      "certificate_hash": "000000000000000000000000",
+      "certificate_path": "artifacts\\capability-lineage\\__synthetic_missing_certificate__.json",
+      "claims": {
+        "ablation_ok": true,
+        "adversarial_ok": true,
+        "assurance_ok": true,
+        "contract_ok": true,
+        "no_skill_route": true,
+        "synthetic_drift": true,
+        "transfer_ok": true
+      },
+      "detail": {
+        "reason": "force_detectable_drift",
+        "synthetic_drift": true
+      },
+      "entry_hash": "092d6b62797ed9a6d1e9ad40",
+      "entry_kind": "sovereignty_certificate",
+      "goal": "synthetic-drift-injection",
+      "index": 111,
+      "issued_at": "2026-07-29T18:32:38.840349Z",
+      "metrics": {
+        "count": 1000000000,
+        "primitive_count": 1000000000,
+        "proved_count": 1000000000,
+        "proved_ratio": 1.0
+      },
+      "package_hash": "synthetic-drift",
+      "parent_hash": "790c2706f9b5a2ade00d5aed"
+    },
+    {
+      "certificate_hash": "000000000000000000000000",
+      "certificate_path": "artifacts\\capability-lineage\\__synthetic_missing_certificate__.json",
+      "claims": {
+        "diagnosed": true,
+        "drift": true
+      },
+      "detail": {
+        "pre_drift": {
+          "drift": true,
+          "reasons": [
+            "missing_certificate_path",
+            "count_regressed live=90 recorded=1000000000"
+          ]
+        },
+        "reason_count": 2,
+        "reasons": [
+          "missing_certificate_path",
+          "count_regressed live=90 recorded=1000000000"
+        ]
+      },
+      "entry_hash": "e2b2cd22d58bb630513ab311",
+      "entry_kind": "drift_diagnosis",
+      "goal": "diagnose:reconcile:Build a closed settlement plane over multi-action actuation that settles certified capability effects into deterministic hash-chained settlement receipts bound to action roots, with settlement certificates, sterile rehydrate+prove, and adversarial falsification of wrong-action/reorder/double-settlement/forged-root/gap/single-settlement failures — past certified effects without settled outcomes, without skill-route discovery.",
+      "index": 112,
+      "issued_at": "2026-07-29T18:32:40.299835Z",
+      "metrics": {
+        "count": 90,
+        "primitive_count": 41,
+        "proved_count": 88,
+        "proved_ratio": 0.9777777777777777
+      },
+      "package_hash": "",
+      "parent_hash": "092d6b62797ed9a6d1e9ad40"
+    },
+    {
+      "certificate_hash": "13888439d3311b7cf55efe34",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T182221Z-aef5f6d9\\artifacts\\sovereignty-certificates\\sovereignty-13888439d3311b7cf55efe34.json",
+      "claims": {
+        "ablation_ok": true,
+        "adversarial_ok": true,
+        "assurance_ok": true,
+        "contract_met": true,
+        "contract_ok": true,
+        "machine_checkable": true,
+        "no_skill_route": true,
+        "transfer_ok": true
+      },
+      "detail": {
+        "healed": true,
+        "sovereignty_ok": true,
+        "verify_valid": true
+      },
+      "entry_hash": "96217dd00674455a5b63adea",
+      "entry_kind": "heal_certificate",
+      "goal": "heal:reconcile:Build a closed settlement plane over multi-action actuation that settles certified capability effects into deterministic hash-chained settlement receipts bound to action roots, with settlement certificates, sterile rehydrate+prove, and adversarial falsification of wrong-action/reorder/double-settlement/forged-root/gap/single-settlement failures — past certified effects without settled outcomes, without skill-route discovery.",
+      "index": 113,
+      "issued_at": "2026-07-29T18:32:40.299924Z",
+      "metrics": {
+        "count": 90,
+        "primitive_count": 41,
+        "proved_count": 88,
+        "proved_ratio": 0.9777777777777777
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "e2b2cd22d58bb630513ab311"
+    },
+    {
+      "certificate_hash": "13888439d3311b7cf55efe34",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T182221Z-aef5f6d9\\artifacts\\sovereignty-certificates\\sovereignty-13888439d3311b7cf55efe34.json",
+      "claims": {
+        "healed": true,
+        "no_skill_route": true,
+        "sealed": true
+      },
+      "detail": {
+        "certificate_hash": "13888439d3311b7cf55efe34",
+        "live_count": 90,
+        "live_proved": 88,
+        "prior_head_before_heal_seal": "96217dd00674455a5b63adea"
+      },
+      "entry_hash": "3e49bd489bc18abc67dfdd8f",
+      "entry_kind": "heal_seal",
+      "goal": "heal-seal:reconcile:Build a closed settlement plane over multi-action actuation that settles certified capability effects into deterministic hash-chained settlement receipts bound to action roots, with settlement certificates, sterile rehydrate+prove, and adversarial falsification of wrong-action/reorder/double-settlement/forged-root/gap/single-settlement failures — past certified effects without settled outcomes, without skill-route discovery.",
+      "index": 114,
+      "issued_at": "2026-07-29T18:32:40.299969Z",
+      "metrics": {
+        "count": 90,
+        "primitive_count": 41,
+        "proved_count": 88,
+        "proved_ratio": 0.9777777777777777
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "96217dd00674455a5b63adea"
     }
   ],
-  "entry_count": 109,
-  "head_hash": "36be4f0e21387e45f69bff6d",
+  "entry_count": 115,
+  "head_hash": "3e49bd489bc18abc67dfdd8f",
   "kind": "capability_lineage",
   "ok": true,
   "schema_version": 1,
-  "updated_at": "2026-07-29T16:31:37.044928Z"
+  "updated_at": "2026-07-29T18:32:40.442221Z"
 }
