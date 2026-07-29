@@ -140,6 +140,25 @@ stacks**: compositions of already-promoted compositions (catalog pillars such as
 tagged `hierarchical` and keep `capability grow` expanding past the domain-ops
 re-prove plateau without skill-route machinery.
 
+When first-order hierarchical stacks still leave room, scout promotes
+**meta-hierarchical** stack-of-stacks (tagged `meta`), then **third-order
+superstacks** pairing meta units (`capability.composed-super-*`, tagged
+`superstack`) so growth does not die on re-prove after meta recipes exhaust.
+
+Operators can also:
+
+```bash
+uv run blackhole-unbound capability grow --budget 8
+uv run blackhole-unbound capability integrity
+uv run blackhole-unbound capability integrity --limit 16
+```
+
+- `capability grow --budget N` runs adaptive multi-step growth until the budget
+  is exhausted or no ready frontier remains (domain absorb, dynamic, hierarchical,
+  meta, superstack).
+- `capability integrity` batch-proves the ledger DAG in topological order and
+  reports an integrity score (`capability.ledger-integrity`).
+
 Promoted compositions are tagged `composed`/`promoted` and become ordinary
 ledger citizens that later turns can list, prove, run, and compose further.
 

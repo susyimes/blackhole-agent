@@ -7,6 +7,7 @@ without consulting the legacy skill-route discovery labyrinth.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -437,6 +438,66 @@ def run_python_entry(
     )
 
 
+def run_python_entry_inprocess(
+    entry: str,
+    *,
+    env: dict[str, str] | None = None,
+) -> CapabilityRunResult:
+    """Execute `module:function` in-process (for nested composition trees)."""
+
+    if ":" not in entry:
+        raise ValueError(f"python capability entry must be module:function, got {entry!r}")
+    module_name, _, function_name = entry.partition(":")
+    if not module_name or not function_name:
+        raise ValueError(f"python capability entry must be module:function, got {entry!r}")
+    import importlib
+
+    saved: dict[str, str | None] = {}
+    if env:
+        for key, value in env.items():
+            saved[key] = os.environ.get(key)
+            os.environ[key] = value
+    try:
+        module = importlib.import_module(module_name)
+        fn = getattr(module, function_name)
+        raw = fn()
+        if raw is None:
+            payload: dict[str, Any] = {"ok": True}
+        elif isinstance(raw, dict):
+            payload = raw
+        else:
+            payload = {"ok": True, "result": raw}
+        ok = bool(payload.get("ok", True))
+        stdout = json.dumps(payload, sort_keys=True, default=str)
+        return CapabilityRunResult(
+            capability_id=str((env or {}).get(ACTIVE_CAPABILITY_ENV) or ""),
+            ok=ok,
+            exit_code=0 if ok else 1,
+            command=("inprocess", entry),
+            stdout=stdout,
+            stderr="",
+            kind="python-inprocess",
+            summary=stdout.splitlines()[0][:500] if stdout else ("ok" if ok else "failed"),
+        )
+    except Exception as error:  # noqa: BLE001 - surface as capability failure
+        return CapabilityRunResult(
+            capability_id=str((env or {}).get(ACTIVE_CAPABILITY_ENV) or ""),
+            ok=False,
+            exit_code=1,
+            command=("inprocess", entry),
+            stdout="",
+            stderr=str(error),
+            kind="python-inprocess",
+            summary=str(error)[:500],
+        )
+    finally:
+        for key, previous in saved.items():
+            if previous is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = previous
+
+
 def run_capability(
     capability: Capability,
     *,
@@ -507,18 +568,24 @@ def prove_capability(
     cwd: Path,
     command_runner: Callable[..., Any] = subprocess.run,
     timeout: int = 120,
+    skip_proved_deps: bool = True,
 ) -> tuple[CapabilityLedger, CapabilityRunResult]:
     capability = ledger.capabilities.get(capability_id)
     if capability is None:
         raise KeyError(capability_id)
-    # Prove dependencies first.
+    # Prove dependencies first (skip already-green deps to keep hierarchical /
+    # meta / superstack proofs tractable during growth).
     for dependency in topological_order(ledger, [capability_id])[:-1]:
+        dep_capability = ledger.capabilities[dependency]
+        if skip_proved_deps and dep_capability.last_proof_exit_code == 0:
+            continue
         ledger, dep_result = prove_capability(
             ledger,
             dependency,
             cwd=cwd,
             command_runner=command_runner,
             timeout=timeout,
+            skip_proved_deps=skip_proved_deps,
         )
         if not dep_result.ok:
             return ledger, CapabilityRunResult(
@@ -562,6 +629,36 @@ def prove_capability(
     return ledger, result
 
 
+def direct_member_order(ledger: CapabilityLedger, capability_ids: Sequence[str]) -> list[str]:
+    """Order only the requested ids among themselves (no transitive expansion)."""
+
+    requested = list(dict.fromkeys(str(item).strip() for item in capability_ids if str(item).strip()))
+    missing = [item for item in requested if item not in ledger.capabilities]
+    if missing:
+        raise KeyError(f"Unknown capabilities: {', '.join(missing)}")
+    requested_set = set(requested)
+    ordered: list[str] = []
+    temporary: set[str] = set()
+    permanent: set[str] = set()
+
+    def visit(node: str) -> None:
+        if node in permanent:
+            return
+        if node in temporary:
+            raise ValueError(f"capability dependency cycle involving {node}")
+        temporary.add(node)
+        for dependency in ledger.capabilities[node].dependencies:
+            if dependency in requested_set:
+                visit(dependency)
+        temporary.remove(node)
+        permanent.add(node)
+        ordered.append(node)
+
+    for capability_id in requested:
+        visit(capability_id)
+    return ordered
+
+
 def compose_capabilities(
     ledger: CapabilityLedger,
     capability_ids: Sequence[str],
@@ -570,10 +667,22 @@ def compose_capabilities(
     command_runner: Callable[..., Any] = subprocess.run,
     timeout: int = 120,
     prove_first: bool = True,
+    inprocess: bool = False,
+    direct_only: bool = False,
 ) -> list[CapabilityRunResult]:
-    """Run a dependency-ordered capability chain."""
+    """Run a dependency-ordered capability chain.
 
-    order = topological_order(ledger, capability_ids)
+    When `inprocess=True`, python entries run in the current interpreter so nested
+    hierarchical/meta/superstack compositions do not explode into subprocess trees.
+    When `direct_only=True`, only the requested member ids run (nested composed
+    members expand themselves), avoiding double full-DAG expansion.
+    """
+
+    order = (
+        direct_member_order(ledger, capability_ids)
+        if direct_only
+        else topological_order(ledger, capability_ids)
+    )
     results: list[CapabilityRunResult] = []
     for capability_id in order:
         capability = ledger.capabilities[capability_id]
@@ -588,13 +697,31 @@ def compose_capabilities(
             if not proof.ok:
                 results.append(proof)
                 break
-        result = run_capability(
-            capability,
-            cwd=cwd,
-            command_runner=command_runner,
-            timeout=timeout,
-            use_proof=False,
-        )
+        if inprocess and capability.kind == "python" and not prove_first:
+            result = run_python_entry_inprocess(
+                capability.entry,
+                env={ACTIVE_CAPABILITY_ENV: capability.id},
+            )
+            # Preserve capability id on the result even when entry does not set it.
+            if not result.capability_id:
+                result = CapabilityRunResult(
+                    capability_id=capability_id,
+                    ok=result.ok,
+                    exit_code=result.exit_code,
+                    command=result.command,
+                    stdout=result.stdout,
+                    stderr=result.stderr,
+                    kind=result.kind,
+                    summary=result.summary,
+                )
+        else:
+            result = run_capability(
+                capability,
+                cwd=cwd,
+                command_runner=command_runner,
+                timeout=timeout,
+                use_proof=False,
+            )
         results.append(result)
         if not result.ok:
             break
@@ -1813,6 +1940,110 @@ def synthesize_meta_hierarchical_compositions(
     return opportunities
 
 
+def meta_stack_ids(ledger: CapabilityLedger) -> list[str]:
+    """Return sorted ids of meta-hierarchical compositions eligible for superstacking."""
+
+    stacks: list[str] = []
+    for capability in ledger.capabilities.values():
+        tags = set(capability.tags)
+        is_meta = "meta" in tags or capability.id.startswith("capability.composed-meta-")
+        is_super = "superstack" in tags or capability.id.startswith("capability.composed-super-")
+        if not is_meta or is_super:
+            continue
+        if len(capability.dependencies) < 2:
+            continue
+        stacks.append(capability.id)
+    return sorted(stacks)
+
+
+def synthesize_superstack_compositions(
+    ledger: CapabilityLedger,
+    *,
+    limit: int = 3,
+) -> list[dict[str, Any]]:
+    """Synthesize third-order superstacks from already-promoted meta-hierarchical units.
+
+    After meta-hierarchical stack-of-stacks plateau, growth continues by pairing
+    meta compositions into superstacks (`capability.composed-super-*`).
+    """
+
+    already = existing_promoted_member_sets(ledger)
+    known_ids = (
+        {str(recipe["suggested_id"]) for recipe in KNOWN_GROWTH_RECIPES}
+        | {str(recipe["suggested_id"]) for recipe in KNOWN_HIERARCHICAL_RECIPES}
+        | {str(recipe["suggested_id"]) for recipe in KNOWN_META_HIERARCHICAL_RECIPES}
+    )
+    opportunities: list[dict[str, Any]] = []
+    seen_member_sets: set[frozenset[str]] = set()
+    seen_ids: set[str] = set()
+    max_items = max(1, int(limit))
+    stacks = meta_stack_ids(ledger)
+    synthesized_added = 0
+
+    def _short_label(capability_id: str) -> str:
+        label = (
+            capability_id.removeprefix("capability.composed-meta-")
+            .removeprefix("capability.composed-stack-")
+            .removeprefix("capability.composed-")
+            .removeprefix("capability.")
+        )
+        # Keep enough of each side so paired superstack ids stay distinct.
+        return slugify_capability_id(label, limit=18)
+
+    for index, left in enumerate(stacks):
+        if synthesized_added >= max_items:
+            break
+        for right in stacks[index + 1 :]:
+            if synthesized_added >= max_items:
+                break
+            members = (left, right)
+            member_key = _member_set_key(members)
+            if member_key in already or member_key in seen_member_sets:
+                continue
+            left_label = _short_label(left)
+            right_label = _short_label(right)
+            slug = slugify_capability_id(f"{left_label}-{right_label}", limit=32)
+            suggested_id = f"capability.composed-super-{slug}"
+            # Disambiguate rare collisions after truncation with a stable short hash.
+            if suggested_id in ledger.capabilities or suggested_id in known_ids or suggested_id in seen_ids:
+                digest = hashlib.sha1("\0".join(sorted(members)).encode("utf-8")).hexdigest()[:10]
+                suggested_id = f"capability.composed-super-{digest}"
+            if suggested_id in ledger.capabilities or suggested_id in known_ids or suggested_id in seen_ids:
+                continue
+            missing = [member for member in members if member not in ledger.capabilities]
+            seen_member_sets.add(member_key)
+            seen_ids.add(suggested_id)
+            opportunities.append(
+                {
+                    "kind": "composition",
+                    "suggested_id": suggested_id,
+                    "name": f"Superstack ({' + '.join(members)})",
+                    "members": list(members),
+                    "reason": (
+                        "Synthesized third-order superstack of meta-hierarchical compositions "
+                        "after second-order meta recipes were exhausted."
+                    ),
+                    "priority": max(40, 58 - index),
+                    "status": "blocked_missing_members" if missing else "ready",
+                    "missing_members": missing,
+                    "synthesized": True,
+                    "synthesis": "superstack",
+                    "tags": [
+                        "composed",
+                        "promoted",
+                        "growth",
+                        "hierarchical",
+                        "meta",
+                        "superstack",
+                        "synthesized",
+                    ],
+                }
+            )
+            synthesized_added += 1
+    opportunities.sort(key=lambda item: (-int(item["priority"]), item["suggested_id"]))
+    return opportunities
+
+
 def resolve_domain_surface(surface_id: str) -> dict[str, Any]:
     """Return one domain surface catalog entry or raise KeyError."""
 
@@ -2024,6 +2255,8 @@ def scout_capability_gaps(
     opportunities.extend(hierarchical_opportunities)
     meta_hierarchical_opportunities = synthesize_meta_hierarchical_compositions(ledger)
     opportunities.extend(meta_hierarchical_opportunities)
+    superstack_opportunities = synthesize_superstack_compositions(ledger)
+    opportunities.extend(superstack_opportunities)
     # Prefer ready compositions, then ready domain absorbs, then already-done, then blocked.
     status_rank = {
         "ready": 0,
@@ -2050,7 +2283,12 @@ def scout_capability_gaps(
     )
     growth_surface_missing = [
         capability_id
-        for capability_id in ("capability.scout-gaps", "capability.growth-loop")
+        for capability_id in (
+            "capability.scout-gaps",
+            "capability.growth-loop",
+            "capability.adaptive-grow",
+            "capability.ledger-integrity",
+        )
         if capability_id not in ledger.capabilities
     ]
     uncatalogued = scout_package_surfaces(root, ledger=ledger)
@@ -2071,6 +2309,11 @@ def scout_capability_gaps(
         for item in meta_hierarchical_opportunities
         if item.get("status") == "ready"
     ]
+    superstack_ready = [
+        item["suggested_id"]
+        for item in superstack_opportunities
+        if item.get("status") == "ready"
+    ]
     return {
         "ok": True,
         "count": len(ledger.capabilities),
@@ -2088,7 +2331,9 @@ def scout_capability_gaps(
         ],
         "hierarchical_ready": hierarchical_ready,
         "meta_hierarchical_ready": meta_hierarchical_ready,
+        "superstack_ready": superstack_ready,
         "hierarchical_stacks": hierarchical_stack_ids(ledger),
+        "meta_stacks": meta_stack_ids(ledger),
         "composed_pillars": composed_pillar_ids(ledger),
         "uncatalogued_surfaces": uncatalogued,
         "opportunities": opportunities,
@@ -2106,13 +2351,19 @@ def run_named_recipe(
     command_runner: Callable[..., Any] = subprocess.run,
     timeout: int = 120,
     prove_first: bool = True,
+    inprocess: bool = False,
+    direct_only: bool = False,
 ) -> dict[str, Any]:
     """Compose an explicit member list against the in-repo ledger."""
 
     root = (repo_path or Path(__file__).resolve().parents[2]).resolve()
     path = default_ledger_path(root)
     ledger = load_ledger(path)
-    order = topological_order(ledger, member_ids)
+    order = (
+        direct_member_order(ledger, member_ids)
+        if direct_only
+        else topological_order(ledger, member_ids)
+    )
     results = compose_capabilities(
         ledger,
         member_ids,
@@ -2120,6 +2371,8 @@ def run_named_recipe(
         command_runner=command_runner,
         timeout=timeout,
         prove_first=prove_first,
+        inprocess=inprocess,
+        direct_only=direct_only,
     )
     save_ledger(path, ledger)
     ok = bool(results) and all(item.ok for item in results) and len(results) == len(order)
@@ -2129,6 +2382,8 @@ def run_named_recipe(
         "order": order,
         "results": [item.to_dict() for item in results],
         "ledger_path": str(path),
+        "inprocess": inprocess,
+        "direct_only": direct_only,
     }
 
 
@@ -2137,6 +2392,10 @@ def builtin_execute_composed_capability() -> dict[str, Any]:
 
     `run_capability` injects BLACKHOLE_CAPABILITY_ID so promoted recipes remain
     zero-arg python entries while still knowing which dependency set to compose.
+
+    Hierarchical/meta/superstack compositions intentionally skip per-member
+    re-prove (`prove_first=False`): members were proved when promoted, and nested
+    re-prove of stack-of-stacks explodes subprocess count without extra safety.
     """
 
     capability_id = (os.environ.get(ACTIVE_CAPABILITY_ENV) or "").strip()
@@ -2155,7 +2414,16 @@ def builtin_execute_composed_capability() -> dict[str, Any]:
             "error": "composed capability has no dependencies to run",
             "capability_id": capability_id,
         }
-    recipe = run_named_recipe(members, repo_path=root)
+    # Nested stack proofs re-enter this entry for each direct member; run
+    # in-process without transitive re-expansion or re-prove so superstacks stay
+    # combinatorially usable.
+    recipe = run_named_recipe(
+        members,
+        repo_path=root,
+        prove_first=False,
+        inprocess=True,
+        direct_only=True,
+    )
     return {
         "ok": bool(recipe.get("ok")),
         "capability_id": capability_id,
@@ -2163,6 +2431,8 @@ def builtin_execute_composed_capability() -> dict[str, Any]:
         "order": recipe.get("order"),
         "results": recipe.get("results"),
         "ledger_path": recipe.get("ledger_path"),
+        "prove_first": False,
+        "inprocess": True,
     }
 
 
@@ -2540,6 +2810,19 @@ def run_growth_loop(
         promote_tags = tuple(meta_hierarchical_known["tags"])
     elif selected_tags:
         promote_tags = tuple(str(item) for item in selected_tags if str(item).strip())
+    elif selected.get("synthesis") == "superstack" or (
+        selected.get("synthesized")
+        and str(selected.get("suggested_id") or "").startswith("capability.composed-super-")
+    ):
+        promote_tags = (
+            "composed",
+            "promoted",
+            "growth",
+            "hierarchical",
+            "meta",
+            "superstack",
+            "synthesized",
+        )
     elif selected.get("synthesis") == "meta_hierarchical" or (
         selected.get("synthesized")
         and str(selected.get("suggested_id") or "").startswith("capability.composed-meta-")
@@ -2608,6 +2891,214 @@ def run_growth_loop(
     }
 
 
+def run_adaptive_growth(
+    repo_path: Path,
+    *,
+    budget: int = 8,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 180,
+    stop_on_reprove: bool = True,
+) -> dict[str, Any]:
+    """Run the growth loop repeatedly until budget exhausts or growth stalls.
+
+    Escapes single-step re-prove plateaus by promoting every ready frontier step
+    (domain absorb, dynamic, hierarchical, meta, superstack) in one invocation.
+    """
+
+    root = repo_path.resolve()
+    path, ledger = ensure_seeded_ledger(root)
+    before_count = len(ledger.capabilities)
+    before_ids = sorted(ledger.capabilities)
+    max_steps = max(1, int(budget))
+    steps: list[dict[str, Any]] = []
+    promoted_ids: list[str] = []
+    stalled = False
+    stall_reason = ""
+    used_skill = False
+
+    for _ in range(max_steps):
+        step = run_growth_loop(
+            root,
+            command_runner=command_runner,
+            timeout=timeout,
+        )
+        steps.append(
+            {
+                "ok": step.get("ok"),
+                "grew": step.get("grew"),
+                "action": step.get("action"),
+                "promoted_id": step.get("promoted_id"),
+                "reason": step.get("reason"),
+                "error": step.get("error"),
+                "after_count": step.get("after_count"),
+            }
+        )
+        used_skill = used_skill or bool(step.get("used_skill_route_discovery"))
+        if not step.get("ok"):
+            stalled = True
+            stall_reason = str(step.get("error") or step.get("reason") or "step_failed")
+            break
+        if step.get("grew") and step.get("promoted_id"):
+            promoted_ids.append(str(step["promoted_id"]))
+            continue
+        stalled = True
+        stall_reason = str(step.get("reason") or "no_further_growth")
+        if stop_on_reprove:
+            break
+        break
+
+    ledger = load_ledger(path)
+    after_ids = sorted(ledger.capabilities)
+    after_count = len(ledger.capabilities)
+    grew = after_count > before_count and bool(promoted_ids)
+    ok = (not used_skill) and all(bool(item.get("ok")) for item in steps) if steps else True
+    # Adaptive growth is successful when it ran without skill-route and either grew
+    # or cleanly reported a stall after exhausting ready frontiers.
+    if steps and not grew and stalled:
+        ok = ok and steps[-1].get("ok") is True
+    return {
+        "ok": ok,
+        "grew": grew,
+        "action": "adaptive_grow",
+        "budget": max_steps,
+        "steps_run": len(steps),
+        "promoted_ids": promoted_ids,
+        "promoted_count": len(promoted_ids),
+        "stalled": stalled,
+        "stall_reason": stall_reason,
+        "steps": steps,
+        "before_count": before_count,
+        "after_count": after_count,
+        "before_ids": before_ids,
+        "after_ids": after_ids,
+        "new_ids": sorted(set(after_ids) - set(before_ids)),
+        "used_skill_route_discovery": used_skill,
+        "ledger_path": str(path),
+    }
+
+
+def prove_ledger_integrity(
+    repo_path: Path,
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 120,
+    limit: int | None = None,
+) -> dict[str, Any]:
+    """Batch-prove the ledger DAG once in topological order (each id proved once).
+
+    Unlike recursive `prove_capability`, this walks a full-ledger order and runs
+    each proof command only after dependencies have already been attempted,
+    producing a durable integrity score for the capability plane.
+    """
+
+    root = repo_path.resolve()
+    path, ledger = ensure_seeded_ledger(root)
+    if not ledger.capabilities:
+        return {
+            "ok": False,
+            "error": "empty_ledger",
+            "count": 0,
+            "proved_ok": [],
+            "failed": [],
+            "skipped": [],
+            "score": 0.0,
+            "ledger_path": str(path),
+            "used_skill_route_discovery": False,
+        }
+
+    # Full graph order: every capability, deps first.
+    try:
+        order = topological_order(ledger, list(ledger.capabilities))
+    except ValueError as error:
+        return {
+            "ok": False,
+            "error": f"ledger_cycle_or_missing: {error}",
+            "count": len(ledger.capabilities),
+            "proved_ok": [],
+            "failed": [],
+            "skipped": [],
+            "score": 0.0,
+            "ledger_path": str(path),
+            "used_skill_route_discovery": "skill_routing" in sys.modules
+            or "blackhole_agent.skill_routing" in sys.modules,
+        }
+
+    if limit is not None:
+        order = order[: max(1, int(limit))]
+
+    proved_ok: list[str] = []
+    failed: list[dict[str, Any]] = []
+    skipped: list[dict[str, Any]] = []
+    failed_ids: set[str] = set()
+
+    for capability_id in order:
+        capability = ledger.capabilities[capability_id]
+        blocked_by = [dep for dep in capability.dependencies if dep in failed_ids]
+        if blocked_by:
+            skipped.append({"id": capability_id, "blocked_by": blocked_by})
+            failed_ids.add(capability_id)
+            continue
+        result = run_capability(
+            capability,
+            cwd=root,
+            command_runner=command_runner,
+            timeout=timeout,
+            use_proof=True,
+        )
+        now = utc_now_iso()
+        ledger.capabilities[capability_id] = Capability(
+            id=capability.id,
+            name=capability.name,
+            description=capability.description,
+            kind=capability.kind,
+            entry=capability.entry,
+            proof_command=capability.proof_command,
+            dependencies=capability.dependencies,
+            behavior_paths=capability.behavior_paths,
+            capability_delta=capability.capability_delta,
+            tags=capability.tags,
+            created_at=capability.created_at,
+            updated_at=now,
+            source_mission_id=capability.source_mission_id,
+            source_milestone=capability.source_milestone,
+            last_proved_at=now,
+            last_proof_exit_code=result.exit_code,
+        )
+        if result.ok:
+            proved_ok.append(capability_id)
+        else:
+            failed_ids.add(capability_id)
+            failed.append(
+                {
+                    "id": capability_id,
+                    "exit_code": result.exit_code,
+                    "summary": result.summary,
+                }
+            )
+
+    ledger.updated_at = utc_now_iso()
+    save_ledger(path, ledger)
+    attempted = len(proved_ok) + len(failed)
+    score = (float(len(proved_ok)) / float(attempted)) if attempted else 0.0
+    used_skill = "skill_routing" in sys.modules or "blackhole_agent.skill_routing" in sys.modules
+    ok = (not used_skill) and not failed and not skipped and len(proved_ok) == len(order)
+    return {
+        "ok": ok,
+        "action": "ledger_integrity",
+        "count": len(ledger.capabilities),
+        "ordered": len(order),
+        "proved_ok": proved_ok,
+        "proved_count": len(proved_ok),
+        "failed": failed,
+        "failed_count": len(failed),
+        "skipped": skipped,
+        "skipped_count": len(skipped),
+        "score": round(score, 4),
+        "ledger_path": str(path),
+        "used_skill_route_discovery": used_skill,
+    }
+
+
 def builtin_scout_gaps() -> dict[str, Any]:
     """Invocable capability: scout the durable ledger for growth opportunities."""
 
@@ -2624,6 +3115,26 @@ def builtin_growth_loop() -> dict[str, Any]:
 
     root = Path(__file__).resolve().parents[2]
     return run_growth_loop(root)
+
+
+def builtin_adaptive_grow() -> dict[str, Any]:
+    """Invocable capability: multi-step adaptive growth until stall or budget."""
+
+    root = Path(__file__).resolve().parents[2]
+    # Default budget is modest so proof stays bounded; CLI can raise it.
+    budget = int(os.environ.get("BLACKHOLE_ADAPTIVE_GROW_BUDGET") or "4")
+    return run_adaptive_growth(root, budget=budget, timeout=180)
+
+
+def builtin_ledger_integrity() -> dict[str, Any]:
+    """Invocable capability: batch-prove the durable ledger DAG."""
+
+    root = Path(__file__).resolve().parents[2]
+    # Integrity proofs of full meta/super compositions are expensive; default to a
+    # representative prefix of the topo order unless the operator expands the budget.
+    limit_raw = (os.environ.get("BLACKHOLE_INTEGRITY_LIMIT") or "").strip()
+    limit = int(limit_raw) if limit_raw.isdigit() else 12
+    return prove_ledger_integrity(root, timeout=120, limit=limit)
 
 
 def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
@@ -2772,6 +3283,70 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "The compounder can grow itself by promoting compositions without skill-route machinery."
             ),
             tags=("bootstrap", "compounder", "growth"),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.adaptive-grow",
+            name="Adaptive multi-step capability growth",
+            description=(
+                "Run the scout→absorb/promote→prove growth loop repeatedly until the budget "
+                "is exhausted or no ready frontier remains (including superstacks)."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_adaptive_grow",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_adaptive_grow; '
+                "import os; os.environ.setdefault('BLACKHOLE_ADAPTIVE_GROW_BUDGET','2'); "
+                "r=builtin_adaptive_grow(); assert r['ok'] and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.scout-gaps",
+                "capability.growth-loop",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "src/blackhole_agent/unbound.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Multi-step adaptive growth escapes single-step re-prove plateaus without skill-route."
+            ),
+            tags=("bootstrap", "compounder", "growth", "adaptive"),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.ledger-integrity",
+            name="Capability ledger integrity prove",
+            description=(
+                "Batch-prove the durable capability ledger in topological order and report "
+                "an integrity score without skill-route discovery."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_ledger_integrity",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_ledger_integrity; '
+                "import os; os.environ.setdefault('BLACKHOLE_INTEGRITY_LIMIT','8'); "
+                "r=builtin_ledger_integrity(); assert r['ok'] and r.get('score',0) >= 1.0 "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Ledger-wide integrity is invocable as a first-class regression guardian capability."
+            ),
+            tags=("bootstrap", "compounder", "integrity"),
             created_at=utc_now_iso(),
             updated_at=utc_now_iso(),
         ),

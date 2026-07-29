@@ -36,7 +36,9 @@ from blackhole_agent.capability_compounder import (
     load_ledger,
     promote_composition,
     prove_capability,
+    prove_ledger_integrity,
     register_capability,
+    run_adaptive_growth,
     run_capability,
     run_end_to_end_demo,
     run_growth_loop,
@@ -1610,21 +1612,70 @@ def capability_promote(
 
 @capability_app.command(
     "grow",
-    help="Closed growth loop: scout → absorb domain or promote composition → prove (no skill-route).",
+    help=(
+        "Closed growth loop: scout → absorb domain or promote composition → prove "
+        "(no skill-route). Use --budget >1 for adaptive multi-step growth until stall."
+    ),
 )
 def capability_grow(
     repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
     recipe_id: str = typer.Option("", "--recipe-id", help="Optional known recipe id to promote."),
+    budget: int = typer.Option(
+        1,
+        "--budget",
+        min=1,
+        help="Growth steps to attempt. budget=1 is single-step; >1 runs adaptive multi-grow.",
+    ),
     timeout_seconds: int = typer.Option(180, "--timeout-seconds", min=1),
 ) -> None:
     try:
-        result = run_growth_loop(
-            repo_path.resolve(),
-            timeout=timeout_seconds,
-            recipe_id=recipe_id or None,
-        )
+        if budget > 1 and recipe_id:
+            console.print(
+                "Grow with --budget>1 ignores --recipe-id and adapts across the frontier.",
+                style="yellow",
+            )
+        if budget > 1:
+            result = run_adaptive_growth(
+                repo_path.resolve(),
+                budget=budget,
+                timeout=timeout_seconds,
+            )
+        else:
+            result = run_growth_loop(
+                repo_path.resolve(),
+                timeout=timeout_seconds,
+                recipe_id=recipe_id or None,
+            )
     except Exception as error:
         console.print(f"Grow failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "integrity",
+    help="Batch-prove the durable ledger DAG in topological order and report integrity score.",
+)
+def capability_integrity(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    limit: int = typer.Option(
+        0,
+        "--limit",
+        min=0,
+        help="Max capabilities to prove in topo order (0 = all).",
+    ),
+    timeout_seconds: int = typer.Option(120, "--timeout-seconds", min=1),
+) -> None:
+    try:
+        result = prove_ledger_integrity(
+            repo_path.resolve(),
+            timeout=timeout_seconds,
+            limit=None if limit == 0 else limit,
+        )
+    except Exception as error:
+        console.print(f"Integrity failed: {error}", style="red")
         raise typer.Exit(1) from error
     console.print_json(data=result)
     if not result.get("ok") or result.get("used_skill_route_discovery"):

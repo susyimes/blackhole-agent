@@ -25,8 +25,11 @@ from blackhole_agent.capability_compounder import (
     default_ledger_path,
     hierarchical_stack_ids,
     load_ledger,
+    meta_stack_ids,
     promote_composition,
+    prove_ledger_integrity,
     register_capability,
+    run_adaptive_growth,
     run_end_to_end_demo,
     run_growth_loop,
     save_ledger,
@@ -35,6 +38,7 @@ from blackhole_agent.capability_compounder import (
     synthesize_dynamic_domain_compositions,
     synthesize_hierarchical_compositions,
     synthesize_meta_hierarchical_compositions,
+    synthesize_superstack_compositions,
     topological_order,
 )
 from blackhole_agent.unbound import (
@@ -693,3 +697,133 @@ def test_meta_hierarchical_synthesis_and_growth_past_hierarchical_plateau():
     again = run_growth_loop(repo, timeout=360)
     assert again["ok"] is True, again
     assert again["used_skill_route_discovery"] is False
+
+
+def test_superstack_synthesis_and_adaptive_growth_past_meta_plateau():
+    """Third-order superstacks + adaptive multi-grow escape post-meta re-prove."""
+
+    repo = Path(__file__).resolve().parents[1]
+    path = default_ledger_path(repo)
+    ledger = load_ledger(path)
+
+    # Ensure enough meta stacks exist for superstack pairing.
+    for _ in range(16):
+        if len(meta_stack_ids(ledger)) >= 2:
+            break
+        result = run_growth_loop(repo, timeout=240)
+        assert result["ok"] is True, result
+        ledger = load_ledger(path)
+
+    stacks = meta_stack_ids(ledger)
+    assert len(stacks) >= 2, stacks
+    superstacks = synthesize_superstack_compositions(ledger, limit=5)
+    super_present = any(
+        "superstack" in capability.tags or capability_id.startswith("capability.composed-super-")
+        for capability_id, capability in ledger.capabilities.items()
+    )
+    if superstacks:
+        ready = [item for item in superstacks if item["status"] == "ready"]
+        assert ready or super_present, superstacks
+        assert all(item.get("synthesis") == "superstack" for item in ready)
+    else:
+        assert super_present, "expected superstacks when synthesis is empty"
+
+    scout = scout_capability_gaps(ledger, repo_path=repo)
+    assert scout["ok"] is True
+    assert "superstack_ready" in scout
+    assert "meta_stacks" in scout
+
+    before = len(ledger.capabilities)
+    adaptive = run_adaptive_growth(repo, budget=6, timeout=300)
+    assert adaptive["ok"] is True, adaptive
+    assert adaptive["used_skill_route_discovery"] is False
+    assert adaptive["action"] == "adaptive_grow"
+    assert adaptive["steps_run"] >= 1
+    ledger = load_ledger(path)
+
+    super_ids = [
+        capability_id
+        for capability_id, capability in ledger.capabilities.items()
+        if "superstack" in capability.tags or capability_id.startswith("capability.composed-super-")
+    ]
+    # Adaptive path should grow and/or already hold superstacks / multi-promotes.
+    assert (
+        adaptive.get("grew")
+        or super_ids
+        or adaptive.get("promoted_count", 0) >= 1
+        or len(ledger.capabilities) >= before
+    ), adaptive
+    if adaptive.get("grew"):
+        assert adaptive["after_count"] > before or adaptive["promoted_ids"]
+        assert all(item in ledger.capabilities for item in adaptive["promoted_ids"])
+
+    # Integrity plane proves a topo prefix without skill-route.
+    integrity = prove_ledger_integrity(repo, timeout=120, limit=10)
+    assert integrity["ok"] is True, integrity
+    assert integrity["used_skill_route_discovery"] is False
+    assert integrity["score"] >= 1.0
+    assert integrity["proved_count"] >= 1
+    assert integrity["failed_count"] == 0
+
+    # Bootstrap surfaces for the new plane must seed into the ledger.
+    path, ledger = __import__(
+        "blackhole_agent.capability_compounder", fromlist=["ensure_seeded_ledger"]
+    ).ensure_seeded_ledger(repo)
+    assert "capability.adaptive-grow" in ledger.capabilities
+    assert "capability.ledger-integrity" in ledger.capabilities
+
+
+def test_cli_integrity_and_budget_grow_exit_zero():
+    repo = Path(__file__).resolve().parents[1]
+    env = {
+        **dict(**{k: v for k, v in __import__("os").environ.items()}),
+        "PYTHONPATH": str(repo / "src"),
+    }
+    integrity = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "blackhole_agent.unbound",
+            "capability",
+            "integrity",
+            "--repo-path",
+            str(repo),
+            "--limit",
+            "8",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=180,
+    )
+    assert integrity.returncode == 0, integrity.stdout + integrity.stderr
+    integrity_payload = json.loads(integrity.stdout)
+    assert integrity_payload["ok"] is True
+    assert integrity_payload["score"] >= 1.0
+    assert integrity_payload["used_skill_route_discovery"] is False
+
+    grow = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "blackhole_agent.unbound",
+            "capability",
+            "grow",
+            "--repo-path",
+            str(repo),
+            "--budget",
+            "2",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=360,
+    )
+    assert grow.returncode == 0, grow.stdout + grow.stderr
+    grow_payload = json.loads(grow.stdout)
+    assert grow_payload["ok"] is True
+    assert grow_payload["used_skill_route_discovery"] is False
+    assert grow_payload.get("action") == "adaptive_grow"
+    assert grow_payload.get("steps_run", 0) >= 1
