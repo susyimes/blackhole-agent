@@ -1054,3 +1054,115 @@ def test_mission_plane_expands_primitives_and_runs_program():
     plan_payload = json.loads(plan_cli.stdout)
     assert plan_payload["ok"] is True
     assert plan_payload["step_count"] >= 1
+
+
+def test_outcome_contract_parses_and_evaluates_machine_predicates():
+    """done_when becomes machine-checkable against live ledger evidence."""
+
+    from blackhole_agent.capability_compounder import (
+        ensure_seeded_ledger,
+        evaluate_outcome_contract,
+        parse_outcome_contract,
+        prove_capability,
+        run_contract_plane,
+    )
+
+    repo = Path(__file__).resolve().parents[1]
+    path, ledger = ensure_seeded_ledger(repo)
+    for capability_id in (
+        "capability.outcome-contract",
+        "capability.contract-plane",
+    ):
+        assert capability_id in ledger.capabilities, capability_id
+
+    parsed = parse_outcome_contract(
+        "min_capabilities:3; capability_exists:repo.import-health; "
+        "no skill-route discovery; prose note only"
+    )
+    assert parsed["ok"] is True
+    assert parsed["machine_checkable"] is True
+    kinds = {item["kind"] for item in parsed["predicates"]}
+    assert "min_capabilities" in kinds
+    assert "capability_exists" in kinds
+    assert "no_skill_route" in kinds
+    assert any("prose" in note.lower() for note in parsed["notes"]) or parsed["notes"]
+
+    # Ensure a known primitive is proved so capability_proved can pass.
+    ledger, proof = prove_capability(
+        ledger,
+        "repo.import-health",
+        cwd=repo,
+        timeout=60,
+    )
+    assert proof.ok is True
+    from blackhole_agent.capability_compounder import save_ledger
+
+    save_ledger(path, ledger)
+
+    passing = evaluate_outcome_contract(
+        repo,
+        "min_capabilities:3; capability_exists:repo.import-health; "
+        "capability_proved:repo.import-health; no_skill_route",
+        run_programs=False,
+    )
+    assert passing["ok"] is True, passing
+    assert passing["machine_checkable"] is True
+    assert passing["met"] is True, passing
+    assert passing["used_skill_route_discovery"] is False
+    assert passing["failed_count"] == 0
+
+    failing = evaluate_outcome_contract(
+        repo,
+        "min_capabilities:99999; capability_exists:capability.does-not-exist",
+        run_programs=False,
+    )
+    assert failing["ok"] is True
+    assert failing["met"] is False
+    assert failing["failed_count"] >= 1
+
+    plane = run_contract_plane(
+        repo,
+        "health inventory milestone",
+        "min_capabilities:5; min_primitives:3; capability_exists:repo.import-health; "
+        "capability_proved:repo.import-health; program_passes:repo.import-health; "
+        "no_skill_route; mission_plane_ok",
+        max_steps=3,
+        absorb_ready=False,
+        grow_budget=0,
+        run_mission=True,
+        timeout=180,
+    )
+    assert plane["ok"] is True, plane
+    assert plane["action"] == "contract_plane"
+    assert plane["machine_checkable"] is True
+    assert plane["met"] is True, plane
+    assert plane["used_skill_route_discovery"] is False
+    assert plane["mission"] is not None
+    assert plane["mission"]["ok"] is True
+    assert plane["contract"]["passed_count"] >= 5
+
+    env = {
+        **dict(**{k: v for k, v in __import__("os").environ.items()}),
+        "PYTHONPATH": str(repo / "src"),
+    }
+    contract_cli = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "blackhole_agent.unbound",
+            "capability",
+            "contract",
+            "min_capabilities:3;capability_exists:repo.import-health;no_skill_route",
+            "--repo-path",
+            str(repo),
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=120,
+    )
+    assert contract_cli.returncode == 0, contract_cli.stdout + contract_cli.stderr
+    contract_payload = json.loads(contract_cli.stdout)
+    assert contract_payload["ok"] is True
+    assert contract_payload["met"] is True

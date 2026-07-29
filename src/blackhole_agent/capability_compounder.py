@@ -892,6 +892,8 @@ PROGRAM_PLAN_DENYLIST = frozenset(
         "capability.autonomic-cycle",
         "capability.growth-loop",
         "capability.second-wave-absorb",
+        "capability.outcome-contract",
+        "capability.contract-plane",
         # Batch operators are invocable separately; keep goal programs step-cheap.
         "capability.ledger-integrity",
         "capability.distill-ledger",
@@ -919,6 +921,10 @@ MISSION_GOAL_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("program", ("capability.program-run", "capability.goal-plan")),
     ("second-wave", ("domain.persona", "domain.proposal-synthesis", "domain.kernel-preflight")),
     ("distill", ("capability.distill-ledger", "capability.frontier-novelty")),
+    ("contract", ("capability.outcome-contract", "capability.contract-plane", "capability.ledger-inventory")),
+    ("outcome", ("capability.outcome-contract", "capability.contract-plane", "capability.mission-plane")),
+    ("done_when", ("capability.outcome-contract", "capability.contract-plane")),
+    ("evidence", ("capability.outcome-contract", "capability.ledger-integrity", "capability.ledger-inventory")),
 )
 
 
@@ -1267,6 +1273,495 @@ def run_mission_plane(
             "stalled": growth.get("stalled"),
             "stall_reason": growth.get("stall_reason"),
             "steps_run": growth.get("steps_run"),
+        },
+        "used_skill_route_discovery": used_skill,
+        "ledger_path": str(path),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Outcome-contract plane: machine-checkable done_when past free-text claims.
+# ---------------------------------------------------------------------------
+
+# Predicate forms accepted in done_when (semicolon- or newline-separated):
+#   min_capabilities:N | min_primitives:N | min_unique_coverage:N
+#   min_proved:N | proved_ratio_ge:0.0-1.0 | integrity_score_ge:0.0-1.0
+#   capability_exists:id | capability_proved:id | ledger_has:id
+#   program_passes:id1,id2 | has_tag:tag | no_skill_route
+#   novel_ready_le:N | mission_plane_ok | contract_plane_ok
+# Free-text lines without a known form are recorded as informational (not gating).
+OUTCOME_PREDICATE_PATTERN = re.compile(
+    r"^(?P<kind>"
+    r"min_capabilities|min_primitives|min_unique_coverage|min_proved|"
+    r"proved_ratio_ge|integrity_score_ge|"
+    r"capability_exists|capability_proved|ledger_has|"
+    r"program_passes|has_tag|no_skill_route|"
+    r"novel_ready_le|mission_plane_ok|contract_plane_ok"
+    r")(?::(?P<arg>.+))?$",
+    re.IGNORECASE,
+)
+
+
+def parse_outcome_contract(done_when: str) -> dict[str, Any]:
+    """Parse free-text or structured done_when into machine predicates + notes."""
+
+    text = str(done_when or "").strip()
+    if not text:
+        return {
+            "ok": False,
+            "action": "parse_outcome_contract",
+            "raw": "",
+            "predicates": [],
+            "notes": [],
+            "machine_checkable": False,
+            "error": "done_when is empty",
+        }
+    # Split on newlines or semicolons; keep comma only inside args.
+    chunks: list[str] = []
+    for line in re.split(r"[\n;]+", text):
+        piece = line.strip()
+        if piece and not piece.startswith("#"):
+            chunks.append(piece)
+    predicates: list[dict[str, Any]] = []
+    notes: list[str] = []
+    for chunk in chunks:
+        # Also allow "kind: arg with spaces" and soft free-text keyword extraction.
+        match = OUTCOME_PREDICATE_PATTERN.match(chunk)
+        if match:
+            kind = match.group("kind").lower()
+            arg = (match.group("arg") or "").strip()
+            predicates.append({"kind": kind, "arg": arg, "source": chunk})
+            continue
+        # Soft extraction from prose.
+        soft = _soft_extract_outcome_predicates(chunk)
+        if soft:
+            predicates.extend(soft)
+        else:
+            notes.append(chunk)
+    # Deduplicate by (kind, arg) while preserving order.
+    seen: set[tuple[str, str]] = set()
+    unique: list[dict[str, Any]] = []
+    for predicate in predicates:
+        key = (str(predicate["kind"]), str(predicate.get("arg") or ""))
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(predicate)
+    return {
+        "ok": True,
+        "action": "parse_outcome_contract",
+        "raw": text,
+        "predicates": unique,
+        "notes": notes,
+        "machine_checkable": bool(unique),
+        "predicate_count": len(unique),
+    }
+
+
+def _soft_extract_outcome_predicates(chunk: str) -> list[dict[str, Any]]:
+    """Extract common prose phrases into structured predicates."""
+
+    lower = chunk.lower().strip()
+    found: list[dict[str, Any]] = []
+    if "no skill-route" in lower or "without skill-route" in lower or "no skill route" in lower:
+        found.append({"kind": "no_skill_route", "arg": "", "source": chunk})
+    m = re.search(r"(?:at least|>=|≥)\s*(\d+)\s+capabilit", lower)
+    if m:
+        found.append({"kind": "min_capabilities", "arg": m.group(1), "source": chunk})
+    m = re.search(r"(?:at least|>=|≥)\s*(\d+)\s+primitive", lower)
+    if m:
+        found.append({"kind": "min_primitives", "arg": m.group(1), "source": chunk})
+    m = re.search(r"integrity(?:\s+score)?\s*(?:>=|≥|at least)\s*(0?\.\d+|1(?:\.0+)?|\d+(?:\.\d+)?)", lower)
+    if m:
+        found.append({"kind": "integrity_score_ge", "arg": m.group(1), "source": chunk})
+    m = re.search(r"(?:prove[sd]?|capability_proved)\s+([a-z][a-z0-9._-]{2,})", lower)
+    if m and "min_" not in m.group(0):
+        found.append({"kind": "capability_proved", "arg": m.group(1), "source": chunk})
+    m = re.search(r"(?:ledger\s+has|capability_exists|includes)\s+([a-z][a-z0-9._-]{2,})", lower)
+    if m:
+        found.append({"kind": "capability_exists", "arg": m.group(1), "source": chunk})
+    if "mission plane" in lower and ("ok" in lower or "pass" in lower or "succeed" in lower):
+        found.append({"kind": "mission_plane_ok", "arg": "", "source": chunk})
+    if "contract plane" in lower and ("ok" in lower or "pass" in lower or "succeed" in lower):
+        found.append({"kind": "contract_plane_ok", "arg": "", "source": chunk})
+    return found
+
+
+def snapshot_outcome_metrics(
+    repo_path: Path,
+    *,
+    ledger: CapabilityLedger | None = None,
+    include_integrity: bool = False,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 90,
+) -> dict[str, Any]:
+    """Collect cheap ledger fitness metrics used by outcome contracts."""
+
+    root = repo_path.resolve()
+    path = default_ledger_path(root)
+    if ledger is None:
+        path, ledger = ensure_seeded_ledger(root)
+    caps = list(ledger.capabilities.values())
+    proved = [c for c in caps if c.last_proof_exit_code == 0]
+    novelty = scout_frontier_novelty(ledger, repo_path=root)
+    used_skill = "skill_routing" in sys.modules or "blackhole_agent.skill_routing" in sys.modules
+    integrity: dict[str, Any] | None = None
+    if include_integrity:
+        integrity = prove_ledger_integrity(
+            root,
+            command_runner=command_runner,
+            timeout=timeout,
+            limit=8,
+        )
+    return {
+        "ok": True,
+        "action": "outcome_metrics",
+        "ledger_path": str(path),
+        "count": len(caps),
+        "primitive_count": novelty.get("primitive_count"),
+        "unique_composed_coverage_sets": novelty.get("unique_composed_coverage_sets"),
+        "proved_count": len(proved),
+        "proved_ratio": (len(proved) / len(caps)) if caps else 0.0,
+        "novel_ready_count": novelty.get("novel_ready_count"),
+        "stale_ready_count": novelty.get("stale_ready_count"),
+        "ids": sorted(ledger.capabilities),
+        "proved_ids": sorted(c.id for c in proved),
+        "tags": sorted(
+            {
+                tag
+                for capability in caps
+                for tag in (capability.tags or ())
+                if str(tag).strip()
+            }
+        ),
+        "used_skill_route_discovery": used_skill,
+        "integrity_score": None if integrity is None else integrity.get("score"),
+        "integrity_ok": None if integrity is None else integrity.get("ok"),
+    }
+
+
+def evaluate_outcome_contract(
+    repo_path: Path,
+    done_when: str,
+    *,
+    context: Mapping[str, Any] | None = None,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 120,
+    run_programs: bool = True,
+) -> dict[str, Any]:
+    """Machine-check done_when predicates against the live ledger and optional context.
+
+    Returns met=True only when every machine predicate passes. Informational notes
+    never gate. Empty/non-machine done_when yields machine_checkable=False and
+    met=None so callers can fall back to agent judgment.
+    """
+
+    root = repo_path.resolve()
+    path, ledger = ensure_seeded_ledger(root)
+    parsed = parse_outcome_contract(done_when)
+    if not parsed.get("ok"):
+        return {
+            "ok": False,
+            "action": "evaluate_outcome_contract",
+            "met": False,
+            "machine_checkable": False,
+            "parse": parsed,
+            "results": [],
+            "metrics": {},
+            "ledger_path": str(path),
+            "used_skill_route_discovery": False,
+            "error": parsed.get("error") or "parse failed",
+        }
+    predicates = list(parsed.get("predicates") or [])
+    needs_integrity = any(
+        str(item.get("kind")) == "integrity_score_ge" for item in predicates
+    )
+    metrics = snapshot_outcome_metrics(
+        root,
+        ledger=ledger,
+        include_integrity=needs_integrity,
+        command_runner=command_runner,
+        timeout=min(timeout, 90),
+    )
+    ctx = dict(context or {})
+    results: list[dict[str, Any]] = []
+    for predicate in predicates:
+        kind = str(predicate.get("kind") or "")
+        arg = str(predicate.get("arg") or "").strip()
+        passed, detail = _eval_one_outcome_predicate(
+            kind,
+            arg,
+            ledger=ledger,
+            metrics=metrics,
+            context=ctx,
+            repo_path=root,
+            command_runner=command_runner,
+            timeout=timeout,
+            run_programs=run_programs,
+        )
+        results.append(
+            {
+                "kind": kind,
+                "arg": arg,
+                "source": predicate.get("source"),
+                "passed": passed,
+                "detail": detail,
+            }
+        )
+    machine = bool(predicates)
+    failed = [item for item in results if not item["passed"]]
+    met: bool | None
+    if not machine:
+        met = None
+    else:
+        met = not failed
+    used_skill = bool(metrics.get("used_skill_route_discovery")) or (
+        "skill_routing" in sys.modules or "blackhole_agent.skill_routing" in sys.modules
+    )
+    ok = not used_skill and parsed.get("ok", False) and (met is not False or not machine)
+    # ok means the evaluator itself worked; met is the contract verdict.
+    evaluator_ok = not used_skill and bool(parsed.get("ok"))
+    return {
+        "ok": evaluator_ok,
+        "action": "evaluate_outcome_contract",
+        "met": met,
+        "machine_checkable": machine,
+        "passed_count": sum(1 for item in results if item["passed"]),
+        "failed_count": len(failed),
+        "predicate_count": len(results),
+        "results": results,
+        "failed": failed,
+        "notes": parsed.get("notes") or [],
+        "parse": {
+            "predicate_count": parsed.get("predicate_count"),
+            "notes": parsed.get("notes"),
+            "raw": parsed.get("raw"),
+        },
+        "metrics": {
+            "count": metrics.get("count"),
+            "primitive_count": metrics.get("primitive_count"),
+            "unique_composed_coverage_sets": metrics.get("unique_composed_coverage_sets"),
+            "proved_count": metrics.get("proved_count"),
+            "proved_ratio": metrics.get("proved_ratio"),
+            "novel_ready_count": metrics.get("novel_ready_count"),
+            "integrity_score": metrics.get("integrity_score"),
+            "used_skill_route_discovery": metrics.get("used_skill_route_discovery"),
+        },
+        "ledger_path": str(path),
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def _eval_one_outcome_predicate(
+    kind: str,
+    arg: str,
+    *,
+    ledger: CapabilityLedger,
+    metrics: Mapping[str, Any],
+    context: Mapping[str, Any],
+    repo_path: Path,
+    command_runner: Callable[..., Any],
+    timeout: int,
+    run_programs: bool,
+) -> tuple[bool, str]:
+    """Evaluate a single predicate; returns (passed, detail)."""
+
+    if kind == "min_capabilities":
+        need = int(float(arg or "0"))
+        have = int(metrics.get("count") or 0)
+        return have >= need, f"count={have} need>={need}"
+    if kind == "min_primitives":
+        need = int(float(arg or "0"))
+        have = int(metrics.get("primitive_count") or 0)
+        return have >= need, f"primitives={have} need>={need}"
+    if kind == "min_unique_coverage":
+        need = int(float(arg or "0"))
+        have = int(metrics.get("unique_composed_coverage_sets") or 0)
+        return have >= need, f"unique_coverage={have} need>={need}"
+    if kind == "min_proved":
+        need = int(float(arg or "0"))
+        have = int(metrics.get("proved_count") or 0)
+        return have >= need, f"proved={have} need>={need}"
+    if kind == "proved_ratio_ge":
+        need = float(arg or "0")
+        have = float(metrics.get("proved_ratio") or 0.0)
+        return have + 1e-12 >= need, f"proved_ratio={have:.4f} need>={need}"
+    if kind == "integrity_score_ge":
+        need = float(arg or "0")
+        score = metrics.get("integrity_score")
+        if score is None:
+            return False, "integrity_score unavailable"
+        have = float(score)
+        return have + 1e-12 >= need, f"integrity_score={have:.4f} need>={need}"
+    if kind in {"capability_exists", "ledger_has"}:
+        cid = arg.strip()
+        if not cid:
+            return False, "missing capability id"
+        return cid in ledger.capabilities, f"exists={cid in ledger.capabilities} id={cid}"
+    if kind == "capability_proved":
+        cid = arg.strip()
+        if not cid:
+            return False, "missing capability id"
+        cap = ledger.capabilities.get(cid)
+        if cap is None:
+            return False, f"missing id={cid}"
+        ok = cap.last_proof_exit_code == 0
+        return ok, f"last_proof_exit_code={cap.last_proof_exit_code} id={cid}"
+    if kind == "has_tag":
+        tag = arg.strip().lower()
+        tags = {str(t).lower() for t in (metrics.get("tags") or [])}
+        return tag in tags, f"tag={tag} present={tag in tags}"
+    if kind == "no_skill_route":
+        used = bool(metrics.get("used_skill_route_discovery")) or bool(
+            context.get("used_skill_route_discovery")
+        )
+        return not used, f"used_skill_route_discovery={used}"
+    if kind == "novel_ready_le":
+        need = int(float(arg or "0"))
+        have = int(metrics.get("novel_ready_count") or 0)
+        return have <= need, f"novel_ready={have} need<={need}"
+    if kind == "mission_plane_ok":
+        mission = context.get("mission") or context.get("mission_plane") or {}
+        ok = bool(mission.get("ok"))
+        return ok, f"mission_ok={ok}"
+    if kind == "contract_plane_ok":
+        # Self-reference only meaningful when outer plane already recorded ok.
+        plane = context.get("contract_plane") or {}
+        ok = bool(plane.get("ok"))
+        return ok, f"contract_plane_ok={ok}"
+    if kind == "program_passes":
+        steps = [part.strip() for part in arg.split(",") if part.strip()]
+        if not steps:
+            return False, "no program steps"
+        if not run_programs:
+            # Soft: require all ids exist and previously proved.
+            missing = [s for s in steps if s not in ledger.capabilities]
+            if missing:
+                return False, f"missing={missing}"
+            unproved = [
+                s
+                for s in steps
+                if ledger.capabilities[s].last_proof_exit_code != 0
+            ]
+            if unproved:
+                return False, f"unproved={unproved}"
+            return True, f"soft_proved steps={steps}"
+        program = run_capability_program(
+            repo_path,
+            steps,
+            command_runner=command_runner,
+            timeout=timeout,
+            prove_first=False,
+        )
+        ok = bool(program.get("ok")) and int(program.get("failed_count") or 0) == 0
+        return ok, (
+            f"program_ok={program.get('ok')} passed={program.get('passed_count')} "
+            f"failed={program.get('failed_count')}"
+        )
+    return False, f"unknown predicate kind={kind}"
+
+
+def run_contract_plane(
+    repo_path: Path,
+    goal: str,
+    done_when: str,
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 180,
+    max_steps: int = 5,
+    absorb_ready: bool = True,
+    grow_budget: int = 1,
+    prove_first: bool = False,
+    run_mission: bool = True,
+) -> dict[str, Any]:
+    """Closed evidence plane: mission work then machine-check done_when.
+
+    Escapes free-text completion theater: mission plane expands/plans/runs, then
+    outcome contracts gate `met` on live ledger metrics and program evidence.
+    """
+
+    root = repo_path.resolve()
+    path, ledger = ensure_seeded_ledger(root)
+    before = snapshot_outcome_metrics(root, ledger=ledger)
+    mission: dict[str, Any] | None = None
+    if run_mission:
+        mission = run_mission_plane(
+            root,
+            goal,
+            command_runner=command_runner,
+            timeout=timeout,
+            max_steps=max_steps,
+            absorb_ready=absorb_ready,
+            prove_first=prove_first,
+            grow_budget=grow_budget,
+        )
+        ledger = load_ledger(path)
+    context: dict[str, Any] = {
+        "used_skill_route_discovery": bool((mission or {}).get("used_skill_route_discovery")),
+        "mission": mission or {},
+        "mission_plane": mission or {},
+    }
+    contract = evaluate_outcome_contract(
+        root,
+        done_when,
+        context=context,
+        command_runner=command_runner,
+        timeout=timeout,
+        run_programs=True,
+    )
+    after = snapshot_outcome_metrics(root, ledger=load_ledger(path))
+    used_skill = bool(
+        before.get("used_skill_route_discovery")
+        or (mission or {}).get("used_skill_route_discovery")
+        or contract.get("used_skill_route_discovery")
+    )
+    met = contract.get("met")
+    ok = (
+        not used_skill
+        and bool(contract.get("ok"))
+        and (mission is None or bool(mission.get("ok")))
+        and (met is True if contract.get("machine_checkable") else True)
+    )
+    return {
+        "ok": ok,
+        "action": "contract_plane",
+        "goal": goal,
+        "done_when": done_when,
+        "met": met,
+        "machine_checkable": contract.get("machine_checkable"),
+        "expanded": bool((mission or {}).get("expanded")),
+        "before": {
+            "count": before.get("count"),
+            "primitive_count": before.get("primitive_count"),
+            "proved_count": before.get("proved_count"),
+            "unique_composed_coverage_sets": before.get("unique_composed_coverage_sets"),
+        },
+        "after": {
+            "count": after.get("count"),
+            "primitive_count": after.get("primitive_count"),
+            "proved_count": after.get("proved_count"),
+            "unique_composed_coverage_sets": after.get("unique_composed_coverage_sets"),
+        },
+        "mission": None
+        if mission is None
+        else {
+            "ok": mission.get("ok"),
+            "action": mission.get("action"),
+            "plan_steps": (mission.get("plan") or {}).get("steps"),
+            "program_passed": (mission.get("program") or {}).get("passed_count"),
+            "program_failed": (mission.get("program") or {}).get("failed_count"),
+            "absorb_count": (mission.get("absorb") or {}).get("absorbed_count"),
+            "grew": (mission.get("growth") or {}).get("grew"),
+        },
+        "contract": {
+            "ok": contract.get("ok"),
+            "met": contract.get("met"),
+            "passed_count": contract.get("passed_count"),
+            "failed_count": contract.get("failed_count"),
+            "results": contract.get("results"),
+            "failed": contract.get("failed"),
+            "metrics": contract.get("metrics"),
+            "notes": contract.get("notes"),
         },
         "used_skill_route_discovery": used_skill,
         "ledger_path": str(path),
@@ -3317,6 +3812,8 @@ def scout_capability_gaps(
             "capability.program-run",
             "capability.mission-plane",
             "capability.second-wave-absorb",
+            "capability.outcome-contract",
+            "capability.contract-plane",
         )
         if capability_id not in ledger.capabilities
     ]
@@ -4311,6 +4808,61 @@ def builtin_mission_plane() -> dict[str, Any]:
     )
 
 
+def builtin_outcome_contract() -> dict[str, Any]:
+    """Invocable capability: parse + evaluate a machine-checkable done_when contract."""
+
+    root = Path(__file__).resolve().parents[2]
+    done_when = (os.environ.get("BLACKHOLE_DONE_WHEN") or "").strip() or (
+        "min_capabilities:3; min_primitives:2; capability_exists:repo.import-health; "
+        "capability_proved:repo.import-health; no_skill_route"
+    )
+    run_programs = (os.environ.get("BLACKHOLE_CONTRACT_RUN_PROGRAMS") or "0").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+    return evaluate_outcome_contract(
+        root,
+        done_when,
+        run_programs=run_programs,
+        timeout=120,
+    )
+
+
+def builtin_contract_plane() -> dict[str, Any]:
+    """Invocable capability: mission plane then machine-check done_when evidence."""
+
+    root = Path(__file__).resolve().parents[2]
+    goal = (os.environ.get("BLACKHOLE_MISSION_GOAL") or "").strip() or "health inventory milestone"
+    done_when = (os.environ.get("BLACKHOLE_DONE_WHEN") or "").strip() or (
+        "min_capabilities:10; min_primitives:8; capability_exists:capability.outcome-contract; "
+        "capability_proved:repo.import-health; program_passes:repo.import-health,capability.ledger-inventory; "
+        "no_skill_route; mission_plane_ok"
+    )
+    max_steps = int(os.environ.get("BLACKHOLE_PROGRAM_MAX_STEPS") or "3")
+    grow_budget = int(os.environ.get("BLACKHOLE_MISSION_GROW_BUDGET") or "0")
+    absorb_ready = (os.environ.get("BLACKHOLE_MISSION_ABSORB") or "0").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    run_mission = (os.environ.get("BLACKHOLE_CONTRACT_RUN_MISSION") or "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    return run_contract_plane(
+        root,
+        goal,
+        done_when,
+        max_steps=max_steps,
+        absorb_ready=absorb_ready,
+        grow_budget=grow_budget,
+        run_mission=run_mission,
+        timeout=180,
+    )
+
+
 def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
     """Install the minimal compoundable bootstrap set if missing."""
 
@@ -4760,6 +5312,91 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "without skill-route discovery, reopening novel frontiers after superstack stall."
             ),
             tags=("bootstrap", "compounder", "mission", "growth", "second-wave"),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.outcome-contract",
+            name="Machine-checkable outcome contract evaluator",
+            description=(
+                "Parse free-text or structured done_when into predicates and evaluate them "
+                "against live ledger metrics, proofs, and optional program evidence."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_outcome_contract",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_outcome_contract; '
+                "import os; "
+                "os.environ['BLACKHOLE_DONE_WHEN']="
+                "'min_capabilities:3;capability_exists:repo.import-health;"
+                "capability_proved:repo.import-health;no_skill_route'; "
+                "os.environ['BLACKHOLE_CONTRACT_RUN_PROGRAMS']='0'; "
+                "r=builtin_outcome_contract(); assert r['ok'] and r.get('action')=='evaluate_outcome_contract' "
+                "and r.get('machine_checkable') and r.get('met') is True "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.frontier-novelty",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "src/blackhole_agent/unbound.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "done_when becomes machine-checkable against ledger metrics and proofs "
+                "instead of free-text agent claims alone."
+            ),
+            tags=("bootstrap", "compounder", "mission", "contract", "evidence"),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.contract-plane",
+            name="Evidence-bound mission contract plane",
+            description=(
+                "Run the mission plane then machine-check done_when predicates so mission "
+                "completion is evidence-bound, not free-text theater."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_contract_plane",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_contract_plane; '
+                "import os; "
+                "os.environ['BLACKHOLE_MISSION_GOAL']='health inventory milestone'; "
+                "os.environ['BLACKHOLE_DONE_WHEN']="
+                "'min_capabilities:5;min_primitives:3;capability_exists:repo.import-health;"
+                "capability_proved:repo.import-health;program_passes:repo.import-health;"
+                "no_skill_route;mission_plane_ok'; "
+                "os.environ['BLACKHOLE_MISSION_GROW_BUDGET']='0'; "
+                "os.environ['BLACKHOLE_MISSION_ABSORB']='0'; "
+                "os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; "
+                "os.environ['BLACKHOLE_CONTRACT_RUN_MISSION']='1'; "
+                "r=builtin_contract_plane(); assert r['ok'] and r.get('action')=='contract_plane' "
+                "and r.get('machine_checkable') and r.get('met') is True "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.outcome-contract",
+                "capability.mission-plane",
+                "capability.program-run",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "src/blackhole_agent/unbound.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Missions close on machine-checked outcome contracts after goal programs run, "
+                "escaping free-text done_when completion without skill-route discovery."
+            ),
+            tags=("bootstrap", "compounder", "mission", "contract", "evidence", "growth"),
             created_at=utc_now_iso(),
             updated_at=utc_now_iso(),
         ),

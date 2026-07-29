@@ -129,6 +129,39 @@ def test_milestone_gate_rejects_paperwork_and_accepts_behavior_change():
     assert accepted.behavior_paths == ("src/blackhole_agent/unbound.py",)
 
 
+def test_complete_gate_rejects_failed_machine_checkable_done_when():
+    """Complete status must fail when structured done_when predicates do not hold."""
+
+    repo = Path(__file__).resolve().parents[1]
+    decision = TurnDecision.from_payload(
+        json.loads(
+            decision_payload(
+                "complete",
+                capability_delta="Evidence-bound completion path.",
+                outcome_evidence=["contract evaluator ran"],
+                validation=[{"command": "python demo.py", "exit_code": 0, "summary": "worked"}],
+                done_when_met=True,
+                done_when="min_capabilities:999999",
+            )
+        )
+    )
+    rejected = evaluate_milestone(
+        decision,
+        changed_paths=["src/blackhole_agent/unbound.py"],
+        workspace=repo,
+        mission_done_when="min_capabilities:999999",
+    )
+    accepted = evaluate_milestone(
+        decision,
+        changed_paths=["src/blackhole_agent/unbound.py"],
+        workspace=repo,
+        mission_done_when="min_capabilities:1; capability_exists:repo.import-health; no_skill_route",
+    )
+    assert rejected.accepted is False
+    assert any("machine-checkable done_when failed" in reason for reason in rejected.reasons)
+    assert accepted.accepted is True
+
+
 def test_unbound_grok_turn_keeps_one_persistent_agent_with_full_tools(tmp_path, monkeypatch):
     monkeypatch.setattr("blackhole_agent.kernels.grok_cli.shutil.which", lambda _: "C:/tools/grok.exe")
     seen = []

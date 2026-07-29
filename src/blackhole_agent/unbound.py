@@ -33,8 +33,10 @@ from blackhole_agent.capability_compounder import (
     compose_capabilities,
     default_ledger_path,
     ensure_seeded_ledger,
+    evaluate_outcome_contract,
     ledger_prompt_summary,
     load_ledger,
+    parse_outcome_contract,
     plan_capability_program,
     promote_composition,
     prove_capability,
@@ -44,6 +46,7 @@ from blackhole_agent.capability_compounder import (
     run_autonomic_cycle,
     run_capability,
     run_capability_program,
+    run_contract_plane,
     run_distill_ledger,
     run_end_to_end_demo,
     run_growth_loop,
@@ -761,6 +764,8 @@ def evaluate_milestone(
     decision: TurnDecision,
     *,
     changed_paths: list[str],
+    workspace: Path | None = None,
+    mission_done_when: str = "",
 ) -> MilestoneGate:
     requested = decision.status in {"milestone", "complete"}
     behavior_paths = [path for path in changed_paths if is_behavior_path(path)]
@@ -785,6 +790,29 @@ def evaluate_milestone(
         reasons.append("no successful exact validation command was reported")
     if decision.status == "complete" and not decision.done_when_met:
         reasons.append("complete was requested but done_when_met is false")
+    # When done_when is machine-checkable, refuse complete unless live predicates pass.
+    if decision.status == "complete" and workspace is not None:
+        contract_text = (mission_done_when or decision.done_when or "").strip()
+        if contract_text:
+            try:
+                parsed = parse_outcome_contract(contract_text)
+                if parsed.get("machine_checkable"):
+                    verdict = evaluate_outcome_contract(
+                        workspace,
+                        contract_text,
+                        run_programs=False,
+                        timeout=90,
+                    )
+                    if verdict.get("met") is not True:
+                        failed = verdict.get("failed") or []
+                        detail = ", ".join(
+                            f"{item.get('kind')}:{item.get('arg')}" for item in failed[:4]
+                        ) or "unknown"
+                        reasons.append(
+                            f"machine-checkable done_when failed ({detail})"
+                        )
+            except Exception as error:  # pragma: no cover - defensive gate
+                reasons.append(f"outcome-contract evaluation error: {error}")
     return MilestoneGate(
         requested=True,
         accepted=not reasons,
@@ -969,7 +997,12 @@ def run_unbound_turn(
             state.last_milestone_head,
             command_runner=command_runner,
         )
-        gate = evaluate_milestone(decision, changed_paths=changed_paths)
+        gate = evaluate_milestone(
+            decision,
+            changed_paths=changed_paths,
+            workspace=workspace,
+            mission_done_when=state.done_when,
+        )
         effective_status = decision.status
         commit_sha = ""
         milestone_number = state.milestone_count + 1
@@ -1888,6 +1921,93 @@ def capability_mission_plane(
     console.print_json(data=result)
     if not result.get("ok") or result.get("used_skill_route_discovery"):
         raise typer.Exit(1)
+
+
+@capability_app.command(
+    "contract",
+    help=(
+        "Parse and machine-check a done_when outcome contract against the live ledger "
+        "(metrics, proofs, optional programs)."
+    ),
+)
+def capability_contract(
+    done_when: str = typer.Argument(
+        ...,
+        help="Structured or free-text done_when (semicolon-separated predicates).",
+    ),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    run_programs: bool = typer.Option(
+        False,
+        "--run-programs",
+        help="Execute program_passes predicates instead of soft proof checks.",
+    ),
+    timeout_seconds: int = typer.Option(120, "--timeout-seconds", min=1),
+) -> None:
+    try:
+        result = evaluate_outcome_contract(
+            repo_path.resolve(),
+            done_when,
+            run_programs=run_programs,
+            timeout=timeout_seconds,
+        )
+    except Exception as error:
+        console.print(f"Outcome contract failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+    if result.get("machine_checkable") and result.get("met") is not True:
+        raise typer.Exit(2)
+
+
+@capability_app.command(
+    "contract-plane",
+    help=(
+        "Evidence plane: mission plane then machine-check done_when so completion is "
+        "ledger/program-backed, not free-text theater."
+    ),
+)
+def capability_contract_plane(
+    goal: str = typer.Option(
+        "health inventory milestone",
+        "--goal",
+        help="Free-text mission goal for program planning.",
+    ),
+    done_when: str = typer.Option(
+        (
+            "min_capabilities:10; min_primitives:8; capability_exists:capability.outcome-contract; "
+            "capability_proved:repo.import-health; program_passes:repo.import-health,"
+            "capability.ledger-inventory; no_skill_route; mission_plane_ok"
+        ),
+        "--done-when",
+        help="Machine-checkable done_when predicates.",
+    ),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    max_steps: int = typer.Option(3, "--max-steps", min=1, help="Program length cap."),
+    grow_budget: int = typer.Option(0, "--grow-budget", min=0, help="Novel-only growth after program."),
+    no_absorb: bool = typer.Option(False, "--no-absorb", help="Skip second-wave absorption."),
+    no_mission: bool = typer.Option(False, "--no-mission", help="Only evaluate contract (skip mission plane)."),
+    timeout_seconds: int = typer.Option(180, "--timeout-seconds", min=1),
+) -> None:
+    try:
+        result = run_contract_plane(
+            repo_path.resolve(),
+            goal,
+            done_when,
+            max_steps=max_steps,
+            absorb_ready=not no_absorb,
+            grow_budget=grow_budget,
+            run_mission=not no_mission,
+            timeout=timeout_seconds,
+        )
+    except Exception as error:
+        console.print(f"Contract plane failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+    if result.get("machine_checkable") and result.get("met") is not True:
+        raise typer.Exit(2)
 
 
 if __name__ == "__main__":

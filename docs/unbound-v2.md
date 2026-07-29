@@ -172,6 +172,16 @@ uv run blackhole-unbound capability integrity --limit 16
   programs from free-text goals (`capability.goal-plan`, `capability.program-run`).
 - `capability mission-plane` is the closed mission plane: second-wave absorb →
   goal plan → program run → novel-only grow (`capability.mission-plane`).
+- `capability contract` machine-checks a structured or free-text `done_when`
+  against live ledger metrics, proof status, and optional programs
+  (`capability.outcome-contract`). Predicate forms include
+  `min_capabilities:N`, `min_primitives:N`, `capability_exists:id`,
+  `capability_proved:id`, `program_passes:id1,id2`, `no_skill_route`,
+  `mission_plane_ok`, and more.
+- `capability contract-plane` is the evidence plane: mission plane then
+  outcome-contract evaluation so completion is ledger/program-backed
+  (`capability.contract-plane`). Unbound milestone gating also refuses
+  `complete` when `done_when` is machine-checkable and predicates fail.
 
 Promoted compositions are tagged `composed`/`promoted` and become ordinary
 ledger citizens that later turns can list, prove, run, and compose further.
