@@ -164,6 +164,21 @@ uv run blackhole-unbound start --repo-path . --kernel grok
 uv run blackhole-unbound run --repo-path .
 ```
 
+Run continuous single-agent self-evolution on a 30-minute outer cadence:
+
+```bash
+uv run blackhole-unbound loop \
+  --repo-path . \
+  --kernel grok \
+  --interval-seconds 1800
+```
+
+Mission-internal turns still run back-to-back. When a mission completes, the
+loop waits 30 minutes, then creates a new autonomous-genesis mission from the
+latest proven milestone commit. This preserves capability growth across
+missions instead of restarting from `main`. The first mission starts
+immediately by default.
+
 Each mission receives a persistent `unbound/<mission>` branch and sibling Git
 worktree. A turn with `status=continue` leaves its work in place without making
 a checkpoint commit. A milestone is committed only when the agent reports a
@@ -183,6 +198,8 @@ Inspect or pause a mission:
 uv run blackhole-unbound status --repo-path .
 uv run blackhole-unbound stop --state-path <state.json>
 uv run blackhole-unbound resume --state-path <state.json>
+uv run blackhole-unbound loop-status --repo-path .
+uv run blackhole-unbound loop-stop --repo-path .
 ```
 
 See [`docs/unbound-v2.md`](docs/unbound-v2.md) for the state and milestone

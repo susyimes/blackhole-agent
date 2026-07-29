@@ -98,3 +98,42 @@ evolving copy.
 
 Use `--keep-controller-loaded` only for debugging when this self-reload behavior
 is not wanted.
+
+## Continuous Self-Evolution
+
+The outer continuous loop starts a new autonomous-genesis mission after the
+previous mission completes or blocks. Mission-internal turns remain
+back-to-back; the outer interval applies between missions and retry attempts.
+The default interval is 1800 seconds (30 minutes):
+
+```bash
+uv run blackhole-unbound loop \
+  --repo-path . \
+  --kernel grok \
+  --interval-seconds 1800
+```
+
+The first mission starts immediately unless `--wait-first` is supplied. After a
+mission records accepted milestones, the next mission is based on its latest
+proven milestone commit rather than resetting to `main`. An active latest
+mission is resumed after a controller restart. This produces one serial
+single-agent lineage; it does not introduce child agents or parallel work.
+
+Loop state and events are durable:
+
+```text
+.blackhole-agent/unbound/
+  continuous-loop.json
+  continuous-loop-events.jsonl
+  continuous-loop.lock
+```
+
+Inspect the scheduler or request a cooperative stop:
+
+```bash
+uv run blackhole-unbound loop-status --repo-path .
+uv run blackhole-unbound loop-stop --repo-path .
+```
+
+The stop request wakes a sleeping loop immediately. If a mission is currently
+running, the loop stops after that mission returns.

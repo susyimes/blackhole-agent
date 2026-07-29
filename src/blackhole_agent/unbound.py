@@ -18,7 +18,7 @@ import time
 import uuid
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field, fields
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterator
 
@@ -34,6 +34,7 @@ console = Console(highlight=False)
 
 SCHEMA_VERSION = 1
 DEFAULT_OUTPUT_DIR = Path(".blackhole-agent/unbound")
+DEFAULT_CONTINUOUS_INTERVAL_SECONDS = 1800
 MISSION_STATUSES = frozenset({"active", "complete", "blocked", "stopped"})
 TURN_STATUSES = frozenset({"continue", "milestone", "complete", "blocked"})
 KERNELS = frozenset({"codex", "grok"})
@@ -257,6 +258,22 @@ def latest_pointer_path(repo_path: Path, output_dir: Path = DEFAULT_OUTPUT_DIR) 
     return mission_root(repo_path, output_dir) / "latest-mission.json"
 
 
+def continuous_loop_state_path(repo_path: Path, output_dir: Path = DEFAULT_OUTPUT_DIR) -> Path:
+    return mission_root(repo_path, output_dir) / "continuous-loop.json"
+
+
+def continuous_loop_events_path(repo_path: Path, output_dir: Path = DEFAULT_OUTPUT_DIR) -> Path:
+    return mission_root(repo_path, output_dir) / "continuous-loop-events.jsonl"
+
+
+def continuous_loop_lock_path(repo_path: Path, output_dir: Path = DEFAULT_OUTPUT_DIR) -> Path:
+    return mission_root(repo_path, output_dir) / "continuous-loop.lock"
+
+
+def continuous_loop_stop_path(repo_path: Path, output_dir: Path = DEFAULT_OUTPUT_DIR) -> Path:
+    return mission_root(repo_path, output_dir) / "continuous-loop.stop.json"
+
+
 def resolve_state_path(
     *,
     state_path: Path | None,
@@ -281,6 +298,21 @@ def resolve_state_path(
     if not resolved.exists():
         raise FileNotFoundError(f"Mission state does not exist: {resolved}")
     return resolved.resolve()
+
+
+def load_latest_mission_if_present(
+    repo_path: Path,
+    output_dir: Path = DEFAULT_OUTPUT_DIR,
+) -> tuple[Path, UnboundMission] | None:
+    pointer = latest_pointer_path(repo_path.resolve(), output_dir)
+    if not pointer.exists():
+        return None
+    payload = json.loads(pointer.read_text(encoding="utf-8"))
+    state_path = Path(str(payload.get("state_path") or ""))
+    if not state_path.exists():
+        return None
+    resolved = state_path.resolve()
+    return resolved, load_mission(resolved)
 
 
 def run_command(
@@ -321,6 +353,23 @@ def git_head(
     command_runner: Callable[..., Any] = subprocess.run,
 ) -> str:
     return git_text(repo_path, ["git", "rev-parse", "--verify", "HEAD"], command_runner=command_runner)
+
+
+def git_commit_exists(
+    repo_path: Path,
+    ref: str,
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+) -> bool:
+    if not ref.strip():
+        return False
+    completed = run_command(
+        ["git", "rev-parse", "--verify", f"{ref.strip()}^{{commit}}"],
+        cwd=repo_path,
+        command_runner=command_runner,
+        check=False,
+    )
+    return completed.returncode == 0
 
 
 def create_mission(
@@ -1016,6 +1065,378 @@ def run_mission_loop(
             time.sleep(interval_seconds)
 
 
+def pid_is_running(pid: int) -> bool:
+    if pid < 1:
+        return False
+    if pid == os.getpid():
+        return True
+    if os.name == "nt":
+        import ctypes
+
+        process_query_limited_information = 0x1000
+        still_active = 259
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        open_process = kernel32.OpenProcess
+        open_process.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32]
+        open_process.restype = ctypes.c_void_p
+        get_exit_code = kernel32.GetExitCodeProcess
+        get_exit_code.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint32)]
+        get_exit_code.restype = ctypes.c_int
+        close_handle = kernel32.CloseHandle
+        close_handle.argtypes = [ctypes.c_void_p]
+        close_handle.restype = ctypes.c_int
+        handle = open_process(process_query_limited_information, False, pid)
+        if not handle:
+            return False
+        try:
+            exit_code = ctypes.c_uint32()
+            return bool(get_exit_code(handle, ctypes.byref(exit_code))) and exit_code.value == still_active
+        finally:
+            close_handle(handle)
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return True
+
+
+@contextmanager
+def continuous_loop_lock(lock_path: Path) -> Iterator[None]:
+    """Own one outer evolution loop, reclaiming a lock left by a dead process."""
+
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor: int | None = None
+    for _ in range(2):
+        try:
+            descriptor = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            break
+        except FileExistsError as error:
+            try:
+                owner_pid = int(lock_path.read_text(encoding="utf-8").strip())
+            except (OSError, ValueError):
+                owner_pid = 0
+            if owner_pid and pid_is_running(owner_pid):
+                raise RuntimeError(
+                    f"Another Unbound continuous loop owns this repository: pid={owner_pid}"
+                ) from error
+            try:
+                lock_path.unlink()
+            except FileNotFoundError:
+                pass
+    if descriptor is None:
+        raise RuntimeError(f"Unable to acquire Unbound continuous loop lock: {lock_path}")
+    try:
+        os.write(descriptor, f"{os.getpid()}\n".encode())
+        os.close(descriptor)
+        yield
+    finally:
+        try:
+            if lock_path.read_text(encoding="utf-8").strip() == str(os.getpid()):
+                lock_path.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def save_continuous_loop_state(path: Path, state: dict[str, Any]) -> None:
+    state["updated_at"] = utc_now_iso()
+    atomic_write_json(path, state)
+
+
+def wait_for_continuous_interval(
+    interval_seconds: int,
+    stop_path: Path,
+    *,
+    sleeper: Callable[[float], None] = time.sleep,
+) -> bool:
+    """Wait for the next mission while allowing a stop request to wake the loop."""
+
+    deadline = time.monotonic() + interval_seconds
+    while True:
+        if stop_path.exists():
+            return True
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return stop_path.exists()
+        sleeper(min(1.0, remaining))
+
+
+def latest_proven_lineage(
+    repo_path: Path,
+    output_dir: Path,
+    target_ref: str,
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+) -> tuple[Path | None, str]:
+    """Resume an active mission or seed from the latest accepted milestone."""
+
+    latest = load_latest_mission_if_present(repo_path, output_dir)
+    if latest is None:
+        return None, target_ref
+    state_path, state = latest
+    lineage_ref = target_ref
+    if git_commit_exists(repo_path, state.last_milestone_head, command_runner=command_runner):
+        lineage_ref = state.last_milestone_head
+    if state.status == "active":
+        return state_path, lineage_ref
+    return None, lineage_ref
+
+
+def run_continuous_loop(
+    *,
+    repo_path: Path,
+    kernel: str = "grok",
+    model: str | None = None,
+    profile: str | None = None,
+    target_branch: str = "main",
+    branch_prefix: str = "unbound",
+    output_dir: Path = DEFAULT_OUTPUT_DIR,
+    worktree_parent: Path | None = None,
+    timeout_seconds: int = 7200,
+    interval_seconds: int = DEFAULT_CONTINUOUS_INTERVAL_SECONDS,
+    wait_first: bool = False,
+    resume_latest: bool = True,
+    max_missions: int = 0,
+    mission_creator: Callable[..., Path] = create_mission,
+    mission_runner: Callable[..., int] = run_mission_loop,
+    interval_waiter: Callable[[int, Path], bool] = wait_for_continuous_interval,
+    command_runner: Callable[..., Any] = subprocess.run,
+) -> int:
+    """Continuously create autonomous missions, compounding their proven commits."""
+
+    repo_path = repo_path.resolve()
+    if kernel not in KERNELS:
+        raise ValueError(f"kernel must be one of: {', '.join(sorted(KERNELS))}")
+    if interval_seconds < 1:
+        raise ValueError("interval_seconds must be greater than zero")
+    if timeout_seconds < 1:
+        raise ValueError("timeout_seconds must be greater than zero")
+    if max_missions < 0:
+        raise ValueError("max_missions cannot be negative")
+    run_command(
+        ["git", "rev-parse", "--show-toplevel"],
+        cwd=repo_path,
+        command_runner=command_runner,
+    )
+    run_command(
+        ["git", "rev-parse", "--verify", target_branch],
+        cwd=repo_path,
+        command_runner=command_runner,
+    )
+
+    state_path = continuous_loop_state_path(repo_path, output_dir)
+    events_path = continuous_loop_events_path(repo_path, output_dir)
+    lock_path = continuous_loop_lock_path(repo_path, output_dir)
+    stop_path = continuous_loop_stop_path(repo_path, output_dir)
+    loop_id = f"{compact_utc_timestamp()}-{uuid.uuid4().hex[:8]}"
+    created_at = utc_now_iso()
+    loop_state: dict[str, Any] = {
+        "schema_version": SCHEMA_VERSION,
+        "loop_id": loop_id,
+        "created_at": created_at,
+        "updated_at": created_at,
+        "repo_path": str(repo_path),
+        "status": "starting",
+        "pid": os.getpid(),
+        "kernel": kernel,
+        "model": model,
+        "profile": profile,
+        "target_branch": target_branch,
+        "branch_prefix": branch_prefix,
+        "interval_seconds": interval_seconds,
+        "timeout_seconds": timeout_seconds,
+        "mission_count": 0,
+        "run_count": 0,
+        "current_mission_id": "",
+        "current_state_path": "",
+        "last_mission_id": "",
+        "last_mission_status": "",
+        "last_exit_code": None,
+        "lineage_ref": target_branch,
+        "next_wake_at": "",
+        "last_error": "",
+        "stop_reason": "",
+    }
+
+    with continuous_loop_lock(lock_path):
+        try:
+            stop_path.unlink()
+        except FileNotFoundError:
+            pass
+        current_state_path: Path | None = None
+        lineage_ref = target_branch
+        if resume_latest:
+            current_state_path, lineage_ref = latest_proven_lineage(
+                repo_path,
+                output_dir,
+                target_branch,
+                command_runner=command_runner,
+            )
+        loop_state["lineage_ref"] = lineage_ref
+        if current_state_path is not None:
+            current = load_mission(current_state_path)
+            loop_state["current_mission_id"] = current.mission_id
+            loop_state["current_state_path"] = str(current_state_path)
+        loop_state["status"] = "running"
+        save_continuous_loop_state(state_path, loop_state)
+        append_jsonl(
+            events_path,
+            {
+                "event": "continuous_loop.started",
+                "at": created_at,
+                "loop_id": loop_id,
+                "pid": os.getpid(),
+                "interval_seconds": interval_seconds,
+                "lineage_ref": lineage_ref,
+                "resumed_state_path": str(current_state_path or ""),
+            },
+        )
+
+        should_wait = wait_first
+        try:
+            while True:
+                if stop_path.exists():
+                    loop_state["stop_reason"] = "stop_requested"
+                    break
+                if current_state_path is None and max_missions:
+                    if int(loop_state["mission_count"]) >= max_missions:
+                        loop_state["stop_reason"] = "max_missions_reached"
+                        break
+                if should_wait:
+                    next_wake = datetime.now(timezone.utc) + timedelta(seconds=interval_seconds)
+                    loop_state["status"] = "sleeping"
+                    loop_state["next_wake_at"] = next_wake.isoformat().replace("+00:00", "Z")
+                    save_continuous_loop_state(state_path, loop_state)
+                    append_jsonl(
+                        events_path,
+                        {
+                            "event": "continuous_loop.sleeping",
+                            "at": utc_now_iso(),
+                            "loop_id": loop_id,
+                            "interval_seconds": interval_seconds,
+                            "next_wake_at": loop_state["next_wake_at"],
+                        },
+                    )
+                    if interval_waiter(interval_seconds, stop_path):
+                        loop_state["stop_reason"] = "stop_requested"
+                        break
+                    loop_state["next_wake_at"] = ""
+                    loop_state["status"] = "running"
+                    save_continuous_loop_state(state_path, loop_state)
+                should_wait = True
+
+                if current_state_path is None:
+                    current_state_path = mission_creator(
+                        repo_path=repo_path,
+                        kernel=kernel,
+                        model=model,
+                        profile=profile,
+                        target_branch=lineage_ref,
+                        branch_prefix=branch_prefix,
+                        output_dir=output_dir,
+                        worktree_parent=worktree_parent,
+                        timeout_seconds=timeout_seconds,
+                        command_runner=command_runner,
+                    )
+                    current = load_mission(current_state_path)
+                    loop_state["mission_count"] = int(loop_state["mission_count"]) + 1
+                    loop_state["current_mission_id"] = current.mission_id
+                    loop_state["current_state_path"] = str(current_state_path)
+                    save_continuous_loop_state(state_path, loop_state)
+                    append_jsonl(
+                        events_path,
+                        {
+                            "event": "continuous_loop.mission_created",
+                            "at": utc_now_iso(),
+                            "loop_id": loop_id,
+                            "mission_id": current.mission_id,
+                            "state_path": str(current_state_path),
+                            "base_ref": lineage_ref,
+                        },
+                    )
+
+                exit_code: int | None = None
+                run_error = ""
+                loop_state["status"] = "running_mission"
+                loop_state["run_count"] = int(loop_state["run_count"]) + 1
+                loop_state["last_error"] = ""
+                save_continuous_loop_state(state_path, loop_state)
+                try:
+                    exit_code = mission_runner(
+                        current_state_path,
+                        max_turns=0,
+                        interval_seconds=0,
+                        reload_between_turns=True,
+                    )
+                except Exception as error:
+                    run_error = str(error)
+
+                try:
+                    current = load_mission(current_state_path)
+                except (ValueError, FileNotFoundError) as error:
+                    run_error = run_error or str(error)
+                    current = None
+                if current is not None:
+                    if current.milestone_count and git_commit_exists(
+                        repo_path,
+                        current.last_milestone_head,
+                        command_runner=command_runner,
+                    ):
+                        lineage_ref = current.last_milestone_head
+                    loop_state["lineage_ref"] = lineage_ref
+                    loop_state["last_mission_id"] = current.mission_id
+                    loop_state["last_mission_status"] = current.status
+                    if current.status != "active":
+                        current_state_path = None
+                        loop_state["current_mission_id"] = ""
+                        loop_state["current_state_path"] = ""
+                else:
+                    current_state_path = None
+                    loop_state["current_mission_id"] = ""
+                    loop_state["current_state_path"] = ""
+                    loop_state["last_mission_status"] = "unavailable"
+                loop_state["last_exit_code"] = exit_code
+                loop_state["last_error"] = run_error
+                loop_state["status"] = "running"
+                save_continuous_loop_state(state_path, loop_state)
+                append_jsonl(
+                    events_path,
+                    {
+                        "event": "continuous_loop.mission_returned",
+                        "at": utc_now_iso(),
+                        "loop_id": loop_id,
+                        "mission_id": loop_state["last_mission_id"],
+                        "mission_status": loop_state["last_mission_status"],
+                        "exit_code": exit_code,
+                        "error": run_error,
+                        "lineage_ref": lineage_ref,
+                    },
+                )
+        except KeyboardInterrupt:
+            loop_state["stop_reason"] = "keyboard_interrupt"
+        finally:
+            loop_state["status"] = "stopped"
+            loop_state["next_wake_at"] = ""
+            save_continuous_loop_state(state_path, loop_state)
+            append_jsonl(
+                events_path,
+                {
+                    "event": "continuous_loop.stopped",
+                    "at": utc_now_iso(),
+                    "loop_id": loop_id,
+                    "reason": loop_state["stop_reason"],
+                },
+            )
+            try:
+                stop_path.unlink()
+            except FileNotFoundError:
+                pass
+    return 0
+
+
 def mission_summary(state: UnboundMission, state_path: Path) -> dict[str, Any]:
     return {
         "mission_id": state.mission_id,
@@ -1127,6 +1548,90 @@ def run(
         console.print(f"Unbound mission failed: {error}", style="red")
         raise typer.Exit(1) from error
     raise typer.Exit(exit_code)
+
+
+@app.command(help="Continuously run autonomous missions with a delay between completed missions.")
+def loop(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository to evolve continuously."),
+    kernel: str = typer.Option("grok", "--kernel", help="Execution kernel: grok or codex."),
+    model: str | None = typer.Option(None, "--model", "-m", help="Optional model route."),
+    profile: str | None = typer.Option(None, "--profile", help="Optional Codex profile."),
+    target_branch: str = typer.Option("main", "--target-branch", help="Initial lineage base."),
+    branch_prefix: str = typer.Option("unbound", "--branch-prefix", help="Mission branch prefix."),
+    output_dir: Path = typer.Option(DEFAULT_OUTPUT_DIR, "--output-dir", help="Durable Unbound state root."),
+    worktree_parent: Path | None = typer.Option(None, "--worktree-parent", help="Mission worktree parent."),
+    timeout_seconds: int = typer.Option(7200, "--timeout-seconds", min=1, help="Maximum time for one turn."),
+    interval_seconds: int = typer.Option(
+        DEFAULT_CONTINUOUS_INTERVAL_SECONDS,
+        "--interval-seconds",
+        min=1,
+        help="Delay between autonomous missions or retries.",
+    ),
+    wait_first: bool = typer.Option(False, "--wait-first/--run-first", help="Wait before the first mission."),
+    resume_latest: bool = typer.Option(
+        True,
+        "--resume-latest/--start-fresh",
+        help="Resume an active mission and continue from the latest proven milestone.",
+    ),
+    max_missions: int = typer.Option(
+        0,
+        "--max-missions",
+        min=0,
+        help="Stop after creating this many missions; 0 runs continuously.",
+    ),
+) -> None:
+    try:
+        exit_code = run_continuous_loop(
+            repo_path=repo_path,
+            kernel=kernel,
+            model=model,
+            profile=profile,
+            target_branch=target_branch,
+            branch_prefix=branch_prefix,
+            output_dir=output_dir,
+            worktree_parent=worktree_parent,
+            timeout_seconds=timeout_seconds,
+            interval_seconds=interval_seconds,
+            wait_first=wait_first,
+            resume_latest=resume_latest,
+            max_missions=max_missions,
+        )
+    except (ValueError, RuntimeError, FileNotFoundError) as error:
+        console.print(f"Unbound continuous loop failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    raise typer.Exit(exit_code)
+
+
+@app.command(help="Show durable state for the autonomous continuous loop.")
+def loop_status(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository containing loop state."),
+    output_dir: Path = typer.Option(DEFAULT_OUTPUT_DIR, "--output-dir", help="Durable Unbound state root."),
+) -> None:
+    state_path = continuous_loop_state_path(repo_path.resolve(), output_dir)
+    if not state_path.exists():
+        raise typer.BadParameter(f"No Unbound continuous loop state exists: {state_path}")
+    payload = json.loads(state_path.read_text(encoding="utf-8"))
+    console.print_json(data=payload)
+
+
+@app.command(help="Request that the continuous loop stop after its current mission returns.")
+def loop_stop(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository containing loop state."),
+    output_dir: Path = typer.Option(DEFAULT_OUTPUT_DIR, "--output-dir", help="Durable Unbound state root."),
+) -> None:
+    repo_path = repo_path.resolve()
+    state_path = continuous_loop_state_path(repo_path, output_dir)
+    if not state_path.exists():
+        raise typer.BadParameter(f"No Unbound continuous loop state exists: {state_path}")
+    stop_path = continuous_loop_stop_path(repo_path, output_dir)
+    atomic_write_json(
+        stop_path,
+        {
+            "requested_at": utc_now_iso(),
+            "requested_by_pid": os.getpid(),
+        },
+    )
+    console.print(f"stop requested: {stop_path}")
 
 
 @app.command(help="Show durable state for an Unbound mission.")

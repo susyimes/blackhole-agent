@@ -3,16 +3,21 @@ import subprocess
 from pathlib import Path
 
 from blackhole_agent.unbound import (
+    DEFAULT_CONTINUOUS_INTERVAL_SECONDS,
     KernelTurnResult,
     TurnDecision,
     UnboundMission,
     build_turn_prompt,
+    continuous_loop_state_path,
     create_mission,
     evaluate_milestone,
     extract_json_decision,
+    git_head,
     invoke_kernel_turn,
     load_mission,
+    run_continuous_loop,
     run_unbound_turn,
+    save_mission,
 )
 
 
@@ -301,3 +306,67 @@ def test_genesis_turn_can_define_the_mission_without_forcing_a_goal_at_start(tmp
     assert state.stage == "execution"
     assert state.goal.startswith("Replace the append-only controller")
     assert state.done_when.startswith("A real end-to-end run succeeds")
+
+
+def test_continuous_loop_defaults_to_thirty_minutes():
+    assert DEFAULT_CONTINUOUS_INTERVAL_SECONDS == 30 * 60
+
+
+def test_continuous_loop_starts_new_genesis_missions_and_compounds_proven_heads(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    init_repository(repo)
+    worktrees = tmp_path / "worktrees"
+    created_from = []
+    waits = []
+    completed_heads = []
+
+    def recording_creator(**kwargs):
+        created_from.append(kwargs["target_branch"])
+        return create_mission(**kwargs)
+
+    def completing_runner(state_path, **kwargs):
+        state = load_mission(state_path)
+        workspace = Path(state.workspace_path)
+        capability = workspace / "src" / f"capability_{state.mission_id[-8:]}.py"
+        capability.write_text(f"MISSION_ID = {state.mission_id!r}\n", encoding="utf-8")
+        subprocess.run(["git", "add", str(capability)], cwd=workspace, check=True)
+        subprocess.run(
+            ["git", "commit", "-m", f"complete {state.mission_id}"],
+            cwd=workspace,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        state.status = "complete"
+        state.milestone_count = 1
+        state.last_milestone_head = git_head(workspace)
+        completed_heads.append(state.last_milestone_head)
+        save_mission(state_path, state)
+        return 0
+
+    def recording_waiter(seconds, stop_path):
+        waits.append(seconds)
+        return False
+
+    result = run_continuous_loop(
+        repo_path=repo,
+        interval_seconds=DEFAULT_CONTINUOUS_INTERVAL_SECONDS,
+        max_missions=2,
+        resume_latest=False,
+        worktree_parent=worktrees,
+        mission_creator=recording_creator,
+        mission_runner=completing_runner,
+        interval_waiter=recording_waiter,
+    )
+    loop_state = json.loads(continuous_loop_state_path(repo).read_text(encoding="utf-8"))
+
+    assert result == 0
+    assert created_from[0] == "main"
+    assert created_from[1] == completed_heads[0]
+    assert waits == [1800]
+    assert loop_state["mission_count"] == 2
+    assert loop_state["run_count"] == 2
+    assert loop_state["lineage_ref"] == completed_heads[1]
+    assert loop_state["status"] == "stopped"
+    assert loop_state["stop_reason"] == "max_missions_reached"
