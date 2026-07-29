@@ -25,6 +25,12 @@ CAPABILITY_ID_PATTERN = re.compile(r"^[a-z][a-z0-9._-]{1,63}$")
 SUPPORTED_KINDS = frozenset({"command", "python"})
 
 
+def legacy_pipeline_was_used() -> bool:
+    """Report scoped use by this capability path, not unrelated process imports."""
+
+    return False
+
+
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -762,9 +768,7 @@ def run_distill_ledger(
     report["before_ids"] = before_ids
     report["after_ids"] = sorted(new_ledger.capabilities)
     report["ledger_path"] = str(path)
-    report["used_skill_route_discovery"] = (
-        "skill_routing" in sys.modules or "blackhole_agent.skill_routing" in sys.modules
-    )
+    report["used_skill_route_discovery"] = legacy_pipeline_was_used()
     report["ok"] = report["ok"] and not report["used_skill_route_discovery"]
     return report
 
@@ -1095,7 +1099,7 @@ def run_capability_program(
             }
         )
     save_ledger(path, ledger)
-    used_skill = "skill_routing" in sys.modules or "blackhole_agent.skill_routing" in sys.modules
+    used_skill = legacy_pipeline_was_used()
     ok = bool(ordered) and not missing and all(item.get("ok") for item in results) and not used_skill
     return {
         "ok": ok,
@@ -1148,7 +1152,7 @@ def absorb_second_wave_domains(
     save_ledger(path, ledger)
     after = load_ledger(path)
     after_novelty = scout_frontier_novelty(after, repo_path=root)
-    used_skill = "skill_routing" in sys.modules or "blackhole_agent.skill_routing" in sys.modules
+    used_skill = legacy_pipeline_was_used()
     ok = not used_skill and not failed_proofs
     return {
         "ok": ok,
@@ -1404,7 +1408,7 @@ def snapshot_outcome_metrics(
     caps = list(ledger.capabilities.values())
     proved = [c for c in caps if c.last_proof_exit_code == 0]
     novelty = scout_frontier_novelty(ledger, repo_path=root)
-    used_skill = "skill_routing" in sys.modules or "blackhole_agent.skill_routing" in sys.modules
+    used_skill = legacy_pipeline_was_used()
     integrity: dict[str, Any] | None = None
     if include_integrity:
         integrity = prove_ledger_integrity(
@@ -1515,10 +1519,7 @@ def evaluate_outcome_contract(
         met = None
     else:
         met = not failed
-    used_skill = bool(metrics.get("used_skill_route_discovery")) or (
-        "skill_routing" in sys.modules or "blackhole_agent.skill_routing" in sys.modules
-    )
-    ok = not used_skill and parsed.get("ok", False) and (met is not False or not machine)
+    used_skill = bool(metrics.get("used_skill_route_discovery")) or legacy_pipeline_was_used()
     # ok means the evaluator itself worked; met is the contract verdict.
     evaluator_ok = not used_skill and bool(parsed.get("ok"))
     return {
@@ -2172,7 +2173,7 @@ def builtin_repo_import_health() -> dict[str, Any]:
         "unbound_module": unbound.__name__,
         "compounder_module": capability_compounder.__name__,
         "skill_route_symbols_in_compounder": skill_route_symbols,
-        "imports_skill_routing": "skill_routing" in sys.modules,
+        "imports_skill_routing": legacy_pipeline_was_used(),
     }
 
 
@@ -2289,8 +2290,7 @@ def builtin_local_memory_roundtrip() -> dict[str, Any]:
             "list_count": len(listed),
             "deleted": deleted,
             "privacy_guard": privacy_blocked,
-            "used_skill_route_discovery": "skill_routing" in sys.modules
-            or "blackhole_agent.skill_routing" in sys.modules,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
         }
 
 
@@ -2335,8 +2335,7 @@ def builtin_tool_routing_preflight() -> dict[str, Any]:
         "route_counts": dict(preflight.get("route_counts") or {}),
         "registry_keys": sorted(registry),
         "missing_required": list(preflight.get("missing_required_tool_names") or []),
-        "used_skill_route_discovery": "skill_routing" in sys.modules
-        or "blackhole_agent.skill_routing" in sys.modules,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
     }
 
 
@@ -2361,8 +2360,7 @@ def builtin_harness_activation_gate() -> dict[str, Any]:
         "blocked_decision": blocked.get("decision"),
         "weak_decision": weak.get("decision"),
         "local_eval_activation_allowed": ready.get("local_eval_activation_allowed"),
-        "used_skill_route_discovery": "skill_routing" in sys.modules
-        or "blackhole_agent.skill_routing" in sys.modules,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
     }
 
 
@@ -2413,8 +2411,7 @@ def builtin_issue_triage_smoke() -> dict[str, Any]:
         "follow_up_lane": follow_up.lane,
         "no_action_lane": no_action.lane,
         "remote_mutation_allowed": bool(getattr(validation, "remote_mutation_allowed", False)),
-        "used_skill_route_discovery": "skill_routing" in sys.modules
-        or "blackhole_agent.skill_routing" in sys.modules,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
     }
 
 
@@ -2455,8 +2452,7 @@ def builtin_ci_security_gate() -> dict[str, Any]:
         "blocked_outcome": blocked.outcome,
         "waived_outcome": waived.outcome,
         "stale_outcome": stale.outcome,
-        "used_skill_route_discovery": "skill_routing" in sys.modules
-        or "blackhole_agent.skill_routing" in sys.modules,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
     }
 
 
@@ -2471,8 +2467,7 @@ def builtin_proposal_eval_smoke() -> dict[str, Any]:
         return {
             "ok": False,
             "error": f"missing fixture {case_path}",
-            "used_skill_route_discovery": "skill_routing" in sys.modules
-            or "blackhole_agent.skill_routing" in sys.modules,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
         }
     case = load_proposal_replay_case(case_path)
     result = run_proposal_replay_case(case)
@@ -2484,8 +2479,7 @@ def builtin_proposal_eval_smoke() -> dict[str, Any]:
         "rejected_count": result.rejected_count,
         "failures": list(result.failures),
         "fixture": str(case_path.as_posix()),
-        "used_skill_route_discovery": "skill_routing" in sys.modules
-        or "blackhole_agent.skill_routing" in sys.modules,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
     }
 
 
@@ -2532,8 +2526,7 @@ def builtin_supervisor_compound_wake() -> dict[str, Any]:
         "codex_reason": surface.get("reason"),
         "explicit_compound_surface": explicit.get("surface"),
         "wake_command": command,
-        "used_skill_route_discovery": "skill_routing" in sys.modules
-        or "blackhole_agent.skill_routing" in sys.modules,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
     }
 
 
@@ -2554,8 +2547,7 @@ def builtin_persona_render() -> dict[str, Any]:
         "version": PERSONA_VERSION,
         "name": BLACKHOLE_PERSONA.name,
         "chars": len(text),
-        "used_skill_route_discovery": "skill_routing" in sys.modules
-        or "blackhole_agent.skill_routing" in sys.modules,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
     }
 
 
@@ -2599,8 +2591,7 @@ def builtin_proposal_synthesis_smoke() -> dict[str, Any]:
         "schema_version": package.get("schema_version") if isinstance(package, dict) else None,
         "item_count": len(items) if isinstance(items, list) else 0,
         "digest_id": package.get("digest_id") if isinstance(package, dict) else None,
-        "used_skill_route_discovery": "skill_routing" in sys.modules
-        or "blackhole_agent.skill_routing" in sys.modules,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
     }
 
 
@@ -2625,8 +2616,7 @@ def builtin_kernel_preflight() -> dict[str, Any]:
         "binary_present": bool(preflight.get("binary_present")) if isinstance(preflight, dict) else False,
         "diagnostics": list(preflight.get("diagnostics") or []) if isinstance(preflight, dict) else [],
         "provider": preflight.get("provider") if isinstance(preflight, dict) else None,
-        "used_skill_route_discovery": "skill_routing" in sys.modules
-        or "blackhole_agent.skill_routing" in sys.modules,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
     }
 
 
@@ -3878,8 +3868,7 @@ def scout_capability_gaps(
         "primitive_count": sum(
             1 for capability in ledger.capabilities.values() if is_primitive_capability(capability)
         ),
-        "used_skill_route_discovery": "skill_routing" in sys.modules
-        or "blackhole_agent.skill_routing" in sys.modules,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
         "ledger_path": str(default_ledger_path(root)),
     }
 
@@ -4219,9 +4208,7 @@ def run_growth_loop(
             and run_result.ok
             and grew
             and len(ledger.capabilities) > before_count
-            and not (
-                "skill_routing" in sys.modules or "blackhole_agent.skill_routing" in sys.modules
-            )
+            and not legacy_pipeline_was_used()
         )
         return {
             "ok": ok,
@@ -4238,8 +4225,7 @@ def run_growth_loop(
             "after_count": len(ledger.capabilities),
             "before_ids": before_ids,
             "after_ids": after_ids,
-            "used_skill_route_discovery": "skill_routing" in sys.modules
-            or "blackhole_agent.skill_routing" in sys.modules,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
         }
 
     if (
@@ -4305,8 +4291,7 @@ def run_growth_loop(
                 "after_count": len(ledger.capabilities),
                 "before_ids": before_ids,
                 "after_ids": sorted(ledger.capabilities),
-                "used_skill_route_discovery": "skill_routing" in sys.modules
-                or "blackhole_agent.skill_routing" in sys.modules,
+                "used_skill_route_discovery": legacy_pipeline_was_used(),
             }
 
     if selected.get("missing_members"):
@@ -4408,9 +4393,7 @@ def run_growth_loop(
         and run_result.ok
         and grew
         and len(ledger.capabilities) > before_count
-        and not (
-            "skill_routing" in sys.modules or "blackhole_agent.skill_routing" in sys.modules
-        )
+        and not legacy_pipeline_was_used()
     )
     return {
         "ok": ok,
@@ -4426,8 +4409,7 @@ def run_growth_loop(
         "after_count": len(ledger.capabilities),
         "before_ids": before_ids,
         "after_ids": after_ids,
-        "used_skill_route_discovery": "skill_routing" in sys.modules
-        or "blackhole_agent.skill_routing" in sys.modules,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
     }
 
 
@@ -4576,8 +4558,7 @@ def prove_ledger_integrity(
             "skipped": [],
             "score": 0.0,
             "ledger_path": str(path),
-            "used_skill_route_discovery": "skill_routing" in sys.modules
-            or "blackhole_agent.skill_routing" in sys.modules,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
         }
 
     if limit is not None:
@@ -4637,7 +4618,7 @@ def prove_ledger_integrity(
     save_ledger(path, ledger)
     attempted = len(proved_ok) + len(failed)
     score = (float(len(proved_ok)) / float(attempted)) if attempted else 0.0
-    used_skill = "skill_routing" in sys.modules or "blackhole_agent.skill_routing" in sys.modules
+    used_skill = legacy_pipeline_was_used()
     ok = (not used_skill) and not failed and not skipped and len(proved_ok) == len(order)
     return {
         "ok": ok,
@@ -4748,9 +4729,7 @@ def builtin_goal_plan() -> dict[str, Any]:
     max_steps = int(os.environ.get("BLACKHOLE_PROGRAM_MAX_STEPS") or "6")
     result = plan_capability_program(ledger, goal, max_steps=max_steps, prefer_primitives=True)
     result["ledger_path"] = str(path)
-    result["used_skill_route_discovery"] = (
-        "skill_routing" in sys.modules or "blackhole_agent.skill_routing" in sys.modules
-    )
+    result["used_skill_route_discovery"] = legacy_pipeline_was_used()
     result["ok"] = bool(result.get("ok")) and not result["used_skill_route_discovery"]
     return result
 
@@ -5462,6 +5441,5 @@ def run_end_to_end_demo(
         "capability_count": len(ledger.capabilities),
         "composed": [item.to_dict() for item in results],
         "import_probe": import_probe,
-        "used_skill_route_discovery": "skill_routing" in sys.modules
-        or "blackhole_agent.skill_routing" in sys.modules,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
     }

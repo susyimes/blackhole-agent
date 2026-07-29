@@ -12246,7 +12246,7 @@ def test_skill_route_discovery_local_comparison_blocks_when_skill_first_missing(
     assert comparison["runtime_action"] == "none"
 
 
-def test_build_digest_attaches_skill_route_discovery_capability_pipeline_for_current_window():
+def test_build_digest_redirects_skill_route_pipeline_when_compounder_is_ready():
     signals = [
         GrowthSignal(
             event_id="trend:lingbol088-spec/reverse-flow-skill-2",
@@ -12296,12 +12296,9 @@ def test_build_digest_attaches_skill_route_discovery_capability_pipeline_for_cur
     pipeline = digest["skill_route_discovery_capability_pipeline"]
     markdown = render_markdown_digest(digest)
 
-    assert pipeline["controller_surface"] == "skill_route_discovery_capability_pipeline"
-    assert pipeline["selected_step"]["route_class"] in {
-        "skill_route_discovery",
-        "privacy_boundary_review_only",
-        "none",
-    }
+    assert pipeline["controller_surface"] == "capability_compounder_redirect"
+    assert pipeline["selected_step"]["route_class"] == "capability_compounder"
+    assert pipeline["skill_route_pin_cascade_frozen"] is True
     assert "## Skill Route Discovery Capability Pipeline" in markdown
     assert "https://github.com/lingbol088-spec/reverse-flow-skill" not in json.dumps(pipeline)
 
