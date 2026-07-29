@@ -2757,7 +2757,39 @@ ADJACENT_HARNESS_EVAL_VALIDATION_COMMAND = (
 
 
 def attach_skill_route_discovery_capability_pipeline(digest: dict[str, Any]) -> dict[str, Any]:
-    """Attach the operator-visible skill-route capability pipeline for this digest."""
+    """Attach the operator-visible skill-route capability pipeline for this digest.
+
+    When a durable Capability Compounder ledger is ready, redirect away from the
+    nested skill-route pin/cascade packaging and point supervisor next action at
+    capability prove/compose instead.
+    """
+
+    from blackhole_agent.evolution_route import (
+        build_skill_route_compounder_redirect_pipeline,
+        should_redirect_skill_route_pipeline,
+    )
+
+    repo_hint = digest.get("repo_path") or digest.get("workspace_path") or digest.get("repository_path")
+    repo_path = Path(str(repo_hint)).resolve() if repo_hint else Path.cwd()
+    prefer_flag = digest.get("prefer_capability_compounder")
+    prefer: bool | None
+    if prefer_flag is None:
+        prefer = None
+    else:
+        prefer = bool(prefer_flag)
+    if should_redirect_skill_route_pipeline(repo_path, prefer_capability_compounder=prefer):
+        pipeline = build_skill_route_compounder_redirect_pipeline(
+            proposals=list(digest.get("proposals") or []),
+            theme_window=digest.get("capability_theme_window")
+            if isinstance(digest.get("capability_theme_window"), dict)
+            else {},
+            source_digest=str(digest.get("digest_id") or ""),
+            repo_path=repo_path,
+        )
+        digest["skill_route_discovery_capability_pipeline"] = pipeline
+        digest["evolution_surface"] = pipeline.get("evolution_surface")
+        digest["supervisor_next_action"] = pipeline.get("supervisor_next_action")
+        return digest
 
     pipeline = build_skill_route_discovery_capability_pipeline(
         list(digest.get("proposals") or []),
@@ -2767,6 +2799,7 @@ def attach_skill_route_discovery_capability_pipeline(digest: dict[str, Any]) -> 
         items=list(digest.get("items") or []),
     )
     digest["skill_route_discovery_capability_pipeline"] = pipeline
+    digest.setdefault("evolution_surface", "skill_route_discovery_capability_pipeline")
     return digest
 
 

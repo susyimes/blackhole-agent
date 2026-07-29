@@ -25,11 +25,48 @@ from typing import Any, Callable, Iterator
 import typer
 from rich.console import Console
 
+from blackhole_agent.capability_compounder import (
+    Capability,
+    absorb_domain_surface,
+    absorb_second_wave_domains,
+    capability_from_milestone,
+    compose_capabilities,
+    default_ledger_path,
+    ensure_seeded_ledger,
+    evaluate_outcome_contract,
+    ledger_prompt_summary,
+    load_ledger,
+    parse_outcome_contract,
+    plan_capability_program,
+    promote_composition,
+    prove_capability,
+    prove_ledger_integrity,
+    register_capability,
+    run_adaptive_growth,
+    run_autonomic_cycle,
+    run_capability,
+    run_capability_program,
+    run_contract_plane,
+    run_distill_ledger,
+    run_end_to_end_demo,
+    run_growth_loop,
+    run_mission_plane,
+    save_ledger,
+    scout_capability_gaps,
+    scout_frontier_novelty,
+    slugify_capability_id,
+)
 from blackhole_agent.kernels.codex_cli import CodexCliConfig, CodexCliKernel
 from blackhole_agent.kernels.grok_cli import GrokCliConfig, GrokCliKernel
 
 
 app = typer.Typer(rich_markup_mode="rich", add_completion=False)
+capability_app = typer.Typer(
+    rich_markup_mode="rich",
+    add_completion=False,
+    help="Durable capability ledger: register, prove, run, and compose compounded abilities.",
+)
+app.add_typer(capability_app, name="capability")
 console = Console(highlight=False)
 
 SCHEMA_VERSION = 1
@@ -659,6 +696,21 @@ def repository_snapshot(
     }
 
 
+def capability_ledger_for_prompt(workspace: Path) -> str:
+    """Load the in-repo capability ledger for turn context, seeding if needed."""
+
+    try:
+        ledger_path = default_ledger_path(workspace)
+        if ledger_path.exists():
+            ledger = load_ledger(ledger_path)
+        else:
+            # Prefer empty summary when the ledger has not been created yet.
+            return "(no capability ledger at capabilities/ledger.json yet)"
+        return ledger_prompt_summary(ledger)
+    except Exception as error:  # pragma: no cover - defensive prompt path
+        return f"(capability ledger unavailable: {error})"
+
+
 def build_turn_prompt(state: UnboundMission, snapshot: dict[str, Any], *, state_path: Path) -> str:
     """Render compact, outcome-oriented context for one continuing turn."""
 
@@ -684,6 +736,7 @@ def build_turn_prompt(state: UnboundMission, snapshot: dict[str, Any], *, state_
         }
         for item in state.recent_turns[-RECENT_TURN_LIMIT:]
     ]
+    ledger_block = capability_ledger_for_prompt(Path(state.workspace_path))
     prompt = f"""You are Blackhole Unbound, the single long-running agent responsible for this mission.
 
 There are no child agents in this version. Do not spawn, delegate to, fork, or simulate subagents. Work directly.
@@ -711,6 +764,11 @@ git diff --stat
 
 recent commits
 {snapshot.get("recent_commits") or "(none)"}
+```
+
+Compounded capability ledger (durable, invocable; prefer growing this over legacy skill-route paperwork):
+```json
+{ledger_block}
 ```
 
 Recent mission turns:
@@ -914,6 +972,8 @@ def evaluate_milestone(
     decision: TurnDecision,
     *,
     changed_paths: list[str],
+    workspace: Path | None = None,
+    mission_done_when: str = "",
 ) -> MilestoneGate:
     requested = decision.status in {"milestone", "complete"}
     behavior_paths = [path for path in changed_paths if is_behavior_path(path)]
@@ -938,6 +998,29 @@ def evaluate_milestone(
         reasons.append("no successful exact validation command was reported")
     if decision.status == "complete" and not decision.done_when_met:
         reasons.append("complete was requested but done_when_met is false")
+    # When done_when is machine-checkable, refuse complete unless live predicates pass.
+    if decision.status == "complete" and workspace is not None:
+        contract_text = (mission_done_when or decision.done_when or "").strip()
+        if contract_text:
+            try:
+                parsed = parse_outcome_contract(contract_text)
+                if parsed.get("machine_checkable"):
+                    verdict = evaluate_outcome_contract(
+                        workspace,
+                        contract_text,
+                        run_programs=False,
+                        timeout=90,
+                    )
+                    if verdict.get("met") is not True:
+                        failed = verdict.get("failed") or []
+                        detail = ", ".join(
+                            f"{item.get('kind')}:{item.get('arg')}" for item in failed[:4]
+                        ) or "unknown"
+                        reasons.append(
+                            f"machine-checkable done_when failed ({detail})"
+                        )
+            except Exception as error:  # pragma: no cover - defensive gate
+                reasons.append(f"outcome-contract evaluation error: {error}")
     return MilestoneGate(
         requested=True,
         accepted=not reasons,
@@ -953,6 +1036,55 @@ def semantic_commit_message(decision: TurnDecision, milestone_number: int) -> st
     if len(first_line) > 88:
         first_line = first_line[:85].rstrip() + "..."
     return f"Blackhole unbound milestone {milestone_number}: {first_line or 'capability increment'}"
+
+
+def register_milestone_capability(
+    *,
+    workspace: Path,
+    mission_id: str,
+    milestone_number: int,
+    decision: TurnDecision,
+    behavior_paths: tuple[str, ...],
+) -> str:
+    """Compound an accepted milestone into the durable capability ledger when possible.
+
+    Uses the first successful validation command as both entry and proof. Failures
+    are non-fatal: the milestone still counts; compounding is best-effort growth.
+    """
+
+    proof = ""
+    for item in decision.validation:
+        command = str(item.get("command") or "").strip()
+        if command and item.get("exit_code") == 0:
+            proof = command
+            break
+    if not proof or not decision.capability_delta:
+        return ""
+    capability_id = slugify_capability_id(
+        f"m{milestone_number}-{decision.capability_delta}",
+        limit=56,
+    )
+    capability = capability_from_milestone(
+        capability_id=capability_id,
+        name=decision.capability_delta[:80] or capability_id,
+        description=decision.summary or decision.capability_delta,
+        capability_delta=decision.capability_delta,
+        proof_command=proof,
+        entry=proof,
+        kind="command",
+        behavior_paths=behavior_paths,
+        mission_id=mission_id,
+        milestone_number=milestone_number,
+        tags=("unbound-milestone",),
+    )
+    try:
+        ledger_path = default_ledger_path(workspace)
+        ledger = load_ledger(ledger_path)
+        register_capability(ledger, capability, replace=capability_id in ledger.capabilities)
+        save_ledger(ledger_path, ledger)
+    except Exception:
+        return ""
+    return capability_id
 
 
 def commit_milestone(
@@ -1088,7 +1220,12 @@ def run_unbound_turn(
             state.last_milestone_head,
             command_runner=command_runner,
         )
-        gate = evaluate_milestone(decision, changed_paths=changed_paths)
+        gate = evaluate_milestone(
+            decision,
+            changed_paths=changed_paths,
+            workspace=workspace,
+            mission_done_when=state.done_when,
+        )
         effective_status = decision.status
         commit_sha = ""
         milestone_number = state.milestone_count + 1
@@ -1122,6 +1259,15 @@ def run_unbound_turn(
                     "capability_delta": decision.capability_delta,
                     "outcome_evidence": list(decision.outcome_evidence),
                 }
+                registered_capability_id = register_milestone_capability(
+                    workspace=workspace,
+                    mission_id=state.mission_id,
+                    milestone_number=milestone_number,
+                    decision=decision,
+                    behavior_paths=gate.behavior_paths,
+                )
+                if registered_capability_id:
+                    milestone["capability_id"] = registered_capability_id
                 state.milestones.append(milestone)
                 append_jsonl(
                     state_path.parent / "events.jsonl",
@@ -1982,6 +2128,682 @@ def stop(
     except (ValueError, FileNotFoundError) as error:
         raise typer.BadParameter(str(error)) from error
     console.print(f"stopped {state.mission_id}")
+
+
+@capability_app.command("seed", help="Install bootstrap capabilities into the durable ledger.")
+def capability_seed(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+) -> None:
+    path, ledger = ensure_seeded_ledger(repo_path.resolve())
+    console.print_json(
+        data={
+            "ledger_path": str(path),
+            "count": len(ledger.capabilities),
+            "ids": sorted(ledger.capabilities),
+        }
+    )
+
+
+@capability_app.command("list", help="List compounded capabilities in the durable ledger.")
+def capability_list(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+) -> None:
+    path = default_ledger_path(repo_path.resolve())
+    ledger = load_ledger(path)
+    rows = [
+        {
+            "id": item.id,
+            "name": item.name,
+            "kind": item.kind,
+            "dependencies": list(item.dependencies),
+            "last_proof_exit_code": item.last_proof_exit_code,
+            "capability_delta": item.capability_delta,
+        }
+        for item in sorted(ledger.capabilities.values(), key=lambda value: value.id)
+    ]
+    console.print_json(data={"ledger_path": str(path), "count": len(rows), "capabilities": rows})
+
+
+@capability_app.command("show", help="Show one capability record.")
+def capability_show(
+    capability_id: str = typer.Argument(..., help="Capability id."),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+) -> None:
+    path = default_ledger_path(repo_path.resolve())
+    ledger = load_ledger(path)
+    capability = ledger.capabilities.get(capability_id)
+    if capability is None:
+        console.print(f"Unknown capability: {capability_id}", style="red")
+        raise typer.Exit(1)
+    console.print_json(data=capability.to_dict())
+
+
+@capability_app.command("register", help="Register or replace a capability in the durable ledger.")
+def capability_register(
+    capability_id: str = typer.Option(..., "--id", help="Stable capability id."),
+    name: str = typer.Option(..., "--name", help="Human-readable name."),
+    entry: str = typer.Option(..., "--entry", help="Shell command or module:function."),
+    proof_command: str = typer.Option(..., "--proof", help="Exact proof command that must exit 0."),
+    kind: str = typer.Option("command", "--kind", help="command or python."),
+    description: str = typer.Option("", "--description", help="What the capability does."),
+    capability_delta: str = typer.Option("", "--delta", help="Demonstrated ability summary."),
+    depends_on: str = typer.Option("", "--depends-on", help="Comma-separated dependency ids."),
+    behavior_paths: str = typer.Option("", "--behavior-paths", help="Comma-separated behavior paths."),
+    tags: str = typer.Option("", "--tags", help="Comma-separated tags."),
+    replace: bool = typer.Option(False, "--replace", help="Replace an existing capability id."),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+) -> None:
+    deps = tuple(part.strip() for part in depends_on.split(",") if part.strip())
+    paths = tuple(part.strip() for part in behavior_paths.split(",") if part.strip())
+    tag_values = tuple(part.strip() for part in tags.split(",") if part.strip())
+    capability = Capability(
+        id=capability_id,
+        name=name,
+        description=description or name,
+        kind=kind,
+        entry=entry,
+        proof_command=proof_command,
+        dependencies=deps,
+        behavior_paths=paths,
+        capability_delta=capability_delta or description or name,
+        tags=tag_values,
+    )
+    path = default_ledger_path(repo_path.resolve())
+    try:
+        ledger = load_ledger(path)
+        register_capability(ledger, capability, replace=replace)
+        save_ledger(path, ledger)
+    except (ValueError, OSError) as error:
+        console.print(f"Register failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data={"ledger_path": str(path), "capability": capability.to_dict()})
+
+
+@capability_app.command("prove", help="Run proof_command for one capability (and its dependencies).")
+def capability_prove(
+    capability_id: str = typer.Argument(..., help="Capability id."),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    timeout_seconds: int = typer.Option(120, "--timeout-seconds", min=1),
+) -> None:
+    root = repo_path.resolve()
+    path = default_ledger_path(root)
+    ledger = load_ledger(path)
+    if capability_id not in ledger.capabilities:
+        console.print(f"Unknown capability: {capability_id}", style="red")
+        raise typer.Exit(1)
+    try:
+        ledger, result = prove_capability(
+            ledger,
+            capability_id,
+            cwd=root,
+            timeout=timeout_seconds,
+        )
+        save_ledger(path, ledger)
+    except Exception as error:
+        console.print(f"Prove failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result.to_dict())
+    if not result.ok:
+        raise typer.Exit(result.exit_code or 1)
+
+
+@capability_app.command("run", help="Execute one capability entry.")
+def capability_run(
+    capability_id: str = typer.Argument(..., help="Capability id."),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    timeout_seconds: int = typer.Option(120, "--timeout-seconds", min=1),
+    prove_first: bool = typer.Option(True, "--prove-first/--no-prove-first"),
+) -> None:
+    root = repo_path.resolve()
+    path = default_ledger_path(root)
+    ledger = load_ledger(path)
+    capability = ledger.capabilities.get(capability_id)
+    if capability is None:
+        console.print(f"Unknown capability: {capability_id}", style="red")
+        raise typer.Exit(1)
+    if prove_first:
+        ledger, proof = prove_capability(ledger, capability_id, cwd=root, timeout=timeout_seconds)
+        save_ledger(path, ledger)
+        if not proof.ok:
+            console.print_json(data=proof.to_dict())
+            raise typer.Exit(proof.exit_code or 1)
+    result = run_capability(capability, cwd=root, timeout=timeout_seconds, use_proof=False)
+    console.print_json(data=result.to_dict())
+    if not result.ok:
+        raise typer.Exit(result.exit_code or 1)
+
+
+@capability_app.command("compose", help="Prove and run a dependency-ordered capability chain.")
+def capability_compose(
+    capability_ids: str = typer.Argument(..., help="Comma-separated capability ids."),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    timeout_seconds: int = typer.Option(120, "--timeout-seconds", min=1),
+    prove_first: bool = typer.Option(True, "--prove-first/--no-prove-first"),
+) -> None:
+    root = repo_path.resolve()
+    path = default_ledger_path(root)
+    ledger = load_ledger(path)
+    ids = [part.strip() for part in capability_ids.split(",") if part.strip()]
+    try:
+        results = compose_capabilities(
+            ledger,
+            ids,
+            cwd=root,
+            timeout=timeout_seconds,
+            prove_first=prove_first,
+        )
+        save_ledger(path, ledger)
+    except (KeyError, ValueError) as error:
+        console.print(f"Compose failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    payload = {
+        "ok": all(item.ok for item in results),
+        "results": [item.to_dict() for item in results],
+    }
+    console.print_json(data=payload)
+    if not payload["ok"]:
+        raise typer.Exit(1)
+
+
+@capability_app.command("demo", help="End-to-end bootstrap: seed, prove, and compose without skill-route imports.")
+def capability_demo(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    timeout_seconds: int = typer.Option(120, "--timeout-seconds", min=1),
+) -> None:
+    try:
+        result = run_end_to_end_demo(repo_path.resolve(), timeout=timeout_seconds)
+    except Exception as error:
+        console.print(f"Demo failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "scout",
+    help="Scout the ledger for composition and domain-surface growth opportunities.",
+)
+def capability_scout(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+) -> None:
+    root = repo_path.resolve()
+    path, ledger = ensure_seeded_ledger(root)
+    result = scout_capability_gaps(ledger, repo_path=root)
+    result["ledger_path"] = str(path)
+    console.print_json(data=result)
+    if not result.get("ok"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "absorb",
+    help="Absorb a catalogued domain package surface into the durable capability ledger.",
+)
+def capability_absorb(
+    surface_id: str = typer.Argument(
+        ...,
+        help="Domain surface id (e.g. domain.local-memory, domain.tool-routing).",
+    ),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    replace: bool = typer.Option(False, "--replace", help="Replace an existing capability id."),
+    prove: bool = typer.Option(True, "--prove/--no-prove", help="Prove after absorption."),
+    timeout_seconds: int = typer.Option(120, "--timeout-seconds", min=1),
+) -> None:
+    root = repo_path.resolve()
+    path, ledger = ensure_seeded_ledger(root)
+    try:
+        ledger, absorbed = absorb_domain_surface(ledger, surface_id, replace=replace)
+        save_ledger(path, ledger)
+        proof_payload: dict[str, Any] | None = None
+        if prove:
+            ledger, proof = prove_capability(
+                ledger,
+                absorbed.id,
+                cwd=root,
+                timeout=timeout_seconds,
+            )
+            save_ledger(path, ledger)
+            proof_payload = proof.to_dict()
+            if not proof.ok:
+                console.print_json(
+                    data={
+                        "ok": False,
+                        "ledger_path": str(path),
+                        "absorbed": absorbed.to_dict(),
+                        "proof": proof_payload,
+                    }
+                )
+                raise typer.Exit(proof.exit_code or 1)
+    except (KeyError, ValueError, OSError) as error:
+        console.print(f"Absorb failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(
+        data={
+            "ok": True,
+            "ledger_path": str(path),
+            "absorbed": absorbed.to_dict(),
+            "proof": proof_payload,
+        }
+    )
+
+
+@capability_app.command(
+    "promote",
+    help="Promote a multi-capability composition into one durable invocable capability.",
+)
+def capability_promote(
+    members: str = typer.Argument(..., help="Comma-separated member capability ids."),
+    capability_id: str = typer.Option("", "--id", help="Optional id for the promoted capability."),
+    name: str = typer.Option("", "--name", help="Optional human-readable name."),
+    replace: bool = typer.Option(False, "--replace", help="Replace an existing promoted id."),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    prove: bool = typer.Option(True, "--prove/--no-prove", help="Prove after promotion."),
+    timeout_seconds: int = typer.Option(120, "--timeout-seconds", min=1),
+) -> None:
+    root = repo_path.resolve()
+    path, ledger = ensure_seeded_ledger(root)
+    member_ids = [part.strip() for part in members.split(",") if part.strip()]
+    try:
+        ledger, promoted = promote_composition(
+            ledger,
+            member_ids,
+            capability_id=capability_id or None,
+            name=name or None,
+            replace=replace,
+        )
+        save_ledger(path, ledger)
+        proof_payload: dict[str, Any] | None = None
+        if prove:
+            ledger, proof = prove_capability(
+                ledger,
+                promoted.id,
+                cwd=root,
+                timeout=timeout_seconds,
+            )
+            save_ledger(path, ledger)
+            proof_payload = proof.to_dict()
+            if not proof.ok:
+                console.print_json(
+                    data={
+                        "ok": False,
+                        "ledger_path": str(path),
+                        "promoted": promoted.to_dict(),
+                        "proof": proof_payload,
+                    }
+                )
+                raise typer.Exit(proof.exit_code or 1)
+    except (ValueError, KeyError, OSError) as error:
+        console.print(f"Promote failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(
+        data={
+            "ok": True,
+            "ledger_path": str(path),
+            "promoted": promoted.to_dict(),
+            "proof": proof_payload,
+        }
+    )
+
+
+@capability_app.command(
+    "grow",
+    help=(
+        "Closed growth loop: scout → absorb domain or promote composition → prove "
+        "(no skill-route). Use --budget >1 for adaptive multi-step growth until stall."
+    ),
+)
+def capability_grow(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    recipe_id: str = typer.Option("", "--recipe-id", help="Optional known recipe id to promote."),
+    budget: int = typer.Option(
+        1,
+        "--budget",
+        min=1,
+        help="Growth steps to attempt. budget=1 is single-step; >1 runs adaptive multi-grow.",
+    ),
+    timeout_seconds: int = typer.Option(180, "--timeout-seconds", min=1),
+) -> None:
+    try:
+        if budget > 1 and recipe_id:
+            console.print(
+                "Grow with --budget>1 ignores --recipe-id and adapts across the frontier.",
+                style="yellow",
+            )
+        if budget > 1:
+            result = run_adaptive_growth(
+                repo_path.resolve(),
+                budget=budget,
+                timeout=timeout_seconds,
+            )
+        else:
+            result = run_growth_loop(
+                repo_path.resolve(),
+                timeout=timeout_seconds,
+                recipe_id=recipe_id or None,
+            )
+    except Exception as error:
+        console.print(f"Grow failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "integrity",
+    help="Batch-prove the durable ledger DAG in topological order and report integrity score.",
+)
+def capability_integrity(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    limit: int = typer.Option(
+        0,
+        "--limit",
+        min=0,
+        help="Max capabilities to prove in topo order (0 = all).",
+    ),
+    timeout_seconds: int = typer.Option(120, "--timeout-seconds", min=1),
+) -> None:
+    try:
+        result = prove_ledger_integrity(
+            repo_path.resolve(),
+            timeout=timeout_seconds,
+            limit=None if limit == 0 else limit,
+        )
+    except Exception as error:
+        console.print(f"Integrity failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "novelty",
+    help=(
+        "Rank growth frontiers by primitive-coverage novelty "
+        "(prefers new domain combinations over identical-leaf superstacks)."
+    ),
+)
+def capability_novelty(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+) -> None:
+    try:
+        path, ledger = ensure_seeded_ledger(repo_path.resolve())
+        result = scout_frontier_novelty(ledger, repo_path=repo_path.resolve())
+        result["ledger_path"] = str(path)
+    except Exception as error:
+        console.print(f"Novelty scout failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "distill",
+    help=(
+        "Distill redundant composed capabilities that share identical primitive coverage. "
+        "Default soft-tags non-champions; --remove drops synthesized/meta/superstack losers."
+    ),
+)
+def capability_distill(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    remove: bool = typer.Option(
+        False,
+        "--remove",
+        help="Hard-remove redundant synthesized stacks instead of only tagging them.",
+    ),
+) -> None:
+    try:
+        result = run_distill_ledger(repo_path.resolve(), remove=remove, only_synthesized=True)
+    except Exception as error:
+        console.print(f"Distill failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "autonomic",
+    help=(
+        "Autonomic cycle: novelty-aware adaptive grow → distill redundant stacks → "
+        "integrity prove (no skill-route)."
+    ),
+)
+def capability_autonomic(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    budget: int = typer.Option(3, "--budget", min=1, help="Adaptive growth steps."),
+    integrity_limit: int = typer.Option(
+        10,
+        "--integrity-limit",
+        min=1,
+        help="Topo-prefix size for integrity prove.",
+    ),
+    remove: bool = typer.Option(
+        False,
+        "--remove",
+        help="Hard-remove redundant stacks during distill phase.",
+    ),
+    timeout_seconds: int = typer.Option(180, "--timeout-seconds", min=1),
+) -> None:
+    try:
+        result = run_autonomic_cycle(
+            repo_path.resolve(),
+            budget=budget,
+            distill_remove=remove,
+            integrity_limit=integrity_limit,
+            timeout=timeout_seconds,
+        )
+    except Exception as error:
+        console.print(f"Autonomic cycle failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "plan",
+    help="Plan a multi-step capability program for a free-text goal (mission plane planner).",
+)
+def capability_plan(
+    goal: str = typer.Argument(..., help="Free-text mission goal to compile into capability steps."),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    max_steps: int = typer.Option(6, "--max-steps", min=1, help="Maximum program length."),
+) -> None:
+    try:
+        path, ledger = ensure_seeded_ledger(repo_path.resolve())
+        result = plan_capability_program(ledger, goal, max_steps=max_steps, prefer_primitives=True)
+        result["ledger_path"] = str(path)
+        result["used_skill_route_discovery"] = False
+    except Exception as error:
+        console.print(f"Plan failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "program",
+    help="Run an ordered multi-step capability program (comma-separated ids or planned steps).",
+)
+def capability_program(
+    steps: str = typer.Argument(
+        "",
+        help="Comma-separated capability ids. Empty uses a core health default program.",
+    ),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    prove_first: bool = typer.Option(False, "--prove-first", help="Prove each step before run."),
+    timeout_seconds: int = typer.Option(120, "--timeout-seconds", min=1),
+) -> None:
+    try:
+        ordered = [part.strip() for part in steps.split(",") if part.strip()] if steps.strip() else [
+            "repo.import-health",
+            "capability.ledger-inventory",
+            "unbound.milestone-gate",
+        ]
+        result = run_capability_program(
+            repo_path.resolve(),
+            ordered,
+            timeout=timeout_seconds,
+            prove_first=prove_first,
+        )
+    except Exception as error:
+        console.print(f"Program run failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "second-wave",
+    help="Absorb ready second-wave domain primitives (persona, proposal synthesis, kernel, …).",
+)
+def capability_second_wave(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    limit: int = typer.Option(8, "--limit", min=1, help="Max surfaces to absorb."),
+    timeout_seconds: int = typer.Option(120, "--timeout-seconds", min=1),
+) -> None:
+    try:
+        result = absorb_second_wave_domains(
+            repo_path.resolve(),
+            prove=True,
+            limit=limit,
+            timeout=timeout_seconds,
+        )
+    except Exception as error:
+        console.print(f"Second-wave absorb failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "mission-plane",
+    help=(
+        "Mission plane: absorb second-wave primitives → plan goal program → run → "
+        "novel-only grow (escapes zero-novelty superstack stall)."
+    ),
+)
+def capability_mission_plane(
+    goal: str = typer.Option(
+        "second-wave identity persona proposal kernel health",
+        "--goal",
+        help="Free-text mission goal for program planning.",
+    ),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    max_steps: int = typer.Option(5, "--max-steps", min=1, help="Program length cap."),
+    grow_budget: int = typer.Option(2, "--grow-budget", min=0, help="Novel-only growth steps after program."),
+    no_absorb: bool = typer.Option(False, "--no-absorb", help="Skip second-wave absorption."),
+    timeout_seconds: int = typer.Option(180, "--timeout-seconds", min=1),
+) -> None:
+    try:
+        result = run_mission_plane(
+            repo_path.resolve(),
+            goal,
+            max_steps=max_steps,
+            absorb_ready=not no_absorb,
+            grow_budget=grow_budget,
+            timeout=timeout_seconds,
+        )
+    except Exception as error:
+        console.print(f"Mission plane failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "contract",
+    help=(
+        "Parse and machine-check a done_when outcome contract against the live ledger "
+        "(metrics, proofs, optional programs)."
+    ),
+)
+def capability_contract(
+    done_when: str = typer.Argument(
+        ...,
+        help="Structured or free-text done_when (semicolon-separated predicates).",
+    ),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    run_programs: bool = typer.Option(
+        False,
+        "--run-programs",
+        help="Execute program_passes predicates instead of soft proof checks.",
+    ),
+    timeout_seconds: int = typer.Option(120, "--timeout-seconds", min=1),
+) -> None:
+    try:
+        result = evaluate_outcome_contract(
+            repo_path.resolve(),
+            done_when,
+            run_programs=run_programs,
+            timeout=timeout_seconds,
+        )
+    except Exception as error:
+        console.print(f"Outcome contract failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+    if result.get("machine_checkable") and result.get("met") is not True:
+        raise typer.Exit(2)
+
+
+@capability_app.command(
+    "contract-plane",
+    help=(
+        "Evidence plane: mission plane then machine-check done_when so completion is "
+        "ledger/program-backed, not free-text theater."
+    ),
+)
+def capability_contract_plane(
+    goal: str = typer.Option(
+        "health inventory milestone",
+        "--goal",
+        help="Free-text mission goal for program planning.",
+    ),
+    done_when: str = typer.Option(
+        (
+            "min_capabilities:10; min_primitives:8; capability_exists:capability.outcome-contract; "
+            "capability_proved:repo.import-health; program_passes:repo.import-health,"
+            "capability.ledger-inventory; no_skill_route; mission_plane_ok"
+        ),
+        "--done-when",
+        help="Machine-checkable done_when predicates.",
+    ),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    max_steps: int = typer.Option(3, "--max-steps", min=1, help="Program length cap."),
+    grow_budget: int = typer.Option(0, "--grow-budget", min=0, help="Novel-only growth after program."),
+    no_absorb: bool = typer.Option(False, "--no-absorb", help="Skip second-wave absorption."),
+    no_mission: bool = typer.Option(False, "--no-mission", help="Only evaluate contract (skip mission plane)."),
+    timeout_seconds: int = typer.Option(180, "--timeout-seconds", min=1),
+) -> None:
+    try:
+        result = run_contract_plane(
+            repo_path.resolve(),
+            goal,
+            done_when,
+            max_steps=max_steps,
+            absorb_ready=not no_absorb,
+            grow_budget=grow_budget,
+            run_mission=not no_mission,
+            timeout=timeout_seconds,
+        )
+    except Exception as error:
+        console.print(f"Contract plane failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+    if result.get("machine_checkable") and result.get("met") is not True:
+        raise typer.Exit(2)
 
 
 if __name__ == "__main__":

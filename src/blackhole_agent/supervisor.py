@@ -23,6 +23,11 @@ from typing import Any
 import typer
 from rich.console import Console
 
+from blackhole_agent.evolution_route import (
+    COMPOUND_SURFACE,
+    build_compound_wake_command,
+    resolve_supervisor_evolution_surface,
+)
 from blackhole_agent.kernels.codex_cli import CodexCliConfig, build_codex_provider_preflight, token_quality
 from blackhole_agent.kernels.grok_cli import GrokCliConfig, build_grok_provider_preflight
 from blackhole_agent.proposal_synthesis import DEFAULT_PROPOSAL_MODE, PROPOSAL_MODES
@@ -36,7 +41,7 @@ from blackhole_agent.tool_routing import (
 app = typer.Typer(rich_markup_mode="rich", add_completion=False)
 console = Console(highlight=False)
 
-SUPPORTED_EVOLUTION_MODES = {"digest", "plan", "codex"}
+SUPPORTED_EVOLUTION_MODES = {"digest", "plan", "codex", "compound"}
 DEFAULT_OUTPUT_DIR = Path(".blackhole-agent/supervisor")
 DEFAULT_HEALTH_COMMANDS: tuple[str, ...] = ("uv run pytest", "uv run ruff check .")
 DEFAULT_RESTART_EXIT_CODE = 75
@@ -48,6 +53,8 @@ DEFAULT_CLAUDE_SDK_PERMISSION_MODE = "auto"
 DEFAULT_SUPERVISOR_EXTRA_INSTRUCTION = (
     "Native supervisor note: this wake is one pass in an autonomous scheduled loop. "
     "Prefer coherent local improvements and size them by evidence, benefit, rollback coverage, and validation coverage rather than by smallness. "
+    "When a durable Capability Compounder ledger is ready, prefer capability prove/compose/register over skill_route_discovery "
+    "pin/cascade paperwork (continue_cascade / pin_call_next nesting). Grow invocable capabilities in capabilities/ledger.json. "
     "Use configured capabilities when they are needed and locally verifiable; allow broad local change sets when they remain auditable and keep only "
     "offensive behavior, abuse, unauthorized access, and privacy leakage review-only. "
     "When validation succeeds, leave the repository in a consistent state; the supervisor handles configured "
@@ -69,6 +76,7 @@ class SupervisorConfig:
     exit_on_failure: bool = False
     pass_timeout_seconds: int = 5400
     evolution_mode: str = "codex"
+    prefer_capability_compounder: bool = True
     kernel: str = "codex"
     repos: str = ""
     trend_query: str = "agent language:Python"
@@ -261,10 +269,24 @@ class SupervisorPassRecord:
     promotion_result: PromotionResult | None
 
 
+def resolve_wake_surface(config: SupervisorConfig, *, repo_path: Path | None = None) -> dict[str, Any]:
+    """Resolve whether this wake should use the compounder or legacy github_growth."""
+
+    child_repo_path = repo_path or config.repo_path
+    return resolve_supervisor_evolution_surface(
+        evolution_mode=config.evolution_mode,
+        repo_path=child_repo_path,
+        prefer_capability_compounder=config.prefer_capability_compounder,
+    )
+
+
 def build_wake_command(config: SupervisorConfig, *, repo_path: Path | None = None) -> list[str]:
     """Build the one-shot child command for a supervisor wake."""
 
     child_repo_path = repo_path or config.repo_path
+    surface = resolve_wake_surface(config, repo_path=child_repo_path)
+    if surface.get("surface") == COMPOUND_SURFACE or surface.get("effective_mode") == "compound":
+        return build_compound_wake_command(repo_path=child_repo_path, use_demo=True)
     command = [
         sys.executable,
         "-m",
@@ -366,9 +388,11 @@ def run_supervisor_loop(
     validate_supervisor_config(config)
     prepare_supervisor_output(config)
     write_json(config.resolved_output_dir / "supervisor-config.json", config_to_dict(config))
+    surface = resolve_wake_surface(config)
     console.print(
         f"blackhole supervisor waking every {config.interval_seconds}s; "
-        f"mode={config.evolution_mode}; output={config.resolved_output_dir}"
+        f"mode={config.evolution_mode}; effective={surface.get('effective_mode')}; "
+        f"surface={surface.get('surface')}; output={config.resolved_output_dir}"
     )
     if config.startup_health_check:
         startup_record = run_startup_health_check(config, command_runner=command_runner)
@@ -1157,7 +1181,7 @@ def validate_supervisor_config(config: SupervisorConfig) -> None:
     if config.restart_exit_code < 0:
         raise ValueError("restart_exit_code cannot be negative")
     if config.evolution_mode not in SUPPORTED_EVOLUTION_MODES:
-        raise ValueError("evolution_mode must be one of: digest, plan, codex")
+        raise ValueError("evolution_mode must be one of: digest, plan, codex, compound")
     if config.kernel not in {"codex", "grok"}:
         raise ValueError("kernel must be one of: codex, grok")
     if config.proposal_mode not in PROPOSAL_MODES:
@@ -1218,9 +1242,15 @@ def build_provider_config_preflight(
         allow_auto_mode=config.allow_claude_sdk_auto_permission_mode,
         env=environment,
     )
-    if config.evolution_mode == "codex" and config.kernel == "codex" and not codex_preflight["ok"]:
+    surface = resolve_supervisor_evolution_surface(
+        evolution_mode=config.evolution_mode,
+        repo_path=config.repo_path,
+        prefer_capability_compounder=config.prefer_capability_compounder,
+    )
+    effective_mode = str(surface.get("effective_mode") or config.evolution_mode)
+    if effective_mode == "codex" and config.kernel == "codex" and not codex_preflight["ok"]:
         diagnostics.extend(str(item) for item in codex_preflight["diagnostics"])
-    if config.evolution_mode == "codex" and config.kernel == "grok" and not grok_preflight["ok"]:
+    if effective_mode == "codex" and config.kernel == "grok" and not grok_preflight["ok"]:
         diagnostics.extend(str(item) for item in grok_preflight["diagnostics"])
     if not claude_sdk_preflight["ok"]:
         diagnostics.extend(str(item) for item in claude_sdk_preflight["diagnostics"])
@@ -1980,7 +2010,19 @@ def main(
     ),
     exit_on_failure: bool = typer.Option(False, "--exit-on-failure", help="Stop the supervisor after a failed pass."),
     pass_timeout_seconds: int = typer.Option(5400, "--pass-timeout-seconds", min=1, help="Timeout for one child pass."),
-    evolution_mode: str = typer.Option("codex", "--evolution-mode", help="One of: digest, plan, codex."),
+    evolution_mode: str = typer.Option(
+        "codex",
+        "--evolution-mode",
+        help="One of: digest, plan, codex, compound. compound runs Capability Compounder prove/compose.",
+    ),
+    prefer_capability_compounder: bool = typer.Option(
+        True,
+        "--prefer-capability-compounder/--prefer-legacy-growth",
+        help=(
+            "When the durable capability ledger is ready, redirect codex wakes to capability "
+            "compounder demo/compose instead of skill-route/github_growth pin-cascade evolution."
+        ),
+    ),
     kernel: str = typer.Option("codex", "--kernel", help="CLI kernel for proposal interpretation and mutation."),
     repos: str = typer.Option("", "--repos", "-r", help="Optional comma-separated repositories."),
     trend_query: str = typer.Option("agent language:Python", "--trend-query", help="GitHub trend search terms."),
@@ -2117,6 +2159,7 @@ def main(
         exit_on_failure=exit_on_failure,
         pass_timeout_seconds=pass_timeout_seconds,
         evolution_mode=evolution_mode,
+        prefer_capability_compounder=prefer_capability_compounder,
         kernel=kernel,
         repos=repos,
         trend_query=trend_query,

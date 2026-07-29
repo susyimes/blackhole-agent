@@ -84,6 +84,122 @@ Grok is configured with memory enabled, web search enabled, full workspace
 access, and `--no-subagents`. Codex runs with a durable JSON session and full
 access. Both session types are resumed on later turns.
 
+## Capability Compounder
+
+Accepted milestones can become durable, invocable capabilities stored in
+`capabilities/ledger.json`. The ledger is independent of the legacy
+`skill_route_discovery` pipeline. Operators and the Unbound agent can:
+
+```bash
+uv run blackhole-unbound capability seed
+uv run blackhole-unbound capability list
+uv run blackhole-unbound capability prove repo.import-health
+uv run blackhole-unbound capability compose repo.import-health,unbound.milestone-gate,capability.ledger-inventory
+uv run blackhole-unbound capability demo
+uv run blackhole-unbound capability scout
+uv run blackhole-unbound capability absorb domain.local-memory
+uv run blackhole-unbound capability promote repo.import-health,capability.ledger-inventory,unbound.milestone-gate
+uv run blackhole-unbound capability grow
+```
+
+Each capability has an `entry` (command or `module:function`), a
+`proof_command`, optional dependencies, and behavior-path provenance. Turn
+prompts inject a compact ledger summary so later turns can compound rather than
+re-derive the same ability. Milestone acceptance best-effort registers a
+capability when a successful validation command is present.
+
+### Growth loop (scout → absorb/promote → prove)
+
+The compounder can grow beyond bootstrap seeds without skill-route discovery:
+
+- `capability scout` ranks ready multi-capability recipes, absorbable domain
+  package surfaces (memory, tool routing, harness activation), and unproved ids.
+- `capability absorb` registers a catalogued domain module surface as a durable
+  invocable capability (filesystem-present, not skill-route derived).
+- `capability promote` materializes a member set as one durable python capability
+  whose entry re-composes its dependencies (`BLACKHOLE_CAPABILITY_ID`).
+- `capability grow` runs the closed loop once: scout a ready composition or
+  domain surface, absorb/promote it, prove and run the new capability, and
+  persist the larger ledger.
+
+When meta health compositions are exhausted, growth continues by absorbing
+domain surfaces and promoting multi-domain compositions (e.g.
+`capability.composed-domain-core`, then operational surfaces such as
+`domain.issue-triage`, `domain.ci-security`, `domain.proposal-eval` and
+`capability.composed-domain-ops`).
+
+After catalogued recipes and domain absorbs are promoted, scout synthesizes
+**dynamic multi-domain compositions** from absorbed domain leaves so growth
+does not plateau on re-prove-only. Multiple deterministic frontiers are ranked;
+promoting one dynamic unit does not exhaust the scout. Synthesized capabilities
+are tagged `dynamic` in addition to `composed`/`promoted`.
+
+When leaf and dynamic frontiers still leave room, scout promotes **hierarchical
+stacks**: compositions of already-promoted compositions (catalog pillars such as
+`capability.composed-stack-platform`, plus synthesized pillar pairs). These are
+tagged `hierarchical` and keep `capability grow` expanding past the domain-ops
+re-prove plateau without skill-route machinery.
+
+When first-order hierarchical stacks still leave room, scout promotes
+**meta-hierarchical** stack-of-stacks (tagged `meta`), then **third-order
+superstacks** pairing meta units (`capability.composed-super-*`, tagged
+`superstack`) so growth does not die on re-prove after meta recipes exhaust.
+
+Operators can also:
+
+```bash
+uv run blackhole-unbound capability grow --budget 8
+uv run blackhole-unbound capability integrity
+uv run blackhole-unbound capability integrity --limit 16
+```
+
+- `capability grow --budget N` runs adaptive multi-step growth until the budget
+  is exhausted or no ready frontier remains (domain absorb, dynamic, hierarchical,
+  meta, superstack). Scout ranks **novel primitive coverage** ahead of combinatorial
+  superstacks that re-package the same leaves.
+- `capability integrity` batch-proves the ledger DAG in topological order and
+  reports an integrity score (`capability.ledger-integrity`).
+- `capability novelty` ranks ready frontiers by primitive-coverage novelty
+  (`capability.frontier-novelty`).
+- `capability distill` collapses redundant identical-coverage stacks (soft-tag or
+  `--remove`; `capability.distill-ledger`).
+- `capability autonomic` runs novelty-aware grow → distill → integrity as one
+  invocable cycle (`capability.autonomic-cycle`).
+- `capability second-wave` absorbs ready second-wave domain primitives (persona,
+  proposal synthesis, kernel preflight, …) to expand coverage when superstacks
+  plateau (`capability.second-wave-absorb`).
+- `capability plan` / `capability program` compile and run multi-step capability
+  programs from free-text goals (`capability.goal-plan`, `capability.program-run`).
+- `capability mission-plane` is the closed mission plane: second-wave absorb →
+  goal plan → program run → novel-only grow (`capability.mission-plane`).
+- `capability contract` machine-checks a structured or free-text `done_when`
+  against live ledger metrics, proof status, and optional programs
+  (`capability.outcome-contract`). Predicate forms include
+  `min_capabilities:N`, `min_primitives:N`, `capability_exists:id`,
+  `capability_proved:id`, `program_passes:id1,id2`, `no_skill_route`,
+  `mission_plane_ok`, and more.
+- `capability contract-plane` is the evidence plane: mission plane then
+  outcome-contract evaluation so completion is ledger/program-backed
+  (`capability.contract-plane`). Unbound milestone gating also refuses
+  `complete` when `done_when` is machine-checkable and predicates fail.
+
+Promoted compositions are tagged `composed`/`promoted` and become ordinary
+ledger citizens that later turns can list, prove, run, and compose further.
+
+### Evolution surface redirect
+
+When the ledger is ready (≥2 capabilities), growth prefers the compounder:
+
+- Supervisor wakes with `evolution_mode=compound`, or `codex` with
+  `--prefer-capability-compounder` (default), launch
+  `blackhole-unbound capability demo` instead of the github_growth skill-route
+  mutation path.
+- Digest attachment of `skill_route_discovery_capability_pipeline` short-circuits
+  to a compact `capability_compounder_redirect` surface that freezes pin/cascade
+  packaging and sets `supervisor_next_action=run_capability_compounder_compose_or_demo`.
+- Force the legacy pipeline with `BLACKHOLE_FORCE_SKILL_ROUTE_PIPELINE=1` or
+  `--prefer-legacy-growth`.
+
 ## Self-Reload
 
 The default `run` loop starts each tick in a fresh Python interpreter with
