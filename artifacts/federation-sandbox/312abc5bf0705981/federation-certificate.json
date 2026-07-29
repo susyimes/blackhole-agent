@@ -1,0 +1,28 @@
+{
+  "certificate_hash": "9f4f2e9bb62e738e08135376",
+  "claims": {
+    "origin_ids": [
+      "origin-a",
+      "origin-b"
+    ],
+    "roots": [
+      "repo.import-health",
+      "capability.ledger-inventory",
+      "unbound.milestone-gate"
+    ]
+  },
+  "goal": "federate multi-origin continuity",
+  "issued_at": "2026-07-29T15:13:28.731776Z",
+  "kind": "federation_certificate",
+  "lineage_head_hash": "c841db471a1e7164f8a45e98",
+  "member_count": 3,
+  "ok": true,
+  "origin_count": 2,
+  "origin_hashes": [
+    "23cc8140cf9b5478716c32b0",
+    "bb0b3653f0b6dd0a10c53b88"
+  ],
+  "package_hash": "7878a785b9718369",
+  "schema_version": 1,
+  "used_skill_route_discovery": false
+}

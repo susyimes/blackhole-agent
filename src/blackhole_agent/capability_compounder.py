@@ -907,6 +907,7 @@ PROGRAM_PLAN_DENYLIST = frozenset(
         "capability.lineage-plane",
         "capability.reconciliation-plane",
         "capability.continuity-plane",
+        "capability.federation-plane",
         # Batch operators are invocable separately; keep goal programs step-cheap.
         "capability.ledger-integrity",
         "capability.distill-ledger",
@@ -953,6 +954,9 @@ MISSION_GOAL_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("rehydrat", ("capability.continuity-plane", "capability.transfer-plane", "capability.lineage-plane")),
     ("cold-start", ("capability.continuity-plane", "capability.reconciliation-plane", "capability.transfer-plane")),
     ("bundle", ("capability.continuity-plane", "capability.transfer-plane", "capability.sovereignty-plane")),
+    ("federat", ("capability.federation-plane", "capability.continuity-plane", "capability.transfer-plane")),
+    ("multi-origin", ("capability.federation-plane", "capability.continuity-plane", "capability.lineage-plane")),
+    ("merge", ("capability.federation-plane", "capability.transfer-plane", "capability.continuity-plane")),
 )
 
 
@@ -1321,6 +1325,7 @@ def run_mission_plane(
 #   lineage_ok | chain_valid | no_drift | min_lineage_entries:N
 #   reconciliation_ok | healed_ok | min_heal_entries:N
 #   continuity_ok | resurrected_ok | min_bundle_certs:N | bundle_valid
+#   federation_ok | federated_ok | min_origins:N | federation_cert_valid
 # Free-text lines without a known form are recorded as informational (not gating).
 OUTCOME_PREDICATE_PATTERN = re.compile(
     r"^(?P<kind>"
@@ -1332,7 +1337,8 @@ OUTCOME_PREDICATE_PATTERN = re.compile(
     r"assurance_plane_ok|sovereignty_ok|certificate_valid|"
     r"lineage_ok|chain_valid|no_drift|min_lineage_entries|"
     r"reconciliation_ok|healed_ok|min_heal_entries|"
-    r"continuity_ok|resurrected_ok|min_bundle_certs|bundle_valid"
+    r"continuity_ok|resurrected_ok|min_bundle_certs|bundle_valid|"
+    r"federation_ok|federated_ok|min_origins|federation_cert_valid"
     r")(?::(?P<arg>.+))?$",
     re.IGNORECASE,
 )
@@ -1358,6 +1364,10 @@ CONTEXT_ONLY_OUTCOME_KINDS = frozenset(
         "resurrected_ok",
         "min_bundle_certs",
         "bundle_valid",
+        "federation_ok",
+        "federated_ok",
+        "min_origins",
+        "federation_cert_valid",
     }
 )
 
@@ -1562,6 +1572,36 @@ def _soft_extract_outcome_predicates(chunk: str) -> list[dict[str, Any]]:
                 "source": chunk,
             }
         )
+    if (
+        re.search(r"\bfederat", lower)
+        and ("ok" in lower or "pass" in lower or "plane" in lower or "succeed" in lower)
+    ) or re.search(r"\bfederation_ok\b", lower):
+        found.append({"kind": "federation_ok", "arg": "", "source": chunk})
+    if re.search(r"\bfederated_ok\b", lower) or (
+        re.search(r"\bfederated\b", lower)
+        and ("ok" in lower or "pass" in lower or "merge" in lower or "succeed" in lower)
+    ):
+        found.append({"kind": "federated_ok", "arg": "", "source": chunk})
+    m = re.search(r"(?:at least|>=|≥)\s*(\d+)\s+origin", lower)
+    if m:
+        found.append({"kind": "min_origins", "arg": m.group(1), "source": chunk})
+    if re.search(r"\bmin_origins\b", lower) and not any(
+        item.get("kind") == "min_origins" for item in found
+    ):
+        m_n = re.search(r"min_origins\s*[:=]?\s*(\d+)", lower)
+        found.append(
+            {
+                "kind": "min_origins",
+                "arg": m_n.group(1) if m_n else "2",
+                "source": chunk,
+            }
+        )
+    if re.search(r"\bfederation_cert_valid\b", lower) or (
+        "federation" in lower
+        and "cert" in lower
+        and ("valid" in lower or "verify" in lower or "ok" in lower)
+    ):
+        found.append({"kind": "federation_cert_valid", "arg": "", "source": chunk})
     return found
 
 
@@ -1968,6 +2008,64 @@ def _eval_one_outcome_predicate(
                 have = len(plane.get("certificates") or {})
         have_i = int(have or 0)
         return have_i >= need, f"bundle_certs={have_i} need>={need}"
+    if kind == "federation_ok":
+        plane = (
+            context.get("federation")
+            or context.get("federation_plane")
+            or context.get("federated")
+            or {}
+        )
+        ok = bool(plane.get("ok"))
+        return ok, f"federation_ok={ok}"
+    if kind == "federated_ok":
+        plane = (
+            context.get("federation")
+            or context.get("federation_plane")
+            or context.get("federated")
+            or context.get("merge")
+            or {}
+        )
+        if "federated" in plane:
+            ok = plane.get("federated") is True and bool(plane.get("ok", True))
+        elif "federated_ok" in plane:
+            ok = plane.get("federated_ok") is True
+        else:
+            ok = bool(plane.get("ok")) and int(plane.get("origin_count") or 0) >= 2
+        return ok, f"federated_ok={ok}"
+    if kind == "min_origins":
+        need = int(float(arg or "0"))
+        have = context.get("origin_count")
+        if have is None:
+            plane = (
+                context.get("federation")
+                or context.get("federation_plane")
+                or context.get("federated")
+                or {}
+            )
+            have = plane.get("origin_count")
+        have_i = int(have or 0)
+        return have_i >= need, f"origins={have_i} need>={need}"
+    if kind == "federation_cert_valid":
+        plane = (
+            context.get("federation")
+            or context.get("federation_plane")
+            or context.get("federation_certificate")
+            or {}
+        )
+        if "federation_cert_valid" in plane:
+            ok = plane.get("federation_cert_valid") is True
+        elif "certificate_valid" in plane:
+            ok = plane.get("certificate_valid") is True
+        else:
+            cert = plane.get("federation_certificate") or plane.get("certificate") or {}
+            if isinstance(cert, Mapping) and cert:
+                verify = verify_federation_certificate(cert)
+                ok = bool(verify.get("ok")) and bool(verify.get("valid"))
+            else:
+                ok = bool(plane.get("ok")) and bool(
+                    plane.get("federation_hash") or plane.get("certificate_hash")
+                )
+        return ok, f"federation_cert_valid={ok}"
     if kind == "program_passes":
         steps = [part.strip() for part in arg.split(",") if part.strip()]
         if not steps:
@@ -5257,6 +5355,1280 @@ def run_continuity_plane(
             ),
         },
         "post_resurrection_probe": heal_probe,
+        "final_contract": {
+            "ok": final_contract.get("ok"),
+            "met": final_contract.get("met"),
+            "passed_count": final_contract.get("passed_count"),
+            "failed_count": final_contract.get("failed_count"),
+            "failed": final_contract.get("failed"),
+        },
+        "used_skill_route_discovery": used_skill,
+        "ledger_path": str(path),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Federation plane: multi-origin continuity merge past single-origin cold-start.
+# Independent continuity bundles (ledger package + lineage + certificates) are
+# merged with hard-conflict detection, dual-origin lineage seal, federation
+# certificate, sterile rehydrate+prove, and adversarial falsification.
+# ---------------------------------------------------------------------------
+
+FEDERATION_BUNDLE_SCHEMA = 1
+FEDERATION_CERTIFICATE_SCHEMA = 1
+DEFAULT_FEDERATION_BUNDLE_RELATIVE = Path("artifacts") / "federation-bundles"
+
+
+def default_federation_bundle_dir(repo_path: Path) -> Path:
+    return (repo_path / DEFAULT_FEDERATION_BUNDLE_RELATIVE).resolve()
+
+
+def _member_identity_signature(member: Mapping[str, Any]) -> str:
+    """Stable identity for package member conflict detection (entry+proof+kind)."""
+
+    body = {
+        "id": str(member.get("id") or ""),
+        "kind": str(member.get("kind") or ""),
+        "entry": str(member.get("entry") or ""),
+        "proof_command": str(member.get("proof_command") or ""),
+        "dependencies": list(member.get("dependencies") or []),
+    }
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:16]
+
+
+def merge_capability_packages(
+    packages: Sequence[Mapping[str, Any]],
+    *,
+    origin_ids: Sequence[str] | None = None,
+) -> dict[str, Any]:
+    """Union packages; hard-fail when same id has incompatible entry/proof."""
+
+    if len(packages) < 2:
+        return {
+            "ok": False,
+            "action": "merge_capability_packages",
+            "error": "need_at_least_two_packages",
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    labels = list(origin_ids) if origin_ids else [f"origin-{i}" for i in range(len(packages))]
+    while len(labels) < len(packages):
+        labels.append(f"origin-{len(labels)}")
+
+    merged_members: dict[str, dict[str, Any]] = {}
+    member_origins: dict[str, list[str]] = {}
+    conflicts: list[dict[str, Any]] = []
+    roots: list[str] = []
+
+    for index, package in enumerate(packages):
+        origin = labels[index]
+        members = package.get("members") if isinstance(package.get("members"), Mapping) else {}
+        for capability_id, raw in members.items():
+            if not isinstance(raw, Mapping):
+                conflicts.append(
+                    {
+                        "capability_id": str(capability_id),
+                        "origin": origin,
+                        "reason": "member_not_object",
+                    }
+                )
+                continue
+            member = dict(raw)
+            member["id"] = str(member.get("id") or capability_id)
+            cid = member["id"]
+            sig = _member_identity_signature(member)
+            if cid not in merged_members:
+                merged_members[cid] = member
+                member_origins[cid] = [origin]
+            else:
+                existing_sig = _member_identity_signature(merged_members[cid])
+                if existing_sig != sig:
+                    conflicts.append(
+                        {
+                            "capability_id": cid,
+                            "origin": origin,
+                            "reason": "hard_conflict",
+                            "existing_signature": existing_sig,
+                            "incoming_signature": sig,
+                            "existing_origins": list(member_origins.get(cid) or []),
+                        }
+                    )
+                else:
+                    if origin not in member_origins[cid]:
+                        member_origins[cid].append(origin)
+        for root in package.get("roots") or []:
+            root_s = str(root).strip()
+            if root_s and root_s not in roots:
+                roots.append(root_s)
+
+    if conflicts:
+        return {
+            "ok": False,
+            "action": "merge_capability_packages",
+            "error": "hard_conflicts",
+            "conflicts": conflicts,
+            "conflict_count": len(conflicts),
+            "member_count": len(merged_members),
+            "roots": roots,
+            "origin_ids": labels[: len(packages)],
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    if not merged_members:
+        return {
+            "ok": False,
+            "action": "merge_capability_packages",
+            "error": "empty_merged_members",
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    if not roots:
+        roots = sorted(merged_members.keys())[:3]
+
+    # Order via scratch ledger for dependency-safe member_ids.
+    scratch = CapabilityLedger(schema_version=SCHEMA_VERSION, updated_at=utc_now_iso())
+    for cid, raw in merged_members.items():
+        scratch.capabilities[cid] = Capability.from_dict({**raw, "id": cid})
+    present_roots = [r for r in roots if r in scratch.capabilities]
+    if not present_roots:
+        present_roots = list(scratch.capabilities.keys())[:3]
+    try:
+        ordered = dependency_closure(scratch, present_roots)
+    except (ValueError, KeyError):
+        ordered = sorted(merged_members.keys())
+
+    package = {
+        "ok": True,
+        "action": "export_capability_package",
+        "schema_version": ASSURANCE_PACKAGE_SCHEMA,
+        "roots": present_roots,
+        "member_ids": ordered,
+        "member_count": len(ordered),
+        "members": {cid: merged_members[cid] for cid in ordered},
+        "source_ledger_path": "federation-merge",
+        "exported_at": utc_now_iso(),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+        "member_origins": {cid: member_origins.get(cid, []) for cid in ordered},
+        "federated": True,
+    }
+    digest_source = json.dumps(
+        {"roots": present_roots, "members": sorted(package["members"])},
+        sort_keys=True,
+        ensure_ascii=False,
+    )
+    package["package_hash"] = hashlib.sha256(digest_source.encode("utf-8")).hexdigest()[:16]
+    return {
+        "ok": True,
+        "action": "merge_capability_packages",
+        "package": package,
+        "conflicts": [],
+        "conflict_count": 0,
+        "member_count": package["member_count"],
+        "roots": present_roots,
+        "origin_ids": labels[: len(packages)],
+        "member_origins": package["member_origins"],
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def build_alternate_origin_bundle(
+    repo_path: Path,
+    *,
+    origin_id: str = "origin-b",
+    capability_roots: Sequence[str] | None = None,
+    lineage_path: Path | None = None,
+    goal: str = "alternate origin federation seed",
+) -> dict[str, Any]:
+    """Build a second-origin continuity-style bundle with an independent lineage head.
+
+    Uses a reduced root set and a dedicated append-only lineage so the federation
+    plane always has ≥2 distinct origin heads without requiring a second worktree.
+    """
+
+    root = repo_path.resolve()
+    path, live = ensure_seeded_ledger(root)
+    roots = list(capability_roots) if capability_roots else [
+        "repo.import-health",
+        "capability.ledger-inventory",
+    ]
+    missing = [item for item in roots if item not in live.capabilities]
+    if missing:
+        # Fall back to any two proved primitives if preferred roots missing.
+        fallback = [
+            cid
+            for cid, cap in sorted(live.capabilities.items())
+            if is_primitive_capability(cap) and cap.last_proof_exit_code == 0
+        ][:2]
+        if len(fallback) < 1:
+            return {
+                "ok": False,
+                "action": "build_alternate_origin_bundle",
+                "error": f"missing roots: {missing}",
+                "used_skill_route_discovery": legacy_pipeline_was_used(),
+            }
+        roots = fallback
+
+    package = export_capability_package(
+        live,
+        roots,
+        source_ledger_path=str(path),
+    )
+    out_lineage = (
+        lineage_path.resolve()
+        if lineage_path is not None
+        else (
+            root
+            / "artifacts"
+            / "capability-lineage"
+            / f"federation-origin-{slugify_capability_id(origin_id)}.json"
+        )
+    )
+    lineage = empty_lineage_log()
+    lineage = append_lineage_entry(
+        lineage,
+        entry_kind="federation_origin_seed",
+        goal=goal,
+        claims={"origin_id": origin_id, "roots": roots},
+        metrics={
+            "count": len(live.capabilities),
+            "proved_count": sum(
+                1 for c in live.capabilities.values() if c.last_proof_exit_code == 0
+            ),
+            "primitive_count": sum(
+                1 for c in live.capabilities.values() if is_primitive_capability(c)
+            ),
+        },
+        package_hash=str(package.get("package_hash") or ""),
+        detail={"origin_id": origin_id, "plane": "federation"},
+    )
+    lineage = append_lineage_entry(
+        lineage,
+        entry_kind="federation_origin_seal",
+        goal=goal,
+        claims={"origin_id": origin_id, "sealed": True},
+        metrics={"count": package.get("member_count")},
+        package_hash=str(package.get("package_hash") or ""),
+        detail={"origin_id": origin_id, "member_ids": package.get("member_ids")},
+    )
+    write_lineage_log(out_lineage, lineage)
+    certificates = collect_lineage_certificates(root, lineage)
+    # Alternate origins may lack live sovereignty certs; embed a lightweight origin attest.
+    origin_attest = {
+        "schema_version": FEDERATION_CERTIFICATE_SCHEMA,
+        "kind": "federation_origin_attestation",
+        "origin_id": origin_id,
+        "issued_at": utc_now_iso(),
+        "package_hash": package.get("package_hash"),
+        "lineage_head_hash": lineage.get("head_hash"),
+        "roots": roots,
+        "member_count": package.get("member_count"),
+    }
+    origin_attest["certificate_hash"] = hashlib.sha256(
+        json.dumps(
+            {k: v for k, v in origin_attest.items() if k != "certificate_hash"},
+            sort_keys=True,
+            ensure_ascii=False,
+            default=str,
+        ).encode("utf-8")
+    ).hexdigest()[:24]
+    certificates[f"origin-attest-{origin_id}"] = {
+        "certificate_hash": origin_attest["certificate_hash"],
+        "certificate_path": f"artifacts/federation-origins/{origin_id}-attest.json",
+        "payload": origin_attest,
+    }
+    bundle: dict[str, Any] = {
+        "schema_version": CONTINUITY_BUNDLE_SCHEMA,
+        "kind": "continuity_bundle",
+        "action": "build_alternate_origin_bundle",
+        "origin_id": origin_id,
+        "exported_at": utc_now_iso(),
+        "source_ledger_path": str(path),
+        "source_lineage_path": str(out_lineage),
+        "roots": roots,
+        "package": package,
+        "lineage": {
+            "schema_version": lineage.get("schema_version", LINEAGE_LOG_SCHEMA),
+            "kind": "capability_lineage",
+            "entries": [dict(item) for item in (lineage.get("entries") or [])],
+            "entry_count": lineage.get("entry_count"),
+            "head_hash": lineage.get("head_hash"),
+            "updated_at": lineage.get("updated_at"),
+        },
+        "certificates": {
+            key: {
+                "certificate_hash": value.get("certificate_hash"),
+                "certificate_path": value.get("certificate_path"),
+                "payload": value.get("payload"),
+            }
+            for key, value in certificates.items()
+        },
+        "certificate_count": len(certificates),
+        "lineage_entry_count": lineage.get("entry_count"),
+        "lineage_head_hash": lineage.get("head_hash"),
+        "package_hash": package.get("package_hash"),
+        "member_count": package.get("member_count"),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    bundle["bundle_hash"] = compute_continuity_bundle_hash(bundle)
+    chain = verify_lineage_chain(bundle["lineage"])
+    bundle["ok"] = (
+        bool(package.get("ok"))
+        and bool(chain.get("valid"))
+        and int(bundle["lineage_entry_count"] or 0) >= 2
+        and not bool(bundle.get("used_skill_route_discovery"))
+    )
+    return bundle
+
+
+def compute_federation_certificate_hash(payload: Mapping[str, Any]) -> str:
+    body = {
+        key: value
+        for key, value in payload.items()
+        if key not in {"certificate_hash", "ok", "valid"}
+    }
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def issue_federation_certificate(
+    *,
+    origin_hashes: Sequence[str],
+    package_hash: str,
+    lineage_head_hash: str,
+    member_count: int,
+    origin_count: int,
+    goal: str = "",
+    claims: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    cert: dict[str, Any] = {
+        "schema_version": FEDERATION_CERTIFICATE_SCHEMA,
+        "kind": "federation_certificate",
+        "issued_at": utc_now_iso(),
+        "goal": goal or "",
+        "origin_hashes": [str(h) for h in origin_hashes if str(h).strip()],
+        "package_hash": package_hash or "",
+        "lineage_head_hash": lineage_head_hash or "",
+        "member_count": int(member_count),
+        "origin_count": int(origin_count),
+        "claims": dict(claims or {}),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    cert["certificate_hash"] = compute_federation_certificate_hash(cert)
+    cert["ok"] = (
+        len(cert["origin_hashes"]) >= 2
+        and bool(cert["package_hash"])
+        and bool(cert["lineage_head_hash"])
+        and cert["member_count"] >= 1
+        and cert["origin_count"] >= 2
+        and not cert["used_skill_route_discovery"]
+    )
+    return cert
+
+
+def verify_federation_certificate(payload: Mapping[str, Any] | Path) -> dict[str, Any]:
+    if isinstance(payload, Path):
+        data = json.loads(payload.read_text(encoding="utf-8"))
+    else:
+        data = dict(payload)
+    expected = str(data.get("certificate_hash") or "").strip()
+    recomputed = compute_federation_certificate_hash(data)
+    hash_ok = bool(expected) and expected == recomputed
+    origin_hashes = list(data.get("origin_hashes") or [])
+    claims_ok = (
+        str(data.get("kind") or "") == "federation_certificate"
+        and len(origin_hashes) >= 2
+        and bool(data.get("package_hash"))
+        and bool(data.get("lineage_head_hash"))
+        and int(data.get("member_count") or 0) >= 1
+        and int(data.get("origin_count") or 0) >= 2
+        and not bool(data.get("used_skill_route_discovery"))
+    )
+    valid = hash_ok and claims_ok
+    return {
+        "ok": valid,
+        "valid": valid,
+        "hash_ok": hash_ok,
+        "claims_ok": claims_ok,
+        "certificate_hash": expected,
+        "recomputed_hash": recomputed,
+        "origin_count": len(origin_hashes),
+        "used_skill_route_discovery": bool(data.get("used_skill_route_discovery")),
+    }
+
+
+def write_federation_certificate(path: Path, certificate: Mapping[str, Any]) -> Path:
+    target = path.resolve()
+    atomic_write_json(target, dict(certificate))
+    return target
+
+
+def stitch_federation_lineage(
+    origin_bundles: Sequence[Mapping[str, Any]],
+    *,
+    package_hash: str = "",
+    goal: str = "federate multi-origin continuity",
+    origin_ids: Sequence[str] | None = None,
+) -> dict[str, Any]:
+    """Create a new dual-origin lineage sealed under federation (does not concat chains)."""
+
+    labels = list(origin_ids) if origin_ids else []
+    while len(labels) < len(origin_bundles):
+        labels.append(f"origin-{len(labels)}")
+
+    origin_manifest: list[dict[str, Any]] = []
+    for index, bundle in enumerate(origin_bundles):
+        lineage = bundle.get("lineage") if isinstance(bundle.get("lineage"), Mapping) else {}
+        origin_manifest.append(
+            {
+                "origin_id": labels[index],
+                "bundle_hash": bundle.get("bundle_hash"),
+                "package_hash": bundle.get("package_hash")
+                or (bundle.get("package") or {}).get("package_hash"),
+                "lineage_head_hash": lineage.get("head_hash") or bundle.get("lineage_head_hash"),
+                "lineage_entry_count": lineage.get("entry_count")
+                or bundle.get("lineage_entry_count"),
+                "member_count": bundle.get("member_count")
+                or (bundle.get("package") or {}).get("member_count"),
+                "certificate_count": bundle.get("certificate_count")
+                or len(bundle.get("certificates") or {}),
+            }
+        )
+
+    lineage = empty_lineage_log()
+    lineage = append_lineage_entry(
+        lineage,
+        entry_kind="federation_origin_manifest",
+        goal=goal,
+        claims={
+            "origin_count": len(origin_manifest),
+            "origin_ids": [item["origin_id"] for item in origin_manifest],
+            "origin_heads": [item.get("lineage_head_hash") for item in origin_manifest],
+        },
+        package_hash=package_hash,
+        detail={"origins": origin_manifest},
+    )
+    lineage = append_lineage_entry(
+        lineage,
+        entry_kind="federation_seal",
+        goal=goal,
+        claims={
+            "federated": True,
+            "origin_count": len(origin_manifest),
+            "package_hash": package_hash,
+        },
+        package_hash=package_hash,
+        detail={
+            "origin_bundle_hashes": [item.get("bundle_hash") for item in origin_manifest],
+            "origin_heads": [item.get("lineage_head_hash") for item in origin_manifest],
+        },
+    )
+    chain = verify_lineage_chain(lineage)
+    lineage["ok"] = bool(chain.get("valid")) and int(lineage.get("entry_count") or 0) >= 2
+    return lineage
+
+
+def compute_federation_bundle_hash(bundle: Mapping[str, Any]) -> str:
+    body = {
+        key: value
+        for key, value in bundle.items()
+        if key
+        not in {
+            "federation_hash",
+            "ok",
+            "bundle_path",
+            "exported_at",
+            "source_ledger_path",
+            "action",
+        }
+    }
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def build_federation_bundle(
+    origin_bundles: Sequence[Mapping[str, Any]],
+    *,
+    origin_ids: Sequence[str] | None = None,
+    goal: str = "federate multi-origin continuity",
+) -> dict[str, Any]:
+    """Merge ≥2 continuity bundles into one federated portable bundle."""
+
+    if len(origin_bundles) < 2:
+        return {
+            "ok": False,
+            "action": "build_federation_bundle",
+            "error": "need_at_least_two_origins",
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    labels = list(origin_ids) if origin_ids else []
+    for index, bundle in enumerate(origin_bundles):
+        if index >= len(labels):
+            labels.append(str(bundle.get("origin_id") or f"origin-{index}"))
+
+    packages = []
+    for bundle in origin_bundles:
+        package = bundle.get("package") if isinstance(bundle.get("package"), Mapping) else {}
+        packages.append(package)
+
+    merge = merge_capability_packages(packages, origin_ids=labels)
+    if not merge.get("ok"):
+        return {
+            "ok": False,
+            "action": "build_federation_bundle",
+            "error": merge.get("error") or "package_merge_failed",
+            "merge": merge,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    package = merge["package"]
+    lineage = stitch_federation_lineage(
+        origin_bundles,
+        package_hash=str(package.get("package_hash") or ""),
+        goal=goal,
+        origin_ids=labels,
+    )
+    chain = verify_lineage_chain(lineage)
+
+    # Union certificates across origins (key by certificate_hash / origin key).
+    certificates: dict[str, dict[str, Any]] = {}
+    for index, bundle in enumerate(origin_bundles):
+        certs = bundle.get("certificates") if isinstance(bundle.get("certificates"), Mapping) else {}
+        for key, raw in certs.items():
+            if not isinstance(raw, Mapping):
+                continue
+            cert_key = str(raw.get("certificate_hash") or key)
+            if cert_key in certificates:
+                continue
+            certificates[cert_key] = {
+                "certificate_hash": raw.get("certificate_hash"),
+                "certificate_path": raw.get("certificate_path"),
+                "payload": raw.get("payload"),
+                "origin_id": labels[index],
+            }
+
+    origin_hashes = [str(b.get("bundle_hash") or "") for b in origin_bundles]
+    federation_cert = issue_federation_certificate(
+        origin_hashes=origin_hashes,
+        package_hash=str(package.get("package_hash") or ""),
+        lineage_head_hash=str(lineage.get("head_hash") or ""),
+        member_count=int(package.get("member_count") or 0),
+        origin_count=len(origin_bundles),
+        goal=goal,
+        claims={
+            "origin_ids": labels[: len(origin_bundles)],
+            "roots": package.get("roots"),
+        },
+    )
+    certificates[str(federation_cert.get("certificate_hash") or "federation")] = {
+        "certificate_hash": federation_cert.get("certificate_hash"),
+        "certificate_path": "artifacts/federation-bundles/federation-certificate.json",
+        "payload": federation_cert,
+        "origin_id": "federation",
+    }
+
+    origins_summary = []
+    for index, bundle in enumerate(origin_bundles):
+        lineage_b = bundle.get("lineage") if isinstance(bundle.get("lineage"), Mapping) else {}
+        origins_summary.append(
+            {
+                "origin_id": labels[index],
+                "bundle_hash": bundle.get("bundle_hash"),
+                "package_hash": bundle.get("package_hash")
+                or (bundle.get("package") or {}).get("package_hash"),
+                "lineage_head_hash": lineage_b.get("head_hash") or bundle.get("lineage_head_hash"),
+                "member_count": bundle.get("member_count")
+                or (bundle.get("package") or {}).get("member_count"),
+                "certificate_count": bundle.get("certificate_count")
+                or len(bundle.get("certificates") or {}),
+            }
+        )
+
+    fed: dict[str, Any] = {
+        "schema_version": FEDERATION_BUNDLE_SCHEMA,
+        "kind": "federation_bundle",
+        "action": "build_federation_bundle",
+        "goal": goal,
+        "origin_count": len(origin_bundles),
+        "origins": origins_summary,
+        "package": package,
+        "lineage": {
+            "schema_version": lineage.get("schema_version", LINEAGE_LOG_SCHEMA),
+            "kind": "capability_lineage",
+            "entries": [dict(item) for item in (lineage.get("entries") or [])],
+            "entry_count": lineage.get("entry_count"),
+            "head_hash": lineage.get("head_hash"),
+            "updated_at": lineage.get("updated_at"),
+        },
+        "certificates": certificates,
+        "certificate_count": len(certificates),
+        "federation_certificate": federation_cert,
+        "package_hash": package.get("package_hash"),
+        "member_count": package.get("member_count"),
+        "lineage_entry_count": lineage.get("entry_count"),
+        "lineage_head_hash": lineage.get("head_hash"),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    fed["federation_hash"] = compute_federation_bundle_hash(fed)
+    fed["ok"] = (
+        bool(merge.get("ok"))
+        and bool(package.get("ok"))
+        and bool(chain.get("valid"))
+        and bool(federation_cert.get("ok"))
+        and int(fed["origin_count"]) >= 2
+        and int(fed["member_count"] or 0) >= 1
+        and not bool(fed.get("used_skill_route_discovery"))
+    )
+    return fed
+
+
+def write_federation_bundle(path: Path, bundle: Mapping[str, Any]) -> Path:
+    target = path.resolve()
+    atomic_write_json(target, dict(bundle))
+    return target
+
+
+def load_federation_bundle(path: Path) -> dict[str, Any]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, Mapping):
+        raise ValueError("federation bundle must be a JSON object")
+    return dict(payload)
+
+
+def verify_federation_bundle_integrity(bundle: Mapping[str, Any]) -> dict[str, Any]:
+    """Check federation hash, dual origins, package, lineage chain, and cert."""
+
+    expected = str(bundle.get("federation_hash") or "").strip()
+    recomputed = compute_federation_bundle_hash(bundle)
+    hash_ok = bool(expected) and expected == recomputed
+    origin_count = int(bundle.get("origin_count") or len(bundle.get("origins") or []) or 0)
+    origins_ok = origin_count >= 2
+    lineage = bundle.get("lineage") if isinstance(bundle.get("lineage"), Mapping) else {}
+    chain = verify_lineage_chain(lineage) if lineage else {"ok": False, "valid": False, "errors": ["missing_lineage"]}
+    package = bundle.get("package") if isinstance(bundle.get("package"), Mapping) else {}
+    package_ok = bool(package.get("ok")) and int(package.get("member_count") or 0) >= 1
+    fed_cert = (
+        bundle.get("federation_certificate")
+        if isinstance(bundle.get("federation_certificate"), Mapping)
+        else {}
+    )
+    cert_verify = verify_federation_certificate(fed_cert) if fed_cert else {
+        "ok": False,
+        "valid": False,
+        "hash_ok": False,
+    }
+    # Distinct origin heads required for true multi-origin (not a clone pair).
+    origin_heads = []
+    origin_bundle_hashes = []
+    for item in bundle.get("origins") or []:
+        if isinstance(item, Mapping):
+            head = str(item.get("lineage_head_hash") or "").strip()
+            bhash = str(item.get("bundle_hash") or "").strip()
+            if head:
+                origin_heads.append(head)
+            if bhash:
+                origin_bundle_hashes.append(bhash)
+    distinct_heads = len(set(origin_heads)) >= 2 if len(origin_heads) >= 2 else False
+    distinct_bundles = (
+        len(set(origin_bundle_hashes)) >= 2 if len(origin_bundle_hashes) >= 2 else False
+    )
+    distinct_ok = distinct_heads or distinct_bundles
+    used_skill = bool(bundle.get("used_skill_route_discovery")) or legacy_pipeline_was_used()
+    ok = (
+        hash_ok
+        and origins_ok
+        and distinct_ok
+        and package_ok
+        and bool(chain.get("valid"))
+        and bool(cert_verify.get("valid"))
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "valid": ok,
+        "action": "verify_federation_bundle",
+        "hash_ok": hash_ok,
+        "expected_hash": expected,
+        "recomputed_hash": recomputed,
+        "origins_ok": origins_ok,
+        "origin_count": origin_count,
+        "distinct_origins_ok": distinct_ok,
+        "package_ok": package_ok,
+        "chain": {
+            "ok": chain.get("ok"),
+            "valid": chain.get("valid"),
+            "entry_count": chain.get("entry_count"),
+            "errors": chain.get("errors") or [],
+        },
+        "federation_certificate": {
+            "ok": cert_verify.get("ok"),
+            "valid": cert_verify.get("valid"),
+            "hash_ok": cert_verify.get("hash_ok"),
+            "certificate_hash": cert_verify.get("certificate_hash"),
+        },
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def rehydrate_federation_bundle(
+    repo_path: Path,
+    bundle: Mapping[str, Any],
+    *,
+    sandbox_dir: Path | None = None,
+) -> dict[str, Any]:
+    """Materialize a federation bundle into a sterile sandbox ledger + lineage."""
+
+    root = repo_path.resolve()
+    integrity = verify_federation_bundle_integrity(bundle)
+    if not integrity.get("ok"):
+        return {
+            "ok": False,
+            "action": "rehydrate_federation_bundle",
+            "error": "federation_integrity_failed",
+            "integrity": integrity,
+            "used_skill_route_discovery": integrity.get("used_skill_route_discovery"),
+        }
+
+    fed_hash = str(bundle.get("federation_hash") or "unknown")
+    sandbox = (
+        sandbox_dir.resolve()
+        if sandbox_dir is not None
+        else (root / "artifacts" / "federation-sandbox" / fed_hash[:16])
+    )
+    sandbox.mkdir(parents=True, exist_ok=True)
+
+    package = dict(bundle.get("package") or {})
+    lineage = copy.deepcopy(bundle.get("lineage") or {})
+    lineage_path = sandbox / "lineage.json"
+    write_lineage_log(lineage_path, lineage)
+
+    empty = CapabilityLedger(schema_version=SCHEMA_VERSION, updated_at=utc_now_iso())
+    empty, import_report = import_capability_package(empty, package, replace=True)
+    sterile_ledger_path = sandbox / "ledger.json"
+    save_ledger(sterile_ledger_path, empty)
+
+    cert = bundle.get("federation_certificate") if isinstance(bundle.get("federation_certificate"), Mapping) else {}
+    cert_path = sandbox / "federation-certificate.json"
+    if cert:
+        write_federation_certificate(cert_path, cert)
+
+    chain = verify_lineage_chain(lineage)
+    cert_verify = verify_federation_certificate(cert) if cert else {"ok": False, "valid": False}
+    used_skill = legacy_pipeline_was_used()
+    ok = (
+        bool(integrity.get("ok"))
+        and bool(import_report.get("ok"))
+        and bool(chain.get("valid"))
+        and bool(cert_verify.get("valid"))
+        and int(import_report.get("imported_count") or 0) >= 1
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "rehydrate_federation_bundle",
+        "sandbox_dir": str(sandbox),
+        "lineage_path": str(lineage_path),
+        "sterile_ledger_path": str(sterile_ledger_path),
+        "certificate_path": str(cert_path) if cert else None,
+        "federation_hash": fed_hash,
+        "import": import_report,
+        "chain": {
+            "ok": chain.get("ok"),
+            "valid": chain.get("valid"),
+            "entry_count": chain.get("entry_count"),
+            "errors": chain.get("errors") or [],
+        },
+        "federation_certificate": {
+            "ok": cert_verify.get("ok"),
+            "valid": cert_verify.get("valid"),
+            "certificate_hash": cert_verify.get("certificate_hash"),
+        },
+        "integrity": {
+            "ok": integrity.get("ok"),
+            "hash_ok": integrity.get("hash_ok"),
+            "origin_count": integrity.get("origin_count"),
+            "package_ok": integrity.get("package_ok"),
+        },
+        "sterile_ledger": empty,
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def run_federation_adversarial_checks(
+    intact_bundle: Mapping[str, Any],
+    origin_bundles: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Falsify federation honesty: conflicts fail, tamper fails, single-origin fails."""
+
+    intact = verify_federation_bundle_integrity(intact_bundle)
+
+    # 1) Hard package conflict must fail merge.
+    conflict_ok = False
+    if len(origin_bundles) >= 2:
+        a = copy.deepcopy(dict(origin_bundles[0]))
+        b = copy.deepcopy(dict(origin_bundles[1]))
+        package_b = dict(b.get("package") or {})
+        members_b = dict(package_b.get("members") or {})
+        # Inject incompatible member for a shared id.
+        shared_ids = set((a.get("package") or {}).get("members") or {}) & set(members_b)
+        if not shared_ids:
+            # Force a shared id by planting a conflicting copy of an A member into B.
+            members_a = (a.get("package") or {}).get("members") or {}
+            if members_a:
+                plant_id = next(iter(members_a))
+                plant = dict(members_a[plant_id])
+                plant["entry"] = "blackhole_agent.capability_compounder:__conflict_plant__"
+                plant["proof_command"] = "false"
+                members_b[plant_id] = plant
+                package_b["members"] = members_b
+                b["package"] = package_b
+                shared_ids = {plant_id}
+        else:
+            plant_id = next(iter(shared_ids))
+            plant = dict(members_b[plant_id])
+            plant["entry"] = "blackhole_agent.capability_compounder:__conflict_plant__"
+            plant["proof_command"] = "false"
+            members_b[plant_id] = plant
+            package_b["members"] = members_b
+            b["package"] = package_b
+        conflict_merge = merge_capability_packages(
+            [a.get("package") or {}, b.get("package") or {}],
+            origin_ids=["origin-a", "origin-b"],
+        )
+        conflict_ok = conflict_merge.get("ok") is False and int(
+            conflict_merge.get("conflict_count") or 0
+        ) >= 1
+
+    # 2) Tamper federation hash body without updating federation_hash.
+    tampered = copy.deepcopy(dict(intact_bundle))
+    package = dict(tampered.get("package") or {})
+    package["package_hash"] = "deadbeefdeadbeef"
+    tampered["package"] = package
+    tamper_check = verify_federation_bundle_integrity(tampered)
+    tamper_fails = tamper_check.get("ok") is False
+
+    # 3) Single-origin federation must fail.
+    single = copy.deepcopy(dict(intact_bundle))
+    single["origin_count"] = 1
+    single["origins"] = list(single.get("origins") or [])[:1]
+    single["federation_hash"] = compute_federation_bundle_hash(single)
+    single_check = verify_federation_bundle_integrity(single)
+    single_fails = single_check.get("ok") is False
+
+    # 4) Broken federation certificate hash must fail.
+    broken_cert = copy.deepcopy(dict(intact_bundle))
+    fed_cert = dict(broken_cert.get("federation_certificate") or {})
+    fed_cert["certificate_hash"] = "0" * 24
+    broken_cert["federation_certificate"] = fed_cert
+    broken_cert["federation_hash"] = compute_federation_bundle_hash(broken_cert)
+    broken_cert_check = verify_federation_bundle_integrity(broken_cert)
+    broken_cert_fails = broken_cert_check.get("ok") is False
+
+    intact_ok = bool(intact.get("ok")) and bool(intact.get("valid"))
+    used_skill = legacy_pipeline_was_used()
+    ok = (
+        intact_ok
+        and conflict_ok
+        and tamper_fails
+        and single_fails
+        and broken_cert_fails
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "federation_adversarial",
+        "intact_ok": intact_ok,
+        "conflict_fails_as_expected": conflict_ok,
+        "tamper_fails_as_expected": tamper_fails,
+        "single_origin_fails_as_expected": single_fails,
+        "broken_cert_fails_as_expected": broken_cert_fails,
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def run_federation_plane(
+    repo_path: Path,
+    goal: str = "federate multi-origin continuity",
+    done_when: str = "",
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 360,
+    max_steps: int = 3,
+    run_continuity: bool = True,
+    run_reconciliation: bool = True,
+    force_synthetic_drift: bool = True,
+    prove_imported: bool = True,
+    lineage_path: Path | None = None,
+    bundle_path: Path | None = None,
+    federation_path: Path | None = None,
+    sandbox_dir: Path | None = None,
+    capability_roots_a: Sequence[str] | None = None,
+    capability_roots_b: Sequence[str] | None = None,
+    persist: bool = True,
+) -> dict[str, Any]:
+    """Closed federation plane: dual origins → merge → seal → rehydrate → prove → adversarial.
+
+    Past single-origin cold-start: two independent continuity-style origins are
+    federated into one re-provable package with dual-origin lineage seal and a
+    re-verifiable federation certificate — hard conflicts and tampering fail.
+    """
+
+    root = repo_path.resolve()
+    path, _ledger = ensure_seeded_ledger(root)
+
+    # Origin A: live continuity export (optionally via continuity plane for healed lineage).
+    out_lineage_a = (
+        lineage_path.resolve()
+        if lineage_path is not None
+        else default_lineage_path(root)
+    )
+    continuity_report: dict[str, Any] | None = None
+    if run_continuity:
+        continuity_report = run_continuity_plane(
+            root,
+            goal if goal else "health inventory milestone",
+            strip_context_only_outcome_predicates(done_when or ""),
+            command_runner=command_runner,
+            timeout=timeout,
+            max_steps=max_steps,
+            absorb_ready=False,
+            grow_budget=0,
+            run_mission=False,
+            run_reconciliation=run_reconciliation,
+            force_synthetic_drift=force_synthetic_drift,
+            prove_imported=True,
+            lineage_path=out_lineage_a,
+            bundle_path=bundle_path,
+            capability_roots=capability_roots_a
+            or ("repo.import-health", "capability.ledger-inventory", "unbound.milestone-gate"),
+            persist=persist,
+        )
+        origin_a_path = Path(
+            (continuity_report.get("bundle") or {}).get("bundle_path")
+            or ""
+        )
+        if origin_a_path and origin_a_path.is_file():
+            origin_a = load_continuity_bundle(origin_a_path)
+        else:
+            lineage_a = load_lineage_log(out_lineage_a) if out_lineage_a.exists() else empty_lineage_log()
+            origin_a = export_continuity_bundle(
+                root,
+                lineage_a,
+                capability_roots=capability_roots_a
+                or ("repo.import-health", "capability.ledger-inventory", "unbound.milestone-gate"),
+                source_ledger_path=str(path),
+                source_lineage_path=str(out_lineage_a),
+            )
+        origin_a["origin_id"] = "origin-a"
+    else:
+        lineage_a = load_lineage_log(out_lineage_a) if out_lineage_a.exists() else empty_lineage_log()
+        if int(lineage_a.get("entry_count") or 0) < 1:
+            # Bootstrap a minimal lineage for federation when continuity is skipped.
+            lineage_a = append_lineage_entry(
+                empty_lineage_log(),
+                entry_kind="federation_bootstrap",
+                goal=goal,
+                claims={"origin_id": "origin-a"},
+            )
+            lineage_a = append_lineage_entry(
+                lineage_a,
+                entry_kind="federation_bootstrap_seal",
+                goal=goal,
+                claims={"origin_id": "origin-a", "sealed": True},
+            )
+            if persist:
+                write_lineage_log(out_lineage_a, lineage_a)
+        origin_a = export_continuity_bundle(
+            root,
+            lineage_a,
+            capability_roots=capability_roots_a
+            or ("repo.import-health", "capability.ledger-inventory", "unbound.milestone-gate"),
+            source_ledger_path=str(path),
+            source_lineage_path=str(out_lineage_a),
+        )
+        origin_a["origin_id"] = "origin-a"
+
+    # Origin B: independent alternate lineage + reduced roots.
+    origin_b = build_alternate_origin_bundle(
+        root,
+        origin_id="origin-b",
+        capability_roots=capability_roots_b
+        or ("repo.import-health", "capability.ledger-inventory"),
+        goal=f"{goal} (alternate origin)",
+    )
+
+    if not origin_a.get("ok") or not origin_b.get("ok"):
+        return {
+            "ok": False,
+            "action": "federation_plane",
+            "error": "origin_export_failed",
+            "origin_a": {
+                "ok": origin_a.get("ok"),
+                "bundle_hash": origin_a.get("bundle_hash"),
+                "error": origin_a.get("error"),
+            },
+            "origin_b": {
+                "ok": origin_b.get("ok"),
+                "bundle_hash": origin_b.get("bundle_hash"),
+                "error": origin_b.get("error"),
+            },
+            "continuity": None
+            if continuity_report is None
+            else {
+                "ok": continuity_report.get("ok"),
+                "resurrected": continuity_report.get("resurrected"),
+            },
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "ledger_path": str(path),
+        }
+
+    federation = build_federation_bundle(
+        [origin_a, origin_b],
+        origin_ids=["origin-a", "origin-b"],
+        goal=goal,
+    )
+    out_fed = (
+        federation_path.resolve()
+        if federation_path is not None
+        else (
+            default_federation_bundle_dir(root)
+            / f"federation-{federation.get('federation_hash') or 'unknown'}.json"
+        )
+    )
+    if persist and federation.get("ok"):
+        write_federation_bundle(out_fed, federation)
+        reloaded = load_federation_bundle(out_fed)
+    else:
+        reloaded = federation
+
+    integrity = verify_federation_bundle_integrity(reloaded)
+    rehydrate = rehydrate_federation_bundle(
+        root,
+        reloaded,
+        sandbox_dir=sandbox_dir,
+    )
+    sterile = rehydrate.get("sterile_ledger")
+    if prove_imported and isinstance(sterile, CapabilityLedger):
+        member_ids = list((reloaded.get("package") or {}).get("member_ids") or [])
+        # Prove a compact root set for speed while still covering multi-member import.
+        roots = list((reloaded.get("package") or {}).get("roots") or member_ids[:3])
+        prove = prove_sterile_package(
+            root,
+            sterile,
+            roots,
+            command_runner=command_runner,
+            timeout=min(timeout, 120),
+        )
+    else:
+        prove = {
+            "ok": not prove_imported,
+            "action": "prove_sterile_package",
+            "proved_count": 0,
+            "proofs": [],
+            "used_skill_route_discovery": False,
+        }
+
+    post_chain = verify_lineage_chain(
+        reloaded.get("lineage") if isinstance(reloaded.get("lineage"), Mapping) else {}
+    )
+    cert_verify = verify_federation_certificate(
+        reloaded.get("federation_certificate")
+        if isinstance(reloaded.get("federation_certificate"), Mapping)
+        else {}
+    )
+    adversarial = run_federation_adversarial_checks(reloaded, [origin_a, origin_b])
+
+    used_skill = bool(
+        (continuity_report or {}).get("used_skill_route_discovery")
+        or origin_a.get("used_skill_route_discovery")
+        or origin_b.get("used_skill_route_discovery")
+        or federation.get("used_skill_route_discovery")
+        or integrity.get("used_skill_route_discovery")
+        or rehydrate.get("used_skill_route_discovery")
+        or prove.get("used_skill_route_discovery")
+        or adversarial.get("used_skill_route_discovery")
+        or legacy_pipeline_was_used()
+    )
+    origin_count = int(reloaded.get("origin_count") or 0)
+    federated = (
+        bool(federation.get("ok"))
+        and bool(integrity.get("ok"))
+        and bool(rehydrate.get("ok"))
+        and bool(prove.get("ok"))
+        and bool(post_chain.get("valid"))
+        and bool(cert_verify.get("valid"))
+        and bool(adversarial.get("ok"))
+        and origin_count >= 2
+        and not used_skill
+    )
+    provisional_ok = federated and (
+        continuity_report is None or bool(continuity_report.get("ok")) or not run_continuity
+    )
+
+    context = {
+        "used_skill_route_discovery": used_skill,
+        "continuity": {
+            "ok": True
+            if continuity_report is None
+            else bool(continuity_report.get("ok")),
+            "resurrected": True
+            if continuity_report is None
+            else bool(continuity_report.get("resurrected")),
+        },
+        "continuity_plane": {
+            "ok": True
+            if continuity_report is None
+            else bool(continuity_report.get("ok")),
+        },
+        "chain": post_chain,
+        "lineage_chain": post_chain,
+        "lineage": {
+            "ok": bool(post_chain.get("valid")),
+            "entry_count": reloaded.get("lineage_entry_count"),
+            "chain": post_chain,
+        },
+        "federation": {
+            "ok": provisional_ok,
+            "federated": federated,
+            "federated_ok": federated,
+            "origin_count": origin_count,
+            "federation_hash": reloaded.get("federation_hash"),
+            "federation_cert_valid": bool(cert_verify.get("valid")),
+            "certificate_valid": bool(cert_verify.get("valid")),
+            "package_hash": reloaded.get("package_hash"),
+            "member_count": reloaded.get("member_count"),
+            "federation_certificate": reloaded.get("federation_certificate"),
+        },
+        "federation_plane": {
+            "ok": provisional_ok,
+            "federated": federated,
+            "origin_count": origin_count,
+            "federation_hash": reloaded.get("federation_hash"),
+            "federation_cert_valid": bool(cert_verify.get("valid")),
+        },
+        "federated": {
+            "ok": federated,
+            "federated": federated,
+            "origin_count": origin_count,
+        },
+        "origin_count": origin_count,
+        "federation_certificate": reloaded.get("federation_certificate"),
+        "federation_hash": reloaded.get("federation_hash"),
+    }
+    federation_done_when = (
+        "no_skill_route; federation_ok; federated_ok; min_origins:2; "
+        "federation_cert_valid; chain_valid; capability_exists:repo.import-health"
+    )
+    final_contract = evaluate_outcome_contract(
+        root,
+        federation_done_when,
+        context=context,
+        command_runner=command_runner,
+        timeout=min(timeout, 60),
+        run_programs=False,
+    )
+    ok = (
+        provisional_ok
+        and bool(final_contract.get("ok"))
+        and final_contract.get("met") is True
+    )
+    return {
+        "ok": ok,
+        "action": "federation_plane",
+        "goal": goal,
+        "done_when": done_when,
+        "federation_done_when": federation_done_when,
+        "met": final_contract.get("met"),
+        "machine_checkable": True,
+        "federated": federated,
+        "origin_count": origin_count,
+        "origins": {
+            "origin_a": {
+                "ok": origin_a.get("ok"),
+                "bundle_hash": origin_a.get("bundle_hash"),
+                "package_hash": origin_a.get("package_hash"),
+                "lineage_head_hash": origin_a.get("lineage_head_hash"),
+                "member_count": origin_a.get("member_count"),
+                "certificate_count": origin_a.get("certificate_count"),
+            },
+            "origin_b": {
+                "ok": origin_b.get("ok"),
+                "bundle_hash": origin_b.get("bundle_hash"),
+                "package_hash": origin_b.get("package_hash"),
+                "lineage_head_hash": origin_b.get("lineage_head_hash"),
+                "member_count": origin_b.get("member_count"),
+                "certificate_count": origin_b.get("certificate_count"),
+            },
+        },
+        "continuity": None
+        if continuity_report is None
+        else {
+            "ok": continuity_report.get("ok"),
+            "resurrected": continuity_report.get("resurrected"),
+            "bundle": continuity_report.get("bundle"),
+        },
+        "federation": {
+            "ok": federation.get("ok"),
+            "federation_hash": reloaded.get("federation_hash"),
+            "bundle_path": str(out_fed) if persist and federation.get("ok") else None,
+            "package_hash": reloaded.get("package_hash"),
+            "member_count": reloaded.get("member_count"),
+            "origin_count": origin_count,
+            "certificate_count": reloaded.get("certificate_count"),
+            "lineage_entry_count": reloaded.get("lineage_entry_count"),
+            "lineage_head_hash": reloaded.get("lineage_head_hash"),
+            "persisted": persist and out_fed.exists() if federation.get("ok") else False,
+        },
+        "integrity": {
+            "ok": integrity.get("ok"),
+            "hash_ok": integrity.get("hash_ok"),
+            "origins_ok": integrity.get("origins_ok"),
+            "distinct_origins_ok": integrity.get("distinct_origins_ok"),
+            "package_ok": integrity.get("package_ok"),
+            "chain_valid": (integrity.get("chain") or {}).get("valid"),
+            "federation_certificate_valid": (integrity.get("federation_certificate") or {}).get(
+                "valid"
+            ),
+        },
+        "rehydrate": {
+            "ok": rehydrate.get("ok"),
+            "sandbox_dir": rehydrate.get("sandbox_dir"),
+            "lineage_path": rehydrate.get("lineage_path"),
+            "sterile_ledger_path": rehydrate.get("sterile_ledger_path"),
+            "import": rehydrate.get("import"),
+            "chain": rehydrate.get("chain"),
+            "federation_certificate": rehydrate.get("federation_certificate"),
+        },
+        "prove": {
+            "ok": prove.get("ok"),
+            "proved_count": prove.get("proved_count"),
+            "proofs": prove.get("proofs"),
+        },
+        "chain": {
+            "ok": post_chain.get("ok"),
+            "valid": post_chain.get("valid"),
+            "entry_count": post_chain.get("entry_count"),
+            "errors": post_chain.get("errors") or [],
+        },
+        "federation_certificate": {
+            "ok": cert_verify.get("ok"),
+            "valid": cert_verify.get("valid"),
+            "hash_ok": cert_verify.get("hash_ok"),
+            "certificate_hash": cert_verify.get("certificate_hash"),
+            "origin_count": cert_verify.get("origin_count"),
+        },
+        "adversarial": {
+            "ok": adversarial.get("ok"),
+            "intact_ok": adversarial.get("intact_ok"),
+            "conflict_fails_as_expected": adversarial.get("conflict_fails_as_expected"),
+            "tamper_fails_as_expected": adversarial.get("tamper_fails_as_expected"),
+            "single_origin_fails_as_expected": adversarial.get(
+                "single_origin_fails_as_expected"
+            ),
+            "broken_cert_fails_as_expected": adversarial.get(
+                "broken_cert_fails_as_expected"
+            ),
+        },
         "final_contract": {
             "ok": final_contract.get("ok"),
             "met": final_contract.get("met"),
@@ -8560,6 +9932,49 @@ def builtin_continuity_plane() -> dict[str, Any]:
     )
 
 
+def builtin_federation_plane() -> dict[str, Any]:
+    """Invocable capability: dual-origin continuity → merge → seal → rehydrate → prove."""
+
+    root = Path(__file__).resolve().parents[2]
+    goal = (os.environ.get("BLACKHOLE_MISSION_GOAL") or "").strip() or "federate multi-origin continuity"
+    done_when = (os.environ.get("BLACKHOLE_DONE_WHEN") or "").strip()
+    max_steps = int(os.environ.get("BLACKHOLE_PROGRAM_MAX_STEPS") or "3")
+    run_continuity = (os.environ.get("BLACKHOLE_FEDERATION_RUN_CONTINUITY") or "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    run_recon = (os.environ.get("BLACKHOLE_CONTINUITY_RUN_RECON") or "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    force_synthetic = (os.environ.get("BLACKHOLE_RECONCILE_SYNTHETIC") or "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    lineage_raw = (os.environ.get("BLACKHOLE_LINEAGE_PATH") or "").strip()
+    lineage_path = Path(lineage_raw) if lineage_raw else None
+    bundle_raw = (os.environ.get("BLACKHOLE_CONTINUITY_BUNDLE_PATH") or "").strip()
+    bundle_path = Path(bundle_raw) if bundle_raw else None
+    fed_raw = (os.environ.get("BLACKHOLE_FEDERATION_BUNDLE_PATH") or "").strip()
+    federation_path = Path(fed_raw) if fed_raw else None
+    return run_federation_plane(
+        root,
+        goal,
+        done_when,
+        max_steps=max_steps,
+        run_continuity=run_continuity,
+        run_reconciliation=run_recon,
+        force_synthetic_drift=force_synthetic,
+        lineage_path=lineage_path,
+        bundle_path=bundle_path,
+        federation_path=federation_path,
+        timeout=420,
+    )
+
+
 def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
     """Install the minimal compoundable bootstrap set if missing."""
 
@@ -9502,6 +10917,77 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "rehydrate",
                 "bundle",
                 "reconciliation",
+                "lineage",
+                "transfer",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.federation-plane",
+            name="Multi-origin federated continuity plane",
+            description=(
+                "Closed federation plane: dual independent continuity origins → hard-conflict "
+                "package merge → dual-origin lineage seal → federation certificate → sterile "
+                "rehydrate+prove → adversarial conflict/tamper/single-origin falsification — "
+                "multi-origin federation past single-origin cold-start only."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_federation_plane",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_federation_plane; '
+                "from pathlib import Path; "
+                "import os; "
+                "os.environ['BLACKHOLE_MISSION_GOAL']='federate multi-origin continuity'; "
+                "os.environ['BLACKHOLE_DONE_WHEN']="
+                "'min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; "
+                "os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; "
+                "os.environ['BLACKHOLE_FEDERATION_RUN_CONTINUITY']='1'; "
+                "os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='1'; "
+                "os.environ['BLACKHOLE_RECONCILE_SYNTHETIC']='1'; "
+                "os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-federation.json')); "
+                "os.environ.setdefault('BLACKHOLE_CONTINUITY_BUNDLE_PATH', str(Path('artifacts')/'continuity-bundles'/'proof-federation-origin-a.json')); "
+                "os.environ.setdefault('BLACKHOLE_FEDERATION_BUNDLE_PATH', str(Path('artifacts')/'federation-bundles'/'proof-federation.json')); "
+                "r=builtin_federation_plane(); assert r['ok'] and r.get('action')=='federation_plane' "
+                "and r.get('federated') is True and int(r.get('origin_count') or 0) >= 2 "
+                "and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') "
+                "and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') "
+                "and r.get('federation_certificate',{}).get('valid') "
+                "and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.outcome-contract",
+                "capability.contract-plane",
+                "capability.assurance-plane",
+                "capability.sovereignty-plane",
+                "capability.lineage-plane",
+                "capability.reconciliation-plane",
+                "capability.continuity-plane",
+                "capability.transfer-plane",
+                "capability.ablation-proof",
+                "capability.adversarial-contract",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "src/blackhole_agent/unbound.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Federation plane merges independent multi-origin continuity bundles with "
+                "hard-conflict detection, dual-origin lineage seal, federation certificates, "
+                "sterile re-prove, and adversarial falsification without skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "federation",
+                "multi-origin",
+                "merge",
+                "continuity",
                 "lineage",
                 "transfer",
                 "evidence",

@@ -1,0 +1,28 @@
+{
+  "certificate_hash": "9f4e0179e3ad6633b1c941e5",
+  "claims": {
+    "origin_ids": [
+      "origin-a",
+      "origin-b"
+    ],
+    "roots": [
+      "repo.import-health",
+      "capability.ledger-inventory",
+      "unbound.milestone-gate"
+    ]
+  },
+  "goal": "Build a multi-origin federated continuity plane that merges independent continuity bundles (ledger packages + lineages + certificates) into one re-provable federated ledger with dual-origin lineage seal, federation certificate, sterile rehydrate+prove, and adversarial conflict/tamper/single-origin falsification — past single-origin cold-start only.",
+  "issued_at": "2026-07-29T15:13:51.540172Z",
+  "kind": "federation_certificate",
+  "lineage_head_hash": "293612b00fab46b40e3e5e47",
+  "member_count": 3,
+  "ok": true,
+  "origin_count": 2,
+  "origin_hashes": [
+    "09a618eb4d1a298736c6d37e",
+    "71c097ca754ba66907612be1"
+  ],
+  "package_hash": "7878a785b9718369",
+  "schema_version": 1,
+  "used_skill_route_discovery": false
+}

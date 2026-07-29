@@ -57,6 +57,7 @@ from blackhole_agent.capability_compounder import (
     run_growth_loop,
     run_mission_plane,
     run_continuity_plane,
+    run_federation_plane,
     run_lineage_plane,
     run_reconciliation_plane,
     run_sovereignty_plane,
@@ -1041,6 +1042,9 @@ def evaluate_milestone(
     run_continuity = (
         cc.run_continuity_plane if cc is not None else run_continuity_plane
     )
+    run_federation = (
+        cc.run_federation_plane if cc is not None else run_federation_plane
+    )
     run_recon = (
         cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
     )
@@ -1096,6 +1100,15 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_federation = bool(
+                        kinds
+                        & {
+                            "federation_ok",
+                            "federated_ok",
+                            "min_origins",
+                            "federation_cert_valid",
+                        }
+                    )
                     needs_continuity = bool(
                         kinds
                         & {
@@ -1130,7 +1143,107 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     )
-                    if needs_continuity:
+                    if needs_federation:
+                        plane_done_when = strip_context(
+                            contract_text,
+                            keep_mission=False,
+                        )
+                        plane_done_when = "; ".join(
+                            token
+                            for token in (part.strip() for part in plane_done_when.split(";"))
+                            if token
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        federation = run_federation(
+                            workspace,
+                            goal=decision.mission_goal or decision.summary or "complete",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            run_continuity=True,
+                            run_reconciliation=True,
+                            force_synthetic_drift=True,
+                            timeout=420,
+                        )
+                        origin_count = int(federation.get("origin_count") or 0)
+                        context = {
+                            "used_skill_route_discovery": bool(
+                                federation.get("used_skill_route_discovery")
+                            ),
+                            "chain": federation.get("chain") or {},
+                            "lineage_chain": federation.get("chain") or {},
+                            "lineage": {
+                                "ok": bool((federation.get("chain") or {}).get("valid")),
+                                "entry_count": (federation.get("federation") or {}).get(
+                                    "lineage_entry_count"
+                                ),
+                                "chain": federation.get("chain") or {},
+                            },
+                            "continuity": {
+                                "ok": bool(
+                                    ((federation.get("continuity") or {}) or {}).get("ok", True)
+                                ),
+                                "resurrected": bool(
+                                    ((federation.get("continuity") or {}) or {}).get(
+                                        "resurrected", True
+                                    )
+                                ),
+                            },
+                            "continuity_plane": {
+                                "ok": bool(
+                                    ((federation.get("continuity") or {}) or {}).get("ok", True)
+                                ),
+                            },
+                            "federation": {
+                                "ok": bool(federation.get("ok")),
+                                "federated": bool(federation.get("federated")),
+                                "federated_ok": bool(federation.get("federated")),
+                                "origin_count": origin_count,
+                                "federation_hash": (federation.get("federation") or {}).get(
+                                    "federation_hash"
+                                ),
+                                "federation_cert_valid": bool(
+                                    (federation.get("federation_certificate") or {}).get("valid")
+                                ),
+                                "certificate_valid": bool(
+                                    (federation.get("federation_certificate") or {}).get("valid")
+                                ),
+                                "federation_certificate": federation.get(
+                                    "federation_certificate"
+                                ),
+                            },
+                            "federation_plane": {
+                                "ok": bool(federation.get("ok")),
+                                "federated": bool(federation.get("federated")),
+                                "origin_count": origin_count,
+                                "federation_cert_valid": bool(
+                                    (federation.get("federation_certificate") or {}).get("valid")
+                                ),
+                            },
+                            "federated": {
+                                "ok": bool(federation.get("federated")),
+                                "federated": bool(federation.get("federated")),
+                                "origin_count": origin_count,
+                            },
+                            "origin_count": origin_count,
+                            "federation_certificate": federation.get(
+                                "federation_certificate"
+                            ),
+                            "federation_hash": (federation.get("federation") or {}).get(
+                                "federation_hash"
+                            ),
+                        }
+                        if not federation.get("ok"):
+                            reasons.append(
+                                "federation plane failed for machine-checkable complete"
+                            )
+                    elif needs_continuity:
                         run_mission = "mission_plane_ok" in kinds
                         plane_done_when = strip_context(
                             contract_text,
@@ -3437,6 +3550,80 @@ def capability_assurance(
         )
     except Exception as error:
         console.print(f"Assurance plane failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "federate",
+    help=(
+        "Federation plane: dual independent continuity origins → hard-conflict package "
+        "merge → dual-origin lineage seal → federation certificate → sterile rehydrate+prove "
+        "→ adversarial conflict/tamper/single-origin falsification."
+    ),
+)
+def capability_federate(
+    goal: str = typer.Option(
+        "federate multi-origin continuity",
+        "--goal",
+        help="Mission goal for federation phases.",
+    ),
+    done_when: str = typer.Option(
+        "",
+        "--done-when",
+        help="Contract done_when predicates for inner continuity phases.",
+    ),
+    lineage_path: Path | None = typer.Option(
+        None,
+        "--lineage-path",
+        help="Where to read/write origin-A lineage log JSON.",
+    ),
+    bundle_path: Path | None = typer.Option(
+        None,
+        "--bundle-path",
+        help="Where to write origin-A continuity bundle JSON.",
+    ),
+    federation_path: Path | None = typer.Option(
+        None,
+        "--federation-path",
+        help="Where to write the portable federation bundle JSON.",
+    ),
+    no_continuity: bool = typer.Option(
+        False,
+        "--no-continuity",
+        help="Skip full continuity plane; export origin-A from existing lineage only.",
+    ),
+    no_recon: bool = typer.Option(
+        False,
+        "--no-recon",
+        help="Skip reconciliation inside continuity when continuity is enabled.",
+    ),
+    no_synthetic: bool = typer.Option(
+        False,
+        "--no-synthetic",
+        help="Do not inject synthetic drift when natural drift is absent.",
+    ),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    timeout_seconds: int = typer.Option(420, "--timeout-seconds", min=1),
+) -> None:
+    root = repo_path.resolve()
+    try:
+        result = run_federation_plane(
+            root,
+            goal,
+            done_when,
+            lineage_path=lineage_path,
+            bundle_path=bundle_path,
+            federation_path=federation_path,
+            run_continuity=not no_continuity,
+            run_reconciliation=not no_recon,
+            force_synthetic_drift=not no_synthetic,
+            timeout=timeout_seconds,
+        )
+    except Exception as error:
+        console.print(f"Federation plane failed: {error}", style="red")
         raise typer.Exit(1) from error
     console.print_json(data=result)
     if not result.get("ok") or result.get("used_skill_route_discovery"):

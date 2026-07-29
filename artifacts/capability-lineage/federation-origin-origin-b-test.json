@@ -1,0 +1,66 @@
+{
+  "entries": [
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_id": "origin-b-test",
+        "roots": [
+          "repo.import-health",
+          "capability.ledger-inventory"
+        ]
+      },
+      "detail": {
+        "origin_id": "origin-b-test",
+        "plane": "federation"
+      },
+      "entry_hash": "209c42a70dc9a3b2d8768ebb",
+      "entry_kind": "federation_origin_seed",
+      "goal": "alternate origin federation seed",
+      "index": 0,
+      "issued_at": "2026-07-29T15:12:29.331952Z",
+      "metrics": {
+        "count": 85,
+        "primitive_count": 36,
+        "proved_count": 85,
+        "proved_ratio": null
+      },
+      "package_hash": "8ece9182045d973a",
+      "parent_hash": ""
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_id": "origin-b-test",
+        "sealed": true
+      },
+      "detail": {
+        "member_ids": [
+          "repo.import-health",
+          "capability.ledger-inventory"
+        ],
+        "origin_id": "origin-b-test"
+      },
+      "entry_hash": "31950d00aa8372e2b9895a34",
+      "entry_kind": "federation_origin_seal",
+      "goal": "alternate origin federation seed",
+      "index": 1,
+      "issued_at": "2026-07-29T15:12:29.331981Z",
+      "metrics": {
+        "count": 2,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "8ece9182045d973a",
+      "parent_hash": "209c42a70dc9a3b2d8768ebb"
+    }
+  ],
+  "entry_count": 2,
+  "head_hash": "31950d00aa8372e2b9895a34",
+  "kind": "capability_lineage",
+  "ok": true,
+  "schema_version": 1,
+  "updated_at": "2026-07-29T15:12:29.332289Z"
+}
