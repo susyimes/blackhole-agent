@@ -1,0 +1,207 @@
+{
+  "bound_state_height": 2,
+  "bound_state_root": "1953f8ab731e3eb3b14baf81",
+  "entries": [
+    {
+      "action_height": 1,
+      "action_root": "e520c2106a3edadb7b5cc8df",
+      "actuation_certificate": {
+        "action_height": 1,
+        "action_root": "e520c2106a3edadb7b5cc8df",
+        "bound_state_height": 2,
+        "bound_state_root": "1953f8ab731e3eb3b14baf81",
+        "certificate_hash": "f733f2ee46b8e0d080424578",
+        "claims": {
+          "action_index": 1,
+          "capability_id": "capability.ledger-inventory",
+          "effect": "prove",
+          "plane": "actuation"
+        },
+        "deterministic": true,
+        "effect_count": 1,
+        "execution_certificate_hash": "9e7581f303baf76b640aadbd",
+        "execution_hash": "878a87bd29e92f4e68e610f2",
+        "goal": "Build a clearing plane over settlement (action 1)",
+        "issued_at": "2026-07-29T19:23:50.553884Z",
+        "kind": "actuation_certificate",
+        "lineage_head_hash": "d25a58771ee15a6e0fb573f1",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "80ce3b8782cd8247",
+        "parent_action_root": "",
+        "post_execution": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false
+      },
+      "applied_at": "2026-07-29T19:23:50.553863Z",
+      "bound_state_height": 2,
+      "bound_state_root": "1953f8ab731e3eb3b14baf81",
+      "capability_id": "capability.ledger-inventory",
+      "claims": {
+        "action_index": 1,
+        "plane": "actuation"
+      },
+      "deterministic": true,
+      "effect": "prove",
+      "effect_digest": "1594e7e4abe0314b4e28eb66",
+      "entry": "blackhole_agent.capability_compounder:builtin_ledger_inventory",
+      "execution_certificate_hash": "9e7581f303baf76b640aadbd",
+      "execution_hash": "878a87bd29e92f4e68e610f2",
+      "goal": "Build a clearing plane over settlement (action 1)",
+      "kind": "actuation_action",
+      "lineage_head_hash": "d25a58771ee15a6e0fb573f1",
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "package_hash": "80ce3b8782cd8247",
+      "parent_action_root": "",
+      "post_execution": true,
+      "schema_version": 1,
+      "used_skill_route_discovery": false
+    },
+    {
+      "action_height": 2,
+      "action_root": "d1a55cd488ad1e948be2c496",
+      "actuation_certificate": {
+        "action_height": 2,
+        "action_root": "d1a55cd488ad1e948be2c496",
+        "bound_state_height": 2,
+        "bound_state_root": "1953f8ab731e3eb3b14baf81",
+        "certificate_hash": "b14bb29e5141c46ecb77b316",
+        "claims": {
+          "action_index": 2,
+          "capability_id": "repo.import-health",
+          "effect": "prove",
+          "plane": "actuation"
+        },
+        "deterministic": true,
+        "effect_count": 2,
+        "execution_certificate_hash": "9e7581f303baf76b640aadbd",
+        "execution_hash": "878a87bd29e92f4e68e610f2",
+        "goal": "Build a clearing plane over settlement (action 2)",
+        "issued_at": "2026-07-29T19:23:50.553953Z",
+        "kind": "actuation_certificate",
+        "lineage_head_hash": "d25a58771ee15a6e0fb573f1",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "80ce3b8782cd8247",
+        "parent_action_root": "e520c2106a3edadb7b5cc8df",
+        "post_execution": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false
+      },
+      "applied_at": "2026-07-29T19:23:50.553938Z",
+      "bound_state_height": 2,
+      "bound_state_root": "1953f8ab731e3eb3b14baf81",
+      "capability_id": "repo.import-health",
+      "claims": {
+        "action_index": 2,
+        "plane": "actuation"
+      },
+      "deterministic": true,
+      "effect": "prove",
+      "effect_digest": "46c2d3efb9746fc7814fa9fc",
+      "entry": "blackhole_agent.capability_compounder:builtin_repo_import_health",
+      "execution_certificate_hash": "9e7581f303baf76b640aadbd",
+      "execution_hash": "878a87bd29e92f4e68e610f2",
+      "goal": "Build a clearing plane over settlement (action 2)",
+      "kind": "actuation_action",
+      "lineage_head_hash": "d25a58771ee15a6e0fb573f1",
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "package_hash": "80ce3b8782cd8247",
+      "parent_action_root": "e520c2106a3edadb7b5cc8df",
+      "post_execution": true,
+      "schema_version": 1,
+      "used_skill_route_discovery": false
+    },
+    {
+      "action_height": 3,
+      "action_root": "7c34dc680485809d1b3b8efb",
+      "actuation_certificate": {
+        "action_height": 3,
+        "action_root": "7c34dc680485809d1b3b8efb",
+        "bound_state_height": 2,
+        "bound_state_root": "1953f8ab731e3eb3b14baf81",
+        "certificate_hash": "589aed80074fcabfbc307cde",
+        "claims": {
+          "action_index": 3,
+          "capability_id": "unbound.milestone-gate",
+          "effect": "prove",
+          "plane": "actuation"
+        },
+        "deterministic": true,
+        "effect_count": 3,
+        "execution_certificate_hash": "9e7581f303baf76b640aadbd",
+        "execution_hash": "878a87bd29e92f4e68e610f2",
+        "goal": "Build a clearing plane over settlement (action 3)",
+        "issued_at": "2026-07-29T19:23:50.554031Z",
+        "kind": "actuation_certificate",
+        "lineage_head_hash": "d25a58771ee15a6e0fb573f1",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "80ce3b8782cd8247",
+        "parent_action_root": "d1a55cd488ad1e948be2c496",
+        "post_execution": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false
+      },
+      "applied_at": "2026-07-29T19:23:50.554017Z",
+      "bound_state_height": 2,
+      "bound_state_root": "1953f8ab731e3eb3b14baf81",
+      "capability_id": "unbound.milestone-gate",
+      "claims": {
+        "action_index": 3,
+        "plane": "actuation"
+      },
+      "deterministic": true,
+      "effect": "prove",
+      "effect_digest": "95f8258e01fc3157fcc6cde8",
+      "entry": "blackhole_agent.capability_compounder:builtin_milestone_gate_smoke",
+      "execution_certificate_hash": "9e7581f303baf76b640aadbd",
+      "execution_hash": "878a87bd29e92f4e68e610f2",
+      "goal": "Build a clearing plane over settlement (action 3)",
+      "kind": "actuation_action",
+      "lineage_head_hash": "d25a58771ee15a6e0fb573f1",
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "package_hash": "80ce3b8782cd8247",
+      "parent_action_root": "d1a55cd488ad1e948be2c496",
+      "post_execution": true,
+      "schema_version": 1,
+      "used_skill_route_discovery": false
+    }
+  ],
+  "entry_count": 3,
+  "kind": "actuation_action_log",
+  "schema_version": 1,
+  "tip_action_root": "7c34dc680485809d1b3b8efb",
+  "tip_height": 3,
+  "updated_at": "2026-07-29T19:23:50.554046Z"
+}

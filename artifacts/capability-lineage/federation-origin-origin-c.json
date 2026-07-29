@@ -15,14 +15,14 @@
         "origin_id": "origin-c",
         "plane": "federation"
       },
-      "entry_hash": "57b8d2598bab6032cc8a09a5",
+      "entry_hash": "b7c8901b4742337cc156b092",
       "entry_kind": "federation_origin_seed",
-      "goal": "Turn 1 complete was rejected because free-text done_when soft-extracted poisoned context-only predicates (capability.settlement-plane → settlement_ok, rehydrate slash-lists → resurrected_ok/chain_valid) and the complete gate evaluated settlement predicates without durable evidence. Fixed soft-extract precision, added disk-backed settlement proof evidence for context-less gates, and injected rehydrate continuity context into the settlement milestone path. Re-simulated evaluate_milestone(complete): accepted with empty reasons. (honest origin-c)",
+      "goal": "Build a clearing plane over settlement that nets multi-settlement receipts into deterministic hash-chained clearing positions with net position digests, clearing certificates, sterile rehydrate+prove, and adversarial falsification past settled outcomes without skill-route. (honest origin-c)",
       "index": 0,
-      "issued_at": "2026-07-29T18:39:12.444632Z",
+      "issued_at": "2026-07-29T19:24:19.774132Z",
       "metrics": {
-        "count": 90,
-        "primitive_count": 41,
+        "count": 91,
+        "primitive_count": 42,
         "proved_count": 88,
         "proved_ratio": null
       },
@@ -44,11 +44,11 @@
         ],
         "origin_id": "origin-c"
       },
-      "entry_hash": "7b062b98cba24385b439cd0d",
+      "entry_hash": "886f6c18a18e7f7966738017",
       "entry_kind": "federation_origin_seal",
-      "goal": "Turn 1 complete was rejected because free-text done_when soft-extracted poisoned context-only predicates (capability.settlement-plane → settlement_ok, rehydrate slash-lists → resurrected_ok/chain_valid) and the complete gate evaluated settlement predicates without durable evidence. Fixed soft-extract precision, added disk-backed settlement proof evidence for context-less gates, and injected rehydrate continuity context into the settlement milestone path. Re-simulated evaluate_milestone(complete): accepted with empty reasons. (honest origin-c)",
+      "goal": "Build a clearing plane over settlement that nets multi-settlement receipts into deterministic hash-chained clearing positions with net position digests, clearing certificates, sterile rehydrate+prove, and adversarial falsification past settled outcomes without skill-route. (honest origin-c)",
       "index": 1,
-      "issued_at": "2026-07-29T18:39:12.444877Z",
+      "issued_at": "2026-07-29T19:24:19.774221Z",
       "metrics": {
         "count": 3,
         "primitive_count": null,
@@ -56,13 +56,13 @@
         "proved_ratio": null
       },
       "package_hash": "7878a785b9718369",
-      "parent_hash": "57b8d2598bab6032cc8a09a5"
+      "parent_hash": "b7c8901b4742337cc156b092"
     }
   ],
   "entry_count": 2,
-  "head_hash": "7b062b98cba24385b439cd0d",
+  "head_hash": "886f6c18a18e7f7966738017",
   "kind": "capability_lineage",
   "ok": true,
   "schema_version": 1,
-  "updated_at": "2026-07-29T18:39:12.445969Z"
+  "updated_at": "2026-07-29T19:24:19.774712Z"
 }

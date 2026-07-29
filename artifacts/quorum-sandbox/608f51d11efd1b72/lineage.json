@@ -1,0 +1,165 @@
+{
+  "entries": [
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "origin_ids": [
+          "origin-a",
+          "origin-b",
+          "origin-byzantine"
+        ],
+        "threshold": 2
+      },
+      "detail": {
+        "origins": [
+          {
+            "bundle_hash": "193d23d2512e1b5508dbb416",
+            "byzantine": false,
+            "lineage_entry_count": 115,
+            "lineage_head_hash": "3e49bd489bc18abc67dfdd8f",
+            "member_count": 3,
+            "origin_id": "origin-a",
+            "package_hash": "7878a785b9718369"
+          },
+          {
+            "bundle_hash": "8d4ae66c86be875c13865fae",
+            "byzantine": false,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "b4410784990f59b942366ecd",
+            "member_count": 2,
+            "origin_id": "origin-b",
+            "package_hash": "8ece9182045d973a"
+          },
+          {
+            "bundle_hash": "9d79ee87152485ed66118b24",
+            "byzantine": true,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "ad50f7840f6d218f922f3501",
+            "member_count": 3,
+            "origin_id": "origin-byzantine",
+            "package_hash": "7d88f7661e8407af"
+          }
+        ]
+      },
+      "entry_hash": "0584f8607002c44bc4f61608",
+      "entry_kind": "quorum_origin_manifest",
+      "goal": "Build a clearing plane over settlement that nets multi-settlement receipts into deterministic hash-chained clearing positions with net position digests, clearing certificates, sterile rehydrate+prove, and adversarial falsification past settled outcomes without skill-route.",
+      "index": 0,
+      "issued_at": "2026-07-29T19:21:12.767334Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": ""
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "package_hash": "066545df3053adf5",
+        "threshold": 2
+      },
+      "detail": {
+        "origin_heads": [
+          "3e49bd489bc18abc67dfdd8f",
+          "b4410784990f59b942366ecd",
+          "ad50f7840f6d218f922f3501"
+        ]
+      },
+      "entry_hash": "a1fec5edea3ed307bb57b6d7",
+      "entry_kind": "quorum_vote",
+      "goal": "Build a clearing plane over settlement that nets multi-settlement receipts into deterministic hash-chained clearing positions with net position digests, clearing certificates, sterile rehydrate+prove, and adversarial falsification past settled outcomes without skill-route.",
+      "index": 1,
+      "issued_at": "2026-07-29T19:21:12.767363Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "0584f8607002c44bc4f61608"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "byzantine_count": 1,
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "excluded": true
+      },
+      "detail": {
+        "byzantine_origins": [
+          "origin-byzantine"
+        ]
+      },
+      "entry_hash": "47c8d364057a7ad8b0b3509d",
+      "entry_kind": "quorum_byzantine_exclude",
+      "goal": "Build a clearing plane over settlement that nets multi-settlement receipts into deterministic hash-chained clearing positions with net position digests, clearing certificates, sterile rehydrate+prove, and adversarial falsification past settled outcomes without skill-route.",
+      "index": 2,
+      "issued_at": "2026-07-29T19:21:12.767382Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "a1fec5edea3ed307bb57b6d7"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "quorum": true,
+        "quorum_met": true
+      },
+      "detail": {
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "origin_bundle_hashes": [
+          "193d23d2512e1b5508dbb416",
+          "8d4ae66c86be875c13865fae",
+          "9d79ee87152485ed66118b24"
+        ]
+      },
+      "entry_hash": "3fbe6d5ba11b5cf63c4e7d7d",
+      "entry_kind": "quorum_seal",
+      "goal": "Build a clearing plane over settlement that nets multi-settlement receipts into deterministic hash-chained clearing positions with net position digests, clearing certificates, sterile rehydrate+prove, and adversarial falsification past settled outcomes without skill-route.",
+      "index": 3,
+      "issued_at": "2026-07-29T19:21:12.767398Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "47c8d364057a7ad8b0b3509d"
+    }
+  ],
+  "entry_count": 4,
+  "head_hash": "3fbe6d5ba11b5cf63c4e7d7d",
+  "kind": "capability_lineage",
+  "schema_version": 1,
+  "updated_at": "2026-07-29T19:21:12.778292Z"
+}

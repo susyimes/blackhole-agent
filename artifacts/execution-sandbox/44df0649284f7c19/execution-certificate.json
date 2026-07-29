@@ -1,0 +1,30 @@
+{
+  "certificate_hash": "417fe1e3ea93b7d01a6263d1",
+  "claims": {
+    "member_count": 3,
+    "plane": "execution",
+    "state_index": 2
+  },
+  "deterministic": true,
+  "epoch_hash": "c477f337905ce539737b8d2f",
+  "epoch_height": 2,
+  "finality_certificate_hash": "1045b2ab66ac16fe9fe34cc8",
+  "goal": "clearing over settlement (state 2)",
+  "issued_at": "2026-07-29T19:20:11.317513Z",
+  "kind": "execution_certificate",
+  "lineage_head_hash": "9e4eaa349aed741d2275d6c8",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "ba11f5d1de8ad3ca",
+  "parent_state_root": "77472db2a9db1536fecbb996",
+  "post_finality": true,
+  "schema_version": 1,
+  "state_height": 2,
+  "state_root": "caadf34d054949143e84d505",
+  "used_skill_route_discovery": false
+}

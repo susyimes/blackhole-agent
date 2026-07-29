@@ -1,0 +1,167 @@
+{
+  "entries": [
+    {
+      "agreeing_count": 2,
+      "applied_at": "2026-07-29T19:21:13.781642Z",
+      "byzantine_count": 1,
+      "claims": {
+        "plane": "execution",
+        "state_index": 1
+      },
+      "deterministic": true,
+      "epoch_hash": "dc63f243693e55da64097d8a",
+      "epoch_height": 1,
+      "execution_certificate": {
+        "certificate_hash": "f746848493c2e1114ba9e9b7",
+        "claims": {
+          "member_count": 3,
+          "plane": "execution",
+          "state_index": 1
+        },
+        "deterministic": true,
+        "epoch_hash": "dc63f243693e55da64097d8a",
+        "epoch_height": 1,
+        "finality_certificate_hash": "dfcbaf19b78c16631f8d29f4",
+        "goal": "Build a clearing plane over settlement that nets multi-settlement receipts into deterministic hash-chained clearing positions with net position digests, clearing certificates, sterile rehydrate+prove, and adversarial falsification past settled outcomes without skill-route. (state 1)",
+        "issued_at": "2026-07-29T19:21:13.781676Z",
+        "kind": "execution_certificate",
+        "lineage_head_hash": "3fbe6d5ba11b5cf63c4e7d7d",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "066545df3053adf5",
+        "parent_state_root": "",
+        "post_finality": true,
+        "schema_version": 1,
+        "state_height": 1,
+        "state_root": "aed06f9af819f97b016073ed",
+        "used_skill_route_discovery": false
+      },
+      "finality_certificate_hash": "dfcbaf19b78c16631f8d29f4",
+      "goal": "Build a clearing plane over settlement that nets multi-settlement receipts into deterministic hash-chained clearing positions with net position digests, clearing certificates, sterile rehydrate+prove, and adversarial falsification past settled outcomes without skill-route. (state 1)",
+      "kind": "execution_state",
+      "lineage_head_hash": "3fbe6d5ba11b5cf63c4e7d7d",
+      "member_count": 3,
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "origin_count": 3,
+      "package_hash": "066545df3053adf5",
+      "parent_state_root": "",
+      "post_finality": true,
+      "projection": {
+        "agreeing_count": 2,
+        "applied_from": "finality_epoch",
+        "byzantine_count": 1,
+        "epoch_hash": "dc63f243693e55da64097d8a",
+        "finality_certificate_hash": "dfcbaf19b78c16631f8d29f4",
+        "height": 1,
+        "lineage_head_hash": "3fbe6d5ba11b5cf63c4e7d7d",
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "parent_state_root": ""
+      },
+      "schema_version": 1,
+      "state_height": 1,
+      "state_root": "aed06f9af819f97b016073ed",
+      "used_skill_route_discovery": false
+    },
+    {
+      "agreeing_count": 2,
+      "applied_at": "2026-07-29T19:21:13.781747Z",
+      "byzantine_count": 1,
+      "claims": {
+        "plane": "execution",
+        "state_index": 2
+      },
+      "deterministic": true,
+      "epoch_hash": "a397090440bc10329da57ac1",
+      "epoch_height": 2,
+      "execution_certificate": {
+        "certificate_hash": "85f9715cb400dbf40c56dc11",
+        "claims": {
+          "member_count": 3,
+          "plane": "execution",
+          "state_index": 2
+        },
+        "deterministic": true,
+        "epoch_hash": "a397090440bc10329da57ac1",
+        "epoch_height": 2,
+        "finality_certificate_hash": "bf44cb1f8a6b2b7d400355cb",
+        "goal": "Build a clearing plane over settlement that nets multi-settlement receipts into deterministic hash-chained clearing positions with net position digests, clearing certificates, sterile rehydrate+prove, and adversarial falsification past settled outcomes without skill-route. (state 2)",
+        "issued_at": "2026-07-29T19:21:13.781772Z",
+        "kind": "execution_certificate",
+        "lineage_head_hash": "f92cf19565d90ad3447c085d",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "b3fe769ff85571d0",
+        "parent_state_root": "aed06f9af819f97b016073ed",
+        "post_finality": true,
+        "schema_version": 1,
+        "state_height": 2,
+        "state_root": "5df561b1a9980f40c4f0376e",
+        "used_skill_route_discovery": false
+      },
+      "finality_certificate_hash": "bf44cb1f8a6b2b7d400355cb",
+      "goal": "Build a clearing plane over settlement that nets multi-settlement receipts into deterministic hash-chained clearing positions with net position digests, clearing certificates, sterile rehydrate+prove, and adversarial falsification past settled outcomes without skill-route. (state 2)",
+      "kind": "execution_state",
+      "lineage_head_hash": "f92cf19565d90ad3447c085d",
+      "member_count": 3,
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "origin_count": 3,
+      "package_hash": "b3fe769ff85571d0",
+      "parent_state_root": "aed06f9af819f97b016073ed",
+      "post_finality": true,
+      "projection": {
+        "agreeing_count": 2,
+        "applied_from": "finality_epoch",
+        "byzantine_count": 1,
+        "epoch_hash": "a397090440bc10329da57ac1",
+        "finality_certificate_hash": "bf44cb1f8a6b2b7d400355cb",
+        "height": 2,
+        "lineage_head_hash": "f92cf19565d90ad3447c085d",
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "origin_count": 3,
+        "package_hash": "b3fe769ff85571d0",
+        "parent_state_root": "aed06f9af819f97b016073ed"
+      },
+      "schema_version": 1,
+      "state_height": 2,
+      "state_root": "5df561b1a9980f40c4f0376e",
+      "used_skill_route_discovery": false
+    }
+  ],
+  "entry_count": 2,
+  "kind": "execution_state_log",
+  "schema_version": 1,
+  "tip_epoch_hash": "a397090440bc10329da57ac1",
+  "tip_height": 2,
+  "tip_state_root": "5df561b1a9980f40c4f0376e",
+  "updated_at": "2026-07-29T19:21:13.781791Z"
+}

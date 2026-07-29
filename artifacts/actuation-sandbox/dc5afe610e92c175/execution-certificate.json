@@ -1,0 +1,30 @@
+{
+  "certificate_hash": "9e7581f303baf76b640aadbd",
+  "claims": {
+    "member_count": 3,
+    "plane": "execution",
+    "state_index": 2
+  },
+  "deterministic": true,
+  "epoch_hash": "0fe7f37f93de010c85389d58",
+  "epoch_height": 2,
+  "finality_certificate_hash": "54e2363eeeb5efa84199bd88",
+  "goal": "Build a clearing plane over settlement (state 2)",
+  "issued_at": "2026-07-29T19:23:50.109769Z",
+  "kind": "execution_certificate",
+  "lineage_head_hash": "d25a58771ee15a6e0fb573f1",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "80ce3b8782cd8247",
+  "parent_state_root": "06f1e0c1f21934fad39fa8c8",
+  "post_finality": true,
+  "schema_version": 1,
+  "state_height": 2,
+  "state_root": "1953f8ab731e3eb3b14baf81",
+  "used_skill_route_discovery": false
+}

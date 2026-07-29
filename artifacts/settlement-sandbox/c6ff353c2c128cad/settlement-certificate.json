@@ -1,0 +1,35 @@
+{
+  "actuation_certificate_hash": "589aed80074fcabfbc307cde",
+  "actuation_hash": "dc5afe610e92c1757a702923",
+  "bound_action_height": 2,
+  "bound_action_root": "d1a55cd488ad1e948be2c496",
+  "certificate_hash": "91d8e603cb38bf630fcba501",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "effect": "prove",
+    "outcome": "settled",
+    "plane": "settlement",
+    "settlement_index": 2
+  },
+  "deterministic": true,
+  "goal": "Build a clearing plane over settlement (settlement 2)",
+  "issued_at": "2026-07-29T19:23:50.998138Z",
+  "kind": "settlement_certificate",
+  "lineage_head_hash": "d25a58771ee15a6e0fb573f1",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "80ce3b8782cd8247",
+  "parent_settlement_root": "a252a0bfa54d74fd2b9964ec",
+  "post_actuation": true,
+  "schema_version": 1,
+  "settlement_count": 2,
+  "settlement_height": 2,
+  "settlement_root": "8661f493fbe7c56a16bd5c59",
+  "used_skill_route_discovery": false,
+  "valid": true
+}

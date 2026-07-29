@@ -1,0 +1,33 @@
+{
+  "action_height": 3,
+  "action_root": "6f2ac970d22aca44a1199c45",
+  "bound_state_height": 2,
+  "bound_state_root": "47121ce87d7ec4fb53b35f61",
+  "certificate_hash": "5748c9192a1ffd466fa6c764",
+  "claims": {
+    "action_index": 3,
+    "capability_id": "unbound.milestone-gate",
+    "effect": "prove",
+    "plane": "actuation"
+  },
+  "deterministic": true,
+  "effect_count": 3,
+  "execution_certificate_hash": "453fe9821e377c1fd46ccc72",
+  "execution_hash": "9393fdf87c09d7d6cab19e8e",
+  "goal": "Build a clearing plane over settlement that nets multi-settlement receipts into deterministic hash-chained clearing positions with net position digests, clearing certificates, sterile rehydrate+prove, and adversarial falsification past settled outcomes without skill-route. (action 3)",
+  "issued_at": "2026-07-29T19:24:21.312240Z",
+  "kind": "actuation_certificate",
+  "lineage_head_hash": "31f47ea722d6aa609692afaa",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "f9b90aaa13b9884b",
+  "parent_action_root": "e8e7881c572916d8c2f72a0c",
+  "post_execution": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false
+}

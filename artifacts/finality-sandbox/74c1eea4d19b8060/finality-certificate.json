@@ -1,0 +1,29 @@
+{
+  "agreeing_count": 2,
+  "byzantine_count": 1,
+  "certificate_hash": "54e2363eeeb5efa84199bd88",
+  "claims": {
+    "epoch_index": 2,
+    "member_count": 3,
+    "plane": "finality",
+    "roots": [
+      "repo.import-health",
+      "capability.ledger-inventory",
+      "unbound.milestone-gate"
+    ]
+  },
+  "epoch_hash": "0fe7f37f93de010c85389d58",
+  "epoch_height": 2,
+  "goal": "Build a clearing plane over settlement (epoch 2)",
+  "irreversible": true,
+  "issued_at": "2026-07-29T19:23:49.662399Z",
+  "kind": "finality_certificate",
+  "lineage_head_hash": "d25a58771ee15a6e0fb573f1",
+  "ok": true,
+  "origin_count": 3,
+  "package_hash": "80ce3b8782cd8247",
+  "parent_epoch_hash": "b037345ae4b6da54ed3a27ed",
+  "quorum_hash": "e5d8c22012ce550011b37a10",
+  "schema_version": 1,
+  "used_skill_route_discovery": false
+}

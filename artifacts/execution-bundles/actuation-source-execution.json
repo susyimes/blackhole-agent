@@ -4,56 +4,57 @@
   "byzantine_count": 1,
   "certificate_count": 3,
   "certificates": {
-    "469527942d96d3a91967e062": {
-      "certificate_hash": "469527942d96d3a91967e062",
-      "kind": "finality_certificate",
+    "453fe9821e377c1fd46ccc72": {
+      "certificate_hash": "453fe9821e377c1fd46ccc72",
       "payload": {
-        "agreeing_count": 2,
-        "byzantine_count": 1,
-        "certificate_hash": "469527942d96d3a91967e062",
+        "certificate_hash": "453fe9821e377c1fd46ccc72",
         "claims": {
-          "epoch_index": 2,
           "member_count": 3,
-          "plane": "finality",
-          "roots": [
-            "repo.import-health",
-            "capability.ledger-inventory",
-            "unbound.milestone-gate"
-          ]
+          "plane": "execution",
+          "state_index": 2
         },
-        "epoch_hash": "eea3d6a234f7d6d8dda20e1d",
+        "deterministic": true,
+        "epoch_hash": "29d54c074f4c037a28c8cbaa",
         "epoch_height": 2,
-        "goal": "Turn 1 complete was rejected because free-text done_when soft-extracted poisoned context-only predicates (capability.settlement-plane → settlement_ok, rehydrate slash-lists → resurrected_ok/chain_valid) and the complete gate evaluated settlement predicates without durable evidence. Fixed soft-extract precision, added disk-backed settlement proof evidence for context-less gates, and injected rehydrate continuity context into the settlement milestone path. Re-simulated evaluate_milestone(complete): accepted with empty reasons. (epoch 2)",
-        "irreversible": true,
-        "issued_at": "2026-07-29T18:39:12.975091Z",
-        "kind": "finality_certificate",
-        "lineage_head_hash": "4351f4d4e7028ee5291731ff",
+        "finality_certificate_hash": "ef5c0e49b21512b2ecf60097",
+        "goal": "Build a clearing plane over settlement that nets multi-settlement receipts into deterministic hash-chained clearing positions with net position digests, clearing certificates, sterile rehydrate+prove, and adversarial falsification past settled outcomes without skill-route. (state 2)",
+        "issued_at": "2026-07-29T19:24:20.778732Z",
+        "kind": "execution_certificate",
+        "lineage_head_hash": "31f47ea722d6aa609692afaa",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
         "ok": true,
-        "origin_count": 3,
-        "package_hash": "d6b6165cde5369f6",
-        "parent_epoch_hash": "f778cdc3e90105bea4b6aaa6",
-        "quorum_hash": "9081224eb51a6f9d8986cb14",
+        "package_hash": "f9b90aaa13b9884b",
+        "parent_state_root": "39fb3e7e44285ea094bed672",
+        "post_finality": true,
         "schema_version": 1,
+        "state_height": 2,
+        "state_root": "47121ce87d7ec4fb53b35f61",
         "used_skill_route_discovery": false
-      }
+      },
+      "state_height": 2
     },
-    "611fe06c9ffae97cd1011242": {
-      "certificate_hash": "611fe06c9ffae97cd1011242",
+    "c19ce5c673f90970ee22fa91": {
+      "certificate_hash": "c19ce5c673f90970ee22fa91",
       "payload": {
-        "certificate_hash": "611fe06c9ffae97cd1011242",
+        "certificate_hash": "c19ce5c673f90970ee22fa91",
         "claims": {
           "member_count": 3,
           "plane": "execution",
           "state_index": 1
         },
         "deterministic": true,
-        "epoch_hash": "f778cdc3e90105bea4b6aaa6",
+        "epoch_hash": "2e196f51ab5fc3ef3422ab1f",
         "epoch_height": 1,
-        "finality_certificate_hash": "6a400ef9e941a5c6c36e0bf6",
-        "goal": "Turn 1 complete was rejected because free-text done_when soft-extracted poisoned context-only predicates (capability.settlement-plane → settlement_ok, rehydrate slash-lists → resurrected_ok/chain_valid) and the complete gate evaluated settlement predicates without durable evidence. Fixed soft-extract precision, added disk-backed settlement proof evidence for context-less gates, and injected rehydrate continuity context into the settlement milestone path. Re-simulated evaluate_milestone(complete): accepted with empty reasons. (state 1)",
-        "issued_at": "2026-07-29T18:39:13.474134Z",
+        "finality_certificate_hash": "c684fdf358a40b2143d4e295",
+        "goal": "Build a clearing plane over settlement that nets multi-settlement receipts into deterministic hash-chained clearing positions with net position digests, clearing certificates, sterile rehydrate+prove, and adversarial falsification past settled outcomes without skill-route. (state 1)",
+        "issued_at": "2026-07-29T19:24:20.778506Z",
         "kind": "execution_certificate",
-        "lineage_head_hash": "875d23f5d3035a37c42be349",
+        "lineage_head_hash": "776a22127cf8a5fcb2293062",
         "member_count": 3,
         "member_ids": [
           "capability.ledger-inventory",
@@ -66,63 +67,62 @@
         "post_finality": true,
         "schema_version": 1,
         "state_height": 1,
-        "state_root": "9ba717d51f568962cb08f06e",
+        "state_root": "39fb3e7e44285ea094bed672",
         "used_skill_route_discovery": false
       },
       "state_height": 1
     },
-    "a84eeb58e8d433c96631ff60": {
-      "certificate_hash": "a84eeb58e8d433c96631ff60",
+    "ef5c0e49b21512b2ecf60097": {
+      "certificate_hash": "ef5c0e49b21512b2ecf60097",
+      "kind": "finality_certificate",
       "payload": {
-        "certificate_hash": "a84eeb58e8d433c96631ff60",
+        "agreeing_count": 2,
+        "byzantine_count": 1,
+        "certificate_hash": "ef5c0e49b21512b2ecf60097",
         "claims": {
+          "epoch_index": 2,
           "member_count": 3,
-          "plane": "execution",
-          "state_index": 2
+          "plane": "finality",
+          "roots": [
+            "repo.import-health",
+            "capability.ledger-inventory",
+            "unbound.milestone-gate"
+          ]
         },
-        "deterministic": true,
-        "epoch_hash": "eea3d6a234f7d6d8dda20e1d",
+        "epoch_hash": "29d54c074f4c037a28c8cbaa",
         "epoch_height": 2,
-        "finality_certificate_hash": "469527942d96d3a91967e062",
-        "goal": "Turn 1 complete was rejected because free-text done_when soft-extracted poisoned context-only predicates (capability.settlement-plane → settlement_ok, rehydrate slash-lists → resurrected_ok/chain_valid) and the complete gate evaluated settlement predicates without durable evidence. Fixed soft-extract precision, added disk-backed settlement proof evidence for context-less gates, and injected rehydrate continuity context into the settlement milestone path. Re-simulated evaluate_milestone(complete): accepted with empty reasons. (state 2)",
-        "issued_at": "2026-07-29T18:39:13.474543Z",
-        "kind": "execution_certificate",
-        "lineage_head_hash": "4351f4d4e7028ee5291731ff",
-        "member_count": 3,
-        "member_ids": [
-          "capability.ledger-inventory",
-          "repo.import-health",
-          "unbound.milestone-gate"
-        ],
+        "goal": "Build a clearing plane over settlement that nets multi-settlement receipts into deterministic hash-chained clearing positions with net position digests, clearing certificates, sterile rehydrate+prove, and adversarial falsification past settled outcomes without skill-route. (epoch 2)",
+        "irreversible": true,
+        "issued_at": "2026-07-29T19:24:20.284087Z",
+        "kind": "finality_certificate",
+        "lineage_head_hash": "31f47ea722d6aa609692afaa",
         "ok": true,
-        "package_hash": "d6b6165cde5369f6",
-        "parent_state_root": "9ba717d51f568962cb08f06e",
-        "post_finality": true,
+        "origin_count": 3,
+        "package_hash": "f9b90aaa13b9884b",
+        "parent_epoch_hash": "2e196f51ab5fc3ef3422ab1f",
+        "quorum_hash": "279350d5aae8cd9544d00d59",
         "schema_version": 1,
-        "state_height": 2,
-        "state_root": "45b5b9050c291fa8a8691948",
         "used_skill_route_discovery": false
-      },
-      "state_height": 2
+      }
     }
   },
   "deterministic": true,
   "epoch_count": 2,
   "execution_certificate": {
-    "certificate_hash": "a84eeb58e8d433c96631ff60",
+    "certificate_hash": "453fe9821e377c1fd46ccc72",
     "claims": {
       "member_count": 3,
       "plane": "execution",
       "state_index": 2
     },
     "deterministic": true,
-    "epoch_hash": "eea3d6a234f7d6d8dda20e1d",
+    "epoch_hash": "29d54c074f4c037a28c8cbaa",
     "epoch_height": 2,
-    "finality_certificate_hash": "469527942d96d3a91967e062",
-    "goal": "Turn 1 complete was rejected because free-text done_when soft-extracted poisoned context-only predicates (capability.settlement-plane → settlement_ok, rehydrate slash-lists → resurrected_ok/chain_valid) and the complete gate evaluated settlement predicates without durable evidence. Fixed soft-extract precision, added disk-backed settlement proof evidence for context-less gates, and injected rehydrate continuity context into the settlement milestone path. Re-simulated evaluate_milestone(complete): accepted with empty reasons. (state 2)",
-    "issued_at": "2026-07-29T18:39:13.474543Z",
+    "finality_certificate_hash": "ef5c0e49b21512b2ecf60097",
+    "goal": "Build a clearing plane over settlement that nets multi-settlement receipts into deterministic hash-chained clearing positions with net position digests, clearing certificates, sterile rehydrate+prove, and adversarial falsification past settled outcomes without skill-route. (state 2)",
+    "issued_at": "2026-07-29T19:24:20.778732Z",
     "kind": "execution_certificate",
-    "lineage_head_hash": "4351f4d4e7028ee5291731ff",
+    "lineage_head_hash": "31f47ea722d6aa609692afaa",
     "member_count": 3,
     "member_ids": [
       "capability.ledger-inventory",
@@ -130,20 +130,20 @@
       "unbound.milestone-gate"
     ],
     "ok": true,
-    "package_hash": "d6b6165cde5369f6",
-    "parent_state_root": "9ba717d51f568962cb08f06e",
+    "package_hash": "f9b90aaa13b9884b",
+    "parent_state_root": "39fb3e7e44285ea094bed672",
     "post_finality": true,
     "schema_version": 1,
     "state_height": 2,
-    "state_root": "45b5b9050c291fa8a8691948",
+    "state_root": "47121ce87d7ec4fb53b35f61",
     "used_skill_route_discovery": false
   },
-  "execution_hash": "5436cbc089dcde53be5a493a",
-  "exported_at": "2026-07-29T18:39:13.475606Z",
+  "execution_hash": "9393fdf87c09d7d6cab19e8e",
+  "exported_at": "2026-07-29T19:24:20.779893Z",
   "finality_certificate": {
     "agreeing_count": 2,
     "byzantine_count": 1,
-    "certificate_hash": "469527942d96d3a91967e062",
+    "certificate_hash": "ef5c0e49b21512b2ecf60097",
     "claims": {
       "epoch_index": 2,
       "member_count": 3,
@@ -154,23 +154,23 @@
         "unbound.milestone-gate"
       ]
     },
-    "epoch_hash": "eea3d6a234f7d6d8dda20e1d",
+    "epoch_hash": "29d54c074f4c037a28c8cbaa",
     "epoch_height": 2,
-    "goal": "Turn 1 complete was rejected because free-text done_when soft-extracted poisoned context-only predicates (capability.settlement-plane → settlement_ok, rehydrate slash-lists → resurrected_ok/chain_valid) and the complete gate evaluated settlement predicates without durable evidence. Fixed soft-extract precision, added disk-backed settlement proof evidence for context-less gates, and injected rehydrate continuity context into the settlement milestone path. Re-simulated evaluate_milestone(complete): accepted with empty reasons. (epoch 2)",
+    "goal": "Build a clearing plane over settlement that nets multi-settlement receipts into deterministic hash-chained clearing positions with net position digests, clearing certificates, sterile rehydrate+prove, and adversarial falsification past settled outcomes without skill-route. (epoch 2)",
     "irreversible": true,
-    "issued_at": "2026-07-29T18:39:12.975091Z",
+    "issued_at": "2026-07-29T19:24:20.284087Z",
     "kind": "finality_certificate",
-    "lineage_head_hash": "4351f4d4e7028ee5291731ff",
+    "lineage_head_hash": "31f47ea722d6aa609692afaa",
     "ok": true,
     "origin_count": 3,
-    "package_hash": "d6b6165cde5369f6",
-    "parent_epoch_hash": "f778cdc3e90105bea4b6aaa6",
-    "quorum_hash": "9081224eb51a6f9d8986cb14",
+    "package_hash": "f9b90aaa13b9884b",
+    "parent_epoch_hash": "2e196f51ab5fc3ef3422ab1f",
+    "quorum_hash": "279350d5aae8cd9544d00d59",
     "schema_version": 1,
     "used_skill_route_discovery": false
   },
-  "finality_hash": "3449631d6d60f46b9c0c8b3c",
-  "goal": "Turn 1 complete was rejected because free-text done_when soft-extracted poisoned context-only predicates (capability.settlement-plane → settlement_ok, rehydrate slash-lists → resurrected_ok/chain_valid) and the complete gate evaluated settlement predicates without durable evidence. Fixed soft-extract precision, added disk-backed settlement proof evidence for context-less gates, and injected rehydrate continuity context into the settlement milestone path. Re-simulated evaluate_milestone(complete): accepted with empty reasons.",
+  "finality_hash": "c012d74f33d3e90df121816a",
+  "goal": "Build a clearing plane over settlement that nets multi-settlement receipts into deterministic hash-chained clearing positions with net position digests, clearing certificates, sterile rehydrate+prove, and adversarial falsification past settled outcomes without skill-route.",
   "kind": "execution_bundle",
   "lineage": {
     "entries": [
@@ -189,7 +189,7 @@
         "detail": {
           "origins": [
             {
-              "bundle_hash": "ac4a2cbeff272e8a1eb7e760",
+              "bundle_hash": "7d0feb933ed9c1d17688fd4d",
               "byzantine": false,
               "lineage_entry_count": 115,
               "lineage_head_hash": "3e49bd489bc18abc67dfdd8f",
@@ -198,30 +198,30 @@
               "package_hash": "7878a785b9718369"
             },
             {
-              "bundle_hash": "5c3a36e051caf4d255b74110",
+              "bundle_hash": "37735d831b8c8363a36e173b",
               "byzantine": false,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "53512244b7dc7758a6ee3782",
+              "lineage_head_hash": "d4768987f882627f29dba0a9",
               "member_count": 2,
               "origin_id": "origin-b",
               "package_hash": "8ece9182045d973a"
             },
             {
-              "bundle_hash": "8daeaff816e65f56a6c00e31",
+              "bundle_hash": "b19cc7279fd576c9288dacb3",
               "byzantine": true,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "7b062b98cba24385b439cd0d",
+              "lineage_head_hash": "886f6c18a18e7f7966738017",
               "member_count": 3,
               "origin_id": "origin-byzantine",
               "package_hash": "7d88f7661e8407af"
             }
           ]
         },
-        "entry_hash": "04ed358fc630bed2a70fb6e6",
+        "entry_hash": "8351ace98ab89acc503f89f4",
         "entry_kind": "quorum_origin_manifest",
-        "goal": "Turn 1 complete was rejected because free-text done_when soft-extracted poisoned context-only predicates (capability.settlement-plane → settlement_ok, rehydrate slash-lists → resurrected_ok/chain_valid) and the complete gate evaluated settlement predicates without durable evidence. Fixed soft-extract precision, added disk-backed settlement proof evidence for context-less gates, and injected rehydrate continuity context into the settlement milestone path. Re-simulated evaluate_milestone(complete): accepted with empty reasons.",
+        "goal": "Build a clearing plane over settlement that nets multi-settlement receipts into deterministic hash-chained clearing positions with net position digests, clearing certificates, sterile rehydrate+prove, and adversarial falsification past settled outcomes without skill-route.",
         "index": 0,
-        "issued_at": "2026-07-29T18:39:12.451940Z",
+        "issued_at": "2026-07-29T19:24:19.777530Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -246,15 +246,15 @@
         "detail": {
           "origin_heads": [
             "3e49bd489bc18abc67dfdd8f",
-            "53512244b7dc7758a6ee3782",
-            "7b062b98cba24385b439cd0d"
+            "d4768987f882627f29dba0a9",
+            "886f6c18a18e7f7966738017"
           ]
         },
-        "entry_hash": "73460d416f9606e9635ba08e",
+        "entry_hash": "c14aaec9d763c027f022dd4b",
         "entry_kind": "quorum_vote",
-        "goal": "Turn 1 complete was rejected because free-text done_when soft-extracted poisoned context-only predicates (capability.settlement-plane → settlement_ok, rehydrate slash-lists → resurrected_ok/chain_valid) and the complete gate evaluated settlement predicates without durable evidence. Fixed soft-extract precision, added disk-backed settlement proof evidence for context-less gates, and injected rehydrate continuity context into the settlement milestone path. Re-simulated evaluate_milestone(complete): accepted with empty reasons.",
+        "goal": "Build a clearing plane over settlement that nets multi-settlement receipts into deterministic hash-chained clearing positions with net position digests, clearing certificates, sterile rehydrate+prove, and adversarial falsification past settled outcomes without skill-route.",
         "index": 1,
-        "issued_at": "2026-07-29T18:39:12.452064Z",
+        "issued_at": "2026-07-29T19:24:19.777557Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -262,7 +262,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "04ed358fc630bed2a70fb6e6"
+        "parent_hash": "8351ace98ab89acc503f89f4"
       },
       {
         "certificate_hash": "",
@@ -279,11 +279,11 @@
             "origin-byzantine"
           ]
         },
-        "entry_hash": "c47ced5995d38747448ab047",
+        "entry_hash": "6078430c8cccca2dd4254fdc",
         "entry_kind": "quorum_byzantine_exclude",
-        "goal": "Turn 1 complete was rejected because free-text done_when soft-extracted poisoned context-only predicates (capability.settlement-plane → settlement_ok, rehydrate slash-lists → resurrected_ok/chain_valid) and the complete gate evaluated settlement predicates without durable evidence. Fixed soft-extract precision, added disk-backed settlement proof evidence for context-less gates, and injected rehydrate continuity context into the settlement milestone path. Re-simulated evaluate_milestone(complete): accepted with empty reasons.",
+        "goal": "Build a clearing plane over settlement that nets multi-settlement receipts into deterministic hash-chained clearing positions with net position digests, clearing certificates, sterile rehydrate+prove, and adversarial falsification past settled outcomes without skill-route.",
         "index": 2,
-        "issued_at": "2026-07-29T18:39:12.452137Z",
+        "issued_at": "2026-07-29T19:24:19.777576Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -291,7 +291,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "73460d416f9606e9635ba08e"
+        "parent_hash": "c14aaec9d763c027f022dd4b"
       },
       {
         "certificate_hash": "",
@@ -311,16 +311,16 @@
             "origin-byzantine"
           ],
           "origin_bundle_hashes": [
-            "ac4a2cbeff272e8a1eb7e760",
-            "5c3a36e051caf4d255b74110",
-            "8daeaff816e65f56a6c00e31"
+            "7d0feb933ed9c1d17688fd4d",
+            "37735d831b8c8363a36e173b",
+            "b19cc7279fd576c9288dacb3"
           ]
         },
-        "entry_hash": "875d23f5d3035a37c42be349",
+        "entry_hash": "776a22127cf8a5fcb2293062",
         "entry_kind": "quorum_seal",
-        "goal": "Turn 1 complete was rejected because free-text done_when soft-extracted poisoned context-only predicates (capability.settlement-plane → settlement_ok, rehydrate slash-lists → resurrected_ok/chain_valid) and the complete gate evaluated settlement predicates without durable evidence. Fixed soft-extract precision, added disk-backed settlement proof evidence for context-less gates, and injected rehydrate continuity context into the settlement milestone path. Re-simulated evaluate_milestone(complete): accepted with empty reasons.",
+        "goal": "Build a clearing plane over settlement that nets multi-settlement receipts into deterministic hash-chained clearing positions with net position digests, clearing certificates, sterile rehydrate+prove, and adversarial falsification past settled outcomes without skill-route.",
         "index": 3,
-        "issued_at": "2026-07-29T18:39:12.452204Z",
+        "issued_at": "2026-07-29T19:24:19.777593Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -328,23 +328,23 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "c47ced5995d38747448ab047"
+        "parent_hash": "6078430c8cccca2dd4254fdc"
       },
       {
         "certificate_hash": "",
         "certificate_path": "",
         "claims": {
-          "prior_lineage_head": "875d23f5d3035a37c42be349",
+          "prior_lineage_head": "776a22127cf8a5fcb2293062",
           "prior_package_hash": "066545df3053adf5",
-          "prior_quorum_hash": "5bad44407ea02cd0021abee1",
+          "prior_quorum_hash": "5047324455a0fc70f75d67a2",
           "progress_tag": "epoch-progress-2"
         },
         "detail": {},
-        "entry_hash": "4351f4d4e7028ee5291731ff",
+        "entry_hash": "31f47ea722d6aa609692afaa",
         "entry_kind": "finality_epoch_progress",
-        "goal": "Turn 1 complete was rejected because free-text done_when soft-extracted poisoned context-only predicates (capability.settlement-plane → settlement_ok, rehydrate slash-lists → resurrected_ok/chain_valid) and the complete gate evaluated settlement predicates without durable evidence. Fixed soft-extract precision, added disk-backed settlement proof evidence for context-less gates, and injected rehydrate continuity context into the settlement milestone path. Re-simulated evaluate_milestone(complete): accepted with empty reasons. (progress 2)",
+        "goal": "Build a clearing plane over settlement that nets multi-settlement receipts into deterministic hash-chained clearing positions with net position digests, clearing certificates, sterile rehydrate+prove, and adversarial falsification past settled outcomes without skill-route. (progress 2)",
         "index": 4,
-        "issued_at": "2026-07-29T18:39:12.971501Z",
+        "issued_at": "2026-07-29T19:24:20.281435Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -352,17 +352,17 @@
           "proved_ratio": null
         },
         "package_hash": "",
-        "parent_hash": "875d23f5d3035a37c42be349"
+        "parent_hash": "776a22127cf8a5fcb2293062"
       }
     ],
     "entry_count": 5,
-    "head_hash": "4351f4d4e7028ee5291731ff",
+    "head_hash": "31f47ea722d6aa609692afaa",
     "kind": "capability_lineage",
     "schema_version": 1,
-    "updated_at": "2026-07-29T18:39:12.971562Z"
+    "updated_at": "2026-07-29T19:24:20.281500Z"
   },
   "lineage_entry_count": 5,
-  "lineage_head_hash": "4351f4d4e7028ee5291731ff",
+  "lineage_head_hash": "31f47ea722d6aa609692afaa",
   "member_count": 3,
   "member_ids": [
     "capability.ledger-inventory",
@@ -380,7 +380,7 @@
     "byzantine_origins": [
       "origin-byzantine"
     ],
-    "exported_at": "2026-07-29T18:39:12.451824Z",
+    "exported_at": "2026-07-29T19:24:19.777489Z",
     "federated": true,
     "member_count": 3,
     "member_ids": [
@@ -426,7 +426,7 @@
           "bootstrap",
           "compounder"
         ],
-        "updated_at": "2026-07-29T18:39:12.373285Z"
+        "updated_at": "2026-07-29T19:24:19.675367Z"
       },
       "repo.import-health": {
         "behavior_paths": [
@@ -450,7 +450,7 @@
           "bootstrap",
           "health"
         ],
-        "updated_at": "2026-07-29T18:39:12.373123Z"
+        "updated_at": "2026-07-29T19:24:19.675230Z"
       },
       "unbound.milestone-gate": {
         "behavior_paths": [
@@ -475,12 +475,12 @@
           "bootstrap",
           "unbound"
         ],
-        "updated_at": "2026-07-29T18:39:12.373214Z"
+        "updated_at": "2026-07-29T19:24:19.675306Z"
       }
     },
     "ok": true,
-    "package_hash": "d6b6165cde5369f6",
-    "progress_at": "2026-07-29T18:39:12.971568Z",
+    "package_hash": "f9b90aaa13b9884b",
+    "progress_at": "2026-07-29T19:24:20.281508Z",
     "progress_tag": "epoch-progress-2",
     "quorum": true,
     "quorum_threshold": 2,
@@ -493,7 +493,7 @@
     "source_ledger_path": "quorum-merge",
     "used_skill_route_discovery": false
   },
-  "package_hash": "d6b6165cde5369f6",
+  "package_hash": "f9b90aaa13b9884b",
   "post_finality": true,
   "schema_version": 1,
   "state_count": 2,
@@ -501,30 +501,30 @@
     "entries": [
       {
         "agreeing_count": 2,
-        "applied_at": "2026-07-29T18:39:13.474049Z",
+        "applied_at": "2026-07-29T19:24:20.778432Z",
         "byzantine_count": 1,
         "claims": {
           "plane": "execution",
           "state_index": 1
         },
         "deterministic": true,
-        "epoch_hash": "f778cdc3e90105bea4b6aaa6",
+        "epoch_hash": "2e196f51ab5fc3ef3422ab1f",
         "epoch_height": 1,
         "execution_certificate": {
-          "certificate_hash": "611fe06c9ffae97cd1011242",
+          "certificate_hash": "c19ce5c673f90970ee22fa91",
           "claims": {
             "member_count": 3,
             "plane": "execution",
             "state_index": 1
           },
           "deterministic": true,
-          "epoch_hash": "f778cdc3e90105bea4b6aaa6",
+          "epoch_hash": "2e196f51ab5fc3ef3422ab1f",
           "epoch_height": 1,
-          "finality_certificate_hash": "6a400ef9e941a5c6c36e0bf6",
-          "goal": "Turn 1 complete was rejected because free-text done_when soft-extracted poisoned context-only predicates (capability.settlement-plane → settlement_ok, rehydrate slash-lists → resurrected_ok/chain_valid) and the complete gate evaluated settlement predicates without durable evidence. Fixed soft-extract precision, added disk-backed settlement proof evidence for context-less gates, and injected rehydrate continuity context into the settlement milestone path. Re-simulated evaluate_milestone(complete): accepted with empty reasons. (state 1)",
-          "issued_at": "2026-07-29T18:39:13.474134Z",
+          "finality_certificate_hash": "c684fdf358a40b2143d4e295",
+          "goal": "Build a clearing plane over settlement that nets multi-settlement receipts into deterministic hash-chained clearing positions with net position digests, clearing certificates, sterile rehydrate+prove, and adversarial falsification past settled outcomes without skill-route. (state 1)",
+          "issued_at": "2026-07-29T19:24:20.778506Z",
           "kind": "execution_certificate",
-          "lineage_head_hash": "875d23f5d3035a37c42be349",
+          "lineage_head_hash": "776a22127cf8a5fcb2293062",
           "member_count": 3,
           "member_ids": [
             "capability.ledger-inventory",
@@ -537,13 +537,13 @@
           "post_finality": true,
           "schema_version": 1,
           "state_height": 1,
-          "state_root": "9ba717d51f568962cb08f06e",
+          "state_root": "39fb3e7e44285ea094bed672",
           "used_skill_route_discovery": false
         },
-        "finality_certificate_hash": "6a400ef9e941a5c6c36e0bf6",
-        "goal": "Turn 1 complete was rejected because free-text done_when soft-extracted poisoned context-only predicates (capability.settlement-plane → settlement_ok, rehydrate slash-lists → resurrected_ok/chain_valid) and the complete gate evaluated settlement predicates without durable evidence. Fixed soft-extract precision, added disk-backed settlement proof evidence for context-less gates, and injected rehydrate continuity context into the settlement milestone path. Re-simulated evaluate_milestone(complete): accepted with empty reasons. (state 1)",
+        "finality_certificate_hash": "c684fdf358a40b2143d4e295",
+        "goal": "Build a clearing plane over settlement that nets multi-settlement receipts into deterministic hash-chained clearing positions with net position digests, clearing certificates, sterile rehydrate+prove, and adversarial falsification past settled outcomes without skill-route. (state 1)",
         "kind": "execution_state",
-        "lineage_head_hash": "875d23f5d3035a37c42be349",
+        "lineage_head_hash": "776a22127cf8a5fcb2293062",
         "member_count": 3,
         "member_ids": [
           "capability.ledger-inventory",
@@ -559,10 +559,10 @@
           "agreeing_count": 2,
           "applied_from": "finality_epoch",
           "byzantine_count": 1,
-          "epoch_hash": "f778cdc3e90105bea4b6aaa6",
-          "finality_certificate_hash": "6a400ef9e941a5c6c36e0bf6",
+          "epoch_hash": "2e196f51ab5fc3ef3422ab1f",
+          "finality_certificate_hash": "c684fdf358a40b2143d4e295",
           "height": 1,
-          "lineage_head_hash": "875d23f5d3035a37c42be349",
+          "lineage_head_hash": "776a22127cf8a5fcb2293062",
           "member_ids": [
             "capability.ledger-inventory",
             "repo.import-health",
@@ -574,35 +574,35 @@
         },
         "schema_version": 1,
         "state_height": 1,
-        "state_root": "9ba717d51f568962cb08f06e",
+        "state_root": "39fb3e7e44285ea094bed672",
         "used_skill_route_discovery": false
       },
       {
         "agreeing_count": 2,
-        "applied_at": "2026-07-29T18:39:13.474462Z",
+        "applied_at": "2026-07-29T19:24:20.778672Z",
         "byzantine_count": 1,
         "claims": {
           "plane": "execution",
           "state_index": 2
         },
         "deterministic": true,
-        "epoch_hash": "eea3d6a234f7d6d8dda20e1d",
+        "epoch_hash": "29d54c074f4c037a28c8cbaa",
         "epoch_height": 2,
         "execution_certificate": {
-          "certificate_hash": "a84eeb58e8d433c96631ff60",
+          "certificate_hash": "453fe9821e377c1fd46ccc72",
           "claims": {
             "member_count": 3,
             "plane": "execution",
             "state_index": 2
           },
           "deterministic": true,
-          "epoch_hash": "eea3d6a234f7d6d8dda20e1d",
+          "epoch_hash": "29d54c074f4c037a28c8cbaa",
           "epoch_height": 2,
-          "finality_certificate_hash": "469527942d96d3a91967e062",
-          "goal": "Turn 1 complete was rejected because free-text done_when soft-extracted poisoned context-only predicates (capability.settlement-plane → settlement_ok, rehydrate slash-lists → resurrected_ok/chain_valid) and the complete gate evaluated settlement predicates without durable evidence. Fixed soft-extract precision, added disk-backed settlement proof evidence for context-less gates, and injected rehydrate continuity context into the settlement milestone path. Re-simulated evaluate_milestone(complete): accepted with empty reasons. (state 2)",
-          "issued_at": "2026-07-29T18:39:13.474543Z",
+          "finality_certificate_hash": "ef5c0e49b21512b2ecf60097",
+          "goal": "Build a clearing plane over settlement that nets multi-settlement receipts into deterministic hash-chained clearing positions with net position digests, clearing certificates, sterile rehydrate+prove, and adversarial falsification past settled outcomes without skill-route. (state 2)",
+          "issued_at": "2026-07-29T19:24:20.778732Z",
           "kind": "execution_certificate",
-          "lineage_head_hash": "4351f4d4e7028ee5291731ff",
+          "lineage_head_hash": "31f47ea722d6aa609692afaa",
           "member_count": 3,
           "member_ids": [
             "capability.ledger-inventory",
@@ -610,18 +610,18 @@
             "unbound.milestone-gate"
           ],
           "ok": true,
-          "package_hash": "d6b6165cde5369f6",
-          "parent_state_root": "9ba717d51f568962cb08f06e",
+          "package_hash": "f9b90aaa13b9884b",
+          "parent_state_root": "39fb3e7e44285ea094bed672",
           "post_finality": true,
           "schema_version": 1,
           "state_height": 2,
-          "state_root": "45b5b9050c291fa8a8691948",
+          "state_root": "47121ce87d7ec4fb53b35f61",
           "used_skill_route_discovery": false
         },
-        "finality_certificate_hash": "469527942d96d3a91967e062",
-        "goal": "Turn 1 complete was rejected because free-text done_when soft-extracted poisoned context-only predicates (capability.settlement-plane → settlement_ok, rehydrate slash-lists → resurrected_ok/chain_valid) and the complete gate evaluated settlement predicates without durable evidence. Fixed soft-extract precision, added disk-backed settlement proof evidence for context-less gates, and injected rehydrate continuity context into the settlement milestone path. Re-simulated evaluate_milestone(complete): accepted with empty reasons. (state 2)",
+        "finality_certificate_hash": "ef5c0e49b21512b2ecf60097",
+        "goal": "Build a clearing plane over settlement that nets multi-settlement receipts into deterministic hash-chained clearing positions with net position digests, clearing certificates, sterile rehydrate+prove, and adversarial falsification past settled outcomes without skill-route. (state 2)",
         "kind": "execution_state",
-        "lineage_head_hash": "4351f4d4e7028ee5291731ff",
+        "lineage_head_hash": "31f47ea722d6aa609692afaa",
         "member_count": 3,
         "member_ids": [
           "capability.ledger-inventory",
@@ -630,42 +630,42 @@
         ],
         "ok": true,
         "origin_count": 3,
-        "package_hash": "d6b6165cde5369f6",
-        "parent_state_root": "9ba717d51f568962cb08f06e",
+        "package_hash": "f9b90aaa13b9884b",
+        "parent_state_root": "39fb3e7e44285ea094bed672",
         "post_finality": true,
         "projection": {
           "agreeing_count": 2,
           "applied_from": "finality_epoch",
           "byzantine_count": 1,
-          "epoch_hash": "eea3d6a234f7d6d8dda20e1d",
-          "finality_certificate_hash": "469527942d96d3a91967e062",
+          "epoch_hash": "29d54c074f4c037a28c8cbaa",
+          "finality_certificate_hash": "ef5c0e49b21512b2ecf60097",
           "height": 2,
-          "lineage_head_hash": "4351f4d4e7028ee5291731ff",
+          "lineage_head_hash": "31f47ea722d6aa609692afaa",
           "member_ids": [
             "capability.ledger-inventory",
             "repo.import-health",
             "unbound.milestone-gate"
           ],
           "origin_count": 3,
-          "package_hash": "d6b6165cde5369f6",
-          "parent_state_root": "9ba717d51f568962cb08f06e"
+          "package_hash": "f9b90aaa13b9884b",
+          "parent_state_root": "39fb3e7e44285ea094bed672"
         },
         "schema_version": 1,
         "state_height": 2,
-        "state_root": "45b5b9050c291fa8a8691948",
+        "state_root": "47121ce87d7ec4fb53b35f61",
         "used_skill_route_discovery": false
       }
     ],
     "entry_count": 2,
     "kind": "execution_state_log",
     "schema_version": 1,
-    "tip_epoch_hash": "eea3d6a234f7d6d8dda20e1d",
+    "tip_epoch_hash": "29d54c074f4c037a28c8cbaa",
     "tip_height": 2,
-    "tip_state_root": "45b5b9050c291fa8a8691948",
-    "updated_at": "2026-07-29T18:39:13.474605Z"
+    "tip_state_root": "47121ce87d7ec4fb53b35f61",
+    "updated_at": "2026-07-29T19:24:20.778779Z"
   },
-  "tip_epoch_hash": "eea3d6a234f7d6d8dda20e1d",
+  "tip_epoch_hash": "29d54c074f4c037a28c8cbaa",
   "tip_height": 2,
-  "tip_state_root": "45b5b9050c291fa8a8691948",
+  "tip_state_root": "47121ce87d7ec4fb53b35f61",
   "used_skill_route_discovery": false
 }

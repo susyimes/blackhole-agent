@@ -1,0 +1,167 @@
+{
+  "entries": [
+    {
+      "agreeing_count": 2,
+      "applied_at": "2026-07-29T19:23:50.109669Z",
+      "byzantine_count": 1,
+      "claims": {
+        "plane": "execution",
+        "state_index": 1
+      },
+      "deterministic": true,
+      "epoch_hash": "b037345ae4b6da54ed3a27ed",
+      "epoch_height": 1,
+      "execution_certificate": {
+        "certificate_hash": "dea22e982efdef4493de78cf",
+        "claims": {
+          "member_count": 3,
+          "plane": "execution",
+          "state_index": 1
+        },
+        "deterministic": true,
+        "epoch_hash": "b037345ae4b6da54ed3a27ed",
+        "epoch_height": 1,
+        "finality_certificate_hash": "bfed490bd52e9129060042b9",
+        "goal": "Build a clearing plane over settlement (state 1)",
+        "issued_at": "2026-07-29T19:23:50.109694Z",
+        "kind": "execution_certificate",
+        "lineage_head_hash": "38fa4327e9b8e90415f128de",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "066545df3053adf5",
+        "parent_state_root": "",
+        "post_finality": true,
+        "schema_version": 1,
+        "state_height": 1,
+        "state_root": "06f1e0c1f21934fad39fa8c8",
+        "used_skill_route_discovery": false
+      },
+      "finality_certificate_hash": "bfed490bd52e9129060042b9",
+      "goal": "Build a clearing plane over settlement (state 1)",
+      "kind": "execution_state",
+      "lineage_head_hash": "38fa4327e9b8e90415f128de",
+      "member_count": 3,
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "origin_count": 3,
+      "package_hash": "066545df3053adf5",
+      "parent_state_root": "",
+      "post_finality": true,
+      "projection": {
+        "agreeing_count": 2,
+        "applied_from": "finality_epoch",
+        "byzantine_count": 1,
+        "epoch_hash": "b037345ae4b6da54ed3a27ed",
+        "finality_certificate_hash": "bfed490bd52e9129060042b9",
+        "height": 1,
+        "lineage_head_hash": "38fa4327e9b8e90415f128de",
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "parent_state_root": ""
+      },
+      "schema_version": 1,
+      "state_height": 1,
+      "state_root": "06f1e0c1f21934fad39fa8c8",
+      "used_skill_route_discovery": false
+    },
+    {
+      "agreeing_count": 2,
+      "applied_at": "2026-07-29T19:23:50.109749Z",
+      "byzantine_count": 1,
+      "claims": {
+        "plane": "execution",
+        "state_index": 2
+      },
+      "deterministic": true,
+      "epoch_hash": "0fe7f37f93de010c85389d58",
+      "epoch_height": 2,
+      "execution_certificate": {
+        "certificate_hash": "9e7581f303baf76b640aadbd",
+        "claims": {
+          "member_count": 3,
+          "plane": "execution",
+          "state_index": 2
+        },
+        "deterministic": true,
+        "epoch_hash": "0fe7f37f93de010c85389d58",
+        "epoch_height": 2,
+        "finality_certificate_hash": "54e2363eeeb5efa84199bd88",
+        "goal": "Build a clearing plane over settlement (state 2)",
+        "issued_at": "2026-07-29T19:23:50.109769Z",
+        "kind": "execution_certificate",
+        "lineage_head_hash": "d25a58771ee15a6e0fb573f1",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "80ce3b8782cd8247",
+        "parent_state_root": "06f1e0c1f21934fad39fa8c8",
+        "post_finality": true,
+        "schema_version": 1,
+        "state_height": 2,
+        "state_root": "1953f8ab731e3eb3b14baf81",
+        "used_skill_route_discovery": false
+      },
+      "finality_certificate_hash": "54e2363eeeb5efa84199bd88",
+      "goal": "Build a clearing plane over settlement (state 2)",
+      "kind": "execution_state",
+      "lineage_head_hash": "d25a58771ee15a6e0fb573f1",
+      "member_count": 3,
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "origin_count": 3,
+      "package_hash": "80ce3b8782cd8247",
+      "parent_state_root": "06f1e0c1f21934fad39fa8c8",
+      "post_finality": true,
+      "projection": {
+        "agreeing_count": 2,
+        "applied_from": "finality_epoch",
+        "byzantine_count": 1,
+        "epoch_hash": "0fe7f37f93de010c85389d58",
+        "finality_certificate_hash": "54e2363eeeb5efa84199bd88",
+        "height": 2,
+        "lineage_head_hash": "d25a58771ee15a6e0fb573f1",
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "origin_count": 3,
+        "package_hash": "80ce3b8782cd8247",
+        "parent_state_root": "06f1e0c1f21934fad39fa8c8"
+      },
+      "schema_version": 1,
+      "state_height": 2,
+      "state_root": "1953f8ab731e3eb3b14baf81",
+      "used_skill_route_discovery": false
+    }
+  ],
+  "entry_count": 2,
+  "kind": "execution_state_log",
+  "schema_version": 1,
+  "tip_epoch_hash": "0fe7f37f93de010c85389d58",
+  "tip_height": 2,
+  "tip_state_root": "1953f8ab731e3eb3b14baf81",
+  "updated_at": "2026-07-29T19:23:50.109784Z"
+}

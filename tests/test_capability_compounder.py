@@ -2138,3 +2138,108 @@ def test_continuity_plane_export_rehydrate_and_adversarial():
     assert continuity_payload["resurrected"] is True
     assert continuity_payload["rehydrate"]["ok"] is True
     assert path.name == "ledger.json"
+
+def test_clearing_plane_net_positions_and_adversarial():
+    """Clearing plane nets multi-settlement receipts and falsifies wrong-settlement binds."""
+
+    from blackhole_agent.capability_compounder import (
+        ensure_seeded_ledger,
+        load_clearing_bundle,
+        parse_outcome_contract,
+        run_clearing_plane,
+        verify_clearing_bundle_integrity,
+    )
+
+    repo = Path(__file__).resolve().parents[1]
+    path, ledger = ensure_seeded_ledger(repo)
+    assert "capability.clearing-plane" in ledger.capabilities
+    assert "capability.settlement-plane" in ledger.capabilities
+
+    parsed = parse_outcome_contract(
+        "no_skill_route; clearing_ok; cleared_ok; min_clearings:2; "
+        "clearing_root_valid; settlement_ok; settled_ok; min_settlements:2; "
+        "settlement_root_valid; chain_valid"
+    )
+    kinds = {item["kind"] for item in parsed["predicates"]}
+    assert "clearing_ok" in kinds
+    assert "cleared_ok" in kinds
+    assert "min_clearings" in kinds
+    assert "clearing_root_valid" in kinds
+
+    lineage_path = repo / "artifacts" / "capability-lineage" / "test-clearing-plane.json"
+    quorum_path = repo / "artifacts" / "quorum-bundles" / "test-clearing-quorum.json"
+    finality_path = repo / "artifacts" / "finality-bundles" / "test-clearing-finality.json"
+    execution_path = repo / "artifacts" / "execution-bundles" / "test-clearing-execution.json"
+    actuation_path = repo / "artifacts" / "actuation-bundles" / "test-clearing-actuation.json"
+    settlement_path = repo / "artifacts" / "settlement-bundles" / "test-clearing-settlement.json"
+    clearing_path = repo / "artifacts" / "clearing-bundles" / "test-clearing-plane.json"
+    for target in (
+        lineage_path,
+        quorum_path,
+        finality_path,
+        execution_path,
+        actuation_path,
+        settlement_path,
+        clearing_path,
+    ):
+        if target.exists():
+            target.unlink()
+
+    plane = run_clearing_plane(
+        repo,
+        "clearing over settlement",
+        "min_capabilities:5; capability_exists:repo.import-health; no_skill_route",
+        max_steps=3,
+        run_settlement=True,
+        run_actuation=True,
+        run_execution=True,
+        run_finality=True,
+        run_quorum=True,
+        run_continuity=False,
+        run_reconciliation=False,
+        inject_byzantine=True,
+        epoch_count=2,
+        min_actions=2,
+        min_settlements=2,
+        min_clearings=2,
+        lineage_path=lineage_path,
+        quorum_path=quorum_path,
+        finality_path=finality_path,
+        execution_path=execution_path,
+        actuation_path=actuation_path,
+        settlement_path=settlement_path,
+        clearing_path=clearing_path,
+        timeout=420,
+    )
+    assert plane["ok"] is True, plane
+    assert plane["action"] == "clearing_plane"
+    assert plane["cleared"] is True
+    assert int(plane["clearing_count"]) >= 2
+    assert int(plane["tip_height"]) >= 2
+    assert int(plane["settlement_count"] or 0) >= 2
+    assert plane.get("net_position_digest")
+    assert plane["integrity"]["ok"] is True
+    assert plane["integrity"]["multi_clearing"] is True
+    assert plane["integrity"]["net_ok"] is True
+    assert plane["rehydrate"]["ok"] is True
+    assert plane["prove"]["ok"] is True
+    assert int(plane["prove"]["proved_count"]) >= 1
+    assert plane["chain"]["valid"] is True
+    assert plane["clearing_certificate"]["valid"] is True
+    assert plane["adversarial"]["ok"] is True
+    assert plane["adversarial"]["wrong_settlement_fails_as_expected"] is True
+    assert plane["adversarial"]["reorder_fails_as_expected"] is True
+    assert plane["adversarial"]["net_tamper_fails_as_expected"] is True
+    assert plane["adversarial"]["single_clearing_fails_as_expected"] is True
+    assert plane["adversarial"]["duplicate_apply_fails_as_expected"] is True
+    assert plane["adversarial"]["replay_matches_tip"] is True
+    assert plane["used_skill_route_discovery"] is False
+    assert clearing_path.is_file()
+
+    loaded = load_clearing_bundle(clearing_path)
+    assert verify_clearing_bundle_integrity(loaded)["ok"] is True
+    assert loaded.get("clearing_hash")
+    assert int(loaded.get("clearing_count") or 0) >= 2
+    assert int(loaded.get("tip_height") or 0) >= 2
+    assert loaded.get("net_position_digest")
+    assert path.name == "ledger.json"

@@ -1,0 +1,35 @@
+{
+  "actuation_certificate_hash": "9c425d144ad9626b0ea2b6f1",
+  "actuation_hash": "8b70483ce7d5bf761191400f",
+  "bound_action_height": 2,
+  "bound_action_root": "93c4dae80fcd0fc39832b0a7",
+  "certificate_hash": "83bacdc22a9b99d01a53c64a",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "effect": "prove",
+    "outcome": "settled",
+    "plane": "settlement",
+    "settlement_index": 2
+  },
+  "deterministic": true,
+  "goal": "Build a clearing plane over settlement that nets multi-settlement receipts into deterministic hash-chained clearing positions with net position digests, clearing certificates, sterile rehydrate+prove, and adversarial falsification past settled outcomes without skill-route. (settlement 2)",
+  "issued_at": "2026-07-29T19:21:14.841947Z",
+  "kind": "settlement_certificate",
+  "lineage_head_hash": "f92cf19565d90ad3447c085d",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "b3fe769ff85571d0",
+  "parent_settlement_root": "986f435ff1a29f176b547615",
+  "post_actuation": true,
+  "schema_version": 1,
+  "settlement_count": 2,
+  "settlement_height": 2,
+  "settlement_root": "63718ec46909ff9094080ebc",
+  "used_skill_route_discovery": false,
+  "valid": true
+}

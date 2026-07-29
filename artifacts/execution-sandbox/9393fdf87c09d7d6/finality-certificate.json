@@ -1,0 +1,29 @@
+{
+  "agreeing_count": 2,
+  "byzantine_count": 1,
+  "certificate_hash": "ef5c0e49b21512b2ecf60097",
+  "claims": {
+    "epoch_index": 2,
+    "member_count": 3,
+    "plane": "finality",
+    "roots": [
+      "repo.import-health",
+      "capability.ledger-inventory",
+      "unbound.milestone-gate"
+    ]
+  },
+  "epoch_hash": "29d54c074f4c037a28c8cbaa",
+  "epoch_height": 2,
+  "goal": "Build a clearing plane over settlement that nets multi-settlement receipts into deterministic hash-chained clearing positions with net position digests, clearing certificates, sterile rehydrate+prove, and adversarial falsification past settled outcomes without skill-route. (epoch 2)",
+  "irreversible": true,
+  "issued_at": "2026-07-29T19:24:20.284087Z",
+  "kind": "finality_certificate",
+  "lineage_head_hash": "31f47ea722d6aa609692afaa",
+  "ok": true,
+  "origin_count": 3,
+  "package_hash": "f9b90aaa13b9884b",
+  "parent_epoch_hash": "2e196f51ab5fc3ef3422ab1f",
+  "quorum_hash": "279350d5aae8cd9544d00d59",
+  "schema_version": 1,
+  "used_skill_route_discovery": false
+}

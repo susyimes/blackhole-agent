@@ -1,0 +1,165 @@
+{
+  "entries": [
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "origin_ids": [
+          "origin-a",
+          "origin-b",
+          "origin-byzantine"
+        ],
+        "threshold": 2
+      },
+      "detail": {
+        "origins": [
+          {
+            "bundle_hash": "af32596444bd752bc6ed3e1b",
+            "byzantine": false,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "3c2b07a8b7bc84483bf81383",
+            "member_count": 3,
+            "origin_id": "origin-a",
+            "package_hash": "7878a785b9718369"
+          },
+          {
+            "bundle_hash": "5c401e1db18109bd3902a77c",
+            "byzantine": false,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "b99a2e1414cca26884b38c79",
+            "member_count": 2,
+            "origin_id": "origin-b",
+            "package_hash": "8ece9182045d973a"
+          },
+          {
+            "bundle_hash": "8b52019dbedb14804f77998c",
+            "byzantine": true,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "42e37ab017434c0478fba61d",
+            "member_count": 3,
+            "origin_id": "origin-byzantine",
+            "package_hash": "7d88f7661e8407af"
+          }
+        ]
+      },
+      "entry_hash": "e3079ea17cf5991f5a35ff22",
+      "entry_kind": "quorum_origin_manifest",
+      "goal": "clearing over settlement",
+      "index": 0,
+      "issued_at": "2026-07-29T19:24:05.826845Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": ""
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "package_hash": "066545df3053adf5",
+        "threshold": 2
+      },
+      "detail": {
+        "origin_heads": [
+          "3c2b07a8b7bc84483bf81383",
+          "b99a2e1414cca26884b38c79",
+          "42e37ab017434c0478fba61d"
+        ]
+      },
+      "entry_hash": "88d96953892e856b541acc51",
+      "entry_kind": "quorum_vote",
+      "goal": "clearing over settlement",
+      "index": 1,
+      "issued_at": "2026-07-29T19:24:05.826868Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "e3079ea17cf5991f5a35ff22"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "byzantine_count": 1,
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "excluded": true
+      },
+      "detail": {
+        "byzantine_origins": [
+          "origin-byzantine"
+        ]
+      },
+      "entry_hash": "7c0bf375d55d01aa4a43268e",
+      "entry_kind": "quorum_byzantine_exclude",
+      "goal": "clearing over settlement",
+      "index": 2,
+      "issued_at": "2026-07-29T19:24:05.826882Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "88d96953892e856b541acc51"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "quorum": true,
+        "quorum_met": true
+      },
+      "detail": {
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "origin_bundle_hashes": [
+          "af32596444bd752bc6ed3e1b",
+          "5c401e1db18109bd3902a77c",
+          "8b52019dbedb14804f77998c"
+        ]
+      },
+      "entry_hash": "7dac087a1f96f67b43f0c200",
+      "entry_kind": "quorum_seal",
+      "goal": "clearing over settlement",
+      "index": 3,
+      "issued_at": "2026-07-29T19:24:05.826895Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "7c0bf375d55d01aa4a43268e"
+    }
+  ],
+  "entry_count": 4,
+  "head_hash": "7dac087a1f96f67b43f0c200",
+  "kind": "capability_lineage",
+  "schema_version": 1,
+  "updated_at": "2026-07-29T19:24:05.829302Z"
+}
