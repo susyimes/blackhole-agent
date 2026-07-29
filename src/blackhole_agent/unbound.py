@@ -42,7 +42,10 @@ from blackhole_agent.capability_compounder import (
     prove_capability,
     prove_ledger_integrity,
     register_capability,
+    run_ablation_proof,
     run_adaptive_growth,
+    run_adversarial_contract,
+    run_assurance_plane,
     run_autonomic_cycle,
     run_capability,
     run_capability_program,
@@ -51,6 +54,7 @@ from blackhole_agent.capability_compounder import (
     run_end_to_end_demo,
     run_growth_loop,
     run_mission_plane,
+    run_transfer_plane,
     save_ledger,
     scout_capability_gaps,
     scout_frontier_novelty,
@@ -2804,6 +2808,144 @@ def capability_contract_plane(
         raise typer.Exit(1)
     if result.get("machine_checkable") and result.get("met") is not True:
         raise typer.Exit(2)
+
+
+@capability_app.command(
+    "ablate",
+    help=(
+        "Ablation proof: baseline prove passes, broken proof fails, restore passes, "
+        "and broken dependencies fail dependent proves (live ledger not mutated)."
+    ),
+)
+def capability_ablate(
+    capability_id: str = typer.Option(
+        "repo.import-health",
+        "--id",
+        help="Capability to ablate (break/restore proof_command).",
+    ),
+    dependent_id: str = typer.Option(
+        "unbound.milestone-gate",
+        "--dependent",
+        help="Dependent capability used for dependency-break ablation.",
+    ),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    timeout_seconds: int = typer.Option(90, "--timeout-seconds", min=1),
+) -> None:
+    try:
+        result = run_ablation_proof(
+            repo_path.resolve(),
+            capability_id=capability_id,
+            dependent_id=dependent_id,
+            timeout=timeout_seconds,
+        )
+    except Exception as error:
+        console.print(f"Ablation proof failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "transfer",
+    help=(
+        "Transfer plane: export capability package with dependency closure, import into "
+        "an empty ledger, and re-prove members."
+    ),
+)
+def capability_transfer(
+    roots: str = typer.Option(
+        "repo.import-health,capability.ledger-inventory,unbound.milestone-gate",
+        "--roots",
+        help="Comma-separated root capability ids to package.",
+    ),
+    package_path: Path | None = typer.Option(
+        None,
+        "--package-path",
+        help="Optional output path for the portable package JSON.",
+    ),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    timeout_seconds: int = typer.Option(120, "--timeout-seconds", min=1),
+    prove: bool = typer.Option(True, "--prove/--no-prove", help="Re-prove imported members."),
+) -> None:
+    try:
+        ordered = [part.strip() for part in roots.split(",") if part.strip()]
+        result = run_transfer_plane(
+            repo_path.resolve(),
+            ordered,
+            package_path=package_path,
+            timeout=timeout_seconds,
+            prove_imported=prove,
+        )
+    except Exception as error:
+        console.print(f"Transfer plane failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "adversarial",
+    help=(
+        "Adversarial contracts: positive done_when must pass; known-false contracts must fail."
+    ),
+)
+def capability_adversarial(
+    positive: str = typer.Option(
+        (
+            "min_capabilities:3; capability_exists:repo.import-health; "
+            "capability_proved:repo.import-health; no_skill_route"
+        ),
+        "--positive",
+        help="done_when that must evaluate met=True.",
+    ),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    timeout_seconds: int = typer.Option(90, "--timeout-seconds", min=1),
+) -> None:
+    try:
+        result = run_adversarial_contract(
+            repo_path.resolve(),
+            positive_done_when=positive,
+            timeout=timeout_seconds,
+            run_programs=False,
+        )
+    except Exception as error:
+        console.print(f"Adversarial contract failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "assurance",
+    help=(
+        "Assurance plane: ablation proofs → portable transfer re-proof → adversarial "
+        "outcome contracts (falsifiable evidence past composition plateaus)."
+    ),
+)
+def capability_assurance(
+    capability_id: str = typer.Option(
+        "repo.import-health",
+        "--id",
+        help="Capability id for ablation phase.",
+    ),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    timeout_seconds: int = typer.Option(120, "--timeout-seconds", min=1),
+) -> None:
+    try:
+        result = run_assurance_plane(
+            repo_path.resolve(),
+            capability_id=capability_id,
+            timeout=timeout_seconds,
+        )
+    except Exception as error:
+        console.print(f"Assurance plane failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":

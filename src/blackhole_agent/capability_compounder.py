@@ -898,6 +898,10 @@ PROGRAM_PLAN_DENYLIST = frozenset(
         "capability.second-wave-absorb",
         "capability.outcome-contract",
         "capability.contract-plane",
+        "capability.ablation-proof",
+        "capability.transfer-plane",
+        "capability.adversarial-contract",
+        "capability.assurance-plane",
         # Batch operators are invocable separately; keep goal programs step-cheap.
         "capability.ledger-integrity",
         "capability.distill-ledger",
@@ -929,6 +933,11 @@ MISSION_GOAL_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("outcome", ("capability.outcome-contract", "capability.contract-plane", "capability.mission-plane")),
     ("done_when", ("capability.outcome-contract", "capability.contract-plane")),
     ("evidence", ("capability.outcome-contract", "capability.ledger-integrity", "capability.ledger-inventory")),
+    ("assurance", ("capability.assurance-plane", "capability.ablation-proof", "capability.transfer-plane")),
+    ("ablation", ("capability.ablation-proof", "capability.ledger-integrity", "repo.import-health")),
+    ("transfer", ("capability.transfer-plane", "capability.ledger-inventory", "repo.import-health")),
+    ("adversarial", ("capability.adversarial-contract", "capability.outcome-contract")),
+    ("package", ("capability.transfer-plane", "capability.ledger-inventory")),
 )
 
 
@@ -1763,6 +1772,589 @@ def run_contract_plane(
             "failed": contract.get("failed"),
             "metrics": contract.get("metrics"),
             "notes": contract.get("notes"),
+        },
+        "used_skill_route_discovery": used_skill,
+        "ledger_path": str(path),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Assurance plane: ablation proofs, portable transfer, adversarial contracts.
+# Escapes composition-only plateaus with falsifiable evidence about proofs.
+# ---------------------------------------------------------------------------
+
+ASSURANCE_PACKAGE_SCHEMA = 1
+FAILING_PROOF_COMMAND = f'"{sys.executable}" -c "import sys; sys.exit(1)"'
+
+
+def _clone_ledger(ledger: CapabilityLedger) -> CapabilityLedger:
+    """Deep-copy a ledger for non-destructive ablation / transfer experiments."""
+
+    return CapabilityLedger.from_dict(ledger.to_dict())
+
+
+def _replace_capability_fields(
+    ledger: CapabilityLedger,
+    capability_id: str,
+    **overrides: Any,
+) -> CapabilityLedger:
+    """Replace selected fields on one capability without re-validating the full graph."""
+
+    original = ledger.capabilities.get(capability_id)
+    if original is None:
+        raise KeyError(capability_id)
+    payload = original.to_dict()
+    payload.update(overrides)
+    ledger.capabilities[capability_id] = Capability.from_dict(payload)
+    ledger.updated_at = utc_now_iso()
+    return ledger
+
+
+def dependency_closure(ledger: CapabilityLedger, capability_ids: Sequence[str]) -> list[str]:
+    """Return transitive dependency closure (deps first) for the requested roots."""
+
+    return topological_order(ledger, list(capability_ids))
+
+
+def export_capability_package(
+    ledger: CapabilityLedger,
+    capability_ids: Sequence[str],
+    *,
+    source_ledger_path: str = "",
+) -> dict[str, Any]:
+    """Export capabilities + transitive deps as a portable package (no skill-route)."""
+
+    ordered = dependency_closure(ledger, capability_ids)
+    members = {
+        capability_id: ledger.capabilities[capability_id].to_dict()
+        for capability_id in ordered
+    }
+    roots = [str(item).strip() for item in capability_ids if str(item).strip()]
+    digest_source = json.dumps(
+        {"roots": roots, "members": sorted(members)},
+        sort_keys=True,
+        ensure_ascii=False,
+    )
+    package_hash = hashlib.sha256(digest_source.encode("utf-8")).hexdigest()[:16]
+    return {
+        "ok": True,
+        "action": "export_capability_package",
+        "schema_version": ASSURANCE_PACKAGE_SCHEMA,
+        "roots": roots,
+        "member_ids": ordered,
+        "member_count": len(ordered),
+        "members": members,
+        "package_hash": package_hash,
+        "source_ledger_path": source_ledger_path,
+        "exported_at": utc_now_iso(),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def import_capability_package(
+    ledger: CapabilityLedger,
+    package: Mapping[str, Any],
+    *,
+    replace: bool = True,
+) -> tuple[CapabilityLedger, dict[str, Any]]:
+    """Import a portable package into a ledger (dependency-safe order)."""
+
+    members_raw = package.get("members") or {}
+    if not isinstance(members_raw, Mapping) or not members_raw:
+        raise ValueError("package.members must be a non-empty object")
+    # Build a temporary ledger of package members only to order imports.
+    scratch = CapabilityLedger(schema_version=SCHEMA_VERSION, updated_at=utc_now_iso())
+    for capability_id, raw in members_raw.items():
+        if not isinstance(raw, Mapping):
+            raise ValueError(f"package member {capability_id!r} is not an object")
+        scratch.capabilities[str(capability_id)] = Capability.from_dict(
+            {**raw, "id": raw.get("id") or capability_id}
+        )
+    roots = [str(item) for item in (package.get("roots") or list(members_raw))]
+    ordered = dependency_closure(scratch, roots)
+    imported: list[str] = []
+    skipped: list[str] = []
+    for capability_id in ordered:
+        capability = scratch.capabilities[capability_id]
+        if capability_id in ledger.capabilities and not replace:
+            skipped.append(capability_id)
+            continue
+        register_capability(
+            ledger,
+            capability,
+            replace=replace or capability_id in ledger.capabilities,
+        )
+        imported.append(capability_id)
+    report = {
+        "ok": True,
+        "action": "import_capability_package",
+        "imported": imported,
+        "skipped": skipped,
+        "imported_count": len(imported),
+        "skipped_count": len(skipped),
+        "roots": roots,
+        "package_hash": package.get("package_hash"),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    return ledger, report
+
+
+def write_capability_package(path: Path, package: Mapping[str, Any]) -> Path:
+    """Persist a portable package to disk."""
+
+    target = path.resolve()
+    atomic_write_json(target, dict(package))
+    return target
+
+
+def load_capability_package(path: Path) -> dict[str, Any]:
+    """Load a portable capability package from disk."""
+
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, Mapping):
+        raise ValueError("package must be a JSON object")
+    return dict(payload)
+
+
+def run_ablation_proof(
+    repo_path: Path,
+    capability_id: str = "repo.import-health",
+    *,
+    dependent_id: str = "unbound.milestone-gate",
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 90,
+) -> dict[str, Any]:
+    """Falsify-then-restore proofs: broken proof fails; restored proof passes.
+
+    Two ablation modes run in-memory (live ledger is never mutated):
+    1. break_entry: replace proof_command with a failing shell; prove must fail.
+    2. break_dependency: corrupt a dependency's proof and re-prove a dependent
+       with skip_proved_deps=False; parent prove must fail as dependency_proof.
+    Baseline prove of the target must succeed first.
+    """
+
+    root = repo_path.resolve()
+    path, live = ensure_seeded_ledger(root)
+    if capability_id not in live.capabilities:
+        return {
+            "ok": False,
+            "action": "ablation_proof",
+            "error": f"unknown capability {capability_id}",
+            "ledger_path": str(path),
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    # Phase A: baseline prove on a clone (avoid stamping live ledger mid-flight).
+    baseline_ledger = _clone_ledger(live)
+    baseline_ledger, baseline = prove_capability(
+        baseline_ledger,
+        capability_id,
+        cwd=root,
+        command_runner=command_runner,
+        timeout=timeout,
+        skip_proved_deps=True,
+    )
+    phases: list[dict[str, Any]] = [
+        {
+            "phase": "baseline",
+            "capability_id": capability_id,
+            "ok": baseline.ok,
+            "exit_code": baseline.exit_code,
+            "summary": baseline.summary,
+            "expected_ok": True,
+            "passed": baseline.ok is True,
+        }
+    ]
+
+    # Phase B: break proof_command — must fail.
+    broken = _clone_ledger(live)
+    _replace_capability_fields(
+        broken,
+        capability_id,
+        proof_command=FAILING_PROOF_COMMAND,
+        last_proof_exit_code=None,
+        last_proved_at="",
+    )
+    broken, broken_result = prove_capability(
+        broken,
+        capability_id,
+        cwd=root,
+        command_runner=command_runner,
+        timeout=timeout,
+        skip_proved_deps=True,
+    )
+    phases.append(
+        {
+            "phase": "break_entry",
+            "capability_id": capability_id,
+            "ok": broken_result.ok,
+            "exit_code": broken_result.exit_code,
+            "summary": broken_result.summary,
+            "expected_ok": False,
+            "passed": broken_result.ok is False,
+        }
+    )
+
+    # Phase C: restore proof on clone — must pass again.
+    restored = _clone_ledger(live)
+    restored, restored_result = prove_capability(
+        restored,
+        capability_id,
+        cwd=root,
+        command_runner=command_runner,
+        timeout=timeout,
+        skip_proved_deps=True,
+    )
+    phases.append(
+        {
+            "phase": "restore_entry",
+            "capability_id": capability_id,
+            "ok": restored_result.ok,
+            "exit_code": restored_result.exit_code,
+            "summary": restored_result.summary,
+            "expected_ok": True,
+            "passed": restored_result.ok is True,
+        }
+    )
+
+    # Phase D: break a dependency of dependent_id (if present).
+    dep_phase: dict[str, Any] | None = None
+    if dependent_id in live.capabilities:
+        dependent = live.capabilities[dependent_id]
+        dep_target = next(
+            (dep for dep in dependent.dependencies if dep in live.capabilities),
+            None,
+        )
+        if dep_target is not None:
+            dep_broken = _clone_ledger(live)
+            _replace_capability_fields(
+                dep_broken,
+                dep_target,
+                proof_command=FAILING_PROOF_COMMAND,
+                last_proof_exit_code=None,
+                last_proved_at="",
+            )
+            # Force re-prove of the dependency by clearing last proof markers.
+            dep_broken, dep_result = prove_capability(
+                dep_broken,
+                dependent_id,
+                cwd=root,
+                command_runner=command_runner,
+                timeout=timeout,
+                skip_proved_deps=False,
+            )
+            dep_phase = {
+                "phase": "break_dependency",
+                "capability_id": dependent_id,
+                "broken_dependency": dep_target,
+                "ok": dep_result.ok,
+                "exit_code": dep_result.exit_code,
+                "kind": dep_result.kind,
+                "summary": dep_result.summary,
+                "expected_ok": False,
+                "passed": dep_result.ok is False,
+            }
+            phases.append(dep_phase)
+
+    all_passed = all(bool(item.get("passed")) for item in phases)
+    used_skill = legacy_pipeline_was_used()
+    return {
+        "ok": all_passed and not used_skill,
+        "action": "ablation_proof",
+        "capability_id": capability_id,
+        "dependent_id": dependent_id if dep_phase else None,
+        "phase_count": len(phases),
+        "passed_count": sum(1 for item in phases if item.get("passed")),
+        "failed_phases": [item["phase"] for item in phases if not item.get("passed")],
+        "phases": phases,
+        "live_ledger_mutated": False,
+        "used_skill_route_discovery": used_skill,
+        "ledger_path": str(path),
+    }
+
+
+def run_transfer_plane(
+    repo_path: Path,
+    capability_ids: Sequence[str] | None = None,
+    *,
+    package_path: Path | None = None,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 120,
+    prove_imported: bool = True,
+) -> dict[str, Any]:
+    """Export → import into an empty ledger → re-prove the portable package.
+
+    Demonstrates lineage portability: capability records survive package
+    round-trips and still prove against the same codebase without skill-route.
+    """
+
+    root = repo_path.resolve()
+    path, live = ensure_seeded_ledger(root)
+    roots = list(capability_ids) if capability_ids else [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "unbound.milestone-gate",
+    ]
+    missing = [item for item in roots if item not in live.capabilities]
+    if missing:
+        return {
+            "ok": False,
+            "action": "transfer_plane",
+            "error": f"missing roots: {missing}",
+            "ledger_path": str(path),
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    package = export_capability_package(
+        live,
+        roots,
+        source_ledger_path=str(path),
+    )
+    out_path = (
+        package_path.resolve()
+        if package_path is not None
+        else (root / "artifacts" / "capability-packages" / f"transfer-{package['package_hash']}.json")
+    )
+    write_capability_package(out_path, package)
+    reloaded = load_capability_package(out_path)
+
+    # Fresh empty ledger — only package members, no ambient bloat.
+    empty = CapabilityLedger(schema_version=SCHEMA_VERSION, updated_at=utc_now_iso())
+    empty, import_report = import_capability_package(empty, reloaded, replace=True)
+
+    proof_results: list[dict[str, Any]] = []
+    all_proved = True
+    if prove_imported:
+        for capability_id in reloaded.get("member_ids") or import_report["imported"]:
+            empty, result = prove_capability(
+                empty,
+                capability_id,
+                cwd=root,
+                command_runner=command_runner,
+                timeout=timeout,
+                skip_proved_deps=True,
+            )
+            proof_results.append(
+                {
+                    "capability_id": capability_id,
+                    "ok": result.ok,
+                    "exit_code": result.exit_code,
+                    "summary": result.summary,
+                }
+            )
+            if not result.ok:
+                all_proved = False
+                break
+
+    # Round-trip integrity: re-export from imported ledger must share roots/members.
+    reexport = export_capability_package(empty, roots)
+    members_match = set(reexport.get("member_ids") or []) == set(package.get("member_ids") or [])
+    used_skill = bool(package.get("used_skill_route_discovery")) or legacy_pipeline_was_used()
+    ok = (
+        not used_skill
+        and bool(package.get("ok"))
+        and bool(import_report.get("ok"))
+        and all_proved
+        and members_match
+        and int(import_report.get("imported_count") or 0) == int(package.get("member_count") or -1)
+    )
+    return {
+        "ok": ok,
+        "action": "transfer_plane",
+        "roots": roots,
+        "package_path": str(out_path),
+        "package_hash": package.get("package_hash"),
+        "member_count": package.get("member_count"),
+        "member_ids": package.get("member_ids"),
+        "export": {
+            "ok": package.get("ok"),
+            "member_count": package.get("member_count"),
+            "package_hash": package.get("package_hash"),
+        },
+        "import": import_report,
+        "reexport_members_match": members_match,
+        "proofs": proof_results,
+        "proved_count": sum(1 for item in proof_results if item.get("ok")),
+        "prove_imported": prove_imported,
+        "used_skill_route_discovery": used_skill,
+        "ledger_path": str(path),
+    }
+
+
+def run_adversarial_contract(
+    repo_path: Path,
+    *,
+    positive_done_when: str | None = None,
+    negative_done_when: Sequence[str] | None = None,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 90,
+    run_programs: bool = False,
+) -> dict[str, Any]:
+    """Evaluate contracts that must pass and contracts that must fail.
+
+    Complements outcome-contract: positive predicates stay met, adversarial
+    (expected-fail) contracts must report met=False. Prevents one-sided
+    evaluator theater where everything always passes.
+    """
+
+    root = repo_path.resolve()
+    path, ledger = ensure_seeded_ledger(root)
+    # Ensure a known primitive is green so positive capability_proved can hold.
+    if "repo.import-health" in ledger.capabilities:
+        ledger, _ = prove_capability(
+            ledger,
+            "repo.import-health",
+            cwd=root,
+            command_runner=command_runner,
+            timeout=min(timeout, 60),
+            skip_proved_deps=True,
+        )
+        save_ledger(path, ledger)
+
+    positive = positive_done_when or (
+        "min_capabilities:3; capability_exists:repo.import-health; "
+        "capability_proved:repo.import-health; no_skill_route"
+    )
+    negatives = list(negative_done_when) if negative_done_when is not None else [
+        "min_capabilities:999999",
+        "capability_exists:capability.assurance-does-not-exist-zzzz",
+        "capability_proved:capability.assurance-does-not-exist-zzzz",
+        "min_primitives:999999",
+    ]
+
+    positive_verdict = evaluate_outcome_contract(
+        root,
+        positive,
+        command_runner=command_runner,
+        timeout=timeout,
+        run_programs=run_programs,
+    )
+    negative_results: list[dict[str, Any]] = []
+    for contract_text in negatives:
+        verdict = evaluate_outcome_contract(
+            root,
+            contract_text,
+            command_runner=command_runner,
+            timeout=timeout,
+            run_programs=False,
+        )
+        expected_fail = verdict.get("met") is False and bool(verdict.get("machine_checkable"))
+        negative_results.append(
+            {
+                "done_when": contract_text,
+                "ok": verdict.get("ok"),
+                "met": verdict.get("met"),
+                "machine_checkable": verdict.get("machine_checkable"),
+                "failed_count": verdict.get("failed_count"),
+                "expected_met": False,
+                "passed": expected_fail,
+                "failed": verdict.get("failed"),
+            }
+        )
+
+    positive_ok = (
+        bool(positive_verdict.get("ok"))
+        and positive_verdict.get("machine_checkable") is True
+        and positive_verdict.get("met") is True
+    )
+    negatives_ok = bool(negative_results) and all(item.get("passed") for item in negative_results)
+    used_skill = bool(positive_verdict.get("used_skill_route_discovery")) or legacy_pipeline_was_used()
+    ok = positive_ok and negatives_ok and not used_skill
+    return {
+        "ok": ok,
+        "action": "adversarial_contract",
+        "positive": {
+            "done_when": positive,
+            "ok": positive_verdict.get("ok"),
+            "met": positive_verdict.get("met"),
+            "machine_checkable": positive_verdict.get("machine_checkable"),
+            "passed_count": positive_verdict.get("passed_count"),
+            "failed_count": positive_verdict.get("failed_count"),
+            "expected_met": True,
+            "passed": positive_ok,
+        },
+        "negatives": negative_results,
+        "negative_count": len(negative_results),
+        "negatives_passed": sum(1 for item in negative_results if item.get("passed")),
+        "positive_ok": positive_ok,
+        "negatives_ok": negatives_ok,
+        "used_skill_route_discovery": used_skill,
+        "ledger_path": str(path),
+    }
+
+
+def run_assurance_plane(
+    repo_path: Path,
+    *,
+    capability_id: str = "repo.import-health",
+    transfer_roots: Sequence[str] | None = None,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 120,
+) -> dict[str, Any]:
+    """Closed assurance plane: ablation → transfer → adversarial contracts.
+
+    Adds falsifiable evidence beyond composition growth: proofs must fail when
+    broken, packages must re-prove after export/import, and done_when evaluators
+    must reject adversarial contracts.
+    """
+
+    root = repo_path.resolve()
+    path, _ledger = ensure_seeded_ledger(root)
+    ablation = run_ablation_proof(
+        root,
+        capability_id=capability_id,
+        command_runner=command_runner,
+        timeout=timeout,
+    )
+    transfer = run_transfer_plane(
+        root,
+        transfer_roots,
+        command_runner=command_runner,
+        timeout=timeout,
+        prove_imported=True,
+    )
+    adversarial = run_adversarial_contract(
+        root,
+        command_runner=command_runner,
+        timeout=timeout,
+        run_programs=False,
+    )
+    used_skill = bool(
+        ablation.get("used_skill_route_discovery")
+        or transfer.get("used_skill_route_discovery")
+        or adversarial.get("used_skill_route_discovery")
+        or legacy_pipeline_was_used()
+    )
+    ok = (
+        not used_skill
+        and bool(ablation.get("ok"))
+        and bool(transfer.get("ok"))
+        and bool(adversarial.get("ok"))
+    )
+    return {
+        "ok": ok,
+        "action": "assurance_plane",
+        "ablation": {
+            "ok": ablation.get("ok"),
+            "phase_count": ablation.get("phase_count"),
+            "passed_count": ablation.get("passed_count"),
+            "failed_phases": ablation.get("failed_phases"),
+            "live_ledger_mutated": ablation.get("live_ledger_mutated"),
+        },
+        "transfer": {
+            "ok": transfer.get("ok"),
+            "package_path": transfer.get("package_path"),
+            "package_hash": transfer.get("package_hash"),
+            "member_count": transfer.get("member_count"),
+            "proved_count": transfer.get("proved_count"),
+            "reexport_members_match": transfer.get("reexport_members_match"),
+        },
+        "adversarial": {
+            "ok": adversarial.get("ok"),
+            "positive_ok": adversarial.get("positive_ok"),
+            "negatives_ok": adversarial.get("negatives_ok"),
+            "negative_count": adversarial.get("negative_count"),
+            "negatives_passed": adversarial.get("negatives_passed"),
         },
         "used_skill_route_discovery": used_skill,
         "ledger_path": str(path),
@@ -3804,6 +4396,10 @@ def scout_capability_gaps(
             "capability.second-wave-absorb",
             "capability.outcome-contract",
             "capability.contract-plane",
+            "capability.ablation-proof",
+            "capability.transfer-plane",
+            "capability.adversarial-contract",
+            "capability.assurance-plane",
         )
         if capability_id not in ledger.capabilities
     ]
@@ -4842,6 +5438,50 @@ def builtin_contract_plane() -> dict[str, Any]:
     )
 
 
+def builtin_ablation_proof() -> dict[str, Any]:
+    """Invocable capability: falsify-then-restore proof ablation without mutating live ledger."""
+
+    root = Path(__file__).resolve().parents[2]
+    capability_id = (os.environ.get("BLACKHOLE_ABLATION_ID") or "repo.import-health").strip()
+    dependent_id = (os.environ.get("BLACKHOLE_ABLATION_DEPENDENT") or "unbound.milestone-gate").strip()
+    return run_ablation_proof(
+        root,
+        capability_id=capability_id,
+        dependent_id=dependent_id,
+        timeout=90,
+    )
+
+
+def builtin_transfer_plane() -> dict[str, Any]:
+    """Invocable capability: export/import/re-prove a portable capability package."""
+
+    root = Path(__file__).resolve().parents[2]
+    raw = (os.environ.get("BLACKHOLE_TRANSFER_ROOTS") or "").strip()
+    roots = [part.strip() for part in raw.split(",") if part.strip()] if raw else None
+    return run_transfer_plane(root, roots, timeout=120, prove_imported=True)
+
+
+def builtin_adversarial_contract() -> dict[str, Any]:
+    """Invocable capability: positive contracts pass and adversarial contracts fail."""
+
+    root = Path(__file__).resolve().parents[2]
+    positive = (os.environ.get("BLACKHOLE_DONE_WHEN") or "").strip() or None
+    return run_adversarial_contract(
+        root,
+        positive_done_when=positive,
+        timeout=90,
+        run_programs=False,
+    )
+
+
+def builtin_assurance_plane() -> dict[str, Any]:
+    """Invocable capability: ablation → transfer → adversarial closed assurance plane."""
+
+    root = Path(__file__).resolve().parents[2]
+    capability_id = (os.environ.get("BLACKHOLE_ABLATION_ID") or "repo.import-health").strip()
+    return run_assurance_plane(root, capability_id=capability_id, timeout=120)
+
+
 def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
     """Install the minimal compoundable bootstrap set if missing."""
 
@@ -5376,6 +6016,156 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "escaping free-text done_when completion without skill-route discovery."
             ),
             tags=("bootstrap", "compounder", "mission", "contract", "evidence", "growth"),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.ablation-proof",
+            name="Capability ablation proof",
+            description=(
+                "Falsify-then-restore proof ablation: broken proof_command fails, restored "
+                "proofs pass, and broken dependencies fail dependent proves — without "
+                "mutating the live ledger."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_ablation_proof",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_ablation_proof; '
+                "r=builtin_ablation_proof(); assert r['ok'] and r.get('action')=='ablation_proof' "
+                "and r.get('live_ledger_mutated') is False "
+                "and r.get('passed_count',0) >= 3 "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "unbound.milestone-gate",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Capability proofs are falsifiable: ablation fails broken proofs and "
+                "dependency chains without skill-route discovery."
+            ),
+            tags=("bootstrap", "compounder", "assurance", "ablation", "evidence"),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.transfer-plane",
+            name="Portable capability transfer plane",
+            description=(
+                "Export a capability dependency closure as a portable package, import into "
+                "an empty ledger, and re-prove members against the same codebase."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_transfer_plane",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_transfer_plane; '
+                "r=builtin_transfer_plane(); assert r['ok'] and r.get('action')=='transfer_plane' "
+                "and r.get('member_count',0) >= 2 and r.get('proved_count',0) >= 2 "
+                "and r.get('reexport_members_match') "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "unbound.milestone-gate",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Capabilities transfer as portable packages with dependency closure and "
+                "re-proof, enabling lineage portability without skill-route."
+            ),
+            tags=("bootstrap", "compounder", "assurance", "transfer", "package"),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.adversarial-contract",
+            name="Adversarial outcome contract evaluator",
+            description=(
+                "Evaluate positive done_when contracts that must pass and adversarial "
+                "contracts that must fail, preventing one-sided evaluator theater."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_adversarial_contract",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_adversarial_contract; '
+                "r=builtin_adversarial_contract(); assert r['ok'] and r.get('action')=='adversarial_contract' "
+                "and r.get('positive_ok') and r.get('negatives_ok') "
+                "and r.get('negatives_passed',0) >= 2 "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.outcome-contract",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "src/blackhole_agent/unbound.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Outcome contracts are adversarially checked: must-pass and must-fail "
+                "predicates both gate evaluator honesty without skill-route."
+            ),
+            tags=("bootstrap", "compounder", "assurance", "contract", "adversarial", "evidence"),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.assurance-plane",
+            name="Capability assurance plane",
+            description=(
+                "Closed assurance plane: ablation proofs → portable transfer re-proof → "
+                "adversarial outcome contracts — falsifiable evidence past composition growth."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_assurance_plane",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_assurance_plane; '
+                "r=builtin_assurance_plane(); assert r['ok'] and r.get('action')=='assurance_plane' "
+                "and r.get('ablation',{}).get('ok') and r.get('transfer',{}).get('ok') "
+                "and r.get('adversarial',{}).get('ok') "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.ablation-proof",
+                "capability.transfer-plane",
+                "capability.adversarial-contract",
+                "capability.outcome-contract",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "src/blackhole_agent/unbound.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Assurance plane compounds ablation, transfer, and adversarial contracts "
+                "into one falsifiable evidence plane past zero-novelty superstack plateaus."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "assurance",
+                "ablation",
+                "transfer",
+                "adversarial",
+                "evidence",
+            ),
             created_at=utc_now_iso(),
             updated_at=utc_now_iso(),
         ),

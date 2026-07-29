@@ -182,6 +182,16 @@ uv run blackhole-unbound capability integrity --limit 16
   outcome-contract evaluation so completion is ledger/program-backed
   (`capability.contract-plane`). Unbound milestone gating also refuses
   `complete` when `done_when` is machine-checkable and predicates fail.
+- `capability ablate` falsifies-then-restores proofs (broken proof fails;
+  restore passes; broken deps fail dependents) without mutating the live
+  ledger (`capability.ablation-proof`).
+- `capability transfer` exports a dependency-closed portable package, imports
+  it into an empty ledger, and re-proves members (`capability.transfer-plane`).
+- `capability adversarial` checks positive done_when must pass and known-false
+  contracts must fail (`capability.adversarial-contract`).
+- `capability assurance` runs ablation → transfer → adversarial as one
+  falsifiable evidence plane past zero-novelty superstack plateaus
+  (`capability.assurance-plane`).
 
 Promoted compositions are tagged `composed`/`promoted` and become ordinary
 ledger citizens that later turns can list, prove, run, and compose further.

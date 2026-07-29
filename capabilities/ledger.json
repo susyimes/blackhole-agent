@@ -1,5 +1,36 @@
 {
   "capabilities": {
+    "capability.ablation-proof": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_compounder.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Capability proofs are falsifiable: ablation fails broken proofs and dependency chains without skill-route discovery.",
+      "created_at": "2026-07-29T09:07:58.475254Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "unbound.milestone-gate"
+      ],
+      "description": "Falsify-then-restore proof ablation: broken proof_command fails, restored proofs pass, and broken dependencies fail dependent proves — without mutating the live ledger.",
+      "entry": "blackhole_agent.capability_compounder:builtin_ablation_proof",
+      "id": "capability.ablation-proof",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-07-29T09:08:07.483608Z",
+      "name": "Capability ablation proof",
+      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T090127Z-1f8f9037\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_ablation_proof; r=builtin_ablation_proof(); assert r['ok'] and r.get('action')=='ablation_proof' and r.get('live_ledger_mutated') is False and r.get('passed_count',0) >= 3 and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "bootstrap",
+        "compounder",
+        "assurance",
+        "ablation",
+        "evidence"
+      ],
+      "updated_at": "2026-07-29T09:08:31.079984Z"
+    },
     "capability.adaptive-grow": {
       "behavior_paths": [
         "src/blackhole_agent/capability_compounder.py",
@@ -30,7 +61,77 @@
         "growth",
         "adaptive"
       ],
-      "updated_at": "2026-07-29T08:24:32.939436Z"
+      "updated_at": "2026-07-29T09:08:47.148133Z"
+    },
+    "capability.adversarial-contract": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_compounder.py",
+        "src/blackhole_agent/unbound.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Outcome contracts are adversarially checked: must-pass and must-fail predicates both gate evaluator honesty without skill-route.",
+      "created_at": "2026-07-29T09:07:58.475261Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.outcome-contract"
+      ],
+      "description": "Evaluate positive done_when contracts that must pass and adversarial contracts that must fail, preventing one-sided evaluator theater.",
+      "entry": "blackhole_agent.capability_compounder:builtin_adversarial_contract",
+      "id": "capability.adversarial-contract",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-07-29T09:08:09.009734Z",
+      "name": "Adversarial outcome contract evaluator",
+      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T090127Z-1f8f9037\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_adversarial_contract; r=builtin_adversarial_contract(); assert r['ok'] and r.get('action')=='adversarial_contract' and r.get('positive_ok') and r.get('negatives_ok') and r.get('negatives_passed',0) >= 2 and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "bootstrap",
+        "compounder",
+        "assurance",
+        "contract",
+        "adversarial",
+        "evidence"
+      ],
+      "updated_at": "2026-07-29T09:08:31.080073Z"
+    },
+    "capability.assurance-plane": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_compounder.py",
+        "src/blackhole_agent/unbound.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Assurance plane compounds ablation, transfer, and adversarial contracts into one falsifiable evidence plane past zero-novelty superstack plateaus.",
+      "created_at": "2026-07-29T09:07:58.475264Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.ablation-proof",
+        "capability.transfer-plane",
+        "capability.adversarial-contract",
+        "capability.outcome-contract"
+      ],
+      "description": "Closed assurance plane: ablation proofs → portable transfer re-proof → adversarial outcome contracts — falsifiable evidence past composition growth.",
+      "entry": "blackhole_agent.capability_compounder:builtin_assurance_plane",
+      "id": "capability.assurance-plane",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-07-29T09:08:10.742148Z",
+      "name": "Capability assurance plane",
+      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T090127Z-1f8f9037\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_assurance_plane; r=builtin_assurance_plane(); assert r['ok'] and r.get('action')=='assurance_plane' and r.get('ablation',{}).get('ok') and r.get('transfer',{}).get('ok') and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "bootstrap",
+        "compounder",
+        "assurance",
+        "ablation",
+        "transfer",
+        "adversarial",
+        "evidence"
+      ],
+      "updated_at": "2026-07-29T09:08:31.080110Z"
     },
     "capability.autonomic-cycle": {
       "behavior_paths": [
@@ -65,7 +166,7 @@
         "autonomic",
         "novelty"
       ],
-      "updated_at": "2026-07-29T08:24:32.939588Z"
+      "updated_at": "2026-07-29T09:08:47.148305Z"
     },
     "capability.composed-core-health": {
       "behavior_paths": [
@@ -1589,7 +1690,7 @@
         "evidence",
         "growth"
       ],
-      "updated_at": "2026-07-29T08:24:46.204849Z"
+      "updated_at": "2026-07-29T09:08:47.148565Z"
     },
     "capability.distill-ledger": {
       "behavior_paths": [
@@ -1619,7 +1720,7 @@
         "growth",
         "distill"
       ],
-      "updated_at": "2026-07-29T08:24:32.939544Z"
+      "updated_at": "2026-07-29T09:08:47.148263Z"
     },
     "capability.frontier-novelty": {
       "behavior_paths": [
@@ -1649,7 +1750,7 @@
         "growth",
         "novelty"
       ],
-      "updated_at": "2026-07-29T08:24:32.939509Z"
+      "updated_at": "2026-07-29T09:08:47.148217Z"
     },
     "capability.goal-plan": {
       "behavior_paths": [
@@ -1678,7 +1779,7 @@
         "mission",
         "planner"
       ],
-      "updated_at": "2026-07-29T08:24:32.939622Z"
+      "updated_at": "2026-07-29T09:08:47.148364Z"
     },
     "capability.growth-loop": {
       "behavior_paths": [
@@ -1709,7 +1810,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-07-29T08:24:32.939399Z"
+      "updated_at": "2026-07-29T09:08:47.148085Z"
     },
     "capability.ledger-integrity": {
       "behavior_paths": [
@@ -1737,7 +1838,7 @@
         "compounder",
         "integrity"
       ],
-      "updated_at": "2026-07-29T08:24:32.939473Z"
+      "updated_at": "2026-07-29T09:08:47.148176Z"
     },
     "capability.ledger-inventory": {
       "behavior_paths": [
@@ -1763,7 +1864,7 @@
         "bootstrap",
         "compounder"
       ],
-      "updated_at": "2026-07-29T08:24:32.939284Z"
+      "updated_at": "2026-07-29T09:08:47.147946Z"
     },
     "capability.mission-plane": {
       "behavior_paths": [
@@ -1798,7 +1899,7 @@
         "growth",
         "second-wave"
       ],
-      "updated_at": "2026-07-29T08:24:32.939730Z"
+      "updated_at": "2026-07-29T09:08:47.148486Z"
     },
     "capability.outcome-contract": {
       "behavior_paths": [
@@ -1830,7 +1931,7 @@
         "contract",
         "evidence"
       ],
-      "updated_at": "2026-07-29T08:24:45.287462Z"
+      "updated_at": "2026-07-29T09:08:47.148525Z"
     },
     "capability.program-run": {
       "behavior_paths": [
@@ -1860,7 +1961,7 @@
         "mission",
         "program"
       ],
-      "updated_at": "2026-07-29T08:24:32.939657Z"
+      "updated_at": "2026-07-29T09:08:47.148406Z"
     },
     "capability.scout-gaps": {
       "behavior_paths": [
@@ -1888,7 +1989,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-07-29T08:24:32.939362Z"
+      "updated_at": "2026-07-29T09:08:47.148042Z"
     },
     "capability.second-wave-absorb": {
       "behavior_paths": [
@@ -1922,7 +2023,38 @@
         "second-wave",
         "domain"
       ],
-      "updated_at": "2026-07-29T08:24:32.939693Z"
+      "updated_at": "2026-07-29T09:08:47.148446Z"
+    },
+    "capability.transfer-plane": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_compounder.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Capabilities transfer as portable packages with dependency closure and re-proof, enabling lineage portability without skill-route.",
+      "created_at": "2026-07-29T09:07:58.475258Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "unbound.milestone-gate"
+      ],
+      "description": "Export a capability dependency closure as a portable package, import into an empty ledger, and re-prove members against the same codebase.",
+      "entry": "blackhole_agent.capability_compounder:builtin_transfer_plane",
+      "id": "capability.transfer-plane",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-07-29T09:08:08.355967Z",
+      "name": "Portable capability transfer plane",
+      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T090127Z-1f8f9037\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_transfer_plane; r=builtin_transfer_plane(); assert r['ok'] and r.get('action')=='transfer_plane' and r.get('member_count',0) >= 2 and r.get('proved_count',0) >= 2 and r.get('reexport_members_match') and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "bootstrap",
+        "compounder",
+        "assurance",
+        "transfer",
+        "package"
+      ],
+      "updated_at": "2026-07-29T09:08:31.080021Z"
     },
     "domain.ci-security": {
       "behavior_paths": [
@@ -2228,7 +2360,7 @@
         "bootstrap",
         "evolution-route"
       ],
-      "updated_at": "2026-07-29T08:24:32.939323Z"
+      "updated_at": "2026-07-29T09:08:47.147995Z"
     },
     "repo.import-health": {
       "behavior_paths": [
@@ -2243,7 +2375,7 @@
       "id": "repo.import-health",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-07-29T08:24:32.225550Z",
+      "last_proved_at": "2026-07-29T09:08:21.563884Z",
       "name": "Repository import health",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_repo_import_health; r=builtin_repo_import_health(); assert r['ok'] and not r['skill_route_symbols_in_compounder']\"",
       "source_milestone": null,
@@ -2252,7 +2384,7 @@
         "bootstrap",
         "health"
       ],
-      "updated_at": "2026-07-29T08:24:32.939188Z"
+      "updated_at": "2026-07-29T09:08:47.147772Z"
     },
     "unbound.milestone-gate": {
       "behavior_paths": [
@@ -2277,9 +2409,9 @@
         "bootstrap",
         "unbound"
       ],
-      "updated_at": "2026-07-29T08:24:32.939241Z"
+      "updated_at": "2026-07-29T09:08:47.147859Z"
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-07-29T08:24:46.204876Z"
+  "updated_at": "2026-07-29T09:08:47.148657Z"
 }

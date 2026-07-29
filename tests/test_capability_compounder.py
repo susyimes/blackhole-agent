@@ -1166,3 +1166,91 @@ def test_outcome_contract_parses_and_evaluates_machine_predicates():
     contract_payload = json.loads(contract_cli.stdout)
     assert contract_payload["ok"] is True
     assert contract_payload["met"] is True
+
+
+def test_assurance_plane_ablation_transfer_and_adversarial():
+    """Assurance plane: ablation fails broken proofs, transfer re-proves packages, adversarial rejects false contracts."""
+
+    from blackhole_agent.capability_compounder import (
+        ensure_seeded_ledger,
+        load_ledger,
+        run_ablation_proof,
+        run_adversarial_contract,
+        run_assurance_plane,
+        run_transfer_plane,
+    )
+
+    repo = Path(__file__).resolve().parents[1]
+    path, ledger = ensure_seeded_ledger(repo)
+    for capability_id in (
+        "capability.ablation-proof",
+        "capability.transfer-plane",
+        "capability.adversarial-contract",
+        "capability.assurance-plane",
+    ):
+        assert capability_id in ledger.capabilities, capability_id
+
+    before_ids = set(ledger.capabilities)
+    ablation = run_ablation_proof(repo, "repo.import-health", timeout=90)
+    assert ablation["ok"] is True, ablation
+    assert ablation["action"] == "ablation_proof"
+    assert ablation["live_ledger_mutated"] is False
+    assert ablation["passed_count"] >= 3
+    assert ablation["used_skill_route_discovery"] is False
+    # Live ledger must not lose or invent ids from in-memory ablation clones.
+    after_ablation = load_ledger(path)
+    assert set(after_ablation.capabilities) == before_ids
+
+    transfer = run_transfer_plane(
+        repo,
+        ["repo.import-health", "capability.ledger-inventory", "unbound.milestone-gate"],
+        timeout=120,
+        prove_imported=True,
+    )
+    assert transfer["ok"] is True, transfer
+    assert transfer["action"] == "transfer_plane"
+    assert transfer["member_count"] >= 2
+    assert transfer["proved_count"] >= 2
+    assert transfer["reexport_members_match"] is True
+    assert Path(transfer["package_path"]).is_file()
+    assert transfer["used_skill_route_discovery"] is False
+
+    adversarial = run_adversarial_contract(repo, timeout=90, run_programs=False)
+    assert adversarial["ok"] is True, adversarial
+    assert adversarial["positive_ok"] is True
+    assert adversarial["negatives_ok"] is True
+    assert adversarial["negatives_passed"] >= 2
+    assert adversarial["used_skill_route_discovery"] is False
+
+    plane = run_assurance_plane(repo, timeout=120)
+    assert plane["ok"] is True, plane
+    assert plane["action"] == "assurance_plane"
+    assert plane["ablation"]["ok"] is True
+    assert plane["transfer"]["ok"] is True
+    assert plane["adversarial"]["ok"] is True
+    assert plane["used_skill_route_discovery"] is False
+
+    env = {
+        **dict(**{k: v for k, v in __import__("os").environ.items()}),
+        "PYTHONPATH": str(repo / "src"),
+    }
+    assurance_cli = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "blackhole_agent.unbound",
+            "capability",
+            "assurance",
+            "--repo-path",
+            str(repo),
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=180,
+    )
+    assert assurance_cli.returncode == 0, assurance_cli.stdout + assurance_cli.stderr
+    assurance_payload = json.loads(assurance_cli.stdout)
+    assert assurance_payload["ok"] is True
+    assert assurance_payload["action"] == "assurance_plane"
