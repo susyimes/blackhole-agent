@@ -995,6 +995,54 @@ def builtin_proposal_eval_smoke() -> dict[str, Any]:
     }
 
 
+def builtin_supervisor_compound_wake() -> dict[str, Any]:
+    """Prove supervisor wake routing prefers compounder demo when ledger is ready.
+
+    Second-wave runtime domain surface: exercises evolution_route + supervisor
+    compound-mode selection offline without starting the wake loop or skill-route
+    discovery cascade.
+    """
+
+    from blackhole_agent.evolution_route import (
+        COMPOUND_SURFACE,
+        build_compound_wake_command,
+        resolve_supervisor_evolution_surface,
+    )
+
+    repo_root = Path(__file__).resolve().parents[2]
+    surface = resolve_supervisor_evolution_surface(
+        evolution_mode="codex",
+        repo_path=repo_root,
+        prefer_capability_compounder=True,
+    )
+    explicit = resolve_supervisor_evolution_surface(
+        evolution_mode="compound",
+        repo_path=repo_root,
+        prefer_capability_compounder=True,
+    )
+    command = build_compound_wake_command(repo_path=repo_root, use_demo=True)
+    command_text = " ".join(str(part) for part in command)
+    ok = (
+        surface.get("surface") == COMPOUND_SURFACE
+        and surface.get("effective_mode") == "compound"
+        and explicit.get("surface") == COMPOUND_SURFACE
+        and explicit.get("effective_mode") == "compound"
+        and "capability" in command_text
+        and "demo" in command_text
+        and "skill_route" not in command_text
+    )
+    return {
+        "ok": ok,
+        "codex_surface": surface.get("surface"),
+        "codex_mode": surface.get("effective_mode"),
+        "codex_reason": surface.get("reason"),
+        "explicit_compound_surface": explicit.get("surface"),
+        "wake_command": command,
+        "used_skill_route_discovery": "skill_routing" in sys.modules
+        or "blackhole_agent.skill_routing" in sys.modules,
+    }
+
+
 # --- Growth loop: scout → absorb domain / promote composition → prove ---
 
 # Domain package surfaces the compounder can absorb into the ledger (beyond meta self-composition).
@@ -1100,6 +1148,24 @@ DOMAIN_SURFACE_CATALOG: tuple[dict[str, Any], ...] = (
         "tags": ("domain", "proposal", "absorbable"),
         "priority": 54,
         "dependencies": ("repo.import-health",),
+    },
+    {
+        "id": "domain.supervisor-compound",
+        "name": "Supervisor compound wake routing",
+        "description": (
+            "Resolve supervisor wake surface to capability compounder demo/compose when the "
+            "durable ledger is ready, without skill-route cascade."
+        ),
+        "module": "blackhole_agent.supervisor",
+        "module_path": "src/blackhole_agent/supervisor.py",
+        "entry": "blackhole_agent.capability_compounder:builtin_supervisor_compound_wake",
+        "function": "builtin_supervisor_compound_wake",
+        "capability_delta": (
+            "Supervisor compound-wake routing is invocable as a second-wave domain capability."
+        ),
+        "tags": ("domain", "supervisor", "absorbable", "second-wave"),
+        "priority": 68,
+        "dependencies": ("repo.import-health", "evolution.compounder-redirect"),
     },
 )
 
@@ -1210,13 +1276,18 @@ def domain_leaf_ids(ledger: CapabilityLedger) -> list[str]:
     return sorted(leaves)
 
 
-def _dynamic_domain_frontier_candidates(leaves: Sequence[str]) -> list[tuple[str, ...]]:
+def _dynamic_domain_frontier_candidates(
+    leaves: Sequence[str],
+    *,
+    ledger: CapabilityLedger | None = None,
+) -> list[tuple[str, ...]]:
     """Build a small deterministic set of multi-frontier domain compositions.
 
     Prefers ops×core mixes so candidates are not restatements of catalogued
-    domain-core / domain-ops recipes. Keeps the candidate list intentionally
-    small so growth can continue past the first dynamic unit without an open
-    combinatorial explosion of pair/triple promotions.
+    domain-core / domain-ops recipes. When second-wave domain leaves appear
+    (e.g. supervisor), includes ops×second-wave edges so absorption reopens
+    dynamic growth. Keeps the candidate list intentionally small so growth can
+    continue past the first dynamic unit without an open combinatorial explosion.
     """
 
     ops_ids = {
@@ -1226,6 +1297,26 @@ def _dynamic_domain_frontier_candidates(leaves: Sequence[str]) -> list[tuple[str
     }
     ops = [leaf for leaf in leaves if leaf in ops_ids]
     core = [leaf for leaf in leaves if leaf not in ops_ids]
+    second_wave: list[str] = []
+    if ledger is not None:
+        for leaf in leaves:
+            capability = ledger.capabilities.get(leaf)
+            if capability is None:
+                continue
+            tags = set(capability.tags)
+            if "second-wave" in tags or "supervisor" in tags:
+                second_wave.append(leaf)
+    # Fallback: any leaf not in the original six first-wave catalog ids.
+    first_wave = {
+        "domain.local-memory",
+        "domain.tool-routing",
+        "domain.harness-activation",
+        "domain.issue-triage",
+        "domain.ci-security",
+        "domain.proposal-eval",
+    }
+    if not second_wave:
+        second_wave = [leaf for leaf in leaves if leaf not in first_wave]
     candidates: list[tuple[str, ...]] = []
     seen: set[frozenset[str]] = set()
 
@@ -1253,12 +1344,25 @@ def _dynamic_domain_frontier_candidates(leaves: Sequence[str]) -> list[tuple[str
         _push((ops[0], core[0]))
         if len(ops) > 1 and len(core) > 1:
             _push((ops[1], core[1]))
+        # Second-wave reopen: ops × newest runtime domain leaves.
+        for wave in second_wave[:2]:
+            _push((ops[0], wave))
+            if len(ops) > 1:
+                _push((ops[1], wave))
+            if core and core[0] != wave:
+                _push((wave, core[0]))
+            if len(ops) > 2:
+                _push((ops[2], wave, core[0] if core and core[0] != wave else ops[0])[:3])
     else:
         _push(list(leaves[:3]))
         if len(leaves) >= 4:
             _push(list(leaves[1:4]))
         if len(leaves) >= 2:
             _push(list(leaves[-2:]))
+        for wave in second_wave[:2]:
+            others = [leaf for leaf in leaves if leaf != wave]
+            if others:
+                _push((wave, others[0]))
     return candidates
 
 
@@ -1284,7 +1388,7 @@ def synthesize_dynamic_domain_compositions(
 
     opportunities: list[dict[str, Any]] = []
     max_items = max(1, int(limit))
-    for index, frontier in enumerate(_dynamic_domain_frontier_candidates(leaves)):
+    for index, frontier in enumerate(_dynamic_domain_frontier_candidates(leaves, ledger=ledger)):
         member_key = _member_set_key(frontier)
         if member_key in already or member_key in known_member_sets:
             continue
@@ -1516,6 +1620,199 @@ def synthesize_hierarchical_compositions(
     return opportunities
 
 
+# Meta-hierarchical stacks of already-promoted hierarchical compositions (stack-of-stacks).
+KNOWN_META_HIERARCHICAL_RECIPES: tuple[dict[str, Any], ...] = (
+    {
+        "suggested_id": "capability.composed-meta-platform-evolution",
+        "name": "Meta-hierarchical platform × evolution stack",
+        "members": (
+            "capability.composed-stack-platform",
+            "capability.composed-stack-meta-evolution",
+        ),
+        "reason": (
+            "Platform and meta-evolution hierarchical stacks compose into one second-order "
+            "operator surface past first-generation hierarchical pairing."
+        ),
+        "priority": 78,
+        "tags": ("composed", "promoted", "growth", "hierarchical", "meta"),
+    },
+    {
+        "suggested_id": "capability.composed-meta-platform-domain-full",
+        "name": "Meta-hierarchical platform × domain-full stack",
+        "members": (
+            "capability.composed-stack-platform",
+            "capability.composed-stack-domain-full",
+        ),
+        "reason": (
+            "Platform and domain-full hierarchical stacks form a meta domain-platform "
+            "composition without re-absorbing leaf domains."
+        ),
+        "priority": 77,
+        "tags": ("composed", "promoted", "growth", "hierarchical", "meta"),
+    },
+    {
+        "suggested_id": "capability.composed-meta-domain-full-evolution",
+        "name": "Meta-hierarchical domain-full × evolution stack",
+        "members": (
+            "capability.composed-stack-domain-full",
+            "capability.composed-stack-meta-evolution",
+        ),
+        "reason": (
+            "Domain-full and meta-evolution stacks form a second-order ops+evolution "
+            "surface beyond first-gen hierarchical recipes."
+        ),
+        "priority": 76,
+        "tags": ("composed", "promoted", "growth", "hierarchical", "meta"),
+    },
+)
+
+
+def hierarchical_stack_ids(ledger: CapabilityLedger) -> list[str]:
+    """Return sorted ids of first-order hierarchical stacks eligible for meta stacking."""
+
+    stacks: list[str] = []
+    for capability in ledger.capabilities.values():
+        tags = set(capability.tags)
+        if "hierarchical" not in tags and not capability.id.startswith("capability.composed-stack-"):
+            continue
+        if "meta" in tags or capability.id.startswith("capability.composed-meta-"):
+            # Meta stacks can be stacked later; catalog prefers first-order hierarchical units.
+            continue
+        if len(capability.dependencies) < 2:
+            continue
+        stacks.append(capability.id)
+    return sorted(stacks)
+
+
+def synthesize_meta_hierarchical_compositions(
+    ledger: CapabilityLedger,
+    *,
+    limit: int = 3,
+) -> list[dict[str, Any]]:
+    """Synthesize stack-of-stacks from already-promoted hierarchical compositions.
+
+    Breaks the post-hierarchical re-prove plateau: once leaf recipes, dynamic domain
+    frontiers, and first-order hierarchical stacks are exhausted, growth continues by
+    composing hierarchical units into second-order meta stacks.
+    """
+
+    already = existing_promoted_member_sets(ledger)
+    catalog_ids = {str(recipe["suggested_id"]) for recipe in KNOWN_META_HIERARCHICAL_RECIPES}
+    catalog_member_sets = {
+        _member_set_key(recipe["members"]): str(recipe["suggested_id"])
+        for recipe in KNOWN_META_HIERARCHICAL_RECIPES
+    }
+    hierarchical_catalog_ids = {str(recipe["suggested_id"]) for recipe in KNOWN_HIERARCHICAL_RECIPES}
+    known_ids = (
+        {str(recipe["suggested_id"]) for recipe in KNOWN_GROWTH_RECIPES}
+        | hierarchical_catalog_ids
+        | catalog_ids
+    )
+
+    opportunities: list[dict[str, Any]] = []
+    seen_member_sets: set[frozenset[str]] = set()
+    max_items = max(1, int(limit))
+
+    def _append_opportunity(
+        *,
+        suggested_id: str,
+        name: str,
+        members: Sequence[str],
+        reason: str,
+        priority: int,
+        tags: Sequence[str],
+        synthesized: bool,
+        enforce_limit: bool = True,
+    ) -> bool:
+        if enforce_limit and len(opportunities) >= max_items:
+            return False
+        member_tuple = tuple(dict.fromkeys(str(item).strip() for item in members if str(item).strip()))
+        if len(member_tuple) < 2:
+            return False
+        member_key = _member_set_key(member_tuple)
+        if member_key in already or member_key in seen_member_sets:
+            return False
+        if suggested_id in ledger.capabilities:
+            return False
+        catalog_owner = catalog_member_sets.get(member_key)
+        if catalog_owner and catalog_owner != suggested_id:
+            return False
+        missing = [member for member in member_tuple if member not in ledger.capabilities]
+        seen_member_sets.add(member_key)
+        opportunities.append(
+            {
+                "kind": "composition",
+                "suggested_id": suggested_id,
+                "name": name,
+                "members": list(member_tuple),
+                "reason": reason,
+                "priority": int(priority),
+                "status": "blocked_missing_members" if missing else "ready",
+                "missing_members": missing,
+                "synthesized": synthesized,
+                "synthesis": "meta_hierarchical",
+                "tags": list(tags),
+            }
+        )
+        return True
+
+    for recipe in KNOWN_META_HIERARCHICAL_RECIPES:
+        _append_opportunity(
+            suggested_id=str(recipe["suggested_id"]),
+            name=str(recipe["name"]),
+            members=tuple(recipe["members"]),
+            reason=str(recipe["reason"]),
+            priority=int(recipe["priority"]),
+            tags=tuple(recipe["tags"]),
+            synthesized=False,
+            enforce_limit=False,
+        )
+
+    synthesized_added = 0
+    stacks = hierarchical_stack_ids(ledger)
+    for index, left in enumerate(stacks):
+        if synthesized_added >= max_items:
+            break
+        for right in stacks[index + 1 :]:
+            if synthesized_added >= max_items:
+                break
+            members = (left, right)
+            member_key = _member_set_key(members)
+            if member_key in already or member_key in seen_member_sets:
+                continue
+            if member_key in catalog_member_sets:
+                continue
+            slug = slugify_capability_id(
+                "-".join(
+                    member.removeprefix("capability.composed-stack-")
+                    .removeprefix("capability.composed-")
+                    .removeprefix("capability.")
+                    for member in members
+                ),
+                limit=36,
+            )
+            suggested_id = f"capability.composed-meta-{slug}"
+            if suggested_id in ledger.capabilities or suggested_id in known_ids:
+                continue
+            if _append_opportunity(
+                suggested_id=suggested_id,
+                name=f"Meta-hierarchical stack ({' + '.join(members)})",
+                members=members,
+                reason=(
+                    "Synthesized stack-of-stacks of hierarchical compositions after "
+                    "first-order hierarchical recipes were exhausted."
+                ),
+                priority=max(42, 60 - index),
+                tags=("composed", "promoted", "growth", "hierarchical", "meta", "synthesized"),
+                synthesized=True,
+                enforce_limit=False,
+            ):
+                synthesized_added += 1
+
+    opportunities.sort(key=lambda item: (-int(item["priority"]), item["suggested_id"]))
+    return opportunities
+
+
 def resolve_domain_surface(surface_id: str) -> dict[str, Any]:
     """Return one domain surface catalog entry or raise KeyError."""
 
@@ -1725,6 +2022,8 @@ def scout_capability_gaps(
     opportunities.extend(dynamic_opportunities)
     hierarchical_opportunities = synthesize_hierarchical_compositions(ledger)
     opportunities.extend(hierarchical_opportunities)
+    meta_hierarchical_opportunities = synthesize_meta_hierarchical_compositions(ledger)
+    opportunities.extend(meta_hierarchical_opportunities)
     # Prefer ready compositions, then ready domain absorbs, then already-done, then blocked.
     status_rank = {
         "ready": 0,
@@ -1767,6 +2066,11 @@ def scout_capability_gaps(
         for item in hierarchical_opportunities
         if item.get("status") == "ready"
     ]
+    meta_hierarchical_ready = [
+        item["suggested_id"]
+        for item in meta_hierarchical_opportunities
+        if item.get("status") == "ready"
+    ]
     return {
         "ok": True,
         "count": len(ledger.capabilities),
@@ -1783,6 +2087,8 @@ def scout_capability_gaps(
             if item.get("status") == "ready"
         ],
         "hierarchical_ready": hierarchical_ready,
+        "meta_hierarchical_ready": meta_hierarchical_ready,
+        "hierarchical_stacks": hierarchical_stack_ids(ledger),
         "composed_pillars": composed_pillar_ids(ledger),
         "uncatalogued_surfaces": uncatalogued,
         "opportunities": opportunities,
@@ -1961,6 +2267,10 @@ def run_growth_loop(
                 (item for item in KNOWN_HIERARCHICAL_RECIPES if item["suggested_id"] == recipe_id),
                 None,
             )
+            meta_hierarchical = next(
+                (item for item in KNOWN_META_HIERARCHICAL_RECIPES if item["suggested_id"] == recipe_id),
+                None,
+            )
             domain = next((item for item in DOMAIN_SURFACE_CATALOG if item["id"] == recipe_id), None)
             if known is not None:
                 selected = {
@@ -1998,6 +2308,28 @@ def run_growth_loop(
                     ],
                     "tags": list(hierarchical.get("tags") or ()),
                     "synthesis": "hierarchical",
+                }
+            elif meta_hierarchical is not None:
+                selected = {
+                    "kind": "composition",
+                    "suggested_id": meta_hierarchical["suggested_id"],
+                    "name": meta_hierarchical["name"],
+                    "members": list(meta_hierarchical["members"]),
+                    "reason": meta_hierarchical["reason"],
+                    "priority": meta_hierarchical["priority"],
+                    "status": "ready"
+                    if all(
+                        member in ledger.capabilities for member in meta_hierarchical["members"]
+                    )
+                    and meta_hierarchical["suggested_id"] not in ledger.capabilities
+                    else "blocked",
+                    "missing_members": [
+                        member
+                        for member in meta_hierarchical["members"]
+                        if member not in ledger.capabilities
+                    ],
+                    "tags": list(meta_hierarchical.get("tags") or ()),
+                    "synthesis": "meta_hierarchical",
                 }
             elif domain is not None:
                 selected = {
@@ -2191,13 +2523,28 @@ def run_growth_loop(
         ),
         None,
     )
+    meta_hierarchical_known = next(
+        (
+            item
+            for item in KNOWN_META_HIERARCHICAL_RECIPES
+            if item["suggested_id"] == selected["suggested_id"]
+        ),
+        None,
+    )
     selected_tags = selected.get("tags")
     if known is not None:
         promote_tags: tuple[str, ...] = tuple(known["tags"])
     elif hierarchical_known is not None:
         promote_tags = tuple(hierarchical_known["tags"])
+    elif meta_hierarchical_known is not None:
+        promote_tags = tuple(meta_hierarchical_known["tags"])
     elif selected_tags:
         promote_tags = tuple(str(item) for item in selected_tags if str(item).strip())
+    elif selected.get("synthesis") == "meta_hierarchical" or (
+        selected.get("synthesized")
+        and str(selected.get("suggested_id") or "").startswith("capability.composed-meta-")
+    ):
+        promote_tags = ("composed", "promoted", "growth", "hierarchical", "meta", "synthesized")
     elif selected.get("synthesis") == "hierarchical" or selected.get("synthesized") and str(
         selected.get("suggested_id") or ""
     ).startswith("capability.composed-stack-"):
