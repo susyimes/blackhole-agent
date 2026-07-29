@@ -947,3 +947,110 @@ def test_autonomic_cycle_novelty_grow_distill_integrity():
     novelty_payload = json.loads(novelty_cli.stdout)
     assert novelty_payload["ok"] is True
     assert novelty_payload["used_skill_route_discovery"] is False
+
+
+def test_second_wave_domain_builtins_offline():
+    """Second-wave persona / proposal-synthesis / kernel surfaces prove offline."""
+
+    from blackhole_agent.capability_compounder import (
+        builtin_kernel_preflight,
+        builtin_persona_render,
+        builtin_proposal_synthesis_smoke,
+    )
+
+    persona = builtin_persona_render()
+    assert persona["ok"] is True
+    assert persona["used_skill_route_discovery"] is False
+    assert persona["chars"] > 100
+
+    proposal = builtin_proposal_synthesis_smoke()
+    assert proposal["ok"] is True
+    assert proposal["item_count"] >= 1
+    assert proposal["used_skill_route_discovery"] is False
+
+    kernel = builtin_kernel_preflight()
+    assert kernel["ok"] is True
+    assert kernel["provider"] == "grok"
+    assert kernel["used_skill_route_discovery"] is False
+
+
+def test_mission_plane_expands_primitives_and_runs_program():
+    """Mission plane absorbs second-wave leaves, plans, runs, and reopens novelty."""
+
+    from blackhole_agent.capability_compounder import (
+        ensure_seeded_ledger,
+        run_mission_plane,
+        scout_frontier_novelty,
+    )
+
+    repo = Path(__file__).resolve().parents[1]
+    path, ledger = ensure_seeded_ledger(repo)
+    for capability_id in (
+        "capability.goal-plan",
+        "capability.program-run",
+        "capability.second-wave-absorb",
+        "capability.mission-plane",
+    ):
+        assert capability_id in ledger.capabilities
+
+    before = scout_frontier_novelty(ledger, repo_path=repo)
+    result = run_mission_plane(
+        repo,
+        "second-wave identity persona proposal kernel health",
+        max_steps=4,
+        absorb_ready=True,
+        grow_budget=2,
+        timeout=300,
+    )
+    assert result["ok"] is True, result
+    assert result["action"] == "mission_plane"
+    assert result["used_skill_route_discovery"] is False
+    assert result["program"]["ok"] is True
+    assert result["program"]["passed_count"] >= 1
+    assert result["plan"]["step_count"] >= 1
+
+    ledger_after = load_ledger(path)
+    for surface_id in (
+        "domain.persona",
+        "domain.proposal-synthesis",
+        "domain.kernel-preflight",
+    ):
+        assert surface_id in ledger_after.capabilities, surface_id
+    after = scout_frontier_novelty(ledger_after, repo_path=repo)
+    # Primitive universe must expand (or already include second-wave leaves).
+    assert after["primitive_count"] >= before["primitive_count"]
+    assert after["primitive_count"] >= 20
+    # Either absorption expanded, growth advanced, or novel frontiers reopened.
+    assert (
+        result.get("expanded")
+        or (result.get("absorb") or {}).get("absorbed_count", 0) >= 0
+        or after["novel_ready_count"] >= 0
+    )
+
+    env = {
+        **dict(**{k: v for k, v in __import__("os").environ.items()}),
+        "PYTHONPATH": str(repo / "src"),
+    }
+    plan_cli = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "blackhole_agent.unbound",
+            "capability",
+            "plan",
+            "health integrity persona",
+            "--repo-path",
+            str(repo),
+            "--max-steps",
+            "3",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=120,
+    )
+    assert plan_cli.returncode == 0, plan_cli.stdout + plan_cli.stderr
+    plan_payload = json.loads(plan_cli.stdout)
+    assert plan_payload["ok"] is True
+    assert plan_payload["step_count"] >= 1

@@ -13,6 +13,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime, timezone
 from pathlib import Path
@@ -171,11 +172,27 @@ def default_ledger_path(repo_path: Path) -> Path:
 def atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(
-        json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
-    os.replace(temporary, path)
+    text = json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+    temporary.write_text(text, encoding="utf-8")
+    # Windows may transiently lock the target while another capability subprocess
+    # still has the ledger open; retry replace briefly before failing hard.
+    last_error: Exception | None = None
+    for attempt in range(12):
+        try:
+            os.replace(temporary, path)
+            return
+        except PermissionError as error:
+            last_error = error
+        except OSError as error:
+            # WinError 32: file in use by another process.
+            winerr = getattr(error, "winerror", None)
+            if winerr not in {5, 32} and not isinstance(error, PermissionError):
+                raise
+            last_error = error
+        time.sleep(0.05 * (attempt + 1))
+    if last_error is not None:
+        raise last_error
+    raise OSError(f"Failed to replace {path} after retries")
 
 
 def load_ledger(path: Path) -> CapabilityLedger:
@@ -858,6 +875,398 @@ def run_autonomic_cycle(
             "novel_ready_count": novelty_after.get("novel_ready_count"),
             "stale_ready_count": novelty_after.get("stale_ready_count"),
             "recommended_novel": novelty_after.get("recommended_novel"),
+        },
+        "used_skill_route_discovery": used_skill,
+        "ledger_path": str(path),
+    }
+
+
+# Operators that must not appear inside ordinary goal programs (avoid recursive
+# mission/growth planes during prove/run).
+PROGRAM_PLAN_DENYLIST = frozenset(
+    {
+        "capability.mission-plane",
+        "capability.program-run",
+        "capability.goal-plan",
+        "capability.adaptive-grow",
+        "capability.autonomic-cycle",
+        "capability.growth-loop",
+        "capability.second-wave-absorb",
+        # Batch operators are invocable separately; keep goal programs step-cheap.
+        "capability.ledger-integrity",
+        "capability.distill-ledger",
+    }
+)
+
+# Goal keyword → preferred capability ids for mission-plane planning.
+MISSION_GOAL_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("integrity", ("capability.ledger-integrity", "capability.ledger-inventory", "repo.import-health")),
+    ("novelty", ("capability.frontier-novelty", "capability.distill-ledger", "capability.autonomic-cycle")),
+    ("autonomic", ("capability.autonomic-cycle", "capability.adaptive-grow", "capability.frontier-novelty")),
+    ("growth", ("capability.scout-gaps", "capability.growth-loop", "capability.adaptive-grow")),
+    ("health", ("repo.import-health", "capability.ledger-inventory", "unbound.milestone-gate")),
+    ("memory", ("domain.local-memory",)),
+    ("security", ("domain.ci-security",)),
+    ("triage", ("domain.issue-triage",)),
+    ("proposal", ("domain.proposal-synthesis", "domain.proposal-eval")),
+    ("persona", ("domain.persona",)),
+    ("identity", ("domain.persona", "domain.kernel-preflight")),
+    ("kernel", ("domain.kernel-preflight",)),
+    ("harness", ("domain.harness-activation",)),
+    ("tool", ("domain.tool-routing",)),
+    ("supervisor", ("domain.supervisor-compound",)),
+    ("mission", ("capability.mission-plane", "capability.program-run", "capability.goal-plan")),
+    ("program", ("capability.program-run", "capability.goal-plan")),
+    ("second-wave", ("domain.persona", "domain.proposal-synthesis", "domain.kernel-preflight")),
+    ("distill", ("capability.distill-ledger", "capability.frontier-novelty")),
+)
+
+
+def plan_capability_program(
+    ledger: CapabilityLedger,
+    goal: str,
+    *,
+    max_steps: int = 6,
+    prefer_primitives: bool = True,
+) -> dict[str, Any]:
+    """Rank a multi-step capability program for a free-text mission goal.
+
+    Deterministic offline planner: keyword hints + tag/name/id overlap over ledger
+    citizens. Prefer proved primitives so programs stay cheap and novel-coverage-friendly.
+    """
+
+    goal_text = " ".join(str(goal or "").strip().lower().split())
+    if not goal_text:
+        goal_text = "core health integrity inventory"
+    scores: dict[str, float] = {}
+    for capability in ledger.capabilities.values():
+        if capability.id in PROGRAM_PLAN_DENYLIST:
+            continue
+        if prefer_primitives and not is_primitive_capability(capability):
+            # Still allow composed units when explicitly hinted by id/name match.
+            base = 0.0
+        else:
+            base = 1.0
+        blob = " ".join(
+            [
+                capability.id,
+                capability.name,
+                capability.description,
+                " ".join(capability.tags),
+                " ".join(capability.dependencies),
+            ]
+        ).lower()
+        score = base
+        for token in re.findall(r"[a-z0-9][a-z0-9._-]{2,}", goal_text):
+            if token in blob:
+                score += 3.0
+            elif token in capability.id:
+                score += 4.0
+        for tag in capability.tags:
+            if tag and tag.lower() in goal_text:
+                score += 2.5
+        if capability.last_proof_exit_code == 0:
+            score += 0.5
+        if is_primitive_capability(capability):
+            score += 0.75
+        # Soft-penalize pure stack re-packages unless the goal asks for composition.
+        if not is_primitive_capability(capability) and "compose" not in goal_text and "stack" not in goal_text:
+            score *= 0.35
+        scores[capability.id] = score
+
+    for hint, capability_ids in MISSION_GOAL_HINTS:
+        if hint in goal_text:
+            for capability_id in capability_ids:
+                if capability_id in ledger.capabilities and capability_id not in PROGRAM_PLAN_DENYLIST:
+                    scores[capability_id] = scores.get(capability_id, 0.0) + 8.0
+
+    # Always include a cheap health anchor when present.
+    for anchor in ("repo.import-health", "capability.ledger-inventory"):
+        if anchor in ledger.capabilities:
+            scores[anchor] = scores.get(anchor, 0.0) + 1.25
+
+    ranked = sorted(
+        (
+            (capability_id, score)
+            for capability_id, score in scores.items()
+            if score > 1.0
+            and capability_id in ledger.capabilities
+            and capability_id not in PROGRAM_PLAN_DENYLIST
+        ),
+        key=lambda item: (-item[1], item[0]),
+    )
+    steps: list[str] = []
+    for capability_id, _score in ranked:
+        if capability_id in steps:
+            continue
+        steps.append(capability_id)
+        if len(steps) >= max(1, int(max_steps)):
+            break
+    # Fallback health program when scoring yields nothing.
+    if not steps:
+        for fallback in (
+            "repo.import-health",
+            "capability.ledger-inventory",
+            "unbound.milestone-gate",
+        ):
+            if fallback in ledger.capabilities and fallback not in steps:
+                steps.append(fallback)
+            if len(steps) >= max(1, int(max_steps)):
+                break
+    return {
+        "ok": bool(steps),
+        "action": "goal_plan",
+        "goal": goal_text,
+        "steps": steps,
+        "step_count": len(steps),
+        "scores": {capability_id: round(score, 3) for capability_id, score in ranked[:12]},
+        "prefer_primitives": prefer_primitives,
+    }
+
+
+def run_capability_program(
+    repo_path: Path,
+    steps: Sequence[str],
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 120,
+    prove_first: bool = False,
+) -> dict[str, Any]:
+    """Execute an ordered multi-step capability program and collect evidence."""
+
+    root = repo_path.resolve()
+    path, ledger = ensure_seeded_ledger(root)
+    ordered = [str(item).strip() for item in steps if str(item).strip()]
+    results: list[dict[str, Any]] = []
+    missing: list[str] = []
+    used_skill = False
+    for capability_id in ordered:
+        capability = ledger.capabilities.get(capability_id)
+        if capability is None:
+            missing.append(capability_id)
+            results.append(
+                {
+                    "capability_id": capability_id,
+                    "ok": False,
+                    "exit_code": 127,
+                    "summary": "missing_capability",
+                }
+            )
+            continue
+        if prove_first:
+            ledger, proof = prove_capability(
+                ledger,
+                capability_id,
+                cwd=root,
+                command_runner=command_runner,
+                timeout=timeout,
+            )
+            if not proof.ok:
+                results.append(
+                    {
+                        "capability_id": capability_id,
+                        "ok": False,
+                        "exit_code": proof.exit_code,
+                        "summary": f"proof_failed:{proof.summary}",
+                        "kind": "proof",
+                    }
+                )
+                continue
+        run_result = run_capability(
+            capability,
+            cwd=root,
+            command_runner=command_runner,
+            timeout=timeout,
+            use_proof=False,
+        )
+        results.append(
+            {
+                "capability_id": capability_id,
+                "ok": run_result.ok,
+                "exit_code": run_result.exit_code,
+                "summary": run_result.summary,
+                "kind": run_result.kind,
+            }
+        )
+    save_ledger(path, ledger)
+    used_skill = "skill_routing" in sys.modules or "blackhole_agent.skill_routing" in sys.modules
+    ok = bool(ordered) and not missing and all(item.get("ok") for item in results) and not used_skill
+    return {
+        "ok": ok,
+        "action": "program_run",
+        "steps": ordered,
+        "step_count": len(ordered),
+        "results": results,
+        "passed_count": sum(1 for item in results if item.get("ok")),
+        "failed_count": sum(1 for item in results if not item.get("ok")),
+        "missing": missing,
+        "prove_first": prove_first,
+        "used_skill_route_discovery": used_skill,
+        "ledger_path": str(path),
+    }
+
+
+def absorb_second_wave_domains(
+    repo_path: Path,
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 120,
+    prove: bool = True,
+    limit: int = 8,
+) -> dict[str, Any]:
+    """Absorb ready second-wave (and any pending) domain surfaces to expand primitive coverage."""
+
+    root = repo_path.resolve()
+    path, ledger = ensure_seeded_ledger(root)
+    before_ids = sorted(ledger.capabilities)
+    before_novelty = scout_frontier_novelty(ledger, repo_path=root)
+    absorbed_ids: list[str] = []
+    proved: list[str] = []
+    failed_proofs: list[str] = []
+    ledger, absorbed = absorb_ready_domain_surfaces(ledger, repo_path=root, limit=max(1, int(limit)))
+    for capability in absorbed:
+        absorbed_ids.append(capability.id)
+        if not prove:
+            continue
+        ledger, proof = prove_capability(
+            ledger,
+            capability.id,
+            cwd=root,
+            command_runner=command_runner,
+            timeout=timeout,
+        )
+        if proof.ok:
+            proved.append(capability.id)
+        else:
+            failed_proofs.append(capability.id)
+    save_ledger(path, ledger)
+    after = load_ledger(path)
+    after_novelty = scout_frontier_novelty(after, repo_path=root)
+    used_skill = "skill_routing" in sys.modules or "blackhole_agent.skill_routing" in sys.modules
+    ok = not used_skill and not failed_proofs
+    return {
+        "ok": ok,
+        "action": "second_wave_absorb",
+        "absorbed_ids": absorbed_ids,
+        "absorbed_count": len(absorbed_ids),
+        "proved_ids": proved,
+        "failed_proofs": failed_proofs,
+        "before_count": len(before_ids),
+        "after_count": len(after.capabilities),
+        "new_ids": sorted(set(after.capabilities) - set(before_ids)),
+        "novel_ready_before": before_novelty.get("novel_ready_count"),
+        "novel_ready_after": after_novelty.get("novel_ready_count"),
+        "primitive_count_after": after_novelty.get("primitive_count"),
+        "used_skill_route_discovery": used_skill,
+        "ledger_path": str(path),
+    }
+
+
+def run_mission_plane(
+    repo_path: Path,
+    goal: str,
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 180,
+    max_steps: int = 6,
+    absorb_ready: bool = True,
+    prove_first: bool = False,
+    grow_budget: int = 2,
+) -> dict[str, Any]:
+    """Goal-conditioned mission plane: expand primitives → plan → run → optional novel grow.
+
+    Escapes the zero-novelty superstack plateau by absorbing second-wave domains when
+    ready, then executing a multi-step capability program for the stated goal, then
+    spending a small novel-only growth budget if frontiers reopened.
+    """
+
+    root = repo_path.resolve()
+    path, ledger = ensure_seeded_ledger(root)
+    before_count = len(ledger.capabilities)
+    novelty_before = scout_frontier_novelty(ledger, repo_path=root)
+
+    absorb_report: dict[str, Any] | None = None
+    if absorb_ready:
+        absorb_report = absorb_second_wave_domains(
+            root,
+            command_runner=command_runner,
+            timeout=min(timeout, 120),
+            prove=True,
+            limit=8,
+        )
+        ledger = load_ledger(path)
+
+    plan = plan_capability_program(ledger, goal, max_steps=max_steps, prefer_primitives=True)
+    program = run_capability_program(
+        root,
+        plan.get("steps") or [],
+        command_runner=command_runner,
+        timeout=timeout,
+        prove_first=prove_first,
+    )
+
+    growth: dict[str, Any] | None = None
+    if grow_budget > 0:
+        growth = run_adaptive_growth(
+            root,
+            budget=grow_budget,
+            command_runner=command_runner,
+            timeout=timeout,
+            novel_only=True,
+        )
+
+    novelty_after = scout_frontier_novelty(load_ledger(path), repo_path=root)
+    after_count = len(load_ledger(path).capabilities)
+    used_skill = bool(
+        (absorb_report or {}).get("used_skill_route_discovery")
+        or program.get("used_skill_route_discovery")
+        or (growth or {}).get("used_skill_route_discovery")
+    )
+    expanded = bool((absorb_report or {}).get("absorbed_count")) or bool((growth or {}).get("grew"))
+    ok = (
+        not used_skill
+        and bool(plan.get("ok"))
+        and bool(program.get("ok"))
+        and (absorb_report is None or bool(absorb_report.get("ok")))
+        and (growth is None or bool(growth.get("ok")))
+    )
+    return {
+        "ok": ok,
+        "action": "mission_plane",
+        "goal": plan.get("goal"),
+        "expanded": expanded,
+        "before_count": before_count,
+        "after_count": after_count,
+        "novel_ready_before": novelty_before.get("novel_ready_count"),
+        "novel_ready_after": novelty_after.get("novel_ready_count"),
+        "primitive_count_before": novelty_before.get("primitive_count"),
+        "primitive_count_after": novelty_after.get("primitive_count"),
+        "plan": {
+            "steps": plan.get("steps"),
+            "step_count": plan.get("step_count"),
+            "scores": plan.get("scores"),
+        },
+        "program": {
+            "ok": program.get("ok"),
+            "passed_count": program.get("passed_count"),
+            "failed_count": program.get("failed_count"),
+            "results": program.get("results"),
+        },
+        "absorb": {
+            "ok": None if absorb_report is None else absorb_report.get("ok"),
+            "absorbed_ids": None if absorb_report is None else absorb_report.get("absorbed_ids"),
+            "absorbed_count": 0 if absorb_report is None else absorb_report.get("absorbed_count"),
+            "novel_ready_after": None if absorb_report is None else absorb_report.get("novel_ready_after"),
+        },
+        "growth": None
+        if growth is None
+        else {
+            "ok": growth.get("ok"),
+            "grew": growth.get("grew"),
+            "promoted_ids": growth.get("promoted_ids"),
+            "stalled": growth.get("stalled"),
+            "stall_reason": growth.get("stall_reason"),
+            "steps_run": growth.get("steps_run"),
         },
         "used_skill_route_discovery": used_skill,
         "ledger_path": str(path),
@@ -1633,6 +2042,99 @@ def builtin_supervisor_compound_wake() -> dict[str, Any]:
     }
 
 
+def builtin_persona_render() -> dict[str, Any]:
+    """Prove the operational persona layer renders a stable identity contract offline."""
+
+    from blackhole_agent.persona import BLACKHOLE_PERSONA, PERSONA_VERSION, render_persona_layer
+
+    text = render_persona_layer()
+    ok = (
+        bool(text.strip())
+        and PERSONA_VERSION in text
+        and BLACKHOLE_PERSONA.name in text
+        and "core mechanism" in text.lower()
+    )
+    return {
+        "ok": ok,
+        "version": PERSONA_VERSION,
+        "name": BLACKHOLE_PERSONA.name,
+        "chars": len(text),
+        "used_skill_route_discovery": "skill_routing" in sys.modules
+        or "blackhole_agent.skill_routing" in sys.modules,
+    }
+
+
+def builtin_proposal_synthesis_smoke() -> dict[str, Any]:
+    """Offline proposal-synthesis evidence packaging without LLM or skill-route discovery."""
+
+    from blackhole_agent.proposal_synthesis import (
+        PROPOSAL_SYNTHESIS_SCHEMA_VERSION,
+        build_proposal_evidence_package,
+        validate_proposal_mode,
+    )
+
+    mode = validate_proposal_mode("heuristic")
+    package = build_proposal_evidence_package(
+        {
+            "digest_id": "capability-second-wave-smoke",
+            "items": [
+                {
+                    "summary": "Capability mission plane expands primitives past superstack plateau.",
+                    "relevance_reason": "Offline second-wave domain absorption evidence.",
+                    "confidence": 0.91,
+                    "risk_flags": [],
+                    "source_url": "",
+                    "event_kind": "PushEvent",
+                }
+            ],
+        }
+    )
+    items = package.get("items") if isinstance(package, dict) else None
+    ok = (
+        mode == "heuristic"
+        and isinstance(package, dict)
+        and package.get("schema_version") == PROPOSAL_SYNTHESIS_SCHEMA_VERSION
+        and isinstance(items, list)
+        and len(items) >= 1
+        and bool(str(package.get("digest_id") or "").strip())
+    )
+    return {
+        "ok": ok,
+        "mode": mode,
+        "schema_version": package.get("schema_version") if isinstance(package, dict) else None,
+        "item_count": len(items) if isinstance(items, list) else 0,
+        "digest_id": package.get("digest_id") if isinstance(package, dict) else None,
+        "used_skill_route_discovery": "skill_routing" in sys.modules
+        or "blackhole_agent.skill_routing" in sys.modules,
+    }
+
+
+def builtin_kernel_preflight() -> dict[str, Any]:
+    """Offline Grok kernel provider/config preflight without invoking the CLI network path."""
+
+    from blackhole_agent.kernels.grok_cli import GrokCliConfig, build_grok_provider_preflight
+
+    preflight = build_grok_provider_preflight(GrokCliConfig())
+    # Success means the preflight contract is structured and inspectable, not that the
+    # binary is present (CI and constrained hosts may lack grok on PATH).
+    ok = (
+        isinstance(preflight, dict)
+        and int(preflight.get("schema_version") or 0) == 1
+        and preflight.get("provider") == "grok"
+        and isinstance(preflight.get("diagnostics"), list)
+        and "binary_present" in preflight
+    )
+    return {
+        "ok": ok,
+        "preflight_ok": bool(preflight.get("ok")) if isinstance(preflight, dict) else False,
+        "binary_present": bool(preflight.get("binary_present")) if isinstance(preflight, dict) else False,
+        "diagnostics": list(preflight.get("diagnostics") or []) if isinstance(preflight, dict) else [],
+        "provider": preflight.get("provider") if isinstance(preflight, dict) else None,
+        "used_skill_route_discovery": "skill_routing" in sys.modules
+        or "blackhole_agent.skill_routing" in sys.modules,
+    }
+
+
 # --- Growth loop: scout → absorb domain / promote composition → prove ---
 
 # Domain package surfaces the compounder can absorb into the ledger (beyond meta self-composition).
@@ -1757,9 +2259,63 @@ DOMAIN_SURFACE_CATALOG: tuple[dict[str, Any], ...] = (
         "priority": 68,
         "dependencies": ("repo.import-health", "evolution.compounder-redirect"),
     },
+    {
+        "id": "domain.persona",
+        "name": "Persona layer render",
+        "description": (
+            "Render the operational persona identity/mechanism contract offline as a durable surface."
+        ),
+        "module": "blackhole_agent.persona",
+        "module_path": "src/blackhole_agent/persona.py",
+        "entry": "blackhole_agent.capability_compounder:builtin_persona_render",
+        "function": "builtin_persona_render",
+        "capability_delta": (
+            "Persona identity contract is invocable as a second-wave domain capability."
+        ),
+        "tags": ("domain", "persona", "identity", "absorbable", "second-wave"),
+        # Below first-wave domain priorities (54–70) so clean growth absorbs
+        # local-memory → … → proposal-eval before second-wave leaves.
+        "priority": 48,
+        "dependencies": ("repo.import-health",),
+    },
+    {
+        "id": "domain.proposal-synthesis",
+        "name": "Proposal synthesis evidence smoke",
+        "description": (
+            "Build a frozen heuristic proposal evidence package offline without LLM or skill-route."
+        ),
+        "module": "blackhole_agent.proposal_synthesis",
+        "module_path": "src/blackhole_agent/proposal_synthesis.py",
+        "entry": "blackhole_agent.capability_compounder:builtin_proposal_synthesis_smoke",
+        "function": "builtin_proposal_synthesis_smoke",
+        "capability_delta": (
+            "Proposal synthesis evidence packaging is invocable as a second-wave domain capability."
+        ),
+        "tags": ("domain", "proposal", "synthesis", "absorbable", "second-wave"),
+        "priority": 47,
+        "dependencies": ("repo.import-health",),
+    },
+    {
+        "id": "domain.kernel-preflight",
+        "name": "Kernel provider preflight",
+        "description": (
+            "Evaluate Grok kernel provider/config preflight structure offline without network runs."
+        ),
+        "module": "blackhole_agent.kernels.grok_cli",
+        "module_path": "src/blackhole_agent/kernels/grok_cli.py",
+        "entry": "blackhole_agent.capability_compounder:builtin_kernel_preflight",
+        "function": "builtin_kernel_preflight",
+        "capability_delta": (
+            "Kernel provider preflight is invocable as a second-wave domain capability."
+        ),
+        "tags": ("domain", "kernel", "preflight", "absorbable", "second-wave"),
+        "priority": 46,
+        "dependencies": ("repo.import-health",),
+    },
 )
 
 # Modules that are runtime/control surfaces, not domain absorption candidates.
+# Second-wave identity/synthesis/kernel surfaces are catalogued above and must not be skipped.
 _DOMAIN_SCOUT_SKIP_STEMS = frozenset(
     {
         "__init__",
@@ -1771,8 +2327,6 @@ _DOMAIN_SCOUT_SKIP_STEMS = frozenset(
         "github_growth",
         "skill_routing",
         "self_model",
-        "persona",
-        "proposal_synthesis",
     }
 )
 
@@ -1831,6 +2385,23 @@ KNOWN_GROWTH_RECIPES: tuple[dict[str, Any], ...] = (
         "reason": "Evolution redirect readiness can be re-proved as a single composed capability.",
         "priority": 80,
         "tags": ("composed", "promoted", "growth", "evolution-route"),
+    },
+    {
+        "suggested_id": "capability.composed-second-wave-identity",
+        "name": "Composed second-wave identity chain",
+        "members": (
+            "domain.persona",
+            "domain.proposal-synthesis",
+            "domain.kernel-preflight",
+        ),
+        "reason": (
+            "Second-wave persona, proposal synthesis, and kernel preflight form a novel "
+            "primitive coverage set past the first-wave domain-ops/superstack plateau."
+        ),
+        # Below first-wave catalog recipes (100/90/85/80) so clean growth still promotes
+        # core-health → domain-core/ops before second-wave compositions.
+        "priority": 78,
+        "tags": ("composed", "promoted", "growth", "domain", "second-wave"),
     },
 )
 
@@ -2742,6 +3313,10 @@ def scout_capability_gaps(
             "capability.frontier-novelty",
             "capability.distill-ledger",
             "capability.autonomic-cycle",
+            "capability.goal-plan",
+            "capability.program-run",
+            "capability.mission-plane",
+            "capability.second-wave-absorb",
         )
         if capability_id not in ledger.capabilities
     ]
@@ -3665,6 +4240,77 @@ def builtin_autonomic_cycle() -> dict[str, Any]:
     )
 
 
+def builtin_goal_plan() -> dict[str, Any]:
+    """Invocable capability: plan a multi-step capability program for a free-text goal."""
+
+    root = Path(__file__).resolve().parents[2]
+    path, ledger = ensure_seeded_ledger(root)
+    goal = (os.environ.get("BLACKHOLE_MISSION_GOAL") or "").strip() or (
+        "core health integrity inventory second-wave persona"
+    )
+    max_steps = int(os.environ.get("BLACKHOLE_PROGRAM_MAX_STEPS") or "6")
+    result = plan_capability_program(ledger, goal, max_steps=max_steps, prefer_primitives=True)
+    result["ledger_path"] = str(path)
+    result["used_skill_route_discovery"] = (
+        "skill_routing" in sys.modules or "blackhole_agent.skill_routing" in sys.modules
+    )
+    result["ok"] = bool(result.get("ok")) and not result["used_skill_route_discovery"]
+    return result
+
+
+def builtin_program_run() -> dict[str, Any]:
+    """Invocable capability: execute BLACKHOLE_PROGRAM_STEPS or a default health program."""
+
+    root = Path(__file__).resolve().parents[2]
+    raw_steps = (os.environ.get("BLACKHOLE_PROGRAM_STEPS") or "").strip()
+    if raw_steps:
+        steps = [part.strip() for part in raw_steps.split(",") if part.strip()]
+    else:
+        steps = [
+            "repo.import-health",
+            "capability.ledger-inventory",
+            "unbound.milestone-gate",
+        ]
+    prove_first = (os.environ.get("BLACKHOLE_PROGRAM_PROVE_FIRST") or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+    return run_capability_program(root, steps, timeout=120, prove_first=prove_first)
+
+
+def builtin_second_wave_absorb() -> dict[str, Any]:
+    """Invocable capability: absorb ready second-wave domain primitives and prove them."""
+
+    root = Path(__file__).resolve().parents[2]
+    limit = int(os.environ.get("BLACKHOLE_SECOND_WAVE_LIMIT") or "8")
+    return absorb_second_wave_domains(root, prove=True, limit=limit, timeout=120)
+
+
+def builtin_mission_plane() -> dict[str, Any]:
+    """Invocable capability: second-wave expand → goal plan → program run → novel grow."""
+
+    root = Path(__file__).resolve().parents[2]
+    goal = (os.environ.get("BLACKHOLE_MISSION_GOAL") or "").strip() or (
+        "second-wave identity persona proposal kernel health"
+    )
+    max_steps = int(os.environ.get("BLACKHOLE_PROGRAM_MAX_STEPS") or "5")
+    grow_budget = int(os.environ.get("BLACKHOLE_MISSION_GROW_BUDGET") or "2")
+    absorb_ready = (os.environ.get("BLACKHOLE_MISSION_ABSORB") or "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    return run_mission_plane(
+        root,
+        goal,
+        max_steps=max_steps,
+        absorb_ready=absorb_ready,
+        grow_budget=grow_budget,
+        timeout=180,
+    )
+
+
 def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
     """Install the minimal compoundable bootstrap set if missing."""
 
@@ -3975,6 +4621,145 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "re-proves integrity without skill-route discovery."
             ),
             tags=("bootstrap", "compounder", "growth", "autonomic", "novelty"),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.goal-plan",
+            name="Goal-conditioned capability program planner",
+            description=(
+                "Plan a multi-step capability program from a free-text goal using ledger "
+                "tags, ids, and deterministic mission hints (no skill-route)."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_goal_plan",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_goal_plan; '
+                "import os; os.environ.setdefault('BLACKHOLE_MISSION_GOAL','health integrity'); "
+                "r=builtin_goal_plan(); assert r['ok'] and r.get('step_count',0) >= 1 "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Free-text goals compile into ranked multi-step capability programs offline."
+            ),
+            tags=("bootstrap", "compounder", "mission", "planner"),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.program-run",
+            name="Multi-step capability program runner",
+            description=(
+                "Execute an ordered list of ledger capabilities and collect per-step evidence "
+                "without skill-route discovery."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_program_run",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_program_run; '
+                "r=builtin_program_run(); assert r['ok'] and r.get('passed_count',0) >= 1 "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.goal-plan",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Capability programs run as ordered invocable chains with step evidence."
+            ),
+            tags=("bootstrap", "compounder", "mission", "program"),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.second-wave-absorb",
+            name="Second-wave domain primitive absorption",
+            description=(
+                "Absorb ready second-wave domain surfaces (persona, proposal synthesis, "
+                "kernel preflight, …) to expand primitive coverage past superstack plateaus."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_second_wave_absorb",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_second_wave_absorb; '
+                "r=builtin_second_wave_absorb(); assert r['ok'] and r.get('action')=='second_wave_absorb' "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.scout-gaps",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "src/blackhole_agent/persona.py",
+                "src/blackhole_agent/proposal_synthesis.py",
+                "src/blackhole_agent/kernels/grok_cli.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Second-wave domain primitives expand the ledger universe when compositions plateau."
+            ),
+            tags=("bootstrap", "compounder", "growth", "second-wave", "domain"),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.mission-plane",
+            name="Goal-conditioned mission capability plane",
+            description=(
+                "Expand second-wave primitives when ready, plan a goal-conditioned capability "
+                "program, execute it, and spend novel-only growth budget — past superstack stall."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_mission_plane",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_mission_plane; '
+                "import os; "
+                # Bound proof: plan+run only (no absorb/grow) so growth-loop dep proves stay cheap.
+                "os.environ['BLACKHOLE_MISSION_GOAL']='health inventory milestone'; "
+                "os.environ['BLACKHOLE_MISSION_GROW_BUDGET']='0'; "
+                "os.environ['BLACKHOLE_MISSION_ABSORB']='0'; "
+                "os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; "
+                "r=builtin_mission_plane(); assert r['ok'] and r.get('action')=='mission_plane' "
+                "and r.get('program',{}).get('passed_count',0) >= 1 "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.goal-plan",
+                "capability.program-run",
+                "capability.second-wave-absorb",
+                "capability.adaptive-grow",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "src/blackhole_agent/unbound.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Mission goals drive second-wave expansion and multi-step capability programs "
+                "without skill-route discovery, reopening novel frontiers after superstack stall."
+            ),
+            tags=("bootstrap", "compounder", "mission", "growth", "second-wave"),
             created_at=utc_now_iso(),
             updated_at=utc_now_iso(),
         ),

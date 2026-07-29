@@ -28,12 +28,14 @@ from rich.console import Console
 from blackhole_agent.capability_compounder import (
     Capability,
     absorb_domain_surface,
+    absorb_second_wave_domains,
     capability_from_milestone,
     compose_capabilities,
     default_ledger_path,
     ensure_seeded_ledger,
     ledger_prompt_summary,
     load_ledger,
+    plan_capability_program,
     promote_composition,
     prove_capability,
     prove_ledger_integrity,
@@ -41,9 +43,11 @@ from blackhole_agent.capability_compounder import (
     run_adaptive_growth,
     run_autonomic_cycle,
     run_capability,
+    run_capability_program,
     run_distill_ledger,
     run_end_to_end_demo,
     run_growth_loop,
+    run_mission_plane,
     save_ledger,
     scout_capability_gaps,
     scout_frontier_novelty,
@@ -1765,6 +1769,121 @@ def capability_autonomic(
         )
     except Exception as error:
         console.print(f"Autonomic cycle failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "plan",
+    help="Plan a multi-step capability program for a free-text goal (mission plane planner).",
+)
+def capability_plan(
+    goal: str = typer.Argument(..., help="Free-text mission goal to compile into capability steps."),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    max_steps: int = typer.Option(6, "--max-steps", min=1, help="Maximum program length."),
+) -> None:
+    try:
+        path, ledger = ensure_seeded_ledger(repo_path.resolve())
+        result = plan_capability_program(ledger, goal, max_steps=max_steps, prefer_primitives=True)
+        result["ledger_path"] = str(path)
+        result["used_skill_route_discovery"] = False
+    except Exception as error:
+        console.print(f"Plan failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "program",
+    help="Run an ordered multi-step capability program (comma-separated ids or planned steps).",
+)
+def capability_program(
+    steps: str = typer.Argument(
+        "",
+        help="Comma-separated capability ids. Empty uses a core health default program.",
+    ),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    prove_first: bool = typer.Option(False, "--prove-first", help="Prove each step before run."),
+    timeout_seconds: int = typer.Option(120, "--timeout-seconds", min=1),
+) -> None:
+    try:
+        ordered = [part.strip() for part in steps.split(",") if part.strip()] if steps.strip() else [
+            "repo.import-health",
+            "capability.ledger-inventory",
+            "unbound.milestone-gate",
+        ]
+        result = run_capability_program(
+            repo_path.resolve(),
+            ordered,
+            timeout=timeout_seconds,
+            prove_first=prove_first,
+        )
+    except Exception as error:
+        console.print(f"Program run failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "second-wave",
+    help="Absorb ready second-wave domain primitives (persona, proposal synthesis, kernel, …).",
+)
+def capability_second_wave(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    limit: int = typer.Option(8, "--limit", min=1, help="Max surfaces to absorb."),
+    timeout_seconds: int = typer.Option(120, "--timeout-seconds", min=1),
+) -> None:
+    try:
+        result = absorb_second_wave_domains(
+            repo_path.resolve(),
+            prove=True,
+            limit=limit,
+            timeout=timeout_seconds,
+        )
+    except Exception as error:
+        console.print(f"Second-wave absorb failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "mission-plane",
+    help=(
+        "Mission plane: absorb second-wave primitives → plan goal program → run → "
+        "novel-only grow (escapes zero-novelty superstack stall)."
+    ),
+)
+def capability_mission_plane(
+    goal: str = typer.Option(
+        "second-wave identity persona proposal kernel health",
+        "--goal",
+        help="Free-text mission goal for program planning.",
+    ),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    max_steps: int = typer.Option(5, "--max-steps", min=1, help="Program length cap."),
+    grow_budget: int = typer.Option(2, "--grow-budget", min=0, help="Novel-only growth steps after program."),
+    no_absorb: bool = typer.Option(False, "--no-absorb", help="Skip second-wave absorption."),
+    timeout_seconds: int = typer.Option(180, "--timeout-seconds", min=1),
+) -> None:
+    try:
+        result = run_mission_plane(
+            repo_path.resolve(),
+            goal,
+            max_steps=max_steps,
+            absorb_ready=not no_absorb,
+            grow_budget=grow_budget,
+            timeout=timeout_seconds,
+        )
+    except Exception as error:
+        console.print(f"Mission plane failed: {error}", style="red")
         raise typer.Exit(1) from error
     console.print_json(data=result)
     if not result.get("ok") or result.get("used_skill_route_discovery"):

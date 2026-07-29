@@ -165,6 +165,13 @@ uv run blackhole-unbound capability integrity --limit 16
   `--remove`; `capability.distill-ledger`).
 - `capability autonomic` runs novelty-aware grow → distill → integrity as one
   invocable cycle (`capability.autonomic-cycle`).
+- `capability second-wave` absorbs ready second-wave domain primitives (persona,
+  proposal synthesis, kernel preflight, …) to expand coverage when superstacks
+  plateau (`capability.second-wave-absorb`).
+- `capability plan` / `capability program` compile and run multi-step capability
+  programs from free-text goals (`capability.goal-plan`, `capability.program-run`).
+- `capability mission-plane` is the closed mission plane: second-wave absorb →
+  goal plan → program run → novel-only grow (`capability.mission-plane`).
 
 Promoted compositions are tagged `composed`/`promoted` and become ordinary
 ledger citizens that later turns can list, prove, run, and compose further.
