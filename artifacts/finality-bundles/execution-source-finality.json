@@ -4,79 +4,8 @@
   "byzantine_count": 1,
   "certificate_count": 4,
   "certificates": {
-    "330c42abafb395b601c7733e": {
-      "certificate_hash": "330c42abafb395b601c7733e",
-      "epoch_height": 2,
-      "payload": {
-        "agreeing_count": 2,
-        "byzantine_count": 1,
-        "certificate_hash": "330c42abafb395b601c7733e",
-        "claims": {
-          "epoch_index": 2,
-          "member_count": 3,
-          "plane": "finality",
-          "roots": [
-            "repo.import-health",
-            "capability.ledger-inventory",
-            "unbound.milestone-gate"
-          ]
-        },
-        "epoch_hash": "e104ac9b07f9ec20da0c62e5",
-        "epoch_height": 2,
-        "goal": "collateral over margin (epoch 2)",
-        "irreversible": true,
-        "issued_at": "2026-07-29T20:47:43.655041Z",
-        "kind": "finality_certificate",
-        "lineage_head_hash": "5bc3137a9f6ea48a1c4f5b18",
-        "ok": true,
-        "origin_count": 3,
-        "package_hash": "960d0a8741a15555",
-        "parent_epoch_hash": "a7c2aa9f70e6e61a1b01d238",
-        "quorum_hash": "c9a5417d18305127f3ac65a8",
-        "schema_version": 1,
-        "used_skill_route_discovery": false
-      }
-    },
-    "39dc86b0ec948136d9e8bcc4": {
-      "certificate_hash": "39dc86b0ec948136d9e8bcc4",
-      "epoch_height": 2,
-      "kind": "quorum_certificate",
-      "payload": {
-        "agreeing_count": 2,
-        "agreeing_origins": [
-          "origin-a",
-          "origin-b"
-        ],
-        "byzantine_count": 1,
-        "byzantine_origins": [
-          "origin-byzantine"
-        ],
-        "certificate_hash": "39dc86b0ec948136d9e8bcc4",
-        "claims": {
-          "finality_progress": true,
-          "prior_quorum_hash": "d5d35bfc372cb390e374d605",
-          "progress_tag": "epoch-progress-2"
-        },
-        "goal": "collateral over margin (progress 2)",
-        "issued_at": "2026-07-29T20:47:43.654195Z",
-        "kind": "quorum_certificate",
-        "lineage_head_hash": "5bc3137a9f6ea48a1c4f5b18",
-        "member_count": 3,
-        "ok": true,
-        "origin_count": 3,
-        "origin_hashes": [
-          "e117a741022cd99c58cdc833",
-          "19bdea46f782858219e20bae",
-          "4b46c44f5126f545828b4af7"
-        ],
-        "package_hash": "960d0a8741a15555",
-        "schema_version": 1,
-        "threshold": 2,
-        "used_skill_route_discovery": false
-      }
-    },
-    "4e5a152b67b6d9855c05af2a": {
-      "certificate_hash": "4e5a152b67b6d9855c05af2a",
+    "1117569bf66946aa1aba5225": {
+      "certificate_hash": "1117569bf66946aa1aba5225",
       "epoch_height": 1,
       "kind": "quorum_certificate",
       "payload": {
@@ -89,7 +18,7 @@
         "byzantine_origins": [
           "origin-byzantine"
         ],
-        "certificate_hash": "4e5a152b67b6d9855c05af2a",
+        "certificate_hash": "1117569bf66946aa1aba5225",
         "claims": {
           "origin_ids": [
             "origin-a",
@@ -103,17 +32,17 @@
           ],
           "votes_accepted": 3
         },
-        "goal": "collateral over margin",
-        "issued_at": "2026-07-29T20:47:43.195939Z",
+        "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery.",
+        "issued_at": "2026-07-29T21:28:37.467767Z",
         "kind": "quorum_certificate",
-        "lineage_head_hash": "810f37418d23a49e4b905fb1",
+        "lineage_head_hash": "30dfc3cdc17266129988bc89",
         "member_count": 3,
         "ok": true,
         "origin_count": 3,
         "origin_hashes": [
-          "e117a741022cd99c58cdc833",
-          "19bdea46f782858219e20bae",
-          "4b46c44f5126f545828b4af7"
+          "9d2de9e76bdd45ee8d2558cb",
+          "b85e70789179827ba4327985",
+          "5205323f1856419d73fe397c"
         ],
         "package_hash": "066545df3053adf5",
         "schema_version": 1,
@@ -121,13 +50,46 @@
         "used_skill_route_discovery": false
       }
     },
-    "91361ce65c11e6d131c43c03": {
-      "certificate_hash": "91361ce65c11e6d131c43c03",
+    "26e8569d48e52375e5ac7f47": {
+      "certificate_hash": "26e8569d48e52375e5ac7f47",
+      "epoch_height": 2,
+      "payload": {
+        "agreeing_count": 2,
+        "byzantine_count": 1,
+        "certificate_hash": "26e8569d48e52375e5ac7f47",
+        "claims": {
+          "epoch_index": 2,
+          "member_count": 3,
+          "plane": "finality",
+          "roots": [
+            "repo.import-health",
+            "capability.ledger-inventory",
+            "unbound.milestone-gate"
+          ]
+        },
+        "epoch_hash": "2e0ac5026da73f9a56dd4ba6",
+        "epoch_height": 2,
+        "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery. (epoch 2)",
+        "irreversible": true,
+        "issued_at": "2026-07-29T21:28:38.143202Z",
+        "kind": "finality_certificate",
+        "lineage_head_hash": "68c6611eef794b481ebfc354",
+        "ok": true,
+        "origin_count": 3,
+        "package_hash": "4cbffeda57599a88",
+        "parent_epoch_hash": "2acefc32d39a44e5edd4a863",
+        "quorum_hash": "514c30b47478fc7f26ab1a7d",
+        "schema_version": 1,
+        "used_skill_route_discovery": false
+      }
+    },
+    "430284a18f3e72775fa816f4": {
+      "certificate_hash": "430284a18f3e72775fa816f4",
       "epoch_height": 1,
       "payload": {
         "agreeing_count": 2,
         "byzantine_count": 1,
-        "certificate_hash": "91361ce65c11e6d131c43c03",
+        "certificate_hash": "430284a18f3e72775fa816f4",
         "claims": {
           "epoch_index": 1,
           "member_count": 3,
@@ -138,19 +100,57 @@
             "unbound.milestone-gate"
           ]
         },
-        "epoch_hash": "a7c2aa9f70e6e61a1b01d238",
+        "epoch_hash": "2acefc32d39a44e5edd4a863",
         "epoch_height": 1,
-        "goal": "collateral over margin (epoch 1)",
+        "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery. (epoch 1)",
         "irreversible": true,
-        "issued_at": "2026-07-29T20:47:43.653226Z",
+        "issued_at": "2026-07-29T21:28:38.140221Z",
         "kind": "finality_certificate",
-        "lineage_head_hash": "810f37418d23a49e4b905fb1",
+        "lineage_head_hash": "30dfc3cdc17266129988bc89",
         "ok": true,
         "origin_count": 3,
         "package_hash": "066545df3053adf5",
         "parent_epoch_hash": "",
-        "quorum_hash": "d5d35bfc372cb390e374d605",
+        "quorum_hash": "02809cf74aa2f34ad57b73ce",
         "schema_version": 1,
+        "used_skill_route_discovery": false
+      }
+    },
+    "b6537786186ae1d439e39ba0": {
+      "certificate_hash": "b6537786186ae1d439e39ba0",
+      "epoch_height": 2,
+      "kind": "quorum_certificate",
+      "payload": {
+        "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "byzantine_count": 1,
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "certificate_hash": "b6537786186ae1d439e39ba0",
+        "claims": {
+          "finality_progress": true,
+          "prior_quorum_hash": "02809cf74aa2f34ad57b73ce",
+          "progress_tag": "epoch-progress-2"
+        },
+        "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery. (progress 2)",
+        "issued_at": "2026-07-29T21:28:38.142167Z",
+        "kind": "quorum_certificate",
+        "lineage_head_hash": "68c6611eef794b481ebfc354",
+        "member_count": 3,
+        "ok": true,
+        "origin_count": 3,
+        "origin_hashes": [
+          "9d2de9e76bdd45ee8d2558cb",
+          "b85e70789179827ba4327985",
+          "5205323f1856419d73fe397c"
+        ],
+        "package_hash": "4cbffeda57599a88",
+        "schema_version": 1,
+        "threshold": 2,
         "used_skill_route_discovery": false
       }
     }
@@ -172,12 +172,12 @@
           "epoch_index": 1,
           "plane": "finality"
         },
-        "epoch_hash": "a7c2aa9f70e6e61a1b01d238",
+        "epoch_hash": "2acefc32d39a44e5edd4a863",
         "epoch_height": 1,
         "finality_certificate": {
           "agreeing_count": 2,
           "byzantine_count": 1,
-          "certificate_hash": "91361ce65c11e6d131c43c03",
+          "certificate_hash": "430284a18f3e72775fa816f4",
           "claims": {
             "epoch_index": 1,
             "member_count": 3,
@@ -188,23 +188,23 @@
               "unbound.milestone-gate"
             ]
           },
-          "epoch_hash": "a7c2aa9f70e6e61a1b01d238",
+          "epoch_hash": "2acefc32d39a44e5edd4a863",
           "epoch_height": 1,
-          "goal": "collateral over margin (epoch 1)",
+          "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery. (epoch 1)",
           "irreversible": true,
-          "issued_at": "2026-07-29T20:47:43.653226Z",
+          "issued_at": "2026-07-29T21:28:38.140221Z",
           "kind": "finality_certificate",
-          "lineage_head_hash": "810f37418d23a49e4b905fb1",
+          "lineage_head_hash": "30dfc3cdc17266129988bc89",
           "ok": true,
           "origin_count": 3,
           "package_hash": "066545df3053adf5",
           "parent_epoch_hash": "",
-          "quorum_hash": "d5d35bfc372cb390e374d605",
+          "quorum_hash": "02809cf74aa2f34ad57b73ce",
           "schema_version": 1,
           "used_skill_route_discovery": false
         },
-        "finalized_at": "2026-07-29T20:47:43.653140Z",
-        "goal": "collateral over margin (epoch 1)",
+        "finalized_at": "2026-07-29T21:28:38.139839Z",
+        "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery. (epoch 1)",
         "irreversible": true,
         "kind": "finality_epoch",
         "lineage": {
@@ -224,7 +224,7 @@
               "detail": {
                 "origins": [
                   {
-                    "bundle_hash": "e117a741022cd99c58cdc833",
+                    "bundle_hash": "9d2de9e76bdd45ee8d2558cb",
                     "byzantine": false,
                     "lineage_entry_count": 115,
                     "lineage_head_hash": "3e49bd489bc18abc67dfdd8f",
@@ -233,30 +233,30 @@
                     "package_hash": "7878a785b9718369"
                   },
                   {
-                    "bundle_hash": "19bdea46f782858219e20bae",
+                    "bundle_hash": "b85e70789179827ba4327985",
                     "byzantine": false,
                     "lineage_entry_count": 2,
-                    "lineage_head_hash": "90cd5866102dea22800c7977",
+                    "lineage_head_hash": "c5325d90266f29d7e6de7f3d",
                     "member_count": 2,
                     "origin_id": "origin-b",
                     "package_hash": "8ece9182045d973a"
                   },
                   {
-                    "bundle_hash": "4b46c44f5126f545828b4af7",
+                    "bundle_hash": "5205323f1856419d73fe397c",
                     "byzantine": true,
                     "lineage_entry_count": 2,
-                    "lineage_head_hash": "50a0dd27855169eee6e8d57f",
+                    "lineage_head_hash": "867d8d64f201a514bfd9a06e",
                     "member_count": 3,
                     "origin_id": "origin-byzantine",
                     "package_hash": "7d88f7661e8407af"
                   }
                 ]
               },
-              "entry_hash": "c6ee92e86ffcb98c6cad84e7",
+              "entry_hash": "f8dcfae002195d2d341f38b6",
               "entry_kind": "quorum_origin_manifest",
-              "goal": "collateral over margin",
+              "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery.",
               "index": 0,
-              "issued_at": "2026-07-29T20:47:43.195777Z",
+              "issued_at": "2026-07-29T21:28:37.467528Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -281,15 +281,15 @@
               "detail": {
                 "origin_heads": [
                   "3e49bd489bc18abc67dfdd8f",
-                  "90cd5866102dea22800c7977",
-                  "50a0dd27855169eee6e8d57f"
+                  "c5325d90266f29d7e6de7f3d",
+                  "867d8d64f201a514bfd9a06e"
                 ]
               },
-              "entry_hash": "e6c471c83e2e1b194b2808d1",
+              "entry_hash": "d0c62adb717045c89141bafd",
               "entry_kind": "quorum_vote",
-              "goal": "collateral over margin",
+              "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery.",
               "index": 1,
-              "issued_at": "2026-07-29T20:47:43.195799Z",
+              "issued_at": "2026-07-29T21:28:37.467558Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -297,7 +297,7 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "c6ee92e86ffcb98c6cad84e7"
+              "parent_hash": "f8dcfae002195d2d341f38b6"
             },
             {
               "certificate_hash": "",
@@ -314,11 +314,11 @@
                   "origin-byzantine"
                 ]
               },
-              "entry_hash": "9b143b04363fe53a4e5ecea1",
+              "entry_hash": "953f45d50915f00b6d4828f5",
               "entry_kind": "quorum_byzantine_exclude",
-              "goal": "collateral over margin",
+              "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery.",
               "index": 2,
-              "issued_at": "2026-07-29T20:47:43.195813Z",
+              "issued_at": "2026-07-29T21:28:37.467579Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -326,7 +326,7 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "e6c471c83e2e1b194b2808d1"
+              "parent_hash": "d0c62adb717045c89141bafd"
             },
             {
               "certificate_hash": "",
@@ -346,16 +346,16 @@
                   "origin-byzantine"
                 ],
                 "origin_bundle_hashes": [
-                  "e117a741022cd99c58cdc833",
-                  "19bdea46f782858219e20bae",
-                  "4b46c44f5126f545828b4af7"
+                  "9d2de9e76bdd45ee8d2558cb",
+                  "b85e70789179827ba4327985",
+                  "5205323f1856419d73fe397c"
                 ]
               },
-              "entry_hash": "810f37418d23a49e4b905fb1",
+              "entry_hash": "30dfc3cdc17266129988bc89",
               "entry_kind": "quorum_seal",
-              "goal": "collateral over margin",
+              "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery.",
               "index": 3,
-              "issued_at": "2026-07-29T20:47:43.195826Z",
+              "issued_at": "2026-07-29T21:28:37.467599Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -363,16 +363,16 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "9b143b04363fe53a4e5ecea1"
+              "parent_hash": "953f45d50915f00b6d4828f5"
             }
           ],
           "entry_count": 4,
-          "head_hash": "810f37418d23a49e4b905fb1",
+          "head_hash": "30dfc3cdc17266129988bc89",
           "kind": "capability_lineage",
           "schema_version": 1,
-          "updated_at": "2026-07-29T20:47:43.195837Z"
+          "updated_at": "2026-07-29T21:28:37.467614Z"
         },
-        "lineage_head_hash": "810f37418d23a49e4b905fb1",
+        "lineage_head_hash": "30dfc3cdc17266129988bc89",
         "member_count": 3,
         "ok": true,
         "origin_count": 3,
@@ -385,7 +385,7 @@
           "byzantine_origins": [
             "origin-byzantine"
           ],
-          "exported_at": "2026-07-29T20:47:43.195749Z",
+          "exported_at": "2026-07-29T21:28:37.467494Z",
           "federated": true,
           "member_count": 3,
           "member_ids": [
@@ -431,7 +431,7 @@
                 "bootstrap",
                 "compounder"
               ],
-              "updated_at": "2026-07-29T20:47:43.159187Z"
+              "updated_at": "2026-07-29T21:28:37.383015Z"
             },
             "repo.import-health": {
               "behavior_paths": [
@@ -455,7 +455,7 @@
                 "bootstrap",
                 "health"
               ],
-              "updated_at": "2026-07-29T20:47:43.159038Z"
+              "updated_at": "2026-07-29T21:28:37.382836Z"
             },
             "unbound.milestone-gate": {
               "behavior_paths": [
@@ -480,7 +480,7 @@
                 "bootstrap",
                 "unbound"
               ],
-              "updated_at": "2026-07-29T20:47:43.159120Z"
+              "updated_at": "2026-07-29T21:28:37.382933Z"
             }
           },
           "ok": true,
@@ -508,7 +508,7 @@
           "byzantine_origins": [
             "origin-byzantine"
           ],
-          "certificate_hash": "4e5a152b67b6d9855c05af2a",
+          "certificate_hash": "1117569bf66946aa1aba5225",
           "claims": {
             "origin_ids": [
               "origin-a",
@@ -522,24 +522,24 @@
             ],
             "votes_accepted": 3
           },
-          "goal": "collateral over margin",
-          "issued_at": "2026-07-29T20:47:43.195939Z",
+          "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery.",
+          "issued_at": "2026-07-29T21:28:37.467767Z",
           "kind": "quorum_certificate",
-          "lineage_head_hash": "810f37418d23a49e4b905fb1",
+          "lineage_head_hash": "30dfc3cdc17266129988bc89",
           "member_count": 3,
           "ok": true,
           "origin_count": 3,
           "origin_hashes": [
-            "e117a741022cd99c58cdc833",
-            "19bdea46f782858219e20bae",
-            "4b46c44f5126f545828b4af7"
+            "9d2de9e76bdd45ee8d2558cb",
+            "b85e70789179827ba4327985",
+            "5205323f1856419d73fe397c"
           ],
           "package_hash": "066545df3053adf5",
           "schema_version": 1,
           "threshold": 2,
           "used_skill_route_discovery": false
         },
-        "quorum_hash": "d5d35bfc372cb390e374d605",
+        "quorum_hash": "02809cf74aa2f34ad57b73ce",
         "schema_version": 1,
         "used_skill_route_discovery": false
       },
@@ -557,12 +557,12 @@
           "epoch_index": 2,
           "plane": "finality"
         },
-        "epoch_hash": "e104ac9b07f9ec20da0c62e5",
+        "epoch_hash": "2e0ac5026da73f9a56dd4ba6",
         "epoch_height": 2,
         "finality_certificate": {
           "agreeing_count": 2,
           "byzantine_count": 1,
-          "certificate_hash": "330c42abafb395b601c7733e",
+          "certificate_hash": "26e8569d48e52375e5ac7f47",
           "claims": {
             "epoch_index": 2,
             "member_count": 3,
@@ -573,23 +573,23 @@
               "unbound.milestone-gate"
             ]
           },
-          "epoch_hash": "e104ac9b07f9ec20da0c62e5",
+          "epoch_hash": "2e0ac5026da73f9a56dd4ba6",
           "epoch_height": 2,
-          "goal": "collateral over margin (epoch 2)",
+          "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery. (epoch 2)",
           "irreversible": true,
-          "issued_at": "2026-07-29T20:47:43.655041Z",
+          "issued_at": "2026-07-29T21:28:38.143202Z",
           "kind": "finality_certificate",
-          "lineage_head_hash": "5bc3137a9f6ea48a1c4f5b18",
+          "lineage_head_hash": "68c6611eef794b481ebfc354",
           "ok": true,
           "origin_count": 3,
-          "package_hash": "960d0a8741a15555",
-          "parent_epoch_hash": "a7c2aa9f70e6e61a1b01d238",
-          "quorum_hash": "c9a5417d18305127f3ac65a8",
+          "package_hash": "4cbffeda57599a88",
+          "parent_epoch_hash": "2acefc32d39a44e5edd4a863",
+          "quorum_hash": "514c30b47478fc7f26ab1a7d",
           "schema_version": 1,
           "used_skill_route_discovery": false
         },
-        "finalized_at": "2026-07-29T20:47:43.654963Z",
-        "goal": "collateral over margin (epoch 2)",
+        "finalized_at": "2026-07-29T21:28:38.143113Z",
+        "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery. (epoch 2)",
         "irreversible": true,
         "kind": "finality_epoch",
         "lineage": {
@@ -609,7 +609,7 @@
               "detail": {
                 "origins": [
                   {
-                    "bundle_hash": "e117a741022cd99c58cdc833",
+                    "bundle_hash": "9d2de9e76bdd45ee8d2558cb",
                     "byzantine": false,
                     "lineage_entry_count": 115,
                     "lineage_head_hash": "3e49bd489bc18abc67dfdd8f",
@@ -618,30 +618,30 @@
                     "package_hash": "7878a785b9718369"
                   },
                   {
-                    "bundle_hash": "19bdea46f782858219e20bae",
+                    "bundle_hash": "b85e70789179827ba4327985",
                     "byzantine": false,
                     "lineage_entry_count": 2,
-                    "lineage_head_hash": "90cd5866102dea22800c7977",
+                    "lineage_head_hash": "c5325d90266f29d7e6de7f3d",
                     "member_count": 2,
                     "origin_id": "origin-b",
                     "package_hash": "8ece9182045d973a"
                   },
                   {
-                    "bundle_hash": "4b46c44f5126f545828b4af7",
+                    "bundle_hash": "5205323f1856419d73fe397c",
                     "byzantine": true,
                     "lineage_entry_count": 2,
-                    "lineage_head_hash": "50a0dd27855169eee6e8d57f",
+                    "lineage_head_hash": "867d8d64f201a514bfd9a06e",
                     "member_count": 3,
                     "origin_id": "origin-byzantine",
                     "package_hash": "7d88f7661e8407af"
                   }
                 ]
               },
-              "entry_hash": "c6ee92e86ffcb98c6cad84e7",
+              "entry_hash": "f8dcfae002195d2d341f38b6",
               "entry_kind": "quorum_origin_manifest",
-              "goal": "collateral over margin",
+              "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery.",
               "index": 0,
-              "issued_at": "2026-07-29T20:47:43.195777Z",
+              "issued_at": "2026-07-29T21:28:37.467528Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -666,15 +666,15 @@
               "detail": {
                 "origin_heads": [
                   "3e49bd489bc18abc67dfdd8f",
-                  "90cd5866102dea22800c7977",
-                  "50a0dd27855169eee6e8d57f"
+                  "c5325d90266f29d7e6de7f3d",
+                  "867d8d64f201a514bfd9a06e"
                 ]
               },
-              "entry_hash": "e6c471c83e2e1b194b2808d1",
+              "entry_hash": "d0c62adb717045c89141bafd",
               "entry_kind": "quorum_vote",
-              "goal": "collateral over margin",
+              "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery.",
               "index": 1,
-              "issued_at": "2026-07-29T20:47:43.195799Z",
+              "issued_at": "2026-07-29T21:28:37.467558Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -682,7 +682,7 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "c6ee92e86ffcb98c6cad84e7"
+              "parent_hash": "f8dcfae002195d2d341f38b6"
             },
             {
               "certificate_hash": "",
@@ -699,11 +699,11 @@
                   "origin-byzantine"
                 ]
               },
-              "entry_hash": "9b143b04363fe53a4e5ecea1",
+              "entry_hash": "953f45d50915f00b6d4828f5",
               "entry_kind": "quorum_byzantine_exclude",
-              "goal": "collateral over margin",
+              "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery.",
               "index": 2,
-              "issued_at": "2026-07-29T20:47:43.195813Z",
+              "issued_at": "2026-07-29T21:28:37.467579Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -711,7 +711,7 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "e6c471c83e2e1b194b2808d1"
+              "parent_hash": "d0c62adb717045c89141bafd"
             },
             {
               "certificate_hash": "",
@@ -731,16 +731,16 @@
                   "origin-byzantine"
                 ],
                 "origin_bundle_hashes": [
-                  "e117a741022cd99c58cdc833",
-                  "19bdea46f782858219e20bae",
-                  "4b46c44f5126f545828b4af7"
+                  "9d2de9e76bdd45ee8d2558cb",
+                  "b85e70789179827ba4327985",
+                  "5205323f1856419d73fe397c"
                 ]
               },
-              "entry_hash": "810f37418d23a49e4b905fb1",
+              "entry_hash": "30dfc3cdc17266129988bc89",
               "entry_kind": "quorum_seal",
-              "goal": "collateral over margin",
+              "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery.",
               "index": 3,
-              "issued_at": "2026-07-29T20:47:43.195826Z",
+              "issued_at": "2026-07-29T21:28:37.467599Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -748,23 +748,23 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "9b143b04363fe53a4e5ecea1"
+              "parent_hash": "953f45d50915f00b6d4828f5"
             },
             {
               "certificate_hash": "",
               "certificate_path": "",
               "claims": {
-                "prior_lineage_head": "810f37418d23a49e4b905fb1",
+                "prior_lineage_head": "30dfc3cdc17266129988bc89",
                 "prior_package_hash": "066545df3053adf5",
-                "prior_quorum_hash": "d5d35bfc372cb390e374d605",
+                "prior_quorum_hash": "02809cf74aa2f34ad57b73ce",
                 "progress_tag": "epoch-progress-2"
               },
               "detail": {},
-              "entry_hash": "5bc3137a9f6ea48a1c4f5b18",
+              "entry_hash": "68c6611eef794b481ebfc354",
               "entry_kind": "finality_epoch_progress",
-              "goal": "collateral over margin (progress 2)",
+              "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery. (progress 2)",
               "index": 4,
-              "issued_at": "2026-07-29T20:47:43.654158Z",
+              "issued_at": "2026-07-29T21:28:38.142093Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -772,16 +772,16 @@
                 "proved_ratio": null
               },
               "package_hash": "",
-              "parent_hash": "810f37418d23a49e4b905fb1"
+              "parent_hash": "30dfc3cdc17266129988bc89"
             }
           ],
           "entry_count": 5,
-          "head_hash": "5bc3137a9f6ea48a1c4f5b18",
+          "head_hash": "68c6611eef794b481ebfc354",
           "kind": "capability_lineage",
           "schema_version": 1,
-          "updated_at": "2026-07-29T20:47:43.654176Z"
+          "updated_at": "2026-07-29T21:28:38.142139Z"
         },
-        "lineage_head_hash": "5bc3137a9f6ea48a1c4f5b18",
+        "lineage_head_hash": "68c6611eef794b481ebfc354",
         "member_count": 3,
         "ok": true,
         "origin_count": 3,
@@ -794,7 +794,7 @@
           "byzantine_origins": [
             "origin-byzantine"
           ],
-          "exported_at": "2026-07-29T20:47:43.195749Z",
+          "exported_at": "2026-07-29T21:28:37.467494Z",
           "federated": true,
           "member_count": 3,
           "member_ids": [
@@ -840,7 +840,7 @@
                 "bootstrap",
                 "compounder"
               ],
-              "updated_at": "2026-07-29T20:47:43.159187Z"
+              "updated_at": "2026-07-29T21:28:37.383015Z"
             },
             "repo.import-health": {
               "behavior_paths": [
@@ -864,7 +864,7 @@
                 "bootstrap",
                 "health"
               ],
-              "updated_at": "2026-07-29T20:47:43.159038Z"
+              "updated_at": "2026-07-29T21:28:37.382836Z"
             },
             "unbound.milestone-gate": {
               "behavior_paths": [
@@ -889,12 +889,12 @@
                 "bootstrap",
                 "unbound"
               ],
-              "updated_at": "2026-07-29T20:47:43.159120Z"
+              "updated_at": "2026-07-29T21:28:37.382933Z"
             }
           },
           "ok": true,
-          "package_hash": "960d0a8741a15555",
-          "progress_at": "2026-07-29T20:47:43.654179Z",
+          "package_hash": "4cbffeda57599a88",
+          "progress_at": "2026-07-29T21:28:38.142143Z",
           "progress_tag": "epoch-progress-2",
           "quorum": true,
           "quorum_threshold": 2,
@@ -907,8 +907,8 @@
           "source_ledger_path": "quorum-merge",
           "used_skill_route_discovery": false
         },
-        "package_hash": "960d0a8741a15555",
-        "parent_epoch_hash": "a7c2aa9f70e6e61a1b01d238",
+        "package_hash": "4cbffeda57599a88",
+        "parent_epoch_hash": "2acefc32d39a44e5edd4a863",
         "quorum_certificate": {
           "agreeing_count": 2,
           "agreeing_origins": [
@@ -919,30 +919,30 @@
           "byzantine_origins": [
             "origin-byzantine"
           ],
-          "certificate_hash": "39dc86b0ec948136d9e8bcc4",
+          "certificate_hash": "b6537786186ae1d439e39ba0",
           "claims": {
             "finality_progress": true,
-            "prior_quorum_hash": "d5d35bfc372cb390e374d605",
+            "prior_quorum_hash": "02809cf74aa2f34ad57b73ce",
             "progress_tag": "epoch-progress-2"
           },
-          "goal": "collateral over margin (progress 2)",
-          "issued_at": "2026-07-29T20:47:43.654195Z",
+          "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery. (progress 2)",
+          "issued_at": "2026-07-29T21:28:38.142167Z",
           "kind": "quorum_certificate",
-          "lineage_head_hash": "5bc3137a9f6ea48a1c4f5b18",
+          "lineage_head_hash": "68c6611eef794b481ebfc354",
           "member_count": 3,
           "ok": true,
           "origin_count": 3,
           "origin_hashes": [
-            "e117a741022cd99c58cdc833",
-            "19bdea46f782858219e20bae",
-            "4b46c44f5126f545828b4af7"
+            "9d2de9e76bdd45ee8d2558cb",
+            "b85e70789179827ba4327985",
+            "5205323f1856419d73fe397c"
           ],
-          "package_hash": "960d0a8741a15555",
+          "package_hash": "4cbffeda57599a88",
           "schema_version": 1,
           "threshold": 2,
           "used_skill_route_discovery": false
         },
-        "quorum_hash": "c9a5417d18305127f3ac65a8",
+        "quorum_hash": "514c30b47478fc7f26ab1a7d",
         "schema_version": 1,
         "used_skill_route_discovery": false
       }
@@ -950,14 +950,14 @@
     "entry_count": 2,
     "kind": "finality_epoch_log",
     "schema_version": 1,
-    "tip_hash": "e104ac9b07f9ec20da0c62e5",
+    "tip_hash": "2e0ac5026da73f9a56dd4ba6",
     "tip_height": 2,
-    "updated_at": "2026-07-29T20:47:43.655057Z"
+    "updated_at": "2026-07-29T21:28:38.143225Z"
   },
   "finality_certificate": {
     "agreeing_count": 2,
     "byzantine_count": 1,
-    "certificate_hash": "330c42abafb395b601c7733e",
+    "certificate_hash": "26e8569d48e52375e5ac7f47",
     "claims": {
       "epoch_index": 2,
       "member_count": 3,
@@ -968,23 +968,23 @@
         "unbound.milestone-gate"
       ]
     },
-    "epoch_hash": "e104ac9b07f9ec20da0c62e5",
+    "epoch_hash": "2e0ac5026da73f9a56dd4ba6",
     "epoch_height": 2,
-    "goal": "collateral over margin (epoch 2)",
+    "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery. (epoch 2)",
     "irreversible": true,
-    "issued_at": "2026-07-29T20:47:43.655041Z",
+    "issued_at": "2026-07-29T21:28:38.143202Z",
     "kind": "finality_certificate",
-    "lineage_head_hash": "5bc3137a9f6ea48a1c4f5b18",
+    "lineage_head_hash": "68c6611eef794b481ebfc354",
     "ok": true,
     "origin_count": 3,
-    "package_hash": "960d0a8741a15555",
-    "parent_epoch_hash": "a7c2aa9f70e6e61a1b01d238",
-    "quorum_hash": "c9a5417d18305127f3ac65a8",
+    "package_hash": "4cbffeda57599a88",
+    "parent_epoch_hash": "2acefc32d39a44e5edd4a863",
+    "quorum_hash": "514c30b47478fc7f26ab1a7d",
     "schema_version": 1,
     "used_skill_route_discovery": false
   },
-  "finality_hash": "19726572222219959b84e514",
-  "goal": "collateral over margin",
+  "finality_hash": "b7c0476ead50a912a4030da7",
+  "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery.",
   "irreversible": true,
   "kind": "finality_bundle",
   "lineage": {
@@ -1004,7 +1004,7 @@
         "detail": {
           "origins": [
             {
-              "bundle_hash": "e117a741022cd99c58cdc833",
+              "bundle_hash": "9d2de9e76bdd45ee8d2558cb",
               "byzantine": false,
               "lineage_entry_count": 115,
               "lineage_head_hash": "3e49bd489bc18abc67dfdd8f",
@@ -1013,30 +1013,30 @@
               "package_hash": "7878a785b9718369"
             },
             {
-              "bundle_hash": "19bdea46f782858219e20bae",
+              "bundle_hash": "b85e70789179827ba4327985",
               "byzantine": false,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "90cd5866102dea22800c7977",
+              "lineage_head_hash": "c5325d90266f29d7e6de7f3d",
               "member_count": 2,
               "origin_id": "origin-b",
               "package_hash": "8ece9182045d973a"
             },
             {
-              "bundle_hash": "4b46c44f5126f545828b4af7",
+              "bundle_hash": "5205323f1856419d73fe397c",
               "byzantine": true,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "50a0dd27855169eee6e8d57f",
+              "lineage_head_hash": "867d8d64f201a514bfd9a06e",
               "member_count": 3,
               "origin_id": "origin-byzantine",
               "package_hash": "7d88f7661e8407af"
             }
           ]
         },
-        "entry_hash": "c6ee92e86ffcb98c6cad84e7",
+        "entry_hash": "f8dcfae002195d2d341f38b6",
         "entry_kind": "quorum_origin_manifest",
-        "goal": "collateral over margin",
+        "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery.",
         "index": 0,
-        "issued_at": "2026-07-29T20:47:43.195777Z",
+        "issued_at": "2026-07-29T21:28:37.467528Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1061,15 +1061,15 @@
         "detail": {
           "origin_heads": [
             "3e49bd489bc18abc67dfdd8f",
-            "90cd5866102dea22800c7977",
-            "50a0dd27855169eee6e8d57f"
+            "c5325d90266f29d7e6de7f3d",
+            "867d8d64f201a514bfd9a06e"
           ]
         },
-        "entry_hash": "e6c471c83e2e1b194b2808d1",
+        "entry_hash": "d0c62adb717045c89141bafd",
         "entry_kind": "quorum_vote",
-        "goal": "collateral over margin",
+        "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery.",
         "index": 1,
-        "issued_at": "2026-07-29T20:47:43.195799Z",
+        "issued_at": "2026-07-29T21:28:37.467558Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1077,7 +1077,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "c6ee92e86ffcb98c6cad84e7"
+        "parent_hash": "f8dcfae002195d2d341f38b6"
       },
       {
         "certificate_hash": "",
@@ -1094,11 +1094,11 @@
             "origin-byzantine"
           ]
         },
-        "entry_hash": "9b143b04363fe53a4e5ecea1",
+        "entry_hash": "953f45d50915f00b6d4828f5",
         "entry_kind": "quorum_byzantine_exclude",
-        "goal": "collateral over margin",
+        "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery.",
         "index": 2,
-        "issued_at": "2026-07-29T20:47:43.195813Z",
+        "issued_at": "2026-07-29T21:28:37.467579Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1106,7 +1106,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "e6c471c83e2e1b194b2808d1"
+        "parent_hash": "d0c62adb717045c89141bafd"
       },
       {
         "certificate_hash": "",
@@ -1126,16 +1126,16 @@
             "origin-byzantine"
           ],
           "origin_bundle_hashes": [
-            "e117a741022cd99c58cdc833",
-            "19bdea46f782858219e20bae",
-            "4b46c44f5126f545828b4af7"
+            "9d2de9e76bdd45ee8d2558cb",
+            "b85e70789179827ba4327985",
+            "5205323f1856419d73fe397c"
           ]
         },
-        "entry_hash": "810f37418d23a49e4b905fb1",
+        "entry_hash": "30dfc3cdc17266129988bc89",
         "entry_kind": "quorum_seal",
-        "goal": "collateral over margin",
+        "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery.",
         "index": 3,
-        "issued_at": "2026-07-29T20:47:43.195826Z",
+        "issued_at": "2026-07-29T21:28:37.467599Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1143,23 +1143,23 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "9b143b04363fe53a4e5ecea1"
+        "parent_hash": "953f45d50915f00b6d4828f5"
       },
       {
         "certificate_hash": "",
         "certificate_path": "",
         "claims": {
-          "prior_lineage_head": "810f37418d23a49e4b905fb1",
+          "prior_lineage_head": "30dfc3cdc17266129988bc89",
           "prior_package_hash": "066545df3053adf5",
-          "prior_quorum_hash": "d5d35bfc372cb390e374d605",
+          "prior_quorum_hash": "02809cf74aa2f34ad57b73ce",
           "progress_tag": "epoch-progress-2"
         },
         "detail": {},
-        "entry_hash": "5bc3137a9f6ea48a1c4f5b18",
+        "entry_hash": "68c6611eef794b481ebfc354",
         "entry_kind": "finality_epoch_progress",
-        "goal": "collateral over margin (progress 2)",
+        "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery. (progress 2)",
         "index": 4,
-        "issued_at": "2026-07-29T20:47:43.654158Z",
+        "issued_at": "2026-07-29T21:28:38.142093Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1167,17 +1167,17 @@
           "proved_ratio": null
         },
         "package_hash": "",
-        "parent_hash": "810f37418d23a49e4b905fb1"
+        "parent_hash": "30dfc3cdc17266129988bc89"
       }
     ],
     "entry_count": 5,
-    "head_hash": "5bc3137a9f6ea48a1c4f5b18",
+    "head_hash": "68c6611eef794b481ebfc354",
     "kind": "capability_lineage",
     "schema_version": 1,
-    "updated_at": "2026-07-29T20:47:43.654176Z"
+    "updated_at": "2026-07-29T21:28:38.142139Z"
   },
   "lineage_entry_count": 5,
-  "lineage_head_hash": "5bc3137a9f6ea48a1c4f5b18",
+  "lineage_head_hash": "68c6611eef794b481ebfc354",
   "member_count": 3,
   "ok": true,
   "origin_count": 3,
@@ -1190,7 +1190,7 @@
     "byzantine_origins": [
       "origin-byzantine"
     ],
-    "exported_at": "2026-07-29T20:47:43.195749Z",
+    "exported_at": "2026-07-29T21:28:37.467494Z",
     "federated": true,
     "member_count": 3,
     "member_ids": [
@@ -1236,7 +1236,7 @@
           "bootstrap",
           "compounder"
         ],
-        "updated_at": "2026-07-29T20:47:43.159187Z"
+        "updated_at": "2026-07-29T21:28:37.383015Z"
       },
       "repo.import-health": {
         "behavior_paths": [
@@ -1260,7 +1260,7 @@
           "bootstrap",
           "health"
         ],
-        "updated_at": "2026-07-29T20:47:43.159038Z"
+        "updated_at": "2026-07-29T21:28:37.382836Z"
       },
       "unbound.milestone-gate": {
         "behavior_paths": [
@@ -1285,12 +1285,12 @@
           "bootstrap",
           "unbound"
         ],
-        "updated_at": "2026-07-29T20:47:43.159120Z"
+        "updated_at": "2026-07-29T21:28:37.382933Z"
       }
     },
     "ok": true,
-    "package_hash": "960d0a8741a15555",
-    "progress_at": "2026-07-29T20:47:43.654179Z",
+    "package_hash": "4cbffeda57599a88",
+    "progress_at": "2026-07-29T21:28:38.142143Z",
     "progress_tag": "epoch-progress-2",
     "quorum": true,
     "quorum_threshold": 2,
@@ -1303,10 +1303,10 @@
     "source_ledger_path": "quorum-merge",
     "used_skill_route_discovery": false
   },
-  "package_hash": "960d0a8741a15555",
-  "quorum_hash": "d5d35bfc372cb390e374d605",
+  "package_hash": "4cbffeda57599a88",
+  "quorum_hash": "02809cf74aa2f34ad57b73ce",
   "schema_version": 1,
-  "tip_hash": "e104ac9b07f9ec20da0c62e5",
+  "tip_hash": "2e0ac5026da73f9a56dd4ba6",
   "tip_height": 2,
   "used_skill_route_discovery": false
 }

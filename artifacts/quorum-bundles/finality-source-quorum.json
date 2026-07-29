@@ -141,6 +141,52 @@
         "schema_version": 1
       }
     },
+    "1117569bf66946aa1aba5225": {
+      "certificate_hash": "1117569bf66946aa1aba5225",
+      "certificate_path": "artifacts/quorum-bundles/quorum-certificate.json",
+      "origin_id": "quorum",
+      "payload": {
+        "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "byzantine_count": 1,
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "certificate_hash": "1117569bf66946aa1aba5225",
+        "claims": {
+          "origin_ids": [
+            "origin-a",
+            "origin-b",
+            "origin-byzantine"
+          ],
+          "roots": [
+            "repo.import-health",
+            "capability.ledger-inventory",
+            "unbound.milestone-gate"
+          ],
+          "votes_accepted": 3
+        },
+        "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery.",
+        "issued_at": "2026-07-29T21:28:37.467767Z",
+        "kind": "quorum_certificate",
+        "lineage_head_hash": "30dfc3cdc17266129988bc89",
+        "member_count": 3,
+        "ok": true,
+        "origin_count": 3,
+        "origin_hashes": [
+          "9d2de9e76bdd45ee8d2558cb",
+          "b85e70789179827ba4327985",
+          "5205323f1856419d73fe397c"
+        ],
+        "package_hash": "066545df3053adf5",
+        "schema_version": 1,
+        "threshold": 2,
+        "used_skill_route_discovery": false
+      }
+    },
     "13888439d3311b7cf55efe34": {
       "certificate_hash": "13888439d3311b7cf55efe34",
       "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T182221Z-aef5f6d9\\artifacts\\sovereignty-certificates\\sovereignty-13888439d3311b7cf55efe34.json",
@@ -1246,52 +1292,6 @@
         "schema_version": 1
       }
     },
-    "4e5a152b67b6d9855c05af2a": {
-      "certificate_hash": "4e5a152b67b6d9855c05af2a",
-      "certificate_path": "artifacts/quorum-bundles/quorum-certificate.json",
-      "origin_id": "quorum",
-      "payload": {
-        "agreeing_count": 2,
-        "agreeing_origins": [
-          "origin-a",
-          "origin-b"
-        ],
-        "byzantine_count": 1,
-        "byzantine_origins": [
-          "origin-byzantine"
-        ],
-        "certificate_hash": "4e5a152b67b6d9855c05af2a",
-        "claims": {
-          "origin_ids": [
-            "origin-a",
-            "origin-b",
-            "origin-byzantine"
-          ],
-          "roots": [
-            "repo.import-health",
-            "capability.ledger-inventory",
-            "unbound.milestone-gate"
-          ],
-          "votes_accepted": 3
-        },
-        "goal": "collateral over margin",
-        "issued_at": "2026-07-29T20:47:43.195939Z",
-        "kind": "quorum_certificate",
-        "lineage_head_hash": "810f37418d23a49e4b905fb1",
-        "member_count": 3,
-        "ok": true,
-        "origin_count": 3,
-        "origin_hashes": [
-          "e117a741022cd99c58cdc833",
-          "19bdea46f782858219e20bae",
-          "4b46c44f5126f545828b4af7"
-        ],
-        "package_hash": "066545df3053adf5",
-        "schema_version": 1,
-        "threshold": 2,
-        "used_skill_route_discovery": false
-      }
-    },
     "53495cb100bef55a102e33f1": {
       "certificate_hash": "53495cb100bef55a102e33f1",
       "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T101624Z-884205ef\\artifacts\\sovereignty-certificates\\sovereignty-53495cb100bef55a102e33f1.json",
@@ -1419,6 +1419,25 @@
         "ok": true,
         "package_hash": "7878a785b9718369",
         "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T134211Z-d3e39855",
+        "schema_version": 1
+      }
+    },
+    "71de356a8efc0d94960e1547": {
+      "certificate_hash": "71de356a8efc0d94960e1547",
+      "certificate_path": "artifacts/federation-origins/origin-b-attest.json",
+      "origin_id": "origin-b",
+      "payload": {
+        "certificate_hash": "71de356a8efc0d94960e1547",
+        "issued_at": "2026-07-29T21:28:37.445408Z",
+        "kind": "federation_origin_attestation",
+        "lineage_head_hash": "c5325d90266f29d7e6de7f3d",
+        "member_count": 2,
+        "origin_id": "origin-b",
+        "package_hash": "8ece9182045d973a",
+        "roots": [
+          "repo.import-health",
+          "capability.ledger-inventory"
+        ],
         "schema_version": 1
       }
     },
@@ -2072,26 +2091,6 @@
         "schema_version": 1
       }
     },
-    "a2941097a17a202a1fce1c1f": {
-      "certificate_hash": "a2941097a17a202a1fce1c1f",
-      "certificate_path": "artifacts/federation-origins/origin-c-attest.json",
-      "origin_id": "origin-byzantine",
-      "payload": {
-        "certificate_hash": "a2941097a17a202a1fce1c1f",
-        "issued_at": "2026-07-29T20:47:43.195381Z",
-        "kind": "federation_origin_attestation",
-        "lineage_head_hash": "50a0dd27855169eee6e8d57f",
-        "member_count": 3,
-        "origin_id": "origin-c",
-        "package_hash": "7878a785b9718369",
-        "roots": [
-          "repo.import-health",
-          "capability.ledger-inventory",
-          "unbound.milestone-gate"
-        ],
-        "schema_version": 1
-      }
-    },
     "a64f5c6ab8c597e6dcae6f8a": {
       "certificate_hash": "a64f5c6ab8c597e6dcae6f8a",
       "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T134211Z-d3e39855\\artifacts\\sovereignty-certificates\\sovereignty-a64f5c6ab8c597e6dcae6f8a.json",
@@ -2482,6 +2481,26 @@
         "schema_version": 1
       }
     },
+    "c08327d514997f8bf3df3e63": {
+      "certificate_hash": "c08327d514997f8bf3df3e63",
+      "certificate_path": "artifacts/federation-origins/origin-c-attest.json",
+      "origin_id": "origin-byzantine",
+      "payload": {
+        "certificate_hash": "c08327d514997f8bf3df3e63",
+        "issued_at": "2026-07-29T21:28:37.466843Z",
+        "kind": "federation_origin_attestation",
+        "lineage_head_hash": "867d8d64f201a514bfd9a06e",
+        "member_count": 3,
+        "origin_id": "origin-c",
+        "package_hash": "7878a785b9718369",
+        "roots": [
+          "repo.import-health",
+          "capability.ledger-inventory",
+          "unbound.milestone-gate"
+        ],
+        "schema_version": 1
+      }
+    },
     "c9015a20734f46f3dac0a146": {
       "certificate_hash": "c9015a20734f46f3dac0a146",
       "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T134211Z-d3e39855\\artifacts\\sovereignty-certificates\\sovereignty-c9015a20734f46f3dac0a146.json",
@@ -2674,25 +2693,6 @@
         "ok": true,
         "package_hash": "7878a785b9718369",
         "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T134211Z-d3e39855",
-        "schema_version": 1
-      }
-    },
-    "dd2810c6fc02cfccad1d89bf": {
-      "certificate_hash": "dd2810c6fc02cfccad1d89bf",
-      "certificate_path": "artifacts/federation-origins/origin-b-attest.json",
-      "origin_id": "origin-b",
-      "payload": {
-        "certificate_hash": "dd2810c6fc02cfccad1d89bf",
-        "issued_at": "2026-07-29T20:47:43.187921Z",
-        "kind": "federation_origin_attestation",
-        "lineage_head_hash": "90cd5866102dea22800c7977",
-        "member_count": 2,
-        "origin_id": "origin-b",
-        "package_hash": "8ece9182045d973a",
-        "roots": [
-          "repo.import-health",
-          "capability.ledger-inventory"
-        ],
         "schema_version": 1
       }
     },
@@ -3022,7 +3022,7 @@
       }
     }
   },
-  "goal": "collateral over margin",
+  "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery.",
   "kind": "quorum_bundle",
   "lineage": {
     "entries": [
@@ -3041,7 +3041,7 @@
         "detail": {
           "origins": [
             {
-              "bundle_hash": "e117a741022cd99c58cdc833",
+              "bundle_hash": "9d2de9e76bdd45ee8d2558cb",
               "byzantine": false,
               "lineage_entry_count": 115,
               "lineage_head_hash": "3e49bd489bc18abc67dfdd8f",
@@ -3050,30 +3050,30 @@
               "package_hash": "7878a785b9718369"
             },
             {
-              "bundle_hash": "19bdea46f782858219e20bae",
+              "bundle_hash": "b85e70789179827ba4327985",
               "byzantine": false,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "90cd5866102dea22800c7977",
+              "lineage_head_hash": "c5325d90266f29d7e6de7f3d",
               "member_count": 2,
               "origin_id": "origin-b",
               "package_hash": "8ece9182045d973a"
             },
             {
-              "bundle_hash": "4b46c44f5126f545828b4af7",
+              "bundle_hash": "5205323f1856419d73fe397c",
               "byzantine": true,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "50a0dd27855169eee6e8d57f",
+              "lineage_head_hash": "867d8d64f201a514bfd9a06e",
               "member_count": 3,
               "origin_id": "origin-byzantine",
               "package_hash": "7d88f7661e8407af"
             }
           ]
         },
-        "entry_hash": "c6ee92e86ffcb98c6cad84e7",
+        "entry_hash": "f8dcfae002195d2d341f38b6",
         "entry_kind": "quorum_origin_manifest",
-        "goal": "collateral over margin",
+        "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery.",
         "index": 0,
-        "issued_at": "2026-07-29T20:47:43.195777Z",
+        "issued_at": "2026-07-29T21:28:37.467528Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -3098,15 +3098,15 @@
         "detail": {
           "origin_heads": [
             "3e49bd489bc18abc67dfdd8f",
-            "90cd5866102dea22800c7977",
-            "50a0dd27855169eee6e8d57f"
+            "c5325d90266f29d7e6de7f3d",
+            "867d8d64f201a514bfd9a06e"
           ]
         },
-        "entry_hash": "e6c471c83e2e1b194b2808d1",
+        "entry_hash": "d0c62adb717045c89141bafd",
         "entry_kind": "quorum_vote",
-        "goal": "collateral over margin",
+        "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery.",
         "index": 1,
-        "issued_at": "2026-07-29T20:47:43.195799Z",
+        "issued_at": "2026-07-29T21:28:37.467558Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -3114,7 +3114,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "c6ee92e86ffcb98c6cad84e7"
+        "parent_hash": "f8dcfae002195d2d341f38b6"
       },
       {
         "certificate_hash": "",
@@ -3131,11 +3131,11 @@
             "origin-byzantine"
           ]
         },
-        "entry_hash": "9b143b04363fe53a4e5ecea1",
+        "entry_hash": "953f45d50915f00b6d4828f5",
         "entry_kind": "quorum_byzantine_exclude",
-        "goal": "collateral over margin",
+        "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery.",
         "index": 2,
-        "issued_at": "2026-07-29T20:47:43.195813Z",
+        "issued_at": "2026-07-29T21:28:37.467579Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -3143,7 +3143,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "e6c471c83e2e1b194b2808d1"
+        "parent_hash": "d0c62adb717045c89141bafd"
       },
       {
         "certificate_hash": "",
@@ -3163,16 +3163,16 @@
             "origin-byzantine"
           ],
           "origin_bundle_hashes": [
-            "e117a741022cd99c58cdc833",
-            "19bdea46f782858219e20bae",
-            "4b46c44f5126f545828b4af7"
+            "9d2de9e76bdd45ee8d2558cb",
+            "b85e70789179827ba4327985",
+            "5205323f1856419d73fe397c"
           ]
         },
-        "entry_hash": "810f37418d23a49e4b905fb1",
+        "entry_hash": "30dfc3cdc17266129988bc89",
         "entry_kind": "quorum_seal",
-        "goal": "collateral over margin",
+        "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery.",
         "index": 3,
-        "issued_at": "2026-07-29T20:47:43.195826Z",
+        "issued_at": "2026-07-29T21:28:37.467599Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -3180,23 +3180,23 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "9b143b04363fe53a4e5ecea1"
+        "parent_hash": "953f45d50915f00b6d4828f5"
       }
     ],
     "entry_count": 4,
-    "head_hash": "810f37418d23a49e4b905fb1",
+    "head_hash": "30dfc3cdc17266129988bc89",
     "kind": "capability_lineage",
     "schema_version": 1,
-    "updated_at": "2026-07-29T20:47:43.195837Z"
+    "updated_at": "2026-07-29T21:28:37.467614Z"
   },
   "lineage_entry_count": 4,
-  "lineage_head_hash": "810f37418d23a49e4b905fb1",
+  "lineage_head_hash": "30dfc3cdc17266129988bc89",
   "member_count": 3,
   "ok": true,
   "origin_count": 3,
   "origins": [
     {
-      "bundle_hash": "e117a741022cd99c58cdc833",
+      "bundle_hash": "9d2de9e76bdd45ee8d2558cb",
       "byzantine": false,
       "lineage_head_hash": "3e49bd489bc18abc67dfdd8f",
       "member_count": 3,
@@ -3204,17 +3204,17 @@
       "package_hash": "7878a785b9718369"
     },
     {
-      "bundle_hash": "19bdea46f782858219e20bae",
+      "bundle_hash": "b85e70789179827ba4327985",
       "byzantine": false,
-      "lineage_head_hash": "90cd5866102dea22800c7977",
+      "lineage_head_hash": "c5325d90266f29d7e6de7f3d",
       "member_count": 2,
       "origin_id": "origin-b",
       "package_hash": "8ece9182045d973a"
     },
     {
-      "bundle_hash": "4b46c44f5126f545828b4af7",
+      "bundle_hash": "5205323f1856419d73fe397c",
       "byzantine": true,
-      "lineage_head_hash": "50a0dd27855169eee6e8d57f",
+      "lineage_head_hash": "867d8d64f201a514bfd9a06e",
       "member_count": 3,
       "origin_id": "origin-byzantine",
       "package_hash": "7d88f7661e8407af"
@@ -3229,7 +3229,7 @@
     "byzantine_origins": [
       "origin-byzantine"
     ],
-    "exported_at": "2026-07-29T20:47:43.195749Z",
+    "exported_at": "2026-07-29T21:28:37.467494Z",
     "federated": true,
     "member_count": 3,
     "member_ids": [
@@ -3275,7 +3275,7 @@
           "bootstrap",
           "compounder"
         ],
-        "updated_at": "2026-07-29T20:47:43.159187Z"
+        "updated_at": "2026-07-29T21:28:37.383015Z"
       },
       "repo.import-health": {
         "behavior_paths": [
@@ -3299,7 +3299,7 @@
           "bootstrap",
           "health"
         ],
-        "updated_at": "2026-07-29T20:47:43.159038Z"
+        "updated_at": "2026-07-29T21:28:37.382836Z"
       },
       "unbound.milestone-gate": {
         "behavior_paths": [
@@ -3324,7 +3324,7 @@
           "bootstrap",
           "unbound"
         ],
-        "updated_at": "2026-07-29T20:47:43.159120Z"
+        "updated_at": "2026-07-29T21:28:37.382933Z"
       }
     },
     "ok": true,
@@ -3351,7 +3351,7 @@
     "byzantine_origins": [
       "origin-byzantine"
     ],
-    "certificate_hash": "4e5a152b67b6d9855c05af2a",
+    "certificate_hash": "1117569bf66946aa1aba5225",
     "claims": {
       "origin_ids": [
         "origin-a",
@@ -3365,24 +3365,24 @@
       ],
       "votes_accepted": 3
     },
-    "goal": "collateral over margin",
-    "issued_at": "2026-07-29T20:47:43.195939Z",
+    "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery.",
+    "issued_at": "2026-07-29T21:28:37.467767Z",
     "kind": "quorum_certificate",
-    "lineage_head_hash": "810f37418d23a49e4b905fb1",
+    "lineage_head_hash": "30dfc3cdc17266129988bc89",
     "member_count": 3,
     "ok": true,
     "origin_count": 3,
     "origin_hashes": [
-      "e117a741022cd99c58cdc833",
-      "19bdea46f782858219e20bae",
-      "4b46c44f5126f545828b4af7"
+      "9d2de9e76bdd45ee8d2558cb",
+      "b85e70789179827ba4327985",
+      "5205323f1856419d73fe397c"
     ],
     "package_hash": "066545df3053adf5",
     "schema_version": 1,
     "threshold": 2,
     "used_skill_route_discovery": false
   },
-  "quorum_hash": "d5d35bfc372cb390e374d605",
+  "quorum_hash": "02809cf74aa2f34ad57b73ce",
   "quorum_met": true,
   "quorum_size": 2,
   "schema_version": 1,

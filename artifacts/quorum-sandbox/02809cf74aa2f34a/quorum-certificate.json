@@ -1,0 +1,41 @@
+{
+  "agreeing_count": 2,
+  "agreeing_origins": [
+    "origin-a",
+    "origin-b"
+  ],
+  "byzantine_count": 1,
+  "byzantine_origins": [
+    "origin-byzantine"
+  ],
+  "certificate_hash": "1117569bf66946aa1aba5225",
+  "claims": {
+    "origin_ids": [
+      "origin-a",
+      "origin-b",
+      "origin-byzantine"
+    ],
+    "roots": [
+      "repo.import-health",
+      "capability.ledger-inventory",
+      "unbound.milestone-gate"
+    ],
+    "votes_accepted": 3
+  },
+  "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery.",
+  "issued_at": "2026-07-29T21:28:37.467767Z",
+  "kind": "quorum_certificate",
+  "lineage_head_hash": "30dfc3cdc17266129988bc89",
+  "member_count": 3,
+  "ok": true,
+  "origin_count": 3,
+  "origin_hashes": [
+    "9d2de9e76bdd45ee8d2558cb",
+    "b85e70789179827ba4327985",
+    "5205323f1856419d73fe397c"
+  ],
+  "package_hash": "066545df3053adf5",
+  "schema_version": 1,
+  "threshold": 2,
+  "used_skill_route_discovery": false
+}

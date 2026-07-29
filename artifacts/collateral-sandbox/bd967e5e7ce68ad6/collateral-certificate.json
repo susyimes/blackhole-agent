@@ -1,0 +1,37 @@
+{
+  "bound_margin_height": 2,
+  "bound_margin_root": "bf34ca7072cf5cdd45e65e1a",
+  "certificate_hash": "232c8985402bd01cf7f976d3",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "collateralized",
+    "plane": "collateral"
+  },
+  "collateral_allocation_digest": "5cf324ebcf16fda212759276",
+  "collateral_count": 2,
+  "collateral_height": 2,
+  "collateral_root": "c06a6df3e4d058b1f55ba20a",
+  "deterministic": true,
+  "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery. (clearing 2)",
+  "issued_at": "2026-07-29T21:28:41.132254Z",
+  "kind": "collateral_certificate",
+  "lineage_head_hash": "68c6611eef794b481ebfc354",
+  "margin_certificate_hash": "fbaf70045110a42fe8838518",
+  "margin_hash": "b2f1962a24fafc64b446d0a0",
+  "margin_requirement_digest": "a87d3402c7eae2bea456f972",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "4cbffeda57599a88",
+  "parent_collateral_root": "665597d27576e6999eaec765",
+  "post_margin": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

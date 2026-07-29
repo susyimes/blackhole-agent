@@ -1,0 +1,167 @@
+{
+  "entries": [
+    {
+      "agreeing_count": 2,
+      "applied_at": "2026-07-29T21:25:44.513561Z",
+      "byzantine_count": 1,
+      "claims": {
+        "plane": "execution",
+        "state_index": 1
+      },
+      "deterministic": true,
+      "epoch_hash": "2589743340677473430d1420",
+      "epoch_height": 1,
+      "execution_certificate": {
+        "certificate_hash": "59dcafe90c49def60064028e",
+        "claims": {
+          "member_count": 3,
+          "plane": "execution",
+          "state_index": 1
+        },
+        "deterministic": true,
+        "epoch_hash": "2589743340677473430d1420",
+        "epoch_height": 1,
+        "finality_certificate_hash": "3efc07af0d4eca442561eaff",
+        "goal": "liquidity over collateral (state 1)",
+        "issued_at": "2026-07-29T21:25:44.513587Z",
+        "kind": "execution_certificate",
+        "lineage_head_hash": "ce118304a1ead7405ea51b5d",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "066545df3053adf5",
+        "parent_state_root": "",
+        "post_finality": true,
+        "schema_version": 1,
+        "state_height": 1,
+        "state_root": "8ed2429129b7833f4a5e32a6",
+        "used_skill_route_discovery": false
+      },
+      "finality_certificate_hash": "3efc07af0d4eca442561eaff",
+      "goal": "liquidity over collateral (state 1)",
+      "kind": "execution_state",
+      "lineage_head_hash": "ce118304a1ead7405ea51b5d",
+      "member_count": 3,
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "origin_count": 3,
+      "package_hash": "066545df3053adf5",
+      "parent_state_root": "",
+      "post_finality": true,
+      "projection": {
+        "agreeing_count": 2,
+        "applied_from": "finality_epoch",
+        "byzantine_count": 1,
+        "epoch_hash": "2589743340677473430d1420",
+        "finality_certificate_hash": "3efc07af0d4eca442561eaff",
+        "height": 1,
+        "lineage_head_hash": "ce118304a1ead7405ea51b5d",
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "parent_state_root": ""
+      },
+      "schema_version": 1,
+      "state_height": 1,
+      "state_root": "8ed2429129b7833f4a5e32a6",
+      "used_skill_route_discovery": false
+    },
+    {
+      "agreeing_count": 2,
+      "applied_at": "2026-07-29T21:25:44.513643Z",
+      "byzantine_count": 1,
+      "claims": {
+        "plane": "execution",
+        "state_index": 2
+      },
+      "deterministic": true,
+      "epoch_hash": "302a4095f5b7a6b45803bf28",
+      "epoch_height": 2,
+      "execution_certificate": {
+        "certificate_hash": "fa482e84d66ce5754f0548a1",
+        "claims": {
+          "member_count": 3,
+          "plane": "execution",
+          "state_index": 2
+        },
+        "deterministic": true,
+        "epoch_hash": "302a4095f5b7a6b45803bf28",
+        "epoch_height": 2,
+        "finality_certificate_hash": "4d17a912fc056a448fdd6b10",
+        "goal": "liquidity over collateral (state 2)",
+        "issued_at": "2026-07-29T21:25:44.513664Z",
+        "kind": "execution_certificate",
+        "lineage_head_hash": "5deb2d3c3a7bb663e8b5aaf7",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "5e9b45007bcb7751",
+        "parent_state_root": "8ed2429129b7833f4a5e32a6",
+        "post_finality": true,
+        "schema_version": 1,
+        "state_height": 2,
+        "state_root": "37a3f39ae9dc7d468e3f0d22",
+        "used_skill_route_discovery": false
+      },
+      "finality_certificate_hash": "4d17a912fc056a448fdd6b10",
+      "goal": "liquidity over collateral (state 2)",
+      "kind": "execution_state",
+      "lineage_head_hash": "5deb2d3c3a7bb663e8b5aaf7",
+      "member_count": 3,
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "origin_count": 3,
+      "package_hash": "5e9b45007bcb7751",
+      "parent_state_root": "8ed2429129b7833f4a5e32a6",
+      "post_finality": true,
+      "projection": {
+        "agreeing_count": 2,
+        "applied_from": "finality_epoch",
+        "byzantine_count": 1,
+        "epoch_hash": "302a4095f5b7a6b45803bf28",
+        "finality_certificate_hash": "4d17a912fc056a448fdd6b10",
+        "height": 2,
+        "lineage_head_hash": "5deb2d3c3a7bb663e8b5aaf7",
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "origin_count": 3,
+        "package_hash": "5e9b45007bcb7751",
+        "parent_state_root": "8ed2429129b7833f4a5e32a6"
+      },
+      "schema_version": 1,
+      "state_height": 2,
+      "state_root": "37a3f39ae9dc7d468e3f0d22",
+      "used_skill_route_discovery": false
+    }
+  ],
+  "entry_count": 2,
+  "kind": "execution_state_log",
+  "schema_version": 1,
+  "tip_epoch_hash": "302a4095f5b7a6b45803bf28",
+  "tip_height": 2,
+  "tip_state_root": "37a3f39ae9dc7d468e3f0d22",
+  "updated_at": "2026-07-29T21:25:44.513679Z"
+}

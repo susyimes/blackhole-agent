@@ -1,0 +1,30 @@
+{
+  "certificate_hash": "a24372622011293320b5be46",
+  "claims": {
+    "member_count": 3,
+    "plane": "execution",
+    "state_index": 2
+  },
+  "deterministic": true,
+  "epoch_hash": "b73efade591e0938be7b80bf",
+  "epoch_height": 2,
+  "finality_certificate_hash": "bd08717fe2a38669f2727253",
+  "goal": "collateral over margin (state 2)",
+  "issued_at": "2026-07-29T21:25:56.515929Z",
+  "kind": "execution_certificate",
+  "lineage_head_hash": "e83bdfbd876f5f052200dd35",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "c255198aa85d59d2",
+  "parent_state_root": "1146913c0f12bd414c2e42ae",
+  "post_finality": true,
+  "schema_version": 1,
+  "state_height": 2,
+  "state_root": "c1604a61eae03a3b44bc2408",
+  "used_skill_route_discovery": false
+}

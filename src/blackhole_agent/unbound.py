@@ -66,6 +66,7 @@ from blackhole_agent.capability_compounder import (
     run_clearing_plane,
     run_margin_plane,
     run_collateral_plane,
+    run_liquidity_plane,
     run_lineage_plane,
     run_reconciliation_plane,
     run_sovereignty_plane,
@@ -1073,6 +1074,9 @@ def evaluate_milestone(
     run_collateral = (
         cc.run_collateral_plane if cc is not None else run_collateral_plane
     )
+    run_liquidity = (
+        cc.run_liquidity_plane if cc is not None else run_liquidity_plane
+    )
     run_recon = (
         cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
     )
@@ -1128,6 +1132,15 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_liquidity = bool(
+                        kinds
+                        & {
+                            "liquidity_ok",
+                            "liquid_ok",
+                            "min_liquidities",
+                            "liquidity_root_valid",
+                        }
+                    )
                     needs_collateral = bool(
                         kinds
                         & {
@@ -1136,7 +1149,7 @@ def evaluate_milestone(
                             "min_collaterals",
                             "collateral_root_valid",
                         }
-                    )
+                    ) and not needs_liquidity
                     needs_margin = bool(
                         kinds
                         & {
@@ -1145,7 +1158,7 @@ def evaluate_milestone(
                             "min_margins",
                             "margin_root_valid",
                         }
-                    ) and not needs_collateral
+                    ) and not needs_collateral and not needs_liquidity
                     needs_clearing = bool(
                         kinds
                         & {
@@ -1154,7 +1167,7 @@ def evaluate_milestone(
                             "min_clearings",
                             "clearing_root_valid",
                         }
-                    ) and not needs_margin and not needs_collateral
+                    ) and not needs_margin and not needs_collateral and not needs_liquidity
                     needs_settlement = bool(
                         kinds
                         & {
@@ -1163,7 +1176,7 @@ def evaluate_milestone(
                             "min_settlements",
                             "settlement_root_valid",
                         }
-                    ) and not needs_clearing and not needs_margin and not needs_collateral
+                    ) and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity
                     needs_actuation = bool(
                         kinds
                         & {
@@ -1172,7 +1185,7 @@ def evaluate_milestone(
                             "min_actions",
                             "action_root_valid",
                         }
-                    ) and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral
+                    ) and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity
                     needs_execution = bool(
                         kinds
                         & {
@@ -1181,7 +1194,7 @@ def evaluate_milestone(
                             "min_state_height",
                             "state_root_valid",
                         }
-                    ) and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral
+                    ) and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity
                     needs_finality = bool(
                         kinds
                         & {
@@ -1190,7 +1203,7 @@ def evaluate_milestone(
                             "min_epochs",
                             "finality_cert_valid",
                         }
-                    ) and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral
+                    ) and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity
                     needs_quorum = bool(
                         kinds
                         & {
@@ -1200,7 +1213,7 @@ def evaluate_milestone(
                             "byzantine_excluded",
                             "quorum_cert_valid",
                         }
-                    ) and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral
+                    ) and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity
                     needs_federation = bool(
                         kinds
                         & {
@@ -1209,7 +1222,7 @@ def evaluate_milestone(
                             "min_origins",
                             "federation_cert_valid",
                         }
-                    ) and not needs_quorum and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral
+                    ) and not needs_quorum and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity
                     needs_continuity = bool(
                         kinds
                         & {
@@ -1244,7 +1257,165 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     )
-                    if needs_collateral:
+                    if needs_liquidity:
+                        plane_done_when = strip_context(
+                            contract_text,
+                            keep_mission=False,
+                        )
+                        plane_done_when = "; ".join(
+                            token
+                            for token in (part.strip() for part in plane_done_when.split(";"))
+                            if token
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        liquidity = run_liquidity(
+                            workspace,
+                            goal=decision.mission_goal
+                            or decision.summary
+                            or "liquidity over collateral",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            run_collateral=True,
+                            run_clearing=True,
+                            run_settlement=True,
+                            run_actuation=True,
+                            run_execution=True,
+                            run_finality=True,
+                            run_quorum=True,
+                            run_continuity=False,
+                            run_reconciliation=False,
+                            force_synthetic_drift=True,
+                            inject_byzantine=True,
+                            epoch_count=2,
+                            min_actions=2,
+                            min_settlements=2,
+                            min_clearings=2,
+                            min_margins=2,
+                            min_collaterals=2,
+                            min_liquidities=2,
+                            timeout=900,
+                        )
+                        context = {
+                            "used_skill_route_discovery": bool(
+                                liquidity.get("used_skill_route_discovery")
+                            ),
+                            "chain": liquidity.get("chain") or {},
+                            "liquidity_chain": liquidity.get("chain") or {},
+                            "collateral": {
+                                "ok": bool(
+                                    (liquidity.get("collateral") or {}).get("ok", True)
+                                ),
+                                "collateralized": bool(
+                                    (liquidity.get("collateral") or {}).get(
+                                        "collateralized", True
+                                    )
+                                ),
+                                "collateral_count": int(
+                                    liquidity.get("collateral_count") or 0
+                                ),
+                                "collateral_root_valid": True,
+                                "certificate_valid": True,
+                                "collateral_allocation_digest": liquidity.get(
+                                    "collateral_allocation_digest"
+                                ),
+                            },
+                            "collateral_plane": {
+                                "ok": bool(
+                                    (liquidity.get("collateral") or {}).get("ok", True)
+                                ),
+                                "collateralized": True,
+                                "collateral_count": int(
+                                    liquidity.get("collateral_count") or 0
+                                ),
+                                "collateral_root_valid": True,
+                            },
+                            "liquidity": {
+                                "ok": bool(liquidity.get("ok")),
+                                "liquid": bool(liquidity.get("liquid")),
+                                "liquidity_count": int(
+                                    liquidity.get("liquidity_count") or 0
+                                ),
+                                "tip_height": int(liquidity.get("tip_height") or 0),
+                                "tip_liquidity_root": liquidity.get(
+                                    "tip_liquidity_root"
+                                ),
+                                "liquidity_root_valid": bool(
+                                    (liquidity.get("liquidity_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                                "certificate_valid": bool(
+                                    (liquidity.get("liquidity_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                                "liquidity_coverage_digest": liquidity.get(
+                                    "liquidity_coverage_digest"
+                                ),
+                                "deterministic": True,
+                                "post_collateral": True,
+                                "multi_liquidity": int(
+                                    liquidity.get("liquidity_count") or 0
+                                )
+                                >= 2,
+                            },
+                            "liquidity_plane": {
+                                "ok": bool(liquidity.get("ok")),
+                                "liquid": bool(liquidity.get("liquid")),
+                                "liquidity_count": int(
+                                    liquidity.get("liquidity_count") or 0
+                                ),
+                                "liquidity_root_valid": bool(
+                                    (liquidity.get("liquidity_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                            },
+                            "funding": {
+                                "ok": bool(liquidity.get("ok")),
+                                "liquid": bool(liquidity.get("liquid")),
+                                "liquidity_count": int(
+                                    liquidity.get("liquidity_count") or 0
+                                ),
+                                "liquidity_coverage_digest": liquidity.get(
+                                    "liquidity_coverage_digest"
+                                ),
+                                "liquidity_root_valid": bool(
+                                    (liquidity.get("liquidity_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                            },
+                            "liquidity_count": int(liquidity.get("liquidity_count") or 0),
+                            "collateral_count": int(
+                                liquidity.get("collateral_count") or 0
+                            ),
+                            "tip_height": int(liquidity.get("tip_height") or 0),
+                            "liquidity_certificate": liquidity.get(
+                                "liquidity_certificate"
+                            ),
+                            "liquidity_hash": liquidity.get("liquidity_hash"),
+                            "collateral_hash": liquidity.get("collateral_hash"),
+                            "tip_liquidity_root": liquidity.get("tip_liquidity_root"),
+                            "bound_collateral_root": liquidity.get(
+                                "bound_collateral_root"
+                            ),
+                            "liquidity_coverage_digest": liquidity.get(
+                                "liquidity_coverage_digest"
+                            ),
+                            "collateral_allocation_digest": liquidity.get(
+                                "collateral_allocation_digest"
+                            ),
+                        }
+                    elif needs_collateral:
+
                         plane_done_when = strip_context(
                             contract_text,
                             keep_mission=False,

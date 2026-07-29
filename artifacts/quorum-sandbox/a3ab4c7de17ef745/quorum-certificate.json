@@ -1,0 +1,41 @@
+{
+  "agreeing_count": 2,
+  "agreeing_origins": [
+    "origin-a",
+    "origin-b"
+  ],
+  "byzantine_count": 1,
+  "byzantine_origins": [
+    "origin-byzantine"
+  ],
+  "certificate_hash": "bb7efd1aaa6b8e20f4532de0",
+  "claims": {
+    "origin_ids": [
+      "origin-a",
+      "origin-b",
+      "origin-byzantine"
+    ],
+    "roots": [
+      "repo.import-health",
+      "capability.ledger-inventory",
+      "unbound.milestone-gate"
+    ],
+    "votes_accepted": 3
+  },
+  "goal": "collateral over margin",
+  "issued_at": "2026-07-29T21:25:55.618428Z",
+  "kind": "quorum_certificate",
+  "lineage_head_hash": "e7bd6bc81e5b0a0697f0879b",
+  "member_count": 3,
+  "ok": true,
+  "origin_count": 3,
+  "origin_hashes": [
+    "3ab3ba9d0a7750dac47781cb",
+    "14393b0eff0b46a5aa28f442",
+    "fb2c3005688a8daf0aeb5dd9"
+  ],
+  "package_hash": "066545df3053adf5",
+  "schema_version": 1,
+  "threshold": 2,
+  "used_skill_route_discovery": false
+}

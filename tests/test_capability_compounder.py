@@ -2356,3 +2356,120 @@ def test_collateral_plane_allocations_and_adversarial():
     assert int(loaded.get("tip_height") or 0) >= 2
     assert loaded.get("collateral_allocation_digest")
     assert path.name == "ledger.json"
+
+def test_liquidity_plane_coverages_and_adversarial():
+    """Liquidity plane covers multi-collateral allocations and falsifies wrong-collateral binds."""
+
+    from blackhole_agent.capability_compounder import (
+        ensure_seeded_ledger,
+        load_liquidity_bundle,
+        parse_outcome_contract,
+        run_liquidity_plane,
+        verify_liquidity_bundle_integrity,
+    )
+
+    repo = Path(__file__).resolve().parents[1]
+    path, ledger = ensure_seeded_ledger(repo)
+    assert "capability.liquidity-plane" in ledger.capabilities
+    assert "capability.collateral-plane" in ledger.capabilities
+
+    parsed = parse_outcome_contract(
+        "no_skill_route; liquidity_ok; liquid_ok; min_liquidities:2; "
+        "liquidity_root_valid; collateral_ok; collateralized_ok; min_collaterals:2; "
+        "collateral_root_valid; chain_valid"
+    )
+    kinds = {item["kind"] for item in parsed["predicates"]}
+    assert "liquidity_ok" in kinds
+    assert "liquid_ok" in kinds
+    assert "min_liquidities" in kinds
+    assert "liquidity_root_valid" in kinds
+
+    lineage_path = repo / "artifacts" / "capability-lineage" / "test-liquidity-plane.json"
+    quorum_path = repo / "artifacts" / "quorum-bundles" / "test-liquidity-quorum.json"
+    finality_path = repo / "artifacts" / "finality-bundles" / "test-liquidity-finality.json"
+    execution_path = repo / "artifacts" / "execution-bundles" / "test-liquidity-execution.json"
+    actuation_path = repo / "artifacts" / "actuation-bundles" / "test-liquidity-actuation.json"
+    settlement_path = repo / "artifacts" / "settlement-bundles" / "test-liquidity-settlement.json"
+    margin_path = repo / "artifacts" / "margin-bundles" / "test-liquidity-margin.json"
+    collateral_path = repo / "artifacts" / "collateral-bundles" / "test-liquidity-collateral.json"
+    liquidity_path = repo / "artifacts" / "liquidity-bundles" / "test-liquidity-plane.json"
+    for target in (
+        lineage_path,
+        quorum_path,
+        finality_path,
+        execution_path,
+        actuation_path,
+        settlement_path,
+        margin_path,
+        collateral_path,
+        liquidity_path,
+    ):
+        if target.exists():
+            target.unlink()
+
+    plane = run_liquidity_plane(
+        repo,
+        "liquidity over collateral",
+        "min_capabilities:5; capability_exists:repo.import-health; no_skill_route",
+        max_steps=3,
+        run_collateral=True,
+        run_clearing=True,
+        run_settlement=True,
+        run_actuation=True,
+        run_execution=True,
+        run_finality=True,
+        run_quorum=True,
+        run_continuity=False,
+        run_reconciliation=False,
+        inject_byzantine=True,
+        epoch_count=2,
+        min_actions=2,
+        min_settlements=2,
+        min_clearings=2,
+        min_margins=2,
+        min_collaterals=2,
+        min_liquidities=2,
+        lineage_path=lineage_path,
+        quorum_path=quorum_path,
+        finality_path=finality_path,
+        execution_path=execution_path,
+        actuation_path=actuation_path,
+        settlement_path=settlement_path,
+        margin_path=margin_path,
+        collateral_path=collateral_path,
+        liquidity_path=liquidity_path,
+        timeout=900,
+    )
+    assert plane["ok"] is True, plane
+    assert plane["action"] == "liquidity_plane"
+    assert plane["liquid"] is True
+    assert int(plane["liquidity_count"]) >= 2
+    assert int(plane["tip_height"]) >= 2
+    assert int(plane["collateral_count"] or 0) >= 2
+    assert plane.get("liquidity_coverage_digest")
+    assert plane["integrity"]["ok"] is True
+    assert plane["integrity"]["multi_liquidity"] is True
+    assert plane["integrity"]["liquidity_ok"] is True
+    assert plane["rehydrate"]["ok"] is True
+    assert plane["prove"]["ok"] is True
+    assert int(plane["prove"]["proved_count"]) >= 1
+    assert plane["chain"]["valid"] is True
+    assert plane["liquidity_certificate"]["valid"] is True
+    assert plane["adversarial"]["ok"] is True
+    assert plane["adversarial"]["wrong_collateral_fails_as_expected"] is True
+    assert plane["adversarial"]["reorder_fails_as_expected"] is True
+    assert plane["adversarial"]["digest_tamper_fails_as_expected"] is True
+    assert plane["adversarial"]["single_liquidity_fails_as_expected"] is True
+    assert plane["adversarial"]["duplicate_apply_fails_as_expected"] is True
+    assert plane["adversarial"]["replay_matches_tip"] is True
+    assert plane["used_skill_route_discovery"] is False
+    assert liquidity_path.is_file()
+
+    loaded = load_liquidity_bundle(liquidity_path)
+    assert verify_liquidity_bundle_integrity(loaded)["ok"] is True
+    assert loaded.get("liquidity_hash")
+    assert int(loaded.get("liquidity_count") or 0) >= 2
+    assert int(loaded.get("tip_height") or 0) >= 2
+    assert loaded.get("liquidity_coverage_digest")
+    assert path.name == "ledger.json"
+

@@ -14,14 +14,14 @@
         "origin_id": "origin-b",
         "plane": "federation"
       },
-      "entry_hash": "ef50b72fad6f66ef128ad681",
+      "entry_hash": "c1b9efd9fafb3cfd54375698",
       "entry_kind": "federation_origin_seed",
-      "goal": "collateral over margin (honest origin-b)",
+      "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery. (honest origin-b)",
       "index": 0,
-      "issued_at": "2026-07-29T20:47:43.186779Z",
+      "issued_at": "2026-07-29T21:28:37.441857Z",
       "metrics": {
-        "count": 93,
-        "primitive_count": 44,
+        "count": 94,
+        "primitive_count": 45,
         "proved_count": 88,
         "proved_ratio": null
       },
@@ -42,11 +42,11 @@
         ],
         "origin_id": "origin-b"
       },
-      "entry_hash": "90cd5866102dea22800c7977",
+      "entry_hash": "c5325d90266f29d7e6de7f3d",
       "entry_kind": "federation_origin_seal",
-      "goal": "collateral over margin (honest origin-b)",
+      "goal": "Grow the post-collateral financial control stack with a closed liquidity plane: multi-collateral allocations → deterministic hash-chained liquidity coverages with coverage digests and certificates bound to collateral roots, sterile rehydrate+prove, genesis replay, and adversarial falsification of wrong-collateral/reorder/digest-tamper/single-liquidity without skill-route discovery. (honest origin-b)",
       "index": 1,
-      "issued_at": "2026-07-29T20:47:43.186810Z",
+      "issued_at": "2026-07-29T21:28:37.441960Z",
       "metrics": {
         "count": 2,
         "primitive_count": null,
@@ -54,13 +54,13 @@
         "proved_ratio": null
       },
       "package_hash": "8ece9182045d973a",
-      "parent_hash": "ef50b72fad6f66ef128ad681"
+      "parent_hash": "c1b9efd9fafb3cfd54375698"
     }
   ],
   "entry_count": 2,
-  "head_hash": "90cd5866102dea22800c7977",
+  "head_hash": "c5325d90266f29d7e6de7f3d",
   "kind": "capability_lineage",
   "ok": true,
   "schema_version": 1,
-  "updated_at": "2026-07-29T20:47:43.187013Z"
+  "updated_at": "2026-07-29T21:28:37.442706Z"
 }
