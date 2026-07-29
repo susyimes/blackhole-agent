@@ -828,17 +828,32 @@ def commit_milestone(
 @contextmanager
 def mission_turn_lock(state_path: Path) -> Iterator[None]:
     lock_path = state_path.parent / "turn.lock"
-    try:
-        descriptor = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-    except FileExistsError as error:
-        raise RuntimeError(f"Another Unbound turn owns this mission: {lock_path}") from error
+    descriptor: int | None = None
+    for _ in range(2):
+        try:
+            descriptor = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            break
+        except FileExistsError as error:
+            try:
+                owner_pid = int(lock_path.read_text(encoding="utf-8").strip())
+            except (OSError, ValueError):
+                owner_pid = 0
+            if owner_pid and pid_is_running(owner_pid):
+                raise RuntimeError(f"Another Unbound turn owns this mission: {lock_path}") from error
+            try:
+                lock_path.unlink()
+            except FileNotFoundError:
+                pass
+    if descriptor is None:
+        raise RuntimeError(f"Unable to acquire Unbound turn lock: {lock_path}")
     try:
         os.write(descriptor, f"{os.getpid()}\n".encode())
         os.close(descriptor)
         yield
     finally:
         try:
-            lock_path.unlink()
+            if lock_path.read_text(encoding="utf-8").strip() == str(os.getpid()):
+                lock_path.unlink()
         except FileNotFoundError:
             pass
 

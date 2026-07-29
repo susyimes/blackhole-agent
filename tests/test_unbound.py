@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -15,6 +16,7 @@ from blackhole_agent.unbound import (
     git_head,
     invoke_kernel_turn,
     load_mission,
+    mission_turn_lock,
     run_continuous_loop,
     run_unbound_turn,
     save_mission,
@@ -310,6 +312,18 @@ def test_genesis_turn_can_define_the_mission_without_forcing_a_goal_at_start(tmp
 
 def test_continuous_loop_defaults_to_thirty_minutes():
     assert DEFAULT_CONTINUOUS_INTERVAL_SECONDS == 30 * 60
+
+
+def test_mission_turn_lock_reclaims_stale_pid(tmp_path):
+    state_path = tmp_path / "mission" / "state.json"
+    state_path.parent.mkdir()
+    lock_path = state_path.parent / "turn.lock"
+    lock_path.write_text("99999999\n", encoding="utf-8")
+
+    with mission_turn_lock(state_path):
+        assert lock_path.read_text(encoding="utf-8").strip() == str(os.getpid())
+
+    assert not lock_path.exists()
 
 
 def test_continuous_loop_starts_new_genesis_missions_and_compounds_proven_heads(tmp_path):
