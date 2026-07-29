@@ -65,6 +65,7 @@ from blackhole_agent.capability_compounder import (
     run_settlement_plane,
     run_clearing_plane,
     run_margin_plane,
+    run_collateral_plane,
     run_lineage_plane,
     run_reconciliation_plane,
     run_sovereignty_plane,
@@ -1069,6 +1070,9 @@ def evaluate_milestone(
     run_margin = (
         cc.run_margin_plane if cc is not None else run_margin_plane
     )
+    run_collateral = (
+        cc.run_collateral_plane if cc is not None else run_collateral_plane
+    )
     run_recon = (
         cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
     )
@@ -1124,6 +1128,15 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_collateral = bool(
+                        kinds
+                        & {
+                            "collateral_ok",
+                            "collateralized_ok",
+                            "min_collaterals",
+                            "collateral_root_valid",
+                        }
+                    )
                     needs_margin = bool(
                         kinds
                         & {
@@ -1132,7 +1145,7 @@ def evaluate_milestone(
                             "min_margins",
                             "margin_root_valid",
                         }
-                    )
+                    ) and not needs_collateral
                     needs_clearing = bool(
                         kinds
                         & {
@@ -1141,7 +1154,7 @@ def evaluate_milestone(
                             "min_clearings",
                             "clearing_root_valid",
                         }
-                    ) and not needs_margin
+                    ) and not needs_margin and not needs_collateral
                     needs_settlement = bool(
                         kinds
                         & {
@@ -1150,7 +1163,7 @@ def evaluate_milestone(
                             "min_settlements",
                             "settlement_root_valid",
                         }
-                    ) and not needs_clearing
+                    ) and not needs_clearing and not needs_margin and not needs_collateral
                     needs_actuation = bool(
                         kinds
                         & {
@@ -1159,7 +1172,7 @@ def evaluate_milestone(
                             "min_actions",
                             "action_root_valid",
                         }
-                    ) and not needs_settlement and not needs_clearing and not needs_margin
+                    ) and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral
                     needs_execution = bool(
                         kinds
                         & {
@@ -1168,7 +1181,7 @@ def evaluate_milestone(
                             "min_state_height",
                             "state_root_valid",
                         }
-                    ) and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_margin
+                    ) and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral
                     needs_finality = bool(
                         kinds
                         & {
@@ -1177,7 +1190,7 @@ def evaluate_milestone(
                             "min_epochs",
                             "finality_cert_valid",
                         }
-                    ) and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_margin and not needs_margin
+                    ) and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral
                     needs_quorum = bool(
                         kinds
                         & {
@@ -1187,7 +1200,7 @@ def evaluate_milestone(
                             "byzantine_excluded",
                             "quorum_cert_valid",
                         }
-                    ) and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_margin and not needs_margin and not needs_margin
+                    ) and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral
                     needs_federation = bool(
                         kinds
                         & {
@@ -1196,7 +1209,7 @@ def evaluate_milestone(
                             "min_origins",
                             "federation_cert_valid",
                         }
-                    ) and not needs_quorum and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_margin and not needs_margin and not needs_margin and not needs_margin
+                    ) and not needs_quorum and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral
                     needs_continuity = bool(
                         kinds
                         & {
@@ -1231,7 +1244,147 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     )
-                    if needs_margin:
+                    if needs_collateral:
+                        plane_done_when = strip_context(
+                            contract_text,
+                            keep_mission=False,
+                        )
+                        plane_done_when = "; ".join(
+                            token
+                            for token in (part.strip() for part in plane_done_when.split(";"))
+                            if token
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        collateral = run_collateral(
+                            workspace,
+                            goal=decision.mission_goal
+                            or decision.summary
+                            or "collateral over margin",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            run_margin=True,
+                            run_clearing=True,
+                            run_settlement=True,
+                            run_actuation=True,
+                            run_execution=True,
+                            run_finality=True,
+                            run_quorum=True,
+                            run_continuity=False,
+                            run_reconciliation=False,
+                            force_synthetic_drift=True,
+                            inject_byzantine=True,
+                            epoch_count=2,
+                            min_actions=2,
+                            min_settlements=2,
+                            min_clearings=2,
+                            min_margins=2,
+                            min_collaterals=2,
+                            timeout=780,
+                        )
+                        context = {
+                            "used_skill_route_discovery": bool(
+                                collateral.get("used_skill_route_discovery")
+                            ),
+                            "chain": collateral.get("chain") or {},
+                            "collateral_chain": collateral.get("chain") or {},
+                            "margin": {
+                                "ok": bool((collateral.get("margin") or {}).get("ok", True)),
+                                "margined": bool(
+                                    (collateral.get("margin") or {}).get("margined", True)
+                                ),
+                                "margin_count": int(collateral.get("margin_count") or 0),
+                                "margin_root_valid": True,
+                                "certificate_valid": True,
+                                "margin_requirement_digest": collateral.get(
+                                    "margin_requirement_digest"
+                                ),
+                            },
+                            "margin_plane": {
+                                "ok": bool((collateral.get("margin") or {}).get("ok", True)),
+                                "margined": bool(
+                                    (collateral.get("margin") or {}).get("margined", True)
+                                ),
+                                "margin_count": int(collateral.get("margin_count") or 0),
+                                "margin_root_valid": True,
+                            },
+                            "collateral": {
+                                "ok": bool(collateral.get("ok")),
+                                "collateralized": bool(collateral.get("collateralized")),
+                                "collateral_count": int(
+                                    collateral.get("collateral_count") or 0
+                                ),
+                                "tip_height": int(collateral.get("tip_height") or 0),
+                                "tip_collateral_root": collateral.get(
+                                    "tip_collateral_root"
+                                ),
+                                "collateral_root_valid": bool(
+                                    (collateral.get("collateral_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                                "certificate_valid": bool(
+                                    (collateral.get("collateral_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                                "collateral_allocation_digest": collateral.get(
+                                    "collateral_allocation_digest"
+                                ),
+                                "collateral_certificate": collateral.get(
+                                    "collateral_certificate"
+                                ),
+                            },
+                            "collateral_plane": {
+                                "ok": bool(collateral.get("ok")),
+                                "collateralized": bool(collateral.get("collateralized")),
+                                "collateral_count": int(
+                                    collateral.get("collateral_count") or 0
+                                ),
+                                "collateral_root_valid": bool(
+                                    (collateral.get("collateral_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                            },
+                            "pledge": {
+                                "ok": bool(collateral.get("ok")),
+                                "collateralized": bool(collateral.get("collateralized")),
+                                "collateral_count": int(
+                                    collateral.get("collateral_count") or 0
+                                ),
+                                "collateral_root_valid": bool(
+                                    (collateral.get("collateral_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                            },
+                            "collateral_count": int(collateral.get("collateral_count") or 0),
+                            "margin_count": int(collateral.get("margin_count") or 0),
+                            "tip_height": int(collateral.get("tip_height") or 0),
+                            "collateral_certificate": collateral.get(
+                                "collateral_certificate"
+                            ),
+                            "collateral_allocation_digest": collateral.get(
+                                "collateral_allocation_digest"
+                            ),
+                            "margin_requirement_digest": collateral.get(
+                                "margin_requirement_digest"
+                            ),
+                            "repo_path": str(workspace),
+                            "workspace_path": str(workspace),
+                        }
+                        if not collateral.get("ok"):
+                            reasons.append(
+                                "collateral plane failed for machine-checkable complete"
+                            )
+                    elif needs_margin:
                         plane_done_when = strip_context(
                             contract_text,
                             keep_mission=False,

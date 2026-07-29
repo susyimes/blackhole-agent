@@ -2243,3 +2243,116 @@ def test_clearing_plane_net_positions_and_adversarial():
     assert int(loaded.get("tip_height") or 0) >= 2
     assert loaded.get("net_position_digest")
     assert path.name == "ledger.json"
+
+
+def test_collateral_plane_allocations_and_adversarial():
+    """Collateral plane posts multi-margin requirements and falsifies wrong-margin binds."""
+
+    from blackhole_agent.capability_compounder import (
+        ensure_seeded_ledger,
+        load_collateral_bundle,
+        parse_outcome_contract,
+        run_collateral_plane,
+        verify_collateral_bundle_integrity,
+    )
+
+    repo = Path(__file__).resolve().parents[1]
+    path, ledger = ensure_seeded_ledger(repo)
+    assert "capability.collateral-plane" in ledger.capabilities
+    assert "capability.margin-plane" in ledger.capabilities
+
+    parsed = parse_outcome_contract(
+        "no_skill_route; collateral_ok; collateralized_ok; min_collaterals:2; "
+        "collateral_root_valid; margin_ok; margined_ok; min_margins:2; "
+        "margin_root_valid; chain_valid"
+    )
+    kinds = {item["kind"] for item in parsed["predicates"]}
+    assert "collateral_ok" in kinds
+    assert "collateralized_ok" in kinds
+    assert "min_collaterals" in kinds
+    assert "collateral_root_valid" in kinds
+
+    lineage_path = repo / "artifacts" / "capability-lineage" / "test-collateral-plane.json"
+    quorum_path = repo / "artifacts" / "quorum-bundles" / "test-collateral-quorum.json"
+    finality_path = repo / "artifacts" / "finality-bundles" / "test-collateral-finality.json"
+    execution_path = repo / "artifacts" / "execution-bundles" / "test-collateral-execution.json"
+    actuation_path = repo / "artifacts" / "actuation-bundles" / "test-collateral-actuation.json"
+    settlement_path = repo / "artifacts" / "settlement-bundles" / "test-collateral-settlement.json"
+    margin_path = repo / "artifacts" / "margin-bundles" / "test-collateral-margin.json"
+    collateral_path = repo / "artifacts" / "collateral-bundles" / "test-collateral-plane.json"
+    for target in (
+        lineage_path,
+        quorum_path,
+        finality_path,
+        execution_path,
+        actuation_path,
+        settlement_path,
+        margin_path,
+        collateral_path,
+    ):
+        if target.exists():
+            target.unlink()
+
+    plane = run_collateral_plane(
+        repo,
+        "collateral over margin",
+        "min_capabilities:5; capability_exists:repo.import-health; no_skill_route",
+        max_steps=3,
+        run_margin=True,
+        run_clearing=True,
+        run_settlement=True,
+        run_actuation=True,
+        run_execution=True,
+        run_finality=True,
+        run_quorum=True,
+        run_continuity=False,
+        run_reconciliation=False,
+        inject_byzantine=True,
+        epoch_count=2,
+        min_actions=2,
+        min_settlements=2,
+        min_clearings=2,
+        min_margins=2,
+        min_collaterals=2,
+        lineage_path=lineage_path,
+        quorum_path=quorum_path,
+        finality_path=finality_path,
+        execution_path=execution_path,
+        actuation_path=actuation_path,
+        settlement_path=settlement_path,
+        margin_path=margin_path,
+        collateral_path=collateral_path,
+        timeout=780,
+    )
+    assert plane["ok"] is True, plane
+    assert plane["action"] == "collateral_plane"
+    assert plane["collateralized"] is True
+    assert int(plane["collateral_count"]) >= 2
+    assert int(plane["tip_height"]) >= 2
+    assert int(plane["margin_count"] or 0) >= 2
+    assert plane.get("collateral_allocation_digest")
+    assert plane["integrity"]["ok"] is True
+    assert plane["integrity"]["multi_collateral"] is True
+    assert plane["integrity"]["collateral_ok"] is True
+    assert plane["rehydrate"]["ok"] is True
+    assert plane["prove"]["ok"] is True
+    assert int(plane["prove"]["proved_count"]) >= 1
+    assert plane["chain"]["valid"] is True
+    assert plane["collateral_certificate"]["valid"] is True
+    assert plane["adversarial"]["ok"] is True
+    assert plane["adversarial"]["wrong_margin_fails_as_expected"] is True
+    assert plane["adversarial"]["reorder_fails_as_expected"] is True
+    assert plane["adversarial"]["digest_tamper_fails_as_expected"] is True
+    assert plane["adversarial"]["single_collateral_fails_as_expected"] is True
+    assert plane["adversarial"]["duplicate_apply_fails_as_expected"] is True
+    assert plane["adversarial"]["replay_matches_tip"] is True
+    assert plane["used_skill_route_discovery"] is False
+    assert collateral_path.is_file()
+
+    loaded = load_collateral_bundle(collateral_path)
+    assert verify_collateral_bundle_integrity(loaded)["ok"] is True
+    assert loaded.get("collateral_hash")
+    assert int(loaded.get("collateral_count") or 0) >= 2
+    assert int(loaded.get("tip_height") or 0) >= 2
+    assert loaded.get("collateral_allocation_digest")
+    assert path.name == "ledger.json"
