@@ -37,6 +37,7 @@ from blackhole_agent.capability_compounder import (
     ledger_prompt_summary,
     load_ledger,
     parse_outcome_contract,
+    strip_context_only_outcome_predicates,
     plan_capability_program,
     promote_composition,
     prove_capability,
@@ -54,13 +55,17 @@ from blackhole_agent.capability_compounder import (
     run_end_to_end_demo,
     run_growth_loop,
     run_mission_plane,
+    run_lineage_plane,
     run_sovereignty_plane,
     run_transfer_plane,
     save_ledger,
     scout_capability_gaps,
     scout_frontier_novelty,
     slugify_capability_id,
+    verify_lineage_chain,
     verify_sovereignty_certificate,
+    load_lineage_log,
+    detect_lineage_drift,
 )
 from blackhole_agent.kernels.codex_cli import CodexCliConfig, CodexCliKernel
 from blackhole_agent.kernels.grok_cli import GrokCliConfig, GrokCliKernel
@@ -1018,6 +1023,15 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying sovereignty: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_lineage = bool(
+                        kinds
+                        & {
+                            "lineage_ok",
+                            "chain_valid",
+                            "no_drift",
+                            "min_lineage_entries",
+                        }
+                    )
                     needs_sovereignty = bool(
                         kinds
                         & {
@@ -1026,13 +1040,91 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     )
-                    if needs_sovereignty:
+                    if needs_lineage:
+                        run_mission = "mission_plane_ok" in kinds
+                        # Free-text done_when soft-extracts lineage_ok/sovereignty_ok;
+                        # pass a stripped work contract so the plane can succeed, then
+                        # evaluate full done_when against injected plane context.
+                        plane_done_when = strip_context_only_outcome_predicates(
+                            contract_text,
+                            keep_mission=run_mission,
+                        )
+                        lineage = run_lineage_plane(
+                            workspace,
+                            goal=decision.mission_goal or decision.summary or "complete",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            absorb_ready=False,
+                            grow_budget=0,
+                            run_mission=run_mission,
+                            timeout=240,
+                        )
+                        context = {
+                            "used_skill_route_discovery": bool(
+                                lineage.get("used_skill_route_discovery")
+                            ),
+                            "assurance": {
+                                "ok": bool(
+                                    (lineage.get("sovereignty") or {}).get(
+                                        "assurance_ok"
+                                    )
+                                )
+                            },
+                            "assurance_plane": {
+                                "ok": bool(
+                                    (lineage.get("sovereignty") or {}).get(
+                                        "assurance_ok"
+                                    )
+                                )
+                            },
+                            "sovereignty": {
+                                "ok": bool((lineage.get("sovereignty") or {}).get("ok"))
+                            },
+                            "sovereignty_plane": {
+                                "ok": bool((lineage.get("sovereignty") or {}).get("ok"))
+                            },
+                            "certificate_path": (
+                                (lineage.get("sovereignty") or {})
+                                .get("certificate", {})
+                                .get("certificate_path")
+                            ),
+                            "lineage": {
+                                "ok": bool(lineage.get("ok")),
+                                "entry_count": (lineage.get("lineage") or {}).get(
+                                    "entry_count"
+                                ),
+                                "chain": lineage.get("chain") or {},
+                                "drift": lineage.get("drift") or {},
+                            },
+                            "lineage_plane": {
+                                "ok": bool(lineage.get("ok")),
+                                "entry_count": (lineage.get("lineage") or {}).get(
+                                    "entry_count"
+                                ),
+                            },
+                            "chain": lineage.get("chain") or {},
+                            "lineage_chain": lineage.get("chain") or {},
+                            "drift": lineage.get("drift") or {},
+                            "lineage_drift": lineage.get("drift") or {},
+                            "lineage_entry_count": (lineage.get("lineage") or {}).get(
+                                "entry_count"
+                            ),
+                        }
+                        if not lineage.get("ok"):
+                            reasons.append(
+                                "lineage plane failed for machine-checkable complete"
+                            )
+                    elif needs_sovereignty:
                         # Only run mission when the contract itself demands mission_plane_ok.
                         run_mission = "mission_plane_ok" in kinds
+                        plane_done_when = strip_context_only_outcome_predicates(
+                            contract_text,
+                            keep_mission=run_mission,
+                        )
                         sovereignty = run_sovereignty_plane(
                             workspace,
                             goal=decision.mission_goal or decision.summary or "complete",
-                            done_when=contract_text,
+                            done_when=plane_done_when,
                             max_steps=3,
                             absorb_ready=False,
                             grow_budget=0,
@@ -2998,6 +3090,99 @@ def capability_assurance(
         )
     except Exception as error:
         console.print(f"Assurance plane failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "lineage",
+    help=(
+        "Lineage continuity plane: sovereignty certificate → hash-chained multi-entry "
+        "log with continuity seal, live drift detection, and adversarial tamper checks."
+    ),
+)
+def capability_lineage(
+    goal: str = typer.Option(
+        "health inventory milestone",
+        "--goal",
+        help="Mission goal for the sovereignty phase.",
+    ),
+    done_when: str = typer.Option(
+        "",
+        "--done-when",
+        help="Contract done_when predicates for the sovereignty phase.",
+    ),
+    capability_id: str = typer.Option(
+        "repo.import-health",
+        "--id",
+        help="Capability id for assurance ablation phase.",
+    ),
+    lineage_path: Path | None = typer.Option(
+        None,
+        "--lineage-path",
+        help="Where to read/write the append-only lineage log JSON.",
+    ),
+    certificate_path: Path | None = typer.Option(
+        None,
+        "--certificate-path",
+        help="Where to write the sovereignty certificate JSON.",
+    ),
+    verify_only: Path | None = typer.Option(
+        None,
+        "--verify-only",
+        help="Only verify an existing lineage log path (chain + optional drift).",
+    ),
+    no_mission: bool = typer.Option(
+        False,
+        "--no-mission",
+        help="Skip mission plane inside sovereignty/contract phase.",
+    ),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    timeout_seconds: int = typer.Option(240, "--timeout-seconds", min=1),
+) -> None:
+    root = repo_path.resolve()
+    try:
+        if verify_only is not None:
+            log = load_lineage_log(verify_only.resolve())
+            chain = verify_lineage_chain(log)
+            drift = detect_lineage_drift(
+                root,
+                log,
+                timeout=min(timeout_seconds, 90),
+            )
+            result = {
+                "ok": bool(chain.get("ok"))
+                and bool(chain.get("valid"))
+                and drift.get("drift") is False
+                and not bool(chain.get("used_skill_route_discovery")),
+                "action": "verify_lineage",
+                "lineage_path": str(verify_only.resolve()),
+                "entry_count": log.get("entry_count"),
+                "head_hash": log.get("head_hash"),
+                "chain": chain,
+                "drift": drift,
+                "used_skill_route_discovery": bool(
+                    chain.get("used_skill_route_discovery")
+                    or drift.get("used_skill_route_discovery")
+                ),
+            }
+        else:
+            result = run_lineage_plane(
+                root,
+                goal,
+                done_when,
+                capability_id=capability_id,
+                certificate_path=certificate_path,
+                lineage_path=lineage_path,
+                run_mission=not no_mission,
+                absorb_ready=False,
+                grow_budget=0,
+                timeout=timeout_seconds,
+            )
+    except Exception as error:
+        console.print(f"Lineage plane failed: {error}", style="red")
         raise typer.Exit(1) from error
     console.print_json(data=result)
     if not result.get("ok") or result.get("used_skill_route_discovery"):

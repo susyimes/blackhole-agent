@@ -1,0 +1,52 @@
+{
+  "entries": [
+    {
+      "certificate_hash": "abc",
+      "certificate_path": "",
+      "claims": {
+        "sealed": true
+      },
+      "detail": {},
+      "entry_hash": "45d5143300e21f6a833670b0",
+      "entry_kind": "continuity_seal",
+      "goal": "a",
+      "index": 0,
+      "issued_at": "2026-07-29T11:05:00.846548Z",
+      "metrics": {
+        "count": 10,
+        "primitive_count": null,
+        "proved_count": 8,
+        "proved_ratio": null
+      },
+      "package_hash": "",
+      "parent_hash": ""
+    },
+    {
+      "certificate_hash": "abc",
+      "certificate_path": "",
+      "claims": {
+        "sealed": true
+      },
+      "detail": {},
+      "entry_hash": "89328d4789bb77aaeb81fd84",
+      "entry_kind": "continuity_seal",
+      "goal": "b",
+      "index": 1,
+      "issued_at": "2026-07-29T11:05:00.846593Z",
+      "metrics": {
+        "count": 10,
+        "primitive_count": null,
+        "proved_count": 8,
+        "proved_ratio": null
+      },
+      "package_hash": "",
+      "parent_hash": "45d5143300e21f6a833670b0"
+    }
+  ],
+  "entry_count": 2,
+  "head_hash": "89328d4789bb77aaeb81fd84",
+  "kind": "capability_lineage",
+  "ok": true,
+  "schema_version": 1,
+  "updated_at": "2026-07-29T11:05:00.846750Z"
+}

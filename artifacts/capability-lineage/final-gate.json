@@ -1,0 +1,69 @@
+{
+  "entries": [
+    {
+      "certificate_hash": "c55c8c6ec6ecfe5f3ee98b01",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T101624Z-884205ef\\artifacts\\sovereignty-certificates\\sovereignty-c55c8c6ec6ecfe5f3ee98b01.json",
+      "claims": {
+        "ablation_ok": true,
+        "adversarial_ok": true,
+        "assurance_ok": true,
+        "contract_met": true,
+        "contract_ok": true,
+        "machine_checkable": true,
+        "no_skill_route": true,
+        "transfer_ok": true
+      },
+      "detail": {
+        "sovereignty_ok": true,
+        "verify_valid": true
+      },
+      "entry_hash": "5d60c6a3d8d2be56eae8c64c",
+      "entry_kind": "sovereignty_certificate",
+      "goal": "g",
+      "index": 0,
+      "issued_at": "2026-07-29T11:05:30.206255Z",
+      "metrics": {
+        "count": 82,
+        "primitive_count": 33,
+        "proved_count": 82,
+        "proved_ratio": 1.0
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": ""
+    },
+    {
+      "certificate_hash": "c55c8c6ec6ecfe5f3ee98b01",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T101624Z-884205ef\\artifacts\\sovereignty-certificates\\sovereignty-c55c8c6ec6ecfe5f3ee98b01.json",
+      "claims": {
+        "no_skill_route": true,
+        "sealed": true
+      },
+      "detail": {
+        "certificate_hash": "c55c8c6ec6ecfe5f3ee98b01",
+        "chain_pre_valid": true,
+        "live_count": 82,
+        "live_proved": 82,
+        "prior_head": "5d60c6a3d8d2be56eae8c64c"
+      },
+      "entry_hash": "2d7b40e85f81767d1d8d3901",
+      "entry_kind": "continuity_seal",
+      "goal": "seal:g",
+      "index": 1,
+      "issued_at": "2026-07-29T11:05:30.206512Z",
+      "metrics": {
+        "count": 82,
+        "primitive_count": 33,
+        "proved_count": 82,
+        "proved_ratio": 1.0
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "5d60c6a3d8d2be56eae8c64c"
+    }
+  ],
+  "entry_count": 2,
+  "head_hash": "2d7b40e85f81767d1d8d3901",
+  "kind": "capability_lineage",
+  "ok": true,
+  "schema_version": 1,
+  "updated_at": "2026-07-29T11:05:30.269612Z"
+}

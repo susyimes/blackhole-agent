@@ -1303,6 +1303,7 @@ def run_mission_plane(
 #   program_passes:id1,id2 | has_tag:tag | no_skill_route
 #   novel_ready_le:N | mission_plane_ok | contract_plane_ok
 #   assurance_plane_ok | sovereignty_ok | certificate_valid[:path]
+#   lineage_ok | chain_valid | no_drift | min_lineage_entries:N
 # Free-text lines without a known form are recorded as informational (not gating).
 OUTCOME_PREDICATE_PATTERN = re.compile(
     r"^(?P<kind>"
@@ -1311,10 +1312,63 @@ OUTCOME_PREDICATE_PATTERN = re.compile(
     r"capability_exists|capability_proved|ledger_has|"
     r"program_passes|has_tag|no_skill_route|"
     r"novel_ready_le|mission_plane_ok|contract_plane_ok|"
-    r"assurance_plane_ok|sovereignty_ok|certificate_valid"
+    r"assurance_plane_ok|sovereignty_ok|certificate_valid|"
+    r"lineage_ok|chain_valid|no_drift|min_lineage_entries"
     r")(?::(?P<arg>.+))?$",
     re.IGNORECASE,
 )
+
+
+# Predicates that only make sense after plane evidence is injected into context.
+# Soft-extracted prose often invents these mid-contract and false-fails planes.
+CONTEXT_ONLY_OUTCOME_KINDS = frozenset(
+    {
+        "mission_plane_ok",
+        "contract_plane_ok",
+        "assurance_plane_ok",
+        "sovereignty_ok",
+        "certificate_valid",
+        "lineage_ok",
+        "chain_valid",
+        "no_drift",
+        "min_lineage_entries",
+    }
+)
+
+
+def strip_context_only_outcome_predicates(
+    done_when: str,
+    *,
+    keep_mission: bool = False,
+) -> str:
+    """Rebuild done_when without plane-result predicates that need evidence context.
+
+    Free-text notes are dropped (they soft-extract context kinds and re-poison
+    inner contract/mission/sovereignty planes). Only non-context machine kinds
+    are preserved as structured kind[:arg] tokens.
+    """
+
+    parsed = parse_outcome_contract(done_when)
+    kept: list[str] = []
+    for predicate in parsed.get("predicates") or []:
+        kind = str(predicate.get("kind") or "").strip().lower()
+        if not kind:
+            continue
+        if kind in CONTEXT_ONLY_OUTCOME_KINDS:
+            if kind == "mission_plane_ok" and keep_mission:
+                kept.append("mission_plane_ok")
+            continue
+        arg = str(predicate.get("arg") or "").strip()
+        kept.append(f"{kind}:{arg}" if arg else kind)
+    # Deduplicate while preserving order.
+    seen: set[str] = set()
+    unique: list[str] = []
+    for item in kept:
+        if item in seen:
+            continue
+        seen.add(item)
+        unique.append(item)
+    return "; ".join(unique)
 
 
 def parse_outcome_contract(done_when: str) -> dict[str, Any]:
@@ -1405,6 +1459,15 @@ def _soft_extract_outcome_predicates(chunk: str) -> list[dict[str, Any]]:
         found.append({"kind": "sovereignty_ok", "arg": "", "source": chunk})
     if "certificate" in lower and ("valid" in lower or "verify" in lower or "re-verif" in lower):
         found.append({"kind": "certificate_valid", "arg": "", "source": chunk})
+    if "lineage" in lower and ("ok" in lower or "pass" in lower or "valid" in lower or "contin" in lower):
+        found.append({"kind": "lineage_ok", "arg": "", "source": chunk})
+    if "chain" in lower and ("valid" in lower or "ok" in lower or "intact" in lower):
+        found.append({"kind": "chain_valid", "arg": "", "source": chunk})
+    if "no drift" in lower or "without drift" in lower or "drift-free" in lower:
+        found.append({"kind": "no_drift", "arg": "", "source": chunk})
+    m = re.search(r"(?:at least|>=|≥)\s*(\d+)\s+lineage", lower)
+    if m:
+        found.append({"kind": "min_lineage_entries", "arg": m.group(1), "source": chunk})
     return found
 
 
@@ -1678,6 +1741,40 @@ def _eval_one_outcome_predicate(
         )
         ok = bool(verify.get("ok")) and bool(verify.get("valid"))
         return ok, f"certificate_valid={ok} path={cert_path} hash={verify.get('certificate_hash')}"
+    if kind == "lineage_ok":
+        plane = context.get("lineage") or context.get("lineage_plane") or {}
+        ok = bool(plane.get("ok"))
+        return ok, f"lineage_ok={ok}"
+    if kind == "chain_valid":
+        chain = context.get("chain") or context.get("lineage_chain") or {}
+        if not chain and isinstance(context.get("lineage"), Mapping):
+            chain = (context.get("lineage") or {}).get("chain") or {}
+        if not chain and isinstance(context.get("lineage_plane"), Mapping):
+            chain = (context.get("lineage_plane") or {}).get("chain") or {}
+        ok = bool(chain.get("ok")) and bool(chain.get("valid") if "valid" in chain else True)
+        return ok, f"chain_valid={ok}"
+    if kind == "no_drift":
+        drift = context.get("drift") or context.get("lineage_drift") or {}
+        if not drift and isinstance(context.get("lineage"), Mapping):
+            drift = (context.get("lineage") or {}).get("drift") or {}
+        if not drift and isinstance(context.get("lineage_plane"), Mapping):
+            drift = (context.get("lineage_plane") or {}).get("drift") or {}
+        # no_drift passes when drift detector ran and reported drift=False.
+        if "drift" in drift:
+            ok = drift.get("drift") is False and bool(drift.get("ok", True))
+        else:
+            ok = bool(drift.get("ok")) and drift.get("no_drift") is True
+        return ok, f"no_drift={ok} detail={drift.get('drift', drift.get('no_drift'))}"
+    if kind == "min_lineage_entries":
+        need = int(float(arg or "0"))
+        have = context.get("lineage_entry_count")
+        if have is None:
+            lineage_ctx = context.get("lineage") or context.get("lineage_plane") or {}
+            have = lineage_ctx.get("entry_count")
+            if have is None and isinstance(lineage_ctx.get("lineage"), Mapping):
+                have = (lineage_ctx.get("lineage") or {}).get("entry_count")
+        have_i = int(have or 0)
+        return have_i >= need, f"lineage_entries={have_i} need>={need}"
     if kind == "program_passes":
         steps = [part.strip() for part in arg.split(",") if part.strip()]
         if not steps:
@@ -2637,30 +2734,24 @@ def run_sovereignty_plane(
 
     root = repo_path.resolve()
     path, ledger = ensure_seeded_ledger(root)
-    contract_done_when = (done_when or "").strip() or (
-        "min_capabilities:5; min_primitives:3; capability_exists:repo.import-health; "
-        "capability_proved:repo.import-health; program_passes:repo.import-health; "
-        "no_skill_route; mission_plane_ok"
+    raw_done_when = (done_when or "").strip()
+    # Context-only predicates (incl. soft-extracted sovereignty/lineage prose) are
+    # evaluated after planes produce evidence — strip them from the inner contract.
+    contract_done_when = strip_context_only_outcome_predicates(
+        raw_done_when,
+        keep_mission=bool(run_mission),
     )
-    # Context-only predicates are evaluated after planes produce evidence; strip them
-    # from the inner contract so sovereignty_ok/certificate_valid do not false-fail.
-    _context_only = re.compile(
-        r"^(mission_plane_ok|contract_plane_ok|assurance_plane_ok|sovereignty_ok|"
-        r"certificate_valid)(?::.*)?$",
-        re.I,
-    )
-    filtered_parts = [
-        part.strip()
-        for part in re.split(r"[\n;]+", contract_done_when)
-        if part.strip() and not _context_only.match(part.strip())
-    ]
-    # mission_plane_ok is only meaningful when the mission plane actually runs.
-    if run_mission and re.search(r"\bmission_plane_ok\b", contract_done_when, re.I):
-        filtered_parts.append("mission_plane_ok")
-    contract_done_when = "; ".join(filtered_parts) or (
-        "min_capabilities:3; capability_exists:repo.import-health; "
-        "capability_proved:repo.import-health; no_skill_route"
-    )
+    if not contract_done_when:
+        contract_done_when = (
+            "min_capabilities:5; min_primitives:3; capability_exists:repo.import-health; "
+            "capability_proved:repo.import-health; program_passes:repo.import-health; "
+            "no_skill_route"
+            + ("; mission_plane_ok" if run_mission else "")
+        )
+    elif run_mission and "mission_plane_ok" not in contract_done_when:
+        # Default lean path still exercises mission when requested by caller flag.
+        if not raw_done_when or "mission_plane_ok" in raw_done_when.lower():
+            contract_done_when = f"{contract_done_when}; mission_plane_ok"
     # Contract plane may include mission_plane_ok; keep mission cheap by default.
     contract = run_contract_plane(
         root,
@@ -2811,6 +2902,593 @@ def run_sovereignty_plane(
             "claims_ok": verify.get("claims_ok"),
             "live_recheck": verify.get("live_recheck"),
             "certificate_hash": verify.get("certificate_hash"),
+        },
+        "final_contract": {
+            "ok": final_contract.get("ok"),
+            "met": final_contract.get("met"),
+            "passed_count": final_contract.get("passed_count"),
+            "failed_count": final_contract.get("failed_count"),
+            "failed": final_contract.get("failed"),
+        },
+        "used_skill_route_discovery": used_skill,
+        "ledger_path": str(path),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Lineage continuity plane: hash-chained multi-certificate evidence log with
+# live drift detection and adversarial chain falsification past one-shot
+# sovereignty certificates.
+# ---------------------------------------------------------------------------
+
+LINEAGE_LOG_SCHEMA = 1
+DEFAULT_LINEAGE_RELATIVE = Path("artifacts") / "capability-lineage" / "lineage.json"
+
+
+def default_lineage_path(repo_path: Path) -> Path:
+    return (repo_path / DEFAULT_LINEAGE_RELATIVE).resolve()
+
+
+def empty_lineage_log() -> dict[str, Any]:
+    return {
+        "schema_version": LINEAGE_LOG_SCHEMA,
+        "kind": "capability_lineage",
+        "updated_at": utc_now_iso(),
+        "entries": [],
+        "head_hash": "",
+        "entry_count": 0,
+        "ok": True,
+    }
+
+
+def _canonical_lineage_entry_body(entry: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        key: value
+        for key, value in entry.items()
+        if key not in {"entry_hash", "ok"}
+    }
+
+
+def compute_lineage_entry_hash(entry: Mapping[str, Any]) -> str:
+    body = _canonical_lineage_entry_body(entry)
+    digest_source = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest_source.encode("utf-8")).hexdigest()[:24]
+
+
+def load_lineage_log(path: Path) -> dict[str, Any]:
+    target = path.resolve()
+    if not target.exists():
+        return empty_lineage_log()
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    if not isinstance(payload, Mapping):
+        raise ValueError("lineage log must be a JSON object")
+    log = dict(payload)
+    entries = list(log.get("entries") or [])
+    log["entries"] = entries
+    log["entry_count"] = len(entries)
+    if entries:
+        log["head_hash"] = str(entries[-1].get("entry_hash") or "")
+    else:
+        log["head_hash"] = ""
+    log.setdefault("schema_version", LINEAGE_LOG_SCHEMA)
+    log.setdefault("kind", "capability_lineage")
+    log["ok"] = True
+    return log
+
+
+def write_lineage_log(path: Path, lineage: Mapping[str, Any]) -> Path:
+    target = path.resolve()
+    payload = dict(lineage)
+    entries = list(payload.get("entries") or [])
+    payload["entries"] = entries
+    payload["entry_count"] = len(entries)
+    payload["head_hash"] = str(entries[-1].get("entry_hash") or "") if entries else ""
+    payload["updated_at"] = utc_now_iso()
+    payload["schema_version"] = int(payload.get("schema_version") or LINEAGE_LOG_SCHEMA)
+    payload["kind"] = "capability_lineage"
+    atomic_write_json(target, payload)
+    return target
+
+
+def append_lineage_entry(
+    lineage: Mapping[str, Any],
+    *,
+    entry_kind: str,
+    certificate_hash: str = "",
+    certificate_path: str = "",
+    goal: str = "",
+    claims: Mapping[str, Any] | None = None,
+    metrics: Mapping[str, Any] | None = None,
+    package_hash: str = "",
+    detail: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Append one hash-chained entry; returns updated lineage log (new dict)."""
+
+    log = dict(lineage)
+    entries = [dict(item) for item in (log.get("entries") or [])]
+    parent_hash = str(entries[-1].get("entry_hash") or "") if entries else ""
+    entry: dict[str, Any] = {
+        "index": len(entries),
+        "parent_hash": parent_hash,
+        "entry_kind": entry_kind,
+        "issued_at": utc_now_iso(),
+        "certificate_hash": certificate_hash or "",
+        "certificate_path": certificate_path or "",
+        "goal": goal or "",
+        "claims": dict(claims or {}),
+        "metrics": {
+            "count": (metrics or {}).get("count"),
+            "proved_count": (metrics or {}).get("proved_count"),
+            "primitive_count": (metrics or {}).get("primitive_count"),
+            "proved_ratio": (metrics or {}).get("proved_ratio"),
+        },
+        "package_hash": package_hash or "",
+        "detail": dict(detail or {}),
+    }
+    entry["entry_hash"] = compute_lineage_entry_hash(entry)
+    entries.append(entry)
+    log["entries"] = entries
+    log["entry_count"] = len(entries)
+    log["head_hash"] = entry["entry_hash"]
+    log["updated_at"] = utc_now_iso()
+    log["ok"] = True
+    return log
+
+
+def verify_lineage_chain(lineage: Mapping[str, Any]) -> dict[str, Any]:
+    """Verify parent links and per-entry hashes for the whole lineage log."""
+
+    entries = list(lineage.get("entries") or [])
+    errors: list[str] = []
+    checked = 0
+    for index, raw in enumerate(entries):
+        entry = dict(raw) if isinstance(raw, Mapping) else {}
+        expected_parent = (
+            str(entries[index - 1].get("entry_hash") or "") if index > 0 else ""
+        )
+        actual_parent = str(entry.get("parent_hash") or "")
+        if actual_parent != expected_parent:
+            errors.append(
+                f"index={index} parent_mismatch expected={expected_parent!r} "
+                f"actual={actual_parent!r}"
+            )
+        stored_hash = str(entry.get("entry_hash") or "")
+        recomputed = compute_lineage_entry_hash(entry)
+        if not stored_hash or stored_hash != recomputed:
+            errors.append(
+                f"index={index} hash_mismatch stored={stored_hash!r} "
+                f"recomputed={recomputed!r}"
+            )
+        claimed_index = entry.get("index")
+        if claimed_index is not None and int(claimed_index) != index:
+            errors.append(f"index={index} index_field={claimed_index}")
+        checked += 1
+    head = str(lineage.get("head_hash") or "")
+    if entries:
+        tail = str(entries[-1].get("entry_hash") or "")
+        if head and head != tail:
+            errors.append(f"head_hash_mismatch head={head!r} tail={tail!r}")
+    count_field = lineage.get("entry_count")
+    if count_field is not None and int(count_field) != len(entries):
+        errors.append(f"entry_count_mismatch field={count_field} actual={len(entries)}")
+    valid = not errors
+    used_skill = legacy_pipeline_was_used()
+    return {
+        "ok": valid and not used_skill,
+        "action": "verify_lineage_chain",
+        "valid": valid,
+        "entry_count": len(entries),
+        "checked": checked,
+        "head_hash": head or (str(entries[-1].get("entry_hash") or "") if entries else ""),
+        "errors": errors,
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def detect_lineage_drift(
+    repo_path: Path,
+    lineage: Mapping[str, Any],
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 60,
+) -> dict[str, Any]:
+    """Compare head certificate / seal claims against the live ledger.
+
+    Drift is true when a head certificate fails live recheck, or when recorded
+    metrics fall below live ledger fitness (evidence no longer holds).
+    """
+
+    root = repo_path.resolve()
+    path, ledger = ensure_seeded_ledger(root)
+    metrics = snapshot_outcome_metrics(root, ledger=ledger)
+    entries = list(lineage.get("entries") or [])
+    if not entries:
+        return {
+            "ok": True,
+            "action": "detect_lineage_drift",
+            "drift": False,
+            "no_drift": True,
+            "reason": "empty_lineage",
+            "live": {
+                "count": metrics.get("count"),
+                "proved_count": metrics.get("proved_count"),
+            },
+            "ledger_path": str(path),
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    head = dict(entries[-1]) if isinstance(entries[-1], Mapping) else {}
+    # Prefer the latest sovereignty_certificate entry for cert recheck.
+    cert_entry = head
+    for item in reversed(entries):
+        if isinstance(item, Mapping) and item.get("entry_kind") == "sovereignty_certificate":
+            cert_entry = dict(item)
+            break
+
+    reasons: list[str] = []
+    cert_verify: dict[str, Any] | None = None
+    cert_path = str(cert_entry.get("certificate_path") or "").strip()
+    if cert_path and Path(cert_path).is_file():
+        cert_verify = verify_sovereignty_certificate(
+            Path(cert_path),
+            repo_path=root,
+            recheck_live=True,
+            command_runner=command_runner,
+            timeout=timeout,
+        )
+        if not cert_verify.get("valid"):
+            reasons.append("head_certificate_invalid")
+        if cert_verify.get("live_recheck") is False:
+            reasons.append("live_recheck_failed")
+    elif cert_entry.get("entry_kind") == "sovereignty_certificate":
+        reasons.append("missing_certificate_path")
+
+    recorded = cert_entry.get("metrics") if isinstance(cert_entry.get("metrics"), Mapping) else {}
+    live_count = int(metrics.get("count") or 0)
+    rec_count = recorded.get("count")
+    if rec_count is not None and live_count + 0 < int(rec_count):
+        # Live ledger shrank below what was certified — drift.
+        reasons.append(f"count_regressed live={live_count} recorded={rec_count}")
+    if "repo.import-health" not in ledger.capabilities:
+        reasons.append("missing_repo_import_health")
+    if bool(metrics.get("used_skill_route_discovery")):
+        reasons.append("skill_route_active")
+
+    drift = bool(reasons)
+    used_skill = legacy_pipeline_was_used()
+    return {
+        "ok": not used_skill,
+        "action": "detect_lineage_drift",
+        "drift": drift,
+        "no_drift": not drift,
+        "reasons": reasons,
+        "head_entry_kind": head.get("entry_kind"),
+        "certificate_hash": cert_entry.get("certificate_hash"),
+        "certificate_path": cert_path or None,
+        "cert_verify": {
+            "valid": None if cert_verify is None else cert_verify.get("valid"),
+            "live_recheck": None if cert_verify is None else cert_verify.get("live_recheck"),
+            "hash_ok": None if cert_verify is None else cert_verify.get("hash_ok"),
+        },
+        "recorded_metrics": dict(recorded),
+        "live": {
+            "count": metrics.get("count"),
+            "proved_count": metrics.get("proved_count"),
+            "primitive_count": metrics.get("primitive_count"),
+        },
+        "ledger_path": str(path),
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def run_lineage_adversarial_checks(lineage: Mapping[str, Any]) -> dict[str, Any]:
+    """Falsify chain honesty: tampered mid-chain must fail; intact chain must pass."""
+
+    intact = verify_lineage_chain(lineage)
+    entries = [dict(item) for item in (lineage.get("entries") or [])]
+    if len(entries) < 2:
+        return {
+            "ok": False,
+            "action": "lineage_adversarial",
+            "error": "need_at_least_two_entries",
+            "intact_ok": intact.get("ok"),
+            "tamper_failed_as_expected": False,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    # Tamper parent_hash on the last entry without updating entry_hash.
+    tampered_entries = [dict(item) for item in entries]
+    last = dict(tampered_entries[-1])
+    last["parent_hash"] = "0" * 24
+    # Keep stored entry_hash so recompute also fails OR parent fails — both are errors.
+    tampered_entries[-1] = last
+    tampered_log = {
+        **dict(lineage),
+        "entries": tampered_entries,
+        "entry_count": len(tampered_entries),
+        "head_hash": last.get("entry_hash") or lineage.get("head_hash"),
+    }
+    broken = verify_lineage_chain(tampered_log)
+
+    # Tamper entry content but keep old hash (hash mismatch).
+    content_tampered = [dict(item) for item in entries]
+    mid = dict(content_tampered[0])
+    mid["goal"] = (str(mid.get("goal") or "") + "-TAMPERED")
+    content_tampered[0] = mid
+    content_log = {
+        **dict(lineage),
+        "entries": content_tampered,
+        "entry_count": len(content_tampered),
+        "head_hash": content_tampered[-1].get("entry_hash") if content_tampered else "",
+    }
+    content_broken = verify_lineage_chain(content_log)
+
+    tamper_failed = broken.get("valid") is False and content_broken.get("valid") is False
+    intact_ok = intact.get("valid") is True and intact.get("ok") is True
+    used_skill = legacy_pipeline_was_used()
+    ok = intact_ok and tamper_failed and not used_skill
+    return {
+        "ok": ok,
+        "action": "lineage_adversarial",
+        "intact_ok": intact_ok,
+        "tamper_failed_as_expected": tamper_failed,
+        "parent_tamper_valid": broken.get("valid"),
+        "content_tamper_valid": content_broken.get("valid"),
+        "parent_tamper_errors": broken.get("errors") or [],
+        "content_tamper_errors": content_broken.get("errors") or [],
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def run_lineage_plane(
+    repo_path: Path,
+    goal: str = "health inventory milestone",
+    done_when: str = "",
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 180,
+    max_steps: int = 3,
+    absorb_ready: bool = False,
+    grow_budget: int = 0,
+    run_mission: bool = True,
+    run_assurance: bool = True,
+    run_sovereignty: bool = True,
+    lineage_path: Path | None = None,
+    certificate_path: Path | None = None,
+    capability_id: str = "repo.import-health",
+    persist: bool = True,
+) -> dict[str, Any]:
+    """Closed lineage continuity plane.
+
+    sovereignty certificate → append-only hash chain → continuity seal →
+    chain verify → live drift detect → adversarial tamper checks.
+    Turns one-shot self-certification into multi-entry, re-verifiable lineage.
+    """
+
+    root = repo_path.resolve()
+    path, ledger = ensure_seeded_ledger(root)
+    out_lineage = (
+        lineage_path.resolve()
+        if lineage_path is not None
+        else default_lineage_path(root)
+    )
+    # Inner sovereignty/contract must not re-evaluate lineage_* / sovereignty_ok
+    # soft-extracted from free-text mission done_when (false-fails complete gate).
+    sovereignty_done_when = strip_context_only_outcome_predicates(
+        done_when or "",
+        keep_mission=bool(run_mission),
+    )
+
+    sovereignty: dict[str, Any]
+    if run_sovereignty:
+        sovereignty = run_sovereignty_plane(
+            root,
+            goal,
+            sovereignty_done_when,
+            command_runner=command_runner,
+            timeout=timeout,
+            max_steps=max_steps,
+            absorb_ready=absorb_ready,
+            grow_budget=grow_budget,
+            run_mission=run_mission,
+            run_assurance=run_assurance,
+            certificate_path=certificate_path,
+            capability_id=capability_id,
+        )
+    else:
+        sovereignty = {
+            "ok": False,
+            "action": "sovereignty_plane",
+            "error": "sovereignty skipped",
+            "certificate": {},
+            "verify": {"valid": False},
+            "assurance": {"ok": False},
+            "contract": {"ok": False},
+            "used_skill_route_discovery": False,
+        }
+
+    lineage = load_lineage_log(out_lineage) if out_lineage.exists() else empty_lineage_log()
+    cert = sovereignty.get("certificate") if isinstance(sovereignty.get("certificate"), Mapping) else {}
+    cert_path_str = str(cert.get("certificate_path") or "")
+    cert_hash = str(cert.get("certificate_hash") or "")
+    metrics = snapshot_outcome_metrics(root, ledger=load_ledger(path))
+
+    # Load full certificate claims when possible for the chain entry.
+    claims: dict[str, Any] = {}
+    if cert_path_str and Path(cert_path_str).is_file():
+        try:
+            full_cert = load_sovereignty_certificate(Path(cert_path_str))
+            claims = dict(full_cert.get("claims") or {})
+        except (OSError, ValueError, json.JSONDecodeError):
+            claims = {
+                "contract_ok": bool((sovereignty.get("contract") or {}).get("ok")),
+                "assurance_ok": bool((sovereignty.get("assurance") or {}).get("ok")),
+            }
+    else:
+        claims = {
+            "contract_ok": bool((sovereignty.get("contract") or {}).get("ok")),
+            "assurance_ok": bool((sovereignty.get("assurance") or {}).get("ok")),
+        }
+
+    if sovereignty.get("ok") and cert_hash:
+        lineage = append_lineage_entry(
+            lineage,
+            entry_kind="sovereignty_certificate",
+            certificate_hash=cert_hash,
+            certificate_path=cert_path_str,
+            goal=goal,
+            claims=claims,
+            metrics=metrics,
+            package_hash=str(cert.get("package_hash") or ""),
+            detail={
+                "sovereignty_ok": True,
+                "verify_valid": bool((sovereignty.get("verify") or {}).get("valid")),
+            },
+        )
+
+    # Continuity seal: second entry re-binding head + live metrics without a full
+    # second sovereignty run — grows the chain and is adversarially falsifiable.
+    chain_pre = verify_lineage_chain(lineage)
+    seal_detail = {
+        "prior_head": lineage.get("head_hash"),
+        "chain_pre_valid": chain_pre.get("valid"),
+        "live_count": metrics.get("count"),
+        "live_proved": metrics.get("proved_count"),
+        "certificate_hash": cert_hash,
+    }
+    lineage = append_lineage_entry(
+        lineage,
+        entry_kind="continuity_seal",
+        certificate_hash=cert_hash,
+        certificate_path=cert_path_str,
+        goal=f"seal:{goal}",
+        claims={"sealed": True, "no_skill_route": not bool(sovereignty.get("used_skill_route_discovery"))},
+        metrics=metrics,
+        package_hash=str(cert.get("package_hash") or ""),
+        detail=seal_detail,
+    )
+
+    chain = verify_lineage_chain(lineage)
+    drift = detect_lineage_drift(
+        root,
+        lineage,
+        command_runner=command_runner,
+        timeout=min(timeout, 60),
+    )
+    adversarial = run_lineage_adversarial_checks(lineage)
+
+    if persist:
+        write_lineage_log(out_lineage, lineage)
+
+    used_skill = bool(
+        sovereignty.get("used_skill_route_discovery")
+        or chain.get("used_skill_route_discovery")
+        or drift.get("used_skill_route_discovery")
+        or adversarial.get("used_skill_route_discovery")
+        or legacy_pipeline_was_used()
+    )
+    provisional_ok = (
+        bool(sovereignty.get("ok"))
+        and bool(chain.get("ok"))
+        and bool(chain.get("valid"))
+        and drift.get("drift") is False
+        and bool(adversarial.get("ok"))
+        and int(lineage.get("entry_count") or 0) >= 2
+        and not used_skill
+    )
+    context = {
+        "used_skill_route_discovery": used_skill,
+        "sovereignty": {"ok": bool(sovereignty.get("ok"))},
+        "sovereignty_plane": {"ok": bool(sovereignty.get("ok"))},
+        "assurance": sovereignty.get("assurance") or {},
+        "assurance_plane": sovereignty.get("assurance") or {},
+        "certificate_path": cert_path_str,
+        "lineage": {
+            "ok": provisional_ok,
+            "entry_count": lineage.get("entry_count"),
+            "head_hash": lineage.get("head_hash"),
+            "chain": chain,
+            "drift": drift,
+        },
+        "lineage_plane": {"ok": provisional_ok, "entry_count": lineage.get("entry_count")},
+        "chain": chain,
+        "lineage_chain": chain,
+        "drift": drift,
+        "lineage_drift": drift,
+        "lineage_entry_count": lineage.get("entry_count"),
+    }
+    lineage_done_when = (
+        "no_skill_route; sovereignty_ok; lineage_ok; chain_valid; no_drift; "
+        "min_lineage_entries:2; capability_exists:repo.import-health"
+    )
+    final_contract = evaluate_outcome_contract(
+        root,
+        lineage_done_when,
+        context=context,
+        command_runner=command_runner,
+        timeout=min(timeout, 60),
+        run_programs=False,
+    )
+    ok = (
+        provisional_ok
+        and bool(final_contract.get("ok"))
+        and final_contract.get("met") is True
+    )
+    # Correct lineage ok in returned context after final verdict.
+    return {
+        "ok": ok,
+        "action": "lineage_plane",
+        "goal": goal,
+        "done_when": done_when,
+        "lineage_done_when": lineage_done_when,
+        "met": final_contract.get("met"),
+        "machine_checkable": True,
+        "sovereignty": {
+            "ok": sovereignty.get("ok"),
+            "certificate": {
+                "ok": cert.get("ok"),
+                "certificate_hash": cert_hash,
+                "certificate_path": cert_path_str,
+            },
+            "verify": {
+                "valid": (sovereignty.get("verify") or {}).get("valid"),
+                "hash_ok": (sovereignty.get("verify") or {}).get("hash_ok"),
+            },
+            "assurance_ok": (sovereignty.get("assurance") or {}).get("ok"),
+            "contract_ok": (sovereignty.get("contract") or {}).get("ok"),
+        },
+        "lineage": {
+            "path": str(out_lineage),
+            "entry_count": lineage.get("entry_count"),
+            "head_hash": lineage.get("head_hash"),
+            "entry_kinds": [
+                str(item.get("entry_kind") or "")
+                for item in (lineage.get("entries") or [])
+                if isinstance(item, Mapping)
+            ],
+            "persisted": persist and out_lineage.exists(),
+        },
+        "chain": {
+            "ok": chain.get("ok"),
+            "valid": chain.get("valid"),
+            "entry_count": chain.get("entry_count"),
+            "checked": chain.get("checked"),
+            "head_hash": chain.get("head_hash"),
+            "errors": chain.get("errors") or [],
+        },
+        "drift": {
+            "ok": drift.get("ok"),
+            "drift": drift.get("drift"),
+            "no_drift": drift.get("no_drift"),
+            "reasons": drift.get("reasons") or [],
+            "live": drift.get("live"),
+        },
+        "adversarial": {
+            "ok": adversarial.get("ok"),
+            "intact_ok": adversarial.get("intact_ok"),
+            "tamper_failed_as_expected": adversarial.get("tamper_failed_as_expected"),
+            "parent_tamper_valid": adversarial.get("parent_tamper_valid"),
+            "content_tamper_valid": adversarial.get("content_tamper_valid"),
         },
         "final_contract": {
             "ok": final_contract.get("ok"),
@@ -5980,6 +6658,44 @@ def builtin_sovereignty_plane() -> dict[str, Any]:
     )
 
 
+def builtin_lineage_plane() -> dict[str, Any]:
+    """Invocable capability: sovereignty → hash-chained lineage → drift + adversarial."""
+
+    root = Path(__file__).resolve().parents[2]
+    goal = (os.environ.get("BLACKHOLE_MISSION_GOAL") or "").strip() or "health inventory milestone"
+    done_when = (os.environ.get("BLACKHOLE_DONE_WHEN") or "").strip()
+    max_steps = int(os.environ.get("BLACKHOLE_PROGRAM_MAX_STEPS") or "3")
+    grow_budget = int(os.environ.get("BLACKHOLE_MISSION_GROW_BUDGET") or "0")
+    absorb_ready = (os.environ.get("BLACKHOLE_MISSION_ABSORB") or "0").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    run_mission = (os.environ.get("BLACKHOLE_CONTRACT_RUN_MISSION") or "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    capability_id = (os.environ.get("BLACKHOLE_ABLATION_ID") or "repo.import-health").strip()
+    cert_raw = (os.environ.get("BLACKHOLE_SOVEREIGNTY_CERT_PATH") or "").strip()
+    certificate_path = Path(cert_raw) if cert_raw else None
+    lineage_raw = (os.environ.get("BLACKHOLE_LINEAGE_PATH") or "").strip()
+    lineage_path = Path(lineage_raw) if lineage_raw else None
+    return run_lineage_plane(
+        root,
+        goal,
+        done_when,
+        max_steps=max_steps,
+        absorb_ready=absorb_ready,
+        grow_budget=grow_budget,
+        run_mission=run_mission,
+        capability_id=capability_id,
+        certificate_path=certificate_path,
+        lineage_path=lineage_path,
+        timeout=240,
+    )
+
+
 def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
     """Install the minimal compoundable bootstrap set if missing."""
 
@@ -6721,6 +7437,68 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "assurance",
                 "contract",
                 "certificate",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.lineage-plane",
+            name="Lineage continuity plane",
+            description=(
+                "Closed lineage continuity plane: sovereignty certificate → append-only "
+                "hash-chained multi-entry log with continuity seal → chain verify → live "
+                "drift detection → adversarial tamper falsification past one-shot certificates."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_lineage_plane",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_lineage_plane; '
+                "import os; "
+                "os.environ['BLACKHOLE_MISSION_GOAL']='health inventory milestone'; "
+                "os.environ['BLACKHOLE_DONE_WHEN']="
+                "'min_capabilities:5;min_primitives:3;capability_exists:repo.import-health;"
+                "capability_proved:repo.import-health;program_passes:repo.import-health;"
+                "no_skill_route;mission_plane_ok'; "
+                "os.environ['BLACKHOLE_MISSION_GROW_BUDGET']='0'; "
+                "os.environ['BLACKHOLE_MISSION_ABSORB']='0'; "
+                "os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; "
+                "os.environ['BLACKHOLE_CONTRACT_RUN_MISSION']='1'; "
+                "r=builtin_lineage_plane(); assert r['ok'] and r.get('action')=='lineage_plane' "
+                "and r.get('chain',{}).get('valid') and r.get('drift',{}).get('drift') is False "
+                "and r.get('adversarial',{}).get('ok') and int(r.get('lineage',{}).get('entry_count') or 0) >= 2 "
+                "and r.get('sovereignty',{}).get('ok') and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.outcome-contract",
+                "capability.contract-plane",
+                "capability.assurance-plane",
+                "capability.sovereignty-plane",
+                "capability.ablation-proof",
+                "capability.transfer-plane",
+                "capability.adversarial-contract",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "src/blackhole_agent/unbound.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Lineage continuity plane compounds sovereignty certificates into an "
+                "append-only hash chain with live drift detection and adversarial "
+                "tamper falsification without skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "lineage",
+                "continuity",
+                "sovereignty",
+                "certificate",
+                "drift",
                 "evidence",
             ),
             created_at=utc_now_iso(),

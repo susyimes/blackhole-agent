@@ -1401,3 +1401,168 @@ def test_sovereignty_plane_certificate_issue_and_verify():
     assert verify_payload["valid"] is True
     # Keep path reference live for linters; ledger path is a side effect of seed.
     assert path.name == "ledger.json"
+
+
+def test_lineage_plane_chain_drift_and_adversarial():
+    """Lineage plane chains sovereignty certs, detects no-drift, falsifies tampering."""
+
+    from blackhole_agent.capability_compounder import (
+        append_lineage_entry,
+        detect_lineage_drift,
+        empty_lineage_log,
+        ensure_seeded_ledger,
+        load_lineage_log,
+        parse_outcome_contract,
+        run_lineage_adversarial_checks,
+        run_lineage_plane,
+        verify_lineage_chain,
+        write_lineage_log,
+    )
+
+    repo = Path(__file__).resolve().parents[1]
+    path, ledger = ensure_seeded_ledger(repo)
+    assert "capability.lineage-plane" in ledger.capabilities
+    assert "capability.sovereignty-plane" in ledger.capabilities
+
+    parsed = parse_outcome_contract(
+        "no_skill_route; lineage_ok; chain_valid; no_drift; min_lineage_entries:2"
+    )
+    kinds = {item["kind"] for item in parsed["predicates"]}
+    assert kinds == {
+        "no_skill_route",
+        "lineage_ok",
+        "chain_valid",
+        "no_drift",
+        "min_lineage_entries",
+    }
+
+    lineage_path = repo / "artifacts" / "capability-lineage" / "test-lineage-plane.json"
+    if lineage_path.exists():
+        lineage_path.unlink()
+
+    plane = run_lineage_plane(
+        repo,
+        "health inventory milestone",
+        (
+            "min_capabilities:5; min_primitives:3; capability_exists:repo.import-health; "
+            "capability_proved:repo.import-health; program_passes:repo.import-health; "
+            "no_skill_route; mission_plane_ok"
+        ),
+        max_steps=3,
+        absorb_ready=False,
+        grow_budget=0,
+        run_mission=True,
+        lineage_path=lineage_path,
+        timeout=240,
+    )
+    assert plane["ok"] is True, plane
+    assert plane["action"] == "lineage_plane"
+    assert plane["sovereignty"]["ok"] is True
+    assert plane["chain"]["valid"] is True
+    assert plane["chain"]["ok"] is True
+    assert plane["drift"]["drift"] is False
+    assert plane["adversarial"]["ok"] is True
+    assert plane["adversarial"]["tamper_failed_as_expected"] is True
+    assert int(plane["lineage"]["entry_count"]) >= 2
+    assert "sovereignty_certificate" in plane["lineage"]["entry_kinds"]
+    assert "continuity_seal" in plane["lineage"]["entry_kinds"]
+    assert plane["used_skill_route_discovery"] is False
+    assert lineage_path.is_file()
+
+    loaded = load_lineage_log(lineage_path)
+    chain = verify_lineage_chain(loaded)
+    assert chain["valid"] is True
+    assert chain["ok"] is True
+    assert int(loaded["entry_count"]) >= 2
+
+    drift = detect_lineage_drift(repo, loaded, timeout=60)
+    assert drift["drift"] is False
+    assert drift["no_drift"] is True
+
+    adversarial = run_lineage_adversarial_checks(loaded)
+    assert adversarial["ok"] is True
+    assert adversarial["tamper_failed_as_expected"] is True
+
+    # Unit-level: empty → append two seals → chain links parent hashes.
+    synthetic = empty_lineage_log()
+    synthetic = append_lineage_entry(
+        synthetic,
+        entry_kind="continuity_seal",
+        certificate_hash="abc",
+        goal="a",
+        claims={"sealed": True},
+        metrics={"count": 10, "proved_count": 8},
+    )
+    synthetic = append_lineage_entry(
+        synthetic,
+        entry_kind="continuity_seal",
+        certificate_hash="abc",
+        goal="b",
+        claims={"sealed": True},
+        metrics={"count": 10, "proved_count": 8},
+    )
+    assert synthetic["entries"][1]["parent_hash"] == synthetic["entries"][0]["entry_hash"]
+    assert verify_lineage_chain(synthetic)["valid"] is True
+    tmp = repo / "artifacts" / "capability-lineage" / "test-synthetic-lineage.json"
+    write_lineage_log(tmp, synthetic)
+    assert load_lineage_log(tmp)["entry_count"] == 2
+
+    env = {
+        **dict(**{k: v for k, v in __import__("os").environ.items()}),
+        "PYTHONPATH": str(repo / "src"),
+    }
+    lineage_cli = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "blackhole_agent.unbound",
+            "capability",
+            "lineage",
+            "--repo-path",
+            str(repo),
+            "--no-mission",
+            "--lineage-path",
+            str(repo / "artifacts" / "capability-lineage" / "cli-lineage.json"),
+            "--timeout-seconds",
+            "240",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=300,
+    )
+    assert lineage_cli.returncode == 0, lineage_cli.stdout + lineage_cli.stderr
+    lineage_payload = json.loads(lineage_cli.stdout)
+    assert lineage_payload["ok"] is True
+    assert lineage_payload["action"] == "lineage_plane"
+    assert lineage_payload["chain"]["valid"] is True
+
+    verify_cli = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "blackhole_agent.unbound",
+            "capability",
+            "lineage",
+            "--repo-path",
+            str(repo),
+            "--verify-only",
+            lineage_payload["lineage"]["path"],
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=120,
+    )
+    assert verify_cli.returncode == 0, verify_cli.stdout + verify_cli.stderr
+    verify_payload = json.loads(verify_cli.stdout)
+    assert verify_payload["ok"] is True
+    assert verify_payload["action"] == "verify_lineage"
+    assert verify_payload["chain"]["valid"] is True
+    assert verify_payload["chain"]["ok"] is True
+    assert verify_payload["drift"]["drift"] is False
+    assert int(verify_payload.get("entry_count") or 0) >= 2
+    # Keep path reference live for linters; ledger path is a side effect of seed.
+    assert path.name == "ledger.json"
