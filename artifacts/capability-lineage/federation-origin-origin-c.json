@@ -15,14 +15,14 @@
         "origin_id": "origin-c",
         "plane": "federation"
       },
-      "entry_hash": "26990374bf8369c179b3434c",
+      "entry_hash": "5bc9f95c8b01acf5595183ba",
       "entry_kind": "federation_origin_seed",
-      "goal": "Ship a closed risk plane over solvency: multi-solvency positions compound into deterministic hash-chained risk assessments with risk assessment digests bound to solvency roots, risk certificates, sterile rehydrate+prove, and adversarial falsification—past solvent positions without risk assessments. (honest origin-c)",
+      "goal": "stress over risk (honest origin-c)",
       "index": 0,
-      "issued_at": "2026-07-30T04:13:02.065840Z",
+      "issued_at": "2026-07-30T04:50:07.314979Z",
       "metrics": {
-        "count": 98,
-        "primitive_count": 49,
+        "count": 99,
+        "primitive_count": 50,
         "proved_count": 88,
         "proved_ratio": null
       },
@@ -44,11 +44,11 @@
         ],
         "origin_id": "origin-c"
       },
-      "entry_hash": "465f9eafcc83be256bc4e716",
+      "entry_hash": "d0fb1675c6f2166ae64a6605",
       "entry_kind": "federation_origin_seal",
-      "goal": "Ship a closed risk plane over solvency: multi-solvency positions compound into deterministic hash-chained risk assessments with risk assessment digests bound to solvency roots, risk certificates, sterile rehydrate+prove, and adversarial falsification—past solvent positions without risk assessments. (honest origin-c)",
+      "goal": "stress over risk (honest origin-c)",
       "index": 1,
-      "issued_at": "2026-07-30T04:13:02.065875Z",
+      "issued_at": "2026-07-30T04:50:07.315006Z",
       "metrics": {
         "count": 3,
         "primitive_count": null,
@@ -56,13 +56,13 @@
         "proved_ratio": null
       },
       "package_hash": "7878a785b9718369",
-      "parent_hash": "26990374bf8369c179b3434c"
+      "parent_hash": "5bc9f95c8b01acf5595183ba"
     }
   ],
   "entry_count": 2,
-  "head_hash": "465f9eafcc83be256bc4e716",
+  "head_hash": "d0fb1675c6f2166ae64a6605",
   "kind": "capability_lineage",
   "ok": true,
   "schema_version": 1,
-  "updated_at": "2026-07-30T04:13:02.066111Z"
+  "updated_at": "2026-07-30T04:50:07.315234Z"
 }

@@ -4,13 +4,13 @@
   "byzantine_count": 1,
   "certificate_count": 3,
   "certificates": {
-    "2bff7c1ab143a31b4ad85305": {
-      "certificate_hash": "2bff7c1ab143a31b4ad85305",
+    "2128083df55cb8128760d816": {
+      "certificate_hash": "2128083df55cb8128760d816",
       "kind": "finality_certificate",
       "payload": {
         "agreeing_count": 2,
         "byzantine_count": 1,
-        "certificate_hash": "2bff7c1ab143a31b4ad85305",
+        "certificate_hash": "2128083df55cb8128760d816",
         "claims": {
           "epoch_index": 2,
           "member_count": 3,
@@ -21,73 +21,39 @@
             "unbound.milestone-gate"
           ]
         },
-        "epoch_hash": "fa28d77128fe22573023fafd",
+        "epoch_hash": "0e7c441b3da8fa4b0496f7ca",
         "epoch_height": 2,
-        "goal": "Ship a closed risk plane over solvency: multi-solvency positions compound into deterministic hash-chained risk assessments with risk assessment digests bound to solvency roots, risk certificates, sterile rehydrate+prove, and adversarial falsification—past solvent positions without risk assessments. (epoch 2)",
+        "goal": "stress over risk (epoch 2)",
         "irreversible": true,
-        "issued_at": "2026-07-30T04:13:02.582767Z",
+        "issued_at": "2026-07-30T04:50:07.877085Z",
         "kind": "finality_certificate",
-        "lineage_head_hash": "e0a4cb591bcdbc5c4c0f44c5",
+        "lineage_head_hash": "d111cfbfe37723e2fd02aaa5",
         "ok": true,
         "origin_count": 3,
-        "package_hash": "8a780c2329917e7c",
-        "parent_epoch_hash": "7e4439392d5931d7a986eae5",
-        "quorum_hash": "48be9fe3b1e99c0daa4bbe30",
+        "package_hash": "1a4e2d33585e011a",
+        "parent_epoch_hash": "48b1dda078463c3a6b09fc01",
+        "quorum_hash": "87ffbcd7a8170060d16536a3",
         "schema_version": 1,
         "used_skill_route_discovery": false
       }
     },
-    "9412c2a02b5eaa628a8a2320": {
-      "certificate_hash": "9412c2a02b5eaa628a8a2320",
+    "801a6e18c0045d88cca29a2d": {
+      "certificate_hash": "801a6e18c0045d88cca29a2d",
       "payload": {
-        "certificate_hash": "9412c2a02b5eaa628a8a2320",
-        "claims": {
-          "member_count": 3,
-          "plane": "execution",
-          "state_index": 2
-        },
-        "deterministic": true,
-        "epoch_hash": "fa28d77128fe22573023fafd",
-        "epoch_height": 2,
-        "finality_certificate_hash": "2bff7c1ab143a31b4ad85305",
-        "goal": "Ship a closed risk plane over solvency: multi-solvency positions compound into deterministic hash-chained risk assessments with risk assessment digests bound to solvency roots, risk certificates, sterile rehydrate+prove, and adversarial falsification—past solvent positions without risk assessments. (state 2)",
-        "issued_at": "2026-07-30T04:13:03.059796Z",
-        "kind": "execution_certificate",
-        "lineage_head_hash": "e0a4cb591bcdbc5c4c0f44c5",
-        "member_count": 3,
-        "member_ids": [
-          "capability.ledger-inventory",
-          "repo.import-health",
-          "unbound.milestone-gate"
-        ],
-        "ok": true,
-        "package_hash": "8a780c2329917e7c",
-        "parent_state_root": "8586a252f42f7b6d1f69f033",
-        "post_finality": true,
-        "schema_version": 1,
-        "state_height": 2,
-        "state_root": "7eaf007e564e50b4e4e54d3b",
-        "used_skill_route_discovery": false
-      },
-      "state_height": 2
-    },
-    "f1e57cfdd9b67b7a738c9cf3": {
-      "certificate_hash": "f1e57cfdd9b67b7a738c9cf3",
-      "payload": {
-        "certificate_hash": "f1e57cfdd9b67b7a738c9cf3",
+        "certificate_hash": "801a6e18c0045d88cca29a2d",
         "claims": {
           "member_count": 3,
           "plane": "execution",
           "state_index": 1
         },
         "deterministic": true,
-        "epoch_hash": "7e4439392d5931d7a986eae5",
+        "epoch_hash": "48b1dda078463c3a6b09fc01",
         "epoch_height": 1,
-        "finality_certificate_hash": "14104b55f0157575343ab189",
-        "goal": "Ship a closed risk plane over solvency: multi-solvency positions compound into deterministic hash-chained risk assessments with risk assessment digests bound to solvency roots, risk certificates, sterile rehydrate+prove, and adversarial falsification—past solvent positions without risk assessments. (state 1)",
-        "issued_at": "2026-07-30T04:13:03.059716Z",
+        "finality_certificate_hash": "35264963e93651224b46f662",
+        "goal": "stress over risk (state 1)",
+        "issued_at": "2026-07-30T04:50:08.383336Z",
         "kind": "execution_certificate",
-        "lineage_head_hash": "acb2169863a200930ce0f89d",
+        "lineage_head_hash": "5e2a65bbe97fdcc44f4a931a",
         "member_count": 3,
         "member_ids": [
           "capability.ledger-inventory",
@@ -100,29 +66,63 @@
         "post_finality": true,
         "schema_version": 1,
         "state_height": 1,
-        "state_root": "8586a252f42f7b6d1f69f033",
+        "state_root": "9e21c4956ae27638532526fb",
         "used_skill_route_discovery": false
       },
       "state_height": 1
+    },
+    "977a394a9f40ac3bd2def57c": {
+      "certificate_hash": "977a394a9f40ac3bd2def57c",
+      "payload": {
+        "certificate_hash": "977a394a9f40ac3bd2def57c",
+        "claims": {
+          "member_count": 3,
+          "plane": "execution",
+          "state_index": 2
+        },
+        "deterministic": true,
+        "epoch_hash": "0e7c441b3da8fa4b0496f7ca",
+        "epoch_height": 2,
+        "finality_certificate_hash": "2128083df55cb8128760d816",
+        "goal": "stress over risk (state 2)",
+        "issued_at": "2026-07-30T04:50:08.383414Z",
+        "kind": "execution_certificate",
+        "lineage_head_hash": "d111cfbfe37723e2fd02aaa5",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "1a4e2d33585e011a",
+        "parent_state_root": "9e21c4956ae27638532526fb",
+        "post_finality": true,
+        "schema_version": 1,
+        "state_height": 2,
+        "state_root": "6c4904ee8a2ed73bf7b3a2ea",
+        "used_skill_route_discovery": false
+      },
+      "state_height": 2
     }
   },
   "deterministic": true,
   "epoch_count": 2,
   "execution_certificate": {
-    "certificate_hash": "9412c2a02b5eaa628a8a2320",
+    "certificate_hash": "977a394a9f40ac3bd2def57c",
     "claims": {
       "member_count": 3,
       "plane": "execution",
       "state_index": 2
     },
     "deterministic": true,
-    "epoch_hash": "fa28d77128fe22573023fafd",
+    "epoch_hash": "0e7c441b3da8fa4b0496f7ca",
     "epoch_height": 2,
-    "finality_certificate_hash": "2bff7c1ab143a31b4ad85305",
-    "goal": "Ship a closed risk plane over solvency: multi-solvency positions compound into deterministic hash-chained risk assessments with risk assessment digests bound to solvency roots, risk certificates, sterile rehydrate+prove, and adversarial falsification—past solvent positions without risk assessments. (state 2)",
-    "issued_at": "2026-07-30T04:13:03.059796Z",
+    "finality_certificate_hash": "2128083df55cb8128760d816",
+    "goal": "stress over risk (state 2)",
+    "issued_at": "2026-07-30T04:50:08.383414Z",
     "kind": "execution_certificate",
-    "lineage_head_hash": "e0a4cb591bcdbc5c4c0f44c5",
+    "lineage_head_hash": "d111cfbfe37723e2fd02aaa5",
     "member_count": 3,
     "member_ids": [
       "capability.ledger-inventory",
@@ -130,20 +130,20 @@
       "unbound.milestone-gate"
     ],
     "ok": true,
-    "package_hash": "8a780c2329917e7c",
-    "parent_state_root": "8586a252f42f7b6d1f69f033",
+    "package_hash": "1a4e2d33585e011a",
+    "parent_state_root": "9e21c4956ae27638532526fb",
     "post_finality": true,
     "schema_version": 1,
     "state_height": 2,
-    "state_root": "7eaf007e564e50b4e4e54d3b",
+    "state_root": "6c4904ee8a2ed73bf7b3a2ea",
     "used_skill_route_discovery": false
   },
-  "execution_hash": "a6b7e4ea22cdaa5273782943",
-  "exported_at": "2026-07-30T04:13:03.060095Z",
+  "execution_hash": "3a3e0fddc9cce5f31d7549bf",
+  "exported_at": "2026-07-30T04:50:08.383697Z",
   "finality_certificate": {
     "agreeing_count": 2,
     "byzantine_count": 1,
-    "certificate_hash": "2bff7c1ab143a31b4ad85305",
+    "certificate_hash": "2128083df55cb8128760d816",
     "claims": {
       "epoch_index": 2,
       "member_count": 3,
@@ -154,23 +154,23 @@
         "unbound.milestone-gate"
       ]
     },
-    "epoch_hash": "fa28d77128fe22573023fafd",
+    "epoch_hash": "0e7c441b3da8fa4b0496f7ca",
     "epoch_height": 2,
-    "goal": "Ship a closed risk plane over solvency: multi-solvency positions compound into deterministic hash-chained risk assessments with risk assessment digests bound to solvency roots, risk certificates, sterile rehydrate+prove, and adversarial falsification—past solvent positions without risk assessments. (epoch 2)",
+    "goal": "stress over risk (epoch 2)",
     "irreversible": true,
-    "issued_at": "2026-07-30T04:13:02.582767Z",
+    "issued_at": "2026-07-30T04:50:07.877085Z",
     "kind": "finality_certificate",
-    "lineage_head_hash": "e0a4cb591bcdbc5c4c0f44c5",
+    "lineage_head_hash": "d111cfbfe37723e2fd02aaa5",
     "ok": true,
     "origin_count": 3,
-    "package_hash": "8a780c2329917e7c",
-    "parent_epoch_hash": "7e4439392d5931d7a986eae5",
-    "quorum_hash": "48be9fe3b1e99c0daa4bbe30",
+    "package_hash": "1a4e2d33585e011a",
+    "parent_epoch_hash": "48b1dda078463c3a6b09fc01",
+    "quorum_hash": "87ffbcd7a8170060d16536a3",
     "schema_version": 1,
     "used_skill_route_discovery": false
   },
-  "finality_hash": "f688fe71a885e5f3821c0625",
-  "goal": "Ship a closed risk plane over solvency: multi-solvency positions compound into deterministic hash-chained risk assessments with risk assessment digests bound to solvency roots, risk certificates, sterile rehydrate+prove, and adversarial falsification—past solvent positions without risk assessments.",
+  "finality_hash": "c072c90d24effd618729eabe",
+  "goal": "stress over risk",
   "kind": "execution_bundle",
   "lineage": {
     "entries": [
@@ -189,7 +189,7 @@
         "detail": {
           "origins": [
             {
-              "bundle_hash": "2f48213f12de86d89837c3c3",
+              "bundle_hash": "2d7fc4a88a05af245908aa45",
               "byzantine": false,
               "lineage_entry_count": 115,
               "lineage_head_hash": "3e49bd489bc18abc67dfdd8f",
@@ -198,30 +198,30 @@
               "package_hash": "7878a785b9718369"
             },
             {
-              "bundle_hash": "948223f3005ffb9f054ba423",
+              "bundle_hash": "18c4605205fdd6191af434e2",
               "byzantine": false,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "f7ef9f8a6b994cee96245180",
+              "lineage_head_hash": "8ebbf190ac47a91f56fa5fff",
               "member_count": 2,
               "origin_id": "origin-b",
               "package_hash": "8ece9182045d973a"
             },
             {
-              "bundle_hash": "489dbd3e379dd1c8eb74eeee",
+              "bundle_hash": "8e75dfe8833e1346071411b0",
               "byzantine": true,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "465f9eafcc83be256bc4e716",
+              "lineage_head_hash": "d0fb1675c6f2166ae64a6605",
               "member_count": 3,
               "origin_id": "origin-byzantine",
               "package_hash": "7d88f7661e8407af"
             }
           ]
         },
-        "entry_hash": "629c72b29e04784ac7ff9414",
+        "entry_hash": "ea249ee46937ac66630e2728",
         "entry_kind": "quorum_origin_manifest",
-        "goal": "Ship a closed risk plane over solvency: multi-solvency positions compound into deterministic hash-chained risk assessments with risk assessment digests bound to solvency roots, risk certificates, sterile rehydrate+prove, and adversarial falsification—past solvent positions without risk assessments.",
+        "goal": "stress over risk",
         "index": 0,
-        "issued_at": "2026-07-30T04:13:02.067518Z",
+        "issued_at": "2026-07-30T04:50:07.317353Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -246,15 +246,15 @@
         "detail": {
           "origin_heads": [
             "3e49bd489bc18abc67dfdd8f",
-            "f7ef9f8a6b994cee96245180",
-            "465f9eafcc83be256bc4e716"
+            "8ebbf190ac47a91f56fa5fff",
+            "d0fb1675c6f2166ae64a6605"
           ]
         },
-        "entry_hash": "128059ebaf1b21f54227ae82",
+        "entry_hash": "81aba02ff8c87cedeb04fed7",
         "entry_kind": "quorum_vote",
-        "goal": "Ship a closed risk plane over solvency: multi-solvency positions compound into deterministic hash-chained risk assessments with risk assessment digests bound to solvency roots, risk certificates, sterile rehydrate+prove, and adversarial falsification—past solvent positions without risk assessments.",
+        "goal": "stress over risk",
         "index": 1,
-        "issued_at": "2026-07-30T04:13:02.067542Z",
+        "issued_at": "2026-07-30T04:50:07.317380Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -262,7 +262,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "629c72b29e04784ac7ff9414"
+        "parent_hash": "ea249ee46937ac66630e2728"
       },
       {
         "certificate_hash": "",
@@ -279,11 +279,11 @@
             "origin-byzantine"
           ]
         },
-        "entry_hash": "ca1fdd75a98f7a77578e2552",
+        "entry_hash": "0f60a73c28aaa8c390c5fdc2",
         "entry_kind": "quorum_byzantine_exclude",
-        "goal": "Ship a closed risk plane over solvency: multi-solvency positions compound into deterministic hash-chained risk assessments with risk assessment digests bound to solvency roots, risk certificates, sterile rehydrate+prove, and adversarial falsification—past solvent positions without risk assessments.",
+        "goal": "stress over risk",
         "index": 2,
-        "issued_at": "2026-07-30T04:13:02.067558Z",
+        "issued_at": "2026-07-30T04:50:07.317397Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -291,7 +291,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "128059ebaf1b21f54227ae82"
+        "parent_hash": "81aba02ff8c87cedeb04fed7"
       },
       {
         "certificate_hash": "",
@@ -311,16 +311,16 @@
             "origin-byzantine"
           ],
           "origin_bundle_hashes": [
-            "2f48213f12de86d89837c3c3",
-            "948223f3005ffb9f054ba423",
-            "489dbd3e379dd1c8eb74eeee"
+            "2d7fc4a88a05af245908aa45",
+            "18c4605205fdd6191af434e2",
+            "8e75dfe8833e1346071411b0"
           ]
         },
-        "entry_hash": "acb2169863a200930ce0f89d",
+        "entry_hash": "5e2a65bbe97fdcc44f4a931a",
         "entry_kind": "quorum_seal",
-        "goal": "Ship a closed risk plane over solvency: multi-solvency positions compound into deterministic hash-chained risk assessments with risk assessment digests bound to solvency roots, risk certificates, sterile rehydrate+prove, and adversarial falsification—past solvent positions without risk assessments.",
+        "goal": "stress over risk",
         "index": 3,
-        "issued_at": "2026-07-30T04:13:02.067573Z",
+        "issued_at": "2026-07-30T04:50:07.317413Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -328,23 +328,23 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "ca1fdd75a98f7a77578e2552"
+        "parent_hash": "0f60a73c28aaa8c390c5fdc2"
       },
       {
         "certificate_hash": "",
         "certificate_path": "",
         "claims": {
-          "prior_lineage_head": "acb2169863a200930ce0f89d",
+          "prior_lineage_head": "5e2a65bbe97fdcc44f4a931a",
           "prior_package_hash": "066545df3053adf5",
-          "prior_quorum_hash": "db7e1e63fbd20cd831021edb",
+          "prior_quorum_hash": "1cbf7adbecdeb86b09a81ed7",
           "progress_tag": "epoch-progress-2"
         },
         "detail": {},
-        "entry_hash": "e0a4cb591bcdbc5c4c0f44c5",
+        "entry_hash": "d111cfbfe37723e2fd02aaa5",
         "entry_kind": "finality_epoch_progress",
-        "goal": "Ship a closed risk plane over solvency: multi-solvency positions compound into deterministic hash-chained risk assessments with risk assessment digests bound to solvency roots, risk certificates, sterile rehydrate+prove, and adversarial falsification—past solvent positions without risk assessments. (progress 2)",
+        "goal": "stress over risk (progress 2)",
         "index": 4,
-        "issued_at": "2026-07-30T04:13:02.581808Z",
+        "issued_at": "2026-07-30T04:50:07.876225Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -352,17 +352,17 @@
           "proved_ratio": null
         },
         "package_hash": "",
-        "parent_hash": "acb2169863a200930ce0f89d"
+        "parent_hash": "5e2a65bbe97fdcc44f4a931a"
       }
     ],
     "entry_count": 5,
-    "head_hash": "e0a4cb591bcdbc5c4c0f44c5",
+    "head_hash": "d111cfbfe37723e2fd02aaa5",
     "kind": "capability_lineage",
     "schema_version": 1,
-    "updated_at": "2026-07-30T04:13:02.581834Z"
+    "updated_at": "2026-07-30T04:50:07.876248Z"
   },
   "lineage_entry_count": 5,
-  "lineage_head_hash": "e0a4cb591bcdbc5c4c0f44c5",
+  "lineage_head_hash": "d111cfbfe37723e2fd02aaa5",
   "member_count": 3,
   "member_ids": [
     "capability.ledger-inventory",
@@ -380,7 +380,7 @@
     "byzantine_origins": [
       "origin-byzantine"
     ],
-    "exported_at": "2026-07-30T04:13:02.067488Z",
+    "exported_at": "2026-07-30T04:50:07.317320Z",
     "federated": true,
     "member_count": 3,
     "member_ids": [
@@ -426,7 +426,7 @@
           "bootstrap",
           "compounder"
         ],
-        "updated_at": "2026-07-30T04:13:02.031952Z"
+        "updated_at": "2026-07-30T04:50:07.253948Z"
       },
       "repo.import-health": {
         "behavior_paths": [
@@ -450,7 +450,7 @@
           "bootstrap",
           "health"
         ],
-        "updated_at": "2026-07-30T04:13:02.031775Z"
+        "updated_at": "2026-07-30T04:50:07.253763Z"
       },
       "unbound.milestone-gate": {
         "behavior_paths": [
@@ -475,12 +475,12 @@
           "bootstrap",
           "unbound"
         ],
-        "updated_at": "2026-07-30T04:13:02.031875Z"
+        "updated_at": "2026-07-30T04:50:07.253868Z"
       }
     },
     "ok": true,
-    "package_hash": "8a780c2329917e7c",
-    "progress_at": "2026-07-30T04:13:02.581837Z",
+    "package_hash": "1a4e2d33585e011a",
+    "progress_at": "2026-07-30T04:50:07.876251Z",
     "progress_tag": "epoch-progress-2",
     "quorum": true,
     "quorum_threshold": 2,
@@ -493,7 +493,7 @@
     "source_ledger_path": "quorum-merge",
     "used_skill_route_discovery": false
   },
-  "package_hash": "8a780c2329917e7c",
+  "package_hash": "1a4e2d33585e011a",
   "post_finality": true,
   "schema_version": 1,
   "state_count": 2,
@@ -501,30 +501,30 @@
     "entries": [
       {
         "agreeing_count": 2,
-        "applied_at": "2026-07-30T04:13:03.059689Z",
+        "applied_at": "2026-07-30T04:50:08.383310Z",
         "byzantine_count": 1,
         "claims": {
           "plane": "execution",
           "state_index": 1
         },
         "deterministic": true,
-        "epoch_hash": "7e4439392d5931d7a986eae5",
+        "epoch_hash": "48b1dda078463c3a6b09fc01",
         "epoch_height": 1,
         "execution_certificate": {
-          "certificate_hash": "f1e57cfdd9b67b7a738c9cf3",
+          "certificate_hash": "801a6e18c0045d88cca29a2d",
           "claims": {
             "member_count": 3,
             "plane": "execution",
             "state_index": 1
           },
           "deterministic": true,
-          "epoch_hash": "7e4439392d5931d7a986eae5",
+          "epoch_hash": "48b1dda078463c3a6b09fc01",
           "epoch_height": 1,
-          "finality_certificate_hash": "14104b55f0157575343ab189",
-          "goal": "Ship a closed risk plane over solvency: multi-solvency positions compound into deterministic hash-chained risk assessments with risk assessment digests bound to solvency roots, risk certificates, sterile rehydrate+prove, and adversarial falsification—past solvent positions without risk assessments. (state 1)",
-          "issued_at": "2026-07-30T04:13:03.059716Z",
+          "finality_certificate_hash": "35264963e93651224b46f662",
+          "goal": "stress over risk (state 1)",
+          "issued_at": "2026-07-30T04:50:08.383336Z",
           "kind": "execution_certificate",
-          "lineage_head_hash": "acb2169863a200930ce0f89d",
+          "lineage_head_hash": "5e2a65bbe97fdcc44f4a931a",
           "member_count": 3,
           "member_ids": [
             "capability.ledger-inventory",
@@ -537,13 +537,13 @@
           "post_finality": true,
           "schema_version": 1,
           "state_height": 1,
-          "state_root": "8586a252f42f7b6d1f69f033",
+          "state_root": "9e21c4956ae27638532526fb",
           "used_skill_route_discovery": false
         },
-        "finality_certificate_hash": "14104b55f0157575343ab189",
-        "goal": "Ship a closed risk plane over solvency: multi-solvency positions compound into deterministic hash-chained risk assessments with risk assessment digests bound to solvency roots, risk certificates, sterile rehydrate+prove, and adversarial falsification—past solvent positions without risk assessments. (state 1)",
+        "finality_certificate_hash": "35264963e93651224b46f662",
+        "goal": "stress over risk (state 1)",
         "kind": "execution_state",
-        "lineage_head_hash": "acb2169863a200930ce0f89d",
+        "lineage_head_hash": "5e2a65bbe97fdcc44f4a931a",
         "member_count": 3,
         "member_ids": [
           "capability.ledger-inventory",
@@ -559,10 +559,10 @@
           "agreeing_count": 2,
           "applied_from": "finality_epoch",
           "byzantine_count": 1,
-          "epoch_hash": "7e4439392d5931d7a986eae5",
-          "finality_certificate_hash": "14104b55f0157575343ab189",
+          "epoch_hash": "48b1dda078463c3a6b09fc01",
+          "finality_certificate_hash": "35264963e93651224b46f662",
           "height": 1,
-          "lineage_head_hash": "acb2169863a200930ce0f89d",
+          "lineage_head_hash": "5e2a65bbe97fdcc44f4a931a",
           "member_ids": [
             "capability.ledger-inventory",
             "repo.import-health",
@@ -574,35 +574,35 @@
         },
         "schema_version": 1,
         "state_height": 1,
-        "state_root": "8586a252f42f7b6d1f69f033",
+        "state_root": "9e21c4956ae27638532526fb",
         "used_skill_route_discovery": false
       },
       {
         "agreeing_count": 2,
-        "applied_at": "2026-07-30T04:13:03.059775Z",
+        "applied_at": "2026-07-30T04:50:08.383393Z",
         "byzantine_count": 1,
         "claims": {
           "plane": "execution",
           "state_index": 2
         },
         "deterministic": true,
-        "epoch_hash": "fa28d77128fe22573023fafd",
+        "epoch_hash": "0e7c441b3da8fa4b0496f7ca",
         "epoch_height": 2,
         "execution_certificate": {
-          "certificate_hash": "9412c2a02b5eaa628a8a2320",
+          "certificate_hash": "977a394a9f40ac3bd2def57c",
           "claims": {
             "member_count": 3,
             "plane": "execution",
             "state_index": 2
           },
           "deterministic": true,
-          "epoch_hash": "fa28d77128fe22573023fafd",
+          "epoch_hash": "0e7c441b3da8fa4b0496f7ca",
           "epoch_height": 2,
-          "finality_certificate_hash": "2bff7c1ab143a31b4ad85305",
-          "goal": "Ship a closed risk plane over solvency: multi-solvency positions compound into deterministic hash-chained risk assessments with risk assessment digests bound to solvency roots, risk certificates, sterile rehydrate+prove, and adversarial falsification—past solvent positions without risk assessments. (state 2)",
-          "issued_at": "2026-07-30T04:13:03.059796Z",
+          "finality_certificate_hash": "2128083df55cb8128760d816",
+          "goal": "stress over risk (state 2)",
+          "issued_at": "2026-07-30T04:50:08.383414Z",
           "kind": "execution_certificate",
-          "lineage_head_hash": "e0a4cb591bcdbc5c4c0f44c5",
+          "lineage_head_hash": "d111cfbfe37723e2fd02aaa5",
           "member_count": 3,
           "member_ids": [
             "capability.ledger-inventory",
@@ -610,18 +610,18 @@
             "unbound.milestone-gate"
           ],
           "ok": true,
-          "package_hash": "8a780c2329917e7c",
-          "parent_state_root": "8586a252f42f7b6d1f69f033",
+          "package_hash": "1a4e2d33585e011a",
+          "parent_state_root": "9e21c4956ae27638532526fb",
           "post_finality": true,
           "schema_version": 1,
           "state_height": 2,
-          "state_root": "7eaf007e564e50b4e4e54d3b",
+          "state_root": "6c4904ee8a2ed73bf7b3a2ea",
           "used_skill_route_discovery": false
         },
-        "finality_certificate_hash": "2bff7c1ab143a31b4ad85305",
-        "goal": "Ship a closed risk plane over solvency: multi-solvency positions compound into deterministic hash-chained risk assessments with risk assessment digests bound to solvency roots, risk certificates, sterile rehydrate+prove, and adversarial falsification—past solvent positions without risk assessments. (state 2)",
+        "finality_certificate_hash": "2128083df55cb8128760d816",
+        "goal": "stress over risk (state 2)",
         "kind": "execution_state",
-        "lineage_head_hash": "e0a4cb591bcdbc5c4c0f44c5",
+        "lineage_head_hash": "d111cfbfe37723e2fd02aaa5",
         "member_count": 3,
         "member_ids": [
           "capability.ledger-inventory",
@@ -630,42 +630,42 @@
         ],
         "ok": true,
         "origin_count": 3,
-        "package_hash": "8a780c2329917e7c",
-        "parent_state_root": "8586a252f42f7b6d1f69f033",
+        "package_hash": "1a4e2d33585e011a",
+        "parent_state_root": "9e21c4956ae27638532526fb",
         "post_finality": true,
         "projection": {
           "agreeing_count": 2,
           "applied_from": "finality_epoch",
           "byzantine_count": 1,
-          "epoch_hash": "fa28d77128fe22573023fafd",
-          "finality_certificate_hash": "2bff7c1ab143a31b4ad85305",
+          "epoch_hash": "0e7c441b3da8fa4b0496f7ca",
+          "finality_certificate_hash": "2128083df55cb8128760d816",
           "height": 2,
-          "lineage_head_hash": "e0a4cb591bcdbc5c4c0f44c5",
+          "lineage_head_hash": "d111cfbfe37723e2fd02aaa5",
           "member_ids": [
             "capability.ledger-inventory",
             "repo.import-health",
             "unbound.milestone-gate"
           ],
           "origin_count": 3,
-          "package_hash": "8a780c2329917e7c",
-          "parent_state_root": "8586a252f42f7b6d1f69f033"
+          "package_hash": "1a4e2d33585e011a",
+          "parent_state_root": "9e21c4956ae27638532526fb"
         },
         "schema_version": 1,
         "state_height": 2,
-        "state_root": "7eaf007e564e50b4e4e54d3b",
+        "state_root": "6c4904ee8a2ed73bf7b3a2ea",
         "used_skill_route_discovery": false
       }
     ],
     "entry_count": 2,
     "kind": "execution_state_log",
     "schema_version": 1,
-    "tip_epoch_hash": "fa28d77128fe22573023fafd",
+    "tip_epoch_hash": "0e7c441b3da8fa4b0496f7ca",
     "tip_height": 2,
-    "tip_state_root": "7eaf007e564e50b4e4e54d3b",
-    "updated_at": "2026-07-30T04:13:03.059814Z"
+    "tip_state_root": "6c4904ee8a2ed73bf7b3a2ea",
+    "updated_at": "2026-07-30T04:50:08.383430Z"
   },
-  "tip_epoch_hash": "fa28d77128fe22573023fafd",
+  "tip_epoch_hash": "0e7c441b3da8fa4b0496f7ca",
   "tip_height": 2,
-  "tip_state_root": "7eaf007e564e50b4e4e54d3b",
+  "tip_state_root": "6c4904ee8a2ed73bf7b3a2ea",
   "used_skill_route_discovery": false
 }

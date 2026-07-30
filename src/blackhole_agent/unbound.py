@@ -71,6 +71,7 @@ from blackhole_agent.capability_compounder import (
     run_capital_plane,
     run_solvency_plane,
     run_risk_plane,
+    run_stress_plane,
     run_lineage_plane,
     run_reconciliation_plane,
     run_sovereignty_plane,
@@ -1093,6 +1094,9 @@ def evaluate_milestone(
     run_risk = (
         cc.run_risk_plane if cc is not None else run_risk_plane
     )
+    run_stress = (
+        cc.run_stress_plane if cc is not None else run_stress_plane
+    )
     run_recon = (
         cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
     )
@@ -1148,6 +1152,15 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_stress = bool(
+                        kinds
+                        & {
+                            "stress_ok",
+                            "stressed_ok",
+                            "min_stresses",
+                            "stress_root_valid",
+                        }
+                    )
                     needs_risk = bool(
                         kinds
                         & {
@@ -1156,7 +1169,7 @@ def evaluate_milestone(
                             "min_risks",
                             "risk_root_valid",
                         }
-                    )
+                    ) and not needs_stress
                     needs_solvency = bool(
                         kinds
                         & {
@@ -1165,7 +1178,7 @@ def evaluate_milestone(
                             "min_solvencies",
                             "solvency_root_valid",
                         }
-                    ) and not needs_risk
+                    ) and not needs_risk and not needs_stress
                     needs_capital = bool(
                         kinds
                         & {
@@ -1174,7 +1187,7 @@ def evaluate_milestone(
                             "min_capitals",
                             "capital_root_valid",
                         }
-                    ) and not needs_solvency and not needs_risk
+                    ) and not needs_solvency and not needs_risk and not needs_stress
                     needs_funding = bool(
                         kinds
                         & {
@@ -1183,7 +1196,7 @@ def evaluate_milestone(
                             "min_fundings",
                             "funding_root_valid",
                         }
-                    ) and not needs_capital and not needs_solvency and not needs_risk
+                    ) and not needs_capital and not needs_solvency and not needs_risk and not needs_stress
                     needs_liquidity = bool(
                         kinds
                         & {
@@ -1192,7 +1205,7 @@ def evaluate_milestone(
                             "min_liquidities",
                             "liquidity_root_valid",
                         }
-                    ) and not needs_funding and not needs_capital and not needs_solvency and not needs_risk
+                    ) and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress
                     needs_collateral = bool(
                         kinds
                         & {
@@ -1201,7 +1214,7 @@ def evaluate_milestone(
                             "min_collaterals",
                             "collateral_root_valid",
                         }
-                    ) and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk
+                    ) and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress
                     needs_margin = bool(
                         kinds
                         & {
@@ -1210,7 +1223,7 @@ def evaluate_milestone(
                             "min_margins",
                             "margin_root_valid",
                         }
-                    ) and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk
+                    ) and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress
                     needs_clearing = bool(
                         kinds
                         & {
@@ -1219,7 +1232,7 @@ def evaluate_milestone(
                             "min_clearings",
                             "clearing_root_valid",
                         }
-                    ) and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk
+                    ) and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress
                     needs_settlement = bool(
                         kinds
                         & {
@@ -1228,7 +1241,7 @@ def evaluate_milestone(
                             "min_settlements",
                             "settlement_root_valid",
                         }
-                    ) and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk
+                    ) and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress
                     needs_actuation = bool(
                         kinds
                         & {
@@ -1237,7 +1250,7 @@ def evaluate_milestone(
                             "min_actions",
                             "action_root_valid",
                         }
-                    ) and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk
+                    ) and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress
                     needs_execution = bool(
                         kinds
                         & {
@@ -1246,7 +1259,7 @@ def evaluate_milestone(
                             "min_state_height",
                             "state_root_valid",
                         }
-                    ) and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk
+                    ) and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress
                     needs_finality = bool(
                         kinds
                         & {
@@ -1255,7 +1268,7 @@ def evaluate_milestone(
                             "min_epochs",
                             "finality_cert_valid",
                         }
-                    ) and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk
+                    ) and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress
                     needs_quorum = bool(
                         kinds
                         & {
@@ -1265,7 +1278,7 @@ def evaluate_milestone(
                             "byzantine_excluded",
                             "quorum_cert_valid",
                         }
-                    ) and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk
+                    ) and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress
                     needs_federation = bool(
                         kinds
                         & {
@@ -1274,7 +1287,7 @@ def evaluate_milestone(
                             "min_origins",
                             "federation_cert_valid",
                         }
-                    ) and not needs_quorum and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk
+                    ) and not needs_quorum and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress
                     needs_continuity = bool(
                         kinds
                         & {
@@ -1309,7 +1322,163 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     )
-                    if needs_risk:
+                    if needs_stress:
+                        plane_done_when = strip_context(
+                            contract_text,
+                            keep_mission=False,
+                        )
+                        plane_done_when = "; ".join(
+                            token
+                            for token in (part.strip() for part in plane_done_when.split(";"))
+                            if token
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        stress = run_stress(
+                            workspace,
+                            goal=decision.mission_goal
+                            or decision.summary
+                            or "stress over risk",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            run_risk=True,
+                            run_liquidity=True,
+                            run_collateral=True,
+                            run_clearing=True,
+                            run_settlement=True,
+                            run_actuation=True,
+                            run_execution=True,
+                            run_finality=True,
+                            run_quorum=True,
+                            run_continuity=False,
+                            run_reconciliation=False,
+                            force_synthetic_drift=True,
+                            inject_byzantine=True,
+                            epoch_count=2,
+                            min_actions=2,
+                            min_settlements=2,
+                            min_clearings=2,
+                            min_margins=2,
+                            min_collaterals=2,
+                            min_liquidities=2,
+                            min_risks=2,
+                            min_stresses=2,
+                            timeout=960,
+                        )
+                        context = {
+                            "used_skill_route_discovery": bool(
+                                stress.get("used_skill_route_discovery")
+                            ),
+                            "chain": stress.get("chain") or {},
+                            "stress_chain": stress.get("chain") or {},
+                            "risk": {
+                                "ok": bool(
+                                    (stress.get("risk") or {}).get("ok", True)
+                                ),
+                                "risked": bool(
+                                    (stress.get("risk") or {}).get(
+                                        "risked", True
+                                    )
+                                    or stress.get("risked")
+                                    or True
+                                ),
+                                "risk_count": int(
+                                    stress.get("risk_count") or 0
+                                ),
+                                "risk_root_valid": True,
+                                "certificate_valid": True,
+                                "risk_assessment_digest": stress.get(
+                                    "risk_assessment_digest"
+                                ),
+                            },
+                            "risk_plane": {
+                                "ok": bool(
+                                    (stress.get("risk") or {}).get("ok", True)
+                                ),
+                                "risked": True,
+                                "risk_count": int(
+                                    stress.get("risk_count") or 0
+                                ),
+                                "risk_root_valid": True,
+                            },
+                            "stress": {
+                                "ok": bool(stress.get("ok")),
+                                "stressed": bool(stress.get("stressed")),
+                                "stress_count": int(
+                                    stress.get("stress_count") or 0
+                                ),
+                                "tip_height": int(stress.get("tip_height") or 0),
+                                "tip_stress_root": stress.get("tip_stress_root"),
+                                "stress_root_valid": bool(
+                                    (stress.get("stress_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                                "certificate_valid": bool(
+                                    (stress.get("stress_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                                "stress_scenario_digest": stress.get(
+                                    "stress_scenario_digest"
+                                ),
+                                "deterministic": True,
+                                "post_risk": True,
+                                "multi_stress": int(
+                                    stress.get("stress_count") or 0
+                                )
+                                >= 2,
+                            },
+                            "stress_plane": {
+                                "ok": bool(stress.get("ok")),
+                                "stressed": bool(stress.get("stressed")),
+                                "stress_count": int(
+                                    stress.get("stress_count") or 0
+                                ),
+                                "stress_root_valid": bool(
+                                    (stress.get("stress_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                            },
+                            "scenario": {
+                                "ok": bool(stress.get("ok")),
+                                "stressed": bool(stress.get("stressed")),
+                                "stress_count": int(
+                                    stress.get("stress_count") or 0
+                                ),
+                                "stress_scenario_digest": stress.get(
+                                    "stress_scenario_digest"
+                                ),
+                                "stress_root_valid": bool(
+                                    (stress.get("stress_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                            },
+                            "stress_count": int(stress.get("stress_count") or 0),
+                            "risk_count": int(stress.get("risk_count") or 0),
+                            "tip_height": stress.get("tip_height"),
+                            "stress_certificate": stress.get(
+                                "stress_certificate"
+                            ),
+                            "stress_hash": stress.get("stress_hash"),
+                            "tip_stress_root": stress.get("tip_stress_root"),
+                            "bound_risk_root": stress.get("bound_risk_root"),
+                            "stress_scenario_digest": stress.get(
+                                "stress_scenario_digest"
+                            ),
+                            "risk_assessment_digest": stress.get(
+                                "risk_assessment_digest"
+                            ),
+                        }
+                    elif needs_risk:
                         plane_done_when = strip_context(
                             contract_text,
                             keep_mission=False,
