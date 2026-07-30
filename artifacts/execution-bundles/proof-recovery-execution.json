@@ -4,13 +4,47 @@
   "byzantine_count": 1,
   "certificate_count": 3,
   "certificates": {
-    "2ae361c49841c95a4506c5f0": {
-      "certificate_hash": "2ae361c49841c95a4506c5f0",
+    "0b932a72c82948b9415323d6": {
+      "certificate_hash": "0b932a72c82948b9415323d6",
+      "payload": {
+        "certificate_hash": "0b932a72c82948b9415323d6",
+        "claims": {
+          "member_count": 3,
+          "plane": "execution",
+          "state_index": 2
+        },
+        "deterministic": true,
+        "epoch_hash": "a191fdf4fe81e885bbc7bc38",
+        "epoch_height": 2,
+        "finality_certificate_hash": "94badf487bce79186d393b2d",
+        "goal": "recovery over resilience (state 2)",
+        "issued_at": "2026-07-30T08:02:48.359253Z",
+        "kind": "execution_certificate",
+        "lineage_head_hash": "468a884d8babc7d1765e27af",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "e98175f9ba43739b",
+        "parent_state_root": "de8d2d1c169748acf07b33d8",
+        "post_finality": true,
+        "schema_version": 1,
+        "state_height": 2,
+        "state_root": "b98f7410b927d9c1cae6e1ca",
+        "used_skill_route_discovery": false
+      },
+      "state_height": 2
+    },
+    "94badf487bce79186d393b2d": {
+      "certificate_hash": "94badf487bce79186d393b2d",
       "kind": "finality_certificate",
       "payload": {
         "agreeing_count": 2,
         "byzantine_count": 1,
-        "certificate_hash": "2ae361c49841c95a4506c5f0",
+        "certificate_hash": "94badf487bce79186d393b2d",
         "claims": {
           "epoch_index": 2,
           "member_count": 3,
@@ -21,73 +55,39 @@
             "unbound.milestone-gate"
           ]
         },
-        "epoch_hash": "b9e130f45174bdb6c3ee6c05",
+        "epoch_hash": "a191fdf4fe81e885bbc7bc38",
         "epoch_height": 2,
         "goal": "recovery over resilience (epoch 2)",
         "irreversible": true,
-        "issued_at": "2026-07-30T06:10:48.077855Z",
+        "issued_at": "2026-07-30T08:02:47.861589Z",
         "kind": "finality_certificate",
-        "lineage_head_hash": "6b5acee8482acfceaa2c484a",
+        "lineage_head_hash": "468a884d8babc7d1765e27af",
         "ok": true,
         "origin_count": 3,
-        "package_hash": "cc748e9355824209",
-        "parent_epoch_hash": "c592f92742be72ec629dabe7",
-        "quorum_hash": "22c6d039a9c08fc369013624",
+        "package_hash": "e98175f9ba43739b",
+        "parent_epoch_hash": "f9ef1c83335b935b9093f3d3",
+        "quorum_hash": "99f2aa85877386baab81c2a1",
         "schema_version": 1,
         "used_skill_route_discovery": false
       }
     },
-    "7812547f3bfbef696970f0a5": {
-      "certificate_hash": "7812547f3bfbef696970f0a5",
+    "c99b856c471129a97bd6f384": {
+      "certificate_hash": "c99b856c471129a97bd6f384",
       "payload": {
-        "certificate_hash": "7812547f3bfbef696970f0a5",
-        "claims": {
-          "member_count": 3,
-          "plane": "execution",
-          "state_index": 2
-        },
-        "deterministic": true,
-        "epoch_hash": "b9e130f45174bdb6c3ee6c05",
-        "epoch_height": 2,
-        "finality_certificate_hash": "2ae361c49841c95a4506c5f0",
-        "goal": "recovery over resilience (state 2)",
-        "issued_at": "2026-07-30T06:10:48.633272Z",
-        "kind": "execution_certificate",
-        "lineage_head_hash": "6b5acee8482acfceaa2c484a",
-        "member_count": 3,
-        "member_ids": [
-          "capability.ledger-inventory",
-          "repo.import-health",
-          "unbound.milestone-gate"
-        ],
-        "ok": true,
-        "package_hash": "cc748e9355824209",
-        "parent_state_root": "a9e33a2f54454a16e49888ca",
-        "post_finality": true,
-        "schema_version": 1,
-        "state_height": 2,
-        "state_root": "17229f50f50a76e8e90064dd",
-        "used_skill_route_discovery": false
-      },
-      "state_height": 2
-    },
-    "bcca5a3fee96a2dc34730e3f": {
-      "certificate_hash": "bcca5a3fee96a2dc34730e3f",
-      "payload": {
-        "certificate_hash": "bcca5a3fee96a2dc34730e3f",
+        "certificate_hash": "c99b856c471129a97bd6f384",
         "claims": {
           "member_count": 3,
           "plane": "execution",
           "state_index": 1
         },
         "deterministic": true,
-        "epoch_hash": "c592f92742be72ec629dabe7",
+        "epoch_hash": "f9ef1c83335b935b9093f3d3",
         "epoch_height": 1,
-        "finality_certificate_hash": "8e3216fa18b765bb4d51b60d",
+        "finality_certificate_hash": "c9a54263403ee266e3aec0ce",
         "goal": "recovery over resilience (state 1)",
-        "issued_at": "2026-07-30T06:10:48.633165Z",
+        "issued_at": "2026-07-30T08:02:48.359175Z",
         "kind": "execution_certificate",
-        "lineage_head_hash": "9ed5e0643b5de5e5dcc5775e",
+        "lineage_head_hash": "8cdf3f572cb9074477e2ee88",
         "member_count": 3,
         "member_ids": [
           "capability.ledger-inventory",
@@ -100,7 +100,7 @@
         "post_finality": true,
         "schema_version": 1,
         "state_height": 1,
-        "state_root": "a9e33a2f54454a16e49888ca",
+        "state_root": "de8d2d1c169748acf07b33d8",
         "used_skill_route_discovery": false
       },
       "state_height": 1
@@ -109,20 +109,20 @@
   "deterministic": true,
   "epoch_count": 2,
   "execution_certificate": {
-    "certificate_hash": "7812547f3bfbef696970f0a5",
+    "certificate_hash": "0b932a72c82948b9415323d6",
     "claims": {
       "member_count": 3,
       "plane": "execution",
       "state_index": 2
     },
     "deterministic": true,
-    "epoch_hash": "b9e130f45174bdb6c3ee6c05",
+    "epoch_hash": "a191fdf4fe81e885bbc7bc38",
     "epoch_height": 2,
-    "finality_certificate_hash": "2ae361c49841c95a4506c5f0",
+    "finality_certificate_hash": "94badf487bce79186d393b2d",
     "goal": "recovery over resilience (state 2)",
-    "issued_at": "2026-07-30T06:10:48.633272Z",
+    "issued_at": "2026-07-30T08:02:48.359253Z",
     "kind": "execution_certificate",
-    "lineage_head_hash": "6b5acee8482acfceaa2c484a",
+    "lineage_head_hash": "468a884d8babc7d1765e27af",
     "member_count": 3,
     "member_ids": [
       "capability.ledger-inventory",
@@ -130,20 +130,20 @@
       "unbound.milestone-gate"
     ],
     "ok": true,
-    "package_hash": "cc748e9355824209",
-    "parent_state_root": "a9e33a2f54454a16e49888ca",
+    "package_hash": "e98175f9ba43739b",
+    "parent_state_root": "de8d2d1c169748acf07b33d8",
     "post_finality": true,
     "schema_version": 1,
     "state_height": 2,
-    "state_root": "17229f50f50a76e8e90064dd",
+    "state_root": "b98f7410b927d9c1cae6e1ca",
     "used_skill_route_discovery": false
   },
-  "execution_hash": "7f554ca52186fc40960ad6d2",
-  "exported_at": "2026-07-30T06:10:48.633579Z",
+  "execution_hash": "dedb2a8cf3951e16a9c7287e",
+  "exported_at": "2026-07-30T08:02:48.359535Z",
   "finality_certificate": {
     "agreeing_count": 2,
     "byzantine_count": 1,
-    "certificate_hash": "2ae361c49841c95a4506c5f0",
+    "certificate_hash": "94badf487bce79186d393b2d",
     "claims": {
       "epoch_index": 2,
       "member_count": 3,
@@ -154,22 +154,22 @@
         "unbound.milestone-gate"
       ]
     },
-    "epoch_hash": "b9e130f45174bdb6c3ee6c05",
+    "epoch_hash": "a191fdf4fe81e885bbc7bc38",
     "epoch_height": 2,
     "goal": "recovery over resilience (epoch 2)",
     "irreversible": true,
-    "issued_at": "2026-07-30T06:10:48.077855Z",
+    "issued_at": "2026-07-30T08:02:47.861589Z",
     "kind": "finality_certificate",
-    "lineage_head_hash": "6b5acee8482acfceaa2c484a",
+    "lineage_head_hash": "468a884d8babc7d1765e27af",
     "ok": true,
     "origin_count": 3,
-    "package_hash": "cc748e9355824209",
-    "parent_epoch_hash": "c592f92742be72ec629dabe7",
-    "quorum_hash": "22c6d039a9c08fc369013624",
+    "package_hash": "e98175f9ba43739b",
+    "parent_epoch_hash": "f9ef1c83335b935b9093f3d3",
+    "quorum_hash": "99f2aa85877386baab81c2a1",
     "schema_version": 1,
     "used_skill_route_discovery": false
   },
-  "finality_hash": "52034a73f5ff9edd0ff1194d",
+  "finality_hash": "8fdba52c5741a66090967f9a",
   "goal": "recovery over resilience",
   "kind": "execution_bundle",
   "lineage": {
@@ -189,7 +189,7 @@
         "detail": {
           "origins": [
             {
-              "bundle_hash": "4e727b6c0584eba6df304e7a",
+              "bundle_hash": "2384ccc8493b1438843760ea",
               "byzantine": false,
               "lineage_entry_count": 2,
               "lineage_head_hash": "38d02af59b191a373c45a98f",
@@ -198,30 +198,30 @@
               "package_hash": "7878a785b9718369"
             },
             {
-              "bundle_hash": "e8cd8ad843a00cca5bdc4bbb",
+              "bundle_hash": "d52c9a6288c0786639c45cae",
               "byzantine": false,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "9bf4553dcf4fed130e8145a1",
+              "lineage_head_hash": "5bfea6f9135c322b28045890",
               "member_count": 2,
               "origin_id": "origin-b",
               "package_hash": "8ece9182045d973a"
             },
             {
-              "bundle_hash": "3bba12f19a66527fd74e7902",
+              "bundle_hash": "7d75deb3c08689d91bfe7ff9",
               "byzantine": true,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "f0808904843ceab871561c13",
+              "lineage_head_hash": "ae81af8319585d81510d7de6",
               "member_count": 3,
               "origin_id": "origin-byzantine",
               "package_hash": "7d88f7661e8407af"
             }
           ]
         },
-        "entry_hash": "2c200e291711ca4d05efed9c",
+        "entry_hash": "71b1e5ee383f40e251d73c49",
         "entry_kind": "quorum_origin_manifest",
         "goal": "recovery over resilience",
         "index": 0,
-        "issued_at": "2026-07-30T06:10:47.548782Z",
+        "issued_at": "2026-07-30T08:02:47.349908Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -246,15 +246,15 @@
         "detail": {
           "origin_heads": [
             "38d02af59b191a373c45a98f",
-            "9bf4553dcf4fed130e8145a1",
-            "f0808904843ceab871561c13"
+            "5bfea6f9135c322b28045890",
+            "ae81af8319585d81510d7de6"
           ]
         },
-        "entry_hash": "cae1a7a76403da06c41fb9f9",
+        "entry_hash": "132a2892ac27dd267dd2e643",
         "entry_kind": "quorum_vote",
         "goal": "recovery over resilience",
         "index": 1,
-        "issued_at": "2026-07-30T06:10:47.548809Z",
+        "issued_at": "2026-07-30T08:02:47.349931Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -262,7 +262,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "2c200e291711ca4d05efed9c"
+        "parent_hash": "71b1e5ee383f40e251d73c49"
       },
       {
         "certificate_hash": "",
@@ -279,11 +279,11 @@
             "origin-byzantine"
           ]
         },
-        "entry_hash": "6320d1c619a3ebbe43d002c6",
+        "entry_hash": "747aa0e2bd413b0a3e3cbb9f",
         "entry_kind": "quorum_byzantine_exclude",
         "goal": "recovery over resilience",
         "index": 2,
-        "issued_at": "2026-07-30T06:10:47.548826Z",
+        "issued_at": "2026-07-30T08:02:47.349946Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -291,7 +291,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "cae1a7a76403da06c41fb9f9"
+        "parent_hash": "132a2892ac27dd267dd2e643"
       },
       {
         "certificate_hash": "",
@@ -311,16 +311,16 @@
             "origin-byzantine"
           ],
           "origin_bundle_hashes": [
-            "4e727b6c0584eba6df304e7a",
-            "e8cd8ad843a00cca5bdc4bbb",
-            "3bba12f19a66527fd74e7902"
+            "2384ccc8493b1438843760ea",
+            "d52c9a6288c0786639c45cae",
+            "7d75deb3c08689d91bfe7ff9"
           ]
         },
-        "entry_hash": "9ed5e0643b5de5e5dcc5775e",
+        "entry_hash": "8cdf3f572cb9074477e2ee88",
         "entry_kind": "quorum_seal",
         "goal": "recovery over resilience",
         "index": 3,
-        "issued_at": "2026-07-30T06:10:47.548841Z",
+        "issued_at": "2026-07-30T08:02:47.349960Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -328,23 +328,23 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "6320d1c619a3ebbe43d002c6"
+        "parent_hash": "747aa0e2bd413b0a3e3cbb9f"
       },
       {
         "certificate_hash": "",
         "certificate_path": "",
         "claims": {
-          "prior_lineage_head": "9ed5e0643b5de5e5dcc5775e",
+          "prior_lineage_head": "8cdf3f572cb9074477e2ee88",
           "prior_package_hash": "066545df3053adf5",
-          "prior_quorum_hash": "534b9a3452285bfa3f34d547",
+          "prior_quorum_hash": "9aed260577171c156f177610",
           "progress_tag": "epoch-progress-2"
         },
         "detail": {},
-        "entry_hash": "6b5acee8482acfceaa2c484a",
+        "entry_hash": "468a884d8babc7d1765e27af",
         "entry_kind": "finality_epoch_progress",
         "goal": "recovery over resilience (progress 2)",
         "index": 4,
-        "issued_at": "2026-07-30T06:10:48.077444Z",
+        "issued_at": "2026-07-30T08:02:47.861157Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -352,17 +352,17 @@
           "proved_ratio": null
         },
         "package_hash": "",
-        "parent_hash": "9ed5e0643b5de5e5dcc5775e"
+        "parent_hash": "8cdf3f572cb9074477e2ee88"
       }
     ],
     "entry_count": 5,
-    "head_hash": "6b5acee8482acfceaa2c484a",
+    "head_hash": "468a884d8babc7d1765e27af",
     "kind": "capability_lineage",
     "schema_version": 1,
-    "updated_at": "2026-07-30T06:10:48.077463Z"
+    "updated_at": "2026-07-30T08:02:47.861175Z"
   },
   "lineage_entry_count": 5,
-  "lineage_head_hash": "6b5acee8482acfceaa2c484a",
+  "lineage_head_hash": "468a884d8babc7d1765e27af",
   "member_count": 3,
   "member_ids": [
     "capability.ledger-inventory",
@@ -380,7 +380,7 @@
     "byzantine_origins": [
       "origin-byzantine"
     ],
-    "exported_at": "2026-07-30T06:10:47.548743Z",
+    "exported_at": "2026-07-30T08:02:47.349878Z",
     "federated": true,
     "member_count": 3,
     "member_ids": [
@@ -426,7 +426,7 @@
           "bootstrap",
           "compounder"
         ],
-        "updated_at": "2026-07-30T06:10:47.517823Z"
+        "updated_at": "2026-07-30T08:02:47.319036Z"
       },
       "repo.import-health": {
         "behavior_paths": [
@@ -450,7 +450,7 @@
           "bootstrap",
           "health"
         ],
-        "updated_at": "2026-07-30T06:10:47.517620Z"
+        "updated_at": "2026-07-30T08:02:47.318805Z"
       },
       "unbound.milestone-gate": {
         "behavior_paths": [
@@ -475,12 +475,12 @@
           "bootstrap",
           "unbound"
         ],
-        "updated_at": "2026-07-30T06:10:47.517735Z"
+        "updated_at": "2026-07-30T08:02:47.318934Z"
       }
     },
     "ok": true,
-    "package_hash": "cc748e9355824209",
-    "progress_at": "2026-07-30T06:10:48.077465Z",
+    "package_hash": "e98175f9ba43739b",
+    "progress_at": "2026-07-30T08:02:47.861177Z",
     "progress_tag": "epoch-progress-2",
     "quorum": true,
     "quorum_threshold": 2,
@@ -493,7 +493,7 @@
     "source_ledger_path": "quorum-merge",
     "used_skill_route_discovery": false
   },
-  "package_hash": "cc748e9355824209",
+  "package_hash": "e98175f9ba43739b",
   "post_finality": true,
   "schema_version": 1,
   "state_count": 2,
@@ -501,30 +501,30 @@
     "entries": [
       {
         "agreeing_count": 2,
-        "applied_at": "2026-07-30T06:10:48.633138Z",
+        "applied_at": "2026-07-30T08:02:48.359150Z",
         "byzantine_count": 1,
         "claims": {
           "plane": "execution",
           "state_index": 1
         },
         "deterministic": true,
-        "epoch_hash": "c592f92742be72ec629dabe7",
+        "epoch_hash": "f9ef1c83335b935b9093f3d3",
         "epoch_height": 1,
         "execution_certificate": {
-          "certificate_hash": "bcca5a3fee96a2dc34730e3f",
+          "certificate_hash": "c99b856c471129a97bd6f384",
           "claims": {
             "member_count": 3,
             "plane": "execution",
             "state_index": 1
           },
           "deterministic": true,
-          "epoch_hash": "c592f92742be72ec629dabe7",
+          "epoch_hash": "f9ef1c83335b935b9093f3d3",
           "epoch_height": 1,
-          "finality_certificate_hash": "8e3216fa18b765bb4d51b60d",
+          "finality_certificate_hash": "c9a54263403ee266e3aec0ce",
           "goal": "recovery over resilience (state 1)",
-          "issued_at": "2026-07-30T06:10:48.633165Z",
+          "issued_at": "2026-07-30T08:02:48.359175Z",
           "kind": "execution_certificate",
-          "lineage_head_hash": "9ed5e0643b5de5e5dcc5775e",
+          "lineage_head_hash": "8cdf3f572cb9074477e2ee88",
           "member_count": 3,
           "member_ids": [
             "capability.ledger-inventory",
@@ -537,13 +537,13 @@
           "post_finality": true,
           "schema_version": 1,
           "state_height": 1,
-          "state_root": "a9e33a2f54454a16e49888ca",
+          "state_root": "de8d2d1c169748acf07b33d8",
           "used_skill_route_discovery": false
         },
-        "finality_certificate_hash": "8e3216fa18b765bb4d51b60d",
+        "finality_certificate_hash": "c9a54263403ee266e3aec0ce",
         "goal": "recovery over resilience (state 1)",
         "kind": "execution_state",
-        "lineage_head_hash": "9ed5e0643b5de5e5dcc5775e",
+        "lineage_head_hash": "8cdf3f572cb9074477e2ee88",
         "member_count": 3,
         "member_ids": [
           "capability.ledger-inventory",
@@ -559,10 +559,10 @@
           "agreeing_count": 2,
           "applied_from": "finality_epoch",
           "byzantine_count": 1,
-          "epoch_hash": "c592f92742be72ec629dabe7",
-          "finality_certificate_hash": "8e3216fa18b765bb4d51b60d",
+          "epoch_hash": "f9ef1c83335b935b9093f3d3",
+          "finality_certificate_hash": "c9a54263403ee266e3aec0ce",
           "height": 1,
-          "lineage_head_hash": "9ed5e0643b5de5e5dcc5775e",
+          "lineage_head_hash": "8cdf3f572cb9074477e2ee88",
           "member_ids": [
             "capability.ledger-inventory",
             "repo.import-health",
@@ -574,35 +574,35 @@
         },
         "schema_version": 1,
         "state_height": 1,
-        "state_root": "a9e33a2f54454a16e49888ca",
+        "state_root": "de8d2d1c169748acf07b33d8",
         "used_skill_route_discovery": false
       },
       {
         "agreeing_count": 2,
-        "applied_at": "2026-07-30T06:10:48.633225Z",
+        "applied_at": "2026-07-30T08:02:48.359231Z",
         "byzantine_count": 1,
         "claims": {
           "plane": "execution",
           "state_index": 2
         },
         "deterministic": true,
-        "epoch_hash": "b9e130f45174bdb6c3ee6c05",
+        "epoch_hash": "a191fdf4fe81e885bbc7bc38",
         "epoch_height": 2,
         "execution_certificate": {
-          "certificate_hash": "7812547f3bfbef696970f0a5",
+          "certificate_hash": "0b932a72c82948b9415323d6",
           "claims": {
             "member_count": 3,
             "plane": "execution",
             "state_index": 2
           },
           "deterministic": true,
-          "epoch_hash": "b9e130f45174bdb6c3ee6c05",
+          "epoch_hash": "a191fdf4fe81e885bbc7bc38",
           "epoch_height": 2,
-          "finality_certificate_hash": "2ae361c49841c95a4506c5f0",
+          "finality_certificate_hash": "94badf487bce79186d393b2d",
           "goal": "recovery over resilience (state 2)",
-          "issued_at": "2026-07-30T06:10:48.633272Z",
+          "issued_at": "2026-07-30T08:02:48.359253Z",
           "kind": "execution_certificate",
-          "lineage_head_hash": "6b5acee8482acfceaa2c484a",
+          "lineage_head_hash": "468a884d8babc7d1765e27af",
           "member_count": 3,
           "member_ids": [
             "capability.ledger-inventory",
@@ -610,18 +610,18 @@
             "unbound.milestone-gate"
           ],
           "ok": true,
-          "package_hash": "cc748e9355824209",
-          "parent_state_root": "a9e33a2f54454a16e49888ca",
+          "package_hash": "e98175f9ba43739b",
+          "parent_state_root": "de8d2d1c169748acf07b33d8",
           "post_finality": true,
           "schema_version": 1,
           "state_height": 2,
-          "state_root": "17229f50f50a76e8e90064dd",
+          "state_root": "b98f7410b927d9c1cae6e1ca",
           "used_skill_route_discovery": false
         },
-        "finality_certificate_hash": "2ae361c49841c95a4506c5f0",
+        "finality_certificate_hash": "94badf487bce79186d393b2d",
         "goal": "recovery over resilience (state 2)",
         "kind": "execution_state",
-        "lineage_head_hash": "6b5acee8482acfceaa2c484a",
+        "lineage_head_hash": "468a884d8babc7d1765e27af",
         "member_count": 3,
         "member_ids": [
           "capability.ledger-inventory",
@@ -630,42 +630,42 @@
         ],
         "ok": true,
         "origin_count": 3,
-        "package_hash": "cc748e9355824209",
-        "parent_state_root": "a9e33a2f54454a16e49888ca",
+        "package_hash": "e98175f9ba43739b",
+        "parent_state_root": "de8d2d1c169748acf07b33d8",
         "post_finality": true,
         "projection": {
           "agreeing_count": 2,
           "applied_from": "finality_epoch",
           "byzantine_count": 1,
-          "epoch_hash": "b9e130f45174bdb6c3ee6c05",
-          "finality_certificate_hash": "2ae361c49841c95a4506c5f0",
+          "epoch_hash": "a191fdf4fe81e885bbc7bc38",
+          "finality_certificate_hash": "94badf487bce79186d393b2d",
           "height": 2,
-          "lineage_head_hash": "6b5acee8482acfceaa2c484a",
+          "lineage_head_hash": "468a884d8babc7d1765e27af",
           "member_ids": [
             "capability.ledger-inventory",
             "repo.import-health",
             "unbound.milestone-gate"
           ],
           "origin_count": 3,
-          "package_hash": "cc748e9355824209",
-          "parent_state_root": "a9e33a2f54454a16e49888ca"
+          "package_hash": "e98175f9ba43739b",
+          "parent_state_root": "de8d2d1c169748acf07b33d8"
         },
         "schema_version": 1,
         "state_height": 2,
-        "state_root": "17229f50f50a76e8e90064dd",
+        "state_root": "b98f7410b927d9c1cae6e1ca",
         "used_skill_route_discovery": false
       }
     ],
     "entry_count": 2,
     "kind": "execution_state_log",
     "schema_version": 1,
-    "tip_epoch_hash": "b9e130f45174bdb6c3ee6c05",
+    "tip_epoch_hash": "a191fdf4fe81e885bbc7bc38",
     "tip_height": 2,
-    "tip_state_root": "17229f50f50a76e8e90064dd",
-    "updated_at": "2026-07-30T06:10:48.633290Z"
+    "tip_state_root": "b98f7410b927d9c1cae6e1ca",
+    "updated_at": "2026-07-30T08:02:48.359269Z"
   },
-  "tip_epoch_hash": "b9e130f45174bdb6c3ee6c05",
+  "tip_epoch_hash": "a191fdf4fe81e885bbc7bc38",
   "tip_height": 2,
-  "tip_state_root": "17229f50f50a76e8e90064dd",
+  "tip_state_root": "b98f7410b927d9c1cae6e1ca",
   "used_skill_route_discovery": false
 }

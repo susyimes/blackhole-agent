@@ -1,0 +1,29 @@
+{
+  "agreeing_count": 2,
+  "byzantine_count": 1,
+  "certificate_hash": "48ee126f94f7e2df2cf055d6",
+  "claims": {
+    "epoch_index": 2,
+    "member_count": 3,
+    "plane": "finality",
+    "roots": [
+      "repo.import-health",
+      "capability.ledger-inventory",
+      "unbound.milestone-gate"
+    ]
+  },
+  "epoch_hash": "6cb0c5e2403bc9842711ddb6",
+  "epoch_height": 2,
+  "goal": "Ship a closed restructuring plane over resolution: multi-resolution orders into deterministic hash-chained restructuring orders with plan digests bound to resolution roots, restructuring certificates, sterile rehydrate+prove, and adversarial falsification—invocable as capability.restructuring-plane without skill-route discovery. (epoch 2)",
+  "irreversible": true,
+  "issued_at": "2026-07-30T08:04:31.081855Z",
+  "kind": "finality_certificate",
+  "lineage_head_hash": "03bc47f753217dd97843cc07",
+  "ok": true,
+  "origin_count": 3,
+  "package_hash": "d6ff279ba658c98b",
+  "parent_epoch_hash": "f2f7a07a62f21baf1e760ff3",
+  "quorum_hash": "f8abe8e4555852470ef8f43b",
+  "schema_version": 1,
+  "used_skill_route_discovery": false
+}

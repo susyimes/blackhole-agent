@@ -1,0 +1,207 @@
+{
+  "bound_state_height": 2,
+  "bound_state_root": "f3defb52df4bc2f31e3ce57d",
+  "entries": [
+    {
+      "action_height": 1,
+      "action_root": "69e8b2303923c03584e6b549",
+      "actuation_certificate": {
+        "action_height": 1,
+        "action_root": "69e8b2303923c03584e6b549",
+        "bound_state_height": 2,
+        "bound_state_root": "f3defb52df4bc2f31e3ce57d",
+        "certificate_hash": "ee51b3dc1634bcaba7078109",
+        "claims": {
+          "action_index": 1,
+          "capability_id": "capability.ledger-inventory",
+          "effect": "prove",
+          "plane": "actuation"
+        },
+        "deterministic": true,
+        "effect_count": 1,
+        "execution_certificate_hash": "d262bcb49b61d80919fb32f1",
+        "execution_hash": "df6504560141df5163ad085e",
+        "goal": "restructuring over resolution (action 1)",
+        "issued_at": "2026-07-30T08:01:20.253196Z",
+        "kind": "actuation_certificate",
+        "lineage_head_hash": "f41af7cdfbbd163c5602ae31",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "7f6ac82743d5ec0c",
+        "parent_action_root": "",
+        "post_execution": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false
+      },
+      "applied_at": "2026-07-30T08:01:20.253177Z",
+      "bound_state_height": 2,
+      "bound_state_root": "f3defb52df4bc2f31e3ce57d",
+      "capability_id": "capability.ledger-inventory",
+      "claims": {
+        "action_index": 1,
+        "plane": "actuation"
+      },
+      "deterministic": true,
+      "effect": "prove",
+      "effect_digest": "953e586325fdf8b3773427bb",
+      "entry": "blackhole_agent.capability_compounder:builtin_ledger_inventory",
+      "execution_certificate_hash": "d262bcb49b61d80919fb32f1",
+      "execution_hash": "df6504560141df5163ad085e",
+      "goal": "restructuring over resolution (action 1)",
+      "kind": "actuation_action",
+      "lineage_head_hash": "f41af7cdfbbd163c5602ae31",
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "package_hash": "7f6ac82743d5ec0c",
+      "parent_action_root": "",
+      "post_execution": true,
+      "schema_version": 1,
+      "used_skill_route_discovery": false
+    },
+    {
+      "action_height": 2,
+      "action_root": "b48d6cfb13e902fabd4f8cdc",
+      "actuation_certificate": {
+        "action_height": 2,
+        "action_root": "b48d6cfb13e902fabd4f8cdc",
+        "bound_state_height": 2,
+        "bound_state_root": "f3defb52df4bc2f31e3ce57d",
+        "certificate_hash": "6823bdcea1175e625c646249",
+        "claims": {
+          "action_index": 2,
+          "capability_id": "repo.import-health",
+          "effect": "prove",
+          "plane": "actuation"
+        },
+        "deterministic": true,
+        "effect_count": 2,
+        "execution_certificate_hash": "d262bcb49b61d80919fb32f1",
+        "execution_hash": "df6504560141df5163ad085e",
+        "goal": "restructuring over resolution (action 2)",
+        "issued_at": "2026-07-30T08:01:20.253264Z",
+        "kind": "actuation_certificate",
+        "lineage_head_hash": "f41af7cdfbbd163c5602ae31",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "7f6ac82743d5ec0c",
+        "parent_action_root": "69e8b2303923c03584e6b549",
+        "post_execution": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false
+      },
+      "applied_at": "2026-07-30T08:01:20.253249Z",
+      "bound_state_height": 2,
+      "bound_state_root": "f3defb52df4bc2f31e3ce57d",
+      "capability_id": "repo.import-health",
+      "claims": {
+        "action_index": 2,
+        "plane": "actuation"
+      },
+      "deterministic": true,
+      "effect": "prove",
+      "effect_digest": "29ab93d942a6c3ebf1e17c58",
+      "entry": "blackhole_agent.capability_compounder:builtin_repo_import_health",
+      "execution_certificate_hash": "d262bcb49b61d80919fb32f1",
+      "execution_hash": "df6504560141df5163ad085e",
+      "goal": "restructuring over resolution (action 2)",
+      "kind": "actuation_action",
+      "lineage_head_hash": "f41af7cdfbbd163c5602ae31",
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "package_hash": "7f6ac82743d5ec0c",
+      "parent_action_root": "69e8b2303923c03584e6b549",
+      "post_execution": true,
+      "schema_version": 1,
+      "used_skill_route_discovery": false
+    },
+    {
+      "action_height": 3,
+      "action_root": "f8e8b04c19385adea0c6e0c7",
+      "actuation_certificate": {
+        "action_height": 3,
+        "action_root": "f8e8b04c19385adea0c6e0c7",
+        "bound_state_height": 2,
+        "bound_state_root": "f3defb52df4bc2f31e3ce57d",
+        "certificate_hash": "fd7eb4372d97a18a7fb77bde",
+        "claims": {
+          "action_index": 3,
+          "capability_id": "unbound.milestone-gate",
+          "effect": "prove",
+          "plane": "actuation"
+        },
+        "deterministic": true,
+        "effect_count": 3,
+        "execution_certificate_hash": "d262bcb49b61d80919fb32f1",
+        "execution_hash": "df6504560141df5163ad085e",
+        "goal": "restructuring over resolution (action 3)",
+        "issued_at": "2026-07-30T08:01:20.253342Z",
+        "kind": "actuation_certificate",
+        "lineage_head_hash": "f41af7cdfbbd163c5602ae31",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "7f6ac82743d5ec0c",
+        "parent_action_root": "b48d6cfb13e902fabd4f8cdc",
+        "post_execution": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false
+      },
+      "applied_at": "2026-07-30T08:01:20.253330Z",
+      "bound_state_height": 2,
+      "bound_state_root": "f3defb52df4bc2f31e3ce57d",
+      "capability_id": "unbound.milestone-gate",
+      "claims": {
+        "action_index": 3,
+        "plane": "actuation"
+      },
+      "deterministic": true,
+      "effect": "prove",
+      "effect_digest": "770c94a826f231cf87b84620",
+      "entry": "blackhole_agent.capability_compounder:builtin_milestone_gate_smoke",
+      "execution_certificate_hash": "d262bcb49b61d80919fb32f1",
+      "execution_hash": "df6504560141df5163ad085e",
+      "goal": "restructuring over resolution (action 3)",
+      "kind": "actuation_action",
+      "lineage_head_hash": "f41af7cdfbbd163c5602ae31",
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "package_hash": "7f6ac82743d5ec0c",
+      "parent_action_root": "b48d6cfb13e902fabd4f8cdc",
+      "post_execution": true,
+      "schema_version": 1,
+      "used_skill_route_discovery": false
+    }
+  ],
+  "entry_count": 3,
+  "kind": "actuation_action_log",
+  "schema_version": 1,
+  "tip_action_root": "f8e8b04c19385adea0c6e0c7",
+  "tip_height": 3,
+  "updated_at": "2026-07-30T08:01:20.253357Z"
+}

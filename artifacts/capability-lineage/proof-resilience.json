@@ -1,0 +1,53 @@
+{
+  "entries": [
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_id": "origin-a"
+      },
+      "detail": {},
+      "entry_hash": "c9fc352bad7c2f72c650d189",
+      "entry_kind": "quorum_bootstrap",
+      "goal": "resilience over stress",
+      "index": 0,
+      "issued_at": "2026-07-30T08:00:51.671242Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "",
+      "parent_hash": ""
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_id": "origin-a",
+        "sealed": true
+      },
+      "detail": {},
+      "entry_hash": "7bc1d83db71647e4a2391141",
+      "entry_kind": "quorum_bootstrap_seal",
+      "goal": "resilience over stress",
+      "index": 1,
+      "issued_at": "2026-07-30T08:00:51.671320Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "",
+      "parent_hash": "c9fc352bad7c2f72c650d189"
+    }
+  ],
+  "entry_count": 2,
+  "head_hash": "7bc1d83db71647e4a2391141",
+  "kind": "capability_lineage",
+  "ok": true,
+  "schema_version": 1,
+  "updated_at": "2026-07-30T08:00:51.671468Z"
+}

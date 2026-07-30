@@ -1,0 +1,37 @@
+{
+  "bound_clearing_height": 2,
+  "bound_clearing_root": "fe1ae6a74024bd1ae25e5be9",
+  "certificate_hash": "be1a75419498b94cbf7ac8da",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "margined",
+    "plane": "margin"
+  },
+  "clearing_certificate_hash": "290050a496224e08c0be2f11",
+  "clearing_hash": "b788cd52f725e8c449afe39a",
+  "deterministic": true,
+  "goal": "Ship a closed restructuring plane over resolution: multi-resolution orders into deterministic hash-chained restructuring orders with plan digests bound to resolution roots, restructuring certificates, sterile rehydrate+prove, and adversarial falsification—invocable as capability.restructuring-plane without skill-route discovery. (clearing 2)",
+  "issued_at": "2026-07-30T08:04:33.700856Z",
+  "kind": "margin_certificate",
+  "lineage_head_hash": "03bc47f753217dd97843cc07",
+  "margin_count": 2,
+  "margin_height": 2,
+  "margin_requirement_digest": "56df1edc9f1c525550fda8f3",
+  "margin_root": "f7b3ed8c7e6f105330c4d4da",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "net_position_digest": "9da02839499de5be57472e46",
+  "ok": true,
+  "package_hash": "d6ff279ba658c98b",
+  "parent_margin_root": "aa6b08eb98ea22eb3b94ace6",
+  "post_clearing": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

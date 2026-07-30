@@ -1,0 +1,37 @@
+{
+  "bound_stress_height": 2,
+  "bound_stress_root": "30aab61a78238486fbd40a03",
+  "certificate_hash": "cbe49f7dda8d85fa272fcf11",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "resilient",
+    "plane": "resilience"
+  },
+  "deterministic": true,
+  "goal": "restructuring over resolution (clearing 2)",
+  "issued_at": "2026-07-30T07:59:28.566693Z",
+  "kind": "resilience_certificate",
+  "lineage_head_hash": "c739198a87dca8102072883e",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "1f56ef9b954571f3",
+  "parent_resilience_root": "c59f78ac8f3a4a60e0f1ff35",
+  "post_stress": true,
+  "resilience_buffer_digest": "91d3ba0f7409901d0195acb6",
+  "resilience_count": 2,
+  "resilience_height": 2,
+  "resilience_root": "1f22de298d418b489a7ac7e8",
+  "schema_version": 1,
+  "stress_certificate_hash": "f58ba548f071068ed53b6f86",
+  "stress_hash": "6c2bda31faa935f3fb29edc2",
+  "stress_scenario_digest": "ffc801ccf6c08fe3fb95128b",
+  "used_skill_route_discovery": false,
+  "valid": true
+}

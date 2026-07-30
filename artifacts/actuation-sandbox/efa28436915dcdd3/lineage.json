@@ -1,0 +1,189 @@
+{
+  "entries": [
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "origin_ids": [
+          "origin-a",
+          "origin-b",
+          "origin-byzantine"
+        ],
+        "threshold": 2
+      },
+      "detail": {
+        "origins": [
+          {
+            "bundle_hash": "2fd6ee2755a28d135e151941",
+            "byzantine": false,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "7bc1d83db71647e4a2391141",
+            "member_count": 3,
+            "origin_id": "origin-a",
+            "package_hash": "7878a785b9718369"
+          },
+          {
+            "bundle_hash": "b0a05b7f0eb6a7f964bbfdc4",
+            "byzantine": false,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "2d1519dd3c237ec343074724",
+            "member_count": 2,
+            "origin_id": "origin-b",
+            "package_hash": "8ece9182045d973a"
+          },
+          {
+            "bundle_hash": "e275c12d33cd0b581df4fd89",
+            "byzantine": true,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "dea988c97481a3a92b9c029e",
+            "member_count": 3,
+            "origin_id": "origin-byzantine",
+            "package_hash": "7d88f7661e8407af"
+          }
+        ]
+      },
+      "entry_hash": "c44752eab6f597933dcfec35",
+      "entry_kind": "quorum_origin_manifest",
+      "goal": "resilience over stress",
+      "index": 0,
+      "issued_at": "2026-07-30T08:02:39.385351Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": ""
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "package_hash": "066545df3053adf5",
+        "threshold": 2
+      },
+      "detail": {
+        "origin_heads": [
+          "7bc1d83db71647e4a2391141",
+          "2d1519dd3c237ec343074724",
+          "dea988c97481a3a92b9c029e"
+        ]
+      },
+      "entry_hash": "0b50c518d941b4e902907601",
+      "entry_kind": "quorum_vote",
+      "goal": "resilience over stress",
+      "index": 1,
+      "issued_at": "2026-07-30T08:02:39.385376Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "c44752eab6f597933dcfec35"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "byzantine_count": 1,
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "excluded": true
+      },
+      "detail": {
+        "byzantine_origins": [
+          "origin-byzantine"
+        ]
+      },
+      "entry_hash": "2b820d6d6d2a0042fe6631ad",
+      "entry_kind": "quorum_byzantine_exclude",
+      "goal": "resilience over stress",
+      "index": 2,
+      "issued_at": "2026-07-30T08:02:39.385393Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "0b50c518d941b4e902907601"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "quorum": true,
+        "quorum_met": true
+      },
+      "detail": {
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "origin_bundle_hashes": [
+          "2fd6ee2755a28d135e151941",
+          "b0a05b7f0eb6a7f964bbfdc4",
+          "e275c12d33cd0b581df4fd89"
+        ]
+      },
+      "entry_hash": "e74369b906af12b9ac9ea9ca",
+      "entry_kind": "quorum_seal",
+      "goal": "resilience over stress",
+      "index": 3,
+      "issued_at": "2026-07-30T08:02:39.385407Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "2b820d6d6d2a0042fe6631ad"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "prior_lineage_head": "e74369b906af12b9ac9ea9ca",
+        "prior_package_hash": "066545df3053adf5",
+        "prior_quorum_hash": "c822d6b3fc118250e5c621b2",
+        "progress_tag": "epoch-progress-2"
+      },
+      "detail": {},
+      "entry_hash": "5cc1679a9a6e88b4ea7d24e7",
+      "entry_kind": "finality_epoch_progress",
+      "goal": "resilience over stress (progress 2)",
+      "index": 4,
+      "issued_at": "2026-07-30T08:02:39.871049Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "",
+      "parent_hash": "e74369b906af12b9ac9ea9ca"
+    }
+  ],
+  "entry_count": 5,
+  "head_hash": "5cc1679a9a6e88b4ea7d24e7",
+  "kind": "capability_lineage",
+  "schema_version": 1,
+  "updated_at": "2026-07-30T08:02:40.843739Z"
+}

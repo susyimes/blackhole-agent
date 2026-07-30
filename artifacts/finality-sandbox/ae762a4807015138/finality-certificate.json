@@ -1,0 +1,29 @@
+{
+  "agreeing_count": 2,
+  "byzantine_count": 1,
+  "certificate_hash": "45bc39e16b3d5152bd692e99",
+  "claims": {
+    "epoch_index": 2,
+    "member_count": 3,
+    "plane": "finality",
+    "roots": [
+      "repo.import-health",
+      "capability.ledger-inventory",
+      "unbound.milestone-gate"
+    ]
+  },
+  "epoch_hash": "206b5569a395a76bba66cb86",
+  "epoch_height": 2,
+  "goal": "solvency over capital (epoch 2)",
+  "irreversible": true,
+  "issued_at": "2026-07-30T08:02:18.018566Z",
+  "kind": "finality_certificate",
+  "lineage_head_hash": "4ba362e81570db60f89c3f91",
+  "ok": true,
+  "origin_count": 3,
+  "package_hash": "c975accf50e00c6a",
+  "parent_epoch_hash": "e29b3a2402ce95ed4d8dbe3c",
+  "quorum_hash": "f90b8579820e056bb9ca06bd",
+  "schema_version": 1,
+  "used_skill_route_discovery": false
+}

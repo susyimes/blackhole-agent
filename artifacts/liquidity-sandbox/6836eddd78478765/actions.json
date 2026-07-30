@@ -1,0 +1,207 @@
+{
+  "bound_state_height": 2,
+  "bound_state_root": "1d0b6437def20d78800ba21e",
+  "entries": [
+    {
+      "action_height": 1,
+      "action_root": "034aed739cbbcca1dce70619",
+      "actuation_certificate": {
+        "action_height": 1,
+        "action_root": "034aed739cbbcca1dce70619",
+        "bound_state_height": 2,
+        "bound_state_root": "1d0b6437def20d78800ba21e",
+        "certificate_hash": "4118dd954054b8eb38e67ef8",
+        "claims": {
+          "action_index": 1,
+          "capability_id": "capability.ledger-inventory",
+          "effect": "prove",
+          "plane": "actuation"
+        },
+        "deterministic": true,
+        "effect_count": 1,
+        "execution_certificate_hash": "35f817d7ef60eb042e4c4267",
+        "execution_hash": "03a6e8fc0d2a265cba377bb4",
+        "goal": "Ship a closed restructuring plane over resolution: multi-resolution orders into deterministic hash-chained restructuring orders with plan digests bound to resolution roots, restructuring certificates, sterile rehydrate+prove, and adversarial falsification—invocable as capability.restructuring-plane without skill-route discovery. (action 1)",
+        "issued_at": "2026-07-30T08:04:32.101254Z",
+        "kind": "actuation_certificate",
+        "lineage_head_hash": "03bc47f753217dd97843cc07",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "d6ff279ba658c98b",
+        "parent_action_root": "",
+        "post_execution": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false
+      },
+      "applied_at": "2026-07-30T08:04:32.101229Z",
+      "bound_state_height": 2,
+      "bound_state_root": "1d0b6437def20d78800ba21e",
+      "capability_id": "capability.ledger-inventory",
+      "claims": {
+        "action_index": 1,
+        "plane": "actuation"
+      },
+      "deterministic": true,
+      "effect": "prove",
+      "effect_digest": "c7997c8d103b6fee58f653a5",
+      "entry": "blackhole_agent.capability_compounder:builtin_ledger_inventory",
+      "execution_certificate_hash": "35f817d7ef60eb042e4c4267",
+      "execution_hash": "03a6e8fc0d2a265cba377bb4",
+      "goal": "Ship a closed restructuring plane over resolution: multi-resolution orders into deterministic hash-chained restructuring orders with plan digests bound to resolution roots, restructuring certificates, sterile rehydrate+prove, and adversarial falsification—invocable as capability.restructuring-plane without skill-route discovery. (action 1)",
+      "kind": "actuation_action",
+      "lineage_head_hash": "03bc47f753217dd97843cc07",
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "package_hash": "d6ff279ba658c98b",
+      "parent_action_root": "",
+      "post_execution": true,
+      "schema_version": 1,
+      "used_skill_route_discovery": false
+    },
+    {
+      "action_height": 2,
+      "action_root": "8602411a05cd8148668d0544",
+      "actuation_certificate": {
+        "action_height": 2,
+        "action_root": "8602411a05cd8148668d0544",
+        "bound_state_height": 2,
+        "bound_state_root": "1d0b6437def20d78800ba21e",
+        "certificate_hash": "b127e902a223b790be266509",
+        "claims": {
+          "action_index": 2,
+          "capability_id": "repo.import-health",
+          "effect": "prove",
+          "plane": "actuation"
+        },
+        "deterministic": true,
+        "effect_count": 2,
+        "execution_certificate_hash": "35f817d7ef60eb042e4c4267",
+        "execution_hash": "03a6e8fc0d2a265cba377bb4",
+        "goal": "Ship a closed restructuring plane over resolution: multi-resolution orders into deterministic hash-chained restructuring orders with plan digests bound to resolution roots, restructuring certificates, sterile rehydrate+prove, and adversarial falsification—invocable as capability.restructuring-plane without skill-route discovery. (action 2)",
+        "issued_at": "2026-07-30T08:04:32.101344Z",
+        "kind": "actuation_certificate",
+        "lineage_head_hash": "03bc47f753217dd97843cc07",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "d6ff279ba658c98b",
+        "parent_action_root": "034aed739cbbcca1dce70619",
+        "post_execution": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false
+      },
+      "applied_at": "2026-07-30T08:04:32.101325Z",
+      "bound_state_height": 2,
+      "bound_state_root": "1d0b6437def20d78800ba21e",
+      "capability_id": "repo.import-health",
+      "claims": {
+        "action_index": 2,
+        "plane": "actuation"
+      },
+      "deterministic": true,
+      "effect": "prove",
+      "effect_digest": "5ddab198caf470139b8e9ff7",
+      "entry": "blackhole_agent.capability_compounder:builtin_repo_import_health",
+      "execution_certificate_hash": "35f817d7ef60eb042e4c4267",
+      "execution_hash": "03a6e8fc0d2a265cba377bb4",
+      "goal": "Ship a closed restructuring plane over resolution: multi-resolution orders into deterministic hash-chained restructuring orders with plan digests bound to resolution roots, restructuring certificates, sterile rehydrate+prove, and adversarial falsification—invocable as capability.restructuring-plane without skill-route discovery. (action 2)",
+      "kind": "actuation_action",
+      "lineage_head_hash": "03bc47f753217dd97843cc07",
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "package_hash": "d6ff279ba658c98b",
+      "parent_action_root": "034aed739cbbcca1dce70619",
+      "post_execution": true,
+      "schema_version": 1,
+      "used_skill_route_discovery": false
+    },
+    {
+      "action_height": 3,
+      "action_root": "80a769aef9cd23bfcdb6b2ae",
+      "actuation_certificate": {
+        "action_height": 3,
+        "action_root": "80a769aef9cd23bfcdb6b2ae",
+        "bound_state_height": 2,
+        "bound_state_root": "1d0b6437def20d78800ba21e",
+        "certificate_hash": "0a9bea4593773741445a0572",
+        "claims": {
+          "action_index": 3,
+          "capability_id": "unbound.milestone-gate",
+          "effect": "prove",
+          "plane": "actuation"
+        },
+        "deterministic": true,
+        "effect_count": 3,
+        "execution_certificate_hash": "35f817d7ef60eb042e4c4267",
+        "execution_hash": "03a6e8fc0d2a265cba377bb4",
+        "goal": "Ship a closed restructuring plane over resolution: multi-resolution orders into deterministic hash-chained restructuring orders with plan digests bound to resolution roots, restructuring certificates, sterile rehydrate+prove, and adversarial falsification—invocable as capability.restructuring-plane without skill-route discovery. (action 3)",
+        "issued_at": "2026-07-30T08:04:32.101440Z",
+        "kind": "actuation_certificate",
+        "lineage_head_hash": "03bc47f753217dd97843cc07",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "d6ff279ba658c98b",
+        "parent_action_root": "8602411a05cd8148668d0544",
+        "post_execution": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false
+      },
+      "applied_at": "2026-07-30T08:04:32.101424Z",
+      "bound_state_height": 2,
+      "bound_state_root": "1d0b6437def20d78800ba21e",
+      "capability_id": "unbound.milestone-gate",
+      "claims": {
+        "action_index": 3,
+        "plane": "actuation"
+      },
+      "deterministic": true,
+      "effect": "prove",
+      "effect_digest": "3e5999bd178618d8f4307720",
+      "entry": "blackhole_agent.capability_compounder:builtin_milestone_gate_smoke",
+      "execution_certificate_hash": "35f817d7ef60eb042e4c4267",
+      "execution_hash": "03a6e8fc0d2a265cba377bb4",
+      "goal": "Ship a closed restructuring plane over resolution: multi-resolution orders into deterministic hash-chained restructuring orders with plan digests bound to resolution roots, restructuring certificates, sterile rehydrate+prove, and adversarial falsification—invocable as capability.restructuring-plane without skill-route discovery. (action 3)",
+      "kind": "actuation_action",
+      "lineage_head_hash": "03bc47f753217dd97843cc07",
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "package_hash": "d6ff279ba658c98b",
+      "parent_action_root": "8602411a05cd8148668d0544",
+      "post_execution": true,
+      "schema_version": 1,
+      "used_skill_route_discovery": false
+    }
+  ],
+  "entry_count": 3,
+  "kind": "actuation_action_log",
+  "schema_version": 1,
+  "tip_action_root": "80a769aef9cd23bfcdb6b2ae",
+  "tip_height": 3,
+  "updated_at": "2026-07-30T08:04:32.101460Z"
+}

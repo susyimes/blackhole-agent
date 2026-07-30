@@ -1,0 +1,41 @@
+{
+  "agreeing_count": 2,
+  "agreeing_origins": [
+    "origin-a",
+    "origin-b"
+  ],
+  "byzantine_count": 1,
+  "byzantine_origins": [
+    "origin-byzantine"
+  ],
+  "certificate_hash": "f8bd6c6490ae8629b0eecb4f",
+  "claims": {
+    "origin_ids": [
+      "origin-a",
+      "origin-b",
+      "origin-byzantine"
+    ],
+    "roots": [
+      "repo.import-health",
+      "capability.ledger-inventory",
+      "unbound.milestone-gate"
+    ],
+    "votes_accepted": 3
+  },
+  "goal": "resilience over stress",
+  "issued_at": "2026-07-30T08:02:39.385506Z",
+  "kind": "quorum_certificate",
+  "lineage_head_hash": "e74369b906af12b9ac9ea9ca",
+  "member_count": 3,
+  "ok": true,
+  "origin_count": 3,
+  "origin_hashes": [
+    "2fd6ee2755a28d135e151941",
+    "b0a05b7f0eb6a7f964bbfdc4",
+    "e275c12d33cd0b581df4fd89"
+  ],
+  "package_hash": "066545df3053adf5",
+  "schema_version": 1,
+  "threshold": 2,
+  "used_skill_route_discovery": false
+}

@@ -1,0 +1,37 @@
+{
+  "bound_collateral_height": 2,
+  "bound_collateral_root": "6a34d9ef4df34c96ac01e49a",
+  "certificate_hash": "5e0e793c0d5958305c4e6cf2",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "liquid",
+    "plane": "liquidity"
+  },
+  "collateral_allocation_digest": "f08399eac68b67d4789a0546",
+  "collateral_certificate_hash": "642f345b0e673ec3e98af316",
+  "collateral_hash": "0d5c12d61e5dfc0834c6a013",
+  "deterministic": true,
+  "goal": "Ship a closed restructuring plane over resolution: multi-resolution orders into deterministic hash-chained restructuring orders with plan digests bound to resolution roots, restructuring certificates, sterile rehydrate+prove, and adversarial falsification—invocable as capability.restructuring-plane without skill-route discovery. (clearing 2)",
+  "issued_at": "2026-07-30T08:04:34.804384Z",
+  "kind": "liquidity_certificate",
+  "lineage_head_hash": "03bc47f753217dd97843cc07",
+  "liquidity_count": 2,
+  "liquidity_coverage_digest": "5d34c030f7678d7833136eae",
+  "liquidity_height": 2,
+  "liquidity_root": "b0cef2408ad6afe6213bdd15",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "d6ff279ba658c98b",
+  "parent_liquidity_root": "623678f32b587c3ebd73f847",
+  "post_collateral": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

@@ -1,0 +1,37 @@
+{
+  "bound_funding_height": 2,
+  "bound_funding_root": "d1380e8be5a6683dac38aeb0",
+  "capital_buffer_digest": "81cc1d00cbbca92667ccc551",
+  "capital_count": 2,
+  "capital_height": 2,
+  "capital_root": "5d5dd85df1c4a69f6af717b4",
+  "certificate_hash": "df2566cf12cc27c24283d573",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "capitalized",
+    "plane": "capital"
+  },
+  "deterministic": true,
+  "funding_certificate_hash": "dd242b186ffc81e268fca9f5",
+  "funding_facility_digest": "d9b8705422ee16814c636873",
+  "funding_hash": "4a36e81a8a47a7c6667e74b2",
+  "goal": "resilience over stress (clearing 2)",
+  "issued_at": "2026-07-30T08:00:56.985830Z",
+  "kind": "capital_certificate",
+  "lineage_head_hash": "1d73e35f440a8175855ab0ec",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "d0c8979262db6aff",
+  "parent_capital_root": "f974960b5a4747774dace947",
+  "post_funding": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

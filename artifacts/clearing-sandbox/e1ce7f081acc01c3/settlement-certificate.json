@@ -1,0 +1,35 @@
+{
+  "actuation_certificate_hash": "103c08917f813061e94bb70f",
+  "actuation_hash": "efa28436915dcdd346e46c51",
+  "bound_action_height": 2,
+  "bound_action_root": "457d46b4a7c5f4a9141d28ec",
+  "certificate_hash": "a14124d3a51d2125e65bea17",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "effect": "prove",
+    "outcome": "settled",
+    "plane": "settlement",
+    "settlement_index": 2
+  },
+  "deterministic": true,
+  "goal": "resilience over stress (settlement 2)",
+  "issued_at": "2026-07-30T08:02:41.336116Z",
+  "kind": "settlement_certificate",
+  "lineage_head_hash": "5cc1679a9a6e88b4ea7d24e7",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "f3452c95c94c2afe",
+  "parent_settlement_root": "b36ce1515d4a346b18173a92",
+  "post_actuation": true,
+  "schema_version": 1,
+  "settlement_count": 2,
+  "settlement_height": 2,
+  "settlement_root": "307490a94f8e55ddd2a23784",
+  "used_skill_route_discovery": false,
+  "valid": true
+}

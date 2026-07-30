@@ -1,0 +1,37 @@
+{
+  "bound_resilience_height": 2,
+  "bound_resilience_root": "1a0406ae5feb260dee8b43ae",
+  "certificate_hash": "22ad5fbec90c67bebeff0e11",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "recovered",
+    "plane": "recovery"
+  },
+  "deterministic": true,
+  "goal": "Ship a closed restructuring plane over resolution: multi-resolution orders into deterministic hash-chained restructuring orders with plan digests bound to resolution roots, restructuring certificates, sterile rehydrate+prove, and adversarial falsification—invocable as capability.restructuring-plane without skill-route discovery. (clearing 2)",
+  "issued_at": "2026-07-30T08:04:38.456113Z",
+  "kind": "recovery_certificate",
+  "lineage_head_hash": "03bc47f753217dd97843cc07",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "d6ff279ba658c98b",
+  "parent_recovery_root": "21d2875e6385cded58f46999",
+  "post_resilience": true,
+  "recovery_count": 2,
+  "recovery_height": 2,
+  "recovery_plan_digest": "6efcd3fbb7a244386456e7ee",
+  "recovery_root": "7508b2edfca53bfc44a537d5",
+  "resilience_buffer_digest": "5eda152452407d358a07331d",
+  "resilience_certificate_hash": "05f78e015adf5532f48400ae",
+  "resilience_hash": "e141741fb202dbbe1e626a6f",
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

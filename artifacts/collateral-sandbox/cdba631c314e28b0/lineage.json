@@ -1,0 +1,189 @@
+{
+  "entries": [
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "origin_ids": [
+          "origin-a",
+          "origin-b",
+          "origin-byzantine"
+        ],
+        "threshold": 2
+      },
+      "detail": {
+        "origins": [
+          {
+            "bundle_hash": "994ad6a9ad66889079beee0f",
+            "byzantine": false,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "a0441a24cd818f048c8e79c2",
+            "member_count": 3,
+            "origin_id": "origin-a",
+            "package_hash": "7878a785b9718369"
+          },
+          {
+            "bundle_hash": "4b2b3a5ca84b86bfb185bf68",
+            "byzantine": false,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "98d3192c417c1e584f499e05",
+            "member_count": 2,
+            "origin_id": "origin-b",
+            "package_hash": "8ece9182045d973a"
+          },
+          {
+            "bundle_hash": "a6365d724d76fc3d7d8d76eb",
+            "byzantine": true,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "42108aaca5ff9a9cf30e1dd4",
+            "member_count": 3,
+            "origin_id": "origin-byzantine",
+            "package_hash": "7d88f7661e8407af"
+          }
+        ]
+      },
+      "entry_hash": "d33804a855054382e4417c00",
+      "entry_kind": "quorum_origin_manifest",
+      "goal": "liquidity over collateral",
+      "index": 0,
+      "issued_at": "2026-07-30T08:00:12.646136Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": ""
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "package_hash": "066545df3053adf5",
+        "threshold": 2
+      },
+      "detail": {
+        "origin_heads": [
+          "a0441a24cd818f048c8e79c2",
+          "98d3192c417c1e584f499e05",
+          "42108aaca5ff9a9cf30e1dd4"
+        ]
+      },
+      "entry_hash": "f326db0ee4ac320b7ec84e74",
+      "entry_kind": "quorum_vote",
+      "goal": "liquidity over collateral",
+      "index": 1,
+      "issued_at": "2026-07-30T08:00:12.646161Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "d33804a855054382e4417c00"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "byzantine_count": 1,
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "excluded": true
+      },
+      "detail": {
+        "byzantine_origins": [
+          "origin-byzantine"
+        ]
+      },
+      "entry_hash": "7aff7513d1fbba935f2c3a0d",
+      "entry_kind": "quorum_byzantine_exclude",
+      "goal": "liquidity over collateral",
+      "index": 2,
+      "issued_at": "2026-07-30T08:00:12.646176Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "f326db0ee4ac320b7ec84e74"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "quorum": true,
+        "quorum_met": true
+      },
+      "detail": {
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "origin_bundle_hashes": [
+          "994ad6a9ad66889079beee0f",
+          "4b2b3a5ca84b86bfb185bf68",
+          "a6365d724d76fc3d7d8d76eb"
+        ]
+      },
+      "entry_hash": "fba42cb149b21a618eb9da1f",
+      "entry_kind": "quorum_seal",
+      "goal": "liquidity over collateral",
+      "index": 3,
+      "issued_at": "2026-07-30T08:00:12.646190Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "7aff7513d1fbba935f2c3a0d"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "prior_lineage_head": "fba42cb149b21a618eb9da1f",
+        "prior_package_hash": "066545df3053adf5",
+        "prior_quorum_hash": "6e48776eb84551c3a2374968",
+        "progress_tag": "epoch-progress-2"
+      },
+      "detail": {},
+      "entry_hash": "cb5d1b29d0646f35656eba6e",
+      "entry_kind": "finality_epoch_progress",
+      "goal": "liquidity over collateral (progress 2)",
+      "index": 4,
+      "issued_at": "2026-07-30T08:00:13.168678Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "",
+      "parent_hash": "fba42cb149b21a618eb9da1f"
+    }
+  ],
+  "entry_count": 5,
+  "head_hash": "cb5d1b29d0646f35656eba6e",
+  "kind": "capability_lineage",
+  "schema_version": 1,
+  "updated_at": "2026-07-30T08:00:16.187449Z"
+}

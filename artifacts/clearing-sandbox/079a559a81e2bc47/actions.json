@@ -1,0 +1,207 @@
+{
+  "bound_state_height": 2,
+  "bound_state_root": "b98f7410b927d9c1cae6e1ca",
+  "entries": [
+    {
+      "action_height": 1,
+      "action_root": "54e694bde644798abf158168",
+      "actuation_certificate": {
+        "action_height": 1,
+        "action_root": "54e694bde644798abf158168",
+        "bound_state_height": 2,
+        "bound_state_root": "b98f7410b927d9c1cae6e1ca",
+        "certificate_hash": "de6f5eac3d883552db7de2bd",
+        "claims": {
+          "action_index": 1,
+          "capability_id": "capability.ledger-inventory",
+          "effect": "prove",
+          "plane": "actuation"
+        },
+        "deterministic": true,
+        "effect_count": 1,
+        "execution_certificate_hash": "0b932a72c82948b9415323d6",
+        "execution_hash": "dedb2a8cf3951e16a9c7287e",
+        "goal": "recovery over resilience (action 1)",
+        "issued_at": "2026-07-30T08:02:48.879607Z",
+        "kind": "actuation_certificate",
+        "lineage_head_hash": "468a884d8babc7d1765e27af",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "e98175f9ba43739b",
+        "parent_action_root": "",
+        "post_execution": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false
+      },
+      "applied_at": "2026-07-30T08:02:48.879588Z",
+      "bound_state_height": 2,
+      "bound_state_root": "b98f7410b927d9c1cae6e1ca",
+      "capability_id": "capability.ledger-inventory",
+      "claims": {
+        "action_index": 1,
+        "plane": "actuation"
+      },
+      "deterministic": true,
+      "effect": "prove",
+      "effect_digest": "a8d90c470d92f21bfe121120",
+      "entry": "blackhole_agent.capability_compounder:builtin_ledger_inventory",
+      "execution_certificate_hash": "0b932a72c82948b9415323d6",
+      "execution_hash": "dedb2a8cf3951e16a9c7287e",
+      "goal": "recovery over resilience (action 1)",
+      "kind": "actuation_action",
+      "lineage_head_hash": "468a884d8babc7d1765e27af",
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "package_hash": "e98175f9ba43739b",
+      "parent_action_root": "",
+      "post_execution": true,
+      "schema_version": 1,
+      "used_skill_route_discovery": false
+    },
+    {
+      "action_height": 2,
+      "action_root": "e722f291912d54c8c4ff88f4",
+      "actuation_certificate": {
+        "action_height": 2,
+        "action_root": "e722f291912d54c8c4ff88f4",
+        "bound_state_height": 2,
+        "bound_state_root": "b98f7410b927d9c1cae6e1ca",
+        "certificate_hash": "6ff795a508f0825625e1bc34",
+        "claims": {
+          "action_index": 2,
+          "capability_id": "repo.import-health",
+          "effect": "prove",
+          "plane": "actuation"
+        },
+        "deterministic": true,
+        "effect_count": 2,
+        "execution_certificate_hash": "0b932a72c82948b9415323d6",
+        "execution_hash": "dedb2a8cf3951e16a9c7287e",
+        "goal": "recovery over resilience (action 2)",
+        "issued_at": "2026-07-30T08:02:48.879677Z",
+        "kind": "actuation_certificate",
+        "lineage_head_hash": "468a884d8babc7d1765e27af",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "e98175f9ba43739b",
+        "parent_action_root": "54e694bde644798abf158168",
+        "post_execution": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false
+      },
+      "applied_at": "2026-07-30T08:02:48.879661Z",
+      "bound_state_height": 2,
+      "bound_state_root": "b98f7410b927d9c1cae6e1ca",
+      "capability_id": "repo.import-health",
+      "claims": {
+        "action_index": 2,
+        "plane": "actuation"
+      },
+      "deterministic": true,
+      "effect": "prove",
+      "effect_digest": "dfc00ce8d344df6d6e1a49db",
+      "entry": "blackhole_agent.capability_compounder:builtin_repo_import_health",
+      "execution_certificate_hash": "0b932a72c82948b9415323d6",
+      "execution_hash": "dedb2a8cf3951e16a9c7287e",
+      "goal": "recovery over resilience (action 2)",
+      "kind": "actuation_action",
+      "lineage_head_hash": "468a884d8babc7d1765e27af",
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "package_hash": "e98175f9ba43739b",
+      "parent_action_root": "54e694bde644798abf158168",
+      "post_execution": true,
+      "schema_version": 1,
+      "used_skill_route_discovery": false
+    },
+    {
+      "action_height": 3,
+      "action_root": "46a51bbbc2c93989881d6fb4",
+      "actuation_certificate": {
+        "action_height": 3,
+        "action_root": "46a51bbbc2c93989881d6fb4",
+        "bound_state_height": 2,
+        "bound_state_root": "b98f7410b927d9c1cae6e1ca",
+        "certificate_hash": "3c97c85a2577a7d24c8df0e1",
+        "claims": {
+          "action_index": 3,
+          "capability_id": "unbound.milestone-gate",
+          "effect": "prove",
+          "plane": "actuation"
+        },
+        "deterministic": true,
+        "effect_count": 3,
+        "execution_certificate_hash": "0b932a72c82948b9415323d6",
+        "execution_hash": "dedb2a8cf3951e16a9c7287e",
+        "goal": "recovery over resilience (action 3)",
+        "issued_at": "2026-07-30T08:02:48.879918Z",
+        "kind": "actuation_certificate",
+        "lineage_head_hash": "468a884d8babc7d1765e27af",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "e98175f9ba43739b",
+        "parent_action_root": "e722f291912d54c8c4ff88f4",
+        "post_execution": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false
+      },
+      "applied_at": "2026-07-30T08:02:48.879744Z",
+      "bound_state_height": 2,
+      "bound_state_root": "b98f7410b927d9c1cae6e1ca",
+      "capability_id": "unbound.milestone-gate",
+      "claims": {
+        "action_index": 3,
+        "plane": "actuation"
+      },
+      "deterministic": true,
+      "effect": "prove",
+      "effect_digest": "067b22095b8d2c8b50149541",
+      "entry": "blackhole_agent.capability_compounder:builtin_milestone_gate_smoke",
+      "execution_certificate_hash": "0b932a72c82948b9415323d6",
+      "execution_hash": "dedb2a8cf3951e16a9c7287e",
+      "goal": "recovery over resilience (action 3)",
+      "kind": "actuation_action",
+      "lineage_head_hash": "468a884d8babc7d1765e27af",
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "package_hash": "e98175f9ba43739b",
+      "parent_action_root": "e722f291912d54c8c4ff88f4",
+      "post_execution": true,
+      "schema_version": 1,
+      "used_skill_route_discovery": false
+    }
+  ],
+  "entry_count": 3,
+  "kind": "actuation_action_log",
+  "schema_version": 1,
+  "tip_action_root": "46a51bbbc2c93989881d6fb4",
+  "tip_height": 3,
+  "updated_at": "2026-07-30T08:02:48.879937Z"
+}

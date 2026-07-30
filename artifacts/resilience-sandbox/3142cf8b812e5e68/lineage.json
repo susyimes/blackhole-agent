@@ -1,0 +1,189 @@
+{
+  "entries": [
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "origin_ids": [
+          "origin-a",
+          "origin-b",
+          "origin-byzantine"
+        ],
+        "threshold": 2
+      },
+      "detail": {
+        "origins": [
+          {
+            "bundle_hash": "2384ccc8493b1438843760ea",
+            "byzantine": false,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "38d02af59b191a373c45a98f",
+            "member_count": 3,
+            "origin_id": "origin-a",
+            "package_hash": "7878a785b9718369"
+          },
+          {
+            "bundle_hash": "d52c9a6288c0786639c45cae",
+            "byzantine": false,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "5bfea6f9135c322b28045890",
+            "member_count": 2,
+            "origin_id": "origin-b",
+            "package_hash": "8ece9182045d973a"
+          },
+          {
+            "bundle_hash": "7d75deb3c08689d91bfe7ff9",
+            "byzantine": true,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "ae81af8319585d81510d7de6",
+            "member_count": 3,
+            "origin_id": "origin-byzantine",
+            "package_hash": "7d88f7661e8407af"
+          }
+        ]
+      },
+      "entry_hash": "71b1e5ee383f40e251d73c49",
+      "entry_kind": "quorum_origin_manifest",
+      "goal": "recovery over resilience",
+      "index": 0,
+      "issued_at": "2026-07-30T08:02:47.349908Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": ""
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "package_hash": "066545df3053adf5",
+        "threshold": 2
+      },
+      "detail": {
+        "origin_heads": [
+          "38d02af59b191a373c45a98f",
+          "5bfea6f9135c322b28045890",
+          "ae81af8319585d81510d7de6"
+        ]
+      },
+      "entry_hash": "132a2892ac27dd267dd2e643",
+      "entry_kind": "quorum_vote",
+      "goal": "recovery over resilience",
+      "index": 1,
+      "issued_at": "2026-07-30T08:02:47.349931Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "71b1e5ee383f40e251d73c49"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "byzantine_count": 1,
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "excluded": true
+      },
+      "detail": {
+        "byzantine_origins": [
+          "origin-byzantine"
+        ]
+      },
+      "entry_hash": "747aa0e2bd413b0a3e3cbb9f",
+      "entry_kind": "quorum_byzantine_exclude",
+      "goal": "recovery over resilience",
+      "index": 2,
+      "issued_at": "2026-07-30T08:02:47.349946Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "132a2892ac27dd267dd2e643"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "quorum": true,
+        "quorum_met": true
+      },
+      "detail": {
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "origin_bundle_hashes": [
+          "2384ccc8493b1438843760ea",
+          "d52c9a6288c0786639c45cae",
+          "7d75deb3c08689d91bfe7ff9"
+        ]
+      },
+      "entry_hash": "8cdf3f572cb9074477e2ee88",
+      "entry_kind": "quorum_seal",
+      "goal": "recovery over resilience",
+      "index": 3,
+      "issued_at": "2026-07-30T08:02:47.349960Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "747aa0e2bd413b0a3e3cbb9f"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "prior_lineage_head": "8cdf3f572cb9074477e2ee88",
+        "prior_package_hash": "066545df3053adf5",
+        "prior_quorum_hash": "9aed260577171c156f177610",
+        "progress_tag": "epoch-progress-2"
+      },
+      "detail": {},
+      "entry_hash": "468a884d8babc7d1765e27af",
+      "entry_kind": "finality_epoch_progress",
+      "goal": "recovery over resilience (progress 2)",
+      "index": 4,
+      "issued_at": "2026-07-30T08:02:47.861157Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "",
+      "parent_hash": "8cdf3f572cb9074477e2ee88"
+    }
+  ],
+  "entry_count": 5,
+  "head_hash": "468a884d8babc7d1765e27af",
+  "kind": "capability_lineage",
+  "schema_version": 1,
+  "updated_at": "2026-07-30T08:02:54.606243Z"
+}

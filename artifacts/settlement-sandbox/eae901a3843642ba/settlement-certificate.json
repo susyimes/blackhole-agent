@@ -1,0 +1,35 @@
+{
+  "actuation_certificate_hash": "e8c37f382fc7aee9dc04a810",
+  "actuation_hash": "f87bc4e3b2da0c05ba62ddc1",
+  "bound_action_height": 2,
+  "bound_action_root": "a45cb903448315a61efe5ffa",
+  "certificate_hash": "0ae06de377eb003d061a331b",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "effect": "prove",
+    "outcome": "settled",
+    "plane": "settlement",
+    "settlement_index": 2
+  },
+  "deterministic": true,
+  "goal": "settlement over actuation (settlement 2)",
+  "issued_at": "2026-07-30T08:00:00.501914Z",
+  "kind": "settlement_certificate",
+  "lineage_head_hash": "6f6ccc3721fa34f618ca0737",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "b5ea82824af6353a",
+  "parent_settlement_root": "7aad86a41c2ea0d1c284078b",
+  "post_actuation": true,
+  "schema_version": 1,
+  "settlement_count": 2,
+  "settlement_height": 2,
+  "settlement_root": "472fb2e0f0d6596713c3c7bb",
+  "used_skill_route_discovery": false,
+  "valid": true
+}

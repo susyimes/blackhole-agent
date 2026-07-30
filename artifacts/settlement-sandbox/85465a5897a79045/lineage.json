@@ -1,0 +1,189 @@
+{
+  "entries": [
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "origin_ids": [
+          "origin-a",
+          "origin-b",
+          "origin-byzantine"
+        ],
+        "threshold": 2
+      },
+      "detail": {
+        "origins": [
+          {
+            "bundle_hash": "241067f159f266e0323028e8",
+            "byzantine": false,
+            "lineage_entry_count": 115,
+            "lineage_head_hash": "3e49bd489bc18abc67dfdd8f",
+            "member_count": 3,
+            "origin_id": "origin-a",
+            "package_hash": "7878a785b9718369"
+          },
+          {
+            "bundle_hash": "e309296e8fcd0e6f6d7657ee",
+            "byzantine": false,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "ea4dba5261d8a61ce9e8c8e3",
+            "member_count": 2,
+            "origin_id": "origin-b",
+            "package_hash": "8ece9182045d973a"
+          },
+          {
+            "bundle_hash": "82cfbbd796ebf3c1e322f241",
+            "byzantine": true,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "58e5e8264896b96595c9235e",
+            "member_count": 3,
+            "origin_id": "origin-byzantine",
+            "package_hash": "7d88f7661e8407af"
+          }
+        ]
+      },
+      "entry_hash": "c45c156a5e0d93b93ed2b5b0",
+      "entry_kind": "quorum_origin_manifest",
+      "goal": "Ship a closed restructuring plane over resolution: multi-resolution orders into deterministic hash-chained restructuring orders with plan digests bound to resolution roots, restructuring certificates, sterile rehydrate+prove, and adversarial falsification—invocable as capability.restructuring-plane without skill-route discovery.",
+      "index": 0,
+      "issued_at": "2026-07-30T08:04:30.560505Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": ""
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "package_hash": "066545df3053adf5",
+        "threshold": 2
+      },
+      "detail": {
+        "origin_heads": [
+          "3e49bd489bc18abc67dfdd8f",
+          "ea4dba5261d8a61ce9e8c8e3",
+          "58e5e8264896b96595c9235e"
+        ]
+      },
+      "entry_hash": "9c6f9790c2a9b916c4465e67",
+      "entry_kind": "quorum_vote",
+      "goal": "Ship a closed restructuring plane over resolution: multi-resolution orders into deterministic hash-chained restructuring orders with plan digests bound to resolution roots, restructuring certificates, sterile rehydrate+prove, and adversarial falsification—invocable as capability.restructuring-plane without skill-route discovery.",
+      "index": 1,
+      "issued_at": "2026-07-30T08:04:30.560535Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "c45c156a5e0d93b93ed2b5b0"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "byzantine_count": 1,
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "excluded": true
+      },
+      "detail": {
+        "byzantine_origins": [
+          "origin-byzantine"
+        ]
+      },
+      "entry_hash": "07e06f8e8dc6441127974b2a",
+      "entry_kind": "quorum_byzantine_exclude",
+      "goal": "Ship a closed restructuring plane over resolution: multi-resolution orders into deterministic hash-chained restructuring orders with plan digests bound to resolution roots, restructuring certificates, sterile rehydrate+prove, and adversarial falsification—invocable as capability.restructuring-plane without skill-route discovery.",
+      "index": 2,
+      "issued_at": "2026-07-30T08:04:30.560556Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "9c6f9790c2a9b916c4465e67"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "quorum": true,
+        "quorum_met": true
+      },
+      "detail": {
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "origin_bundle_hashes": [
+          "241067f159f266e0323028e8",
+          "e309296e8fcd0e6f6d7657ee",
+          "82cfbbd796ebf3c1e322f241"
+        ]
+      },
+      "entry_hash": "7d076d0124af3e8ec3aa4127",
+      "entry_kind": "quorum_seal",
+      "goal": "Ship a closed restructuring plane over resolution: multi-resolution orders into deterministic hash-chained restructuring orders with plan digests bound to resolution roots, restructuring certificates, sterile rehydrate+prove, and adversarial falsification—invocable as capability.restructuring-plane without skill-route discovery.",
+      "index": 3,
+      "issued_at": "2026-07-30T08:04:30.560575Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "07e06f8e8dc6441127974b2a"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "prior_lineage_head": "7d076d0124af3e8ec3aa4127",
+        "prior_package_hash": "066545df3053adf5",
+        "prior_quorum_hash": "5c580d1bf0e2a86bd7332435",
+        "progress_tag": "epoch-progress-2"
+      },
+      "detail": {},
+      "entry_hash": "03bc47f753217dd97843cc07",
+      "entry_kind": "finality_epoch_progress",
+      "goal": "Ship a closed restructuring plane over resolution: multi-resolution orders into deterministic hash-chained restructuring orders with plan digests bound to resolution roots, restructuring certificates, sterile rehydrate+prove, and adversarial falsification—invocable as capability.restructuring-plane without skill-route discovery. (progress 2)",
+      "index": 4,
+      "issued_at": "2026-07-30T08:04:31.080168Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "",
+      "parent_hash": "7d076d0124af3e8ec3aa4127"
+    }
+  ],
+  "entry_count": 5,
+  "head_hash": "03bc47f753217dd97843cc07",
+  "kind": "capability_lineage",
+  "schema_version": 1,
+  "updated_at": "2026-07-30T08:04:32.645448Z"
+}

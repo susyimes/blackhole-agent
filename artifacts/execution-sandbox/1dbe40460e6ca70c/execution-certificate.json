@@ -1,0 +1,30 @@
+{
+  "certificate_hash": "bd6bd1a44aac7b235db6faf9",
+  "claims": {
+    "member_count": 3,
+    "plane": "execution",
+    "state_index": 2
+  },
+  "deterministic": true,
+  "epoch_hash": "5e4ab54e1c2bf5fe2ba0a763",
+  "epoch_height": 2,
+  "finality_certificate_hash": "fc00b0eee00fe462810db133",
+  "goal": "resilience over stress (state 2)",
+  "issued_at": "2026-07-30T08:00:52.752127Z",
+  "kind": "execution_certificate",
+  "lineage_head_hash": "1d73e35f440a8175855ab0ec",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "d0c8979262db6aff",
+  "parent_state_root": "6dedae769574e51b4cd2290b",
+  "post_finality": true,
+  "schema_version": 1,
+  "state_height": 2,
+  "state_root": "d0e42b01934936ba56b61509",
+  "used_skill_route_discovery": false
+}

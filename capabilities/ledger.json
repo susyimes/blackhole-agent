@@ -29,7 +29,7 @@
         "ablation",
         "evidence"
       ],
-      "updated_at": "2026-07-30T06:50:45.025387Z"
+      "updated_at": "2026-07-30T08:04:40.040389Z"
     },
     "capability.actuation-plane": {
       "behavior_paths": [
@@ -61,8 +61,8 @@
       "entry": "blackhole_agent.capability_compounder:builtin_actuation_plane",
       "id": "capability.actuation-plane",
       "kind": "python",
-      "last_proof_exit_code": null,
-      "last_proved_at": "",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-07-30T08:01:46.309697Z",
       "name": "Actuation plane over world-state execution",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_actuation_plane; from pathlib import Path; import os; os.environ['BLACKHOLE_MISSION_GOAL']='actuation over world-state execution'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_ACTUATION_RUN_EXECUTION']='1'; os.environ['BLACKHOLE_EXECUTION_RUN_FINALITY']='1'; os.environ['BLACKHOLE_FINALITY_RUN_QUORUM']='1'; os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='0'; os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='0'; os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; os.environ['BLACKHOLE_FINALITY_EPOCH_COUNT']='2'; os.environ['BLACKHOLE_ACTUATION_MIN_ACTIONS']='2'; os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-actuation.json')); os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-actuation-quorum.json')); os.environ.setdefault('BLACKHOLE_FINALITY_BUNDLE_PATH', str(Path('artifacts')/'finality-bundles'/'proof-actuation-finality.json')); os.environ.setdefault('BLACKHOLE_EXECUTION_BUNDLE_PATH', str(Path('artifacts')/'execution-bundles'/'proof-actuation-execution.json')); os.environ.setdefault('BLACKHOLE_ACTUATION_BUNDLE_PATH', str(Path('artifacts')/'actuation-bundles'/'proof-actuation.json')); r=builtin_actuation_plane(); assert r['ok'] and r.get('action')=='actuation_plane' and r.get('effects_applied') is True and int(r.get('action_count') or 0) >= 2 and int(r.get('tip_height') or 0) >= 2 and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') and r.get('actuation_certificate',{}).get('valid') and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -84,7 +84,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-30T06:50:45.026596Z"
+      "updated_at": "2026-07-30T08:04:40.041536Z"
     },
     "capability.adaptive-grow": {
       "behavior_paths": [
@@ -116,7 +116,7 @@
         "growth",
         "adaptive"
       ],
-      "updated_at": "2026-07-30T06:50:45.023810Z"
+      "updated_at": "2026-07-30T08:04:40.039335Z"
     },
     "capability.adversarial-contract": {
       "behavior_paths": [
@@ -149,7 +149,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-07-30T06:50:45.025601Z"
+      "updated_at": "2026-07-30T08:04:40.040583Z"
     },
     "capability.assurance-plane": {
       "behavior_paths": [
@@ -186,7 +186,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-07-30T06:50:45.025697Z"
+      "updated_at": "2026-07-30T08:04:40.040676Z"
     },
     "capability.autonomic-cycle": {
       "behavior_paths": [
@@ -221,7 +221,7 @@
         "autonomic",
         "novelty"
       ],
-      "updated_at": "2026-07-30T06:50:45.024198Z"
+      "updated_at": "2026-07-30T08:04:40.039714Z"
     },
     "capability.capital-plane": {
       "behavior_paths": [
@@ -260,8 +260,8 @@
       "entry": "blackhole_agent.capability_compounder:builtin_capital_plane",
       "id": "capability.capital-plane",
       "kind": "python",
-      "last_proof_exit_code": null,
-      "last_proved_at": "",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-07-30T08:02:17.222157Z",
       "name": "Capital plane over funding",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_capital_plane; from pathlib import Path; import os; os.environ['BLACKHOLE_MISSION_GOAL']='capital over funding'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_CAPITAL_RUN_FUNDING']='1'; os.environ['BLACKHOLE_FUNDING_RUN_LIQUIDITY']='1'; os.environ['BLACKHOLE_LIQUIDITY_RUN_COLLATERAL']='1'; os.environ['BLACKHOLE_COLLATERAL_RUN_MARGIN']='1'; os.environ['BLACKHOLE_MARGIN_RUN_CLEARING']='1'; os.environ['BLACKHOLE_CLEARING_RUN_SETTLEMENT']='1'; os.environ['BLACKHOLE_SETTLEMENT_RUN_ACTUATION']='1'; os.environ['BLACKHOLE_ACTUATION_RUN_EXECUTION']='1'; os.environ['BLACKHOLE_EXECUTION_RUN_FINALITY']='1'; os.environ['BLACKHOLE_FINALITY_RUN_QUORUM']='1'; os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='0'; os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='0'; os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; os.environ['BLACKHOLE_FINALITY_EPOCH_COUNT']='2'; os.environ['BLACKHOLE_ACTUATION_MIN_ACTIONS']='2'; os.environ['BLACKHOLE_SETTLEMENT_MIN_SETTLEMENTS']='2'; os.environ['BLACKHOLE_CLEARING_MIN_CLEARINGS']='2'; os.environ['BLACKHOLE_MARGIN_MIN_MARGINS']='2'; os.environ['BLACKHOLE_COLLATERAL_MIN_COLLATERALS']='2'; os.environ['BLACKHOLE_LIQUIDITY_MIN_LIQUIDITIES']='2'; os.environ['BLACKHOLE_FUNDING_MIN_FUNDINGS']='2'; os.environ['BLACKHOLE_CAPITAL_MIN_CAPITALS']='2'; os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-capital.json')); os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-capital-quorum.json')); os.environ.setdefault('BLACKHOLE_FINALITY_BUNDLE_PATH', str(Path('artifacts')/'finality-bundles'/'proof-capital-finality.json')); os.environ.setdefault('BLACKHOLE_EXECUTION_BUNDLE_PATH', str(Path('artifacts')/'execution-bundles'/'proof-capital-execution.json')); os.environ.setdefault('BLACKHOLE_ACTUATION_BUNDLE_PATH', str(Path('artifacts')/'actuation-bundles'/'proof-capital-actuation.json')); os.environ.setdefault('BLACKHOLE_SETTLEMENT_BUNDLE_PATH', str(Path('artifacts')/'settlement-bundles'/'proof-capital-settlement.json')); os.environ.setdefault('BLACKHOLE_CLEARING_BUNDLE_PATH', str(Path('artifacts')/'clearing-bundles'/'proof-capital-clearing.json')); os.environ.setdefault('BLACKHOLE_MARGIN_BUNDLE_PATH', str(Path('artifacts')/'margin-bundles'/'proof-capital-margin.json')); os.environ.setdefault('BLACKHOLE_COLLATERAL_BUNDLE_PATH', str(Path('artifacts')/'collateral-bundles'/'proof-capital-collateral.json')); os.environ.setdefault('BLACKHOLE_LIQUIDITY_BUNDLE_PATH', str(Path('artifacts')/'liquidity-bundles'/'proof-capital-liquidity.json')); os.environ.setdefault('BLACKHOLE_FUNDING_BUNDLE_PATH', str(Path('artifacts')/'funding-bundles'/'proof-capital-funding.json')); os.environ.setdefault('BLACKHOLE_CAPITAL_BUNDLE_PATH', str(Path('artifacts')/'capital-bundles'/'proof-capital.json')); r=builtin_capital_plane(); assert r['ok'] and r.get('action')=='capital_plane' and r.get('capitalized') is True and int(r.get('capital_count') or 0) >= 2 and int(r.get('tip_height') or 0) >= 2 and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') and r.get('capital_certificate',{}).get('valid') and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -290,7 +290,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-30T06:50:45.027332Z"
+      "updated_at": "2026-07-30T08:04:40.042185Z"
     },
     "capability.clearing-plane": {
       "behavior_paths": [
@@ -324,8 +324,8 @@
       "entry": "blackhole_agent.capability_compounder:builtin_clearing_plane",
       "id": "capability.clearing-plane",
       "kind": "python",
-      "last_proof_exit_code": null,
-      "last_proved_at": "",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-07-30T08:01:52.228252Z",
       "name": "Clearing plane over settlement",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_clearing_plane; from pathlib import Path; import os; os.environ['BLACKHOLE_MISSION_GOAL']='clearing over settlement'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_CLEARING_RUN_SETTLEMENT']='1'; os.environ['BLACKHOLE_SETTLEMENT_RUN_ACTUATION']='1'; os.environ['BLACKHOLE_ACTUATION_RUN_EXECUTION']='1'; os.environ['BLACKHOLE_EXECUTION_RUN_FINALITY']='1'; os.environ['BLACKHOLE_FINALITY_RUN_QUORUM']='1'; os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='0'; os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='0'; os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; os.environ['BLACKHOLE_FINALITY_EPOCH_COUNT']='2'; os.environ['BLACKHOLE_ACTUATION_MIN_ACTIONS']='2'; os.environ['BLACKHOLE_SETTLEMENT_MIN_SETTLEMENTS']='2'; os.environ['BLACKHOLE_CLEARING_MIN_CLEARINGS']='2'; os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-clearing.json')); os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-clearing-quorum.json')); os.environ.setdefault('BLACKHOLE_FINALITY_BUNDLE_PATH', str(Path('artifacts')/'finality-bundles'/'proof-clearing-finality.json')); os.environ.setdefault('BLACKHOLE_EXECUTION_BUNDLE_PATH', str(Path('artifacts')/'execution-bundles'/'proof-clearing-execution.json')); os.environ.setdefault('BLACKHOLE_ACTUATION_BUNDLE_PATH', str(Path('artifacts')/'actuation-bundles'/'proof-clearing-actuation.json')); os.environ.setdefault('BLACKHOLE_SETTLEMENT_BUNDLE_PATH', str(Path('artifacts')/'settlement-bundles'/'proof-clearing-settlement.json')); os.environ.setdefault('BLACKHOLE_CLEARING_BUNDLE_PATH', str(Path('artifacts')/'clearing-bundles'/'proof-clearing.json')); r=builtin_clearing_plane(); assert r['ok'] and r.get('action')=='clearing_plane' and r.get('cleared') is True and int(r.get('clearing_count') or 0) >= 2 and int(r.get('tip_height') or 0) >= 2 and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') and r.get('clearing_certificate',{}).get('valid') and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -349,7 +349,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-30T06:50:45.026795Z"
+      "updated_at": "2026-07-30T08:04:40.041720Z"
     },
     "capability.collateral-plane": {
       "behavior_paths": [
@@ -385,8 +385,8 @@
       "entry": "blackhole_agent.capability_compounder:builtin_collateral_plane",
       "id": "capability.collateral-plane",
       "kind": "python",
-      "last_proof_exit_code": null,
-      "last_proved_at": "",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-07-30T08:02:00.298954Z",
       "name": "Collateral plane over margin",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_collateral_plane; from pathlib import Path; import os; os.environ['BLACKHOLE_MISSION_GOAL']='collateral over margin'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_COLLATERAL_RUN_MARGIN']='1'; os.environ['BLACKHOLE_MARGIN_RUN_CLEARING']='1'; os.environ['BLACKHOLE_CLEARING_RUN_SETTLEMENT']='1'; os.environ['BLACKHOLE_SETTLEMENT_RUN_ACTUATION']='1'; os.environ['BLACKHOLE_ACTUATION_RUN_EXECUTION']='1'; os.environ['BLACKHOLE_EXECUTION_RUN_FINALITY']='1'; os.environ['BLACKHOLE_FINALITY_RUN_QUORUM']='1'; os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='0'; os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='0'; os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; os.environ['BLACKHOLE_FINALITY_EPOCH_COUNT']='2'; os.environ['BLACKHOLE_ACTUATION_MIN_ACTIONS']='2'; os.environ['BLACKHOLE_SETTLEMENT_MIN_SETTLEMENTS']='2'; os.environ['BLACKHOLE_CLEARING_MIN_CLEARINGS']='2'; os.environ['BLACKHOLE_MARGIN_MIN_MARGINS']='2'; os.environ['BLACKHOLE_COLLATERAL_MIN_COLLATERALS']='2'; os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-collateral.json')); os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-collateral-quorum.json')); os.environ.setdefault('BLACKHOLE_FINALITY_BUNDLE_PATH', str(Path('artifacts')/'finality-bundles'/'proof-collateral-finality.json')); os.environ.setdefault('BLACKHOLE_EXECUTION_BUNDLE_PATH', str(Path('artifacts')/'execution-bundles'/'proof-collateral-execution.json')); os.environ.setdefault('BLACKHOLE_ACTUATION_BUNDLE_PATH', str(Path('artifacts')/'actuation-bundles'/'proof-collateral-actuation.json')); os.environ.setdefault('BLACKHOLE_SETTLEMENT_BUNDLE_PATH', str(Path('artifacts')/'settlement-bundles'/'proof-collateral-settlement.json')); os.environ.setdefault('BLACKHOLE_CLEARING_BUNDLE_PATH', str(Path('artifacts')/'clearing-bundles'/'proof-collateral-clearing.json')); os.environ.setdefault('BLACKHOLE_MARGIN_BUNDLE_PATH', str(Path('artifacts')/'margin-bundles'/'proof-collateral-margin.json')); os.environ.setdefault('BLACKHOLE_COLLATERAL_BUNDLE_PATH', str(Path('artifacts')/'collateral-bundles'/'proof-collateral.json')); r=builtin_collateral_plane(); assert r['ok'] and r.get('action')=='collateral_plane' and r.get('collateralized') is True and int(r.get('collateral_count') or 0) >= 2 and int(r.get('tip_height') or 0) >= 2 and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') and r.get('collateral_certificate',{}).get('valid') and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -412,7 +412,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-30T06:50:45.026985Z"
+      "updated_at": "2026-07-30T08:04:40.041906Z"
     },
     "capability.composed-core-health": {
       "behavior_paths": [
@@ -1946,7 +1946,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-07-30T06:50:45.026119Z"
+      "updated_at": "2026-07-30T08:04:40.041070Z"
     },
     "capability.contract-plane": {
       "behavior_paths": [
@@ -1981,7 +1981,7 @@
         "evidence",
         "growth"
       ],
-      "updated_at": "2026-07-30T06:50:45.025234Z"
+      "updated_at": "2026-07-30T08:04:40.040287Z"
     },
     "capability.distill-ledger": {
       "behavior_paths": [
@@ -2011,7 +2011,7 @@
         "growth",
         "distill"
       ],
-      "updated_at": "2026-07-30T06:50:45.024096Z"
+      "updated_at": "2026-07-30T08:04:40.039620Z"
     },
     "capability.execution-plane": {
       "behavior_paths": [
@@ -2064,7 +2064,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-30T06:50:45.026501Z"
+      "updated_at": "2026-07-30T08:04:40.041443Z"
     },
     "capability.federation-plane": {
       "behavior_paths": [
@@ -2109,7 +2109,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-07-30T06:50:45.026213Z"
+      "updated_at": "2026-07-30T08:04:40.041164Z"
     },
     "capability.finality-plane": {
       "behavior_paths": [
@@ -2158,7 +2158,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-30T06:50:45.026405Z"
+      "updated_at": "2026-07-30T08:04:40.041350Z"
     },
     "capability.frontier-novelty": {
       "behavior_paths": [
@@ -2188,7 +2188,7 @@
         "growth",
         "novelty"
       ],
-      "updated_at": "2026-07-30T06:50:45.023998Z"
+      "updated_at": "2026-07-30T08:04:40.039525Z"
     },
     "capability.funding-plane": {
       "behavior_paths": [
@@ -2226,8 +2226,8 @@
       "entry": "blackhole_agent.capability_compounder:builtin_funding_plane",
       "id": "capability.funding-plane",
       "kind": "python",
-      "last_proof_exit_code": null,
-      "last_proved_at": "",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-07-30T08:02:11.259230Z",
       "name": "Funding plane over liquidity",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_funding_plane; from pathlib import Path; import os; os.environ['BLACKHOLE_MISSION_GOAL']='funding over liquidity'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_FUNDING_RUN_LIQUIDITY']='1'; os.environ['BLACKHOLE_LIQUIDITY_RUN_COLLATERAL']='1'; os.environ['BLACKHOLE_COLLATERAL_RUN_MARGIN']='1'; os.environ['BLACKHOLE_MARGIN_RUN_CLEARING']='1'; os.environ['BLACKHOLE_CLEARING_RUN_SETTLEMENT']='1'; os.environ['BLACKHOLE_SETTLEMENT_RUN_ACTUATION']='1'; os.environ['BLACKHOLE_ACTUATION_RUN_EXECUTION']='1'; os.environ['BLACKHOLE_EXECUTION_RUN_FINALITY']='1'; os.environ['BLACKHOLE_FINALITY_RUN_QUORUM']='1'; os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='0'; os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='0'; os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; os.environ['BLACKHOLE_FINALITY_EPOCH_COUNT']='2'; os.environ['BLACKHOLE_ACTUATION_MIN_ACTIONS']='2'; os.environ['BLACKHOLE_SETTLEMENT_MIN_SETTLEMENTS']='2'; os.environ['BLACKHOLE_CLEARING_MIN_CLEARINGS']='2'; os.environ['BLACKHOLE_MARGIN_MIN_MARGINS']='2'; os.environ['BLACKHOLE_COLLATERAL_MIN_COLLATERALS']='2'; os.environ['BLACKHOLE_LIQUIDITY_MIN_LIQUIDITIES']='2'; os.environ['BLACKHOLE_FUNDING_MIN_FUNDINGS']='2'; os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-funding.json')); os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-funding-quorum.json')); os.environ.setdefault('BLACKHOLE_FINALITY_BUNDLE_PATH', str(Path('artifacts')/'finality-bundles'/'proof-funding-finality.json')); os.environ.setdefault('BLACKHOLE_EXECUTION_BUNDLE_PATH', str(Path('artifacts')/'execution-bundles'/'proof-funding-execution.json')); os.environ.setdefault('BLACKHOLE_ACTUATION_BUNDLE_PATH', str(Path('artifacts')/'actuation-bundles'/'proof-funding-actuation.json')); os.environ.setdefault('BLACKHOLE_SETTLEMENT_BUNDLE_PATH', str(Path('artifacts')/'settlement-bundles'/'proof-funding-settlement.json')); os.environ.setdefault('BLACKHOLE_CLEARING_BUNDLE_PATH', str(Path('artifacts')/'clearing-bundles'/'proof-funding-clearing.json')); os.environ.setdefault('BLACKHOLE_MARGIN_BUNDLE_PATH', str(Path('artifacts')/'margin-bundles'/'proof-funding-margin.json')); os.environ.setdefault('BLACKHOLE_COLLATERAL_BUNDLE_PATH', str(Path('artifacts')/'collateral-bundles'/'proof-funding-collateral.json')); os.environ.setdefault('BLACKHOLE_LIQUIDITY_BUNDLE_PATH', str(Path('artifacts')/'liquidity-bundles'/'proof-funding-liquidity.json')); os.environ.setdefault('BLACKHOLE_FUNDING_BUNDLE_PATH', str(Path('artifacts')/'funding-bundles'/'proof-funding.json')); r=builtin_funding_plane(); assert r['ok'] and r.get('action')=='funding_plane' and r.get('funded') is True and int(r.get('funding_count') or 0) >= 2 and int(r.get('tip_height') or 0) >= 2 and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') and r.get('funding_certificate',{}).get('valid') and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -2255,7 +2255,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-30T06:50:45.027236Z"
+      "updated_at": "2026-07-30T08:04:40.042092Z"
     },
     "capability.goal-plan": {
       "behavior_paths": [
@@ -2284,7 +2284,7 @@
         "mission",
         "planner"
       ],
-      "updated_at": "2026-07-30T06:50:45.024322Z"
+      "updated_at": "2026-07-30T08:04:40.039809Z"
     },
     "capability.growth-loop": {
       "behavior_paths": [
@@ -2315,7 +2315,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-07-30T06:50:45.023713Z"
+      "updated_at": "2026-07-30T08:04:40.039238Z"
     },
     "capability.ledger-integrity": {
       "behavior_paths": [
@@ -2343,7 +2343,7 @@
         "compounder",
         "integrity"
       ],
-      "updated_at": "2026-07-30T06:50:45.023904Z"
+      "updated_at": "2026-07-30T08:04:40.039430Z"
     },
     "capability.ledger-inventory": {
       "behavior_paths": [
@@ -2369,7 +2369,7 @@
         "bootstrap",
         "compounder"
       ],
-      "updated_at": "2026-07-30T06:50:45.023413Z"
+      "updated_at": "2026-07-30T08:04:40.038933Z"
     },
     "capability.lineage-plane": {
       "behavior_paths": [
@@ -2410,7 +2410,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-07-30T06:50:45.025931Z"
+      "updated_at": "2026-07-30T08:04:40.040863Z"
     },
     "capability.liquidity-plane": {
       "behavior_paths": [
@@ -2447,8 +2447,8 @@
       "entry": "blackhole_agent.capability_compounder:builtin_liquidity_plane",
       "id": "capability.liquidity-plane",
       "kind": "python",
-      "last_proof_exit_code": null,
-      "last_proved_at": "",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-07-30T08:02:05.316267Z",
       "name": "Liquidity plane over collateral",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_liquidity_plane; from pathlib import Path; import os; os.environ['BLACKHOLE_MISSION_GOAL']='liquidity over collateral'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_LIQUIDITY_RUN_COLLATERAL']='1'; os.environ['BLACKHOLE_COLLATERAL_RUN_MARGIN']='1'; os.environ['BLACKHOLE_MARGIN_RUN_CLEARING']='1'; os.environ['BLACKHOLE_CLEARING_RUN_SETTLEMENT']='1'; os.environ['BLACKHOLE_SETTLEMENT_RUN_ACTUATION']='1'; os.environ['BLACKHOLE_ACTUATION_RUN_EXECUTION']='1'; os.environ['BLACKHOLE_EXECUTION_RUN_FINALITY']='1'; os.environ['BLACKHOLE_FINALITY_RUN_QUORUM']='1'; os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='0'; os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='0'; os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; os.environ['BLACKHOLE_FINALITY_EPOCH_COUNT']='2'; os.environ['BLACKHOLE_ACTUATION_MIN_ACTIONS']='2'; os.environ['BLACKHOLE_SETTLEMENT_MIN_SETTLEMENTS']='2'; os.environ['BLACKHOLE_CLEARING_MIN_CLEARINGS']='2'; os.environ['BLACKHOLE_MARGIN_MIN_MARGINS']='2'; os.environ['BLACKHOLE_COLLATERAL_MIN_COLLATERALS']='2'; os.environ['BLACKHOLE_LIQUIDITY_MIN_LIQUIDITIES']='2'; os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-liquidity.json')); os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-liquidity-quorum.json')); os.environ.setdefault('BLACKHOLE_FINALITY_BUNDLE_PATH', str(Path('artifacts')/'finality-bundles'/'proof-liquidity-finality.json')); os.environ.setdefault('BLACKHOLE_EXECUTION_BUNDLE_PATH', str(Path('artifacts')/'execution-bundles'/'proof-liquidity-execution.json')); os.environ.setdefault('BLACKHOLE_ACTUATION_BUNDLE_PATH', str(Path('artifacts')/'actuation-bundles'/'proof-liquidity-actuation.json')); os.environ.setdefault('BLACKHOLE_SETTLEMENT_BUNDLE_PATH', str(Path('artifacts')/'settlement-bundles'/'proof-liquidity-settlement.json')); os.environ.setdefault('BLACKHOLE_CLEARING_BUNDLE_PATH', str(Path('artifacts')/'clearing-bundles'/'proof-liquidity-clearing.json')); os.environ.setdefault('BLACKHOLE_MARGIN_BUNDLE_PATH', str(Path('artifacts')/'margin-bundles'/'proof-liquidity-margin.json')); os.environ.setdefault('BLACKHOLE_COLLATERAL_BUNDLE_PATH', str(Path('artifacts')/'collateral-bundles'/'proof-liquidity-collateral.json')); os.environ.setdefault('BLACKHOLE_LIQUIDITY_BUNDLE_PATH', str(Path('artifacts')/'liquidity-bundles'/'proof-liquidity.json')); r=builtin_liquidity_plane(); assert r['ok'] and r.get('action')=='liquidity_plane' and r.get('liquid') is True and int(r.get('liquidity_count') or 0) >= 2 and int(r.get('tip_height') or 0) >= 2 and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') and r.get('liquidity_certificate',{}).get('valid') and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -2475,7 +2475,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-30T06:50:45.027137Z"
+      "updated_at": "2026-07-30T08:04:40.041998Z"
     },
     "capability.margin-plane": {
       "behavior_paths": [
@@ -2510,8 +2510,8 @@
       "entry": "blackhole_agent.capability_compounder:builtin_margin_plane",
       "id": "capability.margin-plane",
       "kind": "python",
-      "last_proof_exit_code": null,
-      "last_proved_at": "",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-07-30T08:01:56.021871Z",
       "name": "Margin plane over clearing",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_margin_plane; from pathlib import Path; import os; os.environ['BLACKHOLE_MISSION_GOAL']='margin over clearing'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_MARGIN_RUN_CLEARING']='1'; os.environ['BLACKHOLE_CLEARING_RUN_SETTLEMENT']='1'; os.environ['BLACKHOLE_SETTLEMENT_RUN_ACTUATION']='1'; os.environ['BLACKHOLE_ACTUATION_RUN_EXECUTION']='1'; os.environ['BLACKHOLE_EXECUTION_RUN_FINALITY']='1'; os.environ['BLACKHOLE_FINALITY_RUN_QUORUM']='1'; os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='0'; os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='0'; os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; os.environ['BLACKHOLE_FINALITY_EPOCH_COUNT']='2'; os.environ['BLACKHOLE_ACTUATION_MIN_ACTIONS']='2'; os.environ['BLACKHOLE_SETTLEMENT_MIN_SETTLEMENTS']='2'; os.environ['BLACKHOLE_CLEARING_MIN_CLEARINGS']='2'; os.environ['BLACKHOLE_MARGIN_MIN_MARGINS']='2'; os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-margin.json')); os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-margin-quorum.json')); os.environ.setdefault('BLACKHOLE_FINALITY_BUNDLE_PATH', str(Path('artifacts')/'finality-bundles'/'proof-margin-finality.json')); os.environ.setdefault('BLACKHOLE_EXECUTION_BUNDLE_PATH', str(Path('artifacts')/'execution-bundles'/'proof-margin-execution.json')); os.environ.setdefault('BLACKHOLE_ACTUATION_BUNDLE_PATH', str(Path('artifacts')/'actuation-bundles'/'proof-margin-actuation.json')); os.environ.setdefault('BLACKHOLE_SETTLEMENT_BUNDLE_PATH', str(Path('artifacts')/'settlement-bundles'/'proof-margin-settlement.json')); os.environ.setdefault('BLACKHOLE_CLEARING_BUNDLE_PATH', str(Path('artifacts')/'clearing-bundles'/'proof-margin-clearing.json')); os.environ.setdefault('BLACKHOLE_MARGIN_BUNDLE_PATH', str(Path('artifacts')/'margin-bundles'/'proof-margin.json')); r=builtin_margin_plane(); assert r['ok'] and r.get('action')=='margin_plane' and r.get('margined') is True and int(r.get('margin_count') or 0) >= 2 and int(r.get('tip_height') or 0) >= 2 and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') and r.get('margin_certificate',{}).get('valid') and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -2536,7 +2536,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-30T06:50:45.026889Z"
+      "updated_at": "2026-07-30T08:04:40.041813Z"
     },
     "capability.mission-plane": {
       "behavior_paths": [
@@ -2571,7 +2571,7 @@
         "growth",
         "second-wave"
       ],
-      "updated_at": "2026-07-30T06:50:45.024976Z"
+      "updated_at": "2026-07-30T08:04:40.040096Z"
     },
     "capability.outcome-contract": {
       "behavior_paths": [
@@ -2603,7 +2603,7 @@
         "contract",
         "evidence"
       ],
-      "updated_at": "2026-07-30T06:50:45.025113Z"
+      "updated_at": "2026-07-30T08:04:40.040191Z"
     },
     "capability.program-run": {
       "behavior_paths": [
@@ -2633,7 +2633,7 @@
         "mission",
         "program"
       ],
-      "updated_at": "2026-07-30T06:50:45.024695Z"
+      "updated_at": "2026-07-30T08:04:40.039905Z"
     },
     "capability.quorum-plane": {
       "behavior_paths": [
@@ -2680,7 +2680,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-30T06:50:45.026309Z"
+      "updated_at": "2026-07-30T08:04:40.041257Z"
     },
     "capability.reconciliation-plane": {
       "behavior_paths": [
@@ -2723,7 +2723,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-07-30T06:50:45.026025Z"
+      "updated_at": "2026-07-30T08:04:40.040958Z"
     },
     "capability.recovery-plane": {
       "behavior_paths": [
@@ -2766,8 +2766,8 @@
       "entry": "blackhole_agent.capability_compounder:builtin_recovery_plane",
       "id": "capability.recovery-plane",
       "kind": "python",
-      "last_proof_exit_code": null,
-      "last_proved_at": "",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-07-30T08:02:55.717439Z",
       "name": "Recovery plane over resilience",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_recovery_plane; from pathlib import Path; import os; os.environ['BLACKHOLE_MISSION_GOAL']='recovery over resilience'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_RECOVERY_RUN_RESILIENCE']='1'; os.environ['BLACKHOLE_RESILIENCE_RUN_STRESS']='1'; os.environ['BLACKHOLE_STRESS_RUN_RISK']='1'; os.environ['BLACKHOLE_RISK_RUN_SOLVENCY']='1'; os.environ['BLACKHOLE_SOLVENCY_RUN_CAPITAL']='1'; os.environ['BLACKHOLE_CAPITAL_RUN_FUNDING']='1'; os.environ['BLACKHOLE_FUNDING_RUN_LIQUIDITY']='1'; os.environ['BLACKHOLE_LIQUIDITY_RUN_COLLATERAL']='1'; os.environ['BLACKHOLE_COLLATERAL_RUN_MARGIN']='1'; os.environ['BLACKHOLE_MARGIN_RUN_CLEARING']='1'; os.environ['BLACKHOLE_CLEARING_RUN_SETTLEMENT']='1'; os.environ['BLACKHOLE_SETTLEMENT_RUN_ACTUATION']='1'; os.environ['BLACKHOLE_ACTUATION_RUN_EXECUTION']='1'; os.environ['BLACKHOLE_EXECUTION_RUN_FINALITY']='1'; os.environ['BLACKHOLE_FINALITY_RUN_QUORUM']='1'; os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='0'; os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='0'; os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; os.environ['BLACKHOLE_FINALITY_EPOCH_COUNT']='2'; os.environ['BLACKHOLE_ACTUATION_MIN_ACTIONS']='2'; os.environ['BLACKHOLE_SETTLEMENT_MIN_SETTLEMENTS']='2'; os.environ['BLACKHOLE_CLEARING_MIN_CLEARINGS']='2'; os.environ['BLACKHOLE_MARGIN_MIN_MARGINS']='2'; os.environ['BLACKHOLE_COLLATERAL_MIN_COLLATERALS']='2'; os.environ['BLACKHOLE_LIQUIDITY_MIN_LIQUIDITIES']='2'; os.environ['BLACKHOLE_FUNDING_MIN_FUNDINGS']='2'; os.environ['BLACKHOLE_CAPITAL_MIN_CAPITALS']='2'; os.environ['BLACKHOLE_SOLVENCY_MIN_SOLVENCIES']='2'; os.environ['BLACKHOLE_RISK_MIN_RISKS']='2'; os.environ['BLACKHOLE_STRESS_MIN_STRESSES']='2'; os.environ['BLACKHOLE_RESILIENCE_MIN_RESILIENCES']='2'; os.environ['BLACKHOLE_RECOVERY_MIN_RECOVERIES']='2'; os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-recovery.json')); os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-recovery-quorum.json')); os.environ.setdefault('BLACKHOLE_FINALITY_BUNDLE_PATH', str(Path('artifacts')/'finality-bundles'/'proof-recovery-finality.json')); os.environ.setdefault('BLACKHOLE_EXECUTION_BUNDLE_PATH', str(Path('artifacts')/'execution-bundles'/'proof-recovery-execution.json')); os.environ.setdefault('BLACKHOLE_ACTUATION_BUNDLE_PATH', str(Path('artifacts')/'actuation-bundles'/'proof-recovery-actuation.json')); os.environ.setdefault('BLACKHOLE_SETTLEMENT_BUNDLE_PATH', str(Path('artifacts')/'settlement-bundles'/'proof-recovery-settlement.json')); os.environ.setdefault('BLACKHOLE_CLEARING_BUNDLE_PATH', str(Path('artifacts')/'clearing-bundles'/'proof-recovery-clearing.json')); os.environ.setdefault('BLACKHOLE_MARGIN_BUNDLE_PATH', str(Path('artifacts')/'margin-bundles'/'proof-recovery-margin.json')); os.environ.setdefault('BLACKHOLE_COLLATERAL_BUNDLE_PATH', str(Path('artifacts')/'collateral-bundles'/'proof-recovery-collateral.json')); os.environ.setdefault('BLACKHOLE_LIQUIDITY_BUNDLE_PATH', str(Path('artifacts')/'liquidity-bundles'/'proof-recovery-liquidity.json')); os.environ.setdefault('BLACKHOLE_FUNDING_BUNDLE_PATH', str(Path('artifacts')/'funding-bundles'/'proof-recovery-funding.json')); os.environ.setdefault('BLACKHOLE_CAPITAL_BUNDLE_PATH', str(Path('artifacts')/'capital-bundles'/'proof-recovery-capital.json')); os.environ.setdefault('BLACKHOLE_SOLVENCY_BUNDLE_PATH', str(Path('artifacts')/'solvency-bundles'/'proof-recovery-solvency.json')); os.environ.setdefault('BLACKHOLE_RISK_BUNDLE_PATH', str(Path('artifacts')/'risk-bundles'/'proof-recovery-risk.json')); os.environ.setdefault('BLACKHOLE_STRESS_BUNDLE_PATH', str(Path('artifacts')/'stress-bundles'/'proof-recovery-stress.json')); os.environ.setdefault('BLACKHOLE_RESILIENCE_BUNDLE_PATH', str(Path('artifacts')/'resilience-bundles'/'proof-recovery-resilience.json')); os.environ.setdefault('BLACKHOLE_RECOVERY_BUNDLE_PATH', str(Path('artifacts')/'recovery-bundles'/'proof-recovery.json')); r=builtin_recovery_plane(); assert r['ok'] and r.get('action')=='recovery_plane' and r.get('recovered') is True and int(r.get('recovery_count') or 0) >= 2 and int(r.get('tip_height') or 0) >= 2 and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') and r.get('recovery_certificate',{}).get('valid') and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -2781,7 +2781,7 @@
         "adversarial",
         "hash-chain"
       ],
-      "updated_at": "2026-07-30T06:50:45.027845Z"
+      "updated_at": "2026-07-30T08:04:40.042648Z"
     },
     "capability.resilience-plane": {
       "behavior_paths": [
@@ -2823,8 +2823,8 @@
       "entry": "blackhole_agent.capability_compounder:builtin_resilience_plane",
       "id": "capability.resilience-plane",
       "kind": "python",
-      "last_proof_exit_code": null,
-      "last_proved_at": "",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-07-30T08:02:47.059149Z",
       "name": "Resilience plane over stress",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_resilience_plane; from pathlib import Path; import os; os.environ['BLACKHOLE_MISSION_GOAL']='resilience over stress'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_RESILIENCE_RUN_STRESS']='1'; os.environ['BLACKHOLE_STRESS_RUN_RISK']='1'; os.environ['BLACKHOLE_RISK_RUN_SOLVENCY']='1'; os.environ['BLACKHOLE_SOLVENCY_RUN_CAPITAL']='1'; os.environ['BLACKHOLE_CAPITAL_RUN_FUNDING']='1'; os.environ['BLACKHOLE_FUNDING_RUN_LIQUIDITY']='1'; os.environ['BLACKHOLE_LIQUIDITY_RUN_COLLATERAL']='1'; os.environ['BLACKHOLE_COLLATERAL_RUN_MARGIN']='1'; os.environ['BLACKHOLE_MARGIN_RUN_CLEARING']='1'; os.environ['BLACKHOLE_CLEARING_RUN_SETTLEMENT']='1'; os.environ['BLACKHOLE_SETTLEMENT_RUN_ACTUATION']='1'; os.environ['BLACKHOLE_ACTUATION_RUN_EXECUTION']='1'; os.environ['BLACKHOLE_EXECUTION_RUN_FINALITY']='1'; os.environ['BLACKHOLE_FINALITY_RUN_QUORUM']='1'; os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='0'; os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='0'; os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; os.environ['BLACKHOLE_FINALITY_EPOCH_COUNT']='2'; os.environ['BLACKHOLE_ACTUATION_MIN_ACTIONS']='2'; os.environ['BLACKHOLE_SETTLEMENT_MIN_SETTLEMENTS']='2'; os.environ['BLACKHOLE_CLEARING_MIN_CLEARINGS']='2'; os.environ['BLACKHOLE_MARGIN_MIN_MARGINS']='2'; os.environ['BLACKHOLE_COLLATERAL_MIN_COLLATERALS']='2'; os.environ['BLACKHOLE_LIQUIDITY_MIN_LIQUIDITIES']='2'; os.environ['BLACKHOLE_FUNDING_MIN_FUNDINGS']='2'; os.environ['BLACKHOLE_CAPITAL_MIN_CAPITALS']='2'; os.environ['BLACKHOLE_SOLVENCY_MIN_SOLVENCIES']='2'; os.environ['BLACKHOLE_RISK_MIN_RISKS']='2'; os.environ['BLACKHOLE_STRESS_MIN_STRESSES']='2'; os.environ['BLACKHOLE_RESILIENCE_MIN_RESILIENCES']='2'; os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-resilience.json')); os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-resilience-quorum.json')); os.environ.setdefault('BLACKHOLE_FINALITY_BUNDLE_PATH', str(Path('artifacts')/'finality-bundles'/'proof-resilience-finality.json')); os.environ.setdefault('BLACKHOLE_EXECUTION_BUNDLE_PATH', str(Path('artifacts')/'execution-bundles'/'proof-resilience-execution.json')); os.environ.setdefault('BLACKHOLE_ACTUATION_BUNDLE_PATH', str(Path('artifacts')/'actuation-bundles'/'proof-resilience-actuation.json')); os.environ.setdefault('BLACKHOLE_SETTLEMENT_BUNDLE_PATH', str(Path('artifacts')/'settlement-bundles'/'proof-resilience-settlement.json')); os.environ.setdefault('BLACKHOLE_CLEARING_BUNDLE_PATH', str(Path('artifacts')/'clearing-bundles'/'proof-resilience-clearing.json')); os.environ.setdefault('BLACKHOLE_MARGIN_BUNDLE_PATH', str(Path('artifacts')/'margin-bundles'/'proof-resilience-margin.json')); os.environ.setdefault('BLACKHOLE_COLLATERAL_BUNDLE_PATH', str(Path('artifacts')/'collateral-bundles'/'proof-resilience-collateral.json')); os.environ.setdefault('BLACKHOLE_LIQUIDITY_BUNDLE_PATH', str(Path('artifacts')/'liquidity-bundles'/'proof-resilience-liquidity.json')); os.environ.setdefault('BLACKHOLE_FUNDING_BUNDLE_PATH', str(Path('artifacts')/'funding-bundles'/'proof-resilience-funding.json')); os.environ.setdefault('BLACKHOLE_CAPITAL_BUNDLE_PATH', str(Path('artifacts')/'capital-bundles'/'proof-resilience-capital.json')); os.environ.setdefault('BLACKHOLE_SOLVENCY_BUNDLE_PATH', str(Path('artifacts')/'solvency-bundles'/'proof-resilience-solvency.json')); os.environ.setdefault('BLACKHOLE_RISK_BUNDLE_PATH', str(Path('artifacts')/'risk-bundles'/'proof-resilience-risk.json')); os.environ.setdefault('BLACKHOLE_STRESS_BUNDLE_PATH', str(Path('artifacts')/'stress-bundles'/'proof-resilience-stress.json')); os.environ.setdefault('BLACKHOLE_RESILIENCE_BUNDLE_PATH', str(Path('artifacts')/'resilience-bundles'/'proof-resilience.json')); r=builtin_resilience_plane(); assert r['ok'] and r.get('action')=='resilience_plane' and r.get('resilient') is True and int(r.get('resilience_count') or 0) >= 2 and int(r.get('tip_height') or 0) >= 2 and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') and r.get('resilience_certificate',{}).get('valid') and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -2838,7 +2838,7 @@
         "adversarial",
         "hash-chain"
       ],
-      "updated_at": "2026-07-30T06:50:45.027743Z"
+      "updated_at": "2026-07-30T08:04:40.042559Z"
     },
     "capability.resolution-plane": {
       "behavior_paths": [
@@ -2882,8 +2882,8 @@
       "entry": "blackhole_agent.capability_compounder:builtin_resolution_plane",
       "id": "capability.resolution-plane",
       "kind": "python",
-      "last_proof_exit_code": null,
-      "last_proved_at": "",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-07-30T08:03:04.777110Z",
       "name": "Resolution plane over recovery",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_resolution_plane; from pathlib import Path; import os; os.environ['BLACKHOLE_MISSION_GOAL']='resolution over recovery'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_RESOLUTION_RUN_RECOVERY']='1'; os.environ['BLACKHOLE_RECOVERY_RUN_RESILIENCE']='1'; os.environ['BLACKHOLE_RESILIENCE_RUN_STRESS']='1'; os.environ['BLACKHOLE_STRESS_RUN_RISK']='1'; os.environ['BLACKHOLE_RISK_RUN_SOLVENCY']='1'; os.environ['BLACKHOLE_SOLVENCY_RUN_CAPITAL']='1'; os.environ['BLACKHOLE_CAPITAL_RUN_FUNDING']='1'; os.environ['BLACKHOLE_FUNDING_RUN_LIQUIDITY']='1'; os.environ['BLACKHOLE_LIQUIDITY_RUN_COLLATERAL']='1'; os.environ['BLACKHOLE_COLLATERAL_RUN_MARGIN']='1'; os.environ['BLACKHOLE_MARGIN_RUN_CLEARING']='1'; os.environ['BLACKHOLE_CLEARING_RUN_SETTLEMENT']='1'; os.environ['BLACKHOLE_SETTLEMENT_RUN_ACTUATION']='1'; os.environ['BLACKHOLE_ACTUATION_RUN_EXECUTION']='1'; os.environ['BLACKHOLE_EXECUTION_RUN_FINALITY']='1'; os.environ['BLACKHOLE_FINALITY_RUN_QUORUM']='1'; os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='0'; os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='0'; os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; os.environ['BLACKHOLE_FINALITY_EPOCH_COUNT']='2'; os.environ['BLACKHOLE_ACTUATION_MIN_ACTIONS']='2'; os.environ['BLACKHOLE_SETTLEMENT_MIN_SETTLEMENTS']='2'; os.environ['BLACKHOLE_CLEARING_MIN_CLEARINGS']='2'; os.environ['BLACKHOLE_MARGIN_MIN_MARGINS']='2'; os.environ['BLACKHOLE_COLLATERAL_MIN_COLLATERALS']='2'; os.environ['BLACKHOLE_LIQUIDITY_MIN_LIQUIDITIES']='2'; os.environ['BLACKHOLE_FUNDING_MIN_FUNDINGS']='2'; os.environ['BLACKHOLE_CAPITAL_MIN_CAPITALS']='2'; os.environ['BLACKHOLE_SOLVENCY_MIN_SOLVENCIES']='2'; os.environ['BLACKHOLE_RISK_MIN_RISKS']='2'; os.environ['BLACKHOLE_STRESS_MIN_STRESSES']='2'; os.environ['BLACKHOLE_RESILIENCE_MIN_RESILIENCES']='2'; os.environ['BLACKHOLE_RECOVERY_MIN_RECOVERIES']='2'; os.environ['BLACKHOLE_RESOLUTION_MIN_RESOLUTIONS']='2'; os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-resolution.json')); os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-resolution-quorum.json')); os.environ.setdefault('BLACKHOLE_FINALITY_BUNDLE_PATH', str(Path('artifacts')/'finality-bundles'/'proof-resolution-finality.json')); os.environ.setdefault('BLACKHOLE_EXECUTION_BUNDLE_PATH', str(Path('artifacts')/'execution-bundles'/'proof-resolution-execution.json')); os.environ.setdefault('BLACKHOLE_ACTUATION_BUNDLE_PATH', str(Path('artifacts')/'actuation-bundles'/'proof-resolution-actuation.json')); os.environ.setdefault('BLACKHOLE_SETTLEMENT_BUNDLE_PATH', str(Path('artifacts')/'settlement-bundles'/'proof-resolution-settlement.json')); os.environ.setdefault('BLACKHOLE_CLEARING_BUNDLE_PATH', str(Path('artifacts')/'clearing-bundles'/'proof-resolution-clearing.json')); os.environ.setdefault('BLACKHOLE_MARGIN_BUNDLE_PATH', str(Path('artifacts')/'margin-bundles'/'proof-resolution-margin.json')); os.environ.setdefault('BLACKHOLE_COLLATERAL_BUNDLE_PATH', str(Path('artifacts')/'collateral-bundles'/'proof-resolution-collateral.json')); os.environ.setdefault('BLACKHOLE_LIQUIDITY_BUNDLE_PATH', str(Path('artifacts')/'liquidity-bundles'/'proof-resolution-liquidity.json')); os.environ.setdefault('BLACKHOLE_FUNDING_BUNDLE_PATH', str(Path('artifacts')/'funding-bundles'/'proof-resolution-funding.json')); os.environ.setdefault('BLACKHOLE_CAPITAL_BUNDLE_PATH', str(Path('artifacts')/'capital-bundles'/'proof-resolution-capital.json')); os.environ.setdefault('BLACKHOLE_SOLVENCY_BUNDLE_PATH', str(Path('artifacts')/'solvency-bundles'/'proof-resolution-solvency.json')); os.environ.setdefault('BLACKHOLE_RISK_BUNDLE_PATH', str(Path('artifacts')/'risk-bundles'/'proof-resolution-risk.json')); os.environ.setdefault('BLACKHOLE_STRESS_BUNDLE_PATH', str(Path('artifacts')/'stress-bundles'/'proof-resolution-stress.json')); os.environ.setdefault('BLACKHOLE_RESILIENCE_BUNDLE_PATH', str(Path('artifacts')/'resilience-bundles'/'proof-resolution-resilience.json')); os.environ.setdefault('BLACKHOLE_RECOVERY_BUNDLE_PATH', str(Path('artifacts')/'recovery-bundles'/'proof-resolution-recovery.json')); os.environ.setdefault('BLACKHOLE_RESOLUTION_BUNDLE_PATH', str(Path('artifacts')/'resolution-bundles'/'proof-resolution.json')); r=builtin_resolution_plane(); assert r['ok'] and r.get('action')=='resolution_plane' and r.get('resolved') is True and int(r.get('resolution_count') or 0) >= 2 and int(r.get('tip_height') or 0) >= 2 and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') and r.get('resolution_certificate',{}).get('valid') and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -2897,7 +2897,67 @@
         "adversarial",
         "hash-chain"
       ],
-      "updated_at": "2026-07-30T06:50:45.027945Z"
+      "updated_at": "2026-07-30T08:04:40.042738Z"
+    },
+    "capability.restructuring-plane": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_compounder.py",
+        "src/blackhole_agent/unbound.py"
+      ],
+      "capability_delta": "Restructuring plane posts multi-resolution orders into deterministic hash-chained restructuring orders with restructuring plan digests bound to resolution roots, restructuring certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery.",
+      "created_at": "2026-07-30T07:58:11.660817Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.outcome-contract",
+        "capability.contract-plane",
+        "capability.assurance-plane",
+        "capability.sovereignty-plane",
+        "capability.lineage-plane",
+        "capability.reconciliation-plane",
+        "capability.continuity-plane",
+        "capability.federation-plane",
+        "capability.quorum-plane",
+        "capability.finality-plane",
+        "capability.execution-plane",
+        "capability.actuation-plane",
+        "capability.settlement-plane",
+        "capability.clearing-plane",
+        "capability.margin-plane",
+        "capability.collateral-plane",
+        "capability.liquidity-plane",
+        "capability.funding-plane",
+        "capability.capital-plane",
+        "capability.solvency-plane",
+        "capability.risk-plane",
+        "capability.stress-plane",
+        "capability.resilience-plane",
+        "capability.recovery-plane",
+        "capability.resolution-plane",
+        "capability.transfer-plane",
+        "capability.ablation-proof",
+        "capability.adversarial-contract"
+      ],
+      "description": "Closed restructuring plane: multi-resolution orders → deterministic hash-chained restructuring orders with restructuring plan digests bound to resolution roots → restructuring certificates → sterile rehydrate+prove → adversarial mutation/reorder/wrong-resolution/double-restructuring/forged-root/gap/digest-tamper/single-restructuring falsification with genesis replay matching tip — past resolved actions without restructuring orders.",
+      "entry": "blackhole_agent.capability_compounder:builtin_restructuring_plane",
+      "id": "capability.restructuring-plane",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-07-30T08:03:15.298538Z",
+      "name": "Restructuring plane over resolution",
+      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_restructuring_plane; from pathlib import Path; import os; os.environ['BLACKHOLE_MISSION_GOAL']='restructuring over resolution'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_RESTRUCTURING_RUN_RESOLUTION']='1'; os.environ['BLACKHOLE_RESOLUTION_RUN_RECOVERY']='1'; os.environ['BLACKHOLE_RECOVERY_RUN_RESILIENCE']='1'; os.environ['BLACKHOLE_RESILIENCE_RUN_STRESS']='1'; os.environ['BLACKHOLE_STRESS_RUN_RISK']='1'; os.environ['BLACKHOLE_RISK_RUN_SOLVENCY']='1'; os.environ['BLACKHOLE_SOLVENCY_RUN_CAPITAL']='1'; os.environ['BLACKHOLE_CAPITAL_RUN_FUNDING']='1'; os.environ['BLACKHOLE_FUNDING_RUN_LIQUIDITY']='1'; os.environ['BLACKHOLE_LIQUIDITY_RUN_COLLATERAL']='1'; os.environ['BLACKHOLE_COLLATERAL_RUN_MARGIN']='1'; os.environ['BLACKHOLE_MARGIN_RUN_CLEARING']='1'; os.environ['BLACKHOLE_CLEARING_RUN_SETTLEMENT']='1'; os.environ['BLACKHOLE_SETTLEMENT_RUN_ACTUATION']='1'; os.environ['BLACKHOLE_ACTUATION_RUN_EXECUTION']='1'; os.environ['BLACKHOLE_EXECUTION_RUN_FINALITY']='1'; os.environ['BLACKHOLE_FINALITY_RUN_QUORUM']='1'; os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='0'; os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='0'; os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; os.environ['BLACKHOLE_FINALITY_EPOCH_COUNT']='2'; os.environ['BLACKHOLE_ACTUATION_MIN_ACTIONS']='2'; os.environ['BLACKHOLE_SETTLEMENT_MIN_SETTLEMENTS']='2'; os.environ['BLACKHOLE_CLEARING_MIN_CLEARINGS']='2'; os.environ['BLACKHOLE_MARGIN_MIN_MARGINS']='2'; os.environ['BLACKHOLE_COLLATERAL_MIN_COLLATERALS']='2'; os.environ['BLACKHOLE_LIQUIDITY_MIN_LIQUIDITIES']='2'; os.environ['BLACKHOLE_FUNDING_MIN_FUNDINGS']='2'; os.environ['BLACKHOLE_CAPITAL_MIN_CAPITALS']='2'; os.environ['BLACKHOLE_SOLVENCY_MIN_SOLVENCIES']='2'; os.environ['BLACKHOLE_RISK_MIN_RISKS']='2'; os.environ['BLACKHOLE_STRESS_MIN_STRESSES']='2'; os.environ['BLACKHOLE_RESILIENCE_MIN_RESILIENCES']='2'; os.environ['BLACKHOLE_RECOVERY_MIN_RECOVERIES']='2'; os.environ['BLACKHOLE_RESOLUTION_MIN_RESOLUTIONS']='2'; os.environ['BLACKHOLE_RESTRUCTURING_MIN_RESTRUCTURINGS']='2'; os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-restructuring.json')); os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-restructuring-quorum.json')); os.environ.setdefault('BLACKHOLE_FINALITY_BUNDLE_PATH', str(Path('artifacts')/'finality-bundles'/'proof-restructuring-finality.json')); os.environ.setdefault('BLACKHOLE_EXECUTION_BUNDLE_PATH', str(Path('artifacts')/'execution-bundles'/'proof-restructuring-execution.json')); os.environ.setdefault('BLACKHOLE_ACTUATION_BUNDLE_PATH', str(Path('artifacts')/'actuation-bundles'/'proof-restructuring-actuation.json')); os.environ.setdefault('BLACKHOLE_SETTLEMENT_BUNDLE_PATH', str(Path('artifacts')/'settlement-bundles'/'proof-restructuring-settlement.json')); os.environ.setdefault('BLACKHOLE_CLEARING_BUNDLE_PATH', str(Path('artifacts')/'clearing-bundles'/'proof-restructuring-clearing.json')); os.environ.setdefault('BLACKHOLE_MARGIN_BUNDLE_PATH', str(Path('artifacts')/'margin-bundles'/'proof-restructuring-margin.json')); os.environ.setdefault('BLACKHOLE_COLLATERAL_BUNDLE_PATH', str(Path('artifacts')/'collateral-bundles'/'proof-restructuring-collateral.json')); os.environ.setdefault('BLACKHOLE_LIQUIDITY_BUNDLE_PATH', str(Path('artifacts')/'liquidity-bundles'/'proof-restructuring-liquidity.json')); os.environ.setdefault('BLACKHOLE_FUNDING_BUNDLE_PATH', str(Path('artifacts')/'funding-bundles'/'proof-restructuring-funding.json')); os.environ.setdefault('BLACKHOLE_CAPITAL_BUNDLE_PATH', str(Path('artifacts')/'capital-bundles'/'proof-restructuring-capital.json')); os.environ.setdefault('BLACKHOLE_SOLVENCY_BUNDLE_PATH', str(Path('artifacts')/'solvency-bundles'/'proof-restructuring-solvency.json')); os.environ.setdefault('BLACKHOLE_RISK_BUNDLE_PATH', str(Path('artifacts')/'risk-bundles'/'proof-restructuring-risk.json')); os.environ.setdefault('BLACKHOLE_STRESS_BUNDLE_PATH', str(Path('artifacts')/'stress-bundles'/'proof-restructuring-stress.json')); os.environ.setdefault('BLACKHOLE_RESILIENCE_BUNDLE_PATH', str(Path('artifacts')/'resilience-bundles'/'proof-restructuring-resilience.json')); os.environ.setdefault('BLACKHOLE_RECOVERY_BUNDLE_PATH', str(Path('artifacts')/'recovery-bundles'/'proof-restructuring-recovery.json')); os.environ.setdefault('BLACKHOLE_RESOLUTION_BUNDLE_PATH', str(Path('artifacts')/'resolution-bundles'/'proof-restructuring-resolution.json')); os.environ.setdefault('BLACKHOLE_RESTRUCTURING_BUNDLE_PATH', str(Path('artifacts')/'restructuring-bundles'/'proof-restructuring.json')); r=builtin_restructuring_plane(); assert r['ok'] and r.get('action')=='restructuring_plane' and r.get('restructured') is True and int(r.get('restructuring_count') or 0) >= 2 and int(r.get('tip_height') or 0) >= 2 and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') and r.get('restructuring_certificate',{}).get('valid') and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "restructuring",
+        "order",
+        "resolution",
+        "plane",
+        "certificate",
+        "adversarial",
+        "hash-chain"
+      ],
+      "updated_at": "2026-07-30T08:04:40.042843Z"
     },
     "capability.risk-plane": {
       "behavior_paths": [
@@ -2937,8 +2997,8 @@
       "entry": "blackhole_agent.capability_compounder:builtin_risk_plane",
       "id": "capability.risk-plane",
       "kind": "python",
-      "last_proof_exit_code": null,
-      "last_proved_at": "",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-07-30T08:02:30.854767Z",
       "name": "Risk plane over solvency",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_risk_plane; from pathlib import Path; import os; os.environ['BLACKHOLE_MISSION_GOAL']='risk over solvency'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_RISK_RUN_SOLVENCY']='1'; os.environ['BLACKHOLE_SOLVENCY_RUN_CAPITAL']='1'; os.environ['BLACKHOLE_CAPITAL_RUN_FUNDING']='1'; os.environ['BLACKHOLE_FUNDING_RUN_LIQUIDITY']='1'; os.environ['BLACKHOLE_LIQUIDITY_RUN_COLLATERAL']='1'; os.environ['BLACKHOLE_COLLATERAL_RUN_MARGIN']='1'; os.environ['BLACKHOLE_MARGIN_RUN_CLEARING']='1'; os.environ['BLACKHOLE_CLEARING_RUN_SETTLEMENT']='1'; os.environ['BLACKHOLE_SETTLEMENT_RUN_ACTUATION']='1'; os.environ['BLACKHOLE_ACTUATION_RUN_EXECUTION']='1'; os.environ['BLACKHOLE_EXECUTION_RUN_FINALITY']='1'; os.environ['BLACKHOLE_FINALITY_RUN_QUORUM']='1'; os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='0'; os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='0'; os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; os.environ['BLACKHOLE_FINALITY_EPOCH_COUNT']='2'; os.environ['BLACKHOLE_ACTUATION_MIN_ACTIONS']='2'; os.environ['BLACKHOLE_SETTLEMENT_MIN_SETTLEMENTS']='2'; os.environ['BLACKHOLE_CLEARING_MIN_CLEARINGS']='2'; os.environ['BLACKHOLE_MARGIN_MIN_MARGINS']='2'; os.environ['BLACKHOLE_COLLATERAL_MIN_COLLATERALS']='2'; os.environ['BLACKHOLE_LIQUIDITY_MIN_LIQUIDITIES']='2'; os.environ['BLACKHOLE_FUNDING_MIN_FUNDINGS']='2'; os.environ['BLACKHOLE_CAPITAL_MIN_CAPITALS']='2'; os.environ['BLACKHOLE_SOLVENCY_MIN_SOLVENCIES']='2'; os.environ['BLACKHOLE_RISK_MIN_RISKS']='2'; os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-risk.json')); os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-risk-quorum.json')); os.environ.setdefault('BLACKHOLE_FINALITY_BUNDLE_PATH', str(Path('artifacts')/'finality-bundles'/'proof-risk-finality.json')); os.environ.setdefault('BLACKHOLE_EXECUTION_BUNDLE_PATH', str(Path('artifacts')/'execution-bundles'/'proof-risk-execution.json')); os.environ.setdefault('BLACKHOLE_ACTUATION_BUNDLE_PATH', str(Path('artifacts')/'actuation-bundles'/'proof-risk-actuation.json')); os.environ.setdefault('BLACKHOLE_SETTLEMENT_BUNDLE_PATH', str(Path('artifacts')/'settlement-bundles'/'proof-risk-settlement.json')); os.environ.setdefault('BLACKHOLE_CLEARING_BUNDLE_PATH', str(Path('artifacts')/'clearing-bundles'/'proof-risk-clearing.json')); os.environ.setdefault('BLACKHOLE_MARGIN_BUNDLE_PATH', str(Path('artifacts')/'margin-bundles'/'proof-risk-margin.json')); os.environ.setdefault('BLACKHOLE_COLLATERAL_BUNDLE_PATH', str(Path('artifacts')/'collateral-bundles'/'proof-risk-collateral.json')); os.environ.setdefault('BLACKHOLE_LIQUIDITY_BUNDLE_PATH', str(Path('artifacts')/'liquidity-bundles'/'proof-risk-liquidity.json')); os.environ.setdefault('BLACKHOLE_FUNDING_BUNDLE_PATH', str(Path('artifacts')/'funding-bundles'/'proof-risk-funding.json')); os.environ.setdefault('BLACKHOLE_CAPITAL_BUNDLE_PATH', str(Path('artifacts')/'capital-bundles'/'proof-risk-capital.json')); os.environ.setdefault('BLACKHOLE_SOLVENCY_BUNDLE_PATH', str(Path('artifacts')/'solvency-bundles'/'proof-risk-solvency.json')); os.environ.setdefault('BLACKHOLE_RISK_BUNDLE_PATH', str(Path('artifacts')/'risk-bundles'/'proof-risk.json')); r=builtin_risk_plane(); assert r['ok'] and r.get('action')=='risk_plane' and r.get('risked') is True and int(r.get('risk_count') or 0) >= 2 and int(r.get('tip_height') or 0) >= 2 and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') and r.get('risk_certificate',{}).get('valid') and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -2952,7 +3012,7 @@
         "adversarial",
         "hash-chain"
       ],
-      "updated_at": "2026-07-30T06:50:45.027540Z"
+      "updated_at": "2026-07-30T08:04:40.042369Z"
     },
     "capability.scout-gaps": {
       "behavior_paths": [
@@ -2980,7 +3040,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-07-30T06:50:45.023615Z"
+      "updated_at": "2026-07-30T08:04:40.039134Z"
     },
     "capability.second-wave-absorb": {
       "behavior_paths": [
@@ -3014,7 +3074,7 @@
         "second-wave",
         "domain"
       ],
-      "updated_at": "2026-07-30T06:50:45.024862Z"
+      "updated_at": "2026-07-30T08:04:40.040000Z"
     },
     "capability.settlement-plane": {
       "behavior_paths": [
@@ -3047,8 +3107,8 @@
       "entry": "blackhole_agent.capability_compounder:builtin_settlement_plane",
       "id": "capability.settlement-plane",
       "kind": "python",
-      "last_proof_exit_code": null,
-      "last_proved_at": "",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-07-30T08:01:49.081005Z",
       "name": "Settlement plane over actuation",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_settlement_plane; from pathlib import Path; import os; os.environ['BLACKHOLE_MISSION_GOAL']='settlement over actuation'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_SETTLEMENT_RUN_ACTUATION']='1'; os.environ['BLACKHOLE_ACTUATION_RUN_EXECUTION']='1'; os.environ['BLACKHOLE_EXECUTION_RUN_FINALITY']='1'; os.environ['BLACKHOLE_FINALITY_RUN_QUORUM']='1'; os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='0'; os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='0'; os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; os.environ['BLACKHOLE_FINALITY_EPOCH_COUNT']='2'; os.environ['BLACKHOLE_ACTUATION_MIN_ACTIONS']='2'; os.environ['BLACKHOLE_SETTLEMENT_MIN_SETTLEMENTS']='2'; os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-settlement.json')); os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-settlement-quorum.json')); os.environ.setdefault('BLACKHOLE_FINALITY_BUNDLE_PATH', str(Path('artifacts')/'finality-bundles'/'proof-settlement-finality.json')); os.environ.setdefault('BLACKHOLE_EXECUTION_BUNDLE_PATH', str(Path('artifacts')/'execution-bundles'/'proof-settlement-execution.json')); os.environ.setdefault('BLACKHOLE_ACTUATION_BUNDLE_PATH', str(Path('artifacts')/'actuation-bundles'/'proof-settlement-actuation.json')); os.environ.setdefault('BLACKHOLE_SETTLEMENT_BUNDLE_PATH', str(Path('artifacts')/'settlement-bundles'/'proof-settlement.json')); r=builtin_settlement_plane(); assert r['ok'] and r.get('action')=='settlement_plane' and r.get('settled') is True and int(r.get('settlement_count') or 0) >= 2 and int(r.get('tip_height') or 0) >= 2 and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') and r.get('settlement_certificate',{}).get('valid') and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -3071,7 +3131,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-30T06:50:45.026695Z"
+      "updated_at": "2026-07-30T08:04:40.041628Z"
     },
     "capability.solvency-plane": {
       "behavior_paths": [
@@ -3111,8 +3171,8 @@
       "entry": "blackhole_agent.capability_compounder:builtin_solvency_plane",
       "id": "capability.solvency-plane",
       "kind": "python",
-      "last_proof_exit_code": null,
-      "last_proved_at": "",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-07-30T08:02:23.777612Z",
       "name": "Solvency plane over capital",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_solvency_plane; from pathlib import Path; import os; os.environ['BLACKHOLE_MISSION_GOAL']='solvency over capital'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_SOLVENCY_RUN_CAPITAL']='1'; os.environ['BLACKHOLE_CAPITAL_RUN_FUNDING']='1'; os.environ['BLACKHOLE_FUNDING_RUN_LIQUIDITY']='1'; os.environ['BLACKHOLE_LIQUIDITY_RUN_COLLATERAL']='1'; os.environ['BLACKHOLE_COLLATERAL_RUN_MARGIN']='1'; os.environ['BLACKHOLE_MARGIN_RUN_CLEARING']='1'; os.environ['BLACKHOLE_CLEARING_RUN_SETTLEMENT']='1'; os.environ['BLACKHOLE_SETTLEMENT_RUN_ACTUATION']='1'; os.environ['BLACKHOLE_ACTUATION_RUN_EXECUTION']='1'; os.environ['BLACKHOLE_EXECUTION_RUN_FINALITY']='1'; os.environ['BLACKHOLE_FINALITY_RUN_QUORUM']='1'; os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='0'; os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='0'; os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; os.environ['BLACKHOLE_FINALITY_EPOCH_COUNT']='2'; os.environ['BLACKHOLE_ACTUATION_MIN_ACTIONS']='2'; os.environ['BLACKHOLE_SETTLEMENT_MIN_SETTLEMENTS']='2'; os.environ['BLACKHOLE_CLEARING_MIN_CLEARINGS']='2'; os.environ['BLACKHOLE_MARGIN_MIN_MARGINS']='2'; os.environ['BLACKHOLE_COLLATERAL_MIN_COLLATERALS']='2'; os.environ['BLACKHOLE_LIQUIDITY_MIN_LIQUIDITIES']='2'; os.environ['BLACKHOLE_FUNDING_MIN_FUNDINGS']='2'; os.environ['BLACKHOLE_CAPITAL_MIN_CAPITALS']='2'; os.environ['BLACKHOLE_SOLVENCY_MIN_SOLVENCIES']='2'; os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-solvency.json')); os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-solvency-quorum.json')); os.environ.setdefault('BLACKHOLE_FINALITY_BUNDLE_PATH', str(Path('artifacts')/'finality-bundles'/'proof-solvency-finality.json')); os.environ.setdefault('BLACKHOLE_EXECUTION_BUNDLE_PATH', str(Path('artifacts')/'execution-bundles'/'proof-solvency-execution.json')); os.environ.setdefault('BLACKHOLE_ACTUATION_BUNDLE_PATH', str(Path('artifacts')/'actuation-bundles'/'proof-solvency-actuation.json')); os.environ.setdefault('BLACKHOLE_SETTLEMENT_BUNDLE_PATH', str(Path('artifacts')/'settlement-bundles'/'proof-solvency-settlement.json')); os.environ.setdefault('BLACKHOLE_CLEARING_BUNDLE_PATH', str(Path('artifacts')/'clearing-bundles'/'proof-solvency-clearing.json')); os.environ.setdefault('BLACKHOLE_MARGIN_BUNDLE_PATH', str(Path('artifacts')/'margin-bundles'/'proof-solvency-margin.json')); os.environ.setdefault('BLACKHOLE_COLLATERAL_BUNDLE_PATH', str(Path('artifacts')/'collateral-bundles'/'proof-solvency-collateral.json')); os.environ.setdefault('BLACKHOLE_LIQUIDITY_BUNDLE_PATH', str(Path('artifacts')/'liquidity-bundles'/'proof-solvency-liquidity.json')); os.environ.setdefault('BLACKHOLE_FUNDING_BUNDLE_PATH', str(Path('artifacts')/'funding-bundles'/'proof-solvency-funding.json')); os.environ.setdefault('BLACKHOLE_CAPITAL_BUNDLE_PATH', str(Path('artifacts')/'capital-bundles'/'proof-solvency-capital.json')); os.environ.setdefault('BLACKHOLE_SOLVENCY_BUNDLE_PATH', str(Path('artifacts')/'solvency-bundles'/'proof-solvency.json')); r=builtin_solvency_plane(); assert r['ok'] and r.get('action')=='solvency_plane' and r.get('solvent') is True and int(r.get('solvency_count') or 0) >= 2 and int(r.get('tip_height') or 0) >= 2 and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') and r.get('solvency_certificate',{}).get('valid') and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -3142,7 +3202,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-30T06:50:45.027429Z"
+      "updated_at": "2026-07-30T08:04:40.042277Z"
     },
     "capability.sovereignty-plane": {
       "behavior_paths": [
@@ -3181,7 +3241,7 @@
         "certificate",
         "evidence"
       ],
-      "updated_at": "2026-07-30T06:50:45.025789Z"
+      "updated_at": "2026-07-30T08:04:40.040769Z"
     },
     "capability.stress-plane": {
       "behavior_paths": [
@@ -3222,8 +3282,8 @@
       "entry": "blackhole_agent.capability_compounder:builtin_stress_plane",
       "id": "capability.stress-plane",
       "kind": "python",
-      "last_proof_exit_code": null,
-      "last_proved_at": "",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-07-30T08:02:39.108309Z",
       "name": "Stress plane over risk",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_stress_plane; from pathlib import Path; import os; os.environ['BLACKHOLE_MISSION_GOAL']='stress over risk'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_STRESS_RUN_RISK']='1'; os.environ['BLACKHOLE_RISK_RUN_SOLVENCY']='1'; os.environ['BLACKHOLE_SOLVENCY_RUN_CAPITAL']='1'; os.environ['BLACKHOLE_CAPITAL_RUN_FUNDING']='1'; os.environ['BLACKHOLE_FUNDING_RUN_LIQUIDITY']='1'; os.environ['BLACKHOLE_LIQUIDITY_RUN_COLLATERAL']='1'; os.environ['BLACKHOLE_COLLATERAL_RUN_MARGIN']='1'; os.environ['BLACKHOLE_MARGIN_RUN_CLEARING']='1'; os.environ['BLACKHOLE_CLEARING_RUN_SETTLEMENT']='1'; os.environ['BLACKHOLE_SETTLEMENT_RUN_ACTUATION']='1'; os.environ['BLACKHOLE_ACTUATION_RUN_EXECUTION']='1'; os.environ['BLACKHOLE_EXECUTION_RUN_FINALITY']='1'; os.environ['BLACKHOLE_FINALITY_RUN_QUORUM']='1'; os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='0'; os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='0'; os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; os.environ['BLACKHOLE_FINALITY_EPOCH_COUNT']='2'; os.environ['BLACKHOLE_ACTUATION_MIN_ACTIONS']='2'; os.environ['BLACKHOLE_SETTLEMENT_MIN_SETTLEMENTS']='2'; os.environ['BLACKHOLE_CLEARING_MIN_CLEARINGS']='2'; os.environ['BLACKHOLE_MARGIN_MIN_MARGINS']='2'; os.environ['BLACKHOLE_COLLATERAL_MIN_COLLATERALS']='2'; os.environ['BLACKHOLE_LIQUIDITY_MIN_LIQUIDITIES']='2'; os.environ['BLACKHOLE_FUNDING_MIN_FUNDINGS']='2'; os.environ['BLACKHOLE_CAPITAL_MIN_CAPITALS']='2'; os.environ['BLACKHOLE_SOLVENCY_MIN_SOLVENCIES']='2'; os.environ['BLACKHOLE_RISK_MIN_RISKS']='2'; os.environ['BLACKHOLE_STRESS_MIN_STRESSES']='2'; os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-stress.json')); os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-stress-quorum.json')); os.environ.setdefault('BLACKHOLE_FINALITY_BUNDLE_PATH', str(Path('artifacts')/'finality-bundles'/'proof-stress-finality.json')); os.environ.setdefault('BLACKHOLE_EXECUTION_BUNDLE_PATH', str(Path('artifacts')/'execution-bundles'/'proof-stress-execution.json')); os.environ.setdefault('BLACKHOLE_ACTUATION_BUNDLE_PATH', str(Path('artifacts')/'actuation-bundles'/'proof-stress-actuation.json')); os.environ.setdefault('BLACKHOLE_SETTLEMENT_BUNDLE_PATH', str(Path('artifacts')/'settlement-bundles'/'proof-stress-settlement.json')); os.environ.setdefault('BLACKHOLE_CLEARING_BUNDLE_PATH', str(Path('artifacts')/'clearing-bundles'/'proof-stress-clearing.json')); os.environ.setdefault('BLACKHOLE_MARGIN_BUNDLE_PATH', str(Path('artifacts')/'margin-bundles'/'proof-stress-margin.json')); os.environ.setdefault('BLACKHOLE_COLLATERAL_BUNDLE_PATH', str(Path('artifacts')/'collateral-bundles'/'proof-stress-collateral.json')); os.environ.setdefault('BLACKHOLE_LIQUIDITY_BUNDLE_PATH', str(Path('artifacts')/'liquidity-bundles'/'proof-stress-liquidity.json')); os.environ.setdefault('BLACKHOLE_FUNDING_BUNDLE_PATH', str(Path('artifacts')/'funding-bundles'/'proof-stress-funding.json')); os.environ.setdefault('BLACKHOLE_CAPITAL_BUNDLE_PATH', str(Path('artifacts')/'capital-bundles'/'proof-stress-capital.json')); os.environ.setdefault('BLACKHOLE_SOLVENCY_BUNDLE_PATH', str(Path('artifacts')/'solvency-bundles'/'proof-stress-solvency.json')); os.environ.setdefault('BLACKHOLE_RISK_BUNDLE_PATH', str(Path('artifacts')/'risk-bundles'/'proof-stress-risk.json')); os.environ.setdefault('BLACKHOLE_STRESS_BUNDLE_PATH', str(Path('artifacts')/'stress-bundles'/'proof-stress.json')); r=builtin_stress_plane(); assert r['ok'] and r.get('action')=='stress_plane' and r.get('stressed') is True and int(r.get('stress_count') or 0) >= 2 and int(r.get('tip_height') or 0) >= 2 and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') and r.get('stress_certificate',{}).get('valid') and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -3237,7 +3297,7 @@
         "adversarial",
         "hash-chain"
       ],
-      "updated_at": "2026-07-30T06:50:45.027643Z"
+      "updated_at": "2026-07-30T08:04:40.042467Z"
     },
     "capability.transfer-plane": {
       "behavior_paths": [
@@ -3268,7 +3328,7 @@
         "transfer",
         "package"
       ],
-      "updated_at": "2026-07-30T06:50:45.025502Z"
+      "updated_at": "2026-07-30T08:04:40.040489Z"
     },
     "domain.ci-security": {
       "behavior_paths": [
@@ -3574,7 +3634,7 @@
         "bootstrap",
         "evolution-route"
       ],
-      "updated_at": "2026-07-30T06:50:45.023517Z"
+      "updated_at": "2026-07-30T08:04:40.039035Z"
     },
     "repo.import-health": {
       "behavior_paths": [
@@ -3598,7 +3658,7 @@
         "bootstrap",
         "health"
       ],
-      "updated_at": "2026-07-30T06:50:45.023103Z"
+      "updated_at": "2026-07-30T08:04:40.038689Z"
     },
     "unbound.milestone-gate": {
       "behavior_paths": [
@@ -3623,9 +3683,9 @@
         "bootstrap",
         "unbound"
       ],
-      "updated_at": "2026-07-30T06:50:45.023300Z"
+      "updated_at": "2026-07-30T08:04:40.038823Z"
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-07-30T06:50:45.028126Z"
+  "updated_at": "2026-07-30T08:04:40.042987Z"
 }
