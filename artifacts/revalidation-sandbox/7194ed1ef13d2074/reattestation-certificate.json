@@ -1,0 +1,37 @@
+{
+  "bound_recertification_height": 2,
+  "bound_recertification_root": "ff1b64f462f5611b7bd5a6f4",
+  "certificate_hash": "56c4396fe972cf0246265e54",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "reattested",
+    "plane": "reattestation"
+  },
+  "deterministic": true,
+  "goal": "reverification over revalidation (clearing 2)",
+  "issued_at": "2026-07-30T19:26:07.266311Z",
+  "kind": "reattestation_certificate",
+  "lineage_head_hash": "869160c31e0e33a99b218f95",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "b3cd6b18a85db475",
+  "parent_reattestation_root": "03fca7955756e90a746c04ca",
+  "post_recertification": true,
+  "reattestation_count": 2,
+  "reattestation_height": 2,
+  "reattestation_plan_digest": "c423da66f4c661e504f42955",
+  "reattestation_root": "d1970cc840614c11e8657d0b",
+  "recertification_certificate_hash": "28479b3ccba21b7beea70cb1",
+  "recertification_hash": "7bca60ab287ed3f32542548d",
+  "recertification_plan_digest": "73570cb838ef19d1e1c96680",
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

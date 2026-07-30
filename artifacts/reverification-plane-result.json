@@ -1,0 +1,193 @@
+{
+  "ok": true,
+  "action": "reverification_plane",
+  "goal": "reverification over revalidation",
+  "done_when": "",
+  "reverification_done_when": "no_skill_route; reverification_ok; reverified_ok; min_reverifications:2; reverification_root_valid; revalidation_ok; revalidated_ok; min_revalidations:2; revalidation_root_valid; chain_valid; capability_exists:repo.import-health",
+  "met": true,
+  "machine_checkable": true,
+  "reverified": true,
+  "reverification_count": 2,
+  "tip_height": 2,
+  "tip_reverification_root": "80df0d3f6bd3482e4e3f4d67",
+  "bound_revalidation_root": "c49ecbe257f2e80ed93b8d97",
+  "bound_revalidation_height": 2,
+  "reverification_plan_digest": "84fe232ad4b8223dfe7059f0",
+  "revalidation_count": 2,
+  "tip_revalidation_root": "c49ecbe257f2e80ed93b8d97",
+  "bound_settlement_root": "b7b6a462eee9dcb5c3aad78a",
+  "revalidation_plan_digest": "48878f5012b9be64f09aef1e",
+  "settlement_count": 2,
+  "tip_settlement_root": "b7b6a462eee9dcb5c3aad78a",
+  "bound_action_root": "b7adebde04e9182793cb3c2f",
+  "action_count": 3,
+  "tip_action_root": "d71d2a81ec96f2c30709e068",
+  "bound_state_root": "7ff3fe437f196eac6dfc839c",
+  "state_count": 2,
+  "state_height": 2,
+  "epoch_count": 2,
+  "origin_count": 3,
+  "agreeing_count": 2,
+  "byzantine_count": 1,
+  "revalidation": {
+    "ok": true,
+    "revalidated": true,
+    "revalidation_hash": null,
+    "revalidation_count": 2,
+    "tip_revalidation_root": "c49ecbe257f2e80ed93b8d97"
+  },
+  "reverification": {
+    "ok": true,
+    "reverification_hash": "66c60cec13a1a8ad32faeab0",
+    "bundle_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260730T192122Z-eb1eec77\\artifacts\\reverification-bundles\\revalidation-66c60cec13a1a8ad32faeab0.json",
+    "package_hash": "b3cd6b18a85db475",
+    "member_count": 3,
+    "reverification_count": 2,
+    "tip_height": 2,
+    "tip_reverification_root": "80df0d3f6bd3482e4e3f4d67",
+    "bound_revalidation_root": "c49ecbe257f2e80ed93b8d97",
+    "reverification_plan_digest": "84fe232ad4b8223dfe7059f0",
+    "certificate_count": 6,
+    "lineage_entry_count": 5,
+    "lineage_head_hash": "869160c31e0e33a99b218f95",
+    "revalidation_hash": "7194ed1ef13d207458edf8b8",
+    "settlement_hash": "090a27ddf5457fa8be12543a",
+    "actuation_hash": "43484ca002c636f86e289c1c",
+    "execution_hash": "e006334ac555b612c290f8e6",
+    "persisted": true,
+    "deterministic": true,
+    "post_revalidation": true
+  },
+  "integrity": {
+    "ok": true,
+    "hash_ok": true,
+    "chain_valid": true,
+    "multi_reverification": true,
+    "package_ok": true,
+    "reverification_certificate_valid": true,
+    "revalidation_certificate_valid": true,
+    "bound_ok": true,
+    "reverification_ok": true,
+    "deterministic": true,
+    "post_revalidation": true
+  },
+  "rehydrate": {
+    "ok": true,
+    "sandbox_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260730T192122Z-eb1eec77\\artifacts\\reverification-sandbox\\66c60cec13a1a8ad",
+    "lineage_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260730T192122Z-eb1eec77\\artifacts\\reverification-sandbox\\66c60cec13a1a8ad\\lineage.json",
+    "reverifications_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260730T192122Z-eb1eec77\\artifacts\\reverification-sandbox\\66c60cec13a1a8ad\\reverifications.json",
+    "revalidations_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260730T192122Z-eb1eec77\\artifacts\\reverification-sandbox\\66c60cec13a1a8ad\\revalidations.json",
+    "settlements_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260730T192122Z-eb1eec77\\artifacts\\reverification-sandbox\\66c60cec13a1a8ad\\settlements.json",
+    "actions_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260730T192122Z-eb1eec77\\artifacts\\reverification-sandbox\\66c60cec13a1a8ad\\actions.json",
+    "sterile_ledger_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260730T192122Z-eb1eec77\\artifacts\\reverification-sandbox\\66c60cec13a1a8ad\\ledger.json",
+    "import": {
+      "ok": true,
+      "action": "import_capability_package",
+      "imported": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "unbound.milestone-gate"
+      ],
+      "skipped": [],
+      "imported_count": 3,
+      "skipped_count": 0,
+      "roots": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "unbound.milestone-gate"
+      ],
+      "package_hash": "b3cd6b18a85db475",
+      "used_skill_route_discovery": false
+    },
+    "chain": {
+      "ok": true,
+      "valid": true,
+      "entry_count": 2,
+      "tip_height": 2,
+      "tip_reverification_root": "80df0d3f6bd3482e4e3f4d67",
+      "reverification_plan_digest": "84fe232ad4b8223dfe7059f0",
+      "errors": []
+    },
+    "reverification_certificate": {
+      "ok": true,
+      "valid": true,
+      "certificate_hash": "daa678fb007e18c60d25b83b",
+      "reverification_root": "80df0d3f6bd3482e4e3f4d67"
+    },
+    "revalidation_certificate": {
+      "ok": true,
+      "valid": true,
+      "certificate_hash": "2573c9a76f7f9a22a4f4299f"
+    },
+    "margin_digests_match": true
+  },
+  "prove": {
+    "ok": true,
+    "proved_count": 3,
+    "proofs": [
+      {
+        "capability_id": "repo.import-health",
+        "ok": true,
+        "exit_code": 0,
+        "summary": "exit 0"
+      },
+      {
+        "capability_id": "capability.ledger-inventory",
+        "ok": true,
+        "exit_code": 0,
+        "summary": "exit 0"
+      },
+      {
+        "capability_id": "unbound.milestone-gate",
+        "ok": true,
+        "exit_code": 0,
+        "summary": "exit 0"
+      }
+    ]
+  },
+  "chain": {
+    "ok": true,
+    "valid": true,
+    "entry_count": 2,
+    "tip_height": 2,
+    "tip_reverification_root": "80df0d3f6bd3482e4e3f4d67",
+    "reverification_plan_digest": "84fe232ad4b8223dfe7059f0",
+    "errors": []
+  },
+  "reverification_certificate": {
+    "ok": true,
+    "valid": true,
+    "hash_ok": true,
+    "certificate_hash": "daa678fb007e18c60d25b83b",
+    "reverification_height": 2,
+    "reverification_root": "80df0d3f6bd3482e4e3f4d67",
+    "bound_revalidation_root": "c49ecbe257f2e80ed93b8d97",
+    "reverification_plan_digest": "84fe232ad4b8223dfe7059f0"
+  },
+  "adversarial": {
+    "ok": true,
+    "intact_ok": true,
+    "mutation_fails_as_expected": true,
+    "reorder_fails_as_expected": true,
+    "wrong_revalidation_fails_as_expected": true,
+    "forged_root_fails_as_expected": true,
+    "gap_fails_as_expected": true,
+    "broken_cert_fails_as_expected": true,
+    "wrong_parent_fails_as_expected": true,
+    "digest_tamper_fails_as_expected": true,
+    "tamper_fails_as_expected": true,
+    "single_reverification_fails_as_expected": true,
+    "replay_matches_tip": true,
+    "duplicate_apply_fails_as_expected": true,
+    "incomplete_fails_as_expected": true
+  },
+  "final_contract": {
+    "ok": true,
+    "met": true,
+    "passed_count": 11,
+    "failed_count": 0,
+    "failed": []
+  },
+  "used_skill_route_discovery": false,
+  "ledger_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260730T192122Z-eb1eec77\\capabilities\\ledger.json"
+}

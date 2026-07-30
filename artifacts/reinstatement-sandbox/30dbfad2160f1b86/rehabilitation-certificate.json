@@ -1,0 +1,37 @@
+{
+  "bound_reorganization_height": 2,
+  "bound_reorganization_root": "0e2533cf53a3bad42e972963",
+  "certificate_hash": "db3cf157cd2b972cbcd9317f",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "rehabilitated",
+    "plane": "rehabilitation"
+  },
+  "deterministic": true,
+  "goal": "reverification over revalidation (clearing 2)",
+  "issued_at": "2026-07-30T19:26:05.286605Z",
+  "kind": "rehabilitation_certificate",
+  "lineage_head_hash": "869160c31e0e33a99b218f95",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "b3cd6b18a85db475",
+  "parent_rehabilitation_root": "acbeaadfed5c6d5cb60c2b58",
+  "post_reorganization": true,
+  "rehabilitation_count": 2,
+  "rehabilitation_height": 2,
+  "rehabilitation_plan_digest": "47aa07401893fb56596948e9",
+  "rehabilitation_root": "3465536502dd971cc02f6cfa",
+  "reorganization_certificate_hash": "c2f214891dd91e471d77fb63",
+  "reorganization_hash": "817528c5976011ab512a0315",
+  "reorganization_plan_digest": "4106f578688050d009dad9c6",
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}
