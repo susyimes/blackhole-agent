@@ -2594,3 +2594,131 @@ def test_funding_plane_facilities_and_adversarial():
     assert loaded.get("funding_facility_digest")
     assert path.name == "ledger.json"
 
+
+
+def test_capital_plane_buffers_and_adversarial():
+    """Capital plane posts multi-funding facilities and falsifies wrong-funding binds."""
+
+    from blackhole_agent.capability_compounder import (
+        ensure_seeded_ledger,
+        load_capital_bundle,
+        parse_outcome_contract,
+        run_capital_plane,
+        verify_capital_bundle_integrity,
+    )
+
+    repo = Path(__file__).resolve().parents[1]
+    path, ledger = ensure_seeded_ledger(repo)
+    assert "capability.capital-plane" in ledger.capabilities
+    assert "capability.funding-plane" in ledger.capabilities
+
+    parsed = parse_outcome_contract(
+        "no_skill_route; capital_ok; capitalized_ok; min_capitals:2; "
+        "capital_root_valid; funding_ok; funded_ok; min_fundings:2; "
+        "funding_root_valid; chain_valid"
+    )
+    kinds = {item["kind"] for item in parsed["predicates"]}
+    assert "capital_ok" in kinds
+    assert "capitalized_ok" in kinds
+    assert "min_capitals" in kinds
+    assert "capital_root_valid" in kinds
+
+    lineage_path = repo / "artifacts" / "capability-lineage" / "test-capital-plane.json"
+    quorum_path = repo / "artifacts" / "quorum-bundles" / "test-capital-quorum.json"
+    finality_path = repo / "artifacts" / "finality-bundles" / "test-capital-finality.json"
+    execution_path = repo / "artifacts" / "execution-bundles" / "test-capital-execution.json"
+    actuation_path = repo / "artifacts" / "actuation-bundles" / "test-capital-actuation.json"
+    settlement_path = repo / "artifacts" / "settlement-bundles" / "test-capital-settlement.json"
+    margin_path = repo / "artifacts" / "margin-bundles" / "test-capital-margin.json"
+    collateral_path = repo / "artifacts" / "collateral-bundles" / "test-capital-collateral.json"
+    liquidity_path = repo / "artifacts" / "liquidity-bundles" / "test-capital-liquidity.json"
+    funding_path = repo / "artifacts" / "funding-bundles" / "test-capital-funding.json"
+    capital_path = repo / "artifacts" / "capital-bundles" / "test-capital-plane.json"
+    for target in (
+        lineage_path,
+        quorum_path,
+        finality_path,
+        execution_path,
+        actuation_path,
+        settlement_path,
+        margin_path,
+        collateral_path,
+        liquidity_path,
+        funding_path,
+        capital_path,
+    ):
+        if target.exists():
+            target.unlink()
+
+    plane = run_capital_plane(
+        repo,
+        "capital over funding",
+        "min_capabilities:5; capability_exists:repo.import-health; no_skill_route",
+        max_steps=3,
+        run_funding=True,
+        run_liquidity=True,
+        run_collateral=True,
+        run_clearing=True,
+        run_settlement=True,
+        run_actuation=True,
+        run_execution=True,
+        run_finality=True,
+        run_quorum=True,
+        run_continuity=False,
+        run_reconciliation=False,
+        inject_byzantine=True,
+        epoch_count=2,
+        min_actions=2,
+        min_settlements=2,
+        min_clearings=2,
+        min_margins=2,
+        min_collaterals=2,
+        min_liquidities=2,
+        min_fundings=2,
+        min_capitals=2,
+        lineage_path=lineage_path,
+        quorum_path=quorum_path,
+        finality_path=finality_path,
+        execution_path=execution_path,
+        actuation_path=actuation_path,
+        settlement_path=settlement_path,
+        margin_path=margin_path,
+        collateral_path=collateral_path,
+        liquidity_path=liquidity_path,
+        funding_path=funding_path,
+        capital_path=capital_path,
+        timeout=960,
+    )
+    assert plane["ok"] is True, plane
+    assert plane["action"] == "capital_plane"
+    assert plane["capitalized"] is True
+    assert int(plane["capital_count"]) >= 2
+    assert int(plane["tip_height"]) >= 2
+    assert int(plane["funding_count"] or 0) >= 2
+    assert plane.get("capital_buffer_digest")
+    assert plane["integrity"]["ok"] is True
+    assert plane["integrity"]["multi_capital"] is True
+    assert plane["integrity"]["capital_ok"] is True
+    assert plane["rehydrate"]["ok"] is True
+    assert plane["prove"]["ok"] is True
+    assert int(plane["prove"]["proved_count"]) >= 1
+    assert plane["chain"]["valid"] is True
+    assert plane["capital_certificate"]["valid"] is True
+    assert plane["adversarial"]["ok"] is True
+    assert plane["adversarial"]["wrong_funding_fails_as_expected"] is True
+    assert plane["adversarial"]["reorder_fails_as_expected"] is True
+    assert plane["adversarial"]["digest_tamper_fails_as_expected"] is True
+    assert plane["adversarial"]["single_capital_fails_as_expected"] is True
+    assert plane["adversarial"]["duplicate_apply_fails_as_expected"] is True
+    assert plane["adversarial"]["replay_matches_tip"] is True
+    assert plane["used_skill_route_discovery"] is False
+    assert capital_path.is_file()
+
+    loaded = load_capital_bundle(capital_path)
+    assert verify_capital_bundle_integrity(loaded)["ok"] is True
+    assert loaded.get("capital_hash")
+    assert int(loaded.get("capital_count") or 0) >= 2
+    assert int(loaded.get("tip_height") or 0) >= 2
+    assert loaded.get("capital_buffer_digest")
+    assert path.name == "ledger.json"
+
