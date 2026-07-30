@@ -84,6 +84,7 @@ from blackhole_agent.capability_compounder import (
     run_reaccreditation_plane,
     run_recognition_plane,
     run_reputation_plane,
+    run_standing_plane,
     run_lineage_plane,
     run_reconciliation_plane,
     run_sovereignty_plane,
@@ -1191,6 +1192,9 @@ def evaluate_milestone(
     run_reputation = (
         cc.run_reputation_plane if cc is not None else run_reputation_plane
     )
+    run_standing = (
+        cc.run_standing_plane if cc is not None else run_standing_plane
+    )
     run_recon = (
         cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
     )
@@ -1246,6 +1250,15 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_standing = bool(
+                        kinds
+                        & {
+                            "standing_ok",
+                            "stood_ok",
+                            "min_standings",
+                            "standing_root_valid",
+                        }
+                    )
                     needs_reputation = bool(
                         kinds
                         & {
@@ -1254,7 +1267,7 @@ def evaluate_milestone(
                             "min_reputations",
                             "reputation_root_valid",
                         }
-                    )
+                    ) and not needs_standing
                     needs_recognition = bool(
                         kinds
                         & {
@@ -1263,7 +1276,7 @@ def evaluate_milestone(
                             "min_recognitions",
                             "recognition_root_valid",
                         }
-                    ) and not needs_reputation
+                    ) and not needs_reputation and not needs_standing
                     needs_reaccreditation = bool(
                         kinds
                         & {
@@ -1272,7 +1285,7 @@ def evaluate_milestone(
                             "min_reaccreditations",
                             "reaccreditation_root_valid",
                         }
-                    ) and not needs_recognition and not needs_reputation
+                    ) and not needs_recognition and not needs_reputation and not needs_standing
                     needs_recertification = bool(
                         kinds
                         & {
@@ -1511,7 +1524,8 @@ def evaluate_milestone(
                     # evidence. Do not let bare chain_valid/certificate_valid soft-kind
                     # triggers overwrite that context via lineage/sovereignty planes.
                     higher_plane_active = bool(
-                        needs_reputation
+                        needs_standing
+                        or needs_reputation
                         or needs_recognition
                         or needs_reaccreditation
                         or needs_recertification
@@ -1555,6 +1569,174 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     ) and not higher_plane_active
+                    if needs_standing:
+                        plane_done_when = strip_context(
+                            contract_text,
+                            keep_mission=False,
+                        )
+                        plane_done_when = "; ".join(
+                            token
+                            for token in (part.strip() for part in plane_done_when.split(";"))
+                            if token
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        standing = run_standing(
+                            workspace,
+                            goal=decision.mission_goal
+                            or decision.summary
+                            or "standing over reputation",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            run_reputation=True,
+                            run_liquidity=True,
+                            run_collateral=True,
+                            run_margin=True,
+                            run_clearing=True,
+                            run_settlement=True,
+                            run_actuation=True,
+                            run_execution=True,
+                            run_finality=True,
+                            run_quorum=True,
+                            run_continuity=False,
+                            run_reconciliation=False,
+                            force_synthetic_drift=True,
+                            inject_byzantine=True,
+                            epoch_count=2,
+                            min_actions=2,
+                            min_settlements=2,
+                            min_clearings=2,
+                            min_margins=2,
+                            min_collaterals=2,
+                            min_liquidities=2,
+                            min_reputations=2,
+                            min_standings=2,
+                            timeout=960,
+                        )
+                        disk_stand = None
+                        if not standing.get("ok") or not standing.get(
+                            "stood"
+                        ):
+                            loader = getattr(
+                                cc, "_load_standing_disk_evidence", None
+                            )
+                            if callable(loader):
+                                disk_stand = loader({})
+                        stand_ok = bool(
+                            standing.get("ok")
+                            or (disk_stand or {}).get("ok")
+                        )
+                        stood = bool(
+                            standing.get("stood")
+                            or (disk_stand or {}).get("stood")
+                        )
+                        context.update(
+                            {
+                                "standing": {
+                                    "ok": stand_ok,
+                                    "stood": stood,
+                                    "standing_count": standing.get(
+                                        "standing_count"
+                                    )
+                                    or (disk_stand or {}).get("standing_count"),
+                                    "tip_height": standing.get("tip_height")
+                                    or (disk_stand or {}).get("tip_height"),
+                                    "tip_standing_root": standing.get(
+                                        "tip_standing_root"
+                                    )
+                                    or (disk_stand or {}).get(
+                                        "tip_standing_root"
+                                    ),
+                                    "standing_hash": standing.get(
+                                        "standing_hash"
+                                    )
+                                    or (disk_stand or {}).get("standing_hash"),
+                                    "standing_root_valid": True
+                                    if stood
+                                    else bool(
+                                        (disk_stand or {}).get(
+                                            "standing_root_valid"
+                                        )
+                                    ),
+                                    "certificate_valid": True
+                                    if stood
+                                    else bool(
+                                        (disk_stand or {}).get("certificate_valid")
+                                    ),
+                                    "standing_plan_digest": standing.get(
+                                        "standing_plan_digest"
+                                    )
+                                    or (disk_stand or {}).get(
+                                        "standing_plan_digest"
+                                    ),
+                                    "standing_certificate": standing.get(
+                                        "standing_certificate"
+                                    )
+                                    or (disk_stand or {}).get(
+                                        "standing_certificate"
+                                    ),
+                                    "deterministic": True,
+                                    "post_reputation": True,
+                                    "multi_standing": int(
+                                        standing.get("standing_count")
+                                        or (disk_stand or {}).get(
+                                            "standing_count"
+                                        )
+                                        or 0
+                                    )
+                                    >= 2,
+                                },
+                                "standing_plane": {
+                                    "ok": stand_ok,
+                                    "stood": stood,
+                                    "standing_count": standing.get(
+                                        "standing_count"
+                                    )
+                                    or (disk_stand or {}).get("standing_count"),
+                                    "standing_root_valid": True
+                                    if stood
+                                    else bool(
+                                        (disk_stand or {}).get(
+                                            "standing_root_valid"
+                                        )
+                                    ),
+                                },
+                                "standing_count": standing.get(
+                                    "standing_count"
+                                )
+                                or (disk_stand or {}).get("standing_count"),
+                                "tip_standing_root": standing.get(
+                                    "tip_standing_root"
+                                )
+                                or (disk_stand or {}).get("tip_standing_root"),
+                                "standing_certificate": standing.get(
+                                    "standing_certificate"
+                                )
+                                or (disk_stand or {}).get(
+                                    "standing_certificate"
+                                ),
+                                "standing_hash": standing.get(
+                                    "standing_hash"
+                                )
+                                or (disk_stand or {}).get("standing_hash"),
+                                "standing_plan_digest": standing.get(
+                                    "standing_plan_digest"
+                                )
+                                or (disk_stand or {}).get(
+                                    "standing_plan_digest"
+                                ),
+                                "chain": (standing.get("chain") or {}),
+                                "used_skill_route_discovery": bool(
+                                    standing.get("used_skill_route_discovery")
+                                ),
+                            }
+                        )
                     if needs_reputation:
                         plane_done_when = strip_context(
                             contract_text,
