@@ -1,0 +1,37 @@
+{
+  "bound_clearing_height": 2,
+  "bound_clearing_root": "0e9c1e0f69c07bab0b0b850d",
+  "certificate_hash": "5bf6dc0448c5edc3530bfb5a",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "margined",
+    "plane": "margin"
+  },
+  "clearing_certificate_hash": "ece1c1407b5e2e70199a920a",
+  "clearing_hash": "91bb6fbf0dc2f874b0ddbf7c",
+  "deterministic": true,
+  "goal": "resilience over stress (clearing 2)",
+  "issued_at": "2026-07-30T05:29:25.018375Z",
+  "kind": "margin_certificate",
+  "lineage_head_hash": "b6878d89c2f6ea906c16d922",
+  "margin_count": 2,
+  "margin_height": 2,
+  "margin_requirement_digest": "fd339deb4ce1c2de5800bacc",
+  "margin_root": "42d0a02aa69c02c115309f3c",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "net_position_digest": "488ae4ce34e5816ba880927d",
+  "ok": true,
+  "package_hash": "014f84f72c1b79f8",
+  "parent_margin_root": "bac379ec9afd0bab17bb5003",
+  "post_clearing": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

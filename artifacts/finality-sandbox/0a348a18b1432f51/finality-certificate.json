@@ -1,0 +1,29 @@
+{
+  "agreeing_count": 2,
+  "byzantine_count": 1,
+  "certificate_hash": "f5574ad28244e475aa209929",
+  "claims": {
+    "epoch_index": 2,
+    "member_count": 3,
+    "plane": "finality",
+    "roots": [
+      "repo.import-health",
+      "capability.ledger-inventory",
+      "unbound.milestone-gate"
+    ]
+  },
+  "epoch_hash": "c963e39be2bef8ff3b806d90",
+  "epoch_height": 2,
+  "goal": "resilience over stress (epoch 2)",
+  "irreversible": true,
+  "issued_at": "2026-07-30T05:28:32.842888Z",
+  "kind": "finality_certificate",
+  "lineage_head_hash": "1e8785acfe4e5f896f9dbcb6",
+  "ok": true,
+  "origin_count": 3,
+  "package_hash": "0f981b65bacfd74f",
+  "parent_epoch_hash": "c957e3ad15a0376e419076aa",
+  "quorum_hash": "e08f30c2ac4ad3ddd45f3ce3",
+  "schema_version": 1,
+  "used_skill_route_discovery": false
+}

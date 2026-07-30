@@ -4,13 +4,51 @@
   "byzantine_count": 1,
   "certificate_count": 4,
   "certificates": {
-    "2128083df55cb8128760d816": {
-      "certificate_hash": "2128083df55cb8128760d816",
+    "32950c3c4c1bd19f55a764e6": {
+      "certificate_hash": "32950c3c4c1bd19f55a764e6",
+      "epoch_height": 2,
+      "kind": "quorum_certificate",
+      "payload": {
+        "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "byzantine_count": 1,
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "certificate_hash": "32950c3c4c1bd19f55a764e6",
+        "claims": {
+          "finality_progress": true,
+          "prior_quorum_hash": "2a4c07284b7c9c38d08b7c3c",
+          "progress_tag": "epoch-progress-2"
+        },
+        "goal": "resilience over stress (progress 2)",
+        "issued_at": "2026-07-30T05:29:22.279243Z",
+        "kind": "quorum_certificate",
+        "lineage_head_hash": "b6878d89c2f6ea906c16d922",
+        "member_count": 3,
+        "ok": true,
+        "origin_count": 3,
+        "origin_hashes": [
+          "279df7e2115038154142fc5c",
+          "88a994f8242dcc15e3e0de8e",
+          "fec82835a0c8b383ab756bb1"
+        ],
+        "package_hash": "014f84f72c1b79f8",
+        "schema_version": 1,
+        "threshold": 2,
+        "used_skill_route_discovery": false
+      }
+    },
+    "e05beaa74da66db457dcd746": {
+      "certificate_hash": "e05beaa74da66db457dcd746",
       "epoch_height": 2,
       "payload": {
         "agreeing_count": 2,
         "byzantine_count": 1,
-        "certificate_hash": "2128083df55cb8128760d816",
+        "certificate_hash": "e05beaa74da66db457dcd746",
         "claims": {
           "epoch_index": 2,
           "member_count": 3,
@@ -21,29 +59,29 @@
             "unbound.milestone-gate"
           ]
         },
-        "epoch_hash": "0e7c441b3da8fa4b0496f7ca",
+        "epoch_hash": "02789f2fd241c474783ee70c",
         "epoch_height": 2,
-        "goal": "stress over risk (epoch 2)",
+        "goal": "resilience over stress (epoch 2)",
         "irreversible": true,
-        "issued_at": "2026-07-30T04:50:07.877085Z",
+        "issued_at": "2026-07-30T05:29:22.280294Z",
         "kind": "finality_certificate",
-        "lineage_head_hash": "d111cfbfe37723e2fd02aaa5",
+        "lineage_head_hash": "b6878d89c2f6ea906c16d922",
         "ok": true,
         "origin_count": 3,
-        "package_hash": "1a4e2d33585e011a",
-        "parent_epoch_hash": "48b1dda078463c3a6b09fc01",
-        "quorum_hash": "87ffbcd7a8170060d16536a3",
+        "package_hash": "014f84f72c1b79f8",
+        "parent_epoch_hash": "6257d5f09c8b8cbae86e29d8",
+        "quorum_hash": "55f718b88a8eead4d286d2f3",
         "schema_version": 1,
         "used_skill_route_discovery": false
       }
     },
-    "35264963e93651224b46f662": {
-      "certificate_hash": "35264963e93651224b46f662",
+    "e68167732498ff654df86e0c": {
+      "certificate_hash": "e68167732498ff654df86e0c",
       "epoch_height": 1,
       "payload": {
         "agreeing_count": 2,
         "byzantine_count": 1,
-        "certificate_hash": "35264963e93651224b46f662",
+        "certificate_hash": "e68167732498ff654df86e0c",
         "claims": {
           "epoch_index": 1,
           "member_count": 3,
@@ -54,62 +92,24 @@
             "unbound.milestone-gate"
           ]
         },
-        "epoch_hash": "48b1dda078463c3a6b09fc01",
+        "epoch_hash": "6257d5f09c8b8cbae86e29d8",
         "epoch_height": 1,
-        "goal": "stress over risk (epoch 1)",
+        "goal": "resilience over stress (epoch 1)",
         "irreversible": true,
-        "issued_at": "2026-07-30T04:50:07.875260Z",
+        "issued_at": "2026-07-30T05:29:22.278228Z",
         "kind": "finality_certificate",
-        "lineage_head_hash": "5e2a65bbe97fdcc44f4a931a",
+        "lineage_head_hash": "f67ff3799675107c7885872a",
         "ok": true,
         "origin_count": 3,
         "package_hash": "066545df3053adf5",
         "parent_epoch_hash": "",
-        "quorum_hash": "1cbf7adbecdeb86b09a81ed7",
+        "quorum_hash": "2a4c07284b7c9c38d08b7c3c",
         "schema_version": 1,
         "used_skill_route_discovery": false
       }
     },
-    "3d58987084fbf6010f4593d0": {
-      "certificate_hash": "3d58987084fbf6010f4593d0",
-      "epoch_height": 2,
-      "kind": "quorum_certificate",
-      "payload": {
-        "agreeing_count": 2,
-        "agreeing_origins": [
-          "origin-a",
-          "origin-b"
-        ],
-        "byzantine_count": 1,
-        "byzantine_origins": [
-          "origin-byzantine"
-        ],
-        "certificate_hash": "3d58987084fbf6010f4593d0",
-        "claims": {
-          "finality_progress": true,
-          "prior_quorum_hash": "1cbf7adbecdeb86b09a81ed7",
-          "progress_tag": "epoch-progress-2"
-        },
-        "goal": "stress over risk (progress 2)",
-        "issued_at": "2026-07-30T04:50:07.876269Z",
-        "kind": "quorum_certificate",
-        "lineage_head_hash": "d111cfbfe37723e2fd02aaa5",
-        "member_count": 3,
-        "ok": true,
-        "origin_count": 3,
-        "origin_hashes": [
-          "2d7fc4a88a05af245908aa45",
-          "18c4605205fdd6191af434e2",
-          "8e75dfe8833e1346071411b0"
-        ],
-        "package_hash": "1a4e2d33585e011a",
-        "schema_version": 1,
-        "threshold": 2,
-        "used_skill_route_discovery": false
-      }
-    },
-    "acdc9b37d505fd8b08d8cae2": {
-      "certificate_hash": "acdc9b37d505fd8b08d8cae2",
+    "edee860285800341d3278b26": {
+      "certificate_hash": "edee860285800341d3278b26",
       "epoch_height": 1,
       "kind": "quorum_certificate",
       "payload": {
@@ -122,7 +122,7 @@
         "byzantine_origins": [
           "origin-byzantine"
         ],
-        "certificate_hash": "acdc9b37d505fd8b08d8cae2",
+        "certificate_hash": "edee860285800341d3278b26",
         "claims": {
           "origin_ids": [
             "origin-a",
@@ -136,17 +136,17 @@
           ],
           "votes_accepted": 3
         },
-        "goal": "stress over risk",
-        "issued_at": "2026-07-30T04:50:07.317591Z",
+        "goal": "resilience over stress",
+        "issued_at": "2026-07-30T05:29:21.623914Z",
         "kind": "quorum_certificate",
-        "lineage_head_hash": "5e2a65bbe97fdcc44f4a931a",
+        "lineage_head_hash": "f67ff3799675107c7885872a",
         "member_count": 3,
         "ok": true,
         "origin_count": 3,
         "origin_hashes": [
-          "2d7fc4a88a05af245908aa45",
-          "18c4605205fdd6191af434e2",
-          "8e75dfe8833e1346071411b0"
+          "279df7e2115038154142fc5c",
+          "88a994f8242dcc15e3e0de8e",
+          "fec82835a0c8b383ab756bb1"
         ],
         "package_hash": "066545df3053adf5",
         "schema_version": 1,
@@ -172,12 +172,12 @@
           "epoch_index": 1,
           "plane": "finality"
         },
-        "epoch_hash": "48b1dda078463c3a6b09fc01",
+        "epoch_hash": "6257d5f09c8b8cbae86e29d8",
         "epoch_height": 1,
         "finality_certificate": {
           "agreeing_count": 2,
           "byzantine_count": 1,
-          "certificate_hash": "35264963e93651224b46f662",
+          "certificate_hash": "e68167732498ff654df86e0c",
           "claims": {
             "epoch_index": 1,
             "member_count": 3,
@@ -188,23 +188,23 @@
               "unbound.milestone-gate"
             ]
           },
-          "epoch_hash": "48b1dda078463c3a6b09fc01",
+          "epoch_hash": "6257d5f09c8b8cbae86e29d8",
           "epoch_height": 1,
-          "goal": "stress over risk (epoch 1)",
+          "goal": "resilience over stress (epoch 1)",
           "irreversible": true,
-          "issued_at": "2026-07-30T04:50:07.875260Z",
+          "issued_at": "2026-07-30T05:29:22.278228Z",
           "kind": "finality_certificate",
-          "lineage_head_hash": "5e2a65bbe97fdcc44f4a931a",
+          "lineage_head_hash": "f67ff3799675107c7885872a",
           "ok": true,
           "origin_count": 3,
           "package_hash": "066545df3053adf5",
           "parent_epoch_hash": "",
-          "quorum_hash": "1cbf7adbecdeb86b09a81ed7",
+          "quorum_hash": "2a4c07284b7c9c38d08b7c3c",
           "schema_version": 1,
           "used_skill_route_discovery": false
         },
-        "finalized_at": "2026-07-30T04:50:07.875156Z",
-        "goal": "stress over risk (epoch 1)",
+        "finalized_at": "2026-07-30T05:29:22.278126Z",
+        "goal": "resilience over stress (epoch 1)",
         "irreversible": true,
         "kind": "finality_epoch",
         "lineage": {
@@ -224,7 +224,7 @@
               "detail": {
                 "origins": [
                   {
-                    "bundle_hash": "2d7fc4a88a05af245908aa45",
+                    "bundle_hash": "279df7e2115038154142fc5c",
                     "byzantine": false,
                     "lineage_entry_count": 115,
                     "lineage_head_hash": "3e49bd489bc18abc67dfdd8f",
@@ -233,30 +233,30 @@
                     "package_hash": "7878a785b9718369"
                   },
                   {
-                    "bundle_hash": "18c4605205fdd6191af434e2",
+                    "bundle_hash": "88a994f8242dcc15e3e0de8e",
                     "byzantine": false,
                     "lineage_entry_count": 2,
-                    "lineage_head_hash": "8ebbf190ac47a91f56fa5fff",
+                    "lineage_head_hash": "f7907bb442cc4aad1ae59b39",
                     "member_count": 2,
                     "origin_id": "origin-b",
                     "package_hash": "8ece9182045d973a"
                   },
                   {
-                    "bundle_hash": "8e75dfe8833e1346071411b0",
+                    "bundle_hash": "fec82835a0c8b383ab756bb1",
                     "byzantine": true,
                     "lineage_entry_count": 2,
-                    "lineage_head_hash": "d0fb1675c6f2166ae64a6605",
+                    "lineage_head_hash": "716348de71b0465d1e90528a",
                     "member_count": 3,
                     "origin_id": "origin-byzantine",
                     "package_hash": "7d88f7661e8407af"
                   }
                 ]
               },
-              "entry_hash": "ea249ee46937ac66630e2728",
+              "entry_hash": "5b503c4d2dbd6e1fb1d7dbf8",
               "entry_kind": "quorum_origin_manifest",
-              "goal": "stress over risk",
+              "goal": "resilience over stress",
               "index": 0,
-              "issued_at": "2026-07-30T04:50:07.317353Z",
+              "issued_at": "2026-07-30T05:29:21.623727Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -281,15 +281,15 @@
               "detail": {
                 "origin_heads": [
                   "3e49bd489bc18abc67dfdd8f",
-                  "8ebbf190ac47a91f56fa5fff",
-                  "d0fb1675c6f2166ae64a6605"
+                  "f7907bb442cc4aad1ae59b39",
+                  "716348de71b0465d1e90528a"
                 ]
               },
-              "entry_hash": "81aba02ff8c87cedeb04fed7",
+              "entry_hash": "16dc2c0deb6ad1f5d9169bfe",
               "entry_kind": "quorum_vote",
-              "goal": "stress over risk",
+              "goal": "resilience over stress",
               "index": 1,
-              "issued_at": "2026-07-30T04:50:07.317380Z",
+              "issued_at": "2026-07-30T05:29:21.623752Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -297,7 +297,7 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "ea249ee46937ac66630e2728"
+              "parent_hash": "5b503c4d2dbd6e1fb1d7dbf8"
             },
             {
               "certificate_hash": "",
@@ -314,11 +314,11 @@
                   "origin-byzantine"
                 ]
               },
-              "entry_hash": "0f60a73c28aaa8c390c5fdc2",
+              "entry_hash": "e2c6406dbdf1e4a1d86b0042",
               "entry_kind": "quorum_byzantine_exclude",
-              "goal": "stress over risk",
+              "goal": "resilience over stress",
               "index": 2,
-              "issued_at": "2026-07-30T04:50:07.317397Z",
+              "issued_at": "2026-07-30T05:29:21.623769Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -326,7 +326,7 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "81aba02ff8c87cedeb04fed7"
+              "parent_hash": "16dc2c0deb6ad1f5d9169bfe"
             },
             {
               "certificate_hash": "",
@@ -346,16 +346,16 @@
                   "origin-byzantine"
                 ],
                 "origin_bundle_hashes": [
-                  "2d7fc4a88a05af245908aa45",
-                  "18c4605205fdd6191af434e2",
-                  "8e75dfe8833e1346071411b0"
+                  "279df7e2115038154142fc5c",
+                  "88a994f8242dcc15e3e0de8e",
+                  "fec82835a0c8b383ab756bb1"
                 ]
               },
-              "entry_hash": "5e2a65bbe97fdcc44f4a931a",
+              "entry_hash": "f67ff3799675107c7885872a",
               "entry_kind": "quorum_seal",
-              "goal": "stress over risk",
+              "goal": "resilience over stress",
               "index": 3,
-              "issued_at": "2026-07-30T04:50:07.317413Z",
+              "issued_at": "2026-07-30T05:29:21.623783Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -363,16 +363,16 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "0f60a73c28aaa8c390c5fdc2"
+              "parent_hash": "e2c6406dbdf1e4a1d86b0042"
             }
           ],
           "entry_count": 4,
-          "head_hash": "5e2a65bbe97fdcc44f4a931a",
+          "head_hash": "f67ff3799675107c7885872a",
           "kind": "capability_lineage",
           "schema_version": 1,
-          "updated_at": "2026-07-30T04:50:07.317425Z"
+          "updated_at": "2026-07-30T05:29:21.623795Z"
         },
-        "lineage_head_hash": "5e2a65bbe97fdcc44f4a931a",
+        "lineage_head_hash": "f67ff3799675107c7885872a",
         "member_count": 3,
         "ok": true,
         "origin_count": 3,
@@ -385,7 +385,7 @@
           "byzantine_origins": [
             "origin-byzantine"
           ],
-          "exported_at": "2026-07-30T04:50:07.317320Z",
+          "exported_at": "2026-07-30T05:29:21.623695Z",
           "federated": true,
           "member_count": 3,
           "member_ids": [
@@ -431,7 +431,7 @@
                 "bootstrap",
                 "compounder"
               ],
-              "updated_at": "2026-07-30T04:50:07.253948Z"
+              "updated_at": "2026-07-30T05:29:21.582351Z"
             },
             "repo.import-health": {
               "behavior_paths": [
@@ -455,7 +455,7 @@
                 "bootstrap",
                 "health"
               ],
-              "updated_at": "2026-07-30T04:50:07.253763Z"
+              "updated_at": "2026-07-30T05:29:21.582163Z"
             },
             "unbound.milestone-gate": {
               "behavior_paths": [
@@ -480,7 +480,7 @@
                 "bootstrap",
                 "unbound"
               ],
-              "updated_at": "2026-07-30T04:50:07.253868Z"
+              "updated_at": "2026-07-30T05:29:21.582266Z"
             }
           },
           "ok": true,
@@ -508,7 +508,7 @@
           "byzantine_origins": [
             "origin-byzantine"
           ],
-          "certificate_hash": "acdc9b37d505fd8b08d8cae2",
+          "certificate_hash": "edee860285800341d3278b26",
           "claims": {
             "origin_ids": [
               "origin-a",
@@ -522,24 +522,24 @@
             ],
             "votes_accepted": 3
           },
-          "goal": "stress over risk",
-          "issued_at": "2026-07-30T04:50:07.317591Z",
+          "goal": "resilience over stress",
+          "issued_at": "2026-07-30T05:29:21.623914Z",
           "kind": "quorum_certificate",
-          "lineage_head_hash": "5e2a65bbe97fdcc44f4a931a",
+          "lineage_head_hash": "f67ff3799675107c7885872a",
           "member_count": 3,
           "ok": true,
           "origin_count": 3,
           "origin_hashes": [
-            "2d7fc4a88a05af245908aa45",
-            "18c4605205fdd6191af434e2",
-            "8e75dfe8833e1346071411b0"
+            "279df7e2115038154142fc5c",
+            "88a994f8242dcc15e3e0de8e",
+            "fec82835a0c8b383ab756bb1"
           ],
           "package_hash": "066545df3053adf5",
           "schema_version": 1,
           "threshold": 2,
           "used_skill_route_discovery": false
         },
-        "quorum_hash": "1cbf7adbecdeb86b09a81ed7",
+        "quorum_hash": "2a4c07284b7c9c38d08b7c3c",
         "schema_version": 1,
         "used_skill_route_discovery": false
       },
@@ -557,12 +557,12 @@
           "epoch_index": 2,
           "plane": "finality"
         },
-        "epoch_hash": "0e7c441b3da8fa4b0496f7ca",
+        "epoch_hash": "02789f2fd241c474783ee70c",
         "epoch_height": 2,
         "finality_certificate": {
           "agreeing_count": 2,
           "byzantine_count": 1,
-          "certificate_hash": "2128083df55cb8128760d816",
+          "certificate_hash": "e05beaa74da66db457dcd746",
           "claims": {
             "epoch_index": 2,
             "member_count": 3,
@@ -573,23 +573,23 @@
               "unbound.milestone-gate"
             ]
           },
-          "epoch_hash": "0e7c441b3da8fa4b0496f7ca",
+          "epoch_hash": "02789f2fd241c474783ee70c",
           "epoch_height": 2,
-          "goal": "stress over risk (epoch 2)",
+          "goal": "resilience over stress (epoch 2)",
           "irreversible": true,
-          "issued_at": "2026-07-30T04:50:07.877085Z",
+          "issued_at": "2026-07-30T05:29:22.280294Z",
           "kind": "finality_certificate",
-          "lineage_head_hash": "d111cfbfe37723e2fd02aaa5",
+          "lineage_head_hash": "b6878d89c2f6ea906c16d922",
           "ok": true,
           "origin_count": 3,
-          "package_hash": "1a4e2d33585e011a",
-          "parent_epoch_hash": "48b1dda078463c3a6b09fc01",
-          "quorum_hash": "87ffbcd7a8170060d16536a3",
+          "package_hash": "014f84f72c1b79f8",
+          "parent_epoch_hash": "6257d5f09c8b8cbae86e29d8",
+          "quorum_hash": "55f718b88a8eead4d286d2f3",
           "schema_version": 1,
           "used_skill_route_discovery": false
         },
-        "finalized_at": "2026-07-30T04:50:07.877015Z",
-        "goal": "stress over risk (epoch 2)",
+        "finalized_at": "2026-07-30T05:29:22.280121Z",
+        "goal": "resilience over stress (epoch 2)",
         "irreversible": true,
         "kind": "finality_epoch",
         "lineage": {
@@ -609,7 +609,7 @@
               "detail": {
                 "origins": [
                   {
-                    "bundle_hash": "2d7fc4a88a05af245908aa45",
+                    "bundle_hash": "279df7e2115038154142fc5c",
                     "byzantine": false,
                     "lineage_entry_count": 115,
                     "lineage_head_hash": "3e49bd489bc18abc67dfdd8f",
@@ -618,30 +618,30 @@
                     "package_hash": "7878a785b9718369"
                   },
                   {
-                    "bundle_hash": "18c4605205fdd6191af434e2",
+                    "bundle_hash": "88a994f8242dcc15e3e0de8e",
                     "byzantine": false,
                     "lineage_entry_count": 2,
-                    "lineage_head_hash": "8ebbf190ac47a91f56fa5fff",
+                    "lineage_head_hash": "f7907bb442cc4aad1ae59b39",
                     "member_count": 2,
                     "origin_id": "origin-b",
                     "package_hash": "8ece9182045d973a"
                   },
                   {
-                    "bundle_hash": "8e75dfe8833e1346071411b0",
+                    "bundle_hash": "fec82835a0c8b383ab756bb1",
                     "byzantine": true,
                     "lineage_entry_count": 2,
-                    "lineage_head_hash": "d0fb1675c6f2166ae64a6605",
+                    "lineage_head_hash": "716348de71b0465d1e90528a",
                     "member_count": 3,
                     "origin_id": "origin-byzantine",
                     "package_hash": "7d88f7661e8407af"
                   }
                 ]
               },
-              "entry_hash": "ea249ee46937ac66630e2728",
+              "entry_hash": "5b503c4d2dbd6e1fb1d7dbf8",
               "entry_kind": "quorum_origin_manifest",
-              "goal": "stress over risk",
+              "goal": "resilience over stress",
               "index": 0,
-              "issued_at": "2026-07-30T04:50:07.317353Z",
+              "issued_at": "2026-07-30T05:29:21.623727Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -666,15 +666,15 @@
               "detail": {
                 "origin_heads": [
                   "3e49bd489bc18abc67dfdd8f",
-                  "8ebbf190ac47a91f56fa5fff",
-                  "d0fb1675c6f2166ae64a6605"
+                  "f7907bb442cc4aad1ae59b39",
+                  "716348de71b0465d1e90528a"
                 ]
               },
-              "entry_hash": "81aba02ff8c87cedeb04fed7",
+              "entry_hash": "16dc2c0deb6ad1f5d9169bfe",
               "entry_kind": "quorum_vote",
-              "goal": "stress over risk",
+              "goal": "resilience over stress",
               "index": 1,
-              "issued_at": "2026-07-30T04:50:07.317380Z",
+              "issued_at": "2026-07-30T05:29:21.623752Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -682,7 +682,7 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "ea249ee46937ac66630e2728"
+              "parent_hash": "5b503c4d2dbd6e1fb1d7dbf8"
             },
             {
               "certificate_hash": "",
@@ -699,11 +699,11 @@
                   "origin-byzantine"
                 ]
               },
-              "entry_hash": "0f60a73c28aaa8c390c5fdc2",
+              "entry_hash": "e2c6406dbdf1e4a1d86b0042",
               "entry_kind": "quorum_byzantine_exclude",
-              "goal": "stress over risk",
+              "goal": "resilience over stress",
               "index": 2,
-              "issued_at": "2026-07-30T04:50:07.317397Z",
+              "issued_at": "2026-07-30T05:29:21.623769Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -711,7 +711,7 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "81aba02ff8c87cedeb04fed7"
+              "parent_hash": "16dc2c0deb6ad1f5d9169bfe"
             },
             {
               "certificate_hash": "",
@@ -731,16 +731,16 @@
                   "origin-byzantine"
                 ],
                 "origin_bundle_hashes": [
-                  "2d7fc4a88a05af245908aa45",
-                  "18c4605205fdd6191af434e2",
-                  "8e75dfe8833e1346071411b0"
+                  "279df7e2115038154142fc5c",
+                  "88a994f8242dcc15e3e0de8e",
+                  "fec82835a0c8b383ab756bb1"
                 ]
               },
-              "entry_hash": "5e2a65bbe97fdcc44f4a931a",
+              "entry_hash": "f67ff3799675107c7885872a",
               "entry_kind": "quorum_seal",
-              "goal": "stress over risk",
+              "goal": "resilience over stress",
               "index": 3,
-              "issued_at": "2026-07-30T04:50:07.317413Z",
+              "issued_at": "2026-07-30T05:29:21.623783Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -748,23 +748,23 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "0f60a73c28aaa8c390c5fdc2"
+              "parent_hash": "e2c6406dbdf1e4a1d86b0042"
             },
             {
               "certificate_hash": "",
               "certificate_path": "",
               "claims": {
-                "prior_lineage_head": "5e2a65bbe97fdcc44f4a931a",
+                "prior_lineage_head": "f67ff3799675107c7885872a",
                 "prior_package_hash": "066545df3053adf5",
-                "prior_quorum_hash": "1cbf7adbecdeb86b09a81ed7",
+                "prior_quorum_hash": "2a4c07284b7c9c38d08b7c3c",
                 "progress_tag": "epoch-progress-2"
               },
               "detail": {},
-              "entry_hash": "d111cfbfe37723e2fd02aaa5",
+              "entry_hash": "b6878d89c2f6ea906c16d922",
               "entry_kind": "finality_epoch_progress",
-              "goal": "stress over risk (progress 2)",
+              "goal": "resilience over stress (progress 2)",
               "index": 4,
-              "issued_at": "2026-07-30T04:50:07.876225Z",
+              "issued_at": "2026-07-30T05:29:22.279202Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -772,16 +772,16 @@
                 "proved_ratio": null
               },
               "package_hash": "",
-              "parent_hash": "5e2a65bbe97fdcc44f4a931a"
+              "parent_hash": "f67ff3799675107c7885872a"
             }
           ],
           "entry_count": 5,
-          "head_hash": "d111cfbfe37723e2fd02aaa5",
+          "head_hash": "b6878d89c2f6ea906c16d922",
           "kind": "capability_lineage",
           "schema_version": 1,
-          "updated_at": "2026-07-30T04:50:07.876248Z"
+          "updated_at": "2026-07-30T05:29:22.279222Z"
         },
-        "lineage_head_hash": "d111cfbfe37723e2fd02aaa5",
+        "lineage_head_hash": "b6878d89c2f6ea906c16d922",
         "member_count": 3,
         "ok": true,
         "origin_count": 3,
@@ -794,7 +794,7 @@
           "byzantine_origins": [
             "origin-byzantine"
           ],
-          "exported_at": "2026-07-30T04:50:07.317320Z",
+          "exported_at": "2026-07-30T05:29:21.623695Z",
           "federated": true,
           "member_count": 3,
           "member_ids": [
@@ -840,7 +840,7 @@
                 "bootstrap",
                 "compounder"
               ],
-              "updated_at": "2026-07-30T04:50:07.253948Z"
+              "updated_at": "2026-07-30T05:29:21.582351Z"
             },
             "repo.import-health": {
               "behavior_paths": [
@@ -864,7 +864,7 @@
                 "bootstrap",
                 "health"
               ],
-              "updated_at": "2026-07-30T04:50:07.253763Z"
+              "updated_at": "2026-07-30T05:29:21.582163Z"
             },
             "unbound.milestone-gate": {
               "behavior_paths": [
@@ -889,12 +889,12 @@
                 "bootstrap",
                 "unbound"
               ],
-              "updated_at": "2026-07-30T04:50:07.253868Z"
+              "updated_at": "2026-07-30T05:29:21.582266Z"
             }
           },
           "ok": true,
-          "package_hash": "1a4e2d33585e011a",
-          "progress_at": "2026-07-30T04:50:07.876251Z",
+          "package_hash": "014f84f72c1b79f8",
+          "progress_at": "2026-07-30T05:29:22.279224Z",
           "progress_tag": "epoch-progress-2",
           "quorum": true,
           "quorum_threshold": 2,
@@ -907,8 +907,8 @@
           "source_ledger_path": "quorum-merge",
           "used_skill_route_discovery": false
         },
-        "package_hash": "1a4e2d33585e011a",
-        "parent_epoch_hash": "48b1dda078463c3a6b09fc01",
+        "package_hash": "014f84f72c1b79f8",
+        "parent_epoch_hash": "6257d5f09c8b8cbae86e29d8",
         "quorum_certificate": {
           "agreeing_count": 2,
           "agreeing_origins": [
@@ -919,30 +919,30 @@
           "byzantine_origins": [
             "origin-byzantine"
           ],
-          "certificate_hash": "3d58987084fbf6010f4593d0",
+          "certificate_hash": "32950c3c4c1bd19f55a764e6",
           "claims": {
             "finality_progress": true,
-            "prior_quorum_hash": "1cbf7adbecdeb86b09a81ed7",
+            "prior_quorum_hash": "2a4c07284b7c9c38d08b7c3c",
             "progress_tag": "epoch-progress-2"
           },
-          "goal": "stress over risk (progress 2)",
-          "issued_at": "2026-07-30T04:50:07.876269Z",
+          "goal": "resilience over stress (progress 2)",
+          "issued_at": "2026-07-30T05:29:22.279243Z",
           "kind": "quorum_certificate",
-          "lineage_head_hash": "d111cfbfe37723e2fd02aaa5",
+          "lineage_head_hash": "b6878d89c2f6ea906c16d922",
           "member_count": 3,
           "ok": true,
           "origin_count": 3,
           "origin_hashes": [
-            "2d7fc4a88a05af245908aa45",
-            "18c4605205fdd6191af434e2",
-            "8e75dfe8833e1346071411b0"
+            "279df7e2115038154142fc5c",
+            "88a994f8242dcc15e3e0de8e",
+            "fec82835a0c8b383ab756bb1"
           ],
-          "package_hash": "1a4e2d33585e011a",
+          "package_hash": "014f84f72c1b79f8",
           "schema_version": 1,
           "threshold": 2,
           "used_skill_route_discovery": false
         },
-        "quorum_hash": "87ffbcd7a8170060d16536a3",
+        "quorum_hash": "55f718b88a8eead4d286d2f3",
         "schema_version": 1,
         "used_skill_route_discovery": false
       }
@@ -950,14 +950,14 @@
     "entry_count": 2,
     "kind": "finality_epoch_log",
     "schema_version": 1,
-    "tip_hash": "0e7c441b3da8fa4b0496f7ca",
+    "tip_hash": "02789f2fd241c474783ee70c",
     "tip_height": 2,
-    "updated_at": "2026-07-30T04:50:07.877102Z"
+    "updated_at": "2026-07-30T05:29:22.280327Z"
   },
   "finality_certificate": {
     "agreeing_count": 2,
     "byzantine_count": 1,
-    "certificate_hash": "2128083df55cb8128760d816",
+    "certificate_hash": "e05beaa74da66db457dcd746",
     "claims": {
       "epoch_index": 2,
       "member_count": 3,
@@ -968,23 +968,23 @@
         "unbound.milestone-gate"
       ]
     },
-    "epoch_hash": "0e7c441b3da8fa4b0496f7ca",
+    "epoch_hash": "02789f2fd241c474783ee70c",
     "epoch_height": 2,
-    "goal": "stress over risk (epoch 2)",
+    "goal": "resilience over stress (epoch 2)",
     "irreversible": true,
-    "issued_at": "2026-07-30T04:50:07.877085Z",
+    "issued_at": "2026-07-30T05:29:22.280294Z",
     "kind": "finality_certificate",
-    "lineage_head_hash": "d111cfbfe37723e2fd02aaa5",
+    "lineage_head_hash": "b6878d89c2f6ea906c16d922",
     "ok": true,
     "origin_count": 3,
-    "package_hash": "1a4e2d33585e011a",
-    "parent_epoch_hash": "48b1dda078463c3a6b09fc01",
-    "quorum_hash": "87ffbcd7a8170060d16536a3",
+    "package_hash": "014f84f72c1b79f8",
+    "parent_epoch_hash": "6257d5f09c8b8cbae86e29d8",
+    "quorum_hash": "55f718b88a8eead4d286d2f3",
     "schema_version": 1,
     "used_skill_route_discovery": false
   },
-  "finality_hash": "c072c90d24effd618729eabe",
-  "goal": "stress over risk",
+  "finality_hash": "97595804107b5deee0ed9e13",
+  "goal": "resilience over stress",
   "irreversible": true,
   "kind": "finality_bundle",
   "lineage": {
@@ -1004,7 +1004,7 @@
         "detail": {
           "origins": [
             {
-              "bundle_hash": "2d7fc4a88a05af245908aa45",
+              "bundle_hash": "279df7e2115038154142fc5c",
               "byzantine": false,
               "lineage_entry_count": 115,
               "lineage_head_hash": "3e49bd489bc18abc67dfdd8f",
@@ -1013,30 +1013,30 @@
               "package_hash": "7878a785b9718369"
             },
             {
-              "bundle_hash": "18c4605205fdd6191af434e2",
+              "bundle_hash": "88a994f8242dcc15e3e0de8e",
               "byzantine": false,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "8ebbf190ac47a91f56fa5fff",
+              "lineage_head_hash": "f7907bb442cc4aad1ae59b39",
               "member_count": 2,
               "origin_id": "origin-b",
               "package_hash": "8ece9182045d973a"
             },
             {
-              "bundle_hash": "8e75dfe8833e1346071411b0",
+              "bundle_hash": "fec82835a0c8b383ab756bb1",
               "byzantine": true,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "d0fb1675c6f2166ae64a6605",
+              "lineage_head_hash": "716348de71b0465d1e90528a",
               "member_count": 3,
               "origin_id": "origin-byzantine",
               "package_hash": "7d88f7661e8407af"
             }
           ]
         },
-        "entry_hash": "ea249ee46937ac66630e2728",
+        "entry_hash": "5b503c4d2dbd6e1fb1d7dbf8",
         "entry_kind": "quorum_origin_manifest",
-        "goal": "stress over risk",
+        "goal": "resilience over stress",
         "index": 0,
-        "issued_at": "2026-07-30T04:50:07.317353Z",
+        "issued_at": "2026-07-30T05:29:21.623727Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1061,15 +1061,15 @@
         "detail": {
           "origin_heads": [
             "3e49bd489bc18abc67dfdd8f",
-            "8ebbf190ac47a91f56fa5fff",
-            "d0fb1675c6f2166ae64a6605"
+            "f7907bb442cc4aad1ae59b39",
+            "716348de71b0465d1e90528a"
           ]
         },
-        "entry_hash": "81aba02ff8c87cedeb04fed7",
+        "entry_hash": "16dc2c0deb6ad1f5d9169bfe",
         "entry_kind": "quorum_vote",
-        "goal": "stress over risk",
+        "goal": "resilience over stress",
         "index": 1,
-        "issued_at": "2026-07-30T04:50:07.317380Z",
+        "issued_at": "2026-07-30T05:29:21.623752Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1077,7 +1077,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "ea249ee46937ac66630e2728"
+        "parent_hash": "5b503c4d2dbd6e1fb1d7dbf8"
       },
       {
         "certificate_hash": "",
@@ -1094,11 +1094,11 @@
             "origin-byzantine"
           ]
         },
-        "entry_hash": "0f60a73c28aaa8c390c5fdc2",
+        "entry_hash": "e2c6406dbdf1e4a1d86b0042",
         "entry_kind": "quorum_byzantine_exclude",
-        "goal": "stress over risk",
+        "goal": "resilience over stress",
         "index": 2,
-        "issued_at": "2026-07-30T04:50:07.317397Z",
+        "issued_at": "2026-07-30T05:29:21.623769Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1106,7 +1106,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "81aba02ff8c87cedeb04fed7"
+        "parent_hash": "16dc2c0deb6ad1f5d9169bfe"
       },
       {
         "certificate_hash": "",
@@ -1126,16 +1126,16 @@
             "origin-byzantine"
           ],
           "origin_bundle_hashes": [
-            "2d7fc4a88a05af245908aa45",
-            "18c4605205fdd6191af434e2",
-            "8e75dfe8833e1346071411b0"
+            "279df7e2115038154142fc5c",
+            "88a994f8242dcc15e3e0de8e",
+            "fec82835a0c8b383ab756bb1"
           ]
         },
-        "entry_hash": "5e2a65bbe97fdcc44f4a931a",
+        "entry_hash": "f67ff3799675107c7885872a",
         "entry_kind": "quorum_seal",
-        "goal": "stress over risk",
+        "goal": "resilience over stress",
         "index": 3,
-        "issued_at": "2026-07-30T04:50:07.317413Z",
+        "issued_at": "2026-07-30T05:29:21.623783Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1143,23 +1143,23 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "0f60a73c28aaa8c390c5fdc2"
+        "parent_hash": "e2c6406dbdf1e4a1d86b0042"
       },
       {
         "certificate_hash": "",
         "certificate_path": "",
         "claims": {
-          "prior_lineage_head": "5e2a65bbe97fdcc44f4a931a",
+          "prior_lineage_head": "f67ff3799675107c7885872a",
           "prior_package_hash": "066545df3053adf5",
-          "prior_quorum_hash": "1cbf7adbecdeb86b09a81ed7",
+          "prior_quorum_hash": "2a4c07284b7c9c38d08b7c3c",
           "progress_tag": "epoch-progress-2"
         },
         "detail": {},
-        "entry_hash": "d111cfbfe37723e2fd02aaa5",
+        "entry_hash": "b6878d89c2f6ea906c16d922",
         "entry_kind": "finality_epoch_progress",
-        "goal": "stress over risk (progress 2)",
+        "goal": "resilience over stress (progress 2)",
         "index": 4,
-        "issued_at": "2026-07-30T04:50:07.876225Z",
+        "issued_at": "2026-07-30T05:29:22.279202Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1167,17 +1167,17 @@
           "proved_ratio": null
         },
         "package_hash": "",
-        "parent_hash": "5e2a65bbe97fdcc44f4a931a"
+        "parent_hash": "f67ff3799675107c7885872a"
       }
     ],
     "entry_count": 5,
-    "head_hash": "d111cfbfe37723e2fd02aaa5",
+    "head_hash": "b6878d89c2f6ea906c16d922",
     "kind": "capability_lineage",
     "schema_version": 1,
-    "updated_at": "2026-07-30T04:50:07.876248Z"
+    "updated_at": "2026-07-30T05:29:22.279222Z"
   },
   "lineage_entry_count": 5,
-  "lineage_head_hash": "d111cfbfe37723e2fd02aaa5",
+  "lineage_head_hash": "b6878d89c2f6ea906c16d922",
   "member_count": 3,
   "ok": true,
   "origin_count": 3,
@@ -1190,7 +1190,7 @@
     "byzantine_origins": [
       "origin-byzantine"
     ],
-    "exported_at": "2026-07-30T04:50:07.317320Z",
+    "exported_at": "2026-07-30T05:29:21.623695Z",
     "federated": true,
     "member_count": 3,
     "member_ids": [
@@ -1236,7 +1236,7 @@
           "bootstrap",
           "compounder"
         ],
-        "updated_at": "2026-07-30T04:50:07.253948Z"
+        "updated_at": "2026-07-30T05:29:21.582351Z"
       },
       "repo.import-health": {
         "behavior_paths": [
@@ -1260,7 +1260,7 @@
           "bootstrap",
           "health"
         ],
-        "updated_at": "2026-07-30T04:50:07.253763Z"
+        "updated_at": "2026-07-30T05:29:21.582163Z"
       },
       "unbound.milestone-gate": {
         "behavior_paths": [
@@ -1285,12 +1285,12 @@
           "bootstrap",
           "unbound"
         ],
-        "updated_at": "2026-07-30T04:50:07.253868Z"
+        "updated_at": "2026-07-30T05:29:21.582266Z"
       }
     },
     "ok": true,
-    "package_hash": "1a4e2d33585e011a",
-    "progress_at": "2026-07-30T04:50:07.876251Z",
+    "package_hash": "014f84f72c1b79f8",
+    "progress_at": "2026-07-30T05:29:22.279224Z",
     "progress_tag": "epoch-progress-2",
     "quorum": true,
     "quorum_threshold": 2,
@@ -1303,10 +1303,10 @@
     "source_ledger_path": "quorum-merge",
     "used_skill_route_discovery": false
   },
-  "package_hash": "1a4e2d33585e011a",
-  "quorum_hash": "1cbf7adbecdeb86b09a81ed7",
+  "package_hash": "014f84f72c1b79f8",
+  "quorum_hash": "2a4c07284b7c9c38d08b7c3c",
   "schema_version": 1,
-  "tip_hash": "0e7c441b3da8fa4b0496f7ca",
+  "tip_hash": "02789f2fd241c474783ee70c",
   "tip_height": 2,
   "used_skill_route_discovery": false
 }
