@@ -271,6 +271,52 @@
         "schema_version": 1
       }
     },
+    "1c5aa258034e7855d4fd774e": {
+      "certificate_hash": "1c5aa258034e7855d4fd774e",
+      "certificate_path": "artifacts/quorum-bundles/quorum-certificate.json",
+      "origin_id": "quorum",
+      "payload": {
+        "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "byzantine_count": 1,
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "certificate_hash": "1c5aa258034e7855d4fd774e",
+        "claims": {
+          "origin_ids": [
+            "origin-a",
+            "origin-b",
+            "origin-byzantine"
+          ],
+          "roots": [
+            "repo.import-health",
+            "capability.ledger-inventory",
+            "unbound.milestone-gate"
+          ],
+          "votes_accepted": 3
+        },
+        "goal": "Ship a closed risk plane over solvency: multi-solvency positions compound into deterministic hash-chained risk assessments with risk assessment digests bound to solvency roots, risk certificates, sterile rehydrate+prove, and adversarial falsification—past solvent positions without risk assessments.",
+        "issued_at": "2026-07-30T04:13:02.067711Z",
+        "kind": "quorum_certificate",
+        "lineage_head_hash": "acb2169863a200930ce0f89d",
+        "member_count": 3,
+        "ok": true,
+        "origin_count": 3,
+        "origin_hashes": [
+          "2f48213f12de86d89837c3c3",
+          "948223f3005ffb9f054ba423",
+          "489dbd3e379dd1c8eb74eeee"
+        ],
+        "package_hash": "066545df3053adf5",
+        "schema_version": 1,
+        "threshold": 2,
+        "used_skill_route_discovery": false
+      }
+    },
     "1d152a213db42ecbcc099340": {
       "certificate_hash": "1d152a213db42ecbcc099340",
       "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T134211Z-d3e39855\\artifacts\\sovereignty-certificates\\sovereignty-1d152a213db42ecbcc099340.json",
@@ -856,25 +902,6 @@
         "schema_version": 1
       }
     },
-    "374fc44cf2ddc4038a5dd2de": {
-      "certificate_hash": "374fc44cf2ddc4038a5dd2de",
-      "certificate_path": "artifacts/federation-origins/origin-b-attest.json",
-      "origin_id": "origin-b",
-      "payload": {
-        "certificate_hash": "374fc44cf2ddc4038a5dd2de",
-        "issued_at": "2026-07-29T22:05:03.075855Z",
-        "kind": "federation_origin_attestation",
-        "lineage_head_hash": "754da4f07063ca86228732f6",
-        "member_count": 2,
-        "origin_id": "origin-b",
-        "package_hash": "8ece9182045d973a",
-        "roots": [
-          "repo.import-health",
-          "capability.ledger-inventory"
-        ],
-        "schema_version": 1
-      }
-    },
     "42a8ae5ebbd080b183a1e696": {
       "certificate_hash": "42a8ae5ebbd080b183a1e696",
       "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T142559Z-e0ddf92a\\artifacts\\sovereignty-certificates\\sovereignty-42a8ae5ebbd080b183a1e696.json",
@@ -1392,6 +1419,26 @@
         "ok": true,
         "package_hash": "7878a785b9718369",
         "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T134211Z-d3e39855",
+        "schema_version": 1
+      }
+    },
+    "6dd98fa471d305c714f77314": {
+      "certificate_hash": "6dd98fa471d305c714f77314",
+      "certificate_path": "artifacts/federation-origins/origin-c-attest.json",
+      "origin_id": "origin-byzantine",
+      "payload": {
+        "certificate_hash": "6dd98fa471d305c714f77314",
+        "issued_at": "2026-07-30T04:13:02.067090Z",
+        "kind": "federation_origin_attestation",
+        "lineage_head_hash": "465f9eafcc83be256bc4e716",
+        "member_count": 3,
+        "origin_id": "origin-c",
+        "package_hash": "7878a785b9718369",
+        "roots": [
+          "repo.import-health",
+          "capability.ledger-inventory",
+          "unbound.milestone-gate"
+        ],
         "schema_version": 1
       }
     },
@@ -2435,68 +2482,21 @@
         "schema_version": 1
       }
     },
-    "c1ef8352bbe587ddd13f928c": {
-      "certificate_hash": "c1ef8352bbe587ddd13f928c",
-      "certificate_path": "artifacts/quorum-bundles/quorum-certificate.json",
-      "origin_id": "quorum",
+    "c2cdbb51592da461540e7cd1": {
+      "certificate_hash": "c2cdbb51592da461540e7cd1",
+      "certificate_path": "artifacts/federation-origins/origin-b-attest.json",
+      "origin_id": "origin-b",
       "payload": {
-        "agreeing_count": 2,
-        "agreeing_origins": [
-          "origin-a",
-          "origin-b"
-        ],
-        "byzantine_count": 1,
-        "byzantine_origins": [
-          "origin-byzantine"
-        ],
-        "certificate_hash": "c1ef8352bbe587ddd13f928c",
-        "claims": {
-          "origin_ids": [
-            "origin-a",
-            "origin-b",
-            "origin-byzantine"
-          ],
-          "roots": [
-            "repo.import-health",
-            "capability.ledger-inventory",
-            "unbound.milestone-gate"
-          ],
-          "votes_accepted": 3
-        },
-        "goal": "funding over liquidity",
-        "issued_at": "2026-07-29T22:05:03.085320Z",
-        "kind": "quorum_certificate",
-        "lineage_head_hash": "54afc437416f6378fce6e3cf",
-        "member_count": 3,
-        "ok": true,
-        "origin_count": 3,
-        "origin_hashes": [
-          "36ff88138de3b3242b64f836",
-          "4f38f2468c8196904c445ef2",
-          "dd9a3fd4122e838bf05dd946"
-        ],
-        "package_hash": "066545df3053adf5",
-        "schema_version": 1,
-        "threshold": 2,
-        "used_skill_route_discovery": false
-      }
-    },
-    "c5992c8e206dd725de459c62": {
-      "certificate_hash": "c5992c8e206dd725de459c62",
-      "certificate_path": "artifacts/federation-origins/origin-c-attest.json",
-      "origin_id": "origin-byzantine",
-      "payload": {
-        "certificate_hash": "c5992c8e206dd725de459c62",
-        "issued_at": "2026-07-29T22:05:03.084744Z",
+        "certificate_hash": "c2cdbb51592da461540e7cd1",
+        "issued_at": "2026-07-30T04:13:02.057695Z",
         "kind": "federation_origin_attestation",
-        "lineage_head_hash": "6262d03e6a39097357fe2d69",
-        "member_count": 3,
-        "origin_id": "origin-c",
-        "package_hash": "7878a785b9718369",
+        "lineage_head_hash": "f7ef9f8a6b994cee96245180",
+        "member_count": 2,
+        "origin_id": "origin-b",
+        "package_hash": "8ece9182045d973a",
         "roots": [
           "repo.import-health",
-          "capability.ledger-inventory",
-          "unbound.milestone-gate"
+          "capability.ledger-inventory"
         ],
         "schema_version": 1
       }
@@ -3022,7 +3022,7 @@
       }
     }
   },
-  "goal": "funding over liquidity",
+  "goal": "Ship a closed risk plane over solvency: multi-solvency positions compound into deterministic hash-chained risk assessments with risk assessment digests bound to solvency roots, risk certificates, sterile rehydrate+prove, and adversarial falsification—past solvent positions without risk assessments.",
   "kind": "quorum_bundle",
   "lineage": {
     "entries": [
@@ -3041,7 +3041,7 @@
         "detail": {
           "origins": [
             {
-              "bundle_hash": "36ff88138de3b3242b64f836",
+              "bundle_hash": "2f48213f12de86d89837c3c3",
               "byzantine": false,
               "lineage_entry_count": 115,
               "lineage_head_hash": "3e49bd489bc18abc67dfdd8f",
@@ -3050,30 +3050,30 @@
               "package_hash": "7878a785b9718369"
             },
             {
-              "bundle_hash": "4f38f2468c8196904c445ef2",
+              "bundle_hash": "948223f3005ffb9f054ba423",
               "byzantine": false,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "754da4f07063ca86228732f6",
+              "lineage_head_hash": "f7ef9f8a6b994cee96245180",
               "member_count": 2,
               "origin_id": "origin-b",
               "package_hash": "8ece9182045d973a"
             },
             {
-              "bundle_hash": "dd9a3fd4122e838bf05dd946",
+              "bundle_hash": "489dbd3e379dd1c8eb74eeee",
               "byzantine": true,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "6262d03e6a39097357fe2d69",
+              "lineage_head_hash": "465f9eafcc83be256bc4e716",
               "member_count": 3,
               "origin_id": "origin-byzantine",
               "package_hash": "7d88f7661e8407af"
             }
           ]
         },
-        "entry_hash": "bd795c634f8c200473fac897",
+        "entry_hash": "629c72b29e04784ac7ff9414",
         "entry_kind": "quorum_origin_manifest",
-        "goal": "funding over liquidity",
+        "goal": "Ship a closed risk plane over solvency: multi-solvency positions compound into deterministic hash-chained risk assessments with risk assessment digests bound to solvency roots, risk certificates, sterile rehydrate+prove, and adversarial falsification—past solvent positions without risk assessments.",
         "index": 0,
-        "issued_at": "2026-07-29T22:05:03.085150Z",
+        "issued_at": "2026-07-30T04:13:02.067518Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -3098,15 +3098,15 @@
         "detail": {
           "origin_heads": [
             "3e49bd489bc18abc67dfdd8f",
-            "754da4f07063ca86228732f6",
-            "6262d03e6a39097357fe2d69"
+            "f7ef9f8a6b994cee96245180",
+            "465f9eafcc83be256bc4e716"
           ]
         },
-        "entry_hash": "09d026ec2e785b58c0a02252",
+        "entry_hash": "128059ebaf1b21f54227ae82",
         "entry_kind": "quorum_vote",
-        "goal": "funding over liquidity",
+        "goal": "Ship a closed risk plane over solvency: multi-solvency positions compound into deterministic hash-chained risk assessments with risk assessment digests bound to solvency roots, risk certificates, sterile rehydrate+prove, and adversarial falsification—past solvent positions without risk assessments.",
         "index": 1,
-        "issued_at": "2026-07-29T22:05:03.085173Z",
+        "issued_at": "2026-07-30T04:13:02.067542Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -3114,7 +3114,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "bd795c634f8c200473fac897"
+        "parent_hash": "629c72b29e04784ac7ff9414"
       },
       {
         "certificate_hash": "",
@@ -3131,11 +3131,11 @@
             "origin-byzantine"
           ]
         },
-        "entry_hash": "adb83d439d5e42254df75c6b",
+        "entry_hash": "ca1fdd75a98f7a77578e2552",
         "entry_kind": "quorum_byzantine_exclude",
-        "goal": "funding over liquidity",
+        "goal": "Ship a closed risk plane over solvency: multi-solvency positions compound into deterministic hash-chained risk assessments with risk assessment digests bound to solvency roots, risk certificates, sterile rehydrate+prove, and adversarial falsification—past solvent positions without risk assessments.",
         "index": 2,
-        "issued_at": "2026-07-29T22:05:03.085187Z",
+        "issued_at": "2026-07-30T04:13:02.067558Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -3143,7 +3143,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "09d026ec2e785b58c0a02252"
+        "parent_hash": "128059ebaf1b21f54227ae82"
       },
       {
         "certificate_hash": "",
@@ -3163,16 +3163,16 @@
             "origin-byzantine"
           ],
           "origin_bundle_hashes": [
-            "36ff88138de3b3242b64f836",
-            "4f38f2468c8196904c445ef2",
-            "dd9a3fd4122e838bf05dd946"
+            "2f48213f12de86d89837c3c3",
+            "948223f3005ffb9f054ba423",
+            "489dbd3e379dd1c8eb74eeee"
           ]
         },
-        "entry_hash": "54afc437416f6378fce6e3cf",
+        "entry_hash": "acb2169863a200930ce0f89d",
         "entry_kind": "quorum_seal",
-        "goal": "funding over liquidity",
+        "goal": "Ship a closed risk plane over solvency: multi-solvency positions compound into deterministic hash-chained risk assessments with risk assessment digests bound to solvency roots, risk certificates, sterile rehydrate+prove, and adversarial falsification—past solvent positions without risk assessments.",
         "index": 3,
-        "issued_at": "2026-07-29T22:05:03.085200Z",
+        "issued_at": "2026-07-30T04:13:02.067573Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -3180,23 +3180,23 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "adb83d439d5e42254df75c6b"
+        "parent_hash": "ca1fdd75a98f7a77578e2552"
       }
     ],
     "entry_count": 4,
-    "head_hash": "54afc437416f6378fce6e3cf",
+    "head_hash": "acb2169863a200930ce0f89d",
     "kind": "capability_lineage",
     "schema_version": 1,
-    "updated_at": "2026-07-29T22:05:03.085210Z"
+    "updated_at": "2026-07-30T04:13:02.067586Z"
   },
   "lineage_entry_count": 4,
-  "lineage_head_hash": "54afc437416f6378fce6e3cf",
+  "lineage_head_hash": "acb2169863a200930ce0f89d",
   "member_count": 3,
   "ok": true,
   "origin_count": 3,
   "origins": [
     {
-      "bundle_hash": "36ff88138de3b3242b64f836",
+      "bundle_hash": "2f48213f12de86d89837c3c3",
       "byzantine": false,
       "lineage_head_hash": "3e49bd489bc18abc67dfdd8f",
       "member_count": 3,
@@ -3204,17 +3204,17 @@
       "package_hash": "7878a785b9718369"
     },
     {
-      "bundle_hash": "4f38f2468c8196904c445ef2",
+      "bundle_hash": "948223f3005ffb9f054ba423",
       "byzantine": false,
-      "lineage_head_hash": "754da4f07063ca86228732f6",
+      "lineage_head_hash": "f7ef9f8a6b994cee96245180",
       "member_count": 2,
       "origin_id": "origin-b",
       "package_hash": "8ece9182045d973a"
     },
     {
-      "bundle_hash": "dd9a3fd4122e838bf05dd946",
+      "bundle_hash": "489dbd3e379dd1c8eb74eeee",
       "byzantine": true,
-      "lineage_head_hash": "6262d03e6a39097357fe2d69",
+      "lineage_head_hash": "465f9eafcc83be256bc4e716",
       "member_count": 3,
       "origin_id": "origin-byzantine",
       "package_hash": "7d88f7661e8407af"
@@ -3229,7 +3229,7 @@
     "byzantine_origins": [
       "origin-byzantine"
     ],
-    "exported_at": "2026-07-29T22:05:03.085121Z",
+    "exported_at": "2026-07-30T04:13:02.067488Z",
     "federated": true,
     "member_count": 3,
     "member_ids": [
@@ -3275,7 +3275,7 @@
           "bootstrap",
           "compounder"
         ],
-        "updated_at": "2026-07-29T22:05:03.050087Z"
+        "updated_at": "2026-07-30T04:13:02.031952Z"
       },
       "repo.import-health": {
         "behavior_paths": [
@@ -3299,7 +3299,7 @@
           "bootstrap",
           "health"
         ],
-        "updated_at": "2026-07-29T22:05:03.049928Z"
+        "updated_at": "2026-07-30T04:13:02.031775Z"
       },
       "unbound.milestone-gate": {
         "behavior_paths": [
@@ -3324,7 +3324,7 @@
           "bootstrap",
           "unbound"
         ],
-        "updated_at": "2026-07-29T22:05:03.050015Z"
+        "updated_at": "2026-07-30T04:13:02.031875Z"
       }
     },
     "ok": true,
@@ -3351,7 +3351,7 @@
     "byzantine_origins": [
       "origin-byzantine"
     ],
-    "certificate_hash": "c1ef8352bbe587ddd13f928c",
+    "certificate_hash": "1c5aa258034e7855d4fd774e",
     "claims": {
       "origin_ids": [
         "origin-a",
@@ -3365,24 +3365,24 @@
       ],
       "votes_accepted": 3
     },
-    "goal": "funding over liquidity",
-    "issued_at": "2026-07-29T22:05:03.085320Z",
+    "goal": "Ship a closed risk plane over solvency: multi-solvency positions compound into deterministic hash-chained risk assessments with risk assessment digests bound to solvency roots, risk certificates, sterile rehydrate+prove, and adversarial falsification—past solvent positions without risk assessments.",
+    "issued_at": "2026-07-30T04:13:02.067711Z",
     "kind": "quorum_certificate",
-    "lineage_head_hash": "54afc437416f6378fce6e3cf",
+    "lineage_head_hash": "acb2169863a200930ce0f89d",
     "member_count": 3,
     "ok": true,
     "origin_count": 3,
     "origin_hashes": [
-      "36ff88138de3b3242b64f836",
-      "4f38f2468c8196904c445ef2",
-      "dd9a3fd4122e838bf05dd946"
+      "2f48213f12de86d89837c3c3",
+      "948223f3005ffb9f054ba423",
+      "489dbd3e379dd1c8eb74eeee"
     ],
     "package_hash": "066545df3053adf5",
     "schema_version": 1,
     "threshold": 2,
     "used_skill_route_discovery": false
   },
-  "quorum_hash": "20bd7334b0937dad8e19a383",
+  "quorum_hash": "db7e1e63fbd20cd831021edb",
   "quorum_met": true,
   "quorum_size": 2,
   "schema_version": 1,

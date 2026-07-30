@@ -1,0 +1,33 @@
+{
+  "action_height": 3,
+  "action_root": "0992b4b3c4a86bc0ad8cd365",
+  "bound_state_height": 2,
+  "bound_state_root": "7eaf007e564e50b4e4e54d3b",
+  "certificate_hash": "fe2ac3ec3890b62b48a1ff9b",
+  "claims": {
+    "action_index": 3,
+    "capability_id": "unbound.milestone-gate",
+    "effect": "prove",
+    "plane": "actuation"
+  },
+  "deterministic": true,
+  "effect_count": 3,
+  "execution_certificate_hash": "9412c2a02b5eaa628a8a2320",
+  "execution_hash": "a6b7e4ea22cdaa5273782943",
+  "goal": "Ship a closed risk plane over solvency: multi-solvency positions compound into deterministic hash-chained risk assessments with risk assessment digests bound to solvency roots, risk certificates, sterile rehydrate+prove, and adversarial falsification—past solvent positions without risk assessments. (action 3)",
+  "issued_at": "2026-07-30T04:13:03.586696Z",
+  "kind": "actuation_certificate",
+  "lineage_head_hash": "e0a4cb591bcdbc5c4c0f44c5",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "8a780c2329917e7c",
+  "parent_action_root": "31f0b3bf739e3c0ae90c95ab",
+  "post_execution": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false
+}

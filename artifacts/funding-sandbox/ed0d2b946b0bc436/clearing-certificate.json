@@ -1,0 +1,37 @@
+{
+  "bound_collateral_height": 2,
+  "bound_collateral_root": "0a1461f7a5d09f10d1c86d1c",
+  "certificate_hash": "4685e308e1fda6b28cf03e78",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "liquid",
+    "plane": "liquidity"
+  },
+  "collateral_allocation_digest": "699be785e766f2849ee0b886",
+  "collateral_certificate_hash": "40298733785d1d1014370e15",
+  "collateral_hash": "486ce097589f054ed45eaf8b",
+  "deterministic": true,
+  "goal": "Ship a closed risk plane over solvency: multi-solvency positions compound into deterministic hash-chained risk assessments with risk assessment digests bound to solvency roots, risk certificates, sterile rehydrate+prove, and adversarial falsification—past solvent positions without risk assessments. (clearing 2)",
+  "issued_at": "2026-07-30T04:13:06.284634Z",
+  "kind": "liquidity_certificate",
+  "lineage_head_hash": "e0a4cb591bcdbc5c4c0f44c5",
+  "liquidity_count": 2,
+  "liquidity_coverage_digest": "8c724950f8fe03d621e1f66b",
+  "liquidity_height": 2,
+  "liquidity_root": "f1ed695ad2ead61b08b00a99",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "8a780c2329917e7c",
+  "parent_liquidity_root": "c78659a212eaca50a97f7443",
+  "post_collateral": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

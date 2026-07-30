@@ -1,0 +1,37 @@
+{
+  "bound_capital_height": 2,
+  "bound_capital_root": "bfbd817fc0f4152731e51daf",
+  "capital_buffer_digest": "d6481f4cef962d59d16537fc",
+  "capital_certificate_hash": "69e46988822ac1d770172e1e",
+  "capital_hash": "8135e7daa77dd62035ff4ce3",
+  "certificate_hash": "0b1c36ea7e9377b2d28208a9",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "solvent",
+    "plane": "solvency"
+  },
+  "deterministic": true,
+  "goal": "Ship a closed risk plane over solvency: multi-solvency positions compound into deterministic hash-chained risk assessments with risk assessment digests bound to solvency roots, risk certificates, sterile rehydrate+prove, and adversarial falsification—past solvent positions without risk assessments. (clearing 2)",
+  "issued_at": "2026-07-30T04:13:08.122366Z",
+  "kind": "solvency_certificate",
+  "lineage_head_hash": "e0a4cb591bcdbc5c4c0f44c5",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "8a780c2329917e7c",
+  "parent_solvency_root": "dc8e8a3c38803d2a7d7b666d",
+  "post_capital": true,
+  "schema_version": 1,
+  "solvency_count": 2,
+  "solvency_height": 2,
+  "solvency_position_digest": "90c234ad379ee4a1997ff686",
+  "solvency_root": "75dae70534e4fcf43bb6ec96",
+  "used_skill_route_discovery": false,
+  "valid": true
+}

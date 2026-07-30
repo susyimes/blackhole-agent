@@ -2852,3 +2852,134 @@ def test_solvency_plane_positions_and_adversarial():
     assert loaded.get("solvency_position_digest")
     assert path.name == "ledger.json"
 
+
+def test_risk_plane_assessments_and_adversarial():
+    """Risk plane posts multi-solvency positions and falsifies wrong-solvency binds."""
+
+    from blackhole_agent.capability_compounder import (
+        ensure_seeded_ledger,
+        load_risk_bundle,
+        parse_outcome_contract,
+        run_risk_plane,
+        verify_risk_bundle_integrity,
+    )
+
+    repo = Path(__file__).resolve().parents[1]
+    path, ledger = ensure_seeded_ledger(repo)
+    assert "capability.risk-plane" in ledger.capabilities
+    assert "capability.solvency-plane" in ledger.capabilities
+
+    parsed = parse_outcome_contract(
+        "no_skill_route; risk_ok; risked_ok; min_risks:2; "
+        "risk_root_valid; solvency_ok; solvent_ok; min_solvencies:2; "
+        "solvency_root_valid; chain_valid"
+    )
+    kinds = {item["kind"] for item in parsed["predicates"]}
+    assert "risk_ok" in kinds
+    assert "risked_ok" in kinds
+    assert "min_risks" in kinds
+    assert "risk_root_valid" in kinds
+
+    lineage_path = repo / "artifacts" / "capability-lineage" / "test-risk-plane.json"
+    quorum_path = repo / "artifacts" / "quorum-bundles" / "test-risk-quorum.json"
+    finality_path = repo / "artifacts" / "finality-bundles" / "test-risk-finality.json"
+    execution_path = repo / "artifacts" / "execution-bundles" / "test-risk-execution.json"
+    actuation_path = repo / "artifacts" / "actuation-bundles" / "test-risk-actuation.json"
+    settlement_path = repo / "artifacts" / "settlement-bundles" / "test-risk-settlement.json"
+    margin_path = repo / "artifacts" / "margin-bundles" / "test-risk-margin.json"
+    collateral_path = repo / "artifacts" / "collateral-bundles" / "test-risk-collateral.json"
+    liquidity_path = repo / "artifacts" / "liquidity-bundles" / "test-risk-liquidity.json"
+    funding_path = repo / "artifacts" / "funding-bundles" / "test-risk-funding.json"
+    capital_path = repo / "artifacts" / "capital-bundles" / "test-risk-capital.json"
+    solvency_path = repo / "artifacts" / "solvency-bundles" / "test-risk-solvency.json"
+    risk_path = repo / "artifacts" / "risk-bundles" / "test-risk-plane.json"
+    for target in (
+        lineage_path,
+        quorum_path,
+        finality_path,
+        execution_path,
+        actuation_path,
+        settlement_path,
+        margin_path,
+        collateral_path,
+        liquidity_path,
+        funding_path,
+        capital_path,
+        solvency_path,
+        risk_path,
+    ):
+        if target.exists():
+            target.unlink()
+
+    plane = run_risk_plane(
+        repo,
+        "risk over solvency",
+        "min_capabilities:5; capability_exists:repo.import-health; no_skill_route",
+        max_steps=3,
+        run_solvency=True,
+        run_liquidity=True,
+        run_collateral=True,
+        run_clearing=True,
+        run_settlement=True,
+        run_actuation=True,
+        run_execution=True,
+        run_finality=True,
+        run_quorum=True,
+        run_continuity=False,
+        run_reconciliation=False,
+        inject_byzantine=True,
+        epoch_count=2,
+        min_actions=2,
+        min_settlements=2,
+        min_clearings=2,
+        min_margins=2,
+        min_collaterals=2,
+        min_liquidities=2,
+        min_solvencies=2,
+        min_risks=2,
+        lineage_path=lineage_path,
+        quorum_path=quorum_path,
+        finality_path=finality_path,
+        execution_path=execution_path,
+        actuation_path=actuation_path,
+        settlement_path=settlement_path,
+        margin_path=margin_path,
+        collateral_path=collateral_path,
+        liquidity_path=liquidity_path,
+        solvency_path=solvency_path,
+        risk_path=risk_path,
+        timeout=960,
+    )
+    assert plane["ok"] is True, plane
+    assert plane["action"] == "risk_plane"
+    assert plane["risked"] is True
+    assert int(plane["risk_count"]) >= 2
+    assert int(plane["tip_height"]) >= 2
+    assert int(plane["solvency_count"] or 0) >= 2
+    assert plane.get("risk_assessment_digest")
+    assert plane["integrity"]["ok"] is True
+    assert plane["integrity"]["multi_risk"] is True
+    assert plane["integrity"]["risk_ok"] is True
+    assert plane["rehydrate"]["ok"] is True
+    assert plane["prove"]["ok"] is True
+    assert int(plane["prove"]["proved_count"]) >= 1
+    assert plane["chain"]["valid"] is True
+    assert plane["risk_certificate"]["valid"] is True
+    assert plane["adversarial"]["ok"] is True
+    assert plane["adversarial"]["wrong_solvency_fails_as_expected"] is True
+    assert plane["adversarial"]["reorder_fails_as_expected"] is True
+    assert plane["adversarial"]["digest_tamper_fails_as_expected"] is True
+    assert plane["adversarial"]["single_risk_fails_as_expected"] is True
+    assert plane["adversarial"]["duplicate_apply_fails_as_expected"] is True
+    assert plane["adversarial"]["replay_matches_tip"] is True
+    assert plane["used_skill_route_discovery"] is False
+    assert risk_path.is_file()
+
+    loaded = load_risk_bundle(risk_path)
+    assert verify_risk_bundle_integrity(loaded)["ok"] is True
+    assert loaded.get("risk_hash")
+    assert int(loaded.get("risk_count") or 0) >= 2
+    assert int(loaded.get("tip_height") or 0) >= 2
+    assert loaded.get("risk_assessment_digest")
+    assert path.name == "ledger.json"
+

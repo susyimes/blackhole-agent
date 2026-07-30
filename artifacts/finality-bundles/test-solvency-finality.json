@@ -4,112 +4,8 @@
   "byzantine_count": 1,
   "certificate_count": 4,
   "certificates": {
-    "564aa890d0b136365a208cc4": {
-      "certificate_hash": "564aa890d0b136365a208cc4",
-      "epoch_height": 2,
-      "kind": "quorum_certificate",
-      "payload": {
-        "agreeing_count": 2,
-        "agreeing_origins": [
-          "origin-a",
-          "origin-b"
-        ],
-        "byzantine_count": 1,
-        "byzantine_origins": [
-          "origin-byzantine"
-        ],
-        "certificate_hash": "564aa890d0b136365a208cc4",
-        "claims": {
-          "finality_progress": true,
-          "prior_quorum_hash": "2e41442099ffdd7906a03c92",
-          "progress_tag": "epoch-progress-2"
-        },
-        "goal": "solvency over capital (progress 2)",
-        "issued_at": "2026-07-30T03:32:57.944119Z",
-        "kind": "quorum_certificate",
-        "lineage_head_hash": "f9be4ba5d56d0592ade0707a",
-        "member_count": 3,
-        "ok": true,
-        "origin_count": 3,
-        "origin_hashes": [
-          "6d9427f4ccdf160c38d2a352",
-          "263938aa13587eb9e2df094f",
-          "e39b7b63cb1758de43443d33"
-        ],
-        "package_hash": "d1fab9807ce43b1a",
-        "schema_version": 1,
-        "threshold": 2,
-        "used_skill_route_discovery": false
-      }
-    },
-    "5c2f01d8623c8d24a70f23b3": {
-      "certificate_hash": "5c2f01d8623c8d24a70f23b3",
-      "epoch_height": 1,
-      "payload": {
-        "agreeing_count": 2,
-        "byzantine_count": 1,
-        "certificate_hash": "5c2f01d8623c8d24a70f23b3",
-        "claims": {
-          "epoch_index": 1,
-          "member_count": 3,
-          "plane": "finality",
-          "roots": [
-            "repo.import-health",
-            "capability.ledger-inventory",
-            "unbound.milestone-gate"
-          ]
-        },
-        "epoch_hash": "45c24df06f67f900aad7bd6e",
-        "epoch_height": 1,
-        "goal": "solvency over capital (epoch 1)",
-        "irreversible": true,
-        "issued_at": "2026-07-30T03:32:57.943909Z",
-        "kind": "finality_certificate",
-        "lineage_head_hash": "65fcec595e3275ad6c54a287",
-        "ok": true,
-        "origin_count": 3,
-        "package_hash": "066545df3053adf5",
-        "parent_epoch_hash": "",
-        "quorum_hash": "2e41442099ffdd7906a03c92",
-        "schema_version": 1,
-        "used_skill_route_discovery": false
-      }
-    },
-    "74b43ffc5e64e7f3d3a1d249": {
-      "certificate_hash": "74b43ffc5e64e7f3d3a1d249",
-      "epoch_height": 2,
-      "payload": {
-        "agreeing_count": 2,
-        "byzantine_count": 1,
-        "certificate_hash": "74b43ffc5e64e7f3d3a1d249",
-        "claims": {
-          "epoch_index": 2,
-          "member_count": 3,
-          "plane": "finality",
-          "roots": [
-            "repo.import-health",
-            "capability.ledger-inventory",
-            "unbound.milestone-gate"
-          ]
-        },
-        "epoch_hash": "44adf54b24cefe2acd314b7e",
-        "epoch_height": 2,
-        "goal": "solvency over capital (epoch 2)",
-        "irreversible": true,
-        "issued_at": "2026-07-30T03:32:57.944841Z",
-        "kind": "finality_certificate",
-        "lineage_head_hash": "f9be4ba5d56d0592ade0707a",
-        "ok": true,
-        "origin_count": 3,
-        "package_hash": "d1fab9807ce43b1a",
-        "parent_epoch_hash": "45c24df06f67f900aad7bd6e",
-        "quorum_hash": "388fb76110a2e76e249fcd15",
-        "schema_version": 1,
-        "used_skill_route_discovery": false
-      }
-    },
-    "8190e0630ef652cdf0a6f049": {
-      "certificate_hash": "8190e0630ef652cdf0a6f049",
+    "0bdbf1cc00b00aea3f7a127e": {
+      "certificate_hash": "0bdbf1cc00b00aea3f7a127e",
       "epoch_height": 1,
       "kind": "quorum_certificate",
       "payload": {
@@ -122,7 +18,7 @@
         "byzantine_origins": [
           "origin-byzantine"
         ],
-        "certificate_hash": "8190e0630ef652cdf0a6f049",
+        "certificate_hash": "0bdbf1cc00b00aea3f7a127e",
         "claims": {
           "origin_ids": [
             "origin-a",
@@ -137,20 +33,124 @@
           "votes_accepted": 3
         },
         "goal": "solvency over capital",
-        "issued_at": "2026-07-30T03:32:57.455962Z",
+        "issued_at": "2026-07-30T04:12:22.135160Z",
         "kind": "quorum_certificate",
-        "lineage_head_hash": "65fcec595e3275ad6c54a287",
+        "lineage_head_hash": "434657f77b97aa28b3f1aef4",
         "member_count": 3,
         "ok": true,
         "origin_count": 3,
         "origin_hashes": [
-          "6d9427f4ccdf160c38d2a352",
-          "263938aa13587eb9e2df094f",
-          "e39b7b63cb1758de43443d33"
+          "f085d58bff3b8a29547a413e",
+          "66be53eb0a131f8312a5b955",
+          "81002fdf8b2231ff3c5b7e1b"
         ],
         "package_hash": "066545df3053adf5",
         "schema_version": 1,
         "threshold": 2,
+        "used_skill_route_discovery": false
+      }
+    },
+    "0f10f0e7171d2ac80b55b904": {
+      "certificate_hash": "0f10f0e7171d2ac80b55b904",
+      "epoch_height": 1,
+      "payload": {
+        "agreeing_count": 2,
+        "byzantine_count": 1,
+        "certificate_hash": "0f10f0e7171d2ac80b55b904",
+        "claims": {
+          "epoch_index": 1,
+          "member_count": 3,
+          "plane": "finality",
+          "roots": [
+            "repo.import-health",
+            "capability.ledger-inventory",
+            "unbound.milestone-gate"
+          ]
+        },
+        "epoch_hash": "57c091c6e8256ac266a8412a",
+        "epoch_height": 1,
+        "goal": "solvency over capital (epoch 1)",
+        "irreversible": true,
+        "issued_at": "2026-07-30T04:12:22.599878Z",
+        "kind": "finality_certificate",
+        "lineage_head_hash": "434657f77b97aa28b3f1aef4",
+        "ok": true,
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "parent_epoch_hash": "",
+        "quorum_hash": "7645e5412d5b646f43226044",
+        "schema_version": 1,
+        "used_skill_route_discovery": false
+      }
+    },
+    "2ea2964315620fe50e0989ea": {
+      "certificate_hash": "2ea2964315620fe50e0989ea",
+      "epoch_height": 2,
+      "kind": "quorum_certificate",
+      "payload": {
+        "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "byzantine_count": 1,
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "certificate_hash": "2ea2964315620fe50e0989ea",
+        "claims": {
+          "finality_progress": true,
+          "prior_quorum_hash": "7645e5412d5b646f43226044",
+          "progress_tag": "epoch-progress-2"
+        },
+        "goal": "solvency over capital (progress 2)",
+        "issued_at": "2026-07-30T04:12:22.600110Z",
+        "kind": "quorum_certificate",
+        "lineage_head_hash": "4df8bef1da32777fcf4f191c",
+        "member_count": 3,
+        "ok": true,
+        "origin_count": 3,
+        "origin_hashes": [
+          "f085d58bff3b8a29547a413e",
+          "66be53eb0a131f8312a5b955",
+          "81002fdf8b2231ff3c5b7e1b"
+        ],
+        "package_hash": "8cbca3ed0ce42265",
+        "schema_version": 1,
+        "threshold": 2,
+        "used_skill_route_discovery": false
+      }
+    },
+    "99254c7b8686d751b68d55ba": {
+      "certificate_hash": "99254c7b8686d751b68d55ba",
+      "epoch_height": 2,
+      "payload": {
+        "agreeing_count": 2,
+        "byzantine_count": 1,
+        "certificate_hash": "99254c7b8686d751b68d55ba",
+        "claims": {
+          "epoch_index": 2,
+          "member_count": 3,
+          "plane": "finality",
+          "roots": [
+            "repo.import-health",
+            "capability.ledger-inventory",
+            "unbound.milestone-gate"
+          ]
+        },
+        "epoch_hash": "114927c083222d14fcaba900",
+        "epoch_height": 2,
+        "goal": "solvency over capital (epoch 2)",
+        "irreversible": true,
+        "issued_at": "2026-07-30T04:12:22.600489Z",
+        "kind": "finality_certificate",
+        "lineage_head_hash": "4df8bef1da32777fcf4f191c",
+        "ok": true,
+        "origin_count": 3,
+        "package_hash": "8cbca3ed0ce42265",
+        "parent_epoch_hash": "57c091c6e8256ac266a8412a",
+        "quorum_hash": "e9ee61a2b8419262487c3d6e",
+        "schema_version": 1,
         "used_skill_route_discovery": false
       }
     }
@@ -172,12 +172,12 @@
           "epoch_index": 1,
           "plane": "finality"
         },
-        "epoch_hash": "45c24df06f67f900aad7bd6e",
+        "epoch_hash": "57c091c6e8256ac266a8412a",
         "epoch_height": 1,
         "finality_certificate": {
           "agreeing_count": 2,
           "byzantine_count": 1,
-          "certificate_hash": "5c2f01d8623c8d24a70f23b3",
+          "certificate_hash": "0f10f0e7171d2ac80b55b904",
           "claims": {
             "epoch_index": 1,
             "member_count": 3,
@@ -188,22 +188,22 @@
               "unbound.milestone-gate"
             ]
           },
-          "epoch_hash": "45c24df06f67f900aad7bd6e",
+          "epoch_hash": "57c091c6e8256ac266a8412a",
           "epoch_height": 1,
           "goal": "solvency over capital (epoch 1)",
           "irreversible": true,
-          "issued_at": "2026-07-30T03:32:57.943909Z",
+          "issued_at": "2026-07-30T04:12:22.599878Z",
           "kind": "finality_certificate",
-          "lineage_head_hash": "65fcec595e3275ad6c54a287",
+          "lineage_head_hash": "434657f77b97aa28b3f1aef4",
           "ok": true,
           "origin_count": 3,
           "package_hash": "066545df3053adf5",
           "parent_epoch_hash": "",
-          "quorum_hash": "2e41442099ffdd7906a03c92",
+          "quorum_hash": "7645e5412d5b646f43226044",
           "schema_version": 1,
           "used_skill_route_discovery": false
         },
-        "finalized_at": "2026-07-30T03:32:57.943826Z",
+        "finalized_at": "2026-07-30T04:12:22.599780Z",
         "goal": "solvency over capital (epoch 1)",
         "irreversible": true,
         "kind": "finality_epoch",
@@ -224,39 +224,39 @@
               "detail": {
                 "origins": [
                   {
-                    "bundle_hash": "6d9427f4ccdf160c38d2a352",
+                    "bundle_hash": "f085d58bff3b8a29547a413e",
                     "byzantine": false,
                     "lineage_entry_count": 2,
-                    "lineage_head_hash": "a29537fd498c1e6e02f4c2db",
+                    "lineage_head_hash": "26c635cebb155a1960da1807",
                     "member_count": 3,
                     "origin_id": "origin-a",
                     "package_hash": "7878a785b9718369"
                   },
                   {
-                    "bundle_hash": "263938aa13587eb9e2df094f",
+                    "bundle_hash": "66be53eb0a131f8312a5b955",
                     "byzantine": false,
                     "lineage_entry_count": 2,
-                    "lineage_head_hash": "50018024114cad6cffe0d4e3",
+                    "lineage_head_hash": "84a6f02708c140495cc3f0d9",
                     "member_count": 2,
                     "origin_id": "origin-b",
                     "package_hash": "8ece9182045d973a"
                   },
                   {
-                    "bundle_hash": "e39b7b63cb1758de43443d33",
+                    "bundle_hash": "81002fdf8b2231ff3c5b7e1b",
                     "byzantine": true,
                     "lineage_entry_count": 2,
-                    "lineage_head_hash": "944cfdceb69f4a9dcb4898da",
+                    "lineage_head_hash": "a9b95e92dd5af39238bb0b8b",
                     "member_count": 3,
                     "origin_id": "origin-byzantine",
                     "package_hash": "7d88f7661e8407af"
                   }
                 ]
               },
-              "entry_hash": "0ac0dc3ad6922a30fc1d67dd",
+              "entry_hash": "90d3a1532e69fc332b1696b7",
               "entry_kind": "quorum_origin_manifest",
               "goal": "solvency over capital",
               "index": 0,
-              "issued_at": "2026-07-30T03:32:57.455824Z",
+              "issued_at": "2026-07-30T04:12:22.135015Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -280,16 +280,16 @@
               },
               "detail": {
                 "origin_heads": [
-                  "a29537fd498c1e6e02f4c2db",
-                  "50018024114cad6cffe0d4e3",
-                  "944cfdceb69f4a9dcb4898da"
+                  "26c635cebb155a1960da1807",
+                  "84a6f02708c140495cc3f0d9",
+                  "a9b95e92dd5af39238bb0b8b"
                 ]
               },
-              "entry_hash": "86e32bac6359ffb2e287e0ec",
+              "entry_hash": "48d2f4b3659b74838b4730b7",
               "entry_kind": "quorum_vote",
               "goal": "solvency over capital",
               "index": 1,
-              "issued_at": "2026-07-30T03:32:57.455847Z",
+              "issued_at": "2026-07-30T04:12:22.135037Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -297,7 +297,7 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "0ac0dc3ad6922a30fc1d67dd"
+              "parent_hash": "90d3a1532e69fc332b1696b7"
             },
             {
               "certificate_hash": "",
@@ -314,11 +314,11 @@
                   "origin-byzantine"
                 ]
               },
-              "entry_hash": "e38a95fa034b34831b7e635e",
+              "entry_hash": "9438ba52c26b8bd3e1337649",
               "entry_kind": "quorum_byzantine_exclude",
               "goal": "solvency over capital",
               "index": 2,
-              "issued_at": "2026-07-30T03:32:57.455861Z",
+              "issued_at": "2026-07-30T04:12:22.135052Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -326,7 +326,7 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "86e32bac6359ffb2e287e0ec"
+              "parent_hash": "48d2f4b3659b74838b4730b7"
             },
             {
               "certificate_hash": "",
@@ -346,16 +346,16 @@
                   "origin-byzantine"
                 ],
                 "origin_bundle_hashes": [
-                  "6d9427f4ccdf160c38d2a352",
-                  "263938aa13587eb9e2df094f",
-                  "e39b7b63cb1758de43443d33"
+                  "f085d58bff3b8a29547a413e",
+                  "66be53eb0a131f8312a5b955",
+                  "81002fdf8b2231ff3c5b7e1b"
                 ]
               },
-              "entry_hash": "65fcec595e3275ad6c54a287",
+              "entry_hash": "434657f77b97aa28b3f1aef4",
               "entry_kind": "quorum_seal",
               "goal": "solvency over capital",
               "index": 3,
-              "issued_at": "2026-07-30T03:32:57.455874Z",
+              "issued_at": "2026-07-30T04:12:22.135066Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -363,16 +363,16 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "e38a95fa034b34831b7e635e"
+              "parent_hash": "9438ba52c26b8bd3e1337649"
             }
           ],
           "entry_count": 4,
-          "head_hash": "65fcec595e3275ad6c54a287",
+          "head_hash": "434657f77b97aa28b3f1aef4",
           "kind": "capability_lineage",
           "schema_version": 1,
-          "updated_at": "2026-07-30T03:32:57.455884Z"
+          "updated_at": "2026-07-30T04:12:22.135076Z"
         },
-        "lineage_head_hash": "65fcec595e3275ad6c54a287",
+        "lineage_head_hash": "434657f77b97aa28b3f1aef4",
         "member_count": 3,
         "ok": true,
         "origin_count": 3,
@@ -385,7 +385,7 @@
           "byzantine_origins": [
             "origin-byzantine"
           ],
-          "exported_at": "2026-07-30T03:32:57.455795Z",
+          "exported_at": "2026-07-30T04:12:22.134988Z",
           "federated": true,
           "member_count": 3,
           "member_ids": [
@@ -431,7 +431,7 @@
                 "bootstrap",
                 "compounder"
               ],
-              "updated_at": "2026-07-30T03:32:57.430968Z"
+              "updated_at": "2026-07-30T04:12:22.109863Z"
             },
             "repo.import-health": {
               "behavior_paths": [
@@ -455,7 +455,7 @@
                 "bootstrap",
                 "health"
               ],
-              "updated_at": "2026-07-30T03:32:57.430797Z"
+              "updated_at": "2026-07-30T04:12:22.109698Z"
             },
             "unbound.milestone-gate": {
               "behavior_paths": [
@@ -480,7 +480,7 @@
                 "bootstrap",
                 "unbound"
               ],
-              "updated_at": "2026-07-30T03:32:57.430891Z"
+              "updated_at": "2026-07-30T04:12:22.109788Z"
             }
           },
           "ok": true,
@@ -508,7 +508,7 @@
           "byzantine_origins": [
             "origin-byzantine"
           ],
-          "certificate_hash": "8190e0630ef652cdf0a6f049",
+          "certificate_hash": "0bdbf1cc00b00aea3f7a127e",
           "claims": {
             "origin_ids": [
               "origin-a",
@@ -523,23 +523,23 @@
             "votes_accepted": 3
           },
           "goal": "solvency over capital",
-          "issued_at": "2026-07-30T03:32:57.455962Z",
+          "issued_at": "2026-07-30T04:12:22.135160Z",
           "kind": "quorum_certificate",
-          "lineage_head_hash": "65fcec595e3275ad6c54a287",
+          "lineage_head_hash": "434657f77b97aa28b3f1aef4",
           "member_count": 3,
           "ok": true,
           "origin_count": 3,
           "origin_hashes": [
-            "6d9427f4ccdf160c38d2a352",
-            "263938aa13587eb9e2df094f",
-            "e39b7b63cb1758de43443d33"
+            "f085d58bff3b8a29547a413e",
+            "66be53eb0a131f8312a5b955",
+            "81002fdf8b2231ff3c5b7e1b"
           ],
           "package_hash": "066545df3053adf5",
           "schema_version": 1,
           "threshold": 2,
           "used_skill_route_discovery": false
         },
-        "quorum_hash": "2e41442099ffdd7906a03c92",
+        "quorum_hash": "7645e5412d5b646f43226044",
         "schema_version": 1,
         "used_skill_route_discovery": false
       },
@@ -557,12 +557,12 @@
           "epoch_index": 2,
           "plane": "finality"
         },
-        "epoch_hash": "44adf54b24cefe2acd314b7e",
+        "epoch_hash": "114927c083222d14fcaba900",
         "epoch_height": 2,
         "finality_certificate": {
           "agreeing_count": 2,
           "byzantine_count": 1,
-          "certificate_hash": "74b43ffc5e64e7f3d3a1d249",
+          "certificate_hash": "99254c7b8686d751b68d55ba",
           "claims": {
             "epoch_index": 2,
             "member_count": 3,
@@ -573,22 +573,22 @@
               "unbound.milestone-gate"
             ]
           },
-          "epoch_hash": "44adf54b24cefe2acd314b7e",
+          "epoch_hash": "114927c083222d14fcaba900",
           "epoch_height": 2,
           "goal": "solvency over capital (epoch 2)",
           "irreversible": true,
-          "issued_at": "2026-07-30T03:32:57.944841Z",
+          "issued_at": "2026-07-30T04:12:22.600489Z",
           "kind": "finality_certificate",
-          "lineage_head_hash": "f9be4ba5d56d0592ade0707a",
+          "lineage_head_hash": "4df8bef1da32777fcf4f191c",
           "ok": true,
           "origin_count": 3,
-          "package_hash": "d1fab9807ce43b1a",
-          "parent_epoch_hash": "45c24df06f67f900aad7bd6e",
-          "quorum_hash": "388fb76110a2e76e249fcd15",
+          "package_hash": "8cbca3ed0ce42265",
+          "parent_epoch_hash": "57c091c6e8256ac266a8412a",
+          "quorum_hash": "e9ee61a2b8419262487c3d6e",
           "schema_version": 1,
           "used_skill_route_discovery": false
         },
-        "finalized_at": "2026-07-30T03:32:57.944623Z",
+        "finalized_at": "2026-07-30T04:12:22.600426Z",
         "goal": "solvency over capital (epoch 2)",
         "irreversible": true,
         "kind": "finality_epoch",
@@ -609,39 +609,39 @@
               "detail": {
                 "origins": [
                   {
-                    "bundle_hash": "6d9427f4ccdf160c38d2a352",
+                    "bundle_hash": "f085d58bff3b8a29547a413e",
                     "byzantine": false,
                     "lineage_entry_count": 2,
-                    "lineage_head_hash": "a29537fd498c1e6e02f4c2db",
+                    "lineage_head_hash": "26c635cebb155a1960da1807",
                     "member_count": 3,
                     "origin_id": "origin-a",
                     "package_hash": "7878a785b9718369"
                   },
                   {
-                    "bundle_hash": "263938aa13587eb9e2df094f",
+                    "bundle_hash": "66be53eb0a131f8312a5b955",
                     "byzantine": false,
                     "lineage_entry_count": 2,
-                    "lineage_head_hash": "50018024114cad6cffe0d4e3",
+                    "lineage_head_hash": "84a6f02708c140495cc3f0d9",
                     "member_count": 2,
                     "origin_id": "origin-b",
                     "package_hash": "8ece9182045d973a"
                   },
                   {
-                    "bundle_hash": "e39b7b63cb1758de43443d33",
+                    "bundle_hash": "81002fdf8b2231ff3c5b7e1b",
                     "byzantine": true,
                     "lineage_entry_count": 2,
-                    "lineage_head_hash": "944cfdceb69f4a9dcb4898da",
+                    "lineage_head_hash": "a9b95e92dd5af39238bb0b8b",
                     "member_count": 3,
                     "origin_id": "origin-byzantine",
                     "package_hash": "7d88f7661e8407af"
                   }
                 ]
               },
-              "entry_hash": "0ac0dc3ad6922a30fc1d67dd",
+              "entry_hash": "90d3a1532e69fc332b1696b7",
               "entry_kind": "quorum_origin_manifest",
               "goal": "solvency over capital",
               "index": 0,
-              "issued_at": "2026-07-30T03:32:57.455824Z",
+              "issued_at": "2026-07-30T04:12:22.135015Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -665,16 +665,16 @@
               },
               "detail": {
                 "origin_heads": [
-                  "a29537fd498c1e6e02f4c2db",
-                  "50018024114cad6cffe0d4e3",
-                  "944cfdceb69f4a9dcb4898da"
+                  "26c635cebb155a1960da1807",
+                  "84a6f02708c140495cc3f0d9",
+                  "a9b95e92dd5af39238bb0b8b"
                 ]
               },
-              "entry_hash": "86e32bac6359ffb2e287e0ec",
+              "entry_hash": "48d2f4b3659b74838b4730b7",
               "entry_kind": "quorum_vote",
               "goal": "solvency over capital",
               "index": 1,
-              "issued_at": "2026-07-30T03:32:57.455847Z",
+              "issued_at": "2026-07-30T04:12:22.135037Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -682,7 +682,7 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "0ac0dc3ad6922a30fc1d67dd"
+              "parent_hash": "90d3a1532e69fc332b1696b7"
             },
             {
               "certificate_hash": "",
@@ -699,11 +699,11 @@
                   "origin-byzantine"
                 ]
               },
-              "entry_hash": "e38a95fa034b34831b7e635e",
+              "entry_hash": "9438ba52c26b8bd3e1337649",
               "entry_kind": "quorum_byzantine_exclude",
               "goal": "solvency over capital",
               "index": 2,
-              "issued_at": "2026-07-30T03:32:57.455861Z",
+              "issued_at": "2026-07-30T04:12:22.135052Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -711,7 +711,7 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "86e32bac6359ffb2e287e0ec"
+              "parent_hash": "48d2f4b3659b74838b4730b7"
             },
             {
               "certificate_hash": "",
@@ -731,16 +731,16 @@
                   "origin-byzantine"
                 ],
                 "origin_bundle_hashes": [
-                  "6d9427f4ccdf160c38d2a352",
-                  "263938aa13587eb9e2df094f",
-                  "e39b7b63cb1758de43443d33"
+                  "f085d58bff3b8a29547a413e",
+                  "66be53eb0a131f8312a5b955",
+                  "81002fdf8b2231ff3c5b7e1b"
                 ]
               },
-              "entry_hash": "65fcec595e3275ad6c54a287",
+              "entry_hash": "434657f77b97aa28b3f1aef4",
               "entry_kind": "quorum_seal",
               "goal": "solvency over capital",
               "index": 3,
-              "issued_at": "2026-07-30T03:32:57.455874Z",
+              "issued_at": "2026-07-30T04:12:22.135066Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -748,23 +748,23 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "e38a95fa034b34831b7e635e"
+              "parent_hash": "9438ba52c26b8bd3e1337649"
             },
             {
               "certificate_hash": "",
               "certificate_path": "",
               "claims": {
-                "prior_lineage_head": "65fcec595e3275ad6c54a287",
+                "prior_lineage_head": "434657f77b97aa28b3f1aef4",
                 "prior_package_hash": "066545df3053adf5",
-                "prior_quorum_hash": "2e41442099ffdd7906a03c92",
+                "prior_quorum_hash": "7645e5412d5b646f43226044",
                 "progress_tag": "epoch-progress-2"
               },
               "detail": {},
-              "entry_hash": "f9be4ba5d56d0592ade0707a",
+              "entry_hash": "4df8bef1da32777fcf4f191c",
               "entry_kind": "finality_epoch_progress",
               "goal": "solvency over capital (progress 2)",
               "index": 4,
-              "issued_at": "2026-07-30T03:32:57.944081Z",
+              "issued_at": "2026-07-30T04:12:22.600068Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -772,16 +772,16 @@
                 "proved_ratio": null
               },
               "package_hash": "",
-              "parent_hash": "65fcec595e3275ad6c54a287"
+              "parent_hash": "434657f77b97aa28b3f1aef4"
             }
           ],
           "entry_count": 5,
-          "head_hash": "f9be4ba5d56d0592ade0707a",
+          "head_hash": "4df8bef1da32777fcf4f191c",
           "kind": "capability_lineage",
           "schema_version": 1,
-          "updated_at": "2026-07-30T03:32:57.944098Z"
+          "updated_at": "2026-07-30T04:12:22.600088Z"
         },
-        "lineage_head_hash": "f9be4ba5d56d0592ade0707a",
+        "lineage_head_hash": "4df8bef1da32777fcf4f191c",
         "member_count": 3,
         "ok": true,
         "origin_count": 3,
@@ -794,7 +794,7 @@
           "byzantine_origins": [
             "origin-byzantine"
           ],
-          "exported_at": "2026-07-30T03:32:57.455795Z",
+          "exported_at": "2026-07-30T04:12:22.134988Z",
           "federated": true,
           "member_count": 3,
           "member_ids": [
@@ -840,7 +840,7 @@
                 "bootstrap",
                 "compounder"
               ],
-              "updated_at": "2026-07-30T03:32:57.430968Z"
+              "updated_at": "2026-07-30T04:12:22.109863Z"
             },
             "repo.import-health": {
               "behavior_paths": [
@@ -864,7 +864,7 @@
                 "bootstrap",
                 "health"
               ],
-              "updated_at": "2026-07-30T03:32:57.430797Z"
+              "updated_at": "2026-07-30T04:12:22.109698Z"
             },
             "unbound.milestone-gate": {
               "behavior_paths": [
@@ -889,12 +889,12 @@
                 "bootstrap",
                 "unbound"
               ],
-              "updated_at": "2026-07-30T03:32:57.430891Z"
+              "updated_at": "2026-07-30T04:12:22.109788Z"
             }
           },
           "ok": true,
-          "package_hash": "d1fab9807ce43b1a",
-          "progress_at": "2026-07-30T03:32:57.944101Z",
+          "package_hash": "8cbca3ed0ce42265",
+          "progress_at": "2026-07-30T04:12:22.600090Z",
           "progress_tag": "epoch-progress-2",
           "quorum": true,
           "quorum_threshold": 2,
@@ -907,8 +907,8 @@
           "source_ledger_path": "quorum-merge",
           "used_skill_route_discovery": false
         },
-        "package_hash": "d1fab9807ce43b1a",
-        "parent_epoch_hash": "45c24df06f67f900aad7bd6e",
+        "package_hash": "8cbca3ed0ce42265",
+        "parent_epoch_hash": "57c091c6e8256ac266a8412a",
         "quorum_certificate": {
           "agreeing_count": 2,
           "agreeing_origins": [
@@ -919,30 +919,30 @@
           "byzantine_origins": [
             "origin-byzantine"
           ],
-          "certificate_hash": "564aa890d0b136365a208cc4",
+          "certificate_hash": "2ea2964315620fe50e0989ea",
           "claims": {
             "finality_progress": true,
-            "prior_quorum_hash": "2e41442099ffdd7906a03c92",
+            "prior_quorum_hash": "7645e5412d5b646f43226044",
             "progress_tag": "epoch-progress-2"
           },
           "goal": "solvency over capital (progress 2)",
-          "issued_at": "2026-07-30T03:32:57.944119Z",
+          "issued_at": "2026-07-30T04:12:22.600110Z",
           "kind": "quorum_certificate",
-          "lineage_head_hash": "f9be4ba5d56d0592ade0707a",
+          "lineage_head_hash": "4df8bef1da32777fcf4f191c",
           "member_count": 3,
           "ok": true,
           "origin_count": 3,
           "origin_hashes": [
-            "6d9427f4ccdf160c38d2a352",
-            "263938aa13587eb9e2df094f",
-            "e39b7b63cb1758de43443d33"
+            "f085d58bff3b8a29547a413e",
+            "66be53eb0a131f8312a5b955",
+            "81002fdf8b2231ff3c5b7e1b"
           ],
-          "package_hash": "d1fab9807ce43b1a",
+          "package_hash": "8cbca3ed0ce42265",
           "schema_version": 1,
           "threshold": 2,
           "used_skill_route_discovery": false
         },
-        "quorum_hash": "388fb76110a2e76e249fcd15",
+        "quorum_hash": "e9ee61a2b8419262487c3d6e",
         "schema_version": 1,
         "used_skill_route_discovery": false
       }
@@ -950,14 +950,14 @@
     "entry_count": 2,
     "kind": "finality_epoch_log",
     "schema_version": 1,
-    "tip_hash": "44adf54b24cefe2acd314b7e",
+    "tip_hash": "114927c083222d14fcaba900",
     "tip_height": 2,
-    "updated_at": "2026-07-30T03:32:57.944882Z"
+    "updated_at": "2026-07-30T04:12:22.600505Z"
   },
   "finality_certificate": {
     "agreeing_count": 2,
     "byzantine_count": 1,
-    "certificate_hash": "74b43ffc5e64e7f3d3a1d249",
+    "certificate_hash": "99254c7b8686d751b68d55ba",
     "claims": {
       "epoch_index": 2,
       "member_count": 3,
@@ -968,22 +968,22 @@
         "unbound.milestone-gate"
       ]
     },
-    "epoch_hash": "44adf54b24cefe2acd314b7e",
+    "epoch_hash": "114927c083222d14fcaba900",
     "epoch_height": 2,
     "goal": "solvency over capital (epoch 2)",
     "irreversible": true,
-    "issued_at": "2026-07-30T03:32:57.944841Z",
+    "issued_at": "2026-07-30T04:12:22.600489Z",
     "kind": "finality_certificate",
-    "lineage_head_hash": "f9be4ba5d56d0592ade0707a",
+    "lineage_head_hash": "4df8bef1da32777fcf4f191c",
     "ok": true,
     "origin_count": 3,
-    "package_hash": "d1fab9807ce43b1a",
-    "parent_epoch_hash": "45c24df06f67f900aad7bd6e",
-    "quorum_hash": "388fb76110a2e76e249fcd15",
+    "package_hash": "8cbca3ed0ce42265",
+    "parent_epoch_hash": "57c091c6e8256ac266a8412a",
+    "quorum_hash": "e9ee61a2b8419262487c3d6e",
     "schema_version": 1,
     "used_skill_route_discovery": false
   },
-  "finality_hash": "1a0453e48e8e3af671a669c8",
+  "finality_hash": "070b02bb8e95433c33267736",
   "goal": "solvency over capital",
   "irreversible": true,
   "kind": "finality_bundle",
@@ -1004,39 +1004,39 @@
         "detail": {
           "origins": [
             {
-              "bundle_hash": "6d9427f4ccdf160c38d2a352",
+              "bundle_hash": "f085d58bff3b8a29547a413e",
               "byzantine": false,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "a29537fd498c1e6e02f4c2db",
+              "lineage_head_hash": "26c635cebb155a1960da1807",
               "member_count": 3,
               "origin_id": "origin-a",
               "package_hash": "7878a785b9718369"
             },
             {
-              "bundle_hash": "263938aa13587eb9e2df094f",
+              "bundle_hash": "66be53eb0a131f8312a5b955",
               "byzantine": false,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "50018024114cad6cffe0d4e3",
+              "lineage_head_hash": "84a6f02708c140495cc3f0d9",
               "member_count": 2,
               "origin_id": "origin-b",
               "package_hash": "8ece9182045d973a"
             },
             {
-              "bundle_hash": "e39b7b63cb1758de43443d33",
+              "bundle_hash": "81002fdf8b2231ff3c5b7e1b",
               "byzantine": true,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "944cfdceb69f4a9dcb4898da",
+              "lineage_head_hash": "a9b95e92dd5af39238bb0b8b",
               "member_count": 3,
               "origin_id": "origin-byzantine",
               "package_hash": "7d88f7661e8407af"
             }
           ]
         },
-        "entry_hash": "0ac0dc3ad6922a30fc1d67dd",
+        "entry_hash": "90d3a1532e69fc332b1696b7",
         "entry_kind": "quorum_origin_manifest",
         "goal": "solvency over capital",
         "index": 0,
-        "issued_at": "2026-07-30T03:32:57.455824Z",
+        "issued_at": "2026-07-30T04:12:22.135015Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1060,16 +1060,16 @@
         },
         "detail": {
           "origin_heads": [
-            "a29537fd498c1e6e02f4c2db",
-            "50018024114cad6cffe0d4e3",
-            "944cfdceb69f4a9dcb4898da"
+            "26c635cebb155a1960da1807",
+            "84a6f02708c140495cc3f0d9",
+            "a9b95e92dd5af39238bb0b8b"
           ]
         },
-        "entry_hash": "86e32bac6359ffb2e287e0ec",
+        "entry_hash": "48d2f4b3659b74838b4730b7",
         "entry_kind": "quorum_vote",
         "goal": "solvency over capital",
         "index": 1,
-        "issued_at": "2026-07-30T03:32:57.455847Z",
+        "issued_at": "2026-07-30T04:12:22.135037Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1077,7 +1077,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "0ac0dc3ad6922a30fc1d67dd"
+        "parent_hash": "90d3a1532e69fc332b1696b7"
       },
       {
         "certificate_hash": "",
@@ -1094,11 +1094,11 @@
             "origin-byzantine"
           ]
         },
-        "entry_hash": "e38a95fa034b34831b7e635e",
+        "entry_hash": "9438ba52c26b8bd3e1337649",
         "entry_kind": "quorum_byzantine_exclude",
         "goal": "solvency over capital",
         "index": 2,
-        "issued_at": "2026-07-30T03:32:57.455861Z",
+        "issued_at": "2026-07-30T04:12:22.135052Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1106,7 +1106,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "86e32bac6359ffb2e287e0ec"
+        "parent_hash": "48d2f4b3659b74838b4730b7"
       },
       {
         "certificate_hash": "",
@@ -1126,16 +1126,16 @@
             "origin-byzantine"
           ],
           "origin_bundle_hashes": [
-            "6d9427f4ccdf160c38d2a352",
-            "263938aa13587eb9e2df094f",
-            "e39b7b63cb1758de43443d33"
+            "f085d58bff3b8a29547a413e",
+            "66be53eb0a131f8312a5b955",
+            "81002fdf8b2231ff3c5b7e1b"
           ]
         },
-        "entry_hash": "65fcec595e3275ad6c54a287",
+        "entry_hash": "434657f77b97aa28b3f1aef4",
         "entry_kind": "quorum_seal",
         "goal": "solvency over capital",
         "index": 3,
-        "issued_at": "2026-07-30T03:32:57.455874Z",
+        "issued_at": "2026-07-30T04:12:22.135066Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1143,23 +1143,23 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "e38a95fa034b34831b7e635e"
+        "parent_hash": "9438ba52c26b8bd3e1337649"
       },
       {
         "certificate_hash": "",
         "certificate_path": "",
         "claims": {
-          "prior_lineage_head": "65fcec595e3275ad6c54a287",
+          "prior_lineage_head": "434657f77b97aa28b3f1aef4",
           "prior_package_hash": "066545df3053adf5",
-          "prior_quorum_hash": "2e41442099ffdd7906a03c92",
+          "prior_quorum_hash": "7645e5412d5b646f43226044",
           "progress_tag": "epoch-progress-2"
         },
         "detail": {},
-        "entry_hash": "f9be4ba5d56d0592ade0707a",
+        "entry_hash": "4df8bef1da32777fcf4f191c",
         "entry_kind": "finality_epoch_progress",
         "goal": "solvency over capital (progress 2)",
         "index": 4,
-        "issued_at": "2026-07-30T03:32:57.944081Z",
+        "issued_at": "2026-07-30T04:12:22.600068Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1167,17 +1167,17 @@
           "proved_ratio": null
         },
         "package_hash": "",
-        "parent_hash": "65fcec595e3275ad6c54a287"
+        "parent_hash": "434657f77b97aa28b3f1aef4"
       }
     ],
     "entry_count": 5,
-    "head_hash": "f9be4ba5d56d0592ade0707a",
+    "head_hash": "4df8bef1da32777fcf4f191c",
     "kind": "capability_lineage",
     "schema_version": 1,
-    "updated_at": "2026-07-30T03:32:57.944098Z"
+    "updated_at": "2026-07-30T04:12:22.600088Z"
   },
   "lineage_entry_count": 5,
-  "lineage_head_hash": "f9be4ba5d56d0592ade0707a",
+  "lineage_head_hash": "4df8bef1da32777fcf4f191c",
   "member_count": 3,
   "ok": true,
   "origin_count": 3,
@@ -1190,7 +1190,7 @@
     "byzantine_origins": [
       "origin-byzantine"
     ],
-    "exported_at": "2026-07-30T03:32:57.455795Z",
+    "exported_at": "2026-07-30T04:12:22.134988Z",
     "federated": true,
     "member_count": 3,
     "member_ids": [
@@ -1236,7 +1236,7 @@
           "bootstrap",
           "compounder"
         ],
-        "updated_at": "2026-07-30T03:32:57.430968Z"
+        "updated_at": "2026-07-30T04:12:22.109863Z"
       },
       "repo.import-health": {
         "behavior_paths": [
@@ -1260,7 +1260,7 @@
           "bootstrap",
           "health"
         ],
-        "updated_at": "2026-07-30T03:32:57.430797Z"
+        "updated_at": "2026-07-30T04:12:22.109698Z"
       },
       "unbound.milestone-gate": {
         "behavior_paths": [
@@ -1285,12 +1285,12 @@
           "bootstrap",
           "unbound"
         ],
-        "updated_at": "2026-07-30T03:32:57.430891Z"
+        "updated_at": "2026-07-30T04:12:22.109788Z"
       }
     },
     "ok": true,
-    "package_hash": "d1fab9807ce43b1a",
-    "progress_at": "2026-07-30T03:32:57.944101Z",
+    "package_hash": "8cbca3ed0ce42265",
+    "progress_at": "2026-07-30T04:12:22.600090Z",
     "progress_tag": "epoch-progress-2",
     "quorum": true,
     "quorum_threshold": 2,
@@ -1303,10 +1303,10 @@
     "source_ledger_path": "quorum-merge",
     "used_skill_route_discovery": false
   },
-  "package_hash": "d1fab9807ce43b1a",
-  "quorum_hash": "2e41442099ffdd7906a03c92",
+  "package_hash": "8cbca3ed0ce42265",
+  "quorum_hash": "7645e5412d5b646f43226044",
   "schema_version": 1,
-  "tip_hash": "44adf54b24cefe2acd314b7e",
+  "tip_hash": "114927c083222d14fcaba900",
   "tip_height": 2,
   "used_skill_route_discovery": false
 }

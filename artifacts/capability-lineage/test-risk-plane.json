@@ -1,0 +1,53 @@
+{
+  "entries": [
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_id": "origin-a"
+      },
+      "detail": {},
+      "entry_hash": "d1074118843bc5307fa2cd4f",
+      "entry_kind": "quorum_bootstrap",
+      "goal": "risk over solvency",
+      "index": 0,
+      "issued_at": "2026-07-30T04:12:15.401261Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "",
+      "parent_hash": ""
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_id": "origin-a",
+        "sealed": true
+      },
+      "detail": {},
+      "entry_hash": "a846a923e0fc5c411549c51c",
+      "entry_kind": "quorum_bootstrap_seal",
+      "goal": "risk over solvency",
+      "index": 1,
+      "issued_at": "2026-07-30T04:12:15.401338Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "",
+      "parent_hash": "d1074118843bc5307fa2cd4f"
+    }
+  ],
+  "entry_count": 2,
+  "head_hash": "a846a923e0fc5c411549c51c",
+  "kind": "capability_lineage",
+  "ok": true,
+  "schema_version": 1,
+  "updated_at": "2026-07-30T04:12:15.401484Z"
+}

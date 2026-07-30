@@ -1,0 +1,151 @@
+{
+  "actuation_hash": "7739daafe5d528789d5320a2",
+  "bound_action_height": 2,
+  "bound_action_root": "31f0b3bf739e3c0ae90c95ab",
+  "entries": [
+    {
+      "actuation_certificate_hash": "fe2ac3ec3890b62b48a1ff9b",
+      "actuation_hash": "7739daafe5d528789d5320a2",
+      "applied_at": "2026-07-30T04:13:04.098635Z",
+      "bound_action_height": 1,
+      "bound_action_root": "92ae5f33117e62b65e127bb1",
+      "capability_id": "capability.ledger-inventory",
+      "claims": {
+        "plane": "settlement",
+        "settlement_index": 1
+      },
+      "deterministic": true,
+      "effect": "prove",
+      "effect_digest": "35668508e9a64298bba48ee0",
+      "entry": "blackhole_agent.capability_compounder:builtin_ledger_inventory",
+      "goal": "Ship a closed risk plane over solvency: multi-solvency positions compound into deterministic hash-chained risk assessments with risk assessment digests bound to solvency roots, risk certificates, sterile rehydrate+prove, and adversarial falsification—past solvent positions without risk assessments. (settlement 1)",
+      "kind": "settlement_receipt",
+      "lineage_head_hash": "e0a4cb591bcdbc5c4c0f44c5",
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "outcome": "settled",
+      "package_hash": "8a780c2329917e7c",
+      "parent_settlement_root": "",
+      "post_actuation": true,
+      "receipt_digest": "10eebc5a2857858847ff457e",
+      "schema_version": 1,
+      "settlement_certificate": {
+        "actuation_certificate_hash": "fe2ac3ec3890b62b48a1ff9b",
+        "actuation_hash": "7739daafe5d528789d5320a2",
+        "bound_action_height": 1,
+        "bound_action_root": "92ae5f33117e62b65e127bb1",
+        "certificate_hash": "26fc4ff4f932897dd15aa381",
+        "claims": {
+          "capability_id": "capability.ledger-inventory",
+          "effect": "prove",
+          "outcome": "settled",
+          "plane": "settlement",
+          "settlement_index": 1
+        },
+        "deterministic": true,
+        "goal": "Ship a closed risk plane over solvency: multi-solvency positions compound into deterministic hash-chained risk assessments with risk assessment digests bound to solvency roots, risk certificates, sterile rehydrate+prove, and adversarial falsification—past solvent positions without risk assessments. (settlement 1)",
+        "issued_at": "2026-07-30T04:13:04.098656Z",
+        "kind": "settlement_certificate",
+        "lineage_head_hash": "e0a4cb591bcdbc5c4c0f44c5",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "8a780c2329917e7c",
+        "parent_settlement_root": "",
+        "post_actuation": true,
+        "schema_version": 1,
+        "settlement_count": 1,
+        "settlement_height": 1,
+        "settlement_root": "57a39d7abeb2964531ea3ef2",
+        "used_skill_route_discovery": false,
+        "valid": true
+      },
+      "settlement_height": 1,
+      "settlement_root": "57a39d7abeb2964531ea3ef2",
+      "used_skill_route_discovery": false
+    },
+    {
+      "actuation_certificate_hash": "fe2ac3ec3890b62b48a1ff9b",
+      "actuation_hash": "7739daafe5d528789d5320a2",
+      "applied_at": "2026-07-30T04:13:04.098724Z",
+      "bound_action_height": 2,
+      "bound_action_root": "31f0b3bf739e3c0ae90c95ab",
+      "capability_id": "repo.import-health",
+      "claims": {
+        "plane": "settlement",
+        "settlement_index": 2
+      },
+      "deterministic": true,
+      "effect": "prove",
+      "effect_digest": "8c6b2a71a88b61cfc7d8cb1d",
+      "entry": "blackhole_agent.capability_compounder:builtin_repo_import_health",
+      "goal": "Ship a closed risk plane over solvency: multi-solvency positions compound into deterministic hash-chained risk assessments with risk assessment digests bound to solvency roots, risk certificates, sterile rehydrate+prove, and adversarial falsification—past solvent positions without risk assessments. (settlement 2)",
+      "kind": "settlement_receipt",
+      "lineage_head_hash": "e0a4cb591bcdbc5c4c0f44c5",
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "outcome": "settled",
+      "package_hash": "8a780c2329917e7c",
+      "parent_settlement_root": "57a39d7abeb2964531ea3ef2",
+      "post_actuation": true,
+      "receipt_digest": "b8235feacaeeb6f759126cb0",
+      "schema_version": 1,
+      "settlement_certificate": {
+        "actuation_certificate_hash": "fe2ac3ec3890b62b48a1ff9b",
+        "actuation_hash": "7739daafe5d528789d5320a2",
+        "bound_action_height": 2,
+        "bound_action_root": "31f0b3bf739e3c0ae90c95ab",
+        "certificate_hash": "b6deba781b64225e88bb9f89",
+        "claims": {
+          "capability_id": "repo.import-health",
+          "effect": "prove",
+          "outcome": "settled",
+          "plane": "settlement",
+          "settlement_index": 2
+        },
+        "deterministic": true,
+        "goal": "Ship a closed risk plane over solvency: multi-solvency positions compound into deterministic hash-chained risk assessments with risk assessment digests bound to solvency roots, risk certificates, sterile rehydrate+prove, and adversarial falsification—past solvent positions without risk assessments. (settlement 2)",
+        "issued_at": "2026-07-30T04:13:04.098740Z",
+        "kind": "settlement_certificate",
+        "lineage_head_hash": "e0a4cb591bcdbc5c4c0f44c5",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "8a780c2329917e7c",
+        "parent_settlement_root": "57a39d7abeb2964531ea3ef2",
+        "post_actuation": true,
+        "schema_version": 1,
+        "settlement_count": 2,
+        "settlement_height": 2,
+        "settlement_root": "179de1edd36a1f9a3d099aac",
+        "used_skill_route_discovery": false,
+        "valid": true
+      },
+      "settlement_height": 2,
+      "settlement_root": "179de1edd36a1f9a3d099aac",
+      "used_skill_route_discovery": false
+    }
+  ],
+  "entry_count": 2,
+  "kind": "settlement_log",
+  "schema_version": 1,
+  "tip_height": 2,
+  "tip_settlement_root": "179de1edd36a1f9a3d099aac",
+  "updated_at": "2026-07-30T04:13:04.098758Z"
+}
