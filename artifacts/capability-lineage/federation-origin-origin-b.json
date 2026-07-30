@@ -14,14 +14,14 @@
         "origin_id": "origin-b",
         "plane": "federation"
       },
-      "entry_hash": "dc06ed748690dc0705c968d6",
+      "entry_hash": "d71053e548647ff4564b2676",
       "entry_kind": "federation_origin_seed",
-      "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (honest origin-b)",
+      "goal": "recertification over reauthorization (honest origin-b)",
       "index": 0,
-      "issued_at": "2026-07-30T10:44:18.401054Z",
+      "issued_at": "2026-07-30T17:37:46.950697Z",
       "metrics": {
-        "count": 107,
-        "primitive_count": 58,
+        "count": 108,
+        "primitive_count": 59,
         "proved_count": 106,
         "proved_ratio": null
       },
@@ -42,11 +42,11 @@
         ],
         "origin_id": "origin-b"
       },
-      "entry_hash": "29d15aa0469e9a07df70e1e5",
+      "entry_hash": "b80e4d892a45dc4afaebf35b",
       "entry_kind": "federation_origin_seal",
-      "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (honest origin-b)",
+      "goal": "recertification over reauthorization (honest origin-b)",
       "index": 1,
-      "issued_at": "2026-07-30T10:44:18.401990Z",
+      "issued_at": "2026-07-30T17:37:46.950726Z",
       "metrics": {
         "count": 2,
         "primitive_count": null,
@@ -54,13 +54,13 @@
         "proved_ratio": null
       },
       "package_hash": "8ece9182045d973a",
-      "parent_hash": "dc06ed748690dc0705c968d6"
+      "parent_hash": "d71053e548647ff4564b2676"
     }
   ],
   "entry_count": 2,
-  "head_hash": "29d15aa0469e9a07df70e1e5",
+  "head_hash": "b80e4d892a45dc4afaebf35b",
   "kind": "capability_lineage",
   "ok": true,
   "schema_version": 1,
-  "updated_at": "2026-07-30T10:44:18.402658Z"
+  "updated_at": "2026-07-30T17:37:46.951001Z"
 }

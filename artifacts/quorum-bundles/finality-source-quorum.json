@@ -921,6 +921,25 @@
         "schema_version": 1
       }
     },
+    "371a3bd2db4548123bd21458": {
+      "certificate_hash": "371a3bd2db4548123bd21458",
+      "certificate_path": "artifacts/federation-origins/origin-b-attest.json",
+      "origin_id": "origin-b",
+      "payload": {
+        "certificate_hash": "371a3bd2db4548123bd21458",
+        "issued_at": "2026-07-30T17:37:46.952062Z",
+        "kind": "federation_origin_attestation",
+        "lineage_head_hash": "b80e4d892a45dc4afaebf35b",
+        "member_count": 2,
+        "origin_id": "origin-b",
+        "package_hash": "8ece9182045d973a",
+        "roots": [
+          "repo.import-health",
+          "capability.ledger-inventory"
+        ],
+        "schema_version": 1
+      }
+    },
     "42a8ae5ebbd080b183a1e696": {
       "certificate_hash": "42a8ae5ebbd080b183a1e696",
       "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T142559Z-e0ddf92a\\artifacts\\sovereignty-certificates\\sovereignty-42a8ae5ebbd080b183a1e696.json",
@@ -2806,15 +2825,15 @@
         "schema_version": 1
       }
     },
-    "d6a5d56987997515ac51ef3f": {
-      "certificate_hash": "d6a5d56987997515ac51ef3f",
+    "d8be15f814daf5302849647f": {
+      "certificate_hash": "d8be15f814daf5302849647f",
       "certificate_path": "artifacts/federation-origins/origin-c-attest.json",
       "origin_id": "origin-byzantine",
       "payload": {
-        "certificate_hash": "d6a5d56987997515ac51ef3f",
-        "issued_at": "2026-07-30T10:44:18.426588Z",
+        "certificate_hash": "d8be15f814daf5302849647f",
+        "issued_at": "2026-07-30T17:37:46.966811Z",
         "kind": "federation_origin_attestation",
-        "lineage_head_hash": "258ce9232b196b4ee852c287",
+        "lineage_head_hash": "1f7be0505c1b512aad5c0cb9",
         "member_count": 3,
         "origin_id": "origin-c",
         "package_hash": "7878a785b9718369",
@@ -2822,25 +2841,6 @@
           "repo.import-health",
           "capability.ledger-inventory",
           "unbound.milestone-gate"
-        ],
-        "schema_version": 1
-      }
-    },
-    "d93a729037749a1907d9bc90": {
-      "certificate_hash": "d93a729037749a1907d9bc90",
-      "certificate_path": "artifacts/federation-origins/origin-b-attest.json",
-      "origin_id": "origin-b",
-      "payload": {
-        "certificate_hash": "d93a729037749a1907d9bc90",
-        "issued_at": "2026-07-30T10:44:18.404990Z",
-        "kind": "federation_origin_attestation",
-        "lineage_head_hash": "29d15aa0469e9a07df70e1e5",
-        "member_count": 2,
-        "origin_id": "origin-b",
-        "package_hash": "8ece9182045d973a",
-        "roots": [
-          "repo.import-health",
-          "capability.ledger-inventory"
         ],
         "schema_version": 1
       }
@@ -3235,8 +3235,8 @@
         "schema_version": 1
       }
     },
-    "fd3770cb51eaa336a08cb4e1": {
-      "certificate_hash": "fd3770cb51eaa336a08cb4e1",
+    "ecb295d00a92a5cef184341d": {
+      "certificate_hash": "ecb295d00a92a5cef184341d",
       "certificate_path": "artifacts/quorum-bundles/quorum-certificate.json",
       "origin_id": "quorum",
       "payload": {
@@ -3249,7 +3249,7 @@
         "byzantine_origins": [
           "origin-byzantine"
         ],
-        "certificate_hash": "fd3770cb51eaa336a08cb4e1",
+        "certificate_hash": "ecb295d00a92a5cef184341d",
         "claims": {
           "origin_ids": [
             "origin-a",
@@ -3263,17 +3263,17 @@
           ],
           "votes_accepted": 3
         },
-        "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery.",
-        "issued_at": "2026-07-30T10:44:18.427634Z",
+        "goal": "recertification over reauthorization",
+        "issued_at": "2026-07-30T17:37:46.967409Z",
         "kind": "quorum_certificate",
-        "lineage_head_hash": "e714e7cc5f40d9432c40c04d",
+        "lineage_head_hash": "506db92bbce4055fd8638a8b",
         "member_count": 3,
         "ok": true,
         "origin_count": 3,
         "origin_hashes": [
-          "bc51f7f10fa6365eb8f73f25",
-          "69de4eee681ec8e0052f66f5",
-          "8a1a3f22e23a3af31d462c39"
+          "ac4de3b36100221a53d8c96f",
+          "a81fe5d63163b5197baf558d",
+          "265fef5421f3a0bc0381be43"
         ],
         "package_hash": "066545df3053adf5",
         "schema_version": 1,
@@ -3282,7 +3282,7 @@
       }
     }
   },
-  "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery.",
+  "goal": "recertification over reauthorization",
   "kind": "quorum_bundle",
   "lineage": {
     "entries": [
@@ -3301,7 +3301,7 @@
         "detail": {
           "origins": [
             {
-              "bundle_hash": "bc51f7f10fa6365eb8f73f25",
+              "bundle_hash": "ac4de3b36100221a53d8c96f",
               "byzantine": false,
               "lineage_entry_count": 123,
               "lineage_head_hash": "c0426b8f49a2398a4dfa5d4a",
@@ -3310,30 +3310,30 @@
               "package_hash": "7878a785b9718369"
             },
             {
-              "bundle_hash": "69de4eee681ec8e0052f66f5",
+              "bundle_hash": "a81fe5d63163b5197baf558d",
               "byzantine": false,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "29d15aa0469e9a07df70e1e5",
+              "lineage_head_hash": "b80e4d892a45dc4afaebf35b",
               "member_count": 2,
               "origin_id": "origin-b",
               "package_hash": "8ece9182045d973a"
             },
             {
-              "bundle_hash": "8a1a3f22e23a3af31d462c39",
+              "bundle_hash": "265fef5421f3a0bc0381be43",
               "byzantine": true,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "258ce9232b196b4ee852c287",
+              "lineage_head_hash": "1f7be0505c1b512aad5c0cb9",
               "member_count": 3,
               "origin_id": "origin-byzantine",
               "package_hash": "7d88f7661e8407af"
             }
           ]
         },
-        "entry_hash": "64178d23cfeb36a1fd4ce579",
+        "entry_hash": "b1a48093a9bab0d5bbe2003d",
         "entry_kind": "quorum_origin_manifest",
-        "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery.",
+        "goal": "recertification over reauthorization",
         "index": 0,
-        "issued_at": "2026-07-30T10:44:18.427392Z",
+        "issued_at": "2026-07-30T17:37:46.967231Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -3358,15 +3358,15 @@
         "detail": {
           "origin_heads": [
             "c0426b8f49a2398a4dfa5d4a",
-            "29d15aa0469e9a07df70e1e5",
-            "258ce9232b196b4ee852c287"
+            "b80e4d892a45dc4afaebf35b",
+            "1f7be0505c1b512aad5c0cb9"
           ]
         },
-        "entry_hash": "cc45acbe4d61aca0f3ce5085",
+        "entry_hash": "a08648212c08f3017b080ab0",
         "entry_kind": "quorum_vote",
-        "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery.",
+        "goal": "recertification over reauthorization",
         "index": 1,
-        "issued_at": "2026-07-30T10:44:18.427424Z",
+        "issued_at": "2026-07-30T17:37:46.967255Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -3374,7 +3374,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "64178d23cfeb36a1fd4ce579"
+        "parent_hash": "b1a48093a9bab0d5bbe2003d"
       },
       {
         "certificate_hash": "",
@@ -3391,11 +3391,11 @@
             "origin-byzantine"
           ]
         },
-        "entry_hash": "39f8a134e5d3fb16e08a4b1e",
+        "entry_hash": "d3fd90ca9316f23c3fa261d5",
         "entry_kind": "quorum_byzantine_exclude",
-        "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery.",
+        "goal": "recertification over reauthorization",
         "index": 2,
-        "issued_at": "2026-07-30T10:44:18.427446Z",
+        "issued_at": "2026-07-30T17:37:46.967269Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -3403,7 +3403,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "cc45acbe4d61aca0f3ce5085"
+        "parent_hash": "a08648212c08f3017b080ab0"
       },
       {
         "certificate_hash": "",
@@ -3423,16 +3423,16 @@
             "origin-byzantine"
           ],
           "origin_bundle_hashes": [
-            "bc51f7f10fa6365eb8f73f25",
-            "69de4eee681ec8e0052f66f5",
-            "8a1a3f22e23a3af31d462c39"
+            "ac4de3b36100221a53d8c96f",
+            "a81fe5d63163b5197baf558d",
+            "265fef5421f3a0bc0381be43"
           ]
         },
-        "entry_hash": "e714e7cc5f40d9432c40c04d",
+        "entry_hash": "506db92bbce4055fd8638a8b",
         "entry_kind": "quorum_seal",
-        "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery.",
+        "goal": "recertification over reauthorization",
         "index": 3,
-        "issued_at": "2026-07-30T10:44:18.427465Z",
+        "issued_at": "2026-07-30T17:37:46.967282Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -3440,23 +3440,23 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "39f8a134e5d3fb16e08a4b1e"
+        "parent_hash": "d3fd90ca9316f23c3fa261d5"
       }
     ],
     "entry_count": 4,
-    "head_hash": "e714e7cc5f40d9432c40c04d",
+    "head_hash": "506db92bbce4055fd8638a8b",
     "kind": "capability_lineage",
     "schema_version": 1,
-    "updated_at": "2026-07-30T10:44:18.427481Z"
+    "updated_at": "2026-07-30T17:37:46.967293Z"
   },
   "lineage_entry_count": 4,
-  "lineage_head_hash": "e714e7cc5f40d9432c40c04d",
+  "lineage_head_hash": "506db92bbce4055fd8638a8b",
   "member_count": 3,
   "ok": true,
   "origin_count": 3,
   "origins": [
     {
-      "bundle_hash": "bc51f7f10fa6365eb8f73f25",
+      "bundle_hash": "ac4de3b36100221a53d8c96f",
       "byzantine": false,
       "lineage_head_hash": "c0426b8f49a2398a4dfa5d4a",
       "member_count": 3,
@@ -3464,17 +3464,17 @@
       "package_hash": "7878a785b9718369"
     },
     {
-      "bundle_hash": "69de4eee681ec8e0052f66f5",
+      "bundle_hash": "a81fe5d63163b5197baf558d",
       "byzantine": false,
-      "lineage_head_hash": "29d15aa0469e9a07df70e1e5",
+      "lineage_head_hash": "b80e4d892a45dc4afaebf35b",
       "member_count": 2,
       "origin_id": "origin-b",
       "package_hash": "8ece9182045d973a"
     },
     {
-      "bundle_hash": "8a1a3f22e23a3af31d462c39",
+      "bundle_hash": "265fef5421f3a0bc0381be43",
       "byzantine": true,
-      "lineage_head_hash": "258ce9232b196b4ee852c287",
+      "lineage_head_hash": "1f7be0505c1b512aad5c0cb9",
       "member_count": 3,
       "origin_id": "origin-byzantine",
       "package_hash": "7d88f7661e8407af"
@@ -3489,7 +3489,7 @@
     "byzantine_origins": [
       "origin-byzantine"
     ],
-    "exported_at": "2026-07-30T10:44:18.427329Z",
+    "exported_at": "2026-07-30T17:37:46.967202Z",
     "federated": true,
     "member_count": 3,
     "member_ids": [
@@ -3535,7 +3535,7 @@
           "bootstrap",
           "compounder"
         ],
-        "updated_at": "2026-07-30T10:44:18.352584Z"
+        "updated_at": "2026-07-30T17:37:46.895664Z"
       },
       "repo.import-health": {
         "behavior_paths": [
@@ -3559,7 +3559,7 @@
           "bootstrap",
           "health"
         ],
-        "updated_at": "2026-07-30T10:44:18.352282Z"
+        "updated_at": "2026-07-30T17:37:46.895422Z"
       },
       "unbound.milestone-gate": {
         "behavior_paths": [
@@ -3584,7 +3584,7 @@
           "bootstrap",
           "unbound"
         ],
-        "updated_at": "2026-07-30T10:44:18.352458Z"
+        "updated_at": "2026-07-30T17:37:46.895555Z"
       }
     },
     "ok": true,
@@ -3611,7 +3611,7 @@
     "byzantine_origins": [
       "origin-byzantine"
     ],
-    "certificate_hash": "fd3770cb51eaa336a08cb4e1",
+    "certificate_hash": "ecb295d00a92a5cef184341d",
     "claims": {
       "origin_ids": [
         "origin-a",
@@ -3625,24 +3625,24 @@
       ],
       "votes_accepted": 3
     },
-    "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery.",
-    "issued_at": "2026-07-30T10:44:18.427634Z",
+    "goal": "recertification over reauthorization",
+    "issued_at": "2026-07-30T17:37:46.967409Z",
     "kind": "quorum_certificate",
-    "lineage_head_hash": "e714e7cc5f40d9432c40c04d",
+    "lineage_head_hash": "506db92bbce4055fd8638a8b",
     "member_count": 3,
     "ok": true,
     "origin_count": 3,
     "origin_hashes": [
-      "bc51f7f10fa6365eb8f73f25",
-      "69de4eee681ec8e0052f66f5",
-      "8a1a3f22e23a3af31d462c39"
+      "ac4de3b36100221a53d8c96f",
+      "a81fe5d63163b5197baf558d",
+      "265fef5421f3a0bc0381be43"
     ],
     "package_hash": "066545df3053adf5",
     "schema_version": 1,
     "threshold": 2,
     "used_skill_route_discovery": false
   },
-  "quorum_hash": "cab644e94277a6625653d8b2",
+  "quorum_hash": "5afb5c98100a9f7db95d93db",
   "quorum_met": true,
   "quorum_size": 2,
   "schema_version": 1,
