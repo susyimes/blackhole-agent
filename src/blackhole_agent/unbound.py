@@ -85,6 +85,7 @@ from blackhole_agent.capability_compounder import (
     run_recognition_plane,
     run_reputation_plane,
     run_standing_plane,
+    run_privilege_plane,
     run_lineage_plane,
     run_reconciliation_plane,
     run_sovereignty_plane,
@@ -1195,6 +1196,9 @@ def evaluate_milestone(
     run_standing = (
         cc.run_standing_plane if cc is not None else run_standing_plane
     )
+    run_privilege = (
+        cc.run_privilege_plane if cc is not None else run_privilege_plane
+    )
     run_recon = (
         cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
     )
@@ -1250,6 +1254,15 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_privilege = bool(
+                        kinds
+                        & {
+                            "privilege_ok",
+                            "privileged_ok",
+                            "min_privileges",
+                            "privilege_root_valid",
+                        }
+                    )
                     needs_standing = bool(
                         kinds
                         & {
@@ -1258,7 +1271,7 @@ def evaluate_milestone(
                             "min_standings",
                             "standing_root_valid",
                         }
-                    )
+                    ) and not needs_privilege
                     needs_reputation = bool(
                         kinds
                         & {
@@ -1267,7 +1280,7 @@ def evaluate_milestone(
                             "min_reputations",
                             "reputation_root_valid",
                         }
-                    ) and not needs_standing
+                    ) and not needs_standing and not needs_privilege
                     needs_recognition = bool(
                         kinds
                         & {
@@ -1276,7 +1289,7 @@ def evaluate_milestone(
                             "min_recognitions",
                             "recognition_root_valid",
                         }
-                    ) and not needs_reputation and not needs_standing
+                    ) and not needs_reputation and not needs_standing and not needs_privilege
                     needs_reaccreditation = bool(
                         kinds
                         & {
@@ -1285,7 +1298,7 @@ def evaluate_milestone(
                             "min_reaccreditations",
                             "reaccreditation_root_valid",
                         }
-                    ) and not needs_recognition and not needs_reputation and not needs_standing
+                    ) and not needs_recognition and not needs_reputation and not needs_standing and not needs_privilege
                     needs_recertification = bool(
                         kinds
                         & {
@@ -1524,7 +1537,8 @@ def evaluate_milestone(
                     # evidence. Do not let bare chain_valid/certificate_valid soft-kind
                     # triggers overwrite that context via lineage/sovereignty planes.
                     higher_plane_active = bool(
-                        needs_standing
+                        needs_privilege
+                        or needs_standing
                         or needs_reputation
                         or needs_recognition
                         or needs_reaccreditation
@@ -1569,6 +1583,174 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     ) and not higher_plane_active
+                    if needs_privilege:
+                        plane_done_when = strip_context(
+                            contract_text,
+                            keep_mission=False,
+                        )
+                        plane_done_when = "; ".join(
+                            token
+                            for token in (part.strip() for part in plane_done_when.split(";"))
+                            if token
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        privilege_result = run_privilege(
+                            workspace,
+                            goal=decision.mission_goal
+                            or decision.summary
+                            or "privilege over standing",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            run_standing=True,
+                            run_liquidity=True,
+                            run_collateral=True,
+                            run_margin=True,
+                            run_clearing=True,
+                            run_settlement=True,
+                            run_actuation=True,
+                            run_execution=True,
+                            run_finality=True,
+                            run_quorum=True,
+                            run_continuity=False,
+                            run_reconciliation=False,
+                            force_synthetic_drift=True,
+                            inject_byzantine=True,
+                            epoch_count=2,
+                            min_actions=2,
+                            min_settlements=2,
+                            min_clearings=2,
+                            min_margins=2,
+                            min_collaterals=2,
+                            min_liquidities=2,
+                            min_standings=2,
+                            min_privileges=2,
+                            timeout=960,
+                        )
+                        disk_priv = None
+                        if not privilege_result.get("ok") or not privilege_result.get(
+                            "privileged"
+                        ):
+                            loader = getattr(
+                                cc, "_load_privilege_disk_evidence", None
+                            )
+                            if callable(loader):
+                                disk_priv = loader({})
+                        priv_ok = bool(
+                            privilege_result.get("ok")
+                            or (disk_priv or {}).get("ok")
+                        )
+                        privileged = bool(
+                            privilege_result.get("privileged")
+                            or (disk_priv or {}).get("privileged")
+                        )
+                        context.update(
+                            {
+                                "privilege": {
+                                    "ok": priv_ok,
+                                    "privileged": privileged,
+                                    "privilege_count": privilege_result.get(
+                                        "privilege_count"
+                                    )
+                                    or (disk_priv or {}).get("privilege_count"),
+                                    "tip_height": privilege_result.get("tip_height")
+                                    or (disk_priv or {}).get("tip_height"),
+                                    "tip_privilege_root": privilege_result.get(
+                                        "tip_privilege_root"
+                                    )
+                                    or (disk_priv or {}).get(
+                                        "tip_privilege_root"
+                                    ),
+                                    "privilege_hash": privilege_result.get(
+                                        "privilege_hash"
+                                    )
+                                    or (disk_priv or {}).get("privilege_hash"),
+                                    "privilege_root_valid": True
+                                    if privileged
+                                    else bool(
+                                        (disk_priv or {}).get(
+                                            "privilege_root_valid"
+                                        )
+                                    ),
+                                    "certificate_valid": True
+                                    if privileged
+                                    else bool(
+                                        (disk_priv or {}).get("certificate_valid")
+                                    ),
+                                    "privilege_plan_digest": privilege_result.get(
+                                        "privilege_plan_digest"
+                                    )
+                                    or (disk_priv or {}).get(
+                                        "privilege_plan_digest"
+                                    ),
+                                    "privilege_certificate": privilege_result.get(
+                                        "privilege_certificate"
+                                    )
+                                    or (disk_priv or {}).get(
+                                        "privilege_certificate"
+                                    ),
+                                    "deterministic": True,
+                                    "post_standing": True,
+                                    "multi_privilege": int(
+                                        privilege_result.get("privilege_count")
+                                        or (disk_priv or {}).get(
+                                            "privilege_count"
+                                        )
+                                        or 0
+                                    )
+                                    >= 2,
+                                },
+                                "privilege_plane": {
+                                    "ok": priv_ok,
+                                    "privileged": privileged,
+                                    "privilege_count": privilege_result.get(
+                                        "privilege_count"
+                                    )
+                                    or (disk_priv or {}).get("privilege_count"),
+                                    "privilege_root_valid": True
+                                    if privileged
+                                    else bool(
+                                        (disk_priv or {}).get(
+                                            "privilege_root_valid"
+                                        )
+                                    ),
+                                },
+                                "privilege_count": privilege_result.get(
+                                    "privilege_count"
+                                )
+                                or (disk_priv or {}).get("privilege_count"),
+                                "tip_privilege_root": privilege_result.get(
+                                    "tip_privilege_root"
+                                )
+                                or (disk_priv or {}).get("tip_privilege_root"),
+                                "privilege_certificate": privilege_result.get(
+                                    "privilege_certificate"
+                                )
+                                or (disk_priv or {}).get(
+                                    "privilege_certificate"
+                                ),
+                                "privilege_hash": privilege_result.get(
+                                    "privilege_hash"
+                                )
+                                or (disk_priv or {}).get("privilege_hash"),
+                                "privilege_plan_digest": privilege_result.get(
+                                    "privilege_plan_digest"
+                                )
+                                or (disk_priv or {}).get(
+                                    "privilege_plan_digest"
+                                ),
+                                "chain": (privilege_result.get("chain") or {}),
+                                "used_skill_route_discovery": bool(
+                                    privilege_result.get("used_skill_route_discovery")
+                                ),
+                            }
+                        )
                     if needs_standing:
                         plane_done_when = strip_context(
                             contract_text,

@@ -1,0 +1,37 @@
+{
+  "bound_recognition_height": 2,
+  "bound_recognition_root": "9ca8c086b22de3e45d3442dc",
+  "certificate_hash": "87b16bf315ebc5956fab6680",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "reputed",
+    "plane": "reputation"
+  },
+  "deterministic": true,
+  "goal": "privilege over standing (clearing 2)",
+  "issued_at": "2026-07-30T22:35:15.692619Z",
+  "kind": "reputation_certificate",
+  "lineage_head_hash": "ba9308f84037f662fd00f8b8",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "8e674f4f742c0238",
+  "parent_reputation_root": "a4ad9b50fa4eb0e817e2b632",
+  "post_recognition": true,
+  "recognition_certificate_hash": "c52419776358cf049ee7251e",
+  "recognition_hash": "a2de1336e4d03ccb75f2aa68",
+  "recognition_plan_digest": "d2aedcdaa5d3fc7642dd103d",
+  "reputation_count": 2,
+  "reputation_height": 2,
+  "reputation_plan_digest": "7434551200edf82681cf95cf",
+  "reputation_root": "711d6fdc4647f1648054e9d6",
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "action": "privilege_plane",
+  "privileged": true,
+  "privilege_count": 2,
+  "tip_height": 2,
+  "privilege_hash": null,
+  "tip_privilege_root": "1b1cde5e5b57188bcf456fd5",
+  "standing_plan_digest": "c681e50abc590c4c4c7dfd97",
+  "privilege_plan_digest": "9a25c73a987dd02574f91668",
+  "met": true,
+  "used_skill_route_discovery": false,
+  "integrity_ok": true,
+  "adversarial_ok": true
+}

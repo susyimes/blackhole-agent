@@ -1,0 +1,37 @@
+{
+  "bound_solvency_height": 2,
+  "bound_solvency_root": "d5a5a6471c62718351ac11a1",
+  "certificate_hash": "8e9f290eadc3ca0c4acbf1db",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "risked",
+    "plane": "risk"
+  },
+  "deterministic": true,
+  "goal": "privilege over standing (clearing 2)",
+  "issued_at": "2026-07-30T22:35:07.400876Z",
+  "kind": "risk_certificate",
+  "lineage_head_hash": "ba9308f84037f662fd00f8b8",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "8e674f4f742c0238",
+  "parent_risk_root": "e2f8f6fd62a35a9ee931abf8",
+  "post_solvency": true,
+  "risk_assessment_digest": "ce853f39377146a8ea89c384",
+  "risk_count": 2,
+  "risk_height": 2,
+  "risk_root": "a076c4066e9afa2ffc265e76",
+  "schema_version": 1,
+  "solvency_certificate_hash": "3a5e63907af9186964188429",
+  "solvency_hash": "46353cc5cb2f5b4682a355f7",
+  "solvency_position_digest": "b61f8de63cf61889c3cdfa50",
+  "used_skill_route_discovery": false,
+  "valid": true
+}

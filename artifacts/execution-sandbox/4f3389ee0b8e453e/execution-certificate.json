@@ -1,0 +1,30 @@
+{
+  "certificate_hash": "c44f07f410e8ddb03a8c340f",
+  "claims": {
+    "member_count": 3,
+    "plane": "execution",
+    "state_index": 2
+  },
+  "deterministic": true,
+  "epoch_hash": "11d71891db38bf60a288812a",
+  "epoch_height": 2,
+  "finality_certificate_hash": "f8b6d08c0876f60301e37c7b",
+  "goal": "privilege over standing (state 2)",
+  "issued_at": "2026-07-30T22:35:02.581778Z",
+  "kind": "execution_certificate",
+  "lineage_head_hash": "ba9308f84037f662fd00f8b8",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "8e674f4f742c0238",
+  "parent_state_root": "5ed1b7626340bde98caf8176",
+  "post_finality": true,
+  "schema_version": 1,
+  "state_height": 2,
+  "state_root": "f9bc0cf0b2134027d021b18f",
+  "used_skill_route_discovery": false
+}

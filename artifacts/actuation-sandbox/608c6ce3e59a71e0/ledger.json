@@ -1,0 +1,81 @@
+{
+  "capabilities": {
+    "capability.ledger-inventory": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_compounder.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Capability inventory is queryable as a first-class local capability.",
+      "created_at": "2026-07-28T07:28:53.146662Z",
+      "dependencies": [
+        "repo.import-health"
+      ],
+      "description": "Load and summarize the durable in-repo capability ledger.",
+      "entry": "blackhole_agent.capability_compounder:builtin_ledger_inventory",
+      "id": "capability.ledger-inventory",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-07-29T08:24:28.151271Z",
+      "name": "Capability ledger inventory",
+      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_ledger_inventory; r=builtin_ledger_inventory(); assert r['ok'] and r['count'] >= 2\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "bootstrap",
+        "compounder"
+      ],
+      "updated_at": "2026-07-30T22:34:32.055775Z"
+    },
+    "repo.import-health": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_compounder.py",
+        "src/blackhole_agent/unbound.py"
+      ],
+      "capability_delta": "Runtime can prove package import health independent of skill-route machinery.",
+      "created_at": "2026-07-28T07:28:53.146649Z",
+      "dependencies": [],
+      "description": "Import blackhole_agent, unbound, and the compounder without skill-route coupling.",
+      "entry": "blackhole_agent.capability_compounder:builtin_repo_import_health",
+      "id": "repo.import-health",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-07-30T10:40:37.565197Z",
+      "name": "Repository import health",
+      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_repo_import_health; r=builtin_repo_import_health(); assert r['ok'] and not r['skill_route_symbols_in_compounder']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "bootstrap",
+        "health"
+      ],
+      "updated_at": "2026-07-30T22:34:32.055764Z"
+    },
+    "unbound.milestone-gate": {
+      "behavior_paths": [
+        "src/blackhole_agent/unbound.py"
+      ],
+      "capability_delta": "Milestone acceptance is enforceable as an invocable capability.",
+      "created_at": "2026-07-28T07:28:53.146657Z",
+      "dependencies": [
+        "repo.import-health"
+      ],
+      "description": "Verify behavior-path milestone gating accepts code and rejects docs/tests-only diffs.",
+      "entry": "blackhole_agent.capability_compounder:builtin_milestone_gate_smoke",
+      "id": "unbound.milestone-gate",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-07-29T08:24:28.407348Z",
+      "name": "Unbound milestone gate smoke",
+      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_milestone_gate_smoke; r=builtin_milestone_gate_smoke(); assert r['ok']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "bootstrap",
+        "unbound"
+      ],
+      "updated_at": "2026-07-30T22:34:32.055782Z"
+    }
+  },
+  "schema_version": 1,
+  "updated_at": "2026-07-30T22:34:32.055793Z"
+}

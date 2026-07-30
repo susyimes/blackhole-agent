@@ -1,0 +1,189 @@
+{
+  "entries": [
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "origin_ids": [
+          "origin-a",
+          "origin-b",
+          "origin-byzantine"
+        ],
+        "threshold": 2
+      },
+      "detail": {
+        "origins": [
+          {
+            "bundle_hash": "c9213479dfbd8f5169478116",
+            "byzantine": false,
+            "lineage_entry_count": 123,
+            "lineage_head_hash": "c0426b8f49a2398a4dfa5d4a",
+            "member_count": 3,
+            "origin_id": "origin-a",
+            "package_hash": "7878a785b9718369"
+          },
+          {
+            "bundle_hash": "7039bbd478f11d6ea08bd334",
+            "byzantine": false,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "b02bc7daed1e278058b759b9",
+            "member_count": 2,
+            "origin_id": "origin-b",
+            "package_hash": "8ece9182045d973a"
+          },
+          {
+            "bundle_hash": "166373d10c6df444ab4e249c",
+            "byzantine": true,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "73e2eef7836a7591a67faef0",
+            "member_count": 3,
+            "origin_id": "origin-byzantine",
+            "package_hash": "7d88f7661e8407af"
+          }
+        ]
+      },
+      "entry_hash": "e9bd9df82e96f13250207382",
+      "entry_kind": "quorum_origin_manifest",
+      "goal": "standing over reputation",
+      "index": 0,
+      "issued_at": "2026-07-30T22:35:37.497171Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": ""
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "package_hash": "066545df3053adf5",
+        "threshold": 2
+      },
+      "detail": {
+        "origin_heads": [
+          "c0426b8f49a2398a4dfa5d4a",
+          "b02bc7daed1e278058b759b9",
+          "73e2eef7836a7591a67faef0"
+        ]
+      },
+      "entry_hash": "11992c15dad615a4660c7fd4",
+      "entry_kind": "quorum_vote",
+      "goal": "standing over reputation",
+      "index": 1,
+      "issued_at": "2026-07-30T22:35:37.497195Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "e9bd9df82e96f13250207382"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "byzantine_count": 1,
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "excluded": true
+      },
+      "detail": {
+        "byzantine_origins": [
+          "origin-byzantine"
+        ]
+      },
+      "entry_hash": "744db67192eb5cd0752697f2",
+      "entry_kind": "quorum_byzantine_exclude",
+      "goal": "standing over reputation",
+      "index": 2,
+      "issued_at": "2026-07-30T22:35:37.497208Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "11992c15dad615a4660c7fd4"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "quorum": true,
+        "quorum_met": true
+      },
+      "detail": {
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "origin_bundle_hashes": [
+          "c9213479dfbd8f5169478116",
+          "7039bbd478f11d6ea08bd334",
+          "166373d10c6df444ab4e249c"
+        ]
+      },
+      "entry_hash": "db40c8d4ab09065328b826eb",
+      "entry_kind": "quorum_seal",
+      "goal": "standing over reputation",
+      "index": 3,
+      "issued_at": "2026-07-30T22:35:37.497222Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "744db67192eb5cd0752697f2"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "prior_lineage_head": "db40c8d4ab09065328b826eb",
+        "prior_package_hash": "066545df3053adf5",
+        "prior_quorum_hash": "0b069b001f7ce838a649da87",
+        "progress_tag": "epoch-progress-2"
+      },
+      "detail": {},
+      "entry_hash": "8770a0421a07cfa984f44661",
+      "entry_kind": "finality_epoch_progress",
+      "goal": "standing over reputation (progress 2)",
+      "index": 4,
+      "issued_at": "2026-07-30T22:35:37.971203Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "",
+      "parent_hash": "db40c8d4ab09065328b826eb"
+    }
+  ],
+  "entry_count": 5,
+  "head_hash": "8770a0421a07cfa984f44661",
+  "kind": "capability_lineage",
+  "schema_version": 1,
+  "updated_at": "2026-07-30T22:35:46.181386Z"
+}
