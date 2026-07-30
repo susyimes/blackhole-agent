@@ -1,0 +1,37 @@
+{
+  "bound_rehabilitation_height": 2,
+  "bound_rehabilitation_root": "385f9c2aa4752f25a2777b93",
+  "certificate_hash": "ad136e02dbad97dce2d80993",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "reinstated",
+    "plane": "reinstatement"
+  },
+  "deterministic": true,
+  "goal": "reauthorization over reinstatement (clearing 2)",
+  "issued_at": "2026-07-30T10:39:43.556492Z",
+  "kind": "reinstatement_certificate",
+  "lineage_head_hash": "97dfa67ae0f5b009904045b2",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "5e9678be88407792",
+  "parent_reinstatement_root": "65ed26003a75ffdce0d3b564",
+  "post_rehabilitation": true,
+  "rehabilitation_certificate_hash": "2258a017e216a5fe45b0379e",
+  "rehabilitation_hash": "0c6441af1b0352fbd89246c5",
+  "rehabilitation_plan_digest": "216d815f0283f28f326165e5",
+  "reinstatement_count": 2,
+  "reinstatement_height": 2,
+  "reinstatement_plan_digest": "4be50a5fbaf7d98e03b1d488",
+  "reinstatement_root": "43cebdec1313c16adfe41cd3",
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

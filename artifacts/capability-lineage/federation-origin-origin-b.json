@@ -14,15 +14,15 @@
         "origin_id": "origin-b",
         "plane": "federation"
       },
-      "entry_hash": "5032782d83797afa4196d5cf",
+      "entry_hash": "dc06ed748690dc0705c968d6",
       "entry_kind": "federation_origin_seed",
-      "goal": "reinstatement over rehabilitation (honest origin-b)",
+      "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (honest origin-b)",
       "index": 0,
-      "issued_at": "2026-07-30T09:53:09.320828Z",
+      "issued_at": "2026-07-30T10:44:18.401054Z",
       "metrics": {
-        "count": 106,
-        "primitive_count": 57,
-        "proved_count": 105,
+        "count": 107,
+        "primitive_count": 58,
+        "proved_count": 106,
         "proved_ratio": null
       },
       "package_hash": "8ece9182045d973a",
@@ -42,11 +42,11 @@
         ],
         "origin_id": "origin-b"
       },
-      "entry_hash": "1a87a31f66b72dc6babcd2bb",
+      "entry_hash": "29d15aa0469e9a07df70e1e5",
       "entry_kind": "federation_origin_seal",
-      "goal": "reinstatement over rehabilitation (honest origin-b)",
+      "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (honest origin-b)",
       "index": 1,
-      "issued_at": "2026-07-30T09:53:09.320856Z",
+      "issued_at": "2026-07-30T10:44:18.401990Z",
       "metrics": {
         "count": 2,
         "primitive_count": null,
@@ -54,13 +54,13 @@
         "proved_ratio": null
       },
       "package_hash": "8ece9182045d973a",
-      "parent_hash": "5032782d83797afa4196d5cf"
+      "parent_hash": "dc06ed748690dc0705c968d6"
     }
   ],
   "entry_count": 2,
-  "head_hash": "1a87a31f66b72dc6babcd2bb",
+  "head_hash": "29d15aa0469e9a07df70e1e5",
   "kind": "capability_lineage",
   "ok": true,
   "schema_version": 1,
-  "updated_at": "2026-07-30T09:53:09.321089Z"
+  "updated_at": "2026-07-30T10:44:18.402658Z"
 }

@@ -1,0 +1,189 @@
+{
+  "entries": [
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "origin_ids": [
+          "origin-a",
+          "origin-b",
+          "origin-byzantine"
+        ],
+        "threshold": 2
+      },
+      "detail": {
+        "origins": [
+          {
+            "bundle_hash": "b59cae1c90b3b90caafaea3b",
+            "byzantine": false,
+            "lineage_entry_count": 117,
+            "lineage_head_hash": "afab87c2fffe80381d7faef2",
+            "member_count": 3,
+            "origin_id": "origin-a",
+            "package_hash": "7878a785b9718369"
+          },
+          {
+            "bundle_hash": "c740134e72c2a5848e4f04ca",
+            "byzantine": false,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "286db3871ac31e0a5eea115e",
+            "member_count": 2,
+            "origin_id": "origin-b",
+            "package_hash": "8ece9182045d973a"
+          },
+          {
+            "bundle_hash": "f822161aa6ea75fbb9ad3abb",
+            "byzantine": true,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "13bbcda0157312e2e84a2e8f",
+            "member_count": 3,
+            "origin_id": "origin-byzantine",
+            "package_hash": "7d88f7661e8407af"
+          }
+        ]
+      },
+      "entry_hash": "146ebae8b673f00d0b7f5025",
+      "entry_kind": "quorum_origin_manifest",
+      "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery.",
+      "index": 0,
+      "issued_at": "2026-07-30T10:35:02.597814Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": ""
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "package_hash": "066545df3053adf5",
+        "threshold": 2
+      },
+      "detail": {
+        "origin_heads": [
+          "afab87c2fffe80381d7faef2",
+          "286db3871ac31e0a5eea115e",
+          "13bbcda0157312e2e84a2e8f"
+        ]
+      },
+      "entry_hash": "fb15d24af7834600b1b491f6",
+      "entry_kind": "quorum_vote",
+      "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery.",
+      "index": 1,
+      "issued_at": "2026-07-30T10:35:02.597861Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "146ebae8b673f00d0b7f5025"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "byzantine_count": 1,
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "excluded": true
+      },
+      "detail": {
+        "byzantine_origins": [
+          "origin-byzantine"
+        ]
+      },
+      "entry_hash": "cb1664fb38f3da1a76711c7c",
+      "entry_kind": "quorum_byzantine_exclude",
+      "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery.",
+      "index": 2,
+      "issued_at": "2026-07-30T10:35:02.597885Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "fb15d24af7834600b1b491f6"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "quorum": true,
+        "quorum_met": true
+      },
+      "detail": {
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "origin_bundle_hashes": [
+          "b59cae1c90b3b90caafaea3b",
+          "c740134e72c2a5848e4f04ca",
+          "f822161aa6ea75fbb9ad3abb"
+        ]
+      },
+      "entry_hash": "6ad590e9f5977af1945031ac",
+      "entry_kind": "quorum_seal",
+      "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery.",
+      "index": 3,
+      "issued_at": "2026-07-30T10:35:02.597906Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "cb1664fb38f3da1a76711c7c"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "prior_lineage_head": "6ad590e9f5977af1945031ac",
+        "prior_package_hash": "066545df3053adf5",
+        "prior_quorum_hash": "341a14aead80681c54347942",
+        "progress_tag": "epoch-progress-2"
+      },
+      "detail": {},
+      "entry_hash": "c1247fdcb4d6491efd3ed302",
+      "entry_kind": "finality_epoch_progress",
+      "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (progress 2)",
+      "index": 4,
+      "issued_at": "2026-07-30T10:35:03.407422Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "",
+      "parent_hash": "6ad590e9f5977af1945031ac"
+    }
+  ],
+  "entry_count": 5,
+  "head_hash": "c1247fdcb4d6491efd3ed302",
+  "kind": "capability_lineage",
+  "schema_version": 1,
+  "updated_at": "2026-07-30T10:35:12.580537Z"
+}

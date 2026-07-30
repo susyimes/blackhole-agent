@@ -4,13 +4,13 @@
   "byzantine_count": 1,
   "certificate_count": 3,
   "certificates": {
-    "02bdd5f2006d4f399b933ba1": {
-      "certificate_hash": "02bdd5f2006d4f399b933ba1",
+    "016d0da9aa89339486c25b6a": {
+      "certificate_hash": "016d0da9aa89339486c25b6a",
       "kind": "finality_certificate",
       "payload": {
         "agreeing_count": 2,
         "byzantine_count": 1,
-        "certificate_hash": "02bdd5f2006d4f399b933ba1",
+        "certificate_hash": "016d0da9aa89339486c25b6a",
         "claims": {
           "epoch_index": 2,
           "member_count": 3,
@@ -21,39 +21,39 @@
             "unbound.milestone-gate"
           ]
         },
-        "epoch_hash": "077d42d6a06b4ac9ff27b2ad",
+        "epoch_hash": "36ce275460f6beb085583a33",
         "epoch_height": 2,
-        "goal": "rehabilitation over reorganization (epoch 2)",
+        "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (epoch 2)",
         "irreversible": true,
-        "issued_at": "2026-07-30T09:15:27.796301Z",
+        "issued_at": "2026-07-30T10:44:19.265888Z",
         "kind": "finality_certificate",
-        "lineage_head_hash": "857152e4f114e809ad73983e",
+        "lineage_head_hash": "252f540fec2212c9232d8c8a",
         "ok": true,
         "origin_count": 3,
-        "package_hash": "7aab8c2db3cf21e3",
-        "parent_epoch_hash": "7cd59c8c9bda3ee6870d7c44",
-        "quorum_hash": "27ee901c45ae0f54dabd3592",
+        "package_hash": "792d66bcbca96161",
+        "parent_epoch_hash": "419ed11a71bcdd00d8f868bc",
+        "quorum_hash": "97eb2151b8c1c3ed0310c81c",
         "schema_version": 1,
         "used_skill_route_discovery": false
       }
     },
-    "74a4dd8a9589ef5382750308": {
-      "certificate_hash": "74a4dd8a9589ef5382750308",
+    "2cfdcbb8a93700d31c77d019": {
+      "certificate_hash": "2cfdcbb8a93700d31c77d019",
       "payload": {
-        "certificate_hash": "74a4dd8a9589ef5382750308",
+        "certificate_hash": "2cfdcbb8a93700d31c77d019",
         "claims": {
           "member_count": 3,
           "plane": "execution",
           "state_index": 2
         },
         "deterministic": true,
-        "epoch_hash": "077d42d6a06b4ac9ff27b2ad",
+        "epoch_hash": "36ce275460f6beb085583a33",
         "epoch_height": 2,
-        "finality_certificate_hash": "02bdd5f2006d4f399b933ba1",
-        "goal": "rehabilitation over reorganization (state 2)",
-        "issued_at": "2026-07-30T09:15:28.395736Z",
+        "finality_certificate_hash": "016d0da9aa89339486c25b6a",
+        "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (state 2)",
+        "issued_at": "2026-07-30T10:44:19.909377Z",
         "kind": "execution_certificate",
-        "lineage_head_hash": "857152e4f114e809ad73983e",
+        "lineage_head_hash": "252f540fec2212c9232d8c8a",
         "member_count": 3,
         "member_ids": [
           "capability.ledger-inventory",
@@ -61,33 +61,33 @@
           "unbound.milestone-gate"
         ],
         "ok": true,
-        "package_hash": "7aab8c2db3cf21e3",
-        "parent_state_root": "53c04da4e85389e80d8a6ec2",
+        "package_hash": "792d66bcbca96161",
+        "parent_state_root": "bc1edcf9f6d2ed541718b242",
         "post_finality": true,
         "schema_version": 1,
         "state_height": 2,
-        "state_root": "e51bf127d1433faca43ba948",
+        "state_root": "1ae9be0fd15e8c438c203813",
         "used_skill_route_discovery": false
       },
       "state_height": 2
     },
-    "f4fb1d5c964592918148d627": {
-      "certificate_hash": "f4fb1d5c964592918148d627",
+    "7f210d70b1f59b9dcd126c2c": {
+      "certificate_hash": "7f210d70b1f59b9dcd126c2c",
       "payload": {
-        "certificate_hash": "f4fb1d5c964592918148d627",
+        "certificate_hash": "7f210d70b1f59b9dcd126c2c",
         "claims": {
           "member_count": 3,
           "plane": "execution",
           "state_index": 1
         },
         "deterministic": true,
-        "epoch_hash": "7cd59c8c9bda3ee6870d7c44",
+        "epoch_hash": "419ed11a71bcdd00d8f868bc",
         "epoch_height": 1,
-        "finality_certificate_hash": "54fc66002fa3676fc570cabe",
-        "goal": "rehabilitation over reorganization (state 1)",
-        "issued_at": "2026-07-30T09:15:28.395656Z",
+        "finality_certificate_hash": "e38b35214106795e69953f88",
+        "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (state 1)",
+        "issued_at": "2026-07-30T10:44:19.909131Z",
         "kind": "execution_certificate",
-        "lineage_head_hash": "d89b65c0ebfa34e158b28623",
+        "lineage_head_hash": "e714e7cc5f40d9432c40c04d",
         "member_count": 3,
         "member_ids": [
           "capability.ledger-inventory",
@@ -100,7 +100,7 @@
         "post_finality": true,
         "schema_version": 1,
         "state_height": 1,
-        "state_root": "53c04da4e85389e80d8a6ec2",
+        "state_root": "bc1edcf9f6d2ed541718b242",
         "used_skill_route_discovery": false
       },
       "state_height": 1
@@ -109,20 +109,20 @@
   "deterministic": true,
   "epoch_count": 2,
   "execution_certificate": {
-    "certificate_hash": "74a4dd8a9589ef5382750308",
+    "certificate_hash": "2cfdcbb8a93700d31c77d019",
     "claims": {
       "member_count": 3,
       "plane": "execution",
       "state_index": 2
     },
     "deterministic": true,
-    "epoch_hash": "077d42d6a06b4ac9ff27b2ad",
+    "epoch_hash": "36ce275460f6beb085583a33",
     "epoch_height": 2,
-    "finality_certificate_hash": "02bdd5f2006d4f399b933ba1",
-    "goal": "rehabilitation over reorganization (state 2)",
-    "issued_at": "2026-07-30T09:15:28.395736Z",
+    "finality_certificate_hash": "016d0da9aa89339486c25b6a",
+    "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (state 2)",
+    "issued_at": "2026-07-30T10:44:19.909377Z",
     "kind": "execution_certificate",
-    "lineage_head_hash": "857152e4f114e809ad73983e",
+    "lineage_head_hash": "252f540fec2212c9232d8c8a",
     "member_count": 3,
     "member_ids": [
       "capability.ledger-inventory",
@@ -130,20 +130,20 @@
       "unbound.milestone-gate"
     ],
     "ok": true,
-    "package_hash": "7aab8c2db3cf21e3",
-    "parent_state_root": "53c04da4e85389e80d8a6ec2",
+    "package_hash": "792d66bcbca96161",
+    "parent_state_root": "bc1edcf9f6d2ed541718b242",
     "post_finality": true,
     "schema_version": 1,
     "state_height": 2,
-    "state_root": "e51bf127d1433faca43ba948",
+    "state_root": "1ae9be0fd15e8c438c203813",
     "used_skill_route_discovery": false
   },
-  "execution_hash": "f7d92f2842dcf2e352b67bd2",
-  "exported_at": "2026-07-30T09:15:28.396031Z",
+  "execution_hash": "f5fb4cac6c3a17f27d69219e",
+  "exported_at": "2026-07-30T10:44:19.909854Z",
   "finality_certificate": {
     "agreeing_count": 2,
     "byzantine_count": 1,
-    "certificate_hash": "02bdd5f2006d4f399b933ba1",
+    "certificate_hash": "016d0da9aa89339486c25b6a",
     "claims": {
       "epoch_index": 2,
       "member_count": 3,
@@ -154,23 +154,23 @@
         "unbound.milestone-gate"
       ]
     },
-    "epoch_hash": "077d42d6a06b4ac9ff27b2ad",
+    "epoch_hash": "36ce275460f6beb085583a33",
     "epoch_height": 2,
-    "goal": "rehabilitation over reorganization (epoch 2)",
+    "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (epoch 2)",
     "irreversible": true,
-    "issued_at": "2026-07-30T09:15:27.796301Z",
+    "issued_at": "2026-07-30T10:44:19.265888Z",
     "kind": "finality_certificate",
-    "lineage_head_hash": "857152e4f114e809ad73983e",
+    "lineage_head_hash": "252f540fec2212c9232d8c8a",
     "ok": true,
     "origin_count": 3,
-    "package_hash": "7aab8c2db3cf21e3",
-    "parent_epoch_hash": "7cd59c8c9bda3ee6870d7c44",
-    "quorum_hash": "27ee901c45ae0f54dabd3592",
+    "package_hash": "792d66bcbca96161",
+    "parent_epoch_hash": "419ed11a71bcdd00d8f868bc",
+    "quorum_hash": "97eb2151b8c1c3ed0310c81c",
     "schema_version": 1,
     "used_skill_route_discovery": false
   },
-  "finality_hash": "741982eaad5bdbb85d7b837f",
-  "goal": "rehabilitation over reorganization",
+  "finality_hash": "52fe93f80e77e8917ccddfc6",
+  "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery.",
   "kind": "execution_bundle",
   "lineage": {
     "entries": [
@@ -189,39 +189,39 @@
         "detail": {
           "origins": [
             {
-              "bundle_hash": "46ef5d8ef4edfdb10d554463",
+              "bundle_hash": "bc51f7f10fa6365eb8f73f25",
               "byzantine": false,
-              "lineage_entry_count": 115,
-              "lineage_head_hash": "3e49bd489bc18abc67dfdd8f",
+              "lineage_entry_count": 123,
+              "lineage_head_hash": "c0426b8f49a2398a4dfa5d4a",
               "member_count": 3,
               "origin_id": "origin-a",
               "package_hash": "7878a785b9718369"
             },
             {
-              "bundle_hash": "af6e02443f61baa6518f1cba",
+              "bundle_hash": "69de4eee681ec8e0052f66f5",
               "byzantine": false,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "56a662b1982d58a26e71c973",
+              "lineage_head_hash": "29d15aa0469e9a07df70e1e5",
               "member_count": 2,
               "origin_id": "origin-b",
               "package_hash": "8ece9182045d973a"
             },
             {
-              "bundle_hash": "7c85290baa1046315945a9d5",
+              "bundle_hash": "8a1a3f22e23a3af31d462c39",
               "byzantine": true,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "6105d76f5c3c0df01a7b0ec8",
+              "lineage_head_hash": "258ce9232b196b4ee852c287",
               "member_count": 3,
               "origin_id": "origin-byzantine",
               "package_hash": "7d88f7661e8407af"
             }
           ]
         },
-        "entry_hash": "89b94ab03e0979e3546ead40",
+        "entry_hash": "64178d23cfeb36a1fd4ce579",
         "entry_kind": "quorum_origin_manifest",
-        "goal": "rehabilitation over reorganization",
+        "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery.",
         "index": 0,
-        "issued_at": "2026-07-30T09:15:27.013208Z",
+        "issued_at": "2026-07-30T10:44:18.427392Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -245,16 +245,16 @@
         },
         "detail": {
           "origin_heads": [
-            "3e49bd489bc18abc67dfdd8f",
-            "56a662b1982d58a26e71c973",
-            "6105d76f5c3c0df01a7b0ec8"
+            "c0426b8f49a2398a4dfa5d4a",
+            "29d15aa0469e9a07df70e1e5",
+            "258ce9232b196b4ee852c287"
           ]
         },
-        "entry_hash": "aba4bef695aae16fe3d8dee0",
+        "entry_hash": "cc45acbe4d61aca0f3ce5085",
         "entry_kind": "quorum_vote",
-        "goal": "rehabilitation over reorganization",
+        "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery.",
         "index": 1,
-        "issued_at": "2026-07-30T09:15:27.013233Z",
+        "issued_at": "2026-07-30T10:44:18.427424Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -262,7 +262,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "89b94ab03e0979e3546ead40"
+        "parent_hash": "64178d23cfeb36a1fd4ce579"
       },
       {
         "certificate_hash": "",
@@ -279,11 +279,11 @@
             "origin-byzantine"
           ]
         },
-        "entry_hash": "f3d57174715d9c5cd17bb244",
+        "entry_hash": "39f8a134e5d3fb16e08a4b1e",
         "entry_kind": "quorum_byzantine_exclude",
-        "goal": "rehabilitation over reorganization",
+        "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery.",
         "index": 2,
-        "issued_at": "2026-07-30T09:15:27.013248Z",
+        "issued_at": "2026-07-30T10:44:18.427446Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -291,7 +291,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "aba4bef695aae16fe3d8dee0"
+        "parent_hash": "cc45acbe4d61aca0f3ce5085"
       },
       {
         "certificate_hash": "",
@@ -311,16 +311,16 @@
             "origin-byzantine"
           ],
           "origin_bundle_hashes": [
-            "46ef5d8ef4edfdb10d554463",
-            "af6e02443f61baa6518f1cba",
-            "7c85290baa1046315945a9d5"
+            "bc51f7f10fa6365eb8f73f25",
+            "69de4eee681ec8e0052f66f5",
+            "8a1a3f22e23a3af31d462c39"
           ]
         },
-        "entry_hash": "d89b65c0ebfa34e158b28623",
+        "entry_hash": "e714e7cc5f40d9432c40c04d",
         "entry_kind": "quorum_seal",
-        "goal": "rehabilitation over reorganization",
+        "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery.",
         "index": 3,
-        "issued_at": "2026-07-30T09:15:27.013264Z",
+        "issued_at": "2026-07-30T10:44:18.427465Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -328,23 +328,23 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "f3d57174715d9c5cd17bb244"
+        "parent_hash": "39f8a134e5d3fb16e08a4b1e"
       },
       {
         "certificate_hash": "",
         "certificate_path": "",
         "claims": {
-          "prior_lineage_head": "d89b65c0ebfa34e158b28623",
+          "prior_lineage_head": "e714e7cc5f40d9432c40c04d",
           "prior_package_hash": "066545df3053adf5",
-          "prior_quorum_hash": "f4c6f61b9b294fd037bf3d7e",
+          "prior_quorum_hash": "cab644e94277a6625653d8b2",
           "progress_tag": "epoch-progress-2"
         },
         "detail": {},
-        "entry_hash": "857152e4f114e809ad73983e",
+        "entry_hash": "252f540fec2212c9232d8c8a",
         "entry_kind": "finality_epoch_progress",
-        "goal": "rehabilitation over reorganization (progress 2)",
+        "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (progress 2)",
         "index": 4,
-        "issued_at": "2026-07-30T09:15:27.795270Z",
+        "issued_at": "2026-07-30T10:44:19.264584Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -352,17 +352,17 @@
           "proved_ratio": null
         },
         "package_hash": "",
-        "parent_hash": "d89b65c0ebfa34e158b28623"
+        "parent_hash": "e714e7cc5f40d9432c40c04d"
       }
     ],
     "entry_count": 5,
-    "head_hash": "857152e4f114e809ad73983e",
+    "head_hash": "252f540fec2212c9232d8c8a",
     "kind": "capability_lineage",
     "schema_version": 1,
-    "updated_at": "2026-07-30T09:15:27.795309Z"
+    "updated_at": "2026-07-30T10:44:19.264634Z"
   },
   "lineage_entry_count": 5,
-  "lineage_head_hash": "857152e4f114e809ad73983e",
+  "lineage_head_hash": "252f540fec2212c9232d8c8a",
   "member_count": 3,
   "member_ids": [
     "capability.ledger-inventory",
@@ -380,7 +380,7 @@
     "byzantine_origins": [
       "origin-byzantine"
     ],
-    "exported_at": "2026-07-30T09:15:27.013176Z",
+    "exported_at": "2026-07-30T10:44:18.427329Z",
     "federated": true,
     "member_count": 3,
     "member_ids": [
@@ -426,7 +426,7 @@
           "bootstrap",
           "compounder"
         ],
-        "updated_at": "2026-07-30T09:15:26.936274Z"
+        "updated_at": "2026-07-30T10:44:18.352584Z"
       },
       "repo.import-health": {
         "behavior_paths": [
@@ -441,7 +441,7 @@
         "id": "repo.import-health",
         "kind": "python",
         "last_proof_exit_code": 0,
-        "last_proved_at": "2026-07-29T18:32:40.165062Z",
+        "last_proved_at": "2026-07-30T10:40:37.565197Z",
         "name": "Repository import health",
         "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_repo_import_health; r=builtin_repo_import_health(); assert r['ok'] and not r['skill_route_symbols_in_compounder']\"",
         "source_milestone": null,
@@ -450,7 +450,7 @@
           "bootstrap",
           "health"
         ],
-        "updated_at": "2026-07-30T09:15:26.936051Z"
+        "updated_at": "2026-07-30T10:44:18.352282Z"
       },
       "unbound.milestone-gate": {
         "behavior_paths": [
@@ -475,12 +475,12 @@
           "bootstrap",
           "unbound"
         ],
-        "updated_at": "2026-07-30T09:15:26.936175Z"
+        "updated_at": "2026-07-30T10:44:18.352458Z"
       }
     },
     "ok": true,
-    "package_hash": "7aab8c2db3cf21e3",
-    "progress_at": "2026-07-30T09:15:27.795313Z",
+    "package_hash": "792d66bcbca96161",
+    "progress_at": "2026-07-30T10:44:19.264637Z",
     "progress_tag": "epoch-progress-2",
     "quorum": true,
     "quorum_threshold": 2,
@@ -493,7 +493,7 @@
     "source_ledger_path": "quorum-merge",
     "used_skill_route_discovery": false
   },
-  "package_hash": "7aab8c2db3cf21e3",
+  "package_hash": "792d66bcbca96161",
   "post_finality": true,
   "schema_version": 1,
   "state_count": 2,
@@ -501,30 +501,30 @@
     "entries": [
       {
         "agreeing_count": 2,
-        "applied_at": "2026-07-30T09:15:28.395627Z",
+        "applied_at": "2026-07-30T10:44:19.909048Z",
         "byzantine_count": 1,
         "claims": {
           "plane": "execution",
           "state_index": 1
         },
         "deterministic": true,
-        "epoch_hash": "7cd59c8c9bda3ee6870d7c44",
+        "epoch_hash": "419ed11a71bcdd00d8f868bc",
         "epoch_height": 1,
         "execution_certificate": {
-          "certificate_hash": "f4fb1d5c964592918148d627",
+          "certificate_hash": "7f210d70b1f59b9dcd126c2c",
           "claims": {
             "member_count": 3,
             "plane": "execution",
             "state_index": 1
           },
           "deterministic": true,
-          "epoch_hash": "7cd59c8c9bda3ee6870d7c44",
+          "epoch_hash": "419ed11a71bcdd00d8f868bc",
           "epoch_height": 1,
-          "finality_certificate_hash": "54fc66002fa3676fc570cabe",
-          "goal": "rehabilitation over reorganization (state 1)",
-          "issued_at": "2026-07-30T09:15:28.395656Z",
+          "finality_certificate_hash": "e38b35214106795e69953f88",
+          "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (state 1)",
+          "issued_at": "2026-07-30T10:44:19.909131Z",
           "kind": "execution_certificate",
-          "lineage_head_hash": "d89b65c0ebfa34e158b28623",
+          "lineage_head_hash": "e714e7cc5f40d9432c40c04d",
           "member_count": 3,
           "member_ids": [
             "capability.ledger-inventory",
@@ -537,13 +537,13 @@
           "post_finality": true,
           "schema_version": 1,
           "state_height": 1,
-          "state_root": "53c04da4e85389e80d8a6ec2",
+          "state_root": "bc1edcf9f6d2ed541718b242",
           "used_skill_route_discovery": false
         },
-        "finality_certificate_hash": "54fc66002fa3676fc570cabe",
-        "goal": "rehabilitation over reorganization (state 1)",
+        "finality_certificate_hash": "e38b35214106795e69953f88",
+        "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (state 1)",
         "kind": "execution_state",
-        "lineage_head_hash": "d89b65c0ebfa34e158b28623",
+        "lineage_head_hash": "e714e7cc5f40d9432c40c04d",
         "member_count": 3,
         "member_ids": [
           "capability.ledger-inventory",
@@ -559,10 +559,10 @@
           "agreeing_count": 2,
           "applied_from": "finality_epoch",
           "byzantine_count": 1,
-          "epoch_hash": "7cd59c8c9bda3ee6870d7c44",
-          "finality_certificate_hash": "54fc66002fa3676fc570cabe",
+          "epoch_hash": "419ed11a71bcdd00d8f868bc",
+          "finality_certificate_hash": "e38b35214106795e69953f88",
           "height": 1,
-          "lineage_head_hash": "d89b65c0ebfa34e158b28623",
+          "lineage_head_hash": "e714e7cc5f40d9432c40c04d",
           "member_ids": [
             "capability.ledger-inventory",
             "repo.import-health",
@@ -574,35 +574,35 @@
         },
         "schema_version": 1,
         "state_height": 1,
-        "state_root": "53c04da4e85389e80d8a6ec2",
+        "state_root": "bc1edcf9f6d2ed541718b242",
         "used_skill_route_discovery": false
       },
       {
         "agreeing_count": 2,
-        "applied_at": "2026-07-30T09:15:28.395715Z",
+        "applied_at": "2026-07-30T10:44:19.909328Z",
         "byzantine_count": 1,
         "claims": {
           "plane": "execution",
           "state_index": 2
         },
         "deterministic": true,
-        "epoch_hash": "077d42d6a06b4ac9ff27b2ad",
+        "epoch_hash": "36ce275460f6beb085583a33",
         "epoch_height": 2,
         "execution_certificate": {
-          "certificate_hash": "74a4dd8a9589ef5382750308",
+          "certificate_hash": "2cfdcbb8a93700d31c77d019",
           "claims": {
             "member_count": 3,
             "plane": "execution",
             "state_index": 2
           },
           "deterministic": true,
-          "epoch_hash": "077d42d6a06b4ac9ff27b2ad",
+          "epoch_hash": "36ce275460f6beb085583a33",
           "epoch_height": 2,
-          "finality_certificate_hash": "02bdd5f2006d4f399b933ba1",
-          "goal": "rehabilitation over reorganization (state 2)",
-          "issued_at": "2026-07-30T09:15:28.395736Z",
+          "finality_certificate_hash": "016d0da9aa89339486c25b6a",
+          "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (state 2)",
+          "issued_at": "2026-07-30T10:44:19.909377Z",
           "kind": "execution_certificate",
-          "lineage_head_hash": "857152e4f114e809ad73983e",
+          "lineage_head_hash": "252f540fec2212c9232d8c8a",
           "member_count": 3,
           "member_ids": [
             "capability.ledger-inventory",
@@ -610,18 +610,18 @@
             "unbound.milestone-gate"
           ],
           "ok": true,
-          "package_hash": "7aab8c2db3cf21e3",
-          "parent_state_root": "53c04da4e85389e80d8a6ec2",
+          "package_hash": "792d66bcbca96161",
+          "parent_state_root": "bc1edcf9f6d2ed541718b242",
           "post_finality": true,
           "schema_version": 1,
           "state_height": 2,
-          "state_root": "e51bf127d1433faca43ba948",
+          "state_root": "1ae9be0fd15e8c438c203813",
           "used_skill_route_discovery": false
         },
-        "finality_certificate_hash": "02bdd5f2006d4f399b933ba1",
-        "goal": "rehabilitation over reorganization (state 2)",
+        "finality_certificate_hash": "016d0da9aa89339486c25b6a",
+        "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (state 2)",
         "kind": "execution_state",
-        "lineage_head_hash": "857152e4f114e809ad73983e",
+        "lineage_head_hash": "252f540fec2212c9232d8c8a",
         "member_count": 3,
         "member_ids": [
           "capability.ledger-inventory",
@@ -630,42 +630,42 @@
         ],
         "ok": true,
         "origin_count": 3,
-        "package_hash": "7aab8c2db3cf21e3",
-        "parent_state_root": "53c04da4e85389e80d8a6ec2",
+        "package_hash": "792d66bcbca96161",
+        "parent_state_root": "bc1edcf9f6d2ed541718b242",
         "post_finality": true,
         "projection": {
           "agreeing_count": 2,
           "applied_from": "finality_epoch",
           "byzantine_count": 1,
-          "epoch_hash": "077d42d6a06b4ac9ff27b2ad",
-          "finality_certificate_hash": "02bdd5f2006d4f399b933ba1",
+          "epoch_hash": "36ce275460f6beb085583a33",
+          "finality_certificate_hash": "016d0da9aa89339486c25b6a",
           "height": 2,
-          "lineage_head_hash": "857152e4f114e809ad73983e",
+          "lineage_head_hash": "252f540fec2212c9232d8c8a",
           "member_ids": [
             "capability.ledger-inventory",
             "repo.import-health",
             "unbound.milestone-gate"
           ],
           "origin_count": 3,
-          "package_hash": "7aab8c2db3cf21e3",
-          "parent_state_root": "53c04da4e85389e80d8a6ec2"
+          "package_hash": "792d66bcbca96161",
+          "parent_state_root": "bc1edcf9f6d2ed541718b242"
         },
         "schema_version": 1,
         "state_height": 2,
-        "state_root": "e51bf127d1433faca43ba948",
+        "state_root": "1ae9be0fd15e8c438c203813",
         "used_skill_route_discovery": false
       }
     ],
     "entry_count": 2,
     "kind": "execution_state_log",
     "schema_version": 1,
-    "tip_epoch_hash": "077d42d6a06b4ac9ff27b2ad",
+    "tip_epoch_hash": "36ce275460f6beb085583a33",
     "tip_height": 2,
-    "tip_state_root": "e51bf127d1433faca43ba948",
-    "updated_at": "2026-07-30T09:15:28.395752Z"
+    "tip_state_root": "1ae9be0fd15e8c438c203813",
+    "updated_at": "2026-07-30T10:44:19.909405Z"
   },
-  "tip_epoch_hash": "077d42d6a06b4ac9ff27b2ad",
+  "tip_epoch_hash": "36ce275460f6beb085583a33",
   "tip_height": 2,
-  "tip_state_root": "e51bf127d1433faca43ba948",
+  "tip_state_root": "1ae9be0fd15e8c438c203813",
   "used_skill_route_discovery": false
 }

@@ -1,0 +1,35 @@
+{
+  "actuation_certificate_hash": "ab1538bba644246763115c04",
+  "actuation_hash": "58b2a1bde62ad572ce3f44e8",
+  "bound_action_height": 2,
+  "bound_action_root": "77a64b2ab8cea0675f2da7ec",
+  "certificate_hash": "cfa1af5329f88f605fe1f44c",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "effect": "prove",
+    "outcome": "settled",
+    "plane": "settlement",
+    "settlement_index": 2
+  },
+  "deterministic": true,
+  "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (settlement 2)",
+  "issued_at": "2026-07-30T10:32:59.047211Z",
+  "kind": "settlement_certificate",
+  "lineage_head_hash": "3e88a961498efdeccfd3739e",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "0da52ca0c0f6f5a1",
+  "parent_settlement_root": "83dc631440e1549f4ff4dc04",
+  "post_actuation": true,
+  "schema_version": 1,
+  "settlement_count": 2,
+  "settlement_height": 2,
+  "settlement_root": "3f0a2e8a8d5d88a30183f93b",
+  "used_skill_route_discovery": false,
+  "valid": true
+}

@@ -1,0 +1,37 @@
+{
+  "bound_risk_height": 2,
+  "bound_risk_root": "f04511750661bbbceb4b08ab",
+  "certificate_hash": "9e2bf6534e1a46dbb16c51a5",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "stressed",
+    "plane": "stress"
+  },
+  "deterministic": true,
+  "goal": "reauthorization over reinstatement (clearing 2)",
+  "issued_at": "2026-07-30T10:32:33.269641Z",
+  "kind": "stress_certificate",
+  "lineage_head_hash": "f2357c8c4a50a91e9f609415",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "61a3edc534eb35f0",
+  "parent_stress_root": "d43811672e43d1a9196ecb55",
+  "post_risk": true,
+  "risk_assessment_digest": "5ef02f891a07a8dad4061833",
+  "risk_certificate_hash": "9cfd2dd581690c07654ffd07",
+  "risk_hash": "2e2e921ca91579bee1abfe21",
+  "schema_version": 1,
+  "stress_count": 2,
+  "stress_height": 2,
+  "stress_root": "d039f5d67da543a35daf89dd",
+  "stress_scenario_digest": "9c4917a0303817ec81d32bfd",
+  "used_skill_route_discovery": false,
+  "valid": true
+}

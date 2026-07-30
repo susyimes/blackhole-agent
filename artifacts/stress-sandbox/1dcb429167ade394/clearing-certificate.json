@@ -1,0 +1,37 @@
+{
+  "bound_solvency_height": 2,
+  "bound_solvency_root": "2935650cfcc4b2c33d7dd1e5",
+  "certificate_hash": "66d175520a6eeab83fcbc50d",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "risked",
+    "plane": "risk"
+  },
+  "deterministic": true,
+  "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (clearing 2)",
+  "issued_at": "2026-07-30T10:33:04.451802Z",
+  "kind": "risk_certificate",
+  "lineage_head_hash": "3e88a961498efdeccfd3739e",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "0da52ca0c0f6f5a1",
+  "parent_risk_root": "b7bf5c4ff5f515926d1f3942",
+  "post_solvency": true,
+  "risk_assessment_digest": "7f64a1e432620d9a97576c81",
+  "risk_count": 2,
+  "risk_height": 2,
+  "risk_root": "1c47685bb4b9313b057fb42d",
+  "schema_version": 1,
+  "solvency_certificate_hash": "b870eef7a1b366ab1246ad11",
+  "solvency_hash": "62940613e060d834450c4bee",
+  "solvency_position_digest": "b0e3a9824b60f2ab082010fe",
+  "used_skill_route_discovery": false,
+  "valid": true
+}

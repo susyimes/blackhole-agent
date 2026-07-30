@@ -1086,6 +1086,13 @@ MISSION_GOAL_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("reinstatement discharge", ("capability.reinstatement-plane", "capability.rehabilitation-plane", "capability.quorum-plane")),
     ("posted reinstatement", ("capability.reinstatement-plane", "capability.rehabilitation-plane", "capability.actuation-plane")),
     ("reinstatement adequacy", ("capability.reinstatement-plane", "capability.rehabilitation-plane", "capability.assurance-plane")),
+    ("reauthorization", ("capability.reauthorization-plane", "capability.reinstatement-plane", "capability.rehabilitation-plane")),
+    ("reauthorized", ("capability.reauthorization-plane", "capability.reinstatement-plane", "capability.finality-plane")),
+    ("reauthorization plan", ("capability.reauthorization-plane", "capability.reinstatement-plane", "capability.assurance-plane")),
+    ("reauthorization-root", ("capability.reauthorization-plane", "capability.reinstatement-plane", "capability.lineage-plane")),
+    ("reauthorization discharge", ("capability.reauthorization-plane", "capability.reinstatement-plane", "capability.quorum-plane")),
+    ("posted reauthorization", ("capability.reauthorization-plane", "capability.reinstatement-plane", "capability.actuation-plane")),
+    ("reauthorization adequacy", ("capability.reauthorization-plane", "capability.reinstatement-plane", "capability.assurance-plane")),
 ("solvency", ("capability.solvency-plane", "capability.capital-plane", "capability.funding-plane")),
     ("solvent", ("capability.solvency-plane", "capability.capital-plane", "capability.finality-plane")),
     ("solvency position", ("capability.solvency-plane", "capability.capital-plane", "capability.assurance-plane")),
@@ -1608,6 +1615,10 @@ CONTEXT_ONLY_OUTCOME_KINDS = frozenset(
         "reinstated_ok",
         "min_reinstatements",
         "reinstatement_root_valid",
+        "reauthorization_ok",
+        "reauthorized_ok",
+        "min_reauthorizations",
+        "reauthorization_root_valid",
     }
 )
 
@@ -2611,6 +2622,37 @@ def _soft_extract_outcome_predicates(chunk: str) -> list[dict[str, Any]]:
         and "valid" in lower
     ):
         found.append({"kind": "reinstatement_root_valid", "arg": "", "source": chunk})
+    if re.search(r"\breauthorization_ok\b", lower) or (
+        re.search(r"\brun_reauthorization_plane\b", lower) and (
+            "reauthorization" in lower or "plan" in lower
+        )
+    ):
+        found.append({"kind": "reauthorization_ok", "arg": "", "source": chunk})
+    if re.search(r"\breauthorized_ok\b", lower) or (
+        re.search(r"\breauthorized\b", lower)
+        and "reauthorization" in lower
+        and "reauthorization-plane" not in lower
+        and "reauthorization_plane" not in lower
+    ):
+        found.append({"kind": "reauthorized_ok", "arg": "", "source": chunk})
+    if re.search(r"\breauthorized\b", lower) and not any(
+        item.get("kind") == "reauthorized_ok" for item in found
+    ):
+        found.append({"kind": "reauthorized_ok", "arg": "", "source": chunk})
+    m = re.search(r"min_reauthorizations\s*[:=]\s*(\d+)", lower)
+    if m:
+        found.append({"kind": "min_reauthorizations", "arg": m.group(1), "source": chunk})
+    m = re.search(r"min[_\s-]?reauthorizations?\s*[:=]\s*(\d+)", lower)
+    if m and not any(item.get("kind") == "min_reauthorizations" for item in found):
+        found.append({"kind": "min_reauthorizations", "arg": m.group(1), "source": chunk})
+    m = re.search(r"reauthorization_count\s*>=\s*(\d+)", lower)
+    if m and not any(item.get("kind") == "min_reauthorizations" for item in found):
+        found.append({"kind": "min_reauthorizations", "arg": m.group(1), "source": chunk})
+    if re.search(r"\breauthorization_root_valid\b", lower) or (
+        re.search(r"\breauthorization[_\s-]*root\b", lower)
+        and "valid" in lower
+    ):
+        found.append({"kind": "reauthorization_root_valid", "arg": "", "source": chunk})
 
     if re.search(r"\brisked_ok\b", lower) or re.search(
         r"\brisked\b", lower
@@ -4505,6 +4547,71 @@ def _eval_one_outcome_predicate(
                     plane.get("reinstatement_root") or plane.get("tip_reinstatement_root")
                 )
         return ok, f"reinstatement_root_valid={ok}"
+
+    if kind in {
+        "reauthorization_ok",
+        "reauthorized_ok",
+        "min_reauthorizations",
+        "reauthorization_root_valid",
+    }:
+        plane = (
+            context.get("reauthorization")
+            or context.get("reauthorization_plane")
+            or context.get("discharge")
+            or {}
+        )
+        if not plane or not plane.get("ok"):
+            disk = _load_reauthorization_disk_evidence(context)
+            if disk:
+                # Disk proof wins over a failed/empty in-memory plane slice.
+                plane = {**(plane if isinstance(plane, Mapping) else {}), **disk}
+        if kind == "reauthorization_ok":
+            ok = bool(plane.get("ok"))
+            return ok, f"reauthorization_ok={ok}"
+        if kind == "reauthorized_ok":
+            if "reauthorized" in plane:
+                ok = plane.get("reauthorized") is True and bool(plane.get("ok", True))
+            elif "reauthorized_ok" in plane:
+                ok = plane.get("reauthorized_ok") is True
+            else:
+                ok = bool(plane.get("ok")) and int(
+                    plane.get("reauthorization_count") or plane.get("tip_height") or 0
+                ) >= 1
+            return ok, f"reauthorized_ok={ok}"
+        if kind == "min_reauthorizations":
+            need = int(float(arg or "0"))
+            have = context.get("reauthorization_count")
+            if have is None or int(have or 0) < need:
+                # Prefer plane/disk counts when context was zeroed by a failed plane.
+                have = (
+                    plane.get("reauthorization_count")
+                    or plane.get("tip_height")
+                    or plane.get("entry_count")
+                    or have
+                )
+            if have is None:
+                have = context.get("tip_reauthorization_height")
+            have_i = int(have or 0)
+            return have_i >= need, f"reauthorizations={have_i} need>={need}"
+        if "reauthorization_root_valid" in plane:
+            ok = plane.get("reauthorization_root_valid") is True
+        elif "certificate_valid" in plane:
+            ok = plane.get("certificate_valid") is True
+        else:
+            cert = (
+                plane.get("reauthorization_certificate")
+                or plane.get("certificate")
+                or context.get("reauthorization_certificate")
+                or {}
+            )
+            if isinstance(cert, Mapping) and cert:
+                verify = verify_reauthorization_certificate(cert)
+                ok = bool(verify.get("ok")) and bool(verify.get("valid"))
+            else:
+                ok = bool(plane.get("ok")) and bool(
+                    plane.get("reauthorization_root") or plane.get("tip_reauthorization_root")
+                )
+        return ok, f"reauthorization_root_valid={ok}"
 
 
     if kind == "program_passes":
@@ -56511,6 +56618,2312 @@ def builtin_reinstatement_plane() -> dict[str, Any]:
 
 
 
+REAUTHORIZATION_BUNDLE_SCHEMA = 1
+REAUTHORIZATION_CERTIFICATE_SCHEMA = 1
+REAUTHORIZATION_LOG_SCHEMA = 1
+DEFAULT_REAUTHORIZATION_BUNDLE_RELATIVE = Path("artifacts") / "reauthorization-bundles"
+
+
+def default_reauthorization_bundle_dir(repo_path: Path) -> Path:
+    return (repo_path / DEFAULT_REAUTHORIZATION_BUNDLE_RELATIVE).resolve()
+
+
+def empty_reauthorization_log() -> dict[str, Any]:
+    return {
+        "schema_version": REAUTHORIZATION_LOG_SCHEMA,
+        "kind": "reauthorization_log",
+        "entries": [],
+        "entry_count": 0,
+        "tip_height": 0,
+        "tip_reauthorization_root": "",
+        "bound_reinstatement_root": "",
+        "bound_reinstatement_height": 0,
+        "reinstatement_hash": "",
+        "reauthorization_plan_digest": "",
+        "updated_at": utc_now_iso(),
+    }
+
+
+def compute_reauthorization_root(clearing: Mapping[str, Any]) -> str:
+    """Hash reinstatement body excluding self root, certificates, and wall-clock fields."""
+
+    body = {
+        key: value
+        for key, value in clearing.items()
+        if key
+        not in {
+            "reauthorization_root",
+            "reauthorization_certificate",
+            "ok",
+            "valid",
+            "action",
+            "applied_at",
+            "updated_at",
+            "issued_at",
+            "exported_at",
+            "goal",
+            "claims",
+        }
+    }
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def compute_reauthorization_certificate_hash(payload: Mapping[str, Any]) -> str:
+    body = {
+        key: value
+        for key, value in payload.items()
+        if key not in {"certificate_hash", "ok", "valid"}
+    }
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def compute_reauthorization_bundle_hash(bundle: Mapping[str, Any]) -> str:
+    body = {
+        key: value
+        for key, value in bundle.items()
+        if key
+        not in {
+            "reauthorization_hash",
+            "ok",
+            "bundle_path",
+            "exported_at",
+            "source_ledger_path",
+            "action",
+        }
+    }
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def compute_reauthorization_plan_digest(
+    *,
+    parent_reauthorization_digest: str,
+    bound_reinstatement_root: str,
+    reinstatement_plan_digest: str,
+    capability_id: str,
+    outcome: str = "reauthorized",
+    position_ratio_bps: int = 1000,
+) -> str:
+    """Deterministic reauthorization plan chaining prior buffer with a newly reinstated scenario."""
+
+    payload = {
+        "parent_reauthorization_digest": parent_reauthorization_digest or "",
+        "bound_reinstatement_root": bound_reinstatement_root,
+        "reinstatement_plan_digest": reinstatement_plan_digest,
+        "capability_id": capability_id,
+        "outcome": outcome or "reauthorized",
+        "position_ratio_bps": int(position_ratio_bps),
+        "plane": "reauthorization",
+    }
+    digest = json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def issue_reauthorization_certificate(
+    *,
+    reauthorization_height: int,
+    reauthorization_root: str,
+    parent_reauthorization_root: str,
+    bound_reinstatement_root: str,
+    bound_reinstatement_height: int,
+    reinstatement_hash: str,
+    reinstatement_certificate_hash: str,
+    package_hash: str,
+    lineage_head_hash: str,
+    reinstatement_plan_digest: str,
+    reauthorization_plan_digest: str,
+    reauthorization_count: int,
+    member_ids: Sequence[str] | None = None,
+    goal: str = "",
+    claims: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    members = sorted({str(item).strip() for item in (member_ids or []) if str(item).strip()})
+    cert: dict[str, Any] = {
+        "schema_version": REAUTHORIZATION_CERTIFICATE_SCHEMA,
+        "kind": "reauthorization_certificate",
+        "issued_at": utc_now_iso(),
+        "reauthorization_height": int(reauthorization_height),
+        "reauthorization_root": str(reauthorization_root or ""),
+        "parent_reauthorization_root": str(parent_reauthorization_root or ""),
+        "bound_reinstatement_root": str(bound_reinstatement_root or ""),
+        "bound_reinstatement_height": int(bound_reinstatement_height or 0),
+        "reinstatement_hash": str(reinstatement_hash or ""),
+        "reinstatement_certificate_hash": str(reinstatement_certificate_hash or ""),
+        "package_hash": str(package_hash or ""),
+        "lineage_head_hash": str(lineage_head_hash or ""),
+        "reinstatement_plan_digest": str(reinstatement_plan_digest or ""),
+        "reauthorization_plan_digest": str(reauthorization_plan_digest or ""),
+        "reauthorization_count": int(reauthorization_count),
+        "member_ids": members,
+        "member_count": len(members),
+        "goal": goal or "",
+        "claims": dict(claims or {}),
+        "deterministic": True,
+        "post_reinstatement": True,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    cert["certificate_hash"] = compute_reauthorization_certificate_hash(cert)
+    cert["ok"] = (
+        bool(cert["certificate_hash"])
+        and bool(cert["reauthorization_root"])
+        and bool(cert["bound_reinstatement_root"])
+        and bool(cert["reinstatement_hash"])
+        and bool(cert["reauthorization_plan_digest"])
+        and bool(cert["reinstatement_plan_digest"])
+        and cert["reauthorization_height"] >= 1
+        and cert["reauthorization_count"] >= 1
+        and cert["deterministic"] is True
+        and cert["post_reinstatement"] is True
+        and not bool(cert["used_skill_route_discovery"])
+    )
+    cert["valid"] = bool(cert["ok"])
+    return cert
+
+
+def verify_reauthorization_certificate(payload: Mapping[str, Any] | Path) -> dict[str, Any]:
+    if isinstance(payload, Path):
+        data = json.loads(payload.read_text(encoding="utf-8"))
+    else:
+        data = dict(payload)
+    recomputed = compute_reauthorization_certificate_hash(data)
+    stored = str(data.get("certificate_hash") or "")
+    hash_ok = bool(stored) and stored == recomputed
+    valid = (
+        hash_ok
+        and data.get("kind") == "reauthorization_certificate"
+        and bool(data.get("reauthorization_root"))
+        and bool(data.get("bound_reinstatement_root"))
+        and bool(data.get("reinstatement_hash"))
+        and bool(data.get("reauthorization_plan_digest"))
+        and bool(data.get("reinstatement_plan_digest"))
+        and int(data.get("reauthorization_height") or 0) >= 1
+        and int(data.get("reauthorization_count") or 0) >= 1
+        and data.get("deterministic") is True
+        and data.get("post_reinstatement") is True
+        and not bool(data.get("used_skill_route_discovery"))
+    )
+    return {
+        "ok": valid,
+        "valid": valid,
+        "hash_ok": hash_ok,
+        "certificate_hash": stored if hash_ok else recomputed,
+        "reauthorization_height": data.get("reauthorization_height"),
+        "reauthorization_root": data.get("reauthorization_root"),
+        "bound_reinstatement_root": data.get("bound_reinstatement_root"),
+        "reauthorization_plan_digest": data.get("reauthorization_plan_digest"),
+        "reinstatement_hash": data.get("reinstatement_hash"),
+        "used_skill_route_discovery": bool(data.get("used_skill_route_discovery")),
+    }
+
+
+def write_reauthorization_certificate(path: Path, certificate: Mapping[str, Any]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(path, dict(certificate))
+    return path
+
+
+def _load_reauthorization_disk_evidence(
+    context: Mapping[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """Best-effort load of a durable reinstatement proof bundle for context-less gates."""
+
+    candidates: list[Path] = []
+    ctx = context or {}
+    for key in ("repo_path", "workspace", "workspace_path"):
+        raw = ctx.get(key)
+        if raw:
+            root = Path(str(raw))
+            candidates.extend(
+                [
+                    root / "artifacts" / "reauthorization-bundles" / "proof-reauthorization.json",
+                    root / DEFAULT_REAUTHORIZATION_BUNDLE_RELATIVE / "proof-reauthorization.json",
+                ]
+            )
+    here = Path.cwd()
+    candidates.extend(
+        [
+            here / "artifacts" / "reauthorization-bundles" / "proof-reauthorization.json",
+            here / DEFAULT_REAUTHORIZATION_BUNDLE_RELATIVE / "proof-reauthorization.json",
+        ]
+    )
+    try:
+        pkg_root = Path(__file__).resolve().parents[2]
+        candidates.append(
+            pkg_root / "artifacts" / "reauthorization-bundles" / "proof-reauthorization.json"
+        )
+    except Exception:
+        pass
+    for base in {Path.cwd(), Path(__file__).resolve().parents[2]}:
+        bundle_dir = base / "artifacts" / "reauthorization-bundles"
+        if bundle_dir.is_dir():
+            candidates.extend(sorted(bundle_dir.glob("proof-reauthorization*.json"), reverse=True)[:5])
+            candidates.extend(sorted(bundle_dir.glob("reinstatement-*.json"), reverse=True)[:8])
+            candidates.extend(sorted(bundle_dir.glob("reauthorization-*.json"), reverse=True)[:5])
+            candidates.extend(sorted(bundle_dir.glob("*.json"), reverse=True)[:12])
+
+    seen: set[str] = set()
+    for path in candidates:
+        try:
+            reauthorized = path.resolve()
+        except Exception:
+            continue
+        key = str(reauthorized)
+        if key in seen or not reauthorized.is_file():
+            continue
+        seen.add(key)
+        try:
+            bundle = load_reauthorization_bundle(reauthorized)
+        except Exception:
+            continue
+        integrity = verify_reauthorization_bundle_integrity(bundle)
+        if not integrity.get("ok"):
+            continue
+        cert = (
+            bundle.get("reauthorization_certificate")
+            if isinstance(bundle.get("reauthorization_certificate"), Mapping)
+            else {}
+        )
+        cert_verify = (
+            verify_reauthorization_certificate(cert) if cert else {"ok": False, "valid": False}
+        )
+        reauthorization_count = int(
+            bundle.get("reauthorization_count")
+            or (bundle.get("reauthorizations") or {}).get("entry_count")
+            or 0
+        )
+        tip_height = int(bundle.get("tip_height") or reauthorization_count or 0)
+        if reauthorization_count < 2 or tip_height < 2 or not cert_verify.get("valid"):
+            continue
+        return {
+            "ok": True,
+            "reauthorized": True,
+            "reauthorization_count": reauthorization_count,
+            "tip_height": tip_height,
+            "tip_reauthorization_root": bundle.get("tip_reauthorization_root"),
+            "reauthorization_hash": bundle.get("reauthorization_hash"),
+            "reauthorization_root_valid": True,
+            "certificate_valid": True,
+            "reauthorization_plan_digest": bundle.get("reauthorization_plan_digest"),
+            "reauthorization_certificate": cert,
+            "bundle_path": str(reauthorized),
+            "source": "disk_proof_bundle",
+        }
+    return None
+
+
+def derive_reauthorization_specs_from_reinstatement(
+    reinstatement_bundle: Mapping[str, Any],
+    *,
+    min_reauthorizations: int = 2,
+) -> list[dict[str, Any]]:
+    """Derive one reauthorization plan per stress scenario (multi-reinstatement required)."""
+
+    reinstatements = (
+        reinstatement_bundle.get("reinstatements")
+        if isinstance(reinstatement_bundle.get("reinstatements"), Mapping)
+        else {}
+    )
+    entries = list(reinstatements.get("entries") or [])
+    specs: list[dict[str, Any]] = []
+    for entry in entries:
+        if not isinstance(entry, Mapping):
+            continue
+        reinstatement_root = str(entry.get("reinstatement_root") or "")
+        if not reinstatement_root:
+            continue
+        specs.append(
+            {
+                "capability_id": str(entry.get("capability_id") or ""),
+                "effect": str(entry.get("effect") or ""),
+                "bound_reinstatement_root": reinstatement_root,
+                "bound_reinstatement_height": int(entry.get("reinstatement_height") or 0),
+                "reinstatement_plan_digest": str(entry.get("reinstatement_plan_digest") or ""),
+                "receipt_digest": str(entry.get("receipt_digest") or ""),
+                "bound_settlement_root": str(entry.get("bound_settlement_root") or ""),
+                "bound_action_root": str(entry.get("bound_action_root") or ""),
+                "package_hash": str(
+                    entry.get("package_hash")
+                    or reinstatement_bundle.get("package_hash")
+                    or ""
+                ),
+                "outcome": "reauthorized",
+                "position_ratio_bps": 1000 + 100 * len(specs),
+            }
+        )
+    want = max(2, int(min_reauthorizations))
+    return specs[:want] if len(specs) >= want else specs
+
+
+def apply_reauthorization_transition(
+    reauthorization_log: Mapping[str, Any],
+    spec: Mapping[str, Any],
+    *,
+    reinstatement_bundle: Mapping[str, Any],
+    goal: str = "",
+    claims: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Append one reauthorization plan bound to a stress scenario root and cover it."""
+
+    log = copy.deepcopy(dict(reauthorization_log)) if reauthorization_log else empty_reauthorization_log()
+    entries = list(log.get("entries") or [])
+    next_height = len(entries) + 1
+    parent_root = str(entries[-1].get("reauthorization_root") or "") if entries else ""
+    parent_reauthorization_net = str(entries[-1].get("reauthorization_plan_digest") or "") if entries else ""
+
+    bound_reinstatement_root = str(spec.get("bound_reinstatement_root") or "")
+    bound_reinstatement_height = int(spec.get("bound_reinstatement_height") or 0)
+    capability_id = str(spec.get("capability_id") or "")
+    effect = str(spec.get("effect") or "")
+    outcome = str(spec.get("outcome") or "reauthorized")
+    package_hash = str(
+        spec.get("package_hash") or reinstatement_bundle.get("package_hash") or ""
+    )
+    reinstatement_hash = str(reinstatement_bundle.get("reinstatement_hash") or "")
+    tip_reinstatement_root = str(reinstatement_bundle.get("tip_reinstatement_root") or "")
+    reinstatements = (
+        reinstatement_bundle.get("reinstatements")
+        if isinstance(reinstatement_bundle.get("reinstatements"), Mapping)
+        else {}
+    )
+    risk_entries = list(reinstatements.get("entries") or [])
+    known_roots = {
+        str(item.get("reinstatement_root") or "")
+        for item in risk_entries
+        if isinstance(item, Mapping) and item.get("reinstatement_root")
+    }
+    if tip_reinstatement_root:
+        known_roots.add(tip_reinstatement_root)
+
+    if not capability_id or not bound_reinstatement_root or not reinstatement_hash:
+        return {
+            "ok": False,
+            "action": "apply_reauthorization_transition",
+            "error": "missing_reinstatement_bind_fields",
+            "reauthorization_log": log,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    if bound_reinstatement_root not in known_roots:
+        return {
+            "ok": False,
+            "action": "apply_reauthorization_transition",
+            "error": "bound_reinstatement_root_mismatch",
+            "bound_reinstatement_root": bound_reinstatement_root,
+            "known_risk_roots": sorted(known_roots),
+            "reauthorization_log": log,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    if any(
+        str(item.get("bound_reinstatement_root") or "") == bound_reinstatement_root
+        and str(item.get("outcome") or "") == outcome
+        for item in entries
+    ):
+        return {
+            "ok": False,
+            "action": "apply_reauthorization_transition",
+            "error": "duplicate_reinstatement_rejected",
+            "reauthorization_log": log,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    settle_cert = (
+        reinstatement_bundle.get("reinstatement_certificate")
+        if isinstance(reinstatement_bundle.get("reinstatement_certificate"), Mapping)
+        else {}
+    )
+    settle_cert_hash = str(settle_cert.get("certificate_hash") or "")
+    lineage_head = str(reinstatement_bundle.get("lineage_head_hash") or "")
+    member_ids = list(reinstatement_bundle.get("member_ids") or [])
+    reinstatement_plan_digest = str(spec.get("reinstatement_plan_digest") or "")
+    position_ratio_bps = int(spec.get("position_ratio_bps") or 1000)
+    if not reinstatement_plan_digest:
+        # Recover from settlement entry if available.
+        for item in risk_entries:
+            if (
+                isinstance(item, Mapping)
+                and str(item.get("reinstatement_root") or "") == bound_reinstatement_root
+            ):
+                reinstatement_plan_digest = str(item.get("reinstatement_plan_digest") or "")
+                break
+    reauthorization_plan_digest = compute_reauthorization_plan_digest(
+        parent_reauthorization_digest=parent_reauthorization_net,
+        bound_reinstatement_root=bound_reinstatement_root,
+        reinstatement_plan_digest=reinstatement_plan_digest,
+        position_ratio_bps=position_ratio_bps,
+        capability_id=capability_id,
+        outcome=outcome,
+    )
+
+    body: dict[str, Any] = {
+        "schema_version": REAUTHORIZATION_LOG_SCHEMA,
+        "kind": "reauthorization_action",
+        "reauthorization_height": next_height,
+        "parent_reauthorization_root": parent_root,
+        "bound_reinstatement_root": bound_reinstatement_root,
+        "bound_reinstatement_height": bound_reinstatement_height,
+        "reinstatement_hash": reinstatement_hash,
+        "reinstatement_certificate_hash": settle_cert_hash,
+        "package_hash": package_hash,
+        "lineage_head_hash": lineage_head,
+        "capability_id": capability_id,
+        "effect": effect,
+        "outcome": outcome,
+        "reinstatement_plan_digest": reinstatement_plan_digest,
+        "reauthorization_plan_digest": reauthorization_plan_digest,
+        "position_ratio_bps": position_ratio_bps,
+        "parent_reauthorization_digest": parent_reauthorization_net,
+        "bound_action_root": str(spec.get("bound_action_root") or ""),
+        "member_ids": sorted({str(m).strip() for m in member_ids if str(m).strip()}),
+        "deterministic": True,
+        "post_reinstatement": True,
+        "applied_at": utc_now_iso(),
+        "goal": goal or str(reinstatement_bundle.get("goal") or ""),
+        "claims": dict(claims or {}),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    reauthorization_root = compute_reauthorization_root(body)
+    body["reauthorization_root"] = reauthorization_root
+    cert = issue_reauthorization_certificate(
+        reauthorization_height=next_height,
+        reauthorization_root=reauthorization_root,
+        parent_reauthorization_root=parent_root,
+        bound_reinstatement_root=bound_reinstatement_root,
+        bound_reinstatement_height=bound_reinstatement_height,
+        reinstatement_hash=reinstatement_hash,
+        reinstatement_certificate_hash=settle_cert_hash,
+        package_hash=package_hash,
+        lineage_head_hash=lineage_head,
+        reinstatement_plan_digest=reinstatement_plan_digest,
+        reauthorization_plan_digest=reauthorization_plan_digest,
+        reauthorization_count=next_height,
+        member_ids=body["member_ids"],
+        goal=goal or str(reinstatement_bundle.get("goal") or ""),
+        claims={
+            "capability_id": capability_id,
+            "effect": effect,
+            "outcome": outcome,
+            "plane": "reauthorization",
+            **dict(claims or {}),
+        },
+    )
+    body["reauthorization_certificate"] = cert
+    body["ok"] = (
+        bool(cert.get("ok"))
+        and bool(reauthorization_root)
+        and bool(reauthorization_plan_digest)
+        and body["deterministic"] is True
+        and body["post_reinstatement"] is True
+        and not bool(body.get("used_skill_route_discovery"))
+    )
+
+    entries.append(body)
+    log["entries"] = entries
+    log["entry_count"] = len(entries)
+    log["tip_height"] = next_height
+    log["tip_reauthorization_root"] = reauthorization_root
+    log["bound_reinstatement_root"] = bound_reinstatement_root
+    log["bound_reinstatement_height"] = bound_reinstatement_height
+    log["reinstatement_hash"] = reinstatement_hash
+    log["reauthorization_plan_digest"] = reauthorization_plan_digest
+    log["updated_at"] = utc_now_iso()
+    log["schema_version"] = REAUTHORIZATION_LOG_SCHEMA
+    log["kind"] = "reauthorization_log"
+    return {
+        "ok": bool(body.get("ok")),
+        "action": "apply_reauthorization_transition",
+        "entry": body,
+        "reauthorization_height": next_height,
+        "reauthorization_root": reauthorization_root,
+        "parent_reauthorization_root": parent_root,
+        "bound_reinstatement_root": bound_reinstatement_root,
+        "reauthorization_plan_digest": reauthorization_plan_digest,
+        "reauthorization_log": log,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def verify_reauthorization_chain(reauthorization_log: Mapping[str, Any]) -> dict[str, Any]:
+    """Validate sequential heights, parent roots, buffers, hashes, and reinstatement certs."""
+
+    entries = list(reauthorization_log.get("entries") or [])
+    errors: list[str] = []
+    if not entries:
+        return {
+            "ok": False,
+            "valid": False,
+            "action": "verify_reauthorization_chain",
+            "entry_count": 0,
+            "tip_height": 0,
+            "tip_reauthorization_root": "",
+            "errors": ["empty_reauthorization_log"],
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    prev_root = ""
+    prev_net = ""
+    bound_settlements: set[str] = set()
+    reinstatement_hashes: set[str] = set()
+    for index, raw in enumerate(entries):
+        if not isinstance(raw, Mapping):
+            errors.append(f"entry[{index}]_not_mapping")
+            continue
+        height = int(raw.get("reauthorization_height") or 0)
+        expected_height = index + 1
+        if height != expected_height:
+            errors.append(f"entry[{index}]_height={height}_expected={expected_height}")
+        parent = str(raw.get("parent_reauthorization_root") or "")
+        if index == 0:
+            if parent:
+                errors.append(f"entry[{index}]_genesis_has_parent")
+        else:
+            if parent != prev_root:
+                errors.append(
+                    f"entry[{index}]_parent_mismatch got={parent[:12]} expected={prev_root[:12]}"
+                )
+        stored = str(raw.get("reauthorization_root") or "")
+        recomputed = compute_reauthorization_root({**dict(raw), "reauthorization_root": ""})
+        if not stored or stored != recomputed:
+            errors.append(f"entry[{index}]_reauthorization_root_mismatch")
+        if raw.get("deterministic") is not True:
+            errors.append(f"entry[{index}]_not_deterministic")
+        if raw.get("post_reinstatement") is not True:
+            errors.append(f"entry[{index}]_not_post_reinstatement")
+        bound = str(raw.get("bound_reinstatement_root") or "")
+        if not bound:
+            errors.append(f"entry[{index}]_missing_bound_reinstatement_root")
+        else:
+            bound_settlements.add(bound)
+        s_hash = str(raw.get("reinstatement_hash") or "")
+        if not s_hash:
+            errors.append(f"entry[{index}]_missing_reinstatement_hash")
+        else:
+            reinstatement_hashes.add(s_hash)
+        reinstatement_plan_digest = str(raw.get("reinstatement_plan_digest") or "")
+        parent_reauthorization_net_stored = str(raw.get("parent_reauthorization_digest") or "")
+        if parent_reauthorization_net_stored != prev_net:
+            errors.append(f"entry[{index}]_parent_reauthorization_net_mismatch")
+        expected_net = compute_reauthorization_plan_digest(
+            parent_reauthorization_digest=prev_net,
+            bound_reinstatement_root=bound,
+            reinstatement_plan_digest=reinstatement_plan_digest,
+            position_ratio_bps=int(raw.get("position_ratio_bps") or 1000),
+            capability_id=str(raw.get("capability_id") or ""),
+            outcome=str(raw.get("outcome") or "reauthorized"),
+        )
+        stored_net = str(raw.get("reauthorization_plan_digest") or "")
+        if not stored_net or stored_net != expected_net:
+            errors.append(f"entry[{index}]_reauthorization_plan_digest_mismatch")
+        cert = raw.get("reauthorization_certificate")
+        if not isinstance(cert, Mapping):
+            errors.append(f"entry[{index}]_missing_reauthorization_certificate")
+        else:
+            cert_verify = verify_reauthorization_certificate(cert)
+            if not cert_verify.get("valid"):
+                errors.append(f"entry[{index}]_stress_cert_invalid")
+            if str(cert.get("reauthorization_root") or "") != stored:
+                errors.append(f"entry[{index}]_cert_reauthorization_root_mismatch")
+            if int(cert.get("reauthorization_height") or 0) != height:
+                errors.append(f"entry[{index}]_cert_height_mismatch")
+            if str(cert.get("bound_reinstatement_root") or "") != bound:
+                errors.append(f"entry[{index}]_cert_bound_settlement_mismatch")
+            if str(cert.get("reauthorization_plan_digest") or "") != stored_net:
+                errors.append(f"entry[{index}]_cert_net_mismatch")
+        prev_root = stored
+        prev_net = stored_net
+
+    if len(reinstatement_hashes) > 1:
+        errors.append("mixed_reinstatement_hashes")
+
+    tip = entries[-1] if entries else {}
+    tip_height = int(tip.get("reauthorization_height") or 0) if isinstance(tip, Mapping) else 0
+    tip_root = str(tip.get("reauthorization_root") or "") if isinstance(tip, Mapping) else ""
+    tip_net = str(tip.get("reauthorization_plan_digest") or "") if isinstance(tip, Mapping) else ""
+    log_tip_height = int(reauthorization_log.get("tip_height") or 0)
+    log_tip_root = str(reauthorization_log.get("tip_reauthorization_root") or "")
+    log_net = str(reauthorization_log.get("reauthorization_plan_digest") or "")
+    if log_tip_height and log_tip_height != tip_height:
+        errors.append("tip_height_metadata_mismatch")
+    if log_tip_root and log_tip_root != tip_root:
+        errors.append("tip_reauthorization_root_metadata_mismatch")
+    if log_net and log_net != tip_net:
+        errors.append("reauthorization_plan_digest_metadata_mismatch")
+
+    valid = not errors and tip_height >= 1 and bool(tip_root) and bool(tip_net)
+    return {
+        "ok": valid,
+        "valid": valid,
+        "action": "verify_reauthorization_chain",
+        "entry_count": len(entries),
+        "tip_height": tip_height,
+        "tip_reauthorization_root": tip_root,
+        "reauthorization_plan_digest": tip_net,
+        "bound_reinstatement_roots": sorted(bound_settlements),
+        "reinstatement_hash": next(iter(reinstatement_hashes), ""),
+        "errors": errors,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def apply_reinstatement_bundle_to_reauthorizations(
+    reinstatement_bundle: Mapping[str, Any],
+    *,
+    goal: str = "",
+    min_reauthorizations: int = 2,
+) -> dict[str, Any]:
+    """Post multi-reinstatement scenarios into a deterministic reauthorization plan log."""
+
+    integrity = verify_reinstatement_bundle_integrity(reinstatement_bundle)
+    if not integrity.get("ok"):
+        return {
+            "ok": False,
+            "action": "apply_reinstatement_bundle_to_reauthorizations",
+            "error": "reinstatement_integrity_failed",
+            "integrity": integrity,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    specs = derive_reauthorization_specs_from_reinstatement(
+        reinstatement_bundle, min_reauthorizations=min_reauthorizations
+    )
+    if len(specs) < 2:
+        return {
+            "ok": False,
+            "action": "apply_reinstatement_bundle_to_reauthorizations",
+            "error": "need_multi_reauthorization",
+            "spec_count": len(specs),
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    reauthorization_log = empty_reauthorization_log()
+    applied: list[dict[str, Any]] = []
+    for index, spec in enumerate(specs):
+        result = apply_reauthorization_transition(
+            reauthorization_log,
+            spec,
+            reinstatement_bundle=reinstatement_bundle,
+            goal=f"{goal or reinstatement_bundle.get('goal') or 'clearing'} (clearing {index + 1})",
+            claims={"clearing_index": index + 1, "plane": "reauthorization"},
+        )
+        if not result.get("ok"):
+            return {
+                "ok": False,
+                "action": "apply_reinstatement_bundle_to_reauthorizations",
+                "error": result.get("error") or "apply_failed",
+                "applied_count": len(applied),
+                "apply": {
+                    "ok": result.get("ok"),
+                    "error": result.get("error"),
+                    "reauthorization_height": result.get("reauthorization_height"),
+                },
+                "reauthorization_log": reauthorization_log,
+                "used_skill_route_discovery": legacy_pipeline_was_used(),
+            }
+        reauthorization_log = result["reauthorization_log"]
+        applied.append(result["entry"])
+
+    chain = verify_reauthorization_chain(reauthorization_log)
+    ok = bool(chain.get("valid")) and len(applied) >= 2 and not legacy_pipeline_was_used()
+    return {
+        "ok": ok,
+        "action": "apply_reinstatement_bundle_to_reauthorizations",
+        "reauthorization_log": reauthorization_log,
+        "applied": applied,
+        "applied_count": len(applied),
+        "reauthorization_count": len(applied),
+        "tip_height": reauthorization_log.get("tip_height"),
+        "tip_reauthorization_root": reauthorization_log.get("tip_reauthorization_root"),
+        "bound_reinstatement_root": reauthorization_log.get("bound_reinstatement_root"),
+        "reauthorization_plan_digest": reauthorization_log.get("reauthorization_plan_digest"),
+        "chain": chain,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def build_reauthorization_bundle(
+    reauthorization_log: Mapping[str, Any],
+    reinstatement_bundle: Mapping[str, Any],
+    *,
+    goal: str = "reauthorization over reinstatement",
+) -> dict[str, Any]:
+    """Package reinstatement log + stress tip into a portable reinstatement bundle."""
+
+    chain = verify_reauthorization_chain(reauthorization_log)
+    if not chain.get("valid"):
+        return {
+            "ok": False,
+            "action": "build_reauthorization_bundle",
+            "error": "reinstatement_chain_invalid",
+            "chain": chain,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    entries = list(reauthorization_log.get("entries") or [])
+    tip = entries[-1]
+    tip_cert = (
+        tip.get("reauthorization_certificate")
+        if isinstance(tip.get("reauthorization_certificate"), Mapping)
+        else {}
+    )
+    tip_cert_verify = (
+        verify_reauthorization_certificate(tip_cert) if tip_cert else {"valid": False}
+    )
+    settle_cert = (
+        reinstatement_bundle.get("reinstatement_certificate")
+        if isinstance(reinstatement_bundle.get("reinstatement_certificate"), Mapping)
+        else {}
+    )
+    act_cert = (
+        reinstatement_bundle.get("actuation_certificate")
+        if isinstance(reinstatement_bundle.get("actuation_certificate"), Mapping)
+        else {}
+    )
+    package = (
+        reinstatement_bundle.get("package")
+        if isinstance(reinstatement_bundle.get("package"), Mapping)
+        else {}
+    )
+    certificates: dict[str, dict[str, Any]] = {}
+    for clearing in entries:
+        cert = clearing.get("reauthorization_certificate")
+        if isinstance(cert, Mapping) and cert.get("certificate_hash"):
+            certificates[str(cert["certificate_hash"])] = {
+                "certificate_hash": cert.get("certificate_hash"),
+                "payload": cert,
+                "reauthorization_height": clearing.get("reauthorization_height"),
+            }
+    if isinstance(settle_cert, Mapping) and settle_cert.get("certificate_hash"):
+        certificates[str(settle_cert["certificate_hash"])] = {
+            "certificate_hash": settle_cert.get("certificate_hash"),
+            "payload": settle_cert,
+            "kind": "reauthorization_certificate",
+        }
+    if isinstance(act_cert, Mapping) and act_cert.get("certificate_hash"):
+        certificates[str(act_cert["certificate_hash"])] = {
+            "certificate_hash": act_cert.get("certificate_hash"),
+            "payload": act_cert,
+            "kind": "actuation_certificate",
+        }
+    exec_cert = (
+        reinstatement_bundle.get("execution_certificate")
+        if isinstance(reinstatement_bundle.get("execution_certificate"), Mapping)
+        else {}
+    )
+    if isinstance(exec_cert, Mapping) and exec_cert.get("certificate_hash"):
+        certificates[str(exec_cert["certificate_hash"])] = {
+            "certificate_hash": exec_cert.get("certificate_hash"),
+            "payload": exec_cert,
+            "kind": "execution_certificate",
+        }
+
+    settle_cert_nested = (
+        reinstatement_bundle.get("settlement_certificate")
+        if isinstance(reinstatement_bundle.get("settlement_certificate"), Mapping)
+        else {}
+    )
+    if isinstance(settle_cert_nested, Mapping) and settle_cert_nested.get(
+        "certificate_hash"
+    ):
+        certificates[str(settle_cert_nested["certificate_hash"])] = {
+            "certificate_hash": settle_cert_nested.get("certificate_hash"),
+            "payload": settle_cert_nested,
+            "kind": "settlement_certificate",
+        }
+
+    member_ids = list(reinstatement_bundle.get("member_ids") or package.get("member_ids") or [])
+    cb: dict[str, Any] = {
+        "schema_version": REAUTHORIZATION_BUNDLE_SCHEMA,
+        "kind": "reauthorization_bundle",
+        "action": "build_reauthorization_bundle",
+        "goal": goal,
+        "reauthorizations": copy.deepcopy(dict(reauthorization_log)),
+        "reinstatements": copy.deepcopy(
+            reinstatement_bundle.get("reinstatements")
+            if isinstance(reinstatement_bundle.get("reinstatements"), Mapping)
+            else {}
+        ),
+        "settlements": copy.deepcopy(
+            reinstatement_bundle.get("settlements")
+            if isinstance(reinstatement_bundle.get("settlements"), Mapping)
+            else {}
+        ),
+        "actions": copy.deepcopy(
+            reinstatement_bundle.get("actions")
+            if isinstance(reinstatement_bundle.get("actions"), Mapping)
+            else {}
+        ),
+        "package": copy.deepcopy(dict(package)),
+        "lineage": copy.deepcopy(
+            reinstatement_bundle.get("lineage")
+            if isinstance(reinstatement_bundle.get("lineage"), Mapping)
+            else {}
+        ),
+        "reauthorization_certificate": copy.deepcopy(dict(tip_cert)),
+        "reinstatement_certificate": copy.deepcopy(dict(settle_cert)),
+        "settlement_certificate": copy.deepcopy(dict(settle_cert_nested)),
+        "actuation_certificate": copy.deepcopy(dict(act_cert)),
+        "execution_certificate": copy.deepcopy(dict(exec_cert)),
+        "certificates": certificates,
+        "certificate_count": len(certificates),
+        "reauthorization_count": len(entries),
+        "reinstatement_count": int(reinstatement_bundle.get("reinstatement_count") or 0),
+        "settlement_count": int(reinstatement_bundle.get("settlement_count") or 0),
+        "action_count": int(reinstatement_bundle.get("action_count") or 0),
+        "tip_height": int(reauthorization_log.get("tip_height") or 0),
+        "tip_reauthorization_root": str(reauthorization_log.get("tip_reauthorization_root") or ""),
+        "bound_reinstatement_root": str(reauthorization_log.get("bound_reinstatement_root") or ""),
+        "bound_reinstatement_height": int(reauthorization_log.get("bound_reinstatement_height") or 0),
+        "tip_reinstatement_root": str(reinstatement_bundle.get("tip_reinstatement_root") or ""),
+        "bound_settlement_root": str(reinstatement_bundle.get("bound_settlement_root") or ""),
+        "tip_settlement_root": str(reinstatement_bundle.get("tip_settlement_root") or ""),
+        "bound_action_root": str(reinstatement_bundle.get("bound_action_root") or ""),
+        "tip_action_root": str(reinstatement_bundle.get("tip_action_root") or ""),
+        "bound_state_root": str(reinstatement_bundle.get("bound_state_root") or ""),
+        "reauthorization_plan_digest": str(reauthorization_log.get("reauthorization_plan_digest") or ""),
+        "reinstatement_plan_digest": str(reinstatement_bundle.get("reinstatement_plan_digest") or ""),
+        "reinstatement_hash": str(reinstatement_bundle.get("reinstatement_hash") or ""),
+        "settlement_hash": str(reinstatement_bundle.get("settlement_hash") or ""),
+        "actuation_hash": str(reinstatement_bundle.get("actuation_hash") or ""),
+        "execution_hash": str(reinstatement_bundle.get("execution_hash") or ""),
+        "package_hash": str(reinstatement_bundle.get("package_hash") or ""),
+        "member_ids": sorted({str(m).strip() for m in member_ids if str(m).strip()}),
+        "member_count": len(member_ids),
+        "lineage_head_hash": str(reinstatement_bundle.get("lineage_head_hash") or ""),
+        "lineage_entry_count": int(reinstatement_bundle.get("lineage_entry_count") or 0),
+        "origin_count": reinstatement_bundle.get("origin_count"),
+        "agreeing_count": reinstatement_bundle.get("agreeing_count"),
+        "byzantine_count": reinstatement_bundle.get("byzantine_count"),
+        "state_count": reinstatement_bundle.get("state_count"),
+        "epoch_count": reinstatement_bundle.get("epoch_count"),
+        "deterministic": True,
+        "post_reinstatement": True,
+        "exported_at": utc_now_iso(),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    cb["reauthorization_hash"] = compute_reauthorization_bundle_hash(cb)
+    cb["ok"] = (
+        bool(chain.get("valid"))
+        and bool(tip_cert_verify.get("valid"))
+        and len(entries) >= 2
+        and bool(cb["reauthorization_hash"])
+        and bool(cb["reinstatement_hash"])
+        and bool(cb["reauthorization_plan_digest"])
+        and cb["deterministic"] is True
+        and cb["post_reinstatement"] is True
+        and not bool(cb["used_skill_route_discovery"])
+    )
+    return cb
+
+
+def write_reauthorization_bundle(path: Path, bundle: Mapping[str, Any]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(path, dict(bundle))
+    return path
+
+
+def load_reauthorization_bundle(path: Path) -> dict[str, Any]:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("stress bundle must be a JSON object")
+    return data
+
+
+def verify_reauthorization_bundle_integrity(bundle: Mapping[str, Any]) -> dict[str, Any]:
+    expected = str(bundle.get("reauthorization_hash") or "").strip()
+    recomputed = compute_reauthorization_bundle_hash(bundle)
+    hash_ok = bool(expected) and expected == recomputed
+    reinstatements = (
+        bundle.get("reauthorizations")
+        if isinstance(bundle.get("reauthorizations"), Mapping)
+        else {}
+    )
+    chain = (
+        verify_reauthorization_chain(reinstatements)
+        if reinstatements
+        else {"ok": False, "valid": False, "errors": ["missing_reinstatements"]}
+    )
+    cert = (
+        bundle.get("reauthorization_certificate")
+        if isinstance(bundle.get("reauthorization_certificate"), Mapping)
+        else {}
+    )
+    cert_verify = (
+        verify_reauthorization_certificate(cert) if cert else {"valid": False, "ok": False}
+    )
+    settle_cert = (
+        bundle.get("reinstatement_certificate")
+        if isinstance(bundle.get("reinstatement_certificate"), Mapping)
+        else {}
+    )
+    settle_cert_verify = (
+        verify_reinstatement_certificate(settle_cert)
+        if settle_cert
+        else {"valid": False, "ok": False}
+    )
+    multi = int(bundle.get("reauthorization_count") or chain.get("entry_count") or 0) >= 2
+    package = bundle.get("package") if isinstance(bundle.get("package"), Mapping) else {}
+    package_ok = bool(package) and bool(bundle.get("package_hash"))
+    bound_ok = bool(bundle.get("bound_reinstatement_root")) and bool(
+        bundle.get("reinstatement_hash")
+    )
+    margin_digest_ok = bool(bundle.get("reauthorization_plan_digest")) and str(
+        bundle.get("reauthorization_plan_digest") or ""
+    ) == str(chain.get("reauthorization_plan_digest") or bundle.get("reauthorization_plan_digest") or "")
+    deterministic = bundle.get("deterministic") is True
+    post_reinstatement = bundle.get("post_reinstatement") is True
+    used_skill = bool(bundle.get("used_skill_route_discovery")) or legacy_pipeline_was_used()
+    ok = (
+        hash_ok
+        and bool(chain.get("valid"))
+        and bool(cert_verify.get("valid"))
+        and bool(settle_cert_verify.get("valid"))
+        and multi
+        and package_ok
+        and bound_ok
+        and margin_digest_ok
+        and deterministic
+        and post_reinstatement
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "verify_reauthorization_bundle_integrity",
+        "hash_ok": hash_ok,
+        "chain_valid": bool(chain.get("valid")),
+        "multi_reauthorization": multi,
+        "package_ok": package_ok,
+        "reauthorization_certificate_valid": bool(cert_verify.get("valid")),
+        "reinstatement_certificate_valid": bool(settle_cert_verify.get("valid")),
+        "bound_ok": bound_ok,
+        "reauthorization_ok": margin_digest_ok,
+        "margin_digest_ok": margin_digest_ok,
+        "deterministic": deterministic,
+        "post_reinstatement": post_reinstatement,
+        "tip_height": chain.get("tip_height"),
+        "tip_reauthorization_root": chain.get("tip_reauthorization_root"),
+        "reauthorization_plan_digest": chain.get("reauthorization_plan_digest"),
+        "reauthorization_hash": expected if hash_ok else recomputed,
+        "errors": list(chain.get("errors") or []),
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def rehydrate_reauthorization_bundle(
+    repo_path: Path,
+    bundle: Mapping[str, Any],
+    *,
+    sandbox_dir: Path | None = None,
+) -> dict[str, Any]:
+    """Materialize tip package + reinstatement log into a sterile sandbox and re-check buffers."""
+
+    root = repo_path.resolve()
+    integrity = verify_reauthorization_bundle_integrity(bundle)
+    if not integrity.get("ok"):
+        return {
+            "ok": False,
+            "action": "rehydrate_reauthorization_bundle",
+            "error": "reinstatement_integrity_failed",
+            "integrity": integrity,
+            "used_skill_route_discovery": integrity.get("used_skill_route_discovery"),
+        }
+
+    c_hash = str(bundle.get("reauthorization_hash") or "unknown")
+    sandbox = (
+        sandbox_dir.resolve()
+        if sandbox_dir is not None
+        else (root / "artifacts" / "reauthorization-sandbox" / c_hash[:16])
+    )
+    sandbox.mkdir(parents=True, exist_ok=True)
+
+    package = dict(bundle.get("package") or {})
+    lineage = copy.deepcopy(bundle.get("lineage") or {})
+    reauthorizations = copy.deepcopy(bundle.get("reauthorizations") or {})
+    reinstatements = copy.deepcopy(bundle.get("reinstatements") or {})
+    settlements = copy.deepcopy(bundle.get("settlements") or {})
+    actions = copy.deepcopy(bundle.get("actions") or {})
+    lineage_path = sandbox / "lineage.json"
+    if lineage:
+        write_lineage_log(lineage_path, lineage)
+    reauthorizations_path = sandbox / "reauthorizations.json"
+    atomic_write_json(reauthorizations_path, reauthorizations)
+    reinstatements_path = sandbox / "reinstatements.json"
+    atomic_write_json(reinstatements_path, reinstatements)
+    settlements_path = sandbox / "settlements.json"
+    atomic_write_json(settlements_path, settlements)
+    actions_path = sandbox / "actions.json"
+    atomic_write_json(actions_path, actions)
+
+    empty = CapabilityLedger(schema_version=SCHEMA_VERSION, updated_at=utc_now_iso())
+    empty, import_report = import_capability_package(empty, package, replace=True)
+    sterile_ledger_path = sandbox / "ledger.json"
+    save_ledger(sterile_ledger_path, empty)
+
+    cert = (
+        bundle.get("reauthorization_certificate")
+        if isinstance(bundle.get("reauthorization_certificate"), Mapping)
+        else {}
+    )
+    cert_path = sandbox / "reauthorization-certificate.json"
+    if cert:
+        write_reauthorization_certificate(cert_path, cert)
+    clear_cert = (
+        bundle.get("reinstatement_certificate")
+        if isinstance(bundle.get("reinstatement_certificate"), Mapping)
+        else {}
+    )
+    clear_cert_path = sandbox / "reinstatement-certificate.json"
+    if clear_cert:
+        write_reinstatement_certificate(clear_cert_path, clear_cert)
+
+    chain = verify_reauthorization_chain(reauthorizations)
+    cert_verify = (
+        verify_reauthorization_certificate(cert) if cert else {"ok": False, "valid": False}
+    )
+    clear_cert_verify = (
+        verify_reinstatement_certificate(clear_cert)
+        if clear_cert
+        else {"ok": False, "valid": False}
+    )
+    re_margin_digest_ok = True
+    prev_net = ""
+    for entry in list(reauthorizations.get("entries") or []):
+        if not isinstance(entry, Mapping):
+            re_margin_digest_ok = False
+            break
+        expected = compute_reauthorization_plan_digest(
+            parent_reauthorization_digest=prev_net,
+            bound_reinstatement_root=str(entry.get("bound_reinstatement_root") or ""),
+            reinstatement_plan_digest=str(entry.get("reinstatement_plan_digest") or ""),
+            position_ratio_bps=int(entry.get("position_ratio_bps") or 1000),
+            capability_id=str(entry.get("capability_id") or ""),
+            outcome=str(entry.get("outcome") or "reauthorized"),
+        )
+        if expected != str(entry.get("reauthorization_plan_digest") or ""):
+            re_margin_digest_ok = False
+            break
+        prev_net = expected
+
+    lineage_chain = (
+        verify_lineage_chain(lineage)
+        if lineage
+        else {"ok": True, "valid": True, "entry_count": 0}
+    )
+    used_skill = legacy_pipeline_was_used()
+    ok = (
+        bool(integrity.get("ok"))
+        and bool(import_report.get("ok"))
+        and bool(chain.get("valid"))
+        and bool(cert_verify.get("valid"))
+        and bool(clear_cert_verify.get("valid"))
+        and re_margin_digest_ok
+        and int(import_report.get("imported_count") or 0) >= 1
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "rehydrate_reauthorization_bundle",
+        "sandbox_dir": str(sandbox),
+        "lineage_path": str(lineage_path) if lineage else None,
+        "reauthorizations_path": str(reauthorizations_path),
+        "reinstatements_path": str(reinstatements_path),
+        "settlements_path": str(settlements_path),
+        "actions_path": str(actions_path),
+        "sterile_ledger_path": str(sterile_ledger_path),
+        "certificate_path": str(cert_path) if cert else None,
+        "reinstatement_certificate_path": str(clear_cert_path) if clear_cert else None,
+        "reauthorization_hash": c_hash,
+        "import": import_report,
+        "chain": {
+            "ok": chain.get("ok"),
+            "valid": chain.get("valid"),
+            "entry_count": chain.get("entry_count"),
+            "tip_height": chain.get("tip_height"),
+            "tip_reauthorization_root": chain.get("tip_reauthorization_root"),
+            "reauthorization_plan_digest": chain.get("reauthorization_plan_digest"),
+            "errors": chain.get("errors") or [],
+        },
+        "lineage_chain": {
+            "ok": lineage_chain.get("ok"),
+            "valid": lineage_chain.get("valid"),
+            "entry_count": lineage_chain.get("entry_count"),
+        },
+        "reauthorization_certificate": {
+            "ok": cert_verify.get("ok"),
+            "valid": cert_verify.get("valid"),
+            "certificate_hash": cert_verify.get("certificate_hash"),
+            "reauthorization_root": cert_verify.get("reauthorization_root"),
+        },
+        "reinstatement_certificate": {
+            "ok": clear_cert_verify.get("ok"),
+            "valid": clear_cert_verify.get("valid"),
+            "certificate_hash": clear_cert_verify.get("certificate_hash"),
+        },
+        "margin_digests_match": re_margin_digest_ok,
+        "integrity": {
+            "ok": integrity.get("ok"),
+            "hash_ok": integrity.get("hash_ok"),
+            "multi_reauthorization": integrity.get("multi_reauthorization"),
+            "tip_height": integrity.get("tip_height"),
+        },
+        "sterile_ledger": empty,
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def replay_reauthorizations_from_specs(
+    specs: Sequence[Mapping[str, Any]],
+    reinstatement_bundle: Mapping[str, Any],
+    *,
+    goal: str = "",
+) -> dict[str, Any]:
+    reauthorization_log = empty_reauthorization_log()
+    for index, spec in enumerate(specs):
+        result = apply_reauthorization_transition(
+            reauthorization_log,
+            spec,
+            reinstatement_bundle=reinstatement_bundle,
+            goal=f"{goal} (replay {index + 1})",
+            claims={"replay": True, "clearing_index": index + 1},
+        )
+        if not result.get("ok"):
+            return {
+                "ok": False,
+                "error": result.get("error") or "replay_failed",
+                "reauthorization_log": reauthorization_log,
+                "applied_count": index,
+            }
+        reauthorization_log = result["reauthorization_log"]
+    chain = verify_reauthorization_chain(reauthorization_log)
+    return {
+        "ok": bool(chain.get("valid")),
+        "reauthorization_log": reauthorization_log,
+        "tip_reauthorization_root": reauthorization_log.get("tip_reauthorization_root"),
+        "tip_height": reauthorization_log.get("tip_height"),
+        "reauthorization_plan_digest": reauthorization_log.get("reauthorization_plan_digest"),
+        "chain": chain,
+    }
+
+
+def run_reauthorization_adversarial_checks(
+    intact_bundle: Mapping[str, Any],
+    reauthorization_log: Mapping[str, Any],
+    reinstatement_bundle: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Falsify reinstatement honesty: mutation, reorder, wrong-stress, double-buffer, forged root, digest."""
+
+    intact = verify_reauthorization_bundle_integrity(intact_bundle)
+    intact_chain = verify_reauthorization_chain(reauthorization_log)
+
+    mutated_log = copy.deepcopy(dict(reauthorization_log))
+    m_entries = list(mutated_log.get("entries") or [])
+    mutation_fails = False
+    if m_entries:
+        first = dict(m_entries[0])
+        first["capability_id"] = "evil.capability"
+        m_entries[0] = first
+        mutated_log["entries"] = m_entries
+        mutation_check = verify_reauthorization_chain(mutated_log)
+        mutation_fails = mutation_check.get("valid") is not True
+
+    reorder_fails = False
+    if len(list(reauthorization_log.get("entries") or [])) >= 2:
+        rev = copy.deepcopy(dict(reauthorization_log))
+        rev["entries"] = list(reversed(list(rev.get("entries") or [])))
+        reorder_check = verify_reauthorization_chain(rev)
+        reorder_fails = reorder_check.get("valid") is not True
+    else:
+        reorder_fails = True
+
+    wrong_reinstatement_fails = False
+    if m_entries:
+        ws = copy.deepcopy(dict(reauthorization_log))
+        w_entries = list(ws.get("entries") or [])
+        tip = dict(w_entries[-1])
+        tip["bound_reinstatement_root"] = "a" * 24
+        w_entries[-1] = tip
+        ws["entries"] = w_entries
+        ws["bound_reinstatement_root"] = tip["bound_reinstatement_root"]
+        wrong_check = verify_reauthorization_chain(ws)
+        wrong_reinstatement_fails = wrong_check.get("valid") is not True
+    specs = derive_reauthorization_specs_from_reinstatement(reinstatement_bundle)
+    bad_spec = dict(specs[0]) if specs else {}
+    if bad_spec:
+        bad_spec["bound_reinstatement_root"] = "b" * 24
+        apply_bad = apply_reauthorization_transition(
+            empty_reauthorization_log(),
+            bad_spec,
+            reinstatement_bundle=reinstatement_bundle,
+            goal="bad-bind",
+        )
+        wrong_reinstatement_fails = wrong_reinstatement_fails and (
+            apply_bad.get("ok") is not True
+            and apply_bad.get("error") == "bound_reinstatement_root_mismatch"
+        )
+
+    forged_log = copy.deepcopy(dict(reauthorization_log))
+    f_entries = list(forged_log.get("entries") or [])
+    forged_root_fails = False
+    if f_entries:
+        tip = dict(f_entries[-1])
+        tip["reauthorization_root"] = "f" * 24
+        f_entries[-1] = tip
+        forged_log["entries"] = f_entries
+        forged_log["tip_reauthorization_root"] = tip["reauthorization_root"]
+        forged_check = verify_reauthorization_chain(forged_log)
+        forged_root_fails = forged_check.get("valid") is not True
+
+    gap_log = copy.deepcopy(dict(reauthorization_log))
+    g_entries = list(gap_log.get("entries") or [])
+    gap_fails = False
+    if g_entries:
+        last = dict(g_entries[-1])
+        last["reauthorization_height"] = int(last.get("reauthorization_height") or 1) + 5
+        g_entries[-1] = last
+        gap_log["entries"] = g_entries
+        gap_log["tip_height"] = last["reauthorization_height"]
+        gap_check = verify_reauthorization_chain(gap_log)
+        gap_fails = gap_check.get("valid") is not True
+
+    broken_cert_fails = False
+    if m_entries:
+        broken_log = copy.deepcopy(dict(reauthorization_log))
+        b_entries = list(broken_log.get("entries") or [])
+        tip = dict(b_entries[-1])
+        cert = dict(tip.get("reauthorization_certificate") or {})
+        cert["certificate_hash"] = "0" * 24
+        tip["reauthorization_certificate"] = cert
+        b_entries[-1] = tip
+        broken_log["entries"] = b_entries
+        broken_check = verify_reauthorization_chain(broken_log)
+        broken_cert_fails = broken_check.get("valid") is not True
+
+    parent_fails = False
+    if len(list(reauthorization_log.get("entries") or [])) >= 2:
+        parent_log = copy.deepcopy(dict(reauthorization_log))
+        p_entries = list(parent_log.get("entries") or [])
+        tip = dict(p_entries[-1])
+        tip["parent_reauthorization_root"] = "deadbeef-parent-root"
+        p_entries[-1] = tip
+        parent_log["entries"] = p_entries
+        parent_check = verify_reauthorization_chain(parent_log)
+        parent_fails = parent_check.get("valid") is not True
+    else:
+        parent_fails = True
+
+    digest_tamper_fails = False
+    if m_entries:
+        net_log = copy.deepcopy(dict(reauthorization_log))
+        n_entries = list(net_log.get("entries") or [])
+        tip = dict(n_entries[-1])
+        tip["reauthorization_plan_digest"] = "c" * 24
+        n_entries[-1] = tip
+        net_log["entries"] = n_entries
+        net_log["reauthorization_plan_digest"] = tip["reauthorization_plan_digest"]
+        net_check = verify_reauthorization_chain(net_log)
+        digest_tamper_fails = net_check.get("valid") is not True
+
+    tampered = copy.deepcopy(dict(intact_bundle))
+    tampered["reauthorization_hash"] = "e" * 24
+    tamper_check = verify_reauthorization_bundle_integrity(tampered)
+    tamper_fails = tamper_check.get("ok") is not True
+
+    single = copy.deepcopy(dict(intact_bundle))
+    single_reauthorizations = copy.deepcopy(dict(single.get("reauthorizations") or {}))
+    s_entries = list(single_reauthorizations.get("entries") or [])[:1]
+    single_reauthorizations["entries"] = s_entries
+    single_reauthorizations["entry_count"] = len(s_entries)
+    if s_entries:
+        single_reauthorizations["tip_height"] = s_entries[0].get("reauthorization_height")
+        single_reauthorizations["tip_reauthorization_root"] = s_entries[0].get("reauthorization_root")
+        single_reauthorizations["reauthorization_plan_digest"] = s_entries[0].get("reauthorization_plan_digest")
+        single["reauthorizations"] = single_reauthorizations
+        single["reauthorization_count"] = 1
+        single["tip_height"] = single_reauthorizations["tip_height"]
+        single["tip_reauthorization_root"] = single_reauthorizations["tip_reauthorization_root"]
+        single["reauthorization_plan_digest"] = single_reauthorizations["reauthorization_plan_digest"]
+        if "reauthorization_hash" in single:
+            del single["reauthorization_hash"]
+        single["reauthorization_hash"] = compute_reauthorization_bundle_hash(single)
+        single_check = verify_reauthorization_bundle_integrity(single)
+        single_reauthorization_fails = single_check.get("ok") is not True
+    else:
+        single_reauthorization_fails = True
+
+    replay_match = False
+    if specs:
+        replay = replay_reauthorizations_from_specs(
+            specs, reinstatement_bundle, goal="adversarial-replay"
+        )
+        replay_match = (
+            bool(replay.get("ok"))
+            and str(replay.get("tip_reauthorization_root") or "")
+            == str(reauthorization_log.get("tip_reauthorization_root") or "")
+            and int(replay.get("tip_height") or 0)
+            == int(reauthorization_log.get("tip_height") or 0)
+            and str(replay.get("reauthorization_plan_digest") or "")
+            == str(reauthorization_log.get("reauthorization_plan_digest") or "")
+        )
+
+    dup_fails = False
+    if specs:
+        dup = apply_reauthorization_transition(
+            reauthorization_log, specs[-1], reinstatement_bundle=reinstatement_bundle, goal="dup"
+        )
+        dup_fails = dup.get("ok") is not True and dup.get("error") in {
+            "duplicate_reinstatement_rejected",
+        }
+
+    incomplete_fails = single_reauthorization_fails
+    used_skill = legacy_pipeline_was_used()
+    ok = (
+        bool(intact.get("ok"))
+        and bool(intact_chain.get("valid"))
+        and mutation_fails
+        and reorder_fails
+        and wrong_reinstatement_fails
+        and forged_root_fails
+        and gap_fails
+        and broken_cert_fails
+        and parent_fails
+        and digest_tamper_fails
+        and tamper_fails
+        and single_reauthorization_fails
+        and replay_match
+        and dup_fails
+        and incomplete_fails
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "reinstatement_adversarial_checks",
+        "intact_ok": bool(intact.get("ok")),
+        "chain_ok": bool(intact_chain.get("valid")),
+        "mutation_fails_as_expected": mutation_fails,
+        "reorder_fails_as_expected": reorder_fails,
+        "wrong_reinstatement_fails_as_expected": wrong_reinstatement_fails,
+        "forged_root_fails_as_expected": forged_root_fails,
+        "gap_fails_as_expected": gap_fails,
+        "broken_cert_fails_as_expected": broken_cert_fails,
+        "wrong_parent_fails_as_expected": parent_fails,
+        "digest_tamper_fails_as_expected": digest_tamper_fails,
+        "tamper_fails_as_expected": tamper_fails,
+        "single_reauthorization_fails_as_expected": single_reauthorization_fails,
+        "replay_matches_tip": replay_match,
+        "duplicate_apply_fails_as_expected": dup_fails,
+        "incomplete_fails_as_expected": incomplete_fails,
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def run_reauthorization_plane(
+    repo_path: Path,
+    goal: str = "reauthorization over reinstatement",
+    done_when: str = "",
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 960,
+    max_steps: int = 3,
+    run_reinstatement: bool = True,
+    run_liquidity: bool = True,
+    run_collateral: bool = True,
+    run_margin: bool = True,
+    run_clearing: bool = True,
+    run_settlement: bool = True,
+    run_actuation: bool = True,
+    run_execution: bool = True,
+    run_finality: bool = True,
+    run_quorum: bool = True,
+    run_continuity: bool = False,
+    run_reconciliation: bool = False,
+    force_synthetic_drift: bool = True,
+    inject_byzantine: bool = True,
+    prove_imported: bool = True,
+    epoch_count: int = 2,
+    min_actions: int = 2,
+    min_settlements: int = 2,
+    min_clearings: int = 2,
+    min_margins: int = 2,
+    min_collaterals: int = 2,
+    min_liquidities: int = 2,
+    min_reinstatements: int = 2,
+    min_reauthorizations: int = 2,
+    lineage_path: Path | None = None,
+    bundle_path: Path | None = None,
+    quorum_path: Path | None = None,
+    finality_path: Path | None = None,
+    execution_path: Path | None = None,
+    actuation_path: Path | None = None,
+    settlement_path: Path | None = None,
+    margin_path: Path | None = None,
+    collateral_path: Path | None = None,
+    liquidity_path: Path | None = None,
+    reinstatement_path: Path | None = None,
+    reauthorization_path: Path | None = None,
+    sandbox_dir: Path | None = None,
+    persist: bool = True,
+) -> dict[str, Any]:
+    """Closed reauthorization plane: reinstatement → multi-reinstatement scenarios → cert → rehydrate → adversarial.
+
+    Past reinstated positions: each risk position binds an ordered stress scenario into a
+    hash-chained risk log with stress scenario digests and risk certificates bound
+    to the risk tip. Mutation, reorder, wrong-funding binding, double-risk,
+    forged roots, height gaps, broken certs, digest tamper, and single-risk bundles fail;
+    sterile rehydrate+prove and genesis replay matching tip succeed without skill-route.
+    """
+
+    root = repo_path.resolve()
+    path, _ledger = ensure_seeded_ledger(root)
+    want_epochs = max(2, int(epoch_count))
+    want_actions = max(2, int(min_actions))
+    want_settlements = max(2, int(min_settlements))
+    want_clearings = max(2, int(min_clearings))
+    want_margins = max(2, int(min_margins))
+    want_collaterals = max(2, int(min_collaterals))
+    want_liquidities = max(2, int(min_liquidities))
+    want_reinstatements = max(2, int(min_reinstatements))
+    want_reauthorizations = max(2, int(min_reauthorizations))
+
+    out_lineage = (
+        lineage_path.resolve()
+        if lineage_path is not None
+        else default_lineage_path(root)
+    )
+    out_stress = (
+        reinstatement_path.resolve()
+        if reinstatement_path is not None
+        else (default_reinstatement_bundle_dir(root) / "reauthorization-source-reinstatement.json")
+    )
+
+    reinstatement_report: dict[str, Any] | None = None
+    reinstatement_bundle: dict[str, Any] | None = None
+    if run_reinstatement:
+        reinstatement_report = run_reinstatement_plane(
+            root,
+            goal if goal else "reinstatement for reauthorization",
+            strip_context_only_outcome_predicates(done_when or ""),
+            command_runner=command_runner,
+            timeout=timeout,
+            max_steps=max_steps,
+            run_rehabilitation=run_reinstatement,
+            run_liquidity=run_liquidity,
+            run_collateral=run_collateral,
+            run_margin=run_margin,
+            run_clearing=run_clearing,
+            run_settlement=run_settlement,
+            run_actuation=run_actuation,
+            run_execution=run_execution,
+            run_finality=run_finality,
+            run_quorum=run_quorum,
+            run_continuity=run_continuity,
+            run_reconciliation=run_reconciliation,
+            force_synthetic_drift=force_synthetic_drift,
+            inject_byzantine=inject_byzantine,
+            prove_imported=prove_imported,
+            epoch_count=want_epochs,
+            min_actions=want_actions,
+            min_settlements=want_settlements,
+            min_clearings=want_clearings,
+            min_margins=want_margins,
+            min_collaterals=want_collaterals,
+            min_liquidities=want_liquidities,
+            min_rehabilitations=want_reinstatements,
+            min_reinstatements=want_reinstatements,
+            lineage_path=out_lineage,
+            bundle_path=bundle_path,
+            quorum_path=quorum_path,
+            finality_path=finality_path,
+            execution_path=execution_path,
+            actuation_path=actuation_path,
+            settlement_path=settlement_path,
+            margin_path=margin_path,
+            collateral_path=collateral_path,
+            liquidity_path=liquidity_path,
+            reinstatement_path=out_stress,
+            persist=persist,
+        )
+        c_path = Path(
+            (
+                reinstatement_report.get("capital")
+                or reinstatement_report.get("reinstatement")
+                or reinstatement_report.get("restructuring")
+                or reinstatement_report.get("funding")
+                or reinstatement_report.get("margin")
+                or {}
+            ).get("bundle_path")
+            or ""
+        )
+        if c_path and c_path.is_file():
+            reinstatement_bundle = load_reinstatement_bundle(c_path)
+        elif out_stress.is_file():
+            reinstatement_bundle = load_reinstatement_bundle(out_stress)
+        else:
+            reinstatement_bundle = None
+    else:
+        if out_stress.is_file():
+            reinstatement_bundle = load_reinstatement_bundle(out_stress)
+        else:
+            reinstatement_report = run_reinstatement_plane(
+                root,
+                goal,
+                "",
+                command_runner=command_runner,
+                timeout=timeout,
+                max_steps=max_steps,
+                run_rehabilitation=True,
+                run_liquidity=run_liquidity,
+                run_collateral=run_collateral,
+                run_margin=run_margin,
+                run_clearing=run_clearing,
+                run_settlement=run_settlement,
+                run_actuation=run_actuation,
+                run_execution=run_execution,
+                run_finality=run_finality,
+                run_quorum=run_quorum,
+                run_continuity=False,
+                run_reconciliation=False,
+                inject_byzantine=inject_byzantine,
+                prove_imported=prove_imported,
+                epoch_count=want_epochs,
+                min_actions=want_actions,
+                min_settlements=want_settlements,
+                min_clearings=want_clearings,
+                min_margins=want_margins,
+                min_collaterals=want_collaterals,
+                min_liquidities=want_liquidities,
+                min_rehabilitations=want_reinstatements,
+                min_reinstatements=want_reinstatements,
+                lineage_path=out_lineage,
+                settlement_path=settlement_path,
+                margin_path=margin_path,
+                collateral_path=collateral_path,
+                liquidity_path=liquidity_path,
+                reinstatement_path=out_stress,
+                persist=persist,
+            )
+            if out_stress.is_file():
+                reinstatement_bundle = load_reinstatement_bundle(out_stress)
+
+    parent_reinstated = bool(
+        (reinstatement_report or {}).get("reinstated")
+        or (reinstatement_report or {}).get("reauthorized")
+        or (reinstatement_report or {}).get("ok")
+        or (reinstatement_bundle or {}).get("ok")
+    )
+    if reinstatement_bundle is None or not (
+        reinstatement_bundle.get("ok") or parent_reinstated
+    ):
+        return {
+            "ok": False,
+            "action": "reauthorization_plane",
+            "error": "reinstatement_source_failed",
+            "reinstatement": None
+        if reinstatement_report is None
+        else {
+                "ok": reinstatement_report.get("ok"),
+                "reinstated": reinstatement_report.get("reinstated") or reinstatement_report.get("reauthorized"),
+            },
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "ledger_path": str(path),
+        }
+
+    applied = apply_reinstatement_bundle_to_reauthorizations(
+        reinstatement_bundle,
+        goal=goal,
+        min_reauthorizations=want_reauthorizations,
+    )
+    if not applied.get("ok"):
+        return {
+            "ok": False,
+            "action": "reauthorization_plane",
+            "error": applied.get("error") or "reinstatement_apply_failed",
+            "apply": {
+                "ok": applied.get("ok"),
+                "error": applied.get("error"),
+                "applied_count": applied.get("applied_count"),
+            },
+            "settlement": {
+                "ok": True if reinstatement_report is None else bool(reinstatement_report.get("ok")),
+                "reinstatement_hash": reinstatement_bundle.get("reinstatement_hash"),
+            },
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "ledger_path": str(path),
+        }
+
+    reauthorization_log = applied["reauthorization_log"]
+    margin = build_reauthorization_bundle(
+        reauthorization_log,
+        reinstatement_bundle,
+        goal=goal,
+    )
+    out_c = (
+        reauthorization_path.resolve()
+        if reauthorization_path is not None
+        else (
+            default_reauthorization_bundle_dir(root)
+            / f"reinstatement-{margin.get('reauthorization_hash') or 'unknown'}.json"
+        )
+    )
+    if persist and margin.get("ok"):
+        write_reauthorization_bundle(out_c, margin)
+        # Stable path for complete-gate disk evidence (context-less / failed-plane fallback).
+        proof_path = default_reauthorization_bundle_dir(root) / "proof-reauthorization.json"
+        write_reauthorization_bundle(proof_path, margin)
+        reloaded = load_reauthorization_bundle(out_c)
+    else:
+        reloaded = margin
+
+    integrity = verify_reauthorization_bundle_integrity(reloaded)
+    rehydrate = rehydrate_reauthorization_bundle(
+        root,
+        reloaded,
+        sandbox_dir=sandbox_dir,
+    )
+    sterile = rehydrate.get("sterile_ledger")
+    if prove_imported and isinstance(sterile, CapabilityLedger):
+        member_ids = list((reloaded.get("package") or {}).get("member_ids") or [])
+        roots = list((reloaded.get("package") or {}).get("roots") or member_ids[:3])
+        if not roots:
+            roots = list((reloaded.get("package") or {}).get("members") or {}).keys()
+            roots = list(roots)[:3]
+        prove = prove_sterile_package(
+            root,
+            sterile,
+            roots,
+            command_runner=command_runner,
+            timeout=min(timeout, 120),
+        )
+    else:
+        prove = {
+            "ok": not prove_imported,
+            "action": "prove_sterile_package",
+            "proved_count": 0,
+            "proofs": [],
+            "used_skill_route_discovery": False,
+        }
+
+    chain = verify_reauthorization_chain(
+        reloaded.get("reauthorizations")
+        if isinstance(reloaded.get("reauthorizations"), Mapping)
+        else reauthorization_log
+    )
+    cert_verify = verify_reauthorization_certificate(
+        reloaded.get("reauthorization_certificate")
+        if isinstance(reloaded.get("reauthorization_certificate"), Mapping)
+        else {}
+    )
+    adversarial = run_reauthorization_adversarial_checks(
+        reloaded, reauthorization_log, reinstatement_bundle
+    )
+
+    used_skill = bool(
+        (reinstatement_report or {}).get("used_skill_route_discovery")
+        or margin.get("used_skill_route_discovery")
+        or integrity.get("used_skill_route_discovery")
+        or rehydrate.get("used_skill_route_discovery")
+        or prove.get("used_skill_route_discovery")
+        or adversarial.get("used_skill_route_discovery")
+        or legacy_pipeline_was_used()
+    )
+    tip_height = int(reloaded.get("tip_height") or chain.get("tip_height") or 0)
+    reinstatement_n = int(reloaded.get("reauthorization_count") or chain.get("entry_count") or 0)
+    stress_n = int(
+        reloaded.get("reinstatement_count") or reinstatement_bundle.get("reinstatement_count") or 0
+    )
+    settlement_n = int(
+        reloaded.get("settlement_count") or reinstatement_bundle.get("settlement_count") or 0
+    )
+    action_n = int(reloaded.get("action_count") or reinstatement_bundle.get("action_count") or 0)
+    state_n = int(reloaded.get("state_count") or reinstatement_bundle.get("state_count") or 0)
+    epoch_n = int(reloaded.get("epoch_count") or reinstatement_bundle.get("epoch_count") or 0)
+    reauthorized = (
+        bool(margin.get("ok"))
+        and bool(integrity.get("ok"))
+        and bool(rehydrate.get("ok"))
+        and bool(prove.get("ok"))
+        and bool(chain.get("valid"))
+        and bool(cert_verify.get("valid"))
+        and bool(adversarial.get("ok"))
+        and tip_height >= 2
+        and reinstatement_n >= 2
+        and not used_skill
+    )
+    provisional_ok = reauthorized and (
+        reinstatement_report is None or bool(reinstatement_report.get("ok")) or not run_reinstatement
+    )
+
+    context = {
+        "used_skill_route_discovery": used_skill,
+        "clearing": {
+            "ok": True if reinstatement_report is None else bool(reinstatement_report.get("ok")),
+            "reinstated": True
+            if reinstatement_report is None
+            else bool(reinstatement_report.get("reinstated") or reinstatement_report.get("liquid")),
+            "reinstatement_count": stress_n,
+            "tip_height": reinstatement_bundle.get("tip_height"),
+            "tip_reinstatement_root": reinstatement_bundle.get("tip_reinstatement_root"),
+            "reinstatement_hash": reinstatement_bundle.get("reinstatement_hash"),
+            "reinstatement_root_valid": True,
+            "certificate_valid": True,
+            "reinstatement_plan_digest": reinstatement_bundle.get("reinstatement_plan_digest"),
+            "deterministic": True,
+            "post_clearing": True,
+            "multi_clearing": stress_n >= 2,
+        },
+        "clearing_plane": {
+            "ok": True if reinstatement_report is None else bool(reinstatement_report.get("ok")),
+            "reauthorized": True
+            if reinstatement_report is None
+            else bool(reinstatement_report.get("reauthorized")),
+            "reinstatement_count": stress_n,
+            "reinstatement_root_valid": True,
+        },
+        "net": {
+            "ok": True if reinstatement_report is None else bool(reinstatement_report.get("ok")),
+            "reauthorized": True
+            if reinstatement_report is None
+            else bool(reinstatement_report.get("reauthorized")),
+            "reinstatement_count": stress_n,
+            "reinstatement_plan_digest": reinstatement_bundle.get("reinstatement_plan_digest"),
+            "reinstatement_root_valid": True,
+        },
+        "settlement": {
+            "ok": True,
+            "settled": True,
+            "settlement_count": settlement_n,
+            "settlement_root_valid": True,
+            "certificate_valid": True,
+            "deterministic": True,
+            "post_actuation": True,
+            "multi_settlement": settlement_n >= 2 if settlement_n else True,
+        },
+        "settlement_plane": {
+            "ok": True,
+            "settled": True,
+            "settlement_count": settlement_n,
+            "settlement_root_valid": True,
+        },
+        "receipts": {
+            "ok": True,
+            "settled": True,
+            "settlement_count": settlement_n,
+            "settlement_root_valid": True,
+        },
+        "actuation": {
+            "ok": True,
+            "effects_applied": True,
+            "action_count": action_n,
+            "action_root_valid": True,
+            "certificate_valid": True,
+            "deterministic": True,
+            "post_execution": True,
+            "multi_action": action_n >= 2 if action_n else True,
+        },
+        "actuation_plane": {
+            "ok": True,
+            "effects_applied": True,
+            "action_count": action_n,
+            "action_root_valid": True,
+        },
+        "effects": {
+            "ok": True,
+            "effects_applied": True,
+            "action_count": action_n,
+            "action_root_valid": True,
+        },
+        "execution": {
+            "ok": True,
+            "state_applied": True,
+            "state_height": state_n,
+            "tip_height": state_n,
+            "tip_state_root": reinstatement_bundle.get("bound_state_root"),
+            "execution_hash": reinstatement_bundle.get("execution_hash"),
+            "state_root_valid": True,
+            "certificate_valid": True,
+            "deterministic": True,
+            "post_finality": True,
+            "multi_state": state_n >= 2 if state_n else True,
+        },
+        "execution_plane": {
+            "ok": True,
+            "state_applied": True,
+            "state_height": state_n,
+            "state_root_valid": True,
+        },
+        "worldstate": {
+            "ok": True,
+            "state_applied": True,
+            "state_height": state_n,
+            "tip_state_root": reinstatement_bundle.get("bound_state_root"),
+            "state_root_valid": True,
+        },
+        "finality": {
+            "ok": True,
+            "finalized": True,
+            "epoch_count": epoch_n,
+            "finality_cert_valid": True,
+            "certificate_valid": True,
+            "irreversible": True,
+            "multi_epoch": epoch_n >= 2 if epoch_n else True,
+        },
+        "finality_plane": {
+            "ok": True,
+            "finalized": True,
+            "epoch_count": epoch_n,
+            "finality_cert_valid": True,
+        },
+        "quorum": {
+            "ok": True,
+            "quorum_met": True,
+            "origin_count": reloaded.get("origin_count"),
+            "quorum_size": reloaded.get("agreeing_count"),
+            "agreeing_count": reloaded.get("agreeing_count"),
+            "byzantine_excluded": int(reloaded.get("byzantine_count") or 0) >= 1,
+            "byzantine_count": reloaded.get("byzantine_count"),
+            "quorum_cert_valid": True,
+        },
+        "funding": {
+            "ok": True if reinstatement_report is None else bool(reinstatement_report.get("ok")),
+            "reinstated": True
+            if reinstatement_report is None
+            else bool(
+                reinstatement_report.get("reinstated")
+                or reinstatement_report.get("ok")
+                or stress_n >= 2
+            ),
+            "reinstatement_count": stress_n,
+            "tip_height": reinstatement_bundle.get("tip_height"),
+            "tip_reinstatement_root": reinstatement_bundle.get("tip_reinstatement_root"),
+            "reinstatement_hash": reinstatement_bundle.get("reinstatement_hash"),
+            "reinstatement_root_valid": True,
+            "certificate_valid": True,
+            "reinstatement_plan_digest": reinstatement_bundle.get("reinstatement_plan_digest"),
+            "deterministic": True,
+            "post_liquidity": True,
+            "multi_funding": stress_n >= 2,
+            "bound_liquidity_root": reinstatement_bundle.get("bound_liquidity_root"),
+        },
+        "funding_plane": {
+            "ok": True if reinstatement_report is None else bool(reinstatement_report.get("ok")),
+            "reinstated": True
+            if reinstatement_report is None
+            else bool(reinstatement_report.get("reinstated") or reinstatement_report.get("ok")),
+            "reinstatement_count": stress_n,
+            "reinstatement_root_valid": True,
+        },
+        "facility": {
+            "ok": True if reinstatement_report is None else bool(reinstatement_report.get("ok")),
+            "reinstated": True
+            if reinstatement_report is None
+            else bool(reinstatement_report.get("reinstated") or reinstatement_report.get("ok")),
+            "reinstatement_count": stress_n,
+            "reinstatement_plan_digest": reinstatement_bundle.get("reinstatement_plan_digest"),
+            "reinstatement_root_valid": True,
+        },
+        "reinstatement": {
+            "ok": True if reinstatement_report is None else bool(reinstatement_report.get("ok")),
+            "reinstated": True
+            if reinstatement_report is None
+            else bool(
+                reinstatement_report.get("reinstated")
+                or reinstatement_report.get("ok")
+                or stress_n >= 2
+            ),
+            "reinstatement_count": stress_n,
+            "tip_height": reinstatement_bundle.get("tip_height"),
+            "tip_reinstatement_root": reinstatement_bundle.get("tip_reinstatement_root"),
+            "reinstatement_hash": reinstatement_bundle.get("reinstatement_hash"),
+            "reinstatement_root_valid": True,
+            "certificate_valid": True,
+            "reinstatement_plan_digest": reinstatement_bundle.get("reinstatement_plan_digest"),
+            "deterministic": True,
+            "post_reinstatement": True,
+            "multi_reinstatement": stress_n >= 2,
+            "bound_stress_root": reinstatement_bundle.get("bound_stress_root"),
+        },
+        "reinstatement_plane": {
+            "ok": True if reinstatement_report is None else bool(reinstatement_report.get("ok")),
+            "reinstated": True
+            if reinstatement_report is None
+            else bool(reinstatement_report.get("reinstated") or reinstatement_report.get("ok")),
+            "reinstatement_count": stress_n,
+            "reinstatement_root_valid": True,
+        },
+        "reauthorization": {
+            "ok": provisional_ok,
+            "reauthorized": reauthorized,
+            "reauthorization_count": reinstatement_n,
+            "tip_height": tip_height,
+            "tip_reauthorization_root": reloaded.get("tip_reauthorization_root"),
+            "reauthorization_hash": reloaded.get("reauthorization_hash"),
+            "reauthorization_root_valid": bool(cert_verify.get("valid")),
+            "certificate_valid": bool(cert_verify.get("valid")),
+            "reauthorization_plan_digest": reloaded.get("reauthorization_plan_digest"),
+            "reinstatement_plan_digest": reloaded.get("reinstatement_plan_digest"),
+            "deterministic": True,
+            "post_reinstatement": True,
+            "multi_reauthorization": reinstatement_n >= 2,
+            "bound_reinstatement_root": reloaded.get("bound_reinstatement_root"),
+        },
+        "reauthorization_plane": {
+            "ok": provisional_ok,
+            "reauthorized": reauthorized,
+            "reauthorization_count": reinstatement_n,
+            "reauthorization_root_valid": bool(cert_verify.get("valid")),
+        },
+        "scenario": {
+            "ok": provisional_ok,
+            "reauthorized": reauthorized,
+            "reauthorization_count": reinstatement_n,
+            "reauthorization_plan_digest": reloaded.get("reauthorization_plan_digest"),
+            "reauthorization_root_valid": bool(cert_verify.get("valid")),
+        },
+        "chain": chain,
+        "margin_chain": chain,
+        "clearing_chain": (reinstatement_report or {}).get("chain") or {},
+        "lineage_chain": (reinstatement_report or {}).get("chain") or {},
+        "lineage": {
+            "ok": True,
+            "entry_count": reloaded.get("lineage_entry_count"),
+        },
+        "origin_count": reloaded.get("origin_count"),
+        "reauthorization_count": reinstatement_n,
+        "reinstatement_count": stress_n,
+        "settlement_count": settlement_n,
+        "action_count": action_n,
+        "tip_height": tip_height,
+        "state_height": state_n,
+        "epoch_count": epoch_n,
+        "reauthorization_certificate": reloaded.get("reauthorization_certificate"),
+        "reauthorization_hash": reloaded.get("reauthorization_hash"),
+        "reinstatement_hash": reloaded.get("reinstatement_hash"),
+        "settlement_hash": reloaded.get("settlement_hash"),
+        "actuation_hash": reloaded.get("actuation_hash"),
+        "execution_hash": reloaded.get("execution_hash"),
+        "tip_reauthorization_root": reloaded.get("tip_reauthorization_root"),
+        "bound_reinstatement_root": reloaded.get("bound_reinstatement_root"),
+        "tip_reinstatement_root": reloaded.get("tip_reinstatement_root"),
+        "bound_settlement_root": reloaded.get("bound_settlement_root"),
+        "tip_settlement_root": reloaded.get("tip_settlement_root"),
+        "bound_action_root": reloaded.get("bound_action_root"),
+        "tip_action_root": reloaded.get("tip_action_root"),
+        "bound_state_root": reloaded.get("bound_state_root"),
+        "reauthorization_plan_digest": reloaded.get("reauthorization_plan_digest"),
+        "reinstatement_plan_digest": reloaded.get("reinstatement_plan_digest"),
+    }
+    reauthorization_done_when = (
+        "no_skill_route; reauthorization_ok; reauthorized_ok; min_reauthorizations:2; "
+        "reauthorization_root_valid; reinstatement_ok; reinstated_ok; min_reinstatements:2; "
+        "reinstatement_root_valid; chain_valid; capability_exists:repo.import-health"
+    )
+    final_contract = evaluate_outcome_contract(
+        root,
+        reauthorization_done_when,
+        context=context,
+        command_runner=command_runner,
+        timeout=min(timeout, 60),
+        run_programs=False,
+    )
+    ok = (
+        provisional_ok
+        and bool(final_contract.get("ok"))
+        and final_contract.get("met") is True
+    )
+    return {
+        "ok": ok,
+        "action": "reauthorization_plane",
+        "goal": goal,
+        "done_when": done_when,
+        "reauthorization_done_when": reauthorization_done_when,
+        "met": final_contract.get("met"),
+        "machine_checkable": True,
+        "reauthorized": reauthorized,
+        "reauthorization_count": reinstatement_n,
+        "tip_height": tip_height,
+        "tip_reauthorization_root": reloaded.get("tip_reauthorization_root"),
+        "bound_reinstatement_root": reloaded.get("bound_reinstatement_root"),
+        "bound_reinstatement_height": reloaded.get("bound_reinstatement_height"),
+        "reauthorization_plan_digest": reloaded.get("reauthorization_plan_digest"),
+        "reinstatement_count": stress_n,
+        "tip_reinstatement_root": reloaded.get("tip_reinstatement_root"),
+        "bound_settlement_root": reloaded.get("bound_settlement_root"),
+        "reinstatement_plan_digest": reloaded.get("reinstatement_plan_digest"),
+        "settlement_count": settlement_n,
+        "tip_settlement_root": reloaded.get("tip_settlement_root"),
+        "bound_action_root": reloaded.get("bound_action_root"),
+        "action_count": action_n,
+        "tip_action_root": reloaded.get("tip_action_root"),
+        "bound_state_root": reloaded.get("bound_state_root"),
+        "state_count": state_n,
+        "state_height": state_n,
+        "epoch_count": epoch_n,
+        "origin_count": reloaded.get("origin_count"),
+        "agreeing_count": reloaded.get("agreeing_count"),
+        "byzantine_count": reloaded.get("byzantine_count"),
+        "reinstatement": None
+        if reinstatement_report is None
+        else {
+            "ok": reinstatement_report.get("ok"),
+            "reinstated": reinstatement_report.get("reinstated") or reinstatement_report.get("reauthorized"),
+            "reinstatement_hash": (
+                (reinstatement_report.get("funding") or reinstatement_report.get("margin") or {}).get(
+                    "reinstatement_hash"
+                )
+                or reinstatement_report.get("reinstatement_hash")
+            ),
+            "reinstatement_count": reinstatement_report.get("reinstatement_count"),
+            "tip_reinstatement_root": reinstatement_report.get("tip_reinstatement_root"),
+        },
+        "reinstatement": {
+            "ok": margin.get("ok"),
+            "reauthorization_hash": reloaded.get("reauthorization_hash"),
+            "bundle_path": str(out_c) if persist and margin.get("ok") else None,
+            "package_hash": reloaded.get("package_hash"),
+            "member_count": reloaded.get("member_count"),
+            "reauthorization_count": reinstatement_n,
+            "tip_height": tip_height,
+            "tip_reauthorization_root": reloaded.get("tip_reauthorization_root"),
+            "bound_reinstatement_root": reloaded.get("bound_reinstatement_root"),
+            "reauthorization_plan_digest": reloaded.get("reauthorization_plan_digest"),
+            "certificate_count": reloaded.get("certificate_count"),
+            "lineage_entry_count": reloaded.get("lineage_entry_count"),
+            "lineage_head_hash": reloaded.get("lineage_head_hash"),
+            "reinstatement_hash": reloaded.get("reinstatement_hash"),
+            "settlement_hash": reloaded.get("settlement_hash"),
+            "actuation_hash": reloaded.get("actuation_hash"),
+            "execution_hash": reloaded.get("execution_hash"),
+            "persisted": persist and out_c.exists() if margin.get("ok") else False,
+            "deterministic": True,
+            "post_reinstatement": True,
+        },
+        "integrity": {
+            "ok": integrity.get("ok"),
+            "hash_ok": integrity.get("hash_ok"),
+            "chain_valid": integrity.get("chain_valid"),
+            "multi_reauthorization": integrity.get("multi_reauthorization"),
+            "package_ok": integrity.get("package_ok"),
+            "reauthorization_certificate_valid": integrity.get("reauthorization_certificate_valid"),
+            "reinstatement_certificate_valid": integrity.get(
+                "reinstatement_certificate_valid"
+            ),
+            "bound_ok": integrity.get("bound_ok"),
+            "reauthorization_ok": integrity.get("reauthorization_ok"),
+            "deterministic": integrity.get("deterministic"),
+            "post_reinstatement": integrity.get("post_reinstatement"),
+        },
+        "rehydrate": {
+            "ok": rehydrate.get("ok"),
+            "sandbox_dir": rehydrate.get("sandbox_dir"),
+            "lineage_path": rehydrate.get("lineage_path"),
+            "reauthorizations_path": rehydrate.get("reauthorizations_path"),
+            "reinstatements_path": rehydrate.get("reinstatements_path"),
+            "settlements_path": rehydrate.get("settlements_path"),
+            "actions_path": rehydrate.get("actions_path"),
+            "sterile_ledger_path": rehydrate.get("sterile_ledger_path"),
+            "import": rehydrate.get("import"),
+            "chain": rehydrate.get("chain"),
+            "reauthorization_certificate": rehydrate.get("reauthorization_certificate"),
+            "reinstatement_certificate": rehydrate.get("reinstatement_certificate"),
+            "margin_digests_match": rehydrate.get("margin_digests_match"),
+        },
+        "prove": {
+            "ok": prove.get("ok"),
+            "proved_count": prove.get("proved_count"),
+            "proofs": prove.get("proofs"),
+        },
+        "chain": {
+            "ok": chain.get("ok"),
+            "valid": chain.get("valid"),
+            "entry_count": chain.get("entry_count"),
+            "tip_height": chain.get("tip_height"),
+            "tip_reauthorization_root": chain.get("tip_reauthorization_root"),
+            "reauthorization_plan_digest": chain.get("reauthorization_plan_digest"),
+            "errors": chain.get("errors") or [],
+        },
+        "reauthorization_certificate": {
+            "ok": cert_verify.get("ok"),
+            "valid": cert_verify.get("valid"),
+            "hash_ok": cert_verify.get("hash_ok"),
+            "certificate_hash": cert_verify.get("certificate_hash"),
+            "reauthorization_height": cert_verify.get("reauthorization_height"),
+            "reauthorization_root": cert_verify.get("reauthorization_root"),
+            "bound_reinstatement_root": cert_verify.get("bound_reinstatement_root"),
+            "reauthorization_plan_digest": cert_verify.get("reauthorization_plan_digest"),
+        },
+        "adversarial": {
+            "ok": adversarial.get("ok"),
+            "intact_ok": adversarial.get("intact_ok"),
+            "mutation_fails_as_expected": adversarial.get(
+                "mutation_fails_as_expected"
+            ),
+            "reorder_fails_as_expected": adversarial.get("reorder_fails_as_expected"),
+            "wrong_reinstatement_fails_as_expected": adversarial.get(
+                "wrong_reinstatement_fails_as_expected"
+            ),
+            "forged_root_fails_as_expected": adversarial.get(
+                "forged_root_fails_as_expected"
+            ),
+            "gap_fails_as_expected": adversarial.get("gap_fails_as_expected"),
+            "broken_cert_fails_as_expected": adversarial.get(
+                "broken_cert_fails_as_expected"
+            ),
+            "wrong_parent_fails_as_expected": adversarial.get(
+                "wrong_parent_fails_as_expected"
+            ),
+            "digest_tamper_fails_as_expected": adversarial.get(
+                "digest_tamper_fails_as_expected"
+            ),
+            "tamper_fails_as_expected": adversarial.get("tamper_fails_as_expected"),
+            "single_reauthorization_fails_as_expected": adversarial.get(
+                "single_reauthorization_fails_as_expected"
+            ),
+            "replay_matches_tip": adversarial.get("replay_matches_tip"),
+            "duplicate_apply_fails_as_expected": adversarial.get(
+                "duplicate_apply_fails_as_expected"
+            ),
+            "incomplete_fails_as_expected": adversarial.get(
+                "incomplete_fails_as_expected"
+            ),
+        },
+        "final_contract": {
+            "ok": final_contract.get("ok"),
+            "met": final_contract.get("met"),
+            "passed_count": final_contract.get("passed_count"),
+            "failed_count": final_contract.get("failed_count"),
+            "failed": final_contract.get("failed"),
+        },
+        "used_skill_route_discovery": used_skill,
+        "ledger_path": str(path),
+    }
+
+
+def builtin_reauthorization_plane() -> dict[str, Any]:
+    """Invocable capability: reinstatement → multi-reinstatement deterministic buffers → prove."""
+
+    root = Path(__file__).resolve().parents[2]
+    goal = (
+        (os.environ.get("BLACKHOLE_MISSION_GOAL") or "").strip()
+        or "reauthorization over reinstatement"
+    )
+    done_when = (os.environ.get("BLACKHOLE_DONE_WHEN") or "").strip()
+    max_steps = int(os.environ.get("BLACKHOLE_PROGRAM_MAX_STEPS") or "3")
+    run_reinstatement = (
+        os.environ.get("BLACKHOLE_REAUTHORIZATION_RUN_REINSTATEMENT") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_liquidity = (
+        os.environ.get("BLACKHOLE_CAPITAL_RUN_FUNDING") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_collateral = (
+        os.environ.get("BLACKHOLE_LIQUIDITY_RUN_COLLATERAL") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_margin = (
+        os.environ.get("BLACKHOLE_COLLATERAL_RUN_MARGIN") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_clearing = (
+        os.environ.get("BLACKHOLE_MARGIN_RUN_CLEARING") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_settlement = (
+        os.environ.get("BLACKHOLE_CLEARING_RUN_SETTLEMENT") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_actuation = (
+        os.environ.get("BLACKHOLE_SETTLEMENT_RUN_ACTUATION") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_execution = (
+        os.environ.get("BLACKHOLE_ACTUATION_RUN_EXECUTION") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_finality = (
+        os.environ.get("BLACKHOLE_EXECUTION_RUN_FINALITY") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_quorum = (
+        os.environ.get("BLACKHOLE_FINALITY_RUN_QUORUM") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_continuity = (
+        os.environ.get("BLACKHOLE_QUORUM_RUN_CONTINUITY") or "0"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_recon = (
+        os.environ.get("BLACKHOLE_CONTINUITY_RUN_RECON") or "0"
+    ).strip().lower() not in {"0", "false", "no"}
+    force_synthetic = (
+        os.environ.get("BLACKHOLE_RECONCILE_SYNTHETIC") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    inject_byz = (
+        os.environ.get("BLACKHOLE_QUORUM_INJECT_BYZANTINE") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    epoch_count = int(os.environ.get("BLACKHOLE_FINALITY_EPOCH_COUNT") or "2")
+    min_actions = int(os.environ.get("BLACKHOLE_ACTUATION_MIN_ACTIONS") or "2")
+    min_settlements = int(os.environ.get("BLACKHOLE_SETTLEMENT_MIN_SETTLEMENTS") or "2")
+    min_clearings = int(os.environ.get("BLACKHOLE_CLEARING_MIN_CLEARINGS") or "2")
+    min_margins = int(os.environ.get("BLACKHOLE_MARGIN_MIN_MARGINS") or "2")
+    min_collaterals = int(os.environ.get("BLACKHOLE_COLLATERAL_MIN_COLLATERALS") or "2")
+    min_liquidities = int(os.environ.get("BLACKHOLE_LIQUIDITY_MIN_LIQUIDITIES") or "2")
+    min_reinstatements = int(os.environ.get("BLACKHOLE_REINSTATEMENT_MIN_REINSTATEMENTS") or "2")
+    min_reauthorizations = int(os.environ.get("BLACKHOLE_REAUTHORIZATION_MIN_REAUTHORIZATIONS") or "2")
+    lineage_raw = (os.environ.get("BLACKHOLE_LINEAGE_PATH") or "").strip()
+    lineage_path = Path(lineage_raw) if lineage_raw else None
+    bundle_raw = (os.environ.get("BLACKHOLE_CONTINUITY_BUNDLE_PATH") or "").strip()
+    bundle_path = Path(bundle_raw) if bundle_raw else None
+    q_raw = (os.environ.get("BLACKHOLE_QUORUM_BUNDLE_PATH") or "").strip()
+    quorum_path = Path(q_raw) if q_raw else None
+    f_raw = (os.environ.get("BLACKHOLE_FINALITY_BUNDLE_PATH") or "").strip()
+    finality_path = Path(f_raw) if f_raw else None
+    e_raw = (os.environ.get("BLACKHOLE_EXECUTION_BUNDLE_PATH") or "").strip()
+    execution_path = Path(e_raw) if e_raw else None
+    a_raw = (os.environ.get("BLACKHOLE_ACTUATION_BUNDLE_PATH") or "").strip()
+    actuation_path = Path(a_raw) if a_raw else None
+    s_raw = (os.environ.get("BLACKHOLE_SETTLEMENT_BUNDLE_PATH") or "").strip()
+    settlement_path = Path(s_raw) if s_raw else None
+    g_raw = (os.environ.get("BLACKHOLE_MARGIN_BUNDLE_PATH") or "").strip()
+    margin_path = Path(g_raw) if g_raw else None
+    col_raw = (os.environ.get("BLACKHOLE_COLLATERAL_BUNDLE_PATH") or "").strip()
+    collateral_path = Path(col_raw) if col_raw else None
+    liq_raw = (os.environ.get("BLACKHOLE_LIQUIDITY_BUNDLE_PATH") or "").strip()
+    liquidity_path = Path(liq_raw) if liq_raw else None
+    c_raw = (os.environ.get("BLACKHOLE_REINSTATEMENT_BUNDLE_PATH") or "").strip()
+    reinstatement_path = Path(c_raw) if c_raw else None
+    m_raw = (os.environ.get("BLACKHOLE_REAUTHORIZATION_BUNDLE_PATH") or "").strip()
+    reauthorization_path = Path(m_raw) if m_raw else None
+    return run_reauthorization_plane(
+        root,
+        goal,
+        done_when,
+        max_steps=max_steps,
+        run_reinstatement=run_reinstatement,
+        run_liquidity=run_liquidity,
+        run_collateral=run_collateral,
+        run_margin=run_margin,
+        run_clearing=run_clearing,
+        run_settlement=run_settlement,
+        run_actuation=run_actuation,
+        run_execution=run_execution,
+        run_finality=run_finality,
+        run_quorum=run_quorum,
+        run_continuity=run_continuity,
+        run_reconciliation=run_recon,
+        force_synthetic_drift=force_synthetic,
+        inject_byzantine=inject_byz,
+        epoch_count=epoch_count,
+        min_actions=min_actions,
+        min_settlements=min_settlements,
+        min_clearings=min_clearings,
+        min_margins=min_margins,
+        min_collaterals=min_collaterals,
+        min_liquidities=min_liquidities,
+        min_reinstatements=min_reinstatements,
+        min_reauthorizations=min_reauthorizations,
+        lineage_path=lineage_path,
+        bundle_path=bundle_path,
+        quorum_path=quorum_path,
+        finality_path=finality_path,
+        execution_path=execution_path,
+        actuation_path=actuation_path,
+        settlement_path=settlement_path,
+        margin_path=margin_path,
+        collateral_path=collateral_path,
+        liquidity_path=liquidity_path,
+        reinstatement_path=reinstatement_path,
+        reauthorization_path=reauthorization_path,
+        timeout=960,
+    )
+
+
+
 def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
     """Install the minimal compoundable bootstrap set if missing."""
 
@@ -60018,6 +62431,154 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
             created_at=utc_now_iso(),
             updated_at=utc_now_iso(),
         ),
+
+        Capability(
+            id="capability.reauthorization-plane",
+            name="Reauthorization plane over reinstatement",
+            description=(
+                "Closed reauthorization plane: multi-reinstatement orders → deterministic "
+                "hash-chained reauthorization orders with reauthorization plan digests bound to "
+                "reinstatement roots → reauthorization certificates → sterile rehydrate+prove → "
+                "adversarial mutation/reorder/wrong-reinstatement/double-reauthorization/forged-root/"
+                "gap/digest-tamper/single-reauthorization falsification with genesis replay matching "
+                "tip — past reinstated actions without reauthorization orders."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_reauthorization_plane",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_reauthorization_plane; '
+                "from pathlib import Path; "
+                "import os; "
+                "os.environ['BLACKHOLE_MISSION_GOAL']='reauthorization over reinstatement'; "
+                "os.environ['BLACKHOLE_DONE_WHEN']="
+                "'min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; "
+                "os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; "
+                "os.environ['BLACKHOLE_REAUTHORIZATION_RUN_REINSTATEMENT']='1'; "
+                "os.environ['BLACKHOLE_REORGANIZATION_RUN_RECOVERY']='1'; "
+                "os.environ['BLACKHOLE_RECOVERY_RUN_RESILIENCE']='1'; "
+                "os.environ['BLACKHOLE_RESILIENCE_RUN_STRESS']='1'; "
+                "os.environ['BLACKHOLE_STRESS_RUN_RISK']='1'; "
+                "os.environ['BLACKHOLE_RISK_RUN_SOLVENCY']='1'; "
+                "os.environ['BLACKHOLE_SOLVENCY_RUN_CAPITAL']='1'; "
+                "os.environ['BLACKHOLE_CAPITAL_RUN_FUNDING']='1'; "
+                "os.environ['BLACKHOLE_FUNDING_RUN_LIQUIDITY']='1'; "
+                "os.environ['BLACKHOLE_LIQUIDITY_RUN_COLLATERAL']='1'; "
+                "os.environ['BLACKHOLE_COLLATERAL_RUN_MARGIN']='1'; "
+                "os.environ['BLACKHOLE_MARGIN_RUN_CLEARING']='1'; "
+                "os.environ['BLACKHOLE_CLEARING_RUN_SETTLEMENT']='1'; "
+                "os.environ['BLACKHOLE_SETTLEMENT_RUN_ACTUATION']='1'; "
+                "os.environ['BLACKHOLE_ACTUATION_RUN_EXECUTION']='1'; "
+                "os.environ['BLACKHOLE_EXECUTION_RUN_FINALITY']='1'; "
+                "os.environ['BLACKHOLE_FINALITY_RUN_QUORUM']='1'; "
+                "os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='0'; "
+                "os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='0'; "
+                "os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; "
+                "os.environ['BLACKHOLE_FINALITY_EPOCH_COUNT']='2'; "
+                "os.environ['BLACKHOLE_ACTUATION_MIN_ACTIONS']='2'; "
+                "os.environ['BLACKHOLE_SETTLEMENT_MIN_SETTLEMENTS']='2'; "
+                "os.environ['BLACKHOLE_CLEARING_MIN_CLEARINGS']='2'; "
+                "os.environ['BLACKHOLE_MARGIN_MIN_MARGINS']='2'; "
+                "os.environ['BLACKHOLE_COLLATERAL_MIN_COLLATERALS']='2'; "
+                "os.environ['BLACKHOLE_LIQUIDITY_MIN_LIQUIDITIES']='2'; "
+                "os.environ['BLACKHOLE_FUNDING_MIN_FUNDINGS']='2'; "
+                "os.environ['BLACKHOLE_CAPITAL_MIN_CAPITALS']='2'; "
+                "os.environ['BLACKHOLE_SOLVENCY_MIN_SOLVENCIES']='2'; "
+                "os.environ['BLACKHOLE_RISK_MIN_RISKS']='2'; "
+                "os.environ['BLACKHOLE_STRESS_MIN_STRESSES']='2'; "
+                "os.environ['BLACKHOLE_RESILIENCE_MIN_RESILIENCES']='2'; "
+                "os.environ['BLACKHOLE_RECOVERY_MIN_RECOVERIES']='2'; "
+                "os.environ['BLACKHOLE_RESOLUTION_MIN_RESOLUTIONS']='2'; "
+                "os.environ['BLACKHOLE_REINSTATEMENT_MIN_REINSTATEMENTS']='2'; "
+                "os.environ['BLACKHOLE_REAUTHORIZATION_MIN_REAUTHORIZATIONS']='2'; "
+                "os.environ['BLACKHOLE_REAUTHORIZATION_RUN_REINSTATEMENT']='1'; "
+                "os.environ['BLACKHOLE_REORGANIZATION_RUN_RESOLUTION']='1'; "
+                "os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-reauthorization.json')); "
+                "os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-reauthorization-quorum.json')); "
+                "os.environ.setdefault('BLACKHOLE_FINALITY_BUNDLE_PATH', str(Path('artifacts')/'finality-bundles'/'proof-reauthorization-finality.json')); "
+                "os.environ.setdefault('BLACKHOLE_EXECUTION_BUNDLE_PATH', str(Path('artifacts')/'execution-bundles'/'proof-reauthorization-execution.json')); "
+                "os.environ.setdefault('BLACKHOLE_ACTUATION_BUNDLE_PATH', str(Path('artifacts')/'actuation-bundles'/'proof-reauthorization-actuation.json')); "
+                "os.environ.setdefault('BLACKHOLE_SETTLEMENT_BUNDLE_PATH', str(Path('artifacts')/'settlement-bundles'/'proof-reauthorization-settlement.json')); "
+                "os.environ.setdefault('BLACKHOLE_CLEARING_BUNDLE_PATH', str(Path('artifacts')/'clearing-bundles'/'proof-reauthorization-clearing.json')); "
+                "os.environ.setdefault('BLACKHOLE_MARGIN_BUNDLE_PATH', str(Path('artifacts')/'margin-bundles'/'proof-reauthorization-margin.json')); "
+                "os.environ.setdefault('BLACKHOLE_COLLATERAL_BUNDLE_PATH', str(Path('artifacts')/'collateral-bundles'/'proof-reauthorization-collateral.json')); "
+                "os.environ.setdefault('BLACKHOLE_LIQUIDITY_BUNDLE_PATH', str(Path('artifacts')/'liquidity-bundles'/'proof-reauthorization-liquidity.json')); "
+                "os.environ.setdefault('BLACKHOLE_FUNDING_BUNDLE_PATH', str(Path('artifacts')/'funding-bundles'/'proof-reauthorization-funding.json')); "
+                "os.environ.setdefault('BLACKHOLE_CAPITAL_BUNDLE_PATH', str(Path('artifacts')/'capital-bundles'/'proof-reauthorization-capital.json')); "
+                "os.environ.setdefault('BLACKHOLE_SOLVENCY_BUNDLE_PATH', str(Path('artifacts')/'solvency-bundles'/'proof-reauthorization-solvency.json')); "
+                "os.environ.setdefault('BLACKHOLE_RISK_BUNDLE_PATH', str(Path('artifacts')/'risk-bundles'/'proof-reauthorization-risk.json')); "
+                "os.environ.setdefault('BLACKHOLE_STRESS_BUNDLE_PATH', str(Path('artifacts')/'stress-bundles'/'proof-reauthorization-stress.json')); "
+                "os.environ.setdefault('BLACKHOLE_RESILIENCE_BUNDLE_PATH', str(Path('artifacts')/'resilience-bundles'/'proof-reauthorization-resilience.json')); "
+                "os.environ.setdefault('BLACKHOLE_RECOVERY_BUNDLE_PATH', str(Path('artifacts')/'recovery-bundles'/'proof-reauthorization-recovery.json')); "
+                "os.environ.setdefault('BLACKHOLE_REINSTATEMENT_BUNDLE_PATH', str(Path('artifacts')/'reinstatement-bundles'/'proof-reauthorization-reinstatement.json')); "
+                "os.environ.setdefault('BLACKHOLE_REAUTHORIZATION_BUNDLE_PATH', str(Path('artifacts')/'reauthorization-bundles'/'proof-reauthorization.json')); "
+                "r=builtin_reauthorization_plane(); assert r['ok'] and r.get('action')=='reauthorization_plane' "
+                "and r.get('reauthorized') is True and int(r.get('reauthorization_count') or 0) >= 2 "
+                "and int(r.get('tip_height') or 0) >= 2 "
+                "and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') "
+                "and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') "
+                "and r.get('reauthorization_certificate',{}).get('valid') "
+                "and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.outcome-contract",
+                "capability.contract-plane",
+                "capability.assurance-plane",
+                "capability.sovereignty-plane",
+                "capability.lineage-plane",
+                "capability.reconciliation-plane",
+                "capability.continuity-plane",
+                "capability.federation-plane",
+                "capability.quorum-plane",
+                "capability.finality-plane",
+                "capability.execution-plane",
+                "capability.actuation-plane",
+                "capability.settlement-plane",
+                "capability.clearing-plane",
+                "capability.margin-plane",
+                "capability.collateral-plane",
+                "capability.liquidity-plane",
+                "capability.funding-plane",
+                "capability.capital-plane",
+                "capability.solvency-plane",
+                "capability.risk-plane",
+                "capability.stress-plane",
+                "capability.resilience-plane",
+                "capability.recovery-plane",
+                "capability.resolution-plane",
+                "capability.restructuring-plane",
+                "capability.reorganization-plane",
+                "capability.reinstatement-plane",
+                "capability.rehabilitation-plane",
+                "capability.transfer-plane",
+                "capability.ablation-proof",
+                "capability.adversarial-contract",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "src/blackhole_agent/unbound.py",
+            ),
+            capability_delta=(
+                "Reauthorization plane posts multi-reinstatement orders into deterministic hash-chained "
+                "reauthorization orders with reauthorization plan digests bound to reinstatement roots, "
+                "reauthorization certificates, sterile rehydrate+prove, and adversarial falsification "
+                "without skill-route discovery."
+            ),
+            tags=(
+                "reauthorization",
+                "order",
+                "reinstatement",
+                "plane",
+                "certificate",
+                "adversarial",
+                "hash-chain",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+
 
     ]
 

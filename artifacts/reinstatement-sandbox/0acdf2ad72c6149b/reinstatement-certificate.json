@@ -1,0 +1,37 @@
+{
+  "bound_rehabilitation_height": 2,
+  "bound_rehabilitation_root": "8d62bee0c1258a4db4fe6525",
+  "certificate_hash": "99d45575bc81fe2226b32afb",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "reinstated",
+    "plane": "reinstatement"
+  },
+  "deterministic": true,
+  "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (clearing 2)",
+  "issued_at": "2026-07-30T10:33:09.453097Z",
+  "kind": "reinstatement_certificate",
+  "lineage_head_hash": "3e88a961498efdeccfd3739e",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "0da52ca0c0f6f5a1",
+  "parent_reinstatement_root": "8e8835bc7d9c2cd554d0f106",
+  "post_rehabilitation": true,
+  "rehabilitation_certificate_hash": "0b98c52aa50785d415f597bf",
+  "rehabilitation_hash": "b1a90345918403e320637088",
+  "rehabilitation_plan_digest": "b5ff8e16fe2fa3a31e77fd62",
+  "reinstatement_count": 2,
+  "reinstatement_height": 2,
+  "reinstatement_plan_digest": "751c6b8d0a64a94fc0e632a4",
+  "reinstatement_root": "567e47a5aec5f44fb311c171",
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

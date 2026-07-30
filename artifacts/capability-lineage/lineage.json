@@ -3491,12 +3491,248 @@
       },
       "package_hash": "7878a785b9718369",
       "parent_hash": "96217dd00674455a5b63adea"
+    },
+    {
+      "certificate_hash": "0f384404c4c821df9ab5d489",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260730T102510Z-2797a93c\\artifacts\\sovereignty-certificates\\sovereignty-0f384404c4c821df9ab5d489.json",
+      "claims": {
+        "ablation_ok": true,
+        "adversarial_ok": true,
+        "assurance_ok": true,
+        "contract_met": true,
+        "contract_ok": true,
+        "machine_checkable": true,
+        "no_skill_route": true,
+        "transfer_ok": true
+      },
+      "detail": {
+        "sovereignty_ok": true,
+        "verify_valid": true
+      },
+      "entry_hash": "ebdd4c065a8306e5b4f485f1",
+      "entry_kind": "sovereignty_certificate",
+      "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery.",
+      "index": 115,
+      "issued_at": "2026-07-30T10:33:11.452927Z",
+      "metrics": {
+        "count": 107,
+        "primitive_count": 58,
+        "proved_count": 106,
+        "proved_ratio": 0.9906542056074766
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "3e49bd489bc18abc67dfdd8f"
+    },
+    {
+      "certificate_hash": "0f384404c4c821df9ab5d489",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260730T102510Z-2797a93c\\artifacts\\sovereignty-certificates\\sovereignty-0f384404c4c821df9ab5d489.json",
+      "claims": {
+        "no_skill_route": true,
+        "sealed": true
+      },
+      "detail": {
+        "certificate_hash": "0f384404c4c821df9ab5d489",
+        "chain_pre_valid": true,
+        "live_count": 107,
+        "live_proved": 106,
+        "prior_head": "ebdd4c065a8306e5b4f485f1"
+      },
+      "entry_hash": "afab87c2fffe80381d7faef2",
+      "entry_kind": "continuity_seal",
+      "goal": "seal:Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery.",
+      "index": 116,
+      "issued_at": "2026-07-30T10:33:11.454390Z",
+      "metrics": {
+        "count": 107,
+        "primitive_count": 58,
+        "proved_count": 106,
+        "proved_ratio": 0.9906542056074766
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "ebdd4c065a8306e5b4f485f1"
+    },
+    {
+      "certificate_hash": "54d2e5d06d93553d698167e6",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260730T102510Z-2797a93c\\artifacts\\sovereignty-certificates\\sovereignty-54d2e5d06d93553d698167e6.json",
+      "claims": {
+        "ablation_ok": true,
+        "adversarial_ok": true,
+        "assurance_ok": true,
+        "contract_met": true,
+        "contract_ok": true,
+        "machine_checkable": true,
+        "no_skill_route": true,
+        "transfer_ok": true
+      },
+      "detail": {
+        "sovereignty_ok": true,
+        "verify_valid": true
+      },
+      "entry_hash": "edc642904eba9c8b6a46588c",
+      "entry_kind": "sovereignty_certificate",
+      "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery.",
+      "index": 117,
+      "issued_at": "2026-07-30T10:35:21.800471Z",
+      "metrics": {
+        "count": 107,
+        "primitive_count": 58,
+        "proved_count": 106,
+        "proved_ratio": 0.9906542056074766
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "afab87c2fffe80381d7faef2"
+    },
+    {
+      "certificate_hash": "54d2e5d06d93553d698167e6",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260730T102510Z-2797a93c\\artifacts\\sovereignty-certificates\\sovereignty-54d2e5d06d93553d698167e6.json",
+      "claims": {
+        "no_skill_route": true,
+        "sealed": true
+      },
+      "detail": {
+        "certificate_hash": "54d2e5d06d93553d698167e6",
+        "chain_pre_valid": true,
+        "live_count": 107,
+        "live_proved": 106,
+        "prior_head": "edc642904eba9c8b6a46588c"
+      },
+      "entry_hash": "bbfe7793774ca449426f7555",
+      "entry_kind": "continuity_seal",
+      "goal": "seal:Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery.",
+      "index": 118,
+      "issued_at": "2026-07-30T10:35:21.802162Z",
+      "metrics": {
+        "count": 107,
+        "primitive_count": 58,
+        "proved_count": 106,
+        "proved_ratio": 0.9906542056074766
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "edc642904eba9c8b6a46588c"
+    },
+    {
+      "certificate_hash": "979f684771eb83b4edf23565",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260730T102510Z-2797a93c\\artifacts\\sovereignty-certificates\\sovereignty-979f684771eb83b4edf23565.json",
+      "claims": {
+        "ablation_ok": true,
+        "adversarial_ok": true,
+        "assurance_ok": true,
+        "contract_met": true,
+        "contract_ok": true,
+        "machine_checkable": true,
+        "no_skill_route": true,
+        "transfer_ok": true
+      },
+      "detail": {
+        "sovereignty_ok": true,
+        "verify_valid": true
+      },
+      "entry_hash": "5334696b3c8c0a088a5bf2fd",
+      "entry_kind": "sovereignty_certificate",
+      "goal": "reauthorization over reinstatement",
+      "index": 119,
+      "issued_at": "2026-07-30T10:37:11.885933Z",
+      "metrics": {
+        "count": 107,
+        "primitive_count": 58,
+        "proved_count": 106,
+        "proved_ratio": 0.9906542056074766
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "bbfe7793774ca449426f7555"
+    },
+    {
+      "certificate_hash": "979f684771eb83b4edf23565",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260730T102510Z-2797a93c\\artifacts\\sovereignty-certificates\\sovereignty-979f684771eb83b4edf23565.json",
+      "claims": {
+        "no_skill_route": true,
+        "sealed": true
+      },
+      "detail": {
+        "certificate_hash": "979f684771eb83b4edf23565",
+        "chain_pre_valid": true,
+        "live_count": 107,
+        "live_proved": 106,
+        "prior_head": "5334696b3c8c0a088a5bf2fd"
+      },
+      "entry_hash": "835e741b5950a24820127f98",
+      "entry_kind": "continuity_seal",
+      "goal": "seal:reauthorization over reinstatement",
+      "index": 120,
+      "issued_at": "2026-07-30T10:37:11.887475Z",
+      "metrics": {
+        "count": 107,
+        "primitive_count": 58,
+        "proved_count": 106,
+        "proved_ratio": 0.9906542056074766
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "5334696b3c8c0a088a5bf2fd"
+    },
+    {
+      "certificate_hash": "83259f49f7a411fd76b0e316",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260730T102510Z-2797a93c\\artifacts\\sovereignty-certificates\\sovereignty-83259f49f7a411fd76b0e316.json",
+      "claims": {
+        "ablation_ok": true,
+        "adversarial_ok": true,
+        "assurance_ok": true,
+        "contract_met": true,
+        "contract_ok": true,
+        "machine_checkable": true,
+        "no_skill_route": true,
+        "transfer_ok": true
+      },
+      "detail": {
+        "sovereignty_ok": true,
+        "verify_valid": true
+      },
+      "entry_hash": "d93b34b0126ee32179c9ffd4",
+      "entry_kind": "sovereignty_certificate",
+      "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery.",
+      "index": 121,
+      "issued_at": "2026-07-30T10:40:37.779815Z",
+      "metrics": {
+        "count": 107,
+        "primitive_count": 58,
+        "proved_count": 106,
+        "proved_ratio": 0.9906542056074766
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "835e741b5950a24820127f98"
+    },
+    {
+      "certificate_hash": "83259f49f7a411fd76b0e316",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260730T102510Z-2797a93c\\artifacts\\sovereignty-certificates\\sovereignty-83259f49f7a411fd76b0e316.json",
+      "claims": {
+        "no_skill_route": true,
+        "sealed": true
+      },
+      "detail": {
+        "certificate_hash": "83259f49f7a411fd76b0e316",
+        "chain_pre_valid": true,
+        "live_count": 107,
+        "live_proved": 106,
+        "prior_head": "d93b34b0126ee32179c9ffd4"
+      },
+      "entry_hash": "c0426b8f49a2398a4dfa5d4a",
+      "entry_kind": "continuity_seal",
+      "goal": "seal:Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery.",
+      "index": 122,
+      "issued_at": "2026-07-30T10:40:37.781392Z",
+      "metrics": {
+        "count": 107,
+        "primitive_count": 58,
+        "proved_count": 106,
+        "proved_ratio": 0.9906542056074766
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "d93b34b0126ee32179c9ffd4"
     }
   ],
-  "entry_count": 115,
-  "head_hash": "3e49bd489bc18abc67dfdd8f",
+  "entry_count": 123,
+  "head_hash": "c0426b8f49a2398a4dfa5d4a",
   "kind": "capability_lineage",
   "ok": true,
   "schema_version": 1,
-  "updated_at": "2026-07-29T18:32:40.442221Z"
+  "updated_at": "2026-07-30T10:40:37.831860Z"
 }

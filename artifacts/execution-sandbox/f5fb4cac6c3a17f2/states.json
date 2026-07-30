@@ -1,0 +1,167 @@
+{
+  "entries": [
+    {
+      "agreeing_count": 2,
+      "applied_at": "2026-07-30T10:44:19.909048Z",
+      "byzantine_count": 1,
+      "claims": {
+        "plane": "execution",
+        "state_index": 1
+      },
+      "deterministic": true,
+      "epoch_hash": "419ed11a71bcdd00d8f868bc",
+      "epoch_height": 1,
+      "execution_certificate": {
+        "certificate_hash": "7f210d70b1f59b9dcd126c2c",
+        "claims": {
+          "member_count": 3,
+          "plane": "execution",
+          "state_index": 1
+        },
+        "deterministic": true,
+        "epoch_hash": "419ed11a71bcdd00d8f868bc",
+        "epoch_height": 1,
+        "finality_certificate_hash": "e38b35214106795e69953f88",
+        "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (state 1)",
+        "issued_at": "2026-07-30T10:44:19.909131Z",
+        "kind": "execution_certificate",
+        "lineage_head_hash": "e714e7cc5f40d9432c40c04d",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "066545df3053adf5",
+        "parent_state_root": "",
+        "post_finality": true,
+        "schema_version": 1,
+        "state_height": 1,
+        "state_root": "bc1edcf9f6d2ed541718b242",
+        "used_skill_route_discovery": false
+      },
+      "finality_certificate_hash": "e38b35214106795e69953f88",
+      "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (state 1)",
+      "kind": "execution_state",
+      "lineage_head_hash": "e714e7cc5f40d9432c40c04d",
+      "member_count": 3,
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "origin_count": 3,
+      "package_hash": "066545df3053adf5",
+      "parent_state_root": "",
+      "post_finality": true,
+      "projection": {
+        "agreeing_count": 2,
+        "applied_from": "finality_epoch",
+        "byzantine_count": 1,
+        "epoch_hash": "419ed11a71bcdd00d8f868bc",
+        "finality_certificate_hash": "e38b35214106795e69953f88",
+        "height": 1,
+        "lineage_head_hash": "e714e7cc5f40d9432c40c04d",
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "parent_state_root": ""
+      },
+      "schema_version": 1,
+      "state_height": 1,
+      "state_root": "bc1edcf9f6d2ed541718b242",
+      "used_skill_route_discovery": false
+    },
+    {
+      "agreeing_count": 2,
+      "applied_at": "2026-07-30T10:44:19.909328Z",
+      "byzantine_count": 1,
+      "claims": {
+        "plane": "execution",
+        "state_index": 2
+      },
+      "deterministic": true,
+      "epoch_hash": "36ce275460f6beb085583a33",
+      "epoch_height": 2,
+      "execution_certificate": {
+        "certificate_hash": "2cfdcbb8a93700d31c77d019",
+        "claims": {
+          "member_count": 3,
+          "plane": "execution",
+          "state_index": 2
+        },
+        "deterministic": true,
+        "epoch_hash": "36ce275460f6beb085583a33",
+        "epoch_height": 2,
+        "finality_certificate_hash": "016d0da9aa89339486c25b6a",
+        "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (state 2)",
+        "issued_at": "2026-07-30T10:44:19.909377Z",
+        "kind": "execution_certificate",
+        "lineage_head_hash": "252f540fec2212c9232d8c8a",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "792d66bcbca96161",
+        "parent_state_root": "bc1edcf9f6d2ed541718b242",
+        "post_finality": true,
+        "schema_version": 1,
+        "state_height": 2,
+        "state_root": "1ae9be0fd15e8c438c203813",
+        "used_skill_route_discovery": false
+      },
+      "finality_certificate_hash": "016d0da9aa89339486c25b6a",
+      "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (state 2)",
+      "kind": "execution_state",
+      "lineage_head_hash": "252f540fec2212c9232d8c8a",
+      "member_count": 3,
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "origin_count": 3,
+      "package_hash": "792d66bcbca96161",
+      "parent_state_root": "bc1edcf9f6d2ed541718b242",
+      "post_finality": true,
+      "projection": {
+        "agreeing_count": 2,
+        "applied_from": "finality_epoch",
+        "byzantine_count": 1,
+        "epoch_hash": "36ce275460f6beb085583a33",
+        "finality_certificate_hash": "016d0da9aa89339486c25b6a",
+        "height": 2,
+        "lineage_head_hash": "252f540fec2212c9232d8c8a",
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "origin_count": 3,
+        "package_hash": "792d66bcbca96161",
+        "parent_state_root": "bc1edcf9f6d2ed541718b242"
+      },
+      "schema_version": 1,
+      "state_height": 2,
+      "state_root": "1ae9be0fd15e8c438c203813",
+      "used_skill_route_discovery": false
+    }
+  ],
+  "entry_count": 2,
+  "kind": "execution_state_log",
+  "schema_version": 1,
+  "tip_epoch_hash": "36ce275460f6beb085583a33",
+  "tip_height": 2,
+  "tip_state_root": "1ae9be0fd15e8c438c203813",
+  "updated_at": "2026-07-30T10:44:19.909405Z"
+}

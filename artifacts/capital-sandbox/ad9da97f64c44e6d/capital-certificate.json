@@ -1,0 +1,37 @@
+{
+  "bound_funding_height": 2,
+  "bound_funding_root": "50aa2c217d3acfc3651ea740",
+  "capital_buffer_digest": "4ccc9bdaced352cbc6ead788",
+  "capital_count": 2,
+  "capital_height": 2,
+  "capital_root": "d107c38486790c4226a45b9c",
+  "certificate_hash": "bc5d36ac2e59c3ff7889fe21",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "capitalized",
+    "plane": "capital"
+  },
+  "deterministic": true,
+  "funding_certificate_hash": "0ad6e4de7116c93d1afc7d78",
+  "funding_facility_digest": "713f9a21e95bad7a4610c2a6",
+  "funding_hash": "4231795d84dd9bbbc44347c9",
+  "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (clearing 2)",
+  "issued_at": "2026-07-30T10:33:02.647751Z",
+  "kind": "capital_certificate",
+  "lineage_head_hash": "3e88a961498efdeccfd3739e",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "0da52ca0c0f6f5a1",
+  "parent_capital_root": "71e0137a604ae9865a1e868b",
+  "post_funding": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

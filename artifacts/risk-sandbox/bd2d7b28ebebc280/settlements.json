@@ -1,0 +1,151 @@
+{
+  "actuation_hash": "ed1819c72e5b6b5cadf02b03",
+  "bound_action_height": 2,
+  "bound_action_root": "fb23d4af0f262e63438d2c0a",
+  "entries": [
+    {
+      "actuation_certificate_hash": "82c482875b96a8c14a7d4e31",
+      "actuation_hash": "ed1819c72e5b6b5cadf02b03",
+      "applied_at": "2026-07-30T10:40:08.933055Z",
+      "bound_action_height": 1,
+      "bound_action_root": "0218aa346a74db3114840951",
+      "capability_id": "capability.ledger-inventory",
+      "claims": {
+        "plane": "settlement",
+        "settlement_index": 1
+      },
+      "deterministic": true,
+      "effect": "prove",
+      "effect_digest": "97e18e40cb09b26b6efa143e",
+      "entry": "blackhole_agent.capability_compounder:builtin_ledger_inventory",
+      "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (settlement 1)",
+      "kind": "settlement_receipt",
+      "lineage_head_hash": "4e6823a0f08ecd6110f83cf1",
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "outcome": "settled",
+      "package_hash": "1d747e39565ab6a3",
+      "parent_settlement_root": "",
+      "post_actuation": true,
+      "receipt_digest": "01847f98a4ee6eb8747b85be",
+      "schema_version": 1,
+      "settlement_certificate": {
+        "actuation_certificate_hash": "82c482875b96a8c14a7d4e31",
+        "actuation_hash": "ed1819c72e5b6b5cadf02b03",
+        "bound_action_height": 1,
+        "bound_action_root": "0218aa346a74db3114840951",
+        "certificate_hash": "653022e25b1d15c9411bf12d",
+        "claims": {
+          "capability_id": "capability.ledger-inventory",
+          "effect": "prove",
+          "outcome": "settled",
+          "plane": "settlement",
+          "settlement_index": 1
+        },
+        "deterministic": true,
+        "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (settlement 1)",
+        "issued_at": "2026-07-30T10:40:08.933111Z",
+        "kind": "settlement_certificate",
+        "lineage_head_hash": "4e6823a0f08ecd6110f83cf1",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "1d747e39565ab6a3",
+        "parent_settlement_root": "",
+        "post_actuation": true,
+        "schema_version": 1,
+        "settlement_count": 1,
+        "settlement_height": 1,
+        "settlement_root": "d6e371f8bf410d1d4ea31c71",
+        "used_skill_route_discovery": false,
+        "valid": true
+      },
+      "settlement_height": 1,
+      "settlement_root": "d6e371f8bf410d1d4ea31c71",
+      "used_skill_route_discovery": false
+    },
+    {
+      "actuation_certificate_hash": "82c482875b96a8c14a7d4e31",
+      "actuation_hash": "ed1819c72e5b6b5cadf02b03",
+      "applied_at": "2026-07-30T10:40:08.933194Z",
+      "bound_action_height": 2,
+      "bound_action_root": "fb23d4af0f262e63438d2c0a",
+      "capability_id": "repo.import-health",
+      "claims": {
+        "plane": "settlement",
+        "settlement_index": 2
+      },
+      "deterministic": true,
+      "effect": "prove",
+      "effect_digest": "0a4322d60275599702301f7d",
+      "entry": "blackhole_agent.capability_compounder:builtin_repo_import_health",
+      "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (settlement 2)",
+      "kind": "settlement_receipt",
+      "lineage_head_hash": "4e6823a0f08ecd6110f83cf1",
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "outcome": "settled",
+      "package_hash": "1d747e39565ab6a3",
+      "parent_settlement_root": "d6e371f8bf410d1d4ea31c71",
+      "post_actuation": true,
+      "receipt_digest": "fb1c40345c6140189109eff1",
+      "schema_version": 1,
+      "settlement_certificate": {
+        "actuation_certificate_hash": "82c482875b96a8c14a7d4e31",
+        "actuation_hash": "ed1819c72e5b6b5cadf02b03",
+        "bound_action_height": 2,
+        "bound_action_root": "fb23d4af0f262e63438d2c0a",
+        "certificate_hash": "e901c94f8ccfaf17bbf74d9d",
+        "claims": {
+          "capability_id": "repo.import-health",
+          "effect": "prove",
+          "outcome": "settled",
+          "plane": "settlement",
+          "settlement_index": 2
+        },
+        "deterministic": true,
+        "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (settlement 2)",
+        "issued_at": "2026-07-30T10:40:08.933215Z",
+        "kind": "settlement_certificate",
+        "lineage_head_hash": "4e6823a0f08ecd6110f83cf1",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "1d747e39565ab6a3",
+        "parent_settlement_root": "d6e371f8bf410d1d4ea31c71",
+        "post_actuation": true,
+        "schema_version": 1,
+        "settlement_count": 2,
+        "settlement_height": 2,
+        "settlement_root": "abde7981d33f7da72ca8dc8d",
+        "used_skill_route_discovery": false,
+        "valid": true
+      },
+      "settlement_height": 2,
+      "settlement_root": "abde7981d33f7da72ca8dc8d",
+      "used_skill_route_discovery": false
+    }
+  ],
+  "entry_count": 2,
+  "kind": "settlement_log",
+  "schema_version": 1,
+  "tip_height": 2,
+  "tip_settlement_root": "abde7981d33f7da72ca8dc8d",
+  "updated_at": "2026-07-30T10:40:08.933238Z"
+}

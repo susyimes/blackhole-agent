@@ -1,0 +1,37 @@
+{
+  "bound_margin_height": 2,
+  "bound_margin_root": "0826100121e2989613d7dc41",
+  "certificate_hash": "8738eda7318cc0ebd64beedc",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "collateralized",
+    "plane": "collateral"
+  },
+  "collateral_allocation_digest": "2dfa70e270605394d75bfc9f",
+  "collateral_count": 2,
+  "collateral_height": 2,
+  "collateral_root": "c41195bfe36a98fca78ed57c",
+  "deterministic": true,
+  "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (clearing 2)",
+  "issued_at": "2026-07-30T10:44:22.772965Z",
+  "kind": "collateral_certificate",
+  "lineage_head_hash": "252f540fec2212c9232d8c8a",
+  "margin_certificate_hash": "cdef8e520348cd3488dec6d4",
+  "margin_hash": "d8713bdd2dbed01e1c19c775",
+  "margin_requirement_digest": "638761f48a5d208902408f20",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "792d66bcbca96161",
+  "parent_collateral_root": "387bda5c471b0cfed00ff346",
+  "post_margin": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}
