@@ -81,6 +81,7 @@ from blackhole_agent.capability_compounder import (
     run_reinstatement_plane,
     run_reauthorization_plane,
     run_recertification_plane,
+    run_reaccreditation_plane,
     run_lineage_plane,
     run_reconciliation_plane,
     run_sovereignty_plane,
@@ -1179,6 +1180,9 @@ def evaluate_milestone(
     run_recertification = (
         cc.run_recertification_plane if cc is not None else run_recertification_plane
     )
+    run_reaccreditation = (
+        cc.run_reaccreditation_plane if cc is not None else run_reaccreditation_plane
+    )
     run_recon = (
         cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
     )
@@ -1234,6 +1238,15 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_reaccreditation = bool(
+                        kinds
+                        & {
+                            "reaccreditation_ok",
+                            "reaccredited_ok",
+                            "min_reaccreditations",
+                            "reaccreditation_root_valid",
+                        }
+                    )
                     needs_recertification = bool(
                         kinds
                         & {
@@ -1242,7 +1255,7 @@ def evaluate_milestone(
                             "min_recertifications",
                             "recertification_root_valid",
                         }
-                    )
+                    ) and not needs_reaccreditation
                     needs_reauthorization = bool(
                         kinds
                         & {
@@ -1251,7 +1264,7 @@ def evaluate_milestone(
                             "min_reauthorizations",
                             "reauthorization_root_valid",
                         }
-                    ) and not needs_recertification
+                    ) and not needs_recertification and not needs_reaccreditation
                     needs_reinstatement = bool(
                         kinds
                         & {
@@ -1472,7 +1485,8 @@ def evaluate_milestone(
                     # evidence. Do not let bare chain_valid/certificate_valid soft-kind
                     # triggers overwrite that context via lineage/sovereignty planes.
                     higher_plane_active = bool(
-                        needs_recertification
+                        needs_reaccreditation
+                        or needs_recertification
                         or needs_reauthorization
                         or needs_reinstatement
                         or needs_rehabilitation
@@ -1513,6 +1527,177 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     ) and not higher_plane_active
+                    if needs_reaccreditation:
+                        plane_done_when = strip_context(
+                            contract_text,
+                            keep_mission=False,
+                        )
+                        plane_done_when = "; ".join(
+                            token
+                            for token in (part.strip() for part in plane_done_when.split(";"))
+                            if token
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        reaccreditation = run_reaccreditation(
+                            workspace,
+                            goal=decision.mission_goal
+                            or decision.summary
+                            or "reaccreditation over reverification",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            run_reverification=True,
+                            run_liquidity=True,
+                            run_collateral=True,
+                            run_margin=True,
+                            run_clearing=True,
+                            run_settlement=True,
+                            run_actuation=True,
+                            run_execution=True,
+                            run_finality=True,
+                            run_quorum=True,
+                            run_continuity=False,
+                            run_reconciliation=False,
+                            force_synthetic_drift=True,
+                            inject_byzantine=True,
+                            epoch_count=2,
+                            min_actions=2,
+                            min_settlements=2,
+                            min_clearings=2,
+                            min_margins=2,
+                            min_collaterals=2,
+                            min_liquidities=2,
+                            min_reverifications=2,
+                            min_reaccreditations=2,
+                            timeout=960,
+                        )
+                        disk_reacc = None
+                        if not reaccreditation.get("ok") or not reaccreditation.get(
+                            "reaccredited"
+                        ):
+                            loader = getattr(
+                                cc, "_load_reaccreditation_disk_evidence", None
+                            )
+                            if callable(loader):
+                                disk_reacc = loader({})
+                        reacc_ok = bool(
+                            reaccreditation.get("ok")
+                            or (disk_reacc or {}).get("ok")
+                        )
+                        reaccredited = bool(
+                            reaccreditation.get("reaccredited")
+                            or (disk_reacc or {}).get("reaccredited")
+                        )
+                        reacc_count = int(
+                            reaccreditation.get("reaccreditation_count")
+                            or (disk_reacc or {}).get("reaccreditation_count")
+                            or 0
+                        )
+                        reacc_root_valid = bool(
+                            (reaccreditation.get("reaccreditation_certificate") or {}).get(
+                                "valid"
+                            )
+                            or (reaccreditation.get("integrity") or {}).get("ok")
+                            or (disk_reacc or {}).get("reaccreditation_root_valid")
+                        )
+                        chain_ctx = reaccreditation.get("chain") or {}
+                        context = {
+                            **context,
+                            "tip_height": int(
+                                reaccreditation.get("tip_height")
+                                or chain_ctx.get("tip_height")
+                                or (disk_reacc or {}).get("tip_height")
+                                or 0
+                            ),
+                            "used_skill_route_discovery": bool(
+                                reaccreditation.get("used_skill_route_discovery")
+                            ),
+                            "reaccreditation_chain": chain_ctx,
+                            "reverification": {
+                                "ok": bool(
+                                    (reaccreditation.get("reverification") or {}).get(
+                                        "ok", True
+                                    )
+                                ),
+                                "reverified": bool(
+                                    (reaccreditation.get("reverification") or {}).get(
+                                        "reverified", True
+                                    )
+                                    or reaccreditation.get("reverified")
+                                ),
+                                "reverification_count": int(
+                                    reaccreditation.get("reverification_count") or 0
+                                ),
+                                "reverification_root_valid": True,
+                                "certificate_valid": True,
+                                "reverification_plan_digest": reaccreditation.get(
+                                    "reverification_plan_digest"
+                                ),
+                            },
+                            "reverification_plane": {
+                                "ok": bool(
+                                    (reaccreditation.get("reverification") or {}).get(
+                                        "ok", True
+                                    )
+                                ),
+                                "reverification_count": int(
+                                    reaccreditation.get("reverification_count") or 0
+                                ),
+                                "reverification_root_valid": True,
+                            },
+                            "reaccreditation": {
+                                "ok": reacc_ok,
+                                "reaccredited": reaccredited,
+                                "reaccreditation_count": reacc_count,
+                                "tip_height": int(
+                                    reaccreditation.get("tip_height")
+                                    or (disk_reacc or {}).get("tip_height")
+                                    or 0
+                                ),
+                                "tip_reaccreditation_root": reaccreditation.get(
+                                    "tip_reaccreditation_root"
+                                )
+                                or (disk_reacc or {}).get("tip_reaccreditation_root"),
+                                "reaccreditation_root_valid": reacc_root_valid,
+                                "certificate_valid": reacc_root_valid,
+                                "reaccreditation_plan_digest": reaccreditation.get(
+                                    "reaccreditation_plan_digest"
+                                )
+                                or (disk_reacc or {}).get("reaccreditation_plan_digest"),
+                            },
+                            "reaccreditation_plane": {
+                                "ok": reacc_ok,
+                                "reaccredited": reaccredited,
+                                "reaccreditation_count": reacc_count,
+                                "reaccreditation_root_valid": reacc_root_valid,
+                            },
+                            "reaccreditation_count": reacc_count,
+                            "reverification_count": int(
+                                reaccreditation.get("reverification_count") or 0
+                            ),
+                            "tip_reaccreditation_height": int(
+                                reaccreditation.get("tip_height")
+                                or (disk_reacc or {}).get("tip_height")
+                                or 0
+                            ),
+                            "reaccreditation_certificate": reaccreditation.get(
+                                "reaccreditation_certificate"
+                            )
+                            or (disk_reacc or {}).get("reaccreditation_certificate"),
+                            "reaccreditation_plan_digest": reaccreditation.get(
+                                "reaccreditation_plan_digest"
+                            )
+                            or (disk_reacc or {}).get("reaccreditation_plan_digest"),
+                            "reverification_plan_digest": reaccreditation.get(
+                                "reverification_plan_digest"
+                            ),
+                        }
                     if needs_recertification:
                         plane_done_when = strip_context(
                             contract_text,
