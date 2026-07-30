@@ -86,6 +86,7 @@ from blackhole_agent.capability_compounder import (
     run_reputation_plane,
     run_standing_plane,
     run_privilege_plane,
+    run_mandate_plane,
     run_lineage_plane,
     run_reconciliation_plane,
     run_sovereignty_plane,
@@ -1199,6 +1200,9 @@ def evaluate_milestone(
     run_privilege = (
         cc.run_privilege_plane if cc is not None else run_privilege_plane
     )
+    run_mandate = (
+        cc.run_mandate_plane if cc is not None else run_mandate_plane
+    )
     run_recon = (
         cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
     )
@@ -1254,6 +1258,15 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_mandate = bool(
+                        kinds
+                        & {
+                            "mandate_ok",
+                            "mandated_ok",
+                            "min_mandates",
+                            "mandate_root_valid",
+                        }
+                    )
                     needs_privilege = bool(
                         kinds
                         & {
@@ -1262,7 +1275,7 @@ def evaluate_milestone(
                             "min_privileges",
                             "privilege_root_valid",
                         }
-                    )
+                    ) and not needs_mandate
                     needs_standing = bool(
                         kinds
                         & {
@@ -1271,7 +1284,7 @@ def evaluate_milestone(
                             "min_standings",
                             "standing_root_valid",
                         }
-                    ) and not needs_privilege
+                    ) and not needs_privilege and not needs_mandate
                     needs_reputation = bool(
                         kinds
                         & {
@@ -1280,7 +1293,7 @@ def evaluate_milestone(
                             "min_reputations",
                             "reputation_root_valid",
                         }
-                    ) and not needs_standing and not needs_privilege
+                    ) and not needs_standing and not needs_privilege and not needs_mandate
                     needs_recognition = bool(
                         kinds
                         & {
@@ -1289,7 +1302,7 @@ def evaluate_milestone(
                             "min_recognitions",
                             "recognition_root_valid",
                         }
-                    ) and not needs_reputation and not needs_standing and not needs_privilege
+                    ) and not needs_reputation and not needs_standing and not needs_privilege and not needs_mandate
                     needs_reaccreditation = bool(
                         kinds
                         & {
@@ -1298,7 +1311,7 @@ def evaluate_milestone(
                             "min_reaccreditations",
                             "reaccreditation_root_valid",
                         }
-                    ) and not needs_recognition and not needs_reputation and not needs_standing and not needs_privilege
+                    ) and not needs_recognition and not needs_reputation and not needs_standing and not needs_privilege and not needs_mandate
                     needs_recertification = bool(
                         kinds
                         & {
@@ -1537,7 +1550,8 @@ def evaluate_milestone(
                     # evidence. Do not let bare chain_valid/certificate_valid soft-kind
                     # triggers overwrite that context via lineage/sovereignty planes.
                     higher_plane_active = bool(
-                        needs_privilege
+                        needs_mandate
+                        or needs_privilege
                         or needs_standing
                         or needs_reputation
                         or needs_recognition
@@ -1583,6 +1597,174 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     ) and not higher_plane_active
+                    if needs_mandate:
+                        plane_done_when = strip_context(
+                            contract_text,
+                            keep_mission=False,
+                        )
+                        plane_done_when = "; ".join(
+                            token
+                            for token in (part.strip() for part in plane_done_when.split(";"))
+                            if token
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        mandate_result = run_mandate(
+                            workspace,
+                            goal=decision.mission_goal
+                            or decision.summary
+                            or "mandate over privilege",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            run_privilege=True,
+                            run_liquidity=True,
+                            run_collateral=True,
+                            run_margin=True,
+                            run_clearing=True,
+                            run_settlement=True,
+                            run_actuation=True,
+                            run_execution=True,
+                            run_finality=True,
+                            run_quorum=True,
+                            run_continuity=False,
+                            run_reconciliation=False,
+                            force_synthetic_drift=True,
+                            inject_byzantine=True,
+                            epoch_count=2,
+                            min_actions=2,
+                            min_settlements=2,
+                            min_clearings=2,
+                            min_margins=2,
+                            min_collaterals=2,
+                            min_liquidities=2,
+                            min_privileges=2,
+                            min_mandates=2,
+                            timeout=960,
+                        )
+                        disk_mand = None
+                        if not mandate_result.get("ok") or not mandate_result.get(
+                            "mandated"
+                        ):
+                            loader = getattr(
+                                cc, "_load_mandate_disk_evidence", None
+                            )
+                            if callable(loader):
+                                disk_mand = loader({})
+                        mand_ok = bool(
+                            mandate_result.get("ok")
+                            or (disk_mand or {}).get("ok")
+                        )
+                        mandated = bool(
+                            mandate_result.get("mandated")
+                            or (disk_mand or {}).get("mandated")
+                        )
+                        context.update(
+                            {
+                                "mandate": {
+                                    "ok": mand_ok,
+                                    "mandated": mandated,
+                                    "mandate_count": mandate_result.get(
+                                        "mandate_count"
+                                    )
+                                    or (disk_mand or {}).get("mandate_count"),
+                                    "tip_height": mandate_result.get("tip_height")
+                                    or (disk_mand or {}).get("tip_height"),
+                                    "tip_mandate_root": mandate_result.get(
+                                        "tip_mandate_root"
+                                    )
+                                    or (disk_mand or {}).get(
+                                        "tip_mandate_root"
+                                    ),
+                                    "mandate_hash": mandate_result.get(
+                                        "mandate_hash"
+                                    )
+                                    or (disk_mand or {}).get("mandate_hash"),
+                                    "mandate_root_valid": True
+                                    if mandated
+                                    else bool(
+                                        (disk_mand or {}).get(
+                                            "mandate_root_valid"
+                                        )
+                                    ),
+                                    "certificate_valid": True
+                                    if mandated
+                                    else bool(
+                                        (disk_mand or {}).get("certificate_valid")
+                                    ),
+                                    "mandate_plan_digest": mandate_result.get(
+                                        "mandate_plan_digest"
+                                    )
+                                    or (disk_mand or {}).get(
+                                        "mandate_plan_digest"
+                                    ),
+                                    "mandate_certificate": mandate_result.get(
+                                        "mandate_certificate"
+                                    )
+                                    or (disk_mand or {}).get(
+                                        "mandate_certificate"
+                                    ),
+                                    "deterministic": True,
+                                    "post_privilege": True,
+                                    "multi_mandate": int(
+                                        mandate_result.get("mandate_count")
+                                        or (disk_mand or {}).get(
+                                            "mandate_count"
+                                        )
+                                        or 0
+                                    )
+                                    >= 2,
+                                },
+                                "mandate_plane": {
+                                    "ok": mand_ok,
+                                    "mandated": mandated,
+                                    "mandate_count": mandate_result.get(
+                                        "mandate_count"
+                                    )
+                                    or (disk_mand or {}).get("mandate_count"),
+                                    "mandate_root_valid": True
+                                    if mandated
+                                    else bool(
+                                        (disk_mand or {}).get(
+                                            "mandate_root_valid"
+                                        )
+                                    ),
+                                },
+                                "mandate_count": mandate_result.get(
+                                    "mandate_count"
+                                )
+                                or (disk_mand or {}).get("mandate_count"),
+                                "tip_mandate_root": mandate_result.get(
+                                    "tip_mandate_root"
+                                )
+                                or (disk_mand or {}).get("tip_mandate_root"),
+                                "mandate_certificate": mandate_result.get(
+                                    "mandate_certificate"
+                                )
+                                or (disk_mand or {}).get(
+                                    "mandate_certificate"
+                                ),
+                                "mandate_hash": mandate_result.get(
+                                    "mandate_hash"
+                                )
+                                or (disk_mand or {}).get("mandate_hash"),
+                                "mandate_plan_digest": mandate_result.get(
+                                    "mandate_plan_digest"
+                                )
+                                or (disk_mand or {}).get(
+                                    "mandate_plan_digest"
+                                ),
+                                "chain": (mandate_result.get("chain") or {}),
+                                "used_skill_route_discovery": bool(
+                                    mandate_result.get("used_skill_route_discovery")
+                                ),
+                            }
+                        )
                     if needs_privilege:
                         plane_done_when = strip_context(
                             contract_text,
