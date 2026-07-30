@@ -14,14 +14,14 @@
         "origin_id": "origin-b",
         "plane": "federation"
       },
-      "entry_hash": "fdfcdf3e60827e8be33de834",
+      "entry_hash": "2c754b56b333826af5e4060f",
       "entry_kind": "federation_origin_seed",
-      "goal": "resilience over stress (honest origin-b)",
+      "goal": "recovery over resilience (honest origin-b)",
       "index": 0,
-      "issued_at": "2026-07-30T05:29:21.609383Z",
+      "issued_at": "2026-07-30T06:10:47.533762Z",
       "metrics": {
-        "count": 100,
-        "primitive_count": 51,
+        "count": 101,
+        "primitive_count": 52,
         "proved_count": 88,
         "proved_ratio": null
       },
@@ -42,11 +42,11 @@
         ],
         "origin_id": "origin-b"
       },
-      "entry_hash": "f7907bb442cc4aad1ae59b39",
+      "entry_hash": "9bf4553dcf4fed130e8145a1",
       "entry_kind": "federation_origin_seal",
-      "goal": "resilience over stress (honest origin-b)",
+      "goal": "recovery over resilience (honest origin-b)",
       "index": 1,
-      "issued_at": "2026-07-30T05:29:21.609412Z",
+      "issued_at": "2026-07-30T06:10:47.533792Z",
       "metrics": {
         "count": 2,
         "primitive_count": null,
@@ -54,13 +54,13 @@
         "proved_ratio": null
       },
       "package_hash": "8ece9182045d973a",
-      "parent_hash": "fdfcdf3e60827e8be33de834"
+      "parent_hash": "2c754b56b333826af5e4060f"
     }
   ],
   "entry_count": 2,
-  "head_hash": "f7907bb442cc4aad1ae59b39",
+  "head_hash": "9bf4553dcf4fed130e8145a1",
   "kind": "capability_lineage",
   "ok": true,
   "schema_version": 1,
-  "updated_at": "2026-07-30T05:29:21.609622Z"
+  "updated_at": "2026-07-30T06:10:47.534006Z"
 }

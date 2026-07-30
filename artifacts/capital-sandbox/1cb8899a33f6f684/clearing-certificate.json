@@ -1,0 +1,37 @@
+{
+  "bound_liquidity_height": 2,
+  "bound_liquidity_root": "08744d191494966371233288",
+  "certificate_hash": "48638d9f91f2e86ccbc0fa17",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "funded",
+    "plane": "funding"
+  },
+  "deterministic": true,
+  "funding_count": 2,
+  "funding_facility_digest": "4d7daa6e94e253ca22f6cb3d",
+  "funding_height": 2,
+  "funding_root": "417ebdd912bb037de9911eb3",
+  "goal": "recovery over resilience (clearing 2)",
+  "issued_at": "2026-07-30T06:10:52.328624Z",
+  "kind": "funding_certificate",
+  "lineage_head_hash": "6b5acee8482acfceaa2c484a",
+  "liquidity_certificate_hash": "416e7aa32bc1d0e2a3fcb6d5",
+  "liquidity_coverage_digest": "9d9bb12245f3ae76019d1b41",
+  "liquidity_hash": "0e247c23fd0074d761a339f0",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "cc748e9355824209",
+  "parent_funding_root": "f968a1d0296a868863392461",
+  "post_liquidity": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

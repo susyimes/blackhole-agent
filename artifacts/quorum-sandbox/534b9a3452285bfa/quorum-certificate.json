@@ -1,0 +1,41 @@
+{
+  "agreeing_count": 2,
+  "agreeing_origins": [
+    "origin-a",
+    "origin-b"
+  ],
+  "byzantine_count": 1,
+  "byzantine_origins": [
+    "origin-byzantine"
+  ],
+  "certificate_hash": "d7f60cdd34bd90f1d0ff1f4d",
+  "claims": {
+    "origin_ids": [
+      "origin-a",
+      "origin-b",
+      "origin-byzantine"
+    ],
+    "roots": [
+      "repo.import-health",
+      "capability.ledger-inventory",
+      "unbound.milestone-gate"
+    ],
+    "votes_accepted": 3
+  },
+  "goal": "recovery over resilience",
+  "issued_at": "2026-07-30T06:10:47.548940Z",
+  "kind": "quorum_certificate",
+  "lineage_head_hash": "9ed5e0643b5de5e5dcc5775e",
+  "member_count": 3,
+  "ok": true,
+  "origin_count": 3,
+  "origin_hashes": [
+    "4e727b6c0584eba6df304e7a",
+    "e8cd8ad843a00cca5bdc4bbb",
+    "3bba12f19a66527fd74e7902"
+  ],
+  "package_hash": "066545df3053adf5",
+  "schema_version": 1,
+  "threshold": 2,
+  "used_skill_route_discovery": false
+}

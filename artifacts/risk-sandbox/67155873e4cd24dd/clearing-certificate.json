@@ -1,0 +1,37 @@
+{
+  "bound_capital_height": 2,
+  "bound_capital_root": "e46beda256df5d38b987715b",
+  "capital_buffer_digest": "73005bf9c395ff46ce0e6602",
+  "capital_certificate_hash": "fdcffd908dee96af6b67fd3c",
+  "capital_hash": "1cb8899a33f6f684e5ba0160",
+  "certificate_hash": "c1bdedf90c314bbe78ccacc4",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "solvent",
+    "plane": "solvency"
+  },
+  "deterministic": true,
+  "goal": "recovery over resilience (clearing 2)",
+  "issued_at": "2026-07-30T06:10:53.341068Z",
+  "kind": "solvency_certificate",
+  "lineage_head_hash": "6b5acee8482acfceaa2c484a",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "cc748e9355824209",
+  "parent_solvency_root": "697ed8e0461fe6f35b773a13",
+  "post_capital": true,
+  "schema_version": 1,
+  "solvency_count": 2,
+  "solvency_height": 2,
+  "solvency_position_digest": "3d4daff134c1cd492abc8986",
+  "solvency_root": "052d6131fb6038f51b3e087b",
+  "used_skill_route_discovery": false,
+  "valid": true
+}
