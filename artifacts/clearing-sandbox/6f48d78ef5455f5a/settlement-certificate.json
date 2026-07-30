@@ -1,0 +1,35 @@
+{
+  "actuation_certificate_hash": "402b43c6f910430e39764c57",
+  "actuation_hash": "c74723c521560c6aef777992",
+  "bound_action_height": 2,
+  "bound_action_root": "6dcfbdd4bdcb011cda75a23e",
+  "certificate_hash": "8fb674edbc2e409a8f738d6f",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "effect": "prove",
+    "outcome": "settled",
+    "plane": "settlement",
+    "settlement_index": 2
+  },
+  "deterministic": true,
+  "goal": "reorganization over restructuring (settlement 2)",
+  "issued_at": "2026-07-30T08:40:33.981428Z",
+  "kind": "settlement_certificate",
+  "lineage_head_hash": "678f3c510c1fb3ffbeb7e904",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "956c2af753f6a52f",
+  "parent_settlement_root": "4808e994fbd1c7c2d6ad8345",
+  "post_actuation": true,
+  "schema_version": 1,
+  "settlement_count": 2,
+  "settlement_height": 2,
+  "settlement_root": "23c1d4ed5327e083677adb9d",
+  "used_skill_route_discovery": false,
+  "valid": true
+}

@@ -76,6 +76,7 @@ from blackhole_agent.capability_compounder import (
     run_recovery_plane,
     run_resolution_plane,
     run_restructuring_plane,
+    run_reorganization_plane,
     run_lineage_plane,
     run_reconciliation_plane,
     run_sovereignty_plane,
@@ -1113,6 +1114,9 @@ def evaluate_milestone(
     run_restructuring = (
         cc.run_restructuring_plane if cc is not None else run_restructuring_plane
     )
+    run_reorganization = (
+        cc.run_reorganization_plane if cc is not None else run_reorganization_plane
+    )
     run_recon = (
         cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
     )
@@ -1168,6 +1172,15 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_reorganization = bool(
+                        kinds
+                        & {
+                            "reorganization_ok",
+                            "reorganized_ok",
+                            "min_reorganizations",
+                            "reorganization_root_valid",
+                        }
+                    )
                     needs_restructuring = bool(
                         kinds
                         & {
@@ -1176,7 +1189,7 @@ def evaluate_milestone(
                             "min_restructurings",
                             "restructuring_root_valid",
                         }
-                    )
+                    ) and not needs_reorganization
                     needs_resolution = bool(
                         kinds
                         & {
@@ -1185,7 +1198,7 @@ def evaluate_milestone(
                             "min_resolutions",
                             "resolution_root_valid",
                         }
-                    ) and not needs_restructuring
+                    ) and not needs_restructuring and not needs_reorganization
                     needs_recovery = bool(
                         kinds
                         & {
@@ -1194,7 +1207,7 @@ def evaluate_milestone(
                             "min_recoveries",
                             "recovery_root_valid",
                         }
-                    ) and not needs_resolution and not needs_restructuring
+                    ) and not needs_resolution and not needs_restructuring and not needs_reorganization
                     needs_resilience = bool(
                         kinds
                         & {
@@ -1203,7 +1216,7 @@ def evaluate_milestone(
                             "min_resiliences",
                             "resilience_root_valid",
                         }
-                    ) and not needs_recovery and not needs_resolution and not needs_restructuring
+                    ) and not needs_recovery and not needs_resolution and not needs_restructuring and not needs_reorganization
                     needs_stress = bool(
                         kinds
                         & {
@@ -1212,7 +1225,7 @@ def evaluate_milestone(
                             "min_stresses",
                             "stress_root_valid",
                         }
-                    ) and not needs_resilience and not needs_recovery and not needs_resolution and not needs_restructuring
+                    ) and not needs_resilience and not needs_recovery and not needs_resolution and not needs_restructuring and not needs_reorganization
                     needs_risk = bool(
                         kinds
                         & {
@@ -1221,7 +1234,7 @@ def evaluate_milestone(
                             "min_risks",
                             "risk_root_valid",
                         }
-                    ) and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution and not needs_restructuring
+                    ) and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution and not needs_restructuring and not needs_reorganization
                     needs_solvency = bool(
                         kinds
                         & {
@@ -1230,7 +1243,7 @@ def evaluate_milestone(
                             "min_solvencies",
                             "solvency_root_valid",
                         }
-                    ) and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution and not needs_restructuring
+                    ) and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution and not needs_restructuring and not needs_reorganization
                     needs_capital = bool(
                         kinds
                         & {
@@ -1239,7 +1252,7 @@ def evaluate_milestone(
                             "min_capitals",
                             "capital_root_valid",
                         }
-                    ) and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution and not needs_restructuring
+                    ) and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution and not needs_restructuring and not needs_reorganization
                     needs_funding = bool(
                         kinds
                         & {
@@ -1248,7 +1261,7 @@ def evaluate_milestone(
                             "min_fundings",
                             "funding_root_valid",
                         }
-                    ) and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution and not needs_restructuring
+                    ) and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution and not needs_restructuring and not needs_reorganization
                     needs_liquidity = bool(
                         kinds
                         & {
@@ -1257,7 +1270,7 @@ def evaluate_milestone(
                             "min_liquidities",
                             "liquidity_root_valid",
                         }
-                    ) and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution and not needs_restructuring
+                    ) and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution and not needs_restructuring and not needs_reorganization
                     needs_collateral = bool(
                         kinds
                         & {
@@ -1266,7 +1279,7 @@ def evaluate_milestone(
                             "min_collaterals",
                             "collateral_root_valid",
                         }
-                    ) and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution and not needs_restructuring
+                    ) and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution and not needs_restructuring and not needs_reorganization
                     needs_margin = bool(
                         kinds
                         & {
@@ -1275,7 +1288,7 @@ def evaluate_milestone(
                             "min_margins",
                             "margin_root_valid",
                         }
-                    ) and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution and not needs_restructuring
+                    ) and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution and not needs_restructuring and not needs_reorganization
                     needs_clearing = bool(
                         kinds
                         & {
@@ -1284,7 +1297,7 @@ def evaluate_milestone(
                             "min_clearings",
                             "clearing_root_valid",
                         }
-                    ) and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution and not needs_restructuring
+                    ) and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution and not needs_restructuring and not needs_reorganization
                     needs_settlement = bool(
                         kinds
                         & {
@@ -1293,7 +1306,7 @@ def evaluate_milestone(
                             "min_settlements",
                             "settlement_root_valid",
                         }
-                    ) and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution and not needs_restructuring
+                    ) and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution and not needs_restructuring and not needs_reorganization
                     needs_actuation = bool(
                         kinds
                         & {
@@ -1302,7 +1315,7 @@ def evaluate_milestone(
                             "min_actions",
                             "action_root_valid",
                         }
-                    ) and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution and not needs_restructuring
+                    ) and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution and not needs_restructuring and not needs_reorganization
                     needs_execution = bool(
                         kinds
                         & {
@@ -1311,7 +1324,7 @@ def evaluate_milestone(
                             "min_state_height",
                             "state_root_valid",
                         }
-                    ) and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution and not needs_restructuring
+                    ) and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution and not needs_restructuring and not needs_reorganization
                     needs_finality = bool(
                         kinds
                         & {
@@ -1320,7 +1333,7 @@ def evaluate_milestone(
                             "min_epochs",
                             "finality_cert_valid",
                         }
-                    ) and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution and not needs_restructuring
+                    ) and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution and not needs_restructuring and not needs_reorganization
                     needs_quorum = bool(
                         kinds
                         & {
@@ -1330,7 +1343,7 @@ def evaluate_milestone(
                             "byzantine_excluded",
                             "quorum_cert_valid",
                         }
-                    ) and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution and not needs_restructuring
+                    ) and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution and not needs_restructuring and not needs_reorganization
                     needs_federation = bool(
                         kinds
                         & {
@@ -1339,7 +1352,7 @@ def evaluate_milestone(
                             "min_origins",
                             "federation_cert_valid",
                         }
-                    ) and not needs_quorum and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution and not needs_restructuring
+                    ) and not needs_quorum and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution and not needs_restructuring and not needs_reorganization
                     needs_continuity = bool(
                         kinds
                         & {
@@ -1374,6 +1387,145 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     )
+                    if needs_reorganization:
+                        plane_done_when = strip_context(
+                            contract_text,
+                            keep_mission=False,
+                        )
+                        plane_done_when = "; ".join(
+                            token
+                            for token in (part.strip() for part in plane_done_when.split(";"))
+                            if token
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        reorganization = run_reorganization(
+                            workspace,
+                            goal=decision.mission_goal
+                            or decision.summary
+                            or "reorganization over restructuring",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            run_restructuring=True,
+                            run_liquidity=True,
+                            run_collateral=True,
+                            run_clearing=True,
+                            run_settlement=True,
+                            run_actuation=True,
+                            run_execution=True,
+                            run_finality=True,
+                            run_quorum=True,
+                            run_continuity=False,
+                            run_reconciliation=False,
+                            force_synthetic_drift=True,
+                            inject_byzantine=True,
+                            epoch_count=2,
+                            min_actions=2,
+                            min_settlements=2,
+                            min_clearings=2,
+                            min_margins=2,
+                            min_collaterals=2,
+                            min_liquidities=2,
+                            min_restructurings=2,
+                            min_reorganizations=2,
+                            timeout=960,
+                        )
+                        context = {
+                            "used_skill_route_discovery": bool(
+                                reorganization.get("used_skill_route_discovery")
+                            ),
+                            "chain": reorganization.get("chain") or {},
+                            "reorganization_chain": reorganization.get("chain") or {},
+                            "restructuring": {
+                                "ok": bool(
+                                    (reorganization.get("restructuring") or {}).get("ok", True)
+                                ),
+                                "restructured": bool(
+                                    (reorganization.get("restructuring") or {}).get(
+                                        "restructured", True
+                                    )
+                                    or reorganization.get("restructured")
+                                    or True
+                                ),
+                                "restructuring_count": int(
+                                    reorganization.get("restructuring_count") or 0
+                                ),
+                                "restructuring_root_valid": True,
+                                "certificate_valid": True,
+                                "restructuring_plan_digest": reorganization.get(
+                                    "restructuring_plan_digest"
+                                ),
+                            },
+                            "restructuring_plane": {
+                                "ok": bool(
+                                    (reorganization.get("restructuring") or {}).get("ok", True)
+                                ),
+                                "restructured": True,
+                                "restructuring_count": int(
+                                    reorganization.get("restructuring_count") or 0
+                                ),
+                            },
+                            "reorganization": {
+                                "ok": bool(reorganization.get("ok")),
+                                "reorganized": bool(reorganization.get("reorganized")),
+                                "reorganization_count": int(
+                                    reorganization.get("reorganization_count") or 0
+                                ),
+                                "tip_height": int(reorganization.get("tip_height") or 0),
+                                "tip_reorganization_root": reorganization.get(
+                                    "tip_reorganization_root"
+                                ),
+                                "reorganization_root_valid": bool(
+                                    (reorganization.get("reorganization_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                    or (reorganization.get("integrity") or {}).get("ok")
+                                ),
+                                "certificate_valid": bool(
+                                    (reorganization.get("reorganization_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                                "reorganization_plan_digest": reorganization.get(
+                                    "reorganization_plan_digest"
+                                ),
+                            },
+                            "reorganization_plane": {
+                                "ok": bool(reorganization.get("ok")),
+                                "reorganized": bool(reorganization.get("reorganized")),
+                                "reorganization_count": int(
+                                    reorganization.get("reorganization_count") or 0
+                                ),
+                                "reorganization_root_valid": bool(
+                                    (reorganization.get("reorganization_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                    or (reorganization.get("integrity") or {}).get("ok")
+                                ),
+                            },
+                            "reorganization_count": int(
+                                reorganization.get("reorganization_count") or 0
+                            ),
+                            "restructuring_count": int(
+                                reorganization.get("restructuring_count") or 0
+                            ),
+                            "tip_height": int(reorganization.get("tip_height") or 0),
+                            "reorganization_certificate": reorganization.get(
+                                "reorganization_certificate"
+                            ),
+                            "reorganization_plan_digest": reorganization.get(
+                                "reorganization_plan_digest"
+                            ),
+                            "restructuring_plan_digest": reorganization.get(
+                                "restructuring_plan_digest"
+                            ),
+                        }
                     if needs_restructuring:
                         plane_done_when = strip_context(
                             contract_text,

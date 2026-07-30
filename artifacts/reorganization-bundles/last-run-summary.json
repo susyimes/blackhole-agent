@@ -1,0 +1,13 @@
+{
+  "ok": true,
+  "action": "reorganization_plane",
+  "error": null,
+  "reorganized": true,
+  "reorganization_count": 2,
+  "tip_height": 2,
+  "used_skill_route_discovery": false,
+  "integrity_ok": true,
+  "adversarial_ok": true,
+  "final_met": true,
+  "failed": []
+}

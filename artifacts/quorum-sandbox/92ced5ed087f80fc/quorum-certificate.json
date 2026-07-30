@@ -1,0 +1,41 @@
+{
+  "agreeing_count": 2,
+  "agreeing_origins": [
+    "origin-a",
+    "origin-b"
+  ],
+  "byzantine_count": 1,
+  "byzantine_origins": [
+    "origin-byzantine"
+  ],
+  "certificate_hash": "6202edc7818f1c11489ac8f4",
+  "claims": {
+    "origin_ids": [
+      "origin-a",
+      "origin-b",
+      "origin-byzantine"
+    ],
+    "roots": [
+      "repo.import-health",
+      "capability.ledger-inventory",
+      "unbound.milestone-gate"
+    ],
+    "votes_accepted": 3
+  },
+  "goal": "reorganization over restructuring",
+  "issued_at": "2026-07-30T08:40:31.916246Z",
+  "kind": "quorum_certificate",
+  "lineage_head_hash": "72b65274b6b1eaf1e8aafdb2",
+  "member_count": 3,
+  "ok": true,
+  "origin_count": 3,
+  "origin_hashes": [
+    "591cf9b024589300e2c9be97",
+    "66ee8b6c377f398432fdfdf4",
+    "6c65ed7f18eb9b7c5e2ab1d8"
+  ],
+  "package_hash": "066545df3053adf5",
+  "schema_version": 1,
+  "threshold": 2,
+  "used_skill_route_discovery": false
+}

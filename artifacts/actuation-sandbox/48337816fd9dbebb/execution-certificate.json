@@ -1,0 +1,30 @@
+{
+  "certificate_hash": "0ed18eecd04a6ce490a3c0e4",
+  "claims": {
+    "member_count": 3,
+    "plane": "execution",
+    "state_index": 2
+  },
+  "deterministic": true,
+  "epoch_hash": "b857c35d534bc5af1133ec6f",
+  "epoch_height": 2,
+  "finality_certificate_hash": "22edca3b8c7ad8603e38c4b3",
+  "goal": "reorganization over restructuring (state 2)",
+  "issued_at": "2026-07-30T08:40:53.271931Z",
+  "kind": "execution_certificate",
+  "lineage_head_hash": "c284c72cb266cbfd5df74321",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "b1fe2a00e392e468",
+  "parent_state_root": "2329154c8dbd7b000fce803c",
+  "post_finality": true,
+  "schema_version": 1,
+  "state_height": 2,
+  "state_root": "348d3aa149484019f3bff180",
+  "used_skill_route_discovery": false
+}

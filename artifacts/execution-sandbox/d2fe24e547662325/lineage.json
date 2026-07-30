@@ -1,0 +1,189 @@
+{
+  "entries": [
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "origin_ids": [
+          "origin-a",
+          "origin-b",
+          "origin-byzantine"
+        ],
+        "threshold": 2
+      },
+      "detail": {
+        "origins": [
+          {
+            "bundle_hash": "0cb2e84a54a34fa111fbf684",
+            "byzantine": false,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "76bcf221c3c2d8881fa52607",
+            "member_count": 3,
+            "origin_id": "origin-a",
+            "package_hash": "7878a785b9718369"
+          },
+          {
+            "bundle_hash": "bfff0461f74055f951ab203e",
+            "byzantine": false,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "52029147f3114af1647bd38c",
+            "member_count": 2,
+            "origin_id": "origin-b",
+            "package_hash": "8ece9182045d973a"
+          },
+          {
+            "bundle_hash": "841b4d3918b2bc5cbded7580",
+            "byzantine": true,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "d4192a668700739bdb06cab0",
+            "member_count": 3,
+            "origin_id": "origin-byzantine",
+            "package_hash": "7d88f7661e8407af"
+          }
+        ]
+      },
+      "entry_hash": "67527d4ba5b9aee6302388c7",
+      "entry_kind": "quorum_origin_manifest",
+      "goal": "reorganization over restructuring",
+      "index": 0,
+      "issued_at": "2026-07-30T08:40:52.328452Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": ""
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "package_hash": "066545df3053adf5",
+        "threshold": 2
+      },
+      "detail": {
+        "origin_heads": [
+          "76bcf221c3c2d8881fa52607",
+          "52029147f3114af1647bd38c",
+          "d4192a668700739bdb06cab0"
+        ]
+      },
+      "entry_hash": "ab7c68e58a3333c55ed44ace",
+      "entry_kind": "quorum_vote",
+      "goal": "reorganization over restructuring",
+      "index": 1,
+      "issued_at": "2026-07-30T08:40:52.328477Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "67527d4ba5b9aee6302388c7"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "byzantine_count": 1,
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "excluded": true
+      },
+      "detail": {
+        "byzantine_origins": [
+          "origin-byzantine"
+        ]
+      },
+      "entry_hash": "865444ed2d7b93d3823cf1f5",
+      "entry_kind": "quorum_byzantine_exclude",
+      "goal": "reorganization over restructuring",
+      "index": 2,
+      "issued_at": "2026-07-30T08:40:52.328493Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "ab7c68e58a3333c55ed44ace"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "quorum": true,
+        "quorum_met": true
+      },
+      "detail": {
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "origin_bundle_hashes": [
+          "0cb2e84a54a34fa111fbf684",
+          "bfff0461f74055f951ab203e",
+          "841b4d3918b2bc5cbded7580"
+        ]
+      },
+      "entry_hash": "9fd5cab8896a7fdf2b0e12ba",
+      "entry_kind": "quorum_seal",
+      "goal": "reorganization over restructuring",
+      "index": 3,
+      "issued_at": "2026-07-30T08:40:52.328513Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "865444ed2d7b93d3823cf1f5"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "prior_lineage_head": "9fd5cab8896a7fdf2b0e12ba",
+        "prior_package_hash": "066545df3053adf5",
+        "prior_quorum_hash": "580803faa923d72a742cde39",
+        "progress_tag": "epoch-progress-2"
+      },
+      "detail": {},
+      "entry_hash": "c284c72cb266cbfd5df74321",
+      "entry_kind": "finality_epoch_progress",
+      "goal": "reorganization over restructuring (progress 2)",
+      "index": 4,
+      "issued_at": "2026-07-30T08:40:52.806068Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "",
+      "parent_hash": "9fd5cab8896a7fdf2b0e12ba"
+    }
+  ],
+  "entry_count": 5,
+  "head_hash": "c284c72cb266cbfd5df74321",
+  "kind": "capability_lineage",
+  "schema_version": 1,
+  "updated_at": "2026-07-30T08:40:53.274884Z"
+}

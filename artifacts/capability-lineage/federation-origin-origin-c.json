@@ -15,14 +15,14 @@
         "origin_id": "origin-c",
         "plane": "federation"
       },
-      "entry_hash": "250a8a07859b23070d39caef",
+      "entry_hash": "e38fb5d74cee4ca3079186f4",
       "entry_kind": "federation_origin_seed",
-      "goal": "Ship a closed restructuring plane over resolution: multi-resolution orders into deterministic hash-chained restructuring orders with plan digests bound to resolution roots, restructuring certificates, sterile rehydrate+prove, and adversarial falsification—invocable as capability.restructuring-plane without skill-route discovery. (honest origin-c)",
+      "goal": "reorganization over restructuring (honest origin-c)",
       "index": 0,
-      "issued_at": "2026-07-30T08:04:30.558175Z",
+      "issued_at": "2026-07-30T08:40:52.325223Z",
       "metrics": {
-        "count": 103,
-        "primitive_count": 54,
+        "count": 104,
+        "primitive_count": 55,
         "proved_count": 103,
         "proved_ratio": null
       },
@@ -44,11 +44,11 @@
         ],
         "origin_id": "origin-c"
       },
-      "entry_hash": "58e5e8264896b96595c9235e",
+      "entry_hash": "d4192a668700739bdb06cab0",
       "entry_kind": "federation_origin_seal",
-      "goal": "Ship a closed restructuring plane over resolution: multi-resolution orders into deterministic hash-chained restructuring orders with plan digests bound to resolution roots, restructuring certificates, sterile rehydrate+prove, and adversarial falsification—invocable as capability.restructuring-plane without skill-route discovery. (honest origin-c)",
+      "goal": "reorganization over restructuring (honest origin-c)",
       "index": 1,
-      "issued_at": "2026-07-30T08:04:30.558209Z",
+      "issued_at": "2026-07-30T08:40:52.325294Z",
       "metrics": {
         "count": 3,
         "primitive_count": null,
@@ -56,13 +56,13 @@
         "proved_ratio": null
       },
       "package_hash": "7878a785b9718369",
-      "parent_hash": "250a8a07859b23070d39caef"
+      "parent_hash": "e38fb5d74cee4ca3079186f4"
     }
   ],
   "entry_count": 2,
-  "head_hash": "58e5e8264896b96595c9235e",
+  "head_hash": "d4192a668700739bdb06cab0",
   "kind": "capability_lineage",
   "ok": true,
   "schema_version": 1,
-  "updated_at": "2026-07-30T08:04:30.558506Z"
+  "updated_at": "2026-07-30T08:40:52.325821Z"
 }

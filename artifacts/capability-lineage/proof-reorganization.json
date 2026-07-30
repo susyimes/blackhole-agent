@@ -1,0 +1,53 @@
+{
+  "entries": [
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_id": "origin-a"
+      },
+      "detail": {},
+      "entry_hash": "fe65a26d624bf6c21c60ae6c",
+      "entry_kind": "quorum_bootstrap",
+      "goal": "reorganization over restructuring",
+      "index": 0,
+      "issued_at": "2026-07-30T08:40:52.292575Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "",
+      "parent_hash": ""
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_id": "origin-a",
+        "sealed": true
+      },
+      "detail": {},
+      "entry_hash": "76bcf221c3c2d8881fa52607",
+      "entry_kind": "quorum_bootstrap_seal",
+      "goal": "reorganization over restructuring",
+      "index": 1,
+      "issued_at": "2026-07-30T08:40:52.292665Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "",
+      "parent_hash": "fe65a26d624bf6c21c60ae6c"
+    }
+  ],
+  "entry_count": 2,
+  "head_hash": "76bcf221c3c2d8881fa52607",
+  "kind": "capability_lineage",
+  "ok": true,
+  "schema_version": 1,
+  "updated_at": "2026-07-30T08:40:52.292826Z"
+}
