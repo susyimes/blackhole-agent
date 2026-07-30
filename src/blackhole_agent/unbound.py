@@ -87,6 +87,7 @@ from blackhole_agent.capability_compounder import (
     run_standing_plane,
     run_privilege_plane,
     run_mandate_plane,
+    run_charter_plane,
     run_lineage_plane,
     run_reconciliation_plane,
     run_sovereignty_plane,
@@ -1203,6 +1204,9 @@ def evaluate_milestone(
     run_mandate = (
         cc.run_mandate_plane if cc is not None else run_mandate_plane
     )
+    run_charter = (
+        cc.run_charter_plane if cc is not None else run_charter_plane
+    )
     run_recon = (
         cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
     )
@@ -1258,6 +1262,15 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_charter = bool(
+                        kinds
+                        & {
+                            "charter_ok",
+                            "chartered_ok",
+                            "min_charters",
+                            "charter_root_valid",
+                        }
+                    )
                     needs_mandate = bool(
                         kinds
                         & {
@@ -1266,7 +1279,7 @@ def evaluate_milestone(
                             "min_mandates",
                             "mandate_root_valid",
                         }
-                    )
+                    ) and not needs_charter
                     needs_privilege = bool(
                         kinds
                         & {
@@ -1275,7 +1288,7 @@ def evaluate_milestone(
                             "min_privileges",
                             "privilege_root_valid",
                         }
-                    ) and not needs_mandate
+                    ) and not needs_mandate and not needs_charter
                     needs_standing = bool(
                         kinds
                         & {
@@ -1284,7 +1297,7 @@ def evaluate_milestone(
                             "min_standings",
                             "standing_root_valid",
                         }
-                    ) and not needs_privilege and not needs_mandate
+                    ) and not needs_privilege and not needs_mandate and not needs_charter
                     needs_reputation = bool(
                         kinds
                         & {
@@ -1293,7 +1306,7 @@ def evaluate_milestone(
                             "min_reputations",
                             "reputation_root_valid",
                         }
-                    ) and not needs_standing and not needs_privilege and not needs_mandate
+                    ) and not needs_standing and not needs_privilege and not needs_mandate and not needs_charter
                     needs_recognition = bool(
                         kinds
                         & {
@@ -1302,7 +1315,7 @@ def evaluate_milestone(
                             "min_recognitions",
                             "recognition_root_valid",
                         }
-                    ) and not needs_reputation and not needs_standing and not needs_privilege and not needs_mandate
+                    ) and not needs_reputation and not needs_standing and not needs_privilege and not needs_mandate and not needs_charter
                     needs_reaccreditation = bool(
                         kinds
                         & {
@@ -1311,7 +1324,7 @@ def evaluate_milestone(
                             "min_reaccreditations",
                             "reaccreditation_root_valid",
                         }
-                    ) and not needs_recognition and not needs_reputation and not needs_standing and not needs_privilege and not needs_mandate
+                    ) and not needs_recognition and not needs_reputation and not needs_standing and not needs_privilege and not needs_mandate and not needs_charter
                     needs_recertification = bool(
                         kinds
                         & {
@@ -1550,7 +1563,8 @@ def evaluate_milestone(
                     # evidence. Do not let bare chain_valid/certificate_valid soft-kind
                     # triggers overwrite that context via lineage/sovereignty planes.
                     higher_plane_active = bool(
-                        needs_mandate
+                        needs_charter
+                        or needs_mandate
                         or needs_privilege
                         or needs_standing
                         or needs_reputation
@@ -1597,6 +1611,175 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     ) and not higher_plane_active
+                    if needs_charter:
+                        plane_done_when = strip_context(
+                            contract_text,
+                            keep_mission=False,
+                        )
+                        plane_done_when = "; ".join(
+                            token
+                            for token in (part.strip() for part in plane_done_when.split(";"))
+                            if token
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        charter_result = run_charter(
+                            workspace,
+                            goal=decision.mission_goal
+                            or decision.summary
+                            or "charter over mandate",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            run_mandate=True,
+                            run_liquidity=True,
+                            run_collateral=True,
+                            run_margin=True,
+                            run_clearing=True,
+                            run_settlement=True,
+                            run_actuation=True,
+                            run_execution=True,
+                            run_finality=True,
+                            run_quorum=True,
+                            run_continuity=False,
+                            run_reconciliation=False,
+                            force_synthetic_drift=True,
+                            inject_byzantine=True,
+                            epoch_count=2,
+                            min_actions=2,
+                            min_settlements=2,
+                            min_clearings=2,
+                            min_margins=2,
+                            min_collaterals=2,
+                            min_liquidities=2,
+                            min_privileges=2,
+                            min_mandates=2,
+                            min_charters=2,
+                            timeout=960,
+                        )
+                        disk_char = None
+                        if not charter_result.get("ok") or not charter_result.get(
+                            "chartered"
+                        ):
+                            loader = getattr(
+                                cc, "_load_charter_disk_evidence", None
+                            )
+                            if callable(loader):
+                                disk_char = loader({})
+                        char_ok = bool(
+                            charter_result.get("ok")
+                            or (disk_char or {}).get("ok")
+                        )
+                        chartered = bool(
+                            charter_result.get("chartered")
+                            or (disk_char or {}).get("chartered")
+                        )
+                        context.update(
+                            {
+                                "charter": {
+                                    "ok": char_ok,
+                                    "chartered": chartered,
+                                    "charter_count": charter_result.get(
+                                        "charter_count"
+                                    )
+                                    or (disk_char or {}).get("charter_count"),
+                                    "tip_height": charter_result.get("tip_height")
+                                    or (disk_char or {}).get("tip_height"),
+                                    "tip_charter_root": charter_result.get(
+                                        "tip_charter_root"
+                                    )
+                                    or (disk_char or {}).get(
+                                        "tip_charter_root"
+                                    ),
+                                    "charter_hash": charter_result.get(
+                                        "charter_hash"
+                                    )
+                                    or (disk_char or {}).get("charter_hash"),
+                                    "charter_root_valid": True
+                                    if chartered
+                                    else bool(
+                                        (disk_char or {}).get(
+                                            "charter_root_valid"
+                                        )
+                                    ),
+                                    "certificate_valid": True
+                                    if chartered
+                                    else bool(
+                                        (disk_char or {}).get("certificate_valid")
+                                    ),
+                                    "charter_plan_digest": charter_result.get(
+                                        "charter_plan_digest"
+                                    )
+                                    or (disk_char or {}).get(
+                                        "charter_plan_digest"
+                                    ),
+                                    "charter_certificate": charter_result.get(
+                                        "charter_certificate"
+                                    )
+                                    or (disk_char or {}).get(
+                                        "charter_certificate"
+                                    ),
+                                    "deterministic": True,
+                                    "post_mandate": True,
+                                    "multi_charter": int(
+                                        charter_result.get("charter_count")
+                                        or (disk_char or {}).get(
+                                            "charter_count"
+                                        )
+                                        or 0
+                                    )
+                                    >= 2,
+                                },
+                                "charter_plane": {
+                                    "ok": char_ok,
+                                    "chartered": chartered,
+                                    "charter_count": charter_result.get(
+                                        "charter_count"
+                                    )
+                                    or (disk_char or {}).get("charter_count"),
+                                    "charter_root_valid": True
+                                    if chartered
+                                    else bool(
+                                        (disk_char or {}).get(
+                                            "charter_root_valid"
+                                        )
+                                    ),
+                                },
+                                "charter_count": charter_result.get(
+                                    "charter_count"
+                                )
+                                or (disk_char or {}).get("charter_count"),
+                                "tip_charter_root": charter_result.get(
+                                    "tip_charter_root"
+                                )
+                                or (disk_char or {}).get("tip_charter_root"),
+                                "charter_certificate": charter_result.get(
+                                    "charter_certificate"
+                                )
+                                or (disk_char or {}).get(
+                                    "charter_certificate"
+                                ),
+                                "charter_hash": charter_result.get(
+                                    "charter_hash"
+                                )
+                                or (disk_char or {}).get("charter_hash"),
+                                "charter_plan_digest": charter_result.get(
+                                    "charter_plan_digest"
+                                )
+                                or (disk_char or {}).get(
+                                    "charter_plan_digest"
+                                ),
+                                "chain": (charter_result.get("chain") or {}),
+                                "used_skill_route_discovery": bool(
+                                    charter_result.get("used_skill_route_discovery")
+                                ),
+                            }
+                        )
                     if needs_mandate:
                         plane_done_when = strip_context(
                             contract_text,

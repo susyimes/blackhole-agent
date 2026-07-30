@@ -1,0 +1,37 @@
+{
+  "bound_reverification_height": 2,
+  "bound_reverification_root": "caef4daedb31cf08150ba5da",
+  "certificate_hash": "7b8ff94de00ca11b38c5f992",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "reaccredited",
+    "plane": "reaccreditation"
+  },
+  "deterministic": true,
+  "goal": "mandate over privilege (clearing 2)",
+  "issued_at": "2026-07-30T23:57:11.492627Z",
+  "kind": "reaccreditation_certificate",
+  "lineage_head_hash": "af35344ec71b90cf6cfe4f0c",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "8aed12c750b24dc5",
+  "parent_reaccreditation_root": "d63d0017cde4633fc1d8c3cd",
+  "post_reverification": true,
+  "reaccreditation_count": 2,
+  "reaccreditation_height": 2,
+  "reaccreditation_plan_digest": "48cd7904de3c461952964e5a",
+  "reaccreditation_root": "c57e2774ace0ef50fc0952ea",
+  "reverification_certificate_hash": "e7489da4b6a094b561e3d6e4",
+  "reverification_hash": "bc5f0e3bc3d90aa82b16e9f8",
+  "reverification_plan_digest": "dc14a5565732577b1928eea9",
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

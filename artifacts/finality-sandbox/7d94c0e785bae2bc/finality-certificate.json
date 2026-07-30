@@ -1,0 +1,29 @@
+{
+  "agreeing_count": 2,
+  "byzantine_count": 1,
+  "certificate_hash": "e61b1ffa7626996e1e5a1357",
+  "claims": {
+    "epoch_index": 2,
+    "member_count": 3,
+    "plane": "finality",
+    "roots": [
+      "repo.import-health",
+      "capability.ledger-inventory",
+      "unbound.milestone-gate"
+    ]
+  },
+  "epoch_hash": "349e0337667019dfa7af3cbe",
+  "epoch_height": 2,
+  "goal": "charter over mandate (epoch 2)",
+  "irreversible": true,
+  "issued_at": "2026-07-30T23:57:15.561080Z",
+  "kind": "finality_certificate",
+  "lineage_head_hash": "8f28b55560b8f659851929e2",
+  "ok": true,
+  "origin_count": 3,
+  "package_hash": "290ba72049d4031f",
+  "parent_epoch_hash": "536d7b05080b2c9416d6b851",
+  "quorum_hash": "9d5335966a6eaf4d8f8425d0",
+  "schema_version": 1,
+  "used_skill_route_discovery": false
+}

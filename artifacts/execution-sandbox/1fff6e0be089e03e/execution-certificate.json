@@ -1,0 +1,30 @@
+{
+  "certificate_hash": "979348eb0a348e7301b8957b",
+  "claims": {
+    "member_count": 3,
+    "plane": "execution",
+    "state_index": 2
+  },
+  "deterministic": true,
+  "epoch_hash": "02e24c91c255839a20028d6b",
+  "epoch_height": 2,
+  "finality_certificate_hash": "df38d287ccf5febc87445d72",
+  "goal": "mandate over privilege (state 2)",
+  "issued_at": "2026-07-30T23:56:59.082428Z",
+  "kind": "execution_certificate",
+  "lineage_head_hash": "af35344ec71b90cf6cfe4f0c",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "8aed12c750b24dc5",
+  "parent_state_root": "39368534d692348897d7d080",
+  "post_finality": true,
+  "schema_version": 1,
+  "state_height": 2,
+  "state_root": "6be41bfff60309b3f6f2b7e7",
+  "used_skill_route_discovery": false
+}

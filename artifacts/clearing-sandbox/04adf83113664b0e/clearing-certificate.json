@@ -1,0 +1,36 @@
+{
+  "bound_settlement_height": 2,
+  "bound_settlement_root": "4957ce6107d30c982a99096c",
+  "certificate_hash": "7b57418336838ca2e993e3b9",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "cleared",
+    "plane": "clearing"
+  },
+  "clearing_count": 2,
+  "clearing_height": 2,
+  "clearing_root": "3bb1478be0bf1f434ef690ca",
+  "deterministic": true,
+  "goal": "charter over mandate (clearing 2)",
+  "issued_at": "2026-07-30T23:57:17.395379Z",
+  "kind": "clearing_certificate",
+  "lineage_head_hash": "8f28b55560b8f659851929e2",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "net_position_digest": "161ef5fc635561930ec19748",
+  "ok": true,
+  "package_hash": "290ba72049d4031f",
+  "parent_clearing_root": "bebb1cb60ec4a86bac7cb5f9",
+  "post_settlement": true,
+  "schema_version": 1,
+  "settlement_certificate_hash": "b1299787f5b50e365617b09d",
+  "settlement_hash": "8420e3ee71dde9ebb646a901",
+  "used_skill_route_discovery": false,
+  "valid": true
+}
