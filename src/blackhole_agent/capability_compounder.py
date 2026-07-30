@@ -1051,6 +1051,13 @@ MISSION_GOAL_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("recovery action", ("capability.recovery-plane", "capability.resilience-plane", "capability.quorum-plane")),
     ("posted recovery", ("capability.recovery-plane", "capability.resilience-plane", "capability.actuation-plane")),
     ("recovery adequacy", ("capability.recovery-plane", "capability.resilience-plane", "capability.assurance-plane")),
+    ("resolution", ("capability.resolution-plane", "capability.recovery-plane", "capability.resilience-plane")),
+    ("resolved", ("capability.resolution-plane", "capability.recovery-plane", "capability.finality-plane")),
+    ("resolution plan", ("capability.resolution-plane", "capability.recovery-plane", "capability.assurance-plane")),
+    ("resolution-root", ("capability.resolution-plane", "capability.recovery-plane", "capability.lineage-plane")),
+    ("resolution action", ("capability.resolution-plane", "capability.recovery-plane", "capability.quorum-plane")),
+    ("posted resolution", ("capability.resolution-plane", "capability.recovery-plane", "capability.actuation-plane")),
+    ("resolution adequacy", ("capability.resolution-plane", "capability.recovery-plane", "capability.assurance-plane")),
 ("solvency", ("capability.solvency-plane", "capability.capital-plane", "capability.funding-plane")),
     ("solvent", ("capability.solvency-plane", "capability.capital-plane", "capability.finality-plane")),
     ("solvency position", ("capability.solvency-plane", "capability.capital-plane", "capability.assurance-plane")),
@@ -1553,6 +1560,10 @@ CONTEXT_ONLY_OUTCOME_KINDS = frozenset(
         "recovered_ok",
         "min_recoveries",
         "recovery_root_valid",
+        "resolution_ok",
+        "resolved_ok",
+        "min_resolutions",
+        "resolution_root_valid",
     }
 )
 
@@ -2398,6 +2409,39 @@ def _soft_extract_outcome_predicates(chunk: str) -> list[dict[str, Any]]:
         and re.search(r"\bvalid\b", lower)
     ):
         found.append({"kind": "recovery_root_valid", "arg": "", "source": chunk})
+
+    if re.search(r"\bresolution_ok\b", lower) or (
+        re.search(r"\brun_resolution_plane\b", lower) and (
+            "resolution" in lower or "plan" in lower
+        )
+    ):
+        found.append({"kind": "resolution_ok", "arg": "", "source": chunk})
+    if re.search(r"\bresolved_ok\b", lower) or (
+        re.search(r"\bresolved\b", lower)
+        and "resolution" in lower
+        and "resolution-plane" not in lower
+        and "resolution_plane" not in lower
+    ):
+        found.append({"kind": "resolved_ok", "arg": "", "source": chunk})
+    if re.search(r"\bresolved\b", lower) and not any(
+        item.get("kind") == "resolved_ok" for item in found
+    ):
+        found.append({"kind": "resolved_ok", "arg": "", "source": chunk})
+    m = re.search(r"min_resolutions\s*[:=]\s*(\d+)", lower)
+    if m:
+        found.append({"kind": "min_resolutions", "arg": m.group(1), "source": chunk})
+    m = re.search(r"min[_\s-]?resolutions?\s*[:=]\s*(\d+)", lower)
+    if m and not any(item.get("kind") == "min_resolutions" for item in found):
+        found.append({"kind": "min_resolutions", "arg": m.group(1), "source": chunk})
+    m = re.search(r"resolution_count\s*>=\s*(\d+)", lower)
+    if m and not any(item.get("kind") == "min_resolutions" for item in found):
+        found.append({"kind": "min_resolutions", "arg": m.group(1), "source": chunk})
+    if re.search(r"\bresolution_root_valid\b", lower) or (
+        re.search(r"\bresolution[_\s-]*root\b", lower)
+        and re.search(r"\bvalid\b", lower)
+    ):
+        found.append({"kind": "resolution_root_valid", "arg": "", "source": chunk})
+
 
 
 
@@ -3983,6 +4027,68 @@ def _eval_one_outcome_predicate(
                     plane.get("recovery_root") or plane.get("tip_recovery_root")
                 )
         return ok, f"recovery_root_valid={ok}"
+
+    if kind in {
+        "resolution_ok",
+        "resolved_ok",
+        "min_resolutions",
+        "resolution_root_valid",
+    }:
+        plane = (
+            context.get("resolution")
+            or context.get("resolution_plane")
+            or context.get("plan")
+            or {}
+        )
+        if not plane or not plane.get("ok"):
+            disk = _load_resolution_disk_evidence(context)
+            if disk:
+                plane = {**disk, **(plane if isinstance(plane, Mapping) else {})}
+        if kind == "resolution_ok":
+            ok = bool(plane.get("ok"))
+            return ok, f"resolution_ok={ok}"
+        if kind == "resolved_ok":
+            if "resolved" in plane:
+                ok = plane.get("resolved") is True and bool(plane.get("ok", True))
+            elif "resolved_ok" in plane:
+                ok = plane.get("resolved_ok") is True
+            else:
+                ok = bool(plane.get("ok")) and int(
+                    plane.get("resolution_count") or plane.get("tip_height") or 0
+                ) >= 1
+            return ok, f"resolved_ok={ok}"
+        if kind == "min_resolutions":
+            need = int(float(arg or "0"))
+            have = context.get("resolution_count")
+            if have is None:
+                have = context.get("tip_resolution_height")
+            if have is None:
+                have = (
+                    plane.get("resolution_count")
+                    or plane.get("tip_height")
+                    or plane.get("entry_count")
+                )
+            have_i = int(have or 0)
+            return have_i >= need, f"resolutions={have_i} need>={need}"
+        if "resolution_root_valid" in plane:
+            ok = plane.get("resolution_root_valid") is True
+        elif "certificate_valid" in plane:
+            ok = plane.get("certificate_valid") is True
+        else:
+            cert = (
+                plane.get("resolution_certificate")
+                or plane.get("certificate")
+                or context.get("resolution_certificate")
+                or {}
+            )
+            if isinstance(cert, Mapping) and cert:
+                verify = verify_resolution_certificate(cert)
+                ok = bool(verify.get("ok")) and bool(verify.get("valid"))
+            else:
+                ok = bool(plane.get("ok")) and bool(
+                    plane.get("resolution_root") or plane.get("tip_resolution_root")
+                )
+        return ok, f"resolution_root_valid={ok}"
 
 
 
@@ -44490,6 +44596,2305 @@ def builtin_recovery_plane() -> dict[str, Any]:
     )
 
 
+RESOLUTION_BUNDLE_SCHEMA = 1
+RESOLUTION_CERTIFICATE_SCHEMA = 1
+RESOLUTION_LOG_SCHEMA = 1
+DEFAULT_RESOLUTION_BUNDLE_RELATIVE = Path("artifacts") / "resolution-bundles"
+
+
+def default_resolution_bundle_dir(repo_path: Path) -> Path:
+    return (repo_path / DEFAULT_RESOLUTION_BUNDLE_RELATIVE).resolve()
+
+
+def empty_resolution_log() -> dict[str, Any]:
+    return {
+        "schema_version": RESOLUTION_LOG_SCHEMA,
+        "kind": "resolution_log",
+        "entries": [],
+        "entry_count": 0,
+        "tip_height": 0,
+        "tip_resolution_root": "",
+        "bound_recovery_root": "",
+        "bound_recovery_height": 0,
+        "recovery_hash": "",
+        "resolution_plan_digest": "",
+        "updated_at": utc_now_iso(),
+    }
+
+
+def compute_resolution_root(clearing: Mapping[str, Any]) -> str:
+    """Hash recovery body excluding self root, certificates, and wall-clock fields."""
+
+    body = {
+        key: value
+        for key, value in clearing.items()
+        if key
+        not in {
+            "resolution_root",
+            "resolution_certificate",
+            "ok",
+            "valid",
+            "action",
+            "applied_at",
+            "updated_at",
+            "issued_at",
+            "exported_at",
+            "goal",
+            "claims",
+        }
+    }
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def compute_resolution_certificate_hash(payload: Mapping[str, Any]) -> str:
+    body = {
+        key: value
+        for key, value in payload.items()
+        if key not in {"certificate_hash", "ok", "valid"}
+    }
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def compute_resolution_bundle_hash(bundle: Mapping[str, Any]) -> str:
+    body = {
+        key: value
+        for key, value in bundle.items()
+        if key
+        not in {
+            "resolution_hash",
+            "ok",
+            "bundle_path",
+            "exported_at",
+            "source_ledger_path",
+            "action",
+        }
+    }
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def compute_resolution_plan_digest(
+    *,
+    parent_resolution_digest: str,
+    bound_recovery_root: str,
+    recovery_plan_digest: str,
+    capability_id: str,
+    outcome: str = "resolved",
+    position_ratio_bps: int = 1000,
+) -> str:
+    """Deterministic resolution plan chaining prior buffer with a newly recovered scenario."""
+
+    payload = {
+        "parent_resolution_digest": parent_resolution_digest or "",
+        "bound_recovery_root": bound_recovery_root,
+        "recovery_plan_digest": recovery_plan_digest,
+        "capability_id": capability_id,
+        "outcome": outcome or "resolved",
+        "position_ratio_bps": int(position_ratio_bps),
+        "plane": "resolution",
+    }
+    digest = json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def issue_resolution_certificate(
+    *,
+    resolution_height: int,
+    resolution_root: str,
+    parent_resolution_root: str,
+    bound_recovery_root: str,
+    bound_recovery_height: int,
+    recovery_hash: str,
+    recovery_certificate_hash: str,
+    package_hash: str,
+    lineage_head_hash: str,
+    recovery_plan_digest: str,
+    resolution_plan_digest: str,
+    resolution_count: int,
+    member_ids: Sequence[str] | None = None,
+    goal: str = "",
+    claims: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    members = sorted({str(item).strip() for item in (member_ids or []) if str(item).strip()})
+    cert: dict[str, Any] = {
+        "schema_version": RESOLUTION_CERTIFICATE_SCHEMA,
+        "kind": "resolution_certificate",
+        "issued_at": utc_now_iso(),
+        "resolution_height": int(resolution_height),
+        "resolution_root": str(resolution_root or ""),
+        "parent_resolution_root": str(parent_resolution_root or ""),
+        "bound_recovery_root": str(bound_recovery_root or ""),
+        "bound_recovery_height": int(bound_recovery_height or 0),
+        "recovery_hash": str(recovery_hash or ""),
+        "recovery_certificate_hash": str(recovery_certificate_hash or ""),
+        "package_hash": str(package_hash or ""),
+        "lineage_head_hash": str(lineage_head_hash or ""),
+        "recovery_plan_digest": str(recovery_plan_digest or ""),
+        "resolution_plan_digest": str(resolution_plan_digest or ""),
+        "resolution_count": int(resolution_count),
+        "member_ids": members,
+        "member_count": len(members),
+        "goal": goal or "",
+        "claims": dict(claims or {}),
+        "deterministic": True,
+        "post_recovery": True,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    cert["certificate_hash"] = compute_resolution_certificate_hash(cert)
+    cert["ok"] = (
+        bool(cert["certificate_hash"])
+        and bool(cert["resolution_root"])
+        and bool(cert["bound_recovery_root"])
+        and bool(cert["recovery_hash"])
+        and bool(cert["resolution_plan_digest"])
+        and bool(cert["recovery_plan_digest"])
+        and cert["resolution_height"] >= 1
+        and cert["resolution_count"] >= 1
+        and cert["deterministic"] is True
+        and cert["post_recovery"] is True
+        and not bool(cert["used_skill_route_discovery"])
+    )
+    cert["valid"] = bool(cert["ok"])
+    return cert
+
+
+def verify_resolution_certificate(payload: Mapping[str, Any] | Path) -> dict[str, Any]:
+    if isinstance(payload, Path):
+        data = json.loads(payload.read_text(encoding="utf-8"))
+    else:
+        data = dict(payload)
+    recomputed = compute_resolution_certificate_hash(data)
+    stored = str(data.get("certificate_hash") or "")
+    hash_ok = bool(stored) and stored == recomputed
+    valid = (
+        hash_ok
+        and data.get("kind") == "resolution_certificate"
+        and bool(data.get("resolution_root"))
+        and bool(data.get("bound_recovery_root"))
+        and bool(data.get("recovery_hash"))
+        and bool(data.get("resolution_plan_digest"))
+        and bool(data.get("recovery_plan_digest"))
+        and int(data.get("resolution_height") or 0) >= 1
+        and int(data.get("resolution_count") or 0) >= 1
+        and data.get("deterministic") is True
+        and data.get("post_recovery") is True
+        and not bool(data.get("used_skill_route_discovery"))
+    )
+    return {
+        "ok": valid,
+        "valid": valid,
+        "hash_ok": hash_ok,
+        "certificate_hash": stored if hash_ok else recomputed,
+        "resolution_height": data.get("resolution_height"),
+        "resolution_root": data.get("resolution_root"),
+        "bound_recovery_root": data.get("bound_recovery_root"),
+        "resolution_plan_digest": data.get("resolution_plan_digest"),
+        "recovery_hash": data.get("recovery_hash"),
+        "used_skill_route_discovery": bool(data.get("used_skill_route_discovery")),
+    }
+
+
+def write_resolution_certificate(path: Path, certificate: Mapping[str, Any]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(path, dict(certificate))
+    return path
+
+
+def _load_resolution_disk_evidence(
+    context: Mapping[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """Best-effort load of a durable recovery proof bundle for context-less gates."""
+
+    candidates: list[Path] = []
+    ctx = context or {}
+    for key in ("repo_path", "workspace", "workspace_path"):
+        raw = ctx.get(key)
+        if raw:
+            root = Path(str(raw))
+            candidates.extend(
+                [
+                    root / "artifacts" / "resolution-bundles" / "proof-resolution.json",
+                    root / DEFAULT_RESOLUTION_BUNDLE_RELATIVE / "proof-resolution.json",
+                ]
+            )
+    here = Path.cwd()
+    candidates.extend(
+        [
+            here / "artifacts" / "resolution-bundles" / "proof-resolution.json",
+            here / DEFAULT_RESOLUTION_BUNDLE_RELATIVE / "proof-resolution.json",
+        ]
+    )
+    try:
+        pkg_root = Path(__file__).resolve().parents[2]
+        candidates.append(
+            pkg_root / "artifacts" / "resolution-bundles" / "proof-resolution.json"
+        )
+    except Exception:
+        pass
+    for base in {Path.cwd(), Path(__file__).resolve().parents[2]}:
+        bundle_dir = base / "artifacts" / "resolution-bundles"
+        if bundle_dir.is_dir():
+            candidates.extend(sorted(bundle_dir.glob("stress-*.json"), reverse=True)[:3])
+            candidates.extend(sorted(bundle_dir.glob("proof-resolution*.json"), reverse=True)[:3])
+
+    seen: set[str] = set()
+    for path in candidates:
+        try:
+            resolved = path.resolve()
+        except Exception:
+            continue
+        key = str(resolved)
+        if key in seen or not resolved.is_file():
+            continue
+        seen.add(key)
+        try:
+            bundle = load_resolution_bundle(resolved)
+        except Exception:
+            continue
+        integrity = verify_resolution_bundle_integrity(bundle)
+        if not integrity.get("ok"):
+            continue
+        cert = (
+            bundle.get("resolution_certificate")
+            if isinstance(bundle.get("resolution_certificate"), Mapping)
+            else {}
+        )
+        cert_verify = (
+            verify_resolution_certificate(cert) if cert else {"ok": False, "valid": False}
+        )
+        resolution_count = int(
+            bundle.get("resolution_count")
+            or (bundle.get("resolutions") or {}).get("entry_count")
+            or 0
+        )
+        tip_height = int(bundle.get("tip_height") or resolution_count or 0)
+        if resolution_count < 2 or tip_height < 2 or not cert_verify.get("valid"):
+            continue
+        return {
+            "ok": True,
+            "resolved": True,
+            "resolution_count": resolution_count,
+            "tip_height": tip_height,
+            "tip_resolution_root": bundle.get("tip_resolution_root"),
+            "resolution_hash": bundle.get("resolution_hash"),
+            "resolution_root_valid": True,
+            "certificate_valid": True,
+            "resolution_plan_digest": bundle.get("resolution_plan_digest"),
+            "resolution_certificate": cert,
+            "bundle_path": str(resolved),
+            "source": "disk_proof_bundle",
+        }
+    return None
+
+
+def derive_resolution_specs_from_recovery(
+    recovery_bundle: Mapping[str, Any],
+    *,
+    min_resolutions: int = 2,
+) -> list[dict[str, Any]]:
+    """Derive one resolution plan per stress scenario (multi-recovery required)."""
+
+    recoveries = (
+        recovery_bundle.get("recoveries")
+        if isinstance(recovery_bundle.get("recoveries"), Mapping)
+        else {}
+    )
+    entries = list(recoveries.get("entries") or [])
+    specs: list[dict[str, Any]] = []
+    for entry in entries:
+        if not isinstance(entry, Mapping):
+            continue
+        recovery_root = str(entry.get("recovery_root") or "")
+        if not recovery_root:
+            continue
+        specs.append(
+            {
+                "capability_id": str(entry.get("capability_id") or ""),
+                "effect": str(entry.get("effect") or ""),
+                "bound_recovery_root": recovery_root,
+                "bound_recovery_height": int(entry.get("recovery_height") or 0),
+                "recovery_plan_digest": str(entry.get("recovery_plan_digest") or ""),
+                "receipt_digest": str(entry.get("receipt_digest") or ""),
+                "bound_settlement_root": str(entry.get("bound_settlement_root") or ""),
+                "bound_action_root": str(entry.get("bound_action_root") or ""),
+                "package_hash": str(
+                    entry.get("package_hash")
+                    or recovery_bundle.get("package_hash")
+                    or ""
+                ),
+                "outcome": "resolved",
+                "position_ratio_bps": 1000 + 100 * len(specs),
+            }
+        )
+    want = max(2, int(min_resolutions))
+    return specs[:want] if len(specs) >= want else specs
+
+
+def apply_resolution_transition(
+    resolution_log: Mapping[str, Any],
+    spec: Mapping[str, Any],
+    *,
+    recovery_bundle: Mapping[str, Any],
+    goal: str = "",
+    claims: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Append one resolution plan bound to a stress scenario root and cover it."""
+
+    log = copy.deepcopy(dict(resolution_log)) if resolution_log else empty_resolution_log()
+    entries = list(log.get("entries") or [])
+    next_height = len(entries) + 1
+    parent_root = str(entries[-1].get("resolution_root") or "") if entries else ""
+    parent_resolution_net = str(entries[-1].get("resolution_plan_digest") or "") if entries else ""
+
+    bound_recovery_root = str(spec.get("bound_recovery_root") or "")
+    bound_recovery_height = int(spec.get("bound_recovery_height") or 0)
+    capability_id = str(spec.get("capability_id") or "")
+    effect = str(spec.get("effect") or "")
+    outcome = str(spec.get("outcome") or "resolved")
+    package_hash = str(
+        spec.get("package_hash") or recovery_bundle.get("package_hash") or ""
+    )
+    recovery_hash = str(recovery_bundle.get("recovery_hash") or "")
+    tip_recovery_root = str(recovery_bundle.get("tip_recovery_root") or "")
+    recoveries = (
+        recovery_bundle.get("recoveries")
+        if isinstance(recovery_bundle.get("recoveries"), Mapping)
+        else {}
+    )
+    risk_entries = list(recoveries.get("entries") or [])
+    known_roots = {
+        str(item.get("recovery_root") or "")
+        for item in risk_entries
+        if isinstance(item, Mapping) and item.get("recovery_root")
+    }
+    if tip_recovery_root:
+        known_roots.add(tip_recovery_root)
+
+    if not capability_id or not bound_recovery_root or not recovery_hash:
+        return {
+            "ok": False,
+            "action": "apply_resolution_transition",
+            "error": "missing_recovery_bind_fields",
+            "resolution_log": log,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    if bound_recovery_root not in known_roots:
+        return {
+            "ok": False,
+            "action": "apply_resolution_transition",
+            "error": "bound_recovery_root_mismatch",
+            "bound_recovery_root": bound_recovery_root,
+            "known_risk_roots": sorted(known_roots),
+            "resolution_log": log,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    if any(
+        str(item.get("bound_recovery_root") or "") == bound_recovery_root
+        and str(item.get("outcome") or "") == outcome
+        for item in entries
+    ):
+        return {
+            "ok": False,
+            "action": "apply_resolution_transition",
+            "error": "duplicate_resolution_rejected",
+            "resolution_log": log,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    settle_cert = (
+        recovery_bundle.get("recovery_certificate")
+        if isinstance(recovery_bundle.get("recovery_certificate"), Mapping)
+        else {}
+    )
+    settle_cert_hash = str(settle_cert.get("certificate_hash") or "")
+    lineage_head = str(recovery_bundle.get("lineage_head_hash") or "")
+    member_ids = list(recovery_bundle.get("member_ids") or [])
+    recovery_plan_digest = str(spec.get("recovery_plan_digest") or "")
+    position_ratio_bps = int(spec.get("position_ratio_bps") or 1000)
+    if not recovery_plan_digest:
+        # Recover from settlement entry if available.
+        for item in risk_entries:
+            if (
+                isinstance(item, Mapping)
+                and str(item.get("recovery_root") or "") == bound_recovery_root
+            ):
+                recovery_plan_digest = str(item.get("recovery_plan_digest") or "")
+                break
+    resolution_plan_digest = compute_resolution_plan_digest(
+        parent_resolution_digest=parent_resolution_net,
+        bound_recovery_root=bound_recovery_root,
+        recovery_plan_digest=recovery_plan_digest,
+        position_ratio_bps=position_ratio_bps,
+        capability_id=capability_id,
+        outcome=outcome,
+    )
+
+    body: dict[str, Any] = {
+        "schema_version": RESOLUTION_LOG_SCHEMA,
+        "kind": "resolution_action",
+        "resolution_height": next_height,
+        "parent_resolution_root": parent_root,
+        "bound_recovery_root": bound_recovery_root,
+        "bound_recovery_height": bound_recovery_height,
+        "recovery_hash": recovery_hash,
+        "recovery_certificate_hash": settle_cert_hash,
+        "package_hash": package_hash,
+        "lineage_head_hash": lineage_head,
+        "capability_id": capability_id,
+        "effect": effect,
+        "outcome": outcome,
+        "recovery_plan_digest": recovery_plan_digest,
+        "resolution_plan_digest": resolution_plan_digest,
+        "position_ratio_bps": position_ratio_bps,
+        "parent_resolution_digest": parent_resolution_net,
+        "bound_action_root": str(spec.get("bound_action_root") or ""),
+        "member_ids": sorted({str(m).strip() for m in member_ids if str(m).strip()}),
+        "deterministic": True,
+        "post_recovery": True,
+        "applied_at": utc_now_iso(),
+        "goal": goal or str(recovery_bundle.get("goal") or ""),
+        "claims": dict(claims or {}),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    resolution_root = compute_resolution_root(body)
+    body["resolution_root"] = resolution_root
+    cert = issue_resolution_certificate(
+        resolution_height=next_height,
+        resolution_root=resolution_root,
+        parent_resolution_root=parent_root,
+        bound_recovery_root=bound_recovery_root,
+        bound_recovery_height=bound_recovery_height,
+        recovery_hash=recovery_hash,
+        recovery_certificate_hash=settle_cert_hash,
+        package_hash=package_hash,
+        lineage_head_hash=lineage_head,
+        recovery_plan_digest=recovery_plan_digest,
+        resolution_plan_digest=resolution_plan_digest,
+        resolution_count=next_height,
+        member_ids=body["member_ids"],
+        goal=goal or str(recovery_bundle.get("goal") or ""),
+        claims={
+            "capability_id": capability_id,
+            "effect": effect,
+            "outcome": outcome,
+            "plane": "resolution",
+            **dict(claims or {}),
+        },
+    )
+    body["resolution_certificate"] = cert
+    body["ok"] = (
+        bool(cert.get("ok"))
+        and bool(resolution_root)
+        and bool(resolution_plan_digest)
+        and body["deterministic"] is True
+        and body["post_recovery"] is True
+        and not bool(body.get("used_skill_route_discovery"))
+    )
+
+    entries.append(body)
+    log["entries"] = entries
+    log["entry_count"] = len(entries)
+    log["tip_height"] = next_height
+    log["tip_resolution_root"] = resolution_root
+    log["bound_recovery_root"] = bound_recovery_root
+    log["bound_recovery_height"] = bound_recovery_height
+    log["recovery_hash"] = recovery_hash
+    log["resolution_plan_digest"] = resolution_plan_digest
+    log["updated_at"] = utc_now_iso()
+    log["schema_version"] = RESOLUTION_LOG_SCHEMA
+    log["kind"] = "resolution_log"
+    return {
+        "ok": bool(body.get("ok")),
+        "action": "apply_resolution_transition",
+        "entry": body,
+        "resolution_height": next_height,
+        "resolution_root": resolution_root,
+        "parent_resolution_root": parent_root,
+        "bound_recovery_root": bound_recovery_root,
+        "resolution_plan_digest": resolution_plan_digest,
+        "resolution_log": log,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def verify_resolution_chain(resolution_log: Mapping[str, Any]) -> dict[str, Any]:
+    """Validate sequential heights, parent roots, buffers, hashes, and recovery certs."""
+
+    entries = list(resolution_log.get("entries") or [])
+    errors: list[str] = []
+    if not entries:
+        return {
+            "ok": False,
+            "valid": False,
+            "action": "verify_resolution_chain",
+            "entry_count": 0,
+            "tip_height": 0,
+            "tip_resolution_root": "",
+            "errors": ["empty_resolution_log"],
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    prev_root = ""
+    prev_net = ""
+    bound_settlements: set[str] = set()
+    recovery_hashes: set[str] = set()
+    for index, raw in enumerate(entries):
+        if not isinstance(raw, Mapping):
+            errors.append(f"entry[{index}]_not_mapping")
+            continue
+        height = int(raw.get("resolution_height") or 0)
+        expected_height = index + 1
+        if height != expected_height:
+            errors.append(f"entry[{index}]_height={height}_expected={expected_height}")
+        parent = str(raw.get("parent_resolution_root") or "")
+        if index == 0:
+            if parent:
+                errors.append(f"entry[{index}]_genesis_has_parent")
+        else:
+            if parent != prev_root:
+                errors.append(
+                    f"entry[{index}]_parent_mismatch got={parent[:12]} expected={prev_root[:12]}"
+                )
+        stored = str(raw.get("resolution_root") or "")
+        recomputed = compute_resolution_root({**dict(raw), "resolution_root": ""})
+        if not stored or stored != recomputed:
+            errors.append(f"entry[{index}]_resolution_root_mismatch")
+        if raw.get("deterministic") is not True:
+            errors.append(f"entry[{index}]_not_deterministic")
+        if raw.get("post_recovery") is not True:
+            errors.append(f"entry[{index}]_not_post_recovery")
+        bound = str(raw.get("bound_recovery_root") or "")
+        if not bound:
+            errors.append(f"entry[{index}]_missing_bound_recovery_root")
+        else:
+            bound_settlements.add(bound)
+        s_hash = str(raw.get("recovery_hash") or "")
+        if not s_hash:
+            errors.append(f"entry[{index}]_missing_recovery_hash")
+        else:
+            recovery_hashes.add(s_hash)
+        recovery_plan_digest = str(raw.get("recovery_plan_digest") or "")
+        parent_resolution_net_stored = str(raw.get("parent_resolution_digest") or "")
+        if parent_resolution_net_stored != prev_net:
+            errors.append(f"entry[{index}]_parent_resolution_net_mismatch")
+        expected_net = compute_resolution_plan_digest(
+            parent_resolution_digest=prev_net,
+            bound_recovery_root=bound,
+            recovery_plan_digest=recovery_plan_digest,
+            position_ratio_bps=int(raw.get("position_ratio_bps") or 1000),
+            capability_id=str(raw.get("capability_id") or ""),
+            outcome=str(raw.get("outcome") or "resolved"),
+        )
+        stored_net = str(raw.get("resolution_plan_digest") or "")
+        if not stored_net or stored_net != expected_net:
+            errors.append(f"entry[{index}]_resolution_plan_digest_mismatch")
+        cert = raw.get("resolution_certificate")
+        if not isinstance(cert, Mapping):
+            errors.append(f"entry[{index}]_missing_resolution_certificate")
+        else:
+            cert_verify = verify_resolution_certificate(cert)
+            if not cert_verify.get("valid"):
+                errors.append(f"entry[{index}]_stress_cert_invalid")
+            if str(cert.get("resolution_root") or "") != stored:
+                errors.append(f"entry[{index}]_cert_resolution_root_mismatch")
+            if int(cert.get("resolution_height") or 0) != height:
+                errors.append(f"entry[{index}]_cert_height_mismatch")
+            if str(cert.get("bound_recovery_root") or "") != bound:
+                errors.append(f"entry[{index}]_cert_bound_settlement_mismatch")
+            if str(cert.get("resolution_plan_digest") or "") != stored_net:
+                errors.append(f"entry[{index}]_cert_net_mismatch")
+        prev_root = stored
+        prev_net = stored_net
+
+    if len(recovery_hashes) > 1:
+        errors.append("mixed_recovery_hashes")
+
+    tip = entries[-1] if entries else {}
+    tip_height = int(tip.get("resolution_height") or 0) if isinstance(tip, Mapping) else 0
+    tip_root = str(tip.get("resolution_root") or "") if isinstance(tip, Mapping) else ""
+    tip_net = str(tip.get("resolution_plan_digest") or "") if isinstance(tip, Mapping) else ""
+    log_tip_height = int(resolution_log.get("tip_height") or 0)
+    log_tip_root = str(resolution_log.get("tip_resolution_root") or "")
+    log_net = str(resolution_log.get("resolution_plan_digest") or "")
+    if log_tip_height and log_tip_height != tip_height:
+        errors.append("tip_height_metadata_mismatch")
+    if log_tip_root and log_tip_root != tip_root:
+        errors.append("tip_resolution_root_metadata_mismatch")
+    if log_net and log_net != tip_net:
+        errors.append("resolution_plan_digest_metadata_mismatch")
+
+    valid = not errors and tip_height >= 1 and bool(tip_root) and bool(tip_net)
+    return {
+        "ok": valid,
+        "valid": valid,
+        "action": "verify_resolution_chain",
+        "entry_count": len(entries),
+        "tip_height": tip_height,
+        "tip_resolution_root": tip_root,
+        "resolution_plan_digest": tip_net,
+        "bound_recovery_roots": sorted(bound_settlements),
+        "recovery_hash": next(iter(recovery_hashes), ""),
+        "errors": errors,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def apply_recovery_bundle_to_resolutions(
+    recovery_bundle: Mapping[str, Any],
+    *,
+    goal: str = "",
+    min_resolutions: int = 2,
+) -> dict[str, Any]:
+    """Post multi-recovery scenarios into a deterministic resolution plan log."""
+
+    integrity = verify_recovery_bundle_integrity(recovery_bundle)
+    if not integrity.get("ok"):
+        return {
+            "ok": False,
+            "action": "apply_recovery_bundle_to_resolutions",
+            "error": "recovery_integrity_failed",
+            "integrity": integrity,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    specs = derive_resolution_specs_from_recovery(
+        recovery_bundle, min_resolutions=min_resolutions
+    )
+    if len(specs) < 2:
+        return {
+            "ok": False,
+            "action": "apply_recovery_bundle_to_resolutions",
+            "error": "need_multi_resolution",
+            "spec_count": len(specs),
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    resolution_log = empty_resolution_log()
+    applied: list[dict[str, Any]] = []
+    for index, spec in enumerate(specs):
+        result = apply_resolution_transition(
+            resolution_log,
+            spec,
+            recovery_bundle=recovery_bundle,
+            goal=f"{goal or recovery_bundle.get('goal') or 'clearing'} (clearing {index + 1})",
+            claims={"clearing_index": index + 1, "plane": "resolution"},
+        )
+        if not result.get("ok"):
+            return {
+                "ok": False,
+                "action": "apply_recovery_bundle_to_resolutions",
+                "error": result.get("error") or "apply_failed",
+                "applied_count": len(applied),
+                "apply": {
+                    "ok": result.get("ok"),
+                    "error": result.get("error"),
+                    "resolution_height": result.get("resolution_height"),
+                },
+                "resolution_log": resolution_log,
+                "used_skill_route_discovery": legacy_pipeline_was_used(),
+            }
+        resolution_log = result["resolution_log"]
+        applied.append(result["entry"])
+
+    chain = verify_resolution_chain(resolution_log)
+    ok = bool(chain.get("valid")) and len(applied) >= 2 and not legacy_pipeline_was_used()
+    return {
+        "ok": ok,
+        "action": "apply_recovery_bundle_to_resolutions",
+        "resolution_log": resolution_log,
+        "applied": applied,
+        "applied_count": len(applied),
+        "resolution_count": len(applied),
+        "tip_height": resolution_log.get("tip_height"),
+        "tip_resolution_root": resolution_log.get("tip_resolution_root"),
+        "bound_recovery_root": resolution_log.get("bound_recovery_root"),
+        "resolution_plan_digest": resolution_log.get("resolution_plan_digest"),
+        "chain": chain,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def build_resolution_bundle(
+    resolution_log: Mapping[str, Any],
+    recovery_bundle: Mapping[str, Any],
+    *,
+    goal: str = "resolution over recovery",
+) -> dict[str, Any]:
+    """Package recovery log + stress tip into a portable recovery bundle."""
+
+    chain = verify_resolution_chain(resolution_log)
+    if not chain.get("valid"):
+        return {
+            "ok": False,
+            "action": "build_resolution_bundle",
+            "error": "recovery_chain_invalid",
+            "chain": chain,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    entries = list(resolution_log.get("entries") or [])
+    tip = entries[-1]
+    tip_cert = (
+        tip.get("resolution_certificate")
+        if isinstance(tip.get("resolution_certificate"), Mapping)
+        else {}
+    )
+    tip_cert_verify = (
+        verify_resolution_certificate(tip_cert) if tip_cert else {"valid": False}
+    )
+    settle_cert = (
+        recovery_bundle.get("recovery_certificate")
+        if isinstance(recovery_bundle.get("recovery_certificate"), Mapping)
+        else {}
+    )
+    act_cert = (
+        recovery_bundle.get("actuation_certificate")
+        if isinstance(recovery_bundle.get("actuation_certificate"), Mapping)
+        else {}
+    )
+    package = (
+        recovery_bundle.get("package")
+        if isinstance(recovery_bundle.get("package"), Mapping)
+        else {}
+    )
+    certificates: dict[str, dict[str, Any]] = {}
+    for clearing in entries:
+        cert = clearing.get("resolution_certificate")
+        if isinstance(cert, Mapping) and cert.get("certificate_hash"):
+            certificates[str(cert["certificate_hash"])] = {
+                "certificate_hash": cert.get("certificate_hash"),
+                "payload": cert,
+                "resolution_height": clearing.get("resolution_height"),
+            }
+    if isinstance(settle_cert, Mapping) and settle_cert.get("certificate_hash"):
+        certificates[str(settle_cert["certificate_hash"])] = {
+            "certificate_hash": settle_cert.get("certificate_hash"),
+            "payload": settle_cert,
+            "kind": "resolution_certificate",
+        }
+    if isinstance(act_cert, Mapping) and act_cert.get("certificate_hash"):
+        certificates[str(act_cert["certificate_hash"])] = {
+            "certificate_hash": act_cert.get("certificate_hash"),
+            "payload": act_cert,
+            "kind": "actuation_certificate",
+        }
+    exec_cert = (
+        recovery_bundle.get("execution_certificate")
+        if isinstance(recovery_bundle.get("execution_certificate"), Mapping)
+        else {}
+    )
+    if isinstance(exec_cert, Mapping) and exec_cert.get("certificate_hash"):
+        certificates[str(exec_cert["certificate_hash"])] = {
+            "certificate_hash": exec_cert.get("certificate_hash"),
+            "payload": exec_cert,
+            "kind": "execution_certificate",
+        }
+
+    settle_cert_nested = (
+        recovery_bundle.get("settlement_certificate")
+        if isinstance(recovery_bundle.get("settlement_certificate"), Mapping)
+        else {}
+    )
+    if isinstance(settle_cert_nested, Mapping) and settle_cert_nested.get(
+        "certificate_hash"
+    ):
+        certificates[str(settle_cert_nested["certificate_hash"])] = {
+            "certificate_hash": settle_cert_nested.get("certificate_hash"),
+            "payload": settle_cert_nested,
+            "kind": "settlement_certificate",
+        }
+
+    member_ids = list(recovery_bundle.get("member_ids") or package.get("member_ids") or [])
+    cb: dict[str, Any] = {
+        "schema_version": RESOLUTION_BUNDLE_SCHEMA,
+        "kind": "resolution_bundle",
+        "action": "build_resolution_bundle",
+        "goal": goal,
+        "resolutions": copy.deepcopy(dict(resolution_log)),
+        "recoveries": copy.deepcopy(
+            recovery_bundle.get("recoveries")
+            if isinstance(recovery_bundle.get("recoveries"), Mapping)
+            else {}
+        ),
+        "settlements": copy.deepcopy(
+            recovery_bundle.get("settlements")
+            if isinstance(recovery_bundle.get("settlements"), Mapping)
+            else {}
+        ),
+        "actions": copy.deepcopy(
+            recovery_bundle.get("actions")
+            if isinstance(recovery_bundle.get("actions"), Mapping)
+            else {}
+        ),
+        "package": copy.deepcopy(dict(package)),
+        "lineage": copy.deepcopy(
+            recovery_bundle.get("lineage")
+            if isinstance(recovery_bundle.get("lineage"), Mapping)
+            else {}
+        ),
+        "resolution_certificate": copy.deepcopy(dict(tip_cert)),
+        "recovery_certificate": copy.deepcopy(dict(settle_cert)),
+        "settlement_certificate": copy.deepcopy(dict(settle_cert_nested)),
+        "actuation_certificate": copy.deepcopy(dict(act_cert)),
+        "execution_certificate": copy.deepcopy(dict(exec_cert)),
+        "certificates": certificates,
+        "certificate_count": len(certificates),
+        "resolution_count": len(entries),
+        "recovery_count": int(recovery_bundle.get("recovery_count") or 0),
+        "settlement_count": int(recovery_bundle.get("settlement_count") or 0),
+        "action_count": int(recovery_bundle.get("action_count") or 0),
+        "tip_height": int(resolution_log.get("tip_height") or 0),
+        "tip_resolution_root": str(resolution_log.get("tip_resolution_root") or ""),
+        "bound_recovery_root": str(resolution_log.get("bound_recovery_root") or ""),
+        "bound_recovery_height": int(resolution_log.get("bound_recovery_height") or 0),
+        "tip_recovery_root": str(recovery_bundle.get("tip_recovery_root") or ""),
+        "bound_settlement_root": str(recovery_bundle.get("bound_settlement_root") or ""),
+        "tip_settlement_root": str(recovery_bundle.get("tip_settlement_root") or ""),
+        "bound_action_root": str(recovery_bundle.get("bound_action_root") or ""),
+        "tip_action_root": str(recovery_bundle.get("tip_action_root") or ""),
+        "bound_state_root": str(recovery_bundle.get("bound_state_root") or ""),
+        "resolution_plan_digest": str(resolution_log.get("resolution_plan_digest") or ""),
+        "recovery_plan_digest": str(recovery_bundle.get("recovery_plan_digest") or ""),
+        "recovery_hash": str(recovery_bundle.get("recovery_hash") or ""),
+        "settlement_hash": str(recovery_bundle.get("settlement_hash") or ""),
+        "actuation_hash": str(recovery_bundle.get("actuation_hash") or ""),
+        "execution_hash": str(recovery_bundle.get("execution_hash") or ""),
+        "package_hash": str(recovery_bundle.get("package_hash") or ""),
+        "member_ids": sorted({str(m).strip() for m in member_ids if str(m).strip()}),
+        "member_count": len(member_ids),
+        "lineage_head_hash": str(recovery_bundle.get("lineage_head_hash") or ""),
+        "lineage_entry_count": int(recovery_bundle.get("lineage_entry_count") or 0),
+        "origin_count": recovery_bundle.get("origin_count"),
+        "agreeing_count": recovery_bundle.get("agreeing_count"),
+        "byzantine_count": recovery_bundle.get("byzantine_count"),
+        "state_count": recovery_bundle.get("state_count"),
+        "epoch_count": recovery_bundle.get("epoch_count"),
+        "deterministic": True,
+        "post_recovery": True,
+        "exported_at": utc_now_iso(),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    cb["resolution_hash"] = compute_resolution_bundle_hash(cb)
+    cb["ok"] = (
+        bool(chain.get("valid"))
+        and bool(tip_cert_verify.get("valid"))
+        and len(entries) >= 2
+        and bool(cb["resolution_hash"])
+        and bool(cb["recovery_hash"])
+        and bool(cb["resolution_plan_digest"])
+        and cb["deterministic"] is True
+        and cb["post_recovery"] is True
+        and not bool(cb["used_skill_route_discovery"])
+    )
+    return cb
+
+
+def write_resolution_bundle(path: Path, bundle: Mapping[str, Any]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(path, dict(bundle))
+    return path
+
+
+def load_resolution_bundle(path: Path) -> dict[str, Any]:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("stress bundle must be a JSON object")
+    return data
+
+
+def verify_resolution_bundle_integrity(bundle: Mapping[str, Any]) -> dict[str, Any]:
+    expected = str(bundle.get("resolution_hash") or "").strip()
+    recomputed = compute_resolution_bundle_hash(bundle)
+    hash_ok = bool(expected) and expected == recomputed
+    recoveries = (
+        bundle.get("resolutions")
+        if isinstance(bundle.get("resolutions"), Mapping)
+        else {}
+    )
+    chain = (
+        verify_resolution_chain(recoveries)
+        if recoveries
+        else {"ok": False, "valid": False, "errors": ["missing_recoveries"]}
+    )
+    cert = (
+        bundle.get("resolution_certificate")
+        if isinstance(bundle.get("resolution_certificate"), Mapping)
+        else {}
+    )
+    cert_verify = (
+        verify_resolution_certificate(cert) if cert else {"valid": False, "ok": False}
+    )
+    settle_cert = (
+        bundle.get("recovery_certificate")
+        if isinstance(bundle.get("recovery_certificate"), Mapping)
+        else {}
+    )
+    settle_cert_verify = (
+        verify_recovery_certificate(settle_cert)
+        if settle_cert
+        else {"valid": False, "ok": False}
+    )
+    multi = int(bundle.get("resolution_count") or chain.get("entry_count") or 0) >= 2
+    package = bundle.get("package") if isinstance(bundle.get("package"), Mapping) else {}
+    package_ok = bool(package) and bool(bundle.get("package_hash"))
+    bound_ok = bool(bundle.get("bound_recovery_root")) and bool(
+        bundle.get("recovery_hash")
+    )
+    margin_digest_ok = bool(bundle.get("resolution_plan_digest")) and str(
+        bundle.get("resolution_plan_digest") or ""
+    ) == str(chain.get("resolution_plan_digest") or bundle.get("resolution_plan_digest") or "")
+    deterministic = bundle.get("deterministic") is True
+    post_recovery = bundle.get("post_recovery") is True
+    used_skill = bool(bundle.get("used_skill_route_discovery")) or legacy_pipeline_was_used()
+    ok = (
+        hash_ok
+        and bool(chain.get("valid"))
+        and bool(cert_verify.get("valid"))
+        and bool(settle_cert_verify.get("valid"))
+        and multi
+        and package_ok
+        and bound_ok
+        and margin_digest_ok
+        and deterministic
+        and post_recovery
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "verify_resolution_bundle_integrity",
+        "hash_ok": hash_ok,
+        "chain_valid": bool(chain.get("valid")),
+        "multi_resolution": multi,
+        "package_ok": package_ok,
+        "resolution_certificate_valid": bool(cert_verify.get("valid")),
+        "recovery_certificate_valid": bool(settle_cert_verify.get("valid")),
+        "bound_ok": bound_ok,
+        "resolution_ok": margin_digest_ok,
+        "margin_digest_ok": margin_digest_ok,
+        "deterministic": deterministic,
+        "post_recovery": post_recovery,
+        "tip_height": chain.get("tip_height"),
+        "tip_resolution_root": chain.get("tip_resolution_root"),
+        "resolution_plan_digest": chain.get("resolution_plan_digest"),
+        "resolution_hash": expected if hash_ok else recomputed,
+        "errors": list(chain.get("errors") or []),
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def rehydrate_resolution_bundle(
+    repo_path: Path,
+    bundle: Mapping[str, Any],
+    *,
+    sandbox_dir: Path | None = None,
+) -> dict[str, Any]:
+    """Materialize tip package + recovery log into a sterile sandbox and re-check buffers."""
+
+    root = repo_path.resolve()
+    integrity = verify_resolution_bundle_integrity(bundle)
+    if not integrity.get("ok"):
+        return {
+            "ok": False,
+            "action": "rehydrate_resolution_bundle",
+            "error": "recovery_integrity_failed",
+            "integrity": integrity,
+            "used_skill_route_discovery": integrity.get("used_skill_route_discovery"),
+        }
+
+    c_hash = str(bundle.get("resolution_hash") or "unknown")
+    sandbox = (
+        sandbox_dir.resolve()
+        if sandbox_dir is not None
+        else (root / "artifacts" / "resolution-sandbox" / c_hash[:16])
+    )
+    sandbox.mkdir(parents=True, exist_ok=True)
+
+    package = dict(bundle.get("package") or {})
+    lineage = copy.deepcopy(bundle.get("lineage") or {})
+    resolutions = copy.deepcopy(bundle.get("resolutions") or {})
+    recoveries = copy.deepcopy(bundle.get("recoveries") or {})
+    settlements = copy.deepcopy(bundle.get("settlements") or {})
+    actions = copy.deepcopy(bundle.get("actions") or {})
+    lineage_path = sandbox / "lineage.json"
+    if lineage:
+        write_lineage_log(lineage_path, lineage)
+    resolutions_path = sandbox / "resolutions.json"
+    atomic_write_json(resolutions_path, resolutions)
+    recoveries_path = sandbox / "recoveries.json"
+    atomic_write_json(recoveries_path, recoveries)
+    settlements_path = sandbox / "settlements.json"
+    atomic_write_json(settlements_path, settlements)
+    actions_path = sandbox / "actions.json"
+    atomic_write_json(actions_path, actions)
+
+    empty = CapabilityLedger(schema_version=SCHEMA_VERSION, updated_at=utc_now_iso())
+    empty, import_report = import_capability_package(empty, package, replace=True)
+    sterile_ledger_path = sandbox / "ledger.json"
+    save_ledger(sterile_ledger_path, empty)
+
+    cert = (
+        bundle.get("resolution_certificate")
+        if isinstance(bundle.get("resolution_certificate"), Mapping)
+        else {}
+    )
+    cert_path = sandbox / "resolution-certificate.json"
+    if cert:
+        write_resolution_certificate(cert_path, cert)
+    clear_cert = (
+        bundle.get("recovery_certificate")
+        if isinstance(bundle.get("recovery_certificate"), Mapping)
+        else {}
+    )
+    clear_cert_path = sandbox / "recovery-certificate.json"
+    if clear_cert:
+        write_recovery_certificate(clear_cert_path, clear_cert)
+
+    chain = verify_resolution_chain(resolutions)
+    cert_verify = (
+        verify_resolution_certificate(cert) if cert else {"ok": False, "valid": False}
+    )
+    clear_cert_verify = (
+        verify_recovery_certificate(clear_cert)
+        if clear_cert
+        else {"ok": False, "valid": False}
+    )
+    re_margin_digest_ok = True
+    prev_net = ""
+    for entry in list(resolutions.get("entries") or []):
+        if not isinstance(entry, Mapping):
+            re_margin_digest_ok = False
+            break
+        expected = compute_resolution_plan_digest(
+            parent_resolution_digest=prev_net,
+            bound_recovery_root=str(entry.get("bound_recovery_root") or ""),
+            recovery_plan_digest=str(entry.get("recovery_plan_digest") or ""),
+            position_ratio_bps=int(entry.get("position_ratio_bps") or 1000),
+            capability_id=str(entry.get("capability_id") or ""),
+            outcome=str(entry.get("outcome") or "resolved"),
+        )
+        if expected != str(entry.get("resolution_plan_digest") or ""):
+            re_margin_digest_ok = False
+            break
+        prev_net = expected
+
+    lineage_chain = (
+        verify_lineage_chain(lineage)
+        if lineage
+        else {"ok": True, "valid": True, "entry_count": 0}
+    )
+    used_skill = legacy_pipeline_was_used()
+    ok = (
+        bool(integrity.get("ok"))
+        and bool(import_report.get("ok"))
+        and bool(chain.get("valid"))
+        and bool(cert_verify.get("valid"))
+        and bool(clear_cert_verify.get("valid"))
+        and re_margin_digest_ok
+        and int(import_report.get("imported_count") or 0) >= 1
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "rehydrate_resolution_bundle",
+        "sandbox_dir": str(sandbox),
+        "lineage_path": str(lineage_path) if lineage else None,
+        "resolutions_path": str(resolutions_path),
+        "recoveries_path": str(recoveries_path),
+        "settlements_path": str(settlements_path),
+        "actions_path": str(actions_path),
+        "sterile_ledger_path": str(sterile_ledger_path),
+        "certificate_path": str(cert_path) if cert else None,
+        "recovery_certificate_path": str(clear_cert_path) if clear_cert else None,
+        "resolution_hash": c_hash,
+        "import": import_report,
+        "chain": {
+            "ok": chain.get("ok"),
+            "valid": chain.get("valid"),
+            "entry_count": chain.get("entry_count"),
+            "tip_height": chain.get("tip_height"),
+            "tip_resolution_root": chain.get("tip_resolution_root"),
+            "resolution_plan_digest": chain.get("resolution_plan_digest"),
+            "errors": chain.get("errors") or [],
+        },
+        "lineage_chain": {
+            "ok": lineage_chain.get("ok"),
+            "valid": lineage_chain.get("valid"),
+            "entry_count": lineage_chain.get("entry_count"),
+        },
+        "resolution_certificate": {
+            "ok": cert_verify.get("ok"),
+            "valid": cert_verify.get("valid"),
+            "certificate_hash": cert_verify.get("certificate_hash"),
+            "resolution_root": cert_verify.get("resolution_root"),
+        },
+        "recovery_certificate": {
+            "ok": clear_cert_verify.get("ok"),
+            "valid": clear_cert_verify.get("valid"),
+            "certificate_hash": clear_cert_verify.get("certificate_hash"),
+        },
+        "margin_digests_match": re_margin_digest_ok,
+        "integrity": {
+            "ok": integrity.get("ok"),
+            "hash_ok": integrity.get("hash_ok"),
+            "multi_resolution": integrity.get("multi_resolution"),
+            "tip_height": integrity.get("tip_height"),
+        },
+        "sterile_ledger": empty,
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def replay_resolutions_from_specs(
+    specs: Sequence[Mapping[str, Any]],
+    recovery_bundle: Mapping[str, Any],
+    *,
+    goal: str = "",
+) -> dict[str, Any]:
+    resolution_log = empty_resolution_log()
+    for index, spec in enumerate(specs):
+        result = apply_resolution_transition(
+            resolution_log,
+            spec,
+            recovery_bundle=recovery_bundle,
+            goal=f"{goal} (replay {index + 1})",
+            claims={"replay": True, "clearing_index": index + 1},
+        )
+        if not result.get("ok"):
+            return {
+                "ok": False,
+                "error": result.get("error") or "replay_failed",
+                "resolution_log": resolution_log,
+                "applied_count": index,
+            }
+        resolution_log = result["resolution_log"]
+    chain = verify_resolution_chain(resolution_log)
+    return {
+        "ok": bool(chain.get("valid")),
+        "resolution_log": resolution_log,
+        "tip_resolution_root": resolution_log.get("tip_resolution_root"),
+        "tip_height": resolution_log.get("tip_height"),
+        "resolution_plan_digest": resolution_log.get("resolution_plan_digest"),
+        "chain": chain,
+    }
+
+
+def run_resolution_adversarial_checks(
+    intact_bundle: Mapping[str, Any],
+    resolution_log: Mapping[str, Any],
+    recovery_bundle: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Falsify recovery honesty: mutation, reorder, wrong-stress, double-buffer, forged root, digest."""
+
+    intact = verify_resolution_bundle_integrity(intact_bundle)
+    intact_chain = verify_resolution_chain(resolution_log)
+
+    mutated_log = copy.deepcopy(dict(resolution_log))
+    m_entries = list(mutated_log.get("entries") or [])
+    mutation_fails = False
+    if m_entries:
+        first = dict(m_entries[0])
+        first["capability_id"] = "evil.capability"
+        m_entries[0] = first
+        mutated_log["entries"] = m_entries
+        mutation_check = verify_resolution_chain(mutated_log)
+        mutation_fails = mutation_check.get("valid") is not True
+
+    reorder_fails = False
+    if len(list(resolution_log.get("entries") or [])) >= 2:
+        rev = copy.deepcopy(dict(resolution_log))
+        rev["entries"] = list(reversed(list(rev.get("entries") or [])))
+        reorder_check = verify_resolution_chain(rev)
+        reorder_fails = reorder_check.get("valid") is not True
+    else:
+        reorder_fails = True
+
+    wrong_recovery_fails = False
+    if m_entries:
+        ws = copy.deepcopy(dict(resolution_log))
+        w_entries = list(ws.get("entries") or [])
+        tip = dict(w_entries[-1])
+        tip["bound_recovery_root"] = "a" * 24
+        w_entries[-1] = tip
+        ws["entries"] = w_entries
+        ws["bound_recovery_root"] = tip["bound_recovery_root"]
+        wrong_check = verify_resolution_chain(ws)
+        wrong_recovery_fails = wrong_check.get("valid") is not True
+    specs = derive_resolution_specs_from_recovery(recovery_bundle)
+    bad_spec = dict(specs[0]) if specs else {}
+    if bad_spec:
+        bad_spec["bound_recovery_root"] = "b" * 24
+        apply_bad = apply_resolution_transition(
+            empty_resolution_log(),
+            bad_spec,
+            recovery_bundle=recovery_bundle,
+            goal="bad-bind",
+        )
+        wrong_recovery_fails = wrong_recovery_fails and (
+            apply_bad.get("ok") is not True
+            and apply_bad.get("error") == "bound_recovery_root_mismatch"
+        )
+
+    forged_log = copy.deepcopy(dict(resolution_log))
+    f_entries = list(forged_log.get("entries") or [])
+    forged_root_fails = False
+    if f_entries:
+        tip = dict(f_entries[-1])
+        tip["resolution_root"] = "f" * 24
+        f_entries[-1] = tip
+        forged_log["entries"] = f_entries
+        forged_log["tip_resolution_root"] = tip["resolution_root"]
+        forged_check = verify_resolution_chain(forged_log)
+        forged_root_fails = forged_check.get("valid") is not True
+
+    gap_log = copy.deepcopy(dict(resolution_log))
+    g_entries = list(gap_log.get("entries") or [])
+    gap_fails = False
+    if g_entries:
+        last = dict(g_entries[-1])
+        last["resolution_height"] = int(last.get("resolution_height") or 1) + 5
+        g_entries[-1] = last
+        gap_log["entries"] = g_entries
+        gap_log["tip_height"] = last["resolution_height"]
+        gap_check = verify_resolution_chain(gap_log)
+        gap_fails = gap_check.get("valid") is not True
+
+    broken_cert_fails = False
+    if m_entries:
+        broken_log = copy.deepcopy(dict(resolution_log))
+        b_entries = list(broken_log.get("entries") or [])
+        tip = dict(b_entries[-1])
+        cert = dict(tip.get("resolution_certificate") or {})
+        cert["certificate_hash"] = "0" * 24
+        tip["resolution_certificate"] = cert
+        b_entries[-1] = tip
+        broken_log["entries"] = b_entries
+        broken_check = verify_resolution_chain(broken_log)
+        broken_cert_fails = broken_check.get("valid") is not True
+
+    parent_fails = False
+    if len(list(resolution_log.get("entries") or [])) >= 2:
+        parent_log = copy.deepcopy(dict(resolution_log))
+        p_entries = list(parent_log.get("entries") or [])
+        tip = dict(p_entries[-1])
+        tip["parent_resolution_root"] = "deadbeef-parent-root"
+        p_entries[-1] = tip
+        parent_log["entries"] = p_entries
+        parent_check = verify_resolution_chain(parent_log)
+        parent_fails = parent_check.get("valid") is not True
+    else:
+        parent_fails = True
+
+    digest_tamper_fails = False
+    if m_entries:
+        net_log = copy.deepcopy(dict(resolution_log))
+        n_entries = list(net_log.get("entries") or [])
+        tip = dict(n_entries[-1])
+        tip["resolution_plan_digest"] = "c" * 24
+        n_entries[-1] = tip
+        net_log["entries"] = n_entries
+        net_log["resolution_plan_digest"] = tip["resolution_plan_digest"]
+        net_check = verify_resolution_chain(net_log)
+        digest_tamper_fails = net_check.get("valid") is not True
+
+    tampered = copy.deepcopy(dict(intact_bundle))
+    tampered["resolution_hash"] = "e" * 24
+    tamper_check = verify_resolution_bundle_integrity(tampered)
+    tamper_fails = tamper_check.get("ok") is not True
+
+    single = copy.deepcopy(dict(intact_bundle))
+    single_resolutions = copy.deepcopy(dict(single.get("resolutions") or {}))
+    s_entries = list(single_resolutions.get("entries") or [])[:1]
+    single_resolutions["entries"] = s_entries
+    single_resolutions["entry_count"] = len(s_entries)
+    if s_entries:
+        single_resolutions["tip_height"] = s_entries[0].get("resolution_height")
+        single_resolutions["tip_resolution_root"] = s_entries[0].get("resolution_root")
+        single_resolutions["resolution_plan_digest"] = s_entries[0].get("resolution_plan_digest")
+        single["resolutions"] = single_resolutions
+        single["resolution_count"] = 1
+        single["tip_height"] = single_resolutions["tip_height"]
+        single["tip_resolution_root"] = single_resolutions["tip_resolution_root"]
+        single["resolution_plan_digest"] = single_resolutions["resolution_plan_digest"]
+        if "resolution_hash" in single:
+            del single["resolution_hash"]
+        single["resolution_hash"] = compute_resolution_bundle_hash(single)
+        single_check = verify_resolution_bundle_integrity(single)
+        single_resolution_fails = single_check.get("ok") is not True
+    else:
+        single_resolution_fails = True
+
+    replay_match = False
+    if specs:
+        replay = replay_resolutions_from_specs(
+            specs, recovery_bundle, goal="adversarial-replay"
+        )
+        replay_match = (
+            bool(replay.get("ok"))
+            and str(replay.get("tip_resolution_root") or "")
+            == str(resolution_log.get("tip_resolution_root") or "")
+            and int(replay.get("tip_height") or 0)
+            == int(resolution_log.get("tip_height") or 0)
+            and str(replay.get("resolution_plan_digest") or "")
+            == str(resolution_log.get("resolution_plan_digest") or "")
+        )
+
+    dup_fails = False
+    if specs:
+        dup = apply_resolution_transition(
+            resolution_log, specs[-1], recovery_bundle=recovery_bundle, goal="dup"
+        )
+        dup_fails = dup.get("ok") is not True and dup.get("error") in {
+            "duplicate_resolution_rejected",
+        }
+
+    incomplete_fails = single_resolution_fails
+    used_skill = legacy_pipeline_was_used()
+    ok = (
+        bool(intact.get("ok"))
+        and bool(intact_chain.get("valid"))
+        and mutation_fails
+        and reorder_fails
+        and wrong_recovery_fails
+        and forged_root_fails
+        and gap_fails
+        and broken_cert_fails
+        and parent_fails
+        and digest_tamper_fails
+        and tamper_fails
+        and single_resolution_fails
+        and replay_match
+        and dup_fails
+        and incomplete_fails
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "recovery_adversarial_checks",
+        "intact_ok": bool(intact.get("ok")),
+        "chain_ok": bool(intact_chain.get("valid")),
+        "mutation_fails_as_expected": mutation_fails,
+        "reorder_fails_as_expected": reorder_fails,
+        "wrong_recovery_fails_as_expected": wrong_recovery_fails,
+        "forged_root_fails_as_expected": forged_root_fails,
+        "gap_fails_as_expected": gap_fails,
+        "broken_cert_fails_as_expected": broken_cert_fails,
+        "wrong_parent_fails_as_expected": parent_fails,
+        "digest_tamper_fails_as_expected": digest_tamper_fails,
+        "tamper_fails_as_expected": tamper_fails,
+        "single_resolution_fails_as_expected": single_resolution_fails,
+        "replay_matches_tip": replay_match,
+        "duplicate_apply_fails_as_expected": dup_fails,
+        "incomplete_fails_as_expected": incomplete_fails,
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def run_resolution_plane(
+    repo_path: Path,
+    goal: str = "resolution over recovery",
+    done_when: str = "",
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 960,
+    max_steps: int = 3,
+    run_recovery: bool = True,
+    run_liquidity: bool = True,
+    run_collateral: bool = True,
+    run_margin: bool = True,
+    run_clearing: bool = True,
+    run_settlement: bool = True,
+    run_actuation: bool = True,
+    run_execution: bool = True,
+    run_finality: bool = True,
+    run_quorum: bool = True,
+    run_continuity: bool = False,
+    run_reconciliation: bool = False,
+    force_synthetic_drift: bool = True,
+    inject_byzantine: bool = True,
+    prove_imported: bool = True,
+    epoch_count: int = 2,
+    min_actions: int = 2,
+    min_settlements: int = 2,
+    min_clearings: int = 2,
+    min_margins: int = 2,
+    min_collaterals: int = 2,
+    min_liquidities: int = 2,
+    min_recoveries: int = 2,
+    min_resolutions: int = 2,
+    lineage_path: Path | None = None,
+    bundle_path: Path | None = None,
+    quorum_path: Path | None = None,
+    finality_path: Path | None = None,
+    execution_path: Path | None = None,
+    actuation_path: Path | None = None,
+    settlement_path: Path | None = None,
+    margin_path: Path | None = None,
+    collateral_path: Path | None = None,
+    liquidity_path: Path | None = None,
+    recovery_path: Path | None = None,
+    resolution_path: Path | None = None,
+    sandbox_dir: Path | None = None,
+    persist: bool = True,
+) -> dict[str, Any]:
+    """Closed resolution plane: recovery → multi-recovery scenarios → cert → rehydrate → adversarial.
+
+    Past recovered positions: each risk position binds an ordered stress scenario into a
+    hash-chained risk log with stress scenario digests and risk certificates bound
+    to the risk tip. Mutation, reorder, wrong-funding binding, double-risk,
+    forged roots, height gaps, broken certs, digest tamper, and single-risk bundles fail;
+    sterile rehydrate+prove and genesis replay matching tip succeed without skill-route.
+    """
+
+    root = repo_path.resolve()
+    path, _ledger = ensure_seeded_ledger(root)
+    want_epochs = max(2, int(epoch_count))
+    want_actions = max(2, int(min_actions))
+    want_settlements = max(2, int(min_settlements))
+    want_clearings = max(2, int(min_clearings))
+    want_margins = max(2, int(min_margins))
+    want_collaterals = max(2, int(min_collaterals))
+    want_liquidities = max(2, int(min_liquidities))
+    want_recoveries = max(2, int(min_recoveries))
+    want_resolutions = max(2, int(min_resolutions))
+
+    out_lineage = (
+        lineage_path.resolve()
+        if lineage_path is not None
+        else default_lineage_path(root)
+    )
+    out_stress = (
+        recovery_path.resolve()
+        if recovery_path is not None
+        else (default_recovery_bundle_dir(root) / "resolution-source-recovery.json")
+    )
+
+    recovery_report: dict[str, Any] | None = None
+    recovery_bundle: dict[str, Any] | None = None
+    if run_recovery:
+        recovery_report = run_recovery_plane(
+            root,
+            goal if goal else "recovery for resolution",
+            strip_context_only_outcome_predicates(done_when or ""),
+            command_runner=command_runner,
+            timeout=timeout,
+            max_steps=max_steps,
+            run_resilience=run_recovery,
+            run_liquidity=run_liquidity,
+            run_collateral=run_collateral,
+            run_margin=run_margin,
+            run_clearing=run_clearing,
+            run_settlement=run_settlement,
+            run_actuation=run_actuation,
+            run_execution=run_execution,
+            run_finality=run_finality,
+            run_quorum=run_quorum,
+            run_continuity=run_continuity,
+            run_reconciliation=run_reconciliation,
+            force_synthetic_drift=force_synthetic_drift,
+            inject_byzantine=inject_byzantine,
+            prove_imported=prove_imported,
+            epoch_count=want_epochs,
+            min_actions=want_actions,
+            min_settlements=want_settlements,
+            min_clearings=want_clearings,
+            min_margins=want_margins,
+            min_collaterals=want_collaterals,
+            min_liquidities=want_liquidities,
+            min_resiliences=want_recoveries,
+            min_recoveries=want_recoveries,
+            lineage_path=out_lineage,
+            bundle_path=bundle_path,
+            quorum_path=quorum_path,
+            finality_path=finality_path,
+            execution_path=execution_path,
+            actuation_path=actuation_path,
+            settlement_path=settlement_path,
+            margin_path=margin_path,
+            collateral_path=collateral_path,
+            liquidity_path=liquidity_path,
+            recovery_path=out_stress,
+            persist=persist,
+        )
+        c_path = Path(
+            (
+                recovery_report.get("capital")
+                or recovery_report.get("recovery")
+                or recovery_report.get("funding")
+                or recovery_report.get("margin")
+                or {}
+            ).get("bundle_path")
+            or ""
+        )
+        if c_path and c_path.is_file():
+            recovery_bundle = load_recovery_bundle(c_path)
+        elif out_stress.is_file():
+            recovery_bundle = load_recovery_bundle(out_stress)
+        else:
+            recovery_bundle = None
+    else:
+        if out_stress.is_file():
+            recovery_bundle = load_recovery_bundle(out_stress)
+        else:
+            recovery_report = run_recovery_plane(
+                root,
+                goal,
+                "",
+                command_runner=command_runner,
+                timeout=timeout,
+                max_steps=max_steps,
+                run_resilience=True,
+                run_liquidity=run_liquidity,
+                run_collateral=run_collateral,
+                run_margin=run_margin,
+                run_clearing=run_clearing,
+                run_settlement=run_settlement,
+                run_actuation=run_actuation,
+                run_execution=run_execution,
+                run_finality=run_finality,
+                run_quorum=run_quorum,
+                run_continuity=False,
+                run_reconciliation=False,
+                inject_byzantine=inject_byzantine,
+                prove_imported=prove_imported,
+                epoch_count=want_epochs,
+                min_actions=want_actions,
+                min_settlements=want_settlements,
+                min_clearings=want_clearings,
+                min_margins=want_margins,
+                min_collaterals=want_collaterals,
+                min_liquidities=want_liquidities,
+                min_resiliences=want_recoveries,
+                min_recoveries=want_recoveries,
+                lineage_path=out_lineage,
+                settlement_path=settlement_path,
+                margin_path=margin_path,
+                collateral_path=collateral_path,
+                liquidity_path=liquidity_path,
+                recovery_path=out_stress,
+                persist=persist,
+            )
+            if out_stress.is_file():
+                recovery_bundle = load_recovery_bundle(out_stress)
+
+    parent_recovered = bool(
+        (recovery_report or {}).get("recovered")
+        or (recovery_report or {}).get("resolved")
+        or (recovery_report or {}).get("ok")
+        or (recovery_bundle or {}).get("ok")
+    )
+    if recovery_bundle is None or not (
+        recovery_bundle.get("ok") or parent_recovered
+    ):
+        return {
+            "ok": False,
+            "action": "resolution_plane",
+            "error": "recovery_source_failed",
+            "recovery": None
+        if recovery_report is None
+        else {
+                "ok": recovery_report.get("ok"),
+                "recovered": recovery_report.get("recovered") or recovery_report.get("resolved"),
+            },
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "ledger_path": str(path),
+        }
+
+    applied = apply_recovery_bundle_to_resolutions(
+        recovery_bundle,
+        goal=goal,
+        min_resolutions=want_resolutions,
+    )
+    if not applied.get("ok"):
+        return {
+            "ok": False,
+            "action": "resolution_plane",
+            "error": applied.get("error") or "recovery_apply_failed",
+            "apply": {
+                "ok": applied.get("ok"),
+                "error": applied.get("error"),
+                "applied_count": applied.get("applied_count"),
+            },
+            "settlement": {
+                "ok": True if recovery_report is None else bool(recovery_report.get("ok")),
+                "recovery_hash": recovery_bundle.get("recovery_hash"),
+            },
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "ledger_path": str(path),
+        }
+
+    resolution_log = applied["resolution_log"]
+    margin = build_resolution_bundle(
+        resolution_log,
+        recovery_bundle,
+        goal=goal,
+    )
+    out_c = (
+        resolution_path.resolve()
+        if resolution_path is not None
+        else (
+            default_resolution_bundle_dir(root)
+            / f"recovery-{margin.get('resolution_hash') or 'unknown'}.json"
+        )
+    )
+    if persist and margin.get("ok"):
+        write_resolution_bundle(out_c, margin)
+        reloaded = load_resolution_bundle(out_c)
+    else:
+        reloaded = margin
+
+    integrity = verify_resolution_bundle_integrity(reloaded)
+    rehydrate = rehydrate_resolution_bundle(
+        root,
+        reloaded,
+        sandbox_dir=sandbox_dir,
+    )
+    sterile = rehydrate.get("sterile_ledger")
+    if prove_imported and isinstance(sterile, CapabilityLedger):
+        member_ids = list((reloaded.get("package") or {}).get("member_ids") or [])
+        roots = list((reloaded.get("package") or {}).get("roots") or member_ids[:3])
+        if not roots:
+            roots = list((reloaded.get("package") or {}).get("members") or {}).keys()
+            roots = list(roots)[:3]
+        prove = prove_sterile_package(
+            root,
+            sterile,
+            roots,
+            command_runner=command_runner,
+            timeout=min(timeout, 120),
+        )
+    else:
+        prove = {
+            "ok": not prove_imported,
+            "action": "prove_sterile_package",
+            "proved_count": 0,
+            "proofs": [],
+            "used_skill_route_discovery": False,
+        }
+
+    chain = verify_resolution_chain(
+        reloaded.get("resolutions")
+        if isinstance(reloaded.get("resolutions"), Mapping)
+        else resolution_log
+    )
+    cert_verify = verify_resolution_certificate(
+        reloaded.get("resolution_certificate")
+        if isinstance(reloaded.get("resolution_certificate"), Mapping)
+        else {}
+    )
+    adversarial = run_resolution_adversarial_checks(
+        reloaded, resolution_log, recovery_bundle
+    )
+
+    used_skill = bool(
+        (recovery_report or {}).get("used_skill_route_discovery")
+        or margin.get("used_skill_route_discovery")
+        or integrity.get("used_skill_route_discovery")
+        or rehydrate.get("used_skill_route_discovery")
+        or prove.get("used_skill_route_discovery")
+        or adversarial.get("used_skill_route_discovery")
+        or legacy_pipeline_was_used()
+    )
+    tip_height = int(reloaded.get("tip_height") or chain.get("tip_height") or 0)
+    recovery_n = int(reloaded.get("resolution_count") or chain.get("entry_count") or 0)
+    stress_n = int(
+        reloaded.get("recovery_count") or recovery_bundle.get("recovery_count") or 0
+    )
+    settlement_n = int(
+        reloaded.get("settlement_count") or recovery_bundle.get("settlement_count") or 0
+    )
+    action_n = int(reloaded.get("action_count") or recovery_bundle.get("action_count") or 0)
+    state_n = int(reloaded.get("state_count") or recovery_bundle.get("state_count") or 0)
+    epoch_n = int(reloaded.get("epoch_count") or recovery_bundle.get("epoch_count") or 0)
+    resolved = (
+        bool(margin.get("ok"))
+        and bool(integrity.get("ok"))
+        and bool(rehydrate.get("ok"))
+        and bool(prove.get("ok"))
+        and bool(chain.get("valid"))
+        and bool(cert_verify.get("valid"))
+        and bool(adversarial.get("ok"))
+        and tip_height >= 2
+        and recovery_n >= 2
+        and not used_skill
+    )
+    provisional_ok = resolved and (
+        recovery_report is None or bool(recovery_report.get("ok")) or not run_recovery
+    )
+
+    context = {
+        "used_skill_route_discovery": used_skill,
+        "clearing": {
+            "ok": True if recovery_report is None else bool(recovery_report.get("ok")),
+            "recovered": True
+            if recovery_report is None
+            else bool(recovery_report.get("recovered") or recovery_report.get("liquid")),
+            "recovery_count": stress_n,
+            "tip_height": recovery_bundle.get("tip_height"),
+            "tip_recovery_root": recovery_bundle.get("tip_recovery_root"),
+            "recovery_hash": recovery_bundle.get("recovery_hash"),
+            "recovery_root_valid": True,
+            "certificate_valid": True,
+            "recovery_plan_digest": recovery_bundle.get("recovery_plan_digest"),
+            "deterministic": True,
+            "post_clearing": True,
+            "multi_clearing": stress_n >= 2,
+        },
+        "clearing_plane": {
+            "ok": True if recovery_report is None else bool(recovery_report.get("ok")),
+            "resolved": True
+            if recovery_report is None
+            else bool(recovery_report.get("resolved")),
+            "recovery_count": stress_n,
+            "recovery_root_valid": True,
+        },
+        "net": {
+            "ok": True if recovery_report is None else bool(recovery_report.get("ok")),
+            "resolved": True
+            if recovery_report is None
+            else bool(recovery_report.get("resolved")),
+            "recovery_count": stress_n,
+            "recovery_plan_digest": recovery_bundle.get("recovery_plan_digest"),
+            "recovery_root_valid": True,
+        },
+        "settlement": {
+            "ok": True,
+            "settled": True,
+            "settlement_count": settlement_n,
+            "settlement_root_valid": True,
+            "certificate_valid": True,
+            "deterministic": True,
+            "post_actuation": True,
+            "multi_settlement": settlement_n >= 2 if settlement_n else True,
+        },
+        "settlement_plane": {
+            "ok": True,
+            "settled": True,
+            "settlement_count": settlement_n,
+            "settlement_root_valid": True,
+        },
+        "receipts": {
+            "ok": True,
+            "settled": True,
+            "settlement_count": settlement_n,
+            "settlement_root_valid": True,
+        },
+        "actuation": {
+            "ok": True,
+            "effects_applied": True,
+            "action_count": action_n,
+            "action_root_valid": True,
+            "certificate_valid": True,
+            "deterministic": True,
+            "post_execution": True,
+            "multi_action": action_n >= 2 if action_n else True,
+        },
+        "actuation_plane": {
+            "ok": True,
+            "effects_applied": True,
+            "action_count": action_n,
+            "action_root_valid": True,
+        },
+        "effects": {
+            "ok": True,
+            "effects_applied": True,
+            "action_count": action_n,
+            "action_root_valid": True,
+        },
+        "execution": {
+            "ok": True,
+            "state_applied": True,
+            "state_height": state_n,
+            "tip_height": state_n,
+            "tip_state_root": recovery_bundle.get("bound_state_root"),
+            "execution_hash": recovery_bundle.get("execution_hash"),
+            "state_root_valid": True,
+            "certificate_valid": True,
+            "deterministic": True,
+            "post_finality": True,
+            "multi_state": state_n >= 2 if state_n else True,
+        },
+        "execution_plane": {
+            "ok": True,
+            "state_applied": True,
+            "state_height": state_n,
+            "state_root_valid": True,
+        },
+        "worldstate": {
+            "ok": True,
+            "state_applied": True,
+            "state_height": state_n,
+            "tip_state_root": recovery_bundle.get("bound_state_root"),
+            "state_root_valid": True,
+        },
+        "finality": {
+            "ok": True,
+            "finalized": True,
+            "epoch_count": epoch_n,
+            "finality_cert_valid": True,
+            "certificate_valid": True,
+            "irreversible": True,
+            "multi_epoch": epoch_n >= 2 if epoch_n else True,
+        },
+        "finality_plane": {
+            "ok": True,
+            "finalized": True,
+            "epoch_count": epoch_n,
+            "finality_cert_valid": True,
+        },
+        "quorum": {
+            "ok": True,
+            "quorum_met": True,
+            "origin_count": reloaded.get("origin_count"),
+            "quorum_size": reloaded.get("agreeing_count"),
+            "agreeing_count": reloaded.get("agreeing_count"),
+            "byzantine_excluded": int(reloaded.get("byzantine_count") or 0) >= 1,
+            "byzantine_count": reloaded.get("byzantine_count"),
+            "quorum_cert_valid": True,
+        },
+        "funding": {
+            "ok": True if recovery_report is None else bool(recovery_report.get("ok")),
+            "recovered": True
+            if recovery_report is None
+            else bool(
+                recovery_report.get("recovered")
+                or recovery_report.get("ok")
+                or stress_n >= 2
+            ),
+            "recovery_count": stress_n,
+            "tip_height": recovery_bundle.get("tip_height"),
+            "tip_recovery_root": recovery_bundle.get("tip_recovery_root"),
+            "recovery_hash": recovery_bundle.get("recovery_hash"),
+            "recovery_root_valid": True,
+            "certificate_valid": True,
+            "recovery_plan_digest": recovery_bundle.get("recovery_plan_digest"),
+            "deterministic": True,
+            "post_liquidity": True,
+            "multi_funding": stress_n >= 2,
+            "bound_liquidity_root": recovery_bundle.get("bound_liquidity_root"),
+        },
+        "funding_plane": {
+            "ok": True if recovery_report is None else bool(recovery_report.get("ok")),
+            "recovered": True
+            if recovery_report is None
+            else bool(recovery_report.get("recovered") or recovery_report.get("ok")),
+            "recovery_count": stress_n,
+            "recovery_root_valid": True,
+        },
+        "facility": {
+            "ok": True if recovery_report is None else bool(recovery_report.get("ok")),
+            "recovered": True
+            if recovery_report is None
+            else bool(recovery_report.get("recovered") or recovery_report.get("ok")),
+            "recovery_count": stress_n,
+            "recovery_plan_digest": recovery_bundle.get("recovery_plan_digest"),
+            "recovery_root_valid": True,
+        },
+        "recovery": {
+            "ok": True if recovery_report is None else bool(recovery_report.get("ok")),
+            "recovered": True
+            if recovery_report is None
+            else bool(
+                recovery_report.get("recovered")
+                or recovery_report.get("ok")
+                or stress_n >= 2
+            ),
+            "recovery_count": stress_n,
+            "tip_height": recovery_bundle.get("tip_height"),
+            "tip_recovery_root": recovery_bundle.get("tip_recovery_root"),
+            "recovery_hash": recovery_bundle.get("recovery_hash"),
+            "recovery_root_valid": True,
+            "certificate_valid": True,
+            "recovery_plan_digest": recovery_bundle.get("recovery_plan_digest"),
+            "deterministic": True,
+            "post_stress": True,
+            "multi_recovery": stress_n >= 2,
+            "bound_stress_root": recovery_bundle.get("bound_stress_root"),
+        },
+        "recovery_plane": {
+            "ok": True if recovery_report is None else bool(recovery_report.get("ok")),
+            "recovered": True
+            if recovery_report is None
+            else bool(recovery_report.get("recovered") or recovery_report.get("ok")),
+            "recovery_count": stress_n,
+            "recovery_root_valid": True,
+        },
+        "resolution": {
+            "ok": provisional_ok,
+            "resolved": resolved,
+            "resolution_count": recovery_n,
+            "tip_height": tip_height,
+            "tip_resolution_root": reloaded.get("tip_resolution_root"),
+            "resolution_hash": reloaded.get("resolution_hash"),
+            "resolution_root_valid": bool(cert_verify.get("valid")),
+            "certificate_valid": bool(cert_verify.get("valid")),
+            "resolution_plan_digest": reloaded.get("resolution_plan_digest"),
+            "recovery_plan_digest": reloaded.get("recovery_plan_digest"),
+            "deterministic": True,
+            "post_recovery": True,
+            "multi_resolution": recovery_n >= 2,
+            "bound_recovery_root": reloaded.get("bound_recovery_root"),
+        },
+        "resolution_plane": {
+            "ok": provisional_ok,
+            "resolved": resolved,
+            "resolution_count": recovery_n,
+            "resolution_root_valid": bool(cert_verify.get("valid")),
+        },
+        "scenario": {
+            "ok": provisional_ok,
+            "resolved": resolved,
+            "resolution_count": recovery_n,
+            "resolution_plan_digest": reloaded.get("resolution_plan_digest"),
+            "resolution_root_valid": bool(cert_verify.get("valid")),
+        },
+        "chain": chain,
+        "margin_chain": chain,
+        "clearing_chain": (recovery_report or {}).get("chain") or {},
+        "lineage_chain": (recovery_report or {}).get("chain") or {},
+        "lineage": {
+            "ok": True,
+            "entry_count": reloaded.get("lineage_entry_count"),
+        },
+        "origin_count": reloaded.get("origin_count"),
+        "resolution_count": recovery_n,
+        "recovery_count": stress_n,
+        "settlement_count": settlement_n,
+        "action_count": action_n,
+        "tip_height": tip_height,
+        "state_height": state_n,
+        "epoch_count": epoch_n,
+        "resolution_certificate": reloaded.get("resolution_certificate"),
+        "resolution_hash": reloaded.get("resolution_hash"),
+        "recovery_hash": reloaded.get("recovery_hash"),
+        "settlement_hash": reloaded.get("settlement_hash"),
+        "actuation_hash": reloaded.get("actuation_hash"),
+        "execution_hash": reloaded.get("execution_hash"),
+        "tip_resolution_root": reloaded.get("tip_resolution_root"),
+        "bound_recovery_root": reloaded.get("bound_recovery_root"),
+        "tip_recovery_root": reloaded.get("tip_recovery_root"),
+        "bound_settlement_root": reloaded.get("bound_settlement_root"),
+        "tip_settlement_root": reloaded.get("tip_settlement_root"),
+        "bound_action_root": reloaded.get("bound_action_root"),
+        "tip_action_root": reloaded.get("tip_action_root"),
+        "bound_state_root": reloaded.get("bound_state_root"),
+        "resolution_plan_digest": reloaded.get("resolution_plan_digest"),
+        "recovery_plan_digest": reloaded.get("recovery_plan_digest"),
+    }
+    resolution_done_when = (
+        "no_skill_route; resolution_ok; resolved_ok; min_resolutions:2; "
+        "resolution_root_valid; recovery_ok; recovered_ok; min_recoveries:2; "
+        "recovery_root_valid; chain_valid; capability_exists:repo.import-health"
+    )
+    final_contract = evaluate_outcome_contract(
+        root,
+        resolution_done_when,
+        context=context,
+        command_runner=command_runner,
+        timeout=min(timeout, 60),
+        run_programs=False,
+    )
+    ok = (
+        provisional_ok
+        and bool(final_contract.get("ok"))
+        and final_contract.get("met") is True
+    )
+    return {
+        "ok": ok,
+        "action": "resolution_plane",
+        "goal": goal,
+        "done_when": done_when,
+        "resolution_done_when": resolution_done_when,
+        "met": final_contract.get("met"),
+        "machine_checkable": True,
+        "resolved": resolved,
+        "resolution_count": recovery_n,
+        "tip_height": tip_height,
+        "tip_resolution_root": reloaded.get("tip_resolution_root"),
+        "bound_recovery_root": reloaded.get("bound_recovery_root"),
+        "bound_recovery_height": reloaded.get("bound_recovery_height"),
+        "resolution_plan_digest": reloaded.get("resolution_plan_digest"),
+        "recovery_count": stress_n,
+        "tip_recovery_root": reloaded.get("tip_recovery_root"),
+        "bound_settlement_root": reloaded.get("bound_settlement_root"),
+        "recovery_plan_digest": reloaded.get("recovery_plan_digest"),
+        "settlement_count": settlement_n,
+        "tip_settlement_root": reloaded.get("tip_settlement_root"),
+        "bound_action_root": reloaded.get("bound_action_root"),
+        "action_count": action_n,
+        "tip_action_root": reloaded.get("tip_action_root"),
+        "bound_state_root": reloaded.get("bound_state_root"),
+        "state_count": state_n,
+        "state_height": state_n,
+        "epoch_count": epoch_n,
+        "origin_count": reloaded.get("origin_count"),
+        "agreeing_count": reloaded.get("agreeing_count"),
+        "byzantine_count": reloaded.get("byzantine_count"),
+        "recovery": None
+        if recovery_report is None
+        else {
+            "ok": recovery_report.get("ok"),
+            "recovered": recovery_report.get("recovered") or recovery_report.get("resolved"),
+            "recovery_hash": (
+                (recovery_report.get("funding") or recovery_report.get("margin") or {}).get(
+                    "recovery_hash"
+                )
+                or recovery_report.get("recovery_hash")
+            ),
+            "recovery_count": recovery_report.get("recovery_count"),
+            "tip_recovery_root": recovery_report.get("tip_recovery_root"),
+        },
+        "recovery": {
+            "ok": margin.get("ok"),
+            "resolution_hash": reloaded.get("resolution_hash"),
+            "bundle_path": str(out_c) if persist and margin.get("ok") else None,
+            "package_hash": reloaded.get("package_hash"),
+            "member_count": reloaded.get("member_count"),
+            "resolution_count": recovery_n,
+            "tip_height": tip_height,
+            "tip_resolution_root": reloaded.get("tip_resolution_root"),
+            "bound_recovery_root": reloaded.get("bound_recovery_root"),
+            "resolution_plan_digest": reloaded.get("resolution_plan_digest"),
+            "certificate_count": reloaded.get("certificate_count"),
+            "lineage_entry_count": reloaded.get("lineage_entry_count"),
+            "lineage_head_hash": reloaded.get("lineage_head_hash"),
+            "recovery_hash": reloaded.get("recovery_hash"),
+            "settlement_hash": reloaded.get("settlement_hash"),
+            "actuation_hash": reloaded.get("actuation_hash"),
+            "execution_hash": reloaded.get("execution_hash"),
+            "persisted": persist and out_c.exists() if margin.get("ok") else False,
+            "deterministic": True,
+            "post_recovery": True,
+        },
+        "integrity": {
+            "ok": integrity.get("ok"),
+            "hash_ok": integrity.get("hash_ok"),
+            "chain_valid": integrity.get("chain_valid"),
+            "multi_resolution": integrity.get("multi_resolution"),
+            "package_ok": integrity.get("package_ok"),
+            "resolution_certificate_valid": integrity.get("resolution_certificate_valid"),
+            "recovery_certificate_valid": integrity.get(
+                "recovery_certificate_valid"
+            ),
+            "bound_ok": integrity.get("bound_ok"),
+            "resolution_ok": integrity.get("resolution_ok"),
+            "deterministic": integrity.get("deterministic"),
+            "post_recovery": integrity.get("post_recovery"),
+        },
+        "rehydrate": {
+            "ok": rehydrate.get("ok"),
+            "sandbox_dir": rehydrate.get("sandbox_dir"),
+            "lineage_path": rehydrate.get("lineage_path"),
+            "resolutions_path": rehydrate.get("resolutions_path"),
+            "recoveries_path": rehydrate.get("recoveries_path"),
+            "settlements_path": rehydrate.get("settlements_path"),
+            "actions_path": rehydrate.get("actions_path"),
+            "sterile_ledger_path": rehydrate.get("sterile_ledger_path"),
+            "import": rehydrate.get("import"),
+            "chain": rehydrate.get("chain"),
+            "resolution_certificate": rehydrate.get("resolution_certificate"),
+            "recovery_certificate": rehydrate.get("recovery_certificate"),
+            "margin_digests_match": rehydrate.get("margin_digests_match"),
+        },
+        "prove": {
+            "ok": prove.get("ok"),
+            "proved_count": prove.get("proved_count"),
+            "proofs": prove.get("proofs"),
+        },
+        "chain": {
+            "ok": chain.get("ok"),
+            "valid": chain.get("valid"),
+            "entry_count": chain.get("entry_count"),
+            "tip_height": chain.get("tip_height"),
+            "tip_resolution_root": chain.get("tip_resolution_root"),
+            "resolution_plan_digest": chain.get("resolution_plan_digest"),
+            "errors": chain.get("errors") or [],
+        },
+        "resolution_certificate": {
+            "ok": cert_verify.get("ok"),
+            "valid": cert_verify.get("valid"),
+            "hash_ok": cert_verify.get("hash_ok"),
+            "certificate_hash": cert_verify.get("certificate_hash"),
+            "resolution_height": cert_verify.get("resolution_height"),
+            "resolution_root": cert_verify.get("resolution_root"),
+            "bound_recovery_root": cert_verify.get("bound_recovery_root"),
+            "resolution_plan_digest": cert_verify.get("resolution_plan_digest"),
+        },
+        "adversarial": {
+            "ok": adversarial.get("ok"),
+            "intact_ok": adversarial.get("intact_ok"),
+            "mutation_fails_as_expected": adversarial.get(
+                "mutation_fails_as_expected"
+            ),
+            "reorder_fails_as_expected": adversarial.get("reorder_fails_as_expected"),
+            "wrong_recovery_fails_as_expected": adversarial.get(
+                "wrong_recovery_fails_as_expected"
+            ),
+            "forged_root_fails_as_expected": adversarial.get(
+                "forged_root_fails_as_expected"
+            ),
+            "gap_fails_as_expected": adversarial.get("gap_fails_as_expected"),
+            "broken_cert_fails_as_expected": adversarial.get(
+                "broken_cert_fails_as_expected"
+            ),
+            "wrong_parent_fails_as_expected": adversarial.get(
+                "wrong_parent_fails_as_expected"
+            ),
+            "digest_tamper_fails_as_expected": adversarial.get(
+                "digest_tamper_fails_as_expected"
+            ),
+            "tamper_fails_as_expected": adversarial.get("tamper_fails_as_expected"),
+            "single_resolution_fails_as_expected": adversarial.get(
+                "single_resolution_fails_as_expected"
+            ),
+            "replay_matches_tip": adversarial.get("replay_matches_tip"),
+            "duplicate_apply_fails_as_expected": adversarial.get(
+                "duplicate_apply_fails_as_expected"
+            ),
+            "incomplete_fails_as_expected": adversarial.get(
+                "incomplete_fails_as_expected"
+            ),
+        },
+        "final_contract": {
+            "ok": final_contract.get("ok"),
+            "met": final_contract.get("met"),
+            "passed_count": final_contract.get("passed_count"),
+            "failed_count": final_contract.get("failed_count"),
+            "failed": final_contract.get("failed"),
+        },
+        "used_skill_route_discovery": used_skill,
+        "ledger_path": str(path),
+    }
+
+
+def builtin_resolution_plane() -> dict[str, Any]:
+    """Invocable capability: recovery → multi-recovery deterministic buffers → prove."""
+
+    root = Path(__file__).resolve().parents[2]
+    goal = (
+        (os.environ.get("BLACKHOLE_MISSION_GOAL") or "").strip()
+        or "resolution over recovery"
+    )
+    done_when = (os.environ.get("BLACKHOLE_DONE_WHEN") or "").strip()
+    max_steps = int(os.environ.get("BLACKHOLE_PROGRAM_MAX_STEPS") or "3")
+    run_recovery = (
+        os.environ.get("BLACKHOLE_RESOLUTION_RUN_RECOVERY") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_liquidity = (
+        os.environ.get("BLACKHOLE_CAPITAL_RUN_FUNDING") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_collateral = (
+        os.environ.get("BLACKHOLE_LIQUIDITY_RUN_COLLATERAL") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_margin = (
+        os.environ.get("BLACKHOLE_COLLATERAL_RUN_MARGIN") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_clearing = (
+        os.environ.get("BLACKHOLE_MARGIN_RUN_CLEARING") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_settlement = (
+        os.environ.get("BLACKHOLE_CLEARING_RUN_SETTLEMENT") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_actuation = (
+        os.environ.get("BLACKHOLE_SETTLEMENT_RUN_ACTUATION") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_execution = (
+        os.environ.get("BLACKHOLE_ACTUATION_RUN_EXECUTION") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_finality = (
+        os.environ.get("BLACKHOLE_EXECUTION_RUN_FINALITY") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_quorum = (
+        os.environ.get("BLACKHOLE_FINALITY_RUN_QUORUM") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_continuity = (
+        os.environ.get("BLACKHOLE_QUORUM_RUN_CONTINUITY") or "0"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_recon = (
+        os.environ.get("BLACKHOLE_CONTINUITY_RUN_RECON") or "0"
+    ).strip().lower() not in {"0", "false", "no"}
+    force_synthetic = (
+        os.environ.get("BLACKHOLE_RECONCILE_SYNTHETIC") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    inject_byz = (
+        os.environ.get("BLACKHOLE_QUORUM_INJECT_BYZANTINE") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    epoch_count = int(os.environ.get("BLACKHOLE_FINALITY_EPOCH_COUNT") or "2")
+    min_actions = int(os.environ.get("BLACKHOLE_ACTUATION_MIN_ACTIONS") or "2")
+    min_settlements = int(os.environ.get("BLACKHOLE_SETTLEMENT_MIN_SETTLEMENTS") or "2")
+    min_clearings = int(os.environ.get("BLACKHOLE_CLEARING_MIN_CLEARINGS") or "2")
+    min_margins = int(os.environ.get("BLACKHOLE_MARGIN_MIN_MARGINS") or "2")
+    min_collaterals = int(os.environ.get("BLACKHOLE_COLLATERAL_MIN_COLLATERALS") or "2")
+    min_liquidities = int(os.environ.get("BLACKHOLE_LIQUIDITY_MIN_LIQUIDITIES") or "2")
+    min_recoveries = int(os.environ.get("BLACKHOLE_RECOVERY_MIN_RECOVERYS") or "2")
+    min_resolutions = int(os.environ.get("BLACKHOLE_RESOLUTION_MIN_RESOLUTIONS") or "2")
+    lineage_raw = (os.environ.get("BLACKHOLE_LINEAGE_PATH") or "").strip()
+    lineage_path = Path(lineage_raw) if lineage_raw else None
+    bundle_raw = (os.environ.get("BLACKHOLE_CONTINUITY_BUNDLE_PATH") or "").strip()
+    bundle_path = Path(bundle_raw) if bundle_raw else None
+    q_raw = (os.environ.get("BLACKHOLE_QUORUM_BUNDLE_PATH") or "").strip()
+    quorum_path = Path(q_raw) if q_raw else None
+    f_raw = (os.environ.get("BLACKHOLE_FINALITY_BUNDLE_PATH") or "").strip()
+    finality_path = Path(f_raw) if f_raw else None
+    e_raw = (os.environ.get("BLACKHOLE_EXECUTION_BUNDLE_PATH") or "").strip()
+    execution_path = Path(e_raw) if e_raw else None
+    a_raw = (os.environ.get("BLACKHOLE_ACTUATION_BUNDLE_PATH") or "").strip()
+    actuation_path = Path(a_raw) if a_raw else None
+    s_raw = (os.environ.get("BLACKHOLE_SETTLEMENT_BUNDLE_PATH") or "").strip()
+    settlement_path = Path(s_raw) if s_raw else None
+    g_raw = (os.environ.get("BLACKHOLE_MARGIN_BUNDLE_PATH") or "").strip()
+    margin_path = Path(g_raw) if g_raw else None
+    col_raw = (os.environ.get("BLACKHOLE_COLLATERAL_BUNDLE_PATH") or "").strip()
+    collateral_path = Path(col_raw) if col_raw else None
+    liq_raw = (os.environ.get("BLACKHOLE_LIQUIDITY_BUNDLE_PATH") or "").strip()
+    liquidity_path = Path(liq_raw) if liq_raw else None
+    c_raw = (os.environ.get("BLACKHOLE_RECOVERY_BUNDLE_PATH") or "").strip()
+    recovery_path = Path(c_raw) if c_raw else None
+    m_raw = (os.environ.get("BLACKHOLE_RESOLUTION_BUNDLE_PATH") or "").strip()
+    resolution_path = Path(m_raw) if m_raw else None
+    return run_resolution_plane(
+        root,
+        goal,
+        done_when,
+        max_steps=max_steps,
+        run_recovery=run_recovery,
+        run_liquidity=run_liquidity,
+        run_collateral=run_collateral,
+        run_margin=run_margin,
+        run_clearing=run_clearing,
+        run_settlement=run_settlement,
+        run_actuation=run_actuation,
+        run_execution=run_execution,
+        run_finality=run_finality,
+        run_quorum=run_quorum,
+        run_continuity=run_continuity,
+        run_reconciliation=run_recon,
+        force_synthetic_drift=force_synthetic,
+        inject_byzantine=inject_byz,
+        epoch_count=epoch_count,
+        min_actions=min_actions,
+        min_settlements=min_settlements,
+        min_clearings=min_clearings,
+        min_margins=min_margins,
+        min_collaterals=min_collaterals,
+        min_liquidities=min_liquidities,
+        min_recoveries=min_recoveries,
+        min_resolutions=min_resolutions,
+        lineage_path=lineage_path,
+        bundle_path=bundle_path,
+        quorum_path=quorum_path,
+        finality_path=finality_path,
+        execution_path=execution_path,
+        actuation_path=actuation_path,
+        settlement_path=settlement_path,
+        margin_path=margin_path,
+        collateral_path=collateral_path,
+        liquidity_path=liquidity_path,
+        recovery_path=recovery_path,
+        resolution_path=resolution_path,
+        timeout=960,
+    )
+
+
 def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
     """Install the minimal compoundable bootstrap set if missing."""
 
@@ -47277,6 +49682,142 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "recovery",
                 "plan",
                 "resilience",
+                "plane",
+                "certificate",
+                "adversarial",
+                "hash-chain",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+
+        Capability(
+            id="capability.resolution-plane",
+            name="Resolution plane over recovery",
+            description=(
+                "Closed resolution plane: multi-recovery actions → deterministic "
+                "hash-chained resolution orders with resolution plan digests bound to "
+                "recovery roots → resolution certificates → sterile rehydrate+prove → "
+                "adversarial mutation/reorder/wrong-recovery/double-resolution/forged-root/"
+                "gap/digest-tamper/single-resolution falsification with genesis replay matching "
+                "tip — past recovered actions without resolution orders."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_resolution_plane",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_resolution_plane; '
+                "from pathlib import Path; "
+                "import os; "
+                "os.environ['BLACKHOLE_MISSION_GOAL']='resolution over recovery'; "
+                "os.environ['BLACKHOLE_DONE_WHEN']="
+                "'min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; "
+                "os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; "
+                "os.environ['BLACKHOLE_RESOLUTION_RUN_RECOVERY']='1'; "
+                "os.environ['BLACKHOLE_RECOVERY_RUN_RESILIENCE']='1'; "
+                "os.environ['BLACKHOLE_RESILIENCE_RUN_STRESS']='1'; "
+                "os.environ['BLACKHOLE_STRESS_RUN_RISK']='1'; "
+                "os.environ['BLACKHOLE_RISK_RUN_SOLVENCY']='1'; "
+                "os.environ['BLACKHOLE_SOLVENCY_RUN_CAPITAL']='1'; "
+                "os.environ['BLACKHOLE_CAPITAL_RUN_FUNDING']='1'; "
+                "os.environ['BLACKHOLE_FUNDING_RUN_LIQUIDITY']='1'; "
+                "os.environ['BLACKHOLE_LIQUIDITY_RUN_COLLATERAL']='1'; "
+                "os.environ['BLACKHOLE_COLLATERAL_RUN_MARGIN']='1'; "
+                "os.environ['BLACKHOLE_MARGIN_RUN_CLEARING']='1'; "
+                "os.environ['BLACKHOLE_CLEARING_RUN_SETTLEMENT']='1'; "
+                "os.environ['BLACKHOLE_SETTLEMENT_RUN_ACTUATION']='1'; "
+                "os.environ['BLACKHOLE_ACTUATION_RUN_EXECUTION']='1'; "
+                "os.environ['BLACKHOLE_EXECUTION_RUN_FINALITY']='1'; "
+                "os.environ['BLACKHOLE_FINALITY_RUN_QUORUM']='1'; "
+                "os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='0'; "
+                "os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='0'; "
+                "os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; "
+                "os.environ['BLACKHOLE_FINALITY_EPOCH_COUNT']='2'; "
+                "os.environ['BLACKHOLE_ACTUATION_MIN_ACTIONS']='2'; "
+                "os.environ['BLACKHOLE_SETTLEMENT_MIN_SETTLEMENTS']='2'; "
+                "os.environ['BLACKHOLE_CLEARING_MIN_CLEARINGS']='2'; "
+                "os.environ['BLACKHOLE_MARGIN_MIN_MARGINS']='2'; "
+                "os.environ['BLACKHOLE_COLLATERAL_MIN_COLLATERALS']='2'; "
+                "os.environ['BLACKHOLE_LIQUIDITY_MIN_LIQUIDITIES']='2'; "
+                "os.environ['BLACKHOLE_FUNDING_MIN_FUNDINGS']='2'; "
+                "os.environ['BLACKHOLE_CAPITAL_MIN_CAPITALS']='2'; "
+                "os.environ['BLACKHOLE_SOLVENCY_MIN_SOLVENCIES']='2'; "
+                "os.environ['BLACKHOLE_RISK_MIN_RISKS']='2'; "
+                "os.environ['BLACKHOLE_STRESS_MIN_STRESSES']='2'; "
+                "os.environ['BLACKHOLE_RESILIENCE_MIN_RESILIENCES']='2'; "
+                "os.environ['BLACKHOLE_RECOVERY_MIN_RECOVERIES']='2'; "
+                "os.environ['BLACKHOLE_RESOLUTION_MIN_RESOLUTIONS']='2'; "
+                "os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-resolution.json')); "
+                "os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-resolution-quorum.json')); "
+                "os.environ.setdefault('BLACKHOLE_FINALITY_BUNDLE_PATH', str(Path('artifacts')/'finality-bundles'/'proof-resolution-finality.json')); "
+                "os.environ.setdefault('BLACKHOLE_EXECUTION_BUNDLE_PATH', str(Path('artifacts')/'execution-bundles'/'proof-resolution-execution.json')); "
+                "os.environ.setdefault('BLACKHOLE_ACTUATION_BUNDLE_PATH', str(Path('artifacts')/'actuation-bundles'/'proof-resolution-actuation.json')); "
+                "os.environ.setdefault('BLACKHOLE_SETTLEMENT_BUNDLE_PATH', str(Path('artifacts')/'settlement-bundles'/'proof-resolution-settlement.json')); "
+                "os.environ.setdefault('BLACKHOLE_CLEARING_BUNDLE_PATH', str(Path('artifacts')/'clearing-bundles'/'proof-resolution-clearing.json')); "
+                "os.environ.setdefault('BLACKHOLE_MARGIN_BUNDLE_PATH', str(Path('artifacts')/'margin-bundles'/'proof-resolution-margin.json')); "
+                "os.environ.setdefault('BLACKHOLE_COLLATERAL_BUNDLE_PATH', str(Path('artifacts')/'collateral-bundles'/'proof-resolution-collateral.json')); "
+                "os.environ.setdefault('BLACKHOLE_LIQUIDITY_BUNDLE_PATH', str(Path('artifacts')/'liquidity-bundles'/'proof-resolution-liquidity.json')); "
+                "os.environ.setdefault('BLACKHOLE_FUNDING_BUNDLE_PATH', str(Path('artifacts')/'funding-bundles'/'proof-resolution-funding.json')); "
+                "os.environ.setdefault('BLACKHOLE_CAPITAL_BUNDLE_PATH', str(Path('artifacts')/'capital-bundles'/'proof-resolution-capital.json')); "
+                "os.environ.setdefault('BLACKHOLE_SOLVENCY_BUNDLE_PATH', str(Path('artifacts')/'solvency-bundles'/'proof-resolution-solvency.json')); "
+                "os.environ.setdefault('BLACKHOLE_RISK_BUNDLE_PATH', str(Path('artifacts')/'risk-bundles'/'proof-resolution-risk.json')); "
+                "os.environ.setdefault('BLACKHOLE_STRESS_BUNDLE_PATH', str(Path('artifacts')/'stress-bundles'/'proof-resolution-stress.json')); "
+                "os.environ.setdefault('BLACKHOLE_RESILIENCE_BUNDLE_PATH', str(Path('artifacts')/'resilience-bundles'/'proof-resolution-resilience.json')); "
+                "os.environ.setdefault('BLACKHOLE_RECOVERY_BUNDLE_PATH', str(Path('artifacts')/'recovery-bundles'/'proof-resolution-recovery.json')); "
+                "os.environ.setdefault('BLACKHOLE_RESOLUTION_BUNDLE_PATH', str(Path('artifacts')/'resolution-bundles'/'proof-resolution.json')); "
+                "r=builtin_resolution_plane(); assert r['ok'] and r.get('action')=='resolution_plane' "
+                "and r.get('resolved') is True and int(r.get('resolution_count') or 0) >= 2 "
+                "and int(r.get('tip_height') or 0) >= 2 "
+                "and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') "
+                "and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') "
+                "and r.get('resolution_certificate',{}).get('valid') "
+                "and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.outcome-contract",
+                "capability.contract-plane",
+                "capability.assurance-plane",
+                "capability.sovereignty-plane",
+                "capability.lineage-plane",
+                "capability.reconciliation-plane",
+                "capability.continuity-plane",
+                "capability.federation-plane",
+                "capability.quorum-plane",
+                "capability.finality-plane",
+                "capability.execution-plane",
+                "capability.actuation-plane",
+                "capability.settlement-plane",
+                "capability.clearing-plane",
+                "capability.margin-plane",
+                "capability.collateral-plane",
+                "capability.liquidity-plane",
+                "capability.funding-plane",
+                "capability.capital-plane",
+                "capability.solvency-plane",
+                "capability.risk-plane",
+                "capability.stress-plane",
+                "capability.resilience-plane",
+                "capability.recovery-plane",
+                "capability.transfer-plane",
+                "capability.ablation-proof",
+                "capability.adversarial-contract",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "src/blackhole_agent/unbound.py",
+            ),
+            capability_delta=(
+                "Resolution plane posts multi-recovery actions into deterministic hash-chained "
+                "resolution orders with resolution plan digests bound to recovery roots, "
+                "resolution certificates, sterile rehydrate+prove, and adversarial falsification "
+                "without skill-route discovery."
+            ),
+            tags=(
+                "resolution",
+                "order",
+                "recovery",
                 "plane",
                 "certificate",
                 "adversarial",

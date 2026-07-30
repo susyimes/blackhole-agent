@@ -1,0 +1,139 @@
+{
+  "ok": true,
+  "action": "resolution_plane",
+  "resolved": true,
+  "resolution_count": 2,
+  "tip_height": 2,
+  "error": null,
+  "used_skill_route_discovery": false,
+  "integrity": {
+    "ok": true,
+    "hash_ok": true,
+    "chain_valid": true,
+    "multi_resolution": true,
+    "package_ok": true,
+    "resolution_certificate_valid": true,
+    "recovery_certificate_valid": true,
+    "bound_ok": true,
+    "resolution_ok": true,
+    "deterministic": true,
+    "post_recovery": true
+  },
+  "rehydrate": {
+    "ok": true,
+    "sandbox_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260730T064141Z-87e920ce\\artifacts\\resolution-sandbox\\ba82140af3bdbb86",
+    "lineage_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260730T064141Z-87e920ce\\artifacts\\resolution-sandbox\\ba82140af3bdbb86\\lineage.json",
+    "resolutions_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260730T064141Z-87e920ce\\artifacts\\resolution-sandbox\\ba82140af3bdbb86\\resolutions.json",
+    "recoveries_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260730T064141Z-87e920ce\\artifacts\\resolution-sandbox\\ba82140af3bdbb86\\recoveries.json",
+    "settlements_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260730T064141Z-87e920ce\\artifacts\\resolution-sandbox\\ba82140af3bdbb86\\settlements.json",
+    "actions_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260730T064141Z-87e920ce\\artifacts\\resolution-sandbox\\ba82140af3bdbb86\\actions.json",
+    "sterile_ledger_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260730T064141Z-87e920ce\\artifacts\\resolution-sandbox\\ba82140af3bdbb86\\ledger.json",
+    "import": {
+      "ok": true,
+      "action": "import_capability_package",
+      "imported": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "unbound.milestone-gate"
+      ],
+      "skipped": [],
+      "imported_count": 3,
+      "skipped_count": 0,
+      "roots": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "unbound.milestone-gate"
+      ],
+      "package_hash": "386d00525a13b7cc",
+      "used_skill_route_discovery": false
+    },
+    "chain": {
+      "ok": true,
+      "valid": true,
+      "entry_count": 2,
+      "tip_height": 2,
+      "tip_resolution_root": "2503e881d48a746391906960",
+      "resolution_plan_digest": "fe9cae14491bacda6080999f",
+      "errors": []
+    },
+    "resolution_certificate": {
+      "ok": true,
+      "valid": true,
+      "certificate_hash": "21f18a1b133170a5f56d0f30",
+      "resolution_root": "2503e881d48a746391906960"
+    },
+    "recovery_certificate": {
+      "ok": true,
+      "valid": true,
+      "certificate_hash": "9b2703209ea4d86633cb23a5"
+    },
+    "margin_digests_match": true
+  },
+  "prove": {
+    "ok": true,
+    "proved_count": 3,
+    "proofs": [
+      {
+        "capability_id": "repo.import-health",
+        "ok": true,
+        "exit_code": 0,
+        "summary": "exit 0"
+      },
+      {
+        "capability_id": "capability.ledger-inventory",
+        "ok": true,
+        "exit_code": 0,
+        "summary": "exit 0"
+      },
+      {
+        "capability_id": "unbound.milestone-gate",
+        "ok": true,
+        "exit_code": 0,
+        "summary": "exit 0"
+      }
+    ]
+  },
+  "chain": {
+    "ok": true,
+    "valid": true,
+    "entry_count": 2,
+    "tip_height": 2,
+    "tip_resolution_root": "2503e881d48a746391906960",
+    "resolution_plan_digest": "fe9cae14491bacda6080999f",
+    "errors": []
+  },
+  "resolution_certificate": {
+    "ok": true,
+    "valid": true,
+    "hash_ok": true,
+    "certificate_hash": "21f18a1b133170a5f56d0f30",
+    "resolution_height": 2,
+    "resolution_root": "2503e881d48a746391906960",
+    "bound_recovery_root": "72d7cc1b0126da206847a142",
+    "resolution_plan_digest": "fe9cae14491bacda6080999f"
+  },
+  "adversarial": {
+    "ok": true,
+    "intact_ok": true,
+    "mutation_fails_as_expected": true,
+    "reorder_fails_as_expected": true,
+    "wrong_recovery_fails_as_expected": true,
+    "forged_root_fails_as_expected": true,
+    "gap_fails_as_expected": true,
+    "broken_cert_fails_as_expected": true,
+    "wrong_parent_fails_as_expected": true,
+    "digest_tamper_fails_as_expected": true,
+    "tamper_fails_as_expected": true,
+    "single_resolution_fails_as_expected": true,
+    "replay_matches_tip": true,
+    "duplicate_apply_fails_as_expected": true,
+    "incomplete_fails_as_expected": true
+  },
+  "final_contract": {
+    "ok": true,
+    "met": true,
+    "passed_count": 11,
+    "failed_count": 0,
+    "failed": []
+  }
+}

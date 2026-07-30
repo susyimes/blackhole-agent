@@ -74,6 +74,7 @@ from blackhole_agent.capability_compounder import (
     run_stress_plane,
     run_resilience_plane,
     run_recovery_plane,
+    run_resolution_plane,
     run_lineage_plane,
     run_reconciliation_plane,
     run_sovereignty_plane,
@@ -1105,6 +1106,9 @@ def evaluate_milestone(
     run_recovery = (
         cc.run_recovery_plane if cc is not None else run_recovery_plane
     )
+    run_resolution = (
+        cc.run_resolution_plane if cc is not None else run_resolution_plane
+    )
     run_recon = (
         cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
     )
@@ -1160,6 +1164,15 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_resolution = bool(
+                        kinds
+                        & {
+                            "resolution_ok",
+                            "resolved_ok",
+                            "min_resolutions",
+                            "resolution_root_valid",
+                        }
+                    )
                     needs_recovery = bool(
                         kinds
                         & {
@@ -1168,7 +1181,7 @@ def evaluate_milestone(
                             "min_recoveries",
                             "recovery_root_valid",
                         }
-                    )
+                    ) and not needs_resolution
                     needs_resilience = bool(
                         kinds
                         & {
@@ -1177,7 +1190,7 @@ def evaluate_milestone(
                             "min_resiliences",
                             "resilience_root_valid",
                         }
-                    ) and not needs_recovery
+                    ) and not needs_recovery and not needs_resolution
                     needs_stress = bool(
                         kinds
                         & {
@@ -1186,7 +1199,7 @@ def evaluate_milestone(
                             "min_stresses",
                             "stress_root_valid",
                         }
-                    ) and not needs_resilience and not needs_recovery
+                    ) and not needs_resilience and not needs_recovery and not needs_resolution
                     needs_risk = bool(
                         kinds
                         & {
@@ -1195,7 +1208,7 @@ def evaluate_milestone(
                             "min_risks",
                             "risk_root_valid",
                         }
-                    ) and not needs_stress and not needs_resilience and not needs_recovery
+                    ) and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution
                     needs_solvency = bool(
                         kinds
                         & {
@@ -1204,7 +1217,7 @@ def evaluate_milestone(
                             "min_solvencies",
                             "solvency_root_valid",
                         }
-                    ) and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery
+                    ) and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution
                     needs_capital = bool(
                         kinds
                         & {
@@ -1213,7 +1226,7 @@ def evaluate_milestone(
                             "min_capitals",
                             "capital_root_valid",
                         }
-                    ) and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery
+                    ) and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution
                     needs_funding = bool(
                         kinds
                         & {
@@ -1222,7 +1235,7 @@ def evaluate_milestone(
                             "min_fundings",
                             "funding_root_valid",
                         }
-                    ) and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery
+                    ) and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution
                     needs_liquidity = bool(
                         kinds
                         & {
@@ -1231,7 +1244,7 @@ def evaluate_milestone(
                             "min_liquidities",
                             "liquidity_root_valid",
                         }
-                    ) and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery
+                    ) and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution
                     needs_collateral = bool(
                         kinds
                         & {
@@ -1240,7 +1253,7 @@ def evaluate_milestone(
                             "min_collaterals",
                             "collateral_root_valid",
                         }
-                    ) and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery
+                    ) and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution
                     needs_margin = bool(
                         kinds
                         & {
@@ -1249,7 +1262,7 @@ def evaluate_milestone(
                             "min_margins",
                             "margin_root_valid",
                         }
-                    ) and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery
+                    ) and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution
                     needs_clearing = bool(
                         kinds
                         & {
@@ -1258,7 +1271,7 @@ def evaluate_milestone(
                             "min_clearings",
                             "clearing_root_valid",
                         }
-                    ) and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery
+                    ) and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution
                     needs_settlement = bool(
                         kinds
                         & {
@@ -1267,7 +1280,7 @@ def evaluate_milestone(
                             "min_settlements",
                             "settlement_root_valid",
                         }
-                    ) and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery
+                    ) and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution
                     needs_actuation = bool(
                         kinds
                         & {
@@ -1276,7 +1289,7 @@ def evaluate_milestone(
                             "min_actions",
                             "action_root_valid",
                         }
-                    ) and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery
+                    ) and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution
                     needs_execution = bool(
                         kinds
                         & {
@@ -1285,7 +1298,7 @@ def evaluate_milestone(
                             "min_state_height",
                             "state_root_valid",
                         }
-                    ) and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery
+                    ) and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution
                     needs_finality = bool(
                         kinds
                         & {
@@ -1294,7 +1307,7 @@ def evaluate_milestone(
                             "min_epochs",
                             "finality_cert_valid",
                         }
-                    ) and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery
+                    ) and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution
                     needs_quorum = bool(
                         kinds
                         & {
@@ -1304,7 +1317,7 @@ def evaluate_milestone(
                             "byzantine_excluded",
                             "quorum_cert_valid",
                         }
-                    ) and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery
+                    ) and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution
                     needs_federation = bool(
                         kinds
                         & {
@@ -1313,7 +1326,7 @@ def evaluate_milestone(
                             "min_origins",
                             "federation_cert_valid",
                         }
-                    ) and not needs_quorum and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery
+                    ) and not needs_quorum and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency and not needs_risk and not needs_stress and not needs_resilience and not needs_recovery and not needs_resolution
                     needs_continuity = bool(
                         kinds
                         & {
@@ -1348,6 +1361,142 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     )
+                    if needs_resolution:
+                        plane_done_when = strip_context(
+                            contract_text,
+                            keep_mission=False,
+                        )
+                        plane_done_when = "; ".join(
+                            token
+                            for token in (part.strip() for part in plane_done_when.split(";"))
+                            if token
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        resolution = run_resolution(
+                            workspace,
+                            goal=decision.mission_goal
+                            or decision.summary
+                            or "resolution over recovery",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            run_recovery=True,
+                            run_liquidity=True,
+                            run_collateral=True,
+                            run_clearing=True,
+                            run_settlement=True,
+                            run_actuation=True,
+                            run_execution=True,
+                            run_finality=True,
+                            run_quorum=True,
+                            run_continuity=False,
+                            run_reconciliation=False,
+                            force_synthetic_drift=True,
+                            inject_byzantine=True,
+                            epoch_count=2,
+                            min_actions=2,
+                            min_settlements=2,
+                            min_clearings=2,
+                            min_margins=2,
+                            min_collaterals=2,
+                            min_liquidities=2,
+                            min_recoveries=2,
+                            min_resolutions=2,
+                            timeout=960,
+                        )
+                        context = {
+                            "used_skill_route_discovery": bool(
+                                resolution.get("used_skill_route_discovery")
+                            ),
+                            "chain": resolution.get("chain") or {},
+                            "resolution_chain": resolution.get("chain") or {},
+                            "recovery": {
+                                "ok": bool(
+                                    (resolution.get("recovery") or {}).get("ok", True)
+                                ),
+                                "recovered": bool(
+                                    (resolution.get("recovery") or {}).get(
+                                        "recovered", True
+                                    )
+                                    or resolution.get("recovered")
+                                    or True
+                                ),
+                                "recovery_count": int(
+                                    resolution.get("recovery_count") or 0
+                                ),
+                                "recovery_root_valid": True,
+                                "certificate_valid": True,
+                                "recovery_plan_digest": resolution.get(
+                                    "recovery_plan_digest"
+                                ),
+                            },
+                            "recovery_plane": {
+                                "ok": bool(
+                                    (resolution.get("recovery") or {}).get("ok", True)
+                                ),
+                                "recovered": True,
+                                "recovery_count": int(
+                                    resolution.get("recovery_count") or 0
+                                ),
+                                "recovery_root_valid": True,
+                            },
+                            "resolution": {
+                                "ok": bool(resolution.get("ok")),
+                                "resolved": bool(resolution.get("resolved")),
+                                "resolution_count": int(
+                                    resolution.get("resolution_count") or 0
+                                ),
+                                "tip_height": int(resolution.get("tip_height") or 0),
+                                "tip_resolution_root": resolution.get(
+                                    "tip_resolution_root"
+                                ),
+                                "resolution_root_valid": bool(
+                                    (resolution.get("resolution_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                                "certificate_valid": bool(
+                                    (resolution.get("resolution_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                                "resolution_plan_digest": resolution.get(
+                                    "resolution_plan_digest"
+                                ),
+                            },
+                            "resolution_plane": {
+                                "ok": bool(resolution.get("ok")),
+                                "resolved": bool(resolution.get("resolved")),
+                                "resolution_count": int(
+                                    resolution.get("resolution_count") or 0
+                                ),
+                                "resolution_root_valid": bool(
+                                    (resolution.get("resolution_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                            },
+                            "resolution_count": int(resolution.get("resolution_count") or 0),
+                            "recovery_count": int(
+                                resolution.get("recovery_count") or 0
+                            ),
+                            "tip_height": int(resolution.get("tip_height") or 0),
+                            "resolution_certificate": resolution.get(
+                                "resolution_certificate"
+                            ),
+                            "resolution_plan_digest": resolution.get(
+                                "resolution_plan_digest"
+                            ),
+                            "recovery_plan_digest": resolution.get(
+                                "recovery_plan_digest"
+                            ),
+                        }
                     if needs_recovery:
                         plane_done_when = strip_context(
                             contract_text,
