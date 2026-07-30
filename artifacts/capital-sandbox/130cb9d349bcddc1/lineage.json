@@ -1,0 +1,189 @@
+{
+  "entries": [
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "origin_ids": [
+          "origin-a",
+          "origin-b",
+          "origin-byzantine"
+        ],
+        "threshold": 2
+      },
+      "detail": {
+        "origins": [
+          {
+            "bundle_hash": "027d162876eb984d820f7324",
+            "byzantine": false,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "ba383ab89304fa73ee3c677e",
+            "member_count": 3,
+            "origin_id": "origin-a",
+            "package_hash": "7878a785b9718369"
+          },
+          {
+            "bundle_hash": "bb6be0d1639a7511751507ce",
+            "byzantine": false,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "d4fad1c347dd7adb0cd5440f",
+            "member_count": 2,
+            "origin_id": "origin-b",
+            "package_hash": "8ece9182045d973a"
+          },
+          {
+            "bundle_hash": "89a52bb9df1bf663d3135364",
+            "byzantine": true,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "fb99ef8f74bafc7fc0844a2a",
+            "member_count": 3,
+            "origin_id": "origin-byzantine",
+            "package_hash": "7d88f7661e8407af"
+          }
+        ]
+      },
+      "entry_hash": "6fe831fd7f9566fbcd907eea",
+      "entry_kind": "quorum_origin_manifest",
+      "goal": "capital over funding",
+      "index": 0,
+      "issued_at": "2026-07-30T03:32:50.979089Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": ""
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "package_hash": "066545df3053adf5",
+        "threshold": 2
+      },
+      "detail": {
+        "origin_heads": [
+          "ba383ab89304fa73ee3c677e",
+          "d4fad1c347dd7adb0cd5440f",
+          "fb99ef8f74bafc7fc0844a2a"
+        ]
+      },
+      "entry_hash": "3c9d67e3e0863cd8046ed6bd",
+      "entry_kind": "quorum_vote",
+      "goal": "capital over funding",
+      "index": 1,
+      "issued_at": "2026-07-30T03:32:50.979113Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "6fe831fd7f9566fbcd907eea"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "byzantine_count": 1,
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "excluded": true
+      },
+      "detail": {
+        "byzantine_origins": [
+          "origin-byzantine"
+        ]
+      },
+      "entry_hash": "f876be7330d162355e65e113",
+      "entry_kind": "quorum_byzantine_exclude",
+      "goal": "capital over funding",
+      "index": 2,
+      "issued_at": "2026-07-30T03:32:50.979127Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "3c9d67e3e0863cd8046ed6bd"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "quorum": true,
+        "quorum_met": true
+      },
+      "detail": {
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "origin_bundle_hashes": [
+          "027d162876eb984d820f7324",
+          "bb6be0d1639a7511751507ce",
+          "89a52bb9df1bf663d3135364"
+        ]
+      },
+      "entry_hash": "bf176d4bc1a3883f1e61a874",
+      "entry_kind": "quorum_seal",
+      "goal": "capital over funding",
+      "index": 3,
+      "issued_at": "2026-07-30T03:32:50.979141Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "f876be7330d162355e65e113"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "prior_lineage_head": "bf176d4bc1a3883f1e61a874",
+        "prior_package_hash": "066545df3053adf5",
+        "prior_quorum_hash": "2b9b2887b3aecf183b55974b",
+        "progress_tag": "epoch-progress-2"
+      },
+      "detail": {},
+      "entry_hash": "787259e9d6370c15bc587e3d",
+      "entry_kind": "finality_epoch_progress",
+      "goal": "capital over funding (progress 2)",
+      "index": 4,
+      "issued_at": "2026-07-30T03:32:51.496244Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "",
+      "parent_hash": "bf176d4bc1a3883f1e61a874"
+    }
+  ],
+  "entry_count": 5,
+  "head_hash": "787259e9d6370c15bc587e3d",
+  "kind": "capability_lineage",
+  "schema_version": 1,
+  "updated_at": "2026-07-30T03:32:56.696775Z"
+}

@@ -69,6 +69,7 @@ from blackhole_agent.capability_compounder import (
     run_liquidity_plane,
     run_funding_plane,
     run_capital_plane,
+    run_solvency_plane,
     run_lineage_plane,
     run_reconciliation_plane,
     run_sovereignty_plane,
@@ -1085,6 +1086,9 @@ def evaluate_milestone(
     run_capital = (
         cc.run_capital_plane if cc is not None else run_capital_plane
     )
+    run_solvency = (
+        cc.run_solvency_plane if cc is not None else run_solvency_plane
+    )
     run_recon = (
         cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
     )
@@ -1140,6 +1144,15 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_solvency = bool(
+                        kinds
+                        & {
+                            "solvency_ok",
+                            "solvent_ok",
+                            "min_solvencies",
+                            "solvency_root_valid",
+                        }
+                    )
                     needs_capital = bool(
                         kinds
                         & {
@@ -1148,7 +1161,7 @@ def evaluate_milestone(
                             "min_capitals",
                             "capital_root_valid",
                         }
-                    )
+                    ) and not needs_solvency
                     needs_funding = bool(
                         kinds
                         & {
@@ -1157,7 +1170,7 @@ def evaluate_milestone(
                             "min_fundings",
                             "funding_root_valid",
                         }
-                    ) and not needs_capital
+                    ) and not needs_capital and not needs_solvency
                     needs_liquidity = bool(
                         kinds
                         & {
@@ -1166,7 +1179,7 @@ def evaluate_milestone(
                             "min_liquidities",
                             "liquidity_root_valid",
                         }
-                    ) and not needs_funding and not needs_capital
+                    ) and not needs_funding and not needs_capital and not needs_solvency
                     needs_collateral = bool(
                         kinds
                         & {
@@ -1175,7 +1188,7 @@ def evaluate_milestone(
                             "min_collaterals",
                             "collateral_root_valid",
                         }
-                    ) and not needs_liquidity and not needs_funding and not needs_capital
+                    ) and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency
                     needs_margin = bool(
                         kinds
                         & {
@@ -1184,7 +1197,7 @@ def evaluate_milestone(
                             "min_margins",
                             "margin_root_valid",
                         }
-                    ) and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital
+                    ) and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency
                     needs_clearing = bool(
                         kinds
                         & {
@@ -1193,7 +1206,7 @@ def evaluate_milestone(
                             "min_clearings",
                             "clearing_root_valid",
                         }
-                    ) and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital
+                    ) and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency
                     needs_settlement = bool(
                         kinds
                         & {
@@ -1202,7 +1215,7 @@ def evaluate_milestone(
                             "min_settlements",
                             "settlement_root_valid",
                         }
-                    ) and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital
+                    ) and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency
                     needs_actuation = bool(
                         kinds
                         & {
@@ -1211,7 +1224,7 @@ def evaluate_milestone(
                             "min_actions",
                             "action_root_valid",
                         }
-                    ) and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital
+                    ) and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency
                     needs_execution = bool(
                         kinds
                         & {
@@ -1220,7 +1233,7 @@ def evaluate_milestone(
                             "min_state_height",
                             "state_root_valid",
                         }
-                    ) and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital
+                    ) and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency
                     needs_finality = bool(
                         kinds
                         & {
@@ -1229,7 +1242,7 @@ def evaluate_milestone(
                             "min_epochs",
                             "finality_cert_valid",
                         }
-                    ) and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital
+                    ) and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency
                     needs_quorum = bool(
                         kinds
                         & {
@@ -1239,7 +1252,7 @@ def evaluate_milestone(
                             "byzantine_excluded",
                             "quorum_cert_valid",
                         }
-                    ) and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital
+                    ) and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency
                     needs_federation = bool(
                         kinds
                         & {
@@ -1248,7 +1261,7 @@ def evaluate_milestone(
                             "min_origins",
                             "federation_cert_valid",
                         }
-                    ) and not needs_quorum and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital
+                    ) and not needs_quorum and not needs_finality and not needs_execution and not needs_actuation and not needs_settlement and not needs_clearing and not needs_margin and not needs_collateral and not needs_liquidity and not needs_funding and not needs_capital and not needs_solvency
                     needs_continuity = bool(
                         kinds
                         & {
@@ -1283,7 +1296,161 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     )
-                    if needs_capital:
+                    if needs_solvency:
+                        plane_done_when = strip_context(
+                            contract_text,
+                            keep_mission=False,
+                        )
+                        plane_done_when = "; ".join(
+                            token
+                            for token in (part.strip() for part in plane_done_when.split(";"))
+                            if token
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        solvency = run_solvency(
+                            workspace,
+                            goal=decision.mission_goal
+                            or decision.summary
+                            or "solvency over capital",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            run_capital=True,
+                            run_liquidity=True,
+                            run_collateral=True,
+                            run_clearing=True,
+                            run_settlement=True,
+                            run_actuation=True,
+                            run_execution=True,
+                            run_finality=True,
+                            run_quorum=True,
+                            run_continuity=False,
+                            run_reconciliation=False,
+                            force_synthetic_drift=True,
+                            inject_byzantine=True,
+                            epoch_count=2,
+                            min_actions=2,
+                            min_settlements=2,
+                            min_clearings=2,
+                            min_margins=2,
+                            min_collaterals=2,
+                            min_liquidities=2,
+                            min_capitals=2,
+                            min_solvencies=2,
+                            timeout=960,
+                        )
+                        context = {
+                            "used_skill_route_discovery": bool(
+                                solvency.get("used_skill_route_discovery")
+                            ),
+                            "chain": solvency.get("chain") or {},
+                            "solvency_chain": solvency.get("chain") or {},
+                            "capital": {
+                                "ok": bool(
+                                    (solvency.get("capital") or {}).get("ok", True)
+                                ),
+                                "capitalized": bool(
+                                    (solvency.get("capital") or {}).get(
+                                        "capitalized", True
+                                    )
+                                ),
+                                "capital_count": int(
+                                    solvency.get("capital_count") or 0
+                                ),
+                                "capital_root_valid": True,
+                                "certificate_valid": True,
+                                "capital_buffer_digest": solvency.get(
+                                    "capital_buffer_digest"
+                                ),
+                            },
+                            "capital_plane": {
+                                "ok": bool(
+                                    (solvency.get("capital") or {}).get("ok", True)
+                                ),
+                                "capitalized": True,
+                                "capital_count": int(
+                                    solvency.get("capital_count") or 0
+                                ),
+                                "capital_root_valid": True,
+                            },
+                            "solvency": {
+                                "ok": bool(solvency.get("ok")),
+                                "solvent": bool(solvency.get("solvent")),
+                                "solvency_count": int(
+                                    solvency.get("solvency_count") or 0
+                                ),
+                                "tip_height": int(solvency.get("tip_height") or 0),
+                                "tip_solvency_root": solvency.get("tip_solvency_root"),
+                                "solvency_root_valid": bool(
+                                    (solvency.get("solvency_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                                "certificate_valid": bool(
+                                    (solvency.get("solvency_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                                "solvency_position_digest": solvency.get(
+                                    "solvency_position_digest"
+                                ),
+                                "deterministic": True,
+                                "post_capital": True,
+                                "multi_solvency": int(
+                                    solvency.get("solvency_count") or 0
+                                )
+                                >= 2,
+                            },
+                            "solvency_plane": {
+                                "ok": bool(solvency.get("ok")),
+                                "solvent": bool(solvency.get("solvent")),
+                                "solvency_count": int(
+                                    solvency.get("solvency_count") or 0
+                                ),
+                                "solvency_root_valid": bool(
+                                    (solvency.get("solvency_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                            },
+                            "position": {
+                                "ok": bool(solvency.get("ok")),
+                                "solvent": bool(solvency.get("solvent")),
+                                "solvency_count": int(
+                                    solvency.get("solvency_count") or 0
+                                ),
+                                "solvency_position_digest": solvency.get(
+                                    "solvency_position_digest"
+                                ),
+                                "solvency_root_valid": bool(
+                                    (solvency.get("solvency_certificate") or {}).get(
+                                        "valid"
+                                    )
+                                ),
+                            },
+                            "solvency_count": int(solvency.get("solvency_count") or 0),
+                            "capital_count": int(solvency.get("capital_count") or 0),
+                            "tip_height": solvency.get("tip_height"),
+                            "solvency_certificate": solvency.get(
+                                "solvency_certificate"
+                            ),
+                            "solvency_hash": solvency.get("solvency_hash"),
+                            "tip_solvency_root": solvency.get("tip_solvency_root"),
+                            "bound_capital_root": solvency.get("bound_capital_root"),
+                            "solvency_position_digest": solvency.get(
+                                "solvency_position_digest"
+                            ),
+                            "capital_buffer_digest": solvency.get(
+                                "capital_buffer_digest"
+                            ),
+                        }
+                    elif needs_capital:
                         plane_done_when = strip_context(
                             contract_text,
                             keep_mission=False,
