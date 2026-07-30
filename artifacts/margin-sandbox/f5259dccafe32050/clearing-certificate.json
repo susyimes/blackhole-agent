@@ -1,0 +1,36 @@
+{
+  "bound_settlement_height": 2,
+  "bound_settlement_root": "a99f4c6cdc90e7493547f65a",
+  "certificate_hash": "39d4d3583821a6b22062395f",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "cleared",
+    "plane": "clearing"
+  },
+  "clearing_count": 2,
+  "clearing_height": 2,
+  "clearing_root": "540c9b8ebe44f7087fe9e019",
+  "deterministic": true,
+  "goal": "recertification over reauthorization (clearing 2)",
+  "issued_at": "2026-07-30T21:16:17.247292Z",
+  "kind": "clearing_certificate",
+  "lineage_head_hash": "4559595f3d525aa31bcf1c59",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "net_position_digest": "48d6268870fb20d761b956f7",
+  "ok": true,
+  "package_hash": "061eefcdeccf3913",
+  "parent_clearing_root": "9ed5a6c20e831e4ac827dc06",
+  "post_settlement": true,
+  "schema_version": 1,
+  "settlement_certificate_hash": "29cc9ca03cdd32bf03e4ff1c",
+  "settlement_hash": "1d1b246ace85fd1bb636ea5e",
+  "used_skill_route_discovery": false,
+  "valid": true
+}

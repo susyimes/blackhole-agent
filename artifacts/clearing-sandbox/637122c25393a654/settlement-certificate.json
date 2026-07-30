@@ -1,0 +1,35 @@
+{
+  "actuation_certificate_hash": "e3a8e33376714c3ed1a04154",
+  "actuation_hash": "14d277d0c0a1954dd306be43",
+  "bound_action_height": 2,
+  "bound_action_root": "0f3727921475123374a93ac7",
+  "certificate_hash": "220411e127e2ed72d330e6b2",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "effect": "prove",
+    "outcome": "settled",
+    "plane": "settlement",
+    "settlement_index": 2
+  },
+  "deterministic": true,
+  "goal": "reauthorization over reinstatement (settlement 2)",
+  "issued_at": "2026-07-30T21:16:05.124522Z",
+  "kind": "settlement_certificate",
+  "lineage_head_hash": "fa3f15074b7b6531dd2f8f0f",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "44b1ebc73027525b",
+  "parent_settlement_root": "d10821e008b1425ee686bc64",
+  "post_actuation": true,
+  "schema_version": 1,
+  "settlement_count": 2,
+  "settlement_height": 2,
+  "settlement_root": "1372e07bc9ca07a7c8a4970d",
+  "used_skill_route_discovery": false,
+  "valid": true
+}

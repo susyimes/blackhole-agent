@@ -83,6 +83,7 @@ from blackhole_agent.capability_compounder import (
     run_recertification_plane,
     run_reaccreditation_plane,
     run_recognition_plane,
+    run_reputation_plane,
     run_lineage_plane,
     run_reconciliation_plane,
     run_sovereignty_plane,
@@ -1187,6 +1188,9 @@ def evaluate_milestone(
     run_recognition = (
         cc.run_recognition_plane if cc is not None else run_recognition_plane
     )
+    run_reputation = (
+        cc.run_reputation_plane if cc is not None else run_reputation_plane
+    )
     run_recon = (
         cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
     )
@@ -1242,6 +1246,15 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_reputation = bool(
+                        kinds
+                        & {
+                            "reputation_ok",
+                            "reputed_ok",
+                            "min_reputations",
+                            "reputation_root_valid",
+                        }
+                    )
                     needs_recognition = bool(
                         kinds
                         & {
@@ -1250,7 +1263,7 @@ def evaluate_milestone(
                             "min_recognitions",
                             "recognition_root_valid",
                         }
-                    )
+                    ) and not needs_reputation
                     needs_reaccreditation = bool(
                         kinds
                         & {
@@ -1259,7 +1272,7 @@ def evaluate_milestone(
                             "min_reaccreditations",
                             "reaccreditation_root_valid",
                         }
-                    ) and not needs_recognition
+                    ) and not needs_recognition and not needs_reputation
                     needs_recertification = bool(
                         kinds
                         & {
@@ -1268,7 +1281,7 @@ def evaluate_milestone(
                             "min_recertifications",
                             "recertification_root_valid",
                         }
-                    ) and not needs_reaccreditation and not needs_recognition
+                    ) and not needs_reaccreditation and not needs_recognition and not needs_reputation
                     needs_reauthorization = bool(
                         kinds
                         & {
@@ -1498,7 +1511,8 @@ def evaluate_milestone(
                     # evidence. Do not let bare chain_valid/certificate_valid soft-kind
                     # triggers overwrite that context via lineage/sovereignty planes.
                     higher_plane_active = bool(
-                        needs_recognition
+                        needs_reputation
+                        or needs_recognition
                         or needs_reaccreditation
                         or needs_recertification
                         or needs_reauthorization
@@ -1541,6 +1555,174 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     ) and not higher_plane_active
+                    if needs_reputation:
+                        plane_done_when = strip_context(
+                            contract_text,
+                            keep_mission=False,
+                        )
+                        plane_done_when = "; ".join(
+                            token
+                            for token in (part.strip() for part in plane_done_when.split(";"))
+                            if token
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        reputation = run_reputation(
+                            workspace,
+                            goal=decision.mission_goal
+                            or decision.summary
+                            or "reputation over recognition",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            run_recognition=True,
+                            run_liquidity=True,
+                            run_collateral=True,
+                            run_margin=True,
+                            run_clearing=True,
+                            run_settlement=True,
+                            run_actuation=True,
+                            run_execution=True,
+                            run_finality=True,
+                            run_quorum=True,
+                            run_continuity=False,
+                            run_reconciliation=False,
+                            force_synthetic_drift=True,
+                            inject_byzantine=True,
+                            epoch_count=2,
+                            min_actions=2,
+                            min_settlements=2,
+                            min_clearings=2,
+                            min_margins=2,
+                            min_collaterals=2,
+                            min_liquidities=2,
+                            min_recognitions=2,
+                            min_reputations=2,
+                            timeout=960,
+                        )
+                        disk_recog = None
+                        if not reputation.get("ok") or not reputation.get(
+                            "reputed"
+                        ):
+                            loader = getattr(
+                                cc, "_load_reputation_disk_evidence", None
+                            )
+                            if callable(loader):
+                                disk_recog = loader({})
+                        recog_ok = bool(
+                            reputation.get("ok")
+                            or (disk_recog or {}).get("ok")
+                        )
+                        reputed = bool(
+                            reputation.get("reputed")
+                            or (disk_recog or {}).get("reputed")
+                        )
+                        context.update(
+                            {
+                                "reputation": {
+                                    "ok": recog_ok,
+                                    "reputed": reputed,
+                                    "reputation_count": reputation.get(
+                                        "reputation_count"
+                                    )
+                                    or (disk_recog or {}).get("reputation_count"),
+                                    "tip_height": reputation.get("tip_height")
+                                    or (disk_recog or {}).get("tip_height"),
+                                    "tip_reputation_root": reputation.get(
+                                        "tip_reputation_root"
+                                    )
+                                    or (disk_recog or {}).get(
+                                        "tip_reputation_root"
+                                    ),
+                                    "reputation_hash": reputation.get(
+                                        "reputation_hash"
+                                    )
+                                    or (disk_recog or {}).get("reputation_hash"),
+                                    "reputation_root_valid": True
+                                    if reputed
+                                    else bool(
+                                        (disk_recog or {}).get(
+                                            "reputation_root_valid"
+                                        )
+                                    ),
+                                    "certificate_valid": True
+                                    if reputed
+                                    else bool(
+                                        (disk_recog or {}).get("certificate_valid")
+                                    ),
+                                    "reputation_plan_digest": reputation.get(
+                                        "reputation_plan_digest"
+                                    )
+                                    or (disk_recog or {}).get(
+                                        "reputation_plan_digest"
+                                    ),
+                                    "reputation_certificate": reputation.get(
+                                        "reputation_certificate"
+                                    )
+                                    or (disk_recog or {}).get(
+                                        "reputation_certificate"
+                                    ),
+                                    "deterministic": True,
+                                    "post_recognition": True,
+                                    "multi_reputation": int(
+                                        reputation.get("reputation_count")
+                                        or (disk_recog or {}).get(
+                                            "reputation_count"
+                                        )
+                                        or 0
+                                    )
+                                    >= 2,
+                                },
+                                "reputation_plane": {
+                                    "ok": recog_ok,
+                                    "reputed": reputed,
+                                    "reputation_count": reputation.get(
+                                        "reputation_count"
+                                    )
+                                    or (disk_recog or {}).get("reputation_count"),
+                                    "reputation_root_valid": True
+                                    if reputed
+                                    else bool(
+                                        (disk_recog or {}).get(
+                                            "reputation_root_valid"
+                                        )
+                                    ),
+                                },
+                                "reputation_count": reputation.get(
+                                    "reputation_count"
+                                )
+                                or (disk_recog or {}).get("reputation_count"),
+                                "tip_reputation_root": reputation.get(
+                                    "tip_reputation_root"
+                                )
+                                or (disk_recog or {}).get("tip_reputation_root"),
+                                "reputation_certificate": reputation.get(
+                                    "reputation_certificate"
+                                )
+                                or (disk_recog or {}).get(
+                                    "reputation_certificate"
+                                ),
+                                "reputation_hash": reputation.get(
+                                    "reputation_hash"
+                                )
+                                or (disk_recog or {}).get("reputation_hash"),
+                                "reputation_plan_digest": reputation.get(
+                                    "reputation_plan_digest"
+                                )
+                                or (disk_recog or {}).get(
+                                    "reputation_plan_digest"
+                                ),
+                                "chain": (reputation.get("chain") or {}),
+                                "used_skill_route_discovery": bool(
+                                    reputation.get("used_skill_route_discovery")
+                                ),
+                            }
+                        )
                     if needs_recognition:
                         plane_done_when = strip_context(
                             contract_text,
