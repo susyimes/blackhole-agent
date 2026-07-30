@@ -1,0 +1,37 @@
+{
+  "bound_funding_height": 2,
+  "bound_funding_root": "80388d8a70b283aac444fcf9",
+  "capital_buffer_digest": "9acb556bad1b79807797c0fb",
+  "capital_count": 2,
+  "capital_height": 2,
+  "capital_root": "f28e17673309f06ee65eb7ad",
+  "certificate_hash": "1a9af152758bc1e5bab17674",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "capitalized",
+    "plane": "capital"
+  },
+  "deterministic": true,
+  "funding_certificate_hash": "9821b0688eb55c0c02e8e69a",
+  "funding_facility_digest": "cd4ac1fc1ee92c38ec92e760",
+  "funding_hash": "3231389488dc69f41f3d86ea",
+  "goal": "reinstatement over rehabilitation (clearing 2)",
+  "issued_at": "2026-07-30T09:53:14.634016Z",
+  "kind": "capital_certificate",
+  "lineage_head_hash": "04e8c718c2a1763508650930",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "9ba5e862381c65a3",
+  "parent_capital_root": "7fc6d4ab66f23bdc03e4ed21",
+  "post_funding": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

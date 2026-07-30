@@ -1,0 +1,53 @@
+{
+  "entries": [
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_id": "origin-a"
+      },
+      "detail": {},
+      "entry_hash": "995e87c7cf34e716e5dd568a",
+      "entry_kind": "quorum_bootstrap",
+      "goal": "reinstatement over rehabilitation",
+      "index": 0,
+      "issued_at": "2026-07-30T09:53:09.295889Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "",
+      "parent_hash": ""
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_id": "origin-a",
+        "sealed": true
+      },
+      "detail": {},
+      "entry_hash": "1a56cd9621c608fdac6b4621",
+      "entry_kind": "quorum_bootstrap_seal",
+      "goal": "reinstatement over rehabilitation",
+      "index": 1,
+      "issued_at": "2026-07-30T09:53:09.296673Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "",
+      "parent_hash": "995e87c7cf34e716e5dd568a"
+    }
+  ],
+  "entry_count": 2,
+  "head_hash": "1a56cd9621c608fdac6b4621",
+  "kind": "capability_lineage",
+  "ok": true,
+  "schema_version": 1,
+  "updated_at": "2026-07-30T09:53:09.297084Z"
+}

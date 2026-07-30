@@ -1,0 +1,29 @@
+{
+  "agreeing_count": 2,
+  "byzantine_count": 1,
+  "certificate_hash": "ccbe2334647f41b2aee4d41d",
+  "claims": {
+    "epoch_index": 2,
+    "member_count": 3,
+    "plane": "finality",
+    "roots": [
+      "repo.import-health",
+      "capability.ledger-inventory",
+      "unbound.milestone-gate"
+    ]
+  },
+  "epoch_hash": "724e2949edea4a473549dfcd",
+  "epoch_height": 2,
+  "goal": "reinstatement over rehabilitation (epoch 2)",
+  "irreversible": true,
+  "issued_at": "2026-07-30T09:53:09.845472Z",
+  "kind": "finality_certificate",
+  "lineage_head_hash": "04e8c718c2a1763508650930",
+  "ok": true,
+  "origin_count": 3,
+  "package_hash": "9ba5e862381c65a3",
+  "parent_epoch_hash": "9f70e62b277e94a8452d5cd0",
+  "quorum_hash": "8921425a401a6dac2fdf2e34",
+  "schema_version": 1,
+  "used_skill_route_discovery": false
+}

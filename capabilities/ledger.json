@@ -29,7 +29,7 @@
         "ablation",
         "evidence"
       ],
-      "updated_at": "2026-07-30T09:17:07.948970Z"
+      "updated_at": "2026-07-30T09:55:02.711675Z"
     },
     "capability.actuation-plane": {
       "behavior_paths": [
@@ -84,7 +84,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-30T09:17:07.950301Z"
+      "updated_at": "2026-07-30T09:55:02.712880Z"
     },
     "capability.adaptive-grow": {
       "behavior_paths": [
@@ -116,7 +116,7 @@
         "growth",
         "adaptive"
       ],
-      "updated_at": "2026-07-30T09:17:07.947766Z"
+      "updated_at": "2026-07-30T09:55:02.710614Z"
     },
     "capability.adversarial-contract": {
       "behavior_paths": [
@@ -149,7 +149,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-07-30T09:17:07.949182Z"
+      "updated_at": "2026-07-30T09:55:02.711888Z"
     },
     "capability.assurance-plane": {
       "behavior_paths": [
@@ -186,7 +186,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-07-30T09:17:07.949287Z"
+      "updated_at": "2026-07-30T09:55:02.711979Z"
     },
     "capability.autonomic-cycle": {
       "behavior_paths": [
@@ -221,7 +221,7 @@
         "autonomic",
         "novelty"
       ],
-      "updated_at": "2026-07-30T09:17:07.948210Z"
+      "updated_at": "2026-07-30T09:55:02.711013Z"
     },
     "capability.capital-plane": {
       "behavior_paths": [
@@ -290,7 +290,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-30T09:17:07.951042Z"
+      "updated_at": "2026-07-30T09:55:02.713537Z"
     },
     "capability.clearing-plane": {
       "behavior_paths": [
@@ -349,7 +349,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-30T09:17:07.950520Z"
+      "updated_at": "2026-07-30T09:55:02.713066Z"
     },
     "capability.collateral-plane": {
       "behavior_paths": [
@@ -412,7 +412,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-30T09:17:07.950727Z"
+      "updated_at": "2026-07-30T09:55:02.713252Z"
     },
     "capability.composed-core-health": {
       "behavior_paths": [
@@ -1946,7 +1946,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-07-30T09:17:07.949740Z"
+      "updated_at": "2026-07-30T09:55:02.712342Z"
     },
     "capability.contract-plane": {
       "behavior_paths": [
@@ -1981,7 +1981,7 @@
         "evidence",
         "growth"
       ],
-      "updated_at": "2026-07-30T09:17:07.948865Z"
+      "updated_at": "2026-07-30T09:55:02.711583Z"
     },
     "capability.distill-ledger": {
       "behavior_paths": [
@@ -2011,7 +2011,7 @@
         "growth",
         "distill"
       ],
-      "updated_at": "2026-07-30T09:17:07.948094Z"
+      "updated_at": "2026-07-30T09:55:02.710917Z"
     },
     "capability.execution-plane": {
       "behavior_paths": [
@@ -2064,7 +2064,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-30T09:17:07.950188Z"
+      "updated_at": "2026-07-30T09:55:02.712716Z"
     },
     "capability.federation-plane": {
       "behavior_paths": [
@@ -2109,7 +2109,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-07-30T09:17:07.949847Z"
+      "updated_at": "2026-07-30T09:55:02.712435Z"
     },
     "capability.finality-plane": {
       "behavior_paths": [
@@ -2158,7 +2158,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-30T09:17:07.950082Z"
+      "updated_at": "2026-07-30T09:55:02.712624Z"
     },
     "capability.frontier-novelty": {
       "behavior_paths": [
@@ -2188,7 +2188,7 @@
         "growth",
         "novelty"
       ],
-      "updated_at": "2026-07-30T09:17:07.947987Z"
+      "updated_at": "2026-07-30T09:55:02.710819Z"
     },
     "capability.funding-plane": {
       "behavior_paths": [
@@ -2255,7 +2255,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-30T09:17:07.950940Z"
+      "updated_at": "2026-07-30T09:55:02.713446Z"
     },
     "capability.goal-plan": {
       "behavior_paths": [
@@ -2284,7 +2284,7 @@
         "mission",
         "planner"
       ],
-      "updated_at": "2026-07-30T09:17:07.948326Z"
+      "updated_at": "2026-07-30T09:55:02.711107Z"
     },
     "capability.growth-loop": {
       "behavior_paths": [
@@ -2315,7 +2315,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-07-30T09:17:07.947656Z"
+      "updated_at": "2026-07-30T09:55:02.710516Z"
     },
     "capability.ledger-integrity": {
       "behavior_paths": [
@@ -2343,7 +2343,7 @@
         "compounder",
         "integrity"
       ],
-      "updated_at": "2026-07-30T09:17:07.947876Z"
+      "updated_at": "2026-07-30T09:55:02.710709Z"
     },
     "capability.ledger-inventory": {
       "behavior_paths": [
@@ -2369,7 +2369,7 @@
         "bootstrap",
         "compounder"
       ],
-      "updated_at": "2026-07-30T09:17:07.947296Z"
+      "updated_at": "2026-07-30T09:55:02.710212Z"
     },
     "capability.lineage-plane": {
       "behavior_paths": [
@@ -2410,7 +2410,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-07-30T09:17:07.949528Z"
+      "updated_at": "2026-07-30T09:55:02.712161Z"
     },
     "capability.liquidity-plane": {
       "behavior_paths": [
@@ -2475,7 +2475,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-30T09:17:07.950840Z"
+      "updated_at": "2026-07-30T09:55:02.713356Z"
     },
     "capability.margin-plane": {
       "behavior_paths": [
@@ -2536,7 +2536,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-30T09:17:07.950626Z"
+      "updated_at": "2026-07-30T09:55:02.713156Z"
     },
     "capability.mission-plane": {
       "behavior_paths": [
@@ -2571,7 +2571,7 @@
         "growth",
         "second-wave"
       ],
-      "updated_at": "2026-07-30T09:17:07.948655Z"
+      "updated_at": "2026-07-30T09:55:02.711399Z"
     },
     "capability.outcome-contract": {
       "behavior_paths": [
@@ -2603,7 +2603,7 @@
         "contract",
         "evidence"
       ],
-      "updated_at": "2026-07-30T09:17:07.948764Z"
+      "updated_at": "2026-07-30T09:55:02.711491Z"
     },
     "capability.program-run": {
       "behavior_paths": [
@@ -2633,7 +2633,7 @@
         "mission",
         "program"
       ],
-      "updated_at": "2026-07-30T09:17:07.948450Z"
+      "updated_at": "2026-07-30T09:55:02.711200Z"
     },
     "capability.quorum-plane": {
       "behavior_paths": [
@@ -2680,7 +2680,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-30T09:17:07.949954Z"
+      "updated_at": "2026-07-30T09:55:02.712530Z"
     },
     "capability.reconciliation-plane": {
       "behavior_paths": [
@@ -2723,7 +2723,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-07-30T09:17:07.949633Z"
+      "updated_at": "2026-07-30T09:55:02.712253Z"
     },
     "capability.recovery-plane": {
       "behavior_paths": [
@@ -2781,7 +2781,7 @@
         "adversarial",
         "hash-chain"
       ],
-      "updated_at": "2026-07-30T09:17:07.954094Z"
+      "updated_at": "2026-07-30T09:55:02.714002Z"
     },
     "capability.rehabilitation-plane": {
       "behavior_paths": [
@@ -2842,7 +2842,70 @@
         "adversarial",
         "hash-chain"
       ],
-      "updated_at": "2026-07-30T09:17:07.954756Z"
+      "updated_at": "2026-07-30T09:55:02.714361Z"
+    },
+    "capability.reinstatement-plane": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_compounder.py",
+        "src/blackhole_agent/unbound.py"
+      ],
+      "capability_delta": "Reinstatement plane posts multi-rehabilitation orders into deterministic hash-chained reinstatement orders with reinstatement plan digests bound to rehabilitation roots, reinstatement certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery.",
+      "created_at": "2026-07-30T09:53:09.055366Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.outcome-contract",
+        "capability.contract-plane",
+        "capability.assurance-plane",
+        "capability.sovereignty-plane",
+        "capability.lineage-plane",
+        "capability.reconciliation-plane",
+        "capability.continuity-plane",
+        "capability.federation-plane",
+        "capability.quorum-plane",
+        "capability.finality-plane",
+        "capability.execution-plane",
+        "capability.actuation-plane",
+        "capability.settlement-plane",
+        "capability.clearing-plane",
+        "capability.margin-plane",
+        "capability.collateral-plane",
+        "capability.liquidity-plane",
+        "capability.funding-plane",
+        "capability.capital-plane",
+        "capability.solvency-plane",
+        "capability.risk-plane",
+        "capability.stress-plane",
+        "capability.resilience-plane",
+        "capability.recovery-plane",
+        "capability.resolution-plane",
+        "capability.restructuring-plane",
+        "capability.reorganization-plane",
+        "capability.rehabilitation-plane",
+        "capability.transfer-plane",
+        "capability.ablation-proof",
+        "capability.adversarial-contract"
+      ],
+      "description": "Closed reinstatement plane: multi-rehabilitation orders → deterministic hash-chained reinstatement orders with reinstatement plan digests bound to rehabilitation roots → reinstatement certificates → sterile rehydrate+prove → adversarial mutation/reorder/wrong-rehabilitation/double-reinstatement/forged-root/gap/digest-tamper/single-reinstatement falsification with genesis replay matching tip — past rehabilitated actions without reinstatement orders.",
+      "entry": "blackhole_agent.capability_compounder:builtin_reinstatement_plane",
+      "id": "capability.reinstatement-plane",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-07-30T09:54:47.964476Z",
+      "name": "Reinstatement plane over rehabilitation",
+      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_reinstatement_plane; from pathlib import Path; import os; os.environ['BLACKHOLE_MISSION_GOAL']='reinstatement over rehabilitation'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_REINSTATEMENT_RUN_REHABILITATION']='1'; os.environ['BLACKHOLE_REORGANIZATION_RUN_RECOVERY']='1'; os.environ['BLACKHOLE_RECOVERY_RUN_RESILIENCE']='1'; os.environ['BLACKHOLE_RESILIENCE_RUN_STRESS']='1'; os.environ['BLACKHOLE_STRESS_RUN_RISK']='1'; os.environ['BLACKHOLE_RISK_RUN_SOLVENCY']='1'; os.environ['BLACKHOLE_SOLVENCY_RUN_CAPITAL']='1'; os.environ['BLACKHOLE_CAPITAL_RUN_FUNDING']='1'; os.environ['BLACKHOLE_FUNDING_RUN_LIQUIDITY']='1'; os.environ['BLACKHOLE_LIQUIDITY_RUN_COLLATERAL']='1'; os.environ['BLACKHOLE_COLLATERAL_RUN_MARGIN']='1'; os.environ['BLACKHOLE_MARGIN_RUN_CLEARING']='1'; os.environ['BLACKHOLE_CLEARING_RUN_SETTLEMENT']='1'; os.environ['BLACKHOLE_SETTLEMENT_RUN_ACTUATION']='1'; os.environ['BLACKHOLE_ACTUATION_RUN_EXECUTION']='1'; os.environ['BLACKHOLE_EXECUTION_RUN_FINALITY']='1'; os.environ['BLACKHOLE_FINALITY_RUN_QUORUM']='1'; os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='0'; os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='0'; os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; os.environ['BLACKHOLE_FINALITY_EPOCH_COUNT']='2'; os.environ['BLACKHOLE_ACTUATION_MIN_ACTIONS']='2'; os.environ['BLACKHOLE_SETTLEMENT_MIN_SETTLEMENTS']='2'; os.environ['BLACKHOLE_CLEARING_MIN_CLEARINGS']='2'; os.environ['BLACKHOLE_MARGIN_MIN_MARGINS']='2'; os.environ['BLACKHOLE_COLLATERAL_MIN_COLLATERALS']='2'; os.environ['BLACKHOLE_LIQUIDITY_MIN_LIQUIDITIES']='2'; os.environ['BLACKHOLE_FUNDING_MIN_FUNDINGS']='2'; os.environ['BLACKHOLE_CAPITAL_MIN_CAPITALS']='2'; os.environ['BLACKHOLE_SOLVENCY_MIN_SOLVENCIES']='2'; os.environ['BLACKHOLE_RISK_MIN_RISKS']='2'; os.environ['BLACKHOLE_STRESS_MIN_STRESSES']='2'; os.environ['BLACKHOLE_RESILIENCE_MIN_RESILIENCES']='2'; os.environ['BLACKHOLE_RECOVERY_MIN_RECOVERIES']='2'; os.environ['BLACKHOLE_RESOLUTION_MIN_RESOLUTIONS']='2'; os.environ['BLACKHOLE_REHABILITATION_MIN_REHABILITATIONS']='2'; os.environ['BLACKHOLE_REINSTATEMENT_MIN_REINSTATEMENTS']='2'; os.environ['BLACKHOLE_REINSTATEMENT_RUN_REHABILITATION']='1'; os.environ['BLACKHOLE_REORGANIZATION_RUN_RESOLUTION']='1'; os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-reinstatement.json')); os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-reinstatement-quorum.json')); os.environ.setdefault('BLACKHOLE_FINALITY_BUNDLE_PATH', str(Path('artifacts')/'finality-bundles'/'proof-reinstatement-finality.json')); os.environ.setdefault('BLACKHOLE_EXECUTION_BUNDLE_PATH', str(Path('artifacts')/'execution-bundles'/'proof-reinstatement-execution.json')); os.environ.setdefault('BLACKHOLE_ACTUATION_BUNDLE_PATH', str(Path('artifacts')/'actuation-bundles'/'proof-reinstatement-actuation.json')); os.environ.setdefault('BLACKHOLE_SETTLEMENT_BUNDLE_PATH', str(Path('artifacts')/'settlement-bundles'/'proof-reinstatement-settlement.json')); os.environ.setdefault('BLACKHOLE_CLEARING_BUNDLE_PATH', str(Path('artifacts')/'clearing-bundles'/'proof-reinstatement-clearing.json')); os.environ.setdefault('BLACKHOLE_MARGIN_BUNDLE_PATH', str(Path('artifacts')/'margin-bundles'/'proof-reinstatement-margin.json')); os.environ.setdefault('BLACKHOLE_COLLATERAL_BUNDLE_PATH', str(Path('artifacts')/'collateral-bundles'/'proof-reinstatement-collateral.json')); os.environ.setdefault('BLACKHOLE_LIQUIDITY_BUNDLE_PATH', str(Path('artifacts')/'liquidity-bundles'/'proof-reinstatement-liquidity.json')); os.environ.setdefault('BLACKHOLE_FUNDING_BUNDLE_PATH', str(Path('artifacts')/'funding-bundles'/'proof-reinstatement-funding.json')); os.environ.setdefault('BLACKHOLE_CAPITAL_BUNDLE_PATH', str(Path('artifacts')/'capital-bundles'/'proof-reinstatement-capital.json')); os.environ.setdefault('BLACKHOLE_SOLVENCY_BUNDLE_PATH', str(Path('artifacts')/'solvency-bundles'/'proof-reinstatement-solvency.json')); os.environ.setdefault('BLACKHOLE_RISK_BUNDLE_PATH', str(Path('artifacts')/'risk-bundles'/'proof-reinstatement-risk.json')); os.environ.setdefault('BLACKHOLE_STRESS_BUNDLE_PATH', str(Path('artifacts')/'stress-bundles'/'proof-reinstatement-stress.json')); os.environ.setdefault('BLACKHOLE_RESILIENCE_BUNDLE_PATH', str(Path('artifacts')/'resilience-bundles'/'proof-reinstatement-resilience.json')); os.environ.setdefault('BLACKHOLE_RECOVERY_BUNDLE_PATH', str(Path('artifacts')/'recovery-bundles'/'proof-reinstatement-recovery.json')); os.environ.setdefault('BLACKHOLE_REHABILITATION_BUNDLE_PATH', str(Path('artifacts')/'rehabilitation-bundles'/'proof-reinstatement-rehabilitation.json')); os.environ.setdefault('BLACKHOLE_REINSTATEMENT_BUNDLE_PATH', str(Path('artifacts')/'reinstatement-bundles'/'proof-reinstatement.json')); r=builtin_reinstatement_plane(); assert r['ok'] and r.get('action')=='reinstatement_plane' and r.get('reinstated') is True and int(r.get('reinstatement_count') or 0) >= 2 and int(r.get('tip_height') or 0) >= 2 and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') and r.get('reinstatement_certificate',{}).get('valid') and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "reinstatement",
+        "order",
+        "rehabilitation",
+        "plane",
+        "certificate",
+        "adversarial",
+        "hash-chain"
+      ],
+      "updated_at": "2026-07-30T09:55:02.714449Z"
     },
     "capability.reorganization-plane": {
       "behavior_paths": [
@@ -2903,7 +2966,7 @@
         "adversarial",
         "hash-chain"
       ],
-      "updated_at": "2026-07-30T09:17:07.954627Z"
+      "updated_at": "2026-07-30T09:55:02.714272Z"
     },
     "capability.resilience-plane": {
       "behavior_paths": [
@@ -2960,7 +3023,7 @@
         "adversarial",
         "hash-chain"
       ],
-      "updated_at": "2026-07-30T09:17:07.953941Z"
+      "updated_at": "2026-07-30T09:55:02.713913Z"
     },
     "capability.resolution-plane": {
       "behavior_paths": [
@@ -3019,7 +3082,7 @@
         "adversarial",
         "hash-chain"
       ],
-      "updated_at": "2026-07-30T09:17:07.954209Z"
+      "updated_at": "2026-07-30T09:55:02.714092Z"
     },
     "capability.restructuring-plane": {
       "behavior_paths": [
@@ -3079,7 +3142,7 @@
         "adversarial",
         "hash-chain"
       ],
-      "updated_at": "2026-07-30T09:17:07.954432Z"
+      "updated_at": "2026-07-30T09:55:02.714182Z"
     },
     "capability.risk-plane": {
       "behavior_paths": [
@@ -3134,7 +3197,7 @@
         "adversarial",
         "hash-chain"
       ],
-      "updated_at": "2026-07-30T09:17:07.953508Z"
+      "updated_at": "2026-07-30T09:55:02.713720Z"
     },
     "capability.scout-gaps": {
       "behavior_paths": [
@@ -3162,7 +3225,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-07-30T09:17:07.947544Z"
+      "updated_at": "2026-07-30T09:55:02.710417Z"
     },
     "capability.second-wave-absorb": {
       "behavior_paths": [
@@ -3196,7 +3259,7 @@
         "second-wave",
         "domain"
       ],
-      "updated_at": "2026-07-30T09:17:07.948554Z"
+      "updated_at": "2026-07-30T09:55:02.711305Z"
     },
     "capability.settlement-plane": {
       "behavior_paths": [
@@ -3253,7 +3316,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-30T09:17:07.950417Z"
+      "updated_at": "2026-07-30T09:55:02.712974Z"
     },
     "capability.solvency-plane": {
       "behavior_paths": [
@@ -3324,7 +3387,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-07-30T09:17:07.953216Z"
+      "updated_at": "2026-07-30T09:55:02.713628Z"
     },
     "capability.sovereignty-plane": {
       "behavior_paths": [
@@ -3363,7 +3426,7 @@
         "certificate",
         "evidence"
       ],
-      "updated_at": "2026-07-30T09:17:07.949419Z"
+      "updated_at": "2026-07-30T09:55:02.712069Z"
     },
     "capability.stress-plane": {
       "behavior_paths": [
@@ -3419,7 +3482,7 @@
         "adversarial",
         "hash-chain"
       ],
-      "updated_at": "2026-07-30T09:17:07.953634Z"
+      "updated_at": "2026-07-30T09:55:02.713824Z"
     },
     "capability.transfer-plane": {
       "behavior_paths": [
@@ -3450,7 +3513,7 @@
         "transfer",
         "package"
       ],
-      "updated_at": "2026-07-30T09:17:07.949076Z"
+      "updated_at": "2026-07-30T09:55:02.711796Z"
     },
     "domain.ci-security": {
       "behavior_paths": [
@@ -3756,7 +3819,7 @@
         "bootstrap",
         "evolution-route"
       ],
-      "updated_at": "2026-07-30T09:17:07.947430Z"
+      "updated_at": "2026-07-30T09:55:02.710315Z"
     },
     "repo.import-health": {
       "behavior_paths": [
@@ -3780,7 +3843,7 @@
         "bootstrap",
         "health"
       ],
-      "updated_at": "2026-07-30T09:17:07.946994Z"
+      "updated_at": "2026-07-30T09:55:02.709966Z"
     },
     "unbound.milestone-gate": {
       "behavior_paths": [
@@ -3805,9 +3868,9 @@
         "bootstrap",
         "unbound"
       ],
-      "updated_at": "2026-07-30T09:17:07.947166Z"
+      "updated_at": "2026-07-30T09:55:02.710101Z"
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-07-30T09:17:07.954965Z"
+  "updated_at": "2026-07-30T09:55:02.714609Z"
 }
