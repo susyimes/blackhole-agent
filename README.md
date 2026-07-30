@@ -199,7 +199,9 @@ missions instead of restarting from `main`. The first mission starts
 immediately by default. Each completed lineage is pushed to `origin/main`
 without force and verified before the next mission is allowed to start. A
 failed push is retained as pending state and retried on the same 30-minute
-cadence.
+cadence. Worktree setup has a dedicated 15-minute timeout; a timeout that
+nevertheless produced the expected clean checkout is recovered in place, while
+a genuine creation failure is recorded and retried without stopping the loop.
 
 Each mission receives a persistent `unbound/<mission>` branch and sibling Git
 worktree. A turn with `status=continue` leaves its work in place without making

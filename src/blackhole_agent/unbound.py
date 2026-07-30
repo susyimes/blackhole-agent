@@ -109,6 +109,7 @@ console = Console(highlight=False)
 SCHEMA_VERSION = 1
 DEFAULT_OUTPUT_DIR = Path(".blackhole-agent/unbound")
 DEFAULT_CONTINUOUS_INTERVAL_SECONDS = 1800
+WORKTREE_SETUP_TIMEOUT_SECONDS = 15 * 60
 MISSION_STATUSES = frozenset({"active", "complete", "blocked", "stopped"})
 TURN_STATUSES = frozenset({"continue", "milestone", "complete", "blocked"})
 KERNELS = frozenset({"codex", "grok"})
@@ -482,6 +483,38 @@ def git_is_ancestor(
     return completed.returncode == 0
 
 
+def worktree_checkout_is_ready(
+    workspace: Path,
+    *,
+    expected_branch: str,
+    expected_head: str,
+    command_runner: Callable[..., Any] = subprocess.run,
+) -> bool:
+    """Return whether a timed-out worktree add nevertheless completed cleanly."""
+
+    if not workspace.is_dir():
+        return False
+    try:
+        actual_head = git_head(workspace, command_runner=command_runner)
+        actual_branch = git_text(
+            workspace,
+            ["git", "symbolic-ref", "--short", "HEAD"],
+            command_runner=command_runner,
+        )
+        tracked_status = git_text(
+            workspace,
+            ["git", "status", "--porcelain=v1", "--untracked-files=no"],
+            command_runner=command_runner,
+        )
+    except Exception:
+        return False
+    return (
+        actual_head == expected_head
+        and actual_branch == expected_branch
+        and not tracked_status
+    )
+
+
 def remote_branch_head(
     repo_path: Path,
     remote: str,
@@ -632,9 +665,9 @@ def create_mission(
         cwd=repo_path,
         command_runner=command_runner,
     )
-    run_command(
-        ["git", "rev-parse", "--verify", target_branch],
-        cwd=repo_path,
+    target_head = git_text(
+        repo_path,
+        ["git", "rev-parse", "--verify", f"{target_branch}^{{commit}}"],
         command_runner=command_runner,
     )
 
@@ -647,11 +680,23 @@ def create_mission(
     )
     parent.mkdir(parents=True, exist_ok=True)
     workspace = parent / mission_id
-    run_command(
-        ["git", "worktree", "add", "-b", branch, str(workspace), target_branch],
-        cwd=repo_path,
-        command_runner=command_runner,
-    )
+    worktree_setup_recovered = False
+    try:
+        run_command(
+            ["git", "worktree", "add", "-b", branch, str(workspace), target_head],
+            cwd=repo_path,
+            command_runner=command_runner,
+            timeout=WORKTREE_SETUP_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        if not worktree_checkout_is_ready(
+            workspace,
+            expected_branch=branch,
+            expected_head=target_head,
+            command_runner=command_runner,
+        ):
+            raise
+        worktree_setup_recovered = True
     base_head = git_head(workspace, command_runner=command_runner)
     root = mission_root(repo_path, output_dir)
     mission_dir = root / "missions" / mission_id
@@ -698,6 +743,7 @@ def create_mission(
             "done_when": state.done_when,
             "branch": branch,
             "base_head": base_head,
+            "worktree_setup_recovered": worktree_setup_recovered,
         },
     )
     return state_path.resolve()
@@ -5932,6 +5978,8 @@ def run_continuous_loop(
         "interval_seconds": interval_seconds,
         "timeout_seconds": timeout_seconds,
         "mission_count": 0,
+        "mission_create_attempt_count": 0,
+        "mission_create_failure_count": 0,
         "run_count": 0,
         "current_mission_id": "",
         "current_state_path": "",
@@ -5950,6 +5998,7 @@ def run_continuous_loop(
         "last_publish_error": "",
         "next_wake_at": "",
         "last_error": "",
+        "last_mission_create_error": "",
         "stop_reason": "",
     }
 
@@ -6103,22 +6152,65 @@ def run_continuous_loop(
                 should_wait = True
 
                 if current_state_path is None:
-                    current_state_path = mission_creator(
-                        repo_path=repo_path,
-                        kernel=kernel,
-                        model=model,
-                        profile=profile,
-                        target_branch=lineage_ref,
-                        branch_prefix=branch_prefix,
-                        output_dir=output_dir,
-                        worktree_parent=worktree_parent,
-                        timeout_seconds=timeout_seconds,
-                        command_runner=command_runner,
+                    loop_state["mission_create_attempt_count"] = (
+                        int(loop_state["mission_create_attempt_count"]) + 1
                     )
+                    save_continuous_loop_state(state_path, loop_state)
+                    try:
+                        current_state_path = mission_creator(
+                            repo_path=repo_path,
+                            kernel=kernel,
+                            model=model,
+                            profile=profile,
+                            target_branch=lineage_ref,
+                            branch_prefix=branch_prefix,
+                            output_dir=output_dir,
+                            worktree_parent=worktree_parent,
+                            timeout_seconds=timeout_seconds,
+                            command_runner=command_runner,
+                        )
+                    except Exception as error:
+                        creation_error = str(error) or error.__class__.__name__
+                        next_wake = datetime.now(timezone.utc) + timedelta(
+                            seconds=interval_seconds
+                        )
+                        loop_state["mission_create_failure_count"] = (
+                            int(loop_state["mission_create_failure_count"]) + 1
+                        )
+                        loop_state["last_mission_create_error"] = creation_error
+                        loop_state["last_error"] = creation_error
+                        loop_state["status"] = "sleeping_mission_create_retry"
+                        loop_state["next_wake_at"] = next_wake.isoformat().replace(
+                            "+00:00", "Z"
+                        )
+                        save_continuous_loop_state(state_path, loop_state)
+                        append_jsonl(
+                            events_path,
+                            {
+                                "event": "continuous_loop.mission_create_failed",
+                                "at": utc_now_iso(),
+                                "loop_id": loop_id,
+                                "base_ref": lineage_ref,
+                                "error": creation_error,
+                                "error_type": error.__class__.__name__,
+                                "interval_seconds": interval_seconds,
+                                "next_wake_at": loop_state["next_wake_at"],
+                            },
+                        )
+                        if interval_waiter(interval_seconds, stop_path):
+                            loop_state["stop_reason"] = "stop_requested"
+                            break
+                        loop_state["next_wake_at"] = ""
+                        loop_state["status"] = "running"
+                        save_continuous_loop_state(state_path, loop_state)
+                        should_wait = False
+                        continue
                     current = load_mission(current_state_path)
                     loop_state["mission_count"] = int(loop_state["mission_count"]) + 1
                     loop_state["current_mission_id"] = current.mission_id
                     loop_state["current_state_path"] = str(current_state_path)
+                    loop_state["last_mission_create_error"] = ""
+                    loop_state["last_error"] = ""
                     save_continuous_loop_state(state_path, loop_state)
                     append_jsonl(
                         events_path,

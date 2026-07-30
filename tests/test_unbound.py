@@ -345,6 +345,39 @@ def test_genesis_turn_can_define_the_mission_without_forcing_a_goal_at_start(tmp
     assert state.done_when.startswith("A real end-to-end run succeeds")
 
 
+def test_create_mission_recovers_when_worktree_add_times_out_after_clean_checkout(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    init_repository(repo)
+    worktrees = tmp_path / "worktrees"
+
+    def timeout_after_checkout(command, **kwargs):
+        completed = subprocess.run(command, **kwargs)
+        if command[:3] == ["git", "worktree", "add"]:
+            raise subprocess.TimeoutExpired(
+                command,
+                kwargs["timeout"],
+                output=completed.stdout,
+                stderr=completed.stderr,
+            )
+        return completed
+
+    state_path = create_mission(
+        repo_path=repo,
+        worktree_parent=worktrees,
+        command_runner=timeout_after_checkout,
+    )
+    state = load_mission(state_path)
+    event = json.loads(
+        (state_path.parent / "events.jsonl").read_text(encoding="utf-8").splitlines()[-1]
+    )
+
+    assert Path(state.workspace_path).is_dir()
+    assert git_head(Path(state.workspace_path)) == state.base_head
+    assert event["event"] == "mission.created"
+    assert event["worktree_setup_recovered"] is True
+
+
 def test_continuous_loop_defaults_to_thirty_minutes():
     assert DEFAULT_CONTINUOUS_INTERVAL_SECONDS == 30 * 60
 
@@ -436,6 +469,66 @@ def test_continuous_loop_starts_new_genesis_missions_and_compounds_proven_heads(
     assert loop_state["lineage_ref"] == completed_heads[1]
     assert loop_state["status"] == "stopped"
     assert loop_state["stop_reason"] == "max_missions_reached"
+
+
+def test_continuous_loop_retries_failed_mission_creation(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    init_repository(repo)
+    worktrees = tmp_path / "worktrees"
+    create_attempts = []
+    waits = []
+
+    def flaky_creator(**kwargs):
+        create_attempts.append(kwargs["target_branch"])
+        if len(create_attempts) == 1:
+            raise subprocess.TimeoutExpired(["git", "worktree", "add"], 900)
+        return create_mission(**kwargs)
+
+    def completing_runner(state_path, **kwargs):
+        state = load_mission(state_path)
+        state.status = "complete"
+        save_mission(state_path, state)
+        return 0
+
+    def recording_waiter(seconds, stop_path):
+        waits.append(seconds)
+        return False
+
+    result = run_continuous_loop(
+        repo_path=repo,
+        interval_seconds=DEFAULT_CONTINUOUS_INTERVAL_SECONDS,
+        max_missions=1,
+        resume_latest=False,
+        worktree_parent=worktrees,
+        mission_creator=flaky_creator,
+        mission_runner=completing_runner,
+        interval_waiter=recording_waiter,
+    )
+    loop_state = json.loads(continuous_loop_state_path(repo).read_text(encoding="utf-8"))
+    events = [
+        json.loads(line)
+        for line in (
+            repo / ".blackhole-agent" / "unbound" / "continuous-loop-events.jsonl"
+        )
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    failure = next(
+        event
+        for event in events
+        if event["event"] == "continuous_loop.mission_create_failed"
+    )
+
+    assert result == 0
+    assert create_attempts == ["main", "main"]
+    assert waits == [1800]
+    assert loop_state["mission_count"] == 1
+    assert loop_state["mission_create_attempt_count"] == 2
+    assert loop_state["mission_create_failure_count"] == 1
+    assert loop_state["last_mission_create_error"] == ""
+    assert failure["error_type"] == "TimeoutExpired"
+    assert failure["base_ref"] == "main"
 
 
 def test_publish_lineage_pushes_and_verifies_exact_remote_head(tmp_path):

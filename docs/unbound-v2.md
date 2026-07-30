@@ -276,6 +276,12 @@ ref is read before the push and verified afterward. A rejected or unavailable
 push leaves `pending_publish_ref` in loop state, waits 30 minutes, and retries;
 the controller does not create the next mission until publication succeeds.
 
+Worktree creation uses a dedicated 15-minute setup timeout. If Git reports a
+timeout after leaving the expected branch, commit, and clean tracked checkout,
+the mission continues from that verified worktree. Any genuine creation failure
+is recorded as `continuous_loop.mission_create_failed`, waits for the outer
+interval, and retries instead of terminating the continuous loop.
+
 Use another configured remote with `--publish-remote <name>`. Pass an empty
 value only when a deliberately local-only loop is wanted.
 
@@ -288,9 +294,11 @@ Loop state and events are durable:
   continuous-loop.lock
 ```
 
-`continuous-loop.json` records `publish_attempt_count`, `publish_count`,
-`pending_publish_ref`, `last_published_ref`, and `last_publish_error` so remote
-delivery is observable independently from local milestone creation.
+`continuous-loop.json` records `mission_create_attempt_count`,
+`mission_create_failure_count`, `last_mission_create_error`,
+`publish_attempt_count`, `publish_count`, `pending_publish_ref`,
+`last_published_ref`, and `last_publish_error` so mission creation and remote
+delivery are observable independently.
 
 Inspect the scheduler or request a cooperative stop:
 
