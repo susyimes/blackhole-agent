@@ -153,8 +153,7 @@ def allocate_run_artifact_paths(output_dir: Path, timestamp: str) -> tuple[Path,
 
 
 def build_kimi_command(config: KimiCliConfig, *, prompt: str) -> list[str]:
-    kimi_bin = shutil.which(config.kimi_bin) or config.kimi_bin
-    command = [kimi_bin]
+    command = resolve_kimi_invocation_prefix(config.kimi_bin)
     if config.model:
         command.extend(["--model", config.model])
     if config.resume_session_id:
@@ -162,6 +161,22 @@ def build_kimi_command(config: KimiCliConfig, *, prompt: str) -> list[str]:
     command.extend(config.extra_args)
     command.extend(["--output-format", config.output_format, "--prompt", prompt])
     return command
+
+
+def resolve_kimi_invocation_prefix(kimi_bin: str) -> list[str]:
+    """Bypass the Windows npm batch shim so long prompts reach Kimi intact."""
+
+    resolved_value = shutil.which(kimi_bin) or kimi_bin
+    resolved_binary = Path(resolved_value)
+    if resolved_binary.suffix.lower() not in {".cmd", ".bat"}:
+        return [resolved_value]
+
+    entrypoint = resolved_binary.parent / "node_modules" / "@moonshot-ai" / "kimi-code" / "dist" / "main.mjs"
+    bundled_node = resolved_binary.parent / "node.exe"
+    node_binary = str(bundled_node) if bundled_node.is_file() else shutil.which("node")
+    if entrypoint.is_file() and node_binary:
+        return [node_binary, str(entrypoint)]
+    return [str(resolved_binary)]
 
 
 def build_kimi_provider_preflight(

@@ -54,6 +54,28 @@ def test_build_kimi_command_uses_native_prompt_mode_and_resume(monkeypatch):
     assert command[command.index("--prompt") + 1] == "Continue the mission."
 
 
+def test_build_kimi_command_bypasses_windows_npm_batch_limit(tmp_path, monkeypatch):
+    npm_dir = tmp_path / "npm"
+    entrypoint = npm_dir / "node_modules" / "@moonshot-ai" / "kimi-code" / "dist" / "main.mjs"
+    entrypoint.parent.mkdir(parents=True)
+    entrypoint.touch()
+    kimi_shim = npm_dir / "kimi.CMD"
+    kimi_shim.touch()
+    node_binary = npm_dir / "node.exe"
+    node_binary.touch()
+
+    monkeypatch.setattr(
+        "blackhole_agent.kernels.kimi_cli.shutil.which",
+        lambda name: str(kimi_shim) if name == "kimi" else None,
+    )
+    long_prompt = "x" * 12_000
+
+    command = build_kimi_command(KimiCliConfig(), prompt=long_prompt)
+
+    assert command[:2] == [str(node_binary), str(entrypoint)]
+    assert command[command.index("--prompt") + 1] == long_prompt
+
+
 def test_kimi_kernel_writes_artifacts_extracts_session_and_redacts_recorded_prompt(tmp_path, monkeypatch):
     monkeypatch.setattr("blackhole_agent.kernels.kimi_cli.shutil.which", lambda _: "C:/tools/kimi.exe")
     seen = {}
