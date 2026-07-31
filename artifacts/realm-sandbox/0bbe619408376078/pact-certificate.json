@@ -1,0 +1,37 @@
+{
+  "bound_empire_height": 2,
+  "bound_empire_root": "042f34ab1945415c46cd0f56",
+  "certificate_hash": "716707af82fd30122a61aab3",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "dominioned",
+    "plane": "dominion"
+  },
+  "deterministic": true,
+  "dominion_count": 2,
+  "dominion_height": 2,
+  "dominion_plan_digest": "b808ef2456445cda46cf9927",
+  "dominion_root": "a6dc6bb5265aa5c7dac8e777",
+  "empire_certificate_hash": "e79f2e7de36bd8f0eccdd9d7",
+  "empire_hash": "a86fbde1307d36690127113d",
+  "empire_plan_digest": "b1aaabc465b6db2e11f0b826",
+  "goal": "dominion over empire (clearing 2)",
+  "issued_at": "2026-07-31T17:38:07.813910Z",
+  "kind": "dominion_certificate",
+  "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "6e604a6f16e45f9f",
+  "parent_dominion_root": "0151ad352777d89d50a40cf1",
+  "post_empire": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

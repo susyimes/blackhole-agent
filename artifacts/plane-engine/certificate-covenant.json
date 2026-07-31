@@ -1,0 +1,36 @@
+{
+  "bound_constitution_height": 2,
+  "bound_constitution_root": "95c63bf5729e944797b995ad",
+  "certificate_hash": "db16bfab0c859736534f8867",
+  "claims": {
+    "capability_id": "capability.fixture-1",
+    "clearing_index": 2,
+    "effect": "fixture-effect-1",
+    "outcome": "covenanted",
+    "plane": "covenant"
+  },
+  "constitution_certificate_hash": "a365cc2608d8d0063047fc2b",
+  "constitution_hash": "93da68487c280950961b61a2",
+  "constitution_plan_digest": "625cf9bf4a4a21cb54469a44",
+  "covenant_count": 2,
+  "covenant_height": 2,
+  "covenant_plan_digest": "2b29dc5e2a1c90d02098de35",
+  "covenant_root": "63494e7224512adf4a69a0cf",
+  "deterministic": true,
+  "goal": "differential fixture (clearing 2)",
+  "issued_at": "2026-01-01T00:00:00.000000Z",
+  "kind": "covenant_certificate",
+  "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+  "member_count": 2,
+  "member_ids": [
+    "capability.fixture-0",
+    "capability.fixture-1"
+  ],
+  "ok": true,
+  "package_hash": "1d58907e64cc82808cc22f35",
+  "parent_covenant_root": "fd8b830e0b8dbbcda6249da1",
+  "post_constitution": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

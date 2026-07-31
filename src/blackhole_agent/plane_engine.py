@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import inspect
 import json
 import sys
 from contextlib import contextmanager
@@ -53,18 +54,152 @@ class PlaneLayer:
     parent_plural: str  # parent plural key inside the parent bundle
     outcome: str  # past-tense outcome verb, e.g. "realmed"
     bundle_relative: Path  # default bundle directory relative to repo root
+    legacy_derive: str = ""  # override for irregular legacy derive fn names
+    parent_digest: str = ""  # override for the parent digest field name
+
+    @property
+    def parent_digest_field(self) -> str:
+        """Field carrying the parent plan/buffer digest (dialect boundary)."""
+
+        return self.parent_digest or f"{self.parent}_plan_digest"
+
+
+# Parent chain for the whole plane stack. Layers below ``recovery`` belong to
+# the older net-position-digest dialect and are not engine-registered yet, but
+# their links are needed to issue synthetic parent certificates.
+PARENT_OF: dict[str, str] = {
+    "cosmos": "realm",
+    "realm": "dominion",
+    "dominion": "empire",
+    "empire": "commonwealth",
+    "commonwealth": "union",
+    "union": "confederation",
+    "confederation": "coalition",
+    "coalition": "alliance",
+    "alliance": "pact",
+    "pact": "treaty",
+    "treaty": "covenant",
+    "covenant": "constitution",
+    "constitution": "charter",
+    "charter": "mandate",
+    "mandate": "privilege",
+    "privilege": "standing",
+    "standing": "reputation",
+    "reputation": "recognition",
+    "recognition": "reaccreditation",
+    "reaccreditation": "reverification",
+    "reverification": "revalidation",
+    "revalidation": "reattestation",
+    "reattestation": "recertification",
+    "recertification": "reauthorization",
+    "reauthorization": "reinstatement",
+    "reinstatement": "rehabilitation",
+    "rehabilitation": "reorganization",
+    "reorganization": "restructuring",
+    "restructuring": "resolution",
+    "resolution": "recovery",
+    "recovery": "resilience",
+    "resilience": "stress",
+    "stress": "risk",
+    "risk": "solvency",
+    "solvency": "capital",
+    "capital": "funding",
+    "funding": "liquidity",
+    "liquidity": "collateral",
+    "collateral": "margin",
+    "margin": "clearing",
+    "clearing": "settlement",
+    "settlement": "actuation",
+}
+
+
+def _layer(
+    name: str,
+    plural: str,
+    parent_plural: str,
+    outcome: str,
+    legacy_derive: str = "",
+    parent_digest: str = "",
+) -> PlaneLayer:
+    return PlaneLayer(
+        name=name,
+        parent=PARENT_OF[name],
+        plural=plural,
+        parent_plural=parent_plural,
+        outcome=outcome,
+        bundle_relative=Path("artifacts") / f"{name}-bundles",
+        legacy_derive=legacy_derive,
+        parent_digest=parent_digest,
+    )
 
 
 # Layers are registered only after the differential proof covers them.
+# The plan-digest dialect family: recovery .. cosmos.
 LAYERS: dict[str, PlaneLayer] = {
-    "realm": PlaneLayer(
-        name="realm",
-        parent="dominion",
-        plural="realms",
-        parent_plural="dominions",
-        outcome="realmed",
-        bundle_relative=Path("artifacts") / "realm-bundles",
-    ),
+    layer.name: layer
+    for layer in (
+        _layer(
+            "recovery",
+            "recoveries",
+            "resiliences",
+            "recovered",
+            parent_digest="resilience_buffer_digest",
+        ),
+        _layer("resolution", "resolutions", "recoveries", "resolved"),
+        _layer("restructuring", "restructurings", "resolutions", "restructured"),
+        _layer("reorganization", "reorganizations", "restructurings", "reorganized"),
+        _layer("rehabilitation", "rehabilitations", "reorganizations", "rehabilitated"),
+        _layer("reinstatement", "reinstatements", "rehabilitations", "reinstated"),
+        _layer("reauthorization", "reauthorizations", "reinstatements", "reauthorized"),
+        _layer("recertification", "recertifications", "reauthorizations", "recertified"),
+        _layer("reattestation", "reattestations", "recertifications", "reattested"),
+        _layer("revalidation", "revalidations", "reattestations", "revalidated"),
+        _layer("reverification", "reverifications", "revalidations", "reverified"),
+        _layer("reaccreditation", "reaccreditations", "reverifications", "reaccredited"),
+        _layer("recognition", "recognitions", "reaccreditations", "recognized"),
+        _layer("reputation", "reputations", "recognitions", "reputed"),
+        _layer("standing", "standings", "reputations", "stood"),
+        _layer("privilege", "privileges", "standings", "privileged"),
+        _layer("mandate", "mandates", "privileges", "mandated"),
+        _layer("charter", "charters", "mandates", "chartered"),
+        _layer(
+            "constitution",
+            "constitutions",
+            "charters",
+            "constituted",
+            legacy_derive="deriveconstitutionspecs_fromcharter",
+        ),
+        _layer(
+            "covenant",
+            "covenants",
+            "constitutions",
+            "covenanted",
+            legacy_derive="derivecovenantspecs_fromconstitution",
+        ),
+        _layer(
+            "treaty",
+            "treaties",
+            "covenants",
+            "treatied",
+            legacy_derive="derivetreatiespecs_fromcovenant",
+        ),
+        _layer(
+            "pact",
+            "pacts",
+            "treaties",
+            "pacted",
+            legacy_derive="derivepactspecs_fromtreaty",
+        ),
+        _layer("alliance", "alliances", "pacts", "allied"),
+        _layer("coalition", "coalitions", "alliances", "coalitioned"),
+        _layer("confederation", "confederations", "coalitions", "confederated"),
+        _layer("union", "unions", "confederations", "united"),
+        _layer("commonwealth", "commonwealths", "unions", "commonwealthed"),
+        _layer("empire", "empires", "commonwealths", "empired"),
+        _layer("dominion", "dominions", "empires", "dominioned"),
+        _layer("realm", "realms", "dominions", "realmed"),
+        _layer("cosmos", "cosmoses", "realms", "cosmosed"),
+    )
 }
 
 
@@ -162,7 +297,7 @@ def compute_plan_digest(
     payload = {
         f"parent_{layer.name}_digest": parent_digest or "",
         f"bound_{layer.parent}_root": bound_parent_root,
-        f"{layer.parent}_plan_digest": parent_plan_digest,
+        layer.parent_digest_field: parent_plan_digest,
         "capability_id": capability_id,
         "outcome": outcome or layer.outcome,
         "position_ratio_bps": int(position_ratio_bps),
@@ -209,7 +344,7 @@ def issue_certificate(
         f"{layer.parent}_certificate_hash": str(parent_certificate_hash or ""),
         "package_hash": str(package_hash or ""),
         "lineage_head_hash": str(lineage_head_hash or ""),
-        f"{layer.parent}_plan_digest": str(parent_plan_digest or ""),
+        layer.parent_digest_field: str(parent_plan_digest or ""),
         f"{layer.name}_plan_digest": str(plan_digest or ""),
         f"{layer.name}_count": int(count),
         "member_ids": members,
@@ -227,7 +362,7 @@ def issue_certificate(
         and bool(cert[f"bound_{layer.parent}_root"])
         and bool(cert[f"{layer.parent}_hash"])
         and bool(cert[f"{layer.name}_plan_digest"])
-        and bool(cert[f"{layer.parent}_plan_digest"])
+        and bool(cert[layer.parent_digest_field])
         and cert[f"{layer.name}_height"] >= 1
         and cert[f"{layer.name}_count"] >= 1
         and cert["deterministic"] is True
@@ -255,7 +390,7 @@ def verify_certificate(
         and bool(data.get(f"bound_{layer.parent}_root"))
         and bool(data.get(f"{layer.parent}_hash"))
         and bool(data.get(f"{layer.name}_plan_digest"))
-        and bool(data.get(f"{layer.parent}_plan_digest"))
+        and bool(data.get(layer.parent_digest_field))
         and int(data.get(f"{layer.name}_height") or 0) >= 1
         and int(data.get(f"{layer.name}_count") or 0) >= 1
         and data.get("deterministic") is True
@@ -316,8 +451,8 @@ def derive_specs(
                 f"bound_{layer.parent}_height": int(
                     entry.get(f"{layer.parent}_height") or 0
                 ),
-                f"{layer.parent}_plan_digest": str(
-                    entry.get(f"{layer.parent}_plan_digest") or ""
+                layer.parent_digest_field: str(
+                    entry.get(layer.parent_digest_field) or ""
                 ),
                 "receipt_digest": str(entry.get("receipt_digest") or ""),
                 "bound_settlement_root": str(entry.get("bound_settlement_root") or ""),
@@ -419,7 +554,7 @@ def apply_transition(
     parent_cert_hash = str(parent_cert.get("certificate_hash") or "")
     lineage_head = str(parent_bundle.get("lineage_head_hash") or "")
     member_ids = list(parent_bundle.get("member_ids") or [])
-    parent_plan_digest = str(spec.get(f"{layer.parent}_plan_digest") or "")
+    parent_plan_digest = str(spec.get(layer.parent_digest_field) or "")
     position_ratio_bps = int(spec.get("position_ratio_bps") or 1000)
     if not parent_plan_digest:
         for item in parent_entries:
@@ -428,7 +563,7 @@ def apply_transition(
                 and str(item.get(f"{layer.parent}_root") or "") == bound_root
             ):
                 parent_plan_digest = str(
-                    item.get(f"{layer.parent}_plan_digest") or ""
+                    item.get(layer.parent_digest_field) or ""
                 )
                 break
     plan_digest = compute_plan_digest(
@@ -455,7 +590,7 @@ def apply_transition(
         "capability_id": capability_id,
         "effect": effect,
         "outcome": outcome,
-        f"{layer.parent}_plan_digest": parent_plan_digest,
+        layer.parent_digest_field: parent_plan_digest,
         f"{layer.name}_plan_digest": plan_digest,
         "position_ratio_bps": position_ratio_bps,
         f"parent_{layer.name}_digest": parent_digest,
@@ -591,7 +726,7 @@ def verify_chain(layer: PlaneLayer, log: Mapping[str, Any]) -> dict[str, Any]:
             errors.append(f"entry[{index}]_missing_{layer.parent}_hash")
         else:
             parent_hashes.add(p_hash)
-        parent_plan_digest = str(raw.get(f"{layer.parent}_plan_digest") or "")
+        parent_plan_digest = str(raw.get(layer.parent_digest_field) or "")
         stored_parent_digest = str(raw.get(f"parent_{layer.name}_digest") or "")
         if stored_parent_digest != prev_digest:
             errors.append(f"entry[{index}]_parent_{layer.name}_digest_mismatch")
@@ -884,8 +1019,8 @@ def build_bundle(
         "tip_action_root": str(parent_bundle.get("tip_action_root") or ""),
         "bound_state_root": str(parent_bundle.get("bound_state_root") or ""),
         f"{layer.name}_plan_digest": str(log.get(f"{layer.name}_plan_digest") or ""),
-        f"{layer.parent}_plan_digest": str(
-            parent_bundle.get(f"{layer.parent}_plan_digest") or ""
+        layer.parent_digest_field: str(
+            parent_bundle.get(layer.parent_digest_field) or ""
         ),
         f"{layer.parent}_hash": str(parent_bundle.get(f"{layer.parent}_hash") or ""),
         "settlement_hash": str(parent_bundle.get("settlement_hash") or ""),
@@ -1060,27 +1195,41 @@ def _frozen_clock(value: str = FROZEN_CLOCK):
         engine_mod.utc_now_iso = orig_engine
 
 
-def _synthetic_parent_bundle(layer: PlaneLayer) -> dict[str, Any]:
-    """Build a deterministic synthetic parent bundle for the realm layer.
+def _legacy_fn(legacy: Any, *candidates: str) -> Callable[..., Any]:
+    for candidate in candidates:
+        if candidate:
+            fn = getattr(legacy, candidate, None)
+            if callable(fn):
+                return fn
+    raise AttributeError(f"no legacy function among {candidates!r}")
 
-    The parent (dominion) certificate is issued through the legacy issuer so
-    that legacy verifiers accept the bundle; this keeps the differential proof
-    a true cross-implementation check rather than a self-agreement test.
+
+def _synthetic_parent_bundle(
+    layer: PlaneLayer, legacy: Any | None = None
+) -> dict[str, Any]:
+    """Build a deterministic synthetic parent bundle for any registered layer.
+
+    The parent certificate is issued through the legacy issuer so that legacy
+    verifiers accept the bundle; this keeps the differential proof a true
+    cross-implementation check rather than a self-agreement test.
     """
 
-    if layer.name != "realm":
-        raise KeyError(f"no synthetic parent fixture for layer {layer.name!r}")
-    from blackhole_agent.capability_compounder import issue_dominion_certificate
+    if legacy is None:
+        from blackhole_agent import capability_compounder as legacy_mod
 
+        legacy = legacy_mod
+    parent = layer.parent
+    grandparent = PARENT_OF[parent]
+    entry_digest_field = layer.parent_digest_field
     entries = []
     for index in range(3):
-        root = hashlib.sha256(f"dominion-root-{index}".encode()).hexdigest()[:24]
-        digest = hashlib.sha256(f"dominion-digest-{index}".encode()).hexdigest()[:24]
+        root = hashlib.sha256(f"{parent}-root-{index}".encode()).hexdigest()[:24]
+        digest = hashlib.sha256(f"{parent}-digest-{index}".encode()).hexdigest()[:24]
         entries.append(
             {
-                "dominion_root": root,
-                "dominion_height": index + 1,
-                "dominion_plan_digest": digest,
+                f"{parent}_root": root,
+                f"{parent}_height": index + 1,
+                entry_digest_field: digest,
                 "capability_id": f"capability.fixture-{index}",
                 "effect": f"fixture-effect-{index}",
                 "receipt_digest": hashlib.sha256(
@@ -1094,51 +1243,78 @@ def _synthetic_parent_bundle(layer: PlaneLayer) -> dict[str, Any]:
                 ).hexdigest()[:24],
             }
         )
-    dominion_hash = hashlib.sha256(b"dominion-bundle-hash").hexdigest()[:24]
+    parent_hash = hashlib.sha256(f"{parent}-bundle-hash".encode()).hexdigest()[:24]
     package_hash = hashlib.sha256(b"fixture-package").hexdigest()[:24]
     lineage_head = hashlib.sha256(b"fixture-lineage").hexdigest()[:24]
-    cert = issue_dominion_certificate(
-        dominion_height=3,
-        dominion_root=entries[-1]["dominion_root"],
-        parent_dominion_root=entries[-2]["dominion_root"],
-        bound_empire_root=hashlib.sha256(b"empire-root").hexdigest()[:24],
-        bound_empire_height=2,
-        empire_hash=hashlib.sha256(b"empire-hash").hexdigest()[:24],
-        empire_certificate_hash=hashlib.sha256(b"empire-cert").hexdigest()[:24],
-        package_hash=package_hash,
-        lineage_head_hash=lineage_head,
-        empire_plan_digest=hashlib.sha256(b"empire-digest").hexdigest()[:24],
-        dominion_plan_digest=entries[-1]["dominion_plan_digest"],
-        dominion_count=3,
-        member_ids=["capability.fixture-0", "capability.fixture-1"],
-        goal="differential fixture",
-    )
-    return {
-        "kind": "dominion_bundle",
+    issuer = _legacy_fn(legacy, f"issue_{parent}_certificate")
+    offered = {
+        f"{parent}_height": 3,
+        f"{parent}_root": entries[-1][f"{parent}_root"],
+        f"parent_{parent}_root": entries[-2][f"{parent}_root"],
+        f"bound_{grandparent}_root": hashlib.sha256(
+            f"{grandparent}-root".encode()
+        ).hexdigest()[:24],
+        f"bound_{grandparent}_height": 2,
+        f"{grandparent}_hash": hashlib.sha256(
+            f"{grandparent}-hash".encode()
+        ).hexdigest()[:24],
+        f"{grandparent}_certificate_hash": hashlib.sha256(
+            f"{grandparent}-cert".encode()
+        ).hexdigest()[:24],
+        "package_hash": package_hash,
+        "lineage_head_hash": lineage_head,
+        f"{grandparent}_plan_digest": hashlib.sha256(
+            f"{grandparent}-digest".encode()
+        ).hexdigest()[:24],
+        entry_digest_field: entries[-1][entry_digest_field],
+        f"{parent}_count": 3,
+        "member_ids": ["capability.fixture-0", "capability.fixture-1"],
         "goal": "differential fixture",
-        "dominions": {"entries": entries, "entry_count": len(entries)},
-        "tip_dominion_root": entries[-1]["dominion_root"],
-        "dominion_count": len(entries),
-        "dominion_hash": dominion_hash,
-        "dominion_certificate": cert,
-        "dominion_plan_digest": entries[-1]["dominion_plan_digest"],
-        "package": {"package_hash": package_hash, "member_ids": ["capability.fixture-0"]},
+    }
+    accepted = set(inspect.signature(issuer).parameters)
+    kwargs = {key: value for key, value in offered.items() if key in accepted}
+    signature = inspect.signature(issuer)
+    for name, parameter in signature.parameters.items():
+        if name in kwargs or parameter.default is not inspect.Parameter.empty:
+            continue
+        # Dialect-boundary issuers rename digest kwargs (e.g.
+        # stress_scenario_digest, resilience_buffer_digest); fill any other
+        # required digest-like parameter deterministically.
+        kwargs[name] = hashlib.sha256(f"{parent}-{name}".encode()).hexdigest()[:24]
+    cert = issuer(**kwargs)
+    return {
+        "kind": f"{parent}_bundle",
+        "goal": "differential fixture",
+        layer.parent_plural: {"entries": entries, "entry_count": len(entries)},
+        f"tip_{parent}_root": entries[-1][f"{parent}_root"],
+        f"{parent}_count": len(entries),
+        f"{parent}_hash": parent_hash,
+        f"{parent}_certificate": cert,
+        entry_digest_field: entries[-1][entry_digest_field],
+        "package": {
+            "package_hash": package_hash,
+            "member_ids": ["capability.fixture-0"],
+        },
         "package_hash": package_hash,
         "lineage_head_hash": lineage_head,
         "member_ids": ["capability.fixture-0", "capability.fixture-1"],
     }
 
 
-def differential_proof(repo_path: Path | None = None) -> dict[str, Any]:
-    """Prove the engine is digest-equivalent to the legacy realm plane.
+def differential_proof(
+    repo_path: Path | None = None,
+    layer_names: Sequence[str] | None = None,
+) -> dict[str, Any]:
+    """Prove the engine is digest-equivalent to the legacy per-plane code.
 
-    Checks, all against the same synthetic dominion parent bundle:
+    For every registered layer (or the given subset), against the same
+    synthetic parent bundle:
 
-    1. spec derivation equality with ``derive_realm_specs_from_dominion``
+    1. spec derivation equality with the legacy derive function
     2. per-entry equality (roots, digests, certificates) with the legacy
-       ``apply_realm_transition`` loop, modulo wall-clock fields
+       transition loop, modulo wall-clock fields
     3. cross chain verification: each implementation accepts the other's log
-    4. bundle equality with ``build_realm_bundle`` modulo wall-clock fields
+    4. bundle equality with the legacy bundle builder modulo wall-clock fields
     5. cross bundle integrity: each implementation's integrity verifier
        accepts the other's bundle
     6. adversarial agreement: tampered roots, reordered entries, height gaps,
@@ -1148,148 +1324,195 @@ def differential_proof(repo_path: Path | None = None) -> dict[str, Any]:
 
     from blackhole_agent import capability_compounder as legacy
 
+    names = list(layer_names) if layer_names else list(LAYERS)
     with _frozen_clock():
-        return _differential_proof_frozen(legacy, repo_path)
+        layer_results = [
+            _differential_proof_layer(legacy, get_layer(name)) for name in names
+        ]
+    ok = all(item["ok"] for item in layer_results) and not _skill_route_used()
+    result: dict[str, Any] = {
+        "ok": ok,
+        "action": "plane_engine_differential_proof",
+        "layer_count": len(layer_results),
+        "layers": layer_results,
+        "used_skill_route_discovery": _skill_route_used(),
+    }
+    if repo_path is not None and ok:
+        out_dir = (Path(repo_path) / "artifacts" / "plane-engine").resolve()
+        bundle_paths: list[str] = []
+        for item in layer_results:
+            bundle = item.get("_bundle")
+            if not isinstance(bundle, Mapping):
+                continue
+            bundle_path = write_bundle(
+                out_dir / f"proof-{item['layer']}.json", bundle
+            )
+            tip_cert = bundle.get(f"{item['layer']}_certificate") or {}
+            write_certificate(out_dir / f"certificate-{item['layer']}.json", tip_cert)
+            bundle_paths.append(str(bundle_path))
+        result["bundle_paths"] = bundle_paths
+    for item in layer_results:
+        item.pop("_bundle", None)
+    return result
 
 
-def _differential_proof_frozen(
-    legacy: Any, repo_path: Path | None = None
-) -> dict[str, Any]:
-    """Differential proof body executed under a frozen deterministic clock."""
+def _differential_proof_layer(legacy: Any, layer: PlaneLayer) -> dict[str, Any]:
+    """Run the six differential checks for one layer under a frozen clock."""
 
-    layer = get_layer("realm")
-    parent = _synthetic_parent_bundle(layer)
+    L = layer.name
+    P = layer.parent
     checks: list[dict[str, Any]] = []
 
     def record(name: str, ok: bool, detail: str = "") -> None:
         checks.append({"name": name, "ok": bool(ok), "detail": detail})
 
-    # 1. Spec derivation equality.
-    legacy_specs = legacy.derive_realm_specs_from_dominion(parent, min_realms=2)
-    engine_specs = derive_specs(layer, parent, min_count=2)
-    record(
-        "spec_derivation_equal",
-        normalize_volatile(legacy_specs) == normalize_volatile(engine_specs)
-        and len(engine_specs) >= 2,
-        f"legacy={len(legacy_specs)} engine={len(engine_specs)}",
-    )
+    try:
+        parent = _synthetic_parent_bundle(layer, legacy)
 
-    # 2. Transition equality entry by entry.
-    legacy_log = legacy.empty_realm_log()
-    engine_log = empty_log(layer)
-    transitions_equal = True
-    for index, spec in enumerate(legacy_specs):
-        goal = f"{parent.get('goal')} (clearing {index + 1})"
-        claims = {"clearing_index": index + 1, "plane": "realm"}
-        legacy_result = legacy.apply_realm_transition(
-            legacy_log, spec, dominion_bundle=parent, goal=goal, claims=claims
+        # 1. Spec derivation equality.
+        derive_fn = _legacy_fn(
+            legacy,
+            layer.legacy_derive,
+            f"derive_{L}_specs_from_{P}",
         )
-        engine_result = apply_transition(
-            layer, engine_log, spec, parent_bundle=parent, goal=goal, claims=claims
+        derive_params = inspect.signature(derive_fn).parameters
+        min_kwarg = next((p for p in derive_params if p.startswith("min_")), None)
+        legacy_specs = derive_fn(parent, **({min_kwarg: 2} if min_kwarg else {}))
+        engine_specs = derive_specs(layer, parent, min_count=2)
+        record(
+            "spec_derivation_equal",
+            normalize_volatile(legacy_specs) == normalize_volatile(engine_specs)
+            and len(engine_specs) >= 2,
+            f"legacy={len(legacy_specs)} engine={len(engine_specs)}",
         )
-        if not legacy_result.get("ok") or not engine_result.get("ok"):
-            transitions_equal = False
-            break
-        if normalize_volatile(legacy_result["entry"]) != normalize_volatile(
-            engine_result["entry"]
-        ):
-            transitions_equal = False
-            break
-        legacy_log = legacy_result["realm_log"]
-        engine_log = engine_result["log"]
-    record(
-        "transitions_equal",
-        transitions_equal
-        and normalize_volatile(legacy_log) == normalize_volatile(engine_log),
-        f"entries={len(engine_log.get('entries') or [])}",
-    )
 
-    # 3. Cross chain verification.
-    legacy_chain_own = legacy.verify_realm_chain(legacy_log)
-    engine_chain_own = verify_chain(layer, engine_log)
-    legacy_chain_engine = legacy.verify_realm_chain(engine_log)
-    engine_chain_legacy = verify_chain(layer, legacy_log)
-    record(
-        "cross_chain_verification",
-        bool(legacy_chain_own.get("valid"))
-        and bool(engine_chain_own.get("valid"))
-        and bool(legacy_chain_engine.get("valid"))
-        and bool(engine_chain_legacy.get("valid")),
-        f"tip={engine_chain_own.get('tip_realm_root')}",
-    )
+        # 2. Transition equality entry by entry.
+        legacy_empty = _legacy_fn(legacy, f"empty_{L}_log")
+        legacy_apply = _legacy_fn(legacy, f"apply_{L}_transition")
+        apply_params = inspect.signature(legacy_apply).parameters
+        bundle_kwarg = next(p for p in apply_params if p.endswith("_bundle"))
+        legacy_log = legacy_empty()
+        engine_log = empty_log(layer)
+        transitions_equal = True
+        detail = ""
+        for index, spec in enumerate(legacy_specs):
+            goal = f"{parent.get('goal')} (clearing {index + 1})"
+            claims = {"clearing_index": index + 1, "plane": L}
+            legacy_result = legacy_apply(
+                legacy_log, spec, goal=goal, claims=claims, **{bundle_kwarg: parent}
+            )
+            engine_result = apply_transition(
+                layer, engine_log, spec, parent_bundle=parent, goal=goal, claims=claims
+            )
+            if not legacy_result.get("ok") or not engine_result.get("ok"):
+                transitions_equal = False
+                detail = (
+                    f"apply failed legacy={legacy_result.get('error')}"
+                    f" engine={engine_result.get('error')}"
+                )
+                break
+            if normalize_volatile(legacy_result["entry"]) != normalize_volatile(
+                engine_result["entry"]
+            ):
+                transitions_equal = False
+                detail = f"entry[{index}] mismatch"
+                break
+            legacy_log = legacy_result[f"{L}_log"]
+            engine_log = engine_result["log"]
+        record(
+            "transitions_equal",
+            transitions_equal
+            and normalize_volatile(legacy_log) == normalize_volatile(engine_log),
+            detail or f"entries={len(engine_log.get('entries') or [])}",
+        )
 
-    # 4. Bundle equality and 5. cross integrity.
-    goal = "realm over dominion"
-    legacy_bundle = legacy.build_realm_bundle(legacy_log, parent, goal=goal)
-    engine_bundle = build_bundle(layer, engine_log, parent, goal=goal)
-    record(
-        "bundles_equal",
-        normalize_volatile(legacy_bundle) == normalize_volatile(engine_bundle),
-        f"realm_hash={engine_bundle.get('realm_hash')}",
-    )
-    legacy_accepts_engine = legacy.verify_realm_bundle_integrity(engine_bundle)
-    engine_accepts_legacy = verify_bundle_integrity(
-        layer,
-        legacy_bundle,
-        parent_certificate_verifier=legacy.verify_dominion_certificate,
-    )
-    record(
-        "cross_bundle_integrity",
-        bool(legacy_accepts_engine.get("ok")) and bool(engine_accepts_legacy.get("ok")),
-        f"legacy_ok={legacy_accepts_engine.get('ok')}"
-        f" engine_ok={engine_accepts_legacy.get('ok')}",
-    )
+        # 3. Cross chain verification.
+        legacy_chain_fn = _legacy_fn(legacy, f"verify_{L}_chain")
+        legacy_chain_own = legacy_chain_fn(legacy_log)
+        engine_chain_own = verify_chain(layer, engine_log)
+        legacy_chain_engine = legacy_chain_fn(engine_log)
+        engine_chain_legacy = verify_chain(layer, legacy_log)
+        record(
+            "cross_chain_verification",
+            bool(legacy_chain_own.get("valid"))
+            and bool(engine_chain_own.get("valid"))
+            and bool(legacy_chain_engine.get("valid"))
+            and bool(engine_chain_legacy.get("valid")),
+            f"tip={engine_chain_own.get(f'tip_{L}_root')}",
+        )
 
-    # 6. Adversarial agreement on mutations of the engine log.
-    mutations: dict[str, dict[str, Any]] = {}
-    tampered = copy.deepcopy(engine_log)
-    tampered["entries"][1]["realm_root"] = "f" * 24
-    mutations["tampered_root"] = tampered
-    reordered = copy.deepcopy(engine_log)
-    reordered["entries"] = [reordered["entries"][1], reordered["entries"][0]]
-    mutations["reordered_entries"] = reordered
-    gapped = copy.deepcopy(engine_log)
-    gapped["entries"][1]["realm_height"] = 5
-    mutations["height_gap"] = gapped
-    wrong_binding = copy.deepcopy(engine_log)
-    wrong_binding["entries"][0]["bound_dominion_root"] = "0" * 24
-    mutations["wrong_parent_binding"] = wrong_binding
-    forged = copy.deepcopy(engine_log)
-    forged["entries"][0]["parent_realm_root"] = "a" * 24
-    mutations["forged_genesis_parent"] = forged
-    broken_cert = copy.deepcopy(engine_log)
-    broken_cert["entries"][0]["realm_certificate"]["realm_root"] = "b" * 24
-    mutations["broken_certificate"] = broken_cert
+        # 4. Bundle equality and 5. cross integrity.
+        goal = f"{L} over {P}"
+        legacy_build = _legacy_fn(legacy, f"build_{L}_bundle")
+        legacy_bundle = legacy_build(legacy_log, parent, goal=goal)
+        engine_bundle = build_bundle(layer, engine_log, parent, goal=goal)
+        record(
+            "bundles_equal",
+            normalize_volatile(legacy_bundle) == normalize_volatile(engine_bundle),
+            f"{L}_hash={engine_bundle.get(f'{L}_hash')}",
+        )
+        legacy_integrity = _legacy_fn(legacy, f"verify_{L}_bundle_integrity")
+        parent_cert_verifier = _legacy_fn(legacy, f"verify_{P}_certificate")
+        legacy_accepts_engine = legacy_integrity(engine_bundle)
+        engine_accepts_legacy = verify_bundle_integrity(
+            layer,
+            legacy_bundle,
+            parent_certificate_verifier=parent_cert_verifier,
+        )
+        record(
+            "cross_bundle_integrity",
+            bool(legacy_accepts_engine.get("ok"))
+            and bool(engine_accepts_legacy.get("ok")),
+            f"legacy_ok={legacy_accepts_engine.get('ok')}"
+            f" engine_ok={engine_accepts_legacy.get('ok')}",
+        )
 
-    adversarial_ok = True
-    adversarial_detail: list[str] = []
-    for name, mutated in mutations.items():
-        engine_verdict = verify_chain(layer, mutated)
-        legacy_verdict = legacy.verify_realm_chain(mutated)
-        agreed = (not engine_verdict.get("valid")) and (not legacy_verdict.get("valid"))
-        adversarial_ok = adversarial_ok and agreed
-        adversarial_detail.append(f"{name}:{'reject' if agreed else 'ACCEPTED'}")
-    record("adversarial_agreement", adversarial_ok, ",".join(adversarial_detail))
+        # 6. Adversarial agreement on mutations of the engine log.
+        mutations: dict[str, dict[str, Any]] = {}
+        tampered = copy.deepcopy(engine_log)
+        tampered["entries"][1][f"{L}_root"] = "f" * 24
+        mutations["tampered_root"] = tampered
+        reordered = copy.deepcopy(engine_log)
+        reordered["entries"] = [reordered["entries"][1], reordered["entries"][0]]
+        mutations["reordered_entries"] = reordered
+        gapped = copy.deepcopy(engine_log)
+        gapped["entries"][1][f"{L}_height"] = 5
+        mutations["height_gap"] = gapped
+        wrong_binding = copy.deepcopy(engine_log)
+        wrong_binding["entries"][0][f"bound_{P}_root"] = "0" * 24
+        mutations["wrong_parent_binding"] = wrong_binding
+        forged = copy.deepcopy(engine_log)
+        forged["entries"][0][f"parent_{L}_root"] = "a" * 24
+        mutations["forged_genesis_parent"] = forged
+        broken_cert = copy.deepcopy(engine_log)
+        broken_cert["entries"][0][f"{L}_certificate"][f"{L}_root"] = "b" * 24
+        mutations["broken_certificate"] = broken_cert
 
-    ok = all(check["ok"] for check in checks) and not _skill_route_used()
-    result: dict[str, Any] = {
-        "ok": ok,
-        "action": "plane_engine_differential_proof",
-        "layer": layer.name,
-        "parent": layer.parent,
-        "checks": checks,
-        "tip_realm_root": engine_chain_own.get("tip_realm_root"),
-        "realm_hash": engine_bundle.get("realm_hash"),
-        "used_skill_route_discovery": _skill_route_used(),
-    }
+        adversarial_ok = True
+        adversarial_detail: list[str] = []
+        for name, mutated in mutations.items():
+            engine_verdict = verify_chain(layer, mutated)
+            legacy_verdict = legacy_chain_fn(mutated)
+            agreed = (not engine_verdict.get("valid")) and (
+                not legacy_verdict.get("valid")
+            )
+            adversarial_ok = adversarial_ok and agreed
+            adversarial_detail.append(f"{name}:{'reject' if agreed else 'ACCEPTED'}")
+        record("adversarial_agreement", adversarial_ok, ",".join(adversarial_detail))
 
-    if repo_path is not None and ok:
-        out_dir = (Path(repo_path) / "artifacts" / "plane-engine").resolve()
-        bundle_path = write_bundle(out_dir / "proof-realm.json", engine_bundle)
-        tip_cert = engine_bundle.get("realm_certificate") or {}
-        write_certificate(out_dir / "certificate-realm.json", tip_cert)
-        result["bundle_path"] = str(bundle_path)
-    return result
+        ok = all(check["ok"] for check in checks) and not _skill_route_used()
+        return {
+            "ok": ok,
+            "layer": L,
+            "parent": P,
+            "checks": checks,
+            f"tip_{L}_root": engine_chain_own.get(f"tip_{L}_root"),
+            f"{L}_hash": engine_bundle.get(f"{L}_hash"),
+            "_bundle": engine_bundle,
+        }
+    except Exception as exc:  # report the layer as failed, keep proof going
+        record("exception", False, f"{type(exc).__name__}: {exc}")
+        return {"ok": False, "layer": L, "parent": P, "checks": checks}
 
 
 def builtin_plane_engine() -> dict[str, Any]:

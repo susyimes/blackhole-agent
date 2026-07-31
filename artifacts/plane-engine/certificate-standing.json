@@ -1,0 +1,36 @@
+{
+  "bound_reputation_height": 2,
+  "bound_reputation_root": "5fb68010bc26b5fb3a688432",
+  "certificate_hash": "37d041af2b1044ab4748b3d9",
+  "claims": {
+    "capability_id": "capability.fixture-1",
+    "clearing_index": 2,
+    "effect": "fixture-effect-1",
+    "outcome": "stood",
+    "plane": "standing"
+  },
+  "deterministic": true,
+  "goal": "differential fixture (clearing 2)",
+  "issued_at": "2026-01-01T00:00:00.000000Z",
+  "kind": "standing_certificate",
+  "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+  "member_count": 2,
+  "member_ids": [
+    "capability.fixture-0",
+    "capability.fixture-1"
+  ],
+  "ok": true,
+  "package_hash": "1d58907e64cc82808cc22f35",
+  "parent_standing_root": "b96737b548cdecf65974b5c1",
+  "post_reputation": true,
+  "reputation_certificate_hash": "cf7d100e3044f14c05fbb1ca",
+  "reputation_hash": "d927717dc0c228fc1666877b",
+  "reputation_plan_digest": "e28f27aa6a7f903e2c7a1290",
+  "schema_version": 1,
+  "standing_count": 2,
+  "standing_height": 2,
+  "standing_plan_digest": "225595b5c7100c33cdd17b3a",
+  "standing_root": "5490e89210d8d04e1f33d73f",
+  "used_skill_route_discovery": false,
+  "valid": true
+}

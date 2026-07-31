@@ -1,0 +1,36 @@
+{
+  "bound_charter_height": 2,
+  "bound_charter_root": "ae92961ca5de35484d895f2d",
+  "certificate_hash": "0fe62a819710e7b8ce17ac6d",
+  "charter_certificate_hash": "4319d775830329cd278447cd",
+  "charter_hash": "fc29c16c9fec6a13bffcd2e9",
+  "charter_plan_digest": "3511fef08494fce4ce734cc2",
+  "claims": {
+    "capability_id": "capability.fixture-1",
+    "clearing_index": 2,
+    "effect": "fixture-effect-1",
+    "outcome": "constituted",
+    "plane": "constitution"
+  },
+  "constitution_count": 2,
+  "constitution_height": 2,
+  "constitution_plan_digest": "fb1fee3d4cc754f49ecee108",
+  "constitution_root": "f59be561a83d1cfe7296e404",
+  "deterministic": true,
+  "goal": "differential fixture (clearing 2)",
+  "issued_at": "2026-01-01T00:00:00.000000Z",
+  "kind": "constitution_certificate",
+  "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+  "member_count": 2,
+  "member_ids": [
+    "capability.fixture-0",
+    "capability.fixture-1"
+  ],
+  "ok": true,
+  "package_hash": "1d58907e64cc82808cc22f35",
+  "parent_constitution_root": "983e84bed6e3d516d7f407db",
+  "post_charter": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

@@ -1,0 +1,36 @@
+{
+  "bound_standing_height": 2,
+  "bound_standing_root": "cd8ab52870c829a9cab00c7f",
+  "certificate_hash": "77749e6d9733aa246f2b99cb",
+  "claims": {
+    "capability_id": "capability.fixture-1",
+    "clearing_index": 2,
+    "effect": "fixture-effect-1",
+    "outcome": "privileged",
+    "plane": "privilege"
+  },
+  "deterministic": true,
+  "goal": "differential fixture (clearing 2)",
+  "issued_at": "2026-01-01T00:00:00.000000Z",
+  "kind": "privilege_certificate",
+  "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+  "member_count": 2,
+  "member_ids": [
+    "capability.fixture-0",
+    "capability.fixture-1"
+  ],
+  "ok": true,
+  "package_hash": "1d58907e64cc82808cc22f35",
+  "parent_privilege_root": "ff8ad9162357eea783b3c75c",
+  "post_standing": true,
+  "privilege_count": 2,
+  "privilege_height": 2,
+  "privilege_plan_digest": "b9d00f423525cb2b06743456",
+  "privilege_root": "4850b0f045b3ef4165f48823",
+  "schema_version": 1,
+  "standing_certificate_hash": "18ff2834715776c46985862b",
+  "standing_hash": "7ce9baa2b3d37d544aa4c44d",
+  "standing_plan_digest": "12b6c038207e8bd75986af2d",
+  "used_skill_route_discovery": false,
+  "valid": true
+}

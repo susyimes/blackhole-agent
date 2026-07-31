@@ -1,0 +1,37 @@
+{
+  "bound_privilege_height": 2,
+  "bound_privilege_root": "fc7a8170529c89cfc97b0281",
+  "certificate_hash": "5c449afe467cb5cb3c4c3c1c",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "mandated",
+    "plane": "mandate"
+  },
+  "deterministic": true,
+  "goal": "mandate over privilege (clearing 2)",
+  "issued_at": "2026-07-31T17:38:03.969264Z",
+  "kind": "mandate_certificate",
+  "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+  "mandate_count": 2,
+  "mandate_height": 2,
+  "mandate_plan_digest": "ee81f6ead42c134e2745104e",
+  "mandate_root": "a28696670ace1080ec2cde53",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "6e604a6f16e45f9f",
+  "parent_mandate_root": "407abee63ce9d44e2346319a",
+  "post_privilege": true,
+  "privilege_certificate_hash": "b204a371c3ef0e4af4fad1d0",
+  "privilege_hash": "b3abd04dec1b7f261fadb718",
+  "privilege_plan_digest": "52290de2e9f33ede57281ae1",
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

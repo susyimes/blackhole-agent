@@ -1,0 +1,36 @@
+{
+  "bound_recovery_height": 2,
+  "bound_recovery_root": "3682c1bc2e011e08785ef51b",
+  "certificate_hash": "f6a0c497eb9df1236f0d38d5",
+  "claims": {
+    "capability_id": "capability.fixture-1",
+    "clearing_index": 2,
+    "effect": "fixture-effect-1",
+    "outcome": "resolved",
+    "plane": "resolution"
+  },
+  "deterministic": true,
+  "goal": "differential fixture (clearing 2)",
+  "issued_at": "2026-01-01T00:00:00.000000Z",
+  "kind": "resolution_certificate",
+  "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+  "member_count": 2,
+  "member_ids": [
+    "capability.fixture-0",
+    "capability.fixture-1"
+  ],
+  "ok": true,
+  "package_hash": "1d58907e64cc82808cc22f35",
+  "parent_resolution_root": "867a4121c4cb9b72d9d4ceed",
+  "post_recovery": true,
+  "recovery_certificate_hash": "f1205485051237a07e77cc1c",
+  "recovery_hash": "79f5478615cd1a36976ffa6c",
+  "recovery_plan_digest": "e98ff2740e6446bebf577b16",
+  "resolution_count": 2,
+  "resolution_height": 2,
+  "resolution_plan_digest": "28d32f82ce276c869a9119f5",
+  "resolution_root": "4d046d9602d23781b7e0116a",
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

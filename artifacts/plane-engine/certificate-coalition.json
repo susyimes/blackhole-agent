@@ -1,0 +1,36 @@
+{
+  "alliance_certificate_hash": "ed06b5997b8cf479a324334f",
+  "alliance_hash": "0c619dc2c13ef4231d6873ea",
+  "alliance_plan_digest": "9f43216ffca47a34559e361d",
+  "bound_alliance_height": 2,
+  "bound_alliance_root": "8dbe675389407063d3ab63ff",
+  "certificate_hash": "6e3d1de71c13ce069247160c",
+  "claims": {
+    "capability_id": "capability.fixture-1",
+    "clearing_index": 2,
+    "effect": "fixture-effect-1",
+    "outcome": "coalitioned",
+    "plane": "coalition"
+  },
+  "coalition_count": 2,
+  "coalition_height": 2,
+  "coalition_plan_digest": "b79063db6f06e527163244a5",
+  "coalition_root": "d48a31d46e96f326ef265eee",
+  "deterministic": true,
+  "goal": "differential fixture (clearing 2)",
+  "issued_at": "2026-01-01T00:00:00.000000Z",
+  "kind": "coalition_certificate",
+  "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+  "member_count": 2,
+  "member_ids": [
+    "capability.fixture-0",
+    "capability.fixture-1"
+  ],
+  "ok": true,
+  "package_hash": "1d58907e64cc82808cc22f35",
+  "parent_coalition_root": "0949347227b0c21cd950a05a",
+  "post_alliance": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

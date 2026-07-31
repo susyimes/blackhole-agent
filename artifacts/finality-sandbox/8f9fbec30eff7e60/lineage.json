@@ -1,0 +1,189 @@
+{
+  "entries": [
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "origin_ids": [
+          "origin-a",
+          "origin-b",
+          "origin-byzantine"
+        ],
+        "threshold": 2
+      },
+      "detail": {
+        "origins": [
+          {
+            "bundle_hash": "8eb065ee1a32e3b5246dc054",
+            "byzantine": false,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "cf4f4d8f318a29fb2ccabbf5",
+            "member_count": 3,
+            "origin_id": "origin-a",
+            "package_hash": "7878a785b9718369"
+          },
+          {
+            "bundle_hash": "9cd6ee2bb870e951a04fb346",
+            "byzantine": false,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "c72a3423c7740f416d825c5f",
+            "member_count": 2,
+            "origin_id": "origin-b",
+            "package_hash": "8ece9182045d973a"
+          },
+          {
+            "bundle_hash": "9b270ac6e729bc4d02caaa64",
+            "byzantine": true,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "598ea328b0b245def303ac47",
+            "member_count": 3,
+            "origin_id": "origin-byzantine",
+            "package_hash": "7d88f7661e8407af"
+          }
+        ]
+      },
+      "entry_hash": "b242462822a43d29ee933677",
+      "entry_kind": "quorum_origin_manifest",
+      "goal": "funding over liquidity",
+      "index": 0,
+      "issued_at": "2026-07-31T17:37:29.524032Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": ""
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "package_hash": "066545df3053adf5",
+        "threshold": 2
+      },
+      "detail": {
+        "origin_heads": [
+          "cf4f4d8f318a29fb2ccabbf5",
+          "c72a3423c7740f416d825c5f",
+          "598ea328b0b245def303ac47"
+        ]
+      },
+      "entry_hash": "453e805578dfbfb509fb53e9",
+      "entry_kind": "quorum_vote",
+      "goal": "funding over liquidity",
+      "index": 1,
+      "issued_at": "2026-07-31T17:37:29.524056Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "b242462822a43d29ee933677"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "byzantine_count": 1,
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "excluded": true
+      },
+      "detail": {
+        "byzantine_origins": [
+          "origin-byzantine"
+        ]
+      },
+      "entry_hash": "5efabfe318ed27929d2aac0b",
+      "entry_kind": "quorum_byzantine_exclude",
+      "goal": "funding over liquidity",
+      "index": 2,
+      "issued_at": "2026-07-31T17:37:29.524072Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "453e805578dfbfb509fb53e9"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "quorum": true,
+        "quorum_met": true
+      },
+      "detail": {
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "origin_bundle_hashes": [
+          "8eb065ee1a32e3b5246dc054",
+          "9cd6ee2bb870e951a04fb346",
+          "9b270ac6e729bc4d02caaa64"
+        ]
+      },
+      "entry_hash": "de6d19c40a3c4c3accc8d84f",
+      "entry_kind": "quorum_seal",
+      "goal": "funding over liquidity",
+      "index": 3,
+      "issued_at": "2026-07-31T17:37:29.524086Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "5efabfe318ed27929d2aac0b"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "prior_lineage_head": "de6d19c40a3c4c3accc8d84f",
+        "prior_package_hash": "066545df3053adf5",
+        "prior_quorum_hash": "1a63802d8f2108dfb67799e2",
+        "progress_tag": "epoch-progress-2"
+      },
+      "detail": {},
+      "entry_hash": "95fece4dcfa6c4624b5d77fc",
+      "entry_kind": "finality_epoch_progress",
+      "goal": "funding over liquidity (progress 2)",
+      "index": 4,
+      "issued_at": "2026-07-31T17:37:30.402298Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "",
+      "parent_hash": "de6d19c40a3c4c3accc8d84f"
+    }
+  ],
+  "entry_count": 5,
+  "head_hash": "95fece4dcfa6c4624b5d77fc",
+  "kind": "capability_lineage",
+  "schema_version": 1,
+  "updated_at": "2026-07-31T17:37:30.410117Z"
+}

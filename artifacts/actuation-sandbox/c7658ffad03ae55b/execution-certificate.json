@@ -1,0 +1,30 @@
+{
+  "certificate_hash": "2a7a9165a53b14595ef5642a",
+  "claims": {
+    "member_count": 3,
+    "plane": "execution",
+    "state_index": 2
+  },
+  "deterministic": true,
+  "epoch_hash": "c8688d5165d0459498e661da",
+  "epoch_height": 2,
+  "finality_certificate_hash": "fcde5f6f6c3e93a780d74b39",
+  "goal": "funding over liquidity (state 2)",
+  "issued_at": "2026-07-31T17:37:31.301149Z",
+  "kind": "execution_certificate",
+  "lineage_head_hash": "95fece4dcfa6c4624b5d77fc",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "b7ccab8c1d1fbc25",
+  "parent_state_root": "47d3d28b5187f8c294ca6c9c",
+  "post_finality": true,
+  "schema_version": 1,
+  "state_height": 2,
+  "state_root": "6c55c9e803312c4b0dcf91f1",
+  "used_skill_route_discovery": false
+}

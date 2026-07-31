@@ -1,0 +1,36 @@
+{
+  "bound_recognition_height": 2,
+  "bound_recognition_root": "f4c45d3b6fc9c641d43ec3f9",
+  "certificate_hash": "aa3d999caa56e41db4bf6f27",
+  "claims": {
+    "capability_id": "capability.fixture-1",
+    "clearing_index": 2,
+    "effect": "fixture-effect-1",
+    "outcome": "reputed",
+    "plane": "reputation"
+  },
+  "deterministic": true,
+  "goal": "differential fixture (clearing 2)",
+  "issued_at": "2026-01-01T00:00:00.000000Z",
+  "kind": "reputation_certificate",
+  "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+  "member_count": 2,
+  "member_ids": [
+    "capability.fixture-0",
+    "capability.fixture-1"
+  ],
+  "ok": true,
+  "package_hash": "1d58907e64cc82808cc22f35",
+  "parent_reputation_root": "a7576cca1225a2b41064e577",
+  "post_recognition": true,
+  "recognition_certificate_hash": "fc8280245a43da76db7e3127",
+  "recognition_hash": "742678dc194d9768bace228c",
+  "recognition_plan_digest": "18452985702f6f5af9490b50",
+  "reputation_count": 2,
+  "reputation_height": 2,
+  "reputation_plan_digest": "331b946248a4aaeeddf50889",
+  "reputation_root": "ad487084c90ce4b8290bc7e5",
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

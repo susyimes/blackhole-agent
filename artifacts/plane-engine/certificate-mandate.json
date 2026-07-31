@@ -1,0 +1,36 @@
+{
+  "bound_privilege_height": 2,
+  "bound_privilege_root": "dfce899ac4bebfb64f1251ec",
+  "certificate_hash": "ad9d99975fe3263420a3b1d3",
+  "claims": {
+    "capability_id": "capability.fixture-1",
+    "clearing_index": 2,
+    "effect": "fixture-effect-1",
+    "outcome": "mandated",
+    "plane": "mandate"
+  },
+  "deterministic": true,
+  "goal": "differential fixture (clearing 2)",
+  "issued_at": "2026-01-01T00:00:00.000000Z",
+  "kind": "mandate_certificate",
+  "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+  "mandate_count": 2,
+  "mandate_height": 2,
+  "mandate_plan_digest": "eb056334184028c61d388538",
+  "mandate_root": "f8746a65686f735c0e8c20b1",
+  "member_count": 2,
+  "member_ids": [
+    "capability.fixture-0",
+    "capability.fixture-1"
+  ],
+  "ok": true,
+  "package_hash": "1d58907e64cc82808cc22f35",
+  "parent_mandate_root": "0c4a8028e65a0111bfd8dd9c",
+  "post_privilege": true,
+  "privilege_certificate_hash": "ff03f5d5a8bae8ea3eace945",
+  "privilege_hash": "df2793ec83a9106f2252452a",
+  "privilege_plan_digest": "09b5753cb84d2a2ea2c4796b",
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

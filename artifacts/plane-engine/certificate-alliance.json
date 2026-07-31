@@ -1,0 +1,36 @@
+{
+  "alliance_count": 2,
+  "alliance_height": 2,
+  "alliance_plan_digest": "6502c5c0ff38de63e1f31146",
+  "alliance_root": "08b6a97f0f1636582d401688",
+  "bound_pact_height": 2,
+  "bound_pact_root": "2167575a0cbfbfddafcffeb2",
+  "certificate_hash": "b513f16e08a55482d1d16341",
+  "claims": {
+    "capability_id": "capability.fixture-1",
+    "clearing_index": 2,
+    "effect": "fixture-effect-1",
+    "outcome": "allied",
+    "plane": "alliance"
+  },
+  "deterministic": true,
+  "goal": "differential fixture (clearing 2)",
+  "issued_at": "2026-01-01T00:00:00.000000Z",
+  "kind": "alliance_certificate",
+  "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+  "member_count": 2,
+  "member_ids": [
+    "capability.fixture-0",
+    "capability.fixture-1"
+  ],
+  "ok": true,
+  "package_hash": "1d58907e64cc82808cc22f35",
+  "pact_certificate_hash": "2ee6db03450d1baceb0f73cc",
+  "pact_hash": "f06d0c5f6efbfa698f1379a7",
+  "pact_plan_digest": "002c7f38411a92c541df5b36",
+  "parent_alliance_root": "39619d496e0a440cc451d13d",
+  "post_pact": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

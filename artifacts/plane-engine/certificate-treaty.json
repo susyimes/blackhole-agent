@@ -1,0 +1,36 @@
+{
+  "bound_covenant_height": 2,
+  "bound_covenant_root": "13447eaea7f822eb70bde23c",
+  "certificate_hash": "80fc72ffc3acfafca9afadfe",
+  "claims": {
+    "capability_id": "capability.fixture-1",
+    "clearing_index": 2,
+    "effect": "fixture-effect-1",
+    "outcome": "treatied",
+    "plane": "treaty"
+  },
+  "covenant_certificate_hash": "2f9d68b60369e9b263db81ac",
+  "covenant_hash": "03d59fc1862f8c3d60c0da37",
+  "covenant_plan_digest": "505a5ea53fc75cdd8a494381",
+  "deterministic": true,
+  "goal": "differential fixture (clearing 2)",
+  "issued_at": "2026-01-01T00:00:00.000000Z",
+  "kind": "treaty_certificate",
+  "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+  "member_count": 2,
+  "member_ids": [
+    "capability.fixture-0",
+    "capability.fixture-1"
+  ],
+  "ok": true,
+  "package_hash": "1d58907e64cc82808cc22f35",
+  "parent_treaty_root": "829f86f1aa0b2d36277649f3",
+  "post_covenant": true,
+  "schema_version": 1,
+  "treaty_count": 2,
+  "treaty_height": 2,
+  "treaty_plan_digest": "0ee93414e514b39087a000c9",
+  "treaty_root": "88c8d729d1985adb21a1b018",
+  "used_skill_route_discovery": false,
+  "valid": true
+}

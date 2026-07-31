@@ -1,0 +1,37 @@
+{
+  "bound_collateral_height": 2,
+  "bound_collateral_root": "5942d18937649a2c40977689",
+  "certificate_hash": "03080ef7395b1d6a3382e57a",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "liquid",
+    "plane": "liquidity"
+  },
+  "collateral_allocation_digest": "abdb122f02e1855eb6258589",
+  "collateral_certificate_hash": "531115a54c1ad49675f22bde",
+  "collateral_hash": "c7472565d95e858e9a2a0789",
+  "deterministic": true,
+  "goal": "risk over solvency (clearing 2)",
+  "issued_at": "2026-07-31T17:38:00.745633Z",
+  "kind": "liquidity_certificate",
+  "lineage_head_hash": "3483ac31d12a0645bda36f8d",
+  "liquidity_count": 2,
+  "liquidity_coverage_digest": "2a245b2f68c2509754e7d822",
+  "liquidity_height": 2,
+  "liquidity_root": "09efbccbd4ae2cda8d30c774",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "67d6fea37e6818af",
+  "parent_liquidity_root": "c0ab59a1187251bd88576096",
+  "post_collateral": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

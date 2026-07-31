@@ -1,0 +1,37 @@
+{
+  "bound_commonwealth_height": 2,
+  "bound_commonwealth_root": "8818fa708302ebbbd9432b1f",
+  "certificate_hash": "e79f2e7de36bd8f0eccdd9d7",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "empired",
+    "plane": "empire"
+  },
+  "commonwealth_certificate_hash": "26a3d1d86130206c41cc8075",
+  "commonwealth_hash": "d1d2b4b5958bedef02676e1b",
+  "commonwealth_plan_digest": "b4a222dc884d9844c5a029a5",
+  "deterministic": true,
+  "empire_count": 2,
+  "empire_height": 2,
+  "empire_plan_digest": "b1aaabc465b6db2e11f0b826",
+  "empire_root": "042f34ab1945415c46cd0f56",
+  "goal": "empire over commonwealth (clearing 2)",
+  "issued_at": "2026-07-31T17:38:06.924063Z",
+  "kind": "empire_certificate",
+  "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "6e604a6f16e45f9f",
+  "parent_empire_root": "a63b47622cddb74c66027e83",
+  "post_commonwealth": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

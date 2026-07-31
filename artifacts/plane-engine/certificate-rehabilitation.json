@@ -1,0 +1,36 @@
+{
+  "bound_reorganization_height": 2,
+  "bound_reorganization_root": "75cff6203ab5ab75edcd6056",
+  "certificate_hash": "1d3ec012e530658c377e1615",
+  "claims": {
+    "capability_id": "capability.fixture-1",
+    "clearing_index": 2,
+    "effect": "fixture-effect-1",
+    "outcome": "rehabilitated",
+    "plane": "rehabilitation"
+  },
+  "deterministic": true,
+  "goal": "differential fixture (clearing 2)",
+  "issued_at": "2026-01-01T00:00:00.000000Z",
+  "kind": "rehabilitation_certificate",
+  "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+  "member_count": 2,
+  "member_ids": [
+    "capability.fixture-0",
+    "capability.fixture-1"
+  ],
+  "ok": true,
+  "package_hash": "1d58907e64cc82808cc22f35",
+  "parent_rehabilitation_root": "d5fdb65804bfa91180f43e0d",
+  "post_reorganization": true,
+  "rehabilitation_count": 2,
+  "rehabilitation_height": 2,
+  "rehabilitation_plan_digest": "d66a7ae0e7117324c8327b87",
+  "rehabilitation_root": "85f11623fe7df81bab869675",
+  "reorganization_certificate_hash": "a8f90aa45276809b84b87bc3",
+  "reorganization_hash": "0e0a21e5e0f790b71386eda6",
+  "reorganization_plan_digest": "afbf450d533a7afc4509125c",
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

@@ -1,0 +1,36 @@
+{
+  "bound_treaty_height": 2,
+  "bound_treaty_root": "c23b0d60d0aac434c01af3f0",
+  "certificate_hash": "f03685be264a3a3827366227",
+  "claims": {
+    "capability_id": "capability.fixture-1",
+    "clearing_index": 2,
+    "effect": "fixture-effect-1",
+    "outcome": "pacted",
+    "plane": "pact"
+  },
+  "deterministic": true,
+  "goal": "differential fixture (clearing 2)",
+  "issued_at": "2026-01-01T00:00:00.000000Z",
+  "kind": "pact_certificate",
+  "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+  "member_count": 2,
+  "member_ids": [
+    "capability.fixture-0",
+    "capability.fixture-1"
+  ],
+  "ok": true,
+  "package_hash": "1d58907e64cc82808cc22f35",
+  "pact_count": 2,
+  "pact_height": 2,
+  "pact_plan_digest": "0e37d2c3bad29b5c22a52636",
+  "pact_root": "0bb160dbece6364f1b58b914",
+  "parent_pact_root": "d4c82da5378b5a6f7d11c52f",
+  "post_treaty": true,
+  "schema_version": 1,
+  "treaty_certificate_hash": "f684778a0728cdd574917c2a",
+  "treaty_hash": "8e343baba81e525f2afa3f3b",
+  "treaty_plan_digest": "5279a72ddd0f715a49bac9a8",
+  "used_skill_route_discovery": false,
+  "valid": true
+}

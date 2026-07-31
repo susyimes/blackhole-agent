@@ -1,0 +1,36 @@
+{
+  "bound_reattestation_height": 2,
+  "bound_reattestation_root": "42a8e39c6d598e4234d8bb92",
+  "certificate_hash": "1bb5a2928879dd5dff98f811",
+  "claims": {
+    "capability_id": "capability.fixture-1",
+    "clearing_index": 2,
+    "effect": "fixture-effect-1",
+    "outcome": "revalidated",
+    "plane": "revalidation"
+  },
+  "deterministic": true,
+  "goal": "differential fixture (clearing 2)",
+  "issued_at": "2026-01-01T00:00:00.000000Z",
+  "kind": "revalidation_certificate",
+  "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+  "member_count": 2,
+  "member_ids": [
+    "capability.fixture-0",
+    "capability.fixture-1"
+  ],
+  "ok": true,
+  "package_hash": "1d58907e64cc82808cc22f35",
+  "parent_revalidation_root": "a48cb3cf872cdaad657e0204",
+  "post_reattestation": true,
+  "reattestation_certificate_hash": "7375e9f03a88604f6a2336fd",
+  "reattestation_hash": "ba7062038001b43f5e982af4",
+  "reattestation_plan_digest": "2bfb7a87c8f7d765a4bd1ce3",
+  "revalidation_count": 2,
+  "revalidation_height": 2,
+  "revalidation_plan_digest": "a7e3da5959d65d29d11ee477",
+  "revalidation_root": "3cbc62edc2cc7e180d781ec8",
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

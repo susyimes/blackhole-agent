@@ -1,0 +1,36 @@
+{
+  "bound_confederation_height": 2,
+  "bound_confederation_root": "594616ede9f8ce3921672613",
+  "certificate_hash": "6a46c11c7c1d40e902f420a0",
+  "claims": {
+    "capability_id": "capability.fixture-1",
+    "clearing_index": 2,
+    "effect": "fixture-effect-1",
+    "outcome": "united",
+    "plane": "union"
+  },
+  "confederation_certificate_hash": "6c1c7e9dbb3d7fe40f0a151e",
+  "confederation_hash": "c5e54ebbdf08e00fd814172c",
+  "confederation_plan_digest": "06775ab872c5ae20936bbc4c",
+  "deterministic": true,
+  "goal": "differential fixture (clearing 2)",
+  "issued_at": "2026-01-01T00:00:00.000000Z",
+  "kind": "union_certificate",
+  "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+  "member_count": 2,
+  "member_ids": [
+    "capability.fixture-0",
+    "capability.fixture-1"
+  ],
+  "ok": true,
+  "package_hash": "1d58907e64cc82808cc22f35",
+  "parent_union_root": "f481e49a123a8aef7a001aac",
+  "post_confederation": true,
+  "schema_version": 1,
+  "union_count": 2,
+  "union_height": 2,
+  "union_plan_digest": "f9a1a23c888e855425737cd4",
+  "union_root": "c6e2d5cb6f259a81703624a8",
+  "used_skill_route_discovery": false,
+  "valid": true
+}

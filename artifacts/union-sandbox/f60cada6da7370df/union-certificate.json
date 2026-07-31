@@ -1,0 +1,37 @@
+{
+  "bound_confederation_height": 2,
+  "bound_confederation_root": "fe3ed3b57c0d1bc0b566f304",
+  "certificate_hash": "a6a3d27c449a5cfcd7cbcdf5",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "united",
+    "plane": "union"
+  },
+  "confederation_certificate_hash": "d1ec2643c781cc4350000c14",
+  "confederation_hash": "70bc6b92369e48474e48fa0a",
+  "confederation_plan_digest": "751659a614b4373e960b5abf",
+  "deterministic": true,
+  "goal": "union over confederation (clearing 2)",
+  "issued_at": "2026-07-31T17:38:05.478435Z",
+  "kind": "union_certificate",
+  "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "6e604a6f16e45f9f",
+  "parent_union_root": "ebe099be7590e8a61d566a29",
+  "post_confederation": true,
+  "schema_version": 1,
+  "union_count": 2,
+  "union_height": 2,
+  "union_plan_digest": "c9875d601444e8cb342c7cdc",
+  "union_root": "4faafb7919bbb60fe2afe2c5",
+  "used_skill_route_discovery": false,
+  "valid": true
+}

@@ -4,13 +4,13 @@
   "byzantine_count": 1,
   "certificate_count": 4,
   "certificates": {
-    "53dc266561452a8df4c29545": {
-      "certificate_hash": "53dc266561452a8df4c29545",
+    "3481b2361a5408588a6aa6de": {
+      "certificate_hash": "3481b2361a5408588a6aa6de",
       "epoch_height": 2,
       "payload": {
         "agreeing_count": 2,
         "byzantine_count": 1,
-        "certificate_hash": "53dc266561452a8df4c29545",
+        "certificate_hash": "3481b2361a5408588a6aa6de",
         "claims": {
           "epoch_index": 2,
           "member_count": 3,
@@ -21,24 +21,24 @@
             "unbound.milestone-gate"
           ]
         },
-        "epoch_hash": "4f080f5eb5726d315ca3b404",
+        "epoch_hash": "ba64489ec2aaa4748750cf29",
         "epoch_height": 2,
         "goal": "risk over solvency (epoch 2)",
         "irreversible": true,
-        "issued_at": "2026-07-31T10:58:01.914290Z",
+        "issued_at": "2026-07-31T17:37:56.270118Z",
         "kind": "finality_certificate",
-        "lineage_head_hash": "b08981c7fa1e82f2a1a386a6",
+        "lineage_head_hash": "3483ac31d12a0645bda36f8d",
         "ok": true,
         "origin_count": 3,
-        "package_hash": "fe11c7d0351f1225",
-        "parent_epoch_hash": "7230b7513e792bbfde072c69",
-        "quorum_hash": "0b76002d34ef82cb3a9fffe5",
+        "package_hash": "67d6fea37e6818af",
+        "parent_epoch_hash": "b4007bf2902d04231058373c",
+        "quorum_hash": "1a3f35387159008ed8996b05",
         "schema_version": 1,
         "used_skill_route_discovery": false
       }
     },
-    "6b1b70c2f8a6e236a0cb9c20": {
-      "certificate_hash": "6b1b70c2f8a6e236a0cb9c20",
+    "8ad7c503e784ad70c9d6c6cb": {
+      "certificate_hash": "8ad7c503e784ad70c9d6c6cb",
       "epoch_height": 2,
       "kind": "quorum_certificate",
       "payload": {
@@ -51,32 +51,65 @@
         "byzantine_origins": [
           "origin-byzantine"
         ],
-        "certificate_hash": "6b1b70c2f8a6e236a0cb9c20",
+        "certificate_hash": "8ad7c503e784ad70c9d6c6cb",
         "claims": {
           "finality_progress": true,
-          "prior_quorum_hash": "d9defffb82d4519bbfa7e356",
+          "prior_quorum_hash": "1cbefce651f7dd3be678edfd",
           "progress_tag": "epoch-progress-2"
         },
         "goal": "risk over solvency (progress 2)",
-        "issued_at": "2026-07-31T10:58:01.913927Z",
+        "issued_at": "2026-07-31T17:37:56.269575Z",
         "kind": "quorum_certificate",
-        "lineage_head_hash": "b08981c7fa1e82f2a1a386a6",
+        "lineage_head_hash": "3483ac31d12a0645bda36f8d",
         "member_count": 3,
         "ok": true,
         "origin_count": 3,
         "origin_hashes": [
-          "8ee45f67bdf554f6650e58cf",
-          "7ef04a93ada9593e793bfe78",
-          "1272b5a7cd534e89adb6429c"
+          "603173b88a6f1425bfba1ccc",
+          "5441ae03f90b0c789cc03351",
+          "67d61725ca0505fdc4faae26"
         ],
-        "package_hash": "fe11c7d0351f1225",
+        "package_hash": "67d6fea37e6818af",
         "schema_version": 1,
         "threshold": 2,
         "used_skill_route_discovery": false
       }
     },
-    "80d02c23886b91c402f1d568": {
-      "certificate_hash": "80d02c23886b91c402f1d568",
+    "a8bcee8d5feb11dfc4f8fd27": {
+      "certificate_hash": "a8bcee8d5feb11dfc4f8fd27",
+      "epoch_height": 1,
+      "payload": {
+        "agreeing_count": 2,
+        "byzantine_count": 1,
+        "certificate_hash": "a8bcee8d5feb11dfc4f8fd27",
+        "claims": {
+          "epoch_index": 1,
+          "member_count": 3,
+          "plane": "finality",
+          "roots": [
+            "repo.import-health",
+            "capability.ledger-inventory",
+            "unbound.milestone-gate"
+          ]
+        },
+        "epoch_hash": "b4007bf2902d04231058373c",
+        "epoch_height": 1,
+        "goal": "risk over solvency (epoch 1)",
+        "irreversible": true,
+        "issued_at": "2026-07-31T17:37:56.269298Z",
+        "kind": "finality_certificate",
+        "lineage_head_hash": "9fe48a57f956cba5a08d3dfe",
+        "ok": true,
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "parent_epoch_hash": "",
+        "quorum_hash": "1cbefce651f7dd3be678edfd",
+        "schema_version": 1,
+        "used_skill_route_discovery": false
+      }
+    },
+    "b4a461cd10b7dfc119e51f1b": {
+      "certificate_hash": "b4a461cd10b7dfc119e51f1b",
       "epoch_height": 1,
       "kind": "quorum_certificate",
       "payload": {
@@ -89,7 +122,7 @@
         "byzantine_origins": [
           "origin-byzantine"
         ],
-        "certificate_hash": "80d02c23886b91c402f1d568",
+        "certificate_hash": "b4a461cd10b7dfc119e51f1b",
         "claims": {
           "origin_ids": [
             "origin-a",
@@ -104,53 +137,20 @@
           "votes_accepted": 3
         },
         "goal": "risk over solvency",
-        "issued_at": "2026-07-31T10:58:01.341045Z",
+        "issued_at": "2026-07-31T17:37:55.458390Z",
         "kind": "quorum_certificate",
-        "lineage_head_hash": "1e4909d1197354886a301713",
+        "lineage_head_hash": "9fe48a57f956cba5a08d3dfe",
         "member_count": 3,
         "ok": true,
         "origin_count": 3,
         "origin_hashes": [
-          "8ee45f67bdf554f6650e58cf",
-          "7ef04a93ada9593e793bfe78",
-          "1272b5a7cd534e89adb6429c"
+          "603173b88a6f1425bfba1ccc",
+          "5441ae03f90b0c789cc03351",
+          "67d61725ca0505fdc4faae26"
         ],
         "package_hash": "066545df3053adf5",
         "schema_version": 1,
         "threshold": 2,
-        "used_skill_route_discovery": false
-      }
-    },
-    "af1f96020996dcb70de874b9": {
-      "certificate_hash": "af1f96020996dcb70de874b9",
-      "epoch_height": 1,
-      "payload": {
-        "agreeing_count": 2,
-        "byzantine_count": 1,
-        "certificate_hash": "af1f96020996dcb70de874b9",
-        "claims": {
-          "epoch_index": 1,
-          "member_count": 3,
-          "plane": "finality",
-          "roots": [
-            "repo.import-health",
-            "capability.ledger-inventory",
-            "unbound.milestone-gate"
-          ]
-        },
-        "epoch_hash": "7230b7513e792bbfde072c69",
-        "epoch_height": 1,
-        "goal": "risk over solvency (epoch 1)",
-        "irreversible": true,
-        "issued_at": "2026-07-31T10:58:01.913728Z",
-        "kind": "finality_certificate",
-        "lineage_head_hash": "1e4909d1197354886a301713",
-        "ok": true,
-        "origin_count": 3,
-        "package_hash": "066545df3053adf5",
-        "parent_epoch_hash": "",
-        "quorum_hash": "d9defffb82d4519bbfa7e356",
-        "schema_version": 1,
         "used_skill_route_discovery": false
       }
     }
@@ -172,12 +172,12 @@
           "epoch_index": 1,
           "plane": "finality"
         },
-        "epoch_hash": "7230b7513e792bbfde072c69",
+        "epoch_hash": "b4007bf2902d04231058373c",
         "epoch_height": 1,
         "finality_certificate": {
           "agreeing_count": 2,
           "byzantine_count": 1,
-          "certificate_hash": "af1f96020996dcb70de874b9",
+          "certificate_hash": "a8bcee8d5feb11dfc4f8fd27",
           "claims": {
             "epoch_index": 1,
             "member_count": 3,
@@ -188,22 +188,22 @@
               "unbound.milestone-gate"
             ]
           },
-          "epoch_hash": "7230b7513e792bbfde072c69",
+          "epoch_hash": "b4007bf2902d04231058373c",
           "epoch_height": 1,
           "goal": "risk over solvency (epoch 1)",
           "irreversible": true,
-          "issued_at": "2026-07-31T10:58:01.913728Z",
+          "issued_at": "2026-07-31T17:37:56.269298Z",
           "kind": "finality_certificate",
-          "lineage_head_hash": "1e4909d1197354886a301713",
+          "lineage_head_hash": "9fe48a57f956cba5a08d3dfe",
           "ok": true,
           "origin_count": 3,
           "package_hash": "066545df3053adf5",
           "parent_epoch_hash": "",
-          "quorum_hash": "d9defffb82d4519bbfa7e356",
+          "quorum_hash": "1cbefce651f7dd3be678edfd",
           "schema_version": 1,
           "used_skill_route_discovery": false
         },
-        "finalized_at": "2026-07-31T10:58:01.913630Z",
+        "finalized_at": "2026-07-31T17:37:56.269135Z",
         "goal": "risk over solvency (epoch 1)",
         "irreversible": true,
         "kind": "finality_epoch",
@@ -224,39 +224,39 @@
               "detail": {
                 "origins": [
                   {
-                    "bundle_hash": "8ee45f67bdf554f6650e58cf",
+                    "bundle_hash": "603173b88a6f1425bfba1ccc",
                     "byzantine": false,
                     "lineage_entry_count": 2,
-                    "lineage_head_hash": "34b217e3a59ec49e14351242",
+                    "lineage_head_hash": "cf8c7310aa7e2231a80cbc42",
                     "member_count": 3,
                     "origin_id": "origin-a",
                     "package_hash": "7878a785b9718369"
                   },
                   {
-                    "bundle_hash": "7ef04a93ada9593e793bfe78",
+                    "bundle_hash": "5441ae03f90b0c789cc03351",
                     "byzantine": false,
                     "lineage_entry_count": 2,
-                    "lineage_head_hash": "6922f59987a60494a208fbde",
+                    "lineage_head_hash": "da91fa1de46ea04b80c03345",
                     "member_count": 2,
                     "origin_id": "origin-b",
                     "package_hash": "8ece9182045d973a"
                   },
                   {
-                    "bundle_hash": "1272b5a7cd534e89adb6429c",
+                    "bundle_hash": "67d61725ca0505fdc4faae26",
                     "byzantine": true,
                     "lineage_entry_count": 2,
-                    "lineage_head_hash": "d172d9aa7c29b61fd44fbdb1",
+                    "lineage_head_hash": "9b083477ecee54bc5585ffcb",
                     "member_count": 3,
                     "origin_id": "origin-byzantine",
                     "package_hash": "7d88f7661e8407af"
                   }
                 ]
               },
-              "entry_hash": "b33327e7fe601054405dac60",
+              "entry_hash": "226ee1f519c760d626df45d5",
               "entry_kind": "quorum_origin_manifest",
               "goal": "risk over solvency",
               "index": 0,
-              "issued_at": "2026-07-31T10:58:01.340903Z",
+              "issued_at": "2026-07-31T17:37:55.458195Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -280,16 +280,16 @@
               },
               "detail": {
                 "origin_heads": [
-                  "34b217e3a59ec49e14351242",
-                  "6922f59987a60494a208fbde",
-                  "d172d9aa7c29b61fd44fbdb1"
+                  "cf8c7310aa7e2231a80cbc42",
+                  "da91fa1de46ea04b80c03345",
+                  "9b083477ecee54bc5585ffcb"
                 ]
               },
-              "entry_hash": "677fbbc63ac30763f901739b",
+              "entry_hash": "b3026050540bd402a0129adb",
               "entry_kind": "quorum_vote",
               "goal": "risk over solvency",
               "index": 1,
-              "issued_at": "2026-07-31T10:58:01.340926Z",
+              "issued_at": "2026-07-31T17:37:55.458228Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -297,7 +297,7 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "b33327e7fe601054405dac60"
+              "parent_hash": "226ee1f519c760d626df45d5"
             },
             {
               "certificate_hash": "",
@@ -314,11 +314,11 @@
                   "origin-byzantine"
                 ]
               },
-              "entry_hash": "e862c515a826bbdb5f2ea64b",
+              "entry_hash": "cbcb054b0fa5f9f885cb9fde",
               "entry_kind": "quorum_byzantine_exclude",
               "goal": "risk over solvency",
               "index": 2,
-              "issued_at": "2026-07-31T10:58:01.340941Z",
+              "issued_at": "2026-07-31T17:37:55.458248Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -326,7 +326,7 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "677fbbc63ac30763f901739b"
+              "parent_hash": "b3026050540bd402a0129adb"
             },
             {
               "certificate_hash": "",
@@ -346,16 +346,16 @@
                   "origin-byzantine"
                 ],
                 "origin_bundle_hashes": [
-                  "8ee45f67bdf554f6650e58cf",
-                  "7ef04a93ada9593e793bfe78",
-                  "1272b5a7cd534e89adb6429c"
+                  "603173b88a6f1425bfba1ccc",
+                  "5441ae03f90b0c789cc03351",
+                  "67d61725ca0505fdc4faae26"
                 ]
               },
-              "entry_hash": "1e4909d1197354886a301713",
+              "entry_hash": "9fe48a57f956cba5a08d3dfe",
               "entry_kind": "quorum_seal",
               "goal": "risk over solvency",
               "index": 3,
-              "issued_at": "2026-07-31T10:58:01.340955Z",
+              "issued_at": "2026-07-31T17:37:55.458267Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -363,16 +363,16 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "e862c515a826bbdb5f2ea64b"
+              "parent_hash": "cbcb054b0fa5f9f885cb9fde"
             }
           ],
           "entry_count": 4,
-          "head_hash": "1e4909d1197354886a301713",
+          "head_hash": "9fe48a57f956cba5a08d3dfe",
           "kind": "capability_lineage",
           "schema_version": 1,
-          "updated_at": "2026-07-31T10:58:01.340965Z"
+          "updated_at": "2026-07-31T17:37:55.458281Z"
         },
-        "lineage_head_hash": "1e4909d1197354886a301713",
+        "lineage_head_hash": "9fe48a57f956cba5a08d3dfe",
         "member_count": 3,
         "ok": true,
         "origin_count": 3,
@@ -385,7 +385,7 @@
           "byzantine_origins": [
             "origin-byzantine"
           ],
-          "exported_at": "2026-07-31T10:58:01.340876Z",
+          "exported_at": "2026-07-31T17:37:55.458118Z",
           "federated": true,
           "member_count": 3,
           "member_ids": [
@@ -422,7 +422,7 @@
               "id": "capability.ledger-inventory",
               "kind": "python",
               "last_proof_exit_code": 0,
-              "last_proved_at": "2026-07-31T10:56:09.965623Z",
+              "last_proved_at": "2026-07-31T17:36:00.790191Z",
               "name": "Capability ledger inventory",
               "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_ledger_inventory; r=builtin_ledger_inventory(); assert r['ok'] and r['count'] >= 2\"",
               "source_milestone": null,
@@ -431,7 +431,7 @@
                 "bootstrap",
                 "compounder"
               ],
-              "updated_at": "2026-07-31T10:58:01.260057Z"
+              "updated_at": "2026-07-31T17:37:55.359561Z"
             },
             "repo.import-health": {
               "behavior_paths": [
@@ -446,7 +446,7 @@
               "id": "repo.import-health",
               "kind": "python",
               "last_proof_exit_code": 0,
-              "last_proved_at": "2026-07-31T10:57:06.730524Z",
+              "last_proved_at": "2026-07-31T17:37:07.208577Z",
               "name": "Repository import health",
               "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_repo_import_health; r=builtin_repo_import_health(); assert r['ok'] and not r['skill_route_symbols_in_compounder']\"",
               "source_milestone": null,
@@ -455,7 +455,7 @@
                 "bootstrap",
                 "health"
               ],
-              "updated_at": "2026-07-31T10:58:01.259566Z"
+              "updated_at": "2026-07-31T17:37:55.358932Z"
             },
             "unbound.milestone-gate": {
               "behavior_paths": [
@@ -471,7 +471,7 @@
               "id": "unbound.milestone-gate",
               "kind": "python",
               "last_proof_exit_code": 0,
-              "last_proved_at": "2026-07-31T10:56:10.215955Z",
+              "last_proved_at": "2026-07-31T17:36:00.992174Z",
               "name": "Unbound milestone gate smoke",
               "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_milestone_gate_smoke; r=builtin_milestone_gate_smoke(); assert r['ok']\"",
               "source_milestone": null,
@@ -480,7 +480,7 @@
                 "bootstrap",
                 "unbound"
               ],
-              "updated_at": "2026-07-31T10:58:01.259827Z"
+              "updated_at": "2026-07-31T17:37:55.359281Z"
             }
           },
           "ok": true,
@@ -508,7 +508,7 @@
           "byzantine_origins": [
             "origin-byzantine"
           ],
-          "certificate_hash": "80d02c23886b91c402f1d568",
+          "certificate_hash": "b4a461cd10b7dfc119e51f1b",
           "claims": {
             "origin_ids": [
               "origin-a",
@@ -523,23 +523,23 @@
             "votes_accepted": 3
           },
           "goal": "risk over solvency",
-          "issued_at": "2026-07-31T10:58:01.341045Z",
+          "issued_at": "2026-07-31T17:37:55.458390Z",
           "kind": "quorum_certificate",
-          "lineage_head_hash": "1e4909d1197354886a301713",
+          "lineage_head_hash": "9fe48a57f956cba5a08d3dfe",
           "member_count": 3,
           "ok": true,
           "origin_count": 3,
           "origin_hashes": [
-            "8ee45f67bdf554f6650e58cf",
-            "7ef04a93ada9593e793bfe78",
-            "1272b5a7cd534e89adb6429c"
+            "603173b88a6f1425bfba1ccc",
+            "5441ae03f90b0c789cc03351",
+            "67d61725ca0505fdc4faae26"
           ],
           "package_hash": "066545df3053adf5",
           "schema_version": 1,
           "threshold": 2,
           "used_skill_route_discovery": false
         },
-        "quorum_hash": "d9defffb82d4519bbfa7e356",
+        "quorum_hash": "1cbefce651f7dd3be678edfd",
         "schema_version": 1,
         "used_skill_route_discovery": false
       },
@@ -557,12 +557,12 @@
           "epoch_index": 2,
           "plane": "finality"
         },
-        "epoch_hash": "4f080f5eb5726d315ca3b404",
+        "epoch_hash": "ba64489ec2aaa4748750cf29",
         "epoch_height": 2,
         "finality_certificate": {
           "agreeing_count": 2,
           "byzantine_count": 1,
-          "certificate_hash": "53dc266561452a8df4c29545",
+          "certificate_hash": "3481b2361a5408588a6aa6de",
           "claims": {
             "epoch_index": 2,
             "member_count": 3,
@@ -573,22 +573,22 @@
               "unbound.milestone-gate"
             ]
           },
-          "epoch_hash": "4f080f5eb5726d315ca3b404",
+          "epoch_hash": "ba64489ec2aaa4748750cf29",
           "epoch_height": 2,
           "goal": "risk over solvency (epoch 2)",
           "irreversible": true,
-          "issued_at": "2026-07-31T10:58:01.914290Z",
+          "issued_at": "2026-07-31T17:37:56.270118Z",
           "kind": "finality_certificate",
-          "lineage_head_hash": "b08981c7fa1e82f2a1a386a6",
+          "lineage_head_hash": "3483ac31d12a0645bda36f8d",
           "ok": true,
           "origin_count": 3,
-          "package_hash": "fe11c7d0351f1225",
-          "parent_epoch_hash": "7230b7513e792bbfde072c69",
-          "quorum_hash": "0b76002d34ef82cb3a9fffe5",
+          "package_hash": "67d6fea37e6818af",
+          "parent_epoch_hash": "b4007bf2902d04231058373c",
+          "quorum_hash": "1a3f35387159008ed8996b05",
           "schema_version": 1,
           "used_skill_route_discovery": false
         },
-        "finalized_at": "2026-07-31T10:58:01.914226Z",
+        "finalized_at": "2026-07-31T17:37:56.270003Z",
         "goal": "risk over solvency (epoch 2)",
         "irreversible": true,
         "kind": "finality_epoch",
@@ -609,39 +609,39 @@
               "detail": {
                 "origins": [
                   {
-                    "bundle_hash": "8ee45f67bdf554f6650e58cf",
+                    "bundle_hash": "603173b88a6f1425bfba1ccc",
                     "byzantine": false,
                     "lineage_entry_count": 2,
-                    "lineage_head_hash": "34b217e3a59ec49e14351242",
+                    "lineage_head_hash": "cf8c7310aa7e2231a80cbc42",
                     "member_count": 3,
                     "origin_id": "origin-a",
                     "package_hash": "7878a785b9718369"
                   },
                   {
-                    "bundle_hash": "7ef04a93ada9593e793bfe78",
+                    "bundle_hash": "5441ae03f90b0c789cc03351",
                     "byzantine": false,
                     "lineage_entry_count": 2,
-                    "lineage_head_hash": "6922f59987a60494a208fbde",
+                    "lineage_head_hash": "da91fa1de46ea04b80c03345",
                     "member_count": 2,
                     "origin_id": "origin-b",
                     "package_hash": "8ece9182045d973a"
                   },
                   {
-                    "bundle_hash": "1272b5a7cd534e89adb6429c",
+                    "bundle_hash": "67d61725ca0505fdc4faae26",
                     "byzantine": true,
                     "lineage_entry_count": 2,
-                    "lineage_head_hash": "d172d9aa7c29b61fd44fbdb1",
+                    "lineage_head_hash": "9b083477ecee54bc5585ffcb",
                     "member_count": 3,
                     "origin_id": "origin-byzantine",
                     "package_hash": "7d88f7661e8407af"
                   }
                 ]
               },
-              "entry_hash": "b33327e7fe601054405dac60",
+              "entry_hash": "226ee1f519c760d626df45d5",
               "entry_kind": "quorum_origin_manifest",
               "goal": "risk over solvency",
               "index": 0,
-              "issued_at": "2026-07-31T10:58:01.340903Z",
+              "issued_at": "2026-07-31T17:37:55.458195Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -665,16 +665,16 @@
               },
               "detail": {
                 "origin_heads": [
-                  "34b217e3a59ec49e14351242",
-                  "6922f59987a60494a208fbde",
-                  "d172d9aa7c29b61fd44fbdb1"
+                  "cf8c7310aa7e2231a80cbc42",
+                  "da91fa1de46ea04b80c03345",
+                  "9b083477ecee54bc5585ffcb"
                 ]
               },
-              "entry_hash": "677fbbc63ac30763f901739b",
+              "entry_hash": "b3026050540bd402a0129adb",
               "entry_kind": "quorum_vote",
               "goal": "risk over solvency",
               "index": 1,
-              "issued_at": "2026-07-31T10:58:01.340926Z",
+              "issued_at": "2026-07-31T17:37:55.458228Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -682,7 +682,7 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "b33327e7fe601054405dac60"
+              "parent_hash": "226ee1f519c760d626df45d5"
             },
             {
               "certificate_hash": "",
@@ -699,11 +699,11 @@
                   "origin-byzantine"
                 ]
               },
-              "entry_hash": "e862c515a826bbdb5f2ea64b",
+              "entry_hash": "cbcb054b0fa5f9f885cb9fde",
               "entry_kind": "quorum_byzantine_exclude",
               "goal": "risk over solvency",
               "index": 2,
-              "issued_at": "2026-07-31T10:58:01.340941Z",
+              "issued_at": "2026-07-31T17:37:55.458248Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -711,7 +711,7 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "677fbbc63ac30763f901739b"
+              "parent_hash": "b3026050540bd402a0129adb"
             },
             {
               "certificate_hash": "",
@@ -731,16 +731,16 @@
                   "origin-byzantine"
                 ],
                 "origin_bundle_hashes": [
-                  "8ee45f67bdf554f6650e58cf",
-                  "7ef04a93ada9593e793bfe78",
-                  "1272b5a7cd534e89adb6429c"
+                  "603173b88a6f1425bfba1ccc",
+                  "5441ae03f90b0c789cc03351",
+                  "67d61725ca0505fdc4faae26"
                 ]
               },
-              "entry_hash": "1e4909d1197354886a301713",
+              "entry_hash": "9fe48a57f956cba5a08d3dfe",
               "entry_kind": "quorum_seal",
               "goal": "risk over solvency",
               "index": 3,
-              "issued_at": "2026-07-31T10:58:01.340955Z",
+              "issued_at": "2026-07-31T17:37:55.458267Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -748,23 +748,23 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "e862c515a826bbdb5f2ea64b"
+              "parent_hash": "cbcb054b0fa5f9f885cb9fde"
             },
             {
               "certificate_hash": "",
               "certificate_path": "",
               "claims": {
-                "prior_lineage_head": "1e4909d1197354886a301713",
+                "prior_lineage_head": "9fe48a57f956cba5a08d3dfe",
                 "prior_package_hash": "066545df3053adf5",
-                "prior_quorum_hash": "d9defffb82d4519bbfa7e356",
+                "prior_quorum_hash": "1cbefce651f7dd3be678edfd",
                 "progress_tag": "epoch-progress-2"
               },
               "detail": {},
-              "entry_hash": "b08981c7fa1e82f2a1a386a6",
+              "entry_hash": "3483ac31d12a0645bda36f8d",
               "entry_kind": "finality_epoch_progress",
               "goal": "risk over solvency (progress 2)",
               "index": 4,
-              "issued_at": "2026-07-31T10:58:01.913893Z",
+              "issued_at": "2026-07-31T17:37:56.269525Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -772,16 +772,16 @@
                 "proved_ratio": null
               },
               "package_hash": "",
-              "parent_hash": "1e4909d1197354886a301713"
+              "parent_hash": "9fe48a57f956cba5a08d3dfe"
             }
           ],
           "entry_count": 5,
-          "head_hash": "b08981c7fa1e82f2a1a386a6",
+          "head_hash": "3483ac31d12a0645bda36f8d",
           "kind": "capability_lineage",
           "schema_version": 1,
-          "updated_at": "2026-07-31T10:58:01.913911Z"
+          "updated_at": "2026-07-31T17:37:56.269552Z"
         },
-        "lineage_head_hash": "b08981c7fa1e82f2a1a386a6",
+        "lineage_head_hash": "3483ac31d12a0645bda36f8d",
         "member_count": 3,
         "ok": true,
         "origin_count": 3,
@@ -794,7 +794,7 @@
           "byzantine_origins": [
             "origin-byzantine"
           ],
-          "exported_at": "2026-07-31T10:58:01.340876Z",
+          "exported_at": "2026-07-31T17:37:55.458118Z",
           "federated": true,
           "member_count": 3,
           "member_ids": [
@@ -831,7 +831,7 @@
               "id": "capability.ledger-inventory",
               "kind": "python",
               "last_proof_exit_code": 0,
-              "last_proved_at": "2026-07-31T10:56:09.965623Z",
+              "last_proved_at": "2026-07-31T17:36:00.790191Z",
               "name": "Capability ledger inventory",
               "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_ledger_inventory; r=builtin_ledger_inventory(); assert r['ok'] and r['count'] >= 2\"",
               "source_milestone": null,
@@ -840,7 +840,7 @@
                 "bootstrap",
                 "compounder"
               ],
-              "updated_at": "2026-07-31T10:58:01.260057Z"
+              "updated_at": "2026-07-31T17:37:55.359561Z"
             },
             "repo.import-health": {
               "behavior_paths": [
@@ -855,7 +855,7 @@
               "id": "repo.import-health",
               "kind": "python",
               "last_proof_exit_code": 0,
-              "last_proved_at": "2026-07-31T10:57:06.730524Z",
+              "last_proved_at": "2026-07-31T17:37:07.208577Z",
               "name": "Repository import health",
               "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_repo_import_health; r=builtin_repo_import_health(); assert r['ok'] and not r['skill_route_symbols_in_compounder']\"",
               "source_milestone": null,
@@ -864,7 +864,7 @@
                 "bootstrap",
                 "health"
               ],
-              "updated_at": "2026-07-31T10:58:01.259566Z"
+              "updated_at": "2026-07-31T17:37:55.358932Z"
             },
             "unbound.milestone-gate": {
               "behavior_paths": [
@@ -880,7 +880,7 @@
               "id": "unbound.milestone-gate",
               "kind": "python",
               "last_proof_exit_code": 0,
-              "last_proved_at": "2026-07-31T10:56:10.215955Z",
+              "last_proved_at": "2026-07-31T17:36:00.992174Z",
               "name": "Unbound milestone gate smoke",
               "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_milestone_gate_smoke; r=builtin_milestone_gate_smoke(); assert r['ok']\"",
               "source_milestone": null,
@@ -889,12 +889,12 @@
                 "bootstrap",
                 "unbound"
               ],
-              "updated_at": "2026-07-31T10:58:01.259827Z"
+              "updated_at": "2026-07-31T17:37:55.359281Z"
             }
           },
           "ok": true,
-          "package_hash": "fe11c7d0351f1225",
-          "progress_at": "2026-07-31T10:58:01.913913Z",
+          "package_hash": "67d6fea37e6818af",
+          "progress_at": "2026-07-31T17:37:56.269555Z",
           "progress_tag": "epoch-progress-2",
           "quorum": true,
           "quorum_threshold": 2,
@@ -907,8 +907,8 @@
           "source_ledger_path": "quorum-merge",
           "used_skill_route_discovery": false
         },
-        "package_hash": "fe11c7d0351f1225",
-        "parent_epoch_hash": "7230b7513e792bbfde072c69",
+        "package_hash": "67d6fea37e6818af",
+        "parent_epoch_hash": "b4007bf2902d04231058373c",
         "quorum_certificate": {
           "agreeing_count": 2,
           "agreeing_origins": [
@@ -919,30 +919,30 @@
           "byzantine_origins": [
             "origin-byzantine"
           ],
-          "certificate_hash": "6b1b70c2f8a6e236a0cb9c20",
+          "certificate_hash": "8ad7c503e784ad70c9d6c6cb",
           "claims": {
             "finality_progress": true,
-            "prior_quorum_hash": "d9defffb82d4519bbfa7e356",
+            "prior_quorum_hash": "1cbefce651f7dd3be678edfd",
             "progress_tag": "epoch-progress-2"
           },
           "goal": "risk over solvency (progress 2)",
-          "issued_at": "2026-07-31T10:58:01.913927Z",
+          "issued_at": "2026-07-31T17:37:56.269575Z",
           "kind": "quorum_certificate",
-          "lineage_head_hash": "b08981c7fa1e82f2a1a386a6",
+          "lineage_head_hash": "3483ac31d12a0645bda36f8d",
           "member_count": 3,
           "ok": true,
           "origin_count": 3,
           "origin_hashes": [
-            "8ee45f67bdf554f6650e58cf",
-            "7ef04a93ada9593e793bfe78",
-            "1272b5a7cd534e89adb6429c"
+            "603173b88a6f1425bfba1ccc",
+            "5441ae03f90b0c789cc03351",
+            "67d61725ca0505fdc4faae26"
           ],
-          "package_hash": "fe11c7d0351f1225",
+          "package_hash": "67d6fea37e6818af",
           "schema_version": 1,
           "threshold": 2,
           "used_skill_route_discovery": false
         },
-        "quorum_hash": "0b76002d34ef82cb3a9fffe5",
+        "quorum_hash": "1a3f35387159008ed8996b05",
         "schema_version": 1,
         "used_skill_route_discovery": false
       }
@@ -950,14 +950,14 @@
     "entry_count": 2,
     "kind": "finality_epoch_log",
     "schema_version": 1,
-    "tip_hash": "4f080f5eb5726d315ca3b404",
+    "tip_hash": "ba64489ec2aaa4748750cf29",
     "tip_height": 2,
-    "updated_at": "2026-07-31T10:58:01.914305Z"
+    "updated_at": "2026-07-31T17:37:56.270207Z"
   },
   "finality_certificate": {
     "agreeing_count": 2,
     "byzantine_count": 1,
-    "certificate_hash": "53dc266561452a8df4c29545",
+    "certificate_hash": "3481b2361a5408588a6aa6de",
     "claims": {
       "epoch_index": 2,
       "member_count": 3,
@@ -968,22 +968,22 @@
         "unbound.milestone-gate"
       ]
     },
-    "epoch_hash": "4f080f5eb5726d315ca3b404",
+    "epoch_hash": "ba64489ec2aaa4748750cf29",
     "epoch_height": 2,
     "goal": "risk over solvency (epoch 2)",
     "irreversible": true,
-    "issued_at": "2026-07-31T10:58:01.914290Z",
+    "issued_at": "2026-07-31T17:37:56.270118Z",
     "kind": "finality_certificate",
-    "lineage_head_hash": "b08981c7fa1e82f2a1a386a6",
+    "lineage_head_hash": "3483ac31d12a0645bda36f8d",
     "ok": true,
     "origin_count": 3,
-    "package_hash": "fe11c7d0351f1225",
-    "parent_epoch_hash": "7230b7513e792bbfde072c69",
-    "quorum_hash": "0b76002d34ef82cb3a9fffe5",
+    "package_hash": "67d6fea37e6818af",
+    "parent_epoch_hash": "b4007bf2902d04231058373c",
+    "quorum_hash": "1a3f35387159008ed8996b05",
     "schema_version": 1,
     "used_skill_route_discovery": false
   },
-  "finality_hash": "80b6ed587ef63d74a85d2607",
+  "finality_hash": "16baafef46023473cf36d6a8",
   "goal": "risk over solvency",
   "irreversible": true,
   "kind": "finality_bundle",
@@ -1004,39 +1004,39 @@
         "detail": {
           "origins": [
             {
-              "bundle_hash": "8ee45f67bdf554f6650e58cf",
+              "bundle_hash": "603173b88a6f1425bfba1ccc",
               "byzantine": false,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "34b217e3a59ec49e14351242",
+              "lineage_head_hash": "cf8c7310aa7e2231a80cbc42",
               "member_count": 3,
               "origin_id": "origin-a",
               "package_hash": "7878a785b9718369"
             },
             {
-              "bundle_hash": "7ef04a93ada9593e793bfe78",
+              "bundle_hash": "5441ae03f90b0c789cc03351",
               "byzantine": false,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "6922f59987a60494a208fbde",
+              "lineage_head_hash": "da91fa1de46ea04b80c03345",
               "member_count": 2,
               "origin_id": "origin-b",
               "package_hash": "8ece9182045d973a"
             },
             {
-              "bundle_hash": "1272b5a7cd534e89adb6429c",
+              "bundle_hash": "67d61725ca0505fdc4faae26",
               "byzantine": true,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "d172d9aa7c29b61fd44fbdb1",
+              "lineage_head_hash": "9b083477ecee54bc5585ffcb",
               "member_count": 3,
               "origin_id": "origin-byzantine",
               "package_hash": "7d88f7661e8407af"
             }
           ]
         },
-        "entry_hash": "b33327e7fe601054405dac60",
+        "entry_hash": "226ee1f519c760d626df45d5",
         "entry_kind": "quorum_origin_manifest",
         "goal": "risk over solvency",
         "index": 0,
-        "issued_at": "2026-07-31T10:58:01.340903Z",
+        "issued_at": "2026-07-31T17:37:55.458195Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1060,16 +1060,16 @@
         },
         "detail": {
           "origin_heads": [
-            "34b217e3a59ec49e14351242",
-            "6922f59987a60494a208fbde",
-            "d172d9aa7c29b61fd44fbdb1"
+            "cf8c7310aa7e2231a80cbc42",
+            "da91fa1de46ea04b80c03345",
+            "9b083477ecee54bc5585ffcb"
           ]
         },
-        "entry_hash": "677fbbc63ac30763f901739b",
+        "entry_hash": "b3026050540bd402a0129adb",
         "entry_kind": "quorum_vote",
         "goal": "risk over solvency",
         "index": 1,
-        "issued_at": "2026-07-31T10:58:01.340926Z",
+        "issued_at": "2026-07-31T17:37:55.458228Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1077,7 +1077,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "b33327e7fe601054405dac60"
+        "parent_hash": "226ee1f519c760d626df45d5"
       },
       {
         "certificate_hash": "",
@@ -1094,11 +1094,11 @@
             "origin-byzantine"
           ]
         },
-        "entry_hash": "e862c515a826bbdb5f2ea64b",
+        "entry_hash": "cbcb054b0fa5f9f885cb9fde",
         "entry_kind": "quorum_byzantine_exclude",
         "goal": "risk over solvency",
         "index": 2,
-        "issued_at": "2026-07-31T10:58:01.340941Z",
+        "issued_at": "2026-07-31T17:37:55.458248Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1106,7 +1106,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "677fbbc63ac30763f901739b"
+        "parent_hash": "b3026050540bd402a0129adb"
       },
       {
         "certificate_hash": "",
@@ -1126,16 +1126,16 @@
             "origin-byzantine"
           ],
           "origin_bundle_hashes": [
-            "8ee45f67bdf554f6650e58cf",
-            "7ef04a93ada9593e793bfe78",
-            "1272b5a7cd534e89adb6429c"
+            "603173b88a6f1425bfba1ccc",
+            "5441ae03f90b0c789cc03351",
+            "67d61725ca0505fdc4faae26"
           ]
         },
-        "entry_hash": "1e4909d1197354886a301713",
+        "entry_hash": "9fe48a57f956cba5a08d3dfe",
         "entry_kind": "quorum_seal",
         "goal": "risk over solvency",
         "index": 3,
-        "issued_at": "2026-07-31T10:58:01.340955Z",
+        "issued_at": "2026-07-31T17:37:55.458267Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1143,23 +1143,23 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "e862c515a826bbdb5f2ea64b"
+        "parent_hash": "cbcb054b0fa5f9f885cb9fde"
       },
       {
         "certificate_hash": "",
         "certificate_path": "",
         "claims": {
-          "prior_lineage_head": "1e4909d1197354886a301713",
+          "prior_lineage_head": "9fe48a57f956cba5a08d3dfe",
           "prior_package_hash": "066545df3053adf5",
-          "prior_quorum_hash": "d9defffb82d4519bbfa7e356",
+          "prior_quorum_hash": "1cbefce651f7dd3be678edfd",
           "progress_tag": "epoch-progress-2"
         },
         "detail": {},
-        "entry_hash": "b08981c7fa1e82f2a1a386a6",
+        "entry_hash": "3483ac31d12a0645bda36f8d",
         "entry_kind": "finality_epoch_progress",
         "goal": "risk over solvency (progress 2)",
         "index": 4,
-        "issued_at": "2026-07-31T10:58:01.913893Z",
+        "issued_at": "2026-07-31T17:37:56.269525Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1167,17 +1167,17 @@
           "proved_ratio": null
         },
         "package_hash": "",
-        "parent_hash": "1e4909d1197354886a301713"
+        "parent_hash": "9fe48a57f956cba5a08d3dfe"
       }
     ],
     "entry_count": 5,
-    "head_hash": "b08981c7fa1e82f2a1a386a6",
+    "head_hash": "3483ac31d12a0645bda36f8d",
     "kind": "capability_lineage",
     "schema_version": 1,
-    "updated_at": "2026-07-31T10:58:01.913911Z"
+    "updated_at": "2026-07-31T17:37:56.269552Z"
   },
   "lineage_entry_count": 5,
-  "lineage_head_hash": "b08981c7fa1e82f2a1a386a6",
+  "lineage_head_hash": "3483ac31d12a0645bda36f8d",
   "member_count": 3,
   "ok": true,
   "origin_count": 3,
@@ -1190,7 +1190,7 @@
     "byzantine_origins": [
       "origin-byzantine"
     ],
-    "exported_at": "2026-07-31T10:58:01.340876Z",
+    "exported_at": "2026-07-31T17:37:55.458118Z",
     "federated": true,
     "member_count": 3,
     "member_ids": [
@@ -1227,7 +1227,7 @@
         "id": "capability.ledger-inventory",
         "kind": "python",
         "last_proof_exit_code": 0,
-        "last_proved_at": "2026-07-31T10:56:09.965623Z",
+        "last_proved_at": "2026-07-31T17:36:00.790191Z",
         "name": "Capability ledger inventory",
         "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_ledger_inventory; r=builtin_ledger_inventory(); assert r['ok'] and r['count'] >= 2\"",
         "source_milestone": null,
@@ -1236,7 +1236,7 @@
           "bootstrap",
           "compounder"
         ],
-        "updated_at": "2026-07-31T10:58:01.260057Z"
+        "updated_at": "2026-07-31T17:37:55.359561Z"
       },
       "repo.import-health": {
         "behavior_paths": [
@@ -1251,7 +1251,7 @@
         "id": "repo.import-health",
         "kind": "python",
         "last_proof_exit_code": 0,
-        "last_proved_at": "2026-07-31T10:57:06.730524Z",
+        "last_proved_at": "2026-07-31T17:37:07.208577Z",
         "name": "Repository import health",
         "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_repo_import_health; r=builtin_repo_import_health(); assert r['ok'] and not r['skill_route_symbols_in_compounder']\"",
         "source_milestone": null,
@@ -1260,7 +1260,7 @@
           "bootstrap",
           "health"
         ],
-        "updated_at": "2026-07-31T10:58:01.259566Z"
+        "updated_at": "2026-07-31T17:37:55.358932Z"
       },
       "unbound.milestone-gate": {
         "behavior_paths": [
@@ -1276,7 +1276,7 @@
         "id": "unbound.milestone-gate",
         "kind": "python",
         "last_proof_exit_code": 0,
-        "last_proved_at": "2026-07-31T10:56:10.215955Z",
+        "last_proved_at": "2026-07-31T17:36:00.992174Z",
         "name": "Unbound milestone gate smoke",
         "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_milestone_gate_smoke; r=builtin_milestone_gate_smoke(); assert r['ok']\"",
         "source_milestone": null,
@@ -1285,12 +1285,12 @@
           "bootstrap",
           "unbound"
         ],
-        "updated_at": "2026-07-31T10:58:01.259827Z"
+        "updated_at": "2026-07-31T17:37:55.359281Z"
       }
     },
     "ok": true,
-    "package_hash": "fe11c7d0351f1225",
-    "progress_at": "2026-07-31T10:58:01.913913Z",
+    "package_hash": "67d6fea37e6818af",
+    "progress_at": "2026-07-31T17:37:56.269555Z",
     "progress_tag": "epoch-progress-2",
     "quorum": true,
     "quorum_threshold": 2,
@@ -1303,10 +1303,10 @@
     "source_ledger_path": "quorum-merge",
     "used_skill_route_discovery": false
   },
-  "package_hash": "fe11c7d0351f1225",
-  "quorum_hash": "d9defffb82d4519bbfa7e356",
+  "package_hash": "67d6fea37e6818af",
+  "quorum_hash": "1cbefce651f7dd3be678edfd",
   "schema_version": 1,
-  "tip_hash": "4f080f5eb5726d315ca3b404",
+  "tip_hash": "ba64489ec2aaa4748750cf29",
   "tip_height": 2,
   "used_skill_route_discovery": false
 }

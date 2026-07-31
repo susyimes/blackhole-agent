@@ -1,0 +1,36 @@
+{
+  "bound_mandate_height": 2,
+  "bound_mandate_root": "ed49cdb949586f1b79c30ffd",
+  "certificate_hash": "104112909a5805903e4542fb",
+  "charter_count": 2,
+  "charter_height": 2,
+  "charter_plan_digest": "83323930d8f8ab9249e9390f",
+  "charter_root": "6ae443bcde2c2f67ddef0611",
+  "claims": {
+    "capability_id": "capability.fixture-1",
+    "clearing_index": 2,
+    "effect": "fixture-effect-1",
+    "outcome": "chartered",
+    "plane": "charter"
+  },
+  "deterministic": true,
+  "goal": "differential fixture (clearing 2)",
+  "issued_at": "2026-01-01T00:00:00.000000Z",
+  "kind": "charter_certificate",
+  "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+  "mandate_certificate_hash": "899adb686a2159f65201b364",
+  "mandate_hash": "9e3c6202f67adc6e87fb0e95",
+  "mandate_plan_digest": "33b2611548bd097b35f0c0b1",
+  "member_count": 2,
+  "member_ids": [
+    "capability.fixture-0",
+    "capability.fixture-1"
+  ],
+  "ok": true,
+  "package_hash": "1d58907e64cc82808cc22f35",
+  "parent_charter_root": "581a0be0e9a7e1ade79628f3",
+  "post_mandate": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}
