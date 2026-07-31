@@ -1,0 +1,37 @@
+{
+  "bound_mandate_height": 2,
+  "bound_mandate_root": "a809fb3e78f41070dfd58860",
+  "certificate_hash": "19d9f1a5f6354d069931b648",
+  "charter_count": 2,
+  "charter_height": 2,
+  "charter_plan_digest": "4c56b023d880f6058a619030",
+  "charter_root": "85dc3994cb2e12126c253789",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "chartered",
+    "plane": "charter"
+  },
+  "deterministic": true,
+  "goal": "coalition over alliance (clearing 2)",
+  "issued_at": "2026-07-31T04:43:23.890951Z",
+  "kind": "charter_certificate",
+  "lineage_head_hash": "63949a4e3f88aae7959bd82f",
+  "mandate_certificate_hash": "ffaf70b0cb46be0ffc1dd83f",
+  "mandate_hash": "11838185a461a0f3205ba4dd",
+  "mandate_plan_digest": "3878b2f03cbbd0b388a89e1b",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "0ecfb2b960830c4b",
+  "parent_charter_root": "39da2c8bbab0430195942440",
+  "post_mandate": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

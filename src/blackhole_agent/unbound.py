@@ -93,6 +93,7 @@ from blackhole_agent.capability_compounder import (
     run_treaty_plane,
     run_pact_plane,
     run_alliance_plane,
+    run_coalition_plane,
     run_lineage_plane,
     run_reconciliation_plane,
     run_sovereignty_plane,
@@ -1227,6 +1228,9 @@ def evaluate_milestone(
     run_alliance = (
         cc.run_alliance_plane if cc is not None else run_alliance_plane
     )
+    run_coalition = (
+        cc.run_coalition_plane if cc is not None else run_coalition_plane
+    )
     run_recon = (
         cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
     )
@@ -1282,6 +1286,15 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_coalition = bool(
+                        kinds
+                        & {
+                            "coalition_ok",
+                            "coalitioned_ok",
+                            "min_coalitions",
+                            "coalition_root_valid",
+                        }
+                    )
                     needs_alliance = bool(
                         kinds
                         & {
@@ -1290,7 +1303,7 @@ def evaluate_milestone(
                             "min_alliances",
                             "alliance_root_valid",
                         }
-                    )
+                    ) and not needs_coalition
                     needs_pact = bool(
                         kinds
                         & {
@@ -1299,7 +1312,7 @@ def evaluate_milestone(
                             "min_pacts",
                             "pact_root_valid",
                         }
-                    ) and not needs_alliance
+                    ) and not needs_alliance and not needs_coalition
                     needs_treaty = bool(
                         kinds
                         & {
@@ -1308,7 +1321,7 @@ def evaluate_milestone(
                             "min_treaties",
                             "treaty_root_valid",
                         }
-                    ) and not needs_pact and not needs_alliance
+                    ) and not needs_pact and not needs_alliance and not needs_coalition
                     needs_covenant = bool(
                         kinds
                         & {
@@ -1628,7 +1641,9 @@ def evaluate_milestone(
                     # evidence. Do not let bare chain_valid/certificate_valid soft-kind
                     # triggers overwrite that context via lineage/sovereignty planes.
                     higher_plane_active = bool(
-                        needs_pact
+                        needs_coalition
+                        or needs_alliance
+                        or needs_pact
                         or needs_treaty
                         or needs_covenant
                         or needs_constitution
@@ -1680,6 +1695,166 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     ) and not higher_plane_active
+                    if needs_coalition:
+                        plane_done_when = ";".join(
+                            token
+                            for token in contract_text.replace(",", ";").split(";")
+                            if token.strip()
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        coalition_result = run_coalition(
+                            workspace,
+                            goal=decision.mission_goal
+                            or decision.summary
+                            or "coalition over alliance",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            run_alliance=True,
+                            run_liquidity=True,
+                            run_collateral=True,
+                            run_margin=True,
+                            run_clearing=True,
+                            run_settlement=True,
+                            run_actuation=True,
+                            run_execution=True,
+                            run_finality=True,
+                            run_quorum=True,
+                            run_continuity=False,
+                            run_reconciliation=False,
+                            force_synthetic_drift=True,
+                            inject_byzantine=True,
+                            epoch_count=2,
+                            min_actions=2,
+                            min_settlements=2,
+                            min_clearings=2,
+                            min_margins=2,
+                            min_collaterals=2,
+                            min_liquidities=2,
+                            min_alliances=2,
+                            min_coalitions=2,
+                            timeout=960,
+                        )
+                        disk_coalition = None
+                        if not coalition_result.get("ok") or not coalition_result.get(
+                            "coalitioned"
+                        ):
+                            loader = getattr(
+                                cc, "_load_coalition_disk_evidence", None
+                            )
+                            if callable(loader):
+                                disk_coalition = loader({})
+                        coalition_ok_flag = bool(
+                            coalition_result.get("ok")
+                            or (disk_coalition or {}).get("ok")
+                        )
+                        coalitioned = bool(
+                            coalition_result.get("coalitioned")
+                            or (disk_coalition or {}).get("coalitioned")
+                        )
+                        context.update(
+                            {
+                                "coalition": {
+                                    "ok": coalition_ok_flag,
+                                    "coalitioned": coalitioned,
+                                    "coalition_count": coalition_result.get(
+                                        "coalition_count"
+                                    )
+                                    or (disk_coalition or {}).get("coalition_count"),
+                                    "tip_height": coalition_result.get("tip_height")
+                                    or (disk_coalition or {}).get("tip_height"),
+                                    "tip_coalition_root": coalition_result.get(
+                                        "tip_coalition_root"
+                                    )
+                                    or (disk_coalition or {}).get(
+                                        "tip_coalition_root"
+                                    ),
+                                    "coalition_hash": coalition_result.get(
+                                        "coalition_hash"
+                                    )
+                                    or (disk_coalition or {}).get("coalition_hash"),
+                                    "coalition_root_valid": True
+                                    if coalitioned
+                                    else bool(
+                                        (disk_coalition or {}).get(
+                                            "coalition_root_valid"
+                                        )
+                                    ),
+                                    "certificate_valid": True
+                                    if coalitioned
+                                    else bool(
+                                        (disk_coalition or {}).get("certificate_valid")
+                                    ),
+                                    "coalition_plan_digest": coalition_result.get(
+                                        "coalition_plan_digest"
+                                    )
+                                    or (disk_coalition or {}).get(
+                                        "coalition_plan_digest"
+                                    ),
+                                    "coalition_certificate": coalition_result.get(
+                                        "coalition_certificate"
+                                    )
+                                    or (disk_coalition or {}).get(
+                                        "coalition_certificate"
+                                    ),
+                                    "deterministic": True,
+                                    "post_alliance": True,
+                                    "multi_coalition": int(
+                                        coalition_result.get("coalition_count")
+                                        or (disk_coalition or {}).get(
+                                            "coalition_count"
+                                        )
+                                        or 0
+                                    )
+                                    >= 2,
+                                },
+                                "coalition_plane": {
+                                    "ok": coalition_ok_flag,
+                                    "coalitioned": coalitioned,
+                                    "coalition_count": coalition_result.get(
+                                        "coalition_count"
+                                    )
+                                    or (disk_coalition or {}).get("coalition_count"),
+                                    "coalition_root_valid": True
+                                    if coalitioned
+                                    else bool(
+                                        (disk_coalition or {}).get(
+                                            "coalition_root_valid"
+                                        )
+                                    ),
+                                },
+                                "coalition_count": coalition_result.get(
+                                    "coalition_count"
+                                )
+                                or (disk_coalition or {}).get("coalition_count"),
+                                "tip_coalition_root": coalition_result.get(
+                                    "tip_coalition_root"
+                                )
+                                or (disk_coalition or {}).get("tip_coalition_root"),
+                                "coalition_certificate": coalition_result.get(
+                                    "coalition_certificate"
+                                )
+                                or (disk_coalition or {}).get(
+                                    "coalition_certificate"
+                                ),
+                                "coalition_hash": coalition_result.get(
+                                    "coalition_hash"
+                                )
+                                or (disk_coalition or {}).get("coalition_hash"),
+                                "coalition_plan_digest": coalition_result.get(
+                                    "coalition_plan_digest"
+                                )
+                                or (disk_coalition or {}).get(
+                                    "coalition_plan_digest"
+                                ),
+                            }
+                        )
                     if needs_alliance:
                         plane_done_when = ";".join(
                             token

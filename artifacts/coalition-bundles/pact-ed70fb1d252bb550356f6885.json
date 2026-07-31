@@ -1,0 +1,1443 @@
+{
+  "action": "build_coalition_bundle",
+  "action_count": 3,
+  "actions": {
+    "bound_state_height": 2,
+    "bound_state_root": "7e8dbf2087b3f35164ae86e0",
+    "entries": [
+      {
+        "action_height": 1,
+        "action_root": "1969c141be8080f993209263",
+        "actuation_certificate": {
+          "action_height": 1,
+          "action_root": "1969c141be8080f993209263",
+          "bound_state_height": 2,
+          "bound_state_root": "7e8dbf2087b3f35164ae86e0",
+          "certificate_hash": "3e59c4288167233ef14b6764",
+          "claims": {
+            "action_index": 1,
+            "capability_id": "capability.ledger-inventory",
+            "effect": "prove",
+            "plane": "actuation"
+          },
+          "deterministic": true,
+          "effect_count": 1,
+          "execution_certificate_hash": "97e86c339f81098096db25c9",
+          "execution_hash": "44b60c189f21b1ca4ed24c68",
+          "goal": "coalition over alliance (action 1)",
+          "issued_at": "2026-07-31T04:43:03.215961Z",
+          "kind": "actuation_certificate",
+          "lineage_head_hash": "63949a4e3f88aae7959bd82f",
+          "member_count": 3,
+          "member_ids": [
+            "capability.ledger-inventory",
+            "repo.import-health",
+            "unbound.milestone-gate"
+          ],
+          "ok": true,
+          "package_hash": "0ecfb2b960830c4b",
+          "parent_action_root": "",
+          "post_execution": true,
+          "schema_version": 1,
+          "used_skill_route_discovery": false
+        },
+        "applied_at": "2026-07-31T04:43:03.215936Z",
+        "bound_state_height": 2,
+        "bound_state_root": "7e8dbf2087b3f35164ae86e0",
+        "capability_id": "capability.ledger-inventory",
+        "claims": {
+          "action_index": 1,
+          "plane": "actuation"
+        },
+        "deterministic": true,
+        "effect": "prove",
+        "effect_digest": "bba7a3ddbea56dfcd8980460",
+        "entry": "blackhole_agent.capability_compounder:builtin_ledger_inventory",
+        "execution_certificate_hash": "97e86c339f81098096db25c9",
+        "execution_hash": "44b60c189f21b1ca4ed24c68",
+        "goal": "coalition over alliance (action 1)",
+        "kind": "actuation_action",
+        "lineage_head_hash": "63949a4e3f88aae7959bd82f",
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "0ecfb2b960830c4b",
+        "parent_action_root": "",
+        "post_execution": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false
+      },
+      {
+        "action_height": 2,
+        "action_root": "c537e7ddc303885b93f46f15",
+        "actuation_certificate": {
+          "action_height": 2,
+          "action_root": "c537e7ddc303885b93f46f15",
+          "bound_state_height": 2,
+          "bound_state_root": "7e8dbf2087b3f35164ae86e0",
+          "certificate_hash": "76d5fcbda840c56004c6f7f5",
+          "claims": {
+            "action_index": 2,
+            "capability_id": "repo.import-health",
+            "effect": "prove",
+            "plane": "actuation"
+          },
+          "deterministic": true,
+          "effect_count": 2,
+          "execution_certificate_hash": "97e86c339f81098096db25c9",
+          "execution_hash": "44b60c189f21b1ca4ed24c68",
+          "goal": "coalition over alliance (action 2)",
+          "issued_at": "2026-07-31T04:43:03.216048Z",
+          "kind": "actuation_certificate",
+          "lineage_head_hash": "63949a4e3f88aae7959bd82f",
+          "member_count": 3,
+          "member_ids": [
+            "capability.ledger-inventory",
+            "repo.import-health",
+            "unbound.milestone-gate"
+          ],
+          "ok": true,
+          "package_hash": "0ecfb2b960830c4b",
+          "parent_action_root": "1969c141be8080f993209263",
+          "post_execution": true,
+          "schema_version": 1,
+          "used_skill_route_discovery": false
+        },
+        "applied_at": "2026-07-31T04:43:03.216029Z",
+        "bound_state_height": 2,
+        "bound_state_root": "7e8dbf2087b3f35164ae86e0",
+        "capability_id": "repo.import-health",
+        "claims": {
+          "action_index": 2,
+          "plane": "actuation"
+        },
+        "deterministic": true,
+        "effect": "prove",
+        "effect_digest": "e074b251ee81e6964d24578a",
+        "entry": "blackhole_agent.capability_compounder:builtin_repo_import_health",
+        "execution_certificate_hash": "97e86c339f81098096db25c9",
+        "execution_hash": "44b60c189f21b1ca4ed24c68",
+        "goal": "coalition over alliance (action 2)",
+        "kind": "actuation_action",
+        "lineage_head_hash": "63949a4e3f88aae7959bd82f",
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "0ecfb2b960830c4b",
+        "parent_action_root": "1969c141be8080f993209263",
+        "post_execution": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false
+      },
+      {
+        "action_height": 3,
+        "action_root": "9894359bcaf7d74c0d4e1233",
+        "actuation_certificate": {
+          "action_height": 3,
+          "action_root": "9894359bcaf7d74c0d4e1233",
+          "bound_state_height": 2,
+          "bound_state_root": "7e8dbf2087b3f35164ae86e0",
+          "certificate_hash": "f3077dd283acfe09b1819350",
+          "claims": {
+            "action_index": 3,
+            "capability_id": "unbound.milestone-gate",
+            "effect": "prove",
+            "plane": "actuation"
+          },
+          "deterministic": true,
+          "effect_count": 3,
+          "execution_certificate_hash": "97e86c339f81098096db25c9",
+          "execution_hash": "44b60c189f21b1ca4ed24c68",
+          "goal": "coalition over alliance (action 3)",
+          "issued_at": "2026-07-31T04:43:03.216145Z",
+          "kind": "actuation_certificate",
+          "lineage_head_hash": "63949a4e3f88aae7959bd82f",
+          "member_count": 3,
+          "member_ids": [
+            "capability.ledger-inventory",
+            "repo.import-health",
+            "unbound.milestone-gate"
+          ],
+          "ok": true,
+          "package_hash": "0ecfb2b960830c4b",
+          "parent_action_root": "c537e7ddc303885b93f46f15",
+          "post_execution": true,
+          "schema_version": 1,
+          "used_skill_route_discovery": false
+        },
+        "applied_at": "2026-07-31T04:43:03.216129Z",
+        "bound_state_height": 2,
+        "bound_state_root": "7e8dbf2087b3f35164ae86e0",
+        "capability_id": "unbound.milestone-gate",
+        "claims": {
+          "action_index": 3,
+          "plane": "actuation"
+        },
+        "deterministic": true,
+        "effect": "prove",
+        "effect_digest": "dadba6b9a69c14e7b98daab7",
+        "entry": "blackhole_agent.capability_compounder:builtin_milestone_gate_smoke",
+        "execution_certificate_hash": "97e86c339f81098096db25c9",
+        "execution_hash": "44b60c189f21b1ca4ed24c68",
+        "goal": "coalition over alliance (action 3)",
+        "kind": "actuation_action",
+        "lineage_head_hash": "63949a4e3f88aae7959bd82f",
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "0ecfb2b960830c4b",
+        "parent_action_root": "c537e7ddc303885b93f46f15",
+        "post_execution": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false
+      }
+    ],
+    "entry_count": 3,
+    "kind": "actuation_action_log",
+    "schema_version": 1,
+    "tip_action_root": "9894359bcaf7d74c0d4e1233",
+    "tip_height": 3,
+    "updated_at": "2026-07-31T04:43:03.216165Z"
+  },
+  "actuation_certificate": {
+    "action_height": 3,
+    "action_root": "9894359bcaf7d74c0d4e1233",
+    "bound_state_height": 2,
+    "bound_state_root": "7e8dbf2087b3f35164ae86e0",
+    "certificate_hash": "f3077dd283acfe09b1819350",
+    "claims": {
+      "action_index": 3,
+      "capability_id": "unbound.milestone-gate",
+      "effect": "prove",
+      "plane": "actuation"
+    },
+    "deterministic": true,
+    "effect_count": 3,
+    "execution_certificate_hash": "97e86c339f81098096db25c9",
+    "execution_hash": "44b60c189f21b1ca4ed24c68",
+    "goal": "coalition over alliance (action 3)",
+    "issued_at": "2026-07-31T04:43:03.216145Z",
+    "kind": "actuation_certificate",
+    "lineage_head_hash": "63949a4e3f88aae7959bd82f",
+    "member_count": 3,
+    "member_ids": [
+      "capability.ledger-inventory",
+      "repo.import-health",
+      "unbound.milestone-gate"
+    ],
+    "ok": true,
+    "package_hash": "0ecfb2b960830c4b",
+    "parent_action_root": "c537e7ddc303885b93f46f15",
+    "post_execution": true,
+    "schema_version": 1,
+    "used_skill_route_discovery": false
+  },
+  "actuation_hash": "7b4868ccd6ad27a586ed6af1",
+  "agreeing_count": 2,
+  "alliance_certificate": {
+    "alliance_count": 2,
+    "alliance_height": 2,
+    "alliance_plan_digest": "774870d15b490057cb2c0f1a",
+    "alliance_root": "2413874c47672168213e435e",
+    "bound_pact_height": 2,
+    "bound_pact_root": "bd0762b7ca2bcc4c4345f05d",
+    "certificate_hash": "41ef607799a0662e87aa5bc1",
+    "claims": {
+      "capability_id": "repo.import-health",
+      "clearing_index": 2,
+      "effect": "prove",
+      "outcome": "allied",
+      "plane": "alliance"
+    },
+    "deterministic": true,
+    "goal": "coalition over alliance (clearing 2)",
+    "issued_at": "2026-07-31T04:43:27.247120Z",
+    "kind": "alliance_certificate",
+    "lineage_head_hash": "63949a4e3f88aae7959bd82f",
+    "member_count": 3,
+    "member_ids": [
+      "capability.ledger-inventory",
+      "repo.import-health",
+      "unbound.milestone-gate"
+    ],
+    "ok": true,
+    "package_hash": "0ecfb2b960830c4b",
+    "pact_certificate_hash": "4efd9013f18ad579b184785d",
+    "pact_hash": "7116a896f460d2f007859fa7",
+    "pact_plan_digest": "bde459b4bfc8218d38cdc0b1",
+    "parent_alliance_root": "2a5d223ff987e5881968f97d",
+    "post_pact": true,
+    "schema_version": 1,
+    "used_skill_route_discovery": false,
+    "valid": true
+  },
+  "alliance_count": 2,
+  "alliance_hash": "ebcd92e0d2a99b07f6de45ae",
+  "alliance_plan_digest": "774870d15b490057cb2c0f1a",
+  "alliances": {
+    "alliance_plan_digest": "774870d15b490057cb2c0f1a",
+    "bound_pact_height": 2,
+    "bound_pact_root": "bd0762b7ca2bcc4c4345f05d",
+    "entries": [
+      {
+        "alliance_certificate": {
+          "alliance_count": 1,
+          "alliance_height": 1,
+          "alliance_plan_digest": "c0775ffeb8388ed7a5232526",
+          "alliance_root": "2a5d223ff987e5881968f97d",
+          "bound_pact_height": 1,
+          "bound_pact_root": "072630490126fac78c55e596",
+          "certificate_hash": "21cb25aa81faad376f6fa808",
+          "claims": {
+            "capability_id": "capability.ledger-inventory",
+            "clearing_index": 1,
+            "effect": "prove",
+            "outcome": "allied",
+            "plane": "alliance"
+          },
+          "deterministic": true,
+          "goal": "coalition over alliance (clearing 1)",
+          "issued_at": "2026-07-31T04:43:27.246992Z",
+          "kind": "alliance_certificate",
+          "lineage_head_hash": "63949a4e3f88aae7959bd82f",
+          "member_count": 3,
+          "member_ids": [
+            "capability.ledger-inventory",
+            "repo.import-health",
+            "unbound.milestone-gate"
+          ],
+          "ok": true,
+          "package_hash": "0ecfb2b960830c4b",
+          "pact_certificate_hash": "4efd9013f18ad579b184785d",
+          "pact_hash": "7116a896f460d2f007859fa7",
+          "pact_plan_digest": "583488a770960195c06b7a33",
+          "parent_alliance_root": "",
+          "post_pact": true,
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "alliance_height": 1,
+        "alliance_plan_digest": "c0775ffeb8388ed7a5232526",
+        "alliance_root": "2a5d223ff987e5881968f97d",
+        "applied_at": "2026-07-31T04:43:27.246964Z",
+        "bound_action_root": "1969c141be8080f993209263",
+        "bound_pact_height": 1,
+        "bound_pact_root": "072630490126fac78c55e596",
+        "capability_id": "capability.ledger-inventory",
+        "claims": {
+          "clearing_index": 1,
+          "plane": "alliance"
+        },
+        "deterministic": true,
+        "effect": "prove",
+        "goal": "coalition over alliance (clearing 1)",
+        "kind": "alliance_action",
+        "lineage_head_hash": "63949a4e3f88aae7959bd82f",
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "outcome": "allied",
+        "package_hash": "0ecfb2b960830c4b",
+        "pact_certificate_hash": "4efd9013f18ad579b184785d",
+        "pact_hash": "7116a896f460d2f007859fa7",
+        "pact_plan_digest": "583488a770960195c06b7a33",
+        "parent_alliance_digest": "",
+        "parent_alliance_root": "",
+        "position_ratio_bps": 1000,
+        "post_pact": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false
+      },
+      {
+        "alliance_certificate": {
+          "alliance_count": 2,
+          "alliance_height": 2,
+          "alliance_plan_digest": "774870d15b490057cb2c0f1a",
+          "alliance_root": "2413874c47672168213e435e",
+          "bound_pact_height": 2,
+          "bound_pact_root": "bd0762b7ca2bcc4c4345f05d",
+          "certificate_hash": "41ef607799a0662e87aa5bc1",
+          "claims": {
+            "capability_id": "repo.import-health",
+            "clearing_index": 2,
+            "effect": "prove",
+            "outcome": "allied",
+            "plane": "alliance"
+          },
+          "deterministic": true,
+          "goal": "coalition over alliance (clearing 2)",
+          "issued_at": "2026-07-31T04:43:27.247120Z",
+          "kind": "alliance_certificate",
+          "lineage_head_hash": "63949a4e3f88aae7959bd82f",
+          "member_count": 3,
+          "member_ids": [
+            "capability.ledger-inventory",
+            "repo.import-health",
+            "unbound.milestone-gate"
+          ],
+          "ok": true,
+          "package_hash": "0ecfb2b960830c4b",
+          "pact_certificate_hash": "4efd9013f18ad579b184785d",
+          "pact_hash": "7116a896f460d2f007859fa7",
+          "pact_plan_digest": "bde459b4bfc8218d38cdc0b1",
+          "parent_alliance_root": "2a5d223ff987e5881968f97d",
+          "post_pact": true,
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "alliance_height": 2,
+        "alliance_plan_digest": "774870d15b490057cb2c0f1a",
+        "alliance_root": "2413874c47672168213e435e",
+        "applied_at": "2026-07-31T04:43:27.247076Z",
+        "bound_action_root": "c537e7ddc303885b93f46f15",
+        "bound_pact_height": 2,
+        "bound_pact_root": "bd0762b7ca2bcc4c4345f05d",
+        "capability_id": "repo.import-health",
+        "claims": {
+          "clearing_index": 2,
+          "plane": "alliance"
+        },
+        "deterministic": true,
+        "effect": "prove",
+        "goal": "coalition over alliance (clearing 2)",
+        "kind": "alliance_action",
+        "lineage_head_hash": "63949a4e3f88aae7959bd82f",
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "outcome": "allied",
+        "package_hash": "0ecfb2b960830c4b",
+        "pact_certificate_hash": "4efd9013f18ad579b184785d",
+        "pact_hash": "7116a896f460d2f007859fa7",
+        "pact_plan_digest": "bde459b4bfc8218d38cdc0b1",
+        "parent_alliance_digest": "c0775ffeb8388ed7a5232526",
+        "parent_alliance_root": "2a5d223ff987e5881968f97d",
+        "position_ratio_bps": 1100,
+        "post_pact": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false
+      }
+    ],
+    "entry_count": 2,
+    "kind": "alliance_log",
+    "pact_hash": "7116a896f460d2f007859fa7",
+    "schema_version": 1,
+    "tip_alliance_root": "2413874c47672168213e435e",
+    "tip_height": 2,
+    "updated_at": "2026-07-31T04:43:27.247177Z"
+  },
+  "bound_action_root": "c537e7ddc303885b93f46f15",
+  "bound_alliance_height": 2,
+  "bound_alliance_root": "2413874c47672168213e435e",
+  "bound_settlement_root": "3b98f6304c410f7c6d2aa533",
+  "bound_state_root": "7e8dbf2087b3f35164ae86e0",
+  "byzantine_count": 1,
+  "certificate_count": 6,
+  "certificates": {
+    "41ef607799a0662e87aa5bc1": {
+      "certificate_hash": "41ef607799a0662e87aa5bc1",
+      "kind": "coalition_certificate",
+      "payload": {
+        "alliance_count": 2,
+        "alliance_height": 2,
+        "alliance_plan_digest": "774870d15b490057cb2c0f1a",
+        "alliance_root": "2413874c47672168213e435e",
+        "bound_pact_height": 2,
+        "bound_pact_root": "bd0762b7ca2bcc4c4345f05d",
+        "certificate_hash": "41ef607799a0662e87aa5bc1",
+        "claims": {
+          "capability_id": "repo.import-health",
+          "clearing_index": 2,
+          "effect": "prove",
+          "outcome": "allied",
+          "plane": "alliance"
+        },
+        "deterministic": true,
+        "goal": "coalition over alliance (clearing 2)",
+        "issued_at": "2026-07-31T04:43:27.247120Z",
+        "kind": "alliance_certificate",
+        "lineage_head_hash": "63949a4e3f88aae7959bd82f",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "0ecfb2b960830c4b",
+        "pact_certificate_hash": "4efd9013f18ad579b184785d",
+        "pact_hash": "7116a896f460d2f007859fa7",
+        "pact_plan_digest": "bde459b4bfc8218d38cdc0b1",
+        "parent_alliance_root": "2a5d223ff987e5881968f97d",
+        "post_pact": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false,
+        "valid": true
+      }
+    },
+    "66827a1d8f59edfc5c6af204": {
+      "certificate_hash": "66827a1d8f59edfc5c6af204",
+      "coalition_height": 1,
+      "payload": {
+        "alliance_certificate_hash": "41ef607799a0662e87aa5bc1",
+        "alliance_hash": "ebcd92e0d2a99b07f6de45ae",
+        "alliance_plan_digest": "c0775ffeb8388ed7a5232526",
+        "bound_alliance_height": 1,
+        "bound_alliance_root": "2a5d223ff987e5881968f97d",
+        "certificate_hash": "66827a1d8f59edfc5c6af204",
+        "claims": {
+          "capability_id": "capability.ledger-inventory",
+          "clearing_index": 1,
+          "effect": "prove",
+          "outcome": "coalitioned",
+          "plane": "coalition"
+        },
+        "coalition_count": 1,
+        "coalition_height": 1,
+        "coalition_plan_digest": "e59efd1b05bff4c43a0ab081",
+        "coalition_root": "34b0e17bcc0365b6aec321ea",
+        "deterministic": true,
+        "goal": "coalition over alliance (clearing 1)",
+        "issued_at": "2026-07-31T04:43:27.873216Z",
+        "kind": "coalition_certificate",
+        "lineage_head_hash": "63949a4e3f88aae7959bd82f",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "0ecfb2b960830c4b",
+        "parent_coalition_root": "",
+        "post_alliance": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false,
+        "valid": true
+      }
+    },
+    "97e86c339f81098096db25c9": {
+      "certificate_hash": "97e86c339f81098096db25c9",
+      "kind": "execution_certificate",
+      "payload": {
+        "certificate_hash": "97e86c339f81098096db25c9",
+        "claims": {
+          "member_count": 3,
+          "plane": "execution",
+          "state_index": 2
+        },
+        "deterministic": true,
+        "epoch_hash": "e63c9ae5ffeb57737ff9e4fa",
+        "epoch_height": 2,
+        "finality_certificate_hash": "fce58f936ac665eb64662a8b",
+        "goal": "coalition over alliance (state 2)",
+        "issued_at": "2026-07-31T04:43:02.677296Z",
+        "kind": "execution_certificate",
+        "lineage_head_hash": "63949a4e3f88aae7959bd82f",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "0ecfb2b960830c4b",
+        "parent_state_root": "fd2c7109578e2ee2b32d9415",
+        "post_finality": true,
+        "schema_version": 1,
+        "state_height": 2,
+        "state_root": "7e8dbf2087b3f35164ae86e0",
+        "used_skill_route_discovery": false
+      }
+    },
+    "bbd1e03e60703fca0064dddc": {
+      "certificate_hash": "bbd1e03e60703fca0064dddc",
+      "kind": "settlement_certificate",
+      "payload": {
+        "actuation_certificate_hash": "f3077dd283acfe09b1819350",
+        "actuation_hash": "7b4868ccd6ad27a586ed6af1",
+        "bound_action_height": 2,
+        "bound_action_root": "c537e7ddc303885b93f46f15",
+        "certificate_hash": "bbd1e03e60703fca0064dddc",
+        "claims": {
+          "capability_id": "repo.import-health",
+          "effect": "prove",
+          "outcome": "settled",
+          "plane": "settlement",
+          "settlement_index": 2
+        },
+        "deterministic": true,
+        "goal": "coalition over alliance (settlement 2)",
+        "issued_at": "2026-07-31T04:43:03.816102Z",
+        "kind": "settlement_certificate",
+        "lineage_head_hash": "63949a4e3f88aae7959bd82f",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "0ecfb2b960830c4b",
+        "parent_settlement_root": "379d84428cebad46a475c53c",
+        "post_actuation": true,
+        "schema_version": 1,
+        "settlement_count": 2,
+        "settlement_height": 2,
+        "settlement_root": "3b98f6304c410f7c6d2aa533",
+        "used_skill_route_discovery": false,
+        "valid": true
+      }
+    },
+    "c8eefcecb35548353a74d5e7": {
+      "certificate_hash": "c8eefcecb35548353a74d5e7",
+      "coalition_height": 2,
+      "payload": {
+        "alliance_certificate_hash": "41ef607799a0662e87aa5bc1",
+        "alliance_hash": "ebcd92e0d2a99b07f6de45ae",
+        "alliance_plan_digest": "774870d15b490057cb2c0f1a",
+        "bound_alliance_height": 2,
+        "bound_alliance_root": "2413874c47672168213e435e",
+        "certificate_hash": "c8eefcecb35548353a74d5e7",
+        "claims": {
+          "capability_id": "repo.import-health",
+          "clearing_index": 2,
+          "effect": "prove",
+          "outcome": "coalitioned",
+          "plane": "coalition"
+        },
+        "coalition_count": 2,
+        "coalition_height": 2,
+        "coalition_plan_digest": "3ab07a5d904cc7cf92fb6c6b",
+        "coalition_root": "4f5737574fa74f4083f45741",
+        "deterministic": true,
+        "goal": "coalition over alliance (clearing 2)",
+        "issued_at": "2026-07-31T04:43:27.873323Z",
+        "kind": "coalition_certificate",
+        "lineage_head_hash": "63949a4e3f88aae7959bd82f",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "0ecfb2b960830c4b",
+        "parent_coalition_root": "34b0e17bcc0365b6aec321ea",
+        "post_alliance": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false,
+        "valid": true
+      }
+    },
+    "f3077dd283acfe09b1819350": {
+      "certificate_hash": "f3077dd283acfe09b1819350",
+      "kind": "actuation_certificate",
+      "payload": {
+        "action_height": 3,
+        "action_root": "9894359bcaf7d74c0d4e1233",
+        "bound_state_height": 2,
+        "bound_state_root": "7e8dbf2087b3f35164ae86e0",
+        "certificate_hash": "f3077dd283acfe09b1819350",
+        "claims": {
+          "action_index": 3,
+          "capability_id": "unbound.milestone-gate",
+          "effect": "prove",
+          "plane": "actuation"
+        },
+        "deterministic": true,
+        "effect_count": 3,
+        "execution_certificate_hash": "97e86c339f81098096db25c9",
+        "execution_hash": "44b60c189f21b1ca4ed24c68",
+        "goal": "coalition over alliance (action 3)",
+        "issued_at": "2026-07-31T04:43:03.216145Z",
+        "kind": "actuation_certificate",
+        "lineage_head_hash": "63949a4e3f88aae7959bd82f",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "0ecfb2b960830c4b",
+        "parent_action_root": "c537e7ddc303885b93f46f15",
+        "post_execution": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false
+      }
+    }
+  },
+  "coalition_certificate": {
+    "alliance_certificate_hash": "41ef607799a0662e87aa5bc1",
+    "alliance_hash": "ebcd92e0d2a99b07f6de45ae",
+    "alliance_plan_digest": "774870d15b490057cb2c0f1a",
+    "bound_alliance_height": 2,
+    "bound_alliance_root": "2413874c47672168213e435e",
+    "certificate_hash": "c8eefcecb35548353a74d5e7",
+    "claims": {
+      "capability_id": "repo.import-health",
+      "clearing_index": 2,
+      "effect": "prove",
+      "outcome": "coalitioned",
+      "plane": "coalition"
+    },
+    "coalition_count": 2,
+    "coalition_height": 2,
+    "coalition_plan_digest": "3ab07a5d904cc7cf92fb6c6b",
+    "coalition_root": "4f5737574fa74f4083f45741",
+    "deterministic": true,
+    "goal": "coalition over alliance (clearing 2)",
+    "issued_at": "2026-07-31T04:43:27.873323Z",
+    "kind": "coalition_certificate",
+    "lineage_head_hash": "63949a4e3f88aae7959bd82f",
+    "member_count": 3,
+    "member_ids": [
+      "capability.ledger-inventory",
+      "repo.import-health",
+      "unbound.milestone-gate"
+    ],
+    "ok": true,
+    "package_hash": "0ecfb2b960830c4b",
+    "parent_coalition_root": "34b0e17bcc0365b6aec321ea",
+    "post_alliance": true,
+    "schema_version": 1,
+    "used_skill_route_discovery": false,
+    "valid": true
+  },
+  "coalition_count": 2,
+  "coalition_hash": "ed70fb1d252bb550356f6885",
+  "coalition_plan_digest": "3ab07a5d904cc7cf92fb6c6b",
+  "coalitions": {
+    "alliance_hash": "ebcd92e0d2a99b07f6de45ae",
+    "bound_alliance_height": 2,
+    "bound_alliance_root": "2413874c47672168213e435e",
+    "coalition_plan_digest": "3ab07a5d904cc7cf92fb6c6b",
+    "entries": [
+      {
+        "alliance_certificate_hash": "41ef607799a0662e87aa5bc1",
+        "alliance_hash": "ebcd92e0d2a99b07f6de45ae",
+        "alliance_plan_digest": "c0775ffeb8388ed7a5232526",
+        "applied_at": "2026-07-31T04:43:27.873187Z",
+        "bound_action_root": "1969c141be8080f993209263",
+        "bound_alliance_height": 1,
+        "bound_alliance_root": "2a5d223ff987e5881968f97d",
+        "capability_id": "capability.ledger-inventory",
+        "claims": {
+          "clearing_index": 1,
+          "plane": "coalition"
+        },
+        "coalition_certificate": {
+          "alliance_certificate_hash": "41ef607799a0662e87aa5bc1",
+          "alliance_hash": "ebcd92e0d2a99b07f6de45ae",
+          "alliance_plan_digest": "c0775ffeb8388ed7a5232526",
+          "bound_alliance_height": 1,
+          "bound_alliance_root": "2a5d223ff987e5881968f97d",
+          "certificate_hash": "66827a1d8f59edfc5c6af204",
+          "claims": {
+            "capability_id": "capability.ledger-inventory",
+            "clearing_index": 1,
+            "effect": "prove",
+            "outcome": "coalitioned",
+            "plane": "coalition"
+          },
+          "coalition_count": 1,
+          "coalition_height": 1,
+          "coalition_plan_digest": "e59efd1b05bff4c43a0ab081",
+          "coalition_root": "34b0e17bcc0365b6aec321ea",
+          "deterministic": true,
+          "goal": "coalition over alliance (clearing 1)",
+          "issued_at": "2026-07-31T04:43:27.873216Z",
+          "kind": "coalition_certificate",
+          "lineage_head_hash": "63949a4e3f88aae7959bd82f",
+          "member_count": 3,
+          "member_ids": [
+            "capability.ledger-inventory",
+            "repo.import-health",
+            "unbound.milestone-gate"
+          ],
+          "ok": true,
+          "package_hash": "0ecfb2b960830c4b",
+          "parent_coalition_root": "",
+          "post_alliance": true,
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "coalition_height": 1,
+        "coalition_plan_digest": "e59efd1b05bff4c43a0ab081",
+        "coalition_root": "34b0e17bcc0365b6aec321ea",
+        "deterministic": true,
+        "effect": "prove",
+        "goal": "coalition over alliance (clearing 1)",
+        "kind": "coalition_action",
+        "lineage_head_hash": "63949a4e3f88aae7959bd82f",
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "outcome": "coalitioned",
+        "package_hash": "0ecfb2b960830c4b",
+        "parent_coalition_digest": "",
+        "parent_coalition_root": "",
+        "position_ratio_bps": 1000,
+        "post_alliance": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false
+      },
+      {
+        "alliance_certificate_hash": "41ef607799a0662e87aa5bc1",
+        "alliance_hash": "ebcd92e0d2a99b07f6de45ae",
+        "alliance_plan_digest": "774870d15b490057cb2c0f1a",
+        "applied_at": "2026-07-31T04:43:27.873301Z",
+        "bound_action_root": "c537e7ddc303885b93f46f15",
+        "bound_alliance_height": 2,
+        "bound_alliance_root": "2413874c47672168213e435e",
+        "capability_id": "repo.import-health",
+        "claims": {
+          "clearing_index": 2,
+          "plane": "coalition"
+        },
+        "coalition_certificate": {
+          "alliance_certificate_hash": "41ef607799a0662e87aa5bc1",
+          "alliance_hash": "ebcd92e0d2a99b07f6de45ae",
+          "alliance_plan_digest": "774870d15b490057cb2c0f1a",
+          "bound_alliance_height": 2,
+          "bound_alliance_root": "2413874c47672168213e435e",
+          "certificate_hash": "c8eefcecb35548353a74d5e7",
+          "claims": {
+            "capability_id": "repo.import-health",
+            "clearing_index": 2,
+            "effect": "prove",
+            "outcome": "coalitioned",
+            "plane": "coalition"
+          },
+          "coalition_count": 2,
+          "coalition_height": 2,
+          "coalition_plan_digest": "3ab07a5d904cc7cf92fb6c6b",
+          "coalition_root": "4f5737574fa74f4083f45741",
+          "deterministic": true,
+          "goal": "coalition over alliance (clearing 2)",
+          "issued_at": "2026-07-31T04:43:27.873323Z",
+          "kind": "coalition_certificate",
+          "lineage_head_hash": "63949a4e3f88aae7959bd82f",
+          "member_count": 3,
+          "member_ids": [
+            "capability.ledger-inventory",
+            "repo.import-health",
+            "unbound.milestone-gate"
+          ],
+          "ok": true,
+          "package_hash": "0ecfb2b960830c4b",
+          "parent_coalition_root": "34b0e17bcc0365b6aec321ea",
+          "post_alliance": true,
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "coalition_height": 2,
+        "coalition_plan_digest": "3ab07a5d904cc7cf92fb6c6b",
+        "coalition_root": "4f5737574fa74f4083f45741",
+        "deterministic": true,
+        "effect": "prove",
+        "goal": "coalition over alliance (clearing 2)",
+        "kind": "coalition_action",
+        "lineage_head_hash": "63949a4e3f88aae7959bd82f",
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "outcome": "coalitioned",
+        "package_hash": "0ecfb2b960830c4b",
+        "parent_coalition_digest": "e59efd1b05bff4c43a0ab081",
+        "parent_coalition_root": "34b0e17bcc0365b6aec321ea",
+        "position_ratio_bps": 1100,
+        "post_alliance": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false
+      }
+    ],
+    "entry_count": 2,
+    "kind": "coalition_log",
+    "schema_version": 1,
+    "tip_coalition_root": "4f5737574fa74f4083f45741",
+    "tip_height": 2,
+    "updated_at": "2026-07-31T04:43:27.873400Z"
+  },
+  "deterministic": true,
+  "epoch_count": 2,
+  "execution_certificate": {
+    "certificate_hash": "97e86c339f81098096db25c9",
+    "claims": {
+      "member_count": 3,
+      "plane": "execution",
+      "state_index": 2
+    },
+    "deterministic": true,
+    "epoch_hash": "e63c9ae5ffeb57737ff9e4fa",
+    "epoch_height": 2,
+    "finality_certificate_hash": "fce58f936ac665eb64662a8b",
+    "goal": "coalition over alliance (state 2)",
+    "issued_at": "2026-07-31T04:43:02.677296Z",
+    "kind": "execution_certificate",
+    "lineage_head_hash": "63949a4e3f88aae7959bd82f",
+    "member_count": 3,
+    "member_ids": [
+      "capability.ledger-inventory",
+      "repo.import-health",
+      "unbound.milestone-gate"
+    ],
+    "ok": true,
+    "package_hash": "0ecfb2b960830c4b",
+    "parent_state_root": "fd2c7109578e2ee2b32d9415",
+    "post_finality": true,
+    "schema_version": 1,
+    "state_height": 2,
+    "state_root": "7e8dbf2087b3f35164ae86e0",
+    "used_skill_route_discovery": false
+  },
+  "execution_hash": "44b60c189f21b1ca4ed24c68",
+  "exported_at": "2026-07-31T04:43:27.874206Z",
+  "goal": "coalition over alliance",
+  "kind": "coalition_bundle",
+  "lineage": {
+    "entries": [
+      {
+        "certificate_hash": "",
+        "certificate_path": "",
+        "claims": {
+          "origin_count": 3,
+          "origin_ids": [
+            "origin-a",
+            "origin-b",
+            "origin-byzantine"
+          ],
+          "threshold": 2
+        },
+        "detail": {
+          "origins": [
+            {
+              "bundle_hash": "f9015c9a0f3c60f8c88f37a5",
+              "byzantine": false,
+              "lineage_entry_count": 123,
+              "lineage_head_hash": "c0426b8f49a2398a4dfa5d4a",
+              "member_count": 3,
+              "origin_id": "origin-a",
+              "package_hash": "7878a785b9718369"
+            },
+            {
+              "bundle_hash": "60c1f924c551be829064eb5c",
+              "byzantine": false,
+              "lineage_entry_count": 2,
+              "lineage_head_hash": "f948d0c4b663c5a6de61925f",
+              "member_count": 2,
+              "origin_id": "origin-b",
+              "package_hash": "8ece9182045d973a"
+            },
+            {
+              "bundle_hash": "c0e7343b6a62ba933562f704",
+              "byzantine": true,
+              "lineage_entry_count": 2,
+              "lineage_head_hash": "08b0eed356054f5b17d24763",
+              "member_count": 3,
+              "origin_id": "origin-byzantine",
+              "package_hash": "7d88f7661e8407af"
+            }
+          ]
+        },
+        "entry_hash": "7bfcfe1a9a70cac0c2b2036f",
+        "entry_kind": "quorum_origin_manifest",
+        "goal": "coalition over alliance",
+        "index": 0,
+        "issued_at": "2026-07-31T04:43:01.527907Z",
+        "metrics": {
+          "count": null,
+          "primitive_count": null,
+          "proved_count": null,
+          "proved_ratio": null
+        },
+        "package_hash": "066545df3053adf5",
+        "parent_hash": ""
+      },
+      {
+        "certificate_hash": "",
+        "certificate_path": "",
+        "claims": {
+          "agreeing_count": 2,
+          "agreeing_origins": [
+            "origin-a",
+            "origin-b"
+          ],
+          "package_hash": "066545df3053adf5",
+          "threshold": 2
+        },
+        "detail": {
+          "origin_heads": [
+            "c0426b8f49a2398a4dfa5d4a",
+            "f948d0c4b663c5a6de61925f",
+            "08b0eed356054f5b17d24763"
+          ]
+        },
+        "entry_hash": "c4da61725b9529c17dc4f4fe",
+        "entry_kind": "quorum_vote",
+        "goal": "coalition over alliance",
+        "index": 1,
+        "issued_at": "2026-07-31T04:43:01.527932Z",
+        "metrics": {
+          "count": null,
+          "primitive_count": null,
+          "proved_count": null,
+          "proved_ratio": null
+        },
+        "package_hash": "066545df3053adf5",
+        "parent_hash": "7bfcfe1a9a70cac0c2b2036f"
+      },
+      {
+        "certificate_hash": "",
+        "certificate_path": "",
+        "claims": {
+          "byzantine_count": 1,
+          "byzantine_origins": [
+            "origin-byzantine"
+          ],
+          "excluded": true
+        },
+        "detail": {
+          "byzantine_origins": [
+            "origin-byzantine"
+          ]
+        },
+        "entry_hash": "3371b34a1473a218364c772b",
+        "entry_kind": "quorum_byzantine_exclude",
+        "goal": "coalition over alliance",
+        "index": 2,
+        "issued_at": "2026-07-31T04:43:01.527948Z",
+        "metrics": {
+          "count": null,
+          "primitive_count": null,
+          "proved_count": null,
+          "proved_ratio": null
+        },
+        "package_hash": "066545df3053adf5",
+        "parent_hash": "c4da61725b9529c17dc4f4fe"
+      },
+      {
+        "certificate_hash": "",
+        "certificate_path": "",
+        "claims": {
+          "origin_count": 3,
+          "package_hash": "066545df3053adf5",
+          "quorum": true,
+          "quorum_met": true
+        },
+        "detail": {
+          "agreeing_origins": [
+            "origin-a",
+            "origin-b"
+          ],
+          "byzantine_origins": [
+            "origin-byzantine"
+          ],
+          "origin_bundle_hashes": [
+            "f9015c9a0f3c60f8c88f37a5",
+            "60c1f924c551be829064eb5c",
+            "c0e7343b6a62ba933562f704"
+          ]
+        },
+        "entry_hash": "1205bb9dcd477fa777db965a",
+        "entry_kind": "quorum_seal",
+        "goal": "coalition over alliance",
+        "index": 3,
+        "issued_at": "2026-07-31T04:43:01.527962Z",
+        "metrics": {
+          "count": null,
+          "primitive_count": null,
+          "proved_count": null,
+          "proved_ratio": null
+        },
+        "package_hash": "066545df3053adf5",
+        "parent_hash": "3371b34a1473a218364c772b"
+      },
+      {
+        "certificate_hash": "",
+        "certificate_path": "",
+        "claims": {
+          "prior_lineage_head": "1205bb9dcd477fa777db965a",
+          "prior_package_hash": "066545df3053adf5",
+          "prior_quorum_hash": "59c20f777a28f36bb0dc411f",
+          "progress_tag": "epoch-progress-2"
+        },
+        "detail": {},
+        "entry_hash": "63949a4e3f88aae7959bd82f",
+        "entry_kind": "finality_epoch_progress",
+        "goal": "coalition over alliance (progress 2)",
+        "index": 4,
+        "issued_at": "2026-07-31T04:43:02.141218Z",
+        "metrics": {
+          "count": null,
+          "primitive_count": null,
+          "proved_count": null,
+          "proved_ratio": null
+        },
+        "package_hash": "",
+        "parent_hash": "1205bb9dcd477fa777db965a"
+      }
+    ],
+    "entry_count": 5,
+    "head_hash": "63949a4e3f88aae7959bd82f",
+    "kind": "capability_lineage",
+    "schema_version": 1,
+    "updated_at": "2026-07-31T04:43:02.141238Z"
+  },
+  "lineage_entry_count": 5,
+  "lineage_head_hash": "63949a4e3f88aae7959bd82f",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "origin_count": 3,
+  "package": {
+    "action": "export_capability_package",
+    "agreeing_origins": [
+      "origin-a",
+      "origin-b"
+    ],
+    "byzantine_origins": [
+      "origin-byzantine"
+    ],
+    "exported_at": "2026-07-31T04:43:01.527867Z",
+    "federated": true,
+    "member_count": 3,
+    "member_ids": [
+      "repo.import-health",
+      "capability.ledger-inventory",
+      "unbound.milestone-gate"
+    ],
+    "member_origins": {
+      "capability.ledger-inventory": [
+        "origin-a",
+        "origin-b"
+      ],
+      "repo.import-health": [
+        "origin-a",
+        "origin-b"
+      ],
+      "unbound.milestone-gate": [
+        "origin-a"
+      ]
+    },
+    "members": {
+      "capability.ledger-inventory": {
+        "behavior_paths": [
+          "src/blackhole_agent/capability_compounder.py",
+          "capabilities/ledger.json"
+        ],
+        "capability_delta": "Capability inventory is queryable as a first-class local capability.",
+        "created_at": "2026-07-28T07:28:53.146662Z",
+        "dependencies": [
+          "repo.import-health"
+        ],
+        "description": "Load and summarize the durable in-repo capability ledger.",
+        "entry": "blackhole_agent.capability_compounder:builtin_ledger_inventory",
+        "id": "capability.ledger-inventory",
+        "kind": "python",
+        "last_proof_exit_code": 0,
+        "last_proved_at": "2026-07-29T08:24:28.151271Z",
+        "name": "Capability ledger inventory",
+        "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_ledger_inventory; r=builtin_ledger_inventory(); assert r['ok'] and r['count'] >= 2\"",
+        "source_milestone": null,
+        "source_mission_id": "",
+        "tags": [
+          "bootstrap",
+          "compounder"
+        ],
+        "updated_at": "2026-07-31T04:43:01.440670Z"
+      },
+      "repo.import-health": {
+        "behavior_paths": [
+          "src/blackhole_agent/capability_compounder.py",
+          "src/blackhole_agent/unbound.py"
+        ],
+        "capability_delta": "Runtime can prove package import health independent of skill-route machinery.",
+        "created_at": "2026-07-28T07:28:53.146649Z",
+        "dependencies": [],
+        "description": "Import blackhole_agent, unbound, and the compounder without skill-route coupling.",
+        "entry": "blackhole_agent.capability_compounder:builtin_repo_import_health",
+        "id": "repo.import-health",
+        "kind": "python",
+        "last_proof_exit_code": 0,
+        "last_proved_at": "2026-07-30T10:40:37.565197Z",
+        "name": "Repository import health",
+        "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_repo_import_health; r=builtin_repo_import_health(); assert r['ok'] and not r['skill_route_symbols_in_compounder']\"",
+        "source_milestone": null,
+        "source_mission_id": "",
+        "tags": [
+          "bootstrap",
+          "health"
+        ],
+        "updated_at": "2026-07-31T04:43:01.440119Z"
+      },
+      "unbound.milestone-gate": {
+        "behavior_paths": [
+          "src/blackhole_agent/unbound.py"
+        ],
+        "capability_delta": "Milestone acceptance is enforceable as an invocable capability.",
+        "created_at": "2026-07-28T07:28:53.146657Z",
+        "dependencies": [
+          "repo.import-health"
+        ],
+        "description": "Verify behavior-path milestone gating accepts code and rejects docs/tests-only diffs.",
+        "entry": "blackhole_agent.capability_compounder:builtin_milestone_gate_smoke",
+        "id": "unbound.milestone-gate",
+        "kind": "python",
+        "last_proof_exit_code": 0,
+        "last_proved_at": "2026-07-29T08:24:28.407348Z",
+        "name": "Unbound milestone gate smoke",
+        "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_milestone_gate_smoke; r=builtin_milestone_gate_smoke(); assert r['ok']\"",
+        "source_milestone": null,
+        "source_mission_id": "",
+        "tags": [
+          "bootstrap",
+          "unbound"
+        ],
+        "updated_at": "2026-07-31T04:43:01.440379Z"
+      }
+    },
+    "ok": true,
+    "package_hash": "0ecfb2b960830c4b",
+    "progress_at": "2026-07-31T04:43:02.141241Z",
+    "progress_tag": "epoch-progress-2",
+    "quorum": true,
+    "quorum_threshold": 2,
+    "roots": [
+      "repo.import-health",
+      "capability.ledger-inventory",
+      "unbound.milestone-gate"
+    ],
+    "schema_version": 1,
+    "source_ledger_path": "quorum-merge",
+    "used_skill_route_discovery": false
+  },
+  "package_hash": "0ecfb2b960830c4b",
+  "post_alliance": true,
+  "schema_version": 1,
+  "settlement_certificate": {
+    "actuation_certificate_hash": "f3077dd283acfe09b1819350",
+    "actuation_hash": "7b4868ccd6ad27a586ed6af1",
+    "bound_action_height": 2,
+    "bound_action_root": "c537e7ddc303885b93f46f15",
+    "certificate_hash": "bbd1e03e60703fca0064dddc",
+    "claims": {
+      "capability_id": "repo.import-health",
+      "effect": "prove",
+      "outcome": "settled",
+      "plane": "settlement",
+      "settlement_index": 2
+    },
+    "deterministic": true,
+    "goal": "coalition over alliance (settlement 2)",
+    "issued_at": "2026-07-31T04:43:03.816102Z",
+    "kind": "settlement_certificate",
+    "lineage_head_hash": "63949a4e3f88aae7959bd82f",
+    "member_count": 3,
+    "member_ids": [
+      "capability.ledger-inventory",
+      "repo.import-health",
+      "unbound.milestone-gate"
+    ],
+    "ok": true,
+    "package_hash": "0ecfb2b960830c4b",
+    "parent_settlement_root": "379d84428cebad46a475c53c",
+    "post_actuation": true,
+    "schema_version": 1,
+    "settlement_count": 2,
+    "settlement_height": 2,
+    "settlement_root": "3b98f6304c410f7c6d2aa533",
+    "used_skill_route_discovery": false,
+    "valid": true
+  },
+  "settlement_count": 2,
+  "settlement_hash": "3b385f58f8debd82f22b56d5",
+  "settlements": {
+    "actuation_hash": "7b4868ccd6ad27a586ed6af1",
+    "bound_action_height": 2,
+    "bound_action_root": "c537e7ddc303885b93f46f15",
+    "entries": [
+      {
+        "actuation_certificate_hash": "f3077dd283acfe09b1819350",
+        "actuation_hash": "7b4868ccd6ad27a586ed6af1",
+        "applied_at": "2026-07-31T04:43:03.815973Z",
+        "bound_action_height": 1,
+        "bound_action_root": "1969c141be8080f993209263",
+        "capability_id": "capability.ledger-inventory",
+        "claims": {
+          "plane": "settlement",
+          "settlement_index": 1
+        },
+        "deterministic": true,
+        "effect": "prove",
+        "effect_digest": "bba7a3ddbea56dfcd8980460",
+        "entry": "blackhole_agent.capability_compounder:builtin_ledger_inventory",
+        "goal": "coalition over alliance (settlement 1)",
+        "kind": "settlement_receipt",
+        "lineage_head_hash": "63949a4e3f88aae7959bd82f",
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "outcome": "settled",
+        "package_hash": "0ecfb2b960830c4b",
+        "parent_settlement_root": "",
+        "post_actuation": true,
+        "receipt_digest": "7ca5732bd19123cf395aa30a",
+        "schema_version": 1,
+        "settlement_certificate": {
+          "actuation_certificate_hash": "f3077dd283acfe09b1819350",
+          "actuation_hash": "7b4868ccd6ad27a586ed6af1",
+          "bound_action_height": 1,
+          "bound_action_root": "1969c141be8080f993209263",
+          "certificate_hash": "9840ce8fac63a1828babad2b",
+          "claims": {
+            "capability_id": "capability.ledger-inventory",
+            "effect": "prove",
+            "outcome": "settled",
+            "plane": "settlement",
+            "settlement_index": 1
+          },
+          "deterministic": true,
+          "goal": "coalition over alliance (settlement 1)",
+          "issued_at": "2026-07-31T04:43:03.816000Z",
+          "kind": "settlement_certificate",
+          "lineage_head_hash": "63949a4e3f88aae7959bd82f",
+          "member_count": 3,
+          "member_ids": [
+            "capability.ledger-inventory",
+            "repo.import-health",
+            "unbound.milestone-gate"
+          ],
+          "ok": true,
+          "package_hash": "0ecfb2b960830c4b",
+          "parent_settlement_root": "",
+          "post_actuation": true,
+          "schema_version": 1,
+          "settlement_count": 1,
+          "settlement_height": 1,
+          "settlement_root": "379d84428cebad46a475c53c",
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "settlement_height": 1,
+        "settlement_root": "379d84428cebad46a475c53c",
+        "used_skill_route_discovery": false
+      },
+      {
+        "actuation_certificate_hash": "f3077dd283acfe09b1819350",
+        "actuation_hash": "7b4868ccd6ad27a586ed6af1",
+        "applied_at": "2026-07-31T04:43:03.816081Z",
+        "bound_action_height": 2,
+        "bound_action_root": "c537e7ddc303885b93f46f15",
+        "capability_id": "repo.import-health",
+        "claims": {
+          "plane": "settlement",
+          "settlement_index": 2
+        },
+        "deterministic": true,
+        "effect": "prove",
+        "effect_digest": "e074b251ee81e6964d24578a",
+        "entry": "blackhole_agent.capability_compounder:builtin_repo_import_health",
+        "goal": "coalition over alliance (settlement 2)",
+        "kind": "settlement_receipt",
+        "lineage_head_hash": "63949a4e3f88aae7959bd82f",
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "outcome": "settled",
+        "package_hash": "0ecfb2b960830c4b",
+        "parent_settlement_root": "379d84428cebad46a475c53c",
+        "post_actuation": true,
+        "receipt_digest": "4b1c0f921bf56ff9e5419231",
+        "schema_version": 1,
+        "settlement_certificate": {
+          "actuation_certificate_hash": "f3077dd283acfe09b1819350",
+          "actuation_hash": "7b4868ccd6ad27a586ed6af1",
+          "bound_action_height": 2,
+          "bound_action_root": "c537e7ddc303885b93f46f15",
+          "certificate_hash": "bbd1e03e60703fca0064dddc",
+          "claims": {
+            "capability_id": "repo.import-health",
+            "effect": "prove",
+            "outcome": "settled",
+            "plane": "settlement",
+            "settlement_index": 2
+          },
+          "deterministic": true,
+          "goal": "coalition over alliance (settlement 2)",
+          "issued_at": "2026-07-31T04:43:03.816102Z",
+          "kind": "settlement_certificate",
+          "lineage_head_hash": "63949a4e3f88aae7959bd82f",
+          "member_count": 3,
+          "member_ids": [
+            "capability.ledger-inventory",
+            "repo.import-health",
+            "unbound.milestone-gate"
+          ],
+          "ok": true,
+          "package_hash": "0ecfb2b960830c4b",
+          "parent_settlement_root": "379d84428cebad46a475c53c",
+          "post_actuation": true,
+          "schema_version": 1,
+          "settlement_count": 2,
+          "settlement_height": 2,
+          "settlement_root": "3b98f6304c410f7c6d2aa533",
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "settlement_height": 2,
+        "settlement_root": "3b98f6304c410f7c6d2aa533",
+        "used_skill_route_discovery": false
+      }
+    ],
+    "entry_count": 2,
+    "kind": "settlement_log",
+    "schema_version": 1,
+    "tip_height": 2,
+    "tip_settlement_root": "3b98f6304c410f7c6d2aa533",
+    "updated_at": "2026-07-31T04:43:03.816123Z"
+  },
+  "state_count": 2,
+  "tip_action_root": "9894359bcaf7d74c0d4e1233",
+  "tip_alliance_root": "2413874c47672168213e435e",
+  "tip_coalition_root": "4f5737574fa74f4083f45741",
+  "tip_height": 2,
+  "tip_settlement_root": "3b98f6304c410f7c6d2aa533",
+  "used_skill_route_discovery": false
+}

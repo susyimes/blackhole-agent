@@ -1,0 +1,37 @@
+{
+  "bound_standing_height": 2,
+  "bound_standing_root": "8ad37fd1f4e18256f082494e",
+  "certificate_hash": "b433198df09f7a75cc56b2d3",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "privileged",
+    "plane": "privilege"
+  },
+  "deterministic": true,
+  "goal": "coalition over alliance (clearing 2)",
+  "issued_at": "2026-07-31T04:45:06.741477Z",
+  "kind": "privilege_certificate",
+  "lineage_head_hash": "ae73b9d7d3c741456f4096cd",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "38c3c658e412855b",
+  "parent_privilege_root": "13bda6f0165747f873444bae",
+  "post_standing": true,
+  "privilege_count": 2,
+  "privilege_height": 2,
+  "privilege_plan_digest": "868210ed839666fbe3b67975",
+  "privilege_root": "2720cf3f5f171eed9cdf7fc7",
+  "schema_version": 1,
+  "standing_certificate_hash": "537e1e92461b4fcf38090c4e",
+  "standing_hash": "5f04188949b03cd723613726",
+  "standing_plan_digest": "d39b829a0c3e4eb71a1960d0",
+  "used_skill_route_discovery": false,
+  "valid": true
+}

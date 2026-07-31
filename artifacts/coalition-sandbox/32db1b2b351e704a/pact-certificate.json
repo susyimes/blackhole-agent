@@ -1,0 +1,37 @@
+{
+  "alliance_count": 2,
+  "alliance_height": 2,
+  "alliance_plan_digest": "b31eb18525ea07c06c6a6473",
+  "alliance_root": "98c1c62ab21abc53e849f252",
+  "bound_pact_height": 2,
+  "bound_pact_root": "59d8c5b47f906f7ef55e7193",
+  "certificate_hash": "d566f8fa051e17aab9f1be2b",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "allied",
+    "plane": "alliance"
+  },
+  "deterministic": true,
+  "goal": "coalition over alliance (clearing 2)",
+  "issued_at": "2026-07-31T04:46:04.834904Z",
+  "kind": "alliance_certificate",
+  "lineage_head_hash": "dd37d5823b95f9d4c76d4ff5",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "3d6fa0f767f3a5ad",
+  "pact_certificate_hash": "15244201d48a056e1e8f6f49",
+  "pact_hash": "c3754f380da459ad3bebf9ab",
+  "pact_plan_digest": "7ed1c14ad3ed9a3246963f08",
+  "parent_alliance_root": "0309889b33813ed819cc23b0",
+  "post_pact": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

@@ -1,0 +1,30 @@
+{
+  "certificate_hash": "8a882c766805bcf8df5aa595",
+  "claims": {
+    "member_count": 3,
+    "plane": "execution",
+    "state_index": 2
+  },
+  "deterministic": true,
+  "epoch_hash": "b43280da6a9be90b3f1ec176",
+  "epoch_height": 2,
+  "finality_certificate_hash": "e2b397140e48dd067ea6c78d",
+  "goal": "coalition over alliance (state 2)",
+  "issued_at": "2026-07-31T04:45:41.352644Z",
+  "kind": "execution_certificate",
+  "lineage_head_hash": "dd37d5823b95f9d4c76d4ff5",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "3d6fa0f767f3a5ad",
+  "parent_state_root": "54468621be013970b13c564b",
+  "post_finality": true,
+  "schema_version": 1,
+  "state_height": 2,
+  "state_root": "e86867524188583e436d9dc1",
+  "used_skill_route_discovery": false
+}

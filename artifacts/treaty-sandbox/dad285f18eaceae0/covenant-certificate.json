@@ -1,0 +1,37 @@
+{
+  "bound_constitution_height": 2,
+  "bound_constitution_root": "2c635c92241226e9bc6d60d1",
+  "certificate_hash": "668360256a032641e718f540",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "covenanted",
+    "plane": "covenant"
+  },
+  "constitution_certificate_hash": "ca38518c6316371e1c655b43",
+  "constitution_hash": "09a3d8d4876a7b03739cc840",
+  "constitution_plan_digest": "40cdc44c55dc1d05b6c382df",
+  "covenant_count": 2,
+  "covenant_height": 2,
+  "covenant_plan_digest": "7a3ff9e2e2f83fa3bf363bec",
+  "covenant_root": "0a308db744f74965df6df01d",
+  "deterministic": true,
+  "goal": "coalition over alliance (clearing 2)",
+  "issued_at": "2026-07-31T04:46:02.937923Z",
+  "kind": "covenant_certificate",
+  "lineage_head_hash": "dd37d5823b95f9d4c76d4ff5",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "3d6fa0f767f3a5ad",
+  "parent_covenant_root": "408d3912df96343416f285ca",
+  "post_constitution": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}
