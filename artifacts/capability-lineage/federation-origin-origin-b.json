@@ -14,15 +14,15 @@
         "origin_id": "origin-b",
         "plane": "federation"
       },
-      "entry_hash": "4e7ae26ff40f3736b221977c",
+      "entry_hash": "0c61e9e2d9d23159d6d5ebfb",
       "entry_kind": "federation_origin_seed",
-      "goal": "covenant over constitution (honest origin-b)",
+      "goal": "treaty over covenant (honest origin-b)",
       "index": 0,
-      "issued_at": "2026-07-31T02:08:28.128333Z",
+      "issued_at": "2026-07-31T02:48:32.541592Z",
       "metrics": {
-        "count": 120,
-        "primitive_count": 71,
-        "proved_count": 119,
+        "count": 121,
+        "primitive_count": 72,
+        "proved_count": 120,
         "proved_ratio": null
       },
       "package_hash": "8ece9182045d973a",
@@ -42,11 +42,11 @@
         ],
         "origin_id": "origin-b"
       },
-      "entry_hash": "9c24784e4e8685ad37ce3c0f",
+      "entry_hash": "63f56071e9cbadda0ef0fc8c",
       "entry_kind": "federation_origin_seal",
-      "goal": "covenant over constitution (honest origin-b)",
+      "goal": "treaty over covenant (honest origin-b)",
       "index": 1,
-      "issued_at": "2026-07-31T02:08:28.128370Z",
+      "issued_at": "2026-07-31T02:48:32.541624Z",
       "metrics": {
         "count": 2,
         "primitive_count": null,
@@ -54,13 +54,13 @@
         "proved_ratio": null
       },
       "package_hash": "8ece9182045d973a",
-      "parent_hash": "4e7ae26ff40f3736b221977c"
+      "parent_hash": "0c61e9e2d9d23159d6d5ebfb"
     }
   ],
   "entry_count": 2,
-  "head_hash": "9c24784e4e8685ad37ce3c0f",
+  "head_hash": "63f56071e9cbadda0ef0fc8c",
   "kind": "capability_lineage",
   "ok": true,
   "schema_version": 1,
-  "updated_at": "2026-07-31T02:08:28.128842Z"
+  "updated_at": "2026-07-31T02:48:32.541871Z"
 }

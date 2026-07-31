@@ -1,0 +1,29 @@
+{
+  "agreeing_count": 2,
+  "byzantine_count": 1,
+  "certificate_hash": "2d1a4eec8e8e2134c55e6997",
+  "claims": {
+    "epoch_index": 2,
+    "member_count": 3,
+    "plane": "finality",
+    "roots": [
+      "repo.import-health",
+      "capability.ledger-inventory",
+      "unbound.milestone-gate"
+    ]
+  },
+  "epoch_hash": "848cf98509e2e2d9670d8a14",
+  "epoch_height": 2,
+  "goal": "treaty over covenant (epoch 2)",
+  "irreversible": true,
+  "issued_at": "2026-07-31T02:47:35.943933Z",
+  "kind": "finality_certificate",
+  "lineage_head_hash": "b9937c0785a4afed864081da",
+  "ok": true,
+  "origin_count": 3,
+  "package_hash": "4470df6ca2918522",
+  "parent_epoch_hash": "046b565c0f4ebf07be7345d8",
+  "quorum_hash": "39bea93bf387fd950262488b",
+  "schema_version": 1,
+  "used_skill_route_discovery": false
+}

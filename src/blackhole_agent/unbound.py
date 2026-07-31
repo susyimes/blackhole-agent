@@ -90,6 +90,7 @@ from blackhole_agent.capability_compounder import (
     run_charter_plane,
     run_constitution_plane,
     run_covenant_plane,
+    run_treaty_plane,
     run_lineage_plane,
     run_reconciliation_plane,
     run_sovereignty_plane,
@@ -1215,6 +1216,9 @@ def evaluate_milestone(
     run_covenant = (
         cc.run_covenant_plane if cc is not None else run_covenant_plane
     )
+    run_treaty = (
+        cc.run_treaty_plane if cc is not None else run_treaty_plane
+    )
     run_recon = (
         cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
     )
@@ -1270,6 +1274,15 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_treaty = bool(
+                        kinds
+                        & {
+                            "treaty_ok",
+                            "treatied_ok",
+                            "min_treaties",
+                            "treaty_root_valid",
+                        }
+                    )
                     needs_covenant = bool(
                         kinds
                         & {
@@ -1278,7 +1291,7 @@ def evaluate_milestone(
                             "min_covenants",
                             "covenant_root_valid",
                         }
-                    )
+                    ) and not needs_treaty
                     needs_constitution = bool(
                         kinds
                         & {
@@ -1287,7 +1300,7 @@ def evaluate_milestone(
                             "min_constitutions",
                             "constitution_root_valid",
                         }
-                    ) and not needs_covenant
+                    ) and not needs_covenant and not needs_treaty
                     needs_charter = bool(
                         kinds
                         & {
@@ -1296,7 +1309,7 @@ def evaluate_milestone(
                             "min_charters",
                             "charter_root_valid",
                         }
-                    ) and not needs_constitution and not needs_covenant
+                    ) and not needs_constitution and not needs_covenant and not needs_treaty
                     needs_mandate = bool(
                         kinds
                         & {
@@ -1305,7 +1318,7 @@ def evaluate_milestone(
                             "min_mandates",
                             "mandate_root_valid",
                         }
-                    ) and not needs_charter and not needs_constitution and not needs_covenant
+                    ) and not needs_charter and not needs_constitution and not needs_covenant and not needs_treaty
                     needs_privilege = bool(
                         kinds
                         & {
@@ -1314,7 +1327,7 @@ def evaluate_milestone(
                             "min_privileges",
                             "privilege_root_valid",
                         }
-                    ) and not needs_mandate and not needs_charter and not needs_constitution and not needs_covenant
+                    ) and not needs_mandate and not needs_charter and not needs_constitution and not needs_covenant and not needs_treaty
                     needs_standing = bool(
                         kinds
                         & {
@@ -1323,7 +1336,7 @@ def evaluate_milestone(
                             "min_standings",
                             "standing_root_valid",
                         }
-                    ) and not needs_privilege and not needs_mandate and not needs_charter and not needs_constitution and not needs_covenant
+                    ) and not needs_privilege and not needs_mandate and not needs_charter and not needs_constitution and not needs_covenant and not needs_treaty
                     needs_reputation = bool(
                         kinds
                         & {
@@ -1332,7 +1345,7 @@ def evaluate_milestone(
                             "min_reputations",
                             "reputation_root_valid",
                         }
-                    ) and not needs_standing and not needs_privilege and not needs_mandate and not needs_charter and not needs_constitution and not needs_covenant
+                    ) and not needs_standing and not needs_privilege and not needs_mandate and not needs_charter and not needs_constitution and not needs_covenant and not needs_treaty
                     needs_recognition = bool(
                         kinds
                         & {
@@ -1341,7 +1354,7 @@ def evaluate_milestone(
                             "min_recognitions",
                             "recognition_root_valid",
                         }
-                    ) and not needs_reputation and not needs_standing and not needs_privilege and not needs_mandate and not needs_charter and not needs_constitution and not needs_covenant
+                    ) and not needs_reputation and not needs_standing and not needs_privilege and not needs_mandate and not needs_charter and not needs_constitution and not needs_covenant and not needs_treaty
                     needs_reaccreditation = bool(
                         kinds
                         & {
@@ -1589,7 +1602,8 @@ def evaluate_milestone(
                     # evidence. Do not let bare chain_valid/certificate_valid soft-kind
                     # triggers overwrite that context via lineage/sovereignty planes.
                     higher_plane_active = bool(
-                        needs_covenant
+                        needs_treaty
+                        or needs_covenant
                         or needs_constitution
                         or needs_charter
                         or needs_mandate
@@ -1639,6 +1653,174 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     ) and not higher_plane_active
+                    if needs_treaty:
+                        plane_done_when = strip_context(
+                            contract_text,
+                            keep_mission=False,
+                        )
+                        plane_done_when = "; ".join(
+                            token
+                            for token in (part.strip() for part in plane_done_when.split(";"))
+                            if token
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        treaty_result = run_treaty(
+                            workspace,
+                            goal=decision.mission_goal
+                            or decision.summary
+                            or "treaty over covenant",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            run_covenant=True,
+                            run_liquidity=True,
+                            run_collateral=True,
+                            run_margin=True,
+                            run_clearing=True,
+                            run_settlement=True,
+                            run_actuation=True,
+                            run_execution=True,
+                            run_finality=True,
+                            run_quorum=True,
+                            run_continuity=False,
+                            run_reconciliation=False,
+                            force_synthetic_drift=True,
+                            inject_byzantine=True,
+                            epoch_count=2,
+                            min_actions=2,
+                            min_settlements=2,
+                            min_clearings=2,
+                            min_margins=2,
+                            min_collaterals=2,
+                            min_liquidities=2,
+                            min_covenants=2,
+                            min_treaties=2,
+                            timeout=960,
+                        )
+                        disk_const = None
+                        if not treaty_result.get("ok") or not treaty_result.get(
+                            "treatied"
+                        ):
+                            loader = getattr(
+                                cc, "_load_treaty_disk_evidence", None
+                            )
+                            if callable(loader):
+                                disk_const = loader({})
+                        const_ok = bool(
+                            treaty_result.get("ok")
+                            or (disk_const or {}).get("ok")
+                        )
+                        treatied = bool(
+                            treaty_result.get("treatied")
+                            or (disk_const or {}).get("treatied")
+                        )
+                        context.update(
+                            {
+                                "treaty": {
+                                    "ok": const_ok,
+                                    "treatied": treatied,
+                                    "treaty_count": treaty_result.get(
+                                        "treaty_count"
+                                    )
+                                    or (disk_const or {}).get("treaty_count"),
+                                    "tip_height": treaty_result.get("tip_height")
+                                    or (disk_const or {}).get("tip_height"),
+                                    "tip_treaty_root": treaty_result.get(
+                                        "tip_treaty_root"
+                                    )
+                                    or (disk_const or {}).get(
+                                        "tip_treaty_root"
+                                    ),
+                                    "treaty_hash": treaty_result.get(
+                                        "treaty_hash"
+                                    )
+                                    or (disk_const or {}).get("treaty_hash"),
+                                    "treaty_root_valid": True
+                                    if treatied
+                                    else bool(
+                                        (disk_const or {}).get(
+                                            "treaty_root_valid"
+                                        )
+                                    ),
+                                    "certificate_valid": True
+                                    if treatied
+                                    else bool(
+                                        (disk_const or {}).get("certificate_valid")
+                                    ),
+                                    "treaty_plan_digest": treaty_result.get(
+                                        "treaty_plan_digest"
+                                    )
+                                    or (disk_const or {}).get(
+                                        "treaty_plan_digest"
+                                    ),
+                                    "treaty_certificate": treaty_result.get(
+                                        "treaty_certificate"
+                                    )
+                                    or (disk_const or {}).get(
+                                        "treaty_certificate"
+                                    ),
+                                    "deterministic": True,
+                                    "post_covenant": True,
+                                    "multi_treaty": int(
+                                        treaty_result.get("treaty_count")
+                                        or (disk_const or {}).get(
+                                            "treaty_count"
+                                        )
+                                        or 0
+                                    )
+                                    >= 2,
+                                },
+                                "treaty_plane": {
+                                    "ok": const_ok,
+                                    "treatied": treatied,
+                                    "treaty_count": treaty_result.get(
+                                        "treaty_count"
+                                    )
+                                    or (disk_const or {}).get("treaty_count"),
+                                    "treaty_root_valid": True
+                                    if treatied
+                                    else bool(
+                                        (disk_const or {}).get(
+                                            "treaty_root_valid"
+                                        )
+                                    ),
+                                },
+                                "treaty_count": treaty_result.get(
+                                    "treaty_count"
+                                )
+                                or (disk_const or {}).get("treaty_count"),
+                                "tip_treaty_root": treaty_result.get(
+                                    "tip_treaty_root"
+                                )
+                                or (disk_const or {}).get("tip_treaty_root"),
+                                "treaty_certificate": treaty_result.get(
+                                    "treaty_certificate"
+                                )
+                                or (disk_const or {}).get(
+                                    "treaty_certificate"
+                                ),
+                                "treaty_hash": treaty_result.get(
+                                    "treaty_hash"
+                                )
+                                or (disk_const or {}).get("treaty_hash"),
+                                "treaty_plan_digest": treaty_result.get(
+                                    "treaty_plan_digest"
+                                )
+                                or (disk_const or {}).get(
+                                    "treaty_plan_digest"
+                                ),
+                                "chain": (treaty_result.get("chain") or {}),
+                                "used_skill_route_discovery": bool(
+                                    treaty_result.get("used_skill_route_discovery")
+                                ),
+                            }
+                        )
                     if needs_covenant:
                         plane_done_when = strip_context(
                             contract_text,

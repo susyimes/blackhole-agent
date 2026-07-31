@@ -1,0 +1,30 @@
+{
+  "certificate_hash": "a9665966ba7588b57a835a32",
+  "claims": {
+    "member_count": 3,
+    "plane": "execution",
+    "state_index": 2
+  },
+  "deterministic": true,
+  "epoch_hash": "848cf98509e2e2d9670d8a14",
+  "epoch_height": 2,
+  "finality_certificate_hash": "2d1a4eec8e8e2134c55e6997",
+  "goal": "treaty over covenant (state 2)",
+  "issued_at": "2026-07-31T02:47:36.908024Z",
+  "kind": "execution_certificate",
+  "lineage_head_hash": "b9937c0785a4afed864081da",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "4470df6ca2918522",
+  "parent_state_root": "9c6bb6a37e54afaec7c061cc",
+  "post_finality": true,
+  "schema_version": 1,
+  "state_height": 2,
+  "state_root": "ceb3333dbfca807f1ad4e2d5",
+  "used_skill_route_discovery": false
+}

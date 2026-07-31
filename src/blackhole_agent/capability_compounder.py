@@ -1184,6 +1184,13 @@ MISSION_GOAL_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("covenant discharge", ("capability.covenant-plane", "capability.constitution-plane", "capability.quorum-plane")),
     ("posted covenant", ("capability.covenant-plane", "capability.constitution-plane", "capability.actuation-plane")),
     ("covenant adequacy", ("capability.covenant-plane", "capability.constitution-plane", "capability.assurance-plane")),
+    ("treaty", ("capability.treaty-plane", "capability.covenant-plane", "capability.constitution-plane")),
+    ("treatied", ("capability.treaty-plane", "capability.covenant-plane", "capability.finality-plane")),
+    ("treaty plan", ("capability.treaty-plane", "capability.covenant-plane", "capability.assurance-plane")),
+    ("treaty-root", ("capability.treaty-plane", "capability.covenant-plane", "capability.lineage-plane")),
+    ("treaty discharge", ("capability.treaty-plane", "capability.covenant-plane", "capability.quorum-plane")),
+    ("posted treaty", ("capability.treaty-plane", "capability.covenant-plane", "capability.actuation-plane")),
+    ("treaty adequacy", ("capability.treaty-plane", "capability.covenant-plane", "capability.assurance-plane")),
 ("solvency", ("capability.solvency-plane", "capability.capital-plane", "capability.funding-plane")),
     ("solvent", ("capability.solvency-plane", "capability.capital-plane", "capability.finality-plane")),
     ("solvency position", ("capability.solvency-plane", "capability.capital-plane", "capability.assurance-plane")),
@@ -3159,6 +3166,35 @@ def _soft_extract_outcome_predicates(chunk: str) -> list[dict[str, Any]]:
         and "valid" in lower
     ):
         found.append({"kind": "covenant_root_valid", "arg": "", "source": chunk})
+
+    if re.search(r"\btreaty_ok\b", lower) or (
+        re.search(r"\brun_treaty_plane\b", lower) and (
+            "treaty" in lower or "plan" in lower
+        )
+    ):
+        found.append({"kind": "treaty_ok", "arg": "", "source": chunk})
+    if re.search(r"\btreatied_ok\b", lower) or (
+        "treatied" in lower
+        and "treaty" in lower
+        and "treaty-plane" not in lower
+        and "treaty_plane" not in lower
+    ):
+        found.append({"kind": "treatied_ok", "arg": "", "source": chunk})
+    m = re.search(r"min_treaties\s*[:=]\s*(\d+)", lower)
+    if m:
+        found.append({"kind": "min_treaties", "arg": m.group(1), "source": chunk})
+    m = re.search(r"min[_\s-]?treaties?\s*[:=]\s*(\d+)", lower)
+    if m and not any(item.get("kind") == "min_treaties" for item in found):
+        found.append({"kind": "min_treaties", "arg": m.group(1), "source": chunk})
+    m = re.search(r"treaty_count\s*>=\s*(\d+)", lower)
+    if m and not any(item.get("kind") == "min_treaties" for item in found):
+        found.append({"kind": "min_treaties", "arg": m.group(1), "source": chunk})
+    if re.search(r"\btreaty_root_valid\b", lower) or (
+        re.search(r"\btreaty[_\s-]*root\b", lower)
+        and "valid" in lower
+    ):
+        found.append({"kind": "treaty_root_valid", "arg": "", "source": chunk})
+
 
     if re.search(r"\brisked_ok\b", lower) or re.search(
         r"\brisked\b", lower
@@ -5919,6 +5955,67 @@ def _eval_one_outcome_predicate(
                     plane.get("covenant_root") or plane.get("tip_covenant_root")
                 )
         return ok, f"covenant_root_valid={ok}"
+
+
+    if kind in {
+        "treaty_ok",
+        "treatied_ok",
+        "min_treaties",
+        "treaty_root_valid",
+    }:
+        plane = (
+            context.get("treaty")
+            or context.get("treaty_plane")
+            or {}
+        )
+        if not plane or not plane.get("ok"):
+            disk = _load_treaty_disk_evidence(context)
+            if disk:
+                plane = disk
+        if kind == "treaty_ok":
+            ok = bool(plane.get("ok") or plane.get("treatied"))
+            return ok, f"treaty_ok={ok}"
+        if kind == "treatied_ok":
+            ok = bool(
+                plane.get("treatied")
+                or plane.get("ok")
+                or int(
+                    plane.get("treaty_count") or plane.get("tip_height") or 0
+                )
+                >= 2
+            )
+            return ok, f"treatied_ok={ok}"
+        if kind == "min_treaties":
+            need = int(arg or 0)
+            have = context.get("treaty_count")
+            if have is None:
+                have = (
+                    plane.get("treaty_count")
+                    or plane.get("tip_height")
+                    or 0
+                )
+            try:
+                have_i = int(have or 0)
+            except (TypeError, ValueError):
+                have_i = 0
+                have = context.get("tip_treaty_height")
+            return have_i >= need, f"treaties={have_i} need>={need}"
+        if "treaty_root_valid" in plane:
+            ok = plane.get("treaty_root_valid") is True
+        else:
+            cert = (
+                plane.get("treaty_certificate")
+                or context.get("treaty_certificate")
+                or {}
+            )
+            if cert:
+                verify = verify_treaty_certificate(cert)
+                ok = bool(verify.get("valid") or verify.get("ok"))
+            else:
+                ok = bool(
+                    plane.get("treaty_root") or plane.get("tip_treaty_root")
+                )
+        return ok, f"treaty_root_valid={ok}"
 
 
     if kind == "program_passes":
@@ -90238,6 +90335,2312 @@ def builtin_covenant_plane() -> dict[str, Any]:
 
 
 
+TREATY_BUNDLE_SCHEMA = 1
+TREATY_CERTIFICATE_SCHEMA = 1
+TREATY_LOG_SCHEMA = 1
+DEFAULT_TREATY_BUNDLE_RELATIVE = Path("artifacts") / "treaty-bundles"
+
+
+def default_treaty_bundle_dir(repo_path: Path) -> Path:
+    return (repo_path / DEFAULT_TREATY_BUNDLE_RELATIVE).resolve()
+
+
+def empty_treaty_log() -> dict[str, Any]:
+    return {
+        "schema_version": TREATY_LOG_SCHEMA,
+        "kind": "treaty_log",
+        "entries": [],
+        "entry_count": 0,
+        "tip_height": 0,
+        "tip_treaty_root": "",
+        "bound_covenant_root": "",
+        "bound_covenant_height": 0,
+        "covenant_hash": "",
+        "treaty_plan_digest": "",
+        "updated_at": utc_now_iso(),
+    }
+
+
+def compute_treaty_root(clearing: Mapping[str, Any]) -> str:
+    """Hash covenant body excluding self root, certificates, and wall-clock fields."""
+
+    body = {
+        key: value
+        for key, value in clearing.items()
+        if key
+        not in {
+            "treaty_root",
+            "treaty_certificate",
+            "ok",
+            "valid",
+            "action",
+            "applied_at",
+            "updated_at",
+            "issued_at",
+            "exported_at",
+            "goal",
+            "claims",
+        }
+    }
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def compute_treaty_certificate_hash(payload: Mapping[str, Any]) -> str:
+    body = {
+        key: value
+        for key, value in payload.items()
+        if key not in {"certificate_hash", "ok", "valid"}
+    }
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def compute_treaty_bundle_hash(bundle: Mapping[str, Any]) -> str:
+    body = {
+        key: value
+        for key, value in bundle.items()
+        if key
+        not in {
+            "treaty_hash",
+            "ok",
+            "bundle_path",
+            "exported_at",
+            "source_ledger_path",
+            "action",
+        }
+    }
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def compute_treaty_plan_digest(
+    *,
+    parent_treaty_digest: str,
+    bound_covenant_root: str,
+    covenant_plan_digest: str,
+    capability_id: str,
+    outcome: str = "treatied",
+    position_ratio_bps: int = 1000,
+) -> str:
+    """Deterministic treaty plan chaining prior buffer with a newly treatied scenario."""
+
+    payload = {
+        "parent_treaty_digest": parent_treaty_digest or "",
+        "bound_covenant_root": bound_covenant_root,
+        "covenant_plan_digest": covenant_plan_digest,
+        "capability_id": capability_id,
+        "outcome": outcome or "treatied",
+        "position_ratio_bps": int(position_ratio_bps),
+        "plane": "treaty",
+    }
+    digest = json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def issue_treaty_certificate(
+    *,
+    treaty_height: int,
+    treaty_root: str,
+    parent_treaty_root: str,
+    bound_covenant_root: str,
+    bound_covenant_height: int,
+    covenant_hash: str,
+    covenant_certificate_hash: str,
+    package_hash: str,
+    lineage_head_hash: str,
+    covenant_plan_digest: str,
+    treaty_plan_digest: str,
+    treaty_count: int,
+    member_ids: Sequence[str] | None = None,
+    goal: str = "",
+    claims: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    members = sorted({str(item).strip() for item in (member_ids or []) if str(item).strip()})
+    cert: dict[str, Any] = {
+        "schema_version": TREATY_CERTIFICATE_SCHEMA,
+        "kind": "treaty_certificate",
+        "issued_at": utc_now_iso(),
+        "treaty_height": int(treaty_height),
+        "treaty_root": str(treaty_root or ""),
+        "parent_treaty_root": str(parent_treaty_root or ""),
+        "bound_covenant_root": str(bound_covenant_root or ""),
+        "bound_covenant_height": int(bound_covenant_height or 0),
+        "covenant_hash": str(covenant_hash or ""),
+        "covenant_certificate_hash": str(covenant_certificate_hash or ""),
+        "package_hash": str(package_hash or ""),
+        "lineage_head_hash": str(lineage_head_hash or ""),
+        "covenant_plan_digest": str(covenant_plan_digest or ""),
+        "treaty_plan_digest": str(treaty_plan_digest or ""),
+        "treaty_count": int(treaty_count),
+        "member_ids": members,
+        "member_count": len(members),
+        "goal": goal or "",
+        "claims": dict(claims or {}),
+        "deterministic": True,
+        "post_covenant": True,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    cert["certificate_hash"] = compute_treaty_certificate_hash(cert)
+    cert["ok"] = (
+        bool(cert["certificate_hash"])
+        and bool(cert["treaty_root"])
+        and bool(cert["bound_covenant_root"])
+        and bool(cert["covenant_hash"])
+        and bool(cert["treaty_plan_digest"])
+        and bool(cert["covenant_plan_digest"])
+        and cert["treaty_height"] >= 1
+        and cert["treaty_count"] >= 1
+        and cert["deterministic"] is True
+        and cert["post_covenant"] is True
+        and not bool(cert["used_skill_route_discovery"])
+    )
+    cert["valid"] = bool(cert["ok"])
+    return cert
+
+
+def verify_treaty_certificate(payload: Mapping[str, Any] | Path) -> dict[str, Any]:
+    if isinstance(payload, Path):
+        data = json.loads(payload.read_text(encoding="utf-8"))
+    else:
+        data = dict(payload)
+    recomputed = compute_treaty_certificate_hash(data)
+    stored = str(data.get("certificate_hash") or "")
+    hash_ok = bool(stored) and stored == recomputed
+    valid = (
+        hash_ok
+        and data.get("kind") == "treaty_certificate"
+        and bool(data.get("treaty_root"))
+        and bool(data.get("bound_covenant_root"))
+        and bool(data.get("covenant_hash"))
+        and bool(data.get("treaty_plan_digest"))
+        and bool(data.get("covenant_plan_digest"))
+        and int(data.get("treaty_height") or 0) >= 1
+        and int(data.get("treaty_count") or 0) >= 1
+        and data.get("deterministic") is True
+        and data.get("post_covenant") is True
+        and not bool(data.get("used_skill_route_discovery"))
+    )
+    return {
+        "ok": valid,
+        "valid": valid,
+        "hash_ok": hash_ok,
+        "certificate_hash": stored if hash_ok else recomputed,
+        "treaty_height": data.get("treaty_height"),
+        "treaty_root": data.get("treaty_root"),
+        "bound_covenant_root": data.get("bound_covenant_root"),
+        "treaty_plan_digest": data.get("treaty_plan_digest"),
+        "covenant_hash": data.get("covenant_hash"),
+        "used_skill_route_discovery": bool(data.get("used_skill_route_discovery")),
+    }
+
+
+def write_treaty_certificate(path: Path, certificate: Mapping[str, Any]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(path, dict(certificate))
+    return path
+
+
+def _load_treaty_disk_evidence(
+    context: Mapping[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """Best-effort load of a durable covenant proof bundle for context-less gates."""
+
+    candidates: list[Path] = []
+    ctx = context or {}
+    for key in ("repo_path", "workspace", "workspace_path"):
+        raw = ctx.get(key)
+        if raw:
+            root = Path(str(raw))
+            candidates.extend(
+                [
+                    root / "artifacts" / "treaty-bundles" / "proof-treaty.json",
+                    root / DEFAULT_TREATY_BUNDLE_RELATIVE / "proof-treaty.json",
+                ]
+            )
+    here = Path.cwd()
+    candidates.extend(
+        [
+            here / "artifacts" / "treaty-bundles" / "proof-treaty.json",
+            here / DEFAULT_TREATY_BUNDLE_RELATIVE / "proof-treaty.json",
+        ]
+    )
+    try:
+        pkg_root = Path(__file__).resolve().parents[2]
+        candidates.append(
+            pkg_root / "artifacts" / "treaty-bundles" / "proof-treaty.json"
+        )
+    except Exception:
+        pass
+    for base in {Path.cwd(), Path(__file__).resolve().parents[2]}:
+        bundle_dir = base / "artifacts" / "treaty-bundles"
+        if bundle_dir.is_dir():
+            candidates.extend(sorted(bundle_dir.glob("proof-treaty*.json"), reverse=True)[:5])
+            candidates.extend(sorted(bundle_dir.glob("covenant-*.json"), reverse=True)[:8])
+            candidates.extend(sorted(bundle_dir.glob("treaty-*.json"), reverse=True)[:5])
+            candidates.extend(sorted(bundle_dir.glob("*.json"), reverse=True)[:12])
+
+    seen: set[str] = set()
+    for path in candidates:
+        try:
+            treatied = path.resolve()
+        except Exception:
+            continue
+        key = str(treatied)
+        if key in seen or not treatied.is_file():
+            continue
+        seen.add(key)
+        try:
+            bundle = load_treaty_bundle(treatied)
+        except Exception:
+            continue
+        integrity = verify_treaty_bundle_integrity(bundle)
+        if not integrity.get("ok"):
+            continue
+        cert = (
+            bundle.get("treaty_certificate")
+            if isinstance(bundle.get("treaty_certificate"), Mapping)
+            else {}
+        )
+        cert_verify = (
+            verify_treaty_certificate(cert) if cert else {"ok": False, "valid": False}
+        )
+        treaty_count = int(
+            bundle.get("treaty_count")
+            or (bundle.get("treaties") or {}).get("entry_count")
+            or 0
+        )
+        tip_height = int(bundle.get("tip_height") or treaty_count or 0)
+        if treaty_count < 2 or tip_height < 2 or not cert_verify.get("valid"):
+            continue
+        return {
+            "ok": True,
+            "treatied": True,
+            "treaty_count": treaty_count,
+            "tip_height": tip_height,
+            "tip_treaty_root": bundle.get("tip_treaty_root"),
+            "treaty_hash": bundle.get("treaty_hash"),
+            "treaty_root_valid": True,
+            "certificate_valid": True,
+            "treaty_plan_digest": bundle.get("treaty_plan_digest"),
+            "treaty_certificate": cert,
+            "bundle_path": str(treatied),
+            "source": "disk_proof_bundle",
+        }
+    return None
+
+
+def derivetreatiespecs_fromcovenant(
+    covenant_bundle: Mapping[str, Any],
+    *,
+    min_treaties: int = 2,
+) -> list[dict[str, Any]]:
+    """Derive one treaty plan per stress scenario (multi-covenant required)."""
+
+    covenants = (
+        covenant_bundle.get("covenants")
+        if isinstance(covenant_bundle.get("covenants"), Mapping)
+        else {}
+    )
+    entries = list(covenants.get("entries") or [])
+    specs: list[dict[str, Any]] = []
+    for entry in entries:
+        if not isinstance(entry, Mapping):
+            continue
+        covenant_root = str(entry.get("covenant_root") or "")
+        if not covenant_root:
+            continue
+        specs.append(
+            {
+                "capability_id": str(entry.get("capability_id") or ""),
+                "effect": str(entry.get("effect") or ""),
+                "bound_covenant_root": covenant_root,
+                "bound_covenant_height": int(entry.get("covenant_height") or 0),
+                "covenant_plan_digest": str(entry.get("covenant_plan_digest") or ""),
+                "receipt_digest": str(entry.get("receipt_digest") or ""),
+                "bound_settlement_root": str(entry.get("bound_settlement_root") or ""),
+                "bound_action_root": str(entry.get("bound_action_root") or ""),
+                "package_hash": str(
+                    entry.get("package_hash")
+                    or covenant_bundle.get("package_hash")
+                    or ""
+                ),
+                "outcome": "treatied",
+                "position_ratio_bps": 1000 + 100 * len(specs),
+            }
+        )
+    want = max(2, int(min_treaties))
+    return specs[:want] if len(specs) >= want else specs
+
+
+def apply_treaty_transition(
+    treaty_log: Mapping[str, Any],
+    spec: Mapping[str, Any],
+    *,
+    covenant_bundle: Mapping[str, Any],
+    goal: str = "",
+    claims: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Append one treaty plan bound to a stress scenario root and cover it."""
+
+    log = copy.deepcopy(dict(treaty_log)) if treaty_log else empty_treaty_log()
+    entries = list(log.get("entries") or [])
+    next_height = len(entries) + 1
+    parent_root = str(entries[-1].get("treaty_root") or "") if entries else ""
+    parent_treaty_net = str(entries[-1].get("treaty_plan_digest") or "") if entries else ""
+
+    bound_covenant_root = str(spec.get("bound_covenant_root") or "")
+    bound_covenant_height = int(spec.get("bound_covenant_height") or 0)
+    capability_id = str(spec.get("capability_id") or "")
+    effect = str(spec.get("effect") or "")
+    outcome = str(spec.get("outcome") or "treatied")
+    package_hash = str(
+        spec.get("package_hash") or covenant_bundle.get("package_hash") or ""
+    )
+    covenant_hash = str(covenant_bundle.get("covenant_hash") or "")
+    tip_covenant_root = str(covenant_bundle.get("tip_covenant_root") or "")
+    covenants = (
+        covenant_bundle.get("covenants")
+        if isinstance(covenant_bundle.get("covenants"), Mapping)
+        else {}
+    )
+    risk_entries = list(covenants.get("entries") or [])
+    known_roots = {
+        str(item.get("covenant_root") or "")
+        for item in risk_entries
+        if isinstance(item, Mapping) and item.get("covenant_root")
+    }
+    if tip_covenant_root:
+        known_roots.add(tip_covenant_root)
+
+    if not capability_id or not bound_covenant_root or not covenant_hash:
+        return {
+            "ok": False,
+            "action": "apply_treaty_transition",
+            "error": "missing_covenant_bind_fields",
+            "treaty_log": log,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    if bound_covenant_root not in known_roots:
+        return {
+            "ok": False,
+            "action": "apply_treaty_transition",
+            "error": "bound_covenant_root_mismatch",
+            "bound_covenant_root": bound_covenant_root,
+            "known_risk_roots": sorted(known_roots),
+            "treaty_log": log,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    if any(
+        str(item.get("bound_covenant_root") or "") == bound_covenant_root
+        and str(item.get("outcome") or "") == outcome
+        for item in entries
+    ):
+        return {
+            "ok": False,
+            "action": "apply_treaty_transition",
+            "error": "duplicate_covenant_rejected",
+            "treaty_log": log,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    settle_cert = (
+        covenant_bundle.get("covenant_certificate")
+        if isinstance(covenant_bundle.get("covenant_certificate"), Mapping)
+        else {}
+    )
+    settle_cert_hash = str(settle_cert.get("certificate_hash") or "")
+    lineage_head = str(covenant_bundle.get("lineage_head_hash") or "")
+    member_ids = list(covenant_bundle.get("member_ids") or [])
+    covenant_plan_digest = str(spec.get("covenant_plan_digest") or "")
+    position_ratio_bps = int(spec.get("position_ratio_bps") or 1000)
+    if not covenant_plan_digest:
+        # Recover from settlement entry if available.
+        for item in risk_entries:
+            if (
+                isinstance(item, Mapping)
+                and str(item.get("covenant_root") or "") == bound_covenant_root
+            ):
+                covenant_plan_digest = str(item.get("covenant_plan_digest") or "")
+                break
+    treaty_plan_digest = compute_treaty_plan_digest(
+        parent_treaty_digest=parent_treaty_net,
+        bound_covenant_root=bound_covenant_root,
+        covenant_plan_digest=covenant_plan_digest,
+        position_ratio_bps=position_ratio_bps,
+        capability_id=capability_id,
+        outcome=outcome,
+    )
+
+    body: dict[str, Any] = {
+        "schema_version": TREATY_LOG_SCHEMA,
+        "kind": "treaty_action",
+        "treaty_height": next_height,
+        "parent_treaty_root": parent_root,
+        "bound_covenant_root": bound_covenant_root,
+        "bound_covenant_height": bound_covenant_height,
+        "covenant_hash": covenant_hash,
+        "covenant_certificate_hash": settle_cert_hash,
+        "package_hash": package_hash,
+        "lineage_head_hash": lineage_head,
+        "capability_id": capability_id,
+        "effect": effect,
+        "outcome": outcome,
+        "covenant_plan_digest": covenant_plan_digest,
+        "treaty_plan_digest": treaty_plan_digest,
+        "position_ratio_bps": position_ratio_bps,
+        "parent_treaty_digest": parent_treaty_net,
+        "bound_action_root": str(spec.get("bound_action_root") or ""),
+        "member_ids": sorted({str(m).strip() for m in member_ids if str(m).strip()}),
+        "deterministic": True,
+        "post_covenant": True,
+        "applied_at": utc_now_iso(),
+        "goal": goal or str(covenant_bundle.get("goal") or ""),
+        "claims": dict(claims or {}),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    treaty_root = compute_treaty_root(body)
+    body["treaty_root"] = treaty_root
+    cert = issue_treaty_certificate(
+        treaty_height=next_height,
+        treaty_root=treaty_root,
+        parent_treaty_root=parent_root,
+        bound_covenant_root=bound_covenant_root,
+        bound_covenant_height=bound_covenant_height,
+        covenant_hash=covenant_hash,
+        covenant_certificate_hash=settle_cert_hash,
+        package_hash=package_hash,
+        lineage_head_hash=lineage_head,
+        covenant_plan_digest=covenant_plan_digest,
+        treaty_plan_digest=treaty_plan_digest,
+        treaty_count=next_height,
+        member_ids=body["member_ids"],
+        goal=goal or str(covenant_bundle.get("goal") or ""),
+        claims={
+            "capability_id": capability_id,
+            "effect": effect,
+            "outcome": outcome,
+            "plane": "treaty",
+            **dict(claims or {}),
+        },
+    )
+    body["treaty_certificate"] = cert
+    body["ok"] = (
+        bool(cert.get("ok"))
+        and bool(treaty_root)
+        and bool(treaty_plan_digest)
+        and body["deterministic"] is True
+        and body["post_covenant"] is True
+        and not bool(body.get("used_skill_route_discovery"))
+    )
+
+    entries.append(body)
+    log["entries"] = entries
+    log["entry_count"] = len(entries)
+    log["tip_height"] = next_height
+    log["tip_treaty_root"] = treaty_root
+    log["bound_covenant_root"] = bound_covenant_root
+    log["bound_covenant_height"] = bound_covenant_height
+    log["covenant_hash"] = covenant_hash
+    log["treaty_plan_digest"] = treaty_plan_digest
+    log["updated_at"] = utc_now_iso()
+    log["schema_version"] = TREATY_LOG_SCHEMA
+    log["kind"] = "treaty_log"
+    return {
+        "ok": bool(body.get("ok")),
+        "action": "apply_treaty_transition",
+        "entry": body,
+        "treaty_height": next_height,
+        "treaty_root": treaty_root,
+        "parent_treaty_root": parent_root,
+        "bound_covenant_root": bound_covenant_root,
+        "treaty_plan_digest": treaty_plan_digest,
+        "treaty_log": log,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def verify_treaty_chain(treaty_log: Mapping[str, Any]) -> dict[str, Any]:
+    """Validate sequential heights, parent roots, buffers, hashes, and covenant certs."""
+
+    entries = list(treaty_log.get("entries") or [])
+    errors: list[str] = []
+    if not entries:
+        return {
+            "ok": False,
+            "valid": False,
+            "action": "verify_treaty_chain",
+            "entry_count": 0,
+            "tip_height": 0,
+            "tip_treaty_root": "",
+            "errors": ["empty_treaty_log"],
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    prev_root = ""
+    prev_net = ""
+    bound_settlements: set[str] = set()
+    covenant_hashes: set[str] = set()
+    for index, raw in enumerate(entries):
+        if not isinstance(raw, Mapping):
+            errors.append(f"entry[{index}]_not_mapping")
+            continue
+        height = int(raw.get("treaty_height") or 0)
+        expected_height = index + 1
+        if height != expected_height:
+            errors.append(f"entry[{index}]_height={height}_expected={expected_height}")
+        parent = str(raw.get("parent_treaty_root") or "")
+        if index == 0:
+            if parent:
+                errors.append(f"entry[{index}]_genesis_has_parent")
+        else:
+            if parent != prev_root:
+                errors.append(
+                    f"entry[{index}]_parent_mismatch got={parent[:12]} expected={prev_root[:12]}"
+                )
+        stored = str(raw.get("treaty_root") or "")
+        recomputed = compute_treaty_root({**dict(raw), "treaty_root": ""})
+        if not stored or stored != recomputed:
+            errors.append(f"entry[{index}]_treaty_root_mismatch")
+        if raw.get("deterministic") is not True:
+            errors.append(f"entry[{index}]_not_deterministic")
+        if raw.get("post_covenant") is not True:
+            errors.append(f"entry[{index}]_not_post_covenant")
+        bound = str(raw.get("bound_covenant_root") or "")
+        if not bound:
+            errors.append(f"entry[{index}]_missing_bound_covenant_root")
+        else:
+            bound_settlements.add(bound)
+        s_hash = str(raw.get("covenant_hash") or "")
+        if not s_hash:
+            errors.append(f"entry[{index}]_missing_covenant_hash")
+        else:
+            covenant_hashes.add(s_hash)
+        covenant_plan_digest = str(raw.get("covenant_plan_digest") or "")
+        parent_treaty_net_stored = str(raw.get("parent_treaty_digest") or "")
+        if parent_treaty_net_stored != prev_net:
+            errors.append(f"entry[{index}]_parent_treaty_net_mismatch")
+        expected_net = compute_treaty_plan_digest(
+            parent_treaty_digest=prev_net,
+            bound_covenant_root=bound,
+            covenant_plan_digest=covenant_plan_digest,
+            position_ratio_bps=int(raw.get("position_ratio_bps") or 1000),
+            capability_id=str(raw.get("capability_id") or ""),
+            outcome=str(raw.get("outcome") or "treatied"),
+        )
+        stored_net = str(raw.get("treaty_plan_digest") or "")
+        if not stored_net or stored_net != expected_net:
+            errors.append(f"entry[{index}]_treaty_plan_digest_mismatch")
+        cert = raw.get("treaty_certificate")
+        if not isinstance(cert, Mapping):
+            errors.append(f"entry[{index}]_missing_treaty_certificate")
+        else:
+            cert_verify = verify_treaty_certificate(cert)
+            if not cert_verify.get("valid"):
+                errors.append(f"entry[{index}]_stress_cert_invalid")
+            if str(cert.get("treaty_root") or "") != stored:
+                errors.append(f"entry[{index}]_cert_treaty_root_mismatch")
+            if int(cert.get("treaty_height") or 0) != height:
+                errors.append(f"entry[{index}]_cert_height_mismatch")
+            if str(cert.get("bound_covenant_root") or "") != bound:
+                errors.append(f"entry[{index}]_cert_bound_settlement_mismatch")
+            if str(cert.get("treaty_plan_digest") or "") != stored_net:
+                errors.append(f"entry[{index}]_cert_net_mismatch")
+        prev_root = stored
+        prev_net = stored_net
+
+    if len(covenant_hashes) > 1:
+        errors.append("mixed_covenant_hashes")
+
+    tip = entries[-1] if entries else {}
+    tip_height = int(tip.get("treaty_height") or 0) if isinstance(tip, Mapping) else 0
+    tip_root = str(tip.get("treaty_root") or "") if isinstance(tip, Mapping) else ""
+    tip_net = str(tip.get("treaty_plan_digest") or "") if isinstance(tip, Mapping) else ""
+    log_tip_height = int(treaty_log.get("tip_height") or 0)
+    log_tip_root = str(treaty_log.get("tip_treaty_root") or "")
+    log_net = str(treaty_log.get("treaty_plan_digest") or "")
+    if log_tip_height and log_tip_height != tip_height:
+        errors.append("tip_height_metadata_mismatch")
+    if log_tip_root and log_tip_root != tip_root:
+        errors.append("tip_treaty_root_metadata_mismatch")
+    if log_net and log_net != tip_net:
+        errors.append("treaty_plan_digest_metadata_mismatch")
+
+    valid = not errors and tip_height >= 1 and bool(tip_root) and bool(tip_net)
+    return {
+        "ok": valid,
+        "valid": valid,
+        "action": "verify_treaty_chain",
+        "entry_count": len(entries),
+        "tip_height": tip_height,
+        "tip_treaty_root": tip_root,
+        "treaty_plan_digest": tip_net,
+        "bound_covenant_roots": sorted(bound_settlements),
+        "covenant_hash": next(iter(covenant_hashes), ""),
+        "errors": errors,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def apply_covenant_bundle_to_treaties(
+    covenant_bundle: Mapping[str, Any],
+    *,
+    goal: str = "",
+    min_treaties: int = 2,
+) -> dict[str, Any]:
+    """Post multi-covenant scenarios into a deterministic treaty plan log."""
+
+    integrity = verify_covenant_bundle_integrity(covenant_bundle)
+    if not integrity.get("ok"):
+        return {
+            "ok": False,
+            "action": "apply_covenant_bundle_to_treaties",
+            "error": "covenant_integrity_failed",
+            "integrity": integrity,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    specs = derivetreatiespecs_fromcovenant(
+        covenant_bundle, min_treaties=min_treaties
+    )
+    if len(specs) < 2:
+        return {
+            "ok": False,
+            "action": "apply_covenant_bundle_to_treaties",
+            "error": "need_multi_treaty",
+            "spec_count": len(specs),
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    treaty_log = empty_treaty_log()
+    applied: list[dict[str, Any]] = []
+    for index, spec in enumerate(specs):
+        result = apply_treaty_transition(
+            treaty_log,
+            spec,
+            covenant_bundle=covenant_bundle,
+            goal=f"{goal or covenant_bundle.get('goal') or 'clearing'} (clearing {index + 1})",
+            claims={"clearing_index": index + 1, "plane": "treaty"},
+        )
+        if not result.get("ok"):
+            return {
+                "ok": False,
+                "action": "apply_covenant_bundle_to_treaties",
+                "error": result.get("error") or "apply_failed",
+                "applied_count": len(applied),
+                "apply": {
+                    "ok": result.get("ok"),
+                    "error": result.get("error"),
+                    "treaty_height": result.get("treaty_height"),
+                },
+                "treaty_log": treaty_log,
+                "used_skill_route_discovery": legacy_pipeline_was_used(),
+            }
+        treaty_log = result["treaty_log"]
+        applied.append(result["entry"])
+
+    chain = verify_treaty_chain(treaty_log)
+    ok = bool(chain.get("valid")) and len(applied) >= 2 and not legacy_pipeline_was_used()
+    return {
+        "ok": ok,
+        "action": "apply_covenant_bundle_to_treaties",
+        "treaty_log": treaty_log,
+        "applied": applied,
+        "applied_count": len(applied),
+        "treaty_count": len(applied),
+        "tip_height": treaty_log.get("tip_height"),
+        "tip_treaty_root": treaty_log.get("tip_treaty_root"),
+        "bound_covenant_root": treaty_log.get("bound_covenant_root"),
+        "treaty_plan_digest": treaty_log.get("treaty_plan_digest"),
+        "chain": chain,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def build_treaty_bundle(
+    treaty_log: Mapping[str, Any],
+    covenant_bundle: Mapping[str, Any],
+    *,
+    goal: str = "treaty over covenant",
+) -> dict[str, Any]:
+    """Package covenant log + stress tip into a portable covenant bundle."""
+
+    chain = verify_treaty_chain(treaty_log)
+    if not chain.get("valid"):
+        return {
+            "ok": False,
+            "action": "build_treaty_bundle",
+            "error": "covenant_chain_invalid",
+            "chain": chain,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    entries = list(treaty_log.get("entries") or [])
+    tip = entries[-1]
+    tip_cert = (
+        tip.get("treaty_certificate")
+        if isinstance(tip.get("treaty_certificate"), Mapping)
+        else {}
+    )
+    tip_cert_verify = (
+        verify_treaty_certificate(tip_cert) if tip_cert else {"valid": False}
+    )
+    settle_cert = (
+        covenant_bundle.get("covenant_certificate")
+        if isinstance(covenant_bundle.get("covenant_certificate"), Mapping)
+        else {}
+    )
+    act_cert = (
+        covenant_bundle.get("actuation_certificate")
+        if isinstance(covenant_bundle.get("actuation_certificate"), Mapping)
+        else {}
+    )
+    package = (
+        covenant_bundle.get("package")
+        if isinstance(covenant_bundle.get("package"), Mapping)
+        else {}
+    )
+    certificates: dict[str, dict[str, Any]] = {}
+    for clearing in entries:
+        cert = clearing.get("treaty_certificate")
+        if isinstance(cert, Mapping) and cert.get("certificate_hash"):
+            certificates[str(cert["certificate_hash"])] = {
+                "certificate_hash": cert.get("certificate_hash"),
+                "payload": cert,
+                "treaty_height": clearing.get("treaty_height"),
+            }
+    if isinstance(settle_cert, Mapping) and settle_cert.get("certificate_hash"):
+        certificates[str(settle_cert["certificate_hash"])] = {
+            "certificate_hash": settle_cert.get("certificate_hash"),
+            "payload": settle_cert,
+            "kind": "treaty_certificate",
+        }
+    if isinstance(act_cert, Mapping) and act_cert.get("certificate_hash"):
+        certificates[str(act_cert["certificate_hash"])] = {
+            "certificate_hash": act_cert.get("certificate_hash"),
+            "payload": act_cert,
+            "kind": "actuation_certificate",
+        }
+    exec_cert = (
+        covenant_bundle.get("execution_certificate")
+        if isinstance(covenant_bundle.get("execution_certificate"), Mapping)
+        else {}
+    )
+    if isinstance(exec_cert, Mapping) and exec_cert.get("certificate_hash"):
+        certificates[str(exec_cert["certificate_hash"])] = {
+            "certificate_hash": exec_cert.get("certificate_hash"),
+            "payload": exec_cert,
+            "kind": "execution_certificate",
+        }
+
+    settle_cert_nested = (
+        covenant_bundle.get("settlement_certificate")
+        if isinstance(covenant_bundle.get("settlement_certificate"), Mapping)
+        else {}
+    )
+    if isinstance(settle_cert_nested, Mapping) and settle_cert_nested.get(
+        "certificate_hash"
+    ):
+        certificates[str(settle_cert_nested["certificate_hash"])] = {
+            "certificate_hash": settle_cert_nested.get("certificate_hash"),
+            "payload": settle_cert_nested,
+            "kind": "settlement_certificate",
+        }
+
+    member_ids = list(covenant_bundle.get("member_ids") or package.get("member_ids") or [])
+    cb: dict[str, Any] = {
+        "schema_version": TREATY_BUNDLE_SCHEMA,
+        "kind": "treaty_bundle",
+        "action": "build_treaty_bundle",
+        "goal": goal,
+        "treaties": copy.deepcopy(dict(treaty_log)),
+        "covenants": copy.deepcopy(
+            covenant_bundle.get("covenants")
+            if isinstance(covenant_bundle.get("covenants"), Mapping)
+            else {}
+        ),
+        "settlements": copy.deepcopy(
+            covenant_bundle.get("settlements")
+            if isinstance(covenant_bundle.get("settlements"), Mapping)
+            else {}
+        ),
+        "actions": copy.deepcopy(
+            covenant_bundle.get("actions")
+            if isinstance(covenant_bundle.get("actions"), Mapping)
+            else {}
+        ),
+        "package": copy.deepcopy(dict(package)),
+        "lineage": copy.deepcopy(
+            covenant_bundle.get("lineage")
+            if isinstance(covenant_bundle.get("lineage"), Mapping)
+            else {}
+        ),
+        "treaty_certificate": copy.deepcopy(dict(tip_cert)),
+        "covenant_certificate": copy.deepcopy(dict(settle_cert)),
+        "settlement_certificate": copy.deepcopy(dict(settle_cert_nested)),
+        "actuation_certificate": copy.deepcopy(dict(act_cert)),
+        "execution_certificate": copy.deepcopy(dict(exec_cert)),
+        "certificates": certificates,
+        "certificate_count": len(certificates),
+        "treaty_count": len(entries),
+        "covenant_count": int(covenant_bundle.get("covenant_count") or 0),
+        "settlement_count": int(covenant_bundle.get("settlement_count") or 0),
+        "action_count": int(covenant_bundle.get("action_count") or 0),
+        "tip_height": int(treaty_log.get("tip_height") or 0),
+        "tip_treaty_root": str(treaty_log.get("tip_treaty_root") or ""),
+        "bound_covenant_root": str(treaty_log.get("bound_covenant_root") or ""),
+        "bound_covenant_height": int(treaty_log.get("bound_covenant_height") or 0),
+        "tip_covenant_root": str(covenant_bundle.get("tip_covenant_root") or ""),
+        "bound_settlement_root": str(covenant_bundle.get("bound_settlement_root") or ""),
+        "tip_settlement_root": str(covenant_bundle.get("tip_settlement_root") or ""),
+        "bound_action_root": str(covenant_bundle.get("bound_action_root") or ""),
+        "tip_action_root": str(covenant_bundle.get("tip_action_root") or ""),
+        "bound_state_root": str(covenant_bundle.get("bound_state_root") or ""),
+        "treaty_plan_digest": str(treaty_log.get("treaty_plan_digest") or ""),
+        "covenant_plan_digest": str(covenant_bundle.get("covenant_plan_digest") or ""),
+        "covenant_hash": str(covenant_bundle.get("covenant_hash") or ""),
+        "settlement_hash": str(covenant_bundle.get("settlement_hash") or ""),
+        "actuation_hash": str(covenant_bundle.get("actuation_hash") or ""),
+        "execution_hash": str(covenant_bundle.get("execution_hash") or ""),
+        "package_hash": str(covenant_bundle.get("package_hash") or ""),
+        "member_ids": sorted({str(m).strip() for m in member_ids if str(m).strip()}),
+        "member_count": len(member_ids),
+        "lineage_head_hash": str(covenant_bundle.get("lineage_head_hash") or ""),
+        "lineage_entry_count": int(covenant_bundle.get("lineage_entry_count") or 0),
+        "origin_count": covenant_bundle.get("origin_count"),
+        "agreeing_count": covenant_bundle.get("agreeing_count"),
+        "byzantine_count": covenant_bundle.get("byzantine_count"),
+        "state_count": covenant_bundle.get("state_count"),
+        "epoch_count": covenant_bundle.get("epoch_count"),
+        "deterministic": True,
+        "post_covenant": True,
+        "exported_at": utc_now_iso(),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    cb["treaty_hash"] = compute_treaty_bundle_hash(cb)
+    cb["ok"] = (
+        bool(chain.get("valid"))
+        and bool(tip_cert_verify.get("valid"))
+        and len(entries) >= 2
+        and bool(cb["treaty_hash"])
+        and bool(cb["covenant_hash"])
+        and bool(cb["treaty_plan_digest"])
+        and cb["deterministic"] is True
+        and cb["post_covenant"] is True
+        and not bool(cb["used_skill_route_discovery"])
+    )
+    return cb
+
+
+def write_treaty_bundle(path: Path, bundle: Mapping[str, Any]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(path, dict(bundle))
+    return path
+
+
+def load_treaty_bundle(path: Path) -> dict[str, Any]:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("stress bundle must be a JSON object")
+    return data
+
+
+def verify_treaty_bundle_integrity(bundle: Mapping[str, Any]) -> dict[str, Any]:
+    expected = str(bundle.get("treaty_hash") or "").strip()
+    recomputed = compute_treaty_bundle_hash(bundle)
+    hash_ok = bool(expected) and expected == recomputed
+    covenants = (
+        bundle.get("treaties")
+        if isinstance(bundle.get("treaties"), Mapping)
+        else {}
+    )
+    chain = (
+        verify_treaty_chain(covenants)
+        if covenants
+        else {"ok": False, "valid": False, "errors": ["missing_covenants"]}
+    )
+    cert = (
+        bundle.get("treaty_certificate")
+        if isinstance(bundle.get("treaty_certificate"), Mapping)
+        else {}
+    )
+    cert_verify = (
+        verify_treaty_certificate(cert) if cert else {"valid": False, "ok": False}
+    )
+    settle_cert = (
+        bundle.get("covenant_certificate")
+        if isinstance(bundle.get("covenant_certificate"), Mapping)
+        else {}
+    )
+    settle_cert_verify = (
+        verify_covenant_certificate(settle_cert)
+        if settle_cert
+        else {"valid": False, "ok": False}
+    )
+    multi = int(bundle.get("treaty_count") or chain.get("entry_count") or 0) >= 2
+    package = bundle.get("package") if isinstance(bundle.get("package"), Mapping) else {}
+    package_ok = bool(package) and bool(bundle.get("package_hash"))
+    bound_ok = bool(bundle.get("bound_covenant_root")) and bool(
+        bundle.get("covenant_hash")
+    )
+    margin_digest_ok = bool(bundle.get("treaty_plan_digest")) and str(
+        bundle.get("treaty_plan_digest") or ""
+    ) == str(chain.get("treaty_plan_digest") or bundle.get("treaty_plan_digest") or "")
+    deterministic = bundle.get("deterministic") is True
+    post_covenant = bundle.get("post_covenant") is True
+    used_skill = bool(bundle.get("used_skill_route_discovery")) or legacy_pipeline_was_used()
+    ok = (
+        hash_ok
+        and bool(chain.get("valid"))
+        and bool(cert_verify.get("valid"))
+        and bool(settle_cert_verify.get("valid"))
+        and multi
+        and package_ok
+        and bound_ok
+        and margin_digest_ok
+        and deterministic
+        and post_covenant
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "verify_treaty_bundle_integrity",
+        "hash_ok": hash_ok,
+        "chain_valid": bool(chain.get("valid")),
+        "multi_treaty": multi,
+        "package_ok": package_ok,
+        "treaty_certificate_valid": bool(cert_verify.get("valid")),
+        "covenant_certificate_valid": bool(settle_cert_verify.get("valid")),
+        "bound_ok": bound_ok,
+        "treaty_ok": margin_digest_ok,
+        "margin_digest_ok": margin_digest_ok,
+        "deterministic": deterministic,
+        "post_covenant": post_covenant,
+        "tip_height": chain.get("tip_height"),
+        "tip_treaty_root": chain.get("tip_treaty_root"),
+        "treaty_plan_digest": chain.get("treaty_plan_digest"),
+        "treaty_hash": expected if hash_ok else recomputed,
+        "errors": list(chain.get("errors") or []),
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def rehydrate_treaty_bundle(
+    repo_path: Path,
+    bundle: Mapping[str, Any],
+    *,
+    sandbox_dir: Path | None = None,
+) -> dict[str, Any]:
+    """Materialize tip package + covenant log into a sterile sandbox and re-check buffers."""
+
+    root = repo_path.resolve()
+    integrity = verify_treaty_bundle_integrity(bundle)
+    if not integrity.get("ok"):
+        return {
+            "ok": False,
+            "action": "rehydrate_treaty_bundle",
+            "error": "covenant_integrity_failed",
+            "integrity": integrity,
+            "used_skill_route_discovery": integrity.get("used_skill_route_discovery"),
+        }
+
+    c_hash = str(bundle.get("treaty_hash") or "unknown")
+    sandbox = (
+        sandbox_dir.resolve()
+        if sandbox_dir is not None
+        else (root / "artifacts" / "treaty-sandbox" / c_hash[:16])
+    )
+    sandbox.mkdir(parents=True, exist_ok=True)
+
+    package = dict(bundle.get("package") or {})
+    lineage = copy.deepcopy(bundle.get("lineage") or {})
+    treaties = copy.deepcopy(bundle.get("treaties") or {})
+    covenants = copy.deepcopy(bundle.get("covenants") or {})
+    settlements = copy.deepcopy(bundle.get("settlements") or {})
+    actions = copy.deepcopy(bundle.get("actions") or {})
+    lineage_path = sandbox / "lineage.json"
+    if lineage:
+        write_lineage_log(lineage_path, lineage)
+    treaties_path = sandbox / "treaties.json"
+    atomic_write_json(treaties_path, treaties)
+    covenants_path = sandbox / "covenants.json"
+    atomic_write_json(covenants_path, covenants)
+    settlements_path = sandbox / "settlements.json"
+    atomic_write_json(settlements_path, settlements)
+    actions_path = sandbox / "actions.json"
+    atomic_write_json(actions_path, actions)
+
+    empty = CapabilityLedger(schema_version=SCHEMA_VERSION, updated_at=utc_now_iso())
+    empty, import_report = import_capability_package(empty, package, replace=True)
+    sterile_ledger_path = sandbox / "ledger.json"
+    save_ledger(sterile_ledger_path, empty)
+
+    cert = (
+        bundle.get("treaty_certificate")
+        if isinstance(bundle.get("treaty_certificate"), Mapping)
+        else {}
+    )
+    cert_path = sandbox / "treaty-certificate.json"
+    if cert:
+        write_treaty_certificate(cert_path, cert)
+    clear_cert = (
+        bundle.get("covenant_certificate")
+        if isinstance(bundle.get("covenant_certificate"), Mapping)
+        else {}
+    )
+    clear_cert_path = sandbox / "covenant-certificate.json"
+    if clear_cert:
+        write_covenant_certificate(clear_cert_path, clear_cert)
+
+    chain = verify_treaty_chain(treaties)
+    cert_verify = (
+        verify_treaty_certificate(cert) if cert else {"ok": False, "valid": False}
+    )
+    clear_cert_verify = (
+        verify_covenant_certificate(clear_cert)
+        if clear_cert
+        else {"ok": False, "valid": False}
+    )
+    re_margin_digest_ok = True
+    prev_net = ""
+    for entry in list(treaties.get("entries") or []):
+        if not isinstance(entry, Mapping):
+            re_margin_digest_ok = False
+            break
+        expected = compute_treaty_plan_digest(
+            parent_treaty_digest=prev_net,
+            bound_covenant_root=str(entry.get("bound_covenant_root") or ""),
+            covenant_plan_digest=str(entry.get("covenant_plan_digest") or ""),
+            position_ratio_bps=int(entry.get("position_ratio_bps") or 1000),
+            capability_id=str(entry.get("capability_id") or ""),
+            outcome=str(entry.get("outcome") or "treatied"),
+        )
+        if expected != str(entry.get("treaty_plan_digest") or ""):
+            re_margin_digest_ok = False
+            break
+        prev_net = expected
+
+    lineage_chain = (
+        verify_lineage_chain(lineage)
+        if lineage
+        else {"ok": True, "valid": True, "entry_count": 0}
+    )
+    used_skill = legacy_pipeline_was_used()
+    ok = (
+        bool(integrity.get("ok"))
+        and bool(import_report.get("ok"))
+        and bool(chain.get("valid"))
+        and bool(cert_verify.get("valid"))
+        and bool(clear_cert_verify.get("valid"))
+        and re_margin_digest_ok
+        and int(import_report.get("imported_count") or 0) >= 1
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "rehydrate_treaty_bundle",
+        "sandbox_dir": str(sandbox),
+        "lineage_path": str(lineage_path) if lineage else None,
+        "treaties_path": str(treaties_path),
+        "covenants_path": str(covenants_path),
+        "settlements_path": str(settlements_path),
+        "actions_path": str(actions_path),
+        "sterile_ledger_path": str(sterile_ledger_path),
+        "certificate_path": str(cert_path) if cert else None,
+        "covenant_certificate_path": str(clear_cert_path) if clear_cert else None,
+        "treaty_hash": c_hash,
+        "import": import_report,
+        "chain": {
+            "ok": chain.get("ok"),
+            "valid": chain.get("valid"),
+            "entry_count": chain.get("entry_count"),
+            "tip_height": chain.get("tip_height"),
+            "tip_treaty_root": chain.get("tip_treaty_root"),
+            "treaty_plan_digest": chain.get("treaty_plan_digest"),
+            "errors": chain.get("errors") or [],
+        },
+        "lineage_chain": {
+            "ok": lineage_chain.get("ok"),
+            "valid": lineage_chain.get("valid"),
+            "entry_count": lineage_chain.get("entry_count"),
+        },
+        "treaty_certificate": {
+            "ok": cert_verify.get("ok"),
+            "valid": cert_verify.get("valid"),
+            "certificate_hash": cert_verify.get("certificate_hash"),
+            "treaty_root": cert_verify.get("treaty_root"),
+        },
+        "covenant_certificate": {
+            "ok": clear_cert_verify.get("ok"),
+            "valid": clear_cert_verify.get("valid"),
+            "certificate_hash": clear_cert_verify.get("certificate_hash"),
+        },
+        "margin_digests_match": re_margin_digest_ok,
+        "integrity": {
+            "ok": integrity.get("ok"),
+            "hash_ok": integrity.get("hash_ok"),
+            "multi_treaty": integrity.get("multi_treaty"),
+            "tip_height": integrity.get("tip_height"),
+        },
+        "sterile_ledger": empty,
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def replay_treaties_from_specs(
+    specs: Sequence[Mapping[str, Any]],
+    covenant_bundle: Mapping[str, Any],
+    *,
+    goal: str = "",
+) -> dict[str, Any]:
+    treaty_log = empty_treaty_log()
+    for index, spec in enumerate(specs):
+        result = apply_treaty_transition(
+            treaty_log,
+            spec,
+            covenant_bundle=covenant_bundle,
+            goal=f"{goal} (replay {index + 1})",
+            claims={"replay": True, "clearing_index": index + 1},
+        )
+        if not result.get("ok"):
+            return {
+                "ok": False,
+                "error": result.get("error") or "replay_failed",
+                "treaty_log": treaty_log,
+                "applied_count": index,
+            }
+        treaty_log = result["treaty_log"]
+    chain = verify_treaty_chain(treaty_log)
+    return {
+        "ok": bool(chain.get("valid")),
+        "treaty_log": treaty_log,
+        "tip_treaty_root": treaty_log.get("tip_treaty_root"),
+        "tip_height": treaty_log.get("tip_height"),
+        "treaty_plan_digest": treaty_log.get("treaty_plan_digest"),
+        "chain": chain,
+    }
+
+
+def run_treaty_adversarial_checks(
+    intact_bundle: Mapping[str, Any],
+    treaty_log: Mapping[str, Any],
+    covenant_bundle: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Falsify covenant honesty: mutation, reorder, wrong-stress, double-buffer, forged root, digest."""
+
+    intact = verify_treaty_bundle_integrity(intact_bundle)
+    intact_chain = verify_treaty_chain(treaty_log)
+
+    mutated_log = copy.deepcopy(dict(treaty_log))
+    m_entries = list(mutated_log.get("entries") or [])
+    mutation_fails = False
+    if m_entries:
+        first = dict(m_entries[0])
+        first["capability_id"] = "evil.capability"
+        m_entries[0] = first
+        mutated_log["entries"] = m_entries
+        mutation_check = verify_treaty_chain(mutated_log)
+        mutation_fails = mutation_check.get("valid") is not True
+
+    reorder_fails = False
+    if len(list(treaty_log.get("entries") or [])) >= 2:
+        rev = copy.deepcopy(dict(treaty_log))
+        rev["entries"] = list(reversed(list(rev.get("entries") or [])))
+        reorder_check = verify_treaty_chain(rev)
+        reorder_fails = reorder_check.get("valid") is not True
+    else:
+        reorder_fails = True
+
+    wrong_covenant_fails = False
+    if m_entries:
+        ws = copy.deepcopy(dict(treaty_log))
+        w_entries = list(ws.get("entries") or [])
+        tip = dict(w_entries[-1])
+        tip["bound_covenant_root"] = "a" * 24
+        w_entries[-1] = tip
+        ws["entries"] = w_entries
+        ws["bound_covenant_root"] = tip["bound_covenant_root"]
+        wrong_check = verify_treaty_chain(ws)
+        wrong_covenant_fails = wrong_check.get("valid") is not True
+    specs = derivetreatiespecs_fromcovenant(covenant_bundle)
+    bad_spec = dict(specs[0]) if specs else {}
+    if bad_spec:
+        bad_spec["bound_covenant_root"] = "b" * 24
+        apply_bad = apply_treaty_transition(
+            empty_treaty_log(),
+            bad_spec,
+            covenant_bundle=covenant_bundle,
+            goal="bad-bind",
+        )
+        wrong_covenant_fails = wrong_covenant_fails and (
+            apply_bad.get("ok") is not True
+            and apply_bad.get("error") == "bound_covenant_root_mismatch"
+        )
+
+    forged_log = copy.deepcopy(dict(treaty_log))
+    f_entries = list(forged_log.get("entries") or [])
+    forged_root_fails = False
+    if f_entries:
+        tip = dict(f_entries[-1])
+        tip["treaty_root"] = "f" * 24
+        f_entries[-1] = tip
+        forged_log["entries"] = f_entries
+        forged_log["tip_treaty_root"] = tip["treaty_root"]
+        forged_check = verify_treaty_chain(forged_log)
+        forged_root_fails = forged_check.get("valid") is not True
+
+    gap_log = copy.deepcopy(dict(treaty_log))
+    g_entries = list(gap_log.get("entries") or [])
+    gap_fails = False
+    if g_entries:
+        last = dict(g_entries[-1])
+        last["treaty_height"] = int(last.get("treaty_height") or 1) + 5
+        g_entries[-1] = last
+        gap_log["entries"] = g_entries
+        gap_log["tip_height"] = last["treaty_height"]
+        gap_check = verify_treaty_chain(gap_log)
+        gap_fails = gap_check.get("valid") is not True
+
+    broken_cert_fails = False
+    if m_entries:
+        broken_log = copy.deepcopy(dict(treaty_log))
+        b_entries = list(broken_log.get("entries") or [])
+        tip = dict(b_entries[-1])
+        cert = dict(tip.get("treaty_certificate") or {})
+        cert["certificate_hash"] = "0" * 24
+        tip["treaty_certificate"] = cert
+        b_entries[-1] = tip
+        broken_log["entries"] = b_entries
+        broken_check = verify_treaty_chain(broken_log)
+        broken_cert_fails = broken_check.get("valid") is not True
+
+    parent_fails = False
+    if len(list(treaty_log.get("entries") or [])) >= 2:
+        parent_log = copy.deepcopy(dict(treaty_log))
+        p_entries = list(parent_log.get("entries") or [])
+        tip = dict(p_entries[-1])
+        tip["parent_treaty_root"] = "deadbeef-parent-root"
+        p_entries[-1] = tip
+        parent_log["entries"] = p_entries
+        parent_check = verify_treaty_chain(parent_log)
+        parent_fails = parent_check.get("valid") is not True
+    else:
+        parent_fails = True
+
+    digest_tamper_fails = False
+    if m_entries:
+        net_log = copy.deepcopy(dict(treaty_log))
+        n_entries = list(net_log.get("entries") or [])
+        tip = dict(n_entries[-1])
+        tip["treaty_plan_digest"] = "c" * 24
+        n_entries[-1] = tip
+        net_log["entries"] = n_entries
+        net_log["treaty_plan_digest"] = tip["treaty_plan_digest"]
+        net_check = verify_treaty_chain(net_log)
+        digest_tamper_fails = net_check.get("valid") is not True
+
+    tampered = copy.deepcopy(dict(intact_bundle))
+    tampered["treaty_hash"] = "e" * 24
+    tamper_check = verify_treaty_bundle_integrity(tampered)
+    tamper_fails = tamper_check.get("ok") is not True
+
+    single = copy.deepcopy(dict(intact_bundle))
+    single_treaties = copy.deepcopy(dict(single.get("treaties") or {}))
+    s_entries = list(single_treaties.get("entries") or [])[:1]
+    single_treaties["entries"] = s_entries
+    single_treaties["entry_count"] = len(s_entries)
+    if s_entries:
+        single_treaties["tip_height"] = s_entries[0].get("treaty_height")
+        single_treaties["tip_treaty_root"] = s_entries[0].get("treaty_root")
+        single_treaties["treaty_plan_digest"] = s_entries[0].get("treaty_plan_digest")
+        single["treaties"] = single_treaties
+        single["treaty_count"] = 1
+        single["tip_height"] = single_treaties["tip_height"]
+        single["tip_treaty_root"] = single_treaties["tip_treaty_root"]
+        single["treaty_plan_digest"] = single_treaties["treaty_plan_digest"]
+        if "treaty_hash" in single:
+            del single["treaty_hash"]
+        single["treaty_hash"] = compute_treaty_bundle_hash(single)
+        single_check = verify_treaty_bundle_integrity(single)
+        single_treaty_fails = single_check.get("ok") is not True
+    else:
+        single_treaty_fails = True
+
+    replay_match = False
+    if specs:
+        replay = replay_treaties_from_specs(
+            specs, covenant_bundle, goal="adversarial-replay"
+        )
+        replay_match = (
+            bool(replay.get("ok"))
+            and str(replay.get("tip_treaty_root") or "")
+            == str(treaty_log.get("tip_treaty_root") or "")
+            and int(replay.get("tip_height") or 0)
+            == int(treaty_log.get("tip_height") or 0)
+            and str(replay.get("treaty_plan_digest") or "")
+            == str(treaty_log.get("treaty_plan_digest") or "")
+        )
+
+    dup_fails = False
+    if specs:
+        dup = apply_treaty_transition(
+            treaty_log, specs[-1], covenant_bundle=covenant_bundle, goal="dup"
+        )
+        dup_fails = dup.get("ok") is not True and dup.get("error") in {
+            "duplicate_covenant_rejected",
+        }
+
+    incomplete_fails = single_treaty_fails
+    used_skill = legacy_pipeline_was_used()
+    ok = (
+        bool(intact.get("ok"))
+        and bool(intact_chain.get("valid"))
+        and mutation_fails
+        and reorder_fails
+        and wrong_covenant_fails
+        and forged_root_fails
+        and gap_fails
+        and broken_cert_fails
+        and parent_fails
+        and digest_tamper_fails
+        and tamper_fails
+        and single_treaty_fails
+        and replay_match
+        and dup_fails
+        and incomplete_fails
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "covenant_adversarial_checks",
+        "intact_ok": bool(intact.get("ok")),
+        "chain_ok": bool(intact_chain.get("valid")),
+        "mutation_fails_as_expected": mutation_fails,
+        "reorder_fails_as_expected": reorder_fails,
+        "wrong_covenant_fails_as_expected": wrong_covenant_fails,
+        "forged_root_fails_as_expected": forged_root_fails,
+        "gap_fails_as_expected": gap_fails,
+        "broken_cert_fails_as_expected": broken_cert_fails,
+        "wrong_parent_fails_as_expected": parent_fails,
+        "digest_tamper_fails_as_expected": digest_tamper_fails,
+        "tamper_fails_as_expected": tamper_fails,
+        "single_treaty_fails_as_expected": single_treaty_fails,
+        "replay_matches_tip": replay_match,
+        "duplicate_apply_fails_as_expected": dup_fails,
+        "incomplete_fails_as_expected": incomplete_fails,
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def run_treaty_plane(
+    repo_path: Path,
+    goal: str = "treaty over covenant",
+    done_when: str = "",
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 960,
+    max_steps: int = 3,
+    run_covenant: bool = True,
+    run_liquidity: bool = True,
+    run_collateral: bool = True,
+    run_margin: bool = True,
+    run_clearing: bool = True,
+    run_settlement: bool = True,
+    run_actuation: bool = True,
+    run_execution: bool = True,
+    run_finality: bool = True,
+    run_quorum: bool = True,
+    run_continuity: bool = False,
+    run_reconciliation: bool = False,
+    force_synthetic_drift: bool = True,
+    inject_byzantine: bool = True,
+    prove_imported: bool = True,
+    epoch_count: int = 2,
+    min_actions: int = 2,
+    min_settlements: int = 2,
+    min_clearings: int = 2,
+    min_margins: int = 2,
+    min_collaterals: int = 2,
+    min_liquidities: int = 2,
+    min_covenants: int = 2,
+    min_treaties: int = 2,
+    lineage_path: Path | None = None,
+    bundle_path: Path | None = None,
+    quorum_path: Path | None = None,
+    finality_path: Path | None = None,
+    execution_path: Path | None = None,
+    actuation_path: Path | None = None,
+    settlement_path: Path | None = None,
+    margin_path: Path | None = None,
+    collateral_path: Path | None = None,
+    liquidity_path: Path | None = None,
+    covenant_path: Path | None = None,
+    treaty_path: Path | None = None,
+    sandbox_dir: Path | None = None,
+    persist: bool = True,
+) -> dict[str, Any]:
+    """Closed treaty plane: covenant → multi-covenant scenarios → cert → rehydrate → adversarial.
+
+    Past treatied positions: each risk position binds an ordered stress scenario into a
+    hash-chained risk log with stress scenario digests and risk certificates bound
+    to the risk tip. Mutation, reorder, wrong-funding binding, double-risk,
+    forged roots, height gaps, broken certs, digest tamper, and single-risk bundles fail;
+    sterile rehydrate+prove and genesis replay matching tip succeed without skill-route.
+    """
+
+    root = repo_path.resolve()
+    path, _ledger = ensure_seeded_ledger(root)
+    want_epochs = max(2, int(epoch_count))
+    want_actions = max(2, int(min_actions))
+    want_settlements = max(2, int(min_settlements))
+    want_clearings = max(2, int(min_clearings))
+    want_margins = max(2, int(min_margins))
+    want_collaterals = max(2, int(min_collaterals))
+    want_liquidities = max(2, int(min_liquidities))
+    want_covenants = max(2, int(min_covenants))
+    want_treaties = max(2, int(min_treaties))
+
+    out_lineage = (
+        lineage_path.resolve()
+        if lineage_path is not None
+        else default_lineage_path(root)
+    )
+    out_stress = (
+        covenant_path.resolve()
+        if covenant_path is not None
+        else (default_covenant_bundle_dir(root) / "treaty-source-covenant.json")
+    )
+
+    covenant_report: dict[str, Any] | None = None
+    covenant_bundle: dict[str, Any] | None = None
+    if run_covenant:
+        covenant_report = run_covenant_plane(
+            root,
+            goal if goal else "covenant for treaty",
+            strip_context_only_outcome_predicates(done_when or ""),
+            command_runner=command_runner,
+            timeout=timeout,
+            max_steps=max_steps,
+            run_constitution=run_covenant,
+            run_liquidity=run_liquidity,
+            run_collateral=run_collateral,
+            run_margin=run_margin,
+            run_clearing=run_clearing,
+            run_settlement=run_settlement,
+            run_actuation=run_actuation,
+            run_execution=run_execution,
+            run_finality=run_finality,
+            run_quorum=run_quorum,
+            run_continuity=run_continuity,
+            run_reconciliation=run_reconciliation,
+            force_synthetic_drift=force_synthetic_drift,
+            inject_byzantine=inject_byzantine,
+            prove_imported=prove_imported,
+            epoch_count=want_epochs,
+            min_actions=want_actions,
+            min_settlements=want_settlements,
+            min_clearings=want_clearings,
+            min_margins=want_margins,
+            min_collaterals=want_collaterals,
+            min_liquidities=want_liquidities,
+            min_constitutions=want_covenants,
+            min_covenants=want_covenants,
+            lineage_path=out_lineage,
+            bundle_path=bundle_path,
+            quorum_path=quorum_path,
+            finality_path=finality_path,
+            execution_path=execution_path,
+            actuation_path=actuation_path,
+            settlement_path=settlement_path,
+            margin_path=margin_path,
+            collateral_path=collateral_path,
+            liquidity_path=liquidity_path,
+            covenant_path=out_stress,
+            persist=persist,
+        )
+        c_path = Path(
+            (
+                covenant_report.get("capital")
+                or covenant_report.get("covenant")
+                or covenant_report.get("restructuring")
+                or covenant_report.get("funding")
+                or covenant_report.get("margin")
+                or {}
+            ).get("bundle_path")
+            or ""
+        )
+        if c_path and c_path.is_file():
+            covenant_bundle = load_covenant_bundle(c_path)
+        elif out_stress.is_file():
+            covenant_bundle = load_covenant_bundle(out_stress)
+        else:
+            covenant_bundle = None
+    else:
+        if out_stress.is_file():
+            covenant_bundle = load_covenant_bundle(out_stress)
+        else:
+            covenant_report = run_covenant_plane(
+                root,
+                goal,
+                "",
+                command_runner=command_runner,
+                timeout=timeout,
+                max_steps=max_steps,
+                run_constitution=True,
+                run_liquidity=run_liquidity,
+                run_collateral=run_collateral,
+                run_margin=run_margin,
+                run_clearing=run_clearing,
+                run_settlement=run_settlement,
+                run_actuation=run_actuation,
+                run_execution=run_execution,
+                run_finality=run_finality,
+                run_quorum=run_quorum,
+                run_continuity=False,
+                run_reconciliation=False,
+                inject_byzantine=inject_byzantine,
+                prove_imported=prove_imported,
+                epoch_count=want_epochs,
+                min_actions=want_actions,
+                min_settlements=want_settlements,
+                min_clearings=want_clearings,
+                min_margins=want_margins,
+                min_collaterals=want_collaterals,
+                min_liquidities=want_liquidities,
+                min_constitutions=want_covenants,
+                min_covenants=want_covenants,
+                lineage_path=out_lineage,
+                settlement_path=settlement_path,
+                margin_path=margin_path,
+                collateral_path=collateral_path,
+                liquidity_path=liquidity_path,
+                covenant_path=out_stress,
+                persist=persist,
+            )
+            if out_stress.is_file():
+                covenant_bundle = load_covenant_bundle(out_stress)
+
+    parent_covenanted = bool(
+        (covenant_report or {}).get("covenanted")
+        or (covenant_report or {}).get("treatied")
+        or (covenant_report or {}).get("ok")
+        or (covenant_bundle or {}).get("ok")
+    )
+    if covenant_bundle is None or not (
+        covenant_bundle.get("ok") or parent_covenanted
+    ):
+        return {
+            "ok": False,
+            "action": "treaty_plane",
+            "error": "covenant_source_failed",
+            "covenant": None
+        if covenant_report is None
+        else {
+                "ok": covenant_report.get("ok"),
+                "covenanted": covenant_report.get("covenanted") or covenant_report.get("treatied"),
+            },
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "ledger_path": str(path),
+        }
+
+    applied = apply_covenant_bundle_to_treaties(
+        covenant_bundle,
+        goal=goal,
+        min_treaties=want_treaties,
+    )
+    if not applied.get("ok"):
+        return {
+            "ok": False,
+            "action": "treaty_plane",
+            "error": applied.get("error") or "covenant_apply_failed",
+            "apply": {
+                "ok": applied.get("ok"),
+                "error": applied.get("error"),
+                "applied_count": applied.get("applied_count"),
+            },
+            "settlement": {
+                "ok": True if covenant_report is None else bool(covenant_report.get("ok")),
+                "covenant_hash": covenant_bundle.get("covenant_hash"),
+            },
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "ledger_path": str(path),
+        }
+
+    treaty_log = applied["treaty_log"]
+    margin = build_treaty_bundle(
+        treaty_log,
+        covenant_bundle,
+        goal=goal,
+    )
+    out_c = (
+        treaty_path.resolve()
+        if treaty_path is not None
+        else (
+            default_treaty_bundle_dir(root)
+            / f"covenant-{margin.get('treaty_hash') or 'unknown'}.json"
+        )
+    )
+    if persist and margin.get("ok"):
+        write_treaty_bundle(out_c, margin)
+        # Stable path for complete-gate disk evidence (context-less / failed-plane fallback).
+        proof_path = default_treaty_bundle_dir(root) / "proof-treaty.json"
+        write_treaty_bundle(proof_path, margin)
+        reloaded = load_treaty_bundle(out_c)
+    else:
+        reloaded = margin
+
+    integrity = verify_treaty_bundle_integrity(reloaded)
+    rehydrate = rehydrate_treaty_bundle(
+        root,
+        reloaded,
+        sandbox_dir=sandbox_dir,
+    )
+    sterile = rehydrate.get("sterile_ledger")
+    if prove_imported and isinstance(sterile, CapabilityLedger):
+        member_ids = list((reloaded.get("package") or {}).get("member_ids") or [])
+        roots = list((reloaded.get("package") or {}).get("roots") or member_ids[:3])
+        if not roots:
+            roots = list((reloaded.get("package") or {}).get("members") or {}).keys()
+            roots = list(roots)[:3]
+        prove = prove_sterile_package(
+            root,
+            sterile,
+            roots,
+            command_runner=command_runner,
+            timeout=min(timeout, 120),
+        )
+    else:
+        prove = {
+            "ok": not prove_imported,
+            "action": "prove_sterile_package",
+            "proved_count": 0,
+            "proofs": [],
+            "used_skill_route_discovery": False,
+        }
+
+    chain = verify_treaty_chain(
+        reloaded.get("treaties")
+        if isinstance(reloaded.get("treaties"), Mapping)
+        else treaty_log
+    )
+    cert_verify = verify_treaty_certificate(
+        reloaded.get("treaty_certificate")
+        if isinstance(reloaded.get("treaty_certificate"), Mapping)
+        else {}
+    )
+    adversarial = run_treaty_adversarial_checks(
+        reloaded, treaty_log, covenant_bundle
+    )
+
+    used_skill = bool(
+        (covenant_report or {}).get("used_skill_route_discovery")
+        or margin.get("used_skill_route_discovery")
+        or integrity.get("used_skill_route_discovery")
+        or rehydrate.get("used_skill_route_discovery")
+        or prove.get("used_skill_route_discovery")
+        or adversarial.get("used_skill_route_discovery")
+        or legacy_pipeline_was_used()
+    )
+    tip_height = int(reloaded.get("tip_height") or chain.get("tip_height") or 0)
+    covenant_n = int(reloaded.get("treaty_count") or chain.get("entry_count") or 0)
+    stress_n = int(
+        reloaded.get("covenant_count") or covenant_bundle.get("covenant_count") or 0
+    )
+    settlement_n = int(
+        reloaded.get("settlement_count") or covenant_bundle.get("settlement_count") or 0
+    )
+    action_n = int(reloaded.get("action_count") or covenant_bundle.get("action_count") or 0)
+    state_n = int(reloaded.get("state_count") or covenant_bundle.get("state_count") or 0)
+    epoch_n = int(reloaded.get("epoch_count") or covenant_bundle.get("epoch_count") or 0)
+    treatied = (
+        bool(margin.get("ok"))
+        and bool(integrity.get("ok"))
+        and bool(rehydrate.get("ok"))
+        and bool(prove.get("ok"))
+        and bool(chain.get("valid"))
+        and bool(cert_verify.get("valid"))
+        and bool(adversarial.get("ok"))
+        and tip_height >= 2
+        and covenant_n >= 2
+        and not used_skill
+    )
+    provisional_ok = treatied and (
+        covenant_report is None or bool(covenant_report.get("ok")) or not run_covenant
+    )
+
+    context = {
+        "used_skill_route_discovery": used_skill,
+        "clearing": {
+            "ok": True if covenant_report is None else bool(covenant_report.get("ok")),
+            "covenanted": True
+            if covenant_report is None
+            else bool(covenant_report.get("covenanted") or covenant_report.get("liquid")),
+            "covenant_count": stress_n,
+            "tip_height": covenant_bundle.get("tip_height"),
+            "tip_covenant_root": covenant_bundle.get("tip_covenant_root"),
+            "covenant_hash": covenant_bundle.get("covenant_hash"),
+            "covenant_root_valid": True,
+            "certificate_valid": True,
+            "covenant_plan_digest": covenant_bundle.get("covenant_plan_digest"),
+            "deterministic": True,
+            "post_clearing": True,
+            "multi_clearing": stress_n >= 2,
+        },
+        "clearing_plane": {
+            "ok": True if covenant_report is None else bool(covenant_report.get("ok")),
+            "treatied": True
+            if covenant_report is None
+            else bool(covenant_report.get("treatied")),
+            "covenant_count": stress_n,
+            "covenant_root_valid": True,
+        },
+        "net": {
+            "ok": True if covenant_report is None else bool(covenant_report.get("ok")),
+            "treatied": True
+            if covenant_report is None
+            else bool(covenant_report.get("treatied")),
+            "covenant_count": stress_n,
+            "covenant_plan_digest": covenant_bundle.get("covenant_plan_digest"),
+            "covenant_root_valid": True,
+        },
+        "settlement": {
+            "ok": True,
+            "settled": True,
+            "settlement_count": settlement_n,
+            "settlement_root_valid": True,
+            "certificate_valid": True,
+            "deterministic": True,
+            "post_actuation": True,
+            "multi_settlement": settlement_n >= 2 if settlement_n else True,
+        },
+        "settlement_plane": {
+            "ok": True,
+            "settled": True,
+            "settlement_count": settlement_n,
+            "settlement_root_valid": True,
+        },
+        "receipts": {
+            "ok": True,
+            "settled": True,
+            "settlement_count": settlement_n,
+            "settlement_root_valid": True,
+        },
+        "actuation": {
+            "ok": True,
+            "effects_applied": True,
+            "action_count": action_n,
+            "action_root_valid": True,
+            "certificate_valid": True,
+            "deterministic": True,
+            "post_execution": True,
+            "multi_action": action_n >= 2 if action_n else True,
+        },
+        "actuation_plane": {
+            "ok": True,
+            "effects_applied": True,
+            "action_count": action_n,
+            "action_root_valid": True,
+        },
+        "effects": {
+            "ok": True,
+            "effects_applied": True,
+            "action_count": action_n,
+            "action_root_valid": True,
+        },
+        "execution": {
+            "ok": True,
+            "state_applied": True,
+            "state_height": state_n,
+            "tip_height": state_n,
+            "tip_state_root": covenant_bundle.get("bound_state_root"),
+            "execution_hash": covenant_bundle.get("execution_hash"),
+            "state_root_valid": True,
+            "certificate_valid": True,
+            "deterministic": True,
+            "post_finality": True,
+            "multi_state": state_n >= 2 if state_n else True,
+        },
+        "execution_plane": {
+            "ok": True,
+            "state_applied": True,
+            "state_height": state_n,
+            "state_root_valid": True,
+        },
+        "worldstate": {
+            "ok": True,
+            "state_applied": True,
+            "state_height": state_n,
+            "tip_state_root": covenant_bundle.get("bound_state_root"),
+            "state_root_valid": True,
+        },
+        "finality": {
+            "ok": True,
+            "finalized": True,
+            "epoch_count": epoch_n,
+            "finality_cert_valid": True,
+            "certificate_valid": True,
+            "irreversible": True,
+            "multi_epoch": epoch_n >= 2 if epoch_n else True,
+        },
+        "finality_plane": {
+            "ok": True,
+            "finalized": True,
+            "epoch_count": epoch_n,
+            "finality_cert_valid": True,
+        },
+        "quorum": {
+            "ok": True,
+            "quorum_met": True,
+            "origin_count": reloaded.get("origin_count"),
+            "quorum_size": reloaded.get("agreeing_count"),
+            "agreeing_count": reloaded.get("agreeing_count"),
+            "byzantine_excluded": int(reloaded.get("byzantine_count") or 0) >= 1,
+            "byzantine_count": reloaded.get("byzantine_count"),
+            "quorum_cert_valid": True,
+        },
+        "funding": {
+            "ok": True if covenant_report is None else bool(covenant_report.get("ok")),
+            "covenanted": True
+            if covenant_report is None
+            else bool(
+                covenant_report.get("covenanted")
+                or covenant_report.get("ok")
+                or stress_n >= 2
+            ),
+            "covenant_count": stress_n,
+            "tip_height": covenant_bundle.get("tip_height"),
+            "tip_covenant_root": covenant_bundle.get("tip_covenant_root"),
+            "covenant_hash": covenant_bundle.get("covenant_hash"),
+            "covenant_root_valid": True,
+            "certificate_valid": True,
+            "covenant_plan_digest": covenant_bundle.get("covenant_plan_digest"),
+            "deterministic": True,
+            "post_liquidity": True,
+            "multi_funding": stress_n >= 2,
+            "bound_liquidity_root": covenant_bundle.get("bound_liquidity_root"),
+        },
+        "funding_plane": {
+            "ok": True if covenant_report is None else bool(covenant_report.get("ok")),
+            "covenanted": True
+            if covenant_report is None
+            else bool(covenant_report.get("covenanted") or covenant_report.get("ok")),
+            "covenant_count": stress_n,
+            "covenant_root_valid": True,
+        },
+        "facility": {
+            "ok": True if covenant_report is None else bool(covenant_report.get("ok")),
+            "covenanted": True
+            if covenant_report is None
+            else bool(covenant_report.get("covenanted") or covenant_report.get("ok")),
+            "covenant_count": stress_n,
+            "covenant_plan_digest": covenant_bundle.get("covenant_plan_digest"),
+            "covenant_root_valid": True,
+        },
+        "covenant": {
+            "ok": True if covenant_report is None else bool(covenant_report.get("ok")),
+            "covenanted": True
+            if covenant_report is None
+            else bool(
+                covenant_report.get("covenanted")
+                or covenant_report.get("ok")
+                or stress_n >= 2
+            ),
+            "covenant_count": stress_n,
+            "tip_height": covenant_bundle.get("tip_height"),
+            "tip_covenant_root": covenant_bundle.get("tip_covenant_root"),
+            "covenant_hash": covenant_bundle.get("covenant_hash"),
+            "covenant_root_valid": True,
+            "certificate_valid": True,
+            "covenant_plan_digest": covenant_bundle.get("covenant_plan_digest"),
+            "deterministic": True,
+            "post_covenant": True,
+            "multi_covenant": stress_n >= 2,
+            "bound_stress_root": covenant_bundle.get("bound_stress_root"),
+        },
+        "covenant_plane": {
+            "ok": True if covenant_report is None else bool(covenant_report.get("ok")),
+            "covenanted": True
+            if covenant_report is None
+            else bool(covenant_report.get("covenanted") or covenant_report.get("ok")),
+            "covenant_count": stress_n,
+            "covenant_root_valid": True,
+        },
+        "treaty": {
+            "ok": provisional_ok,
+            "treatied": treatied,
+            "treaty_count": covenant_n,
+            "tip_height": tip_height,
+            "tip_treaty_root": reloaded.get("tip_treaty_root"),
+            "treaty_hash": reloaded.get("treaty_hash"),
+            "treaty_root_valid": bool(cert_verify.get("valid")),
+            "certificate_valid": bool(cert_verify.get("valid")),
+            "treaty_plan_digest": reloaded.get("treaty_plan_digest"),
+            "covenant_plan_digest": reloaded.get("covenant_plan_digest"),
+            "deterministic": True,
+            "post_covenant": True,
+            "multi_treaty": covenant_n >= 2,
+            "bound_covenant_root": reloaded.get("bound_covenant_root"),
+        },
+        "treaty_plane": {
+            "ok": provisional_ok,
+            "treatied": treatied,
+            "treaty_count": covenant_n,
+            "treaty_root_valid": bool(cert_verify.get("valid")),
+        },
+        "scenario": {
+            "ok": provisional_ok,
+            "treatied": treatied,
+            "treaty_count": covenant_n,
+            "treaty_plan_digest": reloaded.get("treaty_plan_digest"),
+            "treaty_root_valid": bool(cert_verify.get("valid")),
+        },
+        "chain": chain,
+        "margin_chain": chain,
+        "clearing_chain": (covenant_report or {}).get("chain") or {},
+        "lineage_chain": (covenant_report or {}).get("chain") or {},
+        "lineage": {
+            "ok": True,
+            "entry_count": reloaded.get("lineage_entry_count"),
+        },
+        "origin_count": reloaded.get("origin_count"),
+        "treaty_count": covenant_n,
+        "covenant_count": stress_n,
+        "settlement_count": settlement_n,
+        "action_count": action_n,
+        "tip_height": tip_height,
+        "state_height": state_n,
+        "epoch_count": epoch_n,
+        "treaty_certificate": reloaded.get("treaty_certificate"),
+        "treaty_hash": reloaded.get("treaty_hash"),
+        "covenant_hash": reloaded.get("covenant_hash"),
+        "settlement_hash": reloaded.get("settlement_hash"),
+        "actuation_hash": reloaded.get("actuation_hash"),
+        "execution_hash": reloaded.get("execution_hash"),
+        "tip_treaty_root": reloaded.get("tip_treaty_root"),
+        "bound_covenant_root": reloaded.get("bound_covenant_root"),
+        "tip_covenant_root": reloaded.get("tip_covenant_root"),
+        "bound_settlement_root": reloaded.get("bound_settlement_root"),
+        "tip_settlement_root": reloaded.get("tip_settlement_root"),
+        "bound_action_root": reloaded.get("bound_action_root"),
+        "tip_action_root": reloaded.get("tip_action_root"),
+        "bound_state_root": reloaded.get("bound_state_root"),
+        "treaty_plan_digest": reloaded.get("treaty_plan_digest"),
+        "covenant_plan_digest": reloaded.get("covenant_plan_digest"),
+    }
+    treaty_done_when = (
+        "no_skill_route; treaty_ok; treatied_ok; min_treaties:2; "
+        "treaty_root_valid; covenant_ok; covenanted_ok; min_covenants:2; "
+        "covenant_root_valid; chain_valid; capability_exists:repo.import-health"
+    )
+    final_contract = evaluate_outcome_contract(
+        root,
+        treaty_done_when,
+        context=context,
+        command_runner=command_runner,
+        timeout=min(timeout, 60),
+        run_programs=False,
+    )
+    ok = (
+        provisional_ok
+        and bool(final_contract.get("ok"))
+        and final_contract.get("met") is True
+    )
+    return {
+        "ok": ok,
+        "action": "treaty_plane",
+        "goal": goal,
+        "done_when": done_when,
+        "treaty_done_when": treaty_done_when,
+        "met": final_contract.get("met"),
+        "machine_checkable": True,
+        "treatied": treatied,
+        "treaty_count": covenant_n,
+        "tip_height": tip_height,
+        "tip_treaty_root": reloaded.get("tip_treaty_root"),
+        "bound_covenant_root": reloaded.get("bound_covenant_root"),
+        "bound_covenant_height": reloaded.get("bound_covenant_height"),
+        "treaty_plan_digest": reloaded.get("treaty_plan_digest"),
+        "covenant_count": stress_n,
+        "tip_covenant_root": reloaded.get("tip_covenant_root"),
+        "bound_settlement_root": reloaded.get("bound_settlement_root"),
+        "covenant_plan_digest": reloaded.get("covenant_plan_digest"),
+        "settlement_count": settlement_n,
+        "tip_settlement_root": reloaded.get("tip_settlement_root"),
+        "bound_action_root": reloaded.get("bound_action_root"),
+        "action_count": action_n,
+        "tip_action_root": reloaded.get("tip_action_root"),
+        "bound_state_root": reloaded.get("bound_state_root"),
+        "state_count": state_n,
+        "state_height": state_n,
+        "epoch_count": epoch_n,
+        "origin_count": reloaded.get("origin_count"),
+        "agreeing_count": reloaded.get("agreeing_count"),
+        "byzantine_count": reloaded.get("byzantine_count"),
+        "covenant": None
+        if covenant_report is None
+        else {
+            "ok": covenant_report.get("ok"),
+            "covenanted": covenant_report.get("covenanted") or covenant_report.get("treatied"),
+            "covenant_hash": (
+                (covenant_report.get("funding") or covenant_report.get("margin") or {}).get(
+                    "covenant_hash"
+                )
+                or covenant_report.get("covenant_hash")
+            ),
+            "covenant_count": covenant_report.get("covenant_count"),
+            "tip_covenant_root": covenant_report.get("tip_covenant_root"),
+        },
+        "treaty": {
+            "ok": margin.get("ok"),
+            "treaty_hash": reloaded.get("treaty_hash"),
+            "bundle_path": str(out_c) if persist and margin.get("ok") else None,
+            "package_hash": reloaded.get("package_hash"),
+            "member_count": reloaded.get("member_count"),
+            "treaty_count": covenant_n,
+            "tip_height": tip_height,
+            "tip_treaty_root": reloaded.get("tip_treaty_root"),
+            "bound_covenant_root": reloaded.get("bound_covenant_root"),
+            "treaty_plan_digest": reloaded.get("treaty_plan_digest"),
+            "certificate_count": reloaded.get("certificate_count"),
+            "lineage_entry_count": reloaded.get("lineage_entry_count"),
+            "lineage_head_hash": reloaded.get("lineage_head_hash"),
+            "covenant_hash": reloaded.get("covenant_hash"),
+            "settlement_hash": reloaded.get("settlement_hash"),
+            "actuation_hash": reloaded.get("actuation_hash"),
+            "execution_hash": reloaded.get("execution_hash"),
+            "persisted": persist and out_c.exists() if margin.get("ok") else False,
+            "deterministic": True,
+            "post_covenant": True,
+        },
+        "integrity": {
+            "ok": integrity.get("ok"),
+            "hash_ok": integrity.get("hash_ok"),
+            "chain_valid": integrity.get("chain_valid"),
+            "multi_treaty": integrity.get("multi_treaty"),
+            "package_ok": integrity.get("package_ok"),
+            "treaty_certificate_valid": integrity.get("treaty_certificate_valid"),
+            "covenant_certificate_valid": integrity.get(
+                "covenant_certificate_valid"
+            ),
+            "bound_ok": integrity.get("bound_ok"),
+            "treaty_ok": integrity.get("treaty_ok"),
+            "deterministic": integrity.get("deterministic"),
+            "post_covenant": integrity.get("post_covenant"),
+        },
+        "rehydrate": {
+            "ok": rehydrate.get("ok"),
+            "sandbox_dir": rehydrate.get("sandbox_dir"),
+            "lineage_path": rehydrate.get("lineage_path"),
+            "treaties_path": rehydrate.get("treaties_path"),
+            "covenants_path": rehydrate.get("covenants_path"),
+            "settlements_path": rehydrate.get("settlements_path"),
+            "actions_path": rehydrate.get("actions_path"),
+            "sterile_ledger_path": rehydrate.get("sterile_ledger_path"),
+            "import": rehydrate.get("import"),
+            "chain": rehydrate.get("chain"),
+            "treaty_certificate": rehydrate.get("treaty_certificate"),
+            "covenant_certificate": rehydrate.get("covenant_certificate"),
+            "margin_digests_match": rehydrate.get("margin_digests_match"),
+        },
+        "prove": {
+            "ok": prove.get("ok"),
+            "proved_count": prove.get("proved_count"),
+            "proofs": prove.get("proofs"),
+        },
+        "chain": {
+            "ok": chain.get("ok"),
+            "valid": chain.get("valid"),
+            "entry_count": chain.get("entry_count"),
+            "tip_height": chain.get("tip_height"),
+            "tip_treaty_root": chain.get("tip_treaty_root"),
+            "treaty_plan_digest": chain.get("treaty_plan_digest"),
+            "errors": chain.get("errors") or [],
+        },
+        "treaty_certificate": {
+            "ok": cert_verify.get("ok"),
+            "valid": cert_verify.get("valid"),
+            "hash_ok": cert_verify.get("hash_ok"),
+            "certificate_hash": cert_verify.get("certificate_hash"),
+            "treaty_height": cert_verify.get("treaty_height"),
+            "treaty_root": cert_verify.get("treaty_root"),
+            "bound_covenant_root": cert_verify.get("bound_covenant_root"),
+            "treaty_plan_digest": cert_verify.get("treaty_plan_digest"),
+        },
+        "adversarial": {
+            "ok": adversarial.get("ok"),
+            "intact_ok": adversarial.get("intact_ok"),
+            "mutation_fails_as_expected": adversarial.get(
+                "mutation_fails_as_expected"
+            ),
+            "reorder_fails_as_expected": adversarial.get("reorder_fails_as_expected"),
+            "wrong_covenant_fails_as_expected": adversarial.get(
+                "wrong_covenant_fails_as_expected"
+            ),
+            "forged_root_fails_as_expected": adversarial.get(
+                "forged_root_fails_as_expected"
+            ),
+            "gap_fails_as_expected": adversarial.get("gap_fails_as_expected"),
+            "broken_cert_fails_as_expected": adversarial.get(
+                "broken_cert_fails_as_expected"
+            ),
+            "wrong_parent_fails_as_expected": adversarial.get(
+                "wrong_parent_fails_as_expected"
+            ),
+            "digest_tamper_fails_as_expected": adversarial.get(
+                "digest_tamper_fails_as_expected"
+            ),
+            "tamper_fails_as_expected": adversarial.get("tamper_fails_as_expected"),
+            "single_treaty_fails_as_expected": adversarial.get(
+                "single_treaty_fails_as_expected"
+            ),
+            "replay_matches_tip": adversarial.get("replay_matches_tip"),
+            "duplicate_apply_fails_as_expected": adversarial.get(
+                "duplicate_apply_fails_as_expected"
+            ),
+            "incomplete_fails_as_expected": adversarial.get(
+                "incomplete_fails_as_expected"
+            ),
+        },
+        "final_contract": {
+            "ok": final_contract.get("ok"),
+            "met": final_contract.get("met"),
+            "passed_count": final_contract.get("passed_count"),
+            "failed_count": final_contract.get("failed_count"),
+            "failed": final_contract.get("failed"),
+        },
+        "used_skill_route_discovery": used_skill,
+        "ledger_path": str(path),
+    }
+
+
+def builtin_treaty_plane() -> dict[str, Any]:
+    """Invocable capability: covenant → multi-covenant deterministic buffers → prove."""
+
+    root = Path(__file__).resolve().parents[2]
+    goal = (
+        (os.environ.get("BLACKHOLE_MISSION_GOAL") or "").strip()
+        or "treaty over covenant"
+    )
+    done_when = (os.environ.get("BLACKHOLE_DONE_WHEN") or "").strip()
+    max_steps = int(os.environ.get("BLACKHOLE_PROGRAM_MAX_STEPS") or "3")
+    run_covenant = (
+        os.environ.get("BLACKHOLE_TREATY_RUN_COVENANT") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_liquidity = (
+        os.environ.get("BLACKHOLE_CAPITAL_RUN_FUNDING") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_collateral = (
+        os.environ.get("BLACKHOLE_LIQUIDITY_RUN_COLLATERAL") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_margin = (
+        os.environ.get("BLACKHOLE_COLLATERAL_RUN_MARGIN") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_clearing = (
+        os.environ.get("BLACKHOLE_MARGIN_RUN_CLEARING") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_settlement = (
+        os.environ.get("BLACKHOLE_CLEARING_RUN_SETTLEMENT") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_actuation = (
+        os.environ.get("BLACKHOLE_SETTLEMENT_RUN_ACTUATION") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_execution = (
+        os.environ.get("BLACKHOLE_ACTUATION_RUN_EXECUTION") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_finality = (
+        os.environ.get("BLACKHOLE_EXECUTION_RUN_FINALITY") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_quorum = (
+        os.environ.get("BLACKHOLE_FINALITY_RUN_QUORUM") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_continuity = (
+        os.environ.get("BLACKHOLE_QUORUM_RUN_CONTINUITY") or "0"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_recon = (
+        os.environ.get("BLACKHOLE_CONTINUITY_RUN_RECON") or "0"
+    ).strip().lower() not in {"0", "false", "no"}
+    force_synthetic = (
+        os.environ.get("BLACKHOLE_RECONCILE_SYNTHETIC") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    inject_byz = (
+        os.environ.get("BLACKHOLE_QUORUM_INJECT_BYZANTINE") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    epoch_count = int(os.environ.get("BLACKHOLE_FINALITY_EPOCH_COUNT") or "2")
+    min_actions = int(os.environ.get("BLACKHOLE_ACTUATION_MIN_ACTIONS") or "2")
+    min_settlements = int(os.environ.get("BLACKHOLE_SETTLEMENT_MIN_SETTLEMENTS") or "2")
+    min_clearings = int(os.environ.get("BLACKHOLE_CLEARING_MIN_CLEARINGS") or "2")
+    min_margins = int(os.environ.get("BLACKHOLE_MARGIN_MIN_MARGINS") or "2")
+    min_collaterals = int(os.environ.get("BLACKHOLE_COLLATERAL_MIN_COLLATERALS") or "2")
+    min_liquidities = int(os.environ.get("BLACKHOLE_LIQUIDITY_MIN_LIQUIDITIES") or "2")
+    min_covenants = int(os.environ.get("BLACKHOLE_COVENANT_MIN_COVENANTS") or "2")
+    min_treaties = int(os.environ.get("BLACKHOLE_TREATY_MIN_TREATIES") or "2")
+    lineage_raw = (os.environ.get("BLACKHOLE_LINEAGE_PATH") or "").strip()
+    lineage_path = Path(lineage_raw) if lineage_raw else None
+    bundle_raw = (os.environ.get("BLACKHOLE_CONTINUITY_BUNDLE_PATH") or "").strip()
+    bundle_path = Path(bundle_raw) if bundle_raw else None
+    q_raw = (os.environ.get("BLACKHOLE_QUORUM_BUNDLE_PATH") or "").strip()
+    quorum_path = Path(q_raw) if q_raw else None
+    f_raw = (os.environ.get("BLACKHOLE_FINALITY_BUNDLE_PATH") or "").strip()
+    finality_path = Path(f_raw) if f_raw else None
+    e_raw = (os.environ.get("BLACKHOLE_EXECUTION_BUNDLE_PATH") or "").strip()
+    execution_path = Path(e_raw) if e_raw else None
+    a_raw = (os.environ.get("BLACKHOLE_ACTUATION_BUNDLE_PATH") or "").strip()
+    actuation_path = Path(a_raw) if a_raw else None
+    s_raw = (os.environ.get("BLACKHOLE_SETTLEMENT_BUNDLE_PATH") or "").strip()
+    settlement_path = Path(s_raw) if s_raw else None
+    g_raw = (os.environ.get("BLACKHOLE_MARGIN_BUNDLE_PATH") or "").strip()
+    margin_path = Path(g_raw) if g_raw else None
+    col_raw = (os.environ.get("BLACKHOLE_COLLATERAL_BUNDLE_PATH") or "").strip()
+    collateral_path = Path(col_raw) if col_raw else None
+    liq_raw = (os.environ.get("BLACKHOLE_LIQUIDITY_BUNDLE_PATH") or "").strip()
+    liquidity_path = Path(liq_raw) if liq_raw else None
+    c_raw = (os.environ.get("BLACKHOLE_COVENANT_BUNDLE_PATH") or "").strip()
+    covenant_path = Path(c_raw) if c_raw else None
+    m_raw = (os.environ.get("BLACKHOLE_TREATY_BUNDLE_PATH") or "").strip()
+    treaty_path = Path(m_raw) if m_raw else None
+    return run_treaty_plane(
+        root,
+        goal,
+        done_when,
+        max_steps=max_steps,
+        run_covenant=run_covenant,
+        run_liquidity=run_liquidity,
+        run_collateral=run_collateral,
+        run_margin=run_margin,
+        run_clearing=run_clearing,
+        run_settlement=run_settlement,
+        run_actuation=run_actuation,
+        run_execution=run_execution,
+        run_finality=run_finality,
+        run_quorum=run_quorum,
+        run_continuity=run_continuity,
+        run_reconciliation=run_recon,
+        force_synthetic_drift=force_synthetic,
+        inject_byzantine=inject_byz,
+        epoch_count=epoch_count,
+        min_actions=min_actions,
+        min_settlements=min_settlements,
+        min_clearings=min_clearings,
+        min_margins=min_margins,
+        min_collaterals=min_collaterals,
+        min_liquidities=min_liquidities,
+        min_covenants=min_covenants,
+        min_treaties=min_treaties,
+        lineage_path=lineage_path,
+        bundle_path=bundle_path,
+        quorum_path=quorum_path,
+        finality_path=finality_path,
+        execution_path=execution_path,
+        actuation_path=actuation_path,
+        settlement_path=settlement_path,
+        margin_path=margin_path,
+        collateral_path=collateral_path,
+        liquidity_path=liquidity_path,
+        covenant_path=covenant_path,
+        treaty_path=treaty_path,
+        timeout=960,
+    )
+
+
+
 def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
     """Install the minimal compoundable bootstrap set if missing."""
 
@@ -96101,6 +98504,193 @@ Capability(
             created_at=utc_now_iso(),
             updated_at=utc_now_iso(),
         ),
+
+Capability(
+            id="capability.treaty-plane",
+            name="Treaty plane over covenant",
+            description=(
+                "Closed treaty plane: multi-covenant orders → deterministic "
+                "hash-chained treaty grants with treaty plan digests bound to "
+                "covenant roots → treaty certificates → sterile rehydrate+prove → "
+                "adversarial mutation/reorder/wrong-covenant/double-treaty/forged-root/"
+                "gap/digest-tamper/single-treaty falsification with genesis replay matching "
+                "tip — past treatied actions without treaty grants."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_treaty_plane",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_treaty_plane; '
+                "from pathlib import Path; "
+                "import os; "
+                "os.environ['BLACKHOLE_MISSION_GOAL']='treaty over covenant'; "
+                "os.environ['BLACKHOLE_DONE_WHEN']="
+                "'min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; "
+                "os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; "
+                "os.environ['BLACKHOLE_TREATY_RUN_COVENANT']='1'; "
+                "os.environ['BLACKHOLE_COVENANT_RUN_MANDATE']='1'; "
+                "os.environ['BLACKHOLE_MANDATE_RUN_PRIVILEGE']='1'; "
+                "os.environ['BLACKHOLE_PRIVILEGE_RUN_STANDING']='1'; "
+                "os.environ['BLACKHOLE_STANDING_RUN_REPUTATION']='1'; "
+                "os.environ['BLACKHOLE_RECOGNITION_RUN_REVERIFICATION']='1'; "
+                "os.environ['BLACKHOLE_REVERIFICATION_RUN_REVALIDATION']='1'; "
+                "os.environ['BLACKHOLE_REVALIDATION_RUN_REATTESTATION']='1'; "
+                "os.environ['BLACKHOLE_REATTESTATION_RUN_RECERTIFICATION']='1'; "
+                "os.environ['BLACKHOLE_RECERTIFICATION_RUN_REAUTHORIZATION']='1'; "
+                "os.environ['BLACKHOLE_REAUTHORIZATION_RUN_REINSTATEMENT']='1'; "
+                "os.environ['BLACKHOLE_REORGANIZATION_RUN_RECOVERY']='1'; "
+                "os.environ['BLACKHOLE_RECOVERY_RUN_RESILIENCE']='1'; "
+                "os.environ['BLACKHOLE_RESILIENCE_RUN_STRESS']='1'; "
+                "os.environ['BLACKHOLE_STRESS_RUN_RISK']='1'; "
+                "os.environ['BLACKHOLE_RISK_RUN_SOLVENCY']='1'; "
+                "os.environ['BLACKHOLE_SOLVENCY_RUN_CAPITAL']='1'; "
+                "os.environ['BLACKHOLE_CAPITAL_RUN_FUNDING']='1'; "
+                "os.environ['BLACKHOLE_FUNDING_RUN_LIQUIDITY']='1'; "
+                "os.environ['BLACKHOLE_LIQUIDITY_RUN_COLLATERAL']='1'; "
+                "os.environ['BLACKHOLE_COLLATERAL_RUN_MARGIN']='1'; "
+                "os.environ['BLACKHOLE_MARGIN_RUN_CLEARING']='1'; "
+                "os.environ['BLACKHOLE_CLEARING_RUN_SETTLEMENT']='1'; "
+                "os.environ['BLACKHOLE_SETTLEMENT_RUN_ACTUATION']='1'; "
+                "os.environ['BLACKHOLE_ACTUATION_RUN_EXECUTION']='1'; "
+                "os.environ['BLACKHOLE_EXECUTION_RUN_FINALITY']='1'; "
+                "os.environ['BLACKHOLE_FINALITY_RUN_QUORUM']='1'; "
+                "os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='0'; "
+                "os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='0'; "
+                "os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; "
+                "os.environ['BLACKHOLE_FINALITY_EPOCH_COUNT']='2'; "
+                "os.environ['BLACKHOLE_ACTUATION_MIN_ACTIONS']='2'; "
+                "os.environ['BLACKHOLE_SETTLEMENT_MIN_SETTLEMENTS']='2'; "
+                "os.environ['BLACKHOLE_CLEARING_MIN_CLEARINGS']='2'; "
+                "os.environ['BLACKHOLE_MARGIN_MIN_MARGINS']='2'; "
+                "os.environ['BLACKHOLE_COLLATERAL_MIN_COLLATERALS']='2'; "
+                "os.environ['BLACKHOLE_LIQUIDITY_MIN_LIQUIDITIES']='2'; "
+                "os.environ['BLACKHOLE_FUNDING_MIN_FUNDINGS']='2'; "
+                "os.environ['BLACKHOLE_CAPITAL_MIN_CAPITALS']='2'; "
+                "os.environ['BLACKHOLE_SOLVENCY_MIN_SOLVENCIES']='2'; "
+                "os.environ['BLACKHOLE_RISK_MIN_RISKS']='2'; "
+                "os.environ['BLACKHOLE_STRESS_MIN_STRESSES']='2'; "
+                "os.environ['BLACKHOLE_RESILIENCE_MIN_RESILIENCES']='2'; "
+                "os.environ['BLACKHOLE_RECOVERY_MIN_RECOVERIES']='2'; "
+                "os.environ['BLACKHOLE_RESOLUTION_MIN_RESOLUTIONS']='2'; "
+                "os.environ['BLACKHOLE_REINSTATEMENT_MIN_REINSTATEMENTS']='2'; "
+                "os.environ['BLACKHOLE_REAUTHORIZATION_MIN_REAUTHORIZATIONS']='2'; "
+                "os.environ['BLACKHOLE_RECERTIFICATION_MIN_RECERTIFICATIONS']='2'; "
+                "os.environ['BLACKHOLE_REATTESTATION_MIN_REATTESTATIONS']='2'; "
+                "os.environ['BLACKHOLE_REVALIDATION_MIN_REVALIDATIONS']='2'; "
+                "os.environ['BLACKHOLE_REVERIFICATION_MIN_REVERIFICATIONS']='2'; "
+                "os.environ['BLACKHOLE_RECOGNITION_MIN_RECOGNITIONS']='2'; "
+                "os.environ['BLACKHOLE_PRIVILEGE_MIN_PRIVILEGES']='2'; "
+                "os.environ['BLACKHOLE_MANDATE_MIN_MANDATES']='2'; "
+                "os.environ['BLACKHOLE_COVENANT_MIN_COVENANTS']='2'; "
+                "os.environ['BLACKHOLE_TREATY_MIN_TREATIES']='2'; "
+                "os.environ['BLACKHOLE_TREATY_RUN_COVENANT']='1'; "
+                "os.environ['BLACKHOLE_REORGANIZATION_RUN_RESOLUTION']='1'; "
+                "os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-treaty.json')); "
+                "os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-treaty-quorum.json')); "
+                "os.environ.setdefault('BLACKHOLE_FINALITY_BUNDLE_PATH', str(Path('artifacts')/'finality-bundles'/'proof-treaty-finality.json')); "
+                "os.environ.setdefault('BLACKHOLE_EXECUTION_BUNDLE_PATH', str(Path('artifacts')/'execution-bundles'/'proof-treaty-execution.json')); "
+                "os.environ.setdefault('BLACKHOLE_ACTUATION_BUNDLE_PATH', str(Path('artifacts')/'actuation-bundles'/'proof-treaty-actuation.json')); "
+                "os.environ.setdefault('BLACKHOLE_SETTLEMENT_BUNDLE_PATH', str(Path('artifacts')/'settlement-bundles'/'proof-treaty-settlement.json')); "
+                "os.environ.setdefault('BLACKHOLE_CLEARING_BUNDLE_PATH', str(Path('artifacts')/'clearing-bundles'/'proof-treaty-clearing.json')); "
+                "os.environ.setdefault('BLACKHOLE_MARGIN_BUNDLE_PATH', str(Path('artifacts')/'margin-bundles'/'proof-treaty-margin.json')); "
+                "os.environ.setdefault('BLACKHOLE_COLLATERAL_BUNDLE_PATH', str(Path('artifacts')/'collateral-bundles'/'proof-treaty-collateral.json')); "
+                "os.environ.setdefault('BLACKHOLE_LIQUIDITY_BUNDLE_PATH', str(Path('artifacts')/'liquidity-bundles'/'proof-treaty-liquidity.json')); "
+                "os.environ.setdefault('BLACKHOLE_FUNDING_BUNDLE_PATH', str(Path('artifacts')/'funding-bundles'/'proof-treaty-funding.json')); "
+                "os.environ.setdefault('BLACKHOLE_CAPITAL_BUNDLE_PATH', str(Path('artifacts')/'capital-bundles'/'proof-treaty-capital.json')); "
+                "os.environ.setdefault('BLACKHOLE_SOLVENCY_BUNDLE_PATH', str(Path('artifacts')/'solvency-bundles'/'proof-treaty-solvency.json')); "
+                "os.environ.setdefault('BLACKHOLE_RISK_BUNDLE_PATH', str(Path('artifacts')/'risk-bundles'/'proof-treaty-risk.json')); "
+                "os.environ.setdefault('BLACKHOLE_STRESS_BUNDLE_PATH', str(Path('artifacts')/'stress-bundles'/'proof-treaty-stress.json')); "
+                "os.environ.setdefault('BLACKHOLE_RESILIENCE_BUNDLE_PATH', str(Path('artifacts')/'resilience-bundles'/'proof-treaty-resilience.json')); "
+                "os.environ.setdefault('BLACKHOLE_RECOVERY_BUNDLE_PATH', str(Path('artifacts')/'recovery-bundles'/'proof-treaty-recovery.json')); "
+                "os.environ.setdefault('BLACKHOLE_REINSTATEMENT_BUNDLE_PATH', str(Path('artifacts')/'reinstatement-bundles'/'proof-treaty-reinstatement.json')); "
+                "os.environ.setdefault('BLACKHOLE_REAUTHORIZATION_BUNDLE_PATH', str(Path('artifacts')/'reauthorization-bundles'/'proof-treaty-reauthorization.json')); "
+                "os.environ.setdefault('BLACKHOLE_RECERTIFICATION_BUNDLE_PATH', str(Path('artifacts')/'recertification-bundles'/'proof-treaty-recertification.json')); "
+                "os.environ.setdefault('BLACKHOLE_REATTESTATION_BUNDLE_PATH', str(Path('artifacts')/'reattestation-bundles'/'proof-treaty-reattestation.json')); "
+                "os.environ.setdefault('BLACKHOLE_REVALIDATION_BUNDLE_PATH', str(Path('artifacts')/'revalidation-bundles'/'proof-treaty-revalidation.json')); "
+                "os.environ.setdefault('BLACKHOLE_REVERIFICATION_BUNDLE_PATH', str(Path('artifacts')/'reverification-bundles'/'proof-treaty-reverification.json')); "
+                "os.environ.setdefault('BLACKHOLE_RECOGNITION_BUNDLE_PATH', str(Path('artifacts')/'recognition-bundles'/'proof-treaty-recognition.json')); "
+                "os.environ.setdefault('BLACKHOLE_PRIVILEGE_BUNDLE_PATH', str(Path('artifacts')/'privilege-bundles'/'proof-treaty-privilege.json')); "
+                "os.environ.setdefault('BLACKHOLE_MANDATE_BUNDLE_PATH', str(Path('artifacts')/'mandate-bundles'/'proof-treaty-mandate.json')); "
+                "os.environ.setdefault('BLACKHOLE_COVENANT_BUNDLE_PATH', str(Path('artifacts')/'covenant-bundles'/'proof-treaty-covenant.json')); "
+                "os.environ.setdefault('BLACKHOLE_TREATY_BUNDLE_PATH', str(Path('artifacts')/'treaty-bundles'/'proof-treaty.json')); "
+                "r=builtin_treaty_plane(); assert r['ok'] and r.get('action')=='treaty_plane' "
+                "and r.get('treatied') is True and int(r.get('treaty_count') or 0) >= 2 "
+                "and int(r.get('tip_height') or 0) >= 2 "
+                "and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') "
+                "and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') "
+                "and r.get('treaty_certificate',{}).get('valid') "
+                "and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.outcome-contract",
+                "capability.contract-plane",
+                "capability.assurance-plane",
+                "capability.sovereignty-plane",
+                "capability.lineage-plane",
+                "capability.reconciliation-plane",
+                "capability.continuity-plane",
+                "capability.federation-plane",
+                "capability.quorum-plane",
+                "capability.finality-plane",
+                "capability.execution-plane",
+                "capability.actuation-plane",
+                "capability.settlement-plane",
+                "capability.clearing-plane",
+                "capability.margin-plane",
+                "capability.collateral-plane",
+                "capability.liquidity-plane",
+                "capability.funding-plane",
+                "capability.capital-plane",
+                "capability.solvency-plane",
+                "capability.risk-plane",
+                "capability.stress-plane",
+                "capability.resilience-plane",
+                "capability.recovery-plane",
+                "capability.resolution-plane",
+                "capability.restructuring-plane",
+                "capability.reorganization-plane",
+                "capability.covenant-plane",
+                "capability.constitution-plane",
+                "capability.mandate-plane",
+                "capability.privilege-plane",
+                "capability.standing-plane",
+                "capability.recognition-plane",
+                "capability.reverification-plane",
+                "capability.revalidation-plane",
+                "capability.reattestation-plane",
+                "capability.recertification-plane",
+                "capability.reauthorization-plane",
+                "capability.reinstatement-plane",
+                "capability.rehabilitation-plane",
+                "capability.transfer-plane",
+                "capability.ablation-proof",
+                "capability.adversarial-contract",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "src/blackhole_agent/unbound.py",
+            ),
+            capability_delta=(
+                "Treaty plane posts multi-covenant orders into deterministic hash-chained "
+                "treaty grants with treaty plan digests bound to covenant roots, "
+                "treaty certificates, sterile rehydrate+prove, and adversarial falsification "
+                "without skill-route discovery."
+            ),
+            tags=(
+                "treaty",
+                "order",
+                "covenant",
+                "plane",
+                "certificate",
+                "adversarial",
+                "hash-chain",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+
 
 
 

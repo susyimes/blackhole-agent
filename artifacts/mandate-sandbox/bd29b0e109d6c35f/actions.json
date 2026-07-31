@@ -1,0 +1,207 @@
+{
+  "bound_state_height": 2,
+  "bound_state_root": "ceb3333dbfca807f1ad4e2d5",
+  "entries": [
+    {
+      "action_height": 1,
+      "action_root": "3dfeb1ac7925c8785bd62ed9",
+      "actuation_certificate": {
+        "action_height": 1,
+        "action_root": "3dfeb1ac7925c8785bd62ed9",
+        "bound_state_height": 2,
+        "bound_state_root": "ceb3333dbfca807f1ad4e2d5",
+        "certificate_hash": "d859da41de316fe65c5fd56a",
+        "claims": {
+          "action_index": 1,
+          "capability_id": "capability.ledger-inventory",
+          "effect": "prove",
+          "plane": "actuation"
+        },
+        "deterministic": true,
+        "effect_count": 1,
+        "execution_certificate_hash": "a9665966ba7588b57a835a32",
+        "execution_hash": "d2b8a0067bee0b5f361a2347",
+        "goal": "treaty over covenant (action 1)",
+        "issued_at": "2026-07-31T02:47:37.581351Z",
+        "kind": "actuation_certificate",
+        "lineage_head_hash": "b9937c0785a4afed864081da",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "4470df6ca2918522",
+        "parent_action_root": "",
+        "post_execution": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false
+      },
+      "applied_at": "2026-07-31T02:47:37.581280Z",
+      "bound_state_height": 2,
+      "bound_state_root": "ceb3333dbfca807f1ad4e2d5",
+      "capability_id": "capability.ledger-inventory",
+      "claims": {
+        "action_index": 1,
+        "plane": "actuation"
+      },
+      "deterministic": true,
+      "effect": "prove",
+      "effect_digest": "83aff60062b96028c4644561",
+      "entry": "blackhole_agent.capability_compounder:builtin_ledger_inventory",
+      "execution_certificate_hash": "a9665966ba7588b57a835a32",
+      "execution_hash": "d2b8a0067bee0b5f361a2347",
+      "goal": "treaty over covenant (action 1)",
+      "kind": "actuation_action",
+      "lineage_head_hash": "b9937c0785a4afed864081da",
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "package_hash": "4470df6ca2918522",
+      "parent_action_root": "",
+      "post_execution": true,
+      "schema_version": 1,
+      "used_skill_route_discovery": false
+    },
+    {
+      "action_height": 2,
+      "action_root": "9107f5fc7ad136923516712f",
+      "actuation_certificate": {
+        "action_height": 2,
+        "action_root": "9107f5fc7ad136923516712f",
+        "bound_state_height": 2,
+        "bound_state_root": "ceb3333dbfca807f1ad4e2d5",
+        "certificate_hash": "e4592e6e1c1c1bbac19ef2a1",
+        "claims": {
+          "action_index": 2,
+          "capability_id": "repo.import-health",
+          "effect": "prove",
+          "plane": "actuation"
+        },
+        "deterministic": true,
+        "effect_count": 2,
+        "execution_certificate_hash": "a9665966ba7588b57a835a32",
+        "execution_hash": "d2b8a0067bee0b5f361a2347",
+        "goal": "treaty over covenant (action 2)",
+        "issued_at": "2026-07-31T02:47:37.581596Z",
+        "kind": "actuation_certificate",
+        "lineage_head_hash": "b9937c0785a4afed864081da",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "4470df6ca2918522",
+        "parent_action_root": "3dfeb1ac7925c8785bd62ed9",
+        "post_execution": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false
+      },
+      "applied_at": "2026-07-31T02:47:37.581542Z",
+      "bound_state_height": 2,
+      "bound_state_root": "ceb3333dbfca807f1ad4e2d5",
+      "capability_id": "repo.import-health",
+      "claims": {
+        "action_index": 2,
+        "plane": "actuation"
+      },
+      "deterministic": true,
+      "effect": "prove",
+      "effect_digest": "7f3b8a039ccd6d0776cfc893",
+      "entry": "blackhole_agent.capability_compounder:builtin_repo_import_health",
+      "execution_certificate_hash": "a9665966ba7588b57a835a32",
+      "execution_hash": "d2b8a0067bee0b5f361a2347",
+      "goal": "treaty over covenant (action 2)",
+      "kind": "actuation_action",
+      "lineage_head_hash": "b9937c0785a4afed864081da",
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "package_hash": "4470df6ca2918522",
+      "parent_action_root": "3dfeb1ac7925c8785bd62ed9",
+      "post_execution": true,
+      "schema_version": 1,
+      "used_skill_route_discovery": false
+    },
+    {
+      "action_height": 3,
+      "action_root": "e2e8587e64c9a54456857968",
+      "actuation_certificate": {
+        "action_height": 3,
+        "action_root": "e2e8587e64c9a54456857968",
+        "bound_state_height": 2,
+        "bound_state_root": "ceb3333dbfca807f1ad4e2d5",
+        "certificate_hash": "fb9b2e2d30e9f7e4f9f7560d",
+        "claims": {
+          "action_index": 3,
+          "capability_id": "unbound.milestone-gate",
+          "effect": "prove",
+          "plane": "actuation"
+        },
+        "deterministic": true,
+        "effect_count": 3,
+        "execution_certificate_hash": "a9665966ba7588b57a835a32",
+        "execution_hash": "d2b8a0067bee0b5f361a2347",
+        "goal": "treaty over covenant (action 3)",
+        "issued_at": "2026-07-31T02:47:37.581864Z",
+        "kind": "actuation_certificate",
+        "lineage_head_hash": "b9937c0785a4afed864081da",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "4470df6ca2918522",
+        "parent_action_root": "9107f5fc7ad136923516712f",
+        "post_execution": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false
+      },
+      "applied_at": "2026-07-31T02:47:37.581820Z",
+      "bound_state_height": 2,
+      "bound_state_root": "ceb3333dbfca807f1ad4e2d5",
+      "capability_id": "unbound.milestone-gate",
+      "claims": {
+        "action_index": 3,
+        "plane": "actuation"
+      },
+      "deterministic": true,
+      "effect": "prove",
+      "effect_digest": "2d7d3b6f5da218f44aceae49",
+      "entry": "blackhole_agent.capability_compounder:builtin_milestone_gate_smoke",
+      "execution_certificate_hash": "a9665966ba7588b57a835a32",
+      "execution_hash": "d2b8a0067bee0b5f361a2347",
+      "goal": "treaty over covenant (action 3)",
+      "kind": "actuation_action",
+      "lineage_head_hash": "b9937c0785a4afed864081da",
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "package_hash": "4470df6ca2918522",
+      "parent_action_root": "9107f5fc7ad136923516712f",
+      "post_execution": true,
+      "schema_version": 1,
+      "used_skill_route_discovery": false
+    }
+  ],
+  "entry_count": 3,
+  "kind": "actuation_action_log",
+  "schema_version": 1,
+  "tip_action_root": "e2e8587e64c9a54456857968",
+  "tip_height": 3,
+  "updated_at": "2026-07-31T02:47:37.581912Z"
+}

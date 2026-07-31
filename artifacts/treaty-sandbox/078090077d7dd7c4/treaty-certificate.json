@@ -1,0 +1,37 @@
+{
+  "bound_covenant_height": 2,
+  "bound_covenant_root": "51474493772291a8bde85e45",
+  "certificate_hash": "4db14a98845f8530676ef567",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "treatied",
+    "plane": "treaty"
+  },
+  "covenant_certificate_hash": "ba122de9e7ccf511c52f78f4",
+  "covenant_hash": "2c43a3f46132da1190af7188",
+  "covenant_plan_digest": "d19704e7d700799b27fdddd6",
+  "deterministic": true,
+  "goal": "treaty over covenant (clearing 2)",
+  "issued_at": "2026-07-31T02:48:56.502538Z",
+  "kind": "treaty_certificate",
+  "lineage_head_hash": "b4d67229b96aa713760c269b",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "843f7e355f46d893",
+  "parent_treaty_root": "d3d8387653d6c068c0149512",
+  "post_covenant": true,
+  "schema_version": 1,
+  "treaty_count": 2,
+  "treaty_height": 2,
+  "treaty_plan_digest": "4a56a2e4b3c91cd6330f222b",
+  "treaty_root": "869ccaf77b543c371e5c897d",
+  "used_skill_route_discovery": false,
+  "valid": true
+}

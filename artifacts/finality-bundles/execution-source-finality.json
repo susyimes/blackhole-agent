@@ -4,46 +4,41 @@
   "byzantine_count": 1,
   "certificate_count": 4,
   "certificates": {
-    "0ac279abb5b6dba2f0b5c96c": {
-      "certificate_hash": "0ac279abb5b6dba2f0b5c96c",
+    "0befbc5c0cb9f106c22ce0c0": {
+      "certificate_hash": "0befbc5c0cb9f106c22ce0c0",
       "epoch_height": 2,
-      "kind": "quorum_certificate",
       "payload": {
         "agreeing_count": 2,
-        "agreeing_origins": [
-          "origin-a",
-          "origin-b"
-        ],
         "byzantine_count": 1,
-        "byzantine_origins": [
-          "origin-byzantine"
-        ],
-        "certificate_hash": "0ac279abb5b6dba2f0b5c96c",
+        "certificate_hash": "0befbc5c0cb9f106c22ce0c0",
         "claims": {
-          "finality_progress": true,
-          "prior_quorum_hash": "080250f4f93b4275f8349250",
-          "progress_tag": "epoch-progress-2"
+          "epoch_index": 2,
+          "member_count": 3,
+          "plane": "finality",
+          "roots": [
+            "repo.import-health",
+            "capability.ledger-inventory",
+            "unbound.milestone-gate"
+          ]
         },
-        "goal": "covenant over constitution (progress 2)",
-        "issued_at": "2026-07-31T02:08:28.848069Z",
-        "kind": "quorum_certificate",
-        "lineage_head_hash": "8ea0b76d52394f4f702082a7",
-        "member_count": 3,
+        "epoch_hash": "4de29f1869697d075f14391b",
+        "epoch_height": 2,
+        "goal": "treaty over covenant (epoch 2)",
+        "irreversible": true,
+        "issued_at": "2026-07-31T02:48:33.094996Z",
+        "kind": "finality_certificate",
+        "lineage_head_hash": "b4d67229b96aa713760c269b",
         "ok": true,
         "origin_count": 3,
-        "origin_hashes": [
-          "2a235fb2f8e8b8ab9dc44e0f",
-          "8df5b8776ebe311bd866546b",
-          "e82cfa5765871ab3e4e4cd29"
-        ],
-        "package_hash": "1dbf3bef46ccaaa7",
+        "package_hash": "843f7e355f46d893",
+        "parent_epoch_hash": "1085fe59d0e12bb425af6cd0",
+        "quorum_hash": "68681df3a94e7adfbf50f91b",
         "schema_version": 1,
-        "threshold": 2,
         "used_skill_route_discovery": false
       }
     },
-    "667cbf43c11c6936e4462fd0": {
-      "certificate_hash": "667cbf43c11c6936e4462fd0",
+    "48914ee564cc783f0efae5f7": {
+      "certificate_hash": "48914ee564cc783f0efae5f7",
       "epoch_height": 1,
       "kind": "quorum_certificate",
       "payload": {
@@ -56,7 +51,7 @@
         "byzantine_origins": [
           "origin-byzantine"
         ],
-        "certificate_hash": "667cbf43c11c6936e4462fd0",
+        "certificate_hash": "48914ee564cc783f0efae5f7",
         "claims": {
           "origin_ids": [
             "origin-a",
@@ -70,17 +65,17 @@
           ],
           "votes_accepted": 3
         },
-        "goal": "covenant over constitution",
-        "issued_at": "2026-07-31T02:08:28.157063Z",
+        "goal": "treaty over covenant",
+        "issued_at": "2026-07-31T02:48:32.562415Z",
         "kind": "quorum_certificate",
-        "lineage_head_hash": "e4b4c011a373ab898e0233c5",
+        "lineage_head_hash": "c88c9a1be7c3eb069bdcd312",
         "member_count": 3,
         "ok": true,
         "origin_count": 3,
         "origin_hashes": [
-          "2a235fb2f8e8b8ab9dc44e0f",
-          "8df5b8776ebe311bd866546b",
-          "e82cfa5765871ab3e4e4cd29"
+          "2146e3d67e861c3e67eb00c3",
+          "7f3842bf8f55fb11ce8c1f80",
+          "68440c6e969490a5d33bac04"
         ],
         "package_hash": "066545df3053adf5",
         "schema_version": 1,
@@ -88,46 +83,51 @@
         "used_skill_route_discovery": false
       }
     },
-    "695a0b07b65e11e0938df8b0": {
-      "certificate_hash": "695a0b07b65e11e0938df8b0",
+    "5bad274377117d61c244e282": {
+      "certificate_hash": "5bad274377117d61c244e282",
       "epoch_height": 2,
+      "kind": "quorum_certificate",
       "payload": {
         "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
         "byzantine_count": 1,
-        "certificate_hash": "695a0b07b65e11e0938df8b0",
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "certificate_hash": "5bad274377117d61c244e282",
         "claims": {
-          "epoch_index": 2,
-          "member_count": 3,
-          "plane": "finality",
-          "roots": [
-            "repo.import-health",
-            "capability.ledger-inventory",
-            "unbound.milestone-gate"
-          ]
+          "finality_progress": true,
+          "prior_quorum_hash": "682f79569c7b1f6012bfef9e",
+          "progress_tag": "epoch-progress-2"
         },
-        "epoch_hash": "e34fe12c18e98a79a7246717",
-        "epoch_height": 2,
-        "goal": "covenant over constitution (epoch 2)",
-        "irreversible": true,
-        "issued_at": "2026-07-31T02:08:28.849253Z",
-        "kind": "finality_certificate",
-        "lineage_head_hash": "8ea0b76d52394f4f702082a7",
+        "goal": "treaty over covenant (progress 2)",
+        "issued_at": "2026-07-31T02:48:33.094600Z",
+        "kind": "quorum_certificate",
+        "lineage_head_hash": "b4d67229b96aa713760c269b",
+        "member_count": 3,
         "ok": true,
         "origin_count": 3,
-        "package_hash": "1dbf3bef46ccaaa7",
-        "parent_epoch_hash": "09bb18d52532b5537813500a",
-        "quorum_hash": "450d4b13bcafd57077ff42c8",
+        "origin_hashes": [
+          "2146e3d67e861c3e67eb00c3",
+          "7f3842bf8f55fb11ce8c1f80",
+          "68440c6e969490a5d33bac04"
+        ],
+        "package_hash": "843f7e355f46d893",
         "schema_version": 1,
+        "threshold": 2,
         "used_skill_route_discovery": false
       }
     },
-    "908cc741efa6e22b5fcfc488": {
-      "certificate_hash": "908cc741efa6e22b5fcfc488",
+    "d888bb20b3ca6162441f025e": {
+      "certificate_hash": "d888bb20b3ca6162441f025e",
       "epoch_height": 1,
       "payload": {
         "agreeing_count": 2,
         "byzantine_count": 1,
-        "certificate_hash": "908cc741efa6e22b5fcfc488",
+        "certificate_hash": "d888bb20b3ca6162441f025e",
         "claims": {
           "epoch_index": 1,
           "member_count": 3,
@@ -138,18 +138,18 @@
             "unbound.milestone-gate"
           ]
         },
-        "epoch_hash": "09bb18d52532b5537813500a",
+        "epoch_hash": "1085fe59d0e12bb425af6cd0",
         "epoch_height": 1,
-        "goal": "covenant over constitution (epoch 1)",
+        "goal": "treaty over covenant (epoch 1)",
         "irreversible": true,
-        "issued_at": "2026-07-31T02:08:28.846460Z",
+        "issued_at": "2026-07-31T02:48:33.094393Z",
         "kind": "finality_certificate",
-        "lineage_head_hash": "e4b4c011a373ab898e0233c5",
+        "lineage_head_hash": "c88c9a1be7c3eb069bdcd312",
         "ok": true,
         "origin_count": 3,
         "package_hash": "066545df3053adf5",
         "parent_epoch_hash": "",
-        "quorum_hash": "080250f4f93b4275f8349250",
+        "quorum_hash": "682f79569c7b1f6012bfef9e",
         "schema_version": 1,
         "used_skill_route_discovery": false
       }
@@ -172,12 +172,12 @@
           "epoch_index": 1,
           "plane": "finality"
         },
-        "epoch_hash": "09bb18d52532b5537813500a",
+        "epoch_hash": "1085fe59d0e12bb425af6cd0",
         "epoch_height": 1,
         "finality_certificate": {
           "agreeing_count": 2,
           "byzantine_count": 1,
-          "certificate_hash": "908cc741efa6e22b5fcfc488",
+          "certificate_hash": "d888bb20b3ca6162441f025e",
           "claims": {
             "epoch_index": 1,
             "member_count": 3,
@@ -188,23 +188,23 @@
               "unbound.milestone-gate"
             ]
           },
-          "epoch_hash": "09bb18d52532b5537813500a",
+          "epoch_hash": "1085fe59d0e12bb425af6cd0",
           "epoch_height": 1,
-          "goal": "covenant over constitution (epoch 1)",
+          "goal": "treaty over covenant (epoch 1)",
           "irreversible": true,
-          "issued_at": "2026-07-31T02:08:28.846460Z",
+          "issued_at": "2026-07-31T02:48:33.094393Z",
           "kind": "finality_certificate",
-          "lineage_head_hash": "e4b4c011a373ab898e0233c5",
+          "lineage_head_hash": "c88c9a1be7c3eb069bdcd312",
           "ok": true,
           "origin_count": 3,
           "package_hash": "066545df3053adf5",
           "parent_epoch_hash": "",
-          "quorum_hash": "080250f4f93b4275f8349250",
+          "quorum_hash": "682f79569c7b1f6012bfef9e",
           "schema_version": 1,
           "used_skill_route_discovery": false
         },
-        "finalized_at": "2026-07-31T02:08:28.846317Z",
-        "goal": "covenant over constitution (epoch 1)",
+        "finalized_at": "2026-07-31T02:48:33.094301Z",
+        "goal": "treaty over covenant (epoch 1)",
         "irreversible": true,
         "kind": "finality_epoch",
         "lineage": {
@@ -224,39 +224,39 @@
               "detail": {
                 "origins": [
                   {
-                    "bundle_hash": "2a235fb2f8e8b8ab9dc44e0f",
+                    "bundle_hash": "2146e3d67e861c3e67eb00c3",
                     "byzantine": false,
-                    "lineage_entry_count": 123,
-                    "lineage_head_hash": "c0426b8f49a2398a4dfa5d4a",
+                    "lineage_entry_count": 2,
+                    "lineage_head_hash": "5657c406567f7145371ec92c",
                     "member_count": 3,
                     "origin_id": "origin-a",
                     "package_hash": "7878a785b9718369"
                   },
                   {
-                    "bundle_hash": "8df5b8776ebe311bd866546b",
+                    "bundle_hash": "7f3842bf8f55fb11ce8c1f80",
                     "byzantine": false,
                     "lineage_entry_count": 2,
-                    "lineage_head_hash": "9c24784e4e8685ad37ce3c0f",
+                    "lineage_head_hash": "63f56071e9cbadda0ef0fc8c",
                     "member_count": 2,
                     "origin_id": "origin-b",
                     "package_hash": "8ece9182045d973a"
                   },
                   {
-                    "bundle_hash": "e82cfa5765871ab3e4e4cd29",
+                    "bundle_hash": "68440c6e969490a5d33bac04",
                     "byzantine": true,
                     "lineage_entry_count": 2,
-                    "lineage_head_hash": "6daa207211f1b8b0f252d0eb",
+                    "lineage_head_hash": "04b394ec68d81792efae3f0b",
                     "member_count": 3,
                     "origin_id": "origin-byzantine",
                     "package_hash": "7d88f7661e8407af"
                   }
                 ]
               },
-              "entry_hash": "2d72f62f191dd3e5c8b951a9",
+              "entry_hash": "35c68e9115c3a88c9ca9aeb3",
               "entry_kind": "quorum_origin_manifest",
-              "goal": "covenant over constitution",
+              "goal": "treaty over covenant",
               "index": 0,
-              "issued_at": "2026-07-31T02:08:28.156878Z",
+              "issued_at": "2026-07-31T02:48:32.562248Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -280,16 +280,16 @@
               },
               "detail": {
                 "origin_heads": [
-                  "c0426b8f49a2398a4dfa5d4a",
-                  "9c24784e4e8685ad37ce3c0f",
-                  "6daa207211f1b8b0f252d0eb"
+                  "5657c406567f7145371ec92c",
+                  "63f56071e9cbadda0ef0fc8c",
+                  "04b394ec68d81792efae3f0b"
                 ]
               },
-              "entry_hash": "983a2918ea156eb2f5b3d48f",
+              "entry_hash": "7a240be12b89b1d97eccc4f9",
               "entry_kind": "quorum_vote",
-              "goal": "covenant over constitution",
+              "goal": "treaty over covenant",
               "index": 1,
-              "issued_at": "2026-07-31T02:08:28.156903Z",
+              "issued_at": "2026-07-31T02:48:32.562272Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -297,7 +297,7 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "2d72f62f191dd3e5c8b951a9"
+              "parent_hash": "35c68e9115c3a88c9ca9aeb3"
             },
             {
               "certificate_hash": "",
@@ -314,11 +314,11 @@
                   "origin-byzantine"
                 ]
               },
-              "entry_hash": "a9ea47920b0aae1c7f472902",
+              "entry_hash": "70cb5d7d72e7fbe5b36b026b",
               "entry_kind": "quorum_byzantine_exclude",
-              "goal": "covenant over constitution",
+              "goal": "treaty over covenant",
               "index": 2,
-              "issued_at": "2026-07-31T02:08:28.156918Z",
+              "issued_at": "2026-07-31T02:48:32.562287Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -326,7 +326,7 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "983a2918ea156eb2f5b3d48f"
+              "parent_hash": "7a240be12b89b1d97eccc4f9"
             },
             {
               "certificate_hash": "",
@@ -346,16 +346,16 @@
                   "origin-byzantine"
                 ],
                 "origin_bundle_hashes": [
-                  "2a235fb2f8e8b8ab9dc44e0f",
-                  "8df5b8776ebe311bd866546b",
-                  "e82cfa5765871ab3e4e4cd29"
+                  "2146e3d67e861c3e67eb00c3",
+                  "7f3842bf8f55fb11ce8c1f80",
+                  "68440c6e969490a5d33bac04"
                 ]
               },
-              "entry_hash": "e4b4c011a373ab898e0233c5",
+              "entry_hash": "c88c9a1be7c3eb069bdcd312",
               "entry_kind": "quorum_seal",
-              "goal": "covenant over constitution",
+              "goal": "treaty over covenant",
               "index": 3,
-              "issued_at": "2026-07-31T02:08:28.156932Z",
+              "issued_at": "2026-07-31T02:48:32.562320Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -363,16 +363,16 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "a9ea47920b0aae1c7f472902"
+              "parent_hash": "70cb5d7d72e7fbe5b36b026b"
             }
           ],
           "entry_count": 4,
-          "head_hash": "e4b4c011a373ab898e0233c5",
+          "head_hash": "c88c9a1be7c3eb069bdcd312",
           "kind": "capability_lineage",
           "schema_version": 1,
-          "updated_at": "2026-07-31T02:08:28.156943Z"
+          "updated_at": "2026-07-31T02:48:32.562332Z"
         },
-        "lineage_head_hash": "e4b4c011a373ab898e0233c5",
+        "lineage_head_hash": "c88c9a1be7c3eb069bdcd312",
         "member_count": 3,
         "ok": true,
         "origin_count": 3,
@@ -385,7 +385,7 @@
           "byzantine_origins": [
             "origin-byzantine"
           ],
-          "exported_at": "2026-07-31T02:08:28.156843Z",
+          "exported_at": "2026-07-31T02:48:32.562218Z",
           "federated": true,
           "member_count": 3,
           "member_ids": [
@@ -431,7 +431,7 @@
                 "bootstrap",
                 "compounder"
               ],
-              "updated_at": "2026-07-31T02:08:28.066954Z"
+              "updated_at": "2026-07-31T02:48:32.508888Z"
             },
             "repo.import-health": {
               "behavior_paths": [
@@ -455,7 +455,7 @@
                 "bootstrap",
                 "health"
               ],
-              "updated_at": "2026-07-31T02:08:28.066553Z"
+              "updated_at": "2026-07-31T02:48:32.507959Z"
             },
             "unbound.milestone-gate": {
               "behavior_paths": [
@@ -480,7 +480,7 @@
                 "bootstrap",
                 "unbound"
               ],
-              "updated_at": "2026-07-31T02:08:28.066789Z"
+              "updated_at": "2026-07-31T02:48:32.508528Z"
             }
           },
           "ok": true,
@@ -508,7 +508,7 @@
           "byzantine_origins": [
             "origin-byzantine"
           ],
-          "certificate_hash": "667cbf43c11c6936e4462fd0",
+          "certificate_hash": "48914ee564cc783f0efae5f7",
           "claims": {
             "origin_ids": [
               "origin-a",
@@ -522,24 +522,24 @@
             ],
             "votes_accepted": 3
           },
-          "goal": "covenant over constitution",
-          "issued_at": "2026-07-31T02:08:28.157063Z",
+          "goal": "treaty over covenant",
+          "issued_at": "2026-07-31T02:48:32.562415Z",
           "kind": "quorum_certificate",
-          "lineage_head_hash": "e4b4c011a373ab898e0233c5",
+          "lineage_head_hash": "c88c9a1be7c3eb069bdcd312",
           "member_count": 3,
           "ok": true,
           "origin_count": 3,
           "origin_hashes": [
-            "2a235fb2f8e8b8ab9dc44e0f",
-            "8df5b8776ebe311bd866546b",
-            "e82cfa5765871ab3e4e4cd29"
+            "2146e3d67e861c3e67eb00c3",
+            "7f3842bf8f55fb11ce8c1f80",
+            "68440c6e969490a5d33bac04"
           ],
           "package_hash": "066545df3053adf5",
           "schema_version": 1,
           "threshold": 2,
           "used_skill_route_discovery": false
         },
-        "quorum_hash": "080250f4f93b4275f8349250",
+        "quorum_hash": "682f79569c7b1f6012bfef9e",
         "schema_version": 1,
         "used_skill_route_discovery": false
       },
@@ -557,12 +557,12 @@
           "epoch_index": 2,
           "plane": "finality"
         },
-        "epoch_hash": "e34fe12c18e98a79a7246717",
+        "epoch_hash": "4de29f1869697d075f14391b",
         "epoch_height": 2,
         "finality_certificate": {
           "agreeing_count": 2,
           "byzantine_count": 1,
-          "certificate_hash": "695a0b07b65e11e0938df8b0",
+          "certificate_hash": "0befbc5c0cb9f106c22ce0c0",
           "claims": {
             "epoch_index": 2,
             "member_count": 3,
@@ -573,23 +573,23 @@
               "unbound.milestone-gate"
             ]
           },
-          "epoch_hash": "e34fe12c18e98a79a7246717",
+          "epoch_hash": "4de29f1869697d075f14391b",
           "epoch_height": 2,
-          "goal": "covenant over constitution (epoch 2)",
+          "goal": "treaty over covenant (epoch 2)",
           "irreversible": true,
-          "issued_at": "2026-07-31T02:08:28.849253Z",
+          "issued_at": "2026-07-31T02:48:33.094996Z",
           "kind": "finality_certificate",
-          "lineage_head_hash": "8ea0b76d52394f4f702082a7",
+          "lineage_head_hash": "b4d67229b96aa713760c269b",
           "ok": true,
           "origin_count": 3,
-          "package_hash": "1dbf3bef46ccaaa7",
-          "parent_epoch_hash": "09bb18d52532b5537813500a",
-          "quorum_hash": "450d4b13bcafd57077ff42c8",
+          "package_hash": "843f7e355f46d893",
+          "parent_epoch_hash": "1085fe59d0e12bb425af6cd0",
+          "quorum_hash": "68681df3a94e7adfbf50f91b",
           "schema_version": 1,
           "used_skill_route_discovery": false
         },
-        "finalized_at": "2026-07-31T02:08:28.849163Z",
-        "goal": "covenant over constitution (epoch 2)",
+        "finalized_at": "2026-07-31T02:48:33.094930Z",
+        "goal": "treaty over covenant (epoch 2)",
         "irreversible": true,
         "kind": "finality_epoch",
         "lineage": {
@@ -609,39 +609,39 @@
               "detail": {
                 "origins": [
                   {
-                    "bundle_hash": "2a235fb2f8e8b8ab9dc44e0f",
+                    "bundle_hash": "2146e3d67e861c3e67eb00c3",
                     "byzantine": false,
-                    "lineage_entry_count": 123,
-                    "lineage_head_hash": "c0426b8f49a2398a4dfa5d4a",
+                    "lineage_entry_count": 2,
+                    "lineage_head_hash": "5657c406567f7145371ec92c",
                     "member_count": 3,
                     "origin_id": "origin-a",
                     "package_hash": "7878a785b9718369"
                   },
                   {
-                    "bundle_hash": "8df5b8776ebe311bd866546b",
+                    "bundle_hash": "7f3842bf8f55fb11ce8c1f80",
                     "byzantine": false,
                     "lineage_entry_count": 2,
-                    "lineage_head_hash": "9c24784e4e8685ad37ce3c0f",
+                    "lineage_head_hash": "63f56071e9cbadda0ef0fc8c",
                     "member_count": 2,
                     "origin_id": "origin-b",
                     "package_hash": "8ece9182045d973a"
                   },
                   {
-                    "bundle_hash": "e82cfa5765871ab3e4e4cd29",
+                    "bundle_hash": "68440c6e969490a5d33bac04",
                     "byzantine": true,
                     "lineage_entry_count": 2,
-                    "lineage_head_hash": "6daa207211f1b8b0f252d0eb",
+                    "lineage_head_hash": "04b394ec68d81792efae3f0b",
                     "member_count": 3,
                     "origin_id": "origin-byzantine",
                     "package_hash": "7d88f7661e8407af"
                   }
                 ]
               },
-              "entry_hash": "2d72f62f191dd3e5c8b951a9",
+              "entry_hash": "35c68e9115c3a88c9ca9aeb3",
               "entry_kind": "quorum_origin_manifest",
-              "goal": "covenant over constitution",
+              "goal": "treaty over covenant",
               "index": 0,
-              "issued_at": "2026-07-31T02:08:28.156878Z",
+              "issued_at": "2026-07-31T02:48:32.562248Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -665,16 +665,16 @@
               },
               "detail": {
                 "origin_heads": [
-                  "c0426b8f49a2398a4dfa5d4a",
-                  "9c24784e4e8685ad37ce3c0f",
-                  "6daa207211f1b8b0f252d0eb"
+                  "5657c406567f7145371ec92c",
+                  "63f56071e9cbadda0ef0fc8c",
+                  "04b394ec68d81792efae3f0b"
                 ]
               },
-              "entry_hash": "983a2918ea156eb2f5b3d48f",
+              "entry_hash": "7a240be12b89b1d97eccc4f9",
               "entry_kind": "quorum_vote",
-              "goal": "covenant over constitution",
+              "goal": "treaty over covenant",
               "index": 1,
-              "issued_at": "2026-07-31T02:08:28.156903Z",
+              "issued_at": "2026-07-31T02:48:32.562272Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -682,7 +682,7 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "2d72f62f191dd3e5c8b951a9"
+              "parent_hash": "35c68e9115c3a88c9ca9aeb3"
             },
             {
               "certificate_hash": "",
@@ -699,11 +699,11 @@
                   "origin-byzantine"
                 ]
               },
-              "entry_hash": "a9ea47920b0aae1c7f472902",
+              "entry_hash": "70cb5d7d72e7fbe5b36b026b",
               "entry_kind": "quorum_byzantine_exclude",
-              "goal": "covenant over constitution",
+              "goal": "treaty over covenant",
               "index": 2,
-              "issued_at": "2026-07-31T02:08:28.156918Z",
+              "issued_at": "2026-07-31T02:48:32.562287Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -711,7 +711,7 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "983a2918ea156eb2f5b3d48f"
+              "parent_hash": "7a240be12b89b1d97eccc4f9"
             },
             {
               "certificate_hash": "",
@@ -731,16 +731,16 @@
                   "origin-byzantine"
                 ],
                 "origin_bundle_hashes": [
-                  "2a235fb2f8e8b8ab9dc44e0f",
-                  "8df5b8776ebe311bd866546b",
-                  "e82cfa5765871ab3e4e4cd29"
+                  "2146e3d67e861c3e67eb00c3",
+                  "7f3842bf8f55fb11ce8c1f80",
+                  "68440c6e969490a5d33bac04"
                 ]
               },
-              "entry_hash": "e4b4c011a373ab898e0233c5",
+              "entry_hash": "c88c9a1be7c3eb069bdcd312",
               "entry_kind": "quorum_seal",
-              "goal": "covenant over constitution",
+              "goal": "treaty over covenant",
               "index": 3,
-              "issued_at": "2026-07-31T02:08:28.156932Z",
+              "issued_at": "2026-07-31T02:48:32.562320Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -748,23 +748,23 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "a9ea47920b0aae1c7f472902"
+              "parent_hash": "70cb5d7d72e7fbe5b36b026b"
             },
             {
               "certificate_hash": "",
               "certificate_path": "",
               "claims": {
-                "prior_lineage_head": "e4b4c011a373ab898e0233c5",
+                "prior_lineage_head": "c88c9a1be7c3eb069bdcd312",
                 "prior_package_hash": "066545df3053adf5",
-                "prior_quorum_hash": "080250f4f93b4275f8349250",
+                "prior_quorum_hash": "682f79569c7b1f6012bfef9e",
                 "progress_tag": "epoch-progress-2"
               },
               "detail": {},
-              "entry_hash": "8ea0b76d52394f4f702082a7",
+              "entry_hash": "b4d67229b96aa713760c269b",
               "entry_kind": "finality_epoch_progress",
-              "goal": "covenant over constitution (progress 2)",
+              "goal": "treaty over covenant (progress 2)",
               "index": 4,
-              "issued_at": "2026-07-31T02:08:28.847966Z",
+              "issued_at": "2026-07-31T02:48:33.094563Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -772,16 +772,16 @@
                 "proved_ratio": null
               },
               "package_hash": "",
-              "parent_hash": "e4b4c011a373ab898e0233c5"
+              "parent_hash": "c88c9a1be7c3eb069bdcd312"
             }
           ],
           "entry_count": 5,
-          "head_hash": "8ea0b76d52394f4f702082a7",
+          "head_hash": "b4d67229b96aa713760c269b",
           "kind": "capability_lineage",
           "schema_version": 1,
-          "updated_at": "2026-07-31T02:08:28.848035Z"
+          "updated_at": "2026-07-31T02:48:33.094581Z"
         },
-        "lineage_head_hash": "8ea0b76d52394f4f702082a7",
+        "lineage_head_hash": "b4d67229b96aa713760c269b",
         "member_count": 3,
         "ok": true,
         "origin_count": 3,
@@ -794,7 +794,7 @@
           "byzantine_origins": [
             "origin-byzantine"
           ],
-          "exported_at": "2026-07-31T02:08:28.156843Z",
+          "exported_at": "2026-07-31T02:48:32.562218Z",
           "federated": true,
           "member_count": 3,
           "member_ids": [
@@ -840,7 +840,7 @@
                 "bootstrap",
                 "compounder"
               ],
-              "updated_at": "2026-07-31T02:08:28.066954Z"
+              "updated_at": "2026-07-31T02:48:32.508888Z"
             },
             "repo.import-health": {
               "behavior_paths": [
@@ -864,7 +864,7 @@
                 "bootstrap",
                 "health"
               ],
-              "updated_at": "2026-07-31T02:08:28.066553Z"
+              "updated_at": "2026-07-31T02:48:32.507959Z"
             },
             "unbound.milestone-gate": {
               "behavior_paths": [
@@ -889,12 +889,12 @@
                 "bootstrap",
                 "unbound"
               ],
-              "updated_at": "2026-07-31T02:08:28.066789Z"
+              "updated_at": "2026-07-31T02:48:32.508528Z"
             }
           },
           "ok": true,
-          "package_hash": "1dbf3bef46ccaaa7",
-          "progress_at": "2026-07-31T02:08:28.848040Z",
+          "package_hash": "843f7e355f46d893",
+          "progress_at": "2026-07-31T02:48:33.094584Z",
           "progress_tag": "epoch-progress-2",
           "quorum": true,
           "quorum_threshold": 2,
@@ -907,8 +907,8 @@
           "source_ledger_path": "quorum-merge",
           "used_skill_route_discovery": false
         },
-        "package_hash": "1dbf3bef46ccaaa7",
-        "parent_epoch_hash": "09bb18d52532b5537813500a",
+        "package_hash": "843f7e355f46d893",
+        "parent_epoch_hash": "1085fe59d0e12bb425af6cd0",
         "quorum_certificate": {
           "agreeing_count": 2,
           "agreeing_origins": [
@@ -919,30 +919,30 @@
           "byzantine_origins": [
             "origin-byzantine"
           ],
-          "certificate_hash": "0ac279abb5b6dba2f0b5c96c",
+          "certificate_hash": "5bad274377117d61c244e282",
           "claims": {
             "finality_progress": true,
-            "prior_quorum_hash": "080250f4f93b4275f8349250",
+            "prior_quorum_hash": "682f79569c7b1f6012bfef9e",
             "progress_tag": "epoch-progress-2"
           },
-          "goal": "covenant over constitution (progress 2)",
-          "issued_at": "2026-07-31T02:08:28.848069Z",
+          "goal": "treaty over covenant (progress 2)",
+          "issued_at": "2026-07-31T02:48:33.094600Z",
           "kind": "quorum_certificate",
-          "lineage_head_hash": "8ea0b76d52394f4f702082a7",
+          "lineage_head_hash": "b4d67229b96aa713760c269b",
           "member_count": 3,
           "ok": true,
           "origin_count": 3,
           "origin_hashes": [
-            "2a235fb2f8e8b8ab9dc44e0f",
-            "8df5b8776ebe311bd866546b",
-            "e82cfa5765871ab3e4e4cd29"
+            "2146e3d67e861c3e67eb00c3",
+            "7f3842bf8f55fb11ce8c1f80",
+            "68440c6e969490a5d33bac04"
           ],
-          "package_hash": "1dbf3bef46ccaaa7",
+          "package_hash": "843f7e355f46d893",
           "schema_version": 1,
           "threshold": 2,
           "used_skill_route_discovery": false
         },
-        "quorum_hash": "450d4b13bcafd57077ff42c8",
+        "quorum_hash": "68681df3a94e7adfbf50f91b",
         "schema_version": 1,
         "used_skill_route_discovery": false
       }
@@ -950,14 +950,14 @@
     "entry_count": 2,
     "kind": "finality_epoch_log",
     "schema_version": 1,
-    "tip_hash": "e34fe12c18e98a79a7246717",
+    "tip_hash": "4de29f1869697d075f14391b",
     "tip_height": 2,
-    "updated_at": "2026-07-31T02:08:28.849274Z"
+    "updated_at": "2026-07-31T02:48:33.095014Z"
   },
   "finality_certificate": {
     "agreeing_count": 2,
     "byzantine_count": 1,
-    "certificate_hash": "695a0b07b65e11e0938df8b0",
+    "certificate_hash": "0befbc5c0cb9f106c22ce0c0",
     "claims": {
       "epoch_index": 2,
       "member_count": 3,
@@ -968,23 +968,23 @@
         "unbound.milestone-gate"
       ]
     },
-    "epoch_hash": "e34fe12c18e98a79a7246717",
+    "epoch_hash": "4de29f1869697d075f14391b",
     "epoch_height": 2,
-    "goal": "covenant over constitution (epoch 2)",
+    "goal": "treaty over covenant (epoch 2)",
     "irreversible": true,
-    "issued_at": "2026-07-31T02:08:28.849253Z",
+    "issued_at": "2026-07-31T02:48:33.094996Z",
     "kind": "finality_certificate",
-    "lineage_head_hash": "8ea0b76d52394f4f702082a7",
+    "lineage_head_hash": "b4d67229b96aa713760c269b",
     "ok": true,
     "origin_count": 3,
-    "package_hash": "1dbf3bef46ccaaa7",
-    "parent_epoch_hash": "09bb18d52532b5537813500a",
-    "quorum_hash": "450d4b13bcafd57077ff42c8",
+    "package_hash": "843f7e355f46d893",
+    "parent_epoch_hash": "1085fe59d0e12bb425af6cd0",
+    "quorum_hash": "68681df3a94e7adfbf50f91b",
     "schema_version": 1,
     "used_skill_route_discovery": false
   },
-  "finality_hash": "624e978f9aeb1e7c43df3352",
-  "goal": "covenant over constitution",
+  "finality_hash": "23437439ef6f655ac0beddea",
+  "goal": "treaty over covenant",
   "irreversible": true,
   "kind": "finality_bundle",
   "lineage": {
@@ -1004,39 +1004,39 @@
         "detail": {
           "origins": [
             {
-              "bundle_hash": "2a235fb2f8e8b8ab9dc44e0f",
+              "bundle_hash": "2146e3d67e861c3e67eb00c3",
               "byzantine": false,
-              "lineage_entry_count": 123,
-              "lineage_head_hash": "c0426b8f49a2398a4dfa5d4a",
+              "lineage_entry_count": 2,
+              "lineage_head_hash": "5657c406567f7145371ec92c",
               "member_count": 3,
               "origin_id": "origin-a",
               "package_hash": "7878a785b9718369"
             },
             {
-              "bundle_hash": "8df5b8776ebe311bd866546b",
+              "bundle_hash": "7f3842bf8f55fb11ce8c1f80",
               "byzantine": false,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "9c24784e4e8685ad37ce3c0f",
+              "lineage_head_hash": "63f56071e9cbadda0ef0fc8c",
               "member_count": 2,
               "origin_id": "origin-b",
               "package_hash": "8ece9182045d973a"
             },
             {
-              "bundle_hash": "e82cfa5765871ab3e4e4cd29",
+              "bundle_hash": "68440c6e969490a5d33bac04",
               "byzantine": true,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "6daa207211f1b8b0f252d0eb",
+              "lineage_head_hash": "04b394ec68d81792efae3f0b",
               "member_count": 3,
               "origin_id": "origin-byzantine",
               "package_hash": "7d88f7661e8407af"
             }
           ]
         },
-        "entry_hash": "2d72f62f191dd3e5c8b951a9",
+        "entry_hash": "35c68e9115c3a88c9ca9aeb3",
         "entry_kind": "quorum_origin_manifest",
-        "goal": "covenant over constitution",
+        "goal": "treaty over covenant",
         "index": 0,
-        "issued_at": "2026-07-31T02:08:28.156878Z",
+        "issued_at": "2026-07-31T02:48:32.562248Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1060,16 +1060,16 @@
         },
         "detail": {
           "origin_heads": [
-            "c0426b8f49a2398a4dfa5d4a",
-            "9c24784e4e8685ad37ce3c0f",
-            "6daa207211f1b8b0f252d0eb"
+            "5657c406567f7145371ec92c",
+            "63f56071e9cbadda0ef0fc8c",
+            "04b394ec68d81792efae3f0b"
           ]
         },
-        "entry_hash": "983a2918ea156eb2f5b3d48f",
+        "entry_hash": "7a240be12b89b1d97eccc4f9",
         "entry_kind": "quorum_vote",
-        "goal": "covenant over constitution",
+        "goal": "treaty over covenant",
         "index": 1,
-        "issued_at": "2026-07-31T02:08:28.156903Z",
+        "issued_at": "2026-07-31T02:48:32.562272Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1077,7 +1077,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "2d72f62f191dd3e5c8b951a9"
+        "parent_hash": "35c68e9115c3a88c9ca9aeb3"
       },
       {
         "certificate_hash": "",
@@ -1094,11 +1094,11 @@
             "origin-byzantine"
           ]
         },
-        "entry_hash": "a9ea47920b0aae1c7f472902",
+        "entry_hash": "70cb5d7d72e7fbe5b36b026b",
         "entry_kind": "quorum_byzantine_exclude",
-        "goal": "covenant over constitution",
+        "goal": "treaty over covenant",
         "index": 2,
-        "issued_at": "2026-07-31T02:08:28.156918Z",
+        "issued_at": "2026-07-31T02:48:32.562287Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1106,7 +1106,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "983a2918ea156eb2f5b3d48f"
+        "parent_hash": "7a240be12b89b1d97eccc4f9"
       },
       {
         "certificate_hash": "",
@@ -1126,16 +1126,16 @@
             "origin-byzantine"
           ],
           "origin_bundle_hashes": [
-            "2a235fb2f8e8b8ab9dc44e0f",
-            "8df5b8776ebe311bd866546b",
-            "e82cfa5765871ab3e4e4cd29"
+            "2146e3d67e861c3e67eb00c3",
+            "7f3842bf8f55fb11ce8c1f80",
+            "68440c6e969490a5d33bac04"
           ]
         },
-        "entry_hash": "e4b4c011a373ab898e0233c5",
+        "entry_hash": "c88c9a1be7c3eb069bdcd312",
         "entry_kind": "quorum_seal",
-        "goal": "covenant over constitution",
+        "goal": "treaty over covenant",
         "index": 3,
-        "issued_at": "2026-07-31T02:08:28.156932Z",
+        "issued_at": "2026-07-31T02:48:32.562320Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1143,23 +1143,23 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "a9ea47920b0aae1c7f472902"
+        "parent_hash": "70cb5d7d72e7fbe5b36b026b"
       },
       {
         "certificate_hash": "",
         "certificate_path": "",
         "claims": {
-          "prior_lineage_head": "e4b4c011a373ab898e0233c5",
+          "prior_lineage_head": "c88c9a1be7c3eb069bdcd312",
           "prior_package_hash": "066545df3053adf5",
-          "prior_quorum_hash": "080250f4f93b4275f8349250",
+          "prior_quorum_hash": "682f79569c7b1f6012bfef9e",
           "progress_tag": "epoch-progress-2"
         },
         "detail": {},
-        "entry_hash": "8ea0b76d52394f4f702082a7",
+        "entry_hash": "b4d67229b96aa713760c269b",
         "entry_kind": "finality_epoch_progress",
-        "goal": "covenant over constitution (progress 2)",
+        "goal": "treaty over covenant (progress 2)",
         "index": 4,
-        "issued_at": "2026-07-31T02:08:28.847966Z",
+        "issued_at": "2026-07-31T02:48:33.094563Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1167,17 +1167,17 @@
           "proved_ratio": null
         },
         "package_hash": "",
-        "parent_hash": "e4b4c011a373ab898e0233c5"
+        "parent_hash": "c88c9a1be7c3eb069bdcd312"
       }
     ],
     "entry_count": 5,
-    "head_hash": "8ea0b76d52394f4f702082a7",
+    "head_hash": "b4d67229b96aa713760c269b",
     "kind": "capability_lineage",
     "schema_version": 1,
-    "updated_at": "2026-07-31T02:08:28.848035Z"
+    "updated_at": "2026-07-31T02:48:33.094581Z"
   },
   "lineage_entry_count": 5,
-  "lineage_head_hash": "8ea0b76d52394f4f702082a7",
+  "lineage_head_hash": "b4d67229b96aa713760c269b",
   "member_count": 3,
   "ok": true,
   "origin_count": 3,
@@ -1190,7 +1190,7 @@
     "byzantine_origins": [
       "origin-byzantine"
     ],
-    "exported_at": "2026-07-31T02:08:28.156843Z",
+    "exported_at": "2026-07-31T02:48:32.562218Z",
     "federated": true,
     "member_count": 3,
     "member_ids": [
@@ -1236,7 +1236,7 @@
           "bootstrap",
           "compounder"
         ],
-        "updated_at": "2026-07-31T02:08:28.066954Z"
+        "updated_at": "2026-07-31T02:48:32.508888Z"
       },
       "repo.import-health": {
         "behavior_paths": [
@@ -1260,7 +1260,7 @@
           "bootstrap",
           "health"
         ],
-        "updated_at": "2026-07-31T02:08:28.066553Z"
+        "updated_at": "2026-07-31T02:48:32.507959Z"
       },
       "unbound.milestone-gate": {
         "behavior_paths": [
@@ -1285,12 +1285,12 @@
           "bootstrap",
           "unbound"
         ],
-        "updated_at": "2026-07-31T02:08:28.066789Z"
+        "updated_at": "2026-07-31T02:48:32.508528Z"
       }
     },
     "ok": true,
-    "package_hash": "1dbf3bef46ccaaa7",
-    "progress_at": "2026-07-31T02:08:28.848040Z",
+    "package_hash": "843f7e355f46d893",
+    "progress_at": "2026-07-31T02:48:33.094584Z",
     "progress_tag": "epoch-progress-2",
     "quorum": true,
     "quorum_threshold": 2,
@@ -1303,10 +1303,10 @@
     "source_ledger_path": "quorum-merge",
     "used_skill_route_discovery": false
   },
-  "package_hash": "1dbf3bef46ccaaa7",
-  "quorum_hash": "080250f4f93b4275f8349250",
+  "package_hash": "843f7e355f46d893",
+  "quorum_hash": "682f79569c7b1f6012bfef9e",
   "schema_version": 1,
-  "tip_hash": "e34fe12c18e98a79a7246717",
+  "tip_hash": "4de29f1869697d075f14391b",
   "tip_height": 2,
   "used_skill_route_discovery": false
 }

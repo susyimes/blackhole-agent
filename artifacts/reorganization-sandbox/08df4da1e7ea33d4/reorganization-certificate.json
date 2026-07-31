@@ -1,0 +1,37 @@
+{
+  "bound_restructuring_height": 2,
+  "bound_restructuring_root": "4faff011a9936fb69091c988",
+  "certificate_hash": "9fb1bdf2e1d6d8431d1c6d97",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "reorganized",
+    "plane": "reorganization"
+  },
+  "deterministic": true,
+  "goal": "treaty over covenant (clearing 2)",
+  "issued_at": "2026-07-31T02:48:44.762679Z",
+  "kind": "reorganization_certificate",
+  "lineage_head_hash": "b4d67229b96aa713760c269b",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "843f7e355f46d893",
+  "parent_reorganization_root": "5baaa35c4eab655de0b5bda0",
+  "post_restructuring": true,
+  "reorganization_count": 2,
+  "reorganization_height": 2,
+  "reorganization_plan_digest": "84cd3216953fbc95aa8c6d19",
+  "reorganization_root": "6df0bc2b4f14b8ed6187e015",
+  "restructuring_certificate_hash": "3871fe04d617928c3ec31bc6",
+  "restructuring_hash": "2041aa75eb506c409b33bf47",
+  "restructuring_plan_digest": "7978d48898b1f9e10d4376b6",
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}
