@@ -1,7 +1,8 @@
 {
   "changed_paths": [
-    "src/blackhole_agent/tool_routing.py",
-    "src/blackhole_agent/grounded_growth.py"
+    "src/blackhole_agent/mcp_client.py",
+    "src/blackhole_agent/mcp_echo_server.py",
+    "tests/test_mcp_client.py"
   ],
   "hypotheses_digest": "f2ac4f7f88b617f45db7f6266eac13d7615bac27526588bb3fc80605bec318dc",
   "hypothesis": {
@@ -69,12 +70,12 @@
   "implemented_surface": "src/blackhole_agent/tool_routing.py",
   "kind": "grounded_growth_implementation_trace",
   "payload_digest": "fda024d18fe337b23ec51e90c05fff52c157b9ed53307ebae23f7fae78656b06",
-  "recorded_at": "2026-07-31T19:48:11.485030Z",
+  "recorded_at": "2026-07-31T20:46:54.213020Z",
   "scan_digest": "4f1130d10b01a73607786dee05a23a855913559f26c29508ea4aca78e0687af9",
   "schema_version": 1,
-  "trace_digest": "60b85a8396f04bcc3f9871f85f69d73040eb3ed8d6823046d060c51f996f91a7",
+  "trace_digest": "7ac6e0015e1ef2c8c4918f449a54e7e8218be505ba1959e58b49030de46e0171",
   "validation": {
-    "command": "uv run pytest -q --deselect tests/test_grounded_growth.py::test_builtin_grounded_growth_loop_proof_passes",
+    "command": "uv run blackhole-unbound capability prove capability.mcp-live-execution",
     "exit_code": 0
   }
 }

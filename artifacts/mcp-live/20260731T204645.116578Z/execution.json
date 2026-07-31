@@ -1,0 +1,104 @@
+{
+  "call": {
+    "arguments": {
+      "text": "blackhole-unbound live actuation"
+    },
+    "name": "sha256",
+    "result": {
+      "content": [
+        {
+          "text": "d0c51a474915988e4ac1952a8905da405249d8115afc41c33f847cfd2380f50b",
+          "type": "text"
+        }
+      ],
+      "isError": false
+    }
+  },
+  "call_digest": "3322c6c2e0c61a8d5101a60dba58b2c8f15d5760fa4c32994707fef90a2a2963",
+  "handshake": {
+    "protocolVersion": "2025-03-26",
+    "serverInfo": {
+      "name": "blackhole-echo-mcp",
+      "version": "1.0.0"
+    }
+  },
+  "handshake_digest": "c304050a058b356f160e99506ef2304ec9a19c28038f58cd686d9209a6610308",
+  "imported_tool_names": [
+    "echo:echo",
+    "echo:sha256"
+  ],
+  "kind": "mcp_live_execution_trace",
+  "recorded_at": "2026-07-31T20:46:45.185386Z",
+  "routing": {
+    "descriptor": {
+      "name": "echo:sha256",
+      "parameters": {
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "type": "object"
+      },
+      "provider": "mcp",
+      "risk_flags": [],
+      "tool_type": "function"
+    },
+    "executable": true,
+    "reasons": [],
+    "route": "executable"
+  },
+  "routing_digest": "0e26715534a8cde6da3c54c1a7194eb2da974c2863a8782b30d05f47a974aadf",
+  "schema_version": 1,
+  "server_command": [
+    "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T203844Z-3ce591f5\\.venv\\Scripts\\python.exe",
+    "-m",
+    "blackhole_agent.mcp_echo_server"
+  ],
+  "server_name": "echo",
+  "tools_digest": "b7bd22d1ef1233bef1c89bd1993b233fb5a4b917b4e7b383074639f06df16791",
+  "tools_payload": {
+    "tools": [
+      {
+        "annotations": {
+          "readOnlyHint": true
+        },
+        "description": "Return the supplied text unchanged.",
+        "inputSchema": {
+          "properties": {
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "type": "object"
+        },
+        "name": "echo"
+      },
+      {
+        "annotations": {
+          "readOnlyHint": true
+        },
+        "description": "Return the SHA-256 hex digest of the supplied text.",
+        "inputSchema": {
+          "properties": {
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "type": "object"
+        },
+        "name": "sha256"
+      }
+    ]
+  },
+  "trace_digest": "fff7979c03b5659b4d7b5f90760feba544bf6a2db97af785209b1aec5713b8c1"
+}

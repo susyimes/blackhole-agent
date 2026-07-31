@@ -1,0 +1,72 @@
+"""Tests for the live MCP client (real subprocess session -> sealed trace -> proof)."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from blackhole_agent import mcp_client
+from blackhole_agent.capability_compounder import atomic_write_json
+
+
+def test_echo_server_handshake_and_tools_list() -> None:
+    with mcp_client.McpStdioSession(mcp_client.echo_server_command()) as session:
+        assert session.server_info["name"] == "blackhole-echo-mcp"
+        assert session.protocol_version
+        tools = session.list_tools()
+        names = {tool["name"] for tool in tools["tools"]}
+        assert names == {"echo", "sha256"}
+
+
+def test_live_tool_call_returns_real_result() -> None:
+    with mcp_client.McpStdioSession(mcp_client.echo_server_command()) as session:
+        result = session.call_tool("echo", {"text": "hello-live"})
+        assert result["content"][0]["text"] == "hello-live"
+        digest = session.call_tool("sha256", {"text": "hello-live"})
+        assert len(digest["content"][0]["text"]) == 64
+
+
+def test_unknown_tool_raises_protocol_error() -> None:
+    with mcp_client.McpStdioSession(mcp_client.echo_server_command()) as session:
+        with pytest.raises(mcp_client.McpProtocolError):
+            session.call_tool("nope", {})
+
+
+def test_dead_server_command_fails_closed() -> None:
+    session = mcp_client.McpStdioSession(["definitely-not-a-real-command-xyz"], timeout_seconds=5)
+    with pytest.raises((mcp_client.McpProtocolError, OSError)):
+        session.start()
+
+
+def test_run_live_execution_seals_and_verifies(tmp_path: Path) -> None:
+    out = tmp_path / "live"
+    run = mcp_client.run_live_execution(
+        server_name="echo",
+        tool_name="echo",
+        arguments={"text": "sealed"},
+        output_dir=out,
+    )
+    assert run["ok"] and run["result_text"] == "sealed"
+    assert "echo:echo" in run["imported_tool_names"]
+    verify = mcp_client.verify_execution_trace(out)
+    assert verify["ok"], verify
+
+
+def test_tampered_trace_fails_verification(tmp_path: Path) -> None:
+    out = tmp_path / "live"
+    mcp_client.run_live_execution(arguments={"text": "original"}, output_dir=out)
+    trace = json.loads((out / "execution.json").read_text(encoding="utf-8"))
+    trace["routing"]["executable"] = False
+    atomic_write_json(out / "execution.json", trace)
+    verify = mcp_client.verify_execution_trace(out)
+    assert not verify["ok"]
+    assert not verify["checks"]["routing_digest"] or not verify["checks"]["trace_digest"]
+
+
+def test_builtin_proof_is_green() -> None:
+    result = mcp_client.builtin_mcp_live_execution_proof()
+    assert result["ok"], result
+    assert result["tamper_falsified"] and result["unknown_tool_fail_closed"]
+    assert result["live_result_echoed"]
