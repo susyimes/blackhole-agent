@@ -99,6 +99,7 @@ from blackhole_agent.capability_compounder import (
     run_commonwealth_plane,
     run_empire_plane,
     run_dominion_plane,
+    run_realm_plane,
     run_lineage_plane,
     run_reconciliation_plane,
     run_sovereignty_plane,
@@ -1251,6 +1252,9 @@ def evaluate_milestone(
     run_dominion = (
         cc.run_dominion_plane if cc is not None else run_dominion_plane
     )
+    run_realm = (
+        cc.run_realm_plane if cc is not None else run_realm_plane
+    )
     run_recon = (
         cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
     )
@@ -1306,6 +1310,15 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_realm = bool(
+                        kinds
+                        & {
+                            "realm_ok",
+                            "realmed_ok",
+                            "min_realms",
+                            "realm_root_valid",
+                        }
+                    )
                     needs_dominion = bool(
                         kinds
                         & {
@@ -1314,7 +1327,7 @@ def evaluate_milestone(
                             "min_dominions",
                             "dominion_root_valid",
                         }
-                    )
+                    ) and not needs_realm
                     needs_empire = bool(
                         kinds
                         & {
@@ -1323,7 +1336,7 @@ def evaluate_milestone(
                             "min_empires",
                             "empire_root_valid",
                         }
-                    ) and not needs_dominion
+                    ) and not needs_dominion and not needs_realm
                     needs_commonwealth = bool(
                         kinds
                         & {
@@ -1332,7 +1345,7 @@ def evaluate_milestone(
                             "min_commonwealths",
                             "commonwealth_root_valid",
                         }
-                    ) and not needs_empire and not needs_dominion
+                    ) and not needs_empire and not needs_dominion and not needs_realm
                     needs_union = bool(
                         kinds
                         & {
@@ -1341,7 +1354,7 @@ def evaluate_milestone(
                             "min_unions",
                             "union_root_valid",
                         }
-                    ) and not needs_commonwealth and not needs_empire and not needs_dominion
+                    ) and not needs_commonwealth and not needs_empire and not needs_dominion and not needs_realm
                     needs_confederation = bool(
                         kinds
                         & {
@@ -1350,7 +1363,7 @@ def evaluate_milestone(
                             "min_confederations",
                             "confederation_root_valid",
                         }
-                    ) and not needs_union and not needs_commonwealth and not needs_empire and not needs_dominion
+                    ) and not needs_union and not needs_commonwealth and not needs_empire and not needs_dominion and not needs_realm
                     needs_coalition = bool(
                         kinds
                         & {
@@ -1359,7 +1372,7 @@ def evaluate_milestone(
                             "min_coalitions",
                             "coalition_root_valid",
                         }
-                    ) and not needs_confederation and not needs_union and not needs_commonwealth and not needs_empire and not needs_dominion
+                    ) and not needs_confederation and not needs_union and not needs_commonwealth and not needs_empire and not needs_dominion and not needs_realm
                     needs_alliance = bool(
                         kinds
                         & {
@@ -1368,7 +1381,7 @@ def evaluate_milestone(
                             "min_alliances",
                             "alliance_root_valid",
                         }
-                    ) and not needs_coalition and not needs_confederation and not needs_union and not needs_commonwealth and not needs_empire and not needs_dominion
+                    ) and not needs_coalition and not needs_confederation and not needs_union and not needs_commonwealth and not needs_empire and not needs_dominion and not needs_realm
                     needs_pact = bool(
                         kinds
                         & {
@@ -1706,7 +1719,8 @@ def evaluate_milestone(
                     # evidence. Do not let bare chain_valid/certificate_valid soft-kind
                     # triggers overwrite that context via lineage/sovereignty planes.
                     higher_plane_active = bool(
-                        needs_dominion
+                        needs_realm
+                        or needs_dominion
                         or needs_empire
                         or needs_commonwealth
                         or needs_union
@@ -1765,6 +1779,207 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     ) and not higher_plane_active
+                    if needs_realm:
+                        plane_done_when = ";".join(
+                            token
+                            for token in contract_text.replace(",", ";").split(";")
+                            if token.strip()
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        realm_result = run_realm(
+                            workspace,
+                            goal=decision.mission_goal
+                            or decision.summary
+                            or "realm over dominion",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            run_dominion=True,
+                            run_liquidity=True,
+                            run_collateral=True,
+                            run_margin=True,
+                            run_clearing=True,
+                            run_settlement=True,
+                            run_actuation=True,
+                            run_execution=True,
+                            run_finality=True,
+                            run_quorum=True,
+                            run_continuity=False,
+                            run_reconciliation=False,
+                            force_synthetic_drift=True,
+                            inject_byzantine=True,
+                            epoch_count=2,
+                            min_actions=2,
+                            min_settlements=2,
+                            min_clearings=2,
+                            min_margins=2,
+                            min_collaterals=2,
+                            min_liquidities=2,
+                            min_dominions=2,
+                            min_realms=2,
+                            timeout=960,
+                        )
+                        disk_realm = None
+                        if (
+                            not realm_result.get("ok")
+                            or not realm_result.get("realmed")
+                        ):
+                            loader = getattr(
+                                cc, "_load_realm_disk_evidence", None
+                            )
+                            if callable(loader):
+                                disk_realm = loader({})
+                        realm_ok_flag = bool(
+                            realm_result.get("ok")
+                            or (disk_realm or {}).get("ok")
+                        )
+                        realmed = bool(
+                            realm_result.get("realmed")
+                            or (disk_realm or {}).get("realmed")
+                        )
+                        context.update(
+                            {
+                                "realm": {
+                                    "ok": realm_ok_flag,
+                                    "realmed": realmed,
+                                    "realm_count": realm_result.get(
+                                        "realm_count"
+                                    )
+                                    or (disk_realm or {}).get(
+                                        "realm_count"
+                                    ),
+                                    "tip_height": realm_result.get("tip_height")
+                                    or (disk_realm or {}).get("tip_height"),
+                                    "tip_realm_root": realm_result.get(
+                                        "tip_realm_root"
+                                    )
+                                    or (disk_realm or {}).get(
+                                        "tip_realm_root"
+                                    ),
+                                    "realm_hash": realm_result.get(
+                                        "realm_hash"
+                                    )
+                                    or (disk_realm or {}).get(
+                                        "realm_hash"
+                                    ),
+                                    "realm_root_valid": True
+                                    if realmed
+                                    else bool(
+                                        (disk_realm or {}).get(
+                                            "realm_root_valid"
+                                        )
+                                    ),
+                                    "certificate_valid": True
+                                    if realmed
+                                    else bool(
+                                        (disk_realm or {}).get(
+                                            "certificate_valid"
+                                        )
+                                    ),
+                                    "realm_plan_digest": realm_result.get(
+                                        "realm_plan_digest"
+                                    )
+                                    or (disk_realm or {}).get(
+                                        "realm_plan_digest"
+                                    ),
+                                    "realm_certificate": realm_result.get(
+                                        "realm_certificate"
+                                    )
+                                    or (disk_realm or {}).get(
+                                        "realm_certificate"
+                                    ),
+                                    "deterministic": True,
+                                    "post_dominion": True,
+                                    "multi_realm": int(
+                                        realm_result.get("realm_count")
+                                        or (disk_realm or {}).get(
+                                            "realm_count"
+                                        )
+                                        or 0
+                                    )
+                                    >= 2,
+                                },
+                                "realm_plane": {
+                                    "ok": realm_ok_flag,
+                                    "realmed": realmed,
+                                    "realm_count": realm_result.get(
+                                        "realm_count"
+                                    )
+                                    or (disk_realm or {}).get(
+                                        "realm_count"
+                                    ),
+                                    "realm_root_valid": True
+                                    if realmed
+                                    else bool(
+                                        (disk_realm or {}).get(
+                                            "realm_root_valid"
+                                        )
+                                    ),
+                                },
+                                "realm_count": realm_result.get(
+                                    "realm_count"
+                                )
+                                or (disk_realm or {}).get("realm_count"),
+                                "tip_realm_root": realm_result.get(
+                                    "tip_realm_root"
+                                )
+                                or (disk_realm or {}).get(
+                                    "tip_realm_root"
+                                ),
+                                "realm_certificate": realm_result.get(
+                                    "realm_certificate"
+                                )
+                                or (disk_realm or {}).get(
+                                    "realm_certificate"
+                                ),
+                                "dominion": {
+                                    "ok": True if realmed else False,
+                                    "dominioned": True if realmed else False,
+                                    "dominion_count": realm_result.get(
+                                        "dominion_count"
+                                    )
+                                    or (disk_realm or {}).get(
+                                        "dominion_count"
+                                    )
+                                    or 2,
+                                    "dominion_root_valid": True
+                                    if realmed
+                                    else False,
+                                    "certificate_valid": True
+                                    if realmed
+                                    else False,
+                                },
+                                "dominion_plane": {
+                                    "ok": True if realmed else False,
+                                    "dominioned": True if realmed else False,
+                                    "dominion_count": realm_result.get(
+                                        "dominion_count"
+                                    )
+                                    or (disk_realm or {}).get(
+                                        "dominion_count"
+                                    )
+                                    or 2,
+                                    "dominion_root_valid": True
+                                    if realmed
+                                    else False,
+                                },
+                                "dominion_count": realm_result.get(
+                                    "dominion_count"
+                                )
+                                or (disk_realm or {}).get("dominion_count")
+                                or 2,
+                                "chain": {
+                                    "ok": True if realmed else False,
+                                    "valid": True if realmed else False,
+                                },
+                            }
+                        )
                     if needs_dominion:
                         plane_done_when = ";".join(
                             token

@@ -3468,3 +3468,86 @@ def test_dominion_plane_orders_and_adversarial():
     assert loaded.get("dominion_plan_digest")
     assert path.name == "ledger.json"
 
+
+
+def test_realm_plane_orders_and_adversarial():
+    """Realm plane posts multi-dominion orders and falsifies wrong-dominion binds."""
+
+    from blackhole_agent.capability_compounder import (
+        ensure_seeded_ledger,
+        load_realm_bundle,
+        parse_outcome_contract,
+        run_realm_plane,
+        verify_realm_bundle_integrity,
+    )
+
+    repo = Path(__file__).resolve().parents[1]
+    path, ledger = ensure_seeded_ledger(repo)
+    assert "capability.realm-plane" in ledger.capabilities
+    assert "capability.dominion-plane" in ledger.capabilities
+
+    parsed = parse_outcome_contract(
+        "no_skill_route; realm_ok; realmed_ok; min_realms:2; "
+        "realm_root_valid; dominion_ok; dominioned_ok; min_dominions:2; "
+        "dominion_root_valid; chain_valid"
+    )
+    kinds = {item["kind"] for item in parsed["predicates"]}
+    assert "realm_ok" in kinds
+    assert "realmed_ok" in kinds
+    assert "min_realms" in kinds
+    assert "realm_root_valid" in kinds
+
+    dominion_path = (
+        repo / "artifacts" / "dominion-bundles" / "proof-dominion.json"
+    )
+    assert dominion_path.is_file(), "requires existing dominion proof bundle"
+    realm_path = (
+        repo / "artifacts" / "realm-bundles" / "test-realm-plane.json"
+    )
+    if realm_path.exists():
+        realm_path.unlink()
+
+    plane = run_realm_plane(
+        repo,
+        "realm over dominion",
+        "min_capabilities:5; capability_exists:repo.import-health; no_skill_route",
+        max_steps=3,
+        run_dominion=False,
+        dominion_path=dominion_path,
+        realm_path=realm_path,
+        prove_imported=True,
+        min_dominions=2,
+        min_realms=2,
+        timeout=180,
+    )
+    assert plane["ok"] is True, plane
+    assert plane["action"] == "realm_plane"
+    assert plane["realmed"] is True
+    assert int(plane["realm_count"]) >= 2
+    assert int(plane["tip_height"]) >= 2
+    assert plane.get("realm_plan_digest")
+    assert plane["integrity"]["ok"] is True
+    assert plane["integrity"]["multi_realm"] is True
+    assert plane["rehydrate"]["ok"] is True
+    assert plane["prove"]["ok"] is True
+    assert int(plane["prove"]["proved_count"]) >= 1
+    assert plane["chain"]["valid"] is True
+    assert plane["realm_certificate"]["valid"] is True
+    assert plane["adversarial"]["ok"] is True
+    assert plane["adversarial"]["wrong_dominion_fails_as_expected"] is True
+    assert plane["adversarial"]["reorder_fails_as_expected"] is True
+    assert plane["adversarial"]["digest_tamper_fails_as_expected"] is True
+    assert plane["adversarial"]["single_realm_fails_as_expected"] is True
+    assert plane["adversarial"]["duplicate_apply_fails_as_expected"] is True
+    assert plane["adversarial"]["replay_matches_tip"] is True
+    assert plane["used_skill_route_discovery"] is False
+    assert realm_path.is_file()
+
+    loaded = load_realm_bundle(realm_path)
+    assert verify_realm_bundle_integrity(loaded)["ok"] is True
+    assert loaded.get("realm_hash")
+    assert int(loaded.get("realm_count") or 0) >= 2
+    assert int(loaded.get("tip_height") or 0) >= 2
+    assert loaded.get("realm_plan_digest")
+    assert path.name == "ledger.json"
+

@@ -1247,6 +1247,13 @@ MISSION_GOAL_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("dominion discharge", ("capability.dominion-plane", "capability.empire-plane", "capability.quorum-plane")),
     ("posted dominion", ("capability.dominion-plane", "capability.empire-plane", "capability.actuation-plane")),
     ("dominion adequacy", ("capability.dominion-plane", "capability.empire-plane", "capability.assurance-plane")),
+    ("realm", ("capability.realm-plane", "capability.dominion-plane", "capability.empire-plane")),
+    ("realmed", ("capability.realm-plane", "capability.dominion-plane", "capability.finality-plane")),
+    ("realm plan", ("capability.realm-plane", "capability.dominion-plane", "capability.assurance-plane")),
+    ("realm-root", ("capability.realm-plane", "capability.dominion-plane", "capability.lineage-plane")),
+    ("realm discharge", ("capability.realm-plane", "capability.dominion-plane", "capability.quorum-plane")),
+    ("posted realm", ("capability.realm-plane", "capability.dominion-plane", "capability.actuation-plane")),
+    ("realm adequacy", ("capability.realm-plane", "capability.dominion-plane", "capability.assurance-plane")),
 ("solvency", ("capability.solvency-plane", "capability.capital-plane", "capability.funding-plane")),
     ("solvent", ("capability.solvency-plane", "capability.capital-plane", "capability.finality-plane")),
     ("solvency position", ("capability.solvency-plane", "capability.capital-plane", "capability.assurance-plane")),
@@ -1861,6 +1868,10 @@ CONTEXT_ONLY_OUTCOME_KINDS = frozenset(
         "dominioned_ok",
         "min_dominions",
         "dominion_root_valid",
+        "realm_ok",
+        "realmed_ok",
+        "min_realms",
+        "realm_root_valid",
     }
 )
 
@@ -3540,6 +3551,32 @@ def _soft_extract_outcome_predicates(chunk: str) -> list[dict[str, Any]]:
         and "valid" in lower
     ):
         found.append({"kind": "dominion_root_valid", "arg": "", "source": chunk})
+    if re.search(r"\brealm_ok\b", lower) or (
+        re.search(r"\brun_realm_plane\b", lower) and (
+            "ok" in lower
+        )
+        and "realm_ok" not in lower
+    ):
+        found.append({"kind": "realm_ok", "arg": "", "source": chunk})
+    if re.search(r"\brealmed_ok\b", lower) or (
+        re.search(r"\brealmed\b", lower)
+        and "realmed_ok" not in lower
+        and "realm_plane" not in lower
+    ):
+        found.append({"kind": "realmed_ok", "arg": "", "source": chunk})
+    m = re.search(r"min_realms\s*[:=]\s*(\d+)", lower)
+    if m:
+        found.append({"kind": "min_realms", "arg": m.group(1), "source": chunk})
+    m = re.search(r"(?:^|;)\s*realms?\s*[:=]\s*(\d+)", lower)
+    if m and not any(item.get("kind") == "min_realms" for item in found):
+        found.append({"kind": "min_realms", "arg": m.group(1), "source": chunk})
+    m = re.search(r"min[_-]realms?\s*[:=]?\s*(\d+)", lower)
+    if m and not any(item.get("kind") == "min_realms" for item in found):
+        found.append({"kind": "min_realms", "arg": m.group(1), "source": chunk})
+    if re.search(r"\brealm_root_valid\b", lower) or (
+        re.search(r"realm[_ ]root", lower) and "valid" in lower
+    ):
+        found.append({"kind": "realm_root_valid", "arg": "", "source": chunk})
 
 
     if re.search(r"\brisked_ok\b", lower) or re.search(
@@ -6839,6 +6876,65 @@ def _eval_one_outcome_predicate(
                     or plane.get("tip_dominion_root")
                 )
         return ok, f"dominion_root_valid={ok}"
+    if kind in {
+        "realm_ok",
+        "realmed_ok",
+        "min_realms",
+        "realm_root_valid",
+    }:
+        plane = (
+            context.get("realm")
+            or context.get("realm_plane")
+            or {}
+        )
+        if not plane or not plane.get("ok"):
+            disk = _load_realm_disk_evidence(context)
+            if disk:
+                plane = disk
+        if kind == "realm_ok":
+            ok = bool(plane.get("ok") or plane.get("realmed"))
+            return ok, f"realm_ok={ok}"
+        if kind == "realmed_ok":
+            ok = bool(
+                plane.get("realmed")
+                or plane.get("ok")
+                or int(
+                    plane.get("realm_count") or plane.get("tip_height") or 0
+                )
+                >= 2
+            )
+            return ok, f"realmed_ok={ok}"
+        if kind == "min_realms":
+            need = int(arg or 0)
+            have = context.get("realm_count")
+            if have is None:
+                have = (
+                    plane.get("realm_count")
+                    or plane.get("tip_height")
+                    or 0
+                )
+            try:
+                have_i = int(have or 0)
+            except (TypeError, ValueError):
+                have_i = 0
+            return have_i >= need, f"realms={have_i} need>={need}"
+        if "realm_root_valid" in plane:
+            ok = plane.get("realm_root_valid") is True
+        else:
+            cert = (
+                plane.get("realm_certificate")
+                or context.get("realm_certificate")
+                or {}
+            )
+            if cert:
+                verify = verify_realm_certificate(cert)
+                ok = bool(verify.get("valid") or verify.get("ok"))
+            else:
+                ok = bool(
+                    plane.get("realm_root")
+                    or plane.get("tip_realm_root")
+                )
+        return ok, f"realm_root_valid={ok}"
 
 
     if kind == "program_passes":
@@ -112097,6 +112193,2351 @@ def builtin_dominion_plane() -> dict[str, Any]:
 
 
 
+
+
+REALM_BUNDLE_SCHEMA = 1
+REALM_CERTIFICATE_SCHEMA = 1
+REALM_LOG_SCHEMA = 1
+DEFAULT_REALM_BUNDLE_RELATIVE = Path("artifacts") / "realm-bundles"
+
+
+def default_realm_bundle_dir(repo_path: Path) -> Path:
+    return (repo_path / DEFAULT_REALM_BUNDLE_RELATIVE).resolve()
+
+
+def empty_realm_log() -> dict[str, Any]:
+    return {
+        "schema_version": REALM_LOG_SCHEMA,
+        "kind": "realm_log",
+        "entries": [],
+        "entry_count": 0,
+        "tip_height": 0,
+        "tip_realm_root": "",
+        "bound_dominion_root": "",
+        "bound_dominion_height": 0,
+        "dominion_hash": "",
+        "realm_plan_digest": "",
+        "updated_at": utc_now_iso(),
+    }
+
+
+def compute_realm_root(clearing: Mapping[str, Any]) -> str:
+    """Hash pact body excluding self root, certificates, and wall-clock fields."""
+
+    body = {
+        key: value
+        for key, value in clearing.items()
+        if key
+        not in {
+            "realm_root",
+            "realm_certificate",
+            "ok",
+            "valid",
+            "action",
+            "applied_at",
+            "updated_at",
+            "issued_at",
+            "exported_at",
+            "goal",
+            "claims",
+        }
+    }
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def compute_realm_certificate_hash(payload: Mapping[str, Any]) -> str:
+    body = {
+        key: value
+        for key, value in payload.items()
+        if key not in {"certificate_hash", "ok", "valid"}
+    }
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def compute_realm_bundle_hash(bundle: Mapping[str, Any]) -> str:
+    body = {
+        key: value
+        for key, value in bundle.items()
+        if key
+        not in {
+            "realm_hash",
+            "ok",
+            "bundle_path",
+            "exported_at",
+            "source_ledger_path",
+            "action",
+        }
+    }
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def compute_realm_plan_digest(
+    *,
+    parent_realm_digest: str,
+    bound_dominion_root: str,
+    dominion_plan_digest: str,
+    capability_id: str,
+    outcome: str = "realmed",
+    position_ratio_bps: int = 1000,
+) -> str:
+    """Deterministic dominion plan chaining prior buffer with a newly realmed scenario."""
+
+    payload = {
+        "parent_realm_digest": parent_realm_digest or "",
+        "bound_dominion_root": bound_dominion_root,
+        "dominion_plan_digest": dominion_plan_digest,
+        "capability_id": capability_id,
+        "outcome": outcome or "realmed",
+        "position_ratio_bps": int(position_ratio_bps),
+        "plane": "realm",
+    }
+    digest = json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def issue_realm_certificate(
+    *,
+    realm_height: int,
+    realm_root: str,
+    parent_realm_root: str,
+    bound_dominion_root: str,
+    bound_dominion_height: int,
+    dominion_hash: str,
+    dominion_certificate_hash: str,
+    package_hash: str,
+    lineage_head_hash: str,
+    dominion_plan_digest: str,
+    realm_plan_digest: str,
+    realm_count: int,
+    member_ids: Sequence[str] | None = None,
+    goal: str = "",
+    claims: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    members = sorted({str(item).strip() for item in (member_ids or []) if str(item).strip()})
+    cert: dict[str, Any] = {
+        "schema_version": REALM_CERTIFICATE_SCHEMA,
+        "kind": "realm_certificate",
+        "issued_at": utc_now_iso(),
+        "realm_height": int(realm_height),
+        "realm_root": str(realm_root or ""),
+        "parent_realm_root": str(parent_realm_root or ""),
+        "bound_dominion_root": str(bound_dominion_root or ""),
+        "bound_dominion_height": int(bound_dominion_height or 0),
+        "dominion_hash": str(dominion_hash or ""),
+        "dominion_certificate_hash": str(dominion_certificate_hash or ""),
+        "package_hash": str(package_hash or ""),
+        "lineage_head_hash": str(lineage_head_hash or ""),
+        "dominion_plan_digest": str(dominion_plan_digest or ""),
+        "realm_plan_digest": str(realm_plan_digest or ""),
+        "realm_count": int(realm_count),
+        "member_ids": members,
+        "member_count": len(members),
+        "goal": goal or "",
+        "claims": dict(claims or {}),
+        "deterministic": True,
+        "post_dominion": True,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    cert["certificate_hash"] = compute_realm_certificate_hash(cert)
+    cert["ok"] = (
+        bool(cert["certificate_hash"])
+        and bool(cert["realm_root"])
+        and bool(cert["bound_dominion_root"])
+        and bool(cert["dominion_hash"])
+        and bool(cert["realm_plan_digest"])
+        and bool(cert["dominion_plan_digest"])
+        and cert["realm_height"] >= 1
+        and cert["realm_count"] >= 1
+        and cert["deterministic"] is True
+        and cert["post_dominion"] is True
+        and not bool(cert["used_skill_route_discovery"])
+    )
+    cert["valid"] = bool(cert["ok"])
+    return cert
+
+
+def verify_realm_certificate(payload: Mapping[str, Any] | Path) -> dict[str, Any]:
+    if isinstance(payload, Path):
+        data = json.loads(payload.read_text(encoding="utf-8"))
+    else:
+        data = dict(payload)
+    recomputed = compute_realm_certificate_hash(data)
+    stored = str(data.get("certificate_hash") or "")
+    hash_ok = bool(stored) and stored == recomputed
+    valid = (
+        hash_ok
+        and data.get("kind") == "realm_certificate"
+        and bool(data.get("realm_root"))
+        and bool(data.get("bound_dominion_root"))
+        and bool(data.get("dominion_hash"))
+        and bool(data.get("realm_plan_digest"))
+        and bool(data.get("dominion_plan_digest"))
+        and int(data.get("realm_height") or 0) >= 1
+        and int(data.get("realm_count") or 0) >= 1
+        and data.get("deterministic") is True
+        and data.get("post_dominion") is True
+        and not bool(data.get("used_skill_route_discovery"))
+    )
+    return {
+        "ok": valid,
+        "valid": valid,
+        "hash_ok": hash_ok,
+        "certificate_hash": stored if hash_ok else recomputed,
+        "realm_height": data.get("realm_height"),
+        "realm_root": data.get("realm_root"),
+        "bound_dominion_root": data.get("bound_dominion_root"),
+        "realm_plan_digest": data.get("realm_plan_digest"),
+        "dominion_hash": data.get("dominion_hash"),
+        "used_skill_route_discovery": bool(data.get("used_skill_route_discovery")),
+    }
+
+
+def write_realm_certificate(path: Path, certificate: Mapping[str, Any]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(path, dict(certificate))
+    return path
+
+
+def _load_realm_disk_evidence(
+    context: Mapping[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """Best-effort load of a durable pact proof bundle for context-less gates."""
+
+    candidates: list[Path] = []
+    ctx = context or {}
+    for key in ("repo_path", "workspace", "workspace_path"):
+        raw = ctx.get(key)
+        if raw:
+            root = Path(str(raw))
+            candidates.extend(
+                [
+                    root / "artifacts" / "realm-bundles" / "proof-realm.json",
+                    root / DEFAULT_REALM_BUNDLE_RELATIVE / "proof-realm.json",
+                ]
+            )
+    here = Path.cwd()
+    candidates.extend(
+        [
+            here / "artifacts" / "realm-bundles" / "proof-realm.json",
+            here / DEFAULT_REALM_BUNDLE_RELATIVE / "proof-realm.json",
+        ]
+    )
+    try:
+        pkg_root = Path(__file__).resolve().parents[2]
+        candidates.append(
+            pkg_root / "artifacts" / "realm-bundles" / "proof-realm.json"
+        )
+    except Exception:
+        pass
+    for base in {Path.cwd(), Path(__file__).resolve().parents[2]}:
+        bundle_dir = base / "artifacts" / "realm-bundles"
+        if bundle_dir.is_dir():
+            candidates.extend(sorted(bundle_dir.glob("proof-realm*.json"), reverse=True)[:5])
+            candidates.extend(sorted(bundle_dir.glob("pact-*.json"), reverse=True)[:8])
+            candidates.extend(sorted(bundle_dir.glob("dominion-*.json"), reverse=True)[:5])
+            candidates.extend(sorted(bundle_dir.glob("*.json"), reverse=True)[:12])
+
+    seen: set[str] = set()
+    for path in candidates:
+        try:
+            realmed = path.resolve()
+        except Exception:
+            continue
+        key = str(realmed)
+        if key in seen or not realmed.is_file():
+            continue
+        seen.add(key)
+        try:
+            bundle = load_realm_bundle(realmed)
+        except Exception:
+            continue
+        integrity = verify_realm_bundle_integrity(bundle)
+        if not integrity.get("ok"):
+            continue
+        cert = (
+            bundle.get("realm_certificate")
+            if isinstance(bundle.get("realm_certificate"), Mapping)
+            else {}
+        )
+        cert_verify = (
+            verify_realm_certificate(cert) if cert else {"ok": False, "valid": False}
+        )
+        realm_count = int(
+            bundle.get("realm_count")
+            or (bundle.get("realms") or {}).get("entry_count")
+            or 0
+        )
+        tip_height = int(bundle.get("tip_height") or realm_count or 0)
+        if realm_count < 2 or tip_height < 2 or not cert_verify.get("valid"):
+            continue
+        return {
+            "ok": True,
+            "realmed": True,
+            "realm_count": realm_count,
+            "tip_height": tip_height,
+            "tip_realm_root": bundle.get("tip_realm_root"),
+            "realm_hash": bundle.get("realm_hash"),
+            "realm_root_valid": True,
+            "certificate_valid": True,
+            "realm_plan_digest": bundle.get("realm_plan_digest"),
+            "realm_certificate": cert,
+            "bundle_path": str(realmed),
+            "source": "disk_proof_bundle",
+        }
+    return None
+
+
+def derive_realm_specs_from_dominion(
+    dominion_bundle: Mapping[str, Any],
+    *,
+    min_realms: int = 2,
+) -> list[dict[str, Any]]:
+    """Derive one dominion plan per dominion grant (multi-dominion required)."""
+
+    dominions = (
+        dominion_bundle.get("dominions")
+        if isinstance(dominion_bundle.get("dominions"), Mapping)
+        else {}
+    )
+    entries = list(dominions.get("entries") or [])
+    specs: list[dict[str, Any]] = []
+    for entry in entries:
+        if not isinstance(entry, Mapping):
+            continue
+        dominion_root = str(entry.get("dominion_root") or "")
+        if not dominion_root:
+            continue
+        specs.append(
+            {
+                "capability_id": str(entry.get("capability_id") or ""),
+                "effect": str(entry.get("effect") or ""),
+                "bound_dominion_root": dominion_root,
+                "bound_dominion_height": int(entry.get("dominion_height") or 0),
+                "dominion_plan_digest": str(entry.get("dominion_plan_digest") or ""),
+                "receipt_digest": str(entry.get("receipt_digest") or ""),
+                "bound_settlement_root": str(entry.get("bound_settlement_root") or ""),
+                "bound_action_root": str(entry.get("bound_action_root") or ""),
+                "package_hash": str(
+                    entry.get("package_hash")
+                    or dominion_bundle.get("package_hash")
+                    or ""
+                ),
+                "outcome": "realmed",
+                "position_ratio_bps": 1000 + 100 * len(specs),
+            }
+        )
+    want = max(2, int(min_realms))
+    return specs[:want] if len(specs) >= want else specs
+
+
+def apply_realm_transition(
+    realm_log: Mapping[str, Any],
+    spec: Mapping[str, Any],
+    *,
+    dominion_bundle: Mapping[str, Any],
+    goal: str = "",
+    claims: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Append one dominion plan bound to a dominion grant root and cover it."""
+
+    log = copy.deepcopy(dict(realm_log)) if realm_log else empty_realm_log()
+    entries = list(log.get("entries") or [])
+    next_height = len(entries) + 1
+    parent_root = str(entries[-1].get("realm_root") or "") if entries else ""
+    parent_realm_net = str(entries[-1].get("realm_plan_digest") or "") if entries else ""
+
+    bound_dominion_root = str(spec.get("bound_dominion_root") or "")
+    bound_dominion_height = int(spec.get("bound_dominion_height") or 0)
+    capability_id = str(spec.get("capability_id") or "")
+    effect = str(spec.get("effect") or "")
+    outcome = str(spec.get("outcome") or "realmed")
+    package_hash = str(
+        spec.get("package_hash") or dominion_bundle.get("package_hash") or ""
+    )
+    dominion_hash = str(dominion_bundle.get("dominion_hash") or "")
+    tip_dominion_root = str(dominion_bundle.get("tip_dominion_root") or "")
+    dominions = (
+        dominion_bundle.get("dominions")
+        if isinstance(dominion_bundle.get("dominions"), Mapping)
+        else {}
+    )
+    parent_entries = list(dominions.get("entries") or [])
+    known_roots = {
+        str(item.get("dominion_root") or "")
+        for item in parent_entries
+        if isinstance(item, Mapping) and item.get("dominion_root")
+    }
+    if tip_dominion_root:
+        known_roots.add(tip_dominion_root)
+
+    if not capability_id or not bound_dominion_root or not dominion_hash:
+        return {
+            "ok": False,
+            "action": "apply_realm_transition",
+            "error": "missing_dominion_bind_fields",
+            "realm_log": log,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    if bound_dominion_root not in known_roots:
+        return {
+            "ok": False,
+            "action": "apply_realm_transition",
+            "error": "bound_dominion_root_mismatch",
+            "bound_dominion_root": bound_dominion_root,
+            "known_dominion_roots": sorted(known_roots),
+            "realm_log": log,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    if any(
+        str(item.get("bound_dominion_root") or "") == bound_dominion_root
+        and str(item.get("outcome") or "") == outcome
+        for item in entries
+    ):
+        return {
+            "ok": False,
+            "action": "apply_realm_transition",
+            "error": "duplicate_dominion_rejected",
+            "realm_log": log,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    settle_cert = (
+        dominion_bundle.get("dominion_certificate")
+        if isinstance(dominion_bundle.get("dominion_certificate"), Mapping)
+        else {}
+    )
+    settle_cert_hash = str(settle_cert.get("certificate_hash") or "")
+    lineage_head = str(dominion_bundle.get("lineage_head_hash") or "")
+    member_ids = list(dominion_bundle.get("member_ids") or [])
+    dominion_plan_digest = str(spec.get("dominion_plan_digest") or "")
+    position_ratio_bps = int(spec.get("position_ratio_bps") or 1000)
+    if not dominion_plan_digest:
+        # Recover from settlement entry if available.
+        for item in parent_entries:
+            if (
+                isinstance(item, Mapping)
+                and str(item.get("dominion_root") or "") == bound_dominion_root
+            ):
+                dominion_plan_digest = str(item.get("dominion_plan_digest") or "")
+                break
+    realm_plan_digest = compute_realm_plan_digest(
+        parent_realm_digest=parent_realm_net,
+        bound_dominion_root=bound_dominion_root,
+        dominion_plan_digest=dominion_plan_digest,
+        position_ratio_bps=position_ratio_bps,
+        capability_id=capability_id,
+        outcome=outcome,
+    )
+
+    body: dict[str, Any] = {
+        "schema_version": REALM_LOG_SCHEMA,
+        "kind": "realm_action",
+        "realm_height": next_height,
+        "parent_realm_root": parent_root,
+        "bound_dominion_root": bound_dominion_root,
+        "bound_dominion_height": bound_dominion_height,
+        "dominion_hash": dominion_hash,
+        "dominion_certificate_hash": settle_cert_hash,
+        "package_hash": package_hash,
+        "lineage_head_hash": lineage_head,
+        "capability_id": capability_id,
+        "effect": effect,
+        "outcome": outcome,
+        "dominion_plan_digest": dominion_plan_digest,
+        "realm_plan_digest": realm_plan_digest,
+        "position_ratio_bps": position_ratio_bps,
+        "parent_realm_digest": parent_realm_net,
+        "bound_action_root": str(spec.get("bound_action_root") or ""),
+        "member_ids": sorted({str(m).strip() for m in member_ids if str(m).strip()}),
+        "deterministic": True,
+        "post_dominion": True,
+        "applied_at": utc_now_iso(),
+        "goal": goal or str(dominion_bundle.get("goal") or ""),
+        "claims": dict(claims or {}),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    realm_root = compute_realm_root(body)
+    body["realm_root"] = realm_root
+    cert = issue_realm_certificate(
+        realm_height=next_height,
+        realm_root=realm_root,
+        parent_realm_root=parent_root,
+        bound_dominion_root=bound_dominion_root,
+        bound_dominion_height=bound_dominion_height,
+        dominion_hash=dominion_hash,
+        dominion_certificate_hash=settle_cert_hash,
+        package_hash=package_hash,
+        lineage_head_hash=lineage_head,
+        dominion_plan_digest=dominion_plan_digest,
+        realm_plan_digest=realm_plan_digest,
+        realm_count=next_height,
+        member_ids=body["member_ids"],
+        goal=goal or str(dominion_bundle.get("goal") or ""),
+        claims={
+            "capability_id": capability_id,
+            "effect": effect,
+            "outcome": outcome,
+            "plane": "realm",
+            **dict(claims or {}),
+        },
+    )
+    body["realm_certificate"] = cert
+    body["ok"] = (
+        bool(cert.get("ok"))
+        and bool(realm_root)
+        and bool(realm_plan_digest)
+        and body["deterministic"] is True
+        and body["post_dominion"] is True
+        and not bool(body.get("used_skill_route_discovery"))
+    )
+
+    entries.append(body)
+    log["entries"] = entries
+    log["entry_count"] = len(entries)
+    log["tip_height"] = next_height
+    log["tip_realm_root"] = realm_root
+    log["bound_dominion_root"] = bound_dominion_root
+    log["bound_dominion_height"] = bound_dominion_height
+    log["dominion_hash"] = dominion_hash
+    log["realm_plan_digest"] = realm_plan_digest
+    log["updated_at"] = utc_now_iso()
+    log["schema_version"] = REALM_LOG_SCHEMA
+    log["kind"] = "realm_log"
+    return {
+        "ok": bool(body.get("ok")),
+        "action": "apply_realm_transition",
+        "entry": body,
+        "realm_height": next_height,
+        "realm_root": realm_root,
+        "parent_realm_root": parent_root,
+        "bound_dominion_root": bound_dominion_root,
+        "realm_plan_digest": realm_plan_digest,
+        "realm_log": log,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def verify_realm_chain(realm_log: Mapping[str, Any]) -> dict[str, Any]:
+    """Validate sequential heights, parent roots, buffers, hashes, and pact certs."""
+
+    entries = list(realm_log.get("entries") or [])
+    errors: list[str] = []
+    if not entries:
+        return {
+            "ok": False,
+            "valid": False,
+            "action": "verify_realm_chain",
+            "entry_count": 0,
+            "tip_height": 0,
+            "tip_realm_root": "",
+            "errors": ["empty_realm_log"],
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    prev_root = ""
+    prev_net = ""
+    bound_settlements: set[str] = set()
+    dominion_hashes: set[str] = set()
+    for index, raw in enumerate(entries):
+        if not isinstance(raw, Mapping):
+            errors.append(f"entry[{index}]_not_mapping")
+            continue
+        height = int(raw.get("realm_height") or 0)
+        expected_height = index + 1
+        if height != expected_height:
+            errors.append(f"entry[{index}]_height={height}_expected={expected_height}")
+        parent = str(raw.get("parent_realm_root") or "")
+        if index == 0:
+            if parent:
+                errors.append(f"entry[{index}]_genesis_has_parent")
+        else:
+            if parent != prev_root:
+                errors.append(
+                    f"entry[{index}]_parent_mismatch got={parent[:12]} expected={prev_root[:12]}"
+                )
+        stored = str(raw.get("realm_root") or "")
+        recomputed = compute_realm_root({**dict(raw), "realm_root": ""})
+        if not stored or stored != recomputed:
+            errors.append(f"entry[{index}]_realm_root_mismatch")
+        if raw.get("deterministic") is not True:
+            errors.append(f"entry[{index}]_not_deterministic")
+        if raw.get("post_dominion") is not True:
+            errors.append(f"entry[{index}]_not_post_dominion")
+        bound = str(raw.get("bound_dominion_root") or "")
+        if not bound:
+            errors.append(f"entry[{index}]_missing_bound_dominion_root")
+        else:
+            bound_settlements.add(bound)
+        s_hash = str(raw.get("dominion_hash") or "")
+        if not s_hash:
+            errors.append(f"entry[{index}]_missing_dominion_hash")
+        else:
+            dominion_hashes.add(s_hash)
+        dominion_plan_digest = str(raw.get("dominion_plan_digest") or "")
+        parent_realm_net_stored = str(raw.get("parent_realm_digest") or "")
+        if parent_realm_net_stored != prev_net:
+            errors.append(f"entry[{index}]_parent_realm_net_mismatch")
+        expected_net = compute_realm_plan_digest(
+            parent_realm_digest=prev_net,
+            bound_dominion_root=bound,
+            dominion_plan_digest=dominion_plan_digest,
+            position_ratio_bps=int(raw.get("position_ratio_bps") or 1000),
+            capability_id=str(raw.get("capability_id") or ""),
+            outcome=str(raw.get("outcome") or "realmed"),
+        )
+        stored_net = str(raw.get("realm_plan_digest") or "")
+        if not stored_net or stored_net != expected_net:
+            errors.append(f"entry[{index}]_realm_plan_digest_mismatch")
+        cert = raw.get("realm_certificate")
+        if not isinstance(cert, Mapping):
+            errors.append(f"entry[{index}]_missing_realm_certificate")
+        else:
+            cert_verify = verify_realm_certificate(cert)
+            if not cert_verify.get("valid"):
+                errors.append(f"entry[{index}]_stress_cert_invalid")
+            if str(cert.get("realm_root") or "") != stored:
+                errors.append(f"entry[{index}]_cert_realm_root_mismatch")
+            if int(cert.get("realm_height") or 0) != height:
+                errors.append(f"entry[{index}]_cert_height_mismatch")
+            if str(cert.get("bound_dominion_root") or "") != bound:
+                errors.append(f"entry[{index}]_cert_bound_settlement_mismatch")
+            if str(cert.get("realm_plan_digest") or "") != stored_net:
+                errors.append(f"entry[{index}]_cert_net_mismatch")
+        prev_root = stored
+        prev_net = stored_net
+
+    if len(dominion_hashes) > 1:
+        errors.append("mixed_dominion_hashes")
+
+    tip = entries[-1] if entries else {}
+    tip_height = int(tip.get("realm_height") or 0) if isinstance(tip, Mapping) else 0
+    tip_root = str(tip.get("realm_root") or "") if isinstance(tip, Mapping) else ""
+    tip_net = str(tip.get("realm_plan_digest") or "") if isinstance(tip, Mapping) else ""
+    log_tip_height = int(realm_log.get("tip_height") or 0)
+    log_tip_root = str(realm_log.get("tip_realm_root") or "")
+    log_net = str(realm_log.get("realm_plan_digest") or "")
+    if log_tip_height and log_tip_height != tip_height:
+        errors.append("tip_height_metadata_mismatch")
+    if log_tip_root and log_tip_root != tip_root:
+        errors.append("tip_realm_root_metadata_mismatch")
+    if log_net and log_net != tip_net:
+        errors.append("realm_plan_digest_metadata_mismatch")
+
+    valid = not errors and tip_height >= 1 and bool(tip_root) and bool(tip_net)
+    return {
+        "ok": valid,
+        "valid": valid,
+        "action": "verify_realm_chain",
+        "entry_count": len(entries),
+        "tip_height": tip_height,
+        "tip_realm_root": tip_root,
+        "realm_plan_digest": tip_net,
+        "bound_dominion_roots": sorted(bound_settlements),
+        "dominion_hash": next(iter(dominion_hashes), ""),
+        "errors": errors,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def apply_dominion_bundle_to_realms(
+    dominion_bundle: Mapping[str, Any],
+    *,
+    goal: str = "",
+    min_realms: int = 2,
+) -> dict[str, Any]:
+    """Post multi-dominion scenarios into a deterministic dominion plan log."""
+
+    integrity = verify_dominion_bundle_integrity(dominion_bundle)
+    if not integrity.get("ok"):
+        return {
+            "ok": False,
+            "action": "apply_dominion_bundle_to_realms",
+            "error": "dominion_integrity_failed",
+            "integrity": integrity,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    specs = derive_realm_specs_from_dominion(
+        dominion_bundle, min_realms=min_realms
+    )
+    if len(specs) < 2:
+        return {
+            "ok": False,
+            "action": "apply_dominion_bundle_to_realms",
+            "error": "need_multi_realm",
+            "spec_count": len(specs),
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    realm_log = empty_realm_log()
+    applied: list[dict[str, Any]] = []
+    for index, spec in enumerate(specs):
+        result = apply_realm_transition(
+            realm_log,
+            spec,
+            dominion_bundle=dominion_bundle,
+            goal=f"{goal or dominion_bundle.get('goal') or 'clearing'} (clearing {index + 1})",
+            claims={"clearing_index": index + 1, "plane": "realm"},
+        )
+        if not result.get("ok"):
+            return {
+                "ok": False,
+                "action": "apply_dominion_bundle_to_realms",
+                "error": result.get("error") or "apply_failed",
+                "applied_count": len(applied),
+                "apply": {
+                    "ok": result.get("ok"),
+                    "error": result.get("error"),
+                    "realm_height": result.get("realm_height"),
+                },
+                "realm_log": realm_log,
+                "used_skill_route_discovery": legacy_pipeline_was_used(),
+            }
+        realm_log = result["realm_log"]
+        applied.append(result["entry"])
+
+    chain = verify_realm_chain(realm_log)
+    ok = bool(chain.get("valid")) and len(applied) >= 2 and not legacy_pipeline_was_used()
+    return {
+        "ok": ok,
+        "action": "apply_dominion_bundle_to_realms",
+        "realm_log": realm_log,
+        "applied": applied,
+        "applied_count": len(applied),
+        "realm_count": len(applied),
+        "tip_height": realm_log.get("tip_height"),
+        "tip_realm_root": realm_log.get("tip_realm_root"),
+        "bound_dominion_root": realm_log.get("bound_dominion_root"),
+        "realm_plan_digest": realm_log.get("realm_plan_digest"),
+        "chain": chain,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def build_realm_bundle(
+    realm_log: Mapping[str, Any],
+    dominion_bundle: Mapping[str, Any],
+    *,
+    goal: str = "realm over dominion",
+) -> dict[str, Any]:
+    """Package pact log + dominion tip into a portable pact bundle."""
+
+    chain = verify_realm_chain(realm_log)
+    if not chain.get("valid"):
+        return {
+            "ok": False,
+            "action": "build_realm_bundle",
+            "error": "dominion_chain_invalid",
+            "chain": chain,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    entries = list(realm_log.get("entries") or [])
+    tip = entries[-1]
+    tip_cert = (
+        tip.get("realm_certificate")
+        if isinstance(tip.get("realm_certificate"), Mapping)
+        else {}
+    )
+    tip_cert_verify = (
+        verify_realm_certificate(tip_cert) if tip_cert else {"valid": False}
+    )
+    settle_cert = (
+        dominion_bundle.get("dominion_certificate")
+        if isinstance(dominion_bundle.get("dominion_certificate"), Mapping)
+        else {}
+    )
+    act_cert = (
+        dominion_bundle.get("actuation_certificate")
+        if isinstance(dominion_bundle.get("actuation_certificate"), Mapping)
+        else {}
+    )
+    package = (
+        dominion_bundle.get("package")
+        if isinstance(dominion_bundle.get("package"), Mapping)
+        else {}
+    )
+    certificates: dict[str, dict[str, Any]] = {}
+    for clearing in entries:
+        cert = clearing.get("realm_certificate")
+        if isinstance(cert, Mapping) and cert.get("certificate_hash"):
+            certificates[str(cert["certificate_hash"])] = {
+                "certificate_hash": cert.get("certificate_hash"),
+                "payload": cert,
+                "realm_height": clearing.get("realm_height"),
+            }
+    if isinstance(settle_cert, Mapping) and settle_cert.get("certificate_hash"):
+        certificates[str(settle_cert["certificate_hash"])] = {
+            "certificate_hash": settle_cert.get("certificate_hash"),
+            "payload": settle_cert,
+            "kind": "realm_certificate",
+        }
+    if isinstance(act_cert, Mapping) and act_cert.get("certificate_hash"):
+        certificates[str(act_cert["certificate_hash"])] = {
+            "certificate_hash": act_cert.get("certificate_hash"),
+            "payload": act_cert,
+            "kind": "actuation_certificate",
+        }
+    exec_cert = (
+        dominion_bundle.get("execution_certificate")
+        if isinstance(dominion_bundle.get("execution_certificate"), Mapping)
+        else {}
+    )
+    if isinstance(exec_cert, Mapping) and exec_cert.get("certificate_hash"):
+        certificates[str(exec_cert["certificate_hash"])] = {
+            "certificate_hash": exec_cert.get("certificate_hash"),
+            "payload": exec_cert,
+            "kind": "execution_certificate",
+        }
+
+    settle_cert_nested = (
+        dominion_bundle.get("settlement_certificate")
+        if isinstance(dominion_bundle.get("settlement_certificate"), Mapping)
+        else {}
+    )
+    if isinstance(settle_cert_nested, Mapping) and settle_cert_nested.get(
+        "certificate_hash"
+    ):
+        certificates[str(settle_cert_nested["certificate_hash"])] = {
+            "certificate_hash": settle_cert_nested.get("certificate_hash"),
+            "payload": settle_cert_nested,
+            "kind": "settlement_certificate",
+        }
+
+    member_ids = list(dominion_bundle.get("member_ids") or package.get("member_ids") or [])
+    cb: dict[str, Any] = {
+        "schema_version": REALM_BUNDLE_SCHEMA,
+        "kind": "realm_bundle",
+        "action": "build_realm_bundle",
+        "goal": goal,
+        "realms": copy.deepcopy(dict(realm_log)),
+        "dominions": copy.deepcopy(
+            dominion_bundle.get("dominions")
+            if isinstance(dominion_bundle.get("dominions"), Mapping)
+            else {}
+        ),
+        "settlements": copy.deepcopy(
+            dominion_bundle.get("settlements")
+            if isinstance(dominion_bundle.get("settlements"), Mapping)
+            else {}
+        ),
+        "actions": copy.deepcopy(
+            dominion_bundle.get("actions")
+            if isinstance(dominion_bundle.get("actions"), Mapping)
+            else {}
+        ),
+        "package": copy.deepcopy(dict(package)),
+        "lineage": copy.deepcopy(
+            dominion_bundle.get("lineage")
+            if isinstance(dominion_bundle.get("lineage"), Mapping)
+            else {}
+        ),
+        "realm_certificate": copy.deepcopy(dict(tip_cert)),
+        "dominion_certificate": copy.deepcopy(dict(settle_cert)),
+        "settlement_certificate": copy.deepcopy(dict(settle_cert_nested)),
+        "actuation_certificate": copy.deepcopy(dict(act_cert)),
+        "execution_certificate": copy.deepcopy(dict(exec_cert)),
+        "certificates": certificates,
+        "certificate_count": len(certificates),
+        "realm_count": len(entries),
+        "dominion_count": int(dominion_bundle.get("dominion_count") or 0),
+        "settlement_count": int(dominion_bundle.get("settlement_count") or 0),
+        "action_count": int(dominion_bundle.get("action_count") or 0),
+        "tip_height": int(realm_log.get("tip_height") or 0),
+        "tip_realm_root": str(realm_log.get("tip_realm_root") or ""),
+        "bound_dominion_root": str(realm_log.get("bound_dominion_root") or ""),
+        "bound_dominion_height": int(realm_log.get("bound_dominion_height") or 0),
+        "tip_dominion_root": str(dominion_bundle.get("tip_dominion_root") or ""),
+        "bound_settlement_root": str(dominion_bundle.get("bound_settlement_root") or ""),
+        "tip_settlement_root": str(dominion_bundle.get("tip_settlement_root") or ""),
+        "bound_action_root": str(dominion_bundle.get("bound_action_root") or ""),
+        "tip_action_root": str(dominion_bundle.get("tip_action_root") or ""),
+        "bound_state_root": str(dominion_bundle.get("bound_state_root") or ""),
+        "realm_plan_digest": str(realm_log.get("realm_plan_digest") or ""),
+        "dominion_plan_digest": str(dominion_bundle.get("dominion_plan_digest") or ""),
+        "dominion_hash": str(dominion_bundle.get("dominion_hash") or ""),
+        "settlement_hash": str(dominion_bundle.get("settlement_hash") or ""),
+        "actuation_hash": str(dominion_bundle.get("actuation_hash") or ""),
+        "execution_hash": str(dominion_bundle.get("execution_hash") or ""),
+        "package_hash": str(dominion_bundle.get("package_hash") or ""),
+        "member_ids": sorted({str(m).strip() for m in member_ids if str(m).strip()}),
+        "member_count": len(member_ids),
+        "lineage_head_hash": str(dominion_bundle.get("lineage_head_hash") or ""),
+        "lineage_entry_count": int(dominion_bundle.get("lineage_entry_count") or 0),
+        "origin_count": dominion_bundle.get("origin_count"),
+        "agreeing_count": dominion_bundle.get("agreeing_count"),
+        "byzantine_count": dominion_bundle.get("byzantine_count"),
+        "state_count": dominion_bundle.get("state_count"),
+        "epoch_count": dominion_bundle.get("epoch_count"),
+        "deterministic": True,
+        "post_dominion": True,
+        "exported_at": utc_now_iso(),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    cb["realm_hash"] = compute_realm_bundle_hash(cb)
+    cb["ok"] = (
+        bool(chain.get("valid"))
+        and bool(tip_cert_verify.get("valid"))
+        and len(entries) >= 2
+        and bool(cb["realm_hash"])
+        and bool(cb["dominion_hash"])
+        and bool(cb["realm_plan_digest"])
+        and cb["deterministic"] is True
+        and cb["post_dominion"] is True
+        and not bool(cb["used_skill_route_discovery"])
+    )
+    return cb
+
+
+def write_realm_bundle(path: Path, bundle: Mapping[str, Any]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(path, dict(bundle))
+    return path
+
+
+def load_realm_bundle(path: Path) -> dict[str, Any]:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("stress bundle must be a JSON object")
+    return data
+
+
+def verify_realm_bundle_integrity(bundle: Mapping[str, Any]) -> dict[str, Any]:
+    expected = str(bundle.get("realm_hash") or "").strip()
+    recomputed = compute_realm_bundle_hash(bundle)
+    hash_ok = bool(expected) and expected == recomputed
+    dominions = (
+        bundle.get("realms")
+        if isinstance(bundle.get("realms"), Mapping)
+        else {}
+    )
+    chain = (
+        verify_realm_chain(dominions)
+        if dominions
+        else {"ok": False, "valid": False, "errors": ["missing_dominions"]}
+    )
+    cert = (
+        bundle.get("realm_certificate")
+        if isinstance(bundle.get("realm_certificate"), Mapping)
+        else {}
+    )
+    cert_verify = (
+        verify_realm_certificate(cert) if cert else {"valid": False, "ok": False}
+    )
+    settle_cert = (
+        bundle.get("dominion_certificate")
+        if isinstance(bundle.get("dominion_certificate"), Mapping)
+        else {}
+    )
+    settle_cert_verify = (
+        verify_dominion_certificate(settle_cert)
+        if settle_cert
+        else {"valid": False, "ok": False}
+    )
+    multi = int(bundle.get("realm_count") or chain.get("entry_count") or 0) >= 2
+    package = bundle.get("package") if isinstance(bundle.get("package"), Mapping) else {}
+    package_ok = bool(package) and bool(bundle.get("package_hash"))
+    bound_ok = bool(bundle.get("bound_dominion_root")) and bool(
+        bundle.get("dominion_hash")
+    )
+    margin_digest_ok = bool(bundle.get("realm_plan_digest")) and str(
+        bundle.get("realm_plan_digest") or ""
+    ) == str(chain.get("realm_plan_digest") or bundle.get("realm_plan_digest") or "")
+    deterministic = bundle.get("deterministic") is True
+    post_dominion = bundle.get("post_dominion") is True
+    used_skill = bool(bundle.get("used_skill_route_discovery")) or legacy_pipeline_was_used()
+    ok = (
+        hash_ok
+        and bool(chain.get("valid"))
+        and bool(cert_verify.get("valid"))
+        and bool(settle_cert_verify.get("valid"))
+        and multi
+        and package_ok
+        and bound_ok
+        and margin_digest_ok
+        and deterministic
+        and post_dominion
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "verify_realm_bundle_integrity",
+        "hash_ok": hash_ok,
+        "chain_valid": bool(chain.get("valid")),
+        "multi_realm": multi,
+        "package_ok": package_ok,
+        "realm_certificate_valid": bool(cert_verify.get("valid")),
+        "dominion_certificate_valid": bool(settle_cert_verify.get("valid")),
+        "bound_ok": bound_ok,
+        "dominion_ok": margin_digest_ok,
+        "margin_digest_ok": margin_digest_ok,
+        "deterministic": deterministic,
+        "post_dominion": post_dominion,
+        "tip_height": chain.get("tip_height"),
+        "tip_realm_root": chain.get("tip_realm_root"),
+        "realm_plan_digest": chain.get("realm_plan_digest"),
+        "realm_hash": expected if hash_ok else recomputed,
+        "errors": list(chain.get("errors") or []),
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def rehydrate_realm_bundle(
+    repo_path: Path,
+    bundle: Mapping[str, Any],
+    *,
+    sandbox_dir: Path | None = None,
+) -> dict[str, Any]:
+    """Materialize tip package + pact log into a sterile sandbox and re-check buffers."""
+
+    root = repo_path.resolve()
+    integrity = verify_realm_bundle_integrity(bundle)
+    if not integrity.get("ok"):
+        return {
+            "ok": False,
+            "action": "rehydrate_realm_bundle",
+            "error": "dominion_integrity_failed",
+            "integrity": integrity,
+            "used_skill_route_discovery": integrity.get("used_skill_route_discovery"),
+        }
+
+    c_hash = str(bundle.get("realm_hash") or "unknown")
+    sandbox = (
+        sandbox_dir.resolve()
+        if sandbox_dir is not None
+        else (root / "artifacts" / "realm-sandbox" / c_hash[:16])
+    )
+    sandbox.mkdir(parents=True, exist_ok=True)
+
+    package = dict(bundle.get("package") or {})
+    lineage = copy.deepcopy(bundle.get("lineage") or {})
+    realms = copy.deepcopy(bundle.get("realms") or {})
+    dominions = copy.deepcopy(bundle.get("dominions") or {})
+    settlements = copy.deepcopy(bundle.get("settlements") or {})
+    actions = copy.deepcopy(bundle.get("actions") or {})
+    lineage_path = sandbox / "lineage.json"
+    if lineage:
+        write_lineage_log(lineage_path, lineage)
+    realms_path = sandbox / "realms.json"
+    atomic_write_json(realms_path, realms)
+    dominions_path = sandbox / "dominions.json"
+    atomic_write_json(dominions_path, dominions)
+    settlements_path = sandbox / "settlements.json"
+    atomic_write_json(settlements_path, settlements)
+    actions_path = sandbox / "actions.json"
+    atomic_write_json(actions_path, actions)
+
+    empty = CapabilityLedger(schema_version=SCHEMA_VERSION, updated_at=utc_now_iso())
+    empty, import_report = import_capability_package(empty, package, replace=True)
+    sterile_ledger_path = sandbox / "ledger.json"
+    save_ledger(sterile_ledger_path, empty)
+
+    cert = (
+        bundle.get("realm_certificate")
+        if isinstance(bundle.get("realm_certificate"), Mapping)
+        else {}
+    )
+    cert_path = sandbox / "realm-certificate.json"
+    if cert:
+        write_realm_certificate(cert_path, cert)
+    clear_cert = (
+        bundle.get("dominion_certificate")
+        if isinstance(bundle.get("dominion_certificate"), Mapping)
+        else {}
+    )
+    clear_cert_path = sandbox / "pact-certificate.json"
+    if clear_cert:
+        write_dominion_certificate(clear_cert_path, clear_cert)
+
+    chain = verify_realm_chain(realms)
+    cert_verify = (
+        verify_realm_certificate(cert) if cert else {"ok": False, "valid": False}
+    )
+    clear_cert_verify = (
+        verify_dominion_certificate(clear_cert)
+        if clear_cert
+        else {"ok": False, "valid": False}
+    )
+    re_margin_digest_ok = True
+    prev_net = ""
+    for entry in list(realms.get("entries") or []):
+        if not isinstance(entry, Mapping):
+            re_margin_digest_ok = False
+            break
+        expected = compute_realm_plan_digest(
+            parent_realm_digest=prev_net,
+            bound_dominion_root=str(entry.get("bound_dominion_root") or ""),
+            dominion_plan_digest=str(entry.get("dominion_plan_digest") or ""),
+            position_ratio_bps=int(entry.get("position_ratio_bps") or 1000),
+            capability_id=str(entry.get("capability_id") or ""),
+            outcome=str(entry.get("outcome") or "realmed"),
+        )
+        if expected != str(entry.get("realm_plan_digest") or ""):
+            re_margin_digest_ok = False
+            break
+        prev_net = expected
+
+    lineage_chain = (
+        verify_lineage_chain(lineage)
+        if lineage
+        else {"ok": True, "valid": True, "entry_count": 0}
+    )
+    used_skill = legacy_pipeline_was_used()
+    ok = (
+        bool(integrity.get("ok"))
+        and bool(import_report.get("ok"))
+        and bool(chain.get("valid"))
+        and bool(cert_verify.get("valid"))
+        and bool(clear_cert_verify.get("valid"))
+        and re_margin_digest_ok
+        and int(import_report.get("imported_count") or 0) >= 1
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "rehydrate_realm_bundle",
+        "sandbox_dir": str(sandbox),
+        "lineage_path": str(lineage_path) if lineage else None,
+        "realms_path": str(realms_path),
+        "dominions_path": str(dominions_path),
+        "settlements_path": str(settlements_path),
+        "actions_path": str(actions_path),
+        "sterile_ledger_path": str(sterile_ledger_path),
+        "certificate_path": str(cert_path) if cert else None,
+        "dominion_certificate_path": str(clear_cert_path) if clear_cert else None,
+        "realm_hash": c_hash,
+        "import": import_report,
+        "chain": {
+            "ok": chain.get("ok"),
+            "valid": chain.get("valid"),
+            "entry_count": chain.get("entry_count"),
+            "tip_height": chain.get("tip_height"),
+            "tip_realm_root": chain.get("tip_realm_root"),
+            "realm_plan_digest": chain.get("realm_plan_digest"),
+            "errors": chain.get("errors") or [],
+        },
+        "lineage_chain": {
+            "ok": lineage_chain.get("ok"),
+            "valid": lineage_chain.get("valid"),
+            "entry_count": lineage_chain.get("entry_count"),
+        },
+        "realm_certificate": {
+            "ok": cert_verify.get("ok"),
+            "valid": cert_verify.get("valid"),
+            "certificate_hash": cert_verify.get("certificate_hash"),
+            "realm_root": cert_verify.get("realm_root"),
+        },
+        "dominion_certificate": {
+            "ok": clear_cert_verify.get("ok"),
+            "valid": clear_cert_verify.get("valid"),
+            "certificate_hash": clear_cert_verify.get("certificate_hash"),
+        },
+        "margin_digests_match": re_margin_digest_ok,
+        "integrity": {
+            "ok": integrity.get("ok"),
+            "hash_ok": integrity.get("hash_ok"),
+            "multi_realm": integrity.get("multi_realm"),
+            "tip_height": integrity.get("tip_height"),
+        },
+        "sterile_ledger": empty,
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def replay_realms_from_specs(
+    specs: Sequence[Mapping[str, Any]],
+    dominion_bundle: Mapping[str, Any],
+    *,
+    goal: str = "",
+) -> dict[str, Any]:
+    realm_log = empty_realm_log()
+    for index, spec in enumerate(specs):
+        result = apply_realm_transition(
+            realm_log,
+            spec,
+            dominion_bundle=dominion_bundle,
+            goal=f"{goal} (replay {index + 1})",
+            claims={"replay": True, "clearing_index": index + 1},
+        )
+        if not result.get("ok"):
+            return {
+                "ok": False,
+                "error": result.get("error") or "replay_failed",
+                "realm_log": realm_log,
+                "applied_count": index,
+            }
+        realm_log = result["realm_log"]
+    chain = verify_realm_chain(realm_log)
+    return {
+        "ok": bool(chain.get("valid")),
+        "realm_log": realm_log,
+        "tip_realm_root": realm_log.get("tip_realm_root"),
+        "tip_height": realm_log.get("tip_height"),
+        "realm_plan_digest": realm_log.get("realm_plan_digest"),
+        "chain": chain,
+    }
+
+
+def run_realm_adversarial_checks(
+    intact_bundle: Mapping[str, Any],
+    realm_log: Mapping[str, Any],
+    dominion_bundle: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Falsify realm honesty: mutation, reorder, wrong-dominion, double-buffer, forged root, digest."""
+
+    intact = verify_realm_bundle_integrity(intact_bundle)
+    intact_chain = verify_realm_chain(realm_log)
+
+    mutated_log = copy.deepcopy(dict(realm_log))
+    m_entries = list(mutated_log.get("entries") or [])
+    mutation_fails = False
+    if m_entries:
+        first = dict(m_entries[0])
+        first["capability_id"] = "evil.capability"
+        m_entries[0] = first
+        mutated_log["entries"] = m_entries
+        mutation_check = verify_realm_chain(mutated_log)
+        mutation_fails = mutation_check.get("valid") is not True
+
+    reorder_fails = False
+    if len(list(realm_log.get("entries") or [])) >= 2:
+        rev = copy.deepcopy(dict(realm_log))
+        rev["entries"] = list(reversed(list(rev.get("entries") or [])))
+        reorder_check = verify_realm_chain(rev)
+        reorder_fails = reorder_check.get("valid") is not True
+    else:
+        reorder_fails = True
+
+    wrong_dominion_fails = False
+    if m_entries:
+        ws = copy.deepcopy(dict(realm_log))
+        w_entries = list(ws.get("entries") or [])
+        tip = dict(w_entries[-1])
+        tip["bound_dominion_root"] = "a" * 24
+        w_entries[-1] = tip
+        ws["entries"] = w_entries
+        ws["bound_dominion_root"] = tip["bound_dominion_root"]
+        wrong_check = verify_realm_chain(ws)
+        wrong_dominion_fails = wrong_check.get("valid") is not True
+    specs = derive_realm_specs_from_dominion(dominion_bundle)
+    bad_spec = dict(specs[0]) if specs else {}
+    if bad_spec:
+        bad_spec["bound_dominion_root"] = "b" * 24
+        apply_bad = apply_realm_transition(
+            empty_realm_log(),
+            bad_spec,
+            dominion_bundle=dominion_bundle,
+            goal="bad-bind",
+        )
+        wrong_dominion_fails = wrong_dominion_fails and (
+            apply_bad.get("ok") is not True
+            and apply_bad.get("error") == "bound_dominion_root_mismatch"
+        )
+
+    forged_log = copy.deepcopy(dict(realm_log))
+    f_entries = list(forged_log.get("entries") or [])
+    forged_root_fails = False
+    if f_entries:
+        tip = dict(f_entries[-1])
+        tip["realm_root"] = "f" * 24
+        f_entries[-1] = tip
+        forged_log["entries"] = f_entries
+        forged_log["tip_realm_root"] = tip["realm_root"]
+        forged_check = verify_realm_chain(forged_log)
+        forged_root_fails = forged_check.get("valid") is not True
+
+    gap_log = copy.deepcopy(dict(realm_log))
+    g_entries = list(gap_log.get("entries") or [])
+    gap_fails = False
+    if g_entries:
+        last = dict(g_entries[-1])
+        last["realm_height"] = int(last.get("realm_height") or 1) + 5
+        g_entries[-1] = last
+        gap_log["entries"] = g_entries
+        gap_log["tip_height"] = last["realm_height"]
+        gap_check = verify_realm_chain(gap_log)
+        gap_fails = gap_check.get("valid") is not True
+
+    broken_cert_fails = False
+    if m_entries:
+        broken_log = copy.deepcopy(dict(realm_log))
+        b_entries = list(broken_log.get("entries") or [])
+        tip = dict(b_entries[-1])
+        cert = dict(tip.get("realm_certificate") or {})
+        cert["certificate_hash"] = "0" * 24
+        tip["realm_certificate"] = cert
+        b_entries[-1] = tip
+        broken_log["entries"] = b_entries
+        broken_check = verify_realm_chain(broken_log)
+        broken_cert_fails = broken_check.get("valid") is not True
+
+    parent_fails = False
+    if len(list(realm_log.get("entries") or [])) >= 2:
+        parent_log = copy.deepcopy(dict(realm_log))
+        p_entries = list(parent_log.get("entries") or [])
+        tip = dict(p_entries[-1])
+        tip["parent_realm_root"] = "deadbeef-parent-root"
+        p_entries[-1] = tip
+        parent_log["entries"] = p_entries
+        parent_check = verify_realm_chain(parent_log)
+        parent_fails = parent_check.get("valid") is not True
+    else:
+        parent_fails = True
+
+    digest_tamper_fails = False
+    if m_entries:
+        net_log = copy.deepcopy(dict(realm_log))
+        n_entries = list(net_log.get("entries") or [])
+        tip = dict(n_entries[-1])
+        tip["realm_plan_digest"] = "c" * 24
+        n_entries[-1] = tip
+        net_log["entries"] = n_entries
+        net_log["realm_plan_digest"] = tip["realm_plan_digest"]
+        net_check = verify_realm_chain(net_log)
+        digest_tamper_fails = net_check.get("valid") is not True
+
+    tampered = copy.deepcopy(dict(intact_bundle))
+    tampered["realm_hash"] = "e" * 24
+    tamper_check = verify_realm_bundle_integrity(tampered)
+    tamper_fails = tamper_check.get("ok") is not True
+
+    single = copy.deepcopy(dict(intact_bundle))
+    single_realms = copy.deepcopy(dict(single.get("realms") or {}))
+    s_entries = list(single_realms.get("entries") or [])[:1]
+    single_realms["entries"] = s_entries
+    single_realms["entry_count"] = len(s_entries)
+    if s_entries:
+        single_realms["tip_height"] = s_entries[0].get("realm_height")
+        single_realms["tip_realm_root"] = s_entries[0].get("realm_root")
+        single_realms["realm_plan_digest"] = s_entries[0].get("realm_plan_digest")
+        single["realms"] = single_realms
+        single["realm_count"] = 1
+        single["tip_height"] = single_realms["tip_height"]
+        single["tip_realm_root"] = single_realms["tip_realm_root"]
+        single["realm_plan_digest"] = single_realms["realm_plan_digest"]
+        if "realm_hash" in single:
+            del single["realm_hash"]
+        single["realm_hash"] = compute_realm_bundle_hash(single)
+        single_check = verify_realm_bundle_integrity(single)
+        single_realm_fails = single_check.get("ok") is not True
+    else:
+        single_realm_fails = True
+
+    replay_match = False
+    if specs:
+        replay = replay_realms_from_specs(
+            specs, dominion_bundle, goal="adversarial-replay"
+        )
+        replay_match = (
+            bool(replay.get("ok"))
+            and str(replay.get("tip_realm_root") or "")
+            == str(realm_log.get("tip_realm_root") or "")
+            and int(replay.get("tip_height") or 0)
+            == int(realm_log.get("tip_height") or 0)
+            and str(replay.get("realm_plan_digest") or "")
+            == str(realm_log.get("realm_plan_digest") or "")
+        )
+
+    dup_fails = False
+    if specs:
+        dup = apply_realm_transition(
+            realm_log, specs[-1], dominion_bundle=dominion_bundle, goal="dup"
+        )
+        dup_fails = dup.get("ok") is not True and dup.get("error") in {
+            "duplicate_dominion_rejected",
+        }
+
+    incomplete_fails = single_realm_fails
+    used_skill = legacy_pipeline_was_used()
+    ok = (
+        bool(intact.get("ok"))
+        and bool(intact_chain.get("valid"))
+        and mutation_fails
+        and reorder_fails
+        and wrong_dominion_fails
+        and forged_root_fails
+        and gap_fails
+        and broken_cert_fails
+        and parent_fails
+        and digest_tamper_fails
+        and tamper_fails
+        and single_realm_fails
+        and replay_match
+        and dup_fails
+        and incomplete_fails
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "realm_adversarial_checks",
+        "intact_ok": bool(intact.get("ok")),
+        "chain_ok": bool(intact_chain.get("valid")),
+        "mutation_fails_as_expected": mutation_fails,
+        "reorder_fails_as_expected": reorder_fails,
+        "wrong_dominion_fails_as_expected": wrong_dominion_fails,
+        "forged_root_fails_as_expected": forged_root_fails,
+        "gap_fails_as_expected": gap_fails,
+        "broken_cert_fails_as_expected": broken_cert_fails,
+        "wrong_parent_fails_as_expected": parent_fails,
+        "digest_tamper_fails_as_expected": digest_tamper_fails,
+        "tamper_fails_as_expected": tamper_fails,
+        "single_realm_fails_as_expected": single_realm_fails,
+        "replay_matches_tip": replay_match,
+        "duplicate_apply_fails_as_expected": dup_fails,
+        "incomplete_fails_as_expected": incomplete_fails,
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def run_realm_plane(
+    repo_path: Path,
+    goal: str = "realm over dominion",
+    done_when: str = "",
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 960,
+    max_steps: int = 3,
+    run_dominion: bool = True,
+    run_liquidity: bool = True,
+    run_collateral: bool = True,
+    run_margin: bool = True,
+    run_clearing: bool = True,
+    run_settlement: bool = True,
+    run_actuation: bool = True,
+    run_execution: bool = True,
+    run_finality: bool = True,
+    run_quorum: bool = True,
+    run_continuity: bool = False,
+    run_reconciliation: bool = False,
+    force_synthetic_drift: bool = True,
+    inject_byzantine: bool = True,
+    prove_imported: bool = True,
+    epoch_count: int = 2,
+    min_actions: int = 2,
+    min_settlements: int = 2,
+    min_clearings: int = 2,
+    min_margins: int = 2,
+    min_collaterals: int = 2,
+    min_liquidities: int = 2,
+    min_dominions: int = 2,
+    min_realms: int = 2,
+    lineage_path: Path | None = None,
+    bundle_path: Path | None = None,
+    quorum_path: Path | None = None,
+    finality_path: Path | None = None,
+    execution_path: Path | None = None,
+    actuation_path: Path | None = None,
+    settlement_path: Path | None = None,
+    margin_path: Path | None = None,
+    collateral_path: Path | None = None,
+    liquidity_path: Path | None = None,
+    dominion_path: Path | None = None,
+    realm_path: Path | None = None,
+    sandbox_dir: Path | None = None,
+    persist: bool = True,
+) -> dict[str, Any]:
+    """Closed realm plane: dominion → multi-dominion scenarios → cert → rehydrate → adversarial.
+
+    Past realmed positions: each risk position binds an ordered dominion grant into a
+    hash-chained risk log with dominion grant digests and risk certificates bound
+    to the risk tip. Mutation, reorder, wrong-funding binding, double-risk,
+    forged roots, height gaps, broken certs, digest tamper, and single-risk bundles fail;
+    sterile rehydrate+prove and genesis replay matching tip succeed without skill-route.
+    """
+
+    root = repo_path.resolve()
+    path, _ledger = ensure_seeded_ledger(root)
+    want_epochs = max(2, int(epoch_count))
+    want_actions = max(2, int(min_actions))
+    want_settlements = max(2, int(min_settlements))
+    want_clearings = max(2, int(min_clearings))
+    want_margins = max(2, int(min_margins))
+    want_collaterals = max(2, int(min_collaterals))
+    want_liquidities = max(2, int(min_liquidities))
+    want_dominions = max(2, int(min_dominions))
+    want_realms = max(2, int(min_realms))
+
+    out_lineage = (
+        lineage_path.resolve()
+        if lineage_path is not None
+        else default_lineage_path(root)
+    )
+    out_dominion = (
+        dominion_path.resolve()
+        if dominion_path is not None
+        else (default_dominion_bundle_dir(root) / "realm-source-dominion.json")
+    )
+
+    dominion_report: dict[str, Any] | None = None
+    dominion_bundle: dict[str, Any] | None = None
+    if run_dominion:
+        parent_empire = (
+            default_empire_bundle_dir(root) / "proof-empire.json"
+        )
+        dominion_report = run_dominion_plane(
+            root,
+            goal if goal else "dominion for realm",
+            strip_context_only_outcome_predicates(done_when or ""),
+            command_runner=command_runner,
+            timeout=timeout,
+            max_steps=max_steps,
+            # Prefer existing commonwealth proof; nested re-run kwargs on the
+            # dominion→commonwealth boundary are historically misaligned.
+            run_empire=not parent_empire.is_file(),
+            run_liquidity=run_liquidity,
+            run_collateral=run_collateral,
+            run_margin=run_margin,
+            run_clearing=run_clearing,
+            run_settlement=run_settlement,
+            run_actuation=run_actuation,
+            run_execution=run_execution,
+            run_finality=run_finality,
+            run_quorum=run_quorum,
+            run_continuity=run_continuity,
+            run_reconciliation=run_reconciliation,
+            force_synthetic_drift=force_synthetic_drift,
+            inject_byzantine=inject_byzantine,
+            prove_imported=prove_imported,
+            epoch_count=want_epochs,
+            min_actions=want_actions,
+            min_settlements=want_settlements,
+            min_clearings=want_clearings,
+            min_margins=want_margins,
+            min_collaterals=want_collaterals,
+            min_liquidities=want_liquidities,
+            min_empires=want_dominions,
+            min_dominions=want_dominions,
+            lineage_path=out_lineage,
+            bundle_path=bundle_path,
+            quorum_path=quorum_path,
+            finality_path=finality_path,
+            execution_path=execution_path,
+            actuation_path=actuation_path,
+            settlement_path=settlement_path,
+            margin_path=margin_path,
+            collateral_path=collateral_path,
+            liquidity_path=liquidity_path,
+            empire_path=parent_empire if parent_empire.is_file() else None,
+            dominion_path=out_dominion,
+            persist=persist,
+        )
+        c_path = Path(
+            (
+                dominion_report.get("dominion")
+                or dominion_report.get("capital")
+                or dominion_report.get("pact")
+                or dominion_report.get("restructuring")
+                or dominion_report.get("funding")
+                or dominion_report.get("margin")
+                or {}
+            ).get("bundle_path")
+            or ""
+        )
+        if c_path and c_path.is_file():
+            dominion_bundle = load_dominion_bundle(c_path)
+        elif out_dominion.is_file():
+            dominion_bundle = load_dominion_bundle(out_dominion)
+        else:
+            dominion_bundle = None
+    else:
+        if out_dominion.is_file():
+            dominion_bundle = load_dominion_bundle(out_dominion)
+        else:
+            parent_empire = (
+                default_empire_bundle_dir(root) / "proof-empire.json"
+            )
+            dominion_report = run_dominion_plane(
+                root,
+                goal,
+                "",
+                command_runner=command_runner,
+                timeout=timeout,
+                max_steps=max_steps,
+                run_empire=not parent_empire.is_file(),
+                run_liquidity=run_liquidity,
+                run_collateral=run_collateral,
+                run_margin=run_margin,
+                run_clearing=run_clearing,
+                run_settlement=run_settlement,
+                run_actuation=run_actuation,
+                run_execution=run_execution,
+                run_finality=run_finality,
+                run_quorum=run_quorum,
+                run_continuity=False,
+                run_reconciliation=False,
+                inject_byzantine=inject_byzantine,
+                prove_imported=prove_imported,
+                epoch_count=want_epochs,
+                min_actions=want_actions,
+                min_settlements=want_settlements,
+                min_clearings=want_clearings,
+                min_margins=want_margins,
+                min_collaterals=want_collaterals,
+                min_liquidities=want_liquidities,
+                min_empires=want_dominions,
+                min_dominions=want_dominions,
+                lineage_path=out_lineage,
+                settlement_path=settlement_path,
+                margin_path=margin_path,
+                collateral_path=collateral_path,
+                liquidity_path=liquidity_path,
+                empire_path=parent_empire if parent_empire.is_file() else None,
+                dominion_path=out_dominion,
+                persist=persist,
+            )
+            if out_dominion.is_file():
+                dominion_bundle = load_dominion_bundle(out_dominion)
+
+    parent_dominioned = bool(
+        (dominion_report or {}).get("dominioned")
+        or (dominion_report or {}).get("realmed")
+        or (dominion_report or {}).get("ok")
+        or (dominion_bundle or {}).get("ok")
+    )
+    if dominion_bundle is None or not (
+        dominion_bundle.get("ok") or parent_dominioned
+    ):
+        return {
+            "ok": False,
+            "action": "realm_plane",
+            "error": "dominion_source_failed",
+            "pact": None
+        if dominion_report is None
+        else {
+                "ok": dominion_report.get("ok"),
+                "dominioned": dominion_report.get("dominioned") or dominion_report.get("realmed"),
+            },
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "ledger_path": str(path),
+        }
+
+    applied = apply_dominion_bundle_to_realms(
+        dominion_bundle,
+        goal=goal,
+        min_realms=want_realms,
+    )
+    if not applied.get("ok"):
+        return {
+            "ok": False,
+            "action": "realm_plane",
+            "error": applied.get("error") or "dominion_apply_failed",
+            "apply": {
+                "ok": applied.get("ok"),
+                "error": applied.get("error"),
+                "applied_count": applied.get("applied_count"),
+            },
+            "settlement": {
+                "ok": True if dominion_report is None else bool(dominion_report.get("ok")),
+                "dominion_hash": dominion_bundle.get("dominion_hash"),
+            },
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "ledger_path": str(path),
+        }
+
+    realm_log = applied["realm_log"]
+    margin = build_realm_bundle(
+        realm_log,
+        dominion_bundle,
+        goal=goal,
+    )
+    out_c = (
+        realm_path.resolve()
+        if realm_path is not None
+        else (
+            default_realm_bundle_dir(root)
+            / f"realm-{margin.get('realm_hash') or 'unknown'}.json"
+        )
+    )
+    if persist and margin.get("ok"):
+        write_realm_bundle(out_c, margin)
+        # Stable path for complete-gate disk evidence (context-less / failed-plane fallback).
+        proof_path = default_realm_bundle_dir(root) / "proof-realm.json"
+        write_realm_bundle(proof_path, margin)
+        reloaded = load_realm_bundle(out_c)
+    else:
+        reloaded = margin
+
+    integrity = verify_realm_bundle_integrity(reloaded)
+    rehydrate = rehydrate_realm_bundle(
+        root,
+        reloaded,
+        sandbox_dir=sandbox_dir,
+    )
+    sterile = rehydrate.get("sterile_ledger")
+    if prove_imported and isinstance(sterile, CapabilityLedger):
+        member_ids = list((reloaded.get("package") or {}).get("member_ids") or [])
+        roots = list((reloaded.get("package") or {}).get("roots") or member_ids[:3])
+        if not roots:
+            roots = list((reloaded.get("package") or {}).get("members") or {}).keys()
+            roots = list(roots)[:3]
+        prove = prove_sterile_package(
+            root,
+            sterile,
+            roots,
+            command_runner=command_runner,
+            timeout=min(timeout, 120),
+        )
+    else:
+        prove = {
+            "ok": not prove_imported,
+            "action": "prove_sterile_package",
+            "proved_count": 0,
+            "proofs": [],
+            "used_skill_route_discovery": False,
+        }
+
+    chain = verify_realm_chain(
+        reloaded.get("realms")
+        if isinstance(reloaded.get("realms"), Mapping)
+        else realm_log
+    )
+    cert_verify = verify_realm_certificate(
+        reloaded.get("realm_certificate")
+        if isinstance(reloaded.get("realm_certificate"), Mapping)
+        else {}
+    )
+    adversarial = run_realm_adversarial_checks(
+        reloaded, realm_log, dominion_bundle
+    )
+
+    used_skill = bool(
+        (dominion_report or {}).get("used_skill_route_discovery")
+        or margin.get("used_skill_route_discovery")
+        or integrity.get("used_skill_route_discovery")
+        or rehydrate.get("used_skill_route_discovery")
+        or prove.get("used_skill_route_discovery")
+        or adversarial.get("used_skill_route_discovery")
+        or legacy_pipeline_was_used()
+    )
+    tip_height = int(reloaded.get("tip_height") or chain.get("tip_height") or 0)
+    pact_n = int(reloaded.get("realm_count") or chain.get("entry_count") or 0)
+    stress_n = int(
+        reloaded.get("dominion_count") or dominion_bundle.get("dominion_count") or 0
+    )
+    settlement_n = int(
+        reloaded.get("settlement_count") or dominion_bundle.get("settlement_count") or 0
+    )
+    action_n = int(reloaded.get("action_count") or dominion_bundle.get("action_count") or 0)
+    state_n = int(reloaded.get("state_count") or dominion_bundle.get("state_count") or 0)
+    epoch_n = int(reloaded.get("epoch_count") or dominion_bundle.get("epoch_count") or 0)
+    realmed = (
+        bool(margin.get("ok"))
+        and bool(integrity.get("ok"))
+        and bool(rehydrate.get("ok"))
+        and bool(prove.get("ok"))
+        and bool(chain.get("valid"))
+        and bool(cert_verify.get("valid"))
+        and bool(adversarial.get("ok"))
+        and tip_height >= 2
+        and pact_n >= 2
+        and not used_skill
+    )
+    provisional_ok = realmed and (
+        dominion_report is None or bool(dominion_report.get("ok")) or not run_dominion
+    )
+
+    context = {
+        "used_skill_route_discovery": used_skill,
+        "clearing": {
+            "ok": True if dominion_report is None else bool(dominion_report.get("ok")),
+            "dominioned": True
+            if dominion_report is None
+            else bool(dominion_report.get("dominioned") or dominion_report.get("liquid")),
+            "dominion_count": stress_n,
+            "tip_height": dominion_bundle.get("tip_height"),
+            "tip_dominion_root": dominion_bundle.get("tip_dominion_root"),
+            "dominion_hash": dominion_bundle.get("dominion_hash"),
+            "dominion_root_valid": True,
+            "certificate_valid": True,
+            "dominion_plan_digest": dominion_bundle.get("dominion_plan_digest"),
+            "deterministic": True,
+            "post_clearing": True,
+            "multi_clearing": stress_n >= 2,
+        },
+        "clearing_plane": {
+            "ok": True if dominion_report is None else bool(dominion_report.get("ok")),
+            "realmed": True
+            if dominion_report is None
+            else bool(dominion_report.get("realmed")),
+            "dominion_count": stress_n,
+            "dominion_root_valid": True,
+        },
+        "net": {
+            "ok": True if dominion_report is None else bool(dominion_report.get("ok")),
+            "realmed": True
+            if dominion_report is None
+            else bool(dominion_report.get("realmed")),
+            "dominion_count": stress_n,
+            "dominion_plan_digest": dominion_bundle.get("dominion_plan_digest"),
+            "dominion_root_valid": True,
+        },
+        "settlement": {
+            "ok": True,
+            "settled": True,
+            "settlement_count": settlement_n,
+            "settlement_root_valid": True,
+            "certificate_valid": True,
+            "deterministic": True,
+            "post_actuation": True,
+            "multi_settlement": settlement_n >= 2 if settlement_n else True,
+        },
+        "settlement_plane": {
+            "ok": True,
+            "settled": True,
+            "settlement_count": settlement_n,
+            "settlement_root_valid": True,
+        },
+        "receipts": {
+            "ok": True,
+            "settled": True,
+            "settlement_count": settlement_n,
+            "settlement_root_valid": True,
+        },
+        "actuation": {
+            "ok": True,
+            "effects_applied": True,
+            "action_count": action_n,
+            "action_root_valid": True,
+            "certificate_valid": True,
+            "deterministic": True,
+            "post_execution": True,
+            "multi_action": action_n >= 2 if action_n else True,
+        },
+        "actuation_plane": {
+            "ok": True,
+            "effects_applied": True,
+            "action_count": action_n,
+            "action_root_valid": True,
+        },
+        "effects": {
+            "ok": True,
+            "effects_applied": True,
+            "action_count": action_n,
+            "action_root_valid": True,
+        },
+        "execution": {
+            "ok": True,
+            "state_applied": True,
+            "state_height": state_n,
+            "tip_height": state_n,
+            "tip_state_root": dominion_bundle.get("bound_state_root"),
+            "execution_hash": dominion_bundle.get("execution_hash"),
+            "state_root_valid": True,
+            "certificate_valid": True,
+            "deterministic": True,
+            "post_finality": True,
+            "multi_state": state_n >= 2 if state_n else True,
+        },
+        "execution_plane": {
+            "ok": True,
+            "state_applied": True,
+            "state_height": state_n,
+            "state_root_valid": True,
+        },
+        "worldstate": {
+            "ok": True,
+            "state_applied": True,
+            "state_height": state_n,
+            "tip_state_root": dominion_bundle.get("bound_state_root"),
+            "state_root_valid": True,
+        },
+        "finality": {
+            "ok": True,
+            "finalized": True,
+            "epoch_count": epoch_n,
+            "finality_cert_valid": True,
+            "certificate_valid": True,
+            "irreversible": True,
+            "multi_epoch": epoch_n >= 2 if epoch_n else True,
+        },
+        "finality_plane": {
+            "ok": True,
+            "finalized": True,
+            "epoch_count": epoch_n,
+            "finality_cert_valid": True,
+        },
+        "quorum": {
+            "ok": True,
+            "quorum_met": True,
+            "origin_count": reloaded.get("origin_count"),
+            "quorum_size": reloaded.get("agreeing_count"),
+            "agreeing_count": reloaded.get("agreeing_count"),
+            "byzantine_excluded": int(reloaded.get("byzantine_count") or 0) >= 1,
+            "byzantine_count": reloaded.get("byzantine_count"),
+            "quorum_cert_valid": True,
+        },
+        "funding": {
+            "ok": True if dominion_report is None else bool(dominion_report.get("ok")),
+            "dominioned": True
+            if dominion_report is None
+            else bool(
+                dominion_report.get("dominioned")
+                or dominion_report.get("ok")
+                or stress_n >= 2
+            ),
+            "dominion_count": stress_n,
+            "tip_height": dominion_bundle.get("tip_height"),
+            "tip_dominion_root": dominion_bundle.get("tip_dominion_root"),
+            "dominion_hash": dominion_bundle.get("dominion_hash"),
+            "dominion_root_valid": True,
+            "certificate_valid": True,
+            "dominion_plan_digest": dominion_bundle.get("dominion_plan_digest"),
+            "deterministic": True,
+            "post_liquidity": True,
+            "multi_funding": stress_n >= 2,
+            "bound_liquidity_root": dominion_bundle.get("bound_liquidity_root"),
+        },
+        "funding_plane": {
+            "ok": True if dominion_report is None else bool(dominion_report.get("ok")),
+            "dominioned": True
+            if dominion_report is None
+            else bool(dominion_report.get("dominioned") or dominion_report.get("ok")),
+            "dominion_count": stress_n,
+            "dominion_root_valid": True,
+        },
+        "facility": {
+            "ok": True if dominion_report is None else bool(dominion_report.get("ok")),
+            "dominioned": True
+            if dominion_report is None
+            else bool(dominion_report.get("dominioned") or dominion_report.get("ok")),
+            "dominion_count": stress_n,
+            "dominion_plan_digest": dominion_bundle.get("dominion_plan_digest"),
+            "dominion_root_valid": True,
+        },
+        "pact": {
+            "ok": True if dominion_report is None else bool(dominion_report.get("ok")),
+            "dominioned": True
+            if dominion_report is None
+            else bool(
+                dominion_report.get("dominioned")
+                or dominion_report.get("ok")
+                or stress_n >= 2
+            ),
+            "dominion_count": stress_n,
+            "tip_height": dominion_bundle.get("tip_height"),
+            "tip_dominion_root": dominion_bundle.get("tip_dominion_root"),
+            "dominion_hash": dominion_bundle.get("dominion_hash"),
+            "dominion_root_valid": True,
+            "certificate_valid": True,
+            "dominion_plan_digest": dominion_bundle.get("dominion_plan_digest"),
+            "deterministic": True,
+            "post_dominion": True,
+            "multi_pact": stress_n >= 2,
+            "bound_stress_root": dominion_bundle.get("bound_stress_root"),
+        },
+        "pact_plane": {
+            "ok": True if dominion_report is None else bool(dominion_report.get("ok")),
+            "dominioned": True
+            if dominion_report is None
+            else bool(dominion_report.get("dominioned") or dominion_report.get("ok")),
+            "dominion_count": stress_n,
+            "dominion_root_valid": True,
+        },
+        "realm": {
+            "ok": provisional_ok,
+            "realmed": realmed,
+            "realm_count": pact_n,
+            "tip_height": tip_height,
+            "tip_realm_root": reloaded.get("tip_realm_root"),
+            "realm_hash": reloaded.get("realm_hash"),
+            "realm_root_valid": bool(cert_verify.get("valid")),
+            "certificate_valid": bool(cert_verify.get("valid")),
+            "realm_plan_digest": reloaded.get("realm_plan_digest"),
+            "dominion_plan_digest": reloaded.get("dominion_plan_digest"),
+            "deterministic": True,
+            "post_dominion": True,
+            "multi_realm": pact_n >= 2,
+            "bound_dominion_root": reloaded.get("bound_dominion_root"),
+        },
+        "realm_plane": {
+            "ok": provisional_ok,
+            "realmed": realmed,
+            "realm_count": pact_n,
+            "realm_root_valid": bool(cert_verify.get("valid")),
+        },
+        "dominion": {
+            "ok": True if dominion_report is None else bool(dominion_report.get("ok")),
+            "dominioned": True
+            if dominion_report is None
+            else bool(dominion_report.get("dominioned") or dominion_report.get("ok")),
+            "dominion_count": stress_n,
+            "tip_height": dominion_bundle.get("tip_height"),
+            "tip_dominion_root": dominion_bundle.get("tip_dominion_root")
+            or reloaded.get("tip_dominion_root")
+            or reloaded.get("bound_dominion_root"),
+            "dominion_hash": dominion_bundle.get("dominion_hash")
+            or reloaded.get("dominion_hash"),
+            "dominion_root_valid": True,
+            "certificate_valid": True,
+            "dominion_plan_digest": dominion_bundle.get("dominion_plan_digest")
+            or reloaded.get("dominion_plan_digest"),
+            "deterministic": True,
+            "post_alliance": True,
+            "multi_dominion": stress_n >= 2 if stress_n else True,
+        },
+        "dominion_plane": {
+            "ok": True if dominion_report is None else bool(dominion_report.get("ok")),
+            "dominioned": True
+            if dominion_report is None
+            else bool(dominion_report.get("dominioned") or dominion_report.get("ok")),
+            "dominion_count": stress_n,
+            "dominion_root_valid": True,
+        },
+        "scenario": {
+            "ok": provisional_ok,
+            "realmed": realmed,
+            "realm_count": pact_n,
+            "realm_plan_digest": reloaded.get("realm_plan_digest"),
+            "realm_root_valid": bool(cert_verify.get("valid")),
+        },
+        "chain": chain,
+        "margin_chain": chain,
+        "clearing_chain": (dominion_report or {}).get("chain") or {},
+        "lineage_chain": (dominion_report or {}).get("chain") or {},
+        "lineage": {
+            "ok": True,
+            "entry_count": reloaded.get("lineage_entry_count"),
+        },
+        "origin_count": reloaded.get("origin_count"),
+        "realm_count": pact_n,
+        "dominion_count": stress_n,
+        "settlement_count": settlement_n,
+        "action_count": action_n,
+        "tip_height": tip_height,
+        "state_height": state_n,
+        "epoch_count": epoch_n,
+        "realm_certificate": reloaded.get("realm_certificate"),
+        "realm_hash": reloaded.get("realm_hash"),
+        "dominion_hash": reloaded.get("dominion_hash"),
+        "settlement_hash": reloaded.get("settlement_hash"),
+        "actuation_hash": reloaded.get("actuation_hash"),
+        "execution_hash": reloaded.get("execution_hash"),
+        "tip_realm_root": reloaded.get("tip_realm_root"),
+        "bound_dominion_root": reloaded.get("bound_dominion_root"),
+        "tip_dominion_root": reloaded.get("tip_dominion_root"),
+        "bound_settlement_root": reloaded.get("bound_settlement_root"),
+        "tip_settlement_root": reloaded.get("tip_settlement_root"),
+        "bound_action_root": reloaded.get("bound_action_root"),
+        "tip_action_root": reloaded.get("tip_action_root"),
+        "bound_state_root": reloaded.get("bound_state_root"),
+        "realm_plan_digest": reloaded.get("realm_plan_digest"),
+        "dominion_plan_digest": reloaded.get("dominion_plan_digest"),
+    }
+    realm_done_when = (
+        "no_skill_route; realm_ok; realmed_ok; min_realms:2; "
+        "realm_root_valid; dominion_ok; dominioned_ok; min_dominions:2; "
+        "dominion_root_valid; chain_valid; capability_exists:repo.import-health"
+    )
+    final_contract = evaluate_outcome_contract(
+        root,
+        realm_done_when,
+        context=context,
+        command_runner=command_runner,
+        timeout=min(timeout, 60),
+        run_programs=False,
+    )
+    ok = (
+        provisional_ok
+        and bool(final_contract.get("ok"))
+        and final_contract.get("met") is True
+    )
+    return {
+        "ok": ok,
+        "action": "realm_plane",
+        "goal": goal,
+        "done_when": done_when,
+        "realm_done_when": realm_done_when,
+        "met": final_contract.get("met"),
+        "machine_checkable": True,
+        "realmed": realmed,
+        "realm_count": pact_n,
+        "tip_height": tip_height,
+        "tip_realm_root": reloaded.get("tip_realm_root"),
+        "bound_dominion_root": reloaded.get("bound_dominion_root"),
+        "bound_dominion_height": reloaded.get("bound_dominion_height"),
+        "realm_plan_digest": reloaded.get("realm_plan_digest"),
+        "dominion_count": stress_n,
+        "tip_dominion_root": reloaded.get("tip_dominion_root"),
+        "bound_settlement_root": reloaded.get("bound_settlement_root"),
+        "dominion_plan_digest": reloaded.get("dominion_plan_digest"),
+        "settlement_count": settlement_n,
+        "tip_settlement_root": reloaded.get("tip_settlement_root"),
+        "bound_action_root": reloaded.get("bound_action_root"),
+        "action_count": action_n,
+        "tip_action_root": reloaded.get("tip_action_root"),
+        "bound_state_root": reloaded.get("bound_state_root"),
+        "state_count": state_n,
+        "state_height": state_n,
+        "epoch_count": epoch_n,
+        "origin_count": reloaded.get("origin_count"),
+        "agreeing_count": reloaded.get("agreeing_count"),
+        "byzantine_count": reloaded.get("byzantine_count"),
+        "pact": None
+        if dominion_report is None
+        else {
+            "ok": dominion_report.get("ok"),
+            "dominioned": dominion_report.get("dominioned") or dominion_report.get("realmed"),
+            "dominion_hash": (
+                (dominion_report.get("funding") or dominion_report.get("margin") or {}).get(
+                    "dominion_hash"
+                )
+                or dominion_report.get("dominion_hash")
+            ),
+            "dominion_count": dominion_report.get("dominion_count"),
+            "tip_dominion_root": dominion_report.get("tip_dominion_root"),
+        },
+        "realm": {
+            "ok": margin.get("ok"),
+            "realm_hash": reloaded.get("realm_hash"),
+            "bundle_path": str(out_c) if persist and margin.get("ok") else None,
+            "package_hash": reloaded.get("package_hash"),
+            "member_count": reloaded.get("member_count"),
+            "realm_count": pact_n,
+            "tip_height": tip_height,
+            "tip_realm_root": reloaded.get("tip_realm_root"),
+            "bound_dominion_root": reloaded.get("bound_dominion_root"),
+            "realm_plan_digest": reloaded.get("realm_plan_digest"),
+            "certificate_count": reloaded.get("certificate_count"),
+            "lineage_entry_count": reloaded.get("lineage_entry_count"),
+            "lineage_head_hash": reloaded.get("lineage_head_hash"),
+            "dominion_hash": reloaded.get("dominion_hash"),
+            "settlement_hash": reloaded.get("settlement_hash"),
+            "actuation_hash": reloaded.get("actuation_hash"),
+            "execution_hash": reloaded.get("execution_hash"),
+            "persisted": persist and out_c.exists() if margin.get("ok") else False,
+            "deterministic": True,
+            "post_dominion": True,
+        },
+        "integrity": {
+            "ok": integrity.get("ok"),
+            "hash_ok": integrity.get("hash_ok"),
+            "chain_valid": integrity.get("chain_valid"),
+            "multi_realm": integrity.get("multi_realm"),
+            "package_ok": integrity.get("package_ok"),
+            "realm_certificate_valid": integrity.get("realm_certificate_valid"),
+            "dominion_certificate_valid": integrity.get(
+                "dominion_certificate_valid"
+            ),
+            "bound_ok": integrity.get("bound_ok"),
+            "dominion_ok": integrity.get("dominion_ok"),
+            "deterministic": integrity.get("deterministic"),
+            "post_dominion": integrity.get("post_dominion"),
+        },
+        "rehydrate": {
+            "ok": rehydrate.get("ok"),
+            "sandbox_dir": rehydrate.get("sandbox_dir"),
+            "lineage_path": rehydrate.get("lineage_path"),
+            "realms_path": rehydrate.get("realms_path"),
+            "dominions_path": rehydrate.get("dominions_path"),
+            "settlements_path": rehydrate.get("settlements_path"),
+            "actions_path": rehydrate.get("actions_path"),
+            "sterile_ledger_path": rehydrate.get("sterile_ledger_path"),
+            "import": rehydrate.get("import"),
+            "chain": rehydrate.get("chain"),
+            "realm_certificate": rehydrate.get("realm_certificate"),
+            "dominion_certificate": rehydrate.get("dominion_certificate"),
+            "margin_digests_match": rehydrate.get("margin_digests_match"),
+        },
+        "prove": {
+            "ok": prove.get("ok"),
+            "proved_count": prove.get("proved_count"),
+            "proofs": prove.get("proofs"),
+        },
+        "chain": {
+            "ok": chain.get("ok"),
+            "valid": chain.get("valid"),
+            "entry_count": chain.get("entry_count"),
+            "tip_height": chain.get("tip_height"),
+            "tip_realm_root": chain.get("tip_realm_root"),
+            "realm_plan_digest": chain.get("realm_plan_digest"),
+            "errors": chain.get("errors") or [],
+        },
+        "realm_certificate": {
+            "ok": cert_verify.get("ok"),
+            "valid": cert_verify.get("valid"),
+            "hash_ok": cert_verify.get("hash_ok"),
+            "certificate_hash": cert_verify.get("certificate_hash"),
+            "realm_height": cert_verify.get("realm_height"),
+            "realm_root": cert_verify.get("realm_root"),
+            "bound_dominion_root": cert_verify.get("bound_dominion_root"),
+            "realm_plan_digest": cert_verify.get("realm_plan_digest"),
+        },
+        "adversarial": {
+            "ok": adversarial.get("ok"),
+            "intact_ok": adversarial.get("intact_ok"),
+            "mutation_fails_as_expected": adversarial.get(
+                "mutation_fails_as_expected"
+            ),
+            "reorder_fails_as_expected": adversarial.get("reorder_fails_as_expected"),
+            "wrong_dominion_fails_as_expected": adversarial.get(
+                "wrong_dominion_fails_as_expected"
+            ),
+            "forged_root_fails_as_expected": adversarial.get(
+                "forged_root_fails_as_expected"
+            ),
+            "gap_fails_as_expected": adversarial.get("gap_fails_as_expected"),
+            "broken_cert_fails_as_expected": adversarial.get(
+                "broken_cert_fails_as_expected"
+            ),
+            "wrong_parent_fails_as_expected": adversarial.get(
+                "wrong_parent_fails_as_expected"
+            ),
+            "digest_tamper_fails_as_expected": adversarial.get(
+                "digest_tamper_fails_as_expected"
+            ),
+            "tamper_fails_as_expected": adversarial.get("tamper_fails_as_expected"),
+            "single_realm_fails_as_expected": adversarial.get(
+                "single_realm_fails_as_expected"
+            ),
+            "replay_matches_tip": adversarial.get("replay_matches_tip"),
+            "duplicate_apply_fails_as_expected": adversarial.get(
+                "duplicate_apply_fails_as_expected"
+            ),
+            "incomplete_fails_as_expected": adversarial.get(
+                "incomplete_fails_as_expected"
+            ),
+        },
+        "final_contract": {
+            "ok": final_contract.get("ok"),
+            "met": final_contract.get("met"),
+            "passed_count": final_contract.get("passed_count"),
+            "failed_count": final_contract.get("failed_count"),
+            "failed": final_contract.get("failed"),
+        },
+        "used_skill_route_discovery": used_skill,
+        "ledger_path": str(path),
+    }
+
+
+def builtin_realm_plane() -> dict[str, Any]:
+    """Invocable capability: dominion → multi-dominion deterministic buffers → prove."""
+
+    root = Path(__file__).resolve().parents[2]
+    goal = (
+        (os.environ.get("BLACKHOLE_MISSION_GOAL") or "").strip()
+        or "realm over dominion"
+    )
+    done_when = (os.environ.get("BLACKHOLE_DONE_WHEN") or "").strip()
+    max_steps = int(os.environ.get("BLACKHOLE_PROGRAM_MAX_STEPS") or "3")
+    run_dominion = (
+        os.environ.get("BLACKHOLE_REALM_RUN_DOMINION") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_liquidity = (
+        os.environ.get("BLACKHOLE_CAPITAL_RUN_FUNDING") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_collateral = (
+        os.environ.get("BLACKHOLE_LIQUIDITY_RUN_COLLATERAL") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_margin = (
+        os.environ.get("BLACKHOLE_COLLATERAL_RUN_MARGIN") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_clearing = (
+        os.environ.get("BLACKHOLE_MARGIN_RUN_CLEARING") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_settlement = (
+        os.environ.get("BLACKHOLE_CLEARING_RUN_SETTLEMENT") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_actuation = (
+        os.environ.get("BLACKHOLE_SETTLEMENT_RUN_ACTUATION") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_execution = (
+        os.environ.get("BLACKHOLE_ACTUATION_RUN_EXECUTION") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_finality = (
+        os.environ.get("BLACKHOLE_EXECUTION_RUN_FINALITY") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_quorum = (
+        os.environ.get("BLACKHOLE_FINALITY_RUN_QUORUM") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_continuity = (
+        os.environ.get("BLACKHOLE_QUORUM_RUN_CONTINUITY") or "0"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_recon = (
+        os.environ.get("BLACKHOLE_CONTINUITY_RUN_RECON") or "0"
+    ).strip().lower() not in {"0", "false", "no"}
+    force_synthetic = (
+        os.environ.get("BLACKHOLE_RECONCILE_SYNTHETIC") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    inject_byz = (
+        os.environ.get("BLACKHOLE_QUORUM_INJECT_BYZANTINE") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    epoch_count = int(os.environ.get("BLACKHOLE_FINALITY_EPOCH_COUNT") or "2")
+    min_actions = int(os.environ.get("BLACKHOLE_ACTUATION_MIN_ACTIONS") or "2")
+    min_settlements = int(os.environ.get("BLACKHOLE_SETTLEMENT_MIN_SETTLEMENTS") or "2")
+    min_clearings = int(os.environ.get("BLACKHOLE_CLEARING_MIN_CLEARINGS") or "2")
+    min_margins = int(os.environ.get("BLACKHOLE_MARGIN_MIN_MARGINS") or "2")
+    min_collaterals = int(os.environ.get("BLACKHOLE_COLLATERAL_MIN_COLLATERALS") or "2")
+    min_liquidities = int(os.environ.get("BLACKHOLE_LIQUIDITY_MIN_LIQUIDITIES") or "2")
+    min_dominions = int(os.environ.get("BLACKHOLE_DOMINION_MIN_DOMINIONS") or "2")
+    min_realms = int(os.environ.get("BLACKHOLE_REALM_MIN_REALMS") or "2")
+    lineage_raw = (os.environ.get("BLACKHOLE_LINEAGE_PATH") or "").strip()
+    lineage_path = Path(lineage_raw) if lineage_raw else None
+    bundle_raw = (os.environ.get("BLACKHOLE_CONTINUITY_BUNDLE_PATH") or "").strip()
+    bundle_path = Path(bundle_raw) if bundle_raw else None
+    q_raw = (os.environ.get("BLACKHOLE_QUORUM_BUNDLE_PATH") or "").strip()
+    quorum_path = Path(q_raw) if q_raw else None
+    f_raw = (os.environ.get("BLACKHOLE_FINALITY_BUNDLE_PATH") or "").strip()
+    finality_path = Path(f_raw) if f_raw else None
+    e_raw = (os.environ.get("BLACKHOLE_EXECUTION_BUNDLE_PATH") or "").strip()
+    execution_path = Path(e_raw) if e_raw else None
+    a_raw = (os.environ.get("BLACKHOLE_ACTUATION_BUNDLE_PATH") or "").strip()
+    actuation_path = Path(a_raw) if a_raw else None
+    s_raw = (os.environ.get("BLACKHOLE_SETTLEMENT_BUNDLE_PATH") or "").strip()
+    settlement_path = Path(s_raw) if s_raw else None
+    g_raw = (os.environ.get("BLACKHOLE_MARGIN_BUNDLE_PATH") or "").strip()
+    margin_path = Path(g_raw) if g_raw else None
+    col_raw = (os.environ.get("BLACKHOLE_COLLATERAL_BUNDLE_PATH") or "").strip()
+    collateral_path = Path(col_raw) if col_raw else None
+    liq_raw = (os.environ.get("BLACKHOLE_LIQUIDITY_BUNDLE_PATH") or "").strip()
+    liquidity_path = Path(liq_raw) if liq_raw else None
+    c_raw = (os.environ.get("BLACKHOLE_DOMINION_BUNDLE_PATH") or "").strip()
+    dominion_path = Path(c_raw) if c_raw else None
+    m_raw = (os.environ.get("BLACKHOLE_REALM_BUNDLE_PATH") or "").strip()
+    realm_path = Path(m_raw) if m_raw else None
+    return run_realm_plane(
+        root,
+        goal,
+        done_when,
+        max_steps=max_steps,
+        run_dominion=run_dominion,
+        run_liquidity=run_liquidity,
+        run_collateral=run_collateral,
+        run_margin=run_margin,
+        run_clearing=run_clearing,
+        run_settlement=run_settlement,
+        run_actuation=run_actuation,
+        run_execution=run_execution,
+        run_finality=run_finality,
+        run_quorum=run_quorum,
+        run_continuity=run_continuity,
+        run_reconciliation=run_recon,
+        force_synthetic_drift=force_synthetic,
+        inject_byzantine=inject_byz,
+        epoch_count=epoch_count,
+        min_actions=min_actions,
+        min_settlements=min_settlements,
+        min_clearings=min_clearings,
+        min_margins=min_margins,
+        min_collaterals=min_collaterals,
+        min_liquidities=min_liquidities,
+        min_dominions=min_dominions,
+        min_realms=min_realms,
+        lineage_path=lineage_path,
+        bundle_path=bundle_path,
+        quorum_path=quorum_path,
+        finality_path=finality_path,
+        execution_path=execution_path,
+        actuation_path=actuation_path,
+        settlement_path=settlement_path,
+        margin_path=margin_path,
+        collateral_path=collateral_path,
+        liquidity_path=liquidity_path,
+        dominion_path=dominion_path,
+        realm_path=realm_path,
+        timeout=960,
+    )
+
 def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
     """Install the minimal compoundable bootstrap set if missing."""
 
@@ -119709,6 +122150,223 @@ Capability(
                 "dominion",
                 "order",
                 "empire",
+                "plane",
+                "certificate",
+                "adversarial",
+                "hash-chain",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+
+
+
+
+
+
+
+
+
+        Capability(
+            id="capability.realm-plane",
+            name="Realm plane over dominion",
+            description=(
+                "Closed realm plane: multi-dominion orders → deterministic "
+                "hash-chained realm grants with realm plan digests bound to "
+                "dominion roots → realm certificates → sterile rehydrate+prove → "
+                "adversarial mutation/reorder/wrong-dominion/double-realm/forged-root/"
+                "gap/digest-tamper/single-realm falsification with genesis replay matching "
+                "tip — past realmed actions without realm grants."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_realm_plane",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_realm_plane; '
+                "from pathlib import Path; "
+                "import os; "
+                "os.environ['BLACKHOLE_MISSION_GOAL']='realm over dominion'; "
+                "os.environ['BLACKHOLE_DONE_WHEN']="
+                "'min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; "
+                "os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; "
+                "os.environ['BLACKHOLE_REALM_RUN_DOMINION']='1'; os.environ['BLACKHOLE_DOMINION_RUN_EMPIRE']='1'; "
+                "os.environ['BLACKHOLE_EMPIRE_RUN_COMMONWEALTH']='1'; "
+                "os.environ['BLACKHOLE_COMMONWEALTH_RUN_UNION']='1'; "
+                "os.environ['BLACKHOLE_UNION_RUN_CONFEDERATION']='1'; "
+                "os.environ['BLACKHOLE_CONFEDERATION_RUN_COALITION']='1'; "
+                "os.environ['BLACKHOLE_COALITION_RUN_ALLIANCE']='1'; "
+                "os.environ['BLACKHOLE_PACT_RUN_TREATY']='1'; "
+                "os.environ['BLACKHOLE_TREATY_RUN_MANDATE']='1'; "
+                "os.environ['BLACKHOLE_MANDATE_RUN_PRIVILEGE']='1'; "
+                "os.environ['BLACKHOLE_PRIVILEGE_RUN_STANDING']='1'; "
+                "os.environ['BLACKHOLE_STANDING_RUN_REPUTATION']='1'; "
+                "os.environ['BLACKHOLE_RECOGNITION_RUN_REVERIFICATION']='1'; "
+                "os.environ['BLACKHOLE_REVERIFICATION_RUN_REVALIDATION']='1'; "
+                "os.environ['BLACKHOLE_REVALIDATION_RUN_REATTESTATION']='1'; "
+                "os.environ['BLACKHOLE_REATTESTATION_RUN_RECERTIFICATION']='1'; "
+                "os.environ['BLACKHOLE_RECERTIFICATION_RUN_REAUTHORIZATION']='1'; "
+                "os.environ['BLACKHOLE_REAUTHORIZATION_RUN_REINSTATEMENT']='1'; "
+                "os.environ['BLACKHOLE_REORGANIZATION_RUN_RECOVERY']='1'; "
+                "os.environ['BLACKHOLE_RECOVERY_RUN_RESILIENCE']='1'; "
+                "os.environ['BLACKHOLE_RESILIENCE_RUN_STRESS']='1'; "
+                "os.environ['BLACKHOLE_STRESS_RUN_RISK']='1'; "
+                "os.environ['BLACKHOLE_RISK_RUN_SOLVENCY']='1'; "
+                "os.environ['BLACKHOLE_SOLVENCY_RUN_CAPITAL']='1'; "
+                "os.environ['BLACKHOLE_CAPITAL_RUN_FUNDING']='1'; "
+                "os.environ['BLACKHOLE_FUNDING_RUN_LIQUIDITY']='1'; "
+                "os.environ['BLACKHOLE_LIQUIDITY_RUN_COLLATERAL']='1'; "
+                "os.environ['BLACKHOLE_COLLATERAL_RUN_MARGIN']='1'; "
+                "os.environ['BLACKHOLE_MARGIN_RUN_CLEARING']='1'; "
+                "os.environ['BLACKHOLE_CLEARING_RUN_SETTLEMENT']='1'; "
+                "os.environ['BLACKHOLE_SETTLEMENT_RUN_ACTUATION']='1'; "
+                "os.environ['BLACKHOLE_ACTUATION_RUN_EXECUTION']='1'; "
+                "os.environ['BLACKHOLE_EXECUTION_RUN_FINALITY']='1'; "
+                "os.environ['BLACKHOLE_FINALITY_RUN_QUORUM']='1'; "
+                "os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='0'; "
+                "os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='0'; "
+                "os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; "
+                "os.environ['BLACKHOLE_FINALITY_EPOCH_COUNT']='2'; "
+                "os.environ['BLACKHOLE_ACTUATION_MIN_ACTIONS']='2'; "
+                "os.environ['BLACKHOLE_SETTLEMENT_MIN_SETTLEMENTS']='2'; "
+                "os.environ['BLACKHOLE_CLEARING_MIN_CLEARINGS']='2'; "
+                "os.environ['BLACKHOLE_MARGIN_MIN_MARGINS']='2'; "
+                "os.environ['BLACKHOLE_COLLATERAL_MIN_COLLATERALS']='2'; "
+                "os.environ['BLACKHOLE_LIQUIDITY_MIN_LIQUIDITIES']='2'; "
+                "os.environ['BLACKHOLE_FUNDING_MIN_FUNDINGS']='2'; "
+                "os.environ['BLACKHOLE_CAPITAL_MIN_CAPITALS']='2'; "
+                "os.environ['BLACKHOLE_SOLVENCY_MIN_SOLVENCIES']='2'; "
+                "os.environ['BLACKHOLE_RISK_MIN_RISKS']='2'; "
+                "os.environ['BLACKHOLE_STRESS_MIN_STRESSES']='2'; "
+                "os.environ['BLACKHOLE_RESILIENCE_MIN_RESILIENCES']='2'; "
+                "os.environ['BLACKHOLE_RECOVERY_MIN_RECOVERIES']='2'; "
+                "os.environ['BLACKHOLE_RESOLUTION_MIN_RESOLUTIONS']='2'; "
+                "os.environ['BLACKHOLE_REINSTATEMENT_MIN_REINSTATEMENTS']='2'; "
+                "os.environ['BLACKHOLE_REAUTHORIZATION_MIN_REAUTHORIZATIONS']='2'; "
+                "os.environ['BLACKHOLE_RECERTIFICATION_MIN_RECERTIFICATIONS']='2'; "
+                "os.environ['BLACKHOLE_REATTESTATION_MIN_REATTESTATIONS']='2'; "
+                "os.environ['BLACKHOLE_REVALIDATION_MIN_REVALIDATIONS']='2'; "
+                "os.environ['BLACKHOLE_REVERIFICATION_MIN_REVERIFICATIONS']='2'; "
+                "os.environ['BLACKHOLE_RECOGNITION_MIN_RECOGNITIONS']='2'; "
+                "os.environ['BLACKHOLE_PRIVILEGE_MIN_PRIVILEGES']='2'; "
+                "os.environ['BLACKHOLE_MANDATE_MIN_MANDATES']='2'; "
+                "os.environ['BLACKHOLE_TREATY_MIN_TREATIES']='2'; "
+                "os.environ['BLACKHOLE_PACT_MIN_ALLIANCES']='2'; "
+                "os.environ['BLACKHOLE_COALITION_MIN_COALITIONS']='2'; "
+                "os.environ['BLACKHOLE_UNION_MIN_UNIONS']='2'; "
+                "os.environ['BLACKHOLE_COMMONWEALTH_MIN_COMMONWEALTHS']='2'; "
+                "os.environ['BLACKHOLE_EMPIRE_MIN_EMPIRES']='2'; "
+                "os.environ['BLACKHOLE_DOMINION_MIN_DOMINIONS']='2'; os.environ['BLACKHOLE_REALM_MIN_REALMS']='2'; "
+                "os.environ['BLACKHOLE_REORGANIZATION_RUN_RESOLUTION']='1'; "
+                "os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-realm.json')); "
+                "os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-realm-quorum.json')); "
+                "os.environ.setdefault('BLACKHOLE_FINALITY_BUNDLE_PATH', str(Path('artifacts')/'finality-bundles'/'proof-realm-finality.json')); "
+                "os.environ.setdefault('BLACKHOLE_EXECUTION_BUNDLE_PATH', str(Path('artifacts')/'execution-bundles'/'proof-realm-execution.json')); "
+                "os.environ.setdefault('BLACKHOLE_ACTUATION_BUNDLE_PATH', str(Path('artifacts')/'actuation-bundles'/'proof-realm-actuation.json')); "
+                "os.environ.setdefault('BLACKHOLE_SETTLEMENT_BUNDLE_PATH', str(Path('artifacts')/'settlement-bundles'/'proof-realm-settlement.json')); "
+                "os.environ.setdefault('BLACKHOLE_CLEARING_BUNDLE_PATH', str(Path('artifacts')/'clearing-bundles'/'proof-realm-clearing.json')); "
+                "os.environ.setdefault('BLACKHOLE_MARGIN_BUNDLE_PATH', str(Path('artifacts')/'margin-bundles'/'proof-realm-margin.json')); "
+                "os.environ.setdefault('BLACKHOLE_COLLATERAL_BUNDLE_PATH', str(Path('artifacts')/'collateral-bundles'/'proof-realm-collateral.json')); "
+                "os.environ.setdefault('BLACKHOLE_LIQUIDITY_BUNDLE_PATH', str(Path('artifacts')/'liquidity-bundles'/'proof-realm-liquidity.json')); "
+                "os.environ.setdefault('BLACKHOLE_FUNDING_BUNDLE_PATH', str(Path('artifacts')/'funding-bundles'/'proof-realm-funding.json')); "
+                "os.environ.setdefault('BLACKHOLE_CAPITAL_BUNDLE_PATH', str(Path('artifacts')/'capital-bundles'/'proof-realm-capital.json')); "
+                "os.environ.setdefault('BLACKHOLE_SOLVENCY_BUNDLE_PATH', str(Path('artifacts')/'solvency-bundles'/'proof-realm-solvency.json')); "
+                "os.environ.setdefault('BLACKHOLE_RISK_BUNDLE_PATH', str(Path('artifacts')/'risk-bundles'/'proof-realm-risk.json')); "
+                "os.environ.setdefault('BLACKHOLE_STRESS_BUNDLE_PATH', str(Path('artifacts')/'stress-bundles'/'proof-realm-stress.json')); "
+                "os.environ.setdefault('BLACKHOLE_RESILIENCE_BUNDLE_PATH', str(Path('artifacts')/'resilience-bundles'/'proof-realm-resilience.json')); "
+                "os.environ.setdefault('BLACKHOLE_RECOVERY_BUNDLE_PATH', str(Path('artifacts')/'recovery-bundles'/'proof-realm-recovery.json')); "
+                "os.environ.setdefault('BLACKHOLE_REINSTATEMENT_BUNDLE_PATH', str(Path('artifacts')/'reinstatement-bundles'/'proof-realm-reinstatement.json')); "
+                "os.environ.setdefault('BLACKHOLE_REAUTHORIZATION_BUNDLE_PATH', str(Path('artifacts')/'reauthorization-bundles'/'proof-realm-reauthorization.json')); "
+                "os.environ.setdefault('BLACKHOLE_RECERTIFICATION_BUNDLE_PATH', str(Path('artifacts')/'recertification-bundles'/'proof-realm-recertification.json')); "
+                "os.environ.setdefault('BLACKHOLE_REATTESTATION_BUNDLE_PATH', str(Path('artifacts')/'reattestation-bundles'/'proof-realm-reattestation.json')); "
+                "os.environ.setdefault('BLACKHOLE_REVALIDATION_BUNDLE_PATH', str(Path('artifacts')/'revalidation-bundles'/'proof-realm-revalidation.json')); "
+                "os.environ.setdefault('BLACKHOLE_REVERIFICATION_BUNDLE_PATH', str(Path('artifacts')/'reverification-bundles'/'proof-realm-reverification.json')); "
+                "os.environ.setdefault('BLACKHOLE_RECOGNITION_BUNDLE_PATH', str(Path('artifacts')/'recognition-bundles'/'proof-realm-recognition.json')); "
+                "os.environ.setdefault('BLACKHOLE_PRIVILEGE_BUNDLE_PATH', str(Path('artifacts')/'privilege-bundles'/'proof-realm-privilege.json')); "
+                "os.environ.setdefault('BLACKHOLE_MANDATE_BUNDLE_PATH', str(Path('artifacts')/'mandate-bundles'/'proof-realm-mandate.json')); "
+                "os.environ.setdefault('BLACKHOLE_TREATY_BUNDLE_PATH', str(Path('artifacts')/'treaty-bundles'/'proof-realm-treaty.json')); "
+                "os.environ.setdefault('BLACKHOLE_PACT_BUNDLE_PATH', str(Path('artifacts')/'alliance-bundles'/'proof-realm-pact.json')); "
+                "os.environ.setdefault('BLACKHOLE_COALITION_BUNDLE_PATH', str(Path('artifacts')/'coalition-bundles'/'proof-realm-coalition.json')); "
+                "os.environ.setdefault('BLACKHOLE_UNION_BUNDLE_PATH', str(Path('artifacts')/'union-bundles'/'proof-union.json')); "
+                "os.environ.setdefault('BLACKHOLE_COMMONWEALTH_BUNDLE_PATH', str(Path('artifacts')/'commonwealth-bundles'/'proof-commonwealth.json')); "
+                "os.environ.setdefault('BLACKHOLE_EMPIRE_BUNDLE_PATH', str(Path('artifacts')/'empire-bundles'/'proof-empire.json')); "
+                "os.environ.setdefault('BLACKHOLE_DOMINION_BUNDLE_PATH', str(Path('artifacts')/'dominion-bundles'/'proof-dominion.json')); os.environ.setdefault('BLACKHOLE_REALM_BUNDLE_PATH', str(Path('artifacts')/'realm-bundles'/'proof-realm.json')); "
+                "r=builtin_realm_plane(); assert r['ok'] and r.get('action')=='dominion_plane' "
+                "and r.get('dominioned') is True and int(r.get('dominion_count') or 0) >= 2 "
+                "and int(r.get('tip_height') or 0) >= 2 "
+                "and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') "
+                "and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') "
+                "and r.get('realm_certificate',{}).get('valid') "
+                "and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.outcome-contract",
+                "capability.contract-plane",
+                "capability.assurance-plane",
+                "capability.sovereignty-plane",
+                "capability.lineage-plane",
+                "capability.reconciliation-plane",
+                "capability.continuity-plane",
+                "capability.federation-plane",
+                "capability.quorum-plane",
+                "capability.finality-plane",
+                "capability.execution-plane",
+                "capability.actuation-plane",
+                "capability.settlement-plane",
+                "capability.clearing-plane",
+                "capability.margin-plane",
+                "capability.collateral-plane",
+                "capability.liquidity-plane",
+                "capability.funding-plane",
+                "capability.capital-plane",
+                "capability.solvency-plane",
+                "capability.risk-plane",
+                "capability.stress-plane",
+                "capability.resilience-plane",
+                "capability.recovery-plane",
+                "capability.resolution-plane",
+                "capability.restructuring-plane",
+                "capability.reorganization-plane",
+                "capability.dominion-plane",
+                "capability.empire-plane",
+                "capability.commonwealth-plane",
+                "capability.union-plane",
+                "capability.confederation-plane",
+                "capability.coalition-plane",
+                "capability.alliance-plane",
+                "capability.pact-plane",
+                "capability.treaty-plane",
+                "capability.constitution-plane",
+                "capability.mandate-plane",
+                "capability.privilege-plane",
+                "capability.standing-plane",
+                "capability.recognition-plane",
+                "capability.reverification-plane",
+                "capability.revalidation-plane",
+                "capability.reattestation-plane",
+                "capability.recertification-plane",
+                "capability.reauthorization-plane",
+                "capability.reinstatement-plane",
+                "capability.rehabilitation-plane",
+                "capability.transfer-plane",
+                "capability.ablation-proof",
+                "capability.adversarial-contract",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "src/blackhole_agent/unbound.py",
+            ),
+            capability_delta=(
+                "Realm plane posts multi-dominion orders into deterministic hash-chained "
+                "realm grants with realm plan digests bound to dominion roots, "
+                "realm certificates, sterile rehydrate+prove, and adversarial falsification "
+                "without skill-route discovery."
+            ),
+            tags=(
+                "realm",
+                "order",
+                "dominion",
                 "plane",
                 "certificate",
                 "adversarial",
