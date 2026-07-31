@@ -1,5 +1,5 @@
 {
-  "action": "build_union_bundle",
+  "action": "build_commonwealth_bundle",
   "action_count": 3,
   "actions": {
     "bound_state_height": 2,
@@ -244,13 +244,54 @@
   "actuation_hash": "144be92bc8f1320279bcfc4a",
   "agreeing_count": 2,
   "bound_action_root": "bc9f34eaf8099cb1dd02f164",
-  "bound_confederation_height": 2,
-  "bound_confederation_root": "fe3ed3b57c0d1bc0b566f304",
   "bound_settlement_root": "7a14b819bad310e6f326c948",
   "bound_state_root": "0f39b3a96f8389d3e4894801",
+  "bound_union_height": 2,
+  "bound_union_root": "26f32db61f54d18631937b4e",
   "byzantine_count": 1,
   "certificate_count": 6,
   "certificates": {
+    "1688c8442dd9af181ebdee39": {
+      "certificate_hash": "1688c8442dd9af181ebdee39",
+      "commonwealth_height": 2,
+      "payload": {
+        "bound_union_height": 2,
+        "bound_union_root": "26f32db61f54d18631937b4e",
+        "certificate_hash": "1688c8442dd9af181ebdee39",
+        "claims": {
+          "capability_id": "repo.import-health",
+          "clearing_index": 2,
+          "effect": "prove",
+          "outcome": "commonwealthed",
+          "plane": "commonwealth"
+        },
+        "commonwealth_count": 2,
+        "commonwealth_height": 2,
+        "commonwealth_plan_digest": "f291146f266919a5cd6f7df3",
+        "commonwealth_root": "9796e60417c648e90b06e627",
+        "deterministic": true,
+        "goal": "commonwealth over union (clearing 2)",
+        "issued_at": "2026-07-31T06:45:24.043493Z",
+        "kind": "commonwealth_certificate",
+        "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "6e604a6f16e45f9f",
+        "parent_commonwealth_root": "364514c6ae6342db859cb07f",
+        "post_union": true,
+        "schema_version": 1,
+        "union_certificate_hash": "5ca9072c6f1b413415fd7233",
+        "union_hash": "d186bc36689355cea11f0c42",
+        "union_plan_digest": "c9875d601444e8cb342c7cdc",
+        "used_skill_route_discovery": false,
+        "valid": true
+      }
+    },
     "5c23a892eccd1625050be890": {
       "certificate_hash": "5c23a892eccd1625050be890",
       "kind": "settlement_certificate",
@@ -292,6 +333,7 @@
     },
     "5ca9072c6f1b413415fd7233": {
       "certificate_hash": "5ca9072c6f1b413415fd7233",
+      "kind": "commonwealth_certificate",
       "payload": {
         "bound_confederation_height": 2,
         "bound_confederation_root": "fe3ed3b57c0d1bc0b566f304",
@@ -328,29 +370,30 @@
         "union_root": "26f32db61f54d18631937b4e",
         "used_skill_route_discovery": false,
         "valid": true
-      },
-      "union_height": 2
+      }
     },
-    "801d0d70c63ee3a3c91a2aed": {
-      "certificate_hash": "801d0d70c63ee3a3c91a2aed",
+    "db73e44dfc61a7a969557e03": {
+      "certificate_hash": "db73e44dfc61a7a969557e03",
+      "commonwealth_height": 1,
       "payload": {
-        "bound_confederation_height": 1,
-        "bound_confederation_root": "109c0e1613e59f7f6cb8caaa",
-        "certificate_hash": "801d0d70c63ee3a3c91a2aed",
+        "bound_union_height": 1,
+        "bound_union_root": "44b34aa0fce050d740e9c90f",
+        "certificate_hash": "db73e44dfc61a7a969557e03",
         "claims": {
           "capability_id": "capability.ledger-inventory",
           "clearing_index": 1,
           "effect": "prove",
-          "outcome": "united",
-          "plane": "union"
+          "outcome": "commonwealthed",
+          "plane": "commonwealth"
         },
-        "confederation_certificate_hash": "fd6246de2e48083467e665a7",
-        "confederation_hash": "fc7c79bb41a4c5539d824e29",
-        "confederation_plan_digest": "06115b136defbf48b7b08f7c",
+        "commonwealth_count": 1,
+        "commonwealth_height": 1,
+        "commonwealth_plan_digest": "2e4d28fc4f32ed80abacdc63",
+        "commonwealth_root": "364514c6ae6342db859cb07f",
         "deterministic": true,
-        "goal": "union over confederation (clearing 1)",
-        "issued_at": "2026-07-31T06:45:23.459395Z",
-        "kind": "union_certificate",
+        "goal": "commonwealth over union (clearing 1)",
+        "issued_at": "2026-07-31T06:45:24.043409Z",
+        "kind": "commonwealth_certificate",
         "lineage_head_hash": "89c4ff0a6368875ef0800e26",
         "member_count": 3,
         "member_ids": [
@@ -360,17 +403,15 @@
         ],
         "ok": true,
         "package_hash": "6e604a6f16e45f9f",
-        "parent_union_root": "",
-        "post_confederation": true,
+        "parent_commonwealth_root": "",
+        "post_union": true,
         "schema_version": 1,
-        "union_count": 1,
-        "union_height": 1,
+        "union_certificate_hash": "5ca9072c6f1b413415fd7233",
+        "union_hash": "d186bc36689355cea11f0c42",
         "union_plan_digest": "8c7b9522e65db8d1e6db9d79",
-        "union_root": "44b34aa0fce050d740e9c90f",
         "used_skill_route_discovery": false,
         "valid": true
-      },
-      "union_height": 1
+      }
     },
     "ee8fdc54770fad4f28029f40": {
       "certificate_hash": "ee8fdc54770fad4f28029f40",
@@ -404,47 +445,6 @@
         "state_height": 2,
         "state_root": "0f39b3a96f8389d3e4894801",
         "used_skill_route_discovery": false
-      }
-    },
-    "fd6246de2e48083467e665a7": {
-      "certificate_hash": "fd6246de2e48083467e665a7",
-      "kind": "union_certificate",
-      "payload": {
-        "bound_coalition_height": 2,
-        "bound_coalition_root": "45cde49d5184362e3958a95f",
-        "certificate_hash": "fd6246de2e48083467e665a7",
-        "claims": {
-          "capability_id": "repo.import-health",
-          "clearing_index": 2,
-          "effect": "prove",
-          "outcome": "confederated",
-          "plane": "confederation"
-        },
-        "coalition_certificate_hash": "c175637e371001c31fe535c1",
-        "coalition_hash": "387be3ba814523f953acb973",
-        "coalition_plan_digest": "fbe200b963d0a564b248edbb",
-        "confederation_count": 2,
-        "confederation_height": 2,
-        "confederation_plan_digest": "751659a614b4373e960b5abf",
-        "confederation_root": "fe3ed3b57c0d1bc0b566f304",
-        "deterministic": true,
-        "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (clearing 2)",
-        "issued_at": "2026-07-31T06:06:28.733076Z",
-        "kind": "confederation_certificate",
-        "lineage_head_hash": "89c4ff0a6368875ef0800e26",
-        "member_count": 3,
-        "member_ids": [
-          "capability.ledger-inventory",
-          "repo.import-health",
-          "unbound.milestone-gate"
-        ],
-        "ok": true,
-        "package_hash": "6e604a6f16e45f9f",
-        "parent_confederation_root": "109c0e1613e59f7f6cb8caaa",
-        "post_coalition": true,
-        "schema_version": 1,
-        "used_skill_route_discovery": false,
-        "valid": true
       }
     },
     "fdcd69bb2b287f6d4a0b7763": {
@@ -485,28 +485,25 @@
       }
     }
   },
-  "confederation_certificate": {
-    "bound_coalition_height": 2,
-    "bound_coalition_root": "45cde49d5184362e3958a95f",
-    "certificate_hash": "fd6246de2e48083467e665a7",
+  "commonwealth_certificate": {
+    "bound_union_height": 2,
+    "bound_union_root": "26f32db61f54d18631937b4e",
+    "certificate_hash": "1688c8442dd9af181ebdee39",
     "claims": {
       "capability_id": "repo.import-health",
       "clearing_index": 2,
       "effect": "prove",
-      "outcome": "confederated",
-      "plane": "confederation"
+      "outcome": "commonwealthed",
+      "plane": "commonwealth"
     },
-    "coalition_certificate_hash": "c175637e371001c31fe535c1",
-    "coalition_hash": "387be3ba814523f953acb973",
-    "coalition_plan_digest": "fbe200b963d0a564b248edbb",
-    "confederation_count": 2,
-    "confederation_height": 2,
-    "confederation_plan_digest": "751659a614b4373e960b5abf",
-    "confederation_root": "fe3ed3b57c0d1bc0b566f304",
+    "commonwealth_count": 2,
+    "commonwealth_height": 2,
+    "commonwealth_plan_digest": "f291146f266919a5cd6f7df3",
+    "commonwealth_root": "9796e60417c648e90b06e627",
     "deterministic": true,
-    "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (clearing 2)",
-    "issued_at": "2026-07-31T06:06:28.733076Z",
-    "kind": "confederation_certificate",
+    "goal": "commonwealth over union (clearing 2)",
+    "issued_at": "2026-07-31T06:45:24.043493Z",
+    "kind": "commonwealth_certificate",
     "lineage_head_hash": "89c4ff0a6368875ef0800e26",
     "member_count": 3,
     "member_ids": [
@@ -516,56 +513,52 @@
     ],
     "ok": true,
     "package_hash": "6e604a6f16e45f9f",
-    "parent_confederation_root": "109c0e1613e59f7f6cb8caaa",
-    "post_coalition": true,
+    "parent_commonwealth_root": "364514c6ae6342db859cb07f",
+    "post_union": true,
     "schema_version": 1,
+    "union_certificate_hash": "5ca9072c6f1b413415fd7233",
+    "union_hash": "d186bc36689355cea11f0c42",
+    "union_plan_digest": "c9875d601444e8cb342c7cdc",
     "used_skill_route_discovery": false,
     "valid": true
   },
-  "confederation_count": 2,
-  "confederation_hash": "fc7c79bb41a4c5539d824e29",
-  "confederation_plan_digest": "751659a614b4373e960b5abf",
-  "confederations": {
-    "bound_coalition_height": 2,
-    "bound_coalition_root": "45cde49d5184362e3958a95f",
-    "coalition_hash": "387be3ba814523f953acb973",
-    "confederation_plan_digest": "751659a614b4373e960b5abf",
+  "commonwealth_count": 2,
+  "commonwealth_hash": "4c68e577a537484caa7edfb3",
+  "commonwealth_plan_digest": "f291146f266919a5cd6f7df3",
+  "commonwealths": {
+    "bound_union_height": 2,
+    "bound_union_root": "26f32db61f54d18631937b4e",
+    "commonwealth_plan_digest": "f291146f266919a5cd6f7df3",
     "entries": [
       {
-        "applied_at": "2026-07-31T06:06:28.732928Z",
+        "applied_at": "2026-07-31T06:45:24.043388Z",
         "bound_action_root": "8c09a0cad74a985b3572549e",
-        "bound_coalition_height": 1,
-        "bound_coalition_root": "e5a6c49f60aa9d7facbcafc2",
+        "bound_union_height": 1,
+        "bound_union_root": "44b34aa0fce050d740e9c90f",
         "capability_id": "capability.ledger-inventory",
         "claims": {
           "clearing_index": 1,
-          "plane": "confederation"
+          "plane": "commonwealth"
         },
-        "coalition_certificate_hash": "c175637e371001c31fe535c1",
-        "coalition_hash": "387be3ba814523f953acb973",
-        "coalition_plan_digest": "60e9152256f9f13674e7c7e8",
-        "confederation_certificate": {
-          "bound_coalition_height": 1,
-          "bound_coalition_root": "e5a6c49f60aa9d7facbcafc2",
-          "certificate_hash": "60346ec1c6e858ba0d65d666",
+        "commonwealth_certificate": {
+          "bound_union_height": 1,
+          "bound_union_root": "44b34aa0fce050d740e9c90f",
+          "certificate_hash": "db73e44dfc61a7a969557e03",
           "claims": {
             "capability_id": "capability.ledger-inventory",
             "clearing_index": 1,
             "effect": "prove",
-            "outcome": "confederated",
-            "plane": "confederation"
+            "outcome": "commonwealthed",
+            "plane": "commonwealth"
           },
-          "coalition_certificate_hash": "c175637e371001c31fe535c1",
-          "coalition_hash": "387be3ba814523f953acb973",
-          "coalition_plan_digest": "60e9152256f9f13674e7c7e8",
-          "confederation_count": 1,
-          "confederation_height": 1,
-          "confederation_plan_digest": "06115b136defbf48b7b08f7c",
-          "confederation_root": "109c0e1613e59f7f6cb8caaa",
+          "commonwealth_count": 1,
+          "commonwealth_height": 1,
+          "commonwealth_plan_digest": "2e4d28fc4f32ed80abacdc63",
+          "commonwealth_root": "364514c6ae6342db859cb07f",
           "deterministic": true,
-          "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (clearing 1)",
-          "issued_at": "2026-07-31T06:06:28.732958Z",
-          "kind": "confederation_certificate",
+          "goal": "commonwealth over union (clearing 1)",
+          "issued_at": "2026-07-31T06:45:24.043409Z",
+          "kind": "commonwealth_certificate",
           "lineage_head_hash": "89c4ff0a6368875ef0800e26",
           "member_count": 3,
           "member_ids": [
@@ -575,19 +568,22 @@
           ],
           "ok": true,
           "package_hash": "6e604a6f16e45f9f",
-          "parent_confederation_root": "",
-          "post_coalition": true,
+          "parent_commonwealth_root": "",
+          "post_union": true,
           "schema_version": 1,
+          "union_certificate_hash": "5ca9072c6f1b413415fd7233",
+          "union_hash": "d186bc36689355cea11f0c42",
+          "union_plan_digest": "8c7b9522e65db8d1e6db9d79",
           "used_skill_route_discovery": false,
           "valid": true
         },
-        "confederation_height": 1,
-        "confederation_plan_digest": "06115b136defbf48b7b08f7c",
-        "confederation_root": "109c0e1613e59f7f6cb8caaa",
+        "commonwealth_height": 1,
+        "commonwealth_plan_digest": "2e4d28fc4f32ed80abacdc63",
+        "commonwealth_root": "364514c6ae6342db859cb07f",
         "deterministic": true,
         "effect": "prove",
-        "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (clearing 1)",
-        "kind": "confederation_action",
+        "goal": "commonwealth over union (clearing 1)",
+        "kind": "commonwealth_action",
         "lineage_head_hash": "89c4ff0a6368875ef0800e26",
         "member_ids": [
           "capability.ledger-inventory",
@@ -595,50 +591,47 @@
           "unbound.milestone-gate"
         ],
         "ok": true,
-        "outcome": "confederated",
+        "outcome": "commonwealthed",
         "package_hash": "6e604a6f16e45f9f",
-        "parent_confederation_digest": "",
-        "parent_confederation_root": "",
+        "parent_commonwealth_digest": "",
+        "parent_commonwealth_root": "",
         "position_ratio_bps": 1000,
-        "post_coalition": true,
+        "post_union": true,
         "schema_version": 1,
+        "union_certificate_hash": "5ca9072c6f1b413415fd7233",
+        "union_hash": "d186bc36689355cea11f0c42",
+        "union_plan_digest": "8c7b9522e65db8d1e6db9d79",
         "used_skill_route_discovery": false
       },
       {
-        "applied_at": "2026-07-31T06:06:28.733053Z",
+        "applied_at": "2026-07-31T06:45:24.043476Z",
         "bound_action_root": "bc9f34eaf8099cb1dd02f164",
-        "bound_coalition_height": 2,
-        "bound_coalition_root": "45cde49d5184362e3958a95f",
+        "bound_union_height": 2,
+        "bound_union_root": "26f32db61f54d18631937b4e",
         "capability_id": "repo.import-health",
         "claims": {
           "clearing_index": 2,
-          "plane": "confederation"
+          "plane": "commonwealth"
         },
-        "coalition_certificate_hash": "c175637e371001c31fe535c1",
-        "coalition_hash": "387be3ba814523f953acb973",
-        "coalition_plan_digest": "fbe200b963d0a564b248edbb",
-        "confederation_certificate": {
-          "bound_coalition_height": 2,
-          "bound_coalition_root": "45cde49d5184362e3958a95f",
-          "certificate_hash": "fd6246de2e48083467e665a7",
+        "commonwealth_certificate": {
+          "bound_union_height": 2,
+          "bound_union_root": "26f32db61f54d18631937b4e",
+          "certificate_hash": "1688c8442dd9af181ebdee39",
           "claims": {
             "capability_id": "repo.import-health",
             "clearing_index": 2,
             "effect": "prove",
-            "outcome": "confederated",
-            "plane": "confederation"
+            "outcome": "commonwealthed",
+            "plane": "commonwealth"
           },
-          "coalition_certificate_hash": "c175637e371001c31fe535c1",
-          "coalition_hash": "387be3ba814523f953acb973",
-          "coalition_plan_digest": "fbe200b963d0a564b248edbb",
-          "confederation_count": 2,
-          "confederation_height": 2,
-          "confederation_plan_digest": "751659a614b4373e960b5abf",
-          "confederation_root": "fe3ed3b57c0d1bc0b566f304",
+          "commonwealth_count": 2,
+          "commonwealth_height": 2,
+          "commonwealth_plan_digest": "f291146f266919a5cd6f7df3",
+          "commonwealth_root": "9796e60417c648e90b06e627",
           "deterministic": true,
-          "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (clearing 2)",
-          "issued_at": "2026-07-31T06:06:28.733076Z",
-          "kind": "confederation_certificate",
+          "goal": "commonwealth over union (clearing 2)",
+          "issued_at": "2026-07-31T06:45:24.043493Z",
+          "kind": "commonwealth_certificate",
           "lineage_head_hash": "89c4ff0a6368875ef0800e26",
           "member_count": 3,
           "member_ids": [
@@ -648,19 +641,22 @@
           ],
           "ok": true,
           "package_hash": "6e604a6f16e45f9f",
-          "parent_confederation_root": "109c0e1613e59f7f6cb8caaa",
-          "post_coalition": true,
+          "parent_commonwealth_root": "364514c6ae6342db859cb07f",
+          "post_union": true,
           "schema_version": 1,
+          "union_certificate_hash": "5ca9072c6f1b413415fd7233",
+          "union_hash": "d186bc36689355cea11f0c42",
+          "union_plan_digest": "c9875d601444e8cb342c7cdc",
           "used_skill_route_discovery": false,
           "valid": true
         },
-        "confederation_height": 2,
-        "confederation_plan_digest": "751659a614b4373e960b5abf",
-        "confederation_root": "fe3ed3b57c0d1bc0b566f304",
+        "commonwealth_height": 2,
+        "commonwealth_plan_digest": "f291146f266919a5cd6f7df3",
+        "commonwealth_root": "9796e60417c648e90b06e627",
         "deterministic": true,
         "effect": "prove",
-        "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (clearing 2)",
-        "kind": "confederation_action",
+        "goal": "commonwealth over union (clearing 2)",
+        "kind": "commonwealth_action",
         "lineage_head_hash": "89c4ff0a6368875ef0800e26",
         "member_ids": [
           "capability.ledger-inventory",
@@ -668,22 +664,26 @@
           "unbound.milestone-gate"
         ],
         "ok": true,
-        "outcome": "confederated",
+        "outcome": "commonwealthed",
         "package_hash": "6e604a6f16e45f9f",
-        "parent_confederation_digest": "06115b136defbf48b7b08f7c",
-        "parent_confederation_root": "109c0e1613e59f7f6cb8caaa",
+        "parent_commonwealth_digest": "2e4d28fc4f32ed80abacdc63",
+        "parent_commonwealth_root": "364514c6ae6342db859cb07f",
         "position_ratio_bps": 1100,
-        "post_coalition": true,
+        "post_union": true,
         "schema_version": 1,
+        "union_certificate_hash": "5ca9072c6f1b413415fd7233",
+        "union_hash": "d186bc36689355cea11f0c42",
+        "union_plan_digest": "c9875d601444e8cb342c7cdc",
         "used_skill_route_discovery": false
       }
     ],
     "entry_count": 2,
-    "kind": "confederation_log",
+    "kind": "commonwealth_log",
     "schema_version": 1,
-    "tip_confederation_root": "fe3ed3b57c0d1bc0b566f304",
+    "tip_commonwealth_root": "9796e60417c648e90b06e627",
     "tip_height": 2,
-    "updated_at": "2026-07-31T06:06:28.733101Z"
+    "union_hash": "d186bc36689355cea11f0c42",
+    "updated_at": "2026-07-31T06:45:24.043511Z"
   },
   "deterministic": true,
   "epoch_count": 2,
@@ -718,9 +718,9 @@
     "used_skill_route_discovery": false
   },
   "execution_hash": "f620923c33e7444ef74ccd1a",
-  "exported_at": "2026-07-31T06:45:23.460045Z",
-  "goal": "union over confederation",
-  "kind": "union_bundle",
+  "exported_at": "2026-07-31T06:45:24.043995Z",
+  "goal": "commonwealth over union",
+  "kind": "commonwealth_bundle",
   "lineage": {
     "entries": [
       {
@@ -1043,7 +1043,7 @@
     "used_skill_route_discovery": false
   },
   "package_hash": "6e604a6f16e45f9f",
-  "post_confederation": true,
+  "post_union": true,
   "schema_version": 1,
   "settlement_certificate": {
     "actuation_certificate_hash": "fdcd69bb2b287f6d4a0b7763",
@@ -1235,7 +1235,7 @@
   },
   "state_count": 2,
   "tip_action_root": "187f6fee7c5f467d229b5828",
-  "tip_confederation_root": "fe3ed3b57c0d1bc0b566f304",
+  "tip_commonwealth_root": "9796e60417c648e90b06e627",
   "tip_height": 2,
   "tip_settlement_root": "7a14b819bad310e6f326c948",
   "tip_union_root": "26f32db61f54d18631937b4e",

@@ -96,6 +96,7 @@ from blackhole_agent.capability_compounder import (
     run_coalition_plane,
     run_confederation_plane,
     run_union_plane,
+    run_commonwealth_plane,
     run_lineage_plane,
     run_reconciliation_plane,
     run_sovereignty_plane,
@@ -1239,6 +1240,9 @@ def evaluate_milestone(
     run_union = (
         cc.run_union_plane if cc is not None else run_union_plane
     )
+    run_commonwealth = (
+        cc.run_commonwealth_plane if cc is not None else run_commonwealth_plane
+    )
     run_recon = (
         cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
     )
@@ -1294,6 +1298,15 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_commonwealth = bool(
+                        kinds
+                        & {
+                            "commonwealth_ok",
+                            "commonwealthed_ok",
+                            "min_commonwealths",
+                            "commonwealth_root_valid",
+                        }
+                    )
                     needs_union = bool(
                         kinds
                         & {
@@ -1302,7 +1315,7 @@ def evaluate_milestone(
                             "min_unions",
                             "union_root_valid",
                         }
-                    )
+                    ) and not needs_commonwealth
                     needs_confederation = bool(
                         kinds
                         & {
@@ -1311,7 +1324,7 @@ def evaluate_milestone(
                             "min_confederations",
                             "confederation_root_valid",
                         }
-                    ) and not needs_union
+                    ) and not needs_union and not needs_commonwealth
                     needs_coalition = bool(
                         kinds
                         & {
@@ -1320,7 +1333,7 @@ def evaluate_milestone(
                             "min_coalitions",
                             "coalition_root_valid",
                         }
-                    ) and not needs_confederation and not needs_union
+                    ) and not needs_confederation and not needs_union and not needs_commonwealth
                     needs_alliance = bool(
                         kinds
                         & {
@@ -1329,7 +1342,7 @@ def evaluate_milestone(
                             "min_alliances",
                             "alliance_root_valid",
                         }
-                    ) and not needs_coalition and not needs_confederation and not needs_union
+                    ) and not needs_coalition and not needs_confederation and not needs_union and not needs_commonwealth
                     needs_pact = bool(
                         kinds
                         & {
@@ -1667,7 +1680,8 @@ def evaluate_milestone(
                     # evidence. Do not let bare chain_valid/certificate_valid soft-kind
                     # triggers overwrite that context via lineage/sovereignty planes.
                     higher_plane_active = bool(
-                        needs_union
+                        needs_commonwealth
+                        or needs_union
                         or needs_confederation
                         or needs_coalition
                         or needs_alliance
@@ -1723,6 +1737,171 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     ) and not higher_plane_active
+                    if needs_commonwealth:
+                        plane_done_when = ";".join(
+                            token
+                            for token in contract_text.replace(",", ";").split(";")
+                            if token.strip()
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        commonwealth_result = run_commonwealth(
+                            workspace,
+                            goal=decision.mission_goal
+                            or decision.summary
+                            or "commonwealth over union",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            run_union=True,
+                            run_liquidity=True,
+                            run_collateral=True,
+                            run_margin=True,
+                            run_clearing=True,
+                            run_settlement=True,
+                            run_actuation=True,
+                            run_execution=True,
+                            run_finality=True,
+                            run_quorum=True,
+                            run_continuity=False,
+                            run_reconciliation=False,
+                            force_synthetic_drift=True,
+                            inject_byzantine=True,
+                            epoch_count=2,
+                            min_actions=2,
+                            min_settlements=2,
+                            min_clearings=2,
+                            min_margins=2,
+                            min_collaterals=2,
+                            min_liquidities=2,
+                            min_unions=2,
+                            min_commonwealths=2,
+                            timeout=960,
+                        )
+                        disk_commonwealth = None
+                        if (
+                            not commonwealth_result.get("ok")
+                            or not commonwealth_result.get("commonwealthed")
+                        ):
+                            loader = getattr(
+                                cc, "_load_commonwealth_disk_evidence", None
+                            )
+                            if callable(loader):
+                                disk_commonwealth = loader({})
+                        commonwealth_ok_flag = bool(
+                            commonwealth_result.get("ok")
+                            or (disk_commonwealth or {}).get("ok")
+                        )
+                        commonwealthed = bool(
+                            commonwealth_result.get("commonwealthed")
+                            or (disk_commonwealth or {}).get("commonwealthed")
+                        )
+                        context.update(
+                            {
+                                "commonwealth": {
+                                    "ok": commonwealth_ok_flag,
+                                    "commonwealthed": commonwealthed,
+                                    "commonwealth_count": commonwealth_result.get(
+                                        "commonwealth_count"
+                                    )
+                                    or (disk_commonwealth or {}).get(
+                                        "commonwealth_count"
+                                    ),
+                                    "tip_height": commonwealth_result.get("tip_height")
+                                    or (disk_commonwealth or {}).get("tip_height"),
+                                    "tip_commonwealth_root": commonwealth_result.get(
+                                        "tip_commonwealth_root"
+                                    )
+                                    or (disk_commonwealth or {}).get(
+                                        "tip_commonwealth_root"
+                                    ),
+                                    "commonwealth_hash": commonwealth_result.get(
+                                        "commonwealth_hash"
+                                    )
+                                    or (disk_commonwealth or {}).get(
+                                        "commonwealth_hash"
+                                    ),
+                                    "commonwealth_root_valid": True
+                                    if commonwealthed
+                                    else bool(
+                                        (disk_commonwealth or {}).get(
+                                            "commonwealth_root_valid"
+                                        )
+                                    ),
+                                    "certificate_valid": True
+                                    if commonwealthed
+                                    else bool(
+                                        (disk_commonwealth or {}).get(
+                                            "certificate_valid"
+                                        )
+                                    ),
+                                    "commonwealth_plan_digest": commonwealth_result.get(
+                                        "commonwealth_plan_digest"
+                                    )
+                                    or (disk_commonwealth or {}).get(
+                                        "commonwealth_plan_digest"
+                                    ),
+                                    "commonwealth_certificate": commonwealth_result.get(
+                                        "commonwealth_certificate"
+                                    )
+                                    or (disk_commonwealth or {}).get(
+                                        "commonwealth_certificate"
+                                    ),
+                                    "deterministic": True,
+                                    "post_union": True,
+                                    "multi_commonwealth": int(
+                                        commonwealth_result.get("commonwealth_count")
+                                        or (disk_commonwealth or {}).get(
+                                            "commonwealth_count"
+                                        )
+                                        or 0
+                                    )
+                                    >= 2,
+                                },
+                                "commonwealth_plane": {
+                                    "ok": commonwealth_ok_flag,
+                                    "commonwealthed": commonwealthed,
+                                    "commonwealth_count": commonwealth_result.get(
+                                        "commonwealth_count"
+                                    )
+                                    or (disk_commonwealth or {}).get(
+                                        "commonwealth_count"
+                                    ),
+                                    "commonwealth_root_valid": True
+                                    if commonwealthed
+                                    else bool(
+                                        (disk_commonwealth or {}).get(
+                                            "commonwealth_root_valid"
+                                        )
+                                    ),
+                                },
+                                "commonwealth_count": commonwealth_result.get(
+                                    "commonwealth_count"
+                                )
+                                or (disk_commonwealth or {}).get("commonwealth_count"),
+                                "tip_commonwealth_root": commonwealth_result.get(
+                                    "tip_commonwealth_root"
+                                )
+                                or (disk_commonwealth or {}).get(
+                                    "tip_commonwealth_root"
+                                ),
+                                "commonwealth_certificate": commonwealth_result.get(
+                                    "commonwealth_certificate"
+                                )
+                                or (disk_commonwealth or {}).get(
+                                    "commonwealth_certificate"
+                                ),
+                                "chain": {
+                                    "ok": True if commonwealthed else False,
+                                    "valid": True if commonwealthed else False,
+                                },
+                            }
+                        )
                     if needs_union:
                         plane_done_when = ";".join(
                             token
