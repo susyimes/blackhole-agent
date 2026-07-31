@@ -1,7 +1,7 @@
 {
   "bound_resilience_height": 2,
   "bound_resilience_root": "af1d35c8e67ebf357a000273",
-  "certificate_hash": "da54814537d40a7db815d79b",
+  "certificate_hash": "4e609a47813c48b14f19ccdd",
   "claims": {
     "capability_id": "capability.fixture-1",
     "clearing_index": 2,
@@ -21,12 +21,12 @@
   ],
   "ok": true,
   "package_hash": "1d58907e64cc82808cc22f35",
-  "parent_recovery_root": "8d980ac441f14dfc7162cc1a",
+  "parent_recovery_root": "80ba84a844ac733268ca602a",
   "post_resilience": true,
   "recovery_count": 2,
   "recovery_height": 2,
   "recovery_plan_digest": "a14ed3f10a99f2c1842b5c66",
-  "recovery_root": "35a1e1d003b266aff1381665",
+  "recovery_root": "ef1e53d5acfe3b7dcb40a20b",
   "resilience_buffer_digest": "54d03f7d7ce525e9ad18a79b",
   "resilience_certificate_hash": "c4772416966e2944ebd8193e",
   "resilience_hash": "1369e2bb472c72cd3062e2fa",

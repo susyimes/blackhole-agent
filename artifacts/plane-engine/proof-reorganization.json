@@ -13,12 +13,52 @@
   "byzantine_count": null,
   "certificate_count": 3,
   "certificates": {
-    "1b0a3e68ef07ef694a134dde": {
-      "certificate_hash": "1b0a3e68ef07ef694a134dde",
+    "154b6c454ce86af57ad84807": {
+      "certificate_hash": "154b6c454ce86af57ad84807",
+      "payload": {
+        "bound_restructuring_height": 2,
+        "bound_restructuring_root": "ee4be69251c0aeabea41d719",
+        "certificate_hash": "154b6c454ce86af57ad84807",
+        "claims": {
+          "capability_id": "capability.fixture-1",
+          "clearing_index": 2,
+          "effect": "fixture-effect-1",
+          "outcome": "reorganized",
+          "plane": "reorganization"
+        },
+        "deterministic": true,
+        "goal": "differential fixture (clearing 2)",
+        "issued_at": "2026-01-01T00:00:00.000000Z",
+        "kind": "reorganization_certificate",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_count": 2,
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "ok": true,
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "parent_reorganization_root": "8b6e85f0221d293d2c01e579",
+        "post_restructuring": true,
+        "reorganization_count": 2,
+        "reorganization_height": 2,
+        "reorganization_plan_digest": "7719f092f06e9e16cce80c75",
+        "reorganization_root": "310afc4ee56febf20768ba60",
+        "restructuring_certificate_hash": "89db9d3b0db188db455326b1",
+        "restructuring_hash": "a02255c0f20bd0e099bac324",
+        "restructuring_plan_digest": "93adaa33660a1e229f081809",
+        "schema_version": 1,
+        "used_skill_route_discovery": false,
+        "valid": true
+      },
+      "reorganization_height": 2
+    },
+    "36f51fdcb4f024a7610d7bf3": {
+      "certificate_hash": "36f51fdcb4f024a7610d7bf3",
       "payload": {
         "bound_restructuring_height": 1,
         "bound_restructuring_root": "80ddade8a41950baa32db1a4",
-        "certificate_hash": "1b0a3e68ef07ef694a134dde",
+        "certificate_hash": "36f51fdcb4f024a7610d7bf3",
         "claims": {
           "capability_id": "capability.fixture-0",
           "clearing_index": 1,
@@ -43,7 +83,7 @@
         "reorganization_count": 1,
         "reorganization_height": 1,
         "reorganization_plan_digest": "f2816c15841bc700d186eb09",
-        "reorganization_root": "f6be321b6323d6c9379075a0",
+        "reorganization_root": "8b6e85f0221d293d2c01e579",
         "restructuring_certificate_hash": "89db9d3b0db188db455326b1",
         "restructuring_hash": "a02255c0f20bd0e099bac324",
         "restructuring_plan_digest": "18c5fdcfbfe2df86d4928906",
@@ -52,46 +92,6 @@
         "valid": true
       },
       "reorganization_height": 1
-    },
-    "6b5a5c01e3da68af0604e299": {
-      "certificate_hash": "6b5a5c01e3da68af0604e299",
-      "payload": {
-        "bound_restructuring_height": 2,
-        "bound_restructuring_root": "ee4be69251c0aeabea41d719",
-        "certificate_hash": "6b5a5c01e3da68af0604e299",
-        "claims": {
-          "capability_id": "capability.fixture-1",
-          "clearing_index": 2,
-          "effect": "fixture-effect-1",
-          "outcome": "reorganized",
-          "plane": "reorganization"
-        },
-        "deterministic": true,
-        "goal": "differential fixture (clearing 2)",
-        "issued_at": "2026-01-01T00:00:00.000000Z",
-        "kind": "reorganization_certificate",
-        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
-        "member_count": 2,
-        "member_ids": [
-          "capability.fixture-0",
-          "capability.fixture-1"
-        ],
-        "ok": true,
-        "package_hash": "1d58907e64cc82808cc22f35",
-        "parent_reorganization_root": "f6be321b6323d6c9379075a0",
-        "post_restructuring": true,
-        "reorganization_count": 2,
-        "reorganization_height": 2,
-        "reorganization_plan_digest": "7719f092f06e9e16cce80c75",
-        "reorganization_root": "86ab157bbe9551a7ed3d0c5d",
-        "restructuring_certificate_hash": "89db9d3b0db188db455326b1",
-        "restructuring_hash": "a02255c0f20bd0e099bac324",
-        "restructuring_plan_digest": "93adaa33660a1e229f081809",
-        "schema_version": 1,
-        "used_skill_route_discovery": false,
-        "valid": true
-      },
-      "reorganization_height": 2
     },
     "89db9d3b0db188db455326b1": {
       "certificate_hash": "89db9d3b0db188db455326b1",
@@ -156,7 +156,7 @@
   "reorganization_certificate": {
     "bound_restructuring_height": 2,
     "bound_restructuring_root": "ee4be69251c0aeabea41d719",
-    "certificate_hash": "6b5a5c01e3da68af0604e299",
+    "certificate_hash": "154b6c454ce86af57ad84807",
     "claims": {
       "capability_id": "capability.fixture-1",
       "clearing_index": 2,
@@ -176,12 +176,12 @@
     ],
     "ok": true,
     "package_hash": "1d58907e64cc82808cc22f35",
-    "parent_reorganization_root": "f6be321b6323d6c9379075a0",
+    "parent_reorganization_root": "8b6e85f0221d293d2c01e579",
     "post_restructuring": true,
     "reorganization_count": 2,
     "reorganization_height": 2,
     "reorganization_plan_digest": "7719f092f06e9e16cce80c75",
-    "reorganization_root": "86ab157bbe9551a7ed3d0c5d",
+    "reorganization_root": "310afc4ee56febf20768ba60",
     "restructuring_certificate_hash": "89db9d3b0db188db455326b1",
     "restructuring_hash": "a02255c0f20bd0e099bac324",
     "restructuring_plan_digest": "93adaa33660a1e229f081809",
@@ -190,7 +190,7 @@
     "valid": true
   },
   "reorganization_count": 2,
-  "reorganization_hash": "bb97a8cd37bce11a7a3c7c15",
+  "reorganization_hash": "e251728f4c603b39b7163f7c",
   "reorganization_plan_digest": "7719f092f06e9e16cce80c75",
   "reorganizations": {
     "bound_restructuring_height": 2,
@@ -198,7 +198,7 @@
     "entries": [
       {
         "applied_at": "2026-01-01T00:00:00.000000Z",
-        "bound_action_root": "56aab995e4e0f093a4e94621",
+        "bound_action_root": "590094d796e3ce6ff6be7681",
         "bound_restructuring_height": 1,
         "bound_restructuring_root": "80ddade8a41950baa32db1a4",
         "capability_id": "capability.fixture-0",
@@ -225,7 +225,7 @@
         "reorganization_certificate": {
           "bound_restructuring_height": 1,
           "bound_restructuring_root": "80ddade8a41950baa32db1a4",
-          "certificate_hash": "1b0a3e68ef07ef694a134dde",
+          "certificate_hash": "36f51fdcb4f024a7610d7bf3",
           "claims": {
             "capability_id": "capability.fixture-0",
             "clearing_index": 1,
@@ -250,7 +250,7 @@
           "reorganization_count": 1,
           "reorganization_height": 1,
           "reorganization_plan_digest": "f2816c15841bc700d186eb09",
-          "reorganization_root": "f6be321b6323d6c9379075a0",
+          "reorganization_root": "8b6e85f0221d293d2c01e579",
           "restructuring_certificate_hash": "89db9d3b0db188db455326b1",
           "restructuring_hash": "a02255c0f20bd0e099bac324",
           "restructuring_plan_digest": "18c5fdcfbfe2df86d4928906",
@@ -260,7 +260,7 @@
         },
         "reorganization_height": 1,
         "reorganization_plan_digest": "f2816c15841bc700d186eb09",
-        "reorganization_root": "f6be321b6323d6c9379075a0",
+        "reorganization_root": "8b6e85f0221d293d2c01e579",
         "restructuring_certificate_hash": "89db9d3b0db188db455326b1",
         "restructuring_hash": "a02255c0f20bd0e099bac324",
         "restructuring_plan_digest": "18c5fdcfbfe2df86d4928906",
@@ -269,7 +269,7 @@
       },
       {
         "applied_at": "2026-01-01T00:00:00.000000Z",
-        "bound_action_root": "bf0a9567032309b7baa0f4bd",
+        "bound_action_root": "4032c63c240dc8abd28b3f53",
         "bound_restructuring_height": 2,
         "bound_restructuring_root": "ee4be69251c0aeabea41d719",
         "capability_id": "capability.fixture-1",
@@ -290,13 +290,13 @@
         "outcome": "reorganized",
         "package_hash": "1d58907e64cc82808cc22f35",
         "parent_reorganization_digest": "f2816c15841bc700d186eb09",
-        "parent_reorganization_root": "f6be321b6323d6c9379075a0",
+        "parent_reorganization_root": "8b6e85f0221d293d2c01e579",
         "position_ratio_bps": 1100,
         "post_restructuring": true,
         "reorganization_certificate": {
           "bound_restructuring_height": 2,
           "bound_restructuring_root": "ee4be69251c0aeabea41d719",
-          "certificate_hash": "6b5a5c01e3da68af0604e299",
+          "certificate_hash": "154b6c454ce86af57ad84807",
           "claims": {
             "capability_id": "capability.fixture-1",
             "clearing_index": 2,
@@ -316,12 +316,12 @@
           ],
           "ok": true,
           "package_hash": "1d58907e64cc82808cc22f35",
-          "parent_reorganization_root": "f6be321b6323d6c9379075a0",
+          "parent_reorganization_root": "8b6e85f0221d293d2c01e579",
           "post_restructuring": true,
           "reorganization_count": 2,
           "reorganization_height": 2,
           "reorganization_plan_digest": "7719f092f06e9e16cce80c75",
-          "reorganization_root": "86ab157bbe9551a7ed3d0c5d",
+          "reorganization_root": "310afc4ee56febf20768ba60",
           "restructuring_certificate_hash": "89db9d3b0db188db455326b1",
           "restructuring_hash": "a02255c0f20bd0e099bac324",
           "restructuring_plan_digest": "93adaa33660a1e229f081809",
@@ -331,7 +331,7 @@
         },
         "reorganization_height": 2,
         "reorganization_plan_digest": "7719f092f06e9e16cce80c75",
-        "reorganization_root": "86ab157bbe9551a7ed3d0c5d",
+        "reorganization_root": "310afc4ee56febf20768ba60",
         "restructuring_certificate_hash": "89db9d3b0db188db455326b1",
         "restructuring_hash": "a02255c0f20bd0e099bac324",
         "restructuring_plan_digest": "93adaa33660a1e229f081809",
@@ -345,7 +345,7 @@
     "restructuring_hash": "a02255c0f20bd0e099bac324",
     "schema_version": 1,
     "tip_height": 2,
-    "tip_reorganization_root": "86ab157bbe9551a7ed3d0c5d",
+    "tip_reorganization_root": "310afc4ee56febf20768ba60",
     "updated_at": "2026-01-01T00:00:00.000000Z"
   },
   "restructuring_certificate": {
@@ -384,31 +384,31 @@
   "restructurings": {
     "entries": [
       {
-        "bound_action_root": "56aab995e4e0f093a4e94621",
-        "bound_settlement_root": "457c300785a22a8c4a06fdeb",
+        "bound_action_root": "590094d796e3ce6ff6be7681",
+        "bound_settlement_root": "fef7791b6811ef31f66ee87d",
         "capability_id": "capability.fixture-0",
         "effect": "fixture-effect-0",
-        "receipt_digest": "f39f0abf1b8b3bf488787ca4",
+        "receipt_digest": "bb1fa839b9a6556eeba5f3ab",
         "restructuring_height": 1,
         "restructuring_plan_digest": "18c5fdcfbfe2df86d4928906",
         "restructuring_root": "80ddade8a41950baa32db1a4"
       },
       {
-        "bound_action_root": "bf0a9567032309b7baa0f4bd",
-        "bound_settlement_root": "413120b165430c5400cc4bd3",
+        "bound_action_root": "4032c63c240dc8abd28b3f53",
+        "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
         "capability_id": "capability.fixture-1",
         "effect": "fixture-effect-1",
-        "receipt_digest": "fea5396a7f4325c408b1b65b",
+        "receipt_digest": "27d82060920e8da35044a1a6",
         "restructuring_height": 2,
         "restructuring_plan_digest": "93adaa33660a1e229f081809",
         "restructuring_root": "ee4be69251c0aeabea41d719"
       },
       {
-        "bound_action_root": "500919b59d84baef88dbb44d",
-        "bound_settlement_root": "8722fbef37a158752d45c782",
+        "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+        "bound_settlement_root": "d19f7810f65ac311809fcec1",
         "capability_id": "capability.fixture-2",
         "effect": "fixture-effect-2",
-        "receipt_digest": "774ad7ab1a3d41b114b5f4a3",
+        "receipt_digest": "ca97c169f6adea9f80cd3a00",
         "restructuring_height": 3,
         "restructuring_plan_digest": "9d8906a64c51c81b4213a8ff",
         "restructuring_root": "758668dd7433b78a1c4ab59b"
@@ -424,7 +424,7 @@
   "state_count": null,
   "tip_action_root": "",
   "tip_height": 2,
-  "tip_reorganization_root": "86ab157bbe9551a7ed3d0c5d",
+  "tip_reorganization_root": "310afc4ee56febf20768ba60",
   "tip_restructuring_root": "758668dd7433b78a1c4ab59b",
   "tip_settlement_root": "",
   "used_skill_route_discovery": false

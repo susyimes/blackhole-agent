@@ -1,7 +1,7 @@
 {
   "bound_covenant_height": 2,
   "bound_covenant_root": "13447eaea7f822eb70bde23c",
-  "certificate_hash": "80fc72ffc3acfafca9afadfe",
+  "certificate_hash": "0384a872c93556031e8905dc",
   "claims": {
     "capability_id": "capability.fixture-1",
     "clearing_index": 2,
@@ -24,13 +24,13 @@
   ],
   "ok": true,
   "package_hash": "1d58907e64cc82808cc22f35",
-  "parent_treaty_root": "829f86f1aa0b2d36277649f3",
+  "parent_treaty_root": "381a2372796d5a5ac315b2af",
   "post_covenant": true,
   "schema_version": 1,
   "treaty_count": 2,
   "treaty_height": 2,
   "treaty_plan_digest": "0ee93414e514b39087a000c9",
-  "treaty_root": "88c8d729d1985adb21a1b018",
+  "treaty_root": "9a4a13d56f8f4b450d4b0640",
   "used_skill_route_discovery": false,
   "valid": true
 }

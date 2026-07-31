@@ -1,7 +1,7 @@
 {
   "bound_confederation_height": 2,
   "bound_confederation_root": "594616ede9f8ce3921672613",
-  "certificate_hash": "6a46c11c7c1d40e902f420a0",
+  "certificate_hash": "f70920b4d994aba29168ccad",
   "claims": {
     "capability_id": "capability.fixture-1",
     "clearing_index": 2,
@@ -24,13 +24,13 @@
   ],
   "ok": true,
   "package_hash": "1d58907e64cc82808cc22f35",
-  "parent_union_root": "f481e49a123a8aef7a001aac",
+  "parent_union_root": "711afe280382228b07d30649",
   "post_confederation": true,
   "schema_version": 1,
   "union_count": 2,
   "union_height": 2,
   "union_plan_digest": "f9a1a23c888e855425737cd4",
-  "union_root": "c6e2d5cb6f259a81703624a8",
+  "union_root": "4db00e2edbff79cb2b73805e",
   "used_skill_route_discovery": false,
   "valid": true
 }

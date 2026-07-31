@@ -1,0 +1,36 @@
+{
+  "bound_risk_height": 2,
+  "bound_risk_root": "e1ef7aa13c4e21b4052b7940",
+  "certificate_hash": "503dcb751a35ef3af8ac5465",
+  "claims": {
+    "capability_id": "capability.fixture-1",
+    "clearing_index": 2,
+    "effect": "fixture-effect-1",
+    "outcome": "stressed",
+    "plane": "stress"
+  },
+  "deterministic": true,
+  "goal": "differential fixture (clearing 2)",
+  "issued_at": "2026-01-01T00:00:00.000000Z",
+  "kind": "stress_certificate",
+  "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+  "member_count": 2,
+  "member_ids": [
+    "capability.fixture-0",
+    "capability.fixture-1"
+  ],
+  "ok": true,
+  "package_hash": "1d58907e64cc82808cc22f35",
+  "parent_stress_root": "5f93ae1bd99fc59588beabe8",
+  "post_risk": true,
+  "risk_assessment_digest": "3bc488850e6c6d56a112186f",
+  "risk_certificate_hash": "3581cf88920399ee6d9bf090",
+  "risk_hash": "6e753174de41790b67471bd5",
+  "schema_version": 1,
+  "stress_count": 2,
+  "stress_height": 2,
+  "stress_root": "82e8dca7d439affc71ef2353",
+  "stress_scenario_digest": "910444bdad99f37781c6f49b",
+  "used_skill_route_discovery": false,
+  "valid": true
+}

@@ -13,21 +13,21 @@
   "byzantine_count": null,
   "certificate_count": 3,
   "certificates": {
-    "8a15d509ba4a47a3c759f0c6": {
-      "certificate_hash": "8a15d509ba4a47a3c759f0c6",
+    "4e609a47813c48b14f19ccdd": {
+      "certificate_hash": "4e609a47813c48b14f19ccdd",
       "payload": {
-        "bound_resilience_height": 1,
-        "bound_resilience_root": "42483fc5dbcdc48c45bf1ec9",
-        "certificate_hash": "8a15d509ba4a47a3c759f0c6",
+        "bound_resilience_height": 2,
+        "bound_resilience_root": "af1d35c8e67ebf357a000273",
+        "certificate_hash": "4e609a47813c48b14f19ccdd",
         "claims": {
-          "capability_id": "capability.fixture-0",
-          "clearing_index": 1,
-          "effect": "fixture-effect-0",
+          "capability_id": "capability.fixture-1",
+          "clearing_index": 2,
+          "effect": "fixture-effect-1",
           "outcome": "recovered",
           "plane": "recovery"
         },
         "deterministic": true,
-        "goal": "differential fixture (clearing 1)",
+        "goal": "differential fixture (clearing 2)",
         "issued_at": "2026-01-01T00:00:00.000000Z",
         "kind": "recovery_certificate",
         "lineage_head_hash": "ebbdf66782dcfacea85082dd",
@@ -38,20 +38,20 @@
         ],
         "ok": true,
         "package_hash": "1d58907e64cc82808cc22f35",
-        "parent_recovery_root": "",
+        "parent_recovery_root": "80ba84a844ac733268ca602a",
         "post_resilience": true,
-        "recovery_count": 1,
-        "recovery_height": 1,
-        "recovery_plan_digest": "3d88fbf5502a0c4443a4c061",
-        "recovery_root": "8d980ac441f14dfc7162cc1a",
-        "resilience_buffer_digest": "ac73bec76bbc1f3aabd70e62",
+        "recovery_count": 2,
+        "recovery_height": 2,
+        "recovery_plan_digest": "a14ed3f10a99f2c1842b5c66",
+        "recovery_root": "ef1e53d5acfe3b7dcb40a20b",
+        "resilience_buffer_digest": "54d03f7d7ce525e9ad18a79b",
         "resilience_certificate_hash": "c4772416966e2944ebd8193e",
         "resilience_hash": "1369e2bb472c72cd3062e2fa",
         "schema_version": 1,
         "used_skill_route_discovery": false,
         "valid": true
       },
-      "recovery_height": 1
+      "recovery_height": 2
     },
     "c4772416966e2944ebd8193e": {
       "certificate_hash": "c4772416966e2944ebd8193e",
@@ -87,21 +87,21 @@
         "valid": true
       }
     },
-    "da54814537d40a7db815d79b": {
-      "certificate_hash": "da54814537d40a7db815d79b",
+    "ee8e8ed4dbd13bb9b12f21d0": {
+      "certificate_hash": "ee8e8ed4dbd13bb9b12f21d0",
       "payload": {
-        "bound_resilience_height": 2,
-        "bound_resilience_root": "af1d35c8e67ebf357a000273",
-        "certificate_hash": "da54814537d40a7db815d79b",
+        "bound_resilience_height": 1,
+        "bound_resilience_root": "42483fc5dbcdc48c45bf1ec9",
+        "certificate_hash": "ee8e8ed4dbd13bb9b12f21d0",
         "claims": {
-          "capability_id": "capability.fixture-1",
-          "clearing_index": 2,
-          "effect": "fixture-effect-1",
+          "capability_id": "capability.fixture-0",
+          "clearing_index": 1,
+          "effect": "fixture-effect-0",
           "outcome": "recovered",
           "plane": "recovery"
         },
         "deterministic": true,
-        "goal": "differential fixture (clearing 2)",
+        "goal": "differential fixture (clearing 1)",
         "issued_at": "2026-01-01T00:00:00.000000Z",
         "kind": "recovery_certificate",
         "lineage_head_hash": "ebbdf66782dcfacea85082dd",
@@ -112,20 +112,20 @@
         ],
         "ok": true,
         "package_hash": "1d58907e64cc82808cc22f35",
-        "parent_recovery_root": "8d980ac441f14dfc7162cc1a",
+        "parent_recovery_root": "",
         "post_resilience": true,
-        "recovery_count": 2,
-        "recovery_height": 2,
-        "recovery_plan_digest": "a14ed3f10a99f2c1842b5c66",
-        "recovery_root": "35a1e1d003b266aff1381665",
-        "resilience_buffer_digest": "54d03f7d7ce525e9ad18a79b",
+        "recovery_count": 1,
+        "recovery_height": 1,
+        "recovery_plan_digest": "3d88fbf5502a0c4443a4c061",
+        "recovery_root": "80ba84a844ac733268ca602a",
+        "resilience_buffer_digest": "ac73bec76bbc1f3aabd70e62",
         "resilience_certificate_hash": "c4772416966e2944ebd8193e",
         "resilience_hash": "1369e2bb472c72cd3062e2fa",
         "schema_version": 1,
         "used_skill_route_discovery": false,
         "valid": true
       },
-      "recovery_height": 2
+      "recovery_height": 1
     }
   },
   "deterministic": true,
@@ -159,7 +159,7 @@
     "entries": [
       {
         "applied_at": "2026-01-01T00:00:00.000000Z",
-        "bound_action_root": "56aab995e4e0f093a4e94621",
+        "bound_action_root": "590094d796e3ce6ff6be7681",
         "bound_resilience_height": 1,
         "bound_resilience_root": "42483fc5dbcdc48c45bf1ec9",
         "capability_id": "capability.fixture-0",
@@ -186,7 +186,7 @@
         "recovery_certificate": {
           "bound_resilience_height": 1,
           "bound_resilience_root": "42483fc5dbcdc48c45bf1ec9",
-          "certificate_hash": "8a15d509ba4a47a3c759f0c6",
+          "certificate_hash": "ee8e8ed4dbd13bb9b12f21d0",
           "claims": {
             "capability_id": "capability.fixture-0",
             "clearing_index": 1,
@@ -211,7 +211,7 @@
           "recovery_count": 1,
           "recovery_height": 1,
           "recovery_plan_digest": "3d88fbf5502a0c4443a4c061",
-          "recovery_root": "8d980ac441f14dfc7162cc1a",
+          "recovery_root": "80ba84a844ac733268ca602a",
           "resilience_buffer_digest": "ac73bec76bbc1f3aabd70e62",
           "resilience_certificate_hash": "c4772416966e2944ebd8193e",
           "resilience_hash": "1369e2bb472c72cd3062e2fa",
@@ -221,7 +221,7 @@
         },
         "recovery_height": 1,
         "recovery_plan_digest": "3d88fbf5502a0c4443a4c061",
-        "recovery_root": "8d980ac441f14dfc7162cc1a",
+        "recovery_root": "80ba84a844ac733268ca602a",
         "resilience_buffer_digest": "ac73bec76bbc1f3aabd70e62",
         "resilience_certificate_hash": "c4772416966e2944ebd8193e",
         "resilience_hash": "1369e2bb472c72cd3062e2fa",
@@ -230,7 +230,7 @@
       },
       {
         "applied_at": "2026-01-01T00:00:00.000000Z",
-        "bound_action_root": "bf0a9567032309b7baa0f4bd",
+        "bound_action_root": "4032c63c240dc8abd28b3f53",
         "bound_resilience_height": 2,
         "bound_resilience_root": "af1d35c8e67ebf357a000273",
         "capability_id": "capability.fixture-1",
@@ -251,13 +251,13 @@
         "outcome": "recovered",
         "package_hash": "1d58907e64cc82808cc22f35",
         "parent_recovery_digest": "3d88fbf5502a0c4443a4c061",
-        "parent_recovery_root": "8d980ac441f14dfc7162cc1a",
+        "parent_recovery_root": "80ba84a844ac733268ca602a",
         "position_ratio_bps": 1100,
         "post_resilience": true,
         "recovery_certificate": {
           "bound_resilience_height": 2,
           "bound_resilience_root": "af1d35c8e67ebf357a000273",
-          "certificate_hash": "da54814537d40a7db815d79b",
+          "certificate_hash": "4e609a47813c48b14f19ccdd",
           "claims": {
             "capability_id": "capability.fixture-1",
             "clearing_index": 2,
@@ -277,12 +277,12 @@
           ],
           "ok": true,
           "package_hash": "1d58907e64cc82808cc22f35",
-          "parent_recovery_root": "8d980ac441f14dfc7162cc1a",
+          "parent_recovery_root": "80ba84a844ac733268ca602a",
           "post_resilience": true,
           "recovery_count": 2,
           "recovery_height": 2,
           "recovery_plan_digest": "a14ed3f10a99f2c1842b5c66",
-          "recovery_root": "35a1e1d003b266aff1381665",
+          "recovery_root": "ef1e53d5acfe3b7dcb40a20b",
           "resilience_buffer_digest": "54d03f7d7ce525e9ad18a79b",
           "resilience_certificate_hash": "c4772416966e2944ebd8193e",
           "resilience_hash": "1369e2bb472c72cd3062e2fa",
@@ -292,7 +292,7 @@
         },
         "recovery_height": 2,
         "recovery_plan_digest": "a14ed3f10a99f2c1842b5c66",
-        "recovery_root": "35a1e1d003b266aff1381665",
+        "recovery_root": "ef1e53d5acfe3b7dcb40a20b",
         "resilience_buffer_digest": "54d03f7d7ce525e9ad18a79b",
         "resilience_certificate_hash": "c4772416966e2944ebd8193e",
         "resilience_hash": "1369e2bb472c72cd3062e2fa",
@@ -306,13 +306,13 @@
     "resilience_hash": "1369e2bb472c72cd3062e2fa",
     "schema_version": 1,
     "tip_height": 2,
-    "tip_recovery_root": "35a1e1d003b266aff1381665",
+    "tip_recovery_root": "ef1e53d5acfe3b7dcb40a20b",
     "updated_at": "2026-01-01T00:00:00.000000Z"
   },
   "recovery_certificate": {
     "bound_resilience_height": 2,
     "bound_resilience_root": "af1d35c8e67ebf357a000273",
-    "certificate_hash": "da54814537d40a7db815d79b",
+    "certificate_hash": "4e609a47813c48b14f19ccdd",
     "claims": {
       "capability_id": "capability.fixture-1",
       "clearing_index": 2,
@@ -332,12 +332,12 @@
     ],
     "ok": true,
     "package_hash": "1d58907e64cc82808cc22f35",
-    "parent_recovery_root": "8d980ac441f14dfc7162cc1a",
+    "parent_recovery_root": "80ba84a844ac733268ca602a",
     "post_resilience": true,
     "recovery_count": 2,
     "recovery_height": 2,
     "recovery_plan_digest": "a14ed3f10a99f2c1842b5c66",
-    "recovery_root": "35a1e1d003b266aff1381665",
+    "recovery_root": "ef1e53d5acfe3b7dcb40a20b",
     "resilience_buffer_digest": "54d03f7d7ce525e9ad18a79b",
     "resilience_certificate_hash": "c4772416966e2944ebd8193e",
     "resilience_hash": "1369e2bb472c72cd3062e2fa",
@@ -346,7 +346,7 @@
     "valid": true
   },
   "recovery_count": 2,
-  "recovery_hash": "8534952d8e92203fa2f6d9af",
+  "recovery_hash": "f492c0678a35e1cfdfaa8bdc",
   "recovery_plan_digest": "a14ed3f10a99f2c1842b5c66",
   "resilience_buffer_digest": "f0d110cb414c33c00b9c4f30",
   "resilience_certificate": {
@@ -384,31 +384,31 @@
   "resiliences": {
     "entries": [
       {
-        "bound_action_root": "56aab995e4e0f093a4e94621",
-        "bound_settlement_root": "457c300785a22a8c4a06fdeb",
+        "bound_action_root": "590094d796e3ce6ff6be7681",
+        "bound_settlement_root": "fef7791b6811ef31f66ee87d",
         "capability_id": "capability.fixture-0",
         "effect": "fixture-effect-0",
-        "receipt_digest": "f39f0abf1b8b3bf488787ca4",
+        "receipt_digest": "bb1fa839b9a6556eeba5f3ab",
         "resilience_buffer_digest": "ac73bec76bbc1f3aabd70e62",
         "resilience_height": 1,
         "resilience_root": "42483fc5dbcdc48c45bf1ec9"
       },
       {
-        "bound_action_root": "bf0a9567032309b7baa0f4bd",
-        "bound_settlement_root": "413120b165430c5400cc4bd3",
+        "bound_action_root": "4032c63c240dc8abd28b3f53",
+        "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
         "capability_id": "capability.fixture-1",
         "effect": "fixture-effect-1",
-        "receipt_digest": "fea5396a7f4325c408b1b65b",
+        "receipt_digest": "27d82060920e8da35044a1a6",
         "resilience_buffer_digest": "54d03f7d7ce525e9ad18a79b",
         "resilience_height": 2,
         "resilience_root": "af1d35c8e67ebf357a000273"
       },
       {
-        "bound_action_root": "500919b59d84baef88dbb44d",
-        "bound_settlement_root": "8722fbef37a158752d45c782",
+        "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+        "bound_settlement_root": "d19f7810f65ac311809fcec1",
         "capability_id": "capability.fixture-2",
         "effect": "fixture-effect-2",
-        "receipt_digest": "774ad7ab1a3d41b114b5f4a3",
+        "receipt_digest": "ca97c169f6adea9f80cd3a00",
         "resilience_buffer_digest": "f0d110cb414c33c00b9c4f30",
         "resilience_height": 3,
         "resilience_root": "a65b6d50b9a71712f33d0969"
@@ -424,7 +424,7 @@
   "state_count": null,
   "tip_action_root": "",
   "tip_height": 2,
-  "tip_recovery_root": "35a1e1d003b266aff1381665",
+  "tip_recovery_root": "ef1e53d5acfe3b7dcb40a20b",
   "tip_resilience_root": "a65b6d50b9a71712f33d0969",
   "tip_settlement_root": "",
   "used_skill_route_discovery": false

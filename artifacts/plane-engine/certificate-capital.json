@@ -1,0 +1,36 @@
+{
+  "bound_funding_height": 2,
+  "bound_funding_root": "08d25e78a19e9379e5ef7051",
+  "capital_buffer_digest": "69e698f82ff3ba12bfea0d4c",
+  "capital_count": 2,
+  "capital_height": 2,
+  "capital_root": "48423764233df44bd7bd6d4c",
+  "certificate_hash": "8efd5d87e2aa59044e2ee742",
+  "claims": {
+    "capability_id": "capability.fixture-1",
+    "clearing_index": 2,
+    "effect": "fixture-effect-1",
+    "outcome": "capitalized",
+    "plane": "capital"
+  },
+  "deterministic": true,
+  "funding_certificate_hash": "28a593ee45682377bdc6a276",
+  "funding_facility_digest": "e185c4a4683b63473eaf56ec",
+  "funding_hash": "6820cc68c705678fe8b91283",
+  "goal": "differential fixture (clearing 2)",
+  "issued_at": "2026-01-01T00:00:00.000000Z",
+  "kind": "capital_certificate",
+  "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+  "member_count": 2,
+  "member_ids": [
+    "capability.fixture-0",
+    "capability.fixture-1"
+  ],
+  "ok": true,
+  "package_hash": "1d58907e64cc82808cc22f35",
+  "parent_capital_root": "d9f557fecf56d8d7f5030d70",
+  "post_funding": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

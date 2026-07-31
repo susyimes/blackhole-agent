@@ -1,0 +1,36 @@
+{
+  "bound_collateral_height": 2,
+  "bound_collateral_root": "1ff1fb1573337eb259f7832d",
+  "certificate_hash": "351c9b09a75e2736e736d252",
+  "claims": {
+    "capability_id": "capability.fixture-1",
+    "clearing_index": 2,
+    "effect": "fixture-effect-1",
+    "outcome": "liquid",
+    "plane": "liquidity"
+  },
+  "collateral_allocation_digest": "ea40576770e369cf5459b0ac",
+  "collateral_certificate_hash": "9f6e87edeb1eadfd7496fc2b",
+  "collateral_hash": "d0b2356154e4d37a6a900c12",
+  "deterministic": true,
+  "goal": "differential fixture (clearing 2)",
+  "issued_at": "2026-01-01T00:00:00.000000Z",
+  "kind": "liquidity_certificate",
+  "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+  "liquidity_count": 2,
+  "liquidity_coverage_digest": "8b6377e560817a12072a7ce7",
+  "liquidity_height": 2,
+  "liquidity_root": "98c3a7cf0b541da6c4d322ff",
+  "member_count": 2,
+  "member_ids": [
+    "capability.fixture-0",
+    "capability.fixture-1"
+  ],
+  "ok": true,
+  "package_hash": "1d58907e64cc82808cc22f35",
+  "parent_liquidity_root": "6d4defb2df1f8e247f343bef",
+  "post_collateral": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

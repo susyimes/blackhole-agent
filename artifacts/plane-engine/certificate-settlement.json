@@ -1,0 +1,34 @@
+{
+  "actuation_certificate_hash": "1cc8c3f71314894b43d2a2f1",
+  "actuation_hash": "f43a89175eb898f163b701e9",
+  "bound_action_height": 2,
+  "bound_action_root": "ab16b13df793b99e7c271efb",
+  "certificate_hash": "7c3ba4794289b747c9f14ded",
+  "claims": {
+    "capability_id": "capability.fixture-1",
+    "clearing_index": 2,
+    "effect": "fixture-effect-1",
+    "outcome": "settled",
+    "plane": "settlement"
+  },
+  "deterministic": true,
+  "goal": "differential fixture (clearing 2)",
+  "issued_at": "2026-01-01T00:00:00.000000Z",
+  "kind": "settlement_certificate",
+  "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+  "member_count": 2,
+  "member_ids": [
+    "capability.fixture-0",
+    "capability.fixture-1"
+  ],
+  "ok": true,
+  "package_hash": "1d58907e64cc82808cc22f35",
+  "parent_settlement_root": "325765c35660ae7d5146478f",
+  "post_actuation": true,
+  "schema_version": 1,
+  "settlement_count": 2,
+  "settlement_height": 2,
+  "settlement_root": "29933cd69a667ed38b371b28",
+  "used_skill_route_discovery": false,
+  "valid": true
+}

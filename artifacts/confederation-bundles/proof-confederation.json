@@ -251,6 +251,47 @@
   "byzantine_count": 1,
   "certificate_count": 6,
   "certificates": {
+    "0826a5f2bc3c87a795f0bb18": {
+      "certificate_hash": "0826a5f2bc3c87a795f0bb18",
+      "confederation_height": 1,
+      "payload": {
+        "bound_coalition_height": 1,
+        "bound_coalition_root": "e5a6c49f60aa9d7facbcafc2",
+        "certificate_hash": "0826a5f2bc3c87a795f0bb18",
+        "claims": {
+          "capability_id": "capability.ledger-inventory",
+          "clearing_index": 1,
+          "effect": "prove",
+          "outcome": "confederated",
+          "plane": "confederation"
+        },
+        "coalition_certificate_hash": "c175637e371001c31fe535c1",
+        "coalition_hash": "387be3ba814523f953acb973",
+        "coalition_plan_digest": "60e9152256f9f13674e7c7e8",
+        "confederation_count": 1,
+        "confederation_height": 1,
+        "confederation_plan_digest": "06115b136defbf48b7b08f7c",
+        "confederation_root": "109c0e1613e59f7f6cb8caaa",
+        "deterministic": true,
+        "goal": "confederation over coalition (clearing 1)",
+        "issued_at": "2026-07-31T18:07:12.935697Z",
+        "kind": "confederation_certificate",
+        "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "6e604a6f16e45f9f",
+        "parent_confederation_root": "",
+        "post_coalition": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false,
+        "valid": true
+      }
+    },
     "5c23a892eccd1625050be890": {
       "certificate_hash": "5c23a892eccd1625050be890",
       "kind": "settlement_certificate",
@@ -290,30 +331,30 @@
         "valid": true
       }
     },
-    "9dd519cb4c367d93da7c0e10": {
-      "certificate_hash": "9dd519cb4c367d93da7c0e10",
-      "confederation_height": 1,
+    "9bacdf99129486a405ac9467": {
+      "certificate_hash": "9bacdf99129486a405ac9467",
+      "confederation_height": 2,
       "payload": {
-        "bound_coalition_height": 1,
-        "bound_coalition_root": "e5a6c49f60aa9d7facbcafc2",
-        "certificate_hash": "9dd519cb4c367d93da7c0e10",
+        "bound_coalition_height": 2,
+        "bound_coalition_root": "45cde49d5184362e3958a95f",
+        "certificate_hash": "9bacdf99129486a405ac9467",
         "claims": {
-          "capability_id": "capability.ledger-inventory",
-          "clearing_index": 1,
+          "capability_id": "repo.import-health",
+          "clearing_index": 2,
           "effect": "prove",
           "outcome": "confederated",
           "plane": "confederation"
         },
         "coalition_certificate_hash": "c175637e371001c31fe535c1",
         "coalition_hash": "387be3ba814523f953acb973",
-        "coalition_plan_digest": "60e9152256f9f13674e7c7e8",
-        "confederation_count": 1,
-        "confederation_height": 1,
-        "confederation_plan_digest": "06115b136defbf48b7b08f7c",
-        "confederation_root": "109c0e1613e59f7f6cb8caaa",
+        "coalition_plan_digest": "fbe200b963d0a564b248edbb",
+        "confederation_count": 2,
+        "confederation_height": 2,
+        "confederation_plan_digest": "751659a614b4373e960b5abf",
+        "confederation_root": "fe3ed3b57c0d1bc0b566f304",
         "deterministic": true,
-        "goal": "confederation over coalition (clearing 1)",
-        "issued_at": "2026-07-31T17:38:04.715367Z",
+        "goal": "confederation over coalition (clearing 2)",
+        "issued_at": "2026-07-31T18:07:12.935784Z",
         "kind": "confederation_certificate",
         "lineage_head_hash": "89c4ff0a6368875ef0800e26",
         "member_count": 3,
@@ -324,7 +365,7 @@
         ],
         "ok": true,
         "package_hash": "6e604a6f16e45f9f",
-        "parent_confederation_root": "",
+        "parent_confederation_root": "109c0e1613e59f7f6cb8caaa",
         "post_coalition": true,
         "schema_version": 1,
         "used_skill_route_discovery": false,
@@ -367,47 +408,6 @@
         "package_hash": "6e604a6f16e45f9f",
         "parent_coalition_root": "e5a6c49f60aa9d7facbcafc2",
         "post_alliance": true,
-        "schema_version": 1,
-        "used_skill_route_discovery": false,
-        "valid": true
-      }
-    },
-    "d1ec2643c781cc4350000c14": {
-      "certificate_hash": "d1ec2643c781cc4350000c14",
-      "confederation_height": 2,
-      "payload": {
-        "bound_coalition_height": 2,
-        "bound_coalition_root": "45cde49d5184362e3958a95f",
-        "certificate_hash": "d1ec2643c781cc4350000c14",
-        "claims": {
-          "capability_id": "repo.import-health",
-          "clearing_index": 2,
-          "effect": "prove",
-          "outcome": "confederated",
-          "plane": "confederation"
-        },
-        "coalition_certificate_hash": "c175637e371001c31fe535c1",
-        "coalition_hash": "387be3ba814523f953acb973",
-        "coalition_plan_digest": "fbe200b963d0a564b248edbb",
-        "confederation_count": 2,
-        "confederation_height": 2,
-        "confederation_plan_digest": "751659a614b4373e960b5abf",
-        "confederation_root": "fe3ed3b57c0d1bc0b566f304",
-        "deterministic": true,
-        "goal": "confederation over coalition (clearing 2)",
-        "issued_at": "2026-07-31T17:38:04.715454Z",
-        "kind": "confederation_certificate",
-        "lineage_head_hash": "89c4ff0a6368875ef0800e26",
-        "member_count": 3,
-        "member_ids": [
-          "capability.ledger-inventory",
-          "repo.import-health",
-          "unbound.milestone-gate"
-        ],
-        "ok": true,
-        "package_hash": "6e604a6f16e45f9f",
-        "parent_confederation_root": "109c0e1613e59f7f6cb8caaa",
-        "post_coalition": true,
         "schema_version": 1,
         "used_skill_route_discovery": false,
         "valid": true
@@ -688,7 +688,7 @@
   "confederation_certificate": {
     "bound_coalition_height": 2,
     "bound_coalition_root": "45cde49d5184362e3958a95f",
-    "certificate_hash": "d1ec2643c781cc4350000c14",
+    "certificate_hash": "9bacdf99129486a405ac9467",
     "claims": {
       "capability_id": "repo.import-health",
       "clearing_index": 2,
@@ -705,7 +705,7 @@
     "confederation_root": "fe3ed3b57c0d1bc0b566f304",
     "deterministic": true,
     "goal": "confederation over coalition (clearing 2)",
-    "issued_at": "2026-07-31T17:38:04.715454Z",
+    "issued_at": "2026-07-31T18:07:12.935784Z",
     "kind": "confederation_certificate",
     "lineage_head_hash": "89c4ff0a6368875ef0800e26",
     "member_count": 3,
@@ -723,7 +723,7 @@
     "valid": true
   },
   "confederation_count": 2,
-  "confederation_hash": "70bc6b92369e48474e48fa0a",
+  "confederation_hash": "ec591989bc9fb48981890374",
   "confederation_plan_digest": "751659a614b4373e960b5abf",
   "confederations": {
     "bound_coalition_height": 2,
@@ -732,7 +732,7 @@
     "confederation_plan_digest": "751659a614b4373e960b5abf",
     "entries": [
       {
-        "applied_at": "2026-07-31T17:38:04.715344Z",
+        "applied_at": "2026-07-31T18:07:12.935674Z",
         "bound_action_root": "8c09a0cad74a985b3572549e",
         "bound_coalition_height": 1,
         "bound_coalition_root": "e5a6c49f60aa9d7facbcafc2",
@@ -747,7 +747,7 @@
         "confederation_certificate": {
           "bound_coalition_height": 1,
           "bound_coalition_root": "e5a6c49f60aa9d7facbcafc2",
-          "certificate_hash": "9dd519cb4c367d93da7c0e10",
+          "certificate_hash": "0826a5f2bc3c87a795f0bb18",
           "claims": {
             "capability_id": "capability.ledger-inventory",
             "clearing_index": 1,
@@ -764,7 +764,7 @@
           "confederation_root": "109c0e1613e59f7f6cb8caaa",
           "deterministic": true,
           "goal": "confederation over coalition (clearing 1)",
-          "issued_at": "2026-07-31T17:38:04.715367Z",
+          "issued_at": "2026-07-31T18:07:12.935697Z",
           "kind": "confederation_certificate",
           "lineage_head_hash": "89c4ff0a6368875ef0800e26",
           "member_count": 3,
@@ -805,7 +805,7 @@
         "used_skill_route_discovery": false
       },
       {
-        "applied_at": "2026-07-31T17:38:04.715435Z",
+        "applied_at": "2026-07-31T18:07:12.935765Z",
         "bound_action_root": "bc9f34eaf8099cb1dd02f164",
         "bound_coalition_height": 2,
         "bound_coalition_root": "45cde49d5184362e3958a95f",
@@ -820,7 +820,7 @@
         "confederation_certificate": {
           "bound_coalition_height": 2,
           "bound_coalition_root": "45cde49d5184362e3958a95f",
-          "certificate_hash": "d1ec2643c781cc4350000c14",
+          "certificate_hash": "9bacdf99129486a405ac9467",
           "claims": {
             "capability_id": "repo.import-health",
             "clearing_index": 2,
@@ -837,7 +837,7 @@
           "confederation_root": "fe3ed3b57c0d1bc0b566f304",
           "deterministic": true,
           "goal": "confederation over coalition (clearing 2)",
-          "issued_at": "2026-07-31T17:38:04.715454Z",
+          "issued_at": "2026-07-31T18:07:12.935784Z",
           "kind": "confederation_certificate",
           "lineage_head_hash": "89c4ff0a6368875ef0800e26",
           "member_count": 3,
@@ -883,7 +883,7 @@
     "schema_version": 1,
     "tip_confederation_root": "fe3ed3b57c0d1bc0b566f304",
     "tip_height": 2,
-    "updated_at": "2026-07-31T17:38:04.715472Z"
+    "updated_at": "2026-07-31T18:07:12.935803Z"
   },
   "deterministic": true,
   "epoch_count": 2,
@@ -918,7 +918,7 @@
     "used_skill_route_discovery": false
   },
   "execution_hash": "f620923c33e7444ef74ccd1a",
-  "exported_at": "2026-07-31T17:38:04.715995Z",
+  "exported_at": "2026-07-31T18:07:12.936324Z",
   "goal": "confederation over coalition",
   "kind": "confederation_bundle",
   "lineage": {

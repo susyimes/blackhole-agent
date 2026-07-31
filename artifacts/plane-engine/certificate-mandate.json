@@ -1,7 +1,7 @@
 {
   "bound_privilege_height": 2,
   "bound_privilege_root": "dfce899ac4bebfb64f1251ec",
-  "certificate_hash": "ad9d99975fe3263420a3b1d3",
+  "certificate_hash": "a8cbe27d0c0dd85597bfd7fb",
   "claims": {
     "capability_id": "capability.fixture-1",
     "clearing_index": 2,
@@ -17,7 +17,7 @@
   "mandate_count": 2,
   "mandate_height": 2,
   "mandate_plan_digest": "eb056334184028c61d388538",
-  "mandate_root": "f8746a65686f735c0e8c20b1",
+  "mandate_root": "918c69b457c08a1b91e5a8d5",
   "member_count": 2,
   "member_ids": [
     "capability.fixture-0",
@@ -25,7 +25,7 @@
   ],
   "ok": true,
   "package_hash": "1d58907e64cc82808cc22f35",
-  "parent_mandate_root": "0c4a8028e65a0111bfd8dd9c",
+  "parent_mandate_root": "556d6cd4abf094fddbc39534",
   "post_privilege": true,
   "privilege_certificate_hash": "ff03f5d5a8bae8ea3eace945",
   "privilege_hash": "df2793ec83a9106f2252452a",

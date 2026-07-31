@@ -1,7 +1,7 @@
 {
   "bound_realm_height": 2,
   "bound_realm_root": "77c101087ec824584e97e4d1",
-  "certificate_hash": "f6fa342741335e130af957bd",
+  "certificate_hash": "027e72c555caa6b4bf1f33ff",
   "claims": {
     "capability_id": "capability.fixture-1",
     "clearing_index": 2,
@@ -12,7 +12,7 @@
   "cosmos_count": 2,
   "cosmos_height": 2,
   "cosmos_plan_digest": "da7b40a00fff5a06c1db5c81",
-  "cosmos_root": "98b25aeec0b5b75a9f6363dd",
+  "cosmos_root": "c4f9205fe9a9b5ce047f4739",
   "deterministic": true,
   "goal": "differential fixture (clearing 2)",
   "issued_at": "2026-01-01T00:00:00.000000Z",
@@ -25,7 +25,7 @@
   ],
   "ok": true,
   "package_hash": "1d58907e64cc82808cc22f35",
-  "parent_cosmos_root": "5e09318edd12e3b8f9a570b7",
+  "parent_cosmos_root": "3dcdd13ac9a897681d9db9e7",
   "post_realm": true,
   "realm_certificate_hash": "72221ff9a027a9664cb12415",
   "realm_hash": "b3cca5d43aa92f0d5dab5403",

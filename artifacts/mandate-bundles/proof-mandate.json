@@ -251,6 +251,88 @@
   "byzantine_count": 1,
   "certificate_count": 6,
   "certificates": {
+    "0c085d98652598ba02806781": {
+      "certificate_hash": "0c085d98652598ba02806781",
+      "mandate_height": 1,
+      "payload": {
+        "bound_privilege_height": 1,
+        "bound_privilege_root": "9f2769c176acd2414ba1a83e",
+        "certificate_hash": "0c085d98652598ba02806781",
+        "claims": {
+          "capability_id": "capability.ledger-inventory",
+          "clearing_index": 1,
+          "effect": "prove",
+          "outcome": "mandated",
+          "plane": "mandate"
+        },
+        "deterministic": true,
+        "goal": "mandate over privilege (clearing 1)",
+        "issued_at": "2026-07-31T18:07:12.265358Z",
+        "kind": "mandate_certificate",
+        "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+        "mandate_count": 1,
+        "mandate_height": 1,
+        "mandate_plan_digest": "c5fafe2d1d9f86332d576d9f",
+        "mandate_root": "407abee63ce9d44e2346319a",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "6e604a6f16e45f9f",
+        "parent_mandate_root": "",
+        "post_privilege": true,
+        "privilege_certificate_hash": "b204a371c3ef0e4af4fad1d0",
+        "privilege_hash": "b3abd04dec1b7f261fadb718",
+        "privilege_plan_digest": "985a8f2ac35bc449e83b0cdc",
+        "schema_version": 1,
+        "used_skill_route_discovery": false,
+        "valid": true
+      }
+    },
+    "4329cb75f872cec6e60e2c93": {
+      "certificate_hash": "4329cb75f872cec6e60e2c93",
+      "mandate_height": 2,
+      "payload": {
+        "bound_privilege_height": 2,
+        "bound_privilege_root": "fc7a8170529c89cfc97b0281",
+        "certificate_hash": "4329cb75f872cec6e60e2c93",
+        "claims": {
+          "capability_id": "repo.import-health",
+          "clearing_index": 2,
+          "effect": "prove",
+          "outcome": "mandated",
+          "plane": "mandate"
+        },
+        "deterministic": true,
+        "goal": "mandate over privilege (clearing 2)",
+        "issued_at": "2026-07-31T18:07:12.265449Z",
+        "kind": "mandate_certificate",
+        "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+        "mandate_count": 2,
+        "mandate_height": 2,
+        "mandate_plan_digest": "ee81f6ead42c134e2745104e",
+        "mandate_root": "a28696670ace1080ec2cde53",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "6e604a6f16e45f9f",
+        "parent_mandate_root": "407abee63ce9d44e2346319a",
+        "post_privilege": true,
+        "privilege_certificate_hash": "b204a371c3ef0e4af4fad1d0",
+        "privilege_hash": "b3abd04dec1b7f261fadb718",
+        "privilege_plan_digest": "52290de2e9f33ede57281ae1",
+        "schema_version": 1,
+        "used_skill_route_discovery": false,
+        "valid": true
+      }
+    },
     "5c23a892eccd1625050be890": {
       "certificate_hash": "5c23a892eccd1625050be890",
       "kind": "settlement_certificate",
@@ -286,88 +368,6 @@
         "settlement_count": 2,
         "settlement_height": 2,
         "settlement_root": "7a14b819bad310e6f326c948",
-        "used_skill_route_discovery": false,
-        "valid": true
-      }
-    },
-    "5c449afe467cb5cb3c4c3c1c": {
-      "certificate_hash": "5c449afe467cb5cb3c4c3c1c",
-      "mandate_height": 2,
-      "payload": {
-        "bound_privilege_height": 2,
-        "bound_privilege_root": "fc7a8170529c89cfc97b0281",
-        "certificate_hash": "5c449afe467cb5cb3c4c3c1c",
-        "claims": {
-          "capability_id": "repo.import-health",
-          "clearing_index": 2,
-          "effect": "prove",
-          "outcome": "mandated",
-          "plane": "mandate"
-        },
-        "deterministic": true,
-        "goal": "mandate over privilege (clearing 2)",
-        "issued_at": "2026-07-31T17:38:03.969264Z",
-        "kind": "mandate_certificate",
-        "lineage_head_hash": "89c4ff0a6368875ef0800e26",
-        "mandate_count": 2,
-        "mandate_height": 2,
-        "mandate_plan_digest": "ee81f6ead42c134e2745104e",
-        "mandate_root": "a28696670ace1080ec2cde53",
-        "member_count": 3,
-        "member_ids": [
-          "capability.ledger-inventory",
-          "repo.import-health",
-          "unbound.milestone-gate"
-        ],
-        "ok": true,
-        "package_hash": "6e604a6f16e45f9f",
-        "parent_mandate_root": "407abee63ce9d44e2346319a",
-        "post_privilege": true,
-        "privilege_certificate_hash": "b204a371c3ef0e4af4fad1d0",
-        "privilege_hash": "b3abd04dec1b7f261fadb718",
-        "privilege_plan_digest": "52290de2e9f33ede57281ae1",
-        "schema_version": 1,
-        "used_skill_route_discovery": false,
-        "valid": true
-      }
-    },
-    "66529b83eb410755dc8744ab": {
-      "certificate_hash": "66529b83eb410755dc8744ab",
-      "mandate_height": 1,
-      "payload": {
-        "bound_privilege_height": 1,
-        "bound_privilege_root": "9f2769c176acd2414ba1a83e",
-        "certificate_hash": "66529b83eb410755dc8744ab",
-        "claims": {
-          "capability_id": "capability.ledger-inventory",
-          "clearing_index": 1,
-          "effect": "prove",
-          "outcome": "mandated",
-          "plane": "mandate"
-        },
-        "deterministic": true,
-        "goal": "mandate over privilege (clearing 1)",
-        "issued_at": "2026-07-31T17:38:03.969162Z",
-        "kind": "mandate_certificate",
-        "lineage_head_hash": "89c4ff0a6368875ef0800e26",
-        "mandate_count": 1,
-        "mandate_height": 1,
-        "mandate_plan_digest": "c5fafe2d1d9f86332d576d9f",
-        "mandate_root": "407abee63ce9d44e2346319a",
-        "member_count": 3,
-        "member_ids": [
-          "capability.ledger-inventory",
-          "repo.import-health",
-          "unbound.milestone-gate"
-        ],
-        "ok": true,
-        "package_hash": "6e604a6f16e45f9f",
-        "parent_mandate_root": "",
-        "post_privilege": true,
-        "privilege_certificate_hash": "b204a371c3ef0e4af4fad1d0",
-        "privilege_hash": "b3abd04dec1b7f261fadb718",
-        "privilege_plan_digest": "985a8f2ac35bc449e83b0cdc",
-        "schema_version": 1,
         "used_skill_route_discovery": false,
         "valid": true
       }
@@ -518,7 +518,7 @@
     "used_skill_route_discovery": false
   },
   "execution_hash": "f620923c33e7444ef74ccd1a",
-  "exported_at": "2026-07-31T17:38:03.970054Z",
+  "exported_at": "2026-07-31T18:07:12.265974Z",
   "goal": "mandate over privilege",
   "kind": "mandate_bundle",
   "lineage": {
@@ -715,7 +715,7 @@
   "mandate_certificate": {
     "bound_privilege_height": 2,
     "bound_privilege_root": "fc7a8170529c89cfc97b0281",
-    "certificate_hash": "5c449afe467cb5cb3c4c3c1c",
+    "certificate_hash": "4329cb75f872cec6e60e2c93",
     "claims": {
       "capability_id": "repo.import-health",
       "clearing_index": 2,
@@ -725,7 +725,7 @@
     },
     "deterministic": true,
     "goal": "mandate over privilege (clearing 2)",
-    "issued_at": "2026-07-31T17:38:03.969264Z",
+    "issued_at": "2026-07-31T18:07:12.265449Z",
     "kind": "mandate_certificate",
     "lineage_head_hash": "89c4ff0a6368875ef0800e26",
     "mandate_count": 2,
@@ -750,14 +750,14 @@
     "valid": true
   },
   "mandate_count": 2,
-  "mandate_hash": "0025f222528f7c974cae76e8",
+  "mandate_hash": "cbeab5c8b86982be11e48692",
   "mandate_plan_digest": "ee81f6ead42c134e2745104e",
   "mandates": {
     "bound_privilege_height": 2,
     "bound_privilege_root": "fc7a8170529c89cfc97b0281",
     "entries": [
       {
-        "applied_at": "2026-07-31T17:38:03.969136Z",
+        "applied_at": "2026-07-31T18:07:12.265337Z",
         "bound_action_root": "8c09a0cad74a985b3572549e",
         "bound_privilege_height": 1,
         "bound_privilege_root": "9f2769c176acd2414ba1a83e",
@@ -774,7 +774,7 @@
         "mandate_certificate": {
           "bound_privilege_height": 1,
           "bound_privilege_root": "9f2769c176acd2414ba1a83e",
-          "certificate_hash": "66529b83eb410755dc8744ab",
+          "certificate_hash": "0c085d98652598ba02806781",
           "claims": {
             "capability_id": "capability.ledger-inventory",
             "clearing_index": 1,
@@ -784,7 +784,7 @@
           },
           "deterministic": true,
           "goal": "mandate over privilege (clearing 1)",
-          "issued_at": "2026-07-31T17:38:03.969162Z",
+          "issued_at": "2026-07-31T18:07:12.265358Z",
           "kind": "mandate_certificate",
           "lineage_head_hash": "89c4ff0a6368875ef0800e26",
           "mandate_count": 1,
@@ -830,7 +830,7 @@
         "used_skill_route_discovery": false
       },
       {
-        "applied_at": "2026-07-31T17:38:03.969244Z",
+        "applied_at": "2026-07-31T18:07:12.265431Z",
         "bound_action_root": "bc9f34eaf8099cb1dd02f164",
         "bound_privilege_height": 2,
         "bound_privilege_root": "fc7a8170529c89cfc97b0281",
@@ -847,7 +847,7 @@
         "mandate_certificate": {
           "bound_privilege_height": 2,
           "bound_privilege_root": "fc7a8170529c89cfc97b0281",
-          "certificate_hash": "5c449afe467cb5cb3c4c3c1c",
+          "certificate_hash": "4329cb75f872cec6e60e2c93",
           "claims": {
             "capability_id": "repo.import-health",
             "clearing_index": 2,
@@ -857,7 +857,7 @@
           },
           "deterministic": true,
           "goal": "mandate over privilege (clearing 2)",
-          "issued_at": "2026-07-31T17:38:03.969264Z",
+          "issued_at": "2026-07-31T18:07:12.265449Z",
           "kind": "mandate_certificate",
           "lineage_head_hash": "89c4ff0a6368875ef0800e26",
           "mandate_count": 2,
@@ -910,7 +910,7 @@
     "schema_version": 1,
     "tip_height": 2,
     "tip_mandate_root": "a28696670ace1080ec2cde53",
-    "updated_at": "2026-07-31T17:38:03.969286Z"
+    "updated_at": "2026-07-31T18:07:12.265468Z"
   },
   "member_count": 3,
   "member_ids": [

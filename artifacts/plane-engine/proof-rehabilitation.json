@@ -13,21 +13,21 @@
   "byzantine_count": null,
   "certificate_count": 3,
   "certificates": {
-    "1d3ec012e530658c377e1615": {
-      "certificate_hash": "1d3ec012e530658c377e1615",
+    "0373e02ee86ffb690bf68dfa": {
+      "certificate_hash": "0373e02ee86ffb690bf68dfa",
       "payload": {
-        "bound_reorganization_height": 2,
-        "bound_reorganization_root": "75cff6203ab5ab75edcd6056",
-        "certificate_hash": "1d3ec012e530658c377e1615",
+        "bound_reorganization_height": 1,
+        "bound_reorganization_root": "e6ce4a652b684496bfa8922e",
+        "certificate_hash": "0373e02ee86ffb690bf68dfa",
         "claims": {
-          "capability_id": "capability.fixture-1",
-          "clearing_index": 2,
-          "effect": "fixture-effect-1",
+          "capability_id": "capability.fixture-0",
+          "clearing_index": 1,
+          "effect": "fixture-effect-0",
           "outcome": "rehabilitated",
           "plane": "rehabilitation"
         },
         "deterministic": true,
-        "goal": "differential fixture (clearing 2)",
+        "goal": "differential fixture (clearing 1)",
         "issued_at": "2026-01-01T00:00:00.000000Z",
         "kind": "rehabilitation_certificate",
         "lineage_head_hash": "ebbdf66782dcfacea85082dd",
@@ -38,20 +38,20 @@
         ],
         "ok": true,
         "package_hash": "1d58907e64cc82808cc22f35",
-        "parent_rehabilitation_root": "d5fdb65804bfa91180f43e0d",
+        "parent_rehabilitation_root": "",
         "post_reorganization": true,
-        "rehabilitation_count": 2,
-        "rehabilitation_height": 2,
-        "rehabilitation_plan_digest": "d66a7ae0e7117324c8327b87",
-        "rehabilitation_root": "85f11623fe7df81bab869675",
+        "rehabilitation_count": 1,
+        "rehabilitation_height": 1,
+        "rehabilitation_plan_digest": "54a3227663604d6c34b9e5d6",
+        "rehabilitation_root": "49b08bc4c5f9de06c39716fb",
         "reorganization_certificate_hash": "a8f90aa45276809b84b87bc3",
         "reorganization_hash": "0e0a21e5e0f790b71386eda6",
-        "reorganization_plan_digest": "afbf450d533a7afc4509125c",
+        "reorganization_plan_digest": "579dd5a4dce1732ebf0ad804",
         "schema_version": 1,
         "used_skill_route_discovery": false,
         "valid": true
       },
-      "rehabilitation_height": 2
+      "rehabilitation_height": 1
     },
     "a8f90aa45276809b84b87bc3": {
       "certificate_hash": "a8f90aa45276809b84b87bc3",
@@ -87,21 +87,21 @@
         "valid": true
       }
     },
-    "b189c512b39ac281466615db": {
-      "certificate_hash": "b189c512b39ac281466615db",
+    "cd45362c00ccaf3e0219aa20": {
+      "certificate_hash": "cd45362c00ccaf3e0219aa20",
       "payload": {
-        "bound_reorganization_height": 1,
-        "bound_reorganization_root": "e6ce4a652b684496bfa8922e",
-        "certificate_hash": "b189c512b39ac281466615db",
+        "bound_reorganization_height": 2,
+        "bound_reorganization_root": "75cff6203ab5ab75edcd6056",
+        "certificate_hash": "cd45362c00ccaf3e0219aa20",
         "claims": {
-          "capability_id": "capability.fixture-0",
-          "clearing_index": 1,
-          "effect": "fixture-effect-0",
+          "capability_id": "capability.fixture-1",
+          "clearing_index": 2,
+          "effect": "fixture-effect-1",
           "outcome": "rehabilitated",
           "plane": "rehabilitation"
         },
         "deterministic": true,
-        "goal": "differential fixture (clearing 1)",
+        "goal": "differential fixture (clearing 2)",
         "issued_at": "2026-01-01T00:00:00.000000Z",
         "kind": "rehabilitation_certificate",
         "lineage_head_hash": "ebbdf66782dcfacea85082dd",
@@ -112,20 +112,20 @@
         ],
         "ok": true,
         "package_hash": "1d58907e64cc82808cc22f35",
-        "parent_rehabilitation_root": "",
+        "parent_rehabilitation_root": "49b08bc4c5f9de06c39716fb",
         "post_reorganization": true,
-        "rehabilitation_count": 1,
-        "rehabilitation_height": 1,
-        "rehabilitation_plan_digest": "54a3227663604d6c34b9e5d6",
-        "rehabilitation_root": "d5fdb65804bfa91180f43e0d",
+        "rehabilitation_count": 2,
+        "rehabilitation_height": 2,
+        "rehabilitation_plan_digest": "d66a7ae0e7117324c8327b87",
+        "rehabilitation_root": "b170f317d3b604225a0f04b4",
         "reorganization_certificate_hash": "a8f90aa45276809b84b87bc3",
         "reorganization_hash": "0e0a21e5e0f790b71386eda6",
-        "reorganization_plan_digest": "579dd5a4dce1732ebf0ad804",
+        "reorganization_plan_digest": "afbf450d533a7afc4509125c",
         "schema_version": 1,
         "used_skill_route_discovery": false,
         "valid": true
       },
-      "rehabilitation_height": 1
+      "rehabilitation_height": 2
     }
   },
   "deterministic": true,
@@ -156,7 +156,7 @@
   "rehabilitation_certificate": {
     "bound_reorganization_height": 2,
     "bound_reorganization_root": "75cff6203ab5ab75edcd6056",
-    "certificate_hash": "1d3ec012e530658c377e1615",
+    "certificate_hash": "cd45362c00ccaf3e0219aa20",
     "claims": {
       "capability_id": "capability.fixture-1",
       "clearing_index": 2,
@@ -176,12 +176,12 @@
     ],
     "ok": true,
     "package_hash": "1d58907e64cc82808cc22f35",
-    "parent_rehabilitation_root": "d5fdb65804bfa91180f43e0d",
+    "parent_rehabilitation_root": "49b08bc4c5f9de06c39716fb",
     "post_reorganization": true,
     "rehabilitation_count": 2,
     "rehabilitation_height": 2,
     "rehabilitation_plan_digest": "d66a7ae0e7117324c8327b87",
-    "rehabilitation_root": "85f11623fe7df81bab869675",
+    "rehabilitation_root": "b170f317d3b604225a0f04b4",
     "reorganization_certificate_hash": "a8f90aa45276809b84b87bc3",
     "reorganization_hash": "0e0a21e5e0f790b71386eda6",
     "reorganization_plan_digest": "afbf450d533a7afc4509125c",
@@ -190,7 +190,7 @@
     "valid": true
   },
   "rehabilitation_count": 2,
-  "rehabilitation_hash": "1b0e79cf3c7778d62ef3aaf2",
+  "rehabilitation_hash": "850e0b379d02c8ff5b46ddf5",
   "rehabilitation_plan_digest": "d66a7ae0e7117324c8327b87",
   "rehabilitations": {
     "bound_reorganization_height": 2,
@@ -198,7 +198,7 @@
     "entries": [
       {
         "applied_at": "2026-01-01T00:00:00.000000Z",
-        "bound_action_root": "56aab995e4e0f093a4e94621",
+        "bound_action_root": "590094d796e3ce6ff6be7681",
         "bound_reorganization_height": 1,
         "bound_reorganization_root": "e6ce4a652b684496bfa8922e",
         "capability_id": "capability.fixture-0",
@@ -225,7 +225,7 @@
         "rehabilitation_certificate": {
           "bound_reorganization_height": 1,
           "bound_reorganization_root": "e6ce4a652b684496bfa8922e",
-          "certificate_hash": "b189c512b39ac281466615db",
+          "certificate_hash": "0373e02ee86ffb690bf68dfa",
           "claims": {
             "capability_id": "capability.fixture-0",
             "clearing_index": 1,
@@ -250,7 +250,7 @@
           "rehabilitation_count": 1,
           "rehabilitation_height": 1,
           "rehabilitation_plan_digest": "54a3227663604d6c34b9e5d6",
-          "rehabilitation_root": "d5fdb65804bfa91180f43e0d",
+          "rehabilitation_root": "49b08bc4c5f9de06c39716fb",
           "reorganization_certificate_hash": "a8f90aa45276809b84b87bc3",
           "reorganization_hash": "0e0a21e5e0f790b71386eda6",
           "reorganization_plan_digest": "579dd5a4dce1732ebf0ad804",
@@ -260,7 +260,7 @@
         },
         "rehabilitation_height": 1,
         "rehabilitation_plan_digest": "54a3227663604d6c34b9e5d6",
-        "rehabilitation_root": "d5fdb65804bfa91180f43e0d",
+        "rehabilitation_root": "49b08bc4c5f9de06c39716fb",
         "reorganization_certificate_hash": "a8f90aa45276809b84b87bc3",
         "reorganization_hash": "0e0a21e5e0f790b71386eda6",
         "reorganization_plan_digest": "579dd5a4dce1732ebf0ad804",
@@ -269,7 +269,7 @@
       },
       {
         "applied_at": "2026-01-01T00:00:00.000000Z",
-        "bound_action_root": "bf0a9567032309b7baa0f4bd",
+        "bound_action_root": "4032c63c240dc8abd28b3f53",
         "bound_reorganization_height": 2,
         "bound_reorganization_root": "75cff6203ab5ab75edcd6056",
         "capability_id": "capability.fixture-1",
@@ -290,13 +290,13 @@
         "outcome": "rehabilitated",
         "package_hash": "1d58907e64cc82808cc22f35",
         "parent_rehabilitation_digest": "54a3227663604d6c34b9e5d6",
-        "parent_rehabilitation_root": "d5fdb65804bfa91180f43e0d",
+        "parent_rehabilitation_root": "49b08bc4c5f9de06c39716fb",
         "position_ratio_bps": 1100,
         "post_reorganization": true,
         "rehabilitation_certificate": {
           "bound_reorganization_height": 2,
           "bound_reorganization_root": "75cff6203ab5ab75edcd6056",
-          "certificate_hash": "1d3ec012e530658c377e1615",
+          "certificate_hash": "cd45362c00ccaf3e0219aa20",
           "claims": {
             "capability_id": "capability.fixture-1",
             "clearing_index": 2,
@@ -316,12 +316,12 @@
           ],
           "ok": true,
           "package_hash": "1d58907e64cc82808cc22f35",
-          "parent_rehabilitation_root": "d5fdb65804bfa91180f43e0d",
+          "parent_rehabilitation_root": "49b08bc4c5f9de06c39716fb",
           "post_reorganization": true,
           "rehabilitation_count": 2,
           "rehabilitation_height": 2,
           "rehabilitation_plan_digest": "d66a7ae0e7117324c8327b87",
-          "rehabilitation_root": "85f11623fe7df81bab869675",
+          "rehabilitation_root": "b170f317d3b604225a0f04b4",
           "reorganization_certificate_hash": "a8f90aa45276809b84b87bc3",
           "reorganization_hash": "0e0a21e5e0f790b71386eda6",
           "reorganization_plan_digest": "afbf450d533a7afc4509125c",
@@ -331,7 +331,7 @@
         },
         "rehabilitation_height": 2,
         "rehabilitation_plan_digest": "d66a7ae0e7117324c8327b87",
-        "rehabilitation_root": "85f11623fe7df81bab869675",
+        "rehabilitation_root": "b170f317d3b604225a0f04b4",
         "reorganization_certificate_hash": "a8f90aa45276809b84b87bc3",
         "reorganization_hash": "0e0a21e5e0f790b71386eda6",
         "reorganization_plan_digest": "afbf450d533a7afc4509125c",
@@ -345,7 +345,7 @@
     "reorganization_hash": "0e0a21e5e0f790b71386eda6",
     "schema_version": 1,
     "tip_height": 2,
-    "tip_rehabilitation_root": "85f11623fe7df81bab869675",
+    "tip_rehabilitation_root": "b170f317d3b604225a0f04b4",
     "updated_at": "2026-01-01T00:00:00.000000Z"
   },
   "reorganization_certificate": {
@@ -384,31 +384,31 @@
   "reorganizations": {
     "entries": [
       {
-        "bound_action_root": "56aab995e4e0f093a4e94621",
-        "bound_settlement_root": "457c300785a22a8c4a06fdeb",
+        "bound_action_root": "590094d796e3ce6ff6be7681",
+        "bound_settlement_root": "fef7791b6811ef31f66ee87d",
         "capability_id": "capability.fixture-0",
         "effect": "fixture-effect-0",
-        "receipt_digest": "f39f0abf1b8b3bf488787ca4",
+        "receipt_digest": "bb1fa839b9a6556eeba5f3ab",
         "reorganization_height": 1,
         "reorganization_plan_digest": "579dd5a4dce1732ebf0ad804",
         "reorganization_root": "e6ce4a652b684496bfa8922e"
       },
       {
-        "bound_action_root": "bf0a9567032309b7baa0f4bd",
-        "bound_settlement_root": "413120b165430c5400cc4bd3",
+        "bound_action_root": "4032c63c240dc8abd28b3f53",
+        "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
         "capability_id": "capability.fixture-1",
         "effect": "fixture-effect-1",
-        "receipt_digest": "fea5396a7f4325c408b1b65b",
+        "receipt_digest": "27d82060920e8da35044a1a6",
         "reorganization_height": 2,
         "reorganization_plan_digest": "afbf450d533a7afc4509125c",
         "reorganization_root": "75cff6203ab5ab75edcd6056"
       },
       {
-        "bound_action_root": "500919b59d84baef88dbb44d",
-        "bound_settlement_root": "8722fbef37a158752d45c782",
+        "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+        "bound_settlement_root": "d19f7810f65ac311809fcec1",
         "capability_id": "capability.fixture-2",
         "effect": "fixture-effect-2",
-        "receipt_digest": "774ad7ab1a3d41b114b5f4a3",
+        "receipt_digest": "ca97c169f6adea9f80cd3a00",
         "reorganization_height": 3,
         "reorganization_plan_digest": "c05d7280110e8bf8a3081f07",
         "reorganization_root": "2065a1f374d29eebb6724e2d"
@@ -424,7 +424,7 @@
   "state_count": null,
   "tip_action_root": "",
   "tip_height": 2,
-  "tip_rehabilitation_root": "85f11623fe7df81bab869675",
+  "tip_rehabilitation_root": "b170f317d3b604225a0f04b4",
   "tip_reorganization_root": "2065a1f374d29eebb6724e2d",
   "tip_settlement_root": "",
   "used_skill_route_discovery": false

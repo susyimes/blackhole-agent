@@ -1,0 +1,36 @@
+{
+  "bound_liquidity_height": 2,
+  "bound_liquidity_root": "105110bb765ab685668d95f3",
+  "certificate_hash": "5ec480123e7ca65fd5516537",
+  "claims": {
+    "capability_id": "capability.fixture-1",
+    "clearing_index": 2,
+    "effect": "fixture-effect-1",
+    "outcome": "funded",
+    "plane": "funding"
+  },
+  "deterministic": true,
+  "funding_count": 2,
+  "funding_facility_digest": "e7650fb75992058d62f5e287",
+  "funding_height": 2,
+  "funding_root": "236ec63f6a6dece6e60343d2",
+  "goal": "differential fixture (clearing 2)",
+  "issued_at": "2026-01-01T00:00:00.000000Z",
+  "kind": "funding_certificate",
+  "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+  "liquidity_certificate_hash": "c90116400affbd85a03ed8cb",
+  "liquidity_coverage_digest": "57ddfeb1ed16f9d15cea05cf",
+  "liquidity_hash": "c4247436a5b6be8e79747eb4",
+  "member_count": 2,
+  "member_ids": [
+    "capability.fixture-0",
+    "capability.fixture-1"
+  ],
+  "ok": true,
+  "package_hash": "1d58907e64cc82808cc22f35",
+  "parent_funding_root": "6976bf657130964ad6528400",
+  "post_liquidity": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

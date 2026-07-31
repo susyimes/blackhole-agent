@@ -1,7 +1,7 @@
 {
   "bound_empire_height": 2,
   "bound_empire_root": "4e35a7e6caa4c53d3697c96c",
-  "certificate_hash": "f386c7bbf904ff100718e747",
+  "certificate_hash": "9a530d74c4585f797519d592",
   "claims": {
     "capability_id": "capability.fixture-1",
     "clearing_index": 2,
@@ -13,7 +13,7 @@
   "dominion_count": 2,
   "dominion_height": 2,
   "dominion_plan_digest": "728a4e08a4d545e3d7885403",
-  "dominion_root": "7c186d7f1f892ccd31763b40",
+  "dominion_root": "aef5903125299eb24a0a536e",
   "empire_certificate_hash": "6145391f88ef37272ee0c875",
   "empire_hash": "191a29d8ec3ac4c704f28990",
   "empire_plan_digest": "520d4fbcf65e53371f7b29fc",
@@ -28,7 +28,7 @@
   ],
   "ok": true,
   "package_hash": "1d58907e64cc82808cc22f35",
-  "parent_dominion_root": "b5dd54509920f726ecfb87f2",
+  "parent_dominion_root": "deb1d9b8601617d4809f8d82",
   "post_empire": true,
   "schema_version": 1,
   "used_skill_route_discovery": false,

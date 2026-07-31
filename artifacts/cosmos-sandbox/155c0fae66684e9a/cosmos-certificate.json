@@ -1,0 +1,37 @@
+{
+  "bound_realm_height": 2,
+  "bound_realm_root": "1812f6da2f9584decf20db04",
+  "certificate_hash": "61a71bc0ac08f5359c3f428b",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "cosmosed",
+    "plane": "cosmos"
+  },
+  "cosmos_count": 2,
+  "cosmos_height": 2,
+  "cosmos_plan_digest": "473f2f3a94b432c145390115",
+  "cosmos_root": "f287148a4e95ab5c049c9305",
+  "deterministic": true,
+  "goal": "cosmos over realm (clearing 2)",
+  "issued_at": "2026-07-31T18:07:16.867669Z",
+  "kind": "cosmos_certificate",
+  "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "6e604a6f16e45f9f",
+  "parent_cosmos_root": "b6c4d39be55febead7ef0793",
+  "post_realm": true,
+  "realm_certificate_hash": "014909e9dd3ca5d28d3a6234",
+  "realm_hash": "c789a10815175dfd87a62bc8",
+  "realm_plan_digest": "8a005b167f9c5ea4a9e9142a",
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

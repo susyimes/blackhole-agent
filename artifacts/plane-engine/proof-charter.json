@@ -13,57 +13,17 @@
   "byzantine_count": null,
   "certificate_count": 3,
   "certificates": {
-    "104112909a5805903e4542fb": {
-      "certificate_hash": "104112909a5805903e4542fb",
-      "charter_height": 2,
-      "payload": {
-        "bound_mandate_height": 2,
-        "bound_mandate_root": "ed49cdb949586f1b79c30ffd",
-        "certificate_hash": "104112909a5805903e4542fb",
-        "charter_count": 2,
-        "charter_height": 2,
-        "charter_plan_digest": "83323930d8f8ab9249e9390f",
-        "charter_root": "6ae443bcde2c2f67ddef0611",
-        "claims": {
-          "capability_id": "capability.fixture-1",
-          "clearing_index": 2,
-          "effect": "fixture-effect-1",
-          "outcome": "chartered",
-          "plane": "charter"
-        },
-        "deterministic": true,
-        "goal": "differential fixture (clearing 2)",
-        "issued_at": "2026-01-01T00:00:00.000000Z",
-        "kind": "charter_certificate",
-        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
-        "mandate_certificate_hash": "899adb686a2159f65201b364",
-        "mandate_hash": "9e3c6202f67adc6e87fb0e95",
-        "mandate_plan_digest": "33b2611548bd097b35f0c0b1",
-        "member_count": 2,
-        "member_ids": [
-          "capability.fixture-0",
-          "capability.fixture-1"
-        ],
-        "ok": true,
-        "package_hash": "1d58907e64cc82808cc22f35",
-        "parent_charter_root": "581a0be0e9a7e1ade79628f3",
-        "post_mandate": true,
-        "schema_version": 1,
-        "used_skill_route_discovery": false,
-        "valid": true
-      }
-    },
-    "4846871402701f37c43db71f": {
-      "certificate_hash": "4846871402701f37c43db71f",
+    "615edd06d84ded9563ab3b47": {
+      "certificate_hash": "615edd06d84ded9563ab3b47",
       "charter_height": 1,
       "payload": {
         "bound_mandate_height": 1,
         "bound_mandate_root": "b2bbba844b723e96aa17f40f",
-        "certificate_hash": "4846871402701f37c43db71f",
+        "certificate_hash": "615edd06d84ded9563ab3b47",
         "charter_count": 1,
         "charter_height": 1,
         "charter_plan_digest": "e16c9241c241b73af00d8683",
-        "charter_root": "581a0be0e9a7e1ade79628f3",
+        "charter_root": "cf24bf4312475d670483bcc4",
         "claims": {
           "capability_id": "capability.fixture-0",
           "clearing_index": 1,
@@ -126,16 +86,56 @@
         "used_skill_route_discovery": false,
         "valid": true
       }
+    },
+    "dddd5ce1c071a8829cd9a496": {
+      "certificate_hash": "dddd5ce1c071a8829cd9a496",
+      "charter_height": 2,
+      "payload": {
+        "bound_mandate_height": 2,
+        "bound_mandate_root": "ed49cdb949586f1b79c30ffd",
+        "certificate_hash": "dddd5ce1c071a8829cd9a496",
+        "charter_count": 2,
+        "charter_height": 2,
+        "charter_plan_digest": "83323930d8f8ab9249e9390f",
+        "charter_root": "dcaee0d07abc1c21bc2c9615",
+        "claims": {
+          "capability_id": "capability.fixture-1",
+          "clearing_index": 2,
+          "effect": "fixture-effect-1",
+          "outcome": "chartered",
+          "plane": "charter"
+        },
+        "deterministic": true,
+        "goal": "differential fixture (clearing 2)",
+        "issued_at": "2026-01-01T00:00:00.000000Z",
+        "kind": "charter_certificate",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "mandate_certificate_hash": "899adb686a2159f65201b364",
+        "mandate_hash": "9e3c6202f67adc6e87fb0e95",
+        "mandate_plan_digest": "33b2611548bd097b35f0c0b1",
+        "member_count": 2,
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "ok": true,
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "parent_charter_root": "cf24bf4312475d670483bcc4",
+        "post_mandate": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false,
+        "valid": true
+      }
     }
   },
   "charter_certificate": {
     "bound_mandate_height": 2,
     "bound_mandate_root": "ed49cdb949586f1b79c30ffd",
-    "certificate_hash": "104112909a5805903e4542fb",
+    "certificate_hash": "dddd5ce1c071a8829cd9a496",
     "charter_count": 2,
     "charter_height": 2,
     "charter_plan_digest": "83323930d8f8ab9249e9390f",
-    "charter_root": "6ae443bcde2c2f67ddef0611",
+    "charter_root": "dcaee0d07abc1c21bc2c9615",
     "claims": {
       "capability_id": "capability.fixture-1",
       "clearing_index": 2,
@@ -158,14 +158,14 @@
     ],
     "ok": true,
     "package_hash": "1d58907e64cc82808cc22f35",
-    "parent_charter_root": "581a0be0e9a7e1ade79628f3",
+    "parent_charter_root": "cf24bf4312475d670483bcc4",
     "post_mandate": true,
     "schema_version": 1,
     "used_skill_route_discovery": false,
     "valid": true
   },
   "charter_count": 2,
-  "charter_hash": "b0700e823cb2806e06e395e0",
+  "charter_hash": "c3e8fd63d12eb791e258da01",
   "charter_plan_digest": "83323930d8f8ab9249e9390f",
   "charters": {
     "bound_mandate_height": 2,
@@ -174,18 +174,18 @@
     "entries": [
       {
         "applied_at": "2026-01-01T00:00:00.000000Z",
-        "bound_action_root": "56aab995e4e0f093a4e94621",
+        "bound_action_root": "590094d796e3ce6ff6be7681",
         "bound_mandate_height": 1,
         "bound_mandate_root": "b2bbba844b723e96aa17f40f",
         "capability_id": "capability.fixture-0",
         "charter_certificate": {
           "bound_mandate_height": 1,
           "bound_mandate_root": "b2bbba844b723e96aa17f40f",
-          "certificate_hash": "4846871402701f37c43db71f",
+          "certificate_hash": "615edd06d84ded9563ab3b47",
           "charter_count": 1,
           "charter_height": 1,
           "charter_plan_digest": "e16c9241c241b73af00d8683",
-          "charter_root": "581a0be0e9a7e1ade79628f3",
+          "charter_root": "cf24bf4312475d670483bcc4",
           "claims": {
             "capability_id": "capability.fixture-0",
             "clearing_index": 1,
@@ -216,7 +216,7 @@
         },
         "charter_height": 1,
         "charter_plan_digest": "e16c9241c241b73af00d8683",
-        "charter_root": "581a0be0e9a7e1ade79628f3",
+        "charter_root": "cf24bf4312475d670483bcc4",
         "claims": {
           "clearing_index": 1,
           "plane": "charter"
@@ -245,18 +245,18 @@
       },
       {
         "applied_at": "2026-01-01T00:00:00.000000Z",
-        "bound_action_root": "bf0a9567032309b7baa0f4bd",
+        "bound_action_root": "4032c63c240dc8abd28b3f53",
         "bound_mandate_height": 2,
         "bound_mandate_root": "ed49cdb949586f1b79c30ffd",
         "capability_id": "capability.fixture-1",
         "charter_certificate": {
           "bound_mandate_height": 2,
           "bound_mandate_root": "ed49cdb949586f1b79c30ffd",
-          "certificate_hash": "104112909a5805903e4542fb",
+          "certificate_hash": "dddd5ce1c071a8829cd9a496",
           "charter_count": 2,
           "charter_height": 2,
           "charter_plan_digest": "83323930d8f8ab9249e9390f",
-          "charter_root": "6ae443bcde2c2f67ddef0611",
+          "charter_root": "dcaee0d07abc1c21bc2c9615",
           "claims": {
             "capability_id": "capability.fixture-1",
             "clearing_index": 2,
@@ -279,7 +279,7 @@
           ],
           "ok": true,
           "package_hash": "1d58907e64cc82808cc22f35",
-          "parent_charter_root": "581a0be0e9a7e1ade79628f3",
+          "parent_charter_root": "cf24bf4312475d670483bcc4",
           "post_mandate": true,
           "schema_version": 1,
           "used_skill_route_discovery": false,
@@ -287,7 +287,7 @@
         },
         "charter_height": 2,
         "charter_plan_digest": "83323930d8f8ab9249e9390f",
-        "charter_root": "6ae443bcde2c2f67ddef0611",
+        "charter_root": "dcaee0d07abc1c21bc2c9615",
         "claims": {
           "clearing_index": 2,
           "plane": "charter"
@@ -308,7 +308,7 @@
         "outcome": "chartered",
         "package_hash": "1d58907e64cc82808cc22f35",
         "parent_charter_digest": "e16c9241c241b73af00d8683",
-        "parent_charter_root": "581a0be0e9a7e1ade79628f3",
+        "parent_charter_root": "cf24bf4312475d670483bcc4",
         "position_ratio_bps": 1100,
         "post_mandate": true,
         "schema_version": 1,
@@ -319,7 +319,7 @@
     "kind": "charter_log",
     "mandate_hash": "9e3c6202f67adc6e87fb0e95",
     "schema_version": 1,
-    "tip_charter_root": "6ae443bcde2c2f67ddef0611",
+    "tip_charter_root": "dcaee0d07abc1c21bc2c9615",
     "tip_height": 2,
     "updated_at": "2026-01-01T00:00:00.000000Z"
   },
@@ -369,34 +369,34 @@
   "mandates": {
     "entries": [
       {
-        "bound_action_root": "56aab995e4e0f093a4e94621",
-        "bound_settlement_root": "457c300785a22a8c4a06fdeb",
+        "bound_action_root": "590094d796e3ce6ff6be7681",
+        "bound_settlement_root": "fef7791b6811ef31f66ee87d",
         "capability_id": "capability.fixture-0",
         "effect": "fixture-effect-0",
         "mandate_height": 1,
         "mandate_plan_digest": "c389a2ca7f8b13a9d66d39a7",
         "mandate_root": "b2bbba844b723e96aa17f40f",
-        "receipt_digest": "f39f0abf1b8b3bf488787ca4"
+        "receipt_digest": "bb1fa839b9a6556eeba5f3ab"
       },
       {
-        "bound_action_root": "bf0a9567032309b7baa0f4bd",
-        "bound_settlement_root": "413120b165430c5400cc4bd3",
+        "bound_action_root": "4032c63c240dc8abd28b3f53",
+        "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
         "capability_id": "capability.fixture-1",
         "effect": "fixture-effect-1",
         "mandate_height": 2,
         "mandate_plan_digest": "33b2611548bd097b35f0c0b1",
         "mandate_root": "ed49cdb949586f1b79c30ffd",
-        "receipt_digest": "fea5396a7f4325c408b1b65b"
+        "receipt_digest": "27d82060920e8da35044a1a6"
       },
       {
-        "bound_action_root": "500919b59d84baef88dbb44d",
-        "bound_settlement_root": "8722fbef37a158752d45c782",
+        "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+        "bound_settlement_root": "d19f7810f65ac311809fcec1",
         "capability_id": "capability.fixture-2",
         "effect": "fixture-effect-2",
         "mandate_height": 3,
         "mandate_plan_digest": "14e20d6de416741df49c4dfa",
         "mandate_root": "29c1b2c51dcdcae733865b38",
-        "receipt_digest": "774ad7ab1a3d41b114b5f4a3"
+        "receipt_digest": "ca97c169f6adea9f80cd3a00"
       }
     ],
     "entry_count": 3
@@ -423,7 +423,7 @@
   "settlements": {},
   "state_count": null,
   "tip_action_root": "",
-  "tip_charter_root": "6ae443bcde2c2f67ddef0611",
+  "tip_charter_root": "dcaee0d07abc1c21bc2c9615",
   "tip_height": 2,
   "tip_mandate_root": "29c1b2c51dcdcae733865b38",
   "tip_settlement_root": "",

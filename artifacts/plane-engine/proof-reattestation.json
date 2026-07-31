@@ -13,12 +13,12 @@
   "byzantine_count": null,
   "certificate_count": 3,
   "certificates": {
-    "368876d69993d38e8d066b99": {
-      "certificate_hash": "368876d69993d38e8d066b99",
+    "126d373b5d2626019ad8e855": {
+      "certificate_hash": "126d373b5d2626019ad8e855",
       "payload": {
         "bound_recertification_height": 1,
         "bound_recertification_root": "70aceb09728d05ae09a88aea",
-        "certificate_hash": "368876d69993d38e8d066b99",
+        "certificate_hash": "126d373b5d2626019ad8e855",
         "claims": {
           "capability_id": "capability.fixture-0",
           "clearing_index": 1,
@@ -43,7 +43,7 @@
         "reattestation_count": 1,
         "reattestation_height": 1,
         "reattestation_plan_digest": "436487e204a14a3fd980c7ba",
-        "reattestation_root": "1ffaec134fd9426316dde165",
+        "reattestation_root": "2710bd34ca91f491f56c8ba8",
         "recertification_certificate_hash": "b953e00bfef244314f848b54",
         "recertification_hash": "c0e792d1cb1bc0d1d476f479",
         "recertification_plan_digest": "348c7ee20e4c162f94717f4e",
@@ -52,46 +52,6 @@
         "valid": true
       },
       "reattestation_height": 1
-    },
-    "6997a8b7d63d0024121a5f1a": {
-      "certificate_hash": "6997a8b7d63d0024121a5f1a",
-      "payload": {
-        "bound_recertification_height": 2,
-        "bound_recertification_root": "cbd7151cef0bd8108097750d",
-        "certificate_hash": "6997a8b7d63d0024121a5f1a",
-        "claims": {
-          "capability_id": "capability.fixture-1",
-          "clearing_index": 2,
-          "effect": "fixture-effect-1",
-          "outcome": "reattested",
-          "plane": "reattestation"
-        },
-        "deterministic": true,
-        "goal": "differential fixture (clearing 2)",
-        "issued_at": "2026-01-01T00:00:00.000000Z",
-        "kind": "reattestation_certificate",
-        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
-        "member_count": 2,
-        "member_ids": [
-          "capability.fixture-0",
-          "capability.fixture-1"
-        ],
-        "ok": true,
-        "package_hash": "1d58907e64cc82808cc22f35",
-        "parent_reattestation_root": "1ffaec134fd9426316dde165",
-        "post_recertification": true,
-        "reattestation_count": 2,
-        "reattestation_height": 2,
-        "reattestation_plan_digest": "72ab89fd17b1123c982d5639",
-        "reattestation_root": "e0b08e03e2f535c2ac965235",
-        "recertification_certificate_hash": "b953e00bfef244314f848b54",
-        "recertification_hash": "c0e792d1cb1bc0d1d476f479",
-        "recertification_plan_digest": "0edca974b9b64e8ac7f63cb0",
-        "schema_version": 1,
-        "used_skill_route_discovery": false,
-        "valid": true
-      },
-      "reattestation_height": 2
     },
     "b953e00bfef244314f848b54": {
       "certificate_hash": "b953e00bfef244314f848b54",
@@ -126,6 +86,46 @@
         "used_skill_route_discovery": false,
         "valid": true
       }
+    },
+    "f89c0e811267004aa5f9f5ad": {
+      "certificate_hash": "f89c0e811267004aa5f9f5ad",
+      "payload": {
+        "bound_recertification_height": 2,
+        "bound_recertification_root": "cbd7151cef0bd8108097750d",
+        "certificate_hash": "f89c0e811267004aa5f9f5ad",
+        "claims": {
+          "capability_id": "capability.fixture-1",
+          "clearing_index": 2,
+          "effect": "fixture-effect-1",
+          "outcome": "reattested",
+          "plane": "reattestation"
+        },
+        "deterministic": true,
+        "goal": "differential fixture (clearing 2)",
+        "issued_at": "2026-01-01T00:00:00.000000Z",
+        "kind": "reattestation_certificate",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_count": 2,
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "ok": true,
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "parent_reattestation_root": "2710bd34ca91f491f56c8ba8",
+        "post_recertification": true,
+        "reattestation_count": 2,
+        "reattestation_height": 2,
+        "reattestation_plan_digest": "72ab89fd17b1123c982d5639",
+        "reattestation_root": "da80e69dddcba2ad42f57f68",
+        "recertification_certificate_hash": "b953e00bfef244314f848b54",
+        "recertification_hash": "c0e792d1cb1bc0d1d476f479",
+        "recertification_plan_digest": "0edca974b9b64e8ac7f63cb0",
+        "schema_version": 1,
+        "used_skill_route_discovery": false,
+        "valid": true
+      },
+      "reattestation_height": 2
     }
   },
   "deterministic": true,
@@ -156,7 +156,7 @@
   "reattestation_certificate": {
     "bound_recertification_height": 2,
     "bound_recertification_root": "cbd7151cef0bd8108097750d",
-    "certificate_hash": "6997a8b7d63d0024121a5f1a",
+    "certificate_hash": "f89c0e811267004aa5f9f5ad",
     "claims": {
       "capability_id": "capability.fixture-1",
       "clearing_index": 2,
@@ -176,12 +176,12 @@
     ],
     "ok": true,
     "package_hash": "1d58907e64cc82808cc22f35",
-    "parent_reattestation_root": "1ffaec134fd9426316dde165",
+    "parent_reattestation_root": "2710bd34ca91f491f56c8ba8",
     "post_recertification": true,
     "reattestation_count": 2,
     "reattestation_height": 2,
     "reattestation_plan_digest": "72ab89fd17b1123c982d5639",
-    "reattestation_root": "e0b08e03e2f535c2ac965235",
+    "reattestation_root": "da80e69dddcba2ad42f57f68",
     "recertification_certificate_hash": "b953e00bfef244314f848b54",
     "recertification_hash": "c0e792d1cb1bc0d1d476f479",
     "recertification_plan_digest": "0edca974b9b64e8ac7f63cb0",
@@ -190,7 +190,7 @@
     "valid": true
   },
   "reattestation_count": 2,
-  "reattestation_hash": "5b7640d711480c0979d2e206",
+  "reattestation_hash": "d8c9da55ac5d0393106a1b73",
   "reattestation_plan_digest": "72ab89fd17b1123c982d5639",
   "reattestations": {
     "bound_recertification_height": 2,
@@ -198,7 +198,7 @@
     "entries": [
       {
         "applied_at": "2026-01-01T00:00:00.000000Z",
-        "bound_action_root": "56aab995e4e0f093a4e94621",
+        "bound_action_root": "590094d796e3ce6ff6be7681",
         "bound_recertification_height": 1,
         "bound_recertification_root": "70aceb09728d05ae09a88aea",
         "capability_id": "capability.fixture-0",
@@ -225,7 +225,7 @@
         "reattestation_certificate": {
           "bound_recertification_height": 1,
           "bound_recertification_root": "70aceb09728d05ae09a88aea",
-          "certificate_hash": "368876d69993d38e8d066b99",
+          "certificate_hash": "126d373b5d2626019ad8e855",
           "claims": {
             "capability_id": "capability.fixture-0",
             "clearing_index": 1,
@@ -250,7 +250,7 @@
           "reattestation_count": 1,
           "reattestation_height": 1,
           "reattestation_plan_digest": "436487e204a14a3fd980c7ba",
-          "reattestation_root": "1ffaec134fd9426316dde165",
+          "reattestation_root": "2710bd34ca91f491f56c8ba8",
           "recertification_certificate_hash": "b953e00bfef244314f848b54",
           "recertification_hash": "c0e792d1cb1bc0d1d476f479",
           "recertification_plan_digest": "348c7ee20e4c162f94717f4e",
@@ -260,7 +260,7 @@
         },
         "reattestation_height": 1,
         "reattestation_plan_digest": "436487e204a14a3fd980c7ba",
-        "reattestation_root": "1ffaec134fd9426316dde165",
+        "reattestation_root": "2710bd34ca91f491f56c8ba8",
         "recertification_certificate_hash": "b953e00bfef244314f848b54",
         "recertification_hash": "c0e792d1cb1bc0d1d476f479",
         "recertification_plan_digest": "348c7ee20e4c162f94717f4e",
@@ -269,7 +269,7 @@
       },
       {
         "applied_at": "2026-01-01T00:00:00.000000Z",
-        "bound_action_root": "bf0a9567032309b7baa0f4bd",
+        "bound_action_root": "4032c63c240dc8abd28b3f53",
         "bound_recertification_height": 2,
         "bound_recertification_root": "cbd7151cef0bd8108097750d",
         "capability_id": "capability.fixture-1",
@@ -290,13 +290,13 @@
         "outcome": "reattested",
         "package_hash": "1d58907e64cc82808cc22f35",
         "parent_reattestation_digest": "436487e204a14a3fd980c7ba",
-        "parent_reattestation_root": "1ffaec134fd9426316dde165",
+        "parent_reattestation_root": "2710bd34ca91f491f56c8ba8",
         "position_ratio_bps": 1100,
         "post_recertification": true,
         "reattestation_certificate": {
           "bound_recertification_height": 2,
           "bound_recertification_root": "cbd7151cef0bd8108097750d",
-          "certificate_hash": "6997a8b7d63d0024121a5f1a",
+          "certificate_hash": "f89c0e811267004aa5f9f5ad",
           "claims": {
             "capability_id": "capability.fixture-1",
             "clearing_index": 2,
@@ -316,12 +316,12 @@
           ],
           "ok": true,
           "package_hash": "1d58907e64cc82808cc22f35",
-          "parent_reattestation_root": "1ffaec134fd9426316dde165",
+          "parent_reattestation_root": "2710bd34ca91f491f56c8ba8",
           "post_recertification": true,
           "reattestation_count": 2,
           "reattestation_height": 2,
           "reattestation_plan_digest": "72ab89fd17b1123c982d5639",
-          "reattestation_root": "e0b08e03e2f535c2ac965235",
+          "reattestation_root": "da80e69dddcba2ad42f57f68",
           "recertification_certificate_hash": "b953e00bfef244314f848b54",
           "recertification_hash": "c0e792d1cb1bc0d1d476f479",
           "recertification_plan_digest": "0edca974b9b64e8ac7f63cb0",
@@ -331,7 +331,7 @@
         },
         "reattestation_height": 2,
         "reattestation_plan_digest": "72ab89fd17b1123c982d5639",
-        "reattestation_root": "e0b08e03e2f535c2ac965235",
+        "reattestation_root": "da80e69dddcba2ad42f57f68",
         "recertification_certificate_hash": "b953e00bfef244314f848b54",
         "recertification_hash": "c0e792d1cb1bc0d1d476f479",
         "recertification_plan_digest": "0edca974b9b64e8ac7f63cb0",
@@ -345,7 +345,7 @@
     "recertification_hash": "c0e792d1cb1bc0d1d476f479",
     "schema_version": 1,
     "tip_height": 2,
-    "tip_reattestation_root": "e0b08e03e2f535c2ac965235",
+    "tip_reattestation_root": "da80e69dddcba2ad42f57f68",
     "updated_at": "2026-01-01T00:00:00.000000Z"
   },
   "recertification_certificate": {
@@ -384,31 +384,31 @@
   "recertifications": {
     "entries": [
       {
-        "bound_action_root": "56aab995e4e0f093a4e94621",
-        "bound_settlement_root": "457c300785a22a8c4a06fdeb",
+        "bound_action_root": "590094d796e3ce6ff6be7681",
+        "bound_settlement_root": "fef7791b6811ef31f66ee87d",
         "capability_id": "capability.fixture-0",
         "effect": "fixture-effect-0",
-        "receipt_digest": "f39f0abf1b8b3bf488787ca4",
+        "receipt_digest": "bb1fa839b9a6556eeba5f3ab",
         "recertification_height": 1,
         "recertification_plan_digest": "348c7ee20e4c162f94717f4e",
         "recertification_root": "70aceb09728d05ae09a88aea"
       },
       {
-        "bound_action_root": "bf0a9567032309b7baa0f4bd",
-        "bound_settlement_root": "413120b165430c5400cc4bd3",
+        "bound_action_root": "4032c63c240dc8abd28b3f53",
+        "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
         "capability_id": "capability.fixture-1",
         "effect": "fixture-effect-1",
-        "receipt_digest": "fea5396a7f4325c408b1b65b",
+        "receipt_digest": "27d82060920e8da35044a1a6",
         "recertification_height": 2,
         "recertification_plan_digest": "0edca974b9b64e8ac7f63cb0",
         "recertification_root": "cbd7151cef0bd8108097750d"
       },
       {
-        "bound_action_root": "500919b59d84baef88dbb44d",
-        "bound_settlement_root": "8722fbef37a158752d45c782",
+        "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+        "bound_settlement_root": "d19f7810f65ac311809fcec1",
         "capability_id": "capability.fixture-2",
         "effect": "fixture-effect-2",
-        "receipt_digest": "774ad7ab1a3d41b114b5f4a3",
+        "receipt_digest": "ca97c169f6adea9f80cd3a00",
         "recertification_height": 3,
         "recertification_plan_digest": "ee8bf291e985dfdd24bbfebf",
         "recertification_root": "8135e9688323ed82eee61034"
@@ -424,7 +424,7 @@
   "state_count": null,
   "tip_action_root": "",
   "tip_height": 2,
-  "tip_reattestation_root": "e0b08e03e2f535c2ac965235",
+  "tip_reattestation_root": "da80e69dddcba2ad42f57f68",
   "tip_recertification_root": "8135e9688323ed82eee61034",
   "tip_settlement_root": "",
   "used_skill_route_discovery": false

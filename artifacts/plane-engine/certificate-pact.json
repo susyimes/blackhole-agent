@@ -1,7 +1,7 @@
 {
   "bound_treaty_height": 2,
   "bound_treaty_root": "c23b0d60d0aac434c01af3f0",
-  "certificate_hash": "f03685be264a3a3827366227",
+  "certificate_hash": "a5f1100eabd9f2db1bfc617b",
   "claims": {
     "capability_id": "capability.fixture-1",
     "clearing_index": 2,
@@ -24,8 +24,8 @@
   "pact_count": 2,
   "pact_height": 2,
   "pact_plan_digest": "0e37d2c3bad29b5c22a52636",
-  "pact_root": "0bb160dbece6364f1b58b914",
-  "parent_pact_root": "d4c82da5378b5a6f7d11c52f",
+  "pact_root": "334c963790ad3c4c68888a61",
+  "parent_pact_root": "3ec02c23bb85f7dad88e5414",
   "post_treaty": true,
   "schema_version": 1,
   "treaty_certificate_hash": "f684778a0728cdd574917c2a",

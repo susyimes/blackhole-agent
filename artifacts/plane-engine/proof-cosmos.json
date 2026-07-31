@@ -13,13 +13,53 @@
   "byzantine_count": null,
   "certificate_count": 3,
   "certificates": {
-    "684f92bf12c4640ce7d71cba": {
-      "certificate_hash": "684f92bf12c4640ce7d71cba",
+    "027e72c555caa6b4bf1f33ff": {
+      "certificate_hash": "027e72c555caa6b4bf1f33ff",
+      "cosmos_height": 2,
+      "payload": {
+        "bound_realm_height": 2,
+        "bound_realm_root": "77c101087ec824584e97e4d1",
+        "certificate_hash": "027e72c555caa6b4bf1f33ff",
+        "claims": {
+          "capability_id": "capability.fixture-1",
+          "clearing_index": 2,
+          "effect": "fixture-effect-1",
+          "outcome": "cosmosed",
+          "plane": "cosmos"
+        },
+        "cosmos_count": 2,
+        "cosmos_height": 2,
+        "cosmos_plan_digest": "da7b40a00fff5a06c1db5c81",
+        "cosmos_root": "c4f9205fe9a9b5ce047f4739",
+        "deterministic": true,
+        "goal": "differential fixture (clearing 2)",
+        "issued_at": "2026-01-01T00:00:00.000000Z",
+        "kind": "cosmos_certificate",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_count": 2,
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "ok": true,
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "parent_cosmos_root": "3dcdd13ac9a897681d9db9e7",
+        "post_realm": true,
+        "realm_certificate_hash": "72221ff9a027a9664cb12415",
+        "realm_hash": "b3cca5d43aa92f0d5dab5403",
+        "realm_plan_digest": "c99727ce99dbf8cdf9f21d82",
+        "schema_version": 1,
+        "used_skill_route_discovery": false,
+        "valid": true
+      }
+    },
+    "02971003bb923568bbb75370": {
+      "certificate_hash": "02971003bb923568bbb75370",
       "cosmos_height": 1,
       "payload": {
         "bound_realm_height": 1,
         "bound_realm_root": "63133915b0ee83ea8db55ac7",
-        "certificate_hash": "684f92bf12c4640ce7d71cba",
+        "certificate_hash": "02971003bb923568bbb75370",
         "claims": {
           "capability_id": "capability.fixture-0",
           "clearing_index": 1,
@@ -30,7 +70,7 @@
         "cosmos_count": 1,
         "cosmos_height": 1,
         "cosmos_plan_digest": "2b60d59072b4f500c64b6390",
-        "cosmos_root": "5e09318edd12e3b8f9a570b7",
+        "cosmos_root": "3dcdd13ac9a897681d9db9e7",
         "deterministic": true,
         "goal": "differential fixture (clearing 1)",
         "issued_at": "2026-01-01T00:00:00.000000Z",
@@ -86,52 +126,12 @@
         "used_skill_route_discovery": false,
         "valid": true
       }
-    },
-    "f6fa342741335e130af957bd": {
-      "certificate_hash": "f6fa342741335e130af957bd",
-      "cosmos_height": 2,
-      "payload": {
-        "bound_realm_height": 2,
-        "bound_realm_root": "77c101087ec824584e97e4d1",
-        "certificate_hash": "f6fa342741335e130af957bd",
-        "claims": {
-          "capability_id": "capability.fixture-1",
-          "clearing_index": 2,
-          "effect": "fixture-effect-1",
-          "outcome": "cosmosed",
-          "plane": "cosmos"
-        },
-        "cosmos_count": 2,
-        "cosmos_height": 2,
-        "cosmos_plan_digest": "da7b40a00fff5a06c1db5c81",
-        "cosmos_root": "98b25aeec0b5b75a9f6363dd",
-        "deterministic": true,
-        "goal": "differential fixture (clearing 2)",
-        "issued_at": "2026-01-01T00:00:00.000000Z",
-        "kind": "cosmos_certificate",
-        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
-        "member_count": 2,
-        "member_ids": [
-          "capability.fixture-0",
-          "capability.fixture-1"
-        ],
-        "ok": true,
-        "package_hash": "1d58907e64cc82808cc22f35",
-        "parent_cosmos_root": "5e09318edd12e3b8f9a570b7",
-        "post_realm": true,
-        "realm_certificate_hash": "72221ff9a027a9664cb12415",
-        "realm_hash": "b3cca5d43aa92f0d5dab5403",
-        "realm_plan_digest": "c99727ce99dbf8cdf9f21d82",
-        "schema_version": 1,
-        "used_skill_route_discovery": false,
-        "valid": true
-      }
     }
   },
   "cosmos_certificate": {
     "bound_realm_height": 2,
     "bound_realm_root": "77c101087ec824584e97e4d1",
-    "certificate_hash": "f6fa342741335e130af957bd",
+    "certificate_hash": "027e72c555caa6b4bf1f33ff",
     "claims": {
       "capability_id": "capability.fixture-1",
       "clearing_index": 2,
@@ -142,7 +142,7 @@
     "cosmos_count": 2,
     "cosmos_height": 2,
     "cosmos_plan_digest": "da7b40a00fff5a06c1db5c81",
-    "cosmos_root": "98b25aeec0b5b75a9f6363dd",
+    "cosmos_root": "c4f9205fe9a9b5ce047f4739",
     "deterministic": true,
     "goal": "differential fixture (clearing 2)",
     "issued_at": "2026-01-01T00:00:00.000000Z",
@@ -155,7 +155,7 @@
     ],
     "ok": true,
     "package_hash": "1d58907e64cc82808cc22f35",
-    "parent_cosmos_root": "5e09318edd12e3b8f9a570b7",
+    "parent_cosmos_root": "3dcdd13ac9a897681d9db9e7",
     "post_realm": true,
     "realm_certificate_hash": "72221ff9a027a9664cb12415",
     "realm_hash": "b3cca5d43aa92f0d5dab5403",
@@ -165,7 +165,7 @@
     "valid": true
   },
   "cosmos_count": 2,
-  "cosmos_hash": "a7a50404ce82b2708f038be4",
+  "cosmos_hash": "11ccde503552d9c87fa2e576",
   "cosmos_plan_digest": "da7b40a00fff5a06c1db5c81",
   "cosmoses": {
     "bound_realm_height": 2,
@@ -174,7 +174,7 @@
     "entries": [
       {
         "applied_at": "2026-01-01T00:00:00.000000Z",
-        "bound_action_root": "56aab995e4e0f093a4e94621",
+        "bound_action_root": "590094d796e3ce6ff6be7681",
         "bound_realm_height": 1,
         "bound_realm_root": "63133915b0ee83ea8db55ac7",
         "capability_id": "capability.fixture-0",
@@ -185,7 +185,7 @@
         "cosmos_certificate": {
           "bound_realm_height": 1,
           "bound_realm_root": "63133915b0ee83ea8db55ac7",
-          "certificate_hash": "684f92bf12c4640ce7d71cba",
+          "certificate_hash": "02971003bb923568bbb75370",
           "claims": {
             "capability_id": "capability.fixture-0",
             "clearing_index": 1,
@@ -196,7 +196,7 @@
           "cosmos_count": 1,
           "cosmos_height": 1,
           "cosmos_plan_digest": "2b60d59072b4f500c64b6390",
-          "cosmos_root": "5e09318edd12e3b8f9a570b7",
+          "cosmos_root": "3dcdd13ac9a897681d9db9e7",
           "deterministic": true,
           "goal": "differential fixture (clearing 1)",
           "issued_at": "2026-01-01T00:00:00.000000Z",
@@ -220,7 +220,7 @@
         },
         "cosmos_height": 1,
         "cosmos_plan_digest": "2b60d59072b4f500c64b6390",
-        "cosmos_root": "5e09318edd12e3b8f9a570b7",
+        "cosmos_root": "3dcdd13ac9a897681d9db9e7",
         "deterministic": true,
         "effect": "fixture-effect-0",
         "goal": "differential fixture (clearing 1)",
@@ -245,7 +245,7 @@
       },
       {
         "applied_at": "2026-01-01T00:00:00.000000Z",
-        "bound_action_root": "bf0a9567032309b7baa0f4bd",
+        "bound_action_root": "4032c63c240dc8abd28b3f53",
         "bound_realm_height": 2,
         "bound_realm_root": "77c101087ec824584e97e4d1",
         "capability_id": "capability.fixture-1",
@@ -256,7 +256,7 @@
         "cosmos_certificate": {
           "bound_realm_height": 2,
           "bound_realm_root": "77c101087ec824584e97e4d1",
-          "certificate_hash": "f6fa342741335e130af957bd",
+          "certificate_hash": "027e72c555caa6b4bf1f33ff",
           "claims": {
             "capability_id": "capability.fixture-1",
             "clearing_index": 2,
@@ -267,7 +267,7 @@
           "cosmos_count": 2,
           "cosmos_height": 2,
           "cosmos_plan_digest": "da7b40a00fff5a06c1db5c81",
-          "cosmos_root": "98b25aeec0b5b75a9f6363dd",
+          "cosmos_root": "c4f9205fe9a9b5ce047f4739",
           "deterministic": true,
           "goal": "differential fixture (clearing 2)",
           "issued_at": "2026-01-01T00:00:00.000000Z",
@@ -280,7 +280,7 @@
           ],
           "ok": true,
           "package_hash": "1d58907e64cc82808cc22f35",
-          "parent_cosmos_root": "5e09318edd12e3b8f9a570b7",
+          "parent_cosmos_root": "3dcdd13ac9a897681d9db9e7",
           "post_realm": true,
           "realm_certificate_hash": "72221ff9a027a9664cb12415",
           "realm_hash": "b3cca5d43aa92f0d5dab5403",
@@ -291,7 +291,7 @@
         },
         "cosmos_height": 2,
         "cosmos_plan_digest": "da7b40a00fff5a06c1db5c81",
-        "cosmos_root": "98b25aeec0b5b75a9f6363dd",
+        "cosmos_root": "c4f9205fe9a9b5ce047f4739",
         "deterministic": true,
         "effect": "fixture-effect-1",
         "goal": "differential fixture (clearing 2)",
@@ -305,7 +305,7 @@
         "outcome": "cosmosed",
         "package_hash": "1d58907e64cc82808cc22f35",
         "parent_cosmos_digest": "2b60d59072b4f500c64b6390",
-        "parent_cosmos_root": "5e09318edd12e3b8f9a570b7",
+        "parent_cosmos_root": "3dcdd13ac9a897681d9db9e7",
         "position_ratio_bps": 1100,
         "post_realm": true,
         "realm_certificate_hash": "72221ff9a027a9664cb12415",
@@ -319,7 +319,7 @@
     "kind": "cosmos_log",
     "realm_hash": "b3cca5d43aa92f0d5dab5403",
     "schema_version": 1,
-    "tip_cosmos_root": "98b25aeec0b5b75a9f6363dd",
+    "tip_cosmos_root": "c4f9205fe9a9b5ce047f4739",
     "tip_height": 2,
     "updated_at": "2026-01-01T00:00:00.000000Z"
   },
@@ -384,34 +384,34 @@
   "realms": {
     "entries": [
       {
-        "bound_action_root": "56aab995e4e0f093a4e94621",
-        "bound_settlement_root": "457c300785a22a8c4a06fdeb",
+        "bound_action_root": "590094d796e3ce6ff6be7681",
+        "bound_settlement_root": "fef7791b6811ef31f66ee87d",
         "capability_id": "capability.fixture-0",
         "effect": "fixture-effect-0",
         "realm_height": 1,
         "realm_plan_digest": "87929cad110d64b84e8b3595",
         "realm_root": "63133915b0ee83ea8db55ac7",
-        "receipt_digest": "f39f0abf1b8b3bf488787ca4"
+        "receipt_digest": "bb1fa839b9a6556eeba5f3ab"
       },
       {
-        "bound_action_root": "bf0a9567032309b7baa0f4bd",
-        "bound_settlement_root": "413120b165430c5400cc4bd3",
+        "bound_action_root": "4032c63c240dc8abd28b3f53",
+        "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
         "capability_id": "capability.fixture-1",
         "effect": "fixture-effect-1",
         "realm_height": 2,
         "realm_plan_digest": "c99727ce99dbf8cdf9f21d82",
         "realm_root": "77c101087ec824584e97e4d1",
-        "receipt_digest": "fea5396a7f4325c408b1b65b"
+        "receipt_digest": "27d82060920e8da35044a1a6"
       },
       {
-        "bound_action_root": "500919b59d84baef88dbb44d",
-        "bound_settlement_root": "8722fbef37a158752d45c782",
+        "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+        "bound_settlement_root": "d19f7810f65ac311809fcec1",
         "capability_id": "capability.fixture-2",
         "effect": "fixture-effect-2",
         "realm_height": 3,
         "realm_plan_digest": "4d81c2a70f2f1ddf907daa4f",
         "realm_root": "211b9b6b5650817d7e3d0dc2",
-        "receipt_digest": "774ad7ab1a3d41b114b5f4a3"
+        "receipt_digest": "ca97c169f6adea9f80cd3a00"
       }
     ],
     "entry_count": 3
@@ -423,7 +423,7 @@
   "settlements": {},
   "state_count": null,
   "tip_action_root": "",
-  "tip_cosmos_root": "98b25aeec0b5b75a9f6363dd",
+  "tip_cosmos_root": "c4f9205fe9a9b5ce047f4739",
   "tip_height": 2,
   "tip_realm_root": "211b9b6b5650817d7e3d0dc2",
   "tip_settlement_root": "",

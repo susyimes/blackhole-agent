@@ -1,7 +1,7 @@
 {
   "bound_standing_height": 2,
   "bound_standing_root": "cd8ab52870c829a9cab00c7f",
-  "certificate_hash": "77749e6d9733aa246f2b99cb",
+  "certificate_hash": "9ddd94fea3a5f52e728060e5",
   "claims": {
     "capability_id": "capability.fixture-1",
     "clearing_index": 2,
@@ -21,12 +21,12 @@
   ],
   "ok": true,
   "package_hash": "1d58907e64cc82808cc22f35",
-  "parent_privilege_root": "ff8ad9162357eea783b3c75c",
+  "parent_privilege_root": "f1ce607a6057d6179ab760e9",
   "post_standing": true,
   "privilege_count": 2,
   "privilege_height": 2,
   "privilege_plan_digest": "b9d00f423525cb2b06743456",
-  "privilege_root": "4850b0f045b3ef4165f48823",
+  "privilege_root": "7585b48c11cf70b7c78b0c4a",
   "schema_version": 1,
   "standing_certificate_hash": "18ff2834715776c46985862b",
   "standing_hash": "7ce9baa2b3d37d544aa4c44d",

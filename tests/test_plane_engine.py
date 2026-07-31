@@ -13,7 +13,7 @@ def test_differential_proof_matches_legacy_planes() -> None:
     result = pe.differential_proof()
     assert result["ok"] is True
     assert result["used_skill_route_discovery"] is False
-    assert result["layer_count"] == len(pe.LAYERS) == 31
+    assert result["layer_count"] == len(pe.LAYERS) == 42
     expected_checks = {
         "spec_derivation_equal",
         "transitions_equal",
@@ -27,6 +27,20 @@ def test_differential_proof_matches_legacy_planes() -> None:
         failed = [c["name"] for c in layer_result["checks"] if not c["ok"]]
         assert failed == [], layer_result["layer"]
         assert {c["name"] for c in layer_result["checks"]} == expected_checks
+
+
+def test_full_stack_builtin_covers_all_42_layers() -> None:
+    result = pe.builtin_plane_engine_full_stack()
+    assert result["ok"] is True
+    assert result["layer_count"] == 42
+    assert "settlement" in result["layers"]
+    assert "cosmos" in result["layers"]
+
+
+def test_settlement_dialect_matches_legacy() -> None:
+    result = pe.differential_proof(layer_names=["settlement", "clearing", "margin"])
+    assert result["ok"] is True
+    assert result["layer_count"] == 3
 
 
 def test_differential_proof_layer_subset() -> None:

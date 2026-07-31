@@ -13,52 +13,12 @@
   "byzantine_count": null,
   "certificate_count": 3,
   "certificates": {
-    "1bb5a2928879dd5dff98f811": {
-      "certificate_hash": "1bb5a2928879dd5dff98f811",
-      "payload": {
-        "bound_reattestation_height": 2,
-        "bound_reattestation_root": "42a8e39c6d598e4234d8bb92",
-        "certificate_hash": "1bb5a2928879dd5dff98f811",
-        "claims": {
-          "capability_id": "capability.fixture-1",
-          "clearing_index": 2,
-          "effect": "fixture-effect-1",
-          "outcome": "revalidated",
-          "plane": "revalidation"
-        },
-        "deterministic": true,
-        "goal": "differential fixture (clearing 2)",
-        "issued_at": "2026-01-01T00:00:00.000000Z",
-        "kind": "revalidation_certificate",
-        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
-        "member_count": 2,
-        "member_ids": [
-          "capability.fixture-0",
-          "capability.fixture-1"
-        ],
-        "ok": true,
-        "package_hash": "1d58907e64cc82808cc22f35",
-        "parent_revalidation_root": "a48cb3cf872cdaad657e0204",
-        "post_reattestation": true,
-        "reattestation_certificate_hash": "7375e9f03a88604f6a2336fd",
-        "reattestation_hash": "ba7062038001b43f5e982af4",
-        "reattestation_plan_digest": "2bfb7a87c8f7d765a4bd1ce3",
-        "revalidation_count": 2,
-        "revalidation_height": 2,
-        "revalidation_plan_digest": "a7e3da5959d65d29d11ee477",
-        "revalidation_root": "3cbc62edc2cc7e180d781ec8",
-        "schema_version": 1,
-        "used_skill_route_discovery": false,
-        "valid": true
-      },
-      "revalidation_height": 2
-    },
-    "23d28081bd30d39daf266fc7": {
-      "certificate_hash": "23d28081bd30d39daf266fc7",
+    "2a6f691e86ed917d0a11cffd": {
+      "certificate_hash": "2a6f691e86ed917d0a11cffd",
       "payload": {
         "bound_reattestation_height": 1,
         "bound_reattestation_root": "83855c97ab50a8837f3be856",
-        "certificate_hash": "23d28081bd30d39daf266fc7",
+        "certificate_hash": "2a6f691e86ed917d0a11cffd",
         "claims": {
           "capability_id": "capability.fixture-0",
           "clearing_index": 1,
@@ -86,7 +46,7 @@
         "revalidation_count": 1,
         "revalidation_height": 1,
         "revalidation_plan_digest": "cf34478a38f1d134076a7bfa",
-        "revalidation_root": "a48cb3cf872cdaad657e0204",
+        "revalidation_root": "cf72d26476f1e5d935b20bdc",
         "schema_version": 1,
         "used_skill_route_discovery": false,
         "valid": true
@@ -126,6 +86,46 @@
         "used_skill_route_discovery": false,
         "valid": true
       }
+    },
+    "8bbd2b824ebfbb343ae60777": {
+      "certificate_hash": "8bbd2b824ebfbb343ae60777",
+      "payload": {
+        "bound_reattestation_height": 2,
+        "bound_reattestation_root": "42a8e39c6d598e4234d8bb92",
+        "certificate_hash": "8bbd2b824ebfbb343ae60777",
+        "claims": {
+          "capability_id": "capability.fixture-1",
+          "clearing_index": 2,
+          "effect": "fixture-effect-1",
+          "outcome": "revalidated",
+          "plane": "revalidation"
+        },
+        "deterministic": true,
+        "goal": "differential fixture (clearing 2)",
+        "issued_at": "2026-01-01T00:00:00.000000Z",
+        "kind": "revalidation_certificate",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_count": 2,
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "ok": true,
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "parent_revalidation_root": "cf72d26476f1e5d935b20bdc",
+        "post_reattestation": true,
+        "reattestation_certificate_hash": "7375e9f03a88604f6a2336fd",
+        "reattestation_hash": "ba7062038001b43f5e982af4",
+        "reattestation_plan_digest": "2bfb7a87c8f7d765a4bd1ce3",
+        "revalidation_count": 2,
+        "revalidation_height": 2,
+        "revalidation_plan_digest": "a7e3da5959d65d29d11ee477",
+        "revalidation_root": "9be629f8747009bd33f825a1",
+        "schema_version": 1,
+        "used_skill_route_discovery": false,
+        "valid": true
+      },
+      "revalidation_height": 2
     }
   },
   "deterministic": true,
@@ -189,34 +189,34 @@
   "reattestations": {
     "entries": [
       {
-        "bound_action_root": "56aab995e4e0f093a4e94621",
-        "bound_settlement_root": "457c300785a22a8c4a06fdeb",
+        "bound_action_root": "590094d796e3ce6ff6be7681",
+        "bound_settlement_root": "fef7791b6811ef31f66ee87d",
         "capability_id": "capability.fixture-0",
         "effect": "fixture-effect-0",
         "reattestation_height": 1,
         "reattestation_plan_digest": "cd2bf2881be129883b86fa3c",
         "reattestation_root": "83855c97ab50a8837f3be856",
-        "receipt_digest": "f39f0abf1b8b3bf488787ca4"
+        "receipt_digest": "bb1fa839b9a6556eeba5f3ab"
       },
       {
-        "bound_action_root": "bf0a9567032309b7baa0f4bd",
-        "bound_settlement_root": "413120b165430c5400cc4bd3",
+        "bound_action_root": "4032c63c240dc8abd28b3f53",
+        "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
         "capability_id": "capability.fixture-1",
         "effect": "fixture-effect-1",
         "reattestation_height": 2,
         "reattestation_plan_digest": "2bfb7a87c8f7d765a4bd1ce3",
         "reattestation_root": "42a8e39c6d598e4234d8bb92",
-        "receipt_digest": "fea5396a7f4325c408b1b65b"
+        "receipt_digest": "27d82060920e8da35044a1a6"
       },
       {
-        "bound_action_root": "500919b59d84baef88dbb44d",
-        "bound_settlement_root": "8722fbef37a158752d45c782",
+        "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+        "bound_settlement_root": "d19f7810f65ac311809fcec1",
         "capability_id": "capability.fixture-2",
         "effect": "fixture-effect-2",
         "reattestation_height": 3,
         "reattestation_plan_digest": "51d3f835c7f197bb9963f1a6",
         "reattestation_root": "08b873eb21b5f0fc5b7a61b3",
-        "receipt_digest": "774ad7ab1a3d41b114b5f4a3"
+        "receipt_digest": "ca97c169f6adea9f80cd3a00"
       }
     ],
     "entry_count": 3
@@ -224,7 +224,7 @@
   "revalidation_certificate": {
     "bound_reattestation_height": 2,
     "bound_reattestation_root": "42a8e39c6d598e4234d8bb92",
-    "certificate_hash": "1bb5a2928879dd5dff98f811",
+    "certificate_hash": "8bbd2b824ebfbb343ae60777",
     "claims": {
       "capability_id": "capability.fixture-1",
       "clearing_index": 2,
@@ -244,7 +244,7 @@
     ],
     "ok": true,
     "package_hash": "1d58907e64cc82808cc22f35",
-    "parent_revalidation_root": "a48cb3cf872cdaad657e0204",
+    "parent_revalidation_root": "cf72d26476f1e5d935b20bdc",
     "post_reattestation": true,
     "reattestation_certificate_hash": "7375e9f03a88604f6a2336fd",
     "reattestation_hash": "ba7062038001b43f5e982af4",
@@ -252,13 +252,13 @@
     "revalidation_count": 2,
     "revalidation_height": 2,
     "revalidation_plan_digest": "a7e3da5959d65d29d11ee477",
-    "revalidation_root": "3cbc62edc2cc7e180d781ec8",
+    "revalidation_root": "9be629f8747009bd33f825a1",
     "schema_version": 1,
     "used_skill_route_discovery": false,
     "valid": true
   },
   "revalidation_count": 2,
-  "revalidation_hash": "f0a7b2651b7b63191ed6fb6a",
+  "revalidation_hash": "d5917477864125544ee4a409",
   "revalidation_plan_digest": "a7e3da5959d65d29d11ee477",
   "revalidations": {
     "bound_reattestation_height": 2,
@@ -266,7 +266,7 @@
     "entries": [
       {
         "applied_at": "2026-01-01T00:00:00.000000Z",
-        "bound_action_root": "56aab995e4e0f093a4e94621",
+        "bound_action_root": "590094d796e3ce6ff6be7681",
         "bound_reattestation_height": 1,
         "bound_reattestation_root": "83855c97ab50a8837f3be856",
         "capability_id": "capability.fixture-0",
@@ -296,7 +296,7 @@
         "revalidation_certificate": {
           "bound_reattestation_height": 1,
           "bound_reattestation_root": "83855c97ab50a8837f3be856",
-          "certificate_hash": "23d28081bd30d39daf266fc7",
+          "certificate_hash": "2a6f691e86ed917d0a11cffd",
           "claims": {
             "capability_id": "capability.fixture-0",
             "clearing_index": 1,
@@ -324,20 +324,20 @@
           "revalidation_count": 1,
           "revalidation_height": 1,
           "revalidation_plan_digest": "cf34478a38f1d134076a7bfa",
-          "revalidation_root": "a48cb3cf872cdaad657e0204",
+          "revalidation_root": "cf72d26476f1e5d935b20bdc",
           "schema_version": 1,
           "used_skill_route_discovery": false,
           "valid": true
         },
         "revalidation_height": 1,
         "revalidation_plan_digest": "cf34478a38f1d134076a7bfa",
-        "revalidation_root": "a48cb3cf872cdaad657e0204",
+        "revalidation_root": "cf72d26476f1e5d935b20bdc",
         "schema_version": 1,
         "used_skill_route_discovery": false
       },
       {
         "applied_at": "2026-01-01T00:00:00.000000Z",
-        "bound_action_root": "bf0a9567032309b7baa0f4bd",
+        "bound_action_root": "4032c63c240dc8abd28b3f53",
         "bound_reattestation_height": 2,
         "bound_reattestation_root": "42a8e39c6d598e4234d8bb92",
         "capability_id": "capability.fixture-1",
@@ -358,7 +358,7 @@
         "outcome": "revalidated",
         "package_hash": "1d58907e64cc82808cc22f35",
         "parent_revalidation_digest": "cf34478a38f1d134076a7bfa",
-        "parent_revalidation_root": "a48cb3cf872cdaad657e0204",
+        "parent_revalidation_root": "cf72d26476f1e5d935b20bdc",
         "position_ratio_bps": 1100,
         "post_reattestation": true,
         "reattestation_certificate_hash": "7375e9f03a88604f6a2336fd",
@@ -367,7 +367,7 @@
         "revalidation_certificate": {
           "bound_reattestation_height": 2,
           "bound_reattestation_root": "42a8e39c6d598e4234d8bb92",
-          "certificate_hash": "1bb5a2928879dd5dff98f811",
+          "certificate_hash": "8bbd2b824ebfbb343ae60777",
           "claims": {
             "capability_id": "capability.fixture-1",
             "clearing_index": 2,
@@ -387,7 +387,7 @@
           ],
           "ok": true,
           "package_hash": "1d58907e64cc82808cc22f35",
-          "parent_revalidation_root": "a48cb3cf872cdaad657e0204",
+          "parent_revalidation_root": "cf72d26476f1e5d935b20bdc",
           "post_reattestation": true,
           "reattestation_certificate_hash": "7375e9f03a88604f6a2336fd",
           "reattestation_hash": "ba7062038001b43f5e982af4",
@@ -395,14 +395,14 @@
           "revalidation_count": 2,
           "revalidation_height": 2,
           "revalidation_plan_digest": "a7e3da5959d65d29d11ee477",
-          "revalidation_root": "3cbc62edc2cc7e180d781ec8",
+          "revalidation_root": "9be629f8747009bd33f825a1",
           "schema_version": 1,
           "used_skill_route_discovery": false,
           "valid": true
         },
         "revalidation_height": 2,
         "revalidation_plan_digest": "a7e3da5959d65d29d11ee477",
-        "revalidation_root": "3cbc62edc2cc7e180d781ec8",
+        "revalidation_root": "9be629f8747009bd33f825a1",
         "schema_version": 1,
         "used_skill_route_discovery": false
       }
@@ -413,7 +413,7 @@
     "revalidation_plan_digest": "a7e3da5959d65d29d11ee477",
     "schema_version": 1,
     "tip_height": 2,
-    "tip_revalidation_root": "3cbc62edc2cc7e180d781ec8",
+    "tip_revalidation_root": "9be629f8747009bd33f825a1",
     "updated_at": "2026-01-01T00:00:00.000000Z"
   },
   "schema_version": 1,
@@ -425,7 +425,7 @@
   "tip_action_root": "",
   "tip_height": 2,
   "tip_reattestation_root": "08b873eb21b5f0fc5b7a61b3",
-  "tip_revalidation_root": "3cbc62edc2cc7e180d781ec8",
+  "tip_revalidation_root": "9be629f8747009bd33f825a1",
   "tip_settlement_root": "",
   "used_skill_route_discovery": false
 }

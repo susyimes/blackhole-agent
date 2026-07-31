@@ -13,6 +13,46 @@
   "byzantine_count": null,
   "certificate_count": 3,
   "certificates": {
+    "01e6bd05222374df294bc8d0": {
+      "certificate_hash": "01e6bd05222374df294bc8d0",
+      "confederation_height": 1,
+      "payload": {
+        "bound_coalition_height": 1,
+        "bound_coalition_root": "80dc180c283066f36c3751b9",
+        "certificate_hash": "01e6bd05222374df294bc8d0",
+        "claims": {
+          "capability_id": "capability.fixture-0",
+          "clearing_index": 1,
+          "effect": "fixture-effect-0",
+          "outcome": "confederated",
+          "plane": "confederation"
+        },
+        "coalition_certificate_hash": "1c980fac27be9be5c5cb9bdd",
+        "coalition_hash": "48ff54c3e34ad61354a01af6",
+        "coalition_plan_digest": "1e170f67861341371678f2dc",
+        "confederation_count": 1,
+        "confederation_height": 1,
+        "confederation_plan_digest": "8837f18ccb5fd4a38009d8ad",
+        "confederation_root": "e0c1000fd404298ffa9c0496",
+        "deterministic": true,
+        "goal": "differential fixture (clearing 1)",
+        "issued_at": "2026-01-01T00:00:00.000000Z",
+        "kind": "confederation_certificate",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_count": 2,
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "ok": true,
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "parent_confederation_root": "",
+        "post_coalition": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false,
+        "valid": true
+      }
+    },
     "1c980fac27be9be5c5cb9bdd": {
       "certificate_hash": "1c980fac27be9be5c5cb9bdd",
       "kind": "confederation_certificate",
@@ -47,53 +87,13 @@
         "valid": true
       }
     },
-    "68aef3bd214c464f947fcf94": {
-      "certificate_hash": "68aef3bd214c464f947fcf94",
-      "confederation_height": 1,
-      "payload": {
-        "bound_coalition_height": 1,
-        "bound_coalition_root": "80dc180c283066f36c3751b9",
-        "certificate_hash": "68aef3bd214c464f947fcf94",
-        "claims": {
-          "capability_id": "capability.fixture-0",
-          "clearing_index": 1,
-          "effect": "fixture-effect-0",
-          "outcome": "confederated",
-          "plane": "confederation"
-        },
-        "coalition_certificate_hash": "1c980fac27be9be5c5cb9bdd",
-        "coalition_hash": "48ff54c3e34ad61354a01af6",
-        "coalition_plan_digest": "1e170f67861341371678f2dc",
-        "confederation_count": 1,
-        "confederation_height": 1,
-        "confederation_plan_digest": "8837f18ccb5fd4a38009d8ad",
-        "confederation_root": "0f1849425c7fee897e3bcb00",
-        "deterministic": true,
-        "goal": "differential fixture (clearing 1)",
-        "issued_at": "2026-01-01T00:00:00.000000Z",
-        "kind": "confederation_certificate",
-        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
-        "member_count": 2,
-        "member_ids": [
-          "capability.fixture-0",
-          "capability.fixture-1"
-        ],
-        "ok": true,
-        "package_hash": "1d58907e64cc82808cc22f35",
-        "parent_confederation_root": "",
-        "post_coalition": true,
-        "schema_version": 1,
-        "used_skill_route_discovery": false,
-        "valid": true
-      }
-    },
-    "8068622a792f940591316bb1": {
-      "certificate_hash": "8068622a792f940591316bb1",
+    "8287b6b63bd767c266764f53": {
+      "certificate_hash": "8287b6b63bd767c266764f53",
       "confederation_height": 2,
       "payload": {
         "bound_coalition_height": 2,
         "bound_coalition_root": "cb86382dfb1f84d67ce24256",
-        "certificate_hash": "8068622a792f940591316bb1",
+        "certificate_hash": "8287b6b63bd767c266764f53",
         "claims": {
           "capability_id": "capability.fixture-1",
           "clearing_index": 2,
@@ -107,7 +107,7 @@
         "confederation_count": 2,
         "confederation_height": 2,
         "confederation_plan_digest": "3e876b294b91b6eb52d58afa",
-        "confederation_root": "cbed59c8701c55a33a0c7df1",
+        "confederation_root": "5bab98645f0637fe142b3fc5",
         "deterministic": true,
         "goal": "differential fixture (clearing 2)",
         "issued_at": "2026-01-01T00:00:00.000000Z",
@@ -120,7 +120,7 @@
         ],
         "ok": true,
         "package_hash": "1d58907e64cc82808cc22f35",
-        "parent_confederation_root": "0f1849425c7fee897e3bcb00",
+        "parent_confederation_root": "e0c1000fd404298ffa9c0496",
         "post_coalition": true,
         "schema_version": 1,
         "used_skill_route_discovery": false,
@@ -164,34 +164,34 @@
   "coalitions": {
     "entries": [
       {
-        "bound_action_root": "56aab995e4e0f093a4e94621",
-        "bound_settlement_root": "457c300785a22a8c4a06fdeb",
+        "bound_action_root": "590094d796e3ce6ff6be7681",
+        "bound_settlement_root": "fef7791b6811ef31f66ee87d",
         "capability_id": "capability.fixture-0",
         "coalition_height": 1,
         "coalition_plan_digest": "1e170f67861341371678f2dc",
         "coalition_root": "80dc180c283066f36c3751b9",
         "effect": "fixture-effect-0",
-        "receipt_digest": "f39f0abf1b8b3bf488787ca4"
+        "receipt_digest": "bb1fa839b9a6556eeba5f3ab"
       },
       {
-        "bound_action_root": "bf0a9567032309b7baa0f4bd",
-        "bound_settlement_root": "413120b165430c5400cc4bd3",
+        "bound_action_root": "4032c63c240dc8abd28b3f53",
+        "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
         "capability_id": "capability.fixture-1",
         "coalition_height": 2,
         "coalition_plan_digest": "d3462a6a9680d5fc0c56df1c",
         "coalition_root": "cb86382dfb1f84d67ce24256",
         "effect": "fixture-effect-1",
-        "receipt_digest": "fea5396a7f4325c408b1b65b"
+        "receipt_digest": "27d82060920e8da35044a1a6"
       },
       {
-        "bound_action_root": "500919b59d84baef88dbb44d",
-        "bound_settlement_root": "8722fbef37a158752d45c782",
+        "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+        "bound_settlement_root": "d19f7810f65ac311809fcec1",
         "capability_id": "capability.fixture-2",
         "coalition_height": 3,
         "coalition_plan_digest": "65e6214686037661f9b8730b",
         "coalition_root": "a5cc9cf97cb6534c8db8f12f",
         "effect": "fixture-effect-2",
-        "receipt_digest": "774ad7ab1a3d41b114b5f4a3"
+        "receipt_digest": "ca97c169f6adea9f80cd3a00"
       }
     ],
     "entry_count": 3
@@ -199,7 +199,7 @@
   "confederation_certificate": {
     "bound_coalition_height": 2,
     "bound_coalition_root": "cb86382dfb1f84d67ce24256",
-    "certificate_hash": "8068622a792f940591316bb1",
+    "certificate_hash": "8287b6b63bd767c266764f53",
     "claims": {
       "capability_id": "capability.fixture-1",
       "clearing_index": 2,
@@ -213,7 +213,7 @@
     "confederation_count": 2,
     "confederation_height": 2,
     "confederation_plan_digest": "3e876b294b91b6eb52d58afa",
-    "confederation_root": "cbed59c8701c55a33a0c7df1",
+    "confederation_root": "5bab98645f0637fe142b3fc5",
     "deterministic": true,
     "goal": "differential fixture (clearing 2)",
     "issued_at": "2026-01-01T00:00:00.000000Z",
@@ -226,14 +226,14 @@
     ],
     "ok": true,
     "package_hash": "1d58907e64cc82808cc22f35",
-    "parent_confederation_root": "0f1849425c7fee897e3bcb00",
+    "parent_confederation_root": "e0c1000fd404298ffa9c0496",
     "post_coalition": true,
     "schema_version": 1,
     "used_skill_route_discovery": false,
     "valid": true
   },
   "confederation_count": 2,
-  "confederation_hash": "7b7e59c6b56100fa5662e8b9",
+  "confederation_hash": "e0bfcca110192827b8417b83",
   "confederation_plan_digest": "3e876b294b91b6eb52d58afa",
   "confederations": {
     "bound_coalition_height": 2,
@@ -243,7 +243,7 @@
     "entries": [
       {
         "applied_at": "2026-01-01T00:00:00.000000Z",
-        "bound_action_root": "56aab995e4e0f093a4e94621",
+        "bound_action_root": "590094d796e3ce6ff6be7681",
         "bound_coalition_height": 1,
         "bound_coalition_root": "80dc180c283066f36c3751b9",
         "capability_id": "capability.fixture-0",
@@ -257,7 +257,7 @@
         "confederation_certificate": {
           "bound_coalition_height": 1,
           "bound_coalition_root": "80dc180c283066f36c3751b9",
-          "certificate_hash": "68aef3bd214c464f947fcf94",
+          "certificate_hash": "01e6bd05222374df294bc8d0",
           "claims": {
             "capability_id": "capability.fixture-0",
             "clearing_index": 1,
@@ -271,7 +271,7 @@
           "confederation_count": 1,
           "confederation_height": 1,
           "confederation_plan_digest": "8837f18ccb5fd4a38009d8ad",
-          "confederation_root": "0f1849425c7fee897e3bcb00",
+          "confederation_root": "e0c1000fd404298ffa9c0496",
           "deterministic": true,
           "goal": "differential fixture (clearing 1)",
           "issued_at": "2026-01-01T00:00:00.000000Z",
@@ -292,7 +292,7 @@
         },
         "confederation_height": 1,
         "confederation_plan_digest": "8837f18ccb5fd4a38009d8ad",
-        "confederation_root": "0f1849425c7fee897e3bcb00",
+        "confederation_root": "e0c1000fd404298ffa9c0496",
         "deterministic": true,
         "effect": "fixture-effect-0",
         "goal": "differential fixture (clearing 1)",
@@ -314,7 +314,7 @@
       },
       {
         "applied_at": "2026-01-01T00:00:00.000000Z",
-        "bound_action_root": "bf0a9567032309b7baa0f4bd",
+        "bound_action_root": "4032c63c240dc8abd28b3f53",
         "bound_coalition_height": 2,
         "bound_coalition_root": "cb86382dfb1f84d67ce24256",
         "capability_id": "capability.fixture-1",
@@ -328,7 +328,7 @@
         "confederation_certificate": {
           "bound_coalition_height": 2,
           "bound_coalition_root": "cb86382dfb1f84d67ce24256",
-          "certificate_hash": "8068622a792f940591316bb1",
+          "certificate_hash": "8287b6b63bd767c266764f53",
           "claims": {
             "capability_id": "capability.fixture-1",
             "clearing_index": 2,
@@ -342,7 +342,7 @@
           "confederation_count": 2,
           "confederation_height": 2,
           "confederation_plan_digest": "3e876b294b91b6eb52d58afa",
-          "confederation_root": "cbed59c8701c55a33a0c7df1",
+          "confederation_root": "5bab98645f0637fe142b3fc5",
           "deterministic": true,
           "goal": "differential fixture (clearing 2)",
           "issued_at": "2026-01-01T00:00:00.000000Z",
@@ -355,7 +355,7 @@
           ],
           "ok": true,
           "package_hash": "1d58907e64cc82808cc22f35",
-          "parent_confederation_root": "0f1849425c7fee897e3bcb00",
+          "parent_confederation_root": "e0c1000fd404298ffa9c0496",
           "post_coalition": true,
           "schema_version": 1,
           "used_skill_route_discovery": false,
@@ -363,7 +363,7 @@
         },
         "confederation_height": 2,
         "confederation_plan_digest": "3e876b294b91b6eb52d58afa",
-        "confederation_root": "cbed59c8701c55a33a0c7df1",
+        "confederation_root": "5bab98645f0637fe142b3fc5",
         "deterministic": true,
         "effect": "fixture-effect-1",
         "goal": "differential fixture (clearing 2)",
@@ -377,7 +377,7 @@
         "outcome": "confederated",
         "package_hash": "1d58907e64cc82808cc22f35",
         "parent_confederation_digest": "8837f18ccb5fd4a38009d8ad",
-        "parent_confederation_root": "0f1849425c7fee897e3bcb00",
+        "parent_confederation_root": "e0c1000fd404298ffa9c0496",
         "position_ratio_bps": 1100,
         "post_coalition": true,
         "schema_version": 1,
@@ -387,7 +387,7 @@
     "entry_count": 2,
     "kind": "confederation_log",
     "schema_version": 1,
-    "tip_confederation_root": "cbed59c8701c55a33a0c7df1",
+    "tip_confederation_root": "5bab98645f0637fe142b3fc5",
     "tip_height": 2,
     "updated_at": "2026-01-01T00:00:00.000000Z"
   },
@@ -424,7 +424,7 @@
   "state_count": null,
   "tip_action_root": "",
   "tip_coalition_root": "a5cc9cf97cb6534c8db8f12f",
-  "tip_confederation_root": "cbed59c8701c55a33a0c7df1",
+  "tip_confederation_root": "5bab98645f0637fe142b3fc5",
   "tip_height": 2,
   "tip_settlement_root": "",
   "used_skill_route_discovery": false

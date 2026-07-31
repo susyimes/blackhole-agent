@@ -1,7 +1,7 @@
 {
   "bound_recovery_height": 2,
   "bound_recovery_root": "3682c1bc2e011e08785ef51b",
-  "certificate_hash": "f6a0c497eb9df1236f0d38d5",
+  "certificate_hash": "80e8eeda34f5f2a1f4442e47",
   "claims": {
     "capability_id": "capability.fixture-1",
     "clearing_index": 2,
@@ -21,7 +21,7 @@
   ],
   "ok": true,
   "package_hash": "1d58907e64cc82808cc22f35",
-  "parent_resolution_root": "867a4121c4cb9b72d9d4ceed",
+  "parent_resolution_root": "9b7855c817cf88292ca9d161",
   "post_recovery": true,
   "recovery_certificate_hash": "f1205485051237a07e77cc1c",
   "recovery_hash": "79f5478615cd1a36976ffa6c",
@@ -29,7 +29,7 @@
   "resolution_count": 2,
   "resolution_height": 2,
   "resolution_plan_digest": "28d32f82ce276c869a9119f5",
-  "resolution_root": "4d046d9602d23781b7e0116a",
+  "resolution_root": "81ee02820dedf34a00b0c575",
   "schema_version": 1,
   "used_skill_route_discovery": false,
   "valid": true

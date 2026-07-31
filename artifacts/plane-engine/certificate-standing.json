@@ -1,7 +1,7 @@
 {
   "bound_reputation_height": 2,
   "bound_reputation_root": "5fb68010bc26b5fb3a688432",
-  "certificate_hash": "37d041af2b1044ab4748b3d9",
+  "certificate_hash": "f70993d47c998f7ba27d40db",
   "claims": {
     "capability_id": "capability.fixture-1",
     "clearing_index": 2,
@@ -21,7 +21,7 @@
   ],
   "ok": true,
   "package_hash": "1d58907e64cc82808cc22f35",
-  "parent_standing_root": "b96737b548cdecf65974b5c1",
+  "parent_standing_root": "c1f80c418ad4e01b2e61f2a1",
   "post_reputation": true,
   "reputation_certificate_hash": "cf7d100e3044f14c05fbb1ca",
   "reputation_hash": "d927717dc0c228fc1666877b",
@@ -30,7 +30,7 @@
   "standing_count": 2,
   "standing_height": 2,
   "standing_plan_digest": "225595b5c7100c33cdd17b3a",
-  "standing_root": "5490e89210d8d04e1f33d73f",
+  "standing_root": "5d6e243d036a4525f5345ba3",
   "used_skill_route_discovery": false,
   "valid": true
 }

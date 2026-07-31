@@ -1,7 +1,7 @@
 {
   "bound_constitution_height": 2,
   "bound_constitution_root": "95c63bf5729e944797b995ad",
-  "certificate_hash": "db16bfab0c859736534f8867",
+  "certificate_hash": "88048574a0fa19460490395f",
   "claims": {
     "capability_id": "capability.fixture-1",
     "clearing_index": 2,
@@ -15,7 +15,7 @@
   "covenant_count": 2,
   "covenant_height": 2,
   "covenant_plan_digest": "2b29dc5e2a1c90d02098de35",
-  "covenant_root": "63494e7224512adf4a69a0cf",
+  "covenant_root": "5867ddf93c183ef9fe9d83c7",
   "deterministic": true,
   "goal": "differential fixture (clearing 2)",
   "issued_at": "2026-01-01T00:00:00.000000Z",
@@ -28,7 +28,7 @@
   ],
   "ok": true,
   "package_hash": "1d58907e64cc82808cc22f35",
-  "parent_covenant_root": "fd8b830e0b8dbbcda6249da1",
+  "parent_covenant_root": "3f3a018feccf334206b9eb11",
   "post_constitution": true,
   "schema_version": 1,
   "used_skill_route_discovery": false,

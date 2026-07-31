@@ -1,7 +1,7 @@
 {
   "bound_union_height": 2,
   "bound_union_root": "528fdf1c828671e5eeea2ce8",
-  "certificate_hash": "84715667e8406501e9fa3f40",
+  "certificate_hash": "82958ecd7d55f0b4b2adc2fc",
   "claims": {
     "capability_id": "capability.fixture-1",
     "clearing_index": 2,
@@ -12,7 +12,7 @@
   "commonwealth_count": 2,
   "commonwealth_height": 2,
   "commonwealth_plan_digest": "e8c8d29c23a58688d569fda9",
-  "commonwealth_root": "80f9df1a41ab9081982b3629",
+  "commonwealth_root": "c49d66e79f6dbb378fcfc88e",
   "deterministic": true,
   "goal": "differential fixture (clearing 2)",
   "issued_at": "2026-01-01T00:00:00.000000Z",
@@ -25,7 +25,7 @@
   ],
   "ok": true,
   "package_hash": "1d58907e64cc82808cc22f35",
-  "parent_commonwealth_root": "f816bac965c0cd1f17f9965e",
+  "parent_commonwealth_root": "c4f39d775549489b8899028c",
   "post_union": true,
   "schema_version": 1,
   "union_certificate_hash": "84410b0f8256ca0b06d90420",

@@ -1,0 +1,36 @@
+{
+  "bound_margin_height": 2,
+  "bound_margin_root": "648a04189b55f4db84033515",
+  "certificate_hash": "b0d9536a5472b615c7a114e3",
+  "claims": {
+    "capability_id": "capability.fixture-1",
+    "clearing_index": 2,
+    "effect": "fixture-effect-1",
+    "outcome": "collateralized",
+    "plane": "collateral"
+  },
+  "collateral_allocation_digest": "9376347cf08d365bdd4d8b53",
+  "collateral_count": 2,
+  "collateral_height": 2,
+  "collateral_root": "51a0724a3710e5a52f9d8251",
+  "deterministic": true,
+  "goal": "differential fixture (clearing 2)",
+  "issued_at": "2026-01-01T00:00:00.000000Z",
+  "kind": "collateral_certificate",
+  "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+  "margin_certificate_hash": "23efa4911eec261baf67bdba",
+  "margin_hash": "3131bf882e497d4c31c4029f",
+  "margin_requirement_digest": "86fd2de8f0bb8dc04be7ae96",
+  "member_count": 2,
+  "member_ids": [
+    "capability.fixture-0",
+    "capability.fixture-1"
+  ],
+  "ok": true,
+  "package_hash": "1d58907e64cc82808cc22f35",
+  "parent_collateral_root": "549953ab08180bfb465fba74",
+  "post_margin": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

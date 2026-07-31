@@ -1,0 +1,36 @@
+{
+  "bound_clearing_height": 2,
+  "bound_clearing_root": "304d2d3affae9c493795bdee",
+  "certificate_hash": "b1a370f1fc83cd7ccd3f6049",
+  "claims": {
+    "capability_id": "capability.fixture-1",
+    "clearing_index": 2,
+    "effect": "fixture-effect-1",
+    "outcome": "margined",
+    "plane": "margin"
+  },
+  "clearing_certificate_hash": "c341c72484eefdf03dd9eaab",
+  "clearing_hash": "11d561c8fd7d7bf8d35a4080",
+  "deterministic": true,
+  "goal": "differential fixture (clearing 2)",
+  "issued_at": "2026-01-01T00:00:00.000000Z",
+  "kind": "margin_certificate",
+  "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+  "margin_count": 2,
+  "margin_height": 2,
+  "margin_requirement_digest": "9557f09dab985a4317b77df6",
+  "margin_root": "38eace01c5d8916fae72c911",
+  "member_count": 2,
+  "member_ids": [
+    "capability.fixture-0",
+    "capability.fixture-1"
+  ],
+  "net_position_digest": "d0a3d677852cebffe89f8489",
+  "ok": true,
+  "package_hash": "1d58907e64cc82808cc22f35",
+  "parent_margin_root": "08cdb508b7e7526a53718f60",
+  "post_clearing": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

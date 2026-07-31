@@ -1,7 +1,7 @@
 {
   "bound_commonwealth_height": 2,
   "bound_commonwealth_root": "fff3818a6ff8dc2dc1940fe2",
-  "certificate_hash": "ab476e90d5c7553d50cf867e",
+  "certificate_hash": "70df315fdd1f9a4f7d9e4428",
   "claims": {
     "capability_id": "capability.fixture-1",
     "clearing_index": 2,
@@ -16,7 +16,7 @@
   "empire_count": 2,
   "empire_height": 2,
   "empire_plan_digest": "236a4849cc7cd538c1b1dfe8",
-  "empire_root": "ec80112c560250eb927d18c1",
+  "empire_root": "999153627839830fe4e392e5",
   "goal": "differential fixture (clearing 2)",
   "issued_at": "2026-01-01T00:00:00.000000Z",
   "kind": "empire_certificate",
@@ -28,7 +28,7 @@
   ],
   "ok": true,
   "package_hash": "1d58907e64cc82808cc22f35",
-  "parent_empire_root": "f3854e43f8dad59b4ba9123e",
+  "parent_empire_root": "216ae7984e25bcbcd9a60276",
   "post_commonwealth": true,
   "schema_version": 1,
   "used_skill_route_discovery": false,

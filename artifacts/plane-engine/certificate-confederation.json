@@ -1,7 +1,7 @@
 {
   "bound_coalition_height": 2,
   "bound_coalition_root": "cb86382dfb1f84d67ce24256",
-  "certificate_hash": "8068622a792f940591316bb1",
+  "certificate_hash": "8287b6b63bd767c266764f53",
   "claims": {
     "capability_id": "capability.fixture-1",
     "clearing_index": 2,
@@ -15,7 +15,7 @@
   "confederation_count": 2,
   "confederation_height": 2,
   "confederation_plan_digest": "3e876b294b91b6eb52d58afa",
-  "confederation_root": "cbed59c8701c55a33a0c7df1",
+  "confederation_root": "5bab98645f0637fe142b3fc5",
   "deterministic": true,
   "goal": "differential fixture (clearing 2)",
   "issued_at": "2026-01-01T00:00:00.000000Z",
@@ -28,7 +28,7 @@
   ],
   "ok": true,
   "package_hash": "1d58907e64cc82808cc22f35",
-  "parent_confederation_root": "0f1849425c7fee897e3bcb00",
+  "parent_confederation_root": "e0c1000fd404298ffa9c0496",
   "post_coalition": true,
   "schema_version": 1,
   "used_skill_route_discovery": false,

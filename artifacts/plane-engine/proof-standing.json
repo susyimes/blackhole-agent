@@ -13,86 +13,6 @@
   "byzantine_count": null,
   "certificate_count": 3,
   "certificates": {
-    "37d041af2b1044ab4748b3d9": {
-      "certificate_hash": "37d041af2b1044ab4748b3d9",
-      "payload": {
-        "bound_reputation_height": 2,
-        "bound_reputation_root": "5fb68010bc26b5fb3a688432",
-        "certificate_hash": "37d041af2b1044ab4748b3d9",
-        "claims": {
-          "capability_id": "capability.fixture-1",
-          "clearing_index": 2,
-          "effect": "fixture-effect-1",
-          "outcome": "stood",
-          "plane": "standing"
-        },
-        "deterministic": true,
-        "goal": "differential fixture (clearing 2)",
-        "issued_at": "2026-01-01T00:00:00.000000Z",
-        "kind": "standing_certificate",
-        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
-        "member_count": 2,
-        "member_ids": [
-          "capability.fixture-0",
-          "capability.fixture-1"
-        ],
-        "ok": true,
-        "package_hash": "1d58907e64cc82808cc22f35",
-        "parent_standing_root": "b96737b548cdecf65974b5c1",
-        "post_reputation": true,
-        "reputation_certificate_hash": "cf7d100e3044f14c05fbb1ca",
-        "reputation_hash": "d927717dc0c228fc1666877b",
-        "reputation_plan_digest": "e28f27aa6a7f903e2c7a1290",
-        "schema_version": 1,
-        "standing_count": 2,
-        "standing_height": 2,
-        "standing_plan_digest": "225595b5c7100c33cdd17b3a",
-        "standing_root": "5490e89210d8d04e1f33d73f",
-        "used_skill_route_discovery": false,
-        "valid": true
-      },
-      "standing_height": 2
-    },
-    "582bca2e5b37c7f34faee1ee": {
-      "certificate_hash": "582bca2e5b37c7f34faee1ee",
-      "payload": {
-        "bound_reputation_height": 1,
-        "bound_reputation_root": "fa943035a2f85f150b3973ba",
-        "certificate_hash": "582bca2e5b37c7f34faee1ee",
-        "claims": {
-          "capability_id": "capability.fixture-0",
-          "clearing_index": 1,
-          "effect": "fixture-effect-0",
-          "outcome": "stood",
-          "plane": "standing"
-        },
-        "deterministic": true,
-        "goal": "differential fixture (clearing 1)",
-        "issued_at": "2026-01-01T00:00:00.000000Z",
-        "kind": "standing_certificate",
-        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
-        "member_count": 2,
-        "member_ids": [
-          "capability.fixture-0",
-          "capability.fixture-1"
-        ],
-        "ok": true,
-        "package_hash": "1d58907e64cc82808cc22f35",
-        "parent_standing_root": "",
-        "post_reputation": true,
-        "reputation_certificate_hash": "cf7d100e3044f14c05fbb1ca",
-        "reputation_hash": "d927717dc0c228fc1666877b",
-        "reputation_plan_digest": "ede58ad7f80f25b5676f55e2",
-        "schema_version": 1,
-        "standing_count": 1,
-        "standing_height": 1,
-        "standing_plan_digest": "f99984f209eab6c7eeb257d1",
-        "standing_root": "b96737b548cdecf65974b5c1",
-        "used_skill_route_discovery": false,
-        "valid": true
-      },
-      "standing_height": 1
-    },
     "cf7d100e3044f14c05fbb1ca": {
       "certificate_hash": "cf7d100e3044f14c05fbb1ca",
       "kind": "standing_certificate",
@@ -126,6 +46,86 @@
         "used_skill_route_discovery": false,
         "valid": true
       }
+    },
+    "e651f93eb0792b580f3c3fcd": {
+      "certificate_hash": "e651f93eb0792b580f3c3fcd",
+      "payload": {
+        "bound_reputation_height": 1,
+        "bound_reputation_root": "fa943035a2f85f150b3973ba",
+        "certificate_hash": "e651f93eb0792b580f3c3fcd",
+        "claims": {
+          "capability_id": "capability.fixture-0",
+          "clearing_index": 1,
+          "effect": "fixture-effect-0",
+          "outcome": "stood",
+          "plane": "standing"
+        },
+        "deterministic": true,
+        "goal": "differential fixture (clearing 1)",
+        "issued_at": "2026-01-01T00:00:00.000000Z",
+        "kind": "standing_certificate",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_count": 2,
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "ok": true,
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "parent_standing_root": "",
+        "post_reputation": true,
+        "reputation_certificate_hash": "cf7d100e3044f14c05fbb1ca",
+        "reputation_hash": "d927717dc0c228fc1666877b",
+        "reputation_plan_digest": "ede58ad7f80f25b5676f55e2",
+        "schema_version": 1,
+        "standing_count": 1,
+        "standing_height": 1,
+        "standing_plan_digest": "f99984f209eab6c7eeb257d1",
+        "standing_root": "c1f80c418ad4e01b2e61f2a1",
+        "used_skill_route_discovery": false,
+        "valid": true
+      },
+      "standing_height": 1
+    },
+    "f70993d47c998f7ba27d40db": {
+      "certificate_hash": "f70993d47c998f7ba27d40db",
+      "payload": {
+        "bound_reputation_height": 2,
+        "bound_reputation_root": "5fb68010bc26b5fb3a688432",
+        "certificate_hash": "f70993d47c998f7ba27d40db",
+        "claims": {
+          "capability_id": "capability.fixture-1",
+          "clearing_index": 2,
+          "effect": "fixture-effect-1",
+          "outcome": "stood",
+          "plane": "standing"
+        },
+        "deterministic": true,
+        "goal": "differential fixture (clearing 2)",
+        "issued_at": "2026-01-01T00:00:00.000000Z",
+        "kind": "standing_certificate",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_count": 2,
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "ok": true,
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "parent_standing_root": "c1f80c418ad4e01b2e61f2a1",
+        "post_reputation": true,
+        "reputation_certificate_hash": "cf7d100e3044f14c05fbb1ca",
+        "reputation_hash": "d927717dc0c228fc1666877b",
+        "reputation_plan_digest": "e28f27aa6a7f903e2c7a1290",
+        "schema_version": 1,
+        "standing_count": 2,
+        "standing_height": 2,
+        "standing_plan_digest": "225595b5c7100c33cdd17b3a",
+        "standing_root": "5d6e243d036a4525f5345ba3",
+        "used_skill_route_discovery": false,
+        "valid": true
+      },
+      "standing_height": 2
     }
   },
   "deterministic": true,
@@ -189,31 +189,31 @@
   "reputations": {
     "entries": [
       {
-        "bound_action_root": "56aab995e4e0f093a4e94621",
-        "bound_settlement_root": "457c300785a22a8c4a06fdeb",
+        "bound_action_root": "590094d796e3ce6ff6be7681",
+        "bound_settlement_root": "fef7791b6811ef31f66ee87d",
         "capability_id": "capability.fixture-0",
         "effect": "fixture-effect-0",
-        "receipt_digest": "f39f0abf1b8b3bf488787ca4",
+        "receipt_digest": "bb1fa839b9a6556eeba5f3ab",
         "reputation_height": 1,
         "reputation_plan_digest": "ede58ad7f80f25b5676f55e2",
         "reputation_root": "fa943035a2f85f150b3973ba"
       },
       {
-        "bound_action_root": "bf0a9567032309b7baa0f4bd",
-        "bound_settlement_root": "413120b165430c5400cc4bd3",
+        "bound_action_root": "4032c63c240dc8abd28b3f53",
+        "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
         "capability_id": "capability.fixture-1",
         "effect": "fixture-effect-1",
-        "receipt_digest": "fea5396a7f4325c408b1b65b",
+        "receipt_digest": "27d82060920e8da35044a1a6",
         "reputation_height": 2,
         "reputation_plan_digest": "e28f27aa6a7f903e2c7a1290",
         "reputation_root": "5fb68010bc26b5fb3a688432"
       },
       {
-        "bound_action_root": "500919b59d84baef88dbb44d",
-        "bound_settlement_root": "8722fbef37a158752d45c782",
+        "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+        "bound_settlement_root": "d19f7810f65ac311809fcec1",
         "capability_id": "capability.fixture-2",
         "effect": "fixture-effect-2",
-        "receipt_digest": "774ad7ab1a3d41b114b5f4a3",
+        "receipt_digest": "ca97c169f6adea9f80cd3a00",
         "reputation_height": 3,
         "reputation_plan_digest": "7d832d83141e112049b3b19f",
         "reputation_root": "baf468562bfadb3241d2871b"
@@ -229,7 +229,7 @@
   "standing_certificate": {
     "bound_reputation_height": 2,
     "bound_reputation_root": "5fb68010bc26b5fb3a688432",
-    "certificate_hash": "37d041af2b1044ab4748b3d9",
+    "certificate_hash": "f70993d47c998f7ba27d40db",
     "claims": {
       "capability_id": "capability.fixture-1",
       "clearing_index": 2,
@@ -249,7 +249,7 @@
     ],
     "ok": true,
     "package_hash": "1d58907e64cc82808cc22f35",
-    "parent_standing_root": "b96737b548cdecf65974b5c1",
+    "parent_standing_root": "c1f80c418ad4e01b2e61f2a1",
     "post_reputation": true,
     "reputation_certificate_hash": "cf7d100e3044f14c05fbb1ca",
     "reputation_hash": "d927717dc0c228fc1666877b",
@@ -258,12 +258,12 @@
     "standing_count": 2,
     "standing_height": 2,
     "standing_plan_digest": "225595b5c7100c33cdd17b3a",
-    "standing_root": "5490e89210d8d04e1f33d73f",
+    "standing_root": "5d6e243d036a4525f5345ba3",
     "used_skill_route_discovery": false,
     "valid": true
   },
   "standing_count": 2,
-  "standing_hash": "7e5c85131a6519e6f336e022",
+  "standing_hash": "790279da832b8508eddf37ee",
   "standing_plan_digest": "225595b5c7100c33cdd17b3a",
   "standings": {
     "bound_reputation_height": 2,
@@ -271,7 +271,7 @@
     "entries": [
       {
         "applied_at": "2026-01-01T00:00:00.000000Z",
-        "bound_action_root": "56aab995e4e0f093a4e94621",
+        "bound_action_root": "590094d796e3ce6ff6be7681",
         "bound_reputation_height": 1,
         "bound_reputation_root": "fa943035a2f85f150b3973ba",
         "capability_id": "capability.fixture-0",
@@ -302,7 +302,7 @@
         "standing_certificate": {
           "bound_reputation_height": 1,
           "bound_reputation_root": "fa943035a2f85f150b3973ba",
-          "certificate_hash": "582bca2e5b37c7f34faee1ee",
+          "certificate_hash": "e651f93eb0792b580f3c3fcd",
           "claims": {
             "capability_id": "capability.fixture-0",
             "clearing_index": 1,
@@ -331,18 +331,18 @@
           "standing_count": 1,
           "standing_height": 1,
           "standing_plan_digest": "f99984f209eab6c7eeb257d1",
-          "standing_root": "b96737b548cdecf65974b5c1",
+          "standing_root": "c1f80c418ad4e01b2e61f2a1",
           "used_skill_route_discovery": false,
           "valid": true
         },
         "standing_height": 1,
         "standing_plan_digest": "f99984f209eab6c7eeb257d1",
-        "standing_root": "b96737b548cdecf65974b5c1",
+        "standing_root": "c1f80c418ad4e01b2e61f2a1",
         "used_skill_route_discovery": false
       },
       {
         "applied_at": "2026-01-01T00:00:00.000000Z",
-        "bound_action_root": "bf0a9567032309b7baa0f4bd",
+        "bound_action_root": "4032c63c240dc8abd28b3f53",
         "bound_reputation_height": 2,
         "bound_reputation_root": "5fb68010bc26b5fb3a688432",
         "capability_id": "capability.fixture-1",
@@ -363,7 +363,7 @@
         "outcome": "stood",
         "package_hash": "1d58907e64cc82808cc22f35",
         "parent_standing_digest": "f99984f209eab6c7eeb257d1",
-        "parent_standing_root": "b96737b548cdecf65974b5c1",
+        "parent_standing_root": "c1f80c418ad4e01b2e61f2a1",
         "position_ratio_bps": 1100,
         "post_reputation": true,
         "reputation_certificate_hash": "cf7d100e3044f14c05fbb1ca",
@@ -373,7 +373,7 @@
         "standing_certificate": {
           "bound_reputation_height": 2,
           "bound_reputation_root": "5fb68010bc26b5fb3a688432",
-          "certificate_hash": "37d041af2b1044ab4748b3d9",
+          "certificate_hash": "f70993d47c998f7ba27d40db",
           "claims": {
             "capability_id": "capability.fixture-1",
             "clearing_index": 2,
@@ -393,7 +393,7 @@
           ],
           "ok": true,
           "package_hash": "1d58907e64cc82808cc22f35",
-          "parent_standing_root": "b96737b548cdecf65974b5c1",
+          "parent_standing_root": "c1f80c418ad4e01b2e61f2a1",
           "post_reputation": true,
           "reputation_certificate_hash": "cf7d100e3044f14c05fbb1ca",
           "reputation_hash": "d927717dc0c228fc1666877b",
@@ -402,13 +402,13 @@
           "standing_count": 2,
           "standing_height": 2,
           "standing_plan_digest": "225595b5c7100c33cdd17b3a",
-          "standing_root": "5490e89210d8d04e1f33d73f",
+          "standing_root": "5d6e243d036a4525f5345ba3",
           "used_skill_route_discovery": false,
           "valid": true
         },
         "standing_height": 2,
         "standing_plan_digest": "225595b5c7100c33cdd17b3a",
-        "standing_root": "5490e89210d8d04e1f33d73f",
+        "standing_root": "5d6e243d036a4525f5345ba3",
         "used_skill_route_discovery": false
       }
     ],
@@ -418,7 +418,7 @@
     "schema_version": 1,
     "standing_plan_digest": "225595b5c7100c33cdd17b3a",
     "tip_height": 2,
-    "tip_standing_root": "5490e89210d8d04e1f33d73f",
+    "tip_standing_root": "5d6e243d036a4525f5345ba3",
     "updated_at": "2026-01-01T00:00:00.000000Z"
   },
   "state_count": null,
@@ -426,6 +426,6 @@
   "tip_height": 2,
   "tip_reputation_root": "baf468562bfadb3241d2871b",
   "tip_settlement_root": "",
-  "tip_standing_root": "5490e89210d8d04e1f33d73f",
+  "tip_standing_root": "5d6e243d036a4525f5345ba3",
   "used_skill_route_discovery": false
 }

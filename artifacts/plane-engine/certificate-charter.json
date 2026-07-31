@@ -1,11 +1,11 @@
 {
   "bound_mandate_height": 2,
   "bound_mandate_root": "ed49cdb949586f1b79c30ffd",
-  "certificate_hash": "104112909a5805903e4542fb",
+  "certificate_hash": "dddd5ce1c071a8829cd9a496",
   "charter_count": 2,
   "charter_height": 2,
   "charter_plan_digest": "83323930d8f8ab9249e9390f",
-  "charter_root": "6ae443bcde2c2f67ddef0611",
+  "charter_root": "dcaee0d07abc1c21bc2c9615",
   "claims": {
     "capability_id": "capability.fixture-1",
     "clearing_index": 2,
@@ -28,7 +28,7 @@
   ],
   "ok": true,
   "package_hash": "1d58907e64cc82808cc22f35",
-  "parent_charter_root": "581a0be0e9a7e1ade79628f3",
+  "parent_charter_root": "cf24bf4312475d670483bcc4",
   "post_mandate": true,
   "schema_version": 1,
   "used_skill_route_discovery": false,

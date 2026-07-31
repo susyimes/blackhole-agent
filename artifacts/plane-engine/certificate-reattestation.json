@@ -1,7 +1,7 @@
 {
   "bound_recertification_height": 2,
   "bound_recertification_root": "cbd7151cef0bd8108097750d",
-  "certificate_hash": "6997a8b7d63d0024121a5f1a",
+  "certificate_hash": "f89c0e811267004aa5f9f5ad",
   "claims": {
     "capability_id": "capability.fixture-1",
     "clearing_index": 2,
@@ -21,12 +21,12 @@
   ],
   "ok": true,
   "package_hash": "1d58907e64cc82808cc22f35",
-  "parent_reattestation_root": "1ffaec134fd9426316dde165",
+  "parent_reattestation_root": "2710bd34ca91f491f56c8ba8",
   "post_recertification": true,
   "reattestation_count": 2,
   "reattestation_height": 2,
   "reattestation_plan_digest": "72ab89fd17b1123c982d5639",
-  "reattestation_root": "e0b08e03e2f535c2ac965235",
+  "reattestation_root": "da80e69dddcba2ad42f57f68",
   "recertification_certificate_hash": "b953e00bfef244314f848b54",
   "recertification_hash": "c0e792d1cb1bc0d1d476f479",
   "recertification_plan_digest": "0edca974b9b64e8ac7f63cb0",

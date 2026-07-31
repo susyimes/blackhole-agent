@@ -1,0 +1,390 @@
+{
+  "action": "build_settlement_bundle",
+  "action_count": 0,
+  "actions": {
+    "entries": [
+      {
+        "action_height": 1,
+        "action_root": "a200388f42a5b70ebd12b225",
+        "capability_id": "capability.fixture-0",
+        "effect": "fixture-effect-0",
+        "effect_digest": "d64ddb1aca5cd2bfac28e34d",
+        "entry": "f12f4ca1e8e6c6e3605fc3d3"
+      },
+      {
+        "action_height": 2,
+        "action_root": "ab16b13df793b99e7c271efb",
+        "capability_id": "capability.fixture-1",
+        "effect": "fixture-effect-1",
+        "effect_digest": "bee02a79c42b064f551be38b",
+        "entry": "5e2d5d1e58e94d7607e0745c"
+      },
+      {
+        "action_height": 3,
+        "action_root": "5c294be145610d00e5c56a10",
+        "capability_id": "capability.fixture-2",
+        "effect": "fixture-effect-2",
+        "effect_digest": "dc0af9624042d4a6cac8f9f6",
+        "entry": "edda7b47233f9790fcc6d116"
+      }
+    ],
+    "entry_count": 3
+  },
+  "actuation_certificate": {
+    "action_height": 2,
+    "action_root": "ff71eda44df2679400551268",
+    "bound_state_height": 2,
+    "bound_state_root": "74cc505fe35bec766bf58b4a",
+    "certificate_hash": "1cc8c3f71314894b43d2a2f1",
+    "claims": {},
+    "deterministic": true,
+    "effect_count": 3,
+    "execution_certificate_hash": "bc76a72513ce783754ce07ab",
+    "execution_hash": "b19bec0e7ecdd69010dfa341",
+    "goal": "differential fixture",
+    "issued_at": "2026-01-01T00:00:00.000000Z",
+    "kind": "actuation_certificate",
+    "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+    "member_count": 2,
+    "member_ids": [
+      "capability.fixture-0",
+      "capability.fixture-1"
+    ],
+    "ok": true,
+    "package_hash": "1d58907e64cc82808cc22f35",
+    "parent_action_root": "fc759f4e2f6d96d9b0c42c1d",
+    "post_execution": true,
+    "schema_version": 1,
+    "used_skill_route_discovery": false
+  },
+  "actuation_hash": "f43a89175eb898f163b701e9",
+  "agreeing_count": null,
+  "bound_action_height": 2,
+  "bound_action_root": "ab16b13df793b99e7c271efb",
+  "bound_state_root": "",
+  "byzantine_count": null,
+  "certificate_count": 3,
+  "certificates": {
+    "1cc8c3f71314894b43d2a2f1": {
+      "certificate_hash": "1cc8c3f71314894b43d2a2f1",
+      "kind": "actuation_certificate",
+      "payload": {
+        "action_height": 2,
+        "action_root": "ff71eda44df2679400551268",
+        "bound_state_height": 2,
+        "bound_state_root": "74cc505fe35bec766bf58b4a",
+        "certificate_hash": "1cc8c3f71314894b43d2a2f1",
+        "claims": {},
+        "deterministic": true,
+        "effect_count": 3,
+        "execution_certificate_hash": "bc76a72513ce783754ce07ab",
+        "execution_hash": "b19bec0e7ecdd69010dfa341",
+        "goal": "differential fixture",
+        "issued_at": "2026-01-01T00:00:00.000000Z",
+        "kind": "actuation_certificate",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_count": 2,
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "ok": true,
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "parent_action_root": "fc759f4e2f6d96d9b0c42c1d",
+        "post_execution": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false
+      }
+    },
+    "7109099c5263bbf403f0c99a": {
+      "certificate_hash": "7109099c5263bbf403f0c99a",
+      "payload": {
+        "actuation_certificate_hash": "1cc8c3f71314894b43d2a2f1",
+        "actuation_hash": "f43a89175eb898f163b701e9",
+        "bound_action_height": 1,
+        "bound_action_root": "a200388f42a5b70ebd12b225",
+        "certificate_hash": "7109099c5263bbf403f0c99a",
+        "claims": {
+          "capability_id": "capability.fixture-0",
+          "clearing_index": 1,
+          "effect": "fixture-effect-0",
+          "outcome": "settled",
+          "plane": "settlement"
+        },
+        "deterministic": true,
+        "goal": "differential fixture (clearing 1)",
+        "issued_at": "2026-01-01T00:00:00.000000Z",
+        "kind": "settlement_certificate",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_count": 2,
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "ok": true,
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "parent_settlement_root": "",
+        "post_actuation": true,
+        "schema_version": 1,
+        "settlement_count": 1,
+        "settlement_height": 1,
+        "settlement_root": "325765c35660ae7d5146478f",
+        "used_skill_route_discovery": false,
+        "valid": true
+      },
+      "settlement_height": 1
+    },
+    "7c3ba4794289b747c9f14ded": {
+      "certificate_hash": "7c3ba4794289b747c9f14ded",
+      "payload": {
+        "actuation_certificate_hash": "1cc8c3f71314894b43d2a2f1",
+        "actuation_hash": "f43a89175eb898f163b701e9",
+        "bound_action_height": 2,
+        "bound_action_root": "ab16b13df793b99e7c271efb",
+        "certificate_hash": "7c3ba4794289b747c9f14ded",
+        "claims": {
+          "capability_id": "capability.fixture-1",
+          "clearing_index": 2,
+          "effect": "fixture-effect-1",
+          "outcome": "settled",
+          "plane": "settlement"
+        },
+        "deterministic": true,
+        "goal": "differential fixture (clearing 2)",
+        "issued_at": "2026-01-01T00:00:00.000000Z",
+        "kind": "settlement_certificate",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_count": 2,
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "ok": true,
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "parent_settlement_root": "325765c35660ae7d5146478f",
+        "post_actuation": true,
+        "schema_version": 1,
+        "settlement_count": 2,
+        "settlement_height": 2,
+        "settlement_root": "29933cd69a667ed38b371b28",
+        "used_skill_route_discovery": false,
+        "valid": true
+      },
+      "settlement_height": 2
+    }
+  },
+  "deterministic": true,
+  "epoch_count": null,
+  "execution_certificate": {},
+  "execution_hash": "",
+  "exported_at": "2026-01-01T00:00:00.000000Z",
+  "goal": "settlement over actuation",
+  "kind": "settlement_bundle",
+  "lineage": {},
+  "lineage_entry_count": 0,
+  "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+  "member_count": 2,
+  "member_ids": [
+    "capability.fixture-0",
+    "capability.fixture-1"
+  ],
+  "ok": true,
+  "origin_count": null,
+  "package": {
+    "member_ids": [
+      "capability.fixture-0"
+    ],
+    "package_hash": "1d58907e64cc82808cc22f35"
+  },
+  "package_hash": "1d58907e64cc82808cc22f35",
+  "post_actuation": true,
+  "schema_version": 1,
+  "settlement_certificate": {
+    "actuation_certificate_hash": "1cc8c3f71314894b43d2a2f1",
+    "actuation_hash": "f43a89175eb898f163b701e9",
+    "bound_action_height": 2,
+    "bound_action_root": "ab16b13df793b99e7c271efb",
+    "certificate_hash": "7c3ba4794289b747c9f14ded",
+    "claims": {
+      "capability_id": "capability.fixture-1",
+      "clearing_index": 2,
+      "effect": "fixture-effect-1",
+      "outcome": "settled",
+      "plane": "settlement"
+    },
+    "deterministic": true,
+    "goal": "differential fixture (clearing 2)",
+    "issued_at": "2026-01-01T00:00:00.000000Z",
+    "kind": "settlement_certificate",
+    "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+    "member_count": 2,
+    "member_ids": [
+      "capability.fixture-0",
+      "capability.fixture-1"
+    ],
+    "ok": true,
+    "package_hash": "1d58907e64cc82808cc22f35",
+    "parent_settlement_root": "325765c35660ae7d5146478f",
+    "post_actuation": true,
+    "schema_version": 1,
+    "settlement_count": 2,
+    "settlement_height": 2,
+    "settlement_root": "29933cd69a667ed38b371b28",
+    "used_skill_route_discovery": false,
+    "valid": true
+  },
+  "settlement_count": 2,
+  "settlement_hash": "2ce6db73b1ca51b305540304",
+  "settlements": {
+    "actuation_hash": "f43a89175eb898f163b701e9",
+    "bound_action_height": 2,
+    "bound_action_root": "ab16b13df793b99e7c271efb",
+    "entries": [
+      {
+        "actuation_certificate_hash": "1cc8c3f71314894b43d2a2f1",
+        "actuation_hash": "f43a89175eb898f163b701e9",
+        "applied_at": "2026-01-01T00:00:00.000000Z",
+        "bound_action_height": 1,
+        "bound_action_root": "a200388f42a5b70ebd12b225",
+        "capability_id": "capability.fixture-0",
+        "claims": {
+          "clearing_index": 1,
+          "plane": "settlement"
+        },
+        "deterministic": true,
+        "effect": "fixture-effect-0",
+        "effect_digest": "d64ddb1aca5cd2bfac28e34d",
+        "entry": "f12f4ca1e8e6c6e3605fc3d3",
+        "goal": "differential fixture (clearing 1)",
+        "kind": "settlement_receipt",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "ok": true,
+        "outcome": "settled",
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "parent_settlement_root": "",
+        "post_actuation": true,
+        "receipt_digest": "b476e3ba62f74cbc54313762",
+        "schema_version": 1,
+        "settlement_certificate": {
+          "actuation_certificate_hash": "1cc8c3f71314894b43d2a2f1",
+          "actuation_hash": "f43a89175eb898f163b701e9",
+          "bound_action_height": 1,
+          "bound_action_root": "a200388f42a5b70ebd12b225",
+          "certificate_hash": "7109099c5263bbf403f0c99a",
+          "claims": {
+            "capability_id": "capability.fixture-0",
+            "clearing_index": 1,
+            "effect": "fixture-effect-0",
+            "outcome": "settled",
+            "plane": "settlement"
+          },
+          "deterministic": true,
+          "goal": "differential fixture (clearing 1)",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "settlement_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_settlement_root": "",
+          "post_actuation": true,
+          "schema_version": 1,
+          "settlement_count": 1,
+          "settlement_height": 1,
+          "settlement_root": "325765c35660ae7d5146478f",
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "settlement_height": 1,
+        "settlement_root": "325765c35660ae7d5146478f",
+        "used_skill_route_discovery": false
+      },
+      {
+        "actuation_certificate_hash": "1cc8c3f71314894b43d2a2f1",
+        "actuation_hash": "f43a89175eb898f163b701e9",
+        "applied_at": "2026-01-01T00:00:00.000000Z",
+        "bound_action_height": 2,
+        "bound_action_root": "ab16b13df793b99e7c271efb",
+        "capability_id": "capability.fixture-1",
+        "claims": {
+          "clearing_index": 2,
+          "plane": "settlement"
+        },
+        "deterministic": true,
+        "effect": "fixture-effect-1",
+        "effect_digest": "bee02a79c42b064f551be38b",
+        "entry": "5e2d5d1e58e94d7607e0745c",
+        "goal": "differential fixture (clearing 2)",
+        "kind": "settlement_receipt",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "ok": true,
+        "outcome": "settled",
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "parent_settlement_root": "325765c35660ae7d5146478f",
+        "post_actuation": true,
+        "receipt_digest": "c01f8785bdae8156d1d57788",
+        "schema_version": 1,
+        "settlement_certificate": {
+          "actuation_certificate_hash": "1cc8c3f71314894b43d2a2f1",
+          "actuation_hash": "f43a89175eb898f163b701e9",
+          "bound_action_height": 2,
+          "bound_action_root": "ab16b13df793b99e7c271efb",
+          "certificate_hash": "7c3ba4794289b747c9f14ded",
+          "claims": {
+            "capability_id": "capability.fixture-1",
+            "clearing_index": 2,
+            "effect": "fixture-effect-1",
+            "outcome": "settled",
+            "plane": "settlement"
+          },
+          "deterministic": true,
+          "goal": "differential fixture (clearing 2)",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "settlement_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_settlement_root": "325765c35660ae7d5146478f",
+          "post_actuation": true,
+          "schema_version": 1,
+          "settlement_count": 2,
+          "settlement_height": 2,
+          "settlement_root": "29933cd69a667ed38b371b28",
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "settlement_height": 2,
+        "settlement_root": "29933cd69a667ed38b371b28",
+        "used_skill_route_discovery": false
+      }
+    ],
+    "entry_count": 2,
+    "kind": "settlement_log",
+    "schema_version": 1,
+    "tip_height": 2,
+    "tip_settlement_root": "29933cd69a667ed38b371b28",
+    "updated_at": "2026-01-01T00:00:00.000000Z"
+  },
+  "state_count": null,
+  "tip_action_root": "5c294be145610d00e5c56a10",
+  "tip_height": 2,
+  "tip_settlement_root": "29933cd69a667ed38b371b28",
+  "used_skill_route_discovery": false
+}

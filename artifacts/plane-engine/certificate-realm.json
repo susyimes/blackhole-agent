@@ -1,7 +1,7 @@
 {
   "bound_dominion_height": 2,
   "bound_dominion_root": "0443a1fc9deb2b735eac78c6",
-  "certificate_hash": "d0d34c4a75c4495d8c599edf",
+  "certificate_hash": "6a5ce8a987915179b688cc52",
   "claims": {
     "capability_id": "capability.fixture-1",
     "clearing_index": 2,
@@ -24,12 +24,12 @@
   ],
   "ok": true,
   "package_hash": "1d58907e64cc82808cc22f35",
-  "parent_realm_root": "420174ba7c96286b1ab38dc3",
+  "parent_realm_root": "b8b44a10bc21b89e6d3f93a8",
   "post_dominion": true,
   "realm_count": 2,
   "realm_height": 2,
   "realm_plan_digest": "aa31e2698987ab725afe49b9",
-  "realm_root": "53d6b8f0e514d4abfa9d9754",
+  "realm_root": "be8f43f2f5f00ccd46a4d6f5",
   "schema_version": 1,
   "used_skill_route_discovery": false,
   "valid": true

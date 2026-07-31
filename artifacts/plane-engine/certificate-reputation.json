@@ -1,7 +1,7 @@
 {
   "bound_recognition_height": 2,
   "bound_recognition_root": "f4c45d3b6fc9c641d43ec3f9",
-  "certificate_hash": "aa3d999caa56e41db4bf6f27",
+  "certificate_hash": "de7689c48bec2b05976fa4f8",
   "claims": {
     "capability_id": "capability.fixture-1",
     "clearing_index": 2,
@@ -21,7 +21,7 @@
   ],
   "ok": true,
   "package_hash": "1d58907e64cc82808cc22f35",
-  "parent_reputation_root": "a7576cca1225a2b41064e577",
+  "parent_reputation_root": "99762ff306f49176d738f561",
   "post_recognition": true,
   "recognition_certificate_hash": "fc8280245a43da76db7e3127",
   "recognition_hash": "742678dc194d9768bace228c",
@@ -29,7 +29,7 @@
   "reputation_count": 2,
   "reputation_height": 2,
   "reputation_plan_digest": "331b946248a4aaeeddf50889",
-  "reputation_root": "ad487084c90ce4b8290bc7e5",
+  "reputation_root": "e7ccef0d4fb5ab5f72493b7a",
   "schema_version": 1,
   "used_skill_route_discovery": false,
   "valid": true

@@ -46,7 +46,13 @@ VOLATILE_FIELDS = frozenset({"applied_at", "updated_at", "issued_at", "exported_
 
 @dataclass(frozen=True)
 class PlaneLayer:
-    """Nouns that parameterize one plane layer transition."""
+    """Nouns that parameterize one plane layer transition.
+
+    The defaults reproduce the plan-digest family (recovery..cosmos). The
+    settlement dialect (clearing..resilience) renames the digest/ratio/kind
+    slots; settlement itself is an unchained receipt dialect bound to
+    actuation action roots.
+    """
 
     name: str  # self noun, e.g. "realm"
     parent: str  # parent noun, e.g. "dominion"
@@ -56,12 +62,55 @@ class PlaneLayer:
     bundle_relative: Path  # default bundle directory relative to repo root
     legacy_derive: str = ""  # override for irregular legacy derive fn names
     parent_digest: str = ""  # override for the parent digest field name
+    self_digest: str = ""  # override for the own chain digest field name
+    parent_chain: str = ""  # override for the parent-chain digest field name
+    ratio_field: str | None = "position_ratio_bps"  # None = ratio-less dialect
+    entry_kind: str = ""  # entry "kind" value, default f"{name}_action"
+    chained: bool = True  # False = unchained receipt dialect (settlement)
+    cert_self_digest: bool = True  # certificate carries the self digest slot
+    cert_parent_digest: bool = True  # certificate carries the parent digest slot
+    bind_noun: str = ""  # binding noun, default parent; settlement: "action"
+    hash_noun: str = ""  # parent hash/cert noun, default parent; settlement: "actuation"
+    carried_spec_fields: tuple[str, ...] = (
+        "receipt_digest",
+        "bound_settlement_root",
+        "bound_action_root",
+    )
+    entry_extra_fields: tuple[str, ...] = ()
+    includes_settlement_vocab: bool = True  # bundle carries settlement-era keys
+    bundle_parent_digest: bool = True  # bundle top-level parent digest slot
+    parent_cert_label: str = ""  # certificates-dict label for the parent cert
+    bundle_kind: str = ""  # bundle "kind" value, default f"{name}_bundle"
 
     @property
     def parent_digest_field(self) -> str:
         """Field carrying the parent plan/buffer digest (dialect boundary)."""
 
         return self.parent_digest or f"{self.parent}_plan_digest"
+
+    @property
+    def self_digest_field(self) -> str:
+        """Field carrying this layer's own chaining digest."""
+
+        return self.self_digest or f"{self.name}_plan_digest"
+
+    @property
+    def parent_chain_field(self) -> str:
+        """Field chaining the previous entry's digest."""
+
+        return self.parent_chain or f"parent_{self.name}_digest"
+
+    @property
+    def kind_name(self) -> str:
+        return self.entry_kind or f"{self.name}_action"
+
+    @property
+    def bind(self) -> str:
+        return self.bind_noun or self.parent
+
+    @property
+    def hash_parent(self) -> str:
+        return self.hash_noun or self.parent
 
 
 # Parent chain for the whole plane stack. Layers below ``recovery`` belong to
@@ -110,6 +159,7 @@ PARENT_OF: dict[str, str] = {
     "margin": "clearing",
     "clearing": "settlement",
     "settlement": "actuation",
+    "actuation": "execution",
 }
 
 
@@ -120,6 +170,7 @@ def _layer(
     outcome: str,
     legacy_derive: str = "",
     parent_digest: str = "",
+    **dialect: Any,
 ) -> PlaneLayer:
     return PlaneLayer(
         name=name,
@@ -130,6 +181,7 @@ def _layer(
         bundle_relative=Path("artifacts") / f"{name}-bundles",
         legacy_derive=legacy_derive,
         parent_digest=parent_digest,
+        **dialect,
     )
 
 
@@ -199,6 +251,130 @@ LAYERS: dict[str, PlaneLayer] = {
         _layer("dominion", "dominions", "empires", "dominioned"),
         _layer("realm", "realms", "dominions", "realmed"),
         _layer("cosmos", "cosmoses", "realms", "cosmosed"),
+        # Settlement dialect: renamed digest/ratio/kind slots.
+        _layer(
+            "resilience",
+            "resiliences",
+            "stresses",
+            "resilient",
+            self_digest="resilience_buffer_digest",
+            parent_digest="stress_scenario_digest",
+            entry_kind="resilience_buffer",
+            bundle_kind="stress_bundle",
+        ),
+        _layer(
+            "stress",
+            "stresses",
+            "risks",
+            "stressed",
+            self_digest="stress_scenario_digest",
+            parent_digest="risk_assessment_digest",
+            entry_kind="stress_scenario",
+        ),
+        _layer(
+            "risk",
+            "risks",
+            "solvencies",
+            "risked",
+            self_digest="risk_assessment_digest",
+            parent_digest="solvency_position_digest",
+            entry_kind="risk_assessment",
+        ),
+        _layer(
+            "solvency",
+            "solvencies",
+            "capitals",
+            "solvent",
+            self_digest="solvency_position_digest",
+            parent_digest="capital_buffer_digest",
+            entry_kind="solvency_position",
+        ),
+        _layer(
+            "capital",
+            "capitals",
+            "fundings",
+            "capitalized",
+            self_digest="capital_buffer_digest",
+            parent_digest="funding_facility_digest",
+            entry_kind="capital_buffer",
+            ratio_field="buffer_ratio_bps",
+        ),
+        _layer(
+            "funding",
+            "fundings",
+            "liquidities",
+            "funded",
+            self_digest="funding_facility_digest",
+            parent_digest="liquidity_coverage_digest",
+            entry_kind="funding_facility",
+            ratio_field="facility_ratio_bps",
+        ),
+        _layer(
+            "liquidity",
+            "liquidities",
+            "collaterals",
+            "liquid",
+            self_digest="liquidity_coverage_digest",
+            parent_digest="collateral_allocation_digest",
+            entry_kind="liquidity_coverage",
+            ratio_field="coverage_ratio_bps",
+        ),
+        _layer(
+            "collateral",
+            "collaterals",
+            "margins",
+            "collateralized",
+            self_digest="collateral_allocation_digest",
+            parent_digest="margin_requirement_digest",
+            entry_kind="collateral_allocation",
+            ratio_field="cover_ratio_bps",
+        ),
+        _layer(
+            "margin",
+            "margins",
+            "clearings",
+            "margined",
+            self_digest="margin_requirement_digest",
+            parent_digest="net_position_digest",
+            entry_kind="margin_requirement",
+            ratio_field="haircut_bps",
+            parent_cert_label="clearing_certificate",
+        ),
+        _layer(
+            "clearing",
+            "clearings",
+            "settlements",
+            "cleared",
+            self_digest="net_position_digest",
+            parent_digest="receipt_digest",
+            parent_chain="parent_net_digest",
+            entry_kind="clearing_position",
+            ratio_field=None,
+            cert_parent_digest=False,
+            carried_spec_fields=("bound_action_root",),
+            bundle_parent_digest=False,
+            parent_cert_label="settlement_certificate",
+        ),
+        # Settlement: unchained receipt dialect bound to actuation actions.
+        _layer(
+            "settlement",
+            "settlements",
+            "actions",
+            "settled",
+            self_digest="receipt_digest",
+            entry_kind="settlement_receipt",
+            ratio_field=None,
+            chained=False,
+            cert_self_digest=False,
+            cert_parent_digest=False,
+            bind_noun="action",
+            hash_noun="actuation",
+            carried_spec_fields=("effect_digest", "entry"),
+            entry_extra_fields=("effect_digest", "entry"),
+            includes_settlement_vocab=False,
+            bundle_parent_digest=False,
+            parent_cert_label="actuation_certificate",
+        ),
     )
 }
 
@@ -228,19 +404,21 @@ def _skill_route_used() -> bool:
 
 
 def empty_log(layer: PlaneLayer) -> dict[str, Any]:
-    return {
+    log: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "kind": f"{layer.name}_log",
         "entries": [],
         "entry_count": 0,
         "tip_height": 0,
         f"tip_{layer.name}_root": "",
-        f"bound_{layer.parent}_root": "",
-        f"bound_{layer.parent}_height": 0,
-        f"{layer.parent}_hash": "",
-        f"{layer.name}_plan_digest": "",
+        f"bound_{layer.bind}_root": "",
+        f"bound_{layer.bind}_height": 0,
+        f"{layer.hash_parent}_hash": "",
         "updated_at": utc_now_iso(),
     }
+    if layer.chained:
+        log[layer.self_digest_field] = ""
+    return log
 
 
 def compute_root(layer: PlaneLayer, entry: Mapping[str, Any]) -> str:
@@ -294,14 +472,38 @@ def compute_plan_digest(
 ) -> str:
     """Chain the prior child digest with one newly transitioned scenario."""
 
-    payload = {
-        f"parent_{layer.name}_digest": parent_digest or "",
-        f"bound_{layer.parent}_root": bound_parent_root,
+    payload: dict[str, Any] = {
+        layer.parent_chain_field: parent_digest or "",
+        f"bound_{layer.bind}_root": bound_parent_root,
         layer.parent_digest_field: parent_plan_digest,
         "capability_id": capability_id,
         "outcome": outcome or layer.outcome,
-        "position_ratio_bps": int(position_ratio_bps),
         "plane": layer.name,
+    }
+    if layer.ratio_field:
+        payload[layer.ratio_field] = int(position_ratio_bps)
+    return _sha24(payload)
+
+
+def compute_receipt_digest(
+    layer: PlaneLayer,
+    *,
+    capability_id: str,
+    effect: str,
+    bound_root: str,
+    parent_hash: str,
+    package_hash: str,
+    outcome: str = "",
+) -> str:
+    """Unchained settlement receipt digest over one bound action."""
+
+    payload = {
+        "capability_id": capability_id,
+        "effect": effect,
+        f"bound_{layer.bind}_root": bound_root,
+        f"{layer.hash_parent}_hash": parent_hash,
+        "package_hash": package_hash,
+        "outcome": outcome or layer.outcome,
     }
     return _sha24(payload)
 
@@ -338,35 +540,43 @@ def issue_certificate(
         f"{layer.name}_height": int(height),
         f"{layer.name}_root": str(root or ""),
         f"parent_{layer.name}_root": str(parent_root or ""),
-        f"bound_{layer.parent}_root": str(bound_parent_root or ""),
-        f"bound_{layer.parent}_height": int(bound_parent_height or 0),
-        f"{layer.parent}_hash": str(parent_hash or ""),
-        f"{layer.parent}_certificate_hash": str(parent_certificate_hash or ""),
+        f"bound_{layer.bind}_root": str(bound_parent_root or ""),
+        f"bound_{layer.bind}_height": int(bound_parent_height or 0),
+        f"{layer.hash_parent}_hash": str(parent_hash or ""),
+        f"{layer.hash_parent}_certificate_hash": str(parent_certificate_hash or ""),
         "package_hash": str(package_hash or ""),
         "lineage_head_hash": str(lineage_head_hash or ""),
-        layer.parent_digest_field: str(parent_plan_digest or ""),
-        f"{layer.name}_plan_digest": str(plan_digest or ""),
         f"{layer.name}_count": int(count),
         "member_ids": members,
         "member_count": len(members),
         "goal": goal or "",
         "claims": dict(claims or {}),
         "deterministic": True,
-        f"post_{layer.parent}": True,
+        f"post_{layer.hash_parent}": True,
         "used_skill_route_discovery": _skill_route_used(),
     }
+    if layer.cert_parent_digest:
+        cert[layer.parent_digest_field] = str(parent_plan_digest or "")
+    if layer.cert_self_digest:
+        cert[layer.self_digest_field] = str(plan_digest or "")
     cert["certificate_hash"] = compute_certificate_hash(cert)
     cert["ok"] = (
         bool(cert["certificate_hash"])
         and bool(cert[f"{layer.name}_root"])
-        and bool(cert[f"bound_{layer.parent}_root"])
-        and bool(cert[f"{layer.parent}_hash"])
-        and bool(cert[f"{layer.name}_plan_digest"])
-        and bool(cert[layer.parent_digest_field])
+        and bool(cert[f"bound_{layer.bind}_root"])
+        and bool(cert[f"{layer.hash_parent}_hash"])
+        and (
+            not layer.cert_self_digest
+            or bool(cert[layer.self_digest_field])
+        )
+        and (
+            not layer.cert_parent_digest
+            or bool(cert[layer.parent_digest_field])
+        )
         and cert[f"{layer.name}_height"] >= 1
         and cert[f"{layer.name}_count"] >= 1
         and cert["deterministic"] is True
-        and cert[f"post_{layer.parent}"] is True
+        and cert[f"post_{layer.hash_parent}"] is True
         and not bool(cert["used_skill_route_discovery"])
     )
     cert["valid"] = bool(cert["ok"])
@@ -387,14 +597,20 @@ def verify_certificate(
         hash_ok
         and data.get("kind") == f"{layer.name}_certificate"
         and bool(data.get(f"{layer.name}_root"))
-        and bool(data.get(f"bound_{layer.parent}_root"))
-        and bool(data.get(f"{layer.parent}_hash"))
-        and bool(data.get(f"{layer.name}_plan_digest"))
-        and bool(data.get(layer.parent_digest_field))
+        and bool(data.get(f"bound_{layer.bind}_root"))
+        and bool(data.get(f"{layer.hash_parent}_hash"))
+        and (
+            not layer.cert_self_digest
+            or bool(data.get(layer.self_digest_field))
+        )
+        and (
+            not layer.cert_parent_digest
+            or bool(data.get(layer.parent_digest_field))
+        )
         and int(data.get(f"{layer.name}_height") or 0) >= 1
         and int(data.get(f"{layer.name}_count") or 0) >= 1
         and data.get("deterministic") is True
-        and data.get(f"post_{layer.parent}") is True
+        and data.get(f"post_{layer.hash_parent}") is True
         and not bool(data.get("used_skill_route_discovery"))
     )
     return {
@@ -404,9 +620,9 @@ def verify_certificate(
         "certificate_hash": stored if hash_ok else recomputed,
         f"{layer.name}_height": data.get(f"{layer.name}_height"),
         f"{layer.name}_root": data.get(f"{layer.name}_root"),
-        f"bound_{layer.parent}_root": data.get(f"bound_{layer.parent}_root"),
-        f"{layer.name}_plan_digest": data.get(f"{layer.name}_plan_digest"),
-        f"{layer.parent}_hash": data.get(f"{layer.parent}_hash"),
+        f"bound_{layer.bind}_root": data.get(f"bound_{layer.bind}_root"),
+        layer.self_digest_field: data.get(layer.self_digest_field),
+        f"{layer.hash_parent}_hash": data.get(f"{layer.hash_parent}_hash"),
         "used_skill_route_discovery": bool(data.get("used_skill_route_discovery")),
     }
 
@@ -440,32 +656,31 @@ def derive_specs(
     for entry in entries:
         if not isinstance(entry, Mapping):
             continue
-        parent_root = str(entry.get(f"{layer.parent}_root") or "")
+        parent_root = str(entry.get(f"{layer.bind}_root") or "")
         if not parent_root:
             continue
-        specs.append(
-            {
-                "capability_id": str(entry.get("capability_id") or ""),
-                "effect": str(entry.get("effect") or ""),
-                f"bound_{layer.parent}_root": parent_root,
-                f"bound_{layer.parent}_height": int(
-                    entry.get(f"{layer.parent}_height") or 0
-                ),
-                layer.parent_digest_field: str(
-                    entry.get(layer.parent_digest_field) or ""
-                ),
-                "receipt_digest": str(entry.get("receipt_digest") or ""),
-                "bound_settlement_root": str(entry.get("bound_settlement_root") or ""),
-                "bound_action_root": str(entry.get("bound_action_root") or ""),
-                "package_hash": str(
-                    entry.get("package_hash")
-                    or parent_bundle.get("package_hash")
-                    or ""
-                ),
-                "outcome": layer.outcome,
-                "position_ratio_bps": 1000 + 100 * len(specs),
-            }
+        spec: dict[str, Any] = {
+            "capability_id": str(entry.get("capability_id") or ""),
+            "effect": str(entry.get("effect") or ""),
+            f"bound_{layer.bind}_root": parent_root,
+            f"bound_{layer.bind}_height": int(
+                entry.get(f"{layer.bind}_height") or 0
+            ),
+        }
+        if layer.chained:
+            spec[layer.parent_digest_field] = str(
+                entry.get(layer.parent_digest_field) or ""
+            )
+        for field in layer.carried_spec_fields:
+            if field not in spec:
+                spec[field] = str(entry.get(field) or "")
+        spec["package_hash"] = str(
+            entry.get("package_hash") or parent_bundle.get("package_hash") or ""
         )
+        spec["outcome"] = layer.outcome
+        if layer.ratio_field:
+            spec[layer.ratio_field] = 1000 + 100 * len(specs)
+        specs.append(spec)
     want = max(2, int(min_count))
     return specs[:want] if len(specs) >= want else specs
 
@@ -488,19 +703,19 @@ def apply_transition(
         str(entries[-1].get(f"{layer.name}_root") or "") if entries else ""
     )
     parent_digest = (
-        str(entries[-1].get(f"{layer.name}_plan_digest") or "") if entries else ""
+        str(entries[-1].get(layer.self_digest_field) or "") if entries else ""
     )
 
-    bound_root = str(spec.get(f"bound_{layer.parent}_root") or "")
-    bound_height = int(spec.get(f"bound_{layer.parent}_height") or 0)
+    bound_root = str(spec.get(f"bound_{layer.bind}_root") or "")
+    bound_height = int(spec.get(f"bound_{layer.bind}_height") or 0)
     capability_id = str(spec.get("capability_id") or "")
     effect = str(spec.get("effect") or "")
     outcome = str(spec.get("outcome") or layer.outcome)
     package_hash = str(
         spec.get("package_hash") or parent_bundle.get("package_hash") or ""
     )
-    parent_hash = str(parent_bundle.get(f"{layer.parent}_hash") or "")
-    tip_parent_root = str(parent_bundle.get(f"tip_{layer.parent}_root") or "")
+    parent_hash = str(parent_bundle.get(f"{layer.hash_parent}_hash") or "")
+    tip_parent_root = str(parent_bundle.get(f"tip_{layer.bind}_root") or "")
     parent_log = (
         parent_bundle.get(layer.parent_plural)
         if isinstance(parent_bundle.get(layer.parent_plural), Mapping)
@@ -508,9 +723,9 @@ def apply_transition(
     )
     parent_entries = list(parent_log.get("entries") or [])
     known_roots = {
-        str(item.get(f"{layer.parent}_root") or "")
+        str(item.get(f"{layer.bind}_root") or "")
         for item in parent_entries
-        if isinstance(item, Mapping) and item.get(f"{layer.parent}_root")
+        if isinstance(item, Mapping) and item.get(f"{layer.bind}_root")
     }
     if tip_parent_root:
         known_roots.add(tip_parent_root)
@@ -519,7 +734,7 @@ def apply_transition(
         return {
             "ok": False,
             "action": "apply_transition",
-            "error": f"missing_{layer.parent}_bind_fields",
+            "error": f"missing_{layer.bind}_bind_fields",
             "log": new_log,
             "used_skill_route_discovery": _skill_route_used(),
         }
@@ -527,82 +742,103 @@ def apply_transition(
         return {
             "ok": False,
             "action": "apply_transition",
-            "error": f"bound_{layer.parent}_root_mismatch",
-            f"bound_{layer.parent}_root": bound_root,
-            f"known_{layer.parent}_roots": sorted(known_roots),
+            "error": f"bound_{layer.bind}_root_mismatch",
+            f"bound_{layer.bind}_root": bound_root,
+            f"known_{layer.bind}_roots": sorted(known_roots),
             "log": new_log,
             "used_skill_route_discovery": _skill_route_used(),
         }
     if any(
-        str(item.get(f"bound_{layer.parent}_root") or "") == bound_root
+        str(item.get(f"bound_{layer.bind}_root") or "") == bound_root
         and str(item.get("outcome") or "") == outcome
         for item in entries
     ):
         return {
             "ok": False,
             "action": "apply_transition",
-            "error": f"duplicate_{layer.parent}_rejected",
+            "error": f"duplicate_{layer.bind}_rejected",
             "log": new_log,
             "used_skill_route_discovery": _skill_route_used(),
         }
 
     parent_cert = (
-        parent_bundle.get(f"{layer.parent}_certificate")
-        if isinstance(parent_bundle.get(f"{layer.parent}_certificate"), Mapping)
+        parent_bundle.get(f"{layer.hash_parent}_certificate")
+        if isinstance(parent_bundle.get(f"{layer.hash_parent}_certificate"), Mapping)
         else {}
     )
     parent_cert_hash = str(parent_cert.get("certificate_hash") or "")
     lineage_head = str(parent_bundle.get("lineage_head_hash") or "")
     member_ids = list(parent_bundle.get("member_ids") or [])
-    parent_plan_digest = str(spec.get(layer.parent_digest_field) or "")
-    position_ratio_bps = int(spec.get("position_ratio_bps") or 1000)
-    if not parent_plan_digest:
-        for item in parent_entries:
-            if (
-                isinstance(item, Mapping)
-                and str(item.get(f"{layer.parent}_root") or "") == bound_root
-            ):
-                parent_plan_digest = str(
-                    item.get(layer.parent_digest_field) or ""
-                )
-                break
-    plan_digest = compute_plan_digest(
-        layer,
-        parent_digest=parent_digest,
-        bound_parent_root=bound_root,
-        parent_plan_digest=parent_plan_digest,
-        position_ratio_bps=position_ratio_bps,
-        capability_id=capability_id,
-        outcome=outcome,
+    ratio_bps = (
+        int(spec.get(layer.ratio_field) or 1000) if layer.ratio_field else 0
     )
+    if layer.chained:
+        parent_plan_digest = str(spec.get(layer.parent_digest_field) or "")
+        if not parent_plan_digest:
+            for item in parent_entries:
+                if (
+                    isinstance(item, Mapping)
+                    and str(item.get(f"{layer.bind}_root") or "") == bound_root
+                ):
+                    parent_plan_digest = str(
+                        item.get(layer.parent_digest_field) or ""
+                    )
+                    break
+        plan_digest = compute_plan_digest(
+            layer,
+            parent_digest=parent_digest,
+            bound_parent_root=bound_root,
+            parent_plan_digest=parent_plan_digest,
+            position_ratio_bps=ratio_bps,
+            capability_id=capability_id,
+            outcome=outcome,
+        )
+    else:
+        parent_plan_digest = ""
+        plan_digest = compute_receipt_digest(
+            layer,
+            capability_id=capability_id,
+            effect=effect,
+            bound_root=bound_root,
+            parent_hash=parent_hash,
+            package_hash=package_hash,
+            outcome=outcome,
+        )
 
     body: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
-        "kind": f"{layer.name}_action",
+        "kind": layer.kind_name,
         f"{layer.name}_height": next_height,
         f"parent_{layer.name}_root": parent_root,
-        f"bound_{layer.parent}_root": bound_root,
-        f"bound_{layer.parent}_height": bound_height,
-        f"{layer.parent}_hash": parent_hash,
-        f"{layer.parent}_certificate_hash": parent_cert_hash,
+        f"bound_{layer.bind}_root": bound_root,
+        f"bound_{layer.bind}_height": bound_height,
+        f"{layer.hash_parent}_hash": parent_hash,
+        f"{layer.hash_parent}_certificate_hash": parent_cert_hash,
         "package_hash": package_hash,
         "lineage_head_hash": lineage_head,
         "capability_id": capability_id,
         "effect": effect,
         "outcome": outcome,
-        layer.parent_digest_field: parent_plan_digest,
-        f"{layer.name}_plan_digest": plan_digest,
-        "position_ratio_bps": position_ratio_bps,
-        f"parent_{layer.name}_digest": parent_digest,
-        "bound_action_root": str(spec.get("bound_action_root") or ""),
         "member_ids": sorted({str(m).strip() for m in member_ids if str(m).strip()}),
         "deterministic": True,
-        f"post_{layer.parent}": True,
+        f"post_{layer.hash_parent}": True,
         "applied_at": utc_now_iso(),
         "goal": goal or str(parent_bundle.get("goal") or ""),
         "claims": dict(claims or {}),
         "used_skill_route_discovery": _skill_route_used(),
     }
+    if layer.chained:
+        body[layer.parent_digest_field] = parent_plan_digest
+        body[layer.self_digest_field] = plan_digest
+        body[layer.parent_chain_field] = parent_digest
+    else:
+        body[layer.self_digest_field] = plan_digest
+    if layer.ratio_field:
+        body[layer.ratio_field] = ratio_bps
+    if layer.bind != "action":
+        body["bound_action_root"] = str(spec.get("bound_action_root") or "")
+    for field in layer.entry_extra_fields:
+        body[field] = str(spec.get(field) or "")
     root = compute_root(layer, body)
     body[f"{layer.name}_root"] = root
     cert = issue_certificate(
@@ -635,7 +871,7 @@ def apply_transition(
         and bool(root)
         and bool(plan_digest)
         and body["deterministic"] is True
-        and body[f"post_{layer.parent}"] is True
+        and body[f"post_{layer.hash_parent}"] is True
         and not bool(body.get("used_skill_route_discovery"))
     )
 
@@ -644,25 +880,28 @@ def apply_transition(
     new_log["entry_count"] = len(entries)
     new_log["tip_height"] = next_height
     new_log[f"tip_{layer.name}_root"] = root
-    new_log[f"bound_{layer.parent}_root"] = bound_root
-    new_log[f"bound_{layer.parent}_height"] = bound_height
-    new_log[f"{layer.parent}_hash"] = parent_hash
-    new_log[f"{layer.name}_plan_digest"] = plan_digest
+    new_log[f"bound_{layer.bind}_root"] = bound_root
+    new_log[f"bound_{layer.bind}_height"] = bound_height
+    new_log[f"{layer.hash_parent}_hash"] = parent_hash
+    if layer.chained:
+        new_log[layer.self_digest_field] = plan_digest
     new_log["updated_at"] = utc_now_iso()
     new_log["schema_version"] = SCHEMA_VERSION
     new_log["kind"] = f"{layer.name}_log"
-    return {
+    result: dict[str, Any] = {
         "ok": bool(body.get("ok")),
         "action": "apply_transition",
         "entry": body,
         f"{layer.name}_height": next_height,
         f"{layer.name}_root": root,
         f"parent_{layer.name}_root": parent_root,
-        f"bound_{layer.parent}_root": bound_root,
-        f"{layer.name}_plan_digest": plan_digest,
+        f"bound_{layer.bind}_root": bound_root,
         "log": new_log,
         "used_skill_route_discovery": _skill_route_used(),
     }
+    if layer.chained:
+        result[layer.self_digest_field] = plan_digest
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -714,34 +953,55 @@ def verify_chain(layer: PlaneLayer, log: Mapping[str, Any]) -> dict[str, Any]:
             errors.append(f"entry[{index}]_{layer.name}_root_mismatch")
         if raw.get("deterministic") is not True:
             errors.append(f"entry[{index}]_not_deterministic")
-        if raw.get(f"post_{layer.parent}") is not True:
-            errors.append(f"entry[{index}]_not_post_{layer.parent}")
-        bound = str(raw.get(f"bound_{layer.parent}_root") or "")
+        if raw.get(f"post_{layer.hash_parent}") is not True:
+            errors.append(f"entry[{index}]_not_post_{layer.hash_parent}")
+        bound = str(raw.get(f"bound_{layer.bind}_root") or "")
         if not bound:
-            errors.append(f"entry[{index}]_missing_bound_{layer.parent}_root")
+            errors.append(f"entry[{index}]_missing_bound_{layer.bind}_root")
         else:
             bound_roots.add(bound)
-        p_hash = str(raw.get(f"{layer.parent}_hash") or "")
+        p_hash = str(raw.get(f"{layer.hash_parent}_hash") or "")
         if not p_hash:
-            errors.append(f"entry[{index}]_missing_{layer.parent}_hash")
+            errors.append(f"entry[{index}]_missing_{layer.hash_parent}_hash")
         else:
             parent_hashes.add(p_hash)
-        parent_plan_digest = str(raw.get(layer.parent_digest_field) or "")
-        stored_parent_digest = str(raw.get(f"parent_{layer.name}_digest") or "")
-        if stored_parent_digest != prev_digest:
-            errors.append(f"entry[{index}]_parent_{layer.name}_digest_mismatch")
-        expected_digest = compute_plan_digest(
-            layer,
-            parent_digest=prev_digest,
-            bound_parent_root=bound,
-            parent_plan_digest=parent_plan_digest,
-            position_ratio_bps=int(raw.get("position_ratio_bps") or 1000),
-            capability_id=str(raw.get("capability_id") or ""),
-            outcome=str(raw.get("outcome") or layer.outcome),
-        )
-        stored_digest = str(raw.get(f"{layer.name}_plan_digest") or "")
-        if not stored_digest or stored_digest != expected_digest:
-            errors.append(f"entry[{index}]_{layer.name}_plan_digest_mismatch")
+        if layer.chained:
+            parent_plan_digest = str(raw.get(layer.parent_digest_field) or "")
+            stored_parent_digest = str(raw.get(layer.parent_chain_field) or "")
+            if stored_parent_digest != prev_digest:
+                errors.append(f"entry[{index}]_{layer.parent_chain_field}_mismatch")
+            expected_digest = compute_plan_digest(
+                layer,
+                parent_digest=prev_digest,
+                bound_parent_root=bound,
+                parent_plan_digest=parent_plan_digest,
+                position_ratio_bps=(
+                    int(raw.get(layer.ratio_field) or 1000)
+                    if layer.ratio_field
+                    else 0
+                ),
+                capability_id=str(raw.get("capability_id") or ""),
+                outcome=str(raw.get("outcome") or layer.outcome),
+            )
+            stored_digest = str(raw.get(layer.self_digest_field) or "")
+            if not stored_digest or stored_digest != expected_digest:
+                errors.append(f"entry[{index}]_{layer.self_digest_field}_mismatch")
+        else:
+            stored_digest = str(raw.get(layer.self_digest_field) or "")
+            if not stored_digest:
+                errors.append(f"entry[{index}]_missing_{layer.self_digest_field}")
+            else:
+                expected_digest = compute_receipt_digest(
+                    layer,
+                    capability_id=str(raw.get("capability_id") or ""),
+                    effect=str(raw.get("effect") or ""),
+                    bound_root=bound,
+                    parent_hash=p_hash,
+                    package_hash=str(raw.get("package_hash") or ""),
+                    outcome=str(raw.get("outcome") or layer.outcome),
+                )
+                if stored_digest != expected_digest:
+                    errors.append(f"entry[{index}]_{layer.self_digest_field}_mismatch")
         cert = raw.get(f"{layer.name}_certificate")
         if not isinstance(cert, Mapping):
             errors.append(f"entry[{index}]_missing_{layer.name}_certificate")
@@ -753,46 +1013,55 @@ def verify_chain(layer: PlaneLayer, log: Mapping[str, Any]) -> dict[str, Any]:
                 errors.append(f"entry[{index}]_cert_{layer.name}_root_mismatch")
             if int(cert.get(f"{layer.name}_height") or 0) != height:
                 errors.append(f"entry[{index}]_cert_height_mismatch")
-            if str(cert.get(f"bound_{layer.parent}_root") or "") != bound:
-                errors.append(f"entry[{index}]_cert_bound_{layer.parent}_mismatch")
-            if str(cert.get(f"{layer.name}_plan_digest") or "") != stored_digest:
+            if str(cert.get(f"bound_{layer.bind}_root") or "") != bound:
+                errors.append(f"entry[{index}]_cert_bound_{layer.bind}_mismatch")
+            if layer.cert_self_digest and str(
+                cert.get(layer.self_digest_field) or ""
+            ) != stored_digest:
                 errors.append(f"entry[{index}]_cert_digest_mismatch")
         prev_root = stored
         prev_digest = stored_digest
 
     if len(parent_hashes) > 1:
-        errors.append(f"mixed_{layer.parent}_hashes")
+        errors.append(f"mixed_{layer.hash_parent}_hashes")
 
     tip = entries[-1] if entries else {}
     tip_height = int(tip.get(f"{layer.name}_height") or 0) if isinstance(tip, Mapping) else 0
     tip_root = str(tip.get(f"{layer.name}_root") or "") if isinstance(tip, Mapping) else ""
     tip_digest = (
-        str(tip.get(f"{layer.name}_plan_digest") or "") if isinstance(tip, Mapping) else ""
+        str(tip.get(layer.self_digest_field) or "")
+        if isinstance(tip, Mapping) and layer.chained
+        else ""
     )
     log_tip_height = int(log.get("tip_height") or 0)
     log_tip_root = str(log.get(f"tip_{layer.name}_root") or "")
-    log_digest = str(log.get(f"{layer.name}_plan_digest") or "")
     if log_tip_height and log_tip_height != tip_height:
         errors.append("tip_height_metadata_mismatch")
     if log_tip_root and log_tip_root != tip_root:
         errors.append(f"tip_{layer.name}_root_metadata_mismatch")
-    if log_digest and log_digest != tip_digest:
-        errors.append(f"{layer.name}_plan_digest_metadata_mismatch")
+    if layer.chained:
+        log_digest = str(log.get(layer.self_digest_field) or "")
+        if log_digest and log_digest != tip_digest:
+            errors.append(f"{layer.self_digest_field}_metadata_mismatch")
 
-    valid = not errors and tip_height >= 1 and bool(tip_root) and bool(tip_digest)
-    return {
+    valid = not errors and tip_height >= 1 and bool(tip_root) and (
+        bool(tip_digest) or not layer.chained
+    )
+    result: dict[str, Any] = {
         "ok": valid,
         "valid": valid,
         "action": "verify_chain",
         "entry_count": len(entries),
         "tip_height": tip_height,
         f"tip_{layer.name}_root": tip_root,
-        f"{layer.name}_plan_digest": tip_digest,
-        f"bound_{layer.parent}_roots": sorted(bound_roots),
-        f"{layer.parent}_hash": next(iter(parent_hashes), ""),
+        f"bound_{layer.bind}_roots": sorted(bound_roots),
+        f"{layer.hash_parent}_hash": next(iter(parent_hashes), ""),
         "errors": errors,
         "used_skill_route_discovery": _skill_route_used(),
     }
+    if layer.chained:
+        result[layer.self_digest_field] = tip_digest
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -860,7 +1129,7 @@ def apply_bundle(
 
     chain = verify_chain(layer, log)
     ok = bool(chain.get("valid")) and len(applied) >= 2 and not _skill_route_used()
-    return {
+    result_out: dict[str, Any] = {
         "ok": ok,
         "action": "apply_bundle",
         "log": log,
@@ -869,11 +1138,13 @@ def apply_bundle(
         f"{layer.name}_count": len(applied),
         "tip_height": log.get("tip_height"),
         f"tip_{layer.name}_root": log.get(f"tip_{layer.name}_root"),
-        f"bound_{layer.parent}_root": log.get(f"bound_{layer.parent}_root"),
-        f"{layer.name}_plan_digest": log.get(f"{layer.name}_plan_digest"),
+        f"bound_{layer.bind}_root": log.get(f"bound_{layer.bind}_root"),
         "chain": chain,
         "used_skill_route_discovery": _skill_route_used(),
     }
+    if layer.chained:
+        result_out[layer.self_digest_field] = log.get(layer.self_digest_field)
+    return result_out
 
 
 def build_bundle(
@@ -905,8 +1176,8 @@ def build_bundle(
         verify_certificate(layer, tip_cert) if tip_cert else {"valid": False}
     )
     parent_cert = (
-        parent_bundle.get(f"{layer.parent}_certificate")
-        if isinstance(parent_bundle.get(f"{layer.parent}_certificate"), Mapping)
+        parent_bundle.get(f"{layer.hash_parent}_certificate")
+        if isinstance(parent_bundle.get(f"{layer.hash_parent}_certificate"), Mapping)
         else {}
     )
     act_cert = (
@@ -932,7 +1203,7 @@ def build_bundle(
         certificates[str(parent_cert["certificate_hash"])] = {
             "certificate_hash": parent_cert.get("certificate_hash"),
             "payload": parent_cert,
-            "kind": f"{layer.name}_certificate",
+            "kind": layer.parent_cert_label or f"{layer.name}_certificate",
         }
     if isinstance(act_cert, Mapping) and act_cert.get("certificate_hash"):
         certificates[str(act_cert["certificate_hash"])] = {
@@ -965,92 +1236,111 @@ def build_bundle(
             "kind": "settlement_certificate",
         }
 
+    def _mapping(key: str) -> dict[str, Any]:
+        value = parent_bundle.get(key)
+        return copy.deepcopy(dict(value)) if isinstance(value, Mapping) else {}
+
     member_ids = list(parent_bundle.get("member_ids") or package.get("member_ids") or [])
+    vocab = layer.includes_settlement_vocab
     bundle: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
-        "kind": f"{layer.name}_bundle",
+        "kind": layer.bundle_kind or f"{layer.name}_bundle",
         "action": f"build_{layer.name}_bundle",
         "goal": goal or f"{layer.name} over {layer.parent}",
         layer.plural: copy.deepcopy(dict(log)),
-        layer.parent_plural: copy.deepcopy(
-            parent_bundle.get(layer.parent_plural)
-            if isinstance(parent_bundle.get(layer.parent_plural), Mapping)
-            else {}
-        ),
-        "settlements": copy.deepcopy(
-            parent_bundle.get("settlements")
-            if isinstance(parent_bundle.get("settlements"), Mapping)
-            else {}
-        ),
-        "actions": copy.deepcopy(
-            parent_bundle.get("actions")
-            if isinstance(parent_bundle.get("actions"), Mapping)
-            else {}
-        ),
-        "package": copy.deepcopy(dict(package)),
-        "lineage": copy.deepcopy(
-            parent_bundle.get("lineage")
-            if isinstance(parent_bundle.get("lineage"), Mapping)
-            else {}
-        ),
-        f"{layer.name}_certificate": copy.deepcopy(dict(tip_cert)),
-        f"{layer.parent}_certificate": copy.deepcopy(dict(parent_cert)),
-        "settlement_certificate": copy.deepcopy(dict(settle_cert_nested)),
-        "actuation_certificate": copy.deepcopy(dict(act_cert)),
-        "execution_certificate": copy.deepcopy(dict(exec_cert)),
-        "certificates": certificates,
-        "certificate_count": len(certificates),
-        f"{layer.name}_count": len(entries),
-        f"{layer.parent}_count": int(parent_bundle.get(f"{layer.parent}_count") or 0),
-        "settlement_count": int(parent_bundle.get("settlement_count") or 0),
-        "action_count": int(parent_bundle.get("action_count") or 0),
-        "tip_height": int(log.get("tip_height") or 0),
-        f"tip_{layer.name}_root": str(log.get(f"tip_{layer.name}_root") or ""),
-        f"bound_{layer.parent}_root": str(log.get(f"bound_{layer.parent}_root") or ""),
-        f"bound_{layer.parent}_height": int(
-            log.get(f"bound_{layer.parent}_height") or 0
-        ),
-        f"tip_{layer.parent}_root": str(
-            parent_bundle.get(f"tip_{layer.parent}_root") or ""
-        ),
-        "bound_settlement_root": str(parent_bundle.get("bound_settlement_root") or ""),
-        "tip_settlement_root": str(parent_bundle.get("tip_settlement_root") or ""),
-        "bound_action_root": str(parent_bundle.get("bound_action_root") or ""),
-        "tip_action_root": str(parent_bundle.get("tip_action_root") or ""),
-        "bound_state_root": str(parent_bundle.get("bound_state_root") or ""),
-        f"{layer.name}_plan_digest": str(log.get(f"{layer.name}_plan_digest") or ""),
-        layer.parent_digest_field: str(
-            parent_bundle.get(layer.parent_digest_field) or ""
-        ),
-        f"{layer.parent}_hash": str(parent_bundle.get(f"{layer.parent}_hash") or ""),
-        "settlement_hash": str(parent_bundle.get("settlement_hash") or ""),
-        "actuation_hash": str(parent_bundle.get("actuation_hash") or ""),
-        "execution_hash": str(parent_bundle.get("execution_hash") or ""),
-        "package_hash": str(parent_bundle.get("package_hash") or ""),
-        "member_ids": sorted({str(m).strip() for m in member_ids if str(m).strip()}),
-        "member_count": len(member_ids),
-        "lineage_head_hash": str(parent_bundle.get("lineage_head_hash") or ""),
-        "lineage_entry_count": int(parent_bundle.get("lineage_entry_count") or 0),
-        "origin_count": parent_bundle.get("origin_count"),
-        "agreeing_count": parent_bundle.get("agreeing_count"),
-        "byzantine_count": parent_bundle.get("byzantine_count"),
-        "state_count": parent_bundle.get("state_count"),
-        "epoch_count": parent_bundle.get("epoch_count"),
-        "deterministic": True,
-        f"post_{layer.parent}": True,
-        "exported_at": utc_now_iso(),
-        "used_skill_route_discovery": _skill_route_used(),
+        layer.parent_plural: _mapping(layer.parent_plural),
     }
+    ancestor_logs = ("settlements", "actions") if vocab else ("actions",)
+    for key in ancestor_logs:
+        if key not in bundle:
+            bundle[key] = _mapping(key)
+    bundle["package"] = copy.deepcopy(dict(package))
+    bundle["lineage"] = _mapping("lineage")
+    bundle[f"{layer.name}_certificate"] = copy.deepcopy(dict(tip_cert))
+    bundle[f"{layer.hash_parent}_certificate"] = copy.deepcopy(dict(parent_cert))
+    ancestor_certs = (
+        ("settlement_certificate", "actuation_certificate", "execution_certificate")
+        if vocab
+        else ("actuation_certificate", "execution_certificate")
+    )
+    for key in ancestor_certs:
+        if key not in bundle:
+            bundle[key] = _mapping(key)
+    bundle["certificates"] = certificates
+    bundle["certificate_count"] = len(certificates)
+    bundle[f"{layer.name}_count"] = len(entries)
+    if vocab:
+        bundle[f"{layer.parent}_count"] = int(
+            parent_bundle.get(f"{layer.parent}_count") or 0
+        )
+    ancestor_counts = ("settlement_count", "action_count") if vocab else ("action_count",)
+    for key in ancestor_counts:
+        if key not in bundle:
+            bundle[key] = int(parent_bundle.get(key) or 0)
+    bundle["tip_height"] = int(log.get("tip_height") or 0)
+    bundle[f"tip_{layer.name}_root"] = str(log.get(f"tip_{layer.name}_root") or "")
+    bundle[f"bound_{layer.bind}_root"] = str(log.get(f"bound_{layer.bind}_root") or "")
+    bundle[f"bound_{layer.bind}_height"] = int(
+        log.get(f"bound_{layer.bind}_height") or 0
+    )
+    bundle[f"tip_{layer.bind}_root"] = str(
+        parent_bundle.get(f"tip_{layer.bind}_root") or ""
+    )
+    ancestor_roots = (
+        (
+            "bound_settlement_root",
+            "tip_settlement_root",
+            "bound_action_root",
+            "tip_action_root",
+            "bound_state_root",
+        )
+        if vocab
+        else ("bound_action_root", "tip_action_root", "bound_state_root")
+    )
+    for key in ancestor_roots:
+        if key not in bundle:
+            bundle[key] = str(parent_bundle.get(key) or "")
+    if layer.chained:
+        bundle[layer.self_digest_field] = str(log.get(layer.self_digest_field) or "")
+    if layer.bundle_parent_digest:
+        bundle[layer.parent_digest_field] = str(
+            parent_bundle.get(layer.parent_digest_field) or ""
+        )
+    bundle[f"{layer.hash_parent}_hash"] = str(
+        parent_bundle.get(f"{layer.hash_parent}_hash") or ""
+    )
+    ancestor_hashes = (
+        ("settlement_hash", "actuation_hash", "execution_hash")
+        if vocab
+        else ("actuation_hash", "execution_hash")
+    )
+    for key in ancestor_hashes:
+        if key not in bundle:
+            bundle[key] = str(parent_bundle.get(key) or "")
+    bundle["package_hash"] = str(parent_bundle.get("package_hash") or "")
+    bundle["member_ids"] = sorted({str(m).strip() for m in member_ids if str(m).strip()})
+    bundle["member_count"] = len(member_ids)
+    bundle["lineage_head_hash"] = str(parent_bundle.get("lineage_head_hash") or "")
+    bundle["lineage_entry_count"] = int(parent_bundle.get("lineage_entry_count") or 0)
+    bundle["origin_count"] = parent_bundle.get("origin_count")
+    bundle["agreeing_count"] = parent_bundle.get("agreeing_count")
+    bundle["byzantine_count"] = parent_bundle.get("byzantine_count")
+    bundle["state_count"] = parent_bundle.get("state_count")
+    bundle["epoch_count"] = parent_bundle.get("epoch_count")
+    bundle["deterministic"] = True
+    bundle[f"post_{layer.hash_parent}"] = True
+    bundle["exported_at"] = utc_now_iso()
+    bundle["used_skill_route_discovery"] = _skill_route_used()
     bundle[f"{layer.name}_hash"] = compute_bundle_hash(layer, bundle)
     bundle["ok"] = (
         bool(chain.get("valid"))
         and bool(tip_cert_verify.get("valid"))
         and len(entries) >= 2
         and bool(bundle[f"{layer.name}_hash"])
-        and bool(bundle[f"{layer.parent}_hash"])
-        and bool(bundle[f"{layer.name}_plan_digest"])
+        and bool(bundle[f"{layer.hash_parent}_hash"])
+        and (not layer.chained or bool(bundle[layer.self_digest_field]))
         and bundle["deterministic"] is True
-        and bundle[f"post_{layer.parent}"] is True
+        and bundle[f"post_{layer.hash_parent}"] is True
         and not bool(bundle["used_skill_route_discovery"])
     )
     return bundle
@@ -1107,18 +1397,21 @@ def verify_bundle_integrity(
     multi = int(bundle.get(f"{layer.name}_count") or chain.get("entry_count") or 0) >= 2
     package = bundle.get("package") if isinstance(bundle.get("package"), Mapping) else {}
     package_ok = bool(package) and bool(bundle.get("package_hash"))
-    bound_ok = bool(bundle.get(f"bound_{layer.parent}_root")) and bool(
-        bundle.get(f"{layer.parent}_hash")
+    bound_ok = bool(bundle.get(f"bound_{layer.bind}_root")) and bool(
+        bundle.get(f"{layer.hash_parent}_hash")
     )
-    digest_ok = bool(bundle.get(f"{layer.name}_plan_digest")) and str(
-        bundle.get(f"{layer.name}_plan_digest") or ""
-    ) == str(
-        chain.get(f"{layer.name}_plan_digest")
-        or bundle.get(f"{layer.name}_plan_digest")
-        or ""
-    )
+    if layer.chained:
+        digest_ok = bool(bundle.get(layer.self_digest_field)) and str(
+            bundle.get(layer.self_digest_field) or ""
+        ) == str(
+            chain.get(layer.self_digest_field)
+            or bundle.get(layer.self_digest_field)
+            or ""
+        )
+    else:
+        digest_ok = True
     deterministic = bundle.get("deterministic") is True
-    post_parent = bundle.get(f"post_{layer.parent}") is True
+    post_parent = bundle.get(f"post_{layer.hash_parent}") is True
     used_skill = bool(bundle.get("used_skill_route_discovery")) or _skill_route_used()
     ok = (
         hash_ok
@@ -1133,23 +1426,25 @@ def verify_bundle_integrity(
         and post_parent
         and not used_skill
     )
-    return {
+    result: dict[str, Any] = {
         "ok": ok,
         "valid": ok,
         "action": "verify_bundle_integrity",
         "hash_ok": hash_ok,
         "chain": chain,
         "certificate": cert_verify,
-        f"{layer.parent}_certificate": dict(parent_cert_verify),
+        f"{layer.hash_parent}_certificate": dict(parent_cert_verify),
         "multi": multi,
         f"{layer.name}_count": int(
             bundle.get(f"{layer.name}_count") or chain.get("entry_count") or 0
         ),
         f"{layer.name}_hash": expected if hash_ok else recomputed,
         f"tip_{layer.name}_root": chain.get(f"tip_{layer.name}_root"),
-        f"{layer.name}_plan_digest": bundle.get(f"{layer.name}_plan_digest"),
         "used_skill_route_discovery": used_skill,
     }
+    if layer.chained:
+        result[layer.self_digest_field] = bundle.get(layer.self_digest_field)
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -1219,38 +1514,36 @@ def _synthetic_parent_bundle(
 
         legacy = legacy_mod
     parent = layer.parent
+    bind = layer.bind
+    hash_parent = layer.hash_parent
     grandparent = PARENT_OF[parent]
     entry_digest_field = layer.parent_digest_field
     entries = []
     for index in range(3):
-        root = hashlib.sha256(f"{parent}-root-{index}".encode()).hexdigest()[:24]
-        digest = hashlib.sha256(f"{parent}-digest-{index}".encode()).hexdigest()[:24]
-        entries.append(
-            {
-                f"{parent}_root": root,
-                f"{parent}_height": index + 1,
-                entry_digest_field: digest,
-                "capability_id": f"capability.fixture-{index}",
-                "effect": f"fixture-effect-{index}",
-                "receipt_digest": hashlib.sha256(
-                    f"receipt-{index}".encode()
-                ).hexdigest()[:24],
-                "bound_settlement_root": hashlib.sha256(
-                    f"settlement-{index}".encode()
-                ).hexdigest()[:24],
-                "bound_action_root": hashlib.sha256(
-                    f"action-{index}".encode()
-                ).hexdigest()[:24],
-            }
-        )
-    parent_hash = hashlib.sha256(f"{parent}-bundle-hash".encode()).hexdigest()[:24]
+        root = hashlib.sha256(f"{bind}-root-{index}".encode()).hexdigest()[:24]
+        digest = hashlib.sha256(f"{bind}-digest-{index}".encode()).hexdigest()[:24]
+        entry: dict[str, Any] = {
+            f"{bind}_root": root,
+            f"{bind}_height": index + 1,
+            "capability_id": f"capability.fixture-{index}",
+            "effect": f"fixture-effect-{index}",
+        }
+        if layer.chained:
+            entry[entry_digest_field] = digest
+        for field in layer.carried_spec_fields:
+            if field not in entry:
+                entry[field] = hashlib.sha256(
+                    f"{field}-{index}".encode()
+                ).hexdigest()[:24]
+        entries.append(entry)
+    parent_hash = hashlib.sha256(f"{hash_parent}-bundle-hash".encode()).hexdigest()[:24]
     package_hash = hashlib.sha256(b"fixture-package").hexdigest()[:24]
     lineage_head = hashlib.sha256(b"fixture-lineage").hexdigest()[:24]
-    issuer = _legacy_fn(legacy, f"issue_{parent}_certificate")
+    issuer = _legacy_fn(legacy, f"issue_{hash_parent}_certificate")
     offered = {
-        f"{parent}_height": 3,
-        f"{parent}_root": entries[-1][f"{parent}_root"],
-        f"parent_{parent}_root": entries[-2][f"{parent}_root"],
+        f"{hash_parent}_height": 3,
+        f"{hash_parent}_root": entries[-1][f"{bind}_root"],
+        f"parent_{hash_parent}_root": entries[-2][f"{bind}_root"],
         f"bound_{grandparent}_root": hashlib.sha256(
             f"{grandparent}-root".encode()
         ).hexdigest()[:24],
@@ -1266,11 +1559,12 @@ def _synthetic_parent_bundle(
         f"{grandparent}_plan_digest": hashlib.sha256(
             f"{grandparent}-digest".encode()
         ).hexdigest()[:24],
-        entry_digest_field: entries[-1][entry_digest_field],
-        f"{parent}_count": 3,
+        f"{hash_parent}_count": 3,
         "member_ids": ["capability.fixture-0", "capability.fixture-1"],
         "goal": "differential fixture",
     }
+    if layer.chained:
+        offered[entry_digest_field] = entries[-1][entry_digest_field]
     accepted = set(inspect.signature(issuer).parameters)
     kwargs = {key: value for key, value in offered.items() if key in accepted}
     signature = inspect.signature(issuer)
@@ -1279,18 +1573,20 @@ def _synthetic_parent_bundle(
             continue
         # Dialect-boundary issuers rename digest kwargs (e.g.
         # stress_scenario_digest, resilience_buffer_digest); fill any other
-        # required digest-like parameter deterministically.
-        kwargs[name] = hashlib.sha256(f"{parent}-{name}".encode()).hexdigest()[:24]
+        # required parameter deterministically.
+        if name.endswith(("_count", "_height")):
+            kwargs[name] = 3 if name.endswith("_count") else 2
+        else:
+            kwargs[name] = hashlib.sha256(f"{parent}-{name}".encode()).hexdigest()[:24]
     cert = issuer(**kwargs)
-    return {
-        "kind": f"{parent}_bundle",
+    bundle: dict[str, Any] = {
+        "kind": f"{hash_parent}_bundle",
         "goal": "differential fixture",
         layer.parent_plural: {"entries": entries, "entry_count": len(entries)},
-        f"tip_{parent}_root": entries[-1][f"{parent}_root"],
+        f"tip_{bind}_root": entries[-1][f"{bind}_root"],
         f"{parent}_count": len(entries),
-        f"{parent}_hash": parent_hash,
-        f"{parent}_certificate": cert,
-        entry_digest_field: entries[-1][entry_digest_field],
+        f"{hash_parent}_hash": parent_hash,
+        f"{hash_parent}_certificate": cert,
         "package": {
             "package_hash": package_hash,
             "member_ids": ["capability.fixture-0"],
@@ -1299,6 +1595,9 @@ def _synthetic_parent_bundle(
         "lineage_head_hash": lineage_head,
         "member_ids": ["capability.fixture-0", "capability.fixture-1"],
     }
+    if layer.chained:
+        bundle[entry_digest_field] = entries[-1][entry_digest_field]
+    return bundle
 
 
 def differential_proof(
@@ -1452,7 +1751,9 @@ def _differential_proof_layer(legacy: Any, layer: PlaneLayer) -> dict[str, Any]:
             f"{L}_hash={engine_bundle.get(f'{L}_hash')}",
         )
         legacy_integrity = _legacy_fn(legacy, f"verify_{L}_bundle_integrity")
-        parent_cert_verifier = _legacy_fn(legacy, f"verify_{P}_certificate")
+        parent_cert_verifier = _legacy_fn(
+            legacy, f"verify_{layer.hash_parent}_certificate"
+        )
         legacy_accepts_engine = legacy_integrity(engine_bundle)
         engine_accepts_legacy = verify_bundle_integrity(
             layer,
@@ -1479,7 +1780,7 @@ def _differential_proof_layer(legacy: Any, layer: PlaneLayer) -> dict[str, Any]:
         gapped["entries"][1][f"{L}_height"] = 5
         mutations["height_gap"] = gapped
         wrong_binding = copy.deepcopy(engine_log)
-        wrong_binding["entries"][0][f"bound_{P}_root"] = "0" * 24
+        wrong_binding["entries"][0][f"bound_{layer.bind}_root"] = "0" * 24
         mutations["wrong_parent_binding"] = wrong_binding
         forged = copy.deepcopy(engine_log)
         forged["entries"][0][f"parent_{L}_root"] = "a" * 24
@@ -1520,3 +1821,30 @@ def builtin_plane_engine() -> dict[str, Any]:
 
     repo_path = Path(__file__).resolve().parents[2]
     return differential_proof(repo_path)
+
+
+FULL_STACK_LAYER_COUNT = 42
+
+
+def builtin_plane_engine_full_stack() -> dict[str, Any]:
+    """Prove the engine covers the entire settlement..cosmos plane stack.
+
+    Full-stack means every token-renamed plane layer generated by the legacy
+    dynasty (42 layers: settlement through cosmos) is registered in ``LAYERS``
+    and passes the six-check differential proof against the legacy code it
+    replaces.
+    """
+
+    repo_path = Path(__file__).resolve().parents[2]
+    result = differential_proof(repo_path)
+    covered = sorted(LAYERS)
+    ok = bool(result.get("ok")) and len(covered) == FULL_STACK_LAYER_COUNT
+    return {
+        "ok": ok,
+        "action": "plane_engine_full_stack_proof",
+        "layer_count": len(covered),
+        "required_layer_count": FULL_STACK_LAYER_COUNT,
+        "layers": covered,
+        "differential_ok": bool(result.get("ok")),
+        "used_skill_route_discovery": _skill_route_used(),
+    }

@@ -1,0 +1,151 @@
+{
+  "actuation_hash": "2c8c33332fde5e9e35c8788f",
+  "bound_action_height": 2,
+  "bound_action_root": "ded612d9793b5858df804986",
+  "entries": [
+    {
+      "actuation_certificate_hash": "cb6f5374864a1ebbc724a16e",
+      "actuation_hash": "2c8c33332fde5e9e35c8788f",
+      "applied_at": "2026-07-31T18:06:27.770545Z",
+      "bound_action_height": 1,
+      "bound_action_root": "e5ce2f5ce155c5a655262f47",
+      "capability_id": "capability.ledger-inventory",
+      "claims": {
+        "plane": "settlement",
+        "settlement_index": 1
+      },
+      "deterministic": true,
+      "effect": "prove",
+      "effect_digest": "07c7ac1c3c17f62cd41f702c",
+      "entry": "blackhole_agent.capability_compounder:builtin_ledger_inventory",
+      "goal": "clearing over settlement (settlement 1)",
+      "kind": "settlement_receipt",
+      "lineage_head_hash": "0391c8ebb293c17605d416ea",
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "outcome": "settled",
+      "package_hash": "36cfbb51996bdaac",
+      "parent_settlement_root": "",
+      "post_actuation": true,
+      "receipt_digest": "eb464aa0b925f1eee6094fa6",
+      "schema_version": 1,
+      "settlement_certificate": {
+        "actuation_certificate_hash": "cb6f5374864a1ebbc724a16e",
+        "actuation_hash": "2c8c33332fde5e9e35c8788f",
+        "bound_action_height": 1,
+        "bound_action_root": "e5ce2f5ce155c5a655262f47",
+        "certificate_hash": "5698338c0b4ebabdbfba6dd4",
+        "claims": {
+          "capability_id": "capability.ledger-inventory",
+          "effect": "prove",
+          "outcome": "settled",
+          "plane": "settlement",
+          "settlement_index": 1
+        },
+        "deterministic": true,
+        "goal": "clearing over settlement (settlement 1)",
+        "issued_at": "2026-07-31T18:06:27.770565Z",
+        "kind": "settlement_certificate",
+        "lineage_head_hash": "0391c8ebb293c17605d416ea",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "36cfbb51996bdaac",
+        "parent_settlement_root": "",
+        "post_actuation": true,
+        "schema_version": 1,
+        "settlement_count": 1,
+        "settlement_height": 1,
+        "settlement_root": "918d25c39eb5cae68e8a8c65",
+        "used_skill_route_discovery": false,
+        "valid": true
+      },
+      "settlement_height": 1,
+      "settlement_root": "918d25c39eb5cae68e8a8c65",
+      "used_skill_route_discovery": false
+    },
+    {
+      "actuation_certificate_hash": "cb6f5374864a1ebbc724a16e",
+      "actuation_hash": "2c8c33332fde5e9e35c8788f",
+      "applied_at": "2026-07-31T18:06:27.770650Z",
+      "bound_action_height": 2,
+      "bound_action_root": "ded612d9793b5858df804986",
+      "capability_id": "repo.import-health",
+      "claims": {
+        "plane": "settlement",
+        "settlement_index": 2
+      },
+      "deterministic": true,
+      "effect": "prove",
+      "effect_digest": "0bf7f974deb4b74db0b287d7",
+      "entry": "blackhole_agent.capability_compounder:builtin_repo_import_health",
+      "goal": "clearing over settlement (settlement 2)",
+      "kind": "settlement_receipt",
+      "lineage_head_hash": "0391c8ebb293c17605d416ea",
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "outcome": "settled",
+      "package_hash": "36cfbb51996bdaac",
+      "parent_settlement_root": "918d25c39eb5cae68e8a8c65",
+      "post_actuation": true,
+      "receipt_digest": "094f5de2fbdfb0baa2a6d6a2",
+      "schema_version": 1,
+      "settlement_certificate": {
+        "actuation_certificate_hash": "cb6f5374864a1ebbc724a16e",
+        "actuation_hash": "2c8c33332fde5e9e35c8788f",
+        "bound_action_height": 2,
+        "bound_action_root": "ded612d9793b5858df804986",
+        "certificate_hash": "cb4dced615fc003f8d341803",
+        "claims": {
+          "capability_id": "repo.import-health",
+          "effect": "prove",
+          "outcome": "settled",
+          "plane": "settlement",
+          "settlement_index": 2
+        },
+        "deterministic": true,
+        "goal": "clearing over settlement (settlement 2)",
+        "issued_at": "2026-07-31T18:06:27.770667Z",
+        "kind": "settlement_certificate",
+        "lineage_head_hash": "0391c8ebb293c17605d416ea",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "36cfbb51996bdaac",
+        "parent_settlement_root": "918d25c39eb5cae68e8a8c65",
+        "post_actuation": true,
+        "schema_version": 1,
+        "settlement_count": 2,
+        "settlement_height": 2,
+        "settlement_root": "5c4ef16d483b863bb72f53e4",
+        "used_skill_route_discovery": false,
+        "valid": true
+      },
+      "settlement_height": 2,
+      "settlement_root": "5c4ef16d483b863bb72f53e4",
+      "used_skill_route_discovery": false
+    }
+  ],
+  "entry_count": 2,
+  "kind": "settlement_log",
+  "schema_version": 1,
+  "tip_height": 2,
+  "tip_settlement_root": "5c4ef16d483b863bb72f53e4",
+  "updated_at": "2026-07-31T18:06:27.770683Z"
+}

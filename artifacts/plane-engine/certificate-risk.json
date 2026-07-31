@@ -1,0 +1,36 @@
+{
+  "bound_solvency_height": 2,
+  "bound_solvency_root": "c8ff3dc2b6a068810917c987",
+  "certificate_hash": "07722bd2ff58a5b5cbf0a6e9",
+  "claims": {
+    "capability_id": "capability.fixture-1",
+    "clearing_index": 2,
+    "effect": "fixture-effect-1",
+    "outcome": "risked",
+    "plane": "risk"
+  },
+  "deterministic": true,
+  "goal": "differential fixture (clearing 2)",
+  "issued_at": "2026-01-01T00:00:00.000000Z",
+  "kind": "risk_certificate",
+  "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+  "member_count": 2,
+  "member_ids": [
+    "capability.fixture-0",
+    "capability.fixture-1"
+  ],
+  "ok": true,
+  "package_hash": "1d58907e64cc82808cc22f35",
+  "parent_risk_root": "98f13fd07582d89626aae3ac",
+  "post_solvency": true,
+  "risk_assessment_digest": "068a70aacba10af2aa2a2a6e",
+  "risk_count": 2,
+  "risk_height": 2,
+  "risk_root": "9456a4d381af52897afaa0a0",
+  "schema_version": 1,
+  "solvency_certificate_hash": "2c7b78c2ca8671d22c041e18",
+  "solvency_hash": "f72a08be1a92f3b95f2844ba",
+  "solvency_position_digest": "7a7bd60c87451fac6eee38df",
+  "used_skill_route_discovery": false,
+  "valid": true
+}

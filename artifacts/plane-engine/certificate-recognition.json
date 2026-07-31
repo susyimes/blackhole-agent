@@ -1,7 +1,7 @@
 {
   "bound_reaccreditation_height": 2,
   "bound_reaccreditation_root": "828ee5fe0639ded0d525fd66",
-  "certificate_hash": "fd841ca785a91ba9ca530949",
+  "certificate_hash": "acb1da3dbfcafd9653285d70",
   "claims": {
     "capability_id": "capability.fixture-1",
     "clearing_index": 2,
@@ -21,7 +21,7 @@
   ],
   "ok": true,
   "package_hash": "1d58907e64cc82808cc22f35",
-  "parent_recognition_root": "a46e80d1f53f3bbecbcf4ffa",
+  "parent_recognition_root": "f2f36e9f34e7fd5f8524359c",
   "post_reaccreditation": true,
   "reaccreditation_certificate_hash": "fbaec535e52671dae82dda61",
   "reaccreditation_hash": "1ac1a4aa6bd27d2e44c98590",
@@ -29,7 +29,7 @@
   "recognition_count": 2,
   "recognition_height": 2,
   "recognition_plan_digest": "ecdc52d93c94eb1e9ce7c949",
-  "recognition_root": "09d5b312713f363f3c3bbd6a",
+  "recognition_root": "9bed8e19e649aafb53231382",
   "schema_version": 1,
   "used_skill_route_discovery": false,
   "valid": true
