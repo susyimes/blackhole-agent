@@ -1,0 +1,189 @@
+{
+  "entries": [
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "origin_ids": [
+          "origin-a",
+          "origin-b",
+          "origin-byzantine"
+        ],
+        "threshold": 2
+      },
+      "detail": {
+        "origins": [
+          {
+            "bundle_hash": "d9e657ebd42f4fe2c614b733",
+            "byzantine": false,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "91b7196d68cb454fa324e83d",
+            "member_count": 3,
+            "origin_id": "origin-a",
+            "package_hash": "7878a785b9718369"
+          },
+          {
+            "bundle_hash": "5871636127258a6b02989647",
+            "byzantine": false,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "c22c823f4be3ab75ca8e6c50",
+            "member_count": 2,
+            "origin_id": "origin-b",
+            "package_hash": "8ece9182045d973a"
+          },
+          {
+            "bundle_hash": "70719359f67482f2f35ad6e6",
+            "byzantine": true,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "e1a438b2b9f02715bdb94d3a",
+            "member_count": 3,
+            "origin_id": "origin-byzantine",
+            "package_hash": "7d88f7661e8407af"
+          }
+        ]
+      },
+      "entry_hash": "3c295164e600d5509cabaf02",
+      "entry_kind": "quorum_origin_manifest",
+      "goal": "collateral over margin",
+      "index": 0,
+      "issued_at": "2026-07-31T10:34:29.970223Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": ""
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "package_hash": "066545df3053adf5",
+        "threshold": 2
+      },
+      "detail": {
+        "origin_heads": [
+          "91b7196d68cb454fa324e83d",
+          "c22c823f4be3ab75ca8e6c50",
+          "e1a438b2b9f02715bdb94d3a"
+        ]
+      },
+      "entry_hash": "3fd33f325e724c1d77f4c9ac",
+      "entry_kind": "quorum_vote",
+      "goal": "collateral over margin",
+      "index": 1,
+      "issued_at": "2026-07-31T10:34:29.970250Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "3c295164e600d5509cabaf02"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "byzantine_count": 1,
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "excluded": true
+      },
+      "detail": {
+        "byzantine_origins": [
+          "origin-byzantine"
+        ]
+      },
+      "entry_hash": "c70e1cb380b073cb31c6c1de",
+      "entry_kind": "quorum_byzantine_exclude",
+      "goal": "collateral over margin",
+      "index": 2,
+      "issued_at": "2026-07-31T10:34:29.970268Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "3fd33f325e724c1d77f4c9ac"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "quorum": true,
+        "quorum_met": true
+      },
+      "detail": {
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "origin_bundle_hashes": [
+          "d9e657ebd42f4fe2c614b733",
+          "5871636127258a6b02989647",
+          "70719359f67482f2f35ad6e6"
+        ]
+      },
+      "entry_hash": "59f8b8ac95246ae099f12be3",
+      "entry_kind": "quorum_seal",
+      "goal": "collateral over margin",
+      "index": 3,
+      "issued_at": "2026-07-31T10:34:29.970286Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "c70e1cb380b073cb31c6c1de"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "prior_lineage_head": "59f8b8ac95246ae099f12be3",
+        "prior_package_hash": "066545df3053adf5",
+        "prior_quorum_hash": "e4c8e7ff32f0fe55bbe3566e",
+        "progress_tag": "epoch-progress-2"
+      },
+      "detail": {},
+      "entry_hash": "7b09ccccff6985cfd447a065",
+      "entry_kind": "finality_epoch_progress",
+      "goal": "collateral over margin (progress 2)",
+      "index": 4,
+      "issued_at": "2026-07-31T10:34:30.690898Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "",
+      "parent_hash": "59f8b8ac95246ae099f12be3"
+    }
+  ],
+  "entry_count": 5,
+  "head_hash": "7b09ccccff6985cfd447a065",
+  "kind": "capability_lineage",
+  "schema_version": 1,
+  "updated_at": "2026-07-31T10:34:33.947794Z"
+}

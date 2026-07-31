@@ -1,0 +1,151 @@
+{
+  "actuation_hash": "07cfa46e734992bb487832ee",
+  "bound_action_height": 2,
+  "bound_action_root": "2f683c332e62f610071de84a",
+  "entries": [
+    {
+      "actuation_certificate_hash": "93a83e902b80ad2db22e478e",
+      "actuation_hash": "07cfa46e734992bb487832ee",
+      "applied_at": "2026-07-31T10:34:48.587557Z",
+      "bound_action_height": 1,
+      "bound_action_root": "9cc14dadd0ca2c97aeac9d93",
+      "capability_id": "capability.ledger-inventory",
+      "claims": {
+        "plane": "settlement",
+        "settlement_index": 1
+      },
+      "deterministic": true,
+      "effect": "prove",
+      "effect_digest": "c9493d3dba92856b65e26ee5",
+      "entry": "blackhole_agent.capability_compounder:builtin_ledger_inventory",
+      "goal": "funding over liquidity (settlement 1)",
+      "kind": "settlement_receipt",
+      "lineage_head_hash": "4ac6151e4fd61592df163ecc",
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "outcome": "settled",
+      "package_hash": "a91c92fc0879a47e",
+      "parent_settlement_root": "",
+      "post_actuation": true,
+      "receipt_digest": "f50811a6619be3edfc3daf67",
+      "schema_version": 1,
+      "settlement_certificate": {
+        "actuation_certificate_hash": "93a83e902b80ad2db22e478e",
+        "actuation_hash": "07cfa46e734992bb487832ee",
+        "bound_action_height": 1,
+        "bound_action_root": "9cc14dadd0ca2c97aeac9d93",
+        "certificate_hash": "98c46f792e29d4962d3c2602",
+        "claims": {
+          "capability_id": "capability.ledger-inventory",
+          "effect": "prove",
+          "outcome": "settled",
+          "plane": "settlement",
+          "settlement_index": 1
+        },
+        "deterministic": true,
+        "goal": "funding over liquidity (settlement 1)",
+        "issued_at": "2026-07-31T10:34:48.587581Z",
+        "kind": "settlement_certificate",
+        "lineage_head_hash": "4ac6151e4fd61592df163ecc",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "a91c92fc0879a47e",
+        "parent_settlement_root": "",
+        "post_actuation": true,
+        "schema_version": 1,
+        "settlement_count": 1,
+        "settlement_height": 1,
+        "settlement_root": "efe1d28ba12f69333fda2c85",
+        "used_skill_route_discovery": false,
+        "valid": true
+      },
+      "settlement_height": 1,
+      "settlement_root": "efe1d28ba12f69333fda2c85",
+      "used_skill_route_discovery": false
+    },
+    {
+      "actuation_certificate_hash": "93a83e902b80ad2db22e478e",
+      "actuation_hash": "07cfa46e734992bb487832ee",
+      "applied_at": "2026-07-31T10:34:48.587652Z",
+      "bound_action_height": 2,
+      "bound_action_root": "2f683c332e62f610071de84a",
+      "capability_id": "repo.import-health",
+      "claims": {
+        "plane": "settlement",
+        "settlement_index": 2
+      },
+      "deterministic": true,
+      "effect": "prove",
+      "effect_digest": "0f064b4dcc772b373ecd2445",
+      "entry": "blackhole_agent.capability_compounder:builtin_repo_import_health",
+      "goal": "funding over liquidity (settlement 2)",
+      "kind": "settlement_receipt",
+      "lineage_head_hash": "4ac6151e4fd61592df163ecc",
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "outcome": "settled",
+      "package_hash": "a91c92fc0879a47e",
+      "parent_settlement_root": "efe1d28ba12f69333fda2c85",
+      "post_actuation": true,
+      "receipt_digest": "6ff63dc2ba0a7bda36ab73cc",
+      "schema_version": 1,
+      "settlement_certificate": {
+        "actuation_certificate_hash": "93a83e902b80ad2db22e478e",
+        "actuation_hash": "07cfa46e734992bb487832ee",
+        "bound_action_height": 2,
+        "bound_action_root": "2f683c332e62f610071de84a",
+        "certificate_hash": "28704675babf69b707f2252d",
+        "claims": {
+          "capability_id": "repo.import-health",
+          "effect": "prove",
+          "outcome": "settled",
+          "plane": "settlement",
+          "settlement_index": 2
+        },
+        "deterministic": true,
+        "goal": "funding over liquidity (settlement 2)",
+        "issued_at": "2026-07-31T10:34:48.587671Z",
+        "kind": "settlement_certificate",
+        "lineage_head_hash": "4ac6151e4fd61592df163ecc",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "a91c92fc0879a47e",
+        "parent_settlement_root": "efe1d28ba12f69333fda2c85",
+        "post_actuation": true,
+        "schema_version": 1,
+        "settlement_count": 2,
+        "settlement_height": 2,
+        "settlement_root": "b4163a49452733eb7dd6048d",
+        "used_skill_route_discovery": false,
+        "valid": true
+      },
+      "settlement_height": 2,
+      "settlement_root": "b4163a49452733eb7dd6048d",
+      "used_skill_route_discovery": false
+    }
+  ],
+  "entry_count": 2,
+  "kind": "settlement_log",
+  "schema_version": 1,
+  "tip_height": 2,
+  "tip_settlement_root": "b4163a49452733eb7dd6048d",
+  "updated_at": "2026-07-31T10:34:48.587688Z"
+}

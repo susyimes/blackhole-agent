@@ -1,0 +1,33 @@
+{
+  "action_height": 3,
+  "action_root": "66b165d556d664a2eff52d5a",
+  "bound_state_height": 2,
+  "bound_state_root": "ba87483a6d3b2828ee72f74e",
+  "certificate_hash": "1c7fce27b41847112562c844",
+  "claims": {
+    "action_index": 3,
+    "capability_id": "unbound.milestone-gate",
+    "effect": "prove",
+    "plane": "actuation"
+  },
+  "deterministic": true,
+  "effect_count": 3,
+  "execution_certificate_hash": "e5ec90b8f7ba0ddaeafc4d14",
+  "execution_hash": "2c893f1803b3978b797b089a",
+  "goal": "funding over liquidity (action 3)",
+  "issued_at": "2026-07-31T10:57:32.415844Z",
+  "kind": "actuation_certificate",
+  "lineage_head_hash": "cc2ce1827b2f83255a18c099",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "73b06649e54b68f7",
+  "parent_action_root": "e4f763c8e077340f78551c7d",
+  "post_execution": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false
+}

@@ -1,0 +1,36 @@
+{
+  "bound_dominion_height": 2,
+  "bound_dominion_root": "0443a1fc9deb2b735eac78c6",
+  "certificate_hash": "d0d34c4a75c4495d8c599edf",
+  "claims": {
+    "capability_id": "capability.fixture-1",
+    "clearing_index": 2,
+    "effect": "fixture-effect-1",
+    "outcome": "realmed",
+    "plane": "realm"
+  },
+  "deterministic": true,
+  "dominion_certificate_hash": "d5e0f06fc8d728e3b6fffc92",
+  "dominion_hash": "d9922d70ba51237b2963219d",
+  "dominion_plan_digest": "2df20301efedad91ad896b31",
+  "goal": "differential fixture (clearing 2)",
+  "issued_at": "2026-01-01T00:00:00.000000Z",
+  "kind": "realm_certificate",
+  "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+  "member_count": 2,
+  "member_ids": [
+    "capability.fixture-0",
+    "capability.fixture-1"
+  ],
+  "ok": true,
+  "package_hash": "1d58907e64cc82808cc22f35",
+  "parent_realm_root": "420174ba7c96286b1ab38dc3",
+  "post_dominion": true,
+  "realm_count": 2,
+  "realm_height": 2,
+  "realm_plan_digest": "aa31e2698987ab725afe49b9",
+  "realm_root": "53d6b8f0e514d4abfa9d9754",
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

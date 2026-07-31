@@ -1,0 +1,37 @@
+{
+  "bound_dominion_height": 2,
+  "bound_dominion_root": "e06ad406d551968365e3a00d",
+  "certificate_hash": "e9dad275c1d3bc68cec92d05",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "realmed",
+    "plane": "realm"
+  },
+  "deterministic": true,
+  "dominion_certificate_hash": "1e4acbea211f663b9d4d67b1",
+  "dominion_hash": "5e2b3a3ba6b6e52c265b8e8c",
+  "dominion_plan_digest": "33baa3c0c1c4ca72dd76e915",
+  "goal": "realm over dominion (clearing 2)",
+  "issued_at": "2026-07-31T10:35:28.492648Z",
+  "kind": "realm_certificate",
+  "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "6e604a6f16e45f9f",
+  "parent_realm_root": "c6351ebfdeab0ab5225d6c69",
+  "post_dominion": true,
+  "realm_count": 2,
+  "realm_height": 2,
+  "realm_plan_digest": "766ad71032327480629ef78e",
+  "realm_root": "7a383fd8043a7ef197729f11",
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

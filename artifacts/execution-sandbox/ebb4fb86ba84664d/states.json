@@ -1,0 +1,167 @@
+{
+  "entries": [
+    {
+      "agreeing_count": 2,
+      "applied_at": "2026-07-31T10:57:42.066841Z",
+      "byzantine_count": 1,
+      "claims": {
+        "plane": "execution",
+        "state_index": 1
+      },
+      "deterministic": true,
+      "epoch_hash": "496e89560c31201ab25425bf",
+      "epoch_height": 1,
+      "execution_certificate": {
+        "certificate_hash": "7b8757870aff1336fae5da63",
+        "claims": {
+          "member_count": 3,
+          "plane": "execution",
+          "state_index": 1
+        },
+        "deterministic": true,
+        "epoch_hash": "496e89560c31201ab25425bf",
+        "epoch_height": 1,
+        "finality_certificate_hash": "588a2da71659d8a24a65b194",
+        "goal": "capital over funding (state 1)",
+        "issued_at": "2026-07-31T10:57:42.066870Z",
+        "kind": "execution_certificate",
+        "lineage_head_hash": "92f2ada4e1037fb8c24b3ff1",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "066545df3053adf5",
+        "parent_state_root": "",
+        "post_finality": true,
+        "schema_version": 1,
+        "state_height": 1,
+        "state_root": "5e1bd9f79322ff421241b6dc",
+        "used_skill_route_discovery": false
+      },
+      "finality_certificate_hash": "588a2da71659d8a24a65b194",
+      "goal": "capital over funding (state 1)",
+      "kind": "execution_state",
+      "lineage_head_hash": "92f2ada4e1037fb8c24b3ff1",
+      "member_count": 3,
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "origin_count": 3,
+      "package_hash": "066545df3053adf5",
+      "parent_state_root": "",
+      "post_finality": true,
+      "projection": {
+        "agreeing_count": 2,
+        "applied_from": "finality_epoch",
+        "byzantine_count": 1,
+        "epoch_hash": "496e89560c31201ab25425bf",
+        "finality_certificate_hash": "588a2da71659d8a24a65b194",
+        "height": 1,
+        "lineage_head_hash": "92f2ada4e1037fb8c24b3ff1",
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "parent_state_root": ""
+      },
+      "schema_version": 1,
+      "state_height": 1,
+      "state_root": "5e1bd9f79322ff421241b6dc",
+      "used_skill_route_discovery": false
+    },
+    {
+      "agreeing_count": 2,
+      "applied_at": "2026-07-31T10:57:42.066930Z",
+      "byzantine_count": 1,
+      "claims": {
+        "plane": "execution",
+        "state_index": 2
+      },
+      "deterministic": true,
+      "epoch_hash": "5191bb9469d0de3e918e1eca",
+      "epoch_height": 2,
+      "execution_certificate": {
+        "certificate_hash": "627d6aa3ed7dd6ebde7402a3",
+        "claims": {
+          "member_count": 3,
+          "plane": "execution",
+          "state_index": 2
+        },
+        "deterministic": true,
+        "epoch_hash": "5191bb9469d0de3e918e1eca",
+        "epoch_height": 2,
+        "finality_certificate_hash": "4b250b19709970b3b1fd8d7b",
+        "goal": "capital over funding (state 2)",
+        "issued_at": "2026-07-31T10:57:42.066953Z",
+        "kind": "execution_certificate",
+        "lineage_head_hash": "a1a2706308fa13a1f8344e39",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "a8a21e361c383c50",
+        "parent_state_root": "5e1bd9f79322ff421241b6dc",
+        "post_finality": true,
+        "schema_version": 1,
+        "state_height": 2,
+        "state_root": "e2c7b362c0f5eaf6f7b54d6a",
+        "used_skill_route_discovery": false
+      },
+      "finality_certificate_hash": "4b250b19709970b3b1fd8d7b",
+      "goal": "capital over funding (state 2)",
+      "kind": "execution_state",
+      "lineage_head_hash": "a1a2706308fa13a1f8344e39",
+      "member_count": 3,
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "origin_count": 3,
+      "package_hash": "a8a21e361c383c50",
+      "parent_state_root": "5e1bd9f79322ff421241b6dc",
+      "post_finality": true,
+      "projection": {
+        "agreeing_count": 2,
+        "applied_from": "finality_epoch",
+        "byzantine_count": 1,
+        "epoch_hash": "5191bb9469d0de3e918e1eca",
+        "finality_certificate_hash": "4b250b19709970b3b1fd8d7b",
+        "height": 2,
+        "lineage_head_hash": "a1a2706308fa13a1f8344e39",
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "origin_count": 3,
+        "package_hash": "a8a21e361c383c50",
+        "parent_state_root": "5e1bd9f79322ff421241b6dc"
+      },
+      "schema_version": 1,
+      "state_height": 2,
+      "state_root": "e2c7b362c0f5eaf6f7b54d6a",
+      "used_skill_route_discovery": false
+    }
+  ],
+  "entry_count": 2,
+  "kind": "execution_state_log",
+  "schema_version": 1,
+  "tip_epoch_hash": "5191bb9469d0de3e918e1eca",
+  "tip_height": 2,
+  "tip_state_root": "e2c7b362c0f5eaf6f7b54d6a",
+  "updated_at": "2026-07-31T10:57:42.066970Z"
+}

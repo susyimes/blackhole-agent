@@ -251,54 +251,13 @@
   "byzantine_count": 1,
   "certificate_count": 6,
   "certificates": {
-    "1118a0e97870fe79d577a9d7": {
-      "certificate_hash": "1118a0e97870fe79d577a9d7",
-      "mandate_height": 2,
-      "payload": {
-        "bound_privilege_height": 2,
-        "bound_privilege_root": "fc7a8170529c89cfc97b0281",
-        "certificate_hash": "1118a0e97870fe79d577a9d7",
-        "claims": {
-          "capability_id": "repo.import-health",
-          "clearing_index": 2,
-          "effect": "prove",
-          "outcome": "mandated",
-          "plane": "mandate"
-        },
-        "deterministic": true,
-        "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (clearing 2)",
-        "issued_at": "2026-07-31T06:06:22.919298Z",
-        "kind": "mandate_certificate",
-        "lineage_head_hash": "89c4ff0a6368875ef0800e26",
-        "mandate_count": 2,
-        "mandate_height": 2,
-        "mandate_plan_digest": "ee81f6ead42c134e2745104e",
-        "mandate_root": "a28696670ace1080ec2cde53",
-        "member_count": 3,
-        "member_ids": [
-          "capability.ledger-inventory",
-          "repo.import-health",
-          "unbound.milestone-gate"
-        ],
-        "ok": true,
-        "package_hash": "6e604a6f16e45f9f",
-        "parent_mandate_root": "407abee63ce9d44e2346319a",
-        "post_privilege": true,
-        "privilege_certificate_hash": "b204a371c3ef0e4af4fad1d0",
-        "privilege_hash": "b3abd04dec1b7f261fadb718",
-        "privilege_plan_digest": "52290de2e9f33ede57281ae1",
-        "schema_version": 1,
-        "used_skill_route_discovery": false,
-        "valid": true
-      }
-    },
-    "41b0f6c666a14ae8d76c5df1": {
-      "certificate_hash": "41b0f6c666a14ae8d76c5df1",
+    "09b6a3caa6a9fe96755cb1f9": {
+      "certificate_hash": "09b6a3caa6a9fe96755cb1f9",
       "mandate_height": 1,
       "payload": {
         "bound_privilege_height": 1,
         "bound_privilege_root": "9f2769c176acd2414ba1a83e",
-        "certificate_hash": "41b0f6c666a14ae8d76c5df1",
+        "certificate_hash": "09b6a3caa6a9fe96755cb1f9",
         "claims": {
           "capability_id": "capability.ledger-inventory",
           "clearing_index": 1,
@@ -307,8 +266,8 @@
           "plane": "mandate"
         },
         "deterministic": true,
-        "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (clearing 1)",
-        "issued_at": "2026-07-31T06:06:22.919164Z",
+        "goal": "mandate over privilege (clearing 1)",
+        "issued_at": "2026-07-31T10:58:09.339899Z",
         "kind": "mandate_certificate",
         "lineage_head_hash": "89c4ff0a6368875ef0800e26",
         "mandate_count": 1,
@@ -368,6 +327,47 @@
         "settlement_count": 2,
         "settlement_height": 2,
         "settlement_root": "7a14b819bad310e6f326c948",
+        "used_skill_route_discovery": false,
+        "valid": true
+      }
+    },
+    "ab6951607bf514ebadfe4fe8": {
+      "certificate_hash": "ab6951607bf514ebadfe4fe8",
+      "mandate_height": 2,
+      "payload": {
+        "bound_privilege_height": 2,
+        "bound_privilege_root": "fc7a8170529c89cfc97b0281",
+        "certificate_hash": "ab6951607bf514ebadfe4fe8",
+        "claims": {
+          "capability_id": "repo.import-health",
+          "clearing_index": 2,
+          "effect": "prove",
+          "outcome": "mandated",
+          "plane": "mandate"
+        },
+        "deterministic": true,
+        "goal": "mandate over privilege (clearing 2)",
+        "issued_at": "2026-07-31T10:58:09.339986Z",
+        "kind": "mandate_certificate",
+        "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+        "mandate_count": 2,
+        "mandate_height": 2,
+        "mandate_plan_digest": "ee81f6ead42c134e2745104e",
+        "mandate_root": "a28696670ace1080ec2cde53",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "6e604a6f16e45f9f",
+        "parent_mandate_root": "407abee63ce9d44e2346319a",
+        "post_privilege": true,
+        "privilege_certificate_hash": "b204a371c3ef0e4af4fad1d0",
+        "privilege_hash": "b3abd04dec1b7f261fadb718",
+        "privilege_plan_digest": "52290de2e9f33ede57281ae1",
+        "schema_version": 1,
         "used_skill_route_discovery": false,
         "valid": true
       }
@@ -518,8 +518,8 @@
     "used_skill_route_discovery": false
   },
   "execution_hash": "f620923c33e7444ef74ccd1a",
-  "exported_at": "2026-07-31T06:06:22.920051Z",
-  "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery.",
+  "exported_at": "2026-07-31T10:58:09.340492Z",
+  "goal": "mandate over privilege",
   "kind": "mandate_bundle",
   "lineage": {
     "entries": [
@@ -715,7 +715,7 @@
   "mandate_certificate": {
     "bound_privilege_height": 2,
     "bound_privilege_root": "fc7a8170529c89cfc97b0281",
-    "certificate_hash": "1118a0e97870fe79d577a9d7",
+    "certificate_hash": "ab6951607bf514ebadfe4fe8",
     "claims": {
       "capability_id": "repo.import-health",
       "clearing_index": 2,
@@ -724,8 +724,8 @@
       "plane": "mandate"
     },
     "deterministic": true,
-    "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (clearing 2)",
-    "issued_at": "2026-07-31T06:06:22.919298Z",
+    "goal": "mandate over privilege (clearing 2)",
+    "issued_at": "2026-07-31T10:58:09.339986Z",
     "kind": "mandate_certificate",
     "lineage_head_hash": "89c4ff0a6368875ef0800e26",
     "mandate_count": 2,
@@ -750,14 +750,14 @@
     "valid": true
   },
   "mandate_count": 2,
-  "mandate_hash": "17b3d67d216894949b362b2c",
+  "mandate_hash": "3926dd4e9e882a97c0cb056c",
   "mandate_plan_digest": "ee81f6ead42c134e2745104e",
   "mandates": {
     "bound_privilege_height": 2,
     "bound_privilege_root": "fc7a8170529c89cfc97b0281",
     "entries": [
       {
-        "applied_at": "2026-07-31T06:06:22.919122Z",
+        "applied_at": "2026-07-31T10:58:09.339877Z",
         "bound_action_root": "8c09a0cad74a985b3572549e",
         "bound_privilege_height": 1,
         "bound_privilege_root": "9f2769c176acd2414ba1a83e",
@@ -768,13 +768,13 @@
         },
         "deterministic": true,
         "effect": "prove",
-        "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (clearing 1)",
+        "goal": "mandate over privilege (clearing 1)",
         "kind": "mandate_action",
         "lineage_head_hash": "89c4ff0a6368875ef0800e26",
         "mandate_certificate": {
           "bound_privilege_height": 1,
           "bound_privilege_root": "9f2769c176acd2414ba1a83e",
-          "certificate_hash": "41b0f6c666a14ae8d76c5df1",
+          "certificate_hash": "09b6a3caa6a9fe96755cb1f9",
           "claims": {
             "capability_id": "capability.ledger-inventory",
             "clearing_index": 1,
@@ -783,8 +783,8 @@
             "plane": "mandate"
           },
           "deterministic": true,
-          "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (clearing 1)",
-          "issued_at": "2026-07-31T06:06:22.919164Z",
+          "goal": "mandate over privilege (clearing 1)",
+          "issued_at": "2026-07-31T10:58:09.339899Z",
           "kind": "mandate_certificate",
           "lineage_head_hash": "89c4ff0a6368875ef0800e26",
           "mandate_count": 1,
@@ -830,7 +830,7 @@
         "used_skill_route_discovery": false
       },
       {
-        "applied_at": "2026-07-31T06:06:22.919273Z",
+        "applied_at": "2026-07-31T10:58:09.339968Z",
         "bound_action_root": "bc9f34eaf8099cb1dd02f164",
         "bound_privilege_height": 2,
         "bound_privilege_root": "fc7a8170529c89cfc97b0281",
@@ -841,13 +841,13 @@
         },
         "deterministic": true,
         "effect": "prove",
-        "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (clearing 2)",
+        "goal": "mandate over privilege (clearing 2)",
         "kind": "mandate_action",
         "lineage_head_hash": "89c4ff0a6368875ef0800e26",
         "mandate_certificate": {
           "bound_privilege_height": 2,
           "bound_privilege_root": "fc7a8170529c89cfc97b0281",
-          "certificate_hash": "1118a0e97870fe79d577a9d7",
+          "certificate_hash": "ab6951607bf514ebadfe4fe8",
           "claims": {
             "capability_id": "repo.import-health",
             "clearing_index": 2,
@@ -856,8 +856,8 @@
             "plane": "mandate"
           },
           "deterministic": true,
-          "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (clearing 2)",
-          "issued_at": "2026-07-31T06:06:22.919298Z",
+          "goal": "mandate over privilege (clearing 2)",
+          "issued_at": "2026-07-31T10:58:09.339986Z",
           "kind": "mandate_certificate",
           "lineage_head_hash": "89c4ff0a6368875ef0800e26",
           "mandate_count": 2,
@@ -910,7 +910,7 @@
     "schema_version": 1,
     "tip_height": 2,
     "tip_mandate_root": "a28696670ace1080ec2cde53",
-    "updated_at": "2026-07-31T06:06:22.919328Z"
+    "updated_at": "2026-07-31T10:58:09.340005Z"
   },
   "member_count": 3,
   "member_ids": [

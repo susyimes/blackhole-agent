@@ -15,15 +15,15 @@
         "origin_id": "origin-c",
         "plane": "federation"
       },
-      "entry_hash": "56a290834f675d6a77aee7d2",
+      "entry_hash": "1d4726d92591af9bc5c36e38",
       "entry_kind": "federation_origin_seed",
-      "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (honest origin-c)",
+      "goal": "risk over solvency (honest origin-c)",
       "index": 0,
-      "issued_at": "2026-07-31T06:06:01.020457Z",
+      "issued_at": "2026-07-31T10:58:01.339202Z",
       "metrics": {
-        "count": 126,
-        "primitive_count": 77,
-        "proved_count": 123,
+        "count": 132,
+        "primitive_count": 83,
+        "proved_count": 124,
         "proved_ratio": null
       },
       "package_hash": "7878a785b9718369",
@@ -44,11 +44,11 @@
         ],
         "origin_id": "origin-c"
       },
-      "entry_hash": "af1ba5e414b6cc444ce1c17d",
+      "entry_hash": "d172d9aa7c29b61fd44fbdb1",
       "entry_kind": "federation_origin_seal",
-      "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (honest origin-c)",
+      "goal": "risk over solvency (honest origin-c)",
       "index": 1,
-      "issued_at": "2026-07-31T06:06:01.020499Z",
+      "issued_at": "2026-07-31T10:58:01.339275Z",
       "metrics": {
         "count": 3,
         "primitive_count": null,
@@ -56,13 +56,13 @@
         "proved_ratio": null
       },
       "package_hash": "7878a785b9718369",
-      "parent_hash": "56a290834f675d6a77aee7d2"
+      "parent_hash": "1d4726d92591af9bc5c36e38"
     }
   ],
   "entry_count": 2,
-  "head_hash": "af1ba5e414b6cc444ce1c17d",
+  "head_hash": "d172d9aa7c29b61fd44fbdb1",
   "kind": "capability_lineage",
   "ok": true,
   "schema_version": 1,
-  "updated_at": "2026-07-31T06:06:01.020977Z"
+  "updated_at": "2026-07-31T10:58:01.339477Z"
 }

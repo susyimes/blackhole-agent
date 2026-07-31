@@ -1,0 +1,207 @@
+{
+  "bound_state_height": 2,
+  "bound_state_root": "60e982e33eca430c9dc6aee3",
+  "entries": [
+    {
+      "action_height": 1,
+      "action_root": "3394525b07df8a5101c2c0ed",
+      "actuation_certificate": {
+        "action_height": 1,
+        "action_root": "3394525b07df8a5101c2c0ed",
+        "bound_state_height": 2,
+        "bound_state_root": "60e982e33eca430c9dc6aee3",
+        "certificate_hash": "fceabf92ebaf437d90ca2a6b",
+        "claims": {
+          "action_index": 1,
+          "capability_id": "capability.ledger-inventory",
+          "effect": "prove",
+          "plane": "actuation"
+        },
+        "deterministic": true,
+        "effect_count": 1,
+        "execution_certificate_hash": "e37c2d7fc626884d8e31ebdf",
+        "execution_hash": "d7fd5d15937b8646a6ce76b5",
+        "goal": "liquidity over collateral (action 1)",
+        "issued_at": "2026-07-31T10:34:40.515581Z",
+        "kind": "actuation_certificate",
+        "lineage_head_hash": "9a06a7e928c841a32f65dcfc",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "56149a42edcedec9",
+        "parent_action_root": "",
+        "post_execution": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false
+      },
+      "applied_at": "2026-07-31T10:34:40.515540Z",
+      "bound_state_height": 2,
+      "bound_state_root": "60e982e33eca430c9dc6aee3",
+      "capability_id": "capability.ledger-inventory",
+      "claims": {
+        "action_index": 1,
+        "plane": "actuation"
+      },
+      "deterministic": true,
+      "effect": "prove",
+      "effect_digest": "ad87cac6b6c3b585356c5200",
+      "entry": "blackhole_agent.capability_compounder:builtin_ledger_inventory",
+      "execution_certificate_hash": "e37c2d7fc626884d8e31ebdf",
+      "execution_hash": "d7fd5d15937b8646a6ce76b5",
+      "goal": "liquidity over collateral (action 1)",
+      "kind": "actuation_action",
+      "lineage_head_hash": "9a06a7e928c841a32f65dcfc",
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "package_hash": "56149a42edcedec9",
+      "parent_action_root": "",
+      "post_execution": true,
+      "schema_version": 1,
+      "used_skill_route_discovery": false
+    },
+    {
+      "action_height": 2,
+      "action_root": "4a24b11fb1659cd32c1c91b7",
+      "actuation_certificate": {
+        "action_height": 2,
+        "action_root": "4a24b11fb1659cd32c1c91b7",
+        "bound_state_height": 2,
+        "bound_state_root": "60e982e33eca430c9dc6aee3",
+        "certificate_hash": "b1d95f0f437b5b2c892abea9",
+        "claims": {
+          "action_index": 2,
+          "capability_id": "repo.import-health",
+          "effect": "prove",
+          "plane": "actuation"
+        },
+        "deterministic": true,
+        "effect_count": 2,
+        "execution_certificate_hash": "e37c2d7fc626884d8e31ebdf",
+        "execution_hash": "d7fd5d15937b8646a6ce76b5",
+        "goal": "liquidity over collateral (action 2)",
+        "issued_at": "2026-07-31T10:34:40.516185Z",
+        "kind": "actuation_certificate",
+        "lineage_head_hash": "9a06a7e928c841a32f65dcfc",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "56149a42edcedec9",
+        "parent_action_root": "3394525b07df8a5101c2c0ed",
+        "post_execution": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false
+      },
+      "applied_at": "2026-07-31T10:34:40.516061Z",
+      "bound_state_height": 2,
+      "bound_state_root": "60e982e33eca430c9dc6aee3",
+      "capability_id": "repo.import-health",
+      "claims": {
+        "action_index": 2,
+        "plane": "actuation"
+      },
+      "deterministic": true,
+      "effect": "prove",
+      "effect_digest": "f91d14f8a5c8fcb969cb81d8",
+      "entry": "blackhole_agent.capability_compounder:builtin_repo_import_health",
+      "execution_certificate_hash": "e37c2d7fc626884d8e31ebdf",
+      "execution_hash": "d7fd5d15937b8646a6ce76b5",
+      "goal": "liquidity over collateral (action 2)",
+      "kind": "actuation_action",
+      "lineage_head_hash": "9a06a7e928c841a32f65dcfc",
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "package_hash": "56149a42edcedec9",
+      "parent_action_root": "3394525b07df8a5101c2c0ed",
+      "post_execution": true,
+      "schema_version": 1,
+      "used_skill_route_discovery": false
+    },
+    {
+      "action_height": 3,
+      "action_root": "40c588aa0c3657b22b2c1e8a",
+      "actuation_certificate": {
+        "action_height": 3,
+        "action_root": "40c588aa0c3657b22b2c1e8a",
+        "bound_state_height": 2,
+        "bound_state_root": "60e982e33eca430c9dc6aee3",
+        "certificate_hash": "a4fbfd09c03af3ab0ff65d5d",
+        "claims": {
+          "action_index": 3,
+          "capability_id": "unbound.milestone-gate",
+          "effect": "prove",
+          "plane": "actuation"
+        },
+        "deterministic": true,
+        "effect_count": 3,
+        "execution_certificate_hash": "e37c2d7fc626884d8e31ebdf",
+        "execution_hash": "d7fd5d15937b8646a6ce76b5",
+        "goal": "liquidity over collateral (action 3)",
+        "issued_at": "2026-07-31T10:34:40.516334Z",
+        "kind": "actuation_certificate",
+        "lineage_head_hash": "9a06a7e928c841a32f65dcfc",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "56149a42edcedec9",
+        "parent_action_root": "4a24b11fb1659cd32c1c91b7",
+        "post_execution": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false
+      },
+      "applied_at": "2026-07-31T10:34:40.516309Z",
+      "bound_state_height": 2,
+      "bound_state_root": "60e982e33eca430c9dc6aee3",
+      "capability_id": "unbound.milestone-gate",
+      "claims": {
+        "action_index": 3,
+        "plane": "actuation"
+      },
+      "deterministic": true,
+      "effect": "prove",
+      "effect_digest": "dafd474db5c0233bf9effed1",
+      "entry": "blackhole_agent.capability_compounder:builtin_milestone_gate_smoke",
+      "execution_certificate_hash": "e37c2d7fc626884d8e31ebdf",
+      "execution_hash": "d7fd5d15937b8646a6ce76b5",
+      "goal": "liquidity over collateral (action 3)",
+      "kind": "actuation_action",
+      "lineage_head_hash": "9a06a7e928c841a32f65dcfc",
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "package_hash": "56149a42edcedec9",
+      "parent_action_root": "4a24b11fb1659cd32c1c91b7",
+      "post_execution": true,
+      "schema_version": 1,
+      "used_skill_route_discovery": false
+    }
+  ],
+  "entry_count": 3,
+  "kind": "actuation_action_log",
+  "schema_version": 1,
+  "tip_action_root": "40c588aa0c3657b22b2c1e8a",
+  "tip_height": 3,
+  "updated_at": "2026-07-31T10:34:40.516356Z"
+}

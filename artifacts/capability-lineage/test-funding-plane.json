@@ -7,11 +7,11 @@
         "origin_id": "origin-a"
       },
       "detail": {},
-      "entry_hash": "d0ca04d44378ed4612a6a67c",
+      "entry_hash": "1ebaf11fc69d9cdd5d95f048",
       "entry_kind": "quorum_bootstrap",
       "goal": "funding over liquidity",
       "index": 0,
-      "issued_at": "2026-07-29T22:05:28.411654Z",
+      "issued_at": "2026-07-31T10:57:29.573523Z",
       "metrics": {
         "count": null,
         "primitive_count": null,
@@ -29,11 +29,11 @@
         "sealed": true
       },
       "detail": {},
-      "entry_hash": "05af73d64ddeb19bcdc128ed",
+      "entry_hash": "83b5e293aa327320772d6670",
       "entry_kind": "quorum_bootstrap_seal",
       "goal": "funding over liquidity",
       "index": 1,
-      "issued_at": "2026-07-29T22:05:28.411736Z",
+      "issued_at": "2026-07-31T10:57:29.573599Z",
       "metrics": {
         "count": null,
         "primitive_count": null,
@@ -41,13 +41,13 @@
         "proved_ratio": null
       },
       "package_hash": "",
-      "parent_hash": "d0ca04d44378ed4612a6a67c"
+      "parent_hash": "1ebaf11fc69d9cdd5d95f048"
     }
   ],
   "entry_count": 2,
-  "head_hash": "05af73d64ddeb19bcdc128ed",
+  "head_hash": "83b5e293aa327320772d6670",
   "kind": "capability_lineage",
   "ok": true,
   "schema_version": 1,
-  "updated_at": "2026-07-29T22:05:28.411895Z"
+  "updated_at": "2026-07-31T10:57:29.573843Z"
 }

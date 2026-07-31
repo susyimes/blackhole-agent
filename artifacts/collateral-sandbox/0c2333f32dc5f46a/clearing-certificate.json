@@ -1,0 +1,37 @@
+{
+  "bound_clearing_height": 2,
+  "bound_clearing_root": "f049d1f1c03c03b525ec08e7",
+  "certificate_hash": "634aa251325dd12bbe02aec8",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "margined",
+    "plane": "margin"
+  },
+  "clearing_certificate_hash": "6b11aa156df2980ebdad31d6",
+  "clearing_hash": "5a9c057e95d22ad7b01f638a",
+  "deterministic": true,
+  "goal": "risk over solvency (clearing 2)",
+  "issued_at": "2026-07-31T10:35:18.123153Z",
+  "kind": "margin_certificate",
+  "lineage_head_hash": "890749da7a12206aff0d4e71",
+  "margin_count": 2,
+  "margin_height": 2,
+  "margin_requirement_digest": "d1ce345c1ff4a676248c7265",
+  "margin_root": "22d9c519b0bdf882e582091a",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "net_position_digest": "6ccef08a05c84ad91be786f2",
+  "ok": true,
+  "package_hash": "70080ec9121e0c05",
+  "parent_margin_root": "80fcc8bd164f50d0aca9654f",
+  "post_clearing": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

@@ -1,0 +1,37 @@
+{
+  "bound_union_height": 2,
+  "bound_union_root": "cfdc876794d54500b681367e",
+  "certificate_hash": "930ba8a5ff93bb185744972d",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "commonwealthed",
+    "plane": "commonwealth"
+  },
+  "commonwealth_count": 2,
+  "commonwealth_height": 2,
+  "commonwealth_plan_digest": "02647055dd4c7d137126f8f6",
+  "commonwealth_root": "53b77a8c88f876b494129b78",
+  "deterministic": true,
+  "goal": "commonwealth over union (clearing 2)",
+  "issued_at": "2026-07-31T10:35:25.641571Z",
+  "kind": "commonwealth_certificate",
+  "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "6e604a6f16e45f9f",
+  "parent_commonwealth_root": "334112ed78984cbcf5461e57",
+  "post_union": true,
+  "schema_version": 1,
+  "union_certificate_hash": "34d3462ab72c8b04c90da801",
+  "union_hash": "a0f4d86738130345360b51ac",
+  "union_plan_digest": "c9875d601444e8cb342c7cdc",
+  "used_skill_route_discovery": false,
+  "valid": true
+}

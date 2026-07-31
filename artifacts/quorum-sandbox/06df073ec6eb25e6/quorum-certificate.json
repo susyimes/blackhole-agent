@@ -1,0 +1,41 @@
+{
+  "agreeing_count": 2,
+  "agreeing_origins": [
+    "origin-a",
+    "origin-b"
+  ],
+  "byzantine_count": 1,
+  "byzantine_origins": [
+    "origin-byzantine"
+  ],
+  "certificate_hash": "e3c0da3adf6cb9089c115aa1",
+  "claims": {
+    "origin_ids": [
+      "origin-a",
+      "origin-b",
+      "origin-byzantine"
+    ],
+    "roots": [
+      "repo.import-health",
+      "capability.ledger-inventory",
+      "unbound.milestone-gate"
+    ],
+    "votes_accepted": 3
+  },
+  "goal": "clearing over settlement",
+  "issued_at": "2026-07-31T10:57:08.608679Z",
+  "kind": "quorum_certificate",
+  "lineage_head_hash": "f3f3b66e6ab4e07693ba1e90",
+  "member_count": 3,
+  "ok": true,
+  "origin_count": 3,
+  "origin_hashes": [
+    "46c6b99f8aaa45782b2d8e67",
+    "9b620430ac357e34c82ff6f5",
+    "43f15e5a89cc1e93803c9985"
+  ],
+  "package_hash": "066545df3053adf5",
+  "schema_version": 1,
+  "threshold": 2,
+  "used_skill_route_discovery": false
+}
