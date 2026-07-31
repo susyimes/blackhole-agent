@@ -1,0 +1,167 @@
+{
+  "entries": [
+    {
+      "agreeing_count": 2,
+      "applied_at": "2026-07-31T03:25:46.681146Z",
+      "byzantine_count": 1,
+      "claims": {
+        "plane": "execution",
+        "state_index": 1
+      },
+      "deterministic": true,
+      "epoch_hash": "b3e8dc244e7b87216c04f3af",
+      "epoch_height": 1,
+      "execution_certificate": {
+        "certificate_hash": "d1be22f8bf29a2242412fbe9",
+        "claims": {
+          "member_count": 3,
+          "plane": "execution",
+          "state_index": 1
+        },
+        "deterministic": true,
+        "epoch_hash": "b3e8dc244e7b87216c04f3af",
+        "epoch_height": 1,
+        "finality_certificate_hash": "90c199c9cbaac48147384b46",
+        "goal": "pact over treaty (state 1)",
+        "issued_at": "2026-07-31T03:25:46.681246Z",
+        "kind": "execution_certificate",
+        "lineage_head_hash": "d00aab5c350ef987f7a9fc5a",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "066545df3053adf5",
+        "parent_state_root": "",
+        "post_finality": true,
+        "schema_version": 1,
+        "state_height": 1,
+        "state_root": "82f8100d53fe2303497a37e0",
+        "used_skill_route_discovery": false
+      },
+      "finality_certificate_hash": "90c199c9cbaac48147384b46",
+      "goal": "pact over treaty (state 1)",
+      "kind": "execution_state",
+      "lineage_head_hash": "d00aab5c350ef987f7a9fc5a",
+      "member_count": 3,
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "origin_count": 3,
+      "package_hash": "066545df3053adf5",
+      "parent_state_root": "",
+      "post_finality": true,
+      "projection": {
+        "agreeing_count": 2,
+        "applied_from": "finality_epoch",
+        "byzantine_count": 1,
+        "epoch_hash": "b3e8dc244e7b87216c04f3af",
+        "finality_certificate_hash": "90c199c9cbaac48147384b46",
+        "height": 1,
+        "lineage_head_hash": "d00aab5c350ef987f7a9fc5a",
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "parent_state_root": ""
+      },
+      "schema_version": 1,
+      "state_height": 1,
+      "state_root": "82f8100d53fe2303497a37e0",
+      "used_skill_route_discovery": false
+    },
+    {
+      "agreeing_count": 2,
+      "applied_at": "2026-07-31T03:25:46.681467Z",
+      "byzantine_count": 1,
+      "claims": {
+        "plane": "execution",
+        "state_index": 2
+      },
+      "deterministic": true,
+      "epoch_hash": "a107df3d442649c261140dde",
+      "epoch_height": 2,
+      "execution_certificate": {
+        "certificate_hash": "827bb745d417986be152fd93",
+        "claims": {
+          "member_count": 3,
+          "plane": "execution",
+          "state_index": 2
+        },
+        "deterministic": true,
+        "epoch_hash": "a107df3d442649c261140dde",
+        "epoch_height": 2,
+        "finality_certificate_hash": "62752b3a21b3f804503c48b2",
+        "goal": "pact over treaty (state 2)",
+        "issued_at": "2026-07-31T03:25:46.681542Z",
+        "kind": "execution_certificate",
+        "lineage_head_hash": "0b73f3129a0e49e056e55f74",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "13501a28398fd9ca",
+        "parent_state_root": "82f8100d53fe2303497a37e0",
+        "post_finality": true,
+        "schema_version": 1,
+        "state_height": 2,
+        "state_root": "9d0027385c08a574f27abbd5",
+        "used_skill_route_discovery": false
+      },
+      "finality_certificate_hash": "62752b3a21b3f804503c48b2",
+      "goal": "pact over treaty (state 2)",
+      "kind": "execution_state",
+      "lineage_head_hash": "0b73f3129a0e49e056e55f74",
+      "member_count": 3,
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "origin_count": 3,
+      "package_hash": "13501a28398fd9ca",
+      "parent_state_root": "82f8100d53fe2303497a37e0",
+      "post_finality": true,
+      "projection": {
+        "agreeing_count": 2,
+        "applied_from": "finality_epoch",
+        "byzantine_count": 1,
+        "epoch_hash": "a107df3d442649c261140dde",
+        "finality_certificate_hash": "62752b3a21b3f804503c48b2",
+        "height": 2,
+        "lineage_head_hash": "0b73f3129a0e49e056e55f74",
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "origin_count": 3,
+        "package_hash": "13501a28398fd9ca",
+        "parent_state_root": "82f8100d53fe2303497a37e0"
+      },
+      "schema_version": 1,
+      "state_height": 2,
+      "state_root": "9d0027385c08a574f27abbd5",
+      "used_skill_route_discovery": false
+    }
+  ],
+  "entry_count": 2,
+  "kind": "execution_state_log",
+  "schema_version": 1,
+  "tip_epoch_hash": "a107df3d442649c261140dde",
+  "tip_height": 2,
+  "tip_state_root": "9d0027385c08a574f27abbd5",
+  "updated_at": "2026-07-31T03:25:46.681620Z"
+}

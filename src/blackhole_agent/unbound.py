@@ -91,6 +91,7 @@ from blackhole_agent.capability_compounder import (
     run_constitution_plane,
     run_covenant_plane,
     run_treaty_plane,
+    run_pact_plane,
     run_lineage_plane,
     run_reconciliation_plane,
     run_sovereignty_plane,
@@ -1219,6 +1220,9 @@ def evaluate_milestone(
     run_treaty = (
         cc.run_treaty_plane if cc is not None else run_treaty_plane
     )
+    run_pact = (
+        cc.run_pact_plane if cc is not None else run_pact_plane
+    )
     run_recon = (
         cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
     )
@@ -1274,6 +1278,15 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_pact = bool(
+                        kinds
+                        & {
+                            "pact_ok",
+                            "pacted_ok",
+                            "min_pacts",
+                            "pact_root_valid",
+                        }
+                    )
                     needs_treaty = bool(
                         kinds
                         & {
@@ -1282,7 +1295,7 @@ def evaluate_milestone(
                             "min_treaties",
                             "treaty_root_valid",
                         }
-                    )
+                    ) and not needs_pact
                     needs_covenant = bool(
                         kinds
                         & {
@@ -1291,7 +1304,7 @@ def evaluate_milestone(
                             "min_covenants",
                             "covenant_root_valid",
                         }
-                    ) and not needs_treaty
+                    ) and not needs_treaty and not needs_pact
                     needs_constitution = bool(
                         kinds
                         & {
@@ -1300,7 +1313,7 @@ def evaluate_milestone(
                             "min_constitutions",
                             "constitution_root_valid",
                         }
-                    ) and not needs_covenant and not needs_treaty
+                    ) and not needs_covenant and not needs_treaty and not needs_pact
                     needs_charter = bool(
                         kinds
                         & {
@@ -1309,7 +1322,7 @@ def evaluate_milestone(
                             "min_charters",
                             "charter_root_valid",
                         }
-                    ) and not needs_constitution and not needs_covenant and not needs_treaty
+                    ) and not needs_constitution and not needs_covenant and not needs_treaty and not needs_pact
                     needs_mandate = bool(
                         kinds
                         & {
@@ -1318,7 +1331,7 @@ def evaluate_milestone(
                             "min_mandates",
                             "mandate_root_valid",
                         }
-                    ) and not needs_charter and not needs_constitution and not needs_covenant and not needs_treaty
+                    ) and not needs_charter and not needs_constitution and not needs_covenant and not needs_treaty and not needs_pact
                     needs_privilege = bool(
                         kinds
                         & {
@@ -1327,7 +1340,7 @@ def evaluate_milestone(
                             "min_privileges",
                             "privilege_root_valid",
                         }
-                    ) and not needs_mandate and not needs_charter and not needs_constitution and not needs_covenant and not needs_treaty
+                    ) and not needs_mandate and not needs_charter and not needs_constitution and not needs_covenant and not needs_treaty and not needs_pact
                     needs_standing = bool(
                         kinds
                         & {
@@ -1336,7 +1349,7 @@ def evaluate_milestone(
                             "min_standings",
                             "standing_root_valid",
                         }
-                    ) and not needs_privilege and not needs_mandate and not needs_charter and not needs_constitution and not needs_covenant and not needs_treaty
+                    ) and not needs_privilege and not needs_mandate and not needs_charter and not needs_constitution and not needs_covenant and not needs_treaty and not needs_pact
                     needs_reputation = bool(
                         kinds
                         & {
@@ -1345,7 +1358,7 @@ def evaluate_milestone(
                             "min_reputations",
                             "reputation_root_valid",
                         }
-                    ) and not needs_standing and not needs_privilege and not needs_mandate and not needs_charter and not needs_constitution and not needs_covenant and not needs_treaty
+                    ) and not needs_standing and not needs_privilege and not needs_mandate and not needs_charter and not needs_constitution and not needs_covenant and not needs_treaty and not needs_pact
                     needs_recognition = bool(
                         kinds
                         & {
@@ -1354,7 +1367,7 @@ def evaluate_milestone(
                             "min_recognitions",
                             "recognition_root_valid",
                         }
-                    ) and not needs_reputation and not needs_standing and not needs_privilege and not needs_mandate and not needs_charter and not needs_constitution and not needs_covenant and not needs_treaty
+                    ) and not needs_reputation and not needs_standing and not needs_privilege and not needs_mandate and not needs_charter and not needs_constitution and not needs_covenant and not needs_treaty and not needs_pact
                     needs_reaccreditation = bool(
                         kinds
                         & {
@@ -1602,7 +1615,8 @@ def evaluate_milestone(
                     # evidence. Do not let bare chain_valid/certificate_valid soft-kind
                     # triggers overwrite that context via lineage/sovereignty planes.
                     higher_plane_active = bool(
-                        needs_treaty
+                        needs_pact
+                        or needs_treaty
                         or needs_covenant
                         or needs_constitution
                         or needs_charter
@@ -1653,6 +1667,174 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     ) and not higher_plane_active
+                    if needs_pact:
+                        plane_done_when = strip_context(
+                            contract_text,
+                            keep_mission=False,
+                        )
+                        plane_done_when = "; ".join(
+                            token
+                            for token in (part.strip() for part in plane_done_when.split(";"))
+                            if token
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        pact_result = run_pact(
+                            workspace,
+                            goal=decision.mission_goal
+                            or decision.summary
+                            or "pact over treaty",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            run_treaty=True,
+                            run_liquidity=True,
+                            run_collateral=True,
+                            run_margin=True,
+                            run_clearing=True,
+                            run_settlement=True,
+                            run_actuation=True,
+                            run_execution=True,
+                            run_finality=True,
+                            run_quorum=True,
+                            run_continuity=False,
+                            run_reconciliation=False,
+                            force_synthetic_drift=True,
+                            inject_byzantine=True,
+                            epoch_count=2,
+                            min_actions=2,
+                            min_settlements=2,
+                            min_clearings=2,
+                            min_margins=2,
+                            min_collaterals=2,
+                            min_liquidities=2,
+                            min_treaties=2,
+                            min_pacts=2,
+                            timeout=960,
+                        )
+                        disk_pact = None
+                        if not pact_result.get("ok") or not pact_result.get(
+                            "pacted"
+                        ):
+                            loader = getattr(
+                                cc, "_load_pact_disk_evidence", None
+                            )
+                            if callable(loader):
+                                disk_pact = loader({})
+                        pact_ok_flag = bool(
+                            pact_result.get("ok")
+                            or (disk_pact or {}).get("ok")
+                        )
+                        pacted = bool(
+                            pact_result.get("pacted")
+                            or (disk_pact or {}).get("pacted")
+                        )
+                        context.update(
+                            {
+                                "pact": {
+                                    "ok": pact_ok_flag,
+                                    "pacted": pacted,
+                                    "pact_count": pact_result.get(
+                                        "pact_count"
+                                    )
+                                    or (disk_pact or {}).get("pact_count"),
+                                    "tip_height": pact_result.get("tip_height")
+                                    or (disk_pact or {}).get("tip_height"),
+                                    "tip_pact_root": pact_result.get(
+                                        "tip_pact_root"
+                                    )
+                                    or (disk_pact or {}).get(
+                                        "tip_pact_root"
+                                    ),
+                                    "pact_hash": pact_result.get(
+                                        "pact_hash"
+                                    )
+                                    or (disk_pact or {}).get("pact_hash"),
+                                    "pact_root_valid": True
+                                    if pacted
+                                    else bool(
+                                        (disk_pact or {}).get(
+                                            "pact_root_valid"
+                                        )
+                                    ),
+                                    "certificate_valid": True
+                                    if pacted
+                                    else bool(
+                                        (disk_pact or {}).get("certificate_valid")
+                                    ),
+                                    "pact_plan_digest": pact_result.get(
+                                        "pact_plan_digest"
+                                    )
+                                    or (disk_pact or {}).get(
+                                        "pact_plan_digest"
+                                    ),
+                                    "pact_certificate": pact_result.get(
+                                        "pact_certificate"
+                                    )
+                                    or (disk_pact or {}).get(
+                                        "pact_certificate"
+                                    ),
+                                    "deterministic": True,
+                                    "post_treaty": True,
+                                    "multi_pact": int(
+                                        pact_result.get("pact_count")
+                                        or (disk_pact or {}).get(
+                                            "pact_count"
+                                        )
+                                        or 0
+                                    )
+                                    >= 2,
+                                },
+                                "pact_plane": {
+                                    "ok": pact_ok_flag,
+                                    "pacted": pacted,
+                                    "pact_count": pact_result.get(
+                                        "pact_count"
+                                    )
+                                    or (disk_pact or {}).get("pact_count"),
+                                    "pact_root_valid": True
+                                    if pacted
+                                    else bool(
+                                        (disk_pact or {}).get(
+                                            "pact_root_valid"
+                                        )
+                                    ),
+                                },
+                                "pact_count": pact_result.get(
+                                    "pact_count"
+                                )
+                                or (disk_pact or {}).get("pact_count"),
+                                "tip_pact_root": pact_result.get(
+                                    "tip_pact_root"
+                                )
+                                or (disk_pact or {}).get("tip_pact_root"),
+                                "pact_certificate": pact_result.get(
+                                    "pact_certificate"
+                                )
+                                or (disk_pact or {}).get(
+                                    "pact_certificate"
+                                ),
+                                "pact_hash": pact_result.get(
+                                    "pact_hash"
+                                )
+                                or (disk_pact or {}).get("pact_hash"),
+                                "pact_plan_digest": pact_result.get(
+                                    "pact_plan_digest"
+                                )
+                                or (disk_pact or {}).get(
+                                    "pact_plan_digest"
+                                ),
+                                "chain": (pact_result.get("chain") or {}),
+                                "used_skill_route_discovery": bool(
+                                    pact_result.get("used_skill_route_discovery")
+                                ),
+                            }
+                        )
                     if needs_treaty:
                         plane_done_when = strip_context(
                             contract_text,
