@@ -30,6 +30,7 @@ from blackhole_agent.evolution_route import (
 )
 from blackhole_agent.kernels.codex_cli import CodexCliConfig, build_codex_provider_preflight, token_quality
 from blackhole_agent.kernels.grok_cli import GrokCliConfig, build_grok_provider_preflight
+from blackhole_agent.kernels.kimi_cli import KimiCliConfig, build_kimi_provider_preflight
 from blackhole_agent.proposal_synthesis import DEFAULT_PROPOSAL_MODE, PROPOSAL_MODES
 from blackhole_agent.self_model import DEFAULT_SELF_MODEL_PATH
 from blackhole_agent.tool_routing import (
@@ -1182,8 +1183,8 @@ def validate_supervisor_config(config: SupervisorConfig) -> None:
         raise ValueError("restart_exit_code cannot be negative")
     if config.evolution_mode not in SUPPORTED_EVOLUTION_MODES:
         raise ValueError("evolution_mode must be one of: digest, plan, codex, compound")
-    if config.kernel not in {"codex", "grok"}:
-        raise ValueError("kernel must be one of: codex, grok")
+    if config.kernel not in {"codex", "grok", "kimi"}:
+        raise ValueError("kernel must be one of: codex, grok, kimi")
     if config.proposal_mode not in PROPOSAL_MODES:
         raise ValueError("proposal_mode must be one of: heuristic, llm, hybrid")
     if config.proposal_timeout_seconds < 1:
@@ -1237,6 +1238,15 @@ def build_provider_config_preflight(
         ),
         env=environment,
     )
+    kimi_preflight = build_kimi_provider_preflight(
+        KimiCliConfig(
+            model=config.model,
+            require_explicit_route=(
+                config.require_codex_route and config.evolution_mode == "codex" and config.kernel == "kimi"
+            ),
+        ),
+        env=environment,
+    )
     claude_sdk_preflight = build_claude_sdk_permission_preflight(
         configured_permission_mode=config.claude_sdk_permission_mode,
         allow_auto_mode=config.allow_claude_sdk_auto_permission_mode,
@@ -1252,6 +1262,8 @@ def build_provider_config_preflight(
         diagnostics.extend(str(item) for item in codex_preflight["diagnostics"])
     if effective_mode == "codex" and config.kernel == "grok" and not grok_preflight["ok"]:
         diagnostics.extend(str(item) for item in grok_preflight["diagnostics"])
+    if effective_mode == "codex" and config.kernel == "kimi" and not kimi_preflight["ok"]:
+        diagnostics.extend(str(item) for item in kimi_preflight["diagnostics"])
     if not claude_sdk_preflight["ok"]:
         diagnostics.extend(str(item) for item in claude_sdk_preflight["diagnostics"])
     recovery_hints = build_provider_config_recovery_hints(
@@ -1281,6 +1293,7 @@ def build_provider_config_preflight(
         "token_value_recorded": False,
         "codex": codex_preflight,
         "grok": grok_preflight,
+        "kimi": kimi_preflight,
         "claude_sdk": claude_sdk_preflight,
     }
 

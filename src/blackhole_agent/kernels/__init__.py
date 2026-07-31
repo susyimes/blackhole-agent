@@ -2,6 +2,7 @@
 
 from blackhole_agent.kernels.codex_cli import CodexCliConfig, CodexCliKernel, CodexCliRunResult
 from blackhole_agent.kernels.grok_cli import GrokCliConfig, GrokCliKernel, GrokCliRunResult
+from blackhole_agent.kernels.kimi_cli import KimiCliConfig, KimiCliKernel, KimiCliRunResult
 
 __all__ = [
     "CodexCliConfig",
@@ -10,4 +11,7 @@ __all__ = [
     "GrokCliConfig",
     "GrokCliKernel",
     "GrokCliRunResult",
+    "KimiCliConfig",
+    "KimiCliKernel",
+    "KimiCliRunResult",
 ]

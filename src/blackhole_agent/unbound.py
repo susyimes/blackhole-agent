@@ -116,6 +116,7 @@ from blackhole_agent.capability_compounder import (
 )
 from blackhole_agent.kernels.codex_cli import CodexCliConfig, CodexCliKernel
 from blackhole_agent.kernels.grok_cli import GrokCliConfig, GrokCliKernel
+from blackhole_agent.kernels.kimi_cli import KimiCliConfig, KimiCliKernel
 
 
 app = typer.Typer(rich_markup_mode="rich", add_completion=False)
@@ -133,7 +134,7 @@ DEFAULT_CONTINUOUS_INTERVAL_SECONDS = 1800
 WORKTREE_SETUP_TIMEOUT_SECONDS = 15 * 60
 MISSION_STATUSES = frozenset({"active", "complete", "blocked", "stopped"})
 TURN_STATUSES = frozenset({"continue", "milestone", "complete", "blocked"})
-KERNELS = frozenset({"codex", "grok"})
+KERNELS = frozenset({"codex", "grok", "kimi"})
 RECENT_TURN_LIMIT = 8
 STATE_HISTORY_LIMIT = 50
 PROMPT_TEXT_LIMIT = 12_000
@@ -978,6 +979,27 @@ def invoke_kernel_turn(
             kernel="grok",
             last_message=result.last_message,
             session_id=state.session_id,
+            command=tuple(result.command),
+            result_path=str(result.result_path),
+        )
+    if state.kernel == "kimi":
+        config = KimiCliConfig(
+            model=state.model,
+            require_explicit_route=False,
+            resume_session_id=(
+                state.session_id if state.session_started and state.session_id else None
+            ),
+        )
+        result = KimiCliKernel(config, command_runner=command_runner).run(
+            prompt,
+            cwd=workspace,
+            output_dir=kernel_dir,
+            timeout_seconds=state.timeout_seconds,
+        )
+        return KernelTurnResult(
+            kernel="kimi",
+            last_message=result.last_message,
+            session_id=result.session_id or state.session_id,
             command=tuple(result.command),
             result_path=str(result.result_path),
         )
@@ -10230,7 +10252,7 @@ def start(
     repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository to evolve."),
     goal: str = typer.Option("", "--goal", help="Mission goal. Leave blank for autonomous genesis."),
     done_when: str = typer.Option("", "--done-when", help="Outcome-level completion contract."),
-    kernel: str = typer.Option("grok", "--kernel", help="Execution kernel: grok or codex."),
+    kernel: str = typer.Option("grok", "--kernel", help="Execution kernel: grok, kimi, or codex."),
     model: str | None = typer.Option(None, "--model", "-m", help="Optional model route."),
     profile: str | None = typer.Option(None, "--profile", help="Optional Codex profile."),
     target_branch: str = typer.Option("main", "--target-branch", help="Branch used as the mission base."),
@@ -10319,7 +10341,7 @@ def run(
 @app.command(help="Continuously run autonomous missions with a delay between completed missions.")
 def loop(
     repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository to evolve continuously."),
-    kernel: str = typer.Option("grok", "--kernel", help="Execution kernel: grok or codex."),
+    kernel: str = typer.Option("grok", "--kernel", help="Execution kernel: grok, kimi, or codex."),
     model: str | None = typer.Option(None, "--model", "-m", help="Optional model route."),
     profile: str | None = typer.Option(None, "--profile", help="Optional Codex profile."),
     target_branch: str = typer.Option("main", "--target-branch", help="Initial lineage base."),

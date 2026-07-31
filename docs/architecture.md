@@ -1111,7 +1111,7 @@ for the current completion regression.
 
 ### Selectable Local CLI Kernel
 
-Runs only when explicitly selected with `--evolution-mode codex`. The `--kernel codex|grok` selector chooses the local execution backend without changing the surrounding rollback and promotion protocol.
+Runs only when explicitly selected with `--evolution-mode codex`. The `--kernel codex|grok|kimi` selector chooses the local execution backend without changing the surrounding rollback and promotion protocol.
 
 The controller creates a coherent task from the digest proposals, writes a rollback point, prepares a local branch, and invokes:
 
@@ -1129,6 +1129,21 @@ grok --cwd <repo> --output-format json --permission-mode bypassPermissions --san
 ```
 
 Grok tasks are stored in a prompt file so long controller tasks do not enter the process command line. Cross-session memory, subagents, and Grok-hosted web search are disabled for bounded supervisor children; the supervisor remains responsible for commit, health gates, promotion, push, and restart handoff.
+
+The Kimi route uses the native non-interactive and machine-readable contract:
+
+```text
+kimi --output-format stream-json --prompt <task>
+kimi --session <session-id> --output-format stream-json --prompt <next-task>
+```
+
+The controller extracts `session.resume_hint` from the stream and resumes that
+native session for later Unbound turns. Prompt text is stored in a task artifact
+and redacted from recorded command artifacts, although the native Kimi CLI still
+receives it as a command-line argument. Native prompt mode is inherently
+fully automatic and rejects `--auto`, `--plan`, and `--yolo`; the preflight
+blocks those incompatible combinations. Proposal interpretation therefore uses
+an explicit non-mutation prompt contract rather than a CLI plan flag.
 
 The kernel is intentionally local:
 

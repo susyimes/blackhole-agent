@@ -11,7 +11,7 @@ One mission owns:
 
 - one persistent goal and outcome-level `done_when`
 - one branch and long-lived sibling Git worktree
-- one Codex or Grok session resumed between turns
+- one Codex, Grok, or Kimi session resumed between turns
 - one durable `state.json` and append-only `events.jsonl`
 - zero child agents, delegated workers, or parallel task schedulers
 
@@ -82,7 +82,11 @@ themselves.
 
 Grok is configured with memory enabled, web search enabled, full workspace
 access, and `--no-subagents`. Codex runs with a durable JSON session and full
-access. Both session types are resumed on later turns.
+access. Kimi runs through native non-interactive `--prompt` mode, whose
+permission behavior is already fully automatic; Kimi 0.29 rejects a redundant
+`--auto` flag in that mode. The controller captures the native session ID and
+passes it through `--session` on later turns. All three session types are
+resumed between turns.
 
 ## Capability Compounder
 
@@ -263,6 +267,9 @@ uv run blackhole-unbound loop \
   --kernel grok \
   --interval-seconds 1800
 ```
+
+Replace `--kernel grok` with `--kernel kimi` to use Kimi Code CLI while keeping
+the same serial mission, publication, and 30-minute cadence contracts.
 
 The first mission starts immediately unless `--wait-first` is supplied. After a
 mission records accepted milestones, the next mission is based on its latest

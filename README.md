@@ -2,7 +2,7 @@
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-111827?style=for-the-badge&logo=python)](https://www.python.org/)
 [![Runtime](https://img.shields.io/badge/runtime-uv-111827?style=for-the-badge)](https://github.com/astral-sh/uv)
-[![Kernel](https://img.shields.io/badge/kernel-Codex_or_Grok_CLI-111827?style=for-the-badge)](#cli-kernels)
+[![Kernel](https://img.shields.io/badge/kernel-Codex_Grok_or_Kimi_CLI-111827?style=for-the-badge)](#system-map)
 [![Mode](https://img.shields.io/badge/mode-autonomous_local_evolution-111827?style=for-the-badge)](#autonomy-model)
 
 > A GitHub trend-eating growth agent with an optional long-horizon Unbound runtime.
@@ -20,7 +20,7 @@
 - convert noisy repository activity into compact learning digests
 - select useful patterns that could improve this agent
 - create autonomous self-evolution tasks
-- run a selected local Codex or Grok CLI kernel when explicitly requested
+- run a selected local Codex, Grok, or Kimi CLI kernel when explicitly requested
 - preserve a rollback point before source mutation
 - keep every material action traceable through artifacts
 
@@ -45,7 +45,7 @@ supervisor wake
   -> candidate improvement proposals
   -> persona-layer task framing
   -> rollback point creation
-  -> one-shot local Codex CLI kernel run
+  -> one-shot selected local CLI kernel run
   -> candidate commit
   -> health-gated promotion into main
   -> push to origin
@@ -104,6 +104,18 @@ uv run blackhole \
   --repo-path . \
   --branch-prefix grok/blackhole-evolve \
   --bypass-approvals-and-sandbox
+```
+
+Run it through the native Kimi Code CLI and its configured default model:
+
+```bash
+uv run blackhole \
+  --trend-query "agent language:Python" \
+  --evolution-mode codex \
+  --kernel kimi \
+  --allow-default-codex-route \
+  --repo-path . \
+  --branch-prefix kimi/blackhole-evolve
 ```
 
 Run the native hourly wake loop:
@@ -182,6 +194,8 @@ uv run blackhole-unbound start --repo-path . --kernel grok
 uv run blackhole-unbound run --repo-path .
 ```
 
+Select `--kernel kimi` instead to run the same mission through Kimi Code CLI.
+
 Run continuous single-agent self-evolution on a 30-minute outer cadence:
 
 ```bash
@@ -211,10 +225,13 @@ validation command, and a changed behavior path outside docs, tests, and
 artifacts.
 
 Unbound uses one logical agent only. Grok subagents remain disabled, while the
-same Grok or Codex session is resumed between turns. The runtime enables network,
-tool, dependency, refactor, deletion, Git, and self-modification capabilities;
-the worker is reloaded from the evolving mission worktree between turns so a
-milestone can change the controller used by the following turn.
+same Grok, Kimi, or Codex session is resumed between turns. Kimi runs in native
+non-interactive prompt mode, which is inherently fully automatic and rejects a
+redundant `--auto` flag; later turns use its returned session ID through
+`--session`. The runtime enables network, tool, dependency, refactor, deletion,
+Git, and self-modification capabilities; the worker is reloaded from the
+evolving mission worktree between turns so a milestone can change the
+controller used by the following turn.
 
 Inspect or pause a mission:
 
@@ -243,6 +260,7 @@ contracts.
 | Local memory tool | `blackhole_agent.local_memory` | First-party non-secret memory store for local tool routes |
 | Codex kernel | `blackhole_agent.kernels.codex_cli` | Bounded `codex exec` wrapper |
 | Grok kernel | `blackhole_agent.kernels.grok_cli` | Bounded headless `grok --prompt-file` wrapper |
+| Kimi kernel | `blackhole_agent.kernels.kimi_cli` | Native `kimi --prompt` wrapper with durable session resume |
 | Digest schema | `schemas/hourly-digest.schema.json` | Structured output contract |
 | Architecture docs | `docs/architecture.md` | Component boundaries and runtime policy |
 
@@ -312,7 +330,7 @@ uv run blackhole-supervisor \
 The preflight records valid env var names and boolean presence; token values are not written to diagnostics or artifacts.
 Malformed `--token-env` input is rejected without echoing the raw input into startup diagnostics.
 
-Kernel routes are checked before execution. Codex keeps its explicit model/profile checks; Grok requires the local executable plus an explicit model when strict routing is enabled and can authenticate through its cached login or `XAI_API_KEY`. Preflight artifacts record only route and presence metadata, never token values.
+Kernel routes are checked before execution. Codex keeps its explicit model/profile checks; Grok and Kimi require their local executable plus an explicit model when strict routing is enabled. Both support cached login, while environment-key presence is recorded only as metadata. Preflight artifacts never record token values.
 
 For a half-hour local experiment:
 

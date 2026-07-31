@@ -712,6 +712,25 @@ def test_provider_config_preflight_blocks_implicit_codex_route_before_scheduling
     assert preflight["recovery_hints"][0]["code"] == "explicit_codex_route_required"
 
 
+def test_provider_config_preflight_selects_kimi_route_before_scheduling(tmp_path, monkeypatch):
+    monkeypatch.setattr("blackhole_agent.kernels.kimi_cli.shutil.which", lambda _: "C:/tools/kimi.exe")
+    config = SupervisorConfig(
+        repo_path=tmp_path,
+        evolution_mode="codex",
+        kernel="kimi",
+        model="kimi-model",
+    )
+
+    preflight = build_provider_config_preflight(config)
+
+    assert preflight["ok"] is True
+    assert preflight["kimi"]["ok"] is True
+    assert preflight["kimi"]["selected_provider"] == "kimi_cli"
+    assert preflight["kimi"]["route_selector"] == "model"
+    assert preflight["kimi"]["permission_mode"] == "auto"
+    assert preflight["kimi"]["token_value_recorded"] is False
+
+
 def test_claude_sdk_permission_preflight_defaults_to_auto_with_explicit_metadata(monkeypatch):
     monkeypatch.delenv(CLAUDE_SDK_PERMISSION_MODE_ENV, raising=False)
 

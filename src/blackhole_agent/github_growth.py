@@ -24,6 +24,7 @@ from rich.console import Console
 
 from blackhole_agent.kernels.codex_cli import CodexCliConfig, CodexCliKernel, CodexCliRunResult
 from blackhole_agent.kernels.grok_cli import GrokCliConfig, GrokCliKernel, GrokCliRunResult
+from blackhole_agent.kernels.kimi_cli import KimiCliConfig, KimiCliKernel, KimiCliRunResult
 from blackhole_agent.persona import render_persona_layer
 from blackhole_agent.proposal_synthesis import (
     DEFAULT_PROPOSAL_MODE,
@@ -576,7 +577,7 @@ class DigestWriteResult:
 
 @dataclass(frozen=True)
 class SelfEvolutionPlan:
-    """A coherent task that the local Codex CLI kernel can run against this checkout."""
+    """A coherent task that the selected local CLI kernel can run against this checkout."""
 
     generated_at: str
     repo_path: str
@@ -594,7 +595,7 @@ class SelfEvolutionPlan:
 
 @dataclass(frozen=True)
 class SelfEvolutionRunResult:
-    """Result of invoking the Codex CLI kernel on a self-evolution task."""
+    """Result of invoking the selected CLI kernel on a self-evolution task."""
 
     command: list[str]
     returncode: int
@@ -1370,8 +1371,22 @@ def run_proposal_interpretation_kernel(
             timeout_seconds=timeout_seconds,
         )
         return result.last_message
+    if kernel == "kimi":
+        kimi = KimiCliKernel(
+            KimiCliConfig(
+                model=model,
+            ),
+            command_runner=command_runner,
+        )
+        result = kimi.run(
+            render_proposal_synthesis_prompt(evidence_package),
+            cwd=repo_path,
+            output_dir=output_dir / "proposal-synthesis",
+            timeout_seconds=timeout_seconds,
+        )
+        return result.last_message
     if kernel != "codex":
-        raise ValueError("kernel must be one of: codex, grok")
+        raise ValueError("kernel must be one of: codex, grok, kimi")
 
     config = CodexCliConfig(
         model=model,
@@ -28747,6 +28762,141 @@ def run_self_evolution_grok(
     return run_result
 
 
+def run_self_evolution_kimi(
+    plan: SelfEvolutionPlan,
+    *,
+    output_dir: Path,
+    model: str | None = None,
+    require_explicit_route: bool = True,
+    timeout_seconds: int = 3600,
+    command_runner: Any = subprocess.run,
+) -> SelfEvolutionRunResult:
+    """Run one self-evolution task through Kimi CLI and preserve controller artifacts."""
+
+    started_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    monotonic_started = time.monotonic()
+    config = KimiCliConfig(
+        model=model,
+        require_explicit_route=require_explicit_route,
+    )
+    kernel = KimiCliKernel(config, command_runner=command_runner)
+    kimi_metadata = {
+        "model": config.model,
+        "require_explicit_route": config.require_explicit_route,
+        "output_format": config.output_format,
+        "permission_mode": "auto",
+        "permission_mode_source": "native_prompt_mode",
+        "native_session_persistence": True,
+    }
+    result: KimiCliRunResult = kernel.run(
+        plan.task,
+        cwd=Path(plan.repo_path),
+        output_dir=output_dir,
+        timeout_seconds=timeout_seconds,
+    )
+    finished_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    elapsed_seconds = round(time.monotonic() - monotonic_started, 3)
+    run_result = SelfEvolutionRunResult(
+        command=result.command,
+        returncode=result.returncode,
+        task_path=result.task_path,
+        last_message_path=result.last_message_path,
+        result_path=result.result_path,
+        branch_name=plan.branch_name,
+        stdout_tail=result.stdout_tail,
+        stderr_tail=result.stderr_tail,
+        last_message=result.last_message,
+    )
+    (output_dir / "latest-self-evolution-run.json").write_text(
+        json.dumps(
+            {
+                "command": run_result.command,
+                "kernel": "kimi",
+                "kimi_cli": kimi_metadata,
+                "provider_preflight": result.provider_preflight,
+                "returncode": run_result.returncode,
+                "task_path": str(run_result.task_path),
+                "last_message_path": str(run_result.last_message_path),
+                "result_path": str(run_result.result_path),
+                "branch_name": run_result.branch_name,
+                "stdout_tail": run_result.stdout_tail,
+                "stderr_tail": run_result.stderr_tail,
+                "last_message": run_result.last_message,
+                "session_id": result.session_id,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    current_head = run_controller_command(
+        ["git", "rev-parse", "--verify", "HEAD"],
+        cwd=Path(plan.repo_path),
+        command_runner=command_runner,
+    ).stdout.strip()
+    proposal_controls = [
+        proposal_manifest_control(proposal)
+        for proposal in plan.proposals
+        if str(proposal.get("proposal_id") or "").strip()
+    ]
+    manifest = {
+        "schema_version": 1,
+        "started_at": started_at,
+        "finished_at": finished_at,
+        "elapsed_seconds": elapsed_seconds,
+        "source_digest_id": plan.source_digest_id,
+        "source_digest_generated_at": plan.source_digest_generated_at,
+        "capability_theme_window": dict(plan.capability_theme_window),
+        "upstream_evidence_capability_step": dict(plan.upstream_evidence_capability_step),
+        "skill_route_discovery_capability_pipeline": dict(
+            plan.skill_route_discovery_capability_pipeline
+        ),
+        "repo_path": plan.repo_path,
+        "branch_name": plan.branch_name,
+        "target_head": current_head,
+        "self_model_path": plan.self_model_path,
+        "returncode": run_result.returncode,
+        "kernel": "kimi",
+        "kimi_cli": kimi_metadata,
+        "provider_preflight": result.provider_preflight,
+        "task_path": str(run_result.task_path),
+        "last_message_path": str(run_result.last_message_path),
+        "kimi_result_path": str(run_result.result_path),
+        "session_id": result.session_id,
+        "proposal_controls": proposal_controls,
+        "replayable_validation_report": build_replayable_validation_report(plan, proposal_controls),
+        "validation_gates": [
+            str(proposal.get("validation_gate"))
+            for proposal in plan.proposals
+            if str(proposal.get("validation_gate") or "").strip()
+        ],
+        "proposal_ids": [
+            str(proposal.get("proposal_id"))
+            for proposal in plan.proposals
+            if str(proposal.get("proposal_id") or "").strip()
+        ],
+        "evidence_urls": sorted(
+            {
+                str(url)
+                for proposal in plan.proposals
+                for url in proposal.get("evidence_urls", [])
+                if str(url).strip()
+            }
+        ),
+    }
+    (output_dir / "latest-self-evolution-manifest.json").write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    write_self_model_snapshot(
+        output_dir,
+        read_self_model_snapshot(Path(plan.repo_path), Path(plan.self_model_path)),
+        phase="after",
+    )
+    return run_result
+
+
 def run_controller_command(
     command: list[str],
     *,
@@ -28965,7 +29115,7 @@ def main(
     max_events_per_repo: int = typer.Option(100, "--max-events-per-repo", min=1, max=100, help="GitHub event page size; all Link-paginated pages are fetched."),
     interval_seconds: int = typer.Option(0, "--interval-seconds", min=0, help="Run forever at this interval; 0 runs exactly once."),
     evolution_mode: str = typer.Option("digest", "--evolution-mode", help="One of: digest, plan, codex."),
-    kernel: str = typer.Option("codex", "--kernel", help="CLI kernel for LLM interpretation and mutation: codex or grok."),
+    kernel: str = typer.Option("codex", "--kernel", help="CLI kernel for LLM interpretation and mutation: codex, grok, or kimi."),
     repo_path: Path = typer.Option(Path("."), "--repo-path", help="blackhole-agent checkout to improve in plan/codex mode."),
     force_evolve: bool = typer.Option(False, "--force-evolve", help="Create a fallback self-evolution task even without matched signals."),
     branch_prefix: str = typer.Option("codex/blackhole-evolve", "--branch-prefix", help="Branch prefix used by mutation mode."),
@@ -28990,8 +29140,8 @@ def main(
     repo_list = parse_comma_separated(repos)
     if evolution_mode not in {"digest", "plan", "codex"}:
         raise typer.BadParameter("--evolution-mode must be one of: digest, plan, codex")
-    if kernel not in {"codex", "grok"}:
-        raise typer.BadParameter("--kernel must be one of: codex, grok")
+    if kernel not in {"codex", "grok", "kimi"}:
+        raise typer.BadParameter("--kernel must be one of: codex, grok, kimi")
     if proposal_mode not in PROPOSAL_MODES:
         raise typer.BadParameter("--proposal-mode must be one of: heuristic, llm, hybrid")
     if trend_sort not in {"stars", "forks", "updated"}:
@@ -29077,6 +29227,14 @@ def main(
                             permission_mode=(
                                 "bypassPermissions" if bypass_approvals_and_sandbox else "dontAsk"
                             ),
+                            timeout_seconds=codex_timeout_seconds,
+                        )
+                    elif kernel == "kimi":
+                        run_result = run_self_evolution_kimi(
+                            plan,
+                            output_dir=output_dir,
+                            model=model,
+                            require_explicit_route=require_codex_route,
                             timeout_seconds=codex_timeout_seconds,
                         )
                     else:

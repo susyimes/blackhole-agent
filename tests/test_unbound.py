@@ -233,6 +233,43 @@ def test_unbound_codex_turn_records_session_and_resumes(tmp_path, monkeypatch):
     assert commands[1][1:4] == ["exec", "resume", "codex-session-123"]
 
 
+def test_unbound_kimi_turn_records_native_session_and_resumes(tmp_path, monkeypatch):
+    monkeypatch.setattr("blackhole_agent.kernels.kimi_cli.shutil.which", lambda _: "C:/tools/kimi.exe")
+    commands = []
+
+    def runner(command, **kwargs):
+        commands.append(command)
+        stdout = "\n".join(
+            [
+                json.dumps({"role": "assistant", "content": decision_payload("continue")}),
+                json.dumps(
+                    {
+                        "role": "meta",
+                        "type": "session.resume_hint",
+                        "session_id": "session-kimi-123",
+                    }
+                ),
+            ]
+        )
+        return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr="")
+
+    state = make_state(tmp_path, kernel="kimi")
+    first = invoke_kernel_turn(state, "work", tmp_path / "turn-1", command_runner=runner)
+    state.session_id = first.session_id
+    state.session_started = True
+    second = invoke_kernel_turn(state, "continue", tmp_path / "turn-2", command_runner=runner)
+
+    assert first.kernel == "kimi"
+    assert first.session_id == "session-kimi-123"
+    assert second.session_id == "session-kimi-123"
+    assert "--session" not in commands[0]
+    assert commands[1][commands[1].index("--session") + 1] == "session-kimi-123"
+    assert "--auto" not in commands[0]
+    assert "--plan" not in commands[0]
+    assert commands[0][commands[0].index("--output-format") + 1] == "stream-json"
+    assert "work" not in first.command
+
+
 def test_continuing_work_persists_without_commit_until_capability_milestone(tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()
