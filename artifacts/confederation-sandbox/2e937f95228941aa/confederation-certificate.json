@@ -1,0 +1,37 @@
+{
+  "bound_coalition_height": 2,
+  "bound_coalition_root": "bae1b00661bbef4d5b6061dd",
+  "certificate_hash": "9f5d7bd89569c57a77636780",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "confederated",
+    "plane": "confederation"
+  },
+  "coalition_certificate_hash": "c399fd2a89a0686d9f0c6c1c",
+  "coalition_hash": "8ed5b1471fa12acd38c780f5",
+  "coalition_plan_digest": "f34d72767a381718e77a933f",
+  "confederation_count": 2,
+  "confederation_height": 2,
+  "confederation_plan_digest": "fff2921d0e50952b3e63a47f",
+  "confederation_root": "08537b60625de4608f266142",
+  "deterministic": true,
+  "goal": "confederation over coalition (clearing 2)",
+  "issued_at": "2026-07-31T05:22:07.614263Z",
+  "kind": "confederation_certificate",
+  "lineage_head_hash": "e431c2ebe819f65b99bcf55f",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "b8a861fdc0ef0467",
+  "parent_confederation_root": "df6fc8d4b359b55a9afa0e44",
+  "post_coalition": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

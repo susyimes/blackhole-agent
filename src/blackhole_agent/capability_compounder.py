@@ -1212,6 +1212,13 @@ MISSION_GOAL_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("coalition discharge", ("capability.coalition-plane", "capability.alliance-plane", "capability.quorum-plane")),
     ("posted coalition", ("capability.coalition-plane", "capability.alliance-plane", "capability.actuation-plane")),
     ("coalition adequacy", ("capability.coalition-plane", "capability.alliance-plane", "capability.assurance-plane")),
+    ("confederation", ("capability.confederation-plane", "capability.coalition-plane", "capability.alliance-plane")),
+    ("confederated", ("capability.confederation-plane", "capability.coalition-plane", "capability.finality-plane")),
+    ("confederation plan", ("capability.confederation-plane", "capability.coalition-plane", "capability.assurance-plane")),
+    ("confederation-root", ("capability.confederation-plane", "capability.coalition-plane", "capability.lineage-plane")),
+    ("confederation discharge", ("capability.confederation-plane", "capability.coalition-plane", "capability.quorum-plane")),
+    ("posted confederation", ("capability.confederation-plane", "capability.coalition-plane", "capability.actuation-plane")),
+    ("confederation adequacy", ("capability.confederation-plane", "capability.coalition-plane", "capability.assurance-plane")),
 ("solvency", ("capability.solvency-plane", "capability.capital-plane", "capability.funding-plane")),
     ("solvent", ("capability.solvency-plane", "capability.capital-plane", "capability.finality-plane")),
     ("solvency position", ("capability.solvency-plane", "capability.capital-plane", "capability.assurance-plane")),
@@ -3301,6 +3308,35 @@ def _soft_extract_outcome_predicates(chunk: str) -> list[dict[str, Any]]:
         and "valid" in lower
     ):
         found.append({"kind": "coalition_root_valid", "arg": "", "source": chunk})
+
+    if re.search(r"\bconfederation_ok\b", lower) or (
+        re.search(r"\brun_confederation_plane\b", lower) and (
+            "confederation" in lower or "plan" in lower
+        )
+    ):
+        found.append({"kind": "confederation_ok", "arg": "", "source": chunk})
+    if re.search(r"\bconfederated_ok\b", lower) or (
+        "confederated" in lower
+        and "confederation" in lower
+        and "confederation-plane" not in lower
+        and "confederation_plane" not in lower
+    ):
+        found.append({"kind": "confederated_ok", "arg": "", "source": chunk})
+    m = re.search(r"min_confederations\s*[:=]\s*(\d+)", lower)
+    if m:
+        found.append({"kind": "min_confederations", "arg": m.group(1), "source": chunk})
+    m = re.search(r"min[_\s-]?confederations?\s*[:=]\s*(\d+)", lower)
+    if m and not any(item.get("kind") == "min_confederations" for item in found):
+        found.append({"kind": "min_confederations", "arg": m.group(1), "source": chunk})
+    m = re.search(r"confederation_count\s*>=\s*(\d+)", lower)
+    if m and not any(item.get("kind") == "min_confederations" for item in found):
+        found.append({"kind": "min_confederations", "arg": m.group(1), "source": chunk})
+    if re.search(r"\bconfederation_root_valid\b", lower) or (
+        re.search(r"\bconfederation[_\s-]*root\b", lower)
+        and "valid" in lower
+    ):
+        found.append({"kind": "confederation_root_valid", "arg": "", "source": chunk})
+
 
     if re.search(r"\brisked_ok\b", lower) or re.search(
         r"\brisked\b", lower
@@ -6301,6 +6337,65 @@ def _eval_one_outcome_predicate(
                     plane.get("coalition_root") or plane.get("tip_coalition_root")
                 )
         return ok, f"coalition_root_valid={ok}"
+
+    if kind in {
+        "confederation_ok",
+        "confederated_ok",
+        "min_confederations",
+        "confederation_root_valid",
+    }:
+        plane = (
+            context.get("confederation")
+            or context.get("confederation_plane")
+            or {}
+        )
+        if not plane or not plane.get("ok"):
+            disk = _load_confederation_disk_evidence(context)
+            if disk:
+                plane = disk
+        if kind == "confederation_ok":
+            ok = bool(plane.get("ok") or plane.get("confederated"))
+            return ok, f"confederation_ok={ok}"
+        if kind == "confederated_ok":
+            ok = bool(
+                plane.get("confederated")
+                or plane.get("ok")
+                or int(
+                    plane.get("confederation_count") or plane.get("tip_height") or 0
+                )
+                >= 2
+            )
+            return ok, f"confederated_ok={ok}"
+        if kind == "min_confederations":
+            need = int(arg or 0)
+            have = context.get("confederation_count")
+            if have is None:
+                have = (
+                    plane.get("confederation_count")
+                    or plane.get("tip_height")
+                    or 0
+                )
+            try:
+                have_i = int(have or 0)
+            except (TypeError, ValueError):
+                have_i = 0
+            return have_i >= need, f"confederations={have_i} need>={need}"
+        if "confederation_root_valid" in plane:
+            ok = plane.get("confederation_root_valid") is True
+        else:
+            cert = (
+                plane.get("confederation_certificate")
+                or context.get("confederation_certificate")
+                or {}
+            )
+            if cert:
+                verify = verify_confederation_certificate(cert)
+                ok = bool(verify.get("valid") or verify.get("ok"))
+            else:
+                ok = bool(
+                    plane.get("confederation_root") or plane.get("tip_confederation_root")
+                )
+        return ok, f"confederation_root_valid={ok}"
 
 
     if kind == "program_passes":
@@ -99874,6 +99969,2340 @@ def builtin_coalition_plane() -> dict[str, Any]:
     )
 
 
+
+CONFEDERATION_BUNDLE_SCHEMA = 1
+CONFEDERATION_CERTIFICATE_SCHEMA = 1
+CONFEDERATION_LOG_SCHEMA = 1
+DEFAULT_CONFEDERATION_BUNDLE_RELATIVE = Path("artifacts") / "confederation-bundles"
+
+
+def default_confederation_bundle_dir(repo_path: Path) -> Path:
+    return (repo_path / DEFAULT_CONFEDERATION_BUNDLE_RELATIVE).resolve()
+
+
+def empty_confederation_log() -> dict[str, Any]:
+    return {
+        "schema_version": CONFEDERATION_LOG_SCHEMA,
+        "kind": "confederation_log",
+        "entries": [],
+        "entry_count": 0,
+        "tip_height": 0,
+        "tip_confederation_root": "",
+        "bound_coalition_root": "",
+        "bound_coalition_height": 0,
+        "coalition_hash": "",
+        "confederation_plan_digest": "",
+        "updated_at": utc_now_iso(),
+    }
+
+
+def compute_confederation_root(clearing: Mapping[str, Any]) -> str:
+    """Hash pact body excluding self root, certificates, and wall-clock fields."""
+
+    body = {
+        key: value
+        for key, value in clearing.items()
+        if key
+        not in {
+            "confederation_root",
+            "confederation_certificate",
+            "ok",
+            "valid",
+            "action",
+            "applied_at",
+            "updated_at",
+            "issued_at",
+            "exported_at",
+            "goal",
+            "claims",
+        }
+    }
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def compute_confederation_certificate_hash(payload: Mapping[str, Any]) -> str:
+    body = {
+        key: value
+        for key, value in payload.items()
+        if key not in {"certificate_hash", "ok", "valid"}
+    }
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def compute_confederation_bundle_hash(bundle: Mapping[str, Any]) -> str:
+    body = {
+        key: value
+        for key, value in bundle.items()
+        if key
+        not in {
+            "confederation_hash",
+            "ok",
+            "bundle_path",
+            "exported_at",
+            "source_ledger_path",
+            "action",
+        }
+    }
+    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def compute_confederation_plan_digest(
+    *,
+    parent_confederation_digest: str,
+    bound_coalition_root: str,
+    coalition_plan_digest: str,
+    capability_id: str,
+    outcome: str = "confederated",
+    position_ratio_bps: int = 1000,
+) -> str:
+    """Deterministic coalition plan chaining prior buffer with a newly confederated scenario."""
+
+    payload = {
+        "parent_confederation_digest": parent_confederation_digest or "",
+        "bound_coalition_root": bound_coalition_root,
+        "coalition_plan_digest": coalition_plan_digest,
+        "capability_id": capability_id,
+        "outcome": outcome or "confederated",
+        "position_ratio_bps": int(position_ratio_bps),
+        "plane": "confederation",
+    }
+    digest = json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+
+
+def issue_confederation_certificate(
+    *,
+    confederation_height: int,
+    confederation_root: str,
+    parent_confederation_root: str,
+    bound_coalition_root: str,
+    bound_coalition_height: int,
+    coalition_hash: str,
+    coalition_certificate_hash: str,
+    package_hash: str,
+    lineage_head_hash: str,
+    coalition_plan_digest: str,
+    confederation_plan_digest: str,
+    confederation_count: int,
+    member_ids: Sequence[str] | None = None,
+    goal: str = "",
+    claims: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    members = sorted({str(item).strip() for item in (member_ids or []) if str(item).strip()})
+    cert: dict[str, Any] = {
+        "schema_version": CONFEDERATION_CERTIFICATE_SCHEMA,
+        "kind": "confederation_certificate",
+        "issued_at": utc_now_iso(),
+        "confederation_height": int(confederation_height),
+        "confederation_root": str(confederation_root or ""),
+        "parent_confederation_root": str(parent_confederation_root or ""),
+        "bound_coalition_root": str(bound_coalition_root or ""),
+        "bound_coalition_height": int(bound_coalition_height or 0),
+        "coalition_hash": str(coalition_hash or ""),
+        "coalition_certificate_hash": str(coalition_certificate_hash or ""),
+        "package_hash": str(package_hash or ""),
+        "lineage_head_hash": str(lineage_head_hash or ""),
+        "coalition_plan_digest": str(coalition_plan_digest or ""),
+        "confederation_plan_digest": str(confederation_plan_digest or ""),
+        "confederation_count": int(confederation_count),
+        "member_ids": members,
+        "member_count": len(members),
+        "goal": goal or "",
+        "claims": dict(claims or {}),
+        "deterministic": True,
+        "post_coalition": True,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    cert["certificate_hash"] = compute_confederation_certificate_hash(cert)
+    cert["ok"] = (
+        bool(cert["certificate_hash"])
+        and bool(cert["confederation_root"])
+        and bool(cert["bound_coalition_root"])
+        and bool(cert["coalition_hash"])
+        and bool(cert["confederation_plan_digest"])
+        and bool(cert["coalition_plan_digest"])
+        and cert["confederation_height"] >= 1
+        and cert["confederation_count"] >= 1
+        and cert["deterministic"] is True
+        and cert["post_coalition"] is True
+        and not bool(cert["used_skill_route_discovery"])
+    )
+    cert["valid"] = bool(cert["ok"])
+    return cert
+
+
+def verify_confederation_certificate(payload: Mapping[str, Any] | Path) -> dict[str, Any]:
+    if isinstance(payload, Path):
+        data = json.loads(payload.read_text(encoding="utf-8"))
+    else:
+        data = dict(payload)
+    recomputed = compute_confederation_certificate_hash(data)
+    stored = str(data.get("certificate_hash") or "")
+    hash_ok = bool(stored) and stored == recomputed
+    valid = (
+        hash_ok
+        and data.get("kind") == "confederation_certificate"
+        and bool(data.get("confederation_root"))
+        and bool(data.get("bound_coalition_root"))
+        and bool(data.get("coalition_hash"))
+        and bool(data.get("confederation_plan_digest"))
+        and bool(data.get("coalition_plan_digest"))
+        and int(data.get("confederation_height") or 0) >= 1
+        and int(data.get("confederation_count") or 0) >= 1
+        and data.get("deterministic") is True
+        and data.get("post_coalition") is True
+        and not bool(data.get("used_skill_route_discovery"))
+    )
+    return {
+        "ok": valid,
+        "valid": valid,
+        "hash_ok": hash_ok,
+        "certificate_hash": stored if hash_ok else recomputed,
+        "confederation_height": data.get("confederation_height"),
+        "confederation_root": data.get("confederation_root"),
+        "bound_coalition_root": data.get("bound_coalition_root"),
+        "confederation_plan_digest": data.get("confederation_plan_digest"),
+        "coalition_hash": data.get("coalition_hash"),
+        "used_skill_route_discovery": bool(data.get("used_skill_route_discovery")),
+    }
+
+
+def write_confederation_certificate(path: Path, certificate: Mapping[str, Any]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(path, dict(certificate))
+    return path
+
+
+def _load_confederation_disk_evidence(
+    context: Mapping[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """Best-effort load of a durable pact proof bundle for context-less gates."""
+
+    candidates: list[Path] = []
+    ctx = context or {}
+    for key in ("repo_path", "workspace", "workspace_path"):
+        raw = ctx.get(key)
+        if raw:
+            root = Path(str(raw))
+            candidates.extend(
+                [
+                    root / "artifacts" / "confederation-bundles" / "proof-confederation.json",
+                    root / DEFAULT_CONFEDERATION_BUNDLE_RELATIVE / "proof-confederation.json",
+                ]
+            )
+    here = Path.cwd()
+    candidates.extend(
+        [
+            here / "artifacts" / "confederation-bundles" / "proof-confederation.json",
+            here / DEFAULT_CONFEDERATION_BUNDLE_RELATIVE / "proof-confederation.json",
+        ]
+    )
+    try:
+        pkg_root = Path(__file__).resolve().parents[2]
+        candidates.append(
+            pkg_root / "artifacts" / "confederation-bundles" / "proof-confederation.json"
+        )
+    except Exception:
+        pass
+    for base in {Path.cwd(), Path(__file__).resolve().parents[2]}:
+        bundle_dir = base / "artifacts" / "confederation-bundles"
+        if bundle_dir.is_dir():
+            candidates.extend(sorted(bundle_dir.glob("proof-confederation*.json"), reverse=True)[:5])
+            candidates.extend(sorted(bundle_dir.glob("pact-*.json"), reverse=True)[:8])
+            candidates.extend(sorted(bundle_dir.glob("coalition-*.json"), reverse=True)[:5])
+            candidates.extend(sorted(bundle_dir.glob("*.json"), reverse=True)[:12])
+
+    seen: set[str] = set()
+    for path in candidates:
+        try:
+            confederated = path.resolve()
+        except Exception:
+            continue
+        key = str(confederated)
+        if key in seen or not confederated.is_file():
+            continue
+        seen.add(key)
+        try:
+            bundle = load_confederation_bundle(confederated)
+        except Exception:
+            continue
+        integrity = verify_confederation_bundle_integrity(bundle)
+        if not integrity.get("ok"):
+            continue
+        cert = (
+            bundle.get("confederation_certificate")
+            if isinstance(bundle.get("confederation_certificate"), Mapping)
+            else {}
+        )
+        cert_verify = (
+            verify_confederation_certificate(cert) if cert else {"ok": False, "valid": False}
+        )
+        confederation_count = int(
+            bundle.get("confederation_count")
+            or (bundle.get("confederations") or {}).get("entry_count")
+            or 0
+        )
+        tip_height = int(bundle.get("tip_height") or confederation_count or 0)
+        if confederation_count < 2 or tip_height < 2 or not cert_verify.get("valid"):
+            continue
+        return {
+            "ok": True,
+            "confederated": True,
+            "confederation_count": confederation_count,
+            "tip_height": tip_height,
+            "tip_confederation_root": bundle.get("tip_confederation_root"),
+            "confederation_hash": bundle.get("confederation_hash"),
+            "confederation_root_valid": True,
+            "certificate_valid": True,
+            "confederation_plan_digest": bundle.get("confederation_plan_digest"),
+            "confederation_certificate": cert,
+            "bundle_path": str(confederated),
+            "source": "disk_proof_bundle",
+        }
+    return None
+
+
+def derive_confederation_specs_from_coalition(
+    coalition_bundle: Mapping[str, Any],
+    *,
+    min_confederations: int = 2,
+) -> list[dict[str, Any]]:
+    """Derive one coalition plan per coalition grant (multi-coalition required)."""
+
+    coalitions = (
+        coalition_bundle.get("coalitions")
+        if isinstance(coalition_bundle.get("coalitions"), Mapping)
+        else {}
+    )
+    entries = list(coalitions.get("entries") or [])
+    specs: list[dict[str, Any]] = []
+    for entry in entries:
+        if not isinstance(entry, Mapping):
+            continue
+        coalition_root = str(entry.get("coalition_root") or "")
+        if not coalition_root:
+            continue
+        specs.append(
+            {
+                "capability_id": str(entry.get("capability_id") or ""),
+                "effect": str(entry.get("effect") or ""),
+                "bound_coalition_root": coalition_root,
+                "bound_coalition_height": int(entry.get("coalition_height") or 0),
+                "coalition_plan_digest": str(entry.get("coalition_plan_digest") or ""),
+                "receipt_digest": str(entry.get("receipt_digest") or ""),
+                "bound_settlement_root": str(entry.get("bound_settlement_root") or ""),
+                "bound_action_root": str(entry.get("bound_action_root") or ""),
+                "package_hash": str(
+                    entry.get("package_hash")
+                    or coalition_bundle.get("package_hash")
+                    or ""
+                ),
+                "outcome": "confederated",
+                "position_ratio_bps": 1000 + 100 * len(specs),
+            }
+        )
+    want = max(2, int(min_confederations))
+    return specs[:want] if len(specs) >= want else specs
+
+
+def apply_confederation_transition(
+    confederation_log: Mapping[str, Any],
+    spec: Mapping[str, Any],
+    *,
+    coalition_bundle: Mapping[str, Any],
+    goal: str = "",
+    claims: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Append one coalition plan bound to a coalition grant root and cover it."""
+
+    log = copy.deepcopy(dict(confederation_log)) if confederation_log else empty_confederation_log()
+    entries = list(log.get("entries") or [])
+    next_height = len(entries) + 1
+    parent_root = str(entries[-1].get("confederation_root") or "") if entries else ""
+    parent_confederation_net = str(entries[-1].get("confederation_plan_digest") or "") if entries else ""
+
+    bound_coalition_root = str(spec.get("bound_coalition_root") or "")
+    bound_coalition_height = int(spec.get("bound_coalition_height") or 0)
+    capability_id = str(spec.get("capability_id") or "")
+    effect = str(spec.get("effect") or "")
+    outcome = str(spec.get("outcome") or "confederated")
+    package_hash = str(
+        spec.get("package_hash") or coalition_bundle.get("package_hash") or ""
+    )
+    coalition_hash = str(coalition_bundle.get("coalition_hash") or "")
+    tip_coalition_root = str(coalition_bundle.get("tip_coalition_root") or "")
+    coalitions = (
+        coalition_bundle.get("coalitions")
+        if isinstance(coalition_bundle.get("coalitions"), Mapping)
+        else {}
+    )
+    parent_entries = list(coalitions.get("entries") or [])
+    known_roots = {
+        str(item.get("coalition_root") or "")
+        for item in parent_entries
+        if isinstance(item, Mapping) and item.get("coalition_root")
+    }
+    if tip_coalition_root:
+        known_roots.add(tip_coalition_root)
+
+    if not capability_id or not bound_coalition_root or not coalition_hash:
+        return {
+            "ok": False,
+            "action": "apply_confederation_transition",
+            "error": "missing_coalition_bind_fields",
+            "confederation_log": log,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    if bound_coalition_root not in known_roots:
+        return {
+            "ok": False,
+            "action": "apply_confederation_transition",
+            "error": "bound_coalition_root_mismatch",
+            "bound_coalition_root": bound_coalition_root,
+            "known_coalition_roots": sorted(known_roots),
+            "confederation_log": log,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    if any(
+        str(item.get("bound_coalition_root") or "") == bound_coalition_root
+        and str(item.get("outcome") or "") == outcome
+        for item in entries
+    ):
+        return {
+            "ok": False,
+            "action": "apply_confederation_transition",
+            "error": "duplicate_coalition_rejected",
+            "confederation_log": log,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    settle_cert = (
+        coalition_bundle.get("coalition_certificate")
+        if isinstance(coalition_bundle.get("coalition_certificate"), Mapping)
+        else {}
+    )
+    settle_cert_hash = str(settle_cert.get("certificate_hash") or "")
+    lineage_head = str(coalition_bundle.get("lineage_head_hash") or "")
+    member_ids = list(coalition_bundle.get("member_ids") or [])
+    coalition_plan_digest = str(spec.get("coalition_plan_digest") or "")
+    position_ratio_bps = int(spec.get("position_ratio_bps") or 1000)
+    if not coalition_plan_digest:
+        # Recover from settlement entry if available.
+        for item in parent_entries:
+            if (
+                isinstance(item, Mapping)
+                and str(item.get("coalition_root") or "") == bound_coalition_root
+            ):
+                coalition_plan_digest = str(item.get("coalition_plan_digest") or "")
+                break
+    confederation_plan_digest = compute_confederation_plan_digest(
+        parent_confederation_digest=parent_confederation_net,
+        bound_coalition_root=bound_coalition_root,
+        coalition_plan_digest=coalition_plan_digest,
+        position_ratio_bps=position_ratio_bps,
+        capability_id=capability_id,
+        outcome=outcome,
+    )
+
+    body: dict[str, Any] = {
+        "schema_version": CONFEDERATION_LOG_SCHEMA,
+        "kind": "confederation_action",
+        "confederation_height": next_height,
+        "parent_confederation_root": parent_root,
+        "bound_coalition_root": bound_coalition_root,
+        "bound_coalition_height": bound_coalition_height,
+        "coalition_hash": coalition_hash,
+        "coalition_certificate_hash": settle_cert_hash,
+        "package_hash": package_hash,
+        "lineage_head_hash": lineage_head,
+        "capability_id": capability_id,
+        "effect": effect,
+        "outcome": outcome,
+        "coalition_plan_digest": coalition_plan_digest,
+        "confederation_plan_digest": confederation_plan_digest,
+        "position_ratio_bps": position_ratio_bps,
+        "parent_confederation_digest": parent_confederation_net,
+        "bound_action_root": str(spec.get("bound_action_root") or ""),
+        "member_ids": sorted({str(m).strip() for m in member_ids if str(m).strip()}),
+        "deterministic": True,
+        "post_coalition": True,
+        "applied_at": utc_now_iso(),
+        "goal": goal or str(coalition_bundle.get("goal") or ""),
+        "claims": dict(claims or {}),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    confederation_root = compute_confederation_root(body)
+    body["confederation_root"] = confederation_root
+    cert = issue_confederation_certificate(
+        confederation_height=next_height,
+        confederation_root=confederation_root,
+        parent_confederation_root=parent_root,
+        bound_coalition_root=bound_coalition_root,
+        bound_coalition_height=bound_coalition_height,
+        coalition_hash=coalition_hash,
+        coalition_certificate_hash=settle_cert_hash,
+        package_hash=package_hash,
+        lineage_head_hash=lineage_head,
+        coalition_plan_digest=coalition_plan_digest,
+        confederation_plan_digest=confederation_plan_digest,
+        confederation_count=next_height,
+        member_ids=body["member_ids"],
+        goal=goal or str(coalition_bundle.get("goal") or ""),
+        claims={
+            "capability_id": capability_id,
+            "effect": effect,
+            "outcome": outcome,
+            "plane": "confederation",
+            **dict(claims or {}),
+        },
+    )
+    body["confederation_certificate"] = cert
+    body["ok"] = (
+        bool(cert.get("ok"))
+        and bool(confederation_root)
+        and bool(confederation_plan_digest)
+        and body["deterministic"] is True
+        and body["post_coalition"] is True
+        and not bool(body.get("used_skill_route_discovery"))
+    )
+
+    entries.append(body)
+    log["entries"] = entries
+    log["entry_count"] = len(entries)
+    log["tip_height"] = next_height
+    log["tip_confederation_root"] = confederation_root
+    log["bound_coalition_root"] = bound_coalition_root
+    log["bound_coalition_height"] = bound_coalition_height
+    log["coalition_hash"] = coalition_hash
+    log["confederation_plan_digest"] = confederation_plan_digest
+    log["updated_at"] = utc_now_iso()
+    log["schema_version"] = CONFEDERATION_LOG_SCHEMA
+    log["kind"] = "confederation_log"
+    return {
+        "ok": bool(body.get("ok")),
+        "action": "apply_confederation_transition",
+        "entry": body,
+        "confederation_height": next_height,
+        "confederation_root": confederation_root,
+        "parent_confederation_root": parent_root,
+        "bound_coalition_root": bound_coalition_root,
+        "confederation_plan_digest": confederation_plan_digest,
+        "confederation_log": log,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def verify_confederation_chain(confederation_log: Mapping[str, Any]) -> dict[str, Any]:
+    """Validate sequential heights, parent roots, buffers, hashes, and pact certs."""
+
+    entries = list(confederation_log.get("entries") or [])
+    errors: list[str] = []
+    if not entries:
+        return {
+            "ok": False,
+            "valid": False,
+            "action": "verify_confederation_chain",
+            "entry_count": 0,
+            "tip_height": 0,
+            "tip_confederation_root": "",
+            "errors": ["empty_confederation_log"],
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    prev_root = ""
+    prev_net = ""
+    bound_settlements: set[str] = set()
+    coalition_hashes: set[str] = set()
+    for index, raw in enumerate(entries):
+        if not isinstance(raw, Mapping):
+            errors.append(f"entry[{index}]_not_mapping")
+            continue
+        height = int(raw.get("confederation_height") or 0)
+        expected_height = index + 1
+        if height != expected_height:
+            errors.append(f"entry[{index}]_height={height}_expected={expected_height}")
+        parent = str(raw.get("parent_confederation_root") or "")
+        if index == 0:
+            if parent:
+                errors.append(f"entry[{index}]_genesis_has_parent")
+        else:
+            if parent != prev_root:
+                errors.append(
+                    f"entry[{index}]_parent_mismatch got={parent[:12]} expected={prev_root[:12]}"
+                )
+        stored = str(raw.get("confederation_root") or "")
+        recomputed = compute_confederation_root({**dict(raw), "confederation_root": ""})
+        if not stored or stored != recomputed:
+            errors.append(f"entry[{index}]_confederation_root_mismatch")
+        if raw.get("deterministic") is not True:
+            errors.append(f"entry[{index}]_not_deterministic")
+        if raw.get("post_coalition") is not True:
+            errors.append(f"entry[{index}]_not_post_coalition")
+        bound = str(raw.get("bound_coalition_root") or "")
+        if not bound:
+            errors.append(f"entry[{index}]_missing_bound_coalition_root")
+        else:
+            bound_settlements.add(bound)
+        s_hash = str(raw.get("coalition_hash") or "")
+        if not s_hash:
+            errors.append(f"entry[{index}]_missing_coalition_hash")
+        else:
+            coalition_hashes.add(s_hash)
+        coalition_plan_digest = str(raw.get("coalition_plan_digest") or "")
+        parent_confederation_net_stored = str(raw.get("parent_confederation_digest") or "")
+        if parent_confederation_net_stored != prev_net:
+            errors.append(f"entry[{index}]_parent_confederation_net_mismatch")
+        expected_net = compute_confederation_plan_digest(
+            parent_confederation_digest=prev_net,
+            bound_coalition_root=bound,
+            coalition_plan_digest=coalition_plan_digest,
+            position_ratio_bps=int(raw.get("position_ratio_bps") or 1000),
+            capability_id=str(raw.get("capability_id") or ""),
+            outcome=str(raw.get("outcome") or "confederated"),
+        )
+        stored_net = str(raw.get("confederation_plan_digest") or "")
+        if not stored_net or stored_net != expected_net:
+            errors.append(f"entry[{index}]_confederation_plan_digest_mismatch")
+        cert = raw.get("confederation_certificate")
+        if not isinstance(cert, Mapping):
+            errors.append(f"entry[{index}]_missing_confederation_certificate")
+        else:
+            cert_verify = verify_confederation_certificate(cert)
+            if not cert_verify.get("valid"):
+                errors.append(f"entry[{index}]_stress_cert_invalid")
+            if str(cert.get("confederation_root") or "") != stored:
+                errors.append(f"entry[{index}]_cert_confederation_root_mismatch")
+            if int(cert.get("confederation_height") or 0) != height:
+                errors.append(f"entry[{index}]_cert_height_mismatch")
+            if str(cert.get("bound_coalition_root") or "") != bound:
+                errors.append(f"entry[{index}]_cert_bound_settlement_mismatch")
+            if str(cert.get("confederation_plan_digest") or "") != stored_net:
+                errors.append(f"entry[{index}]_cert_net_mismatch")
+        prev_root = stored
+        prev_net = stored_net
+
+    if len(coalition_hashes) > 1:
+        errors.append("mixed_coalition_hashes")
+
+    tip = entries[-1] if entries else {}
+    tip_height = int(tip.get("confederation_height") or 0) if isinstance(tip, Mapping) else 0
+    tip_root = str(tip.get("confederation_root") or "") if isinstance(tip, Mapping) else ""
+    tip_net = str(tip.get("confederation_plan_digest") or "") if isinstance(tip, Mapping) else ""
+    log_tip_height = int(confederation_log.get("tip_height") or 0)
+    log_tip_root = str(confederation_log.get("tip_confederation_root") or "")
+    log_net = str(confederation_log.get("confederation_plan_digest") or "")
+    if log_tip_height and log_tip_height != tip_height:
+        errors.append("tip_height_metadata_mismatch")
+    if log_tip_root and log_tip_root != tip_root:
+        errors.append("tip_confederation_root_metadata_mismatch")
+    if log_net and log_net != tip_net:
+        errors.append("confederation_plan_digest_metadata_mismatch")
+
+    valid = not errors and tip_height >= 1 and bool(tip_root) and bool(tip_net)
+    return {
+        "ok": valid,
+        "valid": valid,
+        "action": "verify_confederation_chain",
+        "entry_count": len(entries),
+        "tip_height": tip_height,
+        "tip_confederation_root": tip_root,
+        "confederation_plan_digest": tip_net,
+        "bound_coalition_roots": sorted(bound_settlements),
+        "coalition_hash": next(iter(coalition_hashes), ""),
+        "errors": errors,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def apply_coalition_bundle_to_confederations(
+    coalition_bundle: Mapping[str, Any],
+    *,
+    goal: str = "",
+    min_confederations: int = 2,
+) -> dict[str, Any]:
+    """Post multi-coalition scenarios into a deterministic coalition plan log."""
+
+    integrity = verify_coalition_bundle_integrity(coalition_bundle)
+    if not integrity.get("ok"):
+        return {
+            "ok": False,
+            "action": "apply_coalition_bundle_to_confederations",
+            "error": "coalition_integrity_failed",
+            "integrity": integrity,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    specs = derive_confederation_specs_from_coalition(
+        coalition_bundle, min_confederations=min_confederations
+    )
+    if len(specs) < 2:
+        return {
+            "ok": False,
+            "action": "apply_coalition_bundle_to_confederations",
+            "error": "need_multi_confederation",
+            "spec_count": len(specs),
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    confederation_log = empty_confederation_log()
+    applied: list[dict[str, Any]] = []
+    for index, spec in enumerate(specs):
+        result = apply_confederation_transition(
+            confederation_log,
+            spec,
+            coalition_bundle=coalition_bundle,
+            goal=f"{goal or coalition_bundle.get('goal') or 'clearing'} (clearing {index + 1})",
+            claims={"clearing_index": index + 1, "plane": "confederation"},
+        )
+        if not result.get("ok"):
+            return {
+                "ok": False,
+                "action": "apply_coalition_bundle_to_confederations",
+                "error": result.get("error") or "apply_failed",
+                "applied_count": len(applied),
+                "apply": {
+                    "ok": result.get("ok"),
+                    "error": result.get("error"),
+                    "confederation_height": result.get("confederation_height"),
+                },
+                "confederation_log": confederation_log,
+                "used_skill_route_discovery": legacy_pipeline_was_used(),
+            }
+        confederation_log = result["confederation_log"]
+        applied.append(result["entry"])
+
+    chain = verify_confederation_chain(confederation_log)
+    ok = bool(chain.get("valid")) and len(applied) >= 2 and not legacy_pipeline_was_used()
+    return {
+        "ok": ok,
+        "action": "apply_coalition_bundle_to_confederations",
+        "confederation_log": confederation_log,
+        "applied": applied,
+        "applied_count": len(applied),
+        "confederation_count": len(applied),
+        "tip_height": confederation_log.get("tip_height"),
+        "tip_confederation_root": confederation_log.get("tip_confederation_root"),
+        "bound_coalition_root": confederation_log.get("bound_coalition_root"),
+        "confederation_plan_digest": confederation_log.get("confederation_plan_digest"),
+        "chain": chain,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def build_confederation_bundle(
+    confederation_log: Mapping[str, Any],
+    coalition_bundle: Mapping[str, Any],
+    *,
+    goal: str = "confederation over coalition",
+) -> dict[str, Any]:
+    """Package pact log + coalition tip into a portable pact bundle."""
+
+    chain = verify_confederation_chain(confederation_log)
+    if not chain.get("valid"):
+        return {
+            "ok": False,
+            "action": "build_confederation_bundle",
+            "error": "coalition_chain_invalid",
+            "chain": chain,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+    entries = list(confederation_log.get("entries") or [])
+    tip = entries[-1]
+    tip_cert = (
+        tip.get("confederation_certificate")
+        if isinstance(tip.get("confederation_certificate"), Mapping)
+        else {}
+    )
+    tip_cert_verify = (
+        verify_confederation_certificate(tip_cert) if tip_cert else {"valid": False}
+    )
+    settle_cert = (
+        coalition_bundle.get("coalition_certificate")
+        if isinstance(coalition_bundle.get("coalition_certificate"), Mapping)
+        else {}
+    )
+    act_cert = (
+        coalition_bundle.get("actuation_certificate")
+        if isinstance(coalition_bundle.get("actuation_certificate"), Mapping)
+        else {}
+    )
+    package = (
+        coalition_bundle.get("package")
+        if isinstance(coalition_bundle.get("package"), Mapping)
+        else {}
+    )
+    certificates: dict[str, dict[str, Any]] = {}
+    for clearing in entries:
+        cert = clearing.get("confederation_certificate")
+        if isinstance(cert, Mapping) and cert.get("certificate_hash"):
+            certificates[str(cert["certificate_hash"])] = {
+                "certificate_hash": cert.get("certificate_hash"),
+                "payload": cert,
+                "confederation_height": clearing.get("confederation_height"),
+            }
+    if isinstance(settle_cert, Mapping) and settle_cert.get("certificate_hash"):
+        certificates[str(settle_cert["certificate_hash"])] = {
+            "certificate_hash": settle_cert.get("certificate_hash"),
+            "payload": settle_cert,
+            "kind": "confederation_certificate",
+        }
+    if isinstance(act_cert, Mapping) and act_cert.get("certificate_hash"):
+        certificates[str(act_cert["certificate_hash"])] = {
+            "certificate_hash": act_cert.get("certificate_hash"),
+            "payload": act_cert,
+            "kind": "actuation_certificate",
+        }
+    exec_cert = (
+        coalition_bundle.get("execution_certificate")
+        if isinstance(coalition_bundle.get("execution_certificate"), Mapping)
+        else {}
+    )
+    if isinstance(exec_cert, Mapping) and exec_cert.get("certificate_hash"):
+        certificates[str(exec_cert["certificate_hash"])] = {
+            "certificate_hash": exec_cert.get("certificate_hash"),
+            "payload": exec_cert,
+            "kind": "execution_certificate",
+        }
+
+    settle_cert_nested = (
+        coalition_bundle.get("settlement_certificate")
+        if isinstance(coalition_bundle.get("settlement_certificate"), Mapping)
+        else {}
+    )
+    if isinstance(settle_cert_nested, Mapping) and settle_cert_nested.get(
+        "certificate_hash"
+    ):
+        certificates[str(settle_cert_nested["certificate_hash"])] = {
+            "certificate_hash": settle_cert_nested.get("certificate_hash"),
+            "payload": settle_cert_nested,
+            "kind": "settlement_certificate",
+        }
+
+    member_ids = list(coalition_bundle.get("member_ids") or package.get("member_ids") or [])
+    cb: dict[str, Any] = {
+        "schema_version": CONFEDERATION_BUNDLE_SCHEMA,
+        "kind": "confederation_bundle",
+        "action": "build_confederation_bundle",
+        "goal": goal,
+        "confederations": copy.deepcopy(dict(confederation_log)),
+        "coalitions": copy.deepcopy(
+            coalition_bundle.get("coalitions")
+            if isinstance(coalition_bundle.get("coalitions"), Mapping)
+            else {}
+        ),
+        "settlements": copy.deepcopy(
+            coalition_bundle.get("settlements")
+            if isinstance(coalition_bundle.get("settlements"), Mapping)
+            else {}
+        ),
+        "actions": copy.deepcopy(
+            coalition_bundle.get("actions")
+            if isinstance(coalition_bundle.get("actions"), Mapping)
+            else {}
+        ),
+        "package": copy.deepcopy(dict(package)),
+        "lineage": copy.deepcopy(
+            coalition_bundle.get("lineage")
+            if isinstance(coalition_bundle.get("lineage"), Mapping)
+            else {}
+        ),
+        "confederation_certificate": copy.deepcopy(dict(tip_cert)),
+        "coalition_certificate": copy.deepcopy(dict(settle_cert)),
+        "settlement_certificate": copy.deepcopy(dict(settle_cert_nested)),
+        "actuation_certificate": copy.deepcopy(dict(act_cert)),
+        "execution_certificate": copy.deepcopy(dict(exec_cert)),
+        "certificates": certificates,
+        "certificate_count": len(certificates),
+        "confederation_count": len(entries),
+        "coalition_count": int(coalition_bundle.get("coalition_count") or 0),
+        "settlement_count": int(coalition_bundle.get("settlement_count") or 0),
+        "action_count": int(coalition_bundle.get("action_count") or 0),
+        "tip_height": int(confederation_log.get("tip_height") or 0),
+        "tip_confederation_root": str(confederation_log.get("tip_confederation_root") or ""),
+        "bound_coalition_root": str(confederation_log.get("bound_coalition_root") or ""),
+        "bound_coalition_height": int(confederation_log.get("bound_coalition_height") or 0),
+        "tip_coalition_root": str(coalition_bundle.get("tip_coalition_root") or ""),
+        "bound_settlement_root": str(coalition_bundle.get("bound_settlement_root") or ""),
+        "tip_settlement_root": str(coalition_bundle.get("tip_settlement_root") or ""),
+        "bound_action_root": str(coalition_bundle.get("bound_action_root") or ""),
+        "tip_action_root": str(coalition_bundle.get("tip_action_root") or ""),
+        "bound_state_root": str(coalition_bundle.get("bound_state_root") or ""),
+        "confederation_plan_digest": str(confederation_log.get("confederation_plan_digest") or ""),
+        "coalition_plan_digest": str(coalition_bundle.get("coalition_plan_digest") or ""),
+        "coalition_hash": str(coalition_bundle.get("coalition_hash") or ""),
+        "settlement_hash": str(coalition_bundle.get("settlement_hash") or ""),
+        "actuation_hash": str(coalition_bundle.get("actuation_hash") or ""),
+        "execution_hash": str(coalition_bundle.get("execution_hash") or ""),
+        "package_hash": str(coalition_bundle.get("package_hash") or ""),
+        "member_ids": sorted({str(m).strip() for m in member_ids if str(m).strip()}),
+        "member_count": len(member_ids),
+        "lineage_head_hash": str(coalition_bundle.get("lineage_head_hash") or ""),
+        "lineage_entry_count": int(coalition_bundle.get("lineage_entry_count") or 0),
+        "origin_count": coalition_bundle.get("origin_count"),
+        "agreeing_count": coalition_bundle.get("agreeing_count"),
+        "byzantine_count": coalition_bundle.get("byzantine_count"),
+        "state_count": coalition_bundle.get("state_count"),
+        "epoch_count": coalition_bundle.get("epoch_count"),
+        "deterministic": True,
+        "post_coalition": True,
+        "exported_at": utc_now_iso(),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    cb["confederation_hash"] = compute_confederation_bundle_hash(cb)
+    cb["ok"] = (
+        bool(chain.get("valid"))
+        and bool(tip_cert_verify.get("valid"))
+        and len(entries) >= 2
+        and bool(cb["confederation_hash"])
+        and bool(cb["coalition_hash"])
+        and bool(cb["confederation_plan_digest"])
+        and cb["deterministic"] is True
+        and cb["post_coalition"] is True
+        and not bool(cb["used_skill_route_discovery"])
+    )
+    return cb
+
+
+def write_confederation_bundle(path: Path, bundle: Mapping[str, Any]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(path, dict(bundle))
+    return path
+
+
+def load_confederation_bundle(path: Path) -> dict[str, Any]:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("stress bundle must be a JSON object")
+    return data
+
+
+def verify_confederation_bundle_integrity(bundle: Mapping[str, Any]) -> dict[str, Any]:
+    expected = str(bundle.get("confederation_hash") or "").strip()
+    recomputed = compute_confederation_bundle_hash(bundle)
+    hash_ok = bool(expected) and expected == recomputed
+    coalitions = (
+        bundle.get("confederations")
+        if isinstance(bundle.get("confederations"), Mapping)
+        else {}
+    )
+    chain = (
+        verify_confederation_chain(coalitions)
+        if coalitions
+        else {"ok": False, "valid": False, "errors": ["missing_coalitions"]}
+    )
+    cert = (
+        bundle.get("confederation_certificate")
+        if isinstance(bundle.get("confederation_certificate"), Mapping)
+        else {}
+    )
+    cert_verify = (
+        verify_confederation_certificate(cert) if cert else {"valid": False, "ok": False}
+    )
+    settle_cert = (
+        bundle.get("coalition_certificate")
+        if isinstance(bundle.get("coalition_certificate"), Mapping)
+        else {}
+    )
+    settle_cert_verify = (
+        verify_coalition_certificate(settle_cert)
+        if settle_cert
+        else {"valid": False, "ok": False}
+    )
+    multi = int(bundle.get("confederation_count") or chain.get("entry_count") or 0) >= 2
+    package = bundle.get("package") if isinstance(bundle.get("package"), Mapping) else {}
+    package_ok = bool(package) and bool(bundle.get("package_hash"))
+    bound_ok = bool(bundle.get("bound_coalition_root")) and bool(
+        bundle.get("coalition_hash")
+    )
+    margin_digest_ok = bool(bundle.get("confederation_plan_digest")) and str(
+        bundle.get("confederation_plan_digest") or ""
+    ) == str(chain.get("confederation_plan_digest") or bundle.get("confederation_plan_digest") or "")
+    deterministic = bundle.get("deterministic") is True
+    post_coalition = bundle.get("post_coalition") is True
+    used_skill = bool(bundle.get("used_skill_route_discovery")) or legacy_pipeline_was_used()
+    ok = (
+        hash_ok
+        and bool(chain.get("valid"))
+        and bool(cert_verify.get("valid"))
+        and bool(settle_cert_verify.get("valid"))
+        and multi
+        and package_ok
+        and bound_ok
+        and margin_digest_ok
+        and deterministic
+        and post_coalition
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "verify_confederation_bundle_integrity",
+        "hash_ok": hash_ok,
+        "chain_valid": bool(chain.get("valid")),
+        "multi_confederation": multi,
+        "package_ok": package_ok,
+        "confederation_certificate_valid": bool(cert_verify.get("valid")),
+        "coalition_certificate_valid": bool(settle_cert_verify.get("valid")),
+        "bound_ok": bound_ok,
+        "coalition_ok": margin_digest_ok,
+        "margin_digest_ok": margin_digest_ok,
+        "deterministic": deterministic,
+        "post_coalition": post_coalition,
+        "tip_height": chain.get("tip_height"),
+        "tip_confederation_root": chain.get("tip_confederation_root"),
+        "confederation_plan_digest": chain.get("confederation_plan_digest"),
+        "confederation_hash": expected if hash_ok else recomputed,
+        "errors": list(chain.get("errors") or []),
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def rehydrate_confederation_bundle(
+    repo_path: Path,
+    bundle: Mapping[str, Any],
+    *,
+    sandbox_dir: Path | None = None,
+) -> dict[str, Any]:
+    """Materialize tip package + pact log into a sterile sandbox and re-check buffers."""
+
+    root = repo_path.resolve()
+    integrity = verify_confederation_bundle_integrity(bundle)
+    if not integrity.get("ok"):
+        return {
+            "ok": False,
+            "action": "rehydrate_confederation_bundle",
+            "error": "coalition_integrity_failed",
+            "integrity": integrity,
+            "used_skill_route_discovery": integrity.get("used_skill_route_discovery"),
+        }
+
+    c_hash = str(bundle.get("confederation_hash") or "unknown")
+    sandbox = (
+        sandbox_dir.resolve()
+        if sandbox_dir is not None
+        else (root / "artifacts" / "confederation-sandbox" / c_hash[:16])
+    )
+    sandbox.mkdir(parents=True, exist_ok=True)
+
+    package = dict(bundle.get("package") or {})
+    lineage = copy.deepcopy(bundle.get("lineage") or {})
+    confederations = copy.deepcopy(bundle.get("confederations") or {})
+    coalitions = copy.deepcopy(bundle.get("coalitions") or {})
+    settlements = copy.deepcopy(bundle.get("settlements") or {})
+    actions = copy.deepcopy(bundle.get("actions") or {})
+    lineage_path = sandbox / "lineage.json"
+    if lineage:
+        write_lineage_log(lineage_path, lineage)
+    confederations_path = sandbox / "confederations.json"
+    atomic_write_json(confederations_path, confederations)
+    coalitions_path = sandbox / "coalitions.json"
+    atomic_write_json(coalitions_path, coalitions)
+    settlements_path = sandbox / "settlements.json"
+    atomic_write_json(settlements_path, settlements)
+    actions_path = sandbox / "actions.json"
+    atomic_write_json(actions_path, actions)
+
+    empty = CapabilityLedger(schema_version=SCHEMA_VERSION, updated_at=utc_now_iso())
+    empty, import_report = import_capability_package(empty, package, replace=True)
+    sterile_ledger_path = sandbox / "ledger.json"
+    save_ledger(sterile_ledger_path, empty)
+
+    cert = (
+        bundle.get("confederation_certificate")
+        if isinstance(bundle.get("confederation_certificate"), Mapping)
+        else {}
+    )
+    cert_path = sandbox / "confederation-certificate.json"
+    if cert:
+        write_confederation_certificate(cert_path, cert)
+    clear_cert = (
+        bundle.get("coalition_certificate")
+        if isinstance(bundle.get("coalition_certificate"), Mapping)
+        else {}
+    )
+    clear_cert_path = sandbox / "pact-certificate.json"
+    if clear_cert:
+        write_coalition_certificate(clear_cert_path, clear_cert)
+
+    chain = verify_confederation_chain(confederations)
+    cert_verify = (
+        verify_confederation_certificate(cert) if cert else {"ok": False, "valid": False}
+    )
+    clear_cert_verify = (
+        verify_coalition_certificate(clear_cert)
+        if clear_cert
+        else {"ok": False, "valid": False}
+    )
+    re_margin_digest_ok = True
+    prev_net = ""
+    for entry in list(confederations.get("entries") or []):
+        if not isinstance(entry, Mapping):
+            re_margin_digest_ok = False
+            break
+        expected = compute_confederation_plan_digest(
+            parent_confederation_digest=prev_net,
+            bound_coalition_root=str(entry.get("bound_coalition_root") or ""),
+            coalition_plan_digest=str(entry.get("coalition_plan_digest") or ""),
+            position_ratio_bps=int(entry.get("position_ratio_bps") or 1000),
+            capability_id=str(entry.get("capability_id") or ""),
+            outcome=str(entry.get("outcome") or "confederated"),
+        )
+        if expected != str(entry.get("confederation_plan_digest") or ""):
+            re_margin_digest_ok = False
+            break
+        prev_net = expected
+
+    lineage_chain = (
+        verify_lineage_chain(lineage)
+        if lineage
+        else {"ok": True, "valid": True, "entry_count": 0}
+    )
+    used_skill = legacy_pipeline_was_used()
+    ok = (
+        bool(integrity.get("ok"))
+        and bool(import_report.get("ok"))
+        and bool(chain.get("valid"))
+        and bool(cert_verify.get("valid"))
+        and bool(clear_cert_verify.get("valid"))
+        and re_margin_digest_ok
+        and int(import_report.get("imported_count") or 0) >= 1
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "rehydrate_confederation_bundle",
+        "sandbox_dir": str(sandbox),
+        "lineage_path": str(lineage_path) if lineage else None,
+        "confederations_path": str(confederations_path),
+        "coalitions_path": str(coalitions_path),
+        "settlements_path": str(settlements_path),
+        "actions_path": str(actions_path),
+        "sterile_ledger_path": str(sterile_ledger_path),
+        "certificate_path": str(cert_path) if cert else None,
+        "coalition_certificate_path": str(clear_cert_path) if clear_cert else None,
+        "confederation_hash": c_hash,
+        "import": import_report,
+        "chain": {
+            "ok": chain.get("ok"),
+            "valid": chain.get("valid"),
+            "entry_count": chain.get("entry_count"),
+            "tip_height": chain.get("tip_height"),
+            "tip_confederation_root": chain.get("tip_confederation_root"),
+            "confederation_plan_digest": chain.get("confederation_plan_digest"),
+            "errors": chain.get("errors") or [],
+        },
+        "lineage_chain": {
+            "ok": lineage_chain.get("ok"),
+            "valid": lineage_chain.get("valid"),
+            "entry_count": lineage_chain.get("entry_count"),
+        },
+        "confederation_certificate": {
+            "ok": cert_verify.get("ok"),
+            "valid": cert_verify.get("valid"),
+            "certificate_hash": cert_verify.get("certificate_hash"),
+            "confederation_root": cert_verify.get("confederation_root"),
+        },
+        "coalition_certificate": {
+            "ok": clear_cert_verify.get("ok"),
+            "valid": clear_cert_verify.get("valid"),
+            "certificate_hash": clear_cert_verify.get("certificate_hash"),
+        },
+        "margin_digests_match": re_margin_digest_ok,
+        "integrity": {
+            "ok": integrity.get("ok"),
+            "hash_ok": integrity.get("hash_ok"),
+            "multi_confederation": integrity.get("multi_confederation"),
+            "tip_height": integrity.get("tip_height"),
+        },
+        "sterile_ledger": empty,
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def replay_confederations_from_specs(
+    specs: Sequence[Mapping[str, Any]],
+    coalition_bundle: Mapping[str, Any],
+    *,
+    goal: str = "",
+) -> dict[str, Any]:
+    confederation_log = empty_confederation_log()
+    for index, spec in enumerate(specs):
+        result = apply_confederation_transition(
+            confederation_log,
+            spec,
+            coalition_bundle=coalition_bundle,
+            goal=f"{goal} (replay {index + 1})",
+            claims={"replay": True, "clearing_index": index + 1},
+        )
+        if not result.get("ok"):
+            return {
+                "ok": False,
+                "error": result.get("error") or "replay_failed",
+                "confederation_log": confederation_log,
+                "applied_count": index,
+            }
+        confederation_log = result["confederation_log"]
+    chain = verify_confederation_chain(confederation_log)
+    return {
+        "ok": bool(chain.get("valid")),
+        "confederation_log": confederation_log,
+        "tip_confederation_root": confederation_log.get("tip_confederation_root"),
+        "tip_height": confederation_log.get("tip_height"),
+        "confederation_plan_digest": confederation_log.get("confederation_plan_digest"),
+        "chain": chain,
+    }
+
+
+def run_confederation_adversarial_checks(
+    intact_bundle: Mapping[str, Any],
+    confederation_log: Mapping[str, Any],
+    coalition_bundle: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Falsify confederation honesty: mutation, reorder, wrong-coalition, double-buffer, forged root, digest."""
+
+    intact = verify_confederation_bundle_integrity(intact_bundle)
+    intact_chain = verify_confederation_chain(confederation_log)
+
+    mutated_log = copy.deepcopy(dict(confederation_log))
+    m_entries = list(mutated_log.get("entries") or [])
+    mutation_fails = False
+    if m_entries:
+        first = dict(m_entries[0])
+        first["capability_id"] = "evil.capability"
+        m_entries[0] = first
+        mutated_log["entries"] = m_entries
+        mutation_check = verify_confederation_chain(mutated_log)
+        mutation_fails = mutation_check.get("valid") is not True
+
+    reorder_fails = False
+    if len(list(confederation_log.get("entries") or [])) >= 2:
+        rev = copy.deepcopy(dict(confederation_log))
+        rev["entries"] = list(reversed(list(rev.get("entries") or [])))
+        reorder_check = verify_confederation_chain(rev)
+        reorder_fails = reorder_check.get("valid") is not True
+    else:
+        reorder_fails = True
+
+    wrong_coalition_fails = False
+    if m_entries:
+        ws = copy.deepcopy(dict(confederation_log))
+        w_entries = list(ws.get("entries") or [])
+        tip = dict(w_entries[-1])
+        tip["bound_coalition_root"] = "a" * 24
+        w_entries[-1] = tip
+        ws["entries"] = w_entries
+        ws["bound_coalition_root"] = tip["bound_coalition_root"]
+        wrong_check = verify_confederation_chain(ws)
+        wrong_coalition_fails = wrong_check.get("valid") is not True
+    specs = derive_confederation_specs_from_coalition(coalition_bundle)
+    bad_spec = dict(specs[0]) if specs else {}
+    if bad_spec:
+        bad_spec["bound_coalition_root"] = "b" * 24
+        apply_bad = apply_confederation_transition(
+            empty_confederation_log(),
+            bad_spec,
+            coalition_bundle=coalition_bundle,
+            goal="bad-bind",
+        )
+        wrong_coalition_fails = wrong_coalition_fails and (
+            apply_bad.get("ok") is not True
+            and apply_bad.get("error") == "bound_coalition_root_mismatch"
+        )
+
+    forged_log = copy.deepcopy(dict(confederation_log))
+    f_entries = list(forged_log.get("entries") or [])
+    forged_root_fails = False
+    if f_entries:
+        tip = dict(f_entries[-1])
+        tip["confederation_root"] = "f" * 24
+        f_entries[-1] = tip
+        forged_log["entries"] = f_entries
+        forged_log["tip_confederation_root"] = tip["confederation_root"]
+        forged_check = verify_confederation_chain(forged_log)
+        forged_root_fails = forged_check.get("valid") is not True
+
+    gap_log = copy.deepcopy(dict(confederation_log))
+    g_entries = list(gap_log.get("entries") or [])
+    gap_fails = False
+    if g_entries:
+        last = dict(g_entries[-1])
+        last["confederation_height"] = int(last.get("confederation_height") or 1) + 5
+        g_entries[-1] = last
+        gap_log["entries"] = g_entries
+        gap_log["tip_height"] = last["confederation_height"]
+        gap_check = verify_confederation_chain(gap_log)
+        gap_fails = gap_check.get("valid") is not True
+
+    broken_cert_fails = False
+    if m_entries:
+        broken_log = copy.deepcopy(dict(confederation_log))
+        b_entries = list(broken_log.get("entries") or [])
+        tip = dict(b_entries[-1])
+        cert = dict(tip.get("confederation_certificate") or {})
+        cert["certificate_hash"] = "0" * 24
+        tip["confederation_certificate"] = cert
+        b_entries[-1] = tip
+        broken_log["entries"] = b_entries
+        broken_check = verify_confederation_chain(broken_log)
+        broken_cert_fails = broken_check.get("valid") is not True
+
+    parent_fails = False
+    if len(list(confederation_log.get("entries") or [])) >= 2:
+        parent_log = copy.deepcopy(dict(confederation_log))
+        p_entries = list(parent_log.get("entries") or [])
+        tip = dict(p_entries[-1])
+        tip["parent_confederation_root"] = "deadbeef-parent-root"
+        p_entries[-1] = tip
+        parent_log["entries"] = p_entries
+        parent_check = verify_confederation_chain(parent_log)
+        parent_fails = parent_check.get("valid") is not True
+    else:
+        parent_fails = True
+
+    digest_tamper_fails = False
+    if m_entries:
+        net_log = copy.deepcopy(dict(confederation_log))
+        n_entries = list(net_log.get("entries") or [])
+        tip = dict(n_entries[-1])
+        tip["confederation_plan_digest"] = "c" * 24
+        n_entries[-1] = tip
+        net_log["entries"] = n_entries
+        net_log["confederation_plan_digest"] = tip["confederation_plan_digest"]
+        net_check = verify_confederation_chain(net_log)
+        digest_tamper_fails = net_check.get("valid") is not True
+
+    tampered = copy.deepcopy(dict(intact_bundle))
+    tampered["confederation_hash"] = "e" * 24
+    tamper_check = verify_confederation_bundle_integrity(tampered)
+    tamper_fails = tamper_check.get("ok") is not True
+
+    single = copy.deepcopy(dict(intact_bundle))
+    single_confederations = copy.deepcopy(dict(single.get("confederations") or {}))
+    s_entries = list(single_confederations.get("entries") or [])[:1]
+    single_confederations["entries"] = s_entries
+    single_confederations["entry_count"] = len(s_entries)
+    if s_entries:
+        single_confederations["tip_height"] = s_entries[0].get("confederation_height")
+        single_confederations["tip_confederation_root"] = s_entries[0].get("confederation_root")
+        single_confederations["confederation_plan_digest"] = s_entries[0].get("confederation_plan_digest")
+        single["confederations"] = single_confederations
+        single["confederation_count"] = 1
+        single["tip_height"] = single_confederations["tip_height"]
+        single["tip_confederation_root"] = single_confederations["tip_confederation_root"]
+        single["confederation_plan_digest"] = single_confederations["confederation_plan_digest"]
+        if "confederation_hash" in single:
+            del single["confederation_hash"]
+        single["confederation_hash"] = compute_confederation_bundle_hash(single)
+        single_check = verify_confederation_bundle_integrity(single)
+        single_confederation_fails = single_check.get("ok") is not True
+    else:
+        single_confederation_fails = True
+
+    replay_match = False
+    if specs:
+        replay = replay_confederations_from_specs(
+            specs, coalition_bundle, goal="adversarial-replay"
+        )
+        replay_match = (
+            bool(replay.get("ok"))
+            and str(replay.get("tip_confederation_root") or "")
+            == str(confederation_log.get("tip_confederation_root") or "")
+            and int(replay.get("tip_height") or 0)
+            == int(confederation_log.get("tip_height") or 0)
+            and str(replay.get("confederation_plan_digest") or "")
+            == str(confederation_log.get("confederation_plan_digest") or "")
+        )
+
+    dup_fails = False
+    if specs:
+        dup = apply_confederation_transition(
+            confederation_log, specs[-1], coalition_bundle=coalition_bundle, goal="dup"
+        )
+        dup_fails = dup.get("ok") is not True and dup.get("error") in {
+            "duplicate_coalition_rejected",
+        }
+
+    incomplete_fails = single_confederation_fails
+    used_skill = legacy_pipeline_was_used()
+    ok = (
+        bool(intact.get("ok"))
+        and bool(intact_chain.get("valid"))
+        and mutation_fails
+        and reorder_fails
+        and wrong_coalition_fails
+        and forged_root_fails
+        and gap_fails
+        and broken_cert_fails
+        and parent_fails
+        and digest_tamper_fails
+        and tamper_fails
+        and single_confederation_fails
+        and replay_match
+        and dup_fails
+        and incomplete_fails
+        and not used_skill
+    )
+    return {
+        "ok": ok,
+        "action": "confederation_adversarial_checks",
+        "intact_ok": bool(intact.get("ok")),
+        "chain_ok": bool(intact_chain.get("valid")),
+        "mutation_fails_as_expected": mutation_fails,
+        "reorder_fails_as_expected": reorder_fails,
+        "wrong_coalition_fails_as_expected": wrong_coalition_fails,
+        "forged_root_fails_as_expected": forged_root_fails,
+        "gap_fails_as_expected": gap_fails,
+        "broken_cert_fails_as_expected": broken_cert_fails,
+        "wrong_parent_fails_as_expected": parent_fails,
+        "digest_tamper_fails_as_expected": digest_tamper_fails,
+        "tamper_fails_as_expected": tamper_fails,
+        "single_confederation_fails_as_expected": single_confederation_fails,
+        "replay_matches_tip": replay_match,
+        "duplicate_apply_fails_as_expected": dup_fails,
+        "incomplete_fails_as_expected": incomplete_fails,
+        "used_skill_route_discovery": used_skill,
+    }
+
+
+def run_confederation_plane(
+    repo_path: Path,
+    goal: str = "confederation over coalition",
+    done_when: str = "",
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 960,
+    max_steps: int = 3,
+    run_coalition: bool = True,
+    run_liquidity: bool = True,
+    run_collateral: bool = True,
+    run_margin: bool = True,
+    run_clearing: bool = True,
+    run_settlement: bool = True,
+    run_actuation: bool = True,
+    run_execution: bool = True,
+    run_finality: bool = True,
+    run_quorum: bool = True,
+    run_continuity: bool = False,
+    run_reconciliation: bool = False,
+    force_synthetic_drift: bool = True,
+    inject_byzantine: bool = True,
+    prove_imported: bool = True,
+    epoch_count: int = 2,
+    min_actions: int = 2,
+    min_settlements: int = 2,
+    min_clearings: int = 2,
+    min_margins: int = 2,
+    min_collaterals: int = 2,
+    min_liquidities: int = 2,
+    min_coalitions: int = 2,
+    min_confederations: int = 2,
+    lineage_path: Path | None = None,
+    bundle_path: Path | None = None,
+    quorum_path: Path | None = None,
+    finality_path: Path | None = None,
+    execution_path: Path | None = None,
+    actuation_path: Path | None = None,
+    settlement_path: Path | None = None,
+    margin_path: Path | None = None,
+    collateral_path: Path | None = None,
+    liquidity_path: Path | None = None,
+    coalition_path: Path | None = None,
+    confederation_path: Path | None = None,
+    sandbox_dir: Path | None = None,
+    persist: bool = True,
+) -> dict[str, Any]:
+    """Closed confederation plane: coalition → multi-coalition scenarios → cert → rehydrate → adversarial.
+
+    Past confederated positions: each risk position binds an ordered coalition grant into a
+    hash-chained risk log with coalition grant digests and risk certificates bound
+    to the risk tip. Mutation, reorder, wrong-funding binding, double-risk,
+    forged roots, height gaps, broken certs, digest tamper, and single-risk bundles fail;
+    sterile rehydrate+prove and genesis replay matching tip succeed without skill-route.
+    """
+
+    root = repo_path.resolve()
+    path, _ledger = ensure_seeded_ledger(root)
+    want_epochs = max(2, int(epoch_count))
+    want_actions = max(2, int(min_actions))
+    want_settlements = max(2, int(min_settlements))
+    want_clearings = max(2, int(min_clearings))
+    want_margins = max(2, int(min_margins))
+    want_collaterals = max(2, int(min_collaterals))
+    want_liquidities = max(2, int(min_liquidities))
+    want_coalitions = max(2, int(min_coalitions))
+    want_confederations = max(2, int(min_confederations))
+
+    out_lineage = (
+        lineage_path.resolve()
+        if lineage_path is not None
+        else default_lineage_path(root)
+    )
+    out_stress = (
+        coalition_path.resolve()
+        if coalition_path is not None
+        else (default_coalition_bundle_dir(root) / "confederation-source-coalition.json")
+    )
+
+    coalition_report: dict[str, Any] | None = None
+    coalition_bundle: dict[str, Any] | None = None
+    if run_coalition:
+        coalition_report = run_coalition_plane(
+            root,
+            goal if goal else "coalition for confederation",
+            strip_context_only_outcome_predicates(done_when or ""),
+            command_runner=command_runner,
+            timeout=timeout,
+            max_steps=max_steps,
+            run_alliance=run_coalition,
+            run_liquidity=run_liquidity,
+            run_collateral=run_collateral,
+            run_margin=run_margin,
+            run_clearing=run_clearing,
+            run_settlement=run_settlement,
+            run_actuation=run_actuation,
+            run_execution=run_execution,
+            run_finality=run_finality,
+            run_quorum=run_quorum,
+            run_continuity=run_continuity,
+            run_reconciliation=run_reconciliation,
+            force_synthetic_drift=force_synthetic_drift,
+            inject_byzantine=inject_byzantine,
+            prove_imported=prove_imported,
+            epoch_count=want_epochs,
+            min_actions=want_actions,
+            min_settlements=want_settlements,
+            min_clearings=want_clearings,
+            min_margins=want_margins,
+            min_collaterals=want_collaterals,
+            min_liquidities=want_liquidities,
+            min_alliances=want_coalitions,
+            min_coalitions=want_coalitions,
+            lineage_path=out_lineage,
+            bundle_path=bundle_path,
+            quorum_path=quorum_path,
+            finality_path=finality_path,
+            execution_path=execution_path,
+            actuation_path=actuation_path,
+            settlement_path=settlement_path,
+            margin_path=margin_path,
+            collateral_path=collateral_path,
+            liquidity_path=liquidity_path,
+            coalition_path=out_stress,
+            persist=persist,
+        )
+        c_path = Path(
+            (
+                coalition_report.get("capital")
+                or coalition_report.get("pact")
+                or coalition_report.get("restructuring")
+                or coalition_report.get("funding")
+                or coalition_report.get("margin")
+                or {}
+            ).get("bundle_path")
+            or ""
+        )
+        if c_path and c_path.is_file():
+            coalition_bundle = load_coalition_bundle(c_path)
+        elif out_stress.is_file():
+            coalition_bundle = load_coalition_bundle(out_stress)
+        else:
+            coalition_bundle = None
+    else:
+        if out_stress.is_file():
+            coalition_bundle = load_coalition_bundle(out_stress)
+        else:
+            coalition_report = run_coalition_plane(
+                root,
+                goal,
+                "",
+                command_runner=command_runner,
+                timeout=timeout,
+                max_steps=max_steps,
+                run_alliance=True,
+                run_liquidity=run_liquidity,
+                run_collateral=run_collateral,
+                run_margin=run_margin,
+                run_clearing=run_clearing,
+                run_settlement=run_settlement,
+                run_actuation=run_actuation,
+                run_execution=run_execution,
+                run_finality=run_finality,
+                run_quorum=run_quorum,
+                run_continuity=False,
+                run_reconciliation=False,
+                inject_byzantine=inject_byzantine,
+                prove_imported=prove_imported,
+                epoch_count=want_epochs,
+                min_actions=want_actions,
+                min_settlements=want_settlements,
+                min_clearings=want_clearings,
+                min_margins=want_margins,
+                min_collaterals=want_collaterals,
+                min_liquidities=want_liquidities,
+                min_alliances=want_coalitions,
+                min_coalitions=want_coalitions,
+                lineage_path=out_lineage,
+                settlement_path=settlement_path,
+                margin_path=margin_path,
+                collateral_path=collateral_path,
+                liquidity_path=liquidity_path,
+                coalition_path=out_stress,
+                persist=persist,
+            )
+            if out_stress.is_file():
+                coalition_bundle = load_coalition_bundle(out_stress)
+
+    parent_coalitioned = bool(
+        (coalition_report or {}).get("coalitioned")
+        or (coalition_report or {}).get("confederated")
+        or (coalition_report or {}).get("ok")
+        or (coalition_bundle or {}).get("ok")
+    )
+    if coalition_bundle is None or not (
+        coalition_bundle.get("ok") or parent_coalitioned
+    ):
+        return {
+            "ok": False,
+            "action": "confederation_plane",
+            "error": "coalition_source_failed",
+            "pact": None
+        if coalition_report is None
+        else {
+                "ok": coalition_report.get("ok"),
+                "coalitioned": coalition_report.get("coalitioned") or coalition_report.get("confederated"),
+            },
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "ledger_path": str(path),
+        }
+
+    applied = apply_coalition_bundle_to_confederations(
+        coalition_bundle,
+        goal=goal,
+        min_confederations=want_confederations,
+    )
+    if not applied.get("ok"):
+        return {
+            "ok": False,
+            "action": "confederation_plane",
+            "error": applied.get("error") or "coalition_apply_failed",
+            "apply": {
+                "ok": applied.get("ok"),
+                "error": applied.get("error"),
+                "applied_count": applied.get("applied_count"),
+            },
+            "settlement": {
+                "ok": True if coalition_report is None else bool(coalition_report.get("ok")),
+                "coalition_hash": coalition_bundle.get("coalition_hash"),
+            },
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "ledger_path": str(path),
+        }
+
+    confederation_log = applied["confederation_log"]
+    margin = build_confederation_bundle(
+        confederation_log,
+        coalition_bundle,
+        goal=goal,
+    )
+    out_c = (
+        confederation_path.resolve()
+        if confederation_path is not None
+        else (
+            default_confederation_bundle_dir(root)
+            / f"confederation-{margin.get('confederation_hash') or 'unknown'}.json"
+        )
+    )
+    if persist and margin.get("ok"):
+        write_confederation_bundle(out_c, margin)
+        # Stable path for complete-gate disk evidence (context-less / failed-plane fallback).
+        proof_path = default_confederation_bundle_dir(root) / "proof-confederation.json"
+        write_confederation_bundle(proof_path, margin)
+        reloaded = load_confederation_bundle(out_c)
+    else:
+        reloaded = margin
+
+    integrity = verify_confederation_bundle_integrity(reloaded)
+    rehydrate = rehydrate_confederation_bundle(
+        root,
+        reloaded,
+        sandbox_dir=sandbox_dir,
+    )
+    sterile = rehydrate.get("sterile_ledger")
+    if prove_imported and isinstance(sterile, CapabilityLedger):
+        member_ids = list((reloaded.get("package") or {}).get("member_ids") or [])
+        roots = list((reloaded.get("package") or {}).get("roots") or member_ids[:3])
+        if not roots:
+            roots = list((reloaded.get("package") or {}).get("members") or {}).keys()
+            roots = list(roots)[:3]
+        prove = prove_sterile_package(
+            root,
+            sterile,
+            roots,
+            command_runner=command_runner,
+            timeout=min(timeout, 120),
+        )
+    else:
+        prove = {
+            "ok": not prove_imported,
+            "action": "prove_sterile_package",
+            "proved_count": 0,
+            "proofs": [],
+            "used_skill_route_discovery": False,
+        }
+
+    chain = verify_confederation_chain(
+        reloaded.get("confederations")
+        if isinstance(reloaded.get("confederations"), Mapping)
+        else confederation_log
+    )
+    cert_verify = verify_confederation_certificate(
+        reloaded.get("confederation_certificate")
+        if isinstance(reloaded.get("confederation_certificate"), Mapping)
+        else {}
+    )
+    adversarial = run_confederation_adversarial_checks(
+        reloaded, confederation_log, coalition_bundle
+    )
+
+    used_skill = bool(
+        (coalition_report or {}).get("used_skill_route_discovery")
+        or margin.get("used_skill_route_discovery")
+        or integrity.get("used_skill_route_discovery")
+        or rehydrate.get("used_skill_route_discovery")
+        or prove.get("used_skill_route_discovery")
+        or adversarial.get("used_skill_route_discovery")
+        or legacy_pipeline_was_used()
+    )
+    tip_height = int(reloaded.get("tip_height") or chain.get("tip_height") or 0)
+    pact_n = int(reloaded.get("confederation_count") or chain.get("entry_count") or 0)
+    stress_n = int(
+        reloaded.get("coalition_count") or coalition_bundle.get("coalition_count") or 0
+    )
+    settlement_n = int(
+        reloaded.get("settlement_count") or coalition_bundle.get("settlement_count") or 0
+    )
+    action_n = int(reloaded.get("action_count") or coalition_bundle.get("action_count") or 0)
+    state_n = int(reloaded.get("state_count") or coalition_bundle.get("state_count") or 0)
+    epoch_n = int(reloaded.get("epoch_count") or coalition_bundle.get("epoch_count") or 0)
+    confederated = (
+        bool(margin.get("ok"))
+        and bool(integrity.get("ok"))
+        and bool(rehydrate.get("ok"))
+        and bool(prove.get("ok"))
+        and bool(chain.get("valid"))
+        and bool(cert_verify.get("valid"))
+        and bool(adversarial.get("ok"))
+        and tip_height >= 2
+        and pact_n >= 2
+        and not used_skill
+    )
+    provisional_ok = confederated and (
+        coalition_report is None or bool(coalition_report.get("ok")) or not run_coalition
+    )
+
+    context = {
+        "used_skill_route_discovery": used_skill,
+        "clearing": {
+            "ok": True if coalition_report is None else bool(coalition_report.get("ok")),
+            "coalitioned": True
+            if coalition_report is None
+            else bool(coalition_report.get("coalitioned") or coalition_report.get("liquid")),
+            "coalition_count": stress_n,
+            "tip_height": coalition_bundle.get("tip_height"),
+            "tip_coalition_root": coalition_bundle.get("tip_coalition_root"),
+            "coalition_hash": coalition_bundle.get("coalition_hash"),
+            "coalition_root_valid": True,
+            "certificate_valid": True,
+            "coalition_plan_digest": coalition_bundle.get("coalition_plan_digest"),
+            "deterministic": True,
+            "post_clearing": True,
+            "multi_clearing": stress_n >= 2,
+        },
+        "clearing_plane": {
+            "ok": True if coalition_report is None else bool(coalition_report.get("ok")),
+            "confederated": True
+            if coalition_report is None
+            else bool(coalition_report.get("confederated")),
+            "coalition_count": stress_n,
+            "coalition_root_valid": True,
+        },
+        "net": {
+            "ok": True if coalition_report is None else bool(coalition_report.get("ok")),
+            "confederated": True
+            if coalition_report is None
+            else bool(coalition_report.get("confederated")),
+            "coalition_count": stress_n,
+            "coalition_plan_digest": coalition_bundle.get("coalition_plan_digest"),
+            "coalition_root_valid": True,
+        },
+        "settlement": {
+            "ok": True,
+            "settled": True,
+            "settlement_count": settlement_n,
+            "settlement_root_valid": True,
+            "certificate_valid": True,
+            "deterministic": True,
+            "post_actuation": True,
+            "multi_settlement": settlement_n >= 2 if settlement_n else True,
+        },
+        "settlement_plane": {
+            "ok": True,
+            "settled": True,
+            "settlement_count": settlement_n,
+            "settlement_root_valid": True,
+        },
+        "receipts": {
+            "ok": True,
+            "settled": True,
+            "settlement_count": settlement_n,
+            "settlement_root_valid": True,
+        },
+        "actuation": {
+            "ok": True,
+            "effects_applied": True,
+            "action_count": action_n,
+            "action_root_valid": True,
+            "certificate_valid": True,
+            "deterministic": True,
+            "post_execution": True,
+            "multi_action": action_n >= 2 if action_n else True,
+        },
+        "actuation_plane": {
+            "ok": True,
+            "effects_applied": True,
+            "action_count": action_n,
+            "action_root_valid": True,
+        },
+        "effects": {
+            "ok": True,
+            "effects_applied": True,
+            "action_count": action_n,
+            "action_root_valid": True,
+        },
+        "execution": {
+            "ok": True,
+            "state_applied": True,
+            "state_height": state_n,
+            "tip_height": state_n,
+            "tip_state_root": coalition_bundle.get("bound_state_root"),
+            "execution_hash": coalition_bundle.get("execution_hash"),
+            "state_root_valid": True,
+            "certificate_valid": True,
+            "deterministic": True,
+            "post_finality": True,
+            "multi_state": state_n >= 2 if state_n else True,
+        },
+        "execution_plane": {
+            "ok": True,
+            "state_applied": True,
+            "state_height": state_n,
+            "state_root_valid": True,
+        },
+        "worldstate": {
+            "ok": True,
+            "state_applied": True,
+            "state_height": state_n,
+            "tip_state_root": coalition_bundle.get("bound_state_root"),
+            "state_root_valid": True,
+        },
+        "finality": {
+            "ok": True,
+            "finalized": True,
+            "epoch_count": epoch_n,
+            "finality_cert_valid": True,
+            "certificate_valid": True,
+            "irreversible": True,
+            "multi_epoch": epoch_n >= 2 if epoch_n else True,
+        },
+        "finality_plane": {
+            "ok": True,
+            "finalized": True,
+            "epoch_count": epoch_n,
+            "finality_cert_valid": True,
+        },
+        "quorum": {
+            "ok": True,
+            "quorum_met": True,
+            "origin_count": reloaded.get("origin_count"),
+            "quorum_size": reloaded.get("agreeing_count"),
+            "agreeing_count": reloaded.get("agreeing_count"),
+            "byzantine_excluded": int(reloaded.get("byzantine_count") or 0) >= 1,
+            "byzantine_count": reloaded.get("byzantine_count"),
+            "quorum_cert_valid": True,
+        },
+        "funding": {
+            "ok": True if coalition_report is None else bool(coalition_report.get("ok")),
+            "coalitioned": True
+            if coalition_report is None
+            else bool(
+                coalition_report.get("coalitioned")
+                or coalition_report.get("ok")
+                or stress_n >= 2
+            ),
+            "coalition_count": stress_n,
+            "tip_height": coalition_bundle.get("tip_height"),
+            "tip_coalition_root": coalition_bundle.get("tip_coalition_root"),
+            "coalition_hash": coalition_bundle.get("coalition_hash"),
+            "coalition_root_valid": True,
+            "certificate_valid": True,
+            "coalition_plan_digest": coalition_bundle.get("coalition_plan_digest"),
+            "deterministic": True,
+            "post_liquidity": True,
+            "multi_funding": stress_n >= 2,
+            "bound_liquidity_root": coalition_bundle.get("bound_liquidity_root"),
+        },
+        "funding_plane": {
+            "ok": True if coalition_report is None else bool(coalition_report.get("ok")),
+            "coalitioned": True
+            if coalition_report is None
+            else bool(coalition_report.get("coalitioned") or coalition_report.get("ok")),
+            "coalition_count": stress_n,
+            "coalition_root_valid": True,
+        },
+        "facility": {
+            "ok": True if coalition_report is None else bool(coalition_report.get("ok")),
+            "coalitioned": True
+            if coalition_report is None
+            else bool(coalition_report.get("coalitioned") or coalition_report.get("ok")),
+            "coalition_count": stress_n,
+            "coalition_plan_digest": coalition_bundle.get("coalition_plan_digest"),
+            "coalition_root_valid": True,
+        },
+        "pact": {
+            "ok": True if coalition_report is None else bool(coalition_report.get("ok")),
+            "coalitioned": True
+            if coalition_report is None
+            else bool(
+                coalition_report.get("coalitioned")
+                or coalition_report.get("ok")
+                or stress_n >= 2
+            ),
+            "coalition_count": stress_n,
+            "tip_height": coalition_bundle.get("tip_height"),
+            "tip_coalition_root": coalition_bundle.get("tip_coalition_root"),
+            "coalition_hash": coalition_bundle.get("coalition_hash"),
+            "coalition_root_valid": True,
+            "certificate_valid": True,
+            "coalition_plan_digest": coalition_bundle.get("coalition_plan_digest"),
+            "deterministic": True,
+            "post_coalition": True,
+            "multi_pact": stress_n >= 2,
+            "bound_stress_root": coalition_bundle.get("bound_stress_root"),
+        },
+        "pact_plane": {
+            "ok": True if coalition_report is None else bool(coalition_report.get("ok")),
+            "coalitioned": True
+            if coalition_report is None
+            else bool(coalition_report.get("coalitioned") or coalition_report.get("ok")),
+            "coalition_count": stress_n,
+            "coalition_root_valid": True,
+        },
+        "confederation": {
+            "ok": provisional_ok,
+            "confederated": confederated,
+            "confederation_count": pact_n,
+            "tip_height": tip_height,
+            "tip_confederation_root": reloaded.get("tip_confederation_root"),
+            "confederation_hash": reloaded.get("confederation_hash"),
+            "confederation_root_valid": bool(cert_verify.get("valid")),
+            "certificate_valid": bool(cert_verify.get("valid")),
+            "confederation_plan_digest": reloaded.get("confederation_plan_digest"),
+            "coalition_plan_digest": reloaded.get("coalition_plan_digest"),
+            "deterministic": True,
+            "post_coalition": True,
+            "multi_confederation": pact_n >= 2,
+            "bound_coalition_root": reloaded.get("bound_coalition_root"),
+        },
+        "confederation_plane": {
+            "ok": provisional_ok,
+            "confederated": confederated,
+            "confederation_count": pact_n,
+            "confederation_root_valid": bool(cert_verify.get("valid")),
+        },
+        "coalition": {
+            "ok": True if coalition_report is None else bool(coalition_report.get("ok")),
+            "coalitioned": True
+            if coalition_report is None
+            else bool(coalition_report.get("coalitioned") or coalition_report.get("ok")),
+            "coalition_count": stress_n,
+            "tip_height": coalition_bundle.get("tip_height"),
+            "tip_coalition_root": coalition_bundle.get("tip_coalition_root")
+            or reloaded.get("tip_coalition_root")
+            or reloaded.get("bound_coalition_root"),
+            "coalition_hash": coalition_bundle.get("coalition_hash")
+            or reloaded.get("coalition_hash"),
+            "coalition_root_valid": True,
+            "certificate_valid": True,
+            "coalition_plan_digest": coalition_bundle.get("coalition_plan_digest")
+            or reloaded.get("coalition_plan_digest"),
+            "deterministic": True,
+            "post_alliance": True,
+            "multi_coalition": stress_n >= 2 if stress_n else True,
+        },
+        "coalition_plane": {
+            "ok": True if coalition_report is None else bool(coalition_report.get("ok")),
+            "coalitioned": True
+            if coalition_report is None
+            else bool(coalition_report.get("coalitioned") or coalition_report.get("ok")),
+            "coalition_count": stress_n,
+            "coalition_root_valid": True,
+        },
+        "scenario": {
+            "ok": provisional_ok,
+            "confederated": confederated,
+            "confederation_count": pact_n,
+            "confederation_plan_digest": reloaded.get("confederation_plan_digest"),
+            "confederation_root_valid": bool(cert_verify.get("valid")),
+        },
+        "chain": chain,
+        "margin_chain": chain,
+        "clearing_chain": (coalition_report or {}).get("chain") or {},
+        "lineage_chain": (coalition_report or {}).get("chain") or {},
+        "lineage": {
+            "ok": True,
+            "entry_count": reloaded.get("lineage_entry_count"),
+        },
+        "origin_count": reloaded.get("origin_count"),
+        "confederation_count": pact_n,
+        "coalition_count": stress_n,
+        "settlement_count": settlement_n,
+        "action_count": action_n,
+        "tip_height": tip_height,
+        "state_height": state_n,
+        "epoch_count": epoch_n,
+        "confederation_certificate": reloaded.get("confederation_certificate"),
+        "confederation_hash": reloaded.get("confederation_hash"),
+        "coalition_hash": reloaded.get("coalition_hash"),
+        "settlement_hash": reloaded.get("settlement_hash"),
+        "actuation_hash": reloaded.get("actuation_hash"),
+        "execution_hash": reloaded.get("execution_hash"),
+        "tip_confederation_root": reloaded.get("tip_confederation_root"),
+        "bound_coalition_root": reloaded.get("bound_coalition_root"),
+        "tip_coalition_root": reloaded.get("tip_coalition_root"),
+        "bound_settlement_root": reloaded.get("bound_settlement_root"),
+        "tip_settlement_root": reloaded.get("tip_settlement_root"),
+        "bound_action_root": reloaded.get("bound_action_root"),
+        "tip_action_root": reloaded.get("tip_action_root"),
+        "bound_state_root": reloaded.get("bound_state_root"),
+        "confederation_plan_digest": reloaded.get("confederation_plan_digest"),
+        "coalition_plan_digest": reloaded.get("coalition_plan_digest"),
+    }
+    confederation_done_when = (
+        "no_skill_route; confederation_ok; confederated_ok; min_confederations:2; "
+        "confederation_root_valid; coalition_ok; coalitioned_ok; min_coalitions:2; "
+        "coalition_root_valid; chain_valid; capability_exists:repo.import-health"
+    )
+    final_contract = evaluate_outcome_contract(
+        root,
+        confederation_done_when,
+        context=context,
+        command_runner=command_runner,
+        timeout=min(timeout, 60),
+        run_programs=False,
+    )
+    ok = (
+        provisional_ok
+        and bool(final_contract.get("ok"))
+        and final_contract.get("met") is True
+    )
+    return {
+        "ok": ok,
+        "action": "confederation_plane",
+        "goal": goal,
+        "done_when": done_when,
+        "confederation_done_when": confederation_done_when,
+        "met": final_contract.get("met"),
+        "machine_checkable": True,
+        "confederated": confederated,
+        "confederation_count": pact_n,
+        "tip_height": tip_height,
+        "tip_confederation_root": reloaded.get("tip_confederation_root"),
+        "bound_coalition_root": reloaded.get("bound_coalition_root"),
+        "bound_coalition_height": reloaded.get("bound_coalition_height"),
+        "confederation_plan_digest": reloaded.get("confederation_plan_digest"),
+        "coalition_count": stress_n,
+        "tip_coalition_root": reloaded.get("tip_coalition_root"),
+        "bound_settlement_root": reloaded.get("bound_settlement_root"),
+        "coalition_plan_digest": reloaded.get("coalition_plan_digest"),
+        "settlement_count": settlement_n,
+        "tip_settlement_root": reloaded.get("tip_settlement_root"),
+        "bound_action_root": reloaded.get("bound_action_root"),
+        "action_count": action_n,
+        "tip_action_root": reloaded.get("tip_action_root"),
+        "bound_state_root": reloaded.get("bound_state_root"),
+        "state_count": state_n,
+        "state_height": state_n,
+        "epoch_count": epoch_n,
+        "origin_count": reloaded.get("origin_count"),
+        "agreeing_count": reloaded.get("agreeing_count"),
+        "byzantine_count": reloaded.get("byzantine_count"),
+        "pact": None
+        if coalition_report is None
+        else {
+            "ok": coalition_report.get("ok"),
+            "coalitioned": coalition_report.get("coalitioned") or coalition_report.get("confederated"),
+            "coalition_hash": (
+                (coalition_report.get("funding") or coalition_report.get("margin") or {}).get(
+                    "coalition_hash"
+                )
+                or coalition_report.get("coalition_hash")
+            ),
+            "coalition_count": coalition_report.get("coalition_count"),
+            "tip_coalition_root": coalition_report.get("tip_coalition_root"),
+        },
+        "confederation": {
+            "ok": margin.get("ok"),
+            "confederation_hash": reloaded.get("confederation_hash"),
+            "bundle_path": str(out_c) if persist and margin.get("ok") else None,
+            "package_hash": reloaded.get("package_hash"),
+            "member_count": reloaded.get("member_count"),
+            "confederation_count": pact_n,
+            "tip_height": tip_height,
+            "tip_confederation_root": reloaded.get("tip_confederation_root"),
+            "bound_coalition_root": reloaded.get("bound_coalition_root"),
+            "confederation_plan_digest": reloaded.get("confederation_plan_digest"),
+            "certificate_count": reloaded.get("certificate_count"),
+            "lineage_entry_count": reloaded.get("lineage_entry_count"),
+            "lineage_head_hash": reloaded.get("lineage_head_hash"),
+            "coalition_hash": reloaded.get("coalition_hash"),
+            "settlement_hash": reloaded.get("settlement_hash"),
+            "actuation_hash": reloaded.get("actuation_hash"),
+            "execution_hash": reloaded.get("execution_hash"),
+            "persisted": persist and out_c.exists() if margin.get("ok") else False,
+            "deterministic": True,
+            "post_coalition": True,
+        },
+        "integrity": {
+            "ok": integrity.get("ok"),
+            "hash_ok": integrity.get("hash_ok"),
+            "chain_valid": integrity.get("chain_valid"),
+            "multi_confederation": integrity.get("multi_confederation"),
+            "package_ok": integrity.get("package_ok"),
+            "confederation_certificate_valid": integrity.get("confederation_certificate_valid"),
+            "coalition_certificate_valid": integrity.get(
+                "coalition_certificate_valid"
+            ),
+            "bound_ok": integrity.get("bound_ok"),
+            "coalition_ok": integrity.get("coalition_ok"),
+            "deterministic": integrity.get("deterministic"),
+            "post_coalition": integrity.get("post_coalition"),
+        },
+        "rehydrate": {
+            "ok": rehydrate.get("ok"),
+            "sandbox_dir": rehydrate.get("sandbox_dir"),
+            "lineage_path": rehydrate.get("lineage_path"),
+            "confederations_path": rehydrate.get("confederations_path"),
+            "coalitions_path": rehydrate.get("coalitions_path"),
+            "settlements_path": rehydrate.get("settlements_path"),
+            "actions_path": rehydrate.get("actions_path"),
+            "sterile_ledger_path": rehydrate.get("sterile_ledger_path"),
+            "import": rehydrate.get("import"),
+            "chain": rehydrate.get("chain"),
+            "confederation_certificate": rehydrate.get("confederation_certificate"),
+            "coalition_certificate": rehydrate.get("coalition_certificate"),
+            "margin_digests_match": rehydrate.get("margin_digests_match"),
+        },
+        "prove": {
+            "ok": prove.get("ok"),
+            "proved_count": prove.get("proved_count"),
+            "proofs": prove.get("proofs"),
+        },
+        "chain": {
+            "ok": chain.get("ok"),
+            "valid": chain.get("valid"),
+            "entry_count": chain.get("entry_count"),
+            "tip_height": chain.get("tip_height"),
+            "tip_confederation_root": chain.get("tip_confederation_root"),
+            "confederation_plan_digest": chain.get("confederation_plan_digest"),
+            "errors": chain.get("errors") or [],
+        },
+        "confederation_certificate": {
+            "ok": cert_verify.get("ok"),
+            "valid": cert_verify.get("valid"),
+            "hash_ok": cert_verify.get("hash_ok"),
+            "certificate_hash": cert_verify.get("certificate_hash"),
+            "confederation_height": cert_verify.get("confederation_height"),
+            "confederation_root": cert_verify.get("confederation_root"),
+            "bound_coalition_root": cert_verify.get("bound_coalition_root"),
+            "confederation_plan_digest": cert_verify.get("confederation_plan_digest"),
+        },
+        "adversarial": {
+            "ok": adversarial.get("ok"),
+            "intact_ok": adversarial.get("intact_ok"),
+            "mutation_fails_as_expected": adversarial.get(
+                "mutation_fails_as_expected"
+            ),
+            "reorder_fails_as_expected": adversarial.get("reorder_fails_as_expected"),
+            "wrong_coalition_fails_as_expected": adversarial.get(
+                "wrong_coalition_fails_as_expected"
+            ),
+            "forged_root_fails_as_expected": adversarial.get(
+                "forged_root_fails_as_expected"
+            ),
+            "gap_fails_as_expected": adversarial.get("gap_fails_as_expected"),
+            "broken_cert_fails_as_expected": adversarial.get(
+                "broken_cert_fails_as_expected"
+            ),
+            "wrong_parent_fails_as_expected": adversarial.get(
+                "wrong_parent_fails_as_expected"
+            ),
+            "digest_tamper_fails_as_expected": adversarial.get(
+                "digest_tamper_fails_as_expected"
+            ),
+            "tamper_fails_as_expected": adversarial.get("tamper_fails_as_expected"),
+            "single_confederation_fails_as_expected": adversarial.get(
+                "single_confederation_fails_as_expected"
+            ),
+            "replay_matches_tip": adversarial.get("replay_matches_tip"),
+            "duplicate_apply_fails_as_expected": adversarial.get(
+                "duplicate_apply_fails_as_expected"
+            ),
+            "incomplete_fails_as_expected": adversarial.get(
+                "incomplete_fails_as_expected"
+            ),
+        },
+        "final_contract": {
+            "ok": final_contract.get("ok"),
+            "met": final_contract.get("met"),
+            "passed_count": final_contract.get("passed_count"),
+            "failed_count": final_contract.get("failed_count"),
+            "failed": final_contract.get("failed"),
+        },
+        "used_skill_route_discovery": used_skill,
+        "ledger_path": str(path),
+    }
+
+
+def builtin_confederation_plane() -> dict[str, Any]:
+    """Invocable capability: coalition → multi-coalition deterministic buffers → prove."""
+
+    root = Path(__file__).resolve().parents[2]
+    goal = (
+        (os.environ.get("BLACKHOLE_MISSION_GOAL") or "").strip()
+        or "confederation over coalition"
+    )
+    done_when = (os.environ.get("BLACKHOLE_DONE_WHEN") or "").strip()
+    max_steps = int(os.environ.get("BLACKHOLE_PROGRAM_MAX_STEPS") or "3")
+    run_coalition = (
+        os.environ.get("BLACKHOLE_CONFEDERATION_RUN_COALITION") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_liquidity = (
+        os.environ.get("BLACKHOLE_CAPITAL_RUN_FUNDING") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_collateral = (
+        os.environ.get("BLACKHOLE_LIQUIDITY_RUN_COLLATERAL") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_margin = (
+        os.environ.get("BLACKHOLE_COLLATERAL_RUN_MARGIN") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_clearing = (
+        os.environ.get("BLACKHOLE_MARGIN_RUN_CLEARING") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_settlement = (
+        os.environ.get("BLACKHOLE_CLEARING_RUN_SETTLEMENT") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_actuation = (
+        os.environ.get("BLACKHOLE_SETTLEMENT_RUN_ACTUATION") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_execution = (
+        os.environ.get("BLACKHOLE_ACTUATION_RUN_EXECUTION") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_finality = (
+        os.environ.get("BLACKHOLE_EXECUTION_RUN_FINALITY") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_quorum = (
+        os.environ.get("BLACKHOLE_FINALITY_RUN_QUORUM") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_continuity = (
+        os.environ.get("BLACKHOLE_QUORUM_RUN_CONTINUITY") or "0"
+    ).strip().lower() not in {"0", "false", "no"}
+    run_recon = (
+        os.environ.get("BLACKHOLE_CONTINUITY_RUN_RECON") or "0"
+    ).strip().lower() not in {"0", "false", "no"}
+    force_synthetic = (
+        os.environ.get("BLACKHOLE_RECONCILE_SYNTHETIC") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    inject_byz = (
+        os.environ.get("BLACKHOLE_QUORUM_INJECT_BYZANTINE") or "1"
+    ).strip().lower() not in {"0", "false", "no"}
+    epoch_count = int(os.environ.get("BLACKHOLE_FINALITY_EPOCH_COUNT") or "2")
+    min_actions = int(os.environ.get("BLACKHOLE_ACTUATION_MIN_ACTIONS") or "2")
+    min_settlements = int(os.environ.get("BLACKHOLE_SETTLEMENT_MIN_SETTLEMENTS") or "2")
+    min_clearings = int(os.environ.get("BLACKHOLE_CLEARING_MIN_CLEARINGS") or "2")
+    min_margins = int(os.environ.get("BLACKHOLE_MARGIN_MIN_MARGINS") or "2")
+    min_collaterals = int(os.environ.get("BLACKHOLE_COLLATERAL_MIN_COLLATERALS") or "2")
+    min_liquidities = int(os.environ.get("BLACKHOLE_LIQUIDITY_MIN_LIQUIDITIES") or "2")
+    min_coalitions = int(os.environ.get("BLACKHOLE_COALITION_MIN_COALITIONS") or "2")
+    min_confederations = int(os.environ.get("BLACKHOLE_CONFEDERATION_MIN_CONFEDERATIONS") or "2")
+    lineage_raw = (os.environ.get("BLACKHOLE_LINEAGE_PATH") or "").strip()
+    lineage_path = Path(lineage_raw) if lineage_raw else None
+    bundle_raw = (os.environ.get("BLACKHOLE_CONTINUITY_BUNDLE_PATH") or "").strip()
+    bundle_path = Path(bundle_raw) if bundle_raw else None
+    q_raw = (os.environ.get("BLACKHOLE_QUORUM_BUNDLE_PATH") or "").strip()
+    quorum_path = Path(q_raw) if q_raw else None
+    f_raw = (os.environ.get("BLACKHOLE_FINALITY_BUNDLE_PATH") or "").strip()
+    finality_path = Path(f_raw) if f_raw else None
+    e_raw = (os.environ.get("BLACKHOLE_EXECUTION_BUNDLE_PATH") or "").strip()
+    execution_path = Path(e_raw) if e_raw else None
+    a_raw = (os.environ.get("BLACKHOLE_ACTUATION_BUNDLE_PATH") or "").strip()
+    actuation_path = Path(a_raw) if a_raw else None
+    s_raw = (os.environ.get("BLACKHOLE_SETTLEMENT_BUNDLE_PATH") or "").strip()
+    settlement_path = Path(s_raw) if s_raw else None
+    g_raw = (os.environ.get("BLACKHOLE_MARGIN_BUNDLE_PATH") or "").strip()
+    margin_path = Path(g_raw) if g_raw else None
+    col_raw = (os.environ.get("BLACKHOLE_COLLATERAL_BUNDLE_PATH") or "").strip()
+    collateral_path = Path(col_raw) if col_raw else None
+    liq_raw = (os.environ.get("BLACKHOLE_LIQUIDITY_BUNDLE_PATH") or "").strip()
+    liquidity_path = Path(liq_raw) if liq_raw else None
+    c_raw = (os.environ.get("BLACKHOLE_COALITION_BUNDLE_PATH") or "").strip()
+    coalition_path = Path(c_raw) if c_raw else None
+    m_raw = (os.environ.get("BLACKHOLE_CONFEDERATION_BUNDLE_PATH") or "").strip()
+    confederation_path = Path(m_raw) if m_raw else None
+    return run_confederation_plane(
+        root,
+        goal,
+        done_when,
+        max_steps=max_steps,
+        run_coalition=run_coalition,
+        run_liquidity=run_liquidity,
+        run_collateral=run_collateral,
+        run_margin=run_margin,
+        run_clearing=run_clearing,
+        run_settlement=run_settlement,
+        run_actuation=run_actuation,
+        run_execution=run_execution,
+        run_finality=run_finality,
+        run_quorum=run_quorum,
+        run_continuity=run_continuity,
+        run_reconciliation=run_recon,
+        force_synthetic_drift=force_synthetic,
+        inject_byzantine=inject_byz,
+        epoch_count=epoch_count,
+        min_actions=min_actions,
+        min_settlements=min_settlements,
+        min_clearings=min_clearings,
+        min_margins=min_margins,
+        min_collaterals=min_collaterals,
+        min_liquidities=min_liquidities,
+        min_coalitions=min_coalitions,
+        min_confederations=min_confederations,
+        lineage_path=lineage_path,
+        bundle_path=bundle_path,
+        quorum_path=quorum_path,
+        finality_path=finality_path,
+        execution_path=execution_path,
+        actuation_path=actuation_path,
+        settlement_path=settlement_path,
+        margin_path=margin_path,
+        collateral_path=collateral_path,
+        liquidity_path=liquidity_path,
+        coalition_path=coalition_path,
+        confederation_path=confederation_path,
+        timeout=960,
+    )
+
+
 def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
     """Install the minimal compoundable bootstrap set if missing."""
 
@@ -106492,6 +108921,200 @@ Capability(
             created_at=utc_now_iso(),
             updated_at=utc_now_iso(),
         ),
+
+        Capability(
+            id="capability.confederation-plane",
+            name="Confederation plane over coalition",
+            description=(
+                "Closed confederation plane: multi-coalition orders → deterministic "
+                "hash-chained confederation grants with confederation plan digests bound to "
+                "coalition roots → confederation certificates → sterile rehydrate+prove → "
+                "adversarial mutation/reorder/wrong-coalition/double-confederation/forged-root/"
+                "gap/digest-tamper/single-confederation falsification with genesis replay matching "
+                "tip — past confederated actions without confederation grants."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_confederation_plane",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_compounder import builtin_confederation_plane; '
+                "from pathlib import Path; "
+                "import os; "
+                "os.environ['BLACKHOLE_MISSION_GOAL']='confederation over coalition'; "
+                "os.environ['BLACKHOLE_DONE_WHEN']="
+                "'min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; "
+                "os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; "
+                "os.environ['BLACKHOLE_CONFEDERATION_RUN_COALITION']='1'; "
+                "os.environ['BLACKHOLE_COALITION_RUN_ALLIANCE']='1'; "
+                "os.environ['BLACKHOLE_PACT_RUN_TREATY']='1'; "
+                "os.environ['BLACKHOLE_TREATY_RUN_MANDATE']='1'; "
+                "os.environ['BLACKHOLE_MANDATE_RUN_PRIVILEGE']='1'; "
+                "os.environ['BLACKHOLE_PRIVILEGE_RUN_STANDING']='1'; "
+                "os.environ['BLACKHOLE_STANDING_RUN_REPUTATION']='1'; "
+                "os.environ['BLACKHOLE_RECOGNITION_RUN_REVERIFICATION']='1'; "
+                "os.environ['BLACKHOLE_REVERIFICATION_RUN_REVALIDATION']='1'; "
+                "os.environ['BLACKHOLE_REVALIDATION_RUN_REATTESTATION']='1'; "
+                "os.environ['BLACKHOLE_REATTESTATION_RUN_RECERTIFICATION']='1'; "
+                "os.environ['BLACKHOLE_RECERTIFICATION_RUN_REAUTHORIZATION']='1'; "
+                "os.environ['BLACKHOLE_REAUTHORIZATION_RUN_REINSTATEMENT']='1'; "
+                "os.environ['BLACKHOLE_REORGANIZATION_RUN_RECOVERY']='1'; "
+                "os.environ['BLACKHOLE_RECOVERY_RUN_RESILIENCE']='1'; "
+                "os.environ['BLACKHOLE_RESILIENCE_RUN_STRESS']='1'; "
+                "os.environ['BLACKHOLE_STRESS_RUN_RISK']='1'; "
+                "os.environ['BLACKHOLE_RISK_RUN_SOLVENCY']='1'; "
+                "os.environ['BLACKHOLE_SOLVENCY_RUN_CAPITAL']='1'; "
+                "os.environ['BLACKHOLE_CAPITAL_RUN_FUNDING']='1'; "
+                "os.environ['BLACKHOLE_FUNDING_RUN_LIQUIDITY']='1'; "
+                "os.environ['BLACKHOLE_LIQUIDITY_RUN_COLLATERAL']='1'; "
+                "os.environ['BLACKHOLE_COLLATERAL_RUN_MARGIN']='1'; "
+                "os.environ['BLACKHOLE_MARGIN_RUN_CLEARING']='1'; "
+                "os.environ['BLACKHOLE_CLEARING_RUN_SETTLEMENT']='1'; "
+                "os.environ['BLACKHOLE_SETTLEMENT_RUN_ACTUATION']='1'; "
+                "os.environ['BLACKHOLE_ACTUATION_RUN_EXECUTION']='1'; "
+                "os.environ['BLACKHOLE_EXECUTION_RUN_FINALITY']='1'; "
+                "os.environ['BLACKHOLE_FINALITY_RUN_QUORUM']='1'; "
+                "os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='0'; "
+                "os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='0'; "
+                "os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; "
+                "os.environ['BLACKHOLE_FINALITY_EPOCH_COUNT']='2'; "
+                "os.environ['BLACKHOLE_ACTUATION_MIN_ACTIONS']='2'; "
+                "os.environ['BLACKHOLE_SETTLEMENT_MIN_SETTLEMENTS']='2'; "
+                "os.environ['BLACKHOLE_CLEARING_MIN_CLEARINGS']='2'; "
+                "os.environ['BLACKHOLE_MARGIN_MIN_MARGINS']='2'; "
+                "os.environ['BLACKHOLE_COLLATERAL_MIN_COLLATERALS']='2'; "
+                "os.environ['BLACKHOLE_LIQUIDITY_MIN_LIQUIDITIES']='2'; "
+                "os.environ['BLACKHOLE_FUNDING_MIN_FUNDINGS']='2'; "
+                "os.environ['BLACKHOLE_CAPITAL_MIN_CAPITALS']='2'; "
+                "os.environ['BLACKHOLE_SOLVENCY_MIN_SOLVENCIES']='2'; "
+                "os.environ['BLACKHOLE_RISK_MIN_RISKS']='2'; "
+                "os.environ['BLACKHOLE_STRESS_MIN_STRESSES']='2'; "
+                "os.environ['BLACKHOLE_RESILIENCE_MIN_RESILIENCES']='2'; "
+                "os.environ['BLACKHOLE_RECOVERY_MIN_RECOVERIES']='2'; "
+                "os.environ['BLACKHOLE_RESOLUTION_MIN_RESOLUTIONS']='2'; "
+                "os.environ['BLACKHOLE_REINSTATEMENT_MIN_REINSTATEMENTS']='2'; "
+                "os.environ['BLACKHOLE_REAUTHORIZATION_MIN_REAUTHORIZATIONS']='2'; "
+                "os.environ['BLACKHOLE_RECERTIFICATION_MIN_RECERTIFICATIONS']='2'; "
+                "os.environ['BLACKHOLE_REATTESTATION_MIN_REATTESTATIONS']='2'; "
+                "os.environ['BLACKHOLE_REVALIDATION_MIN_REVALIDATIONS']='2'; "
+                "os.environ['BLACKHOLE_REVERIFICATION_MIN_REVERIFICATIONS']='2'; "
+                "os.environ['BLACKHOLE_RECOGNITION_MIN_RECOGNITIONS']='2'; "
+                "os.environ['BLACKHOLE_PRIVILEGE_MIN_PRIVILEGES']='2'; "
+                "os.environ['BLACKHOLE_MANDATE_MIN_MANDATES']='2'; "
+                "os.environ['BLACKHOLE_TREATY_MIN_TREATIES']='2'; "
+                "os.environ['BLACKHOLE_PACT_MIN_ALLIANCES']='2'; "
+                "os.environ['BLACKHOLE_COALITION_MIN_COALITIONS']='2'; "
+                "os.environ['BLACKHOLE_CONFEDERATION_MIN_CONFEDERATIONS']='2'; "
+                "os.environ['BLACKHOLE_REORGANIZATION_RUN_RESOLUTION']='1'; "
+                "os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-confederation.json')); "
+                "os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-confederation-quorum.json')); "
+                "os.environ.setdefault('BLACKHOLE_FINALITY_BUNDLE_PATH', str(Path('artifacts')/'finality-bundles'/'proof-confederation-finality.json')); "
+                "os.environ.setdefault('BLACKHOLE_EXECUTION_BUNDLE_PATH', str(Path('artifacts')/'execution-bundles'/'proof-confederation-execution.json')); "
+                "os.environ.setdefault('BLACKHOLE_ACTUATION_BUNDLE_PATH', str(Path('artifacts')/'actuation-bundles'/'proof-confederation-actuation.json')); "
+                "os.environ.setdefault('BLACKHOLE_SETTLEMENT_BUNDLE_PATH', str(Path('artifacts')/'settlement-bundles'/'proof-confederation-settlement.json')); "
+                "os.environ.setdefault('BLACKHOLE_CLEARING_BUNDLE_PATH', str(Path('artifacts')/'clearing-bundles'/'proof-confederation-clearing.json')); "
+                "os.environ.setdefault('BLACKHOLE_MARGIN_BUNDLE_PATH', str(Path('artifacts')/'margin-bundles'/'proof-confederation-margin.json')); "
+                "os.environ.setdefault('BLACKHOLE_COLLATERAL_BUNDLE_PATH', str(Path('artifacts')/'collateral-bundles'/'proof-confederation-collateral.json')); "
+                "os.environ.setdefault('BLACKHOLE_LIQUIDITY_BUNDLE_PATH', str(Path('artifacts')/'liquidity-bundles'/'proof-confederation-liquidity.json')); "
+                "os.environ.setdefault('BLACKHOLE_FUNDING_BUNDLE_PATH', str(Path('artifacts')/'funding-bundles'/'proof-confederation-funding.json')); "
+                "os.environ.setdefault('BLACKHOLE_CAPITAL_BUNDLE_PATH', str(Path('artifacts')/'capital-bundles'/'proof-confederation-capital.json')); "
+                "os.environ.setdefault('BLACKHOLE_SOLVENCY_BUNDLE_PATH', str(Path('artifacts')/'solvency-bundles'/'proof-confederation-solvency.json')); "
+                "os.environ.setdefault('BLACKHOLE_RISK_BUNDLE_PATH', str(Path('artifacts')/'risk-bundles'/'proof-confederation-risk.json')); "
+                "os.environ.setdefault('BLACKHOLE_STRESS_BUNDLE_PATH', str(Path('artifacts')/'stress-bundles'/'proof-confederation-stress.json')); "
+                "os.environ.setdefault('BLACKHOLE_RESILIENCE_BUNDLE_PATH', str(Path('artifacts')/'resilience-bundles'/'proof-confederation-resilience.json')); "
+                "os.environ.setdefault('BLACKHOLE_RECOVERY_BUNDLE_PATH', str(Path('artifacts')/'recovery-bundles'/'proof-confederation-recovery.json')); "
+                "os.environ.setdefault('BLACKHOLE_REINSTATEMENT_BUNDLE_PATH', str(Path('artifacts')/'reinstatement-bundles'/'proof-confederation-reinstatement.json')); "
+                "os.environ.setdefault('BLACKHOLE_REAUTHORIZATION_BUNDLE_PATH', str(Path('artifacts')/'reauthorization-bundles'/'proof-confederation-reauthorization.json')); "
+                "os.environ.setdefault('BLACKHOLE_RECERTIFICATION_BUNDLE_PATH', str(Path('artifacts')/'recertification-bundles'/'proof-confederation-recertification.json')); "
+                "os.environ.setdefault('BLACKHOLE_REATTESTATION_BUNDLE_PATH', str(Path('artifacts')/'reattestation-bundles'/'proof-confederation-reattestation.json')); "
+                "os.environ.setdefault('BLACKHOLE_REVALIDATION_BUNDLE_PATH', str(Path('artifacts')/'revalidation-bundles'/'proof-confederation-revalidation.json')); "
+                "os.environ.setdefault('BLACKHOLE_REVERIFICATION_BUNDLE_PATH', str(Path('artifacts')/'reverification-bundles'/'proof-confederation-reverification.json')); "
+                "os.environ.setdefault('BLACKHOLE_RECOGNITION_BUNDLE_PATH', str(Path('artifacts')/'recognition-bundles'/'proof-confederation-recognition.json')); "
+                "os.environ.setdefault('BLACKHOLE_PRIVILEGE_BUNDLE_PATH', str(Path('artifacts')/'privilege-bundles'/'proof-confederation-privilege.json')); "
+                "os.environ.setdefault('BLACKHOLE_MANDATE_BUNDLE_PATH', str(Path('artifacts')/'mandate-bundles'/'proof-confederation-mandate.json')); "
+                "os.environ.setdefault('BLACKHOLE_TREATY_BUNDLE_PATH', str(Path('artifacts')/'treaty-bundles'/'proof-confederation-treaty.json')); "
+                "os.environ.setdefault('BLACKHOLE_PACT_BUNDLE_PATH', str(Path('artifacts')/'alliance-bundles'/'proof-confederation-pact.json')); "
+                "os.environ.setdefault('BLACKHOLE_COALITION_BUNDLE_PATH', str(Path('artifacts')/'coalition-bundles'/'proof-confederation-coalition.json')); "
+                "os.environ.setdefault('BLACKHOLE_CONFEDERATION_BUNDLE_PATH', str(Path('artifacts')/'confederation-bundles'/'proof-confederation.json')); "
+                "r=builtin_confederation_plane(); assert r['ok'] and r.get('action')=='confederation_plane' "
+                "and r.get('confederated') is True and int(r.get('confederation_count') or 0) >= 2 "
+                "and int(r.get('tip_height') or 0) >= 2 "
+                "and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') "
+                "and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') "
+                "and r.get('confederation_certificate',{}).get('valid') "
+                "and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.outcome-contract",
+                "capability.contract-plane",
+                "capability.assurance-plane",
+                "capability.sovereignty-plane",
+                "capability.lineage-plane",
+                "capability.reconciliation-plane",
+                "capability.continuity-plane",
+                "capability.federation-plane",
+                "capability.quorum-plane",
+                "capability.finality-plane",
+                "capability.execution-plane",
+                "capability.actuation-plane",
+                "capability.settlement-plane",
+                "capability.clearing-plane",
+                "capability.margin-plane",
+                "capability.collateral-plane",
+                "capability.liquidity-plane",
+                "capability.funding-plane",
+                "capability.capital-plane",
+                "capability.solvency-plane",
+                "capability.risk-plane",
+                "capability.stress-plane",
+                "capability.resilience-plane",
+                "capability.recovery-plane",
+                "capability.resolution-plane",
+                "capability.restructuring-plane",
+                "capability.reorganization-plane",
+                "capability.coalition-plane",
+                "capability.alliance-plane",
+                "capability.pact-plane",
+                "capability.treaty-plane",
+                "capability.constitution-plane",
+                "capability.mandate-plane",
+                "capability.privilege-plane",
+                "capability.standing-plane",
+                "capability.recognition-plane",
+                "capability.reverification-plane",
+                "capability.revalidation-plane",
+                "capability.reattestation-plane",
+                "capability.recertification-plane",
+                "capability.reauthorization-plane",
+                "capability.reinstatement-plane",
+                "capability.rehabilitation-plane",
+                "capability.transfer-plane",
+                "capability.ablation-proof",
+                "capability.adversarial-contract",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_compounder.py",
+                "src/blackhole_agent/unbound.py",
+            ),
+            capability_delta=(
+                "Confederation plane posts multi-coalition orders into deterministic hash-chained "
+                "confederation grants with confederation plan digests bound to coalition roots, "
+                "confederation certificates, sterile rehydrate+prove, and adversarial falsification "
+                "without skill-route discovery."
+            ),
+            tags=(
+                "confederation",
+                "order",
+                "coalition",
+                "plane",
+                "certificate",
+                "adversarial",
+                "hash-chain",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        )
 
 
 

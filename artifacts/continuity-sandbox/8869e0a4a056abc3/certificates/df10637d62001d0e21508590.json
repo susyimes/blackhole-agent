@@ -1,0 +1,60 @@
+{
+  "certificate_hash": "df10637d62001d0e21508590",
+  "claims": {
+    "ablation_ok": true,
+    "adversarial_ok": true,
+    "assurance_ok": true,
+    "contract_met": true,
+    "contract_ok": true,
+    "machine_checkable": true,
+    "no_skill_route": true,
+    "transfer_ok": true
+  },
+  "done_when": "no_skill_route",
+  "evidence": {
+    "assurance": {
+      "ablation": {
+        "failed_phases": [],
+        "live_ledger_mutated": false,
+        "ok": true,
+        "passed_count": 4,
+        "phase_count": 4
+      },
+      "adversarial": {
+        "negative_count": 4,
+        "negatives_ok": true,
+        "negatives_passed": 4,
+        "ok": true,
+        "positive_ok": true
+      },
+      "ok": true,
+      "transfer": {
+        "member_count": 3,
+        "ok": true,
+        "package_hash": "7878a785b9718369",
+        "proved_count": 3
+      }
+    },
+    "contract": {
+      "failed_count": 0,
+      "machine_checkable": true,
+      "met": true,
+      "mission_ok": null,
+      "ok": true,
+      "passed_count": 1
+    },
+    "metrics": {
+      "count": 87,
+      "primitive_count": 38,
+      "proved_count": 87,
+      "proved_ratio": 1.0
+    }
+  },
+  "goal": "Build a durable epoch finality plane that seals Byzantine-tolerant quorum consensus into irreversible, hash-chained epochs with finality certificates — forks, rewrites, gaps, stale supersession, and single-epoch bundles fail adversarially; sterile tip rehydrate+prove works without skill-route discovery.",
+  "issued_at": "2026-07-29T16:31:36.997975Z",
+  "kind": "sovereignty_certificate",
+  "ok": true,
+  "package_hash": "7878a785b9718369",
+  "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T162316Z-43482865",
+  "schema_version": 1
+}

@@ -3062,3 +3062,82 @@ def test_mandate_plane_orders_and_adversarial():
     assert loaded.get("mandate_plan_digest")
     assert path.name == "ledger.json"
 
+def test_confederation_plane_orders_and_adversarial():
+    """Confederation plane posts multi-coalition orders and falsifies wrong-coalition binds."""
+
+    from blackhole_agent.capability_compounder import (
+        ensure_seeded_ledger,
+        load_confederation_bundle,
+        parse_outcome_contract,
+        run_confederation_plane,
+        verify_confederation_bundle_integrity,
+    )
+
+    repo = Path(__file__).resolve().parents[1]
+    path, ledger = ensure_seeded_ledger(repo)
+    assert "capability.confederation-plane" in ledger.capabilities
+    assert "capability.coalition-plane" in ledger.capabilities
+
+    parsed = parse_outcome_contract(
+        "no_skill_route; confederation_ok; confederated_ok; min_confederations:2; "
+        "confederation_root_valid; coalition_ok; coalitioned_ok; min_coalitions:2; "
+        "coalition_root_valid; chain_valid"
+    )
+    kinds = {item["kind"] for item in parsed["predicates"]}
+    assert "confederation_ok" in kinds
+    assert "confederated_ok" in kinds
+    assert "min_confederations" in kinds
+    assert "confederation_root_valid" in kinds
+
+    coalition_path = repo / "artifacts" / "coalition-bundles" / "proof-coalition.json"
+    assert coalition_path.is_file(), "requires existing coalition proof bundle"
+    confederation_path = (
+        repo / "artifacts" / "confederation-bundles" / "test-confederation-plane.json"
+    )
+    if confederation_path.exists():
+        confederation_path.unlink()
+
+    plane = run_confederation_plane(
+        repo,
+        "confederation over coalition",
+        "min_capabilities:5; capability_exists:repo.import-health; no_skill_route",
+        max_steps=3,
+        run_coalition=False,
+        coalition_path=coalition_path,
+        confederation_path=confederation_path,
+        prove_imported=True,
+        min_coalitions=2,
+        min_confederations=2,
+        timeout=180,
+    )
+    assert plane["ok"] is True, plane
+    assert plane["action"] == "confederation_plane"
+    assert plane["confederated"] is True
+    assert int(plane["confederation_count"]) >= 2
+    assert int(plane["tip_height"]) >= 2
+    assert plane.get("confederation_plan_digest")
+    assert plane["integrity"]["ok"] is True
+    assert plane["integrity"]["multi_confederation"] is True
+    assert plane["rehydrate"]["ok"] is True
+    assert plane["prove"]["ok"] is True
+    assert int(plane["prove"]["proved_count"]) >= 1
+    assert plane["chain"]["valid"] is True
+    assert plane["confederation_certificate"]["valid"] is True
+    assert plane["adversarial"]["ok"] is True
+    assert plane["adversarial"]["wrong_coalition_fails_as_expected"] is True
+    assert plane["adversarial"]["reorder_fails_as_expected"] is True
+    assert plane["adversarial"]["digest_tamper_fails_as_expected"] is True
+    assert plane["adversarial"]["single_confederation_fails_as_expected"] is True
+    assert plane["adversarial"]["duplicate_apply_fails_as_expected"] is True
+    assert plane["adversarial"]["replay_matches_tip"] is True
+    assert plane["used_skill_route_discovery"] is False
+    assert confederation_path.is_file()
+
+    loaded = load_confederation_bundle(confederation_path)
+    assert verify_confederation_bundle_integrity(loaded)["ok"] is True
+    assert loaded.get("confederation_hash")
+    assert int(loaded.get("confederation_count") or 0) >= 2
+    assert int(loaded.get("tip_height") or 0) >= 2
+    assert loaded.get("confederation_plan_digest")
+    assert path.name == "ledger.json"
+

@@ -1,0 +1,28 @@
+{
+  "certificate_hash": "f6f4d7278018187573fce40e",
+  "claims": {
+    "origin_ids": [
+      "origin-a",
+      "origin-b"
+    ],
+    "roots": [
+      "repo.import-health",
+      "capability.ledger-inventory",
+      "unbound.milestone-gate"
+    ]
+  },
+  "goal": "Add a confederation plane over the proved coalition plane: multi-coalition orders become deterministic hash-chained confederation grants with confederation plan digests bound to coalition roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery.",
+  "issued_at": "2026-07-31T05:25:38.674595Z",
+  "kind": "federation_certificate",
+  "lineage_head_hash": "aeb4bc602c1a0294a30ad98b",
+  "member_count": 3,
+  "ok": true,
+  "origin_count": 2,
+  "origin_hashes": [
+    "8869e0a4a056abc395c52de4",
+    "070a84e67192abb0751753f5"
+  ],
+  "package_hash": "7878a785b9718369",
+  "schema_version": 1,
+  "used_skill_route_discovery": false
+}

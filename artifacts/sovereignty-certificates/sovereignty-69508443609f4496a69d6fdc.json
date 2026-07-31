@@ -1,0 +1,60 @@
+{
+  "certificate_hash": "69508443609f4496a69d6fdc",
+  "claims": {
+    "ablation_ok": true,
+    "adversarial_ok": true,
+    "assurance_ok": true,
+    "contract_met": true,
+    "contract_ok": true,
+    "machine_checkable": true,
+    "no_skill_route": true,
+    "transfer_ok": true
+  },
+  "done_when": "no_skill_route; confederation_ok; min_confederations:2; confederated_ok; confederation_root_valid",
+  "evidence": {
+    "assurance": {
+      "ablation": {
+        "failed_phases": [],
+        "live_ledger_mutated": false,
+        "ok": true,
+        "passed_count": 4,
+        "phase_count": 4
+      },
+      "adversarial": {
+        "negative_count": 4,
+        "negatives_ok": true,
+        "negatives_passed": 4,
+        "ok": true,
+        "positive_ok": true
+      },
+      "ok": true,
+      "transfer": {
+        "member_count": 3,
+        "ok": true,
+        "package_hash": "7878a785b9718369",
+        "proved_count": 3
+      }
+    },
+    "contract": {
+      "failed_count": 0,
+      "machine_checkable": true,
+      "met": true,
+      "mission_ok": null,
+      "ok": true,
+      "passed_count": 5
+    },
+    "metrics": {
+      "count": 125,
+      "primitive_count": 76,
+      "proved_count": 123,
+      "proved_ratio": 0.984
+    }
+  },
+  "goal": "reconcile:Add a confederation plane over the proved coalition plane: multi-coalition orders become deterministic hash-chained confederation grants with confederation plan digests bound to coalition roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery.",
+  "issued_at": "2026-07-31T05:25:36.437432Z",
+  "kind": "sovereignty_certificate",
+  "ok": true,
+  "package_hash": "7878a785b9718369",
+  "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T051743Z-7b6fc786",
+  "schema_version": 1
+}

@@ -1,0 +1,91 @@
+{
+  "entries": [
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 2,
+        "origin_heads": [
+          "5c4dacb32f81386ea03a82ce",
+          "17d02063a5e3a7f5572eaaaf"
+        ],
+        "origin_ids": [
+          "origin-a",
+          "origin-b"
+        ]
+      },
+      "detail": {
+        "origins": [
+          {
+            "bundle_hash": "8869e0a4a056abc395c52de4",
+            "certificate_count": 51,
+            "lineage_entry_count": 129,
+            "lineage_head_hash": "5c4dacb32f81386ea03a82ce",
+            "member_count": 3,
+            "origin_id": "origin-a",
+            "package_hash": "7878a785b9718369"
+          },
+          {
+            "bundle_hash": "070a84e67192abb0751753f5",
+            "certificate_count": 1,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "17d02063a5e3a7f5572eaaaf",
+            "member_count": 2,
+            "origin_id": "origin-b",
+            "package_hash": "8ece9182045d973a"
+          }
+        ]
+      },
+      "entry_hash": "c08c1a5f1b90acdd95822ee1",
+      "entry_kind": "federation_origin_manifest",
+      "goal": "Add a confederation plane over the proved coalition plane: multi-coalition orders become deterministic hash-chained confederation grants with confederation plan digests bound to coalition roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery.",
+      "index": 0,
+      "issued_at": "2026-07-31T05:25:38.674085Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": ""
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "federated": true,
+        "origin_count": 2,
+        "package_hash": "7878a785b9718369"
+      },
+      "detail": {
+        "origin_bundle_hashes": [
+          "8869e0a4a056abc395c52de4",
+          "070a84e67192abb0751753f5"
+        ],
+        "origin_heads": [
+          "5c4dacb32f81386ea03a82ce",
+          "17d02063a5e3a7f5572eaaaf"
+        ]
+      },
+      "entry_hash": "aeb4bc602c1a0294a30ad98b",
+      "entry_kind": "federation_seal",
+      "goal": "Add a confederation plane over the proved coalition plane: multi-coalition orders become deterministic hash-chained confederation grants with confederation plan digests bound to coalition roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery.",
+      "index": 1,
+      "issued_at": "2026-07-31T05:25:38.674217Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "c08c1a5f1b90acdd95822ee1"
+    }
+  ],
+  "entry_count": 2,
+  "head_hash": "aeb4bc602c1a0294a30ad98b",
+  "kind": "capability_lineage",
+  "schema_version": 1,
+  "updated_at": "2026-07-31T05:25:38.694008Z"
+}

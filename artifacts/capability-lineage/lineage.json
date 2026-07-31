@@ -3727,12 +3727,196 @@
       },
       "package_hash": "7878a785b9718369",
       "parent_hash": "d93b34b0126ee32179c9ffd4"
+    },
+    {
+      "certificate_hash": "6e8b2e46254b331348a3f1a2",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T051743Z-7b6fc786\\artifacts\\sovereignty-certificates\\sovereignty-6e8b2e46254b331348a3f1a2.json",
+      "claims": {
+        "ablation_ok": true,
+        "adversarial_ok": true,
+        "assurance_ok": true,
+        "contract_met": true,
+        "contract_ok": true,
+        "machine_checkable": true,
+        "no_skill_route": true,
+        "transfer_ok": true
+      },
+      "detail": {
+        "sovereignty_ok": true,
+        "verify_valid": true
+      },
+      "entry_hash": "386950091aa65bf24dc6190c",
+      "entry_kind": "sovereignty_certificate",
+      "goal": "Add a confederation plane over the proved coalition plane: multi-coalition orders become deterministic hash-chained confederation grants with confederation plan digests bound to coalition roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery.",
+      "index": 123,
+      "issued_at": "2026-07-31T05:25:33.647791Z",
+      "metrics": {
+        "count": 125,
+        "primitive_count": 76,
+        "proved_count": 123,
+        "proved_ratio": 0.984
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "c0426b8f49a2398a4dfa5d4a"
+    },
+    {
+      "certificate_hash": "6e8b2e46254b331348a3f1a2",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T051743Z-7b6fc786\\artifacts\\sovereignty-certificates\\sovereignty-6e8b2e46254b331348a3f1a2.json",
+      "claims": {
+        "no_skill_route": true,
+        "sealed": true
+      },
+      "detail": {
+        "certificate_hash": "6e8b2e46254b331348a3f1a2",
+        "chain_pre_valid": true,
+        "live_count": 125,
+        "live_proved": 123,
+        "prior_head": "386950091aa65bf24dc6190c"
+      },
+      "entry_hash": "f51b68b29dd56dbbb8cfe1c5",
+      "entry_kind": "continuity_seal",
+      "goal": "seal:Add a confederation plane over the proved coalition plane: multi-coalition orders become deterministic hash-chained confederation grants with confederation plan digests bound to coalition roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery.",
+      "index": 124,
+      "issued_at": "2026-07-31T05:25:33.651267Z",
+      "metrics": {
+        "count": 125,
+        "primitive_count": 76,
+        "proved_count": 123,
+        "proved_ratio": 0.984
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "386950091aa65bf24dc6190c"
+    },
+    {
+      "certificate_hash": "000000000000000000000000",
+      "certificate_path": "artifacts\\capability-lineage\\__synthetic_missing_certificate__.json",
+      "claims": {
+        "ablation_ok": true,
+        "adversarial_ok": true,
+        "assurance_ok": true,
+        "contract_ok": true,
+        "no_skill_route": true,
+        "synthetic_drift": true,
+        "transfer_ok": true
+      },
+      "detail": {
+        "reason": "force_detectable_drift",
+        "synthetic_drift": true
+      },
+      "entry_hash": "8546824eff62a37bf4a0624b",
+      "entry_kind": "sovereignty_certificate",
+      "goal": "synthetic-drift-injection",
+      "index": 125,
+      "issued_at": "2026-07-31T05:25:33.929612Z",
+      "metrics": {
+        "count": 1000000000,
+        "primitive_count": 1000000000,
+        "proved_count": 1000000000,
+        "proved_ratio": 1.0
+      },
+      "package_hash": "synthetic-drift",
+      "parent_hash": "f51b68b29dd56dbbb8cfe1c5"
+    },
+    {
+      "certificate_hash": "000000000000000000000000",
+      "certificate_path": "artifacts\\capability-lineage\\__synthetic_missing_certificate__.json",
+      "claims": {
+        "diagnosed": true,
+        "drift": true
+      },
+      "detail": {
+        "pre_drift": {
+          "drift": true,
+          "reasons": [
+            "missing_certificate_path",
+            "count_regressed live=125 recorded=1000000000"
+          ]
+        },
+        "reason_count": 2,
+        "reasons": [
+          "missing_certificate_path",
+          "count_regressed live=125 recorded=1000000000"
+        ]
+      },
+      "entry_hash": "da0ec1101f1f00f9da6b3c1c",
+      "entry_kind": "drift_diagnosis",
+      "goal": "diagnose:reconcile:Add a confederation plane over the proved coalition plane: multi-coalition orders become deterministic hash-chained confederation grants with confederation plan digests bound to coalition roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery.",
+      "index": 126,
+      "issued_at": "2026-07-31T05:25:36.589184Z",
+      "metrics": {
+        "count": 125,
+        "primitive_count": 76,
+        "proved_count": 123,
+        "proved_ratio": 0.984
+      },
+      "package_hash": "",
+      "parent_hash": "8546824eff62a37bf4a0624b"
+    },
+    {
+      "certificate_hash": "69508443609f4496a69d6fdc",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T051743Z-7b6fc786\\artifacts\\sovereignty-certificates\\sovereignty-69508443609f4496a69d6fdc.json",
+      "claims": {
+        "ablation_ok": true,
+        "adversarial_ok": true,
+        "assurance_ok": true,
+        "contract_met": true,
+        "contract_ok": true,
+        "machine_checkable": true,
+        "no_skill_route": true,
+        "transfer_ok": true
+      },
+      "detail": {
+        "healed": true,
+        "sovereignty_ok": true,
+        "verify_valid": true
+      },
+      "entry_hash": "374b8a6458a95cb9156a32e7",
+      "entry_kind": "heal_certificate",
+      "goal": "heal:reconcile:Add a confederation plane over the proved coalition plane: multi-coalition orders become deterministic hash-chained confederation grants with confederation plan digests bound to coalition roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery.",
+      "index": 127,
+      "issued_at": "2026-07-31T05:25:36.589406Z",
+      "metrics": {
+        "count": 125,
+        "primitive_count": 76,
+        "proved_count": 123,
+        "proved_ratio": 0.984
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "da0ec1101f1f00f9da6b3c1c"
+    },
+    {
+      "certificate_hash": "69508443609f4496a69d6fdc",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T051743Z-7b6fc786\\artifacts\\sovereignty-certificates\\sovereignty-69508443609f4496a69d6fdc.json",
+      "claims": {
+        "healed": true,
+        "no_skill_route": true,
+        "sealed": true
+      },
+      "detail": {
+        "certificate_hash": "69508443609f4496a69d6fdc",
+        "live_count": 125,
+        "live_proved": 123,
+        "prior_head_before_heal_seal": "374b8a6458a95cb9156a32e7"
+      },
+      "entry_hash": "5c4dacb32f81386ea03a82ce",
+      "entry_kind": "heal_seal",
+      "goal": "heal-seal:reconcile:Add a confederation plane over the proved coalition plane: multi-coalition orders become deterministic hash-chained confederation grants with confederation plan digests bound to coalition roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery.",
+      "index": 128,
+      "issued_at": "2026-07-31T05:25:36.589512Z",
+      "metrics": {
+        "count": 125,
+        "primitive_count": 76,
+        "proved_count": 123,
+        "proved_ratio": 0.984
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "374b8a6458a95cb9156a32e7"
     }
   ],
-  "entry_count": 123,
-  "head_hash": "c0426b8f49a2398a4dfa5d4a",
+  "entry_count": 129,
+  "head_hash": "5c4dacb32f81386ea03a82ce",
   "kind": "capability_lineage",
   "ok": true,
   "schema_version": 1,
-  "updated_at": "2026-07-30T10:40:37.831860Z"
+  "updated_at": "2026-07-31T05:25:37.241054Z"
 }
