@@ -1,0 +1,30 @@
+{
+  "certificate_hash": "f30b2eb19866a742700d33a1",
+  "claims": {
+    "member_count": 3,
+    "plane": "execution",
+    "state_index": 2
+  },
+  "deterministic": true,
+  "epoch_hash": "4fdc9c4d6b0921ef4d16f712",
+  "epoch_height": 2,
+  "finality_certificate_hash": "d9c51bea73e130e6a04d6c44",
+  "goal": "constitution over charter (state 2)",
+  "issued_at": "2026-07-31T00:35:28.458810Z",
+  "kind": "execution_certificate",
+  "lineage_head_hash": "d44323183f955aac50ef42d4",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "d0d226d47d341468",
+  "parent_state_root": "100ee9aecd8ab988a16dae7c",
+  "post_finality": true,
+  "schema_version": 1,
+  "state_height": 2,
+  "state_root": "cb4d0d3faebb94b2c279e7b7",
+  "used_skill_route_discovery": false
+}

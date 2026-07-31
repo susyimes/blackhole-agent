@@ -1,0 +1,29 @@
+{
+  "agreeing_count": 2,
+  "byzantine_count": 1,
+  "certificate_hash": "48a07f79017be07668c2dc43",
+  "claims": {
+    "epoch_index": 2,
+    "member_count": 3,
+    "plane": "finality",
+    "roots": [
+      "repo.import-health",
+      "capability.ledger-inventory",
+      "unbound.milestone-gate"
+    ]
+  },
+  "epoch_hash": "4d42b8f195cc1f92b52a3398",
+  "epoch_height": 2,
+  "goal": "constitution over charter (epoch 2)",
+  "irreversible": true,
+  "issued_at": "2026-07-31T00:34:21.397214Z",
+  "kind": "finality_certificate",
+  "lineage_head_hash": "fc347a910136c554986c090b",
+  "ok": true,
+  "origin_count": 3,
+  "package_hash": "e731fc0fc1063a2f",
+  "parent_epoch_hash": "c597decd79222a659cd97ef7",
+  "quorum_hash": "e33abb9c30701475593d94c0",
+  "schema_version": 1,
+  "used_skill_route_discovery": false
+}

@@ -1,0 +1,37 @@
+{
+  "bound_reattestation_height": 2,
+  "bound_reattestation_root": "55b359bfa7849c55cbf71d07",
+  "certificate_hash": "1fdc0438cd677c853b4be836",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "revalidated",
+    "plane": "revalidation"
+  },
+  "deterministic": true,
+  "goal": "constitution over charter (clearing 2)",
+  "issued_at": "2026-07-31T00:36:15.754935Z",
+  "kind": "revalidation_certificate",
+  "lineage_head_hash": "c47e1786dad9702291ec5b82",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "fb7d0f3982211fce",
+  "parent_revalidation_root": "fdc16784b87d7c3a066f340a",
+  "post_reattestation": true,
+  "reattestation_certificate_hash": "c57bb7a57c068f7cbbe42706",
+  "reattestation_hash": "a40b6a3b7233e7c645607033",
+  "reattestation_plan_digest": "18412e134be60cb80a17d9ee",
+  "revalidation_count": 2,
+  "revalidation_height": 2,
+  "revalidation_plan_digest": "230e7ad49e528356fa254f91",
+  "revalidation_root": "fa5a4b1af2457402f2e99157",
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

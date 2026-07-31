@@ -1,0 +1,37 @@
+{
+  "bound_revalidation_height": 2,
+  "bound_revalidation_root": "6b95684bc63d8e2b1f016e4b",
+  "certificate_hash": "6ff4460b0932370a43891613",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "reverified",
+    "plane": "reverification"
+  },
+  "deterministic": true,
+  "goal": "constitution over charter (clearing 2)",
+  "issued_at": "2026-07-31T00:35:39.905645Z",
+  "kind": "reverification_certificate",
+  "lineage_head_hash": "d44323183f955aac50ef42d4",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "d0d226d47d341468",
+  "parent_reverification_root": "e94122eccbf75001759a473e",
+  "post_revalidation": true,
+  "revalidation_certificate_hash": "abfd560a61742b1dcf2aa355",
+  "revalidation_hash": "a3eecf1006b08e12c7e35347",
+  "revalidation_plan_digest": "ea86c8c1c881a423aa5a6a34",
+  "reverification_count": 2,
+  "reverification_height": 2,
+  "reverification_plan_digest": "ff89609bf426964d42208bfe",
+  "reverification_root": "1f3fb8891032e9a9fd1dc696",
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

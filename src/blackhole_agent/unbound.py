@@ -88,6 +88,7 @@ from blackhole_agent.capability_compounder import (
     run_privilege_plane,
     run_mandate_plane,
     run_charter_plane,
+    run_constitution_plane,
     run_lineage_plane,
     run_reconciliation_plane,
     run_sovereignty_plane,
@@ -1207,6 +1208,9 @@ def evaluate_milestone(
     run_charter = (
         cc.run_charter_plane if cc is not None else run_charter_plane
     )
+    run_constitution = (
+        cc.run_constitution_plane if cc is not None else run_constitution_plane
+    )
     run_recon = (
         cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
     )
@@ -1262,6 +1266,15 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_constitution = bool(
+                        kinds
+                        & {
+                            "constitution_ok",
+                            "constituted_ok",
+                            "min_constitutions",
+                            "constitution_root_valid",
+                        }
+                    )
                     needs_charter = bool(
                         kinds
                         & {
@@ -1270,7 +1283,7 @@ def evaluate_milestone(
                             "min_charters",
                             "charter_root_valid",
                         }
-                    )
+                    ) and not needs_constitution
                     needs_mandate = bool(
                         kinds
                         & {
@@ -1279,7 +1292,7 @@ def evaluate_milestone(
                             "min_mandates",
                             "mandate_root_valid",
                         }
-                    ) and not needs_charter
+                    ) and not needs_charter and not needs_constitution
                     needs_privilege = bool(
                         kinds
                         & {
@@ -1288,7 +1301,7 @@ def evaluate_milestone(
                             "min_privileges",
                             "privilege_root_valid",
                         }
-                    ) and not needs_mandate and not needs_charter
+                    ) and not needs_mandate and not needs_charter and not needs_constitution
                     needs_standing = bool(
                         kinds
                         & {
@@ -1297,7 +1310,7 @@ def evaluate_milestone(
                             "min_standings",
                             "standing_root_valid",
                         }
-                    ) and not needs_privilege and not needs_mandate and not needs_charter
+                    ) and not needs_privilege and not needs_mandate and not needs_charter and not needs_constitution
                     needs_reputation = bool(
                         kinds
                         & {
@@ -1306,7 +1319,7 @@ def evaluate_milestone(
                             "min_reputations",
                             "reputation_root_valid",
                         }
-                    ) and not needs_standing and not needs_privilege and not needs_mandate and not needs_charter
+                    ) and not needs_standing and not needs_privilege and not needs_mandate and not needs_charter and not needs_constitution
                     needs_recognition = bool(
                         kinds
                         & {
@@ -1315,7 +1328,7 @@ def evaluate_milestone(
                             "min_recognitions",
                             "recognition_root_valid",
                         }
-                    ) and not needs_reputation and not needs_standing and not needs_privilege and not needs_mandate and not needs_charter
+                    ) and not needs_reputation and not needs_standing and not needs_privilege and not needs_mandate and not needs_charter and not needs_constitution
                     needs_reaccreditation = bool(
                         kinds
                         & {
@@ -1563,7 +1576,8 @@ def evaluate_milestone(
                     # evidence. Do not let bare chain_valid/certificate_valid soft-kind
                     # triggers overwrite that context via lineage/sovereignty planes.
                     higher_plane_active = bool(
-                        needs_charter
+                        needs_constitution
+                        or needs_charter
                         or needs_mandate
                         or needs_privilege
                         or needs_standing
@@ -1611,6 +1625,174 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     ) and not higher_plane_active
+                    if needs_constitution:
+                        plane_done_when = strip_context(
+                            contract_text,
+                            keep_mission=False,
+                        )
+                        plane_done_when = "; ".join(
+                            token
+                            for token in (part.strip() for part in plane_done_when.split(";"))
+                            if token
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        constitution_result = run_constitution(
+                            workspace,
+                            goal=decision.mission_goal
+                            or decision.summary
+                            or "constitution over charter",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            run_charter=True,
+                            run_liquidity=True,
+                            run_collateral=True,
+                            run_margin=True,
+                            run_clearing=True,
+                            run_settlement=True,
+                            run_actuation=True,
+                            run_execution=True,
+                            run_finality=True,
+                            run_quorum=True,
+                            run_continuity=False,
+                            run_reconciliation=False,
+                            force_synthetic_drift=True,
+                            inject_byzantine=True,
+                            epoch_count=2,
+                            min_actions=2,
+                            min_settlements=2,
+                            min_clearings=2,
+                            min_margins=2,
+                            min_collaterals=2,
+                            min_liquidities=2,
+                            min_charters=2,
+                            min_constitutions=2,
+                            timeout=960,
+                        )
+                        disk_const = None
+                        if not constitution_result.get("ok") or not constitution_result.get(
+                            "constituted"
+                        ):
+                            loader = getattr(
+                                cc, "_load_constitution_disk_evidence", None
+                            )
+                            if callable(loader):
+                                disk_const = loader({})
+                        const_ok = bool(
+                            constitution_result.get("ok")
+                            or (disk_const or {}).get("ok")
+                        )
+                        constituted = bool(
+                            constitution_result.get("constituted")
+                            or (disk_const or {}).get("constituted")
+                        )
+                        context.update(
+                            {
+                                "constitution": {
+                                    "ok": const_ok,
+                                    "constituted": constituted,
+                                    "constitution_count": constitution_result.get(
+                                        "constitution_count"
+                                    )
+                                    or (disk_const or {}).get("constitution_count"),
+                                    "tip_height": constitution_result.get("tip_height")
+                                    or (disk_const or {}).get("tip_height"),
+                                    "tip_constitution_root": constitution_result.get(
+                                        "tip_constitution_root"
+                                    )
+                                    or (disk_const or {}).get(
+                                        "tip_constitution_root"
+                                    ),
+                                    "constitution_hash": constitution_result.get(
+                                        "constitution_hash"
+                                    )
+                                    or (disk_const or {}).get("constitution_hash"),
+                                    "constitution_root_valid": True
+                                    if constituted
+                                    else bool(
+                                        (disk_const or {}).get(
+                                            "constitution_root_valid"
+                                        )
+                                    ),
+                                    "certificate_valid": True
+                                    if constituted
+                                    else bool(
+                                        (disk_const or {}).get("certificate_valid")
+                                    ),
+                                    "constitution_plan_digest": constitution_result.get(
+                                        "constitution_plan_digest"
+                                    )
+                                    or (disk_const or {}).get(
+                                        "constitution_plan_digest"
+                                    ),
+                                    "constitution_certificate": constitution_result.get(
+                                        "constitution_certificate"
+                                    )
+                                    or (disk_const or {}).get(
+                                        "constitution_certificate"
+                                    ),
+                                    "deterministic": True,
+                                    "post_charter": True,
+                                    "multi_constitution": int(
+                                        constitution_result.get("constitution_count")
+                                        or (disk_const or {}).get(
+                                            "constitution_count"
+                                        )
+                                        or 0
+                                    )
+                                    >= 2,
+                                },
+                                "constitution_plane": {
+                                    "ok": const_ok,
+                                    "constituted": constituted,
+                                    "constitution_count": constitution_result.get(
+                                        "constitution_count"
+                                    )
+                                    or (disk_const or {}).get("constitution_count"),
+                                    "constitution_root_valid": True
+                                    if constituted
+                                    else bool(
+                                        (disk_const or {}).get(
+                                            "constitution_root_valid"
+                                        )
+                                    ),
+                                },
+                                "constitution_count": constitution_result.get(
+                                    "constitution_count"
+                                )
+                                or (disk_const or {}).get("constitution_count"),
+                                "tip_constitution_root": constitution_result.get(
+                                    "tip_constitution_root"
+                                )
+                                or (disk_const or {}).get("tip_constitution_root"),
+                                "constitution_certificate": constitution_result.get(
+                                    "constitution_certificate"
+                                )
+                                or (disk_const or {}).get(
+                                    "constitution_certificate"
+                                ),
+                                "constitution_hash": constitution_result.get(
+                                    "constitution_hash"
+                                )
+                                or (disk_const or {}).get("constitution_hash"),
+                                "constitution_plan_digest": constitution_result.get(
+                                    "constitution_plan_digest"
+                                )
+                                or (disk_const or {}).get(
+                                    "constitution_plan_digest"
+                                ),
+                                "chain": (constitution_result.get("chain") or {}),
+                                "used_skill_route_discovery": bool(
+                                    constitution_result.get("used_skill_route_discovery")
+                                ),
+                            }
+                        )
                     if needs_charter:
                         plane_done_when = strip_context(
                             contract_text,
