@@ -7,11 +7,11 @@
         "origin_id": "origin-a"
       },
       "detail": {},
-      "entry_hash": "f546f691f3d0ecd5a3dcc9cc",
+      "entry_hash": "d1a1efb92b0b38345218a4e6",
       "entry_kind": "quorum_bootstrap",
       "goal": "quorum multi-origin consensus",
       "index": 0,
-      "issued_at": "2026-07-31T21:02:20.177703Z",
+      "issued_at": "2026-07-31T21:45:35.770906Z",
       "metrics": {
         "count": null,
         "primitive_count": null,
@@ -29,11 +29,11 @@
         "sealed": true
       },
       "detail": {},
-      "entry_hash": "e2183eae0f696ee0943dada7",
+      "entry_hash": "7b89b62ac559caa6aaedee49",
       "entry_kind": "quorum_bootstrap_seal",
       "goal": "quorum multi-origin consensus",
       "index": 1,
-      "issued_at": "2026-07-31T21:02:20.177778Z",
+      "issued_at": "2026-07-31T21:45:35.771002Z",
       "metrics": {
         "count": null,
         "primitive_count": null,
@@ -41,13 +41,13 @@
         "proved_ratio": null
       },
       "package_hash": "",
-      "parent_hash": "f546f691f3d0ecd5a3dcc9cc"
+      "parent_hash": "d1a1efb92b0b38345218a4e6"
     }
   ],
   "entry_count": 2,
-  "head_hash": "e2183eae0f696ee0943dada7",
+  "head_hash": "7b89b62ac559caa6aaedee49",
   "kind": "capability_lineage",
   "ok": true,
   "schema_version": 1,
-  "updated_at": "2026-07-31T21:02:20.178056Z"
+  "updated_at": "2026-07-31T21:45:35.771280Z"
 }

@@ -1,6 +1,6 @@
 {
   "action": "export_capability_package",
-  "exported_at": "2026-07-31T21:02:28.322962Z",
+  "exported_at": "2026-07-31T21:45:44.225872Z",
   "member_count": 3,
   "member_ids": [
     "repo.import-health",
@@ -23,7 +23,7 @@
       "id": "capability.ledger-inventory",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-07-31T21:01:40.871109Z",
+      "last_proved_at": "2026-07-31T21:44:59.784527Z",
       "name": "Capability ledger inventory",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_ledger_inventory; r=builtin_ledger_inventory(); assert r['ok'] and r['count'] >= 2\"",
       "source_milestone": null,
@@ -32,7 +32,7 @@
         "bootstrap",
         "compounder"
       ],
-      "updated_at": "2026-07-31T21:02:28.318109Z"
+      "updated_at": "2026-07-31T21:45:44.220947Z"
     },
     "repo.import-health": {
       "behavior_paths": [
@@ -47,7 +47,7 @@
       "id": "repo.import-health",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-07-31T21:02:27.467422Z",
+      "last_proved_at": "2026-07-31T21:45:43.309524Z",
       "name": "Repository import health",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_repo_import_health; r=builtin_repo_import_health(); assert r['ok'] and not r['skill_route_symbols_in_compounder']\"",
       "source_milestone": null,
@@ -56,7 +56,7 @@
         "bootstrap",
         "health"
       ],
-      "updated_at": "2026-07-31T21:02:28.317966Z"
+      "updated_at": "2026-07-31T21:45:44.220810Z"
     },
     "unbound.milestone-gate": {
       "behavior_paths": [
@@ -72,7 +72,7 @@
       "id": "unbound.milestone-gate",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-07-31T21:01:41.156842Z",
+      "last_proved_at": "2026-07-31T21:44:59.966151Z",
       "name": "Unbound milestone gate smoke",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_milestone_gate_smoke; r=builtin_milestone_gate_smoke(); assert r['ok']\"",
       "source_milestone": null,
@@ -81,7 +81,7 @@
         "bootstrap",
         "unbound"
       ],
-      "updated_at": "2026-07-31T21:02:28.318045Z"
+      "updated_at": "2026-07-31T21:45:44.220886Z"
     }
   },
   "ok": true,
@@ -92,6 +92,6 @@
     "unbound.milestone-gate"
   ],
   "schema_version": 1,
-  "source_ledger_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T203844Z-3ce591f5\\capabilities\\ledger.json",
+  "source_ledger_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T213355Z-6b7b4e55\\capabilities\\ledger.json",
   "used_skill_route_discovery": false
 }

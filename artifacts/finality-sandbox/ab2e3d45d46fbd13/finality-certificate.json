@@ -1,0 +1,29 @@
+{
+  "agreeing_count": 2,
+  "byzantine_count": 1,
+  "certificate_hash": "a6420575926c2640e17ccef7",
+  "claims": {
+    "epoch_index": 2,
+    "member_count": 3,
+    "plane": "finality",
+    "roots": [
+      "repo.import-health",
+      "capability.ledger-inventory",
+      "unbound.milestone-gate"
+    ]
+  },
+  "epoch_hash": "c648f3dd5dd3d9c78c59b502",
+  "epoch_height": 2,
+  "goal": "epoch finality over quorum consensus (epoch 2)",
+  "irreversible": true,
+  "issued_at": "2026-07-31T21:45:28.271876Z",
+  "kind": "finality_certificate",
+  "lineage_head_hash": "a6f23e47ce55181c1bb7f20c",
+  "ok": true,
+  "origin_count": 3,
+  "package_hash": "f0304f9608e3d2b8",
+  "parent_epoch_hash": "cf8bf330deb238b9cf4b669b",
+  "quorum_hash": "012fc5955ee47951c82c3aff",
+  "schema_version": 1,
+  "used_skill_route_discovery": false
+}
