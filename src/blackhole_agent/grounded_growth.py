@@ -48,8 +48,8 @@ DEFAULT_FIXTURE = "tests/fixtures/grounded_scan_payload.json"
 # The first keyword that matches a repository decides its primary surface;
 # every matched term is still recorded as evidence.
 SURFACE_KEYWORDS: tuple[tuple[str, str, str], ...] = (
-    ("eval", "src/blackhole_agent/harness_eval.py", "evaluation and benchmarking harness"),
-    ("benchmark", "src/blackhole_agent/harness_eval.py", "evaluation and benchmarking harness"),
+    ("eval", "src/blackhole_agent/capability_compounder.py", "capability proof and evaluation substrate"),
+    ("benchmark", "src/blackhole_agent/capability_compounder.py", "capability proof and evaluation substrate"),
     ("memory", "src/blackhole_agent/local_memory.py", "durable agent memory"),
     ("rag", "src/blackhole_agent/local_memory.py", "durable agent memory"),
     ("mcp", "src/blackhole_agent/tool_routing.py", "tool exposure and routing"),
@@ -63,7 +63,7 @@ SURFACE_KEYWORDS: tuple[tuple[str, str, str], ...] = (
     ("supply-chain", "src/blackhole_agent/ci_security.py", "CI and supply-chain security"),
     ("security", "src/blackhole_agent/ci_security.py", "CI and supply-chain security"),
     ("triage", "src/blackhole_agent/issue_triage.py", "issue and signal triage"),
-    ("skill", "src/blackhole_agent/skill_routing.py", "skill routing"),
+    ("skill", "src/blackhole_agent/evolution_route.py", "evolution surface routing"),
     ("agent", "src/blackhole_agent/unbound.py", "long-horizon agent runtime"),
 )
 FALLBACK_SURFACE = ("src/blackhole_agent/grounded_growth.py", "grounded growth scouting")

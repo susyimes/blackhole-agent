@@ -4,84 +4,13 @@
   "byzantine_count": 1,
   "certificate_count": 4,
   "certificates": {
-    "4ac1b6f32d94e48867c63a20": {
-      "certificate_hash": "4ac1b6f32d94e48867c63a20",
-      "epoch_height": 1,
-      "payload": {
-        "agreeing_count": 2,
-        "byzantine_count": 1,
-        "certificate_hash": "4ac1b6f32d94e48867c63a20",
-        "claims": {
-          "epoch_index": 1,
-          "member_count": 3,
-          "plane": "finality",
-          "roots": [
-            "repo.import-health",
-            "capability.ledger-inventory",
-            "unbound.milestone-gate"
-          ]
-        },
-        "epoch_hash": "1700fac74b7d11de835ecaf5",
-        "epoch_height": 1,
-        "goal": "epoch finality over quorum consensus (epoch 1)",
-        "irreversible": true,
-        "issued_at": "2026-07-31T22:24:19.909672Z",
-        "kind": "finality_certificate",
-        "lineage_head_hash": "fe42f28e91fe0f1387ac99ea",
-        "ok": true,
-        "origin_count": 3,
-        "package_hash": "066545df3053adf5",
-        "parent_epoch_hash": "",
-        "quorum_hash": "88fa13264f95ee8b015d8aca",
-        "schema_version": 1,
-        "used_skill_route_discovery": false
-      }
-    },
-    "781006d7b783866f90e82f6d": {
-      "certificate_hash": "781006d7b783866f90e82f6d",
-      "epoch_height": 2,
-      "kind": "quorum_certificate",
-      "payload": {
-        "agreeing_count": 2,
-        "agreeing_origins": [
-          "origin-a",
-          "origin-b"
-        ],
-        "byzantine_count": 1,
-        "byzantine_origins": [
-          "origin-byzantine"
-        ],
-        "certificate_hash": "781006d7b783866f90e82f6d",
-        "claims": {
-          "finality_progress": true,
-          "prior_quorum_hash": "88fa13264f95ee8b015d8aca",
-          "progress_tag": "epoch-progress-2"
-        },
-        "goal": "epoch finality over quorum consensus (progress 2)",
-        "issued_at": "2026-07-31T22:24:19.909875Z",
-        "kind": "quorum_certificate",
-        "lineage_head_hash": "ef87dafb7dc0db936b0dbeb7",
-        "member_count": 3,
-        "ok": true,
-        "origin_count": 3,
-        "origin_hashes": [
-          "f81097ee087fb1b5ffaee46e",
-          "6904d84d15e3b222aedde2c5",
-          "483013bf255bf2dbf4cc284e"
-        ],
-        "package_hash": "093b268958c1ce61",
-        "schema_version": 1,
-        "threshold": 2,
-        "used_skill_route_discovery": false
-      }
-    },
-    "7abb320e7b5875e1f1f16fb7": {
-      "certificate_hash": "7abb320e7b5875e1f1f16fb7",
+    "5f686e15f5c5bfa4eaa8be64": {
+      "certificate_hash": "5f686e15f5c5bfa4eaa8be64",
       "epoch_height": 2,
       "payload": {
         "agreeing_count": 2,
         "byzantine_count": 1,
-        "certificate_hash": "7abb320e7b5875e1f1f16fb7",
+        "certificate_hash": "5f686e15f5c5bfa4eaa8be64",
         "claims": {
           "epoch_index": 2,
           "member_count": 3,
@@ -92,24 +21,62 @@
             "unbound.milestone-gate"
           ]
         },
-        "epoch_hash": "07fd481d63e334c50c23db33",
+        "epoch_hash": "7ad5efe7e48cb5fd9f0da84e",
         "epoch_height": 2,
         "goal": "epoch finality over quorum consensus (epoch 2)",
         "irreversible": true,
-        "issued_at": "2026-07-31T22:24:19.910246Z",
+        "issued_at": "2026-07-31T22:49:06.979239Z",
         "kind": "finality_certificate",
-        "lineage_head_hash": "ef87dafb7dc0db936b0dbeb7",
+        "lineage_head_hash": "3977c9cc2a73d0f251381de6",
         "ok": true,
         "origin_count": 3,
-        "package_hash": "093b268958c1ce61",
-        "parent_epoch_hash": "1700fac74b7d11de835ecaf5",
-        "quorum_hash": "68bce16994fb60d4630e42bd",
+        "package_hash": "337e6202bcd0447f",
+        "parent_epoch_hash": "02830f3f95e66db084c3ea88",
+        "quorum_hash": "163c2c2082757d00494857c7",
         "schema_version": 1,
         "used_skill_route_discovery": false
       }
     },
-    "b0080b3c6590400d4d3d4c5c": {
-      "certificate_hash": "b0080b3c6590400d4d3d4c5c",
+    "6086f11129bc7d9d6b000ef9": {
+      "certificate_hash": "6086f11129bc7d9d6b000ef9",
+      "epoch_height": 2,
+      "kind": "quorum_certificate",
+      "payload": {
+        "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "byzantine_count": 1,
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "certificate_hash": "6086f11129bc7d9d6b000ef9",
+        "claims": {
+          "finality_progress": true,
+          "prior_quorum_hash": "ae71a480d1e1d76ecd74cec2",
+          "progress_tag": "epoch-progress-2"
+        },
+        "goal": "epoch finality over quorum consensus (progress 2)",
+        "issued_at": "2026-07-31T22:49:06.978854Z",
+        "kind": "quorum_certificate",
+        "lineage_head_hash": "3977c9cc2a73d0f251381de6",
+        "member_count": 3,
+        "ok": true,
+        "origin_count": 3,
+        "origin_hashes": [
+          "4d17aa798dde24168ca338cb",
+          "d92c2e4bce23dff70041a584",
+          "631f1b385fc32db11d3b871f"
+        ],
+        "package_hash": "337e6202bcd0447f",
+        "schema_version": 1,
+        "threshold": 2,
+        "used_skill_route_discovery": false
+      }
+    },
+    "8f0d00de15d81528e1ceb68e": {
+      "certificate_hash": "8f0d00de15d81528e1ceb68e",
       "epoch_height": 1,
       "kind": "quorum_certificate",
       "payload": {
@@ -122,7 +89,7 @@
         "byzantine_origins": [
           "origin-byzantine"
         ],
-        "certificate_hash": "b0080b3c6590400d4d3d4c5c",
+        "certificate_hash": "8f0d00de15d81528e1ceb68e",
         "claims": {
           "origin_ids": [
             "origin-a",
@@ -137,20 +104,53 @@
           "votes_accepted": 3
         },
         "goal": "epoch finality over quorum consensus",
-        "issued_at": "2026-07-31T22:24:19.278272Z",
+        "issued_at": "2026-07-31T22:49:06.497471Z",
         "kind": "quorum_certificate",
-        "lineage_head_hash": "fe42f28e91fe0f1387ac99ea",
+        "lineage_head_hash": "33f6634ba19cdb2f80374101",
         "member_count": 3,
         "ok": true,
         "origin_count": 3,
         "origin_hashes": [
-          "f81097ee087fb1b5ffaee46e",
-          "6904d84d15e3b222aedde2c5",
-          "483013bf255bf2dbf4cc284e"
+          "4d17aa798dde24168ca338cb",
+          "d92c2e4bce23dff70041a584",
+          "631f1b385fc32db11d3b871f"
         ],
         "package_hash": "066545df3053adf5",
         "schema_version": 1,
         "threshold": 2,
+        "used_skill_route_discovery": false
+      }
+    },
+    "b067ecebbb611f63ce613e87": {
+      "certificate_hash": "b067ecebbb611f63ce613e87",
+      "epoch_height": 1,
+      "payload": {
+        "agreeing_count": 2,
+        "byzantine_count": 1,
+        "certificate_hash": "b067ecebbb611f63ce613e87",
+        "claims": {
+          "epoch_index": 1,
+          "member_count": 3,
+          "plane": "finality",
+          "roots": [
+            "repo.import-health",
+            "capability.ledger-inventory",
+            "unbound.milestone-gate"
+          ]
+        },
+        "epoch_hash": "02830f3f95e66db084c3ea88",
+        "epoch_height": 1,
+        "goal": "epoch finality over quorum consensus (epoch 1)",
+        "irreversible": true,
+        "issued_at": "2026-07-31T22:49:06.978632Z",
+        "kind": "finality_certificate",
+        "lineage_head_hash": "33f6634ba19cdb2f80374101",
+        "ok": true,
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "parent_epoch_hash": "",
+        "quorum_hash": "ae71a480d1e1d76ecd74cec2",
+        "schema_version": 1,
         "used_skill_route_discovery": false
       }
     }
@@ -172,12 +172,12 @@
           "epoch_index": 1,
           "plane": "finality"
         },
-        "epoch_hash": "1700fac74b7d11de835ecaf5",
+        "epoch_hash": "02830f3f95e66db084c3ea88",
         "epoch_height": 1,
         "finality_certificate": {
           "agreeing_count": 2,
           "byzantine_count": 1,
-          "certificate_hash": "4ac1b6f32d94e48867c63a20",
+          "certificate_hash": "b067ecebbb611f63ce613e87",
           "claims": {
             "epoch_index": 1,
             "member_count": 3,
@@ -188,22 +188,22 @@
               "unbound.milestone-gate"
             ]
           },
-          "epoch_hash": "1700fac74b7d11de835ecaf5",
+          "epoch_hash": "02830f3f95e66db084c3ea88",
           "epoch_height": 1,
           "goal": "epoch finality over quorum consensus (epoch 1)",
           "irreversible": true,
-          "issued_at": "2026-07-31T22:24:19.909672Z",
+          "issued_at": "2026-07-31T22:49:06.978632Z",
           "kind": "finality_certificate",
-          "lineage_head_hash": "fe42f28e91fe0f1387ac99ea",
+          "lineage_head_hash": "33f6634ba19cdb2f80374101",
           "ok": true,
           "origin_count": 3,
           "package_hash": "066545df3053adf5",
           "parent_epoch_hash": "",
-          "quorum_hash": "88fa13264f95ee8b015d8aca",
+          "quorum_hash": "ae71a480d1e1d76ecd74cec2",
           "schema_version": 1,
           "used_skill_route_discovery": false
         },
-        "finalized_at": "2026-07-31T22:24:19.909583Z",
+        "finalized_at": "2026-07-31T22:49:06.978533Z",
         "goal": "epoch finality over quorum consensus (epoch 1)",
         "irreversible": true,
         "kind": "finality_epoch",
@@ -224,7 +224,7 @@
               "detail": {
                 "origins": [
                   {
-                    "bundle_hash": "f81097ee087fb1b5ffaee46e",
+                    "bundle_hash": "4d17aa798dde24168ca338cb",
                     "byzantine": false,
                     "lineage_entry_count": 2,
                     "lineage_head_hash": "e89e0552f5c8501433c0091b",
@@ -233,30 +233,30 @@
                     "package_hash": "7878a785b9718369"
                   },
                   {
-                    "bundle_hash": "6904d84d15e3b222aedde2c5",
+                    "bundle_hash": "d92c2e4bce23dff70041a584",
                     "byzantine": false,
                     "lineage_entry_count": 2,
-                    "lineage_head_hash": "87a3802090a1fb3094eb886b",
+                    "lineage_head_hash": "229444b925770d00b8b93f1e",
                     "member_count": 2,
                     "origin_id": "origin-b",
                     "package_hash": "8ece9182045d973a"
                   },
                   {
-                    "bundle_hash": "483013bf255bf2dbf4cc284e",
+                    "bundle_hash": "631f1b385fc32db11d3b871f",
                     "byzantine": true,
                     "lineage_entry_count": 2,
-                    "lineage_head_hash": "e298332dd81832e4c757da8b",
+                    "lineage_head_hash": "ecb091ab07378693c4b7a615",
                     "member_count": 3,
                     "origin_id": "origin-byzantine",
                     "package_hash": "7d88f7661e8407af"
                   }
                 ]
               },
-              "entry_hash": "8b017eba1c479611af238fa8",
+              "entry_hash": "8b1352208218ad50e99dc3ca",
               "entry_kind": "quorum_origin_manifest",
               "goal": "epoch finality over quorum consensus",
               "index": 0,
-              "issued_at": "2026-07-31T22:24:19.278140Z",
+              "issued_at": "2026-07-31T22:49:06.497326Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -281,15 +281,15 @@
               "detail": {
                 "origin_heads": [
                   "e89e0552f5c8501433c0091b",
-                  "87a3802090a1fb3094eb886b",
-                  "e298332dd81832e4c757da8b"
+                  "229444b925770d00b8b93f1e",
+                  "ecb091ab07378693c4b7a615"
                 ]
               },
-              "entry_hash": "e94b304132ebb302c33cb848",
+              "entry_hash": "72d79bb0e13d75437749399f",
               "entry_kind": "quorum_vote",
               "goal": "epoch finality over quorum consensus",
               "index": 1,
-              "issued_at": "2026-07-31T22:24:19.278161Z",
+              "issued_at": "2026-07-31T22:49:06.497357Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -297,7 +297,7 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "8b017eba1c479611af238fa8"
+              "parent_hash": "8b1352208218ad50e99dc3ca"
             },
             {
               "certificate_hash": "",
@@ -314,11 +314,11 @@
                   "origin-byzantine"
                 ]
               },
-              "entry_hash": "2a0d19e4dd01ee5214e1e208",
+              "entry_hash": "3293d0fb62d5da9c9aaafcd2",
               "entry_kind": "quorum_byzantine_exclude",
               "goal": "epoch finality over quorum consensus",
               "index": 2,
-              "issued_at": "2026-07-31T22:24:19.278174Z",
+              "issued_at": "2026-07-31T22:49:06.497371Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -326,7 +326,7 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "e94b304132ebb302c33cb848"
+              "parent_hash": "72d79bb0e13d75437749399f"
             },
             {
               "certificate_hash": "",
@@ -346,16 +346,16 @@
                   "origin-byzantine"
                 ],
                 "origin_bundle_hashes": [
-                  "f81097ee087fb1b5ffaee46e",
-                  "6904d84d15e3b222aedde2c5",
-                  "483013bf255bf2dbf4cc284e"
+                  "4d17aa798dde24168ca338cb",
+                  "d92c2e4bce23dff70041a584",
+                  "631f1b385fc32db11d3b871f"
                 ]
               },
-              "entry_hash": "fe42f28e91fe0f1387ac99ea",
+              "entry_hash": "33f6634ba19cdb2f80374101",
               "entry_kind": "quorum_seal",
               "goal": "epoch finality over quorum consensus",
               "index": 3,
-              "issued_at": "2026-07-31T22:24:19.278186Z",
+              "issued_at": "2026-07-31T22:49:06.497383Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -363,16 +363,16 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "2a0d19e4dd01ee5214e1e208"
+              "parent_hash": "3293d0fb62d5da9c9aaafcd2"
             }
           ],
           "entry_count": 4,
-          "head_hash": "fe42f28e91fe0f1387ac99ea",
+          "head_hash": "33f6634ba19cdb2f80374101",
           "kind": "capability_lineage",
           "schema_version": 1,
-          "updated_at": "2026-07-31T22:24:19.278196Z"
+          "updated_at": "2026-07-31T22:49:06.497394Z"
         },
-        "lineage_head_hash": "fe42f28e91fe0f1387ac99ea",
+        "lineage_head_hash": "33f6634ba19cdb2f80374101",
         "member_count": 3,
         "ok": true,
         "origin_count": 3,
@@ -385,7 +385,7 @@
           "byzantine_origins": [
             "origin-byzantine"
           ],
-          "exported_at": "2026-07-31T22:24:19.278112Z",
+          "exported_at": "2026-07-31T22:49:06.497298Z",
           "federated": true,
           "member_count": 3,
           "member_ids": [
@@ -422,7 +422,7 @@
               "id": "capability.ledger-inventory",
               "kind": "python",
               "last_proof_exit_code": 0,
-              "last_proved_at": "2026-07-31T22:23:50.832532Z",
+              "last_proved_at": "2026-07-31T22:48:38.102569Z",
               "name": "Capability ledger inventory",
               "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_ledger_inventory; r=builtin_ledger_inventory(); assert r['ok'] and r['count'] >= 2\"",
               "source_milestone": null,
@@ -431,7 +431,7 @@
                 "bootstrap",
                 "compounder"
               ],
-              "updated_at": "2026-07-31T22:24:19.254731Z"
+              "updated_at": "2026-07-31T22:49:06.474037Z"
             },
             "repo.import-health": {
               "behavior_paths": [
@@ -446,7 +446,7 @@
               "id": "repo.import-health",
               "kind": "python",
               "last_proof_exit_code": 0,
-              "last_proved_at": "2026-07-31T22:24:17.178792Z",
+              "last_proved_at": "2026-07-31T22:49:04.677357Z",
               "name": "Repository import health",
               "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_repo_import_health; r=builtin_repo_import_health(); assert r['ok'] and not r['skill_route_symbols_in_compounder']\"",
               "source_milestone": null,
@@ -455,7 +455,7 @@
                 "bootstrap",
                 "health"
               ],
-              "updated_at": "2026-07-31T22:24:19.254581Z"
+              "updated_at": "2026-07-31T22:49:06.473898Z"
             },
             "unbound.milestone-gate": {
               "behavior_paths": [
@@ -471,7 +471,7 @@
               "id": "unbound.milestone-gate",
               "kind": "python",
               "last_proof_exit_code": 0,
-              "last_proved_at": "2026-07-31T22:23:51.059477Z",
+              "last_proved_at": "2026-07-31T22:48:38.288244Z",
               "name": "Unbound milestone gate smoke",
               "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_milestone_gate_smoke; r=builtin_milestone_gate_smoke(); assert r['ok']\"",
               "source_milestone": null,
@@ -480,7 +480,7 @@
                 "bootstrap",
                 "unbound"
               ],
-              "updated_at": "2026-07-31T22:24:19.254667Z"
+              "updated_at": "2026-07-31T22:49:06.473975Z"
             }
           },
           "ok": true,
@@ -508,7 +508,7 @@
           "byzantine_origins": [
             "origin-byzantine"
           ],
-          "certificate_hash": "b0080b3c6590400d4d3d4c5c",
+          "certificate_hash": "8f0d00de15d81528e1ceb68e",
           "claims": {
             "origin_ids": [
               "origin-a",
@@ -523,23 +523,23 @@
             "votes_accepted": 3
           },
           "goal": "epoch finality over quorum consensus",
-          "issued_at": "2026-07-31T22:24:19.278272Z",
+          "issued_at": "2026-07-31T22:49:06.497471Z",
           "kind": "quorum_certificate",
-          "lineage_head_hash": "fe42f28e91fe0f1387ac99ea",
+          "lineage_head_hash": "33f6634ba19cdb2f80374101",
           "member_count": 3,
           "ok": true,
           "origin_count": 3,
           "origin_hashes": [
-            "f81097ee087fb1b5ffaee46e",
-            "6904d84d15e3b222aedde2c5",
-            "483013bf255bf2dbf4cc284e"
+            "4d17aa798dde24168ca338cb",
+            "d92c2e4bce23dff70041a584",
+            "631f1b385fc32db11d3b871f"
           ],
           "package_hash": "066545df3053adf5",
           "schema_version": 1,
           "threshold": 2,
           "used_skill_route_discovery": false
         },
-        "quorum_hash": "88fa13264f95ee8b015d8aca",
+        "quorum_hash": "ae71a480d1e1d76ecd74cec2",
         "schema_version": 1,
         "used_skill_route_discovery": false
       },
@@ -557,12 +557,12 @@
           "epoch_index": 2,
           "plane": "finality"
         },
-        "epoch_hash": "07fd481d63e334c50c23db33",
+        "epoch_hash": "7ad5efe7e48cb5fd9f0da84e",
         "epoch_height": 2,
         "finality_certificate": {
           "agreeing_count": 2,
           "byzantine_count": 1,
-          "certificate_hash": "7abb320e7b5875e1f1f16fb7",
+          "certificate_hash": "5f686e15f5c5bfa4eaa8be64",
           "claims": {
             "epoch_index": 2,
             "member_count": 3,
@@ -573,22 +573,22 @@
               "unbound.milestone-gate"
             ]
           },
-          "epoch_hash": "07fd481d63e334c50c23db33",
+          "epoch_hash": "7ad5efe7e48cb5fd9f0da84e",
           "epoch_height": 2,
           "goal": "epoch finality over quorum consensus (epoch 2)",
           "irreversible": true,
-          "issued_at": "2026-07-31T22:24:19.910246Z",
+          "issued_at": "2026-07-31T22:49:06.979239Z",
           "kind": "finality_certificate",
-          "lineage_head_hash": "ef87dafb7dc0db936b0dbeb7",
+          "lineage_head_hash": "3977c9cc2a73d0f251381de6",
           "ok": true,
           "origin_count": 3,
-          "package_hash": "093b268958c1ce61",
-          "parent_epoch_hash": "1700fac74b7d11de835ecaf5",
-          "quorum_hash": "68bce16994fb60d4630e42bd",
+          "package_hash": "337e6202bcd0447f",
+          "parent_epoch_hash": "02830f3f95e66db084c3ea88",
+          "quorum_hash": "163c2c2082757d00494857c7",
           "schema_version": 1,
           "used_skill_route_discovery": false
         },
-        "finalized_at": "2026-07-31T22:24:19.910179Z",
+        "finalized_at": "2026-07-31T22:49:06.979174Z",
         "goal": "epoch finality over quorum consensus (epoch 2)",
         "irreversible": true,
         "kind": "finality_epoch",
@@ -609,7 +609,7 @@
               "detail": {
                 "origins": [
                   {
-                    "bundle_hash": "f81097ee087fb1b5ffaee46e",
+                    "bundle_hash": "4d17aa798dde24168ca338cb",
                     "byzantine": false,
                     "lineage_entry_count": 2,
                     "lineage_head_hash": "e89e0552f5c8501433c0091b",
@@ -618,30 +618,30 @@
                     "package_hash": "7878a785b9718369"
                   },
                   {
-                    "bundle_hash": "6904d84d15e3b222aedde2c5",
+                    "bundle_hash": "d92c2e4bce23dff70041a584",
                     "byzantine": false,
                     "lineage_entry_count": 2,
-                    "lineage_head_hash": "87a3802090a1fb3094eb886b",
+                    "lineage_head_hash": "229444b925770d00b8b93f1e",
                     "member_count": 2,
                     "origin_id": "origin-b",
                     "package_hash": "8ece9182045d973a"
                   },
                   {
-                    "bundle_hash": "483013bf255bf2dbf4cc284e",
+                    "bundle_hash": "631f1b385fc32db11d3b871f",
                     "byzantine": true,
                     "lineage_entry_count": 2,
-                    "lineage_head_hash": "e298332dd81832e4c757da8b",
+                    "lineage_head_hash": "ecb091ab07378693c4b7a615",
                     "member_count": 3,
                     "origin_id": "origin-byzantine",
                     "package_hash": "7d88f7661e8407af"
                   }
                 ]
               },
-              "entry_hash": "8b017eba1c479611af238fa8",
+              "entry_hash": "8b1352208218ad50e99dc3ca",
               "entry_kind": "quorum_origin_manifest",
               "goal": "epoch finality over quorum consensus",
               "index": 0,
-              "issued_at": "2026-07-31T22:24:19.278140Z",
+              "issued_at": "2026-07-31T22:49:06.497326Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -666,15 +666,15 @@
               "detail": {
                 "origin_heads": [
                   "e89e0552f5c8501433c0091b",
-                  "87a3802090a1fb3094eb886b",
-                  "e298332dd81832e4c757da8b"
+                  "229444b925770d00b8b93f1e",
+                  "ecb091ab07378693c4b7a615"
                 ]
               },
-              "entry_hash": "e94b304132ebb302c33cb848",
+              "entry_hash": "72d79bb0e13d75437749399f",
               "entry_kind": "quorum_vote",
               "goal": "epoch finality over quorum consensus",
               "index": 1,
-              "issued_at": "2026-07-31T22:24:19.278161Z",
+              "issued_at": "2026-07-31T22:49:06.497357Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -682,7 +682,7 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "8b017eba1c479611af238fa8"
+              "parent_hash": "8b1352208218ad50e99dc3ca"
             },
             {
               "certificate_hash": "",
@@ -699,11 +699,11 @@
                   "origin-byzantine"
                 ]
               },
-              "entry_hash": "2a0d19e4dd01ee5214e1e208",
+              "entry_hash": "3293d0fb62d5da9c9aaafcd2",
               "entry_kind": "quorum_byzantine_exclude",
               "goal": "epoch finality over quorum consensus",
               "index": 2,
-              "issued_at": "2026-07-31T22:24:19.278174Z",
+              "issued_at": "2026-07-31T22:49:06.497371Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -711,7 +711,7 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "e94b304132ebb302c33cb848"
+              "parent_hash": "72d79bb0e13d75437749399f"
             },
             {
               "certificate_hash": "",
@@ -731,16 +731,16 @@
                   "origin-byzantine"
                 ],
                 "origin_bundle_hashes": [
-                  "f81097ee087fb1b5ffaee46e",
-                  "6904d84d15e3b222aedde2c5",
-                  "483013bf255bf2dbf4cc284e"
+                  "4d17aa798dde24168ca338cb",
+                  "d92c2e4bce23dff70041a584",
+                  "631f1b385fc32db11d3b871f"
                 ]
               },
-              "entry_hash": "fe42f28e91fe0f1387ac99ea",
+              "entry_hash": "33f6634ba19cdb2f80374101",
               "entry_kind": "quorum_seal",
               "goal": "epoch finality over quorum consensus",
               "index": 3,
-              "issued_at": "2026-07-31T22:24:19.278186Z",
+              "issued_at": "2026-07-31T22:49:06.497383Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -748,23 +748,23 @@
                 "proved_ratio": null
               },
               "package_hash": "066545df3053adf5",
-              "parent_hash": "2a0d19e4dd01ee5214e1e208"
+              "parent_hash": "3293d0fb62d5da9c9aaafcd2"
             },
             {
               "certificate_hash": "",
               "certificate_path": "",
               "claims": {
-                "prior_lineage_head": "fe42f28e91fe0f1387ac99ea",
+                "prior_lineage_head": "33f6634ba19cdb2f80374101",
                 "prior_package_hash": "066545df3053adf5",
-                "prior_quorum_hash": "88fa13264f95ee8b015d8aca",
+                "prior_quorum_hash": "ae71a480d1e1d76ecd74cec2",
                 "progress_tag": "epoch-progress-2"
               },
               "detail": {},
-              "entry_hash": "ef87dafb7dc0db936b0dbeb7",
+              "entry_hash": "3977c9cc2a73d0f251381de6",
               "entry_kind": "finality_epoch_progress",
               "goal": "epoch finality over quorum consensus (progress 2)",
               "index": 4,
-              "issued_at": "2026-07-31T22:24:19.909840Z",
+              "issued_at": "2026-07-31T22:49:06.978815Z",
               "metrics": {
                 "count": null,
                 "primitive_count": null,
@@ -772,16 +772,16 @@
                 "proved_ratio": null
               },
               "package_hash": "",
-              "parent_hash": "fe42f28e91fe0f1387ac99ea"
+              "parent_hash": "33f6634ba19cdb2f80374101"
             }
           ],
           "entry_count": 5,
-          "head_hash": "ef87dafb7dc0db936b0dbeb7",
+          "head_hash": "3977c9cc2a73d0f251381de6",
           "kind": "capability_lineage",
           "schema_version": 1,
-          "updated_at": "2026-07-31T22:24:19.909856Z"
+          "updated_at": "2026-07-31T22:49:06.978834Z"
         },
-        "lineage_head_hash": "ef87dafb7dc0db936b0dbeb7",
+        "lineage_head_hash": "3977c9cc2a73d0f251381de6",
         "member_count": 3,
         "ok": true,
         "origin_count": 3,
@@ -794,7 +794,7 @@
           "byzantine_origins": [
             "origin-byzantine"
           ],
-          "exported_at": "2026-07-31T22:24:19.278112Z",
+          "exported_at": "2026-07-31T22:49:06.497298Z",
           "federated": true,
           "member_count": 3,
           "member_ids": [
@@ -831,7 +831,7 @@
               "id": "capability.ledger-inventory",
               "kind": "python",
               "last_proof_exit_code": 0,
-              "last_proved_at": "2026-07-31T22:23:50.832532Z",
+              "last_proved_at": "2026-07-31T22:48:38.102569Z",
               "name": "Capability ledger inventory",
               "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_ledger_inventory; r=builtin_ledger_inventory(); assert r['ok'] and r['count'] >= 2\"",
               "source_milestone": null,
@@ -840,7 +840,7 @@
                 "bootstrap",
                 "compounder"
               ],
-              "updated_at": "2026-07-31T22:24:19.254731Z"
+              "updated_at": "2026-07-31T22:49:06.474037Z"
             },
             "repo.import-health": {
               "behavior_paths": [
@@ -855,7 +855,7 @@
               "id": "repo.import-health",
               "kind": "python",
               "last_proof_exit_code": 0,
-              "last_proved_at": "2026-07-31T22:24:17.178792Z",
+              "last_proved_at": "2026-07-31T22:49:04.677357Z",
               "name": "Repository import health",
               "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_repo_import_health; r=builtin_repo_import_health(); assert r['ok'] and not r['skill_route_symbols_in_compounder']\"",
               "source_milestone": null,
@@ -864,7 +864,7 @@
                 "bootstrap",
                 "health"
               ],
-              "updated_at": "2026-07-31T22:24:19.254581Z"
+              "updated_at": "2026-07-31T22:49:06.473898Z"
             },
             "unbound.milestone-gate": {
               "behavior_paths": [
@@ -880,7 +880,7 @@
               "id": "unbound.milestone-gate",
               "kind": "python",
               "last_proof_exit_code": 0,
-              "last_proved_at": "2026-07-31T22:23:51.059477Z",
+              "last_proved_at": "2026-07-31T22:48:38.288244Z",
               "name": "Unbound milestone gate smoke",
               "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_milestone_gate_smoke; r=builtin_milestone_gate_smoke(); assert r['ok']\"",
               "source_milestone": null,
@@ -889,12 +889,12 @@
                 "bootstrap",
                 "unbound"
               ],
-              "updated_at": "2026-07-31T22:24:19.254667Z"
+              "updated_at": "2026-07-31T22:49:06.473975Z"
             }
           },
           "ok": true,
-          "package_hash": "093b268958c1ce61",
-          "progress_at": "2026-07-31T22:24:19.909858Z",
+          "package_hash": "337e6202bcd0447f",
+          "progress_at": "2026-07-31T22:49:06.978837Z",
           "progress_tag": "epoch-progress-2",
           "quorum": true,
           "quorum_threshold": 2,
@@ -907,8 +907,8 @@
           "source_ledger_path": "quorum-merge",
           "used_skill_route_discovery": false
         },
-        "package_hash": "093b268958c1ce61",
-        "parent_epoch_hash": "1700fac74b7d11de835ecaf5",
+        "package_hash": "337e6202bcd0447f",
+        "parent_epoch_hash": "02830f3f95e66db084c3ea88",
         "quorum_certificate": {
           "agreeing_count": 2,
           "agreeing_origins": [
@@ -919,30 +919,30 @@
           "byzantine_origins": [
             "origin-byzantine"
           ],
-          "certificate_hash": "781006d7b783866f90e82f6d",
+          "certificate_hash": "6086f11129bc7d9d6b000ef9",
           "claims": {
             "finality_progress": true,
-            "prior_quorum_hash": "88fa13264f95ee8b015d8aca",
+            "prior_quorum_hash": "ae71a480d1e1d76ecd74cec2",
             "progress_tag": "epoch-progress-2"
           },
           "goal": "epoch finality over quorum consensus (progress 2)",
-          "issued_at": "2026-07-31T22:24:19.909875Z",
+          "issued_at": "2026-07-31T22:49:06.978854Z",
           "kind": "quorum_certificate",
-          "lineage_head_hash": "ef87dafb7dc0db936b0dbeb7",
+          "lineage_head_hash": "3977c9cc2a73d0f251381de6",
           "member_count": 3,
           "ok": true,
           "origin_count": 3,
           "origin_hashes": [
-            "f81097ee087fb1b5ffaee46e",
-            "6904d84d15e3b222aedde2c5",
-            "483013bf255bf2dbf4cc284e"
+            "4d17aa798dde24168ca338cb",
+            "d92c2e4bce23dff70041a584",
+            "631f1b385fc32db11d3b871f"
           ],
-          "package_hash": "093b268958c1ce61",
+          "package_hash": "337e6202bcd0447f",
           "schema_version": 1,
           "threshold": 2,
           "used_skill_route_discovery": false
         },
-        "quorum_hash": "68bce16994fb60d4630e42bd",
+        "quorum_hash": "163c2c2082757d00494857c7",
         "schema_version": 1,
         "used_skill_route_discovery": false
       }
@@ -950,14 +950,14 @@
     "entry_count": 2,
     "kind": "finality_epoch_log",
     "schema_version": 1,
-    "tip_hash": "07fd481d63e334c50c23db33",
+    "tip_hash": "7ad5efe7e48cb5fd9f0da84e",
     "tip_height": 2,
-    "updated_at": "2026-07-31T22:24:19.910263Z"
+    "updated_at": "2026-07-31T22:49:06.979257Z"
   },
   "finality_certificate": {
     "agreeing_count": 2,
     "byzantine_count": 1,
-    "certificate_hash": "7abb320e7b5875e1f1f16fb7",
+    "certificate_hash": "5f686e15f5c5bfa4eaa8be64",
     "claims": {
       "epoch_index": 2,
       "member_count": 3,
@@ -968,22 +968,22 @@
         "unbound.milestone-gate"
       ]
     },
-    "epoch_hash": "07fd481d63e334c50c23db33",
+    "epoch_hash": "7ad5efe7e48cb5fd9f0da84e",
     "epoch_height": 2,
     "goal": "epoch finality over quorum consensus (epoch 2)",
     "irreversible": true,
-    "issued_at": "2026-07-31T22:24:19.910246Z",
+    "issued_at": "2026-07-31T22:49:06.979239Z",
     "kind": "finality_certificate",
-    "lineage_head_hash": "ef87dafb7dc0db936b0dbeb7",
+    "lineage_head_hash": "3977c9cc2a73d0f251381de6",
     "ok": true,
     "origin_count": 3,
-    "package_hash": "093b268958c1ce61",
-    "parent_epoch_hash": "1700fac74b7d11de835ecaf5",
-    "quorum_hash": "68bce16994fb60d4630e42bd",
+    "package_hash": "337e6202bcd0447f",
+    "parent_epoch_hash": "02830f3f95e66db084c3ea88",
+    "quorum_hash": "163c2c2082757d00494857c7",
     "schema_version": 1,
     "used_skill_route_discovery": false
   },
-  "finality_hash": "03827ceaf39945c72b93392d",
+  "finality_hash": "0ee95b520d6dd12933419d59",
   "goal": "epoch finality over quorum consensus",
   "irreversible": true,
   "kind": "finality_bundle",
@@ -1004,7 +1004,7 @@
         "detail": {
           "origins": [
             {
-              "bundle_hash": "f81097ee087fb1b5ffaee46e",
+              "bundle_hash": "4d17aa798dde24168ca338cb",
               "byzantine": false,
               "lineage_entry_count": 2,
               "lineage_head_hash": "e89e0552f5c8501433c0091b",
@@ -1013,30 +1013,30 @@
               "package_hash": "7878a785b9718369"
             },
             {
-              "bundle_hash": "6904d84d15e3b222aedde2c5",
+              "bundle_hash": "d92c2e4bce23dff70041a584",
               "byzantine": false,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "87a3802090a1fb3094eb886b",
+              "lineage_head_hash": "229444b925770d00b8b93f1e",
               "member_count": 2,
               "origin_id": "origin-b",
               "package_hash": "8ece9182045d973a"
             },
             {
-              "bundle_hash": "483013bf255bf2dbf4cc284e",
+              "bundle_hash": "631f1b385fc32db11d3b871f",
               "byzantine": true,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "e298332dd81832e4c757da8b",
+              "lineage_head_hash": "ecb091ab07378693c4b7a615",
               "member_count": 3,
               "origin_id": "origin-byzantine",
               "package_hash": "7d88f7661e8407af"
             }
           ]
         },
-        "entry_hash": "8b017eba1c479611af238fa8",
+        "entry_hash": "8b1352208218ad50e99dc3ca",
         "entry_kind": "quorum_origin_manifest",
         "goal": "epoch finality over quorum consensus",
         "index": 0,
-        "issued_at": "2026-07-31T22:24:19.278140Z",
+        "issued_at": "2026-07-31T22:49:06.497326Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1061,15 +1061,15 @@
         "detail": {
           "origin_heads": [
             "e89e0552f5c8501433c0091b",
-            "87a3802090a1fb3094eb886b",
-            "e298332dd81832e4c757da8b"
+            "229444b925770d00b8b93f1e",
+            "ecb091ab07378693c4b7a615"
           ]
         },
-        "entry_hash": "e94b304132ebb302c33cb848",
+        "entry_hash": "72d79bb0e13d75437749399f",
         "entry_kind": "quorum_vote",
         "goal": "epoch finality over quorum consensus",
         "index": 1,
-        "issued_at": "2026-07-31T22:24:19.278161Z",
+        "issued_at": "2026-07-31T22:49:06.497357Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1077,7 +1077,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "8b017eba1c479611af238fa8"
+        "parent_hash": "8b1352208218ad50e99dc3ca"
       },
       {
         "certificate_hash": "",
@@ -1094,11 +1094,11 @@
             "origin-byzantine"
           ]
         },
-        "entry_hash": "2a0d19e4dd01ee5214e1e208",
+        "entry_hash": "3293d0fb62d5da9c9aaafcd2",
         "entry_kind": "quorum_byzantine_exclude",
         "goal": "epoch finality over quorum consensus",
         "index": 2,
-        "issued_at": "2026-07-31T22:24:19.278174Z",
+        "issued_at": "2026-07-31T22:49:06.497371Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1106,7 +1106,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "e94b304132ebb302c33cb848"
+        "parent_hash": "72d79bb0e13d75437749399f"
       },
       {
         "certificate_hash": "",
@@ -1126,16 +1126,16 @@
             "origin-byzantine"
           ],
           "origin_bundle_hashes": [
-            "f81097ee087fb1b5ffaee46e",
-            "6904d84d15e3b222aedde2c5",
-            "483013bf255bf2dbf4cc284e"
+            "4d17aa798dde24168ca338cb",
+            "d92c2e4bce23dff70041a584",
+            "631f1b385fc32db11d3b871f"
           ]
         },
-        "entry_hash": "fe42f28e91fe0f1387ac99ea",
+        "entry_hash": "33f6634ba19cdb2f80374101",
         "entry_kind": "quorum_seal",
         "goal": "epoch finality over quorum consensus",
         "index": 3,
-        "issued_at": "2026-07-31T22:24:19.278186Z",
+        "issued_at": "2026-07-31T22:49:06.497383Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1143,23 +1143,23 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "2a0d19e4dd01ee5214e1e208"
+        "parent_hash": "3293d0fb62d5da9c9aaafcd2"
       },
       {
         "certificate_hash": "",
         "certificate_path": "",
         "claims": {
-          "prior_lineage_head": "fe42f28e91fe0f1387ac99ea",
+          "prior_lineage_head": "33f6634ba19cdb2f80374101",
           "prior_package_hash": "066545df3053adf5",
-          "prior_quorum_hash": "88fa13264f95ee8b015d8aca",
+          "prior_quorum_hash": "ae71a480d1e1d76ecd74cec2",
           "progress_tag": "epoch-progress-2"
         },
         "detail": {},
-        "entry_hash": "ef87dafb7dc0db936b0dbeb7",
+        "entry_hash": "3977c9cc2a73d0f251381de6",
         "entry_kind": "finality_epoch_progress",
         "goal": "epoch finality over quorum consensus (progress 2)",
         "index": 4,
-        "issued_at": "2026-07-31T22:24:19.909840Z",
+        "issued_at": "2026-07-31T22:49:06.978815Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1167,17 +1167,17 @@
           "proved_ratio": null
         },
         "package_hash": "",
-        "parent_hash": "fe42f28e91fe0f1387ac99ea"
+        "parent_hash": "33f6634ba19cdb2f80374101"
       }
     ],
     "entry_count": 5,
-    "head_hash": "ef87dafb7dc0db936b0dbeb7",
+    "head_hash": "3977c9cc2a73d0f251381de6",
     "kind": "capability_lineage",
     "schema_version": 1,
-    "updated_at": "2026-07-31T22:24:19.909856Z"
+    "updated_at": "2026-07-31T22:49:06.978834Z"
   },
   "lineage_entry_count": 5,
-  "lineage_head_hash": "ef87dafb7dc0db936b0dbeb7",
+  "lineage_head_hash": "3977c9cc2a73d0f251381de6",
   "member_count": 3,
   "ok": true,
   "origin_count": 3,
@@ -1190,7 +1190,7 @@
     "byzantine_origins": [
       "origin-byzantine"
     ],
-    "exported_at": "2026-07-31T22:24:19.278112Z",
+    "exported_at": "2026-07-31T22:49:06.497298Z",
     "federated": true,
     "member_count": 3,
     "member_ids": [
@@ -1227,7 +1227,7 @@
         "id": "capability.ledger-inventory",
         "kind": "python",
         "last_proof_exit_code": 0,
-        "last_proved_at": "2026-07-31T22:23:50.832532Z",
+        "last_proved_at": "2026-07-31T22:48:38.102569Z",
         "name": "Capability ledger inventory",
         "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_ledger_inventory; r=builtin_ledger_inventory(); assert r['ok'] and r['count'] >= 2\"",
         "source_milestone": null,
@@ -1236,7 +1236,7 @@
           "bootstrap",
           "compounder"
         ],
-        "updated_at": "2026-07-31T22:24:19.254731Z"
+        "updated_at": "2026-07-31T22:49:06.474037Z"
       },
       "repo.import-health": {
         "behavior_paths": [
@@ -1251,7 +1251,7 @@
         "id": "repo.import-health",
         "kind": "python",
         "last_proof_exit_code": 0,
-        "last_proved_at": "2026-07-31T22:24:17.178792Z",
+        "last_proved_at": "2026-07-31T22:49:04.677357Z",
         "name": "Repository import health",
         "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_repo_import_health; r=builtin_repo_import_health(); assert r['ok'] and not r['skill_route_symbols_in_compounder']\"",
         "source_milestone": null,
@@ -1260,7 +1260,7 @@
           "bootstrap",
           "health"
         ],
-        "updated_at": "2026-07-31T22:24:19.254581Z"
+        "updated_at": "2026-07-31T22:49:06.473898Z"
       },
       "unbound.milestone-gate": {
         "behavior_paths": [
@@ -1276,7 +1276,7 @@
         "id": "unbound.milestone-gate",
         "kind": "python",
         "last_proof_exit_code": 0,
-        "last_proved_at": "2026-07-31T22:23:51.059477Z",
+        "last_proved_at": "2026-07-31T22:48:38.288244Z",
         "name": "Unbound milestone gate smoke",
         "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_milestone_gate_smoke; r=builtin_milestone_gate_smoke(); assert r['ok']\"",
         "source_milestone": null,
@@ -1285,12 +1285,12 @@
           "bootstrap",
           "unbound"
         ],
-        "updated_at": "2026-07-31T22:24:19.254667Z"
+        "updated_at": "2026-07-31T22:49:06.473975Z"
       }
     },
     "ok": true,
-    "package_hash": "093b268958c1ce61",
-    "progress_at": "2026-07-31T22:24:19.909858Z",
+    "package_hash": "337e6202bcd0447f",
+    "progress_at": "2026-07-31T22:49:06.978837Z",
     "progress_tag": "epoch-progress-2",
     "quorum": true,
     "quorum_threshold": 2,
@@ -1303,10 +1303,10 @@
     "source_ledger_path": "quorum-merge",
     "used_skill_route_discovery": false
   },
-  "package_hash": "093b268958c1ce61",
-  "quorum_hash": "88fa13264f95ee8b015d8aca",
+  "package_hash": "337e6202bcd0447f",
+  "quorum_hash": "ae71a480d1e1d76ecd74cec2",
   "schema_version": 1,
-  "tip_hash": "07fd481d63e334c50c23db33",
+  "tip_hash": "7ad5efe7e48cb5fd9f0da84e",
   "tip_height": 2,
   "used_skill_route_discovery": false
 }

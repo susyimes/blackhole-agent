@@ -21,7 +21,7 @@ from blackhole_agent.evolution_route import (
     resolve_supervisor_evolution_surface,
     should_redirect_skill_route_pipeline,
 )
-from blackhole_agent.github_growth import attach_skill_route_discovery_capability_pipeline
+from blackhole_agent.github_growth import attach_evolution_route_surface
 from blackhole_agent.supervisor import SupervisorConfig, build_wake_command, resolve_wake_surface
 
 
@@ -59,7 +59,7 @@ def test_redirect_pipeline_freezes_pin_cascade(tmp_path: Path):
     assert pipeline["evolution_surface"] == COMPOUND_SURFACE
 
 
-def test_attach_skill_route_redirects_when_ledger_ready(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def test_attach_evolution_route_redirects_when_ledger_ready(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv("BLACKHOLE_FORCE_SKILL_ROUTE_PIPELINE", raising=False)
     _seed_ledger(tmp_path)
     digest = {
@@ -68,16 +68,18 @@ def test_attach_skill_route_redirects_when_ledger_ready(tmp_path: Path, monkeypa
         "proposals": [{"proposal_id": "prop-skill-pipeline-reverse-flow-test", "kind": "code_patch"}],
         "items": [],
     }
-    attach_skill_route_discovery_capability_pipeline(digest)
-    pipeline = digest["skill_route_discovery_capability_pipeline"]
+    attach_evolution_route_surface(digest)
+    route = digest["evolution_route"]
+    assert "skill_route_discovery_capability_pipeline" not in digest
     assert digest["evolution_surface"] == COMPOUND_SURFACE
-    assert pipeline["controller_surface"] == "capability_compounder_redirect"
-    assert pipeline["skill_route_pin_cascade_frozen"] is True
+    assert route["controller_surface"] == "capability_compounder_redirect"
+    assert route["skill_route_pin_cascade_frozen"] is True
     # Nested residual pin/cascade stages must not be packaged.
-    assert "residual_adjacent_focused_validation_activation_external_acceptance" not in pipeline
+    assert "residual_adjacent_focused_validation_activation_external_acceptance" not in route
 
 
-def test_attach_skill_route_keeps_legacy_when_forced(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def test_attach_evolution_route_never_emits_skill_route_lanes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    # The legacy force flag cannot revive the deleted skill-route lane pipeline.
     monkeypatch.setenv("BLACKHOLE_FORCE_SKILL_ROUTE_PIPELINE", "1")
     _seed_ledger(tmp_path)
     digest = {
@@ -87,10 +89,26 @@ def test_attach_skill_route_keeps_legacy_when_forced(tmp_path: Path, monkeypatch
         "proposals": [],
         "items": [],
     }
-    attach_skill_route_discovery_capability_pipeline(digest)
-    pipeline = digest["skill_route_discovery_capability_pipeline"]
-    assert pipeline.get("controller_surface") == "skill_route_discovery_capability_pipeline"
-    assert pipeline.get("skill_route_pin_cascade_frozen") is not True
+    attach_evolution_route_surface(digest)
+    route = digest["evolution_route"]
+    assert route.get("controller_surface") == "capability_compounder_redirect"
+    assert route.get("skill_route_pin_cascade_frozen") is True
+    assert "local_apply" not in route
+    assert "reverse_flow_test_validation_lane" not in route
+
+
+def test_attach_evolution_route_reports_ledger_not_ready(tmp_path: Path):
+    digest = {
+        "digest_id": "d3",
+        "repo_path": str(tmp_path),
+        "proposals": [],
+        "items": [],
+    }
+    attach_evolution_route_surface(digest)
+    route = digest["evolution_route"]
+    assert route["status"] == "ledger_not_ready"
+    assert route["supervisor_next_action"] == "grow_capability_ledger_first"
+    assert route["capability_compounder"]["status"] == "not_ready"
 
 
 def test_supervisor_codex_redirects_to_compound_when_ledger_ready(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):

@@ -112,9 +112,9 @@
         "agent",
         "skill"
       ],
-      "pattern": "skill routing",
+      "pattern": "evolution surface routing",
       "rank": 3,
-      "rationale": "1 trending repositories (powerycy/goutoujunshi) signal 'skill routing'; matched terms ['agent', 'skill']; candidate surface src/blackhole_agent/skill_routing.py.",
+      "rationale": "1 trending repositories (powerycy/goutoujunshi) signal 'evolution surface routing'; matched terms ['agent', 'skill']; candidate surface src/blackhole_agent/evolution_route.py.",
       "score": 16.0,
       "sources": [
         {
@@ -127,7 +127,7 @@
           "stargazers_count": 1354
         }
       ],
-      "target_surface": "src/blackhole_agent/skill_routing.py"
+      "target_surface": "src/blackhole_agent/evolution_route.py"
     },
     {
       "matched_terms": [
@@ -152,12 +152,12 @@
       "target_surface": "src/blackhole_agent/proposal_synthesis.py"
     }
   ],
-  "hypotheses_digest": "f2ac4f7f88b617f45db7f6266eac13d7615bac27526588bb3fc80605bec318dc",
+  "hypotheses_digest": "c0292652bb3928930f44cbb2eb6dd0aa2ffe5beaf3923b567a8bebbc1b6481c1",
   "kind": "grounded_growth_scan",
   "mode": "live",
   "payload_digest": "fda024d18fe337b23ec51e90c05fff52c157b9ed53307ebae23f7fae78656b06",
   "query": "topic:ai-agent created:>=2026-07-17 stars:>=50 fork:false",
   "repository_count": 11,
-  "scan_digest": "4f1130d10b01a73607786dee05a23a855913559f26c29508ea4aca78e0687af9",
+  "scan_digest": "787df31b884aa58f6539616c3f3c0871b164854c681dc1dc25cb9844df03d3e8",
   "schema_version": 1
 }
