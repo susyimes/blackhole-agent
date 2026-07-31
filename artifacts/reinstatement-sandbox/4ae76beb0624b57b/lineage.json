@@ -1,0 +1,189 @@
+{
+  "entries": [
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "origin_ids": [
+          "origin-a",
+          "origin-b",
+          "origin-byzantine"
+        ],
+        "threshold": 2
+      },
+      "detail": {
+        "origins": [
+          {
+            "bundle_hash": "10fdf34988809783cf0dd736",
+            "byzantine": false,
+            "lineage_entry_count": 123,
+            "lineage_head_hash": "c0426b8f49a2398a4dfa5d4a",
+            "member_count": 3,
+            "origin_id": "origin-a",
+            "package_hash": "7878a785b9718369"
+          },
+          {
+            "bundle_hash": "8e0f84fd29848b12b8dd4497",
+            "byzantine": false,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "e3283425d20c70f62a44e57a",
+            "member_count": 2,
+            "origin_id": "origin-b",
+            "package_hash": "8ece9182045d973a"
+          },
+          {
+            "bundle_hash": "a09973f26a32ff368af2ab23",
+            "byzantine": true,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "8ab0d80ef6fb0ac4e4f6753a",
+            "member_count": 3,
+            "origin_id": "origin-byzantine",
+            "package_hash": "7d88f7661e8407af"
+          }
+        ]
+      },
+      "entry_hash": "97ec61f4f4cb881e4647db3d",
+      "entry_kind": "quorum_origin_manifest",
+      "goal": "covenant over constitution",
+      "index": 0,
+      "issued_at": "2026-07-31T02:07:40.011177Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": ""
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "package_hash": "066545df3053adf5",
+        "threshold": 2
+      },
+      "detail": {
+        "origin_heads": [
+          "c0426b8f49a2398a4dfa5d4a",
+          "e3283425d20c70f62a44e57a",
+          "8ab0d80ef6fb0ac4e4f6753a"
+        ]
+      },
+      "entry_hash": "043c45d66fc102d9c709c243",
+      "entry_kind": "quorum_vote",
+      "goal": "covenant over constitution",
+      "index": 1,
+      "issued_at": "2026-07-31T02:07:40.011208Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "97ec61f4f4cb881e4647db3d"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "byzantine_count": 1,
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "excluded": true
+      },
+      "detail": {
+        "byzantine_origins": [
+          "origin-byzantine"
+        ]
+      },
+      "entry_hash": "b9189c6615aef89eb4ec11cb",
+      "entry_kind": "quorum_byzantine_exclude",
+      "goal": "covenant over constitution",
+      "index": 2,
+      "issued_at": "2026-07-31T02:07:40.011227Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "043c45d66fc102d9c709c243"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "quorum": true,
+        "quorum_met": true
+      },
+      "detail": {
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "origin_bundle_hashes": [
+          "10fdf34988809783cf0dd736",
+          "8e0f84fd29848b12b8dd4497",
+          "a09973f26a32ff368af2ab23"
+        ]
+      },
+      "entry_hash": "05a06970903a34756ad23565",
+      "entry_kind": "quorum_seal",
+      "goal": "covenant over constitution",
+      "index": 3,
+      "issued_at": "2026-07-31T02:07:40.011246Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "b9189c6615aef89eb4ec11cb"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "prior_lineage_head": "05a06970903a34756ad23565",
+        "prior_package_hash": "066545df3053adf5",
+        "prior_quorum_hash": "52751dde442c06fdef1cb407",
+        "progress_tag": "epoch-progress-2"
+      },
+      "detail": {},
+      "entry_hash": "6fb5dcf3f345578fc469a8ea",
+      "entry_kind": "finality_epoch_progress",
+      "goal": "covenant over constitution (progress 2)",
+      "index": 4,
+      "issued_at": "2026-07-31T02:07:40.771791Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "",
+      "parent_hash": "05a06970903a34756ad23565"
+    }
+  ],
+  "entry_count": 5,
+  "head_hash": "6fb5dcf3f345578fc469a8ea",
+  "kind": "capability_lineage",
+  "schema_version": 1,
+  "updated_at": "2026-07-31T02:07:51.674541Z"
+}

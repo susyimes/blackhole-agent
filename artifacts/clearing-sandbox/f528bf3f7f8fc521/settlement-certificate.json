@@ -1,0 +1,35 @@
+{
+  "actuation_certificate_hash": "10880b5ad65c6386a7a0b1b4",
+  "actuation_hash": "7f67a60e1505fe4b018fcf2c",
+  "bound_action_height": 2,
+  "bound_action_root": "d118dfd70c7ca815558dadb3",
+  "certificate_hash": "1bf2801d808253fc058f8014",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "effect": "prove",
+    "outcome": "settled",
+    "plane": "settlement",
+    "settlement_index": 2
+  },
+  "deterministic": true,
+  "goal": "covenant over constitution (settlement 2)",
+  "issued_at": "2026-07-31T02:07:42.570096Z",
+  "kind": "settlement_certificate",
+  "lineage_head_hash": "6fb5dcf3f345578fc469a8ea",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "ca01322877b2dfee",
+  "parent_settlement_root": "a876878426f7963b91d86a4e",
+  "post_actuation": true,
+  "schema_version": 1,
+  "settlement_count": 2,
+  "settlement_height": 2,
+  "settlement_root": "23e3ef37453e103afa3b2a06",
+  "used_skill_route_discovery": false,
+  "valid": true
+}

@@ -1,0 +1,37 @@
+{
+  "bound_funding_height": 2,
+  "bound_funding_root": "e6fe6c15c5fb01943e2dfff6",
+  "capital_buffer_digest": "b1f4a4093105b582861a27ce",
+  "capital_count": 2,
+  "capital_height": 2,
+  "capital_root": "9e7a68ebc8770e8b10b3fc63",
+  "certificate_hash": "f6450c2100d886c09725338c",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "capitalized",
+    "plane": "capital"
+  },
+  "deterministic": true,
+  "funding_certificate_hash": "74142c48ddf1c7bfff36b3d8",
+  "funding_facility_digest": "50689140ba97fc5f6ffa41de",
+  "funding_hash": "0219959ddd18b8e4baff2b12",
+  "goal": "covenant over constitution (clearing 2)",
+  "issued_at": "2026-07-31T02:07:45.931819Z",
+  "kind": "capital_certificate",
+  "lineage_head_hash": "6fb5dcf3f345578fc469a8ea",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "ca01322877b2dfee",
+  "parent_capital_root": "488b0705f667af25c8689ab8",
+  "post_funding": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

@@ -1,0 +1,37 @@
+{
+  "bound_risk_height": 2,
+  "bound_risk_root": "e993a22eaf89459fa69d1f56",
+  "certificate_hash": "db7799c326d91dd0a297969e",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "stressed",
+    "plane": "stress"
+  },
+  "deterministic": true,
+  "goal": "covenant over constitution (clearing 2)",
+  "issued_at": "2026-07-31T02:08:35.918191Z",
+  "kind": "stress_certificate",
+  "lineage_head_hash": "8ea0b76d52394f4f702082a7",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "1dbf3bef46ccaaa7",
+  "parent_stress_root": "847168354c46545b0536ab5c",
+  "post_risk": true,
+  "risk_assessment_digest": "ab9f0aeb47ff9df2dc6be020",
+  "risk_certificate_hash": "102d5f99e8648dec485f5c69",
+  "risk_hash": "d1d43cd84de7d6f6f7a13a91",
+  "schema_version": 1,
+  "stress_count": 2,
+  "stress_height": 2,
+  "stress_root": "22bd7313bccf16154249c5ce",
+  "stress_scenario_digest": "ad4e910f6928e179a73d80f9",
+  "used_skill_route_discovery": false,
+  "valid": true
+}
