@@ -233,11 +233,14 @@ When the ledger is ready (≥2 capabilities), growth prefers the compounder:
   `--prefer-capability-compounder` (default), launch
   `blackhole-unbound capability demo` instead of the github_growth skill-route
   mutation path.
-- Digest attachment of `skill_route_discovery_capability_pipeline` short-circuits
-  to a compact `capability_compounder_redirect` surface that freezes pin/cascade
+- Digest attachment of the `evolution_route` surface short-circuits to a
+  compact `capability_compounder_redirect` payload that freezes pin/cascade
   packaging and sets `supervisor_next_action=run_capability_compounder_compose_or_demo`.
-- Force the legacy pipeline with `BLACKHOLE_FORCE_SKILL_ROUTE_PIPELINE=1` or
-  `--prefer-legacy-growth`.
+  When the ledger is not ready the same surface reports `ledger_not_ready`
+  with `grow_capability_ledger_first`; skill-route lanes are never emitted.
+- `BLACKHOLE_FORCE_SKILL_ROUTE_PIPELINE=1` or `--prefer-legacy-growth` selects
+  the plain github_growth digest/plan surface; it cannot revive the removed
+  skill-route lane pipeline.
 
 ## Self-Reload
 

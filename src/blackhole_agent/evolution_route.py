@@ -20,7 +20,6 @@ from blackhole_agent.capability_compounder import (
 
 COMPOUND_SURFACE = "capability_compounder"
 LEGACY_GROWTH_SURFACE = "legacy_github_growth"
-SKILL_ROUTE_SURFACE = "skill_route_discovery_capability_pipeline"
 REDIRECT_CONTROLLER_SURFACE = "capability_compounder_redirect"
 ENV_PREFER_COMPOUNDER = "BLACKHOLE_PREFER_CAPABILITY_COMPOUNDER"
 ENV_FORCE_SKILL_ROUTE = "BLACKHOLE_FORCE_SKILL_ROUTE_PIPELINE"

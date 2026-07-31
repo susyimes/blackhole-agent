@@ -172,8 +172,10 @@ uv run blackhole-unbound capability compose \
 ```
 
 When the ledger is ready, supervisor codex wakes redirect to the compounder by
-default (`--prefer-capability-compounder`). Force legacy github_growth skill-route
-evolution with `--prefer-legacy-growth` or `BLACKHOLE_FORCE_SKILL_ROUTE_PIPELINE=1`.
+default (`--prefer-capability-compounder`). Select the plain github_growth
+digest/plan surface with `--prefer-legacy-growth` or
+`BLACKHOLE_FORCE_SKILL_ROUTE_PIPELINE=1`; the removed skill-route lane pipeline
+cannot be revived either way.
 Explicit compound mode:
 
 ```bash

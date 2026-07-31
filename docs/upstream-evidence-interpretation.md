@@ -1,5 +1,16 @@
 # Upstream Evidence Interpretation
 
+> Demolition note (2026-07-31): the `skill_route_discovery` lane pipeline and
+> the `agent_harness_eval` / `harness_eval` fixture evaluator referenced in the
+> historical records below have been removed from the runtime, along with
+> `tests/test_harness_eval.py` and `tests/test_skill_routing.py`. Validation
+> commands and `skill_route_discovery` lane mappings quoted in the historical
+> sections no longer exist. The current lane contract: route hints are limited
+> to `provider_config_preflight` and `governance_policy`, mapped only to
+> documentation/config/test/code_patch lanes, and growth compounds through the
+> capability ledger (`capabilities/ledger.json`) via `docs/unbound-v2.md`.
+> See `docs/skill-route-discovery.md` for the demolition summary.
+
 Public agent-project movement is input evidence for blackhole-agent, not direct
 permission, implementation authority, or proof that a local change is safe.
 

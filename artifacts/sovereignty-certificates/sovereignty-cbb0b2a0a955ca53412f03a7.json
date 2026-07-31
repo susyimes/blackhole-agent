@@ -1,0 +1,60 @@
+{
+  "certificate_hash": "cbb0b2a0a955ca53412f03a7",
+  "claims": {
+    "ablation_ok": true,
+    "adversarial_ok": true,
+    "assurance_ok": true,
+    "contract_met": true,
+    "contract_ok": true,
+    "machine_checkable": true,
+    "no_skill_route": true,
+    "transfer_ok": true
+  },
+  "done_when": "min_capabilities:5; min_primitives:3; capability_exists:repo.import-health; capability_proved:repo.import-health; program_passes:repo.import-health; no_skill_route",
+  "evidence": {
+    "assurance": {
+      "ablation": {
+        "failed_phases": [],
+        "live_ledger_mutated": false,
+        "ok": true,
+        "passed_count": 4,
+        "phase_count": 4
+      },
+      "adversarial": {
+        "negative_count": 4,
+        "negatives_ok": true,
+        "negatives_passed": 4,
+        "ok": true,
+        "positive_ok": true
+      },
+      "ok": true,
+      "transfer": {
+        "member_count": 3,
+        "ok": true,
+        "package_hash": "7878a785b9718369",
+        "proved_count": 3
+      }
+    },
+    "contract": {
+      "failed_count": 0,
+      "machine_checkable": true,
+      "met": true,
+      "mission_ok": null,
+      "ok": true,
+      "passed_count": 6
+    },
+    "metrics": {
+      "count": 97,
+      "primitive_count": 48,
+      "proved_count": 97,
+      "proved_ratio": 1.0
+    }
+  },
+  "goal": "health inventory milestone",
+  "issued_at": "2026-07-31T23:14:26.169483Z",
+  "kind": "sovereignty_certificate",
+  "ok": true,
+  "package_hash": "7878a785b9718369",
+  "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T221800Z-33c07669",
+  "schema_version": 1
+}

@@ -1,0 +1,30 @@
+{
+  "certificate_hash": "a681d9d1e84c3febe2fcdd7a",
+  "claims": {
+    "member_count": 3,
+    "plane": "execution",
+    "state_index": 2
+  },
+  "deterministic": true,
+  "epoch_hash": "845179d2faf717f44910c227",
+  "epoch_height": 2,
+  "finality_certificate_hash": "09b8eff5b7b7616fc10788b0",
+  "goal": "actuation over world-state execution (state 2)",
+  "issued_at": "2026-07-31T23:10:08.928476Z",
+  "kind": "execution_certificate",
+  "lineage_head_hash": "8d4dee218dfa8738cada3c1a",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "e98f296dcfac4eb6",
+  "parent_state_root": "a4ab355077cfb928b136b3fd",
+  "post_finality": true,
+  "schema_version": 1,
+  "state_height": 2,
+  "state_root": "89b0fec73761d07fa3c85725",
+  "used_skill_route_discovery": false
+}

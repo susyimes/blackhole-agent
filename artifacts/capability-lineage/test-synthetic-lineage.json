@@ -7,11 +7,11 @@
         "sealed": true
       },
       "detail": {},
-      "entry_hash": "4ad47f3b2e7eee1e9f7eebb1",
+      "entry_hash": "13b69f676c31a2f8f78bae2d",
       "entry_kind": "continuity_seal",
       "goal": "a",
       "index": 0,
-      "issued_at": "2026-07-31T22:48:54.587316Z",
+      "issued_at": "2026-07-31T23:17:08.620181Z",
       "metrics": {
         "count": 10,
         "primitive_count": null,
@@ -28,11 +28,11 @@
         "sealed": true
       },
       "detail": {},
-      "entry_hash": "e44536b056a3805ae2266526",
+      "entry_hash": "7c30a2c4c32fded45ee7a0ea",
       "entry_kind": "continuity_seal",
       "goal": "b",
       "index": 1,
-      "issued_at": "2026-07-31T22:48:54.587375Z",
+      "issued_at": "2026-07-31T23:17:08.620239Z",
       "metrics": {
         "count": 10,
         "primitive_count": null,
@@ -40,13 +40,13 @@
         "proved_ratio": null
       },
       "package_hash": "",
-      "parent_hash": "4ad47f3b2e7eee1e9f7eebb1"
+      "parent_hash": "13b69f676c31a2f8f78bae2d"
     }
   ],
   "entry_count": 2,
-  "head_hash": "e44536b056a3805ae2266526",
+  "head_hash": "7c30a2c4c32fded45ee7a0ea",
   "kind": "capability_lineage",
   "ok": true,
   "schema_version": 1,
-  "updated_at": "2026-07-31T22:48:54.587970Z"
+  "updated_at": "2026-07-31T23:17:08.620862Z"
 }
