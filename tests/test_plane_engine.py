@@ -37,6 +37,14 @@ def test_full_stack_builtin_covers_all_42_layers() -> None:
     assert "cosmos" in result["layers"]
 
 
+def test_golden_proof_is_hermetic() -> None:
+    result = pe.golden_proof()
+    assert result["ok"] is True
+    assert result["layer_count"] == 42
+    bad = [layer["layer"] for layer in result["layers"] if not layer["ok"]]
+    assert bad == []
+
+
 def test_settlement_dialect_matches_legacy() -> None:
     result = pe.differential_proof(layer_names=["settlement", "clearing", "margin"])
     assert result["ok"] is True

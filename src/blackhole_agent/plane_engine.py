@@ -1600,6 +1600,119 @@ def _synthetic_parent_bundle(
     return bundle
 
 
+GOLDEN_FIXTURE_FILENAME = "plane_golden.json"
+
+
+def default_golden_path() -> Path:
+    return (Path(__file__).resolve().parent / GOLDEN_FIXTURE_FILENAME).resolve()
+
+
+def _engine_outputs(layer: PlaneLayer, parent: Mapping[str, Any]) -> dict[str, Any]:
+    """Run the engine for one layer over a parent bundle; return check values."""
+
+    goal = f"{layer.name} over {layer.parent}"
+    applied = apply_bundle(layer, parent, goal=goal)
+    if not applied.get("ok"):
+        return {"ok": False, "error": applied.get("error") or "apply_failed"}
+    bundle = build_bundle(layer, applied["log"], parent, goal=goal)
+    tip_cert = (
+        bundle.get(f"{layer.name}_certificate")
+        if isinstance(bundle.get(f"{layer.name}_certificate"), Mapping)
+        else {}
+    )
+    expected: dict[str, Any] = {
+        "applied_ok": bool(applied.get("ok")),
+        "entry_count": applied.get("applied_count"),
+        f"tip_{layer.name}_root": applied.get(f"tip_{layer.name}_root"),
+        f"{layer.name}_hash": bundle.get(f"{layer.name}_hash"),
+        "bundle_ok": bool(bundle.get("ok")),
+        "tip_certificate_hash": tip_cert.get("certificate_hash"),
+    }
+    if layer.chained:
+        expected[layer.self_digest_field] = applied.get(layer.self_digest_field)
+    return {"ok": True, "expected": expected, "bundle": bundle}
+
+
+def freeze_golden(
+    path: Path | None = None, layer_names: Sequence[str] | None = None
+) -> Path:
+    """Freeze per-layer fixtures: synthetic parents plus expected digests.
+
+    Run once while the legacy issuers still exist; afterwards the golden
+    proof is fully hermetic and needs no legacy code.
+    """
+
+    from blackhole_agent import capability_compounder as legacy
+
+    names = list(layer_names) if layer_names else list(LAYERS)
+    fixture: dict[str, Any] = {
+        "schema_version": SCHEMA_VERSION,
+        "kind": "plane_golden_fixture",
+        "frozen_clock": FROZEN_CLOCK,
+        "layers": {},
+    }
+    with _frozen_clock():
+        for name in names:
+            layer = get_layer(name)
+            parent = _synthetic_parent_bundle(layer, legacy)
+            out = _engine_outputs(layer, parent)
+            if not out.get("ok"):
+                raise ValueError(f"golden freeze failed for {name}: {out.get('error')}")
+            fixture["layers"][name] = {
+                "parent_bundle": parent,
+                "expected": out["expected"],
+            }
+    target = path or default_golden_path()
+    atomic_write_json(target, fixture)
+    return target
+
+
+def golden_proof(
+    layer_names: Sequence[str] | None = None,
+    fixture_path: Path | None = None,
+) -> dict[str, Any]:
+    """Hermetic proof: engine output reproduces the frozen golden digests."""
+
+    path = fixture_path or default_golden_path()
+    fixture = json.loads(path.read_text(encoding="utf-8"))
+    recorded = fixture.get("layers") if isinstance(fixture.get("layers"), Mapping) else {}
+    names = list(layer_names) if layer_names else list(recorded)
+    layer_results: list[dict[str, Any]] = []
+    with _frozen_clock():
+        for name in names:
+            layer = get_layer(name)
+            record = recorded.get(name)
+            if not isinstance(record, Mapping):
+                layer_results.append(
+                    {"layer": name, "ok": False, "mismatches": ["missing_fixture"]}
+                )
+                continue
+            out = _engine_outputs(layer, record["parent_bundle"])
+            expected = (
+                record["expected"] if isinstance(record["expected"], Mapping) else {}
+            )
+            got = out.get("expected") if out.get("ok") else {}
+            mismatches = [
+                key for key in expected if expected.get(key) != got.get(key)
+            ]
+            layer_results.append(
+                {
+                    "layer": name,
+                    "ok": bool(out.get("ok")) and not mismatches,
+                    "mismatches": mismatches,
+                }
+            )
+    ok = all(item["ok"] for item in layer_results) and not _skill_route_used()
+    return {
+        "ok": ok,
+        "action": "plane_engine_golden_proof",
+        "layer_count": len(layer_results),
+        "layers": layer_results,
+        "fixture_path": str(path),
+        "used_skill_route_discovery": _skill_route_used(),
+    }
+
+
 def differential_proof(
     repo_path: Path | None = None,
     layer_names: Sequence[str] | None = None,
@@ -1817,10 +1930,14 @@ def _differential_proof_layer(legacy: Any, layer: PlaneLayer) -> dict[str, Any]:
 
 
 def builtin_plane_engine() -> dict[str, Any]:
-    """Invocable capability entry: run the differential proof and persist evidence."""
+    """Invocable capability entry: differential proof plus hermetic golden proof."""
 
     repo_path = Path(__file__).resolve().parents[2]
-    return differential_proof(repo_path)
+    result = differential_proof(repo_path)
+    golden = golden_proof()
+    result["golden_ok"] = bool(golden.get("ok"))
+    result["ok"] = bool(result.get("ok")) and bool(golden.get("ok"))
+    return result
 
 
 FULL_STACK_LAYER_COUNT = 42
@@ -1832,13 +1949,18 @@ def builtin_plane_engine_full_stack() -> dict[str, Any]:
     Full-stack means every token-renamed plane layer generated by the legacy
     dynasty (42 layers: settlement through cosmos) is registered in ``LAYERS``
     and passes the six-check differential proof against the legacy code it
-    replaces.
+    replaces plus the hermetic golden-digest proof.
     """
 
     repo_path = Path(__file__).resolve().parents[2]
     result = differential_proof(repo_path)
+    golden = golden_proof()
     covered = sorted(LAYERS)
-    ok = bool(result.get("ok")) and len(covered) == FULL_STACK_LAYER_COUNT
+    ok = (
+        bool(result.get("ok"))
+        and bool(golden.get("ok"))
+        and len(covered) == FULL_STACK_LAYER_COUNT
+    )
     return {
         "ok": ok,
         "action": "plane_engine_full_stack_proof",
@@ -1846,5 +1968,6 @@ def builtin_plane_engine_full_stack() -> dict[str, Any]:
         "required_layer_count": FULL_STACK_LAYER_COUNT,
         "layers": covered,
         "differential_ok": bool(result.get("ok")),
+        "golden_ok": bool(golden.get("ok")),
         "used_skill_route_discovery": _skill_route_used(),
     }

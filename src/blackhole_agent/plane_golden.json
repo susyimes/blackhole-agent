@@ -1,0 +1,4019 @@
+{
+  "frozen_clock": "2026-01-01T00:00:00.000000Z",
+  "kind": "plane_golden_fixture",
+  "layers": {
+    "alliance": {
+      "expected": {
+        "alliance_hash": "e63867ea9b095b90d63ac92e",
+        "alliance_plan_digest": "6502c5c0ff38de63e1f31146",
+        "applied_ok": true,
+        "bundle_ok": true,
+        "entry_count": 2,
+        "tip_alliance_root": "d3479c2f285366379d951f95",
+        "tip_certificate_hash": "b96385a5023a8873f32c4b0e"
+      },
+      "parent_bundle": {
+        "goal": "differential fixture",
+        "kind": "pact_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "pact_certificate": {
+          "bound_treaty_height": 2,
+          "bound_treaty_root": "e806346d417546933ac715ea",
+          "certificate_hash": "2ee6db03450d1baceb0f73cc",
+          "claims": {},
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "pact_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "pact_count": 3,
+          "pact_height": 3,
+          "pact_plan_digest": "95cf5296602b105bb6750d2b",
+          "pact_root": "dcbac0f9368fe5e67bf34d7d",
+          "parent_pact_root": "2167575a0cbfbfddafcffeb2",
+          "post_treaty": true,
+          "schema_version": 1,
+          "treaty_certificate_hash": "de6b0e9c083013e4b1c3fa90",
+          "treaty_hash": "e9a8f65e0553b7f9c90f0571",
+          "treaty_plan_digest": "0cfb17147cfe63937d4b5172",
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "pact_count": 3,
+        "pact_hash": "f06d0c5f6efbfa698f1379a7",
+        "pact_plan_digest": "95cf5296602b105bb6750d2b",
+        "pacts": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "pact_height": 1,
+              "pact_plan_digest": "31ee77e22845848ba3d0e115",
+              "pact_root": "ebddac534faa5ba41e261cc6",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "pact_height": 2,
+              "pact_plan_digest": "002c7f38411a92c541df5b36",
+              "pact_root": "2167575a0cbfbfddafcffeb2",
+              "receipt_digest": "27d82060920e8da35044a1a6"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "pact_height": 3,
+              "pact_plan_digest": "95cf5296602b105bb6750d2b",
+              "pact_root": "dcbac0f9368fe5e67bf34d7d",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00"
+            }
+          ],
+          "entry_count": 3
+        },
+        "tip_pact_root": "dcbac0f9368fe5e67bf34d7d"
+      }
+    },
+    "capital": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "capital_buffer_digest": "69e698f82ff3ba12bfea0d4c",
+        "capital_hash": "d91abbdb6d74fb1923528e24",
+        "entry_count": 2,
+        "tip_capital_root": "48423764233df44bd7bd6d4c",
+        "tip_certificate_hash": "17602c558e35ef466a7b8d03"
+      },
+      "parent_bundle": {
+        "funding_certificate": {
+          "bound_liquidity_height": 2,
+          "bound_liquidity_root": "590731be8abc4016bad8990c",
+          "certificate_hash": "28a593ee45682377bdc6a276",
+          "claims": {},
+          "deterministic": true,
+          "funding_count": 3,
+          "funding_facility_digest": "f6604b6e98c924c74d971c32",
+          "funding_height": 3,
+          "funding_root": "3654c610bffa16d1f38e3ff0",
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "funding_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "liquidity_certificate_hash": "8e943feb1fc4bd8599d31935",
+          "liquidity_coverage_digest": "91ab4bbc4052876abb437d57",
+          "liquidity_hash": "41c71f425534fd5f9fc553cf",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_funding_root": "08d25e78a19e9379e5ef7051",
+          "post_liquidity": true,
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "funding_count": 3,
+        "funding_facility_digest": "f6604b6e98c924c74d971c32",
+        "funding_hash": "6820cc68c705678fe8b91283",
+        "fundings": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "funding_facility_digest": "7f6c74bedca84b8b5d0325af",
+              "funding_height": 1,
+              "funding_root": "71d770af996ce9830f952800",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "funding_facility_digest": "e185c4a4683b63473eaf56ec",
+              "funding_height": 2,
+              "funding_root": "08d25e78a19e9379e5ef7051",
+              "receipt_digest": "27d82060920e8da35044a1a6"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "funding_facility_digest": "f6604b6e98c924c74d971c32",
+              "funding_height": 3,
+              "funding_root": "3654c610bffa16d1f38e3ff0",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00"
+            }
+          ],
+          "entry_count": 3
+        },
+        "goal": "differential fixture",
+        "kind": "funding_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "tip_funding_root": "3654c610bffa16d1f38e3ff0"
+      }
+    },
+    "charter": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "charter_hash": "285522e991257c8296ec71f3",
+        "charter_plan_digest": "83323930d8f8ab9249e9390f",
+        "entry_count": 2,
+        "tip_certificate_hash": "a67f13691724e9d4dece55ad",
+        "tip_charter_root": "dcaee0d07abc1c21bc2c9615"
+      },
+      "parent_bundle": {
+        "goal": "differential fixture",
+        "kind": "mandate_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "mandate_certificate": {
+          "bound_privilege_height": 2,
+          "bound_privilege_root": "4dfc3c593b9accdf1d5fb258",
+          "certificate_hash": "899adb686a2159f65201b364",
+          "claims": {},
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "mandate_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "mandate_count": 3,
+          "mandate_height": 3,
+          "mandate_plan_digest": "14e20d6de416741df49c4dfa",
+          "mandate_root": "29c1b2c51dcdcae733865b38",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_mandate_root": "ed49cdb949586f1b79c30ffd",
+          "post_privilege": true,
+          "privilege_certificate_hash": "c273fbc22b535c8576a4c111",
+          "privilege_hash": "e4c3d4679df146eb24281940",
+          "privilege_plan_digest": "a69ebbc4286d5c58a85e7204",
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "mandate_count": 3,
+        "mandate_hash": "9e3c6202f67adc6e87fb0e95",
+        "mandate_plan_digest": "14e20d6de416741df49c4dfa",
+        "mandates": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "mandate_height": 1,
+              "mandate_plan_digest": "c389a2ca7f8b13a9d66d39a7",
+              "mandate_root": "b2bbba844b723e96aa17f40f",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "mandate_height": 2,
+              "mandate_plan_digest": "33b2611548bd097b35f0c0b1",
+              "mandate_root": "ed49cdb949586f1b79c30ffd",
+              "receipt_digest": "27d82060920e8da35044a1a6"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "mandate_height": 3,
+              "mandate_plan_digest": "14e20d6de416741df49c4dfa",
+              "mandate_root": "29c1b2c51dcdcae733865b38",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00"
+            }
+          ],
+          "entry_count": 3
+        },
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "tip_mandate_root": "29c1b2c51dcdcae733865b38"
+      }
+    },
+    "clearing": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "clearing_hash": "8686795e9a28edb5cadd36d4",
+        "entry_count": 2,
+        "net_position_digest": "1e70292a058edb26a6919709",
+        "tip_certificate_hash": "d798ea023ae667b70e2c6c76",
+        "tip_clearing_root": "c0fa0f9931a0e04620a30a64"
+      },
+      "parent_bundle": {
+        "goal": "differential fixture",
+        "kind": "settlement_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "receipt_digest": "55e9f2640f8ee45a98bee8b9",
+        "settlement_certificate": {
+          "actuation_certificate_hash": "b5dc6e49379aa264ffc5128e",
+          "actuation_hash": "2a2d6c8e22571d6fc6ad2370",
+          "bound_action_height": 2,
+          "bound_action_root": "4e5cfb3e6c46bfe7e48993f2",
+          "certificate_hash": "e40b494d461ea538bd3063f2",
+          "claims": {},
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "settlement_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_settlement_root": "789a30feb36da66ecdfdfb75",
+          "post_actuation": true,
+          "schema_version": 1,
+          "settlement_count": 3,
+          "settlement_height": 3,
+          "settlement_root": "dc159b0d349a244c8e12ee46",
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "settlement_count": 3,
+        "settlement_hash": "6ec60bec290ac35a244db8d9",
+        "settlements": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "receipt_digest": "1a8b38a2c3d451e86ab5c703",
+              "settlement_height": 1,
+              "settlement_root": "f8742574452a3406924f644b"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "receipt_digest": "ddb27c28ece99d6a0071545f",
+              "settlement_height": 2,
+              "settlement_root": "789a30feb36da66ecdfdfb75"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "receipt_digest": "55e9f2640f8ee45a98bee8b9",
+              "settlement_height": 3,
+              "settlement_root": "dc159b0d349a244c8e12ee46"
+            }
+          ],
+          "entry_count": 3
+        },
+        "tip_settlement_root": "dc159b0d349a244c8e12ee46"
+      }
+    },
+    "coalition": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "coalition_hash": "778f2d09ac6aa0b80d8125d8",
+        "coalition_plan_digest": "b79063db6f06e527163244a5",
+        "entry_count": 2,
+        "tip_certificate_hash": "9ae461bac8cd6c5217b2ec18",
+        "tip_coalition_root": "521cc1cde3f56547c6940481"
+      },
+      "parent_bundle": {
+        "alliance_certificate": {
+          "alliance_count": 3,
+          "alliance_height": 3,
+          "alliance_plan_digest": "8be0503c7ddde284a7064e0d",
+          "alliance_root": "3740719bc0896a7ac7b89544",
+          "bound_pact_height": 2,
+          "bound_pact_root": "75bd1e950417b4c6d115d644",
+          "certificate_hash": "ed06b5997b8cf479a324334f",
+          "claims": {},
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "alliance_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "pact_certificate_hash": "cf9667cd8877471f52b9d6b6",
+          "pact_hash": "d0c390888a38d183b939698e",
+          "pact_plan_digest": "52eb856c4d5a49baf35f2d30",
+          "parent_alliance_root": "8dbe675389407063d3ab63ff",
+          "post_pact": true,
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "alliance_count": 3,
+        "alliance_hash": "0c619dc2c13ef4231d6873ea",
+        "alliance_plan_digest": "8be0503c7ddde284a7064e0d",
+        "alliances": {
+          "entries": [
+            {
+              "alliance_height": 1,
+              "alliance_plan_digest": "75332e91da6210538d9403cd",
+              "alliance_root": "2608a20912da8ecd582b87db",
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab"
+            },
+            {
+              "alliance_height": 2,
+              "alliance_plan_digest": "9f43216ffca47a34559e361d",
+              "alliance_root": "8dbe675389407063d3ab63ff",
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "receipt_digest": "27d82060920e8da35044a1a6"
+            },
+            {
+              "alliance_height": 3,
+              "alliance_plan_digest": "8be0503c7ddde284a7064e0d",
+              "alliance_root": "3740719bc0896a7ac7b89544",
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00"
+            }
+          ],
+          "entry_count": 3
+        },
+        "goal": "differential fixture",
+        "kind": "alliance_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "tip_alliance_root": "3740719bc0896a7ac7b89544"
+      }
+    },
+    "collateral": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "collateral_allocation_digest": "9376347cf08d365bdd4d8b53",
+        "collateral_hash": "b91a76f8d177a13548bc30ec",
+        "entry_count": 2,
+        "tip_certificate_hash": "813743df538d48b9e19170a8",
+        "tip_collateral_root": "51a0724a3710e5a52f9d8251"
+      },
+      "parent_bundle": {
+        "goal": "differential fixture",
+        "kind": "margin_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "margin_certificate": {
+          "bound_clearing_height": 2,
+          "bound_clearing_root": "e8b518e3efc0cc60dc8ea7cf",
+          "certificate_hash": "23efa4911eec261baf67bdba",
+          "claims": {},
+          "clearing_certificate_hash": "d54a3d85f6c0a50d7a8c0c0c",
+          "clearing_hash": "b82e595643563c3970ee0c0f",
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "margin_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "margin_count": 3,
+          "margin_height": 3,
+          "margin_requirement_digest": "17c042612c217a23bb1668ea",
+          "margin_root": "edf0fd252c5398b9f7e03887",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "net_position_digest": "491104cfeb1228edba814f89",
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_margin_root": "648a04189b55f4db84033515",
+          "post_clearing": true,
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "margin_count": 3,
+        "margin_hash": "3131bf882e497d4c31c4029f",
+        "margin_requirement_digest": "17c042612c217a23bb1668ea",
+        "margins": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "margin_height": 1,
+              "margin_requirement_digest": "37a6b070f18ee73a91b3860d",
+              "margin_root": "c329d0b88e55963ec9a47828",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "margin_height": 2,
+              "margin_requirement_digest": "86fd2de8f0bb8dc04be7ae96",
+              "margin_root": "648a04189b55f4db84033515",
+              "receipt_digest": "27d82060920e8da35044a1a6"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "margin_height": 3,
+              "margin_requirement_digest": "17c042612c217a23bb1668ea",
+              "margin_root": "edf0fd252c5398b9f7e03887",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00"
+            }
+          ],
+          "entry_count": 3
+        },
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "tip_margin_root": "edf0fd252c5398b9f7e03887"
+      }
+    },
+    "commonwealth": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "commonwealth_hash": "c67cf813f6556d1c6c66e566",
+        "commonwealth_plan_digest": "e8c8d29c23a58688d569fda9",
+        "entry_count": 2,
+        "tip_certificate_hash": "31d8c7bd7b60897138bb6137",
+        "tip_commonwealth_root": "c49d66e79f6dbb378fcfc88e"
+      },
+      "parent_bundle": {
+        "goal": "differential fixture",
+        "kind": "union_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "tip_union_root": "89cb7d7a5f9bbdfc14527408",
+        "union_certificate": {
+          "bound_confederation_height": 2,
+          "bound_confederation_root": "8d68959a3aa6f6531fe01b0f",
+          "certificate_hash": "84410b0f8256ca0b06d90420",
+          "claims": {},
+          "confederation_certificate_hash": "758edf835e824131a496612f",
+          "confederation_hash": "9b720ec1952e978cde3163ee",
+          "confederation_plan_digest": "7075b997d8d1da305be9eb85",
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "union_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_union_root": "528fdf1c828671e5eeea2ce8",
+          "post_confederation": true,
+          "schema_version": 1,
+          "union_count": 3,
+          "union_height": 3,
+          "union_plan_digest": "acfc96576db7b23cb6bf5d66",
+          "union_root": "89cb7d7a5f9bbdfc14527408",
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "union_count": 3,
+        "union_hash": "e4c7bce21dd4ea5bff552f8f",
+        "union_plan_digest": "acfc96576db7b23cb6bf5d66",
+        "unions": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab",
+              "union_height": 1,
+              "union_plan_digest": "d751725931476f13dcbb7735",
+              "union_root": "e8c44659f6edeabe3f411cc0"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "receipt_digest": "27d82060920e8da35044a1a6",
+              "union_height": 2,
+              "union_plan_digest": "56edaa0442ad4501e44ce5da",
+              "union_root": "528fdf1c828671e5eeea2ce8"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00",
+              "union_height": 3,
+              "union_plan_digest": "acfc96576db7b23cb6bf5d66",
+              "union_root": "89cb7d7a5f9bbdfc14527408"
+            }
+          ],
+          "entry_count": 3
+        }
+      }
+    },
+    "confederation": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "confederation_hash": "97c3cd244d1865c5fb034603",
+        "confederation_plan_digest": "3e876b294b91b6eb52d58afa",
+        "entry_count": 2,
+        "tip_certificate_hash": "e56f6536ba45c95bbf6ee0a0",
+        "tip_confederation_root": "5bab98645f0637fe142b3fc5"
+      },
+      "parent_bundle": {
+        "coalition_certificate": {
+          "alliance_certificate_hash": "1a67334bbb6c2fd5c93bc604",
+          "alliance_hash": "ff1f2c4b9dce5cdf37768b4d",
+          "alliance_plan_digest": "ee255e82be2151fd6366572a",
+          "bound_alliance_height": 2,
+          "bound_alliance_root": "586dfb3d70cbd931a8a8f84e",
+          "certificate_hash": "1c980fac27be9be5c5cb9bdd",
+          "claims": {},
+          "coalition_count": 3,
+          "coalition_height": 3,
+          "coalition_plan_digest": "65e6214686037661f9b8730b",
+          "coalition_root": "a5cc9cf97cb6534c8db8f12f",
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "coalition_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_coalition_root": "cb86382dfb1f84d67ce24256",
+          "post_alliance": true,
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "coalition_count": 3,
+        "coalition_hash": "48ff54c3e34ad61354a01af6",
+        "coalition_plan_digest": "65e6214686037661f9b8730b",
+        "coalitions": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "coalition_height": 1,
+              "coalition_plan_digest": "1e170f67861341371678f2dc",
+              "coalition_root": "80dc180c283066f36c3751b9",
+              "effect": "fixture-effect-0",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "coalition_height": 2,
+              "coalition_plan_digest": "d3462a6a9680d5fc0c56df1c",
+              "coalition_root": "cb86382dfb1f84d67ce24256",
+              "effect": "fixture-effect-1",
+              "receipt_digest": "27d82060920e8da35044a1a6"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "coalition_height": 3,
+              "coalition_plan_digest": "65e6214686037661f9b8730b",
+              "coalition_root": "a5cc9cf97cb6534c8db8f12f",
+              "effect": "fixture-effect-2",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00"
+            }
+          ],
+          "entry_count": 3
+        },
+        "goal": "differential fixture",
+        "kind": "coalition_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "tip_coalition_root": "a5cc9cf97cb6534c8db8f12f"
+      }
+    },
+    "constitution": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "constitution_hash": "dba79f7957f595b5a8a2ae7d",
+        "constitution_plan_digest": "fb1fee3d4cc754f49ecee108",
+        "entry_count": 2,
+        "tip_certificate_hash": "0ebbc54d2002c0d6fe99f846",
+        "tip_constitution_root": "c2b44a8e64c932c144687ce7"
+      },
+      "parent_bundle": {
+        "charter_certificate": {
+          "bound_mandate_height": 2,
+          "bound_mandate_root": "86f6122b661c3e61bc661a05",
+          "certificate_hash": "4319d775830329cd278447cd",
+          "charter_count": 3,
+          "charter_height": 3,
+          "charter_plan_digest": "aedf08cfc3cc47b766c4edd9",
+          "charter_root": "32aa72387b764c5abbb5d818",
+          "claims": {},
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "charter_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "mandate_certificate_hash": "9e1b833630062a609cd239d3",
+          "mandate_hash": "2c98113ee6db97dbf60247d2",
+          "mandate_plan_digest": "9c0a42ac3bc8254d3148ed3a",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_charter_root": "ae92961ca5de35484d895f2d",
+          "post_mandate": true,
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "charter_count": 3,
+        "charter_hash": "fc29c16c9fec6a13bffcd2e9",
+        "charter_plan_digest": "aedf08cfc3cc47b766c4edd9",
+        "charters": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "charter_height": 1,
+              "charter_plan_digest": "4a25826808d1767139eb8ad5",
+              "charter_root": "b31ee379351649bc07428d66",
+              "effect": "fixture-effect-0",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "charter_height": 2,
+              "charter_plan_digest": "3511fef08494fce4ce734cc2",
+              "charter_root": "ae92961ca5de35484d895f2d",
+              "effect": "fixture-effect-1",
+              "receipt_digest": "27d82060920e8da35044a1a6"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "charter_height": 3,
+              "charter_plan_digest": "aedf08cfc3cc47b766c4edd9",
+              "charter_root": "32aa72387b764c5abbb5d818",
+              "effect": "fixture-effect-2",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00"
+            }
+          ],
+          "entry_count": 3
+        },
+        "goal": "differential fixture",
+        "kind": "charter_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "tip_charter_root": "32aa72387b764c5abbb5d818"
+      }
+    },
+    "cosmos": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "cosmos_hash": "afb12c4c74f6348d7c4da945",
+        "cosmos_plan_digest": "da7b40a00fff5a06c1db5c81",
+        "entry_count": 2,
+        "tip_certificate_hash": "8c9ab32ae025a859d0485b81",
+        "tip_cosmos_root": "c4f9205fe9a9b5ce047f4739"
+      },
+      "parent_bundle": {
+        "goal": "differential fixture",
+        "kind": "realm_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "realm_certificate": {
+          "bound_dominion_height": 2,
+          "bound_dominion_root": "ab27e3a295f3cbda5eee9866",
+          "certificate_hash": "72221ff9a027a9664cb12415",
+          "claims": {},
+          "deterministic": true,
+          "dominion_certificate_hash": "63cbc5b1d7466c5202dbc8ad",
+          "dominion_hash": "8ee6a67d86c9783bd12d9ab0",
+          "dominion_plan_digest": "a0f635bb034f1ea36c3bfa52",
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "realm_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_realm_root": "77c101087ec824584e97e4d1",
+          "post_dominion": true,
+          "realm_count": 3,
+          "realm_height": 3,
+          "realm_plan_digest": "4d81c2a70f2f1ddf907daa4f",
+          "realm_root": "211b9b6b5650817d7e3d0dc2",
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "realm_count": 3,
+        "realm_hash": "b3cca5d43aa92f0d5dab5403",
+        "realm_plan_digest": "4d81c2a70f2f1ddf907daa4f",
+        "realms": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "realm_height": 1,
+              "realm_plan_digest": "87929cad110d64b84e8b3595",
+              "realm_root": "63133915b0ee83ea8db55ac7",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "realm_height": 2,
+              "realm_plan_digest": "c99727ce99dbf8cdf9f21d82",
+              "realm_root": "77c101087ec824584e97e4d1",
+              "receipt_digest": "27d82060920e8da35044a1a6"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "realm_height": 3,
+              "realm_plan_digest": "4d81c2a70f2f1ddf907daa4f",
+              "realm_root": "211b9b6b5650817d7e3d0dc2",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00"
+            }
+          ],
+          "entry_count": 3
+        },
+        "tip_realm_root": "211b9b6b5650817d7e3d0dc2"
+      }
+    },
+    "covenant": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "covenant_hash": "baa53f0d6c0f38abc4a2144d",
+        "covenant_plan_digest": "2b29dc5e2a1c90d02098de35",
+        "entry_count": 2,
+        "tip_certificate_hash": "3ff4e7ea8a57c37dc8f76502",
+        "tip_covenant_root": "5867ddf93c183ef9fe9d83c7"
+      },
+      "parent_bundle": {
+        "constitution_certificate": {
+          "bound_charter_height": 2,
+          "bound_charter_root": "50d57271779f44af744f54fd",
+          "certificate_hash": "a365cc2608d8d0063047fc2b",
+          "charter_certificate_hash": "baedc85697e183ab6f9244bb",
+          "charter_hash": "43716ba12f4b836bcda071fd",
+          "charter_plan_digest": "81339a3f38116782d18a6889",
+          "claims": {},
+          "constitution_count": 3,
+          "constitution_height": 3,
+          "constitution_plan_digest": "5e1b0cf8bc5a802aff8dd5b4",
+          "constitution_root": "48eb7eaa22320d50d3530993",
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "constitution_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_constitution_root": "95c63bf5729e944797b995ad",
+          "post_charter": true,
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "constitution_count": 3,
+        "constitution_hash": "93da68487c280950961b61a2",
+        "constitution_plan_digest": "5e1b0cf8bc5a802aff8dd5b4",
+        "constitutions": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "constitution_height": 1,
+              "constitution_plan_digest": "4eb7b5b03ab510f05782943f",
+              "constitution_root": "35c723457f82db6956470e66",
+              "effect": "fixture-effect-0",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "constitution_height": 2,
+              "constitution_plan_digest": "625cf9bf4a4a21cb54469a44",
+              "constitution_root": "95c63bf5729e944797b995ad",
+              "effect": "fixture-effect-1",
+              "receipt_digest": "27d82060920e8da35044a1a6"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "constitution_height": 3,
+              "constitution_plan_digest": "5e1b0cf8bc5a802aff8dd5b4",
+              "constitution_root": "48eb7eaa22320d50d3530993",
+              "effect": "fixture-effect-2",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00"
+            }
+          ],
+          "entry_count": 3
+        },
+        "goal": "differential fixture",
+        "kind": "constitution_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "tip_constitution_root": "48eb7eaa22320d50d3530993"
+      }
+    },
+    "dominion": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "dominion_hash": "17c95c04aa09ebffaaa310b6",
+        "dominion_plan_digest": "728a4e08a4d545e3d7885403",
+        "entry_count": 2,
+        "tip_certificate_hash": "c2f7cf0b0fb7e157884b6ca2",
+        "tip_dominion_root": "aef5903125299eb24a0a536e"
+      },
+      "parent_bundle": {
+        "empire_certificate": {
+          "bound_commonwealth_height": 2,
+          "bound_commonwealth_root": "99f30b1928626596f8110501",
+          "certificate_hash": "6145391f88ef37272ee0c875",
+          "claims": {},
+          "commonwealth_certificate_hash": "65201b85e35823c2c0b2266b",
+          "commonwealth_hash": "7e5a5b5456f2aa178dd55cd4",
+          "commonwealth_plan_digest": "c7b6ee72ff208ceab6d47e6e",
+          "deterministic": true,
+          "empire_count": 3,
+          "empire_height": 3,
+          "empire_plan_digest": "d4823e9652346c1f9cc98900",
+          "empire_root": "8efdd1b53d6612be8b8db880",
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "empire_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_empire_root": "4e35a7e6caa4c53d3697c96c",
+          "post_commonwealth": true,
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "empire_count": 3,
+        "empire_hash": "191a29d8ec3ac4c704f28990",
+        "empire_plan_digest": "d4823e9652346c1f9cc98900",
+        "empires": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "empire_height": 1,
+              "empire_plan_digest": "3510901864a27e16d2abe43a",
+              "empire_root": "cf2905d40f3b2d67a68c21e5",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "empire_height": 2,
+              "empire_plan_digest": "520d4fbcf65e53371f7b29fc",
+              "empire_root": "4e35a7e6caa4c53d3697c96c",
+              "receipt_digest": "27d82060920e8da35044a1a6"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "empire_height": 3,
+              "empire_plan_digest": "d4823e9652346c1f9cc98900",
+              "empire_root": "8efdd1b53d6612be8b8db880",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00"
+            }
+          ],
+          "entry_count": 3
+        },
+        "goal": "differential fixture",
+        "kind": "empire_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "tip_empire_root": "8efdd1b53d6612be8b8db880"
+      }
+    },
+    "empire": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "empire_hash": "4430232e7deb9f8b28ced1f9",
+        "empire_plan_digest": "236a4849cc7cd538c1b1dfe8",
+        "entry_count": 2,
+        "tip_certificate_hash": "25af90b1476a5e632cad263b",
+        "tip_empire_root": "999153627839830fe4e392e5"
+      },
+      "parent_bundle": {
+        "commonwealth_certificate": {
+          "bound_union_height": 2,
+          "bound_union_root": "fa78c01ac21f1b784a09ab0d",
+          "certificate_hash": "d31ee4023bfe6202eef1d640",
+          "claims": {},
+          "commonwealth_count": 3,
+          "commonwealth_height": 3,
+          "commonwealth_plan_digest": "2e4d79f9d367936380bf71da",
+          "commonwealth_root": "24281ad333e8faaeeb282cc0",
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "commonwealth_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_commonwealth_root": "fff3818a6ff8dc2dc1940fe2",
+          "post_union": true,
+          "schema_version": 1,
+          "union_certificate_hash": "a7153f97af893ba02847f327",
+          "union_hash": "a57162416fd35dedfce8cfee",
+          "union_plan_digest": "08c819af0aa501060a63f66a",
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "commonwealth_count": 3,
+        "commonwealth_hash": "151a8ce0bf69b95bd9d7aef7",
+        "commonwealth_plan_digest": "2e4d79f9d367936380bf71da",
+        "commonwealths": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "commonwealth_height": 1,
+              "commonwealth_plan_digest": "52072b1e515baf7868f67d4e",
+              "commonwealth_root": "1b3d86d5eaf1635627759230",
+              "effect": "fixture-effect-0",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "commonwealth_height": 2,
+              "commonwealth_plan_digest": "cbe21017b52776e8296c4df7",
+              "commonwealth_root": "fff3818a6ff8dc2dc1940fe2",
+              "effect": "fixture-effect-1",
+              "receipt_digest": "27d82060920e8da35044a1a6"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "commonwealth_height": 3,
+              "commonwealth_plan_digest": "2e4d79f9d367936380bf71da",
+              "commonwealth_root": "24281ad333e8faaeeb282cc0",
+              "effect": "fixture-effect-2",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00"
+            }
+          ],
+          "entry_count": 3
+        },
+        "goal": "differential fixture",
+        "kind": "commonwealth_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "tip_commonwealth_root": "24281ad333e8faaeeb282cc0"
+      }
+    },
+    "funding": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "entry_count": 2,
+        "funding_facility_digest": "e7650fb75992058d62f5e287",
+        "funding_hash": "da6c54b4f5286755285c12a0",
+        "tip_certificate_hash": "f21bc82185f4b5b3066a77ad",
+        "tip_funding_root": "236ec63f6a6dece6e60343d2"
+      },
+      "parent_bundle": {
+        "goal": "differential fixture",
+        "kind": "liquidity_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "liquidities": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "liquidity_coverage_digest": "b55fe0de7787c0bb0fd431d7",
+              "liquidity_height": 1,
+              "liquidity_root": "17b29416c14067c1c581c300",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "liquidity_coverage_digest": "57ddfeb1ed16f9d15cea05cf",
+              "liquidity_height": 2,
+              "liquidity_root": "105110bb765ab685668d95f3",
+              "receipt_digest": "27d82060920e8da35044a1a6"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "liquidity_coverage_digest": "5572b1d6a780763c0752cc0a",
+              "liquidity_height": 3,
+              "liquidity_root": "63feb4dc61cf066897963e8e",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00"
+            }
+          ],
+          "entry_count": 3
+        },
+        "liquidity_certificate": {
+          "bound_collateral_height": 2,
+          "bound_collateral_root": "f15bed0e2ed066c2cb911313",
+          "certificate_hash": "c90116400affbd85a03ed8cb",
+          "claims": {},
+          "collateral_allocation_digest": "cfca39e9031e27dab3d0e643",
+          "collateral_certificate_hash": "651b12fe3f3142878fa60397",
+          "collateral_hash": "d3be7675b5f2de09ca4e2075",
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "liquidity_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "liquidity_count": 3,
+          "liquidity_coverage_digest": "5572b1d6a780763c0752cc0a",
+          "liquidity_height": 3,
+          "liquidity_root": "63feb4dc61cf066897963e8e",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_liquidity_root": "105110bb765ab685668d95f3",
+          "post_collateral": true,
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "liquidity_count": 3,
+        "liquidity_coverage_digest": "5572b1d6a780763c0752cc0a",
+        "liquidity_hash": "c4247436a5b6be8e79747eb4",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "tip_liquidity_root": "63feb4dc61cf066897963e8e"
+      }
+    },
+    "liquidity": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "entry_count": 2,
+        "liquidity_coverage_digest": "8b6377e560817a12072a7ce7",
+        "liquidity_hash": "6d9db0f1d907083bbc283528",
+        "tip_certificate_hash": "e0fd401d635162b2d93b3079",
+        "tip_liquidity_root": "98c3a7cf0b541da6c4d322ff"
+      },
+      "parent_bundle": {
+        "collateral_allocation_digest": "e22bd88eb1d3f129e7b26518",
+        "collateral_certificate": {
+          "bound_margin_height": 2,
+          "bound_margin_root": "e64aff96af755239a22ec292",
+          "certificate_hash": "9f6e87edeb1eadfd7496fc2b",
+          "claims": {},
+          "collateral_allocation_digest": "e22bd88eb1d3f129e7b26518",
+          "collateral_count": 3,
+          "collateral_height": 3,
+          "collateral_root": "e08df64a9064b872f87ab726",
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "collateral_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "margin_certificate_hash": "0dbe5f609e0abd748fb02847",
+          "margin_hash": "4fd91768f709fce54dc6077d",
+          "margin_requirement_digest": "fb06a81fdfdf1402fc3a56f5",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_collateral_root": "1ff1fb1573337eb259f7832d",
+          "post_margin": true,
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "collateral_count": 3,
+        "collateral_hash": "d0b2356154e4d37a6a900c12",
+        "collaterals": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "collateral_allocation_digest": "0b78b751af40b60b5a3abfb5",
+              "collateral_height": 1,
+              "collateral_root": "02b74860cde21457d2ec412b",
+              "effect": "fixture-effect-0",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "collateral_allocation_digest": "ea40576770e369cf5459b0ac",
+              "collateral_height": 2,
+              "collateral_root": "1ff1fb1573337eb259f7832d",
+              "effect": "fixture-effect-1",
+              "receipt_digest": "27d82060920e8da35044a1a6"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "collateral_allocation_digest": "e22bd88eb1d3f129e7b26518",
+              "collateral_height": 3,
+              "collateral_root": "e08df64a9064b872f87ab726",
+              "effect": "fixture-effect-2",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00"
+            }
+          ],
+          "entry_count": 3
+        },
+        "goal": "differential fixture",
+        "kind": "collateral_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "tip_collateral_root": "e08df64a9064b872f87ab726"
+      }
+    },
+    "mandate": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "entry_count": 2,
+        "mandate_hash": "f3c5de985a1b5e06ad690f55",
+        "mandate_plan_digest": "eb056334184028c61d388538",
+        "tip_certificate_hash": "6be4ce980b1cf7db0e0efc6f",
+        "tip_mandate_root": "918c69b457c08a1b91e5a8d5"
+      },
+      "parent_bundle": {
+        "goal": "differential fixture",
+        "kind": "privilege_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "privilege_certificate": {
+          "bound_standing_height": 2,
+          "bound_standing_root": "436d9e15f77893002862819e",
+          "certificate_hash": "ff03f5d5a8bae8ea3eace945",
+          "claims": {},
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "privilege_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_privilege_root": "dfce899ac4bebfb64f1251ec",
+          "post_standing": true,
+          "privilege_count": 3,
+          "privilege_height": 3,
+          "privilege_plan_digest": "2c030718009586b905464e74",
+          "privilege_root": "f22822fbf04491918ff6c605",
+          "schema_version": 1,
+          "standing_certificate_hash": "7e1b610cd5ea60b1704c3ba3",
+          "standing_hash": "f41eaecf7e1dec3ae1538f4f",
+          "standing_plan_digest": "1c8ea28bfa76bb2d83c00084",
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "privilege_count": 3,
+        "privilege_hash": "df2793ec83a9106f2252452a",
+        "privilege_plan_digest": "2c030718009586b905464e74",
+        "privileges": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "privilege_height": 1,
+              "privilege_plan_digest": "79f03fb7454564a5e344feb6",
+              "privilege_root": "32987fa114e2d5f0dc326471",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "privilege_height": 2,
+              "privilege_plan_digest": "09b5753cb84d2a2ea2c4796b",
+              "privilege_root": "dfce899ac4bebfb64f1251ec",
+              "receipt_digest": "27d82060920e8da35044a1a6"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "privilege_height": 3,
+              "privilege_plan_digest": "2c030718009586b905464e74",
+              "privilege_root": "f22822fbf04491918ff6c605",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00"
+            }
+          ],
+          "entry_count": 3
+        },
+        "tip_privilege_root": "f22822fbf04491918ff6c605"
+      }
+    },
+    "margin": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "entry_count": 2,
+        "margin_hash": "7a5b1c7374c789515fffdb03",
+        "margin_requirement_digest": "9557f09dab985a4317b77df6",
+        "tip_certificate_hash": "853549d588a1e63e2ad391e6",
+        "tip_margin_root": "38eace01c5d8916fae72c911"
+      },
+      "parent_bundle": {
+        "clearing_certificate": {
+          "bound_settlement_height": 2,
+          "bound_settlement_root": "289563a0f7230c4e970c9804",
+          "certificate_hash": "c341c72484eefdf03dd9eaab",
+          "claims": {},
+          "clearing_count": 3,
+          "clearing_height": 3,
+          "clearing_root": "100980bddefdc74e670b09f6",
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "clearing_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "net_position_digest": "707a978e76b03ae729c1bb20",
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_clearing_root": "304d2d3affae9c493795bdee",
+          "post_settlement": true,
+          "schema_version": 1,
+          "settlement_certificate_hash": "d90290f534dfd59d6f98b057",
+          "settlement_hash": "5dd0611308563739eafeed23",
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "clearing_count": 3,
+        "clearing_hash": "11d561c8fd7d7bf8d35a4080",
+        "clearings": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "clearing_height": 1,
+              "clearing_root": "3faaaf844cd6b31d49392f53",
+              "effect": "fixture-effect-0",
+              "net_position_digest": "000e5bb86c82ae697526899b",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "clearing_height": 2,
+              "clearing_root": "304d2d3affae9c493795bdee",
+              "effect": "fixture-effect-1",
+              "net_position_digest": "d0a3d677852cebffe89f8489",
+              "receipt_digest": "27d82060920e8da35044a1a6"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "clearing_height": 3,
+              "clearing_root": "100980bddefdc74e670b09f6",
+              "effect": "fixture-effect-2",
+              "net_position_digest": "707a978e76b03ae729c1bb20",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00"
+            }
+          ],
+          "entry_count": 3
+        },
+        "goal": "differential fixture",
+        "kind": "clearing_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "net_position_digest": "707a978e76b03ae729c1bb20",
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "tip_clearing_root": "100980bddefdc74e670b09f6"
+      }
+    },
+    "pact": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "entry_count": 2,
+        "pact_hash": "e5b0b1854d4e25fc250a1d60",
+        "pact_plan_digest": "0e37d2c3bad29b5c22a52636",
+        "tip_certificate_hash": "397b737f4bc72b020ef3a5e6",
+        "tip_pact_root": "334c963790ad3c4c68888a61"
+      },
+      "parent_bundle": {
+        "goal": "differential fixture",
+        "kind": "treaty_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "tip_treaty_root": "b3facb315248d8c151aa3f2e",
+        "treaties": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab",
+              "treaty_height": 1,
+              "treaty_plan_digest": "43a4219cd5bec409b7fe3487",
+              "treaty_root": "f7334d5680893f7e5ea88d2a"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "receipt_digest": "27d82060920e8da35044a1a6",
+              "treaty_height": 2,
+              "treaty_plan_digest": "5279a72ddd0f715a49bac9a8",
+              "treaty_root": "c23b0d60d0aac434c01af3f0"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00",
+              "treaty_height": 3,
+              "treaty_plan_digest": "0e1c6679a23ebf0d468a9cb0",
+              "treaty_root": "b3facb315248d8c151aa3f2e"
+            }
+          ],
+          "entry_count": 3
+        },
+        "treaty_certificate": {
+          "bound_covenant_height": 2,
+          "bound_covenant_root": "dd1243bc6db8d36210746ea0",
+          "certificate_hash": "f684778a0728cdd574917c2a",
+          "claims": {},
+          "covenant_certificate_hash": "32749e7c79472b8b3a6986ad",
+          "covenant_hash": "0bf340e3f1c18b20966d9b36",
+          "covenant_plan_digest": "5337e599ef2938e830491040",
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "treaty_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_treaty_root": "c23b0d60d0aac434c01af3f0",
+          "post_covenant": true,
+          "schema_version": 1,
+          "treaty_count": 3,
+          "treaty_height": 3,
+          "treaty_plan_digest": "0e1c6679a23ebf0d468a9cb0",
+          "treaty_root": "b3facb315248d8c151aa3f2e",
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "treaty_count": 3,
+        "treaty_hash": "8e343baba81e525f2afa3f3b",
+        "treaty_plan_digest": "0e1c6679a23ebf0d468a9cb0"
+      }
+    },
+    "privilege": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "entry_count": 2,
+        "privilege_hash": "6c68a21d766399cf624118f7",
+        "privilege_plan_digest": "b9d00f423525cb2b06743456",
+        "tip_certificate_hash": "4d01238ddb9fac90bbcad06f",
+        "tip_privilege_root": "7585b48c11cf70b7c78b0c4a"
+      },
+      "parent_bundle": {
+        "goal": "differential fixture",
+        "kind": "standing_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "standing_certificate": {
+          "bound_reputation_height": 2,
+          "bound_reputation_root": "0077ba64a0a6032ec52b8604",
+          "certificate_hash": "18ff2834715776c46985862b",
+          "claims": {},
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "standing_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_standing_root": "cd8ab52870c829a9cab00c7f",
+          "post_reputation": true,
+          "reputation_certificate_hash": "abd8b84e00e552fd35d809c4",
+          "reputation_hash": "f8a59a089dd0ce6e12cc96a3",
+          "reputation_plan_digest": "0c928fdde1ba83d480ea5560",
+          "schema_version": 1,
+          "standing_count": 3,
+          "standing_height": 3,
+          "standing_plan_digest": "e3b3c069cf3f82e96783b129",
+          "standing_root": "d9f1ef3c9e50f32cfd2a1a85",
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "standing_count": 3,
+        "standing_hash": "7ce9baa2b3d37d544aa4c44d",
+        "standing_plan_digest": "e3b3c069cf3f82e96783b129",
+        "standings": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab",
+              "standing_height": 1,
+              "standing_plan_digest": "e60687da03320337154ecac6",
+              "standing_root": "78875bbe33f2337b55006ae0"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "receipt_digest": "27d82060920e8da35044a1a6",
+              "standing_height": 2,
+              "standing_plan_digest": "12b6c038207e8bd75986af2d",
+              "standing_root": "cd8ab52870c829a9cab00c7f"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00",
+              "standing_height": 3,
+              "standing_plan_digest": "e3b3c069cf3f82e96783b129",
+              "standing_root": "d9f1ef3c9e50f32cfd2a1a85"
+            }
+          ],
+          "entry_count": 3
+        },
+        "tip_standing_root": "d9f1ef3c9e50f32cfd2a1a85"
+      }
+    },
+    "reaccreditation": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "entry_count": 2,
+        "reaccreditation_hash": "d0711caea3c0adfcc896a767",
+        "reaccreditation_plan_digest": "5898ef7a324de07d2a0e0cf7",
+        "tip_certificate_hash": "df73db18225a99af026b249c",
+        "tip_reaccreditation_root": "0d805a9181ff892cc53d7631"
+      },
+      "parent_bundle": {
+        "goal": "differential fixture",
+        "kind": "reverification_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "reverification_certificate": {
+          "bound_revalidation_height": 2,
+          "bound_revalidation_root": "6683d5b2b68b09ade66be6cf",
+          "certificate_hash": "ab1e4df63eb7e7d62561a730",
+          "claims": {},
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "reverification_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_reverification_root": "2dee3fb1bd8011d9d46096d5",
+          "post_revalidation": true,
+          "revalidation_certificate_hash": "f897f7a0955f9c825bc166c0",
+          "revalidation_hash": "d14da5d89cd971e86a0af10a",
+          "revalidation_plan_digest": "a3ec397ef3e563c734a2f7bf",
+          "reverification_count": 3,
+          "reverification_height": 3,
+          "reverification_plan_digest": "7061bbdd77839cc65c629736",
+          "reverification_root": "ddd6b90376751c2f8a89b396",
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "reverification_count": 3,
+        "reverification_hash": "a38585cf5e2f81ecf00a9be4",
+        "reverification_plan_digest": "7061bbdd77839cc65c629736",
+        "reverifications": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab",
+              "reverification_height": 1,
+              "reverification_plan_digest": "b0d976fa99e1d4f2fb986ec8",
+              "reverification_root": "ec503e9d409104eaf23db3cd"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "receipt_digest": "27d82060920e8da35044a1a6",
+              "reverification_height": 2,
+              "reverification_plan_digest": "f7e55212d30439068c64447c",
+              "reverification_root": "2dee3fb1bd8011d9d46096d5"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00",
+              "reverification_height": 3,
+              "reverification_plan_digest": "7061bbdd77839cc65c629736",
+              "reverification_root": "ddd6b90376751c2f8a89b396"
+            }
+          ],
+          "entry_count": 3
+        },
+        "tip_reverification_root": "ddd6b90376751c2f8a89b396"
+      }
+    },
+    "realm": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "entry_count": 2,
+        "realm_hash": "d5757d96ce2ee69c544c822d",
+        "realm_plan_digest": "aa31e2698987ab725afe49b9",
+        "tip_certificate_hash": "f62bb94de7ddddf1ae8c0aa2",
+        "tip_realm_root": "be8f43f2f5f00ccd46a4d6f5"
+      },
+      "parent_bundle": {
+        "dominion_certificate": {
+          "bound_empire_height": 2,
+          "bound_empire_root": "5dac566fb347e910c6f59533",
+          "certificate_hash": "d5e0f06fc8d728e3b6fffc92",
+          "claims": {},
+          "deterministic": true,
+          "dominion_count": 3,
+          "dominion_height": 3,
+          "dominion_plan_digest": "dd8fc2872b58304c1256537e",
+          "dominion_root": "d7d67c97c39c2d686be12b4b",
+          "empire_certificate_hash": "365f5fa3c18ed800da8338f7",
+          "empire_hash": "f4f2f9999dcfbf835a49dc3e",
+          "empire_plan_digest": "745718b6689657d41388490a",
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "dominion_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_dominion_root": "0443a1fc9deb2b735eac78c6",
+          "post_empire": true,
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "dominion_count": 3,
+        "dominion_hash": "d9922d70ba51237b2963219d",
+        "dominion_plan_digest": "dd8fc2872b58304c1256537e",
+        "dominions": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "dominion_height": 1,
+              "dominion_plan_digest": "19a4552f484371d75faef931",
+              "dominion_root": "6bd839839dc4c0455a7d41fe",
+              "effect": "fixture-effect-0",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "dominion_height": 2,
+              "dominion_plan_digest": "2df20301efedad91ad896b31",
+              "dominion_root": "0443a1fc9deb2b735eac78c6",
+              "effect": "fixture-effect-1",
+              "receipt_digest": "27d82060920e8da35044a1a6"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "dominion_height": 3,
+              "dominion_plan_digest": "dd8fc2872b58304c1256537e",
+              "dominion_root": "d7d67c97c39c2d686be12b4b",
+              "effect": "fixture-effect-2",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00"
+            }
+          ],
+          "entry_count": 3
+        },
+        "goal": "differential fixture",
+        "kind": "dominion_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "tip_dominion_root": "d7d67c97c39c2d686be12b4b"
+      }
+    },
+    "reattestation": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "entry_count": 2,
+        "reattestation_hash": "94650c50b817264abba85ef0",
+        "reattestation_plan_digest": "72ab89fd17b1123c982d5639",
+        "tip_certificate_hash": "70fad6c571f084eb50360dae",
+        "tip_reattestation_root": "da80e69dddcba2ad42f57f68"
+      },
+      "parent_bundle": {
+        "goal": "differential fixture",
+        "kind": "recertification_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "recertification_certificate": {
+          "bound_reauthorization_height": 2,
+          "bound_reauthorization_root": "c8de4b5e9b78055cd290fa47",
+          "certificate_hash": "b953e00bfef244314f848b54",
+          "claims": {},
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "recertification_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_recertification_root": "cbd7151cef0bd8108097750d",
+          "post_reauthorization": true,
+          "reauthorization_certificate_hash": "d55e2a38bf78a68f0ee24f8d",
+          "reauthorization_hash": "b7b61c030845d80b175c212b",
+          "reauthorization_plan_digest": "d2e439e62501efe7dcfba107",
+          "recertification_count": 3,
+          "recertification_height": 3,
+          "recertification_plan_digest": "ee8bf291e985dfdd24bbfebf",
+          "recertification_root": "8135e9688323ed82eee61034",
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "recertification_count": 3,
+        "recertification_hash": "c0e792d1cb1bc0d1d476f479",
+        "recertification_plan_digest": "ee8bf291e985dfdd24bbfebf",
+        "recertifications": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab",
+              "recertification_height": 1,
+              "recertification_plan_digest": "348c7ee20e4c162f94717f4e",
+              "recertification_root": "70aceb09728d05ae09a88aea"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "receipt_digest": "27d82060920e8da35044a1a6",
+              "recertification_height": 2,
+              "recertification_plan_digest": "0edca974b9b64e8ac7f63cb0",
+              "recertification_root": "cbd7151cef0bd8108097750d"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00",
+              "recertification_height": 3,
+              "recertification_plan_digest": "ee8bf291e985dfdd24bbfebf",
+              "recertification_root": "8135e9688323ed82eee61034"
+            }
+          ],
+          "entry_count": 3
+        },
+        "tip_recertification_root": "8135e9688323ed82eee61034"
+      }
+    },
+    "reauthorization": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "entry_count": 2,
+        "reauthorization_hash": "b6da87b8d03f5950918cada6",
+        "reauthorization_plan_digest": "5d55719d91216df498e4bae5",
+        "tip_certificate_hash": "65748a63599c6027d5df456b",
+        "tip_reauthorization_root": "2fa09f930f00e84d92914a7b"
+      },
+      "parent_bundle": {
+        "goal": "differential fixture",
+        "kind": "reinstatement_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "reinstatement_certificate": {
+          "bound_rehabilitation_height": 2,
+          "bound_rehabilitation_root": "094283e8ca2622aacb36fe5f",
+          "certificate_hash": "ed99fc00a27a8a6abbf0f870",
+          "claims": {},
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "reinstatement_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_reinstatement_root": "8fbaa849566a733cbd804c33",
+          "post_rehabilitation": true,
+          "rehabilitation_certificate_hash": "e75867c81e88311ee6b479c7",
+          "rehabilitation_hash": "9f2b11760a92ac530192e5f1",
+          "rehabilitation_plan_digest": "f9716d5a2d3bb27215405cb2",
+          "reinstatement_count": 3,
+          "reinstatement_height": 3,
+          "reinstatement_plan_digest": "c46583ca2339d872ef24f114",
+          "reinstatement_root": "226ad2b560f508f42cf2f6dd",
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "reinstatement_count": 3,
+        "reinstatement_hash": "49b8debc0400c92ed19702b4",
+        "reinstatement_plan_digest": "c46583ca2339d872ef24f114",
+        "reinstatements": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab",
+              "reinstatement_height": 1,
+              "reinstatement_plan_digest": "6f601898296e652998d61485",
+              "reinstatement_root": "8492cf3068e6d5e16b138a5f"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "receipt_digest": "27d82060920e8da35044a1a6",
+              "reinstatement_height": 2,
+              "reinstatement_plan_digest": "2e6e55554a41696c295c939f",
+              "reinstatement_root": "8fbaa849566a733cbd804c33"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00",
+              "reinstatement_height": 3,
+              "reinstatement_plan_digest": "c46583ca2339d872ef24f114",
+              "reinstatement_root": "226ad2b560f508f42cf2f6dd"
+            }
+          ],
+          "entry_count": 3
+        },
+        "tip_reinstatement_root": "226ad2b560f508f42cf2f6dd"
+      }
+    },
+    "recertification": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "entry_count": 2,
+        "recertification_hash": "7b301ea11facda25107642ca",
+        "recertification_plan_digest": "f314c3bf188297a2409f3160",
+        "tip_certificate_hash": "a25c9a66d7b84a3ea5fc69f2",
+        "tip_recertification_root": "ebdbca006e382275873fdcf9"
+      },
+      "parent_bundle": {
+        "goal": "differential fixture",
+        "kind": "reauthorization_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "reauthorization_certificate": {
+          "bound_reinstatement_height": 2,
+          "bound_reinstatement_root": "e400ae74e9317b52d08081a5",
+          "certificate_hash": "5981c60a49b08b9f63d72431",
+          "claims": {},
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "reauthorization_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_reauthorization_root": "96aa7d4097c0865a97324061",
+          "post_reinstatement": true,
+          "reauthorization_count": 3,
+          "reauthorization_height": 3,
+          "reauthorization_plan_digest": "7a398b0da9dbda031231f9e1",
+          "reauthorization_root": "ba5da3475ca1031e210a543d",
+          "reinstatement_certificate_hash": "8871bca362a0159f22b60033",
+          "reinstatement_hash": "d0d8c91acc53d9c9b856baff",
+          "reinstatement_plan_digest": "0b8caeb0aec4f524d15ab946",
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "reauthorization_count": 3,
+        "reauthorization_hash": "8dea3cc84e7c99db2bd5ec37",
+        "reauthorization_plan_digest": "7a398b0da9dbda031231f9e1",
+        "reauthorizations": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "reauthorization_height": 1,
+              "reauthorization_plan_digest": "a91ae9368947804b4f72c0f8",
+              "reauthorization_root": "31b410e70dcb940f7f796d3c",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "reauthorization_height": 2,
+              "reauthorization_plan_digest": "01340311b4884a0f4ce07a10",
+              "reauthorization_root": "96aa7d4097c0865a97324061",
+              "receipt_digest": "27d82060920e8da35044a1a6"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "reauthorization_height": 3,
+              "reauthorization_plan_digest": "7a398b0da9dbda031231f9e1",
+              "reauthorization_root": "ba5da3475ca1031e210a543d",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00"
+            }
+          ],
+          "entry_count": 3
+        },
+        "tip_reauthorization_root": "ba5da3475ca1031e210a543d"
+      }
+    },
+    "recognition": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "entry_count": 2,
+        "recognition_hash": "c59d7464bc3240ec06d47145",
+        "recognition_plan_digest": "ecdc52d93c94eb1e9ce7c949",
+        "tip_certificate_hash": "767a3f593cab08998658e804",
+        "tip_recognition_root": "9bed8e19e649aafb53231382"
+      },
+      "parent_bundle": {
+        "goal": "differential fixture",
+        "kind": "reaccreditation_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "reaccreditation_certificate": {
+          "bound_reverification_height": 2,
+          "bound_reverification_root": "c79654d7822ef2de36c54ea2",
+          "certificate_hash": "fbaec535e52671dae82dda61",
+          "claims": {},
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "reaccreditation_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_reaccreditation_root": "828ee5fe0639ded0d525fd66",
+          "post_reverification": true,
+          "reaccreditation_count": 3,
+          "reaccreditation_height": 3,
+          "reaccreditation_plan_digest": "f99ed322da18bb04e7cadf3e",
+          "reaccreditation_root": "19880da65598e3ea9090a7a0",
+          "reverification_certificate_hash": "521eebcf11b34957466fdf10",
+          "reverification_hash": "e2a8c35d8eba307d136ed655",
+          "reverification_plan_digest": "046c24d4d4c36a6086e6379c",
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "reaccreditation_count": 3,
+        "reaccreditation_hash": "1ac1a4aa6bd27d2e44c98590",
+        "reaccreditation_plan_digest": "f99ed322da18bb04e7cadf3e",
+        "reaccreditations": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "reaccreditation_height": 1,
+              "reaccreditation_plan_digest": "8dfafe1201f4360a879f74f1",
+              "reaccreditation_root": "5ef22bd0e06cc7df44c68040",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "reaccreditation_height": 2,
+              "reaccreditation_plan_digest": "8771b8c6a669ded4d735e488",
+              "reaccreditation_root": "828ee5fe0639ded0d525fd66",
+              "receipt_digest": "27d82060920e8da35044a1a6"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "reaccreditation_height": 3,
+              "reaccreditation_plan_digest": "f99ed322da18bb04e7cadf3e",
+              "reaccreditation_root": "19880da65598e3ea9090a7a0",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00"
+            }
+          ],
+          "entry_count": 3
+        },
+        "tip_reaccreditation_root": "19880da65598e3ea9090a7a0"
+      }
+    },
+    "recovery": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "entry_count": 2,
+        "recovery_hash": "704c1d902821282f3154fbba",
+        "recovery_plan_digest": "a14ed3f10a99f2c1842b5c66",
+        "tip_certificate_hash": "01f1efc73a57adc283949728",
+        "tip_recovery_root": "ef1e53d5acfe3b7dcb40a20b"
+      },
+      "parent_bundle": {
+        "goal": "differential fixture",
+        "kind": "resilience_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "resilience_buffer_digest": "f0d110cb414c33c00b9c4f30",
+        "resilience_certificate": {
+          "bound_stress_height": 2,
+          "bound_stress_root": "05befe4cf4d083c4a4ae8a59",
+          "certificate_hash": "c4772416966e2944ebd8193e",
+          "claims": {},
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "resilience_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_resilience_root": "af1d35c8e67ebf357a000273",
+          "post_stress": true,
+          "resilience_buffer_digest": "f0d110cb414c33c00b9c4f30",
+          "resilience_count": 3,
+          "resilience_height": 3,
+          "resilience_root": "a65b6d50b9a71712f33d0969",
+          "schema_version": 1,
+          "stress_certificate_hash": "f1f16f672e523c6068313fbe",
+          "stress_hash": "dc9b640584e76d15a0ed65d1",
+          "stress_scenario_digest": "fdff01634b41f6405dbba3c6",
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "resilience_count": 3,
+        "resilience_hash": "1369e2bb472c72cd3062e2fa",
+        "resiliences": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab",
+              "resilience_buffer_digest": "ac73bec76bbc1f3aabd70e62",
+              "resilience_height": 1,
+              "resilience_root": "42483fc5dbcdc48c45bf1ec9"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "receipt_digest": "27d82060920e8da35044a1a6",
+              "resilience_buffer_digest": "54d03f7d7ce525e9ad18a79b",
+              "resilience_height": 2,
+              "resilience_root": "af1d35c8e67ebf357a000273"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00",
+              "resilience_buffer_digest": "f0d110cb414c33c00b9c4f30",
+              "resilience_height": 3,
+              "resilience_root": "a65b6d50b9a71712f33d0969"
+            }
+          ],
+          "entry_count": 3
+        },
+        "tip_resilience_root": "a65b6d50b9a71712f33d0969"
+      }
+    },
+    "rehabilitation": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "entry_count": 2,
+        "rehabilitation_hash": "9734b1fbf963f7a42d03fdac",
+        "rehabilitation_plan_digest": "d66a7ae0e7117324c8327b87",
+        "tip_certificate_hash": "ca8ec783682f5ad604639a5d",
+        "tip_rehabilitation_root": "b170f317d3b604225a0f04b4"
+      },
+      "parent_bundle": {
+        "goal": "differential fixture",
+        "kind": "reorganization_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "reorganization_certificate": {
+          "bound_restructuring_height": 2,
+          "bound_restructuring_root": "9e3613cda2c9f3455c1ad770",
+          "certificate_hash": "a8f90aa45276809b84b87bc3",
+          "claims": {},
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "reorganization_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_reorganization_root": "75cff6203ab5ab75edcd6056",
+          "post_restructuring": true,
+          "reorganization_count": 3,
+          "reorganization_height": 3,
+          "reorganization_plan_digest": "c05d7280110e8bf8a3081f07",
+          "reorganization_root": "2065a1f374d29eebb6724e2d",
+          "restructuring_certificate_hash": "6d944bf66b3d8d1af8b21095",
+          "restructuring_hash": "2cadd2be112ead6608b1a07c",
+          "restructuring_plan_digest": "511689ecb0021604d1e48db9",
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "reorganization_count": 3,
+        "reorganization_hash": "0e0a21e5e0f790b71386eda6",
+        "reorganization_plan_digest": "c05d7280110e8bf8a3081f07",
+        "reorganizations": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab",
+              "reorganization_height": 1,
+              "reorganization_plan_digest": "579dd5a4dce1732ebf0ad804",
+              "reorganization_root": "e6ce4a652b684496bfa8922e"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "receipt_digest": "27d82060920e8da35044a1a6",
+              "reorganization_height": 2,
+              "reorganization_plan_digest": "afbf450d533a7afc4509125c",
+              "reorganization_root": "75cff6203ab5ab75edcd6056"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00",
+              "reorganization_height": 3,
+              "reorganization_plan_digest": "c05d7280110e8bf8a3081f07",
+              "reorganization_root": "2065a1f374d29eebb6724e2d"
+            }
+          ],
+          "entry_count": 3
+        },
+        "tip_reorganization_root": "2065a1f374d29eebb6724e2d"
+      }
+    },
+    "reinstatement": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "entry_count": 2,
+        "reinstatement_hash": "f08e117f1480c619aae63e32",
+        "reinstatement_plan_digest": "f2fbdd5b69bb6fad12bcf100",
+        "tip_certificate_hash": "d15931ec4d82e374ac6abe73",
+        "tip_reinstatement_root": "0812303dba2eb31926be1e5d"
+      },
+      "parent_bundle": {
+        "goal": "differential fixture",
+        "kind": "rehabilitation_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "rehabilitation_certificate": {
+          "bound_reorganization_height": 2,
+          "bound_reorganization_root": "e1e3808c974447a26c609fea",
+          "certificate_hash": "712363c69bb707d93fd23c26",
+          "claims": {},
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "rehabilitation_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_rehabilitation_root": "e49ad94dba9906fb664179a1",
+          "post_reorganization": true,
+          "rehabilitation_count": 3,
+          "rehabilitation_height": 3,
+          "rehabilitation_plan_digest": "d779b5a3a1d1cc579b35618a",
+          "rehabilitation_root": "b6643c2d3bd17369ddf2c2d2",
+          "reorganization_certificate_hash": "277309fbdc992996d52adf03",
+          "reorganization_hash": "1d42b6acf11d0e5859eddaeb",
+          "reorganization_plan_digest": "2b47e9e0e881f6fbcac6e873",
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "rehabilitation_count": 3,
+        "rehabilitation_hash": "e6b7e6533b0c30b08a275e1e",
+        "rehabilitation_plan_digest": "d779b5a3a1d1cc579b35618a",
+        "rehabilitations": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab",
+              "rehabilitation_height": 1,
+              "rehabilitation_plan_digest": "f98867765cf77cde520f43c2",
+              "rehabilitation_root": "0b1d64cd19ef3b91e8795a0f"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "receipt_digest": "27d82060920e8da35044a1a6",
+              "rehabilitation_height": 2,
+              "rehabilitation_plan_digest": "43360740d1919a62b44d95d2",
+              "rehabilitation_root": "e49ad94dba9906fb664179a1"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00",
+              "rehabilitation_height": 3,
+              "rehabilitation_plan_digest": "d779b5a3a1d1cc579b35618a",
+              "rehabilitation_root": "b6643c2d3bd17369ddf2c2d2"
+            }
+          ],
+          "entry_count": 3
+        },
+        "tip_rehabilitation_root": "b6643c2d3bd17369ddf2c2d2"
+      }
+    },
+    "reorganization": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "entry_count": 2,
+        "reorganization_hash": "15874f1037a1b338617a8a50",
+        "reorganization_plan_digest": "7719f092f06e9e16cce80c75",
+        "tip_certificate_hash": "7ba4f026b68d4965209432bf",
+        "tip_reorganization_root": "310afc4ee56febf20768ba60"
+      },
+      "parent_bundle": {
+        "goal": "differential fixture",
+        "kind": "restructuring_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "restructuring_certificate": {
+          "bound_resolution_height": 2,
+          "bound_resolution_root": "0a625356b6410d13e309919e",
+          "certificate_hash": "89db9d3b0db188db455326b1",
+          "claims": {},
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "restructuring_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_restructuring_root": "ee4be69251c0aeabea41d719",
+          "post_resolution": true,
+          "resolution_certificate_hash": "0484d6fb27c25b1aaeb5f9e6",
+          "resolution_hash": "4799c0172c4f7ef72155caa9",
+          "resolution_plan_digest": "22cb0fba187e0b1a2d131d2e",
+          "restructuring_count": 3,
+          "restructuring_height": 3,
+          "restructuring_plan_digest": "9d8906a64c51c81b4213a8ff",
+          "restructuring_root": "758668dd7433b78a1c4ab59b",
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "restructuring_count": 3,
+        "restructuring_hash": "a02255c0f20bd0e099bac324",
+        "restructuring_plan_digest": "9d8906a64c51c81b4213a8ff",
+        "restructurings": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab",
+              "restructuring_height": 1,
+              "restructuring_plan_digest": "18c5fdcfbfe2df86d4928906",
+              "restructuring_root": "80ddade8a41950baa32db1a4"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "receipt_digest": "27d82060920e8da35044a1a6",
+              "restructuring_height": 2,
+              "restructuring_plan_digest": "93adaa33660a1e229f081809",
+              "restructuring_root": "ee4be69251c0aeabea41d719"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00",
+              "restructuring_height": 3,
+              "restructuring_plan_digest": "9d8906a64c51c81b4213a8ff",
+              "restructuring_root": "758668dd7433b78a1c4ab59b"
+            }
+          ],
+          "entry_count": 3
+        },
+        "tip_restructuring_root": "758668dd7433b78a1c4ab59b"
+      }
+    },
+    "reputation": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "entry_count": 2,
+        "reputation_hash": "cf8524a02a32b8937a20c682",
+        "reputation_plan_digest": "331b946248a4aaeeddf50889",
+        "tip_certificate_hash": "4302f6c90e2b93aa33d58b34",
+        "tip_reputation_root": "e7ccef0d4fb5ab5f72493b7a"
+      },
+      "parent_bundle": {
+        "goal": "differential fixture",
+        "kind": "recognition_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "recognition_certificate": {
+          "bound_reaccreditation_height": 2,
+          "bound_reaccreditation_root": "baae9b5256d397ca12480466",
+          "certificate_hash": "fc8280245a43da76db7e3127",
+          "claims": {},
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "recognition_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_recognition_root": "f4c45d3b6fc9c641d43ec3f9",
+          "post_reaccreditation": true,
+          "reaccreditation_certificate_hash": "3aa0404abe054281362e8cd0",
+          "reaccreditation_hash": "c73c544e0bf26055f0892604",
+          "reaccreditation_plan_digest": "288f8e42bc35c6804799f72b",
+          "recognition_count": 3,
+          "recognition_height": 3,
+          "recognition_plan_digest": "f5fd2f41c3bf5f37a5beb5b9",
+          "recognition_root": "e2b56232116492c9ad180a2b",
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "recognition_count": 3,
+        "recognition_hash": "742678dc194d9768bace228c",
+        "recognition_plan_digest": "f5fd2f41c3bf5f37a5beb5b9",
+        "recognitions": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab",
+              "recognition_height": 1,
+              "recognition_plan_digest": "b7bc1cefa7be1d5897a12c69",
+              "recognition_root": "90d1d20805977bc2f9fd1a8d"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "receipt_digest": "27d82060920e8da35044a1a6",
+              "recognition_height": 2,
+              "recognition_plan_digest": "18452985702f6f5af9490b50",
+              "recognition_root": "f4c45d3b6fc9c641d43ec3f9"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00",
+              "recognition_height": 3,
+              "recognition_plan_digest": "f5fd2f41c3bf5f37a5beb5b9",
+              "recognition_root": "e2b56232116492c9ad180a2b"
+            }
+          ],
+          "entry_count": 3
+        },
+        "tip_recognition_root": "e2b56232116492c9ad180a2b"
+      }
+    },
+    "resilience": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "entry_count": 2,
+        "resilience_buffer_digest": "4eed42540e8388cdf8c392cb",
+        "resilience_hash": "d568ee6327e24f64e993f384",
+        "tip_certificate_hash": "626c603e0268568ff13bebe7",
+        "tip_resilience_root": "9299ac2cb80efd3fccfcc8ef"
+      },
+      "parent_bundle": {
+        "goal": "differential fixture",
+        "kind": "stress_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "stress_certificate": {
+          "bound_risk_height": 2,
+          "bound_risk_root": "ad9ad6ed28073988550aea46",
+          "certificate_hash": "6e766cdb3e9a4e4f2fb58418",
+          "claims": {},
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "stress_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_stress_root": "f914bf1b19910fb5388354ff",
+          "post_risk": true,
+          "risk_assessment_digest": "104e8e020ef125f9a702efac",
+          "risk_certificate_hash": "4d1cfe4c5810b007e46f43a6",
+          "risk_hash": "5544609b419e72061f843b04",
+          "schema_version": 1,
+          "stress_count": 3,
+          "stress_height": 3,
+          "stress_root": "1a686d247cf41e782e002f92",
+          "stress_scenario_digest": "055a104a0c08350353f9840e",
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "stress_count": 3,
+        "stress_hash": "c3398eb8e6d174f2f12c2b7d",
+        "stress_scenario_digest": "055a104a0c08350353f9840e",
+        "stresses": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab",
+              "stress_height": 1,
+              "stress_root": "673b7d1a0d45f9e9695dec6a",
+              "stress_scenario_digest": "24382f3d09c34da94c7ace01"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "receipt_digest": "27d82060920e8da35044a1a6",
+              "stress_height": 2,
+              "stress_root": "f914bf1b19910fb5388354ff",
+              "stress_scenario_digest": "7c2fbdcf13065f47dfff1ae2"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00",
+              "stress_height": 3,
+              "stress_root": "1a686d247cf41e782e002f92",
+              "stress_scenario_digest": "055a104a0c08350353f9840e"
+            }
+          ],
+          "entry_count": 3
+        },
+        "tip_stress_root": "1a686d247cf41e782e002f92"
+      }
+    },
+    "resolution": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "entry_count": 2,
+        "resolution_hash": "2d4b276ff0787f437ed1a4c0",
+        "resolution_plan_digest": "28d32f82ce276c869a9119f5",
+        "tip_certificate_hash": "ca208724032d70473b401287",
+        "tip_resolution_root": "81ee02820dedf34a00b0c575"
+      },
+      "parent_bundle": {
+        "goal": "differential fixture",
+        "kind": "recovery_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "recoveries": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab",
+              "recovery_height": 1,
+              "recovery_plan_digest": "f28679f9996a82ddd74dec2d",
+              "recovery_root": "c499cf1973fb3517e9a13991"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "receipt_digest": "27d82060920e8da35044a1a6",
+              "recovery_height": 2,
+              "recovery_plan_digest": "e98ff2740e6446bebf577b16",
+              "recovery_root": "3682c1bc2e011e08785ef51b"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00",
+              "recovery_height": 3,
+              "recovery_plan_digest": "99db6ad2f130ee0472eab3d1",
+              "recovery_root": "3c265098b50ec5fcdf23699c"
+            }
+          ],
+          "entry_count": 3
+        },
+        "recovery_certificate": {
+          "bound_resilience_height": 2,
+          "bound_resilience_root": "bd3cbc69011f0b659cb75581",
+          "certificate_hash": "f1205485051237a07e77cc1c",
+          "claims": {},
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "recovery_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_recovery_root": "3682c1bc2e011e08785ef51b",
+          "post_resilience": true,
+          "recovery_count": 3,
+          "recovery_height": 3,
+          "recovery_plan_digest": "99db6ad2f130ee0472eab3d1",
+          "recovery_root": "3c265098b50ec5fcdf23699c",
+          "resilience_buffer_digest": "444c0e2fc88d98b0f67af129",
+          "resilience_certificate_hash": "7a8fdea2073c7fb6bb7ae990",
+          "resilience_hash": "c0259a0c9444d39172b68632",
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "recovery_count": 3,
+        "recovery_hash": "79f5478615cd1a36976ffa6c",
+        "recovery_plan_digest": "99db6ad2f130ee0472eab3d1",
+        "tip_recovery_root": "3c265098b50ec5fcdf23699c"
+      }
+    },
+    "restructuring": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "entry_count": 2,
+        "restructuring_hash": "dde4a4a1b7a3ab1c5b71d1bc",
+        "restructuring_plan_digest": "93dd129db59508ab5e9aee68",
+        "tip_certificate_hash": "2152572bd70b0bd9d4af13f9",
+        "tip_restructuring_root": "d2245d8f92581cea9792f536"
+      },
+      "parent_bundle": {
+        "goal": "differential fixture",
+        "kind": "resolution_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "resolution_certificate": {
+          "bound_recovery_height": 2,
+          "bound_recovery_root": "69b22d81e0f540cabeb76fb9",
+          "certificate_hash": "27942b8f79b1710b3ca44d64",
+          "claims": {},
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "resolution_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_resolution_root": "95790691847c65284367158f",
+          "post_recovery": true,
+          "recovery_certificate_hash": "948c269eedcd5d625c8a88d6",
+          "recovery_hash": "e53e1fb1e508273364de8da7",
+          "recovery_plan_digest": "9eed6bcc727a12e60eb0635b",
+          "resolution_count": 3,
+          "resolution_height": 3,
+          "resolution_plan_digest": "975703ea49360c2e8ec60438",
+          "resolution_root": "0b6fd7c5cfd29303ea091e51",
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "resolution_count": 3,
+        "resolution_hash": "cd9e8ae64d82c3748b11aa17",
+        "resolution_plan_digest": "975703ea49360c2e8ec60438",
+        "resolutions": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab",
+              "resolution_height": 1,
+              "resolution_plan_digest": "4e73cf842100067a3614fc59",
+              "resolution_root": "f0dbb9305af79a9b4cd176fe"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "receipt_digest": "27d82060920e8da35044a1a6",
+              "resolution_height": 2,
+              "resolution_plan_digest": "b5766e3b8f4e8944f14cf264",
+              "resolution_root": "95790691847c65284367158f"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00",
+              "resolution_height": 3,
+              "resolution_plan_digest": "975703ea49360c2e8ec60438",
+              "resolution_root": "0b6fd7c5cfd29303ea091e51"
+            }
+          ],
+          "entry_count": 3
+        },
+        "tip_resolution_root": "0b6fd7c5cfd29303ea091e51"
+      }
+    },
+    "revalidation": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "entry_count": 2,
+        "revalidation_hash": "aa93cc1f5a699d39cf67109c",
+        "revalidation_plan_digest": "a7e3da5959d65d29d11ee477",
+        "tip_certificate_hash": "210440eef91aa991191f89f5",
+        "tip_revalidation_root": "9be629f8747009bd33f825a1"
+      },
+      "parent_bundle": {
+        "goal": "differential fixture",
+        "kind": "reattestation_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "reattestation_certificate": {
+          "bound_recertification_height": 2,
+          "bound_recertification_root": "910786162d85a10b018a92f0",
+          "certificate_hash": "7375e9f03a88604f6a2336fd",
+          "claims": {},
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "reattestation_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_reattestation_root": "42a8e39c6d598e4234d8bb92",
+          "post_recertification": true,
+          "reattestation_count": 3,
+          "reattestation_height": 3,
+          "reattestation_plan_digest": "51d3f835c7f197bb9963f1a6",
+          "reattestation_root": "08b873eb21b5f0fc5b7a61b3",
+          "recertification_certificate_hash": "7ef61ac7bdb966c43e63f0d8",
+          "recertification_hash": "b6861fcc2db4097f81b629f6",
+          "recertification_plan_digest": "ced2a61e50f17fc8bbb2f187",
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "reattestation_count": 3,
+        "reattestation_hash": "ba7062038001b43f5e982af4",
+        "reattestation_plan_digest": "51d3f835c7f197bb9963f1a6",
+        "reattestations": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "reattestation_height": 1,
+              "reattestation_plan_digest": "cd2bf2881be129883b86fa3c",
+              "reattestation_root": "83855c97ab50a8837f3be856",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "reattestation_height": 2,
+              "reattestation_plan_digest": "2bfb7a87c8f7d765a4bd1ce3",
+              "reattestation_root": "42a8e39c6d598e4234d8bb92",
+              "receipt_digest": "27d82060920e8da35044a1a6"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "reattestation_height": 3,
+              "reattestation_plan_digest": "51d3f835c7f197bb9963f1a6",
+              "reattestation_root": "08b873eb21b5f0fc5b7a61b3",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00"
+            }
+          ],
+          "entry_count": 3
+        },
+        "tip_reattestation_root": "08b873eb21b5f0fc5b7a61b3"
+      }
+    },
+    "reverification": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "entry_count": 2,
+        "reverification_hash": "945c60689e7bf3af2dde5235",
+        "reverification_plan_digest": "f593d3f59464ce4405e1e029",
+        "tip_certificate_hash": "1ff78b4c3d9db07b3ef4f857",
+        "tip_reverification_root": "124b3b8851be6340d5939438"
+      },
+      "parent_bundle": {
+        "goal": "differential fixture",
+        "kind": "revalidation_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "revalidation_certificate": {
+          "bound_reattestation_height": 2,
+          "bound_reattestation_root": "e1903b88e147132a05bc9291",
+          "certificate_hash": "6864db259ecadfc419558908",
+          "claims": {},
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "revalidation_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_revalidation_root": "5cc351b5f41a9d774ada4860",
+          "post_reattestation": true,
+          "reattestation_certificate_hash": "d210751ec568c38fd95363aa",
+          "reattestation_hash": "33190641362e08f317a35029",
+          "reattestation_plan_digest": "d6bddf3fec5b4392ea4a02f1",
+          "revalidation_count": 3,
+          "revalidation_height": 3,
+          "revalidation_plan_digest": "3ed8dd2721a7ee99d15a6022",
+          "revalidation_root": "31ddac4045615e0d7e0aa197",
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "revalidation_count": 3,
+        "revalidation_hash": "8586ba448f160d9f0eb4d513",
+        "revalidation_plan_digest": "3ed8dd2721a7ee99d15a6022",
+        "revalidations": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab",
+              "revalidation_height": 1,
+              "revalidation_plan_digest": "d43a3f0b6d0de4727e86cc17",
+              "revalidation_root": "1fb0797b3832e635d97f5fc1"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "receipt_digest": "27d82060920e8da35044a1a6",
+              "revalidation_height": 2,
+              "revalidation_plan_digest": "43d3c928bc27e17af5b47b8b",
+              "revalidation_root": "5cc351b5f41a9d774ada4860"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00",
+              "revalidation_height": 3,
+              "revalidation_plan_digest": "3ed8dd2721a7ee99d15a6022",
+              "revalidation_root": "31ddac4045615e0d7e0aa197"
+            }
+          ],
+          "entry_count": 3
+        },
+        "tip_revalidation_root": "31ddac4045615e0d7e0aa197"
+      }
+    },
+    "risk": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "entry_count": 2,
+        "risk_assessment_digest": "068a70aacba10af2aa2a2a6e",
+        "risk_hash": "e598e88d2bbbdd934213b5d0",
+        "tip_certificate_hash": "a9cce7c7a04da4a4afef311f",
+        "tip_risk_root": "9456a4d381af52897afaa0a0"
+      },
+      "parent_bundle": {
+        "goal": "differential fixture",
+        "kind": "solvency_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "solvencies": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab",
+              "solvency_height": 1,
+              "solvency_position_digest": "459334ad45eada7ba0e84b8a",
+              "solvency_root": "2f50d65313328d553e64e530"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "receipt_digest": "27d82060920e8da35044a1a6",
+              "solvency_height": 2,
+              "solvency_position_digest": "7a7bd60c87451fac6eee38df",
+              "solvency_root": "c8ff3dc2b6a068810917c987"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00",
+              "solvency_height": 3,
+              "solvency_position_digest": "13613aae345da5caa441c593",
+              "solvency_root": "9c36bd33c7b8964ef49cd3c6"
+            }
+          ],
+          "entry_count": 3
+        },
+        "solvency_certificate": {
+          "bound_capital_height": 2,
+          "bound_capital_root": "2e59c7e029701d51db351d43",
+          "capital_buffer_digest": "c459b534941b318ad4194bc3",
+          "capital_certificate_hash": "610da774781b99a679457fe9",
+          "capital_hash": "a01ce86b9962a99ce70f46d3",
+          "certificate_hash": "2c7b78c2ca8671d22c041e18",
+          "claims": {},
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "solvency_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_solvency_root": "c8ff3dc2b6a068810917c987",
+          "post_capital": true,
+          "schema_version": 1,
+          "solvency_count": 3,
+          "solvency_height": 3,
+          "solvency_position_digest": "13613aae345da5caa441c593",
+          "solvency_root": "9c36bd33c7b8964ef49cd3c6",
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "solvency_count": 3,
+        "solvency_hash": "f72a08be1a92f3b95f2844ba",
+        "solvency_position_digest": "13613aae345da5caa441c593",
+        "tip_solvency_root": "9c36bd33c7b8964ef49cd3c6"
+      }
+    },
+    "settlement": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "entry_count": 2,
+        "settlement_hash": "af25bfdda888e0a6c2e22b42",
+        "tip_certificate_hash": "7b86160cc5d2deedc31bcc20",
+        "tip_settlement_root": "29933cd69a667ed38b371b28"
+      },
+      "parent_bundle": {
+        "actions": {
+          "entries": [
+            {
+              "action_height": 1,
+              "action_root": "a200388f42a5b70ebd12b225",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "effect_digest": "d64ddb1aca5cd2bfac28e34d",
+              "entry": "f12f4ca1e8e6c6e3605fc3d3"
+            },
+            {
+              "action_height": 2,
+              "action_root": "ab16b13df793b99e7c271efb",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "effect_digest": "bee02a79c42b064f551be38b",
+              "entry": "5e2d5d1e58e94d7607e0745c"
+            },
+            {
+              "action_height": 3,
+              "action_root": "5c294be145610d00e5c56a10",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "effect_digest": "dc0af9624042d4a6cac8f9f6",
+              "entry": "edda7b47233f9790fcc6d116"
+            }
+          ],
+          "entry_count": 3
+        },
+        "actuation_certificate": {
+          "action_height": 2,
+          "action_root": "ff71eda44df2679400551268",
+          "bound_state_height": 2,
+          "bound_state_root": "74cc505fe35bec766bf58b4a",
+          "certificate_hash": "1cc8c3f71314894b43d2a2f1",
+          "claims": {},
+          "deterministic": true,
+          "effect_count": 3,
+          "execution_certificate_hash": "bc76a72513ce783754ce07ab",
+          "execution_hash": "b19bec0e7ecdd69010dfa341",
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "actuation_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_action_root": "fc759f4e2f6d96d9b0c42c1d",
+          "post_execution": true,
+          "schema_version": 1,
+          "used_skill_route_discovery": false
+        },
+        "actuation_count": 3,
+        "actuation_hash": "f43a89175eb898f163b701e9",
+        "goal": "differential fixture",
+        "kind": "actuation_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "tip_action_root": "5c294be145610d00e5c56a10"
+      }
+    },
+    "solvency": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "entry_count": 2,
+        "solvency_hash": "e087cef6ba02d536e44a7903",
+        "solvency_position_digest": "1cac06b6a717333e55be46be",
+        "tip_certificate_hash": "ebb091b1ece97bd1641a132a",
+        "tip_solvency_root": "5d3948d264fa4ca6501fdc2d"
+      },
+      "parent_bundle": {
+        "capital_buffer_digest": "0abcaba14ca4ac11a023d99f",
+        "capital_certificate": {
+          "bound_funding_height": 2,
+          "bound_funding_root": "32e2dc18bb687b4dca60c99a",
+          "capital_buffer_digest": "0abcaba14ca4ac11a023d99f",
+          "capital_count": 3,
+          "capital_height": 3,
+          "capital_root": "ebfe87bb7285c92d358f1862",
+          "certificate_hash": "54438c342537f33a44043d8a",
+          "claims": {},
+          "deterministic": true,
+          "funding_certificate_hash": "db82d7762ec6897169e8d586",
+          "funding_facility_digest": "2000f66754d5a5baea47bedd",
+          "funding_hash": "dd04a56f1775bf30fe65ec9b",
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "capital_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_capital_root": "899fd587c642f3979ebc50de",
+          "post_funding": true,
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "capital_count": 3,
+        "capital_hash": "c8ac3ad64e9a0495c579777e",
+        "capitals": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "capital_buffer_digest": "5c0556a099878f52b7c00708",
+              "capital_height": 1,
+              "capital_root": "d08c20fa021253228c5b4de6",
+              "effect": "fixture-effect-0",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "capital_buffer_digest": "d40e59f4aa26172263d260c0",
+              "capital_height": 2,
+              "capital_root": "899fd587c642f3979ebc50de",
+              "effect": "fixture-effect-1",
+              "receipt_digest": "27d82060920e8da35044a1a6"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "capital_buffer_digest": "0abcaba14ca4ac11a023d99f",
+              "capital_height": 3,
+              "capital_root": "ebfe87bb7285c92d358f1862",
+              "effect": "fixture-effect-2",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00"
+            }
+          ],
+          "entry_count": 3
+        },
+        "goal": "differential fixture",
+        "kind": "capital_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "tip_capital_root": "ebfe87bb7285c92d358f1862"
+      }
+    },
+    "standing": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "entry_count": 2,
+        "standing_hash": "1f1c93d7cc95d955ae056000",
+        "standing_plan_digest": "225595b5c7100c33cdd17b3a",
+        "tip_certificate_hash": "4cb244aefd70fffbad80b9a3",
+        "tip_standing_root": "5d6e243d036a4525f5345ba3"
+      },
+      "parent_bundle": {
+        "goal": "differential fixture",
+        "kind": "reputation_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "reputation_certificate": {
+          "bound_recognition_height": 2,
+          "bound_recognition_root": "5fde8795b5048c3fb06757eb",
+          "certificate_hash": "cf7d100e3044f14c05fbb1ca",
+          "claims": {},
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "reputation_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_reputation_root": "5fb68010bc26b5fb3a688432",
+          "post_recognition": true,
+          "recognition_certificate_hash": "3f0ce9108c115b5321a88d08",
+          "recognition_hash": "fb143bcb1b9c7772e2890fd7",
+          "recognition_plan_digest": "6991b90dc70ef59424f65be9",
+          "reputation_count": 3,
+          "reputation_height": 3,
+          "reputation_plan_digest": "7d832d83141e112049b3b19f",
+          "reputation_root": "baf468562bfadb3241d2871b",
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "reputation_count": 3,
+        "reputation_hash": "d927717dc0c228fc1666877b",
+        "reputation_plan_digest": "7d832d83141e112049b3b19f",
+        "reputations": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab",
+              "reputation_height": 1,
+              "reputation_plan_digest": "ede58ad7f80f25b5676f55e2",
+              "reputation_root": "fa943035a2f85f150b3973ba"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "receipt_digest": "27d82060920e8da35044a1a6",
+              "reputation_height": 2,
+              "reputation_plan_digest": "e28f27aa6a7f903e2c7a1290",
+              "reputation_root": "5fb68010bc26b5fb3a688432"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00",
+              "reputation_height": 3,
+              "reputation_plan_digest": "7d832d83141e112049b3b19f",
+              "reputation_root": "baf468562bfadb3241d2871b"
+            }
+          ],
+          "entry_count": 3
+        },
+        "tip_reputation_root": "baf468562bfadb3241d2871b"
+      }
+    },
+    "stress": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "entry_count": 2,
+        "stress_hash": "71be3428d6f0f82639b8c545",
+        "stress_scenario_digest": "910444bdad99f37781c6f49b",
+        "tip_certificate_hash": "48a95f804daaeb79eb0f7214",
+        "tip_stress_root": "82e8dca7d439affc71ef2353"
+      },
+      "parent_bundle": {
+        "goal": "differential fixture",
+        "kind": "risk_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "risk_assessment_digest": "49caf469d3748f7d2a952fb1",
+        "risk_certificate": {
+          "bound_solvency_height": 2,
+          "bound_solvency_root": "5d803e9aa501c6ec02b84d59",
+          "certificate_hash": "3581cf88920399ee6d9bf090",
+          "claims": {},
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "risk_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_risk_root": "e1ef7aa13c4e21b4052b7940",
+          "post_solvency": true,
+          "risk_assessment_digest": "49caf469d3748f7d2a952fb1",
+          "risk_count": 3,
+          "risk_height": 3,
+          "risk_root": "a304bc080d1607848818b88c",
+          "schema_version": 1,
+          "solvency_certificate_hash": "3b62fed01efe898c4e05e898",
+          "solvency_hash": "21dc1260ac5bbd4e1a15fbc5",
+          "solvency_position_digest": "f0e36c465d660db6689758d2",
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "risk_count": 3,
+        "risk_hash": "6e753174de41790b67471bd5",
+        "risks": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "effect": "fixture-effect-0",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab",
+              "risk_assessment_digest": "cef51e2eb63bffbe31c0de5a",
+              "risk_height": 1,
+              "risk_root": "500450d4d07ac9131e1c70bc"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "effect": "fixture-effect-1",
+              "receipt_digest": "27d82060920e8da35044a1a6",
+              "risk_assessment_digest": "3bc488850e6c6d56a112186f",
+              "risk_height": 2,
+              "risk_root": "e1ef7aa13c4e21b4052b7940"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "effect": "fixture-effect-2",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00",
+              "risk_assessment_digest": "49caf469d3748f7d2a952fb1",
+              "risk_height": 3,
+              "risk_root": "a304bc080d1607848818b88c"
+            }
+          ],
+          "entry_count": 3
+        },
+        "tip_risk_root": "a304bc080d1607848818b88c"
+      }
+    },
+    "treaty": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "entry_count": 2,
+        "tip_certificate_hash": "5adb5c00a69fce47e60700c8",
+        "tip_treaty_root": "9a4a13d56f8f4b450d4b0640",
+        "treaty_hash": "152b50f3494a4c09d40137d9",
+        "treaty_plan_digest": "0ee93414e514b39087a000c9"
+      },
+      "parent_bundle": {
+        "covenant_certificate": {
+          "bound_constitution_height": 2,
+          "bound_constitution_root": "226a51aaf738abd26562abb5",
+          "certificate_hash": "2f9d68b60369e9b263db81ac",
+          "claims": {},
+          "constitution_certificate_hash": "ebf1bedec3a037fb7972021d",
+          "constitution_hash": "c208330099f890aab53e859a",
+          "constitution_plan_digest": "d50a68847ed988237ae0f5b2",
+          "covenant_count": 3,
+          "covenant_height": 3,
+          "covenant_plan_digest": "c1bf58b3851a0b456f10471a",
+          "covenant_root": "ab5744088bb61898176935f5",
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "covenant_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_covenant_root": "13447eaea7f822eb70bde23c",
+          "post_constitution": true,
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "covenant_count": 3,
+        "covenant_hash": "03d59fc1862f8c3d60c0da37",
+        "covenant_plan_digest": "c1bf58b3851a0b456f10471a",
+        "covenants": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "covenant_height": 1,
+              "covenant_plan_digest": "6088fb28c068768552c3e211",
+              "covenant_root": "b121f42f27ef94d7e452701c",
+              "effect": "fixture-effect-0",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "covenant_height": 2,
+              "covenant_plan_digest": "505a5ea53fc75cdd8a494381",
+              "covenant_root": "13447eaea7f822eb70bde23c",
+              "effect": "fixture-effect-1",
+              "receipt_digest": "27d82060920e8da35044a1a6"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "covenant_height": 3,
+              "covenant_plan_digest": "c1bf58b3851a0b456f10471a",
+              "covenant_root": "ab5744088bb61898176935f5",
+              "effect": "fixture-effect-2",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00"
+            }
+          ],
+          "entry_count": 3
+        },
+        "goal": "differential fixture",
+        "kind": "covenant_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "tip_covenant_root": "ab5744088bb61898176935f5"
+      }
+    },
+    "union": {
+      "expected": {
+        "applied_ok": true,
+        "bundle_ok": true,
+        "entry_count": 2,
+        "tip_certificate_hash": "ab3d5725a969ce09e6974ed7",
+        "tip_union_root": "4db00e2edbff79cb2b73805e",
+        "union_hash": "af0edccb1cd93854d3ee2720",
+        "union_plan_digest": "f9a1a23c888e855425737cd4"
+      },
+      "parent_bundle": {
+        "confederation_certificate": {
+          "bound_coalition_height": 2,
+          "bound_coalition_root": "7871f47281415205fb7fda61",
+          "certificate_hash": "6c1c7e9dbb3d7fe40f0a151e",
+          "claims": {},
+          "coalition_certificate_hash": "2d0f6416882199240d35507a",
+          "coalition_hash": "b296a686028e5f8772a46f05",
+          "coalition_plan_digest": "f7e2d4f2c1f4ea9d39c46393",
+          "confederation_count": 3,
+          "confederation_height": 3,
+          "confederation_plan_digest": "ec598376d22315181827db52",
+          "confederation_root": "97310dcb6665e4f7b81637a2",
+          "deterministic": true,
+          "goal": "differential fixture",
+          "issued_at": "2026-01-01T00:00:00.000000Z",
+          "kind": "confederation_certificate",
+          "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+          "member_count": 2,
+          "member_ids": [
+            "capability.fixture-0",
+            "capability.fixture-1"
+          ],
+          "ok": true,
+          "package_hash": "1d58907e64cc82808cc22f35",
+          "parent_confederation_root": "594616ede9f8ce3921672613",
+          "post_coalition": true,
+          "schema_version": 1,
+          "used_skill_route_discovery": false,
+          "valid": true
+        },
+        "confederation_count": 3,
+        "confederation_hash": "c5e54ebbdf08e00fd814172c",
+        "confederation_plan_digest": "ec598376d22315181827db52",
+        "confederations": {
+          "entries": [
+            {
+              "bound_action_root": "590094d796e3ce6ff6be7681",
+              "bound_settlement_root": "fef7791b6811ef31f66ee87d",
+              "capability_id": "capability.fixture-0",
+              "confederation_height": 1,
+              "confederation_plan_digest": "ed9866df26f3739a289c5385",
+              "confederation_root": "30ee143783a645982bbb0785",
+              "effect": "fixture-effect-0",
+              "receipt_digest": "bb1fa839b9a6556eeba5f3ab"
+            },
+            {
+              "bound_action_root": "4032c63c240dc8abd28b3f53",
+              "bound_settlement_root": "67c5e7400ac2cbb82eb331a7",
+              "capability_id": "capability.fixture-1",
+              "confederation_height": 2,
+              "confederation_plan_digest": "06775ab872c5ae20936bbc4c",
+              "confederation_root": "594616ede9f8ce3921672613",
+              "effect": "fixture-effect-1",
+              "receipt_digest": "27d82060920e8da35044a1a6"
+            },
+            {
+              "bound_action_root": "5dfcc01a7ef12426ab0facbd",
+              "bound_settlement_root": "d19f7810f65ac311809fcec1",
+              "capability_id": "capability.fixture-2",
+              "confederation_height": 3,
+              "confederation_plan_digest": "ec598376d22315181827db52",
+              "confederation_root": "97310dcb6665e4f7b81637a2",
+              "effect": "fixture-effect-2",
+              "receipt_digest": "ca97c169f6adea9f80cd3a00"
+            }
+          ],
+          "entry_count": 3
+        },
+        "goal": "differential fixture",
+        "kind": "confederation_bundle",
+        "lineage_head_hash": "ebbdf66782dcfacea85082dd",
+        "member_ids": [
+          "capability.fixture-0",
+          "capability.fixture-1"
+        ],
+        "package": {
+          "member_ids": [
+            "capability.fixture-0"
+          ],
+          "package_hash": "1d58907e64cc82808cc22f35"
+        },
+        "package_hash": "1d58907e64cc82808cc22f35",
+        "tip_confederation_root": "97310dcb6665e4f7b81637a2"
+      }
+    }
+  },
+  "schema_version": 1
+}
