@@ -658,3 +658,34 @@ def test_continuous_loop_retries_failed_publication_before_creating_another_miss
     assert loop_state["pending_publish_ref"] == ""
     assert loop_state["last_publish_error"] == ""
     assert loop_state["last_published_ref"] == publish_attempts[-1]
+
+
+def test_execution_stage_turn_can_refine_done_when_before_gating(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    init_repository(repo)
+    state_path = create_mission(
+        repo_path=repo,
+        goal="Ship a real capability.",
+        done_when="min_capabilities:999999",
+        worktree_parent=tmp_path / "worktrees",
+    )
+
+    def refining_kernel(state, prompt, turn_dir, **kwargs):
+        return KernelTurnResult(
+            kernel=state.kernel,
+            last_message=decision_payload(
+                "continue",
+                done_when="min_capabilities:1",
+                summary="Refined the completion contract into the parser grammar.",
+            ),
+            session_id=state.session_id,
+            command=("fake-kernel",),
+            result_path=str(turn_dir / "fake-result.json"),
+        )
+
+    run_unbound_turn(state_path, kernel_runner=refining_kernel)
+    state = load_mission(state_path)
+
+    assert state.stage == "execution"
+    assert state.done_when == "min_capabilities:1"

@@ -560,6 +560,137 @@ def executable_tool_registry(
     }
 
 
+MCP_TOOL_PROVIDER = "mcp"
+
+# MCP tool annotations (Model Context Protocol spec) mapped onto local risk
+# flags. Imported tools keep these flags so policy and review gates can see
+# the remote server's own declarations.
+MCP_ANNOTATION_RISK_FLAGS: tuple[tuple[str, str], ...] = (
+    ("destructiveHint", "destructive"),
+    ("openWorldHint", "open-world"),
+)
+
+
+def extract_mcp_tool_list(payload: Any) -> list[Mapping[str, Any]]:
+    """Extract tool objects from an MCP ``tools/list`` payload.
+
+    Accepts a JSON-RPC response envelope (``{"result": {"tools": [...]}}``), a
+    bare result object (``{"tools": [...]}``), or a plain tool list. Entries
+    without a non-empty string ``name`` are dropped deterministically.
+    """
+
+    tools: Any = []
+    if isinstance(payload, list):
+        tools = payload
+    elif isinstance(payload, Mapping):
+        inner: Any = payload.get("result") if isinstance(payload.get("result"), Mapping) else payload
+        if isinstance(inner, Mapping) and isinstance(inner.get("tools"), list):
+            tools = inner["tools"]
+    return [tool for tool in tools if isinstance(tool, Mapping) and str(tool.get("name") or "").strip()]
+
+
+def tool_descriptors_from_mcp_tools(
+    payload: Any,
+    *,
+    server_name: str = "mcp",
+    session_id: str | None = None,
+) -> list[ToolDescriptor]:
+    """Convert an MCP ``tools/list`` payload into routable local descriptors.
+
+    Names are namespaced ``<server_name>:<tool>`` so tools from different MCP
+    servers cannot collide with each other or with local tools. Descriptors
+    carry provider ``"mcp"``, which is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing an external tool never
+    makes it silently executable — a caller must opt the provider in.
+    """
+
+    server = str(server_name or "").strip() or "mcp"
+    descriptors: list[ToolDescriptor] = []
+    for tool in extract_mcp_tool_list(payload):
+        name = str(tool["name"]).strip()
+        schema = tool.get("inputSchema")
+        annotations = tool.get("annotations")
+        annotations = annotations if isinstance(annotations, Mapping) else {}
+        risk_flags = tuple(
+            flag for hint, flag in MCP_ANNOTATION_RISK_FLAGS if annotations.get(hint) is True
+        )
+        descriptors.append(
+            ToolDescriptor(
+                name=f"{server}:{name}",
+                description=str(tool.get("description") or ""),
+                parameters=dict(schema) if isinstance(schema, Mapping) else None,
+                provider=MCP_TOOL_PROVIDER,
+                session_id=session_id,
+                tool_type="function",
+                risk_flags=risk_flags,
+            )
+        )
+    return descriptors
+
+
+def builtin_mcp_tool_import_proof() -> dict[str, Any]:
+    """Registered proof for ``capability.mcp-tool-import``.
+
+    Converts a representative MCP ``tools/list`` JSON-RPC response, checks the
+    descriptor shape (namespacing, schema passthrough, annotation risk flags),
+    and proves fail-closed routing: imported MCP tools are unsupported under
+    default providers and executable only after explicit provider opt-in.
+    """
+
+    sample = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+            "tools": [
+                {
+                    "name": "read_file",
+                    "description": "Read a file from the workspace",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {"path": {"type": "string"}},
+                        "required": ["path"],
+                    },
+                    "annotations": {"readOnlyHint": True},
+                },
+                {
+                    "name": "delete_file",
+                    "description": "Delete a file from the workspace",
+                    "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}}},
+                    "annotations": {"destructiveHint": True, "openWorldHint": False},
+                },
+                {"name": ""},
+                "not-a-tool",
+            ]
+        },
+    }
+    descriptors = tool_descriptors_from_mcp_tools(sample, server_name="fs")
+    shape_ok = (
+        len(descriptors) == 2
+        and descriptors[0].name == "fs:read_file"
+        and descriptors[0].provider == MCP_TOOL_PROVIDER
+        and descriptors[0].parameters
+        == {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}
+        and descriptors[1].risk_flags == ("destructive",)
+    )
+    default_decisions = route_tool_descriptors(descriptors)
+    fail_closed = all(decision.route == UNSUPPORTED_TOOL_ROUTE for decision in default_decisions)
+    opt_in_decisions = [
+        route_tool_descriptor(
+            descriptor,
+            executable_providers=(*DEFAULT_EXECUTABLE_TOOL_PROVIDERS, MCP_TOOL_PROVIDER),
+        )
+        for descriptor in descriptors
+    ]
+    opt_in_ok = all(decision.executable for decision in opt_in_decisions)
+    return {
+        "ok": bool(shape_ok and fail_closed and opt_in_ok),
+        "imported_count": len(descriptors),
+        "fail_closed_by_default": fail_closed,
+        "executable_after_opt_in": opt_in_ok,
+        "names": [descriptor.name for descriptor in descriptors],
+    }
+
+
 def build_headless_function_call_dispatch_report(
     events: Sequence[Mapping[str, Any]],
     descriptors: Sequence[ToolDescriptor],

@@ -1319,6 +1319,10 @@ def run_unbound_turn(
                 state.done_when = decision.done_when
             if state.goal and state.done_when:
                 state.stage = "execution"
+        elif decision.done_when:
+            # Execution-stage agents may refine the completion contract (e.g.
+            # to match the outcome-parser grammar); adopt it before gating.
+            state.done_when = decision.done_when
 
         changed_paths = changed_paths_since(
             workspace,

@@ -18,6 +18,10 @@ from blackhole_agent.tool_routing import (
     route_tool_descriptor,
     route_tool_descriptors,
     select_provider_harness,
+    DEFAULT_EXECUTABLE_TOOL_PROVIDERS,
+    MCP_TOOL_PROVIDER,
+    builtin_mcp_tool_import_proof,
+    tool_descriptors_from_mcp_tools,
 )
 
 
@@ -588,3 +592,68 @@ def test_provider_harness_selection_exports_body_free_diagnostics_without_env_va
             "skip_reasons": [],
         }
     ]
+
+
+def test_mcp_tool_import_namespaces_and_preserves_schema():
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 7,
+        "result": {
+            "tools": [
+                {
+                    "name": "search",
+                    "description": "Search the index",
+                    "inputSchema": {"type": "object", "properties": {"q": {"type": "string"}}},
+                }
+            ]
+        },
+    }
+
+    descriptors = tool_descriptors_from_mcp_tools(payload, server_name="idx")
+
+    assert len(descriptors) == 1
+    assert descriptors[0].name == "idx:search"
+    assert descriptors[0].provider == MCP_TOOL_PROVIDER
+    assert descriptors[0].parameters == {"type": "object", "properties": {"q": {"type": "string"}}}
+
+
+def test_mcp_tool_import_maps_annotations_to_risk_flags():
+    payload = [
+        {"name": "nuke", "annotations": {"destructiveHint": True, "openWorldHint": True}},
+        {"name": "calm", "annotations": {"readOnlyHint": True}},
+    ]
+
+    descriptors = tool_descriptors_from_mcp_tools(payload)
+
+    assert descriptors[0].risk_flags == ("destructive", "open-world")
+    assert descriptors[1].risk_flags == ()
+
+
+def test_mcp_tool_import_drops_malformed_entries_deterministically():
+    payload = {"tools": [{"name": "ok"}, {"name": " "}, {"description": "nameless"}, 42]}
+
+    descriptors = tool_descriptors_from_mcp_tools(payload)
+
+    assert [descriptor.name for descriptor in descriptors] == ["mcp:ok"]
+
+
+def test_mcp_imported_tools_fail_closed_until_provider_opt_in():
+    descriptors = tool_descriptors_from_mcp_tools([{"name": "ping"}], server_name="s")
+
+    default_decision = route_tool_descriptor(descriptors[0])
+    opt_in_decision = route_tool_descriptor(
+        descriptors[0],
+        executable_providers=(*DEFAULT_EXECUTABLE_TOOL_PROVIDERS, MCP_TOOL_PROVIDER),
+    )
+
+    assert default_decision.route == UNSUPPORTED_TOOL_ROUTE
+    assert "unsupported_provider:mcp" in default_decision.reasons
+    assert opt_in_decision.executable
+
+
+def test_builtin_mcp_tool_import_proof_passes():
+    result = builtin_mcp_tool_import_proof()
+
+    assert result["ok"], result
+    assert result["fail_closed_by_default"] is True
+    assert result["executable_after_opt_in"] is True

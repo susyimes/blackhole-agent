@@ -352,6 +352,121 @@ def builtin_grounded_scan_proof() -> dict[str, Any]:
         }
 
 
+LOOP_POINTER = REPO_ROOT / DEFAULT_ARTIFACT_DIR / "latest-loop.json"
+
+
+def record_implementation_trace(
+    *,
+    scan_dir: Path,
+    hypothesis_rank: int,
+    changed_paths: Sequence[str],
+    validation_command: str,
+    validation_exit_code: int,
+    recorded_at: str | None = None,
+    update_pointer: bool = True,
+) -> dict[str, Any]:
+    """Seal the link from one scan hypothesis to the patch that implemented it.
+
+    The trace binds the sealed scan digest, the selected hypothesis, the
+    behavior paths changed, and the attested validation into one digest. A
+    pointer at ``latest-loop.json`` keeps the composed loop proof hermetic.
+    """
+
+    scan = json.loads((scan_dir / "scan.json").read_text(encoding="utf-8"))
+    hypotheses = scan.get("hypotheses") or []
+    selected = next((item for item in hypotheses if item.get("rank") == hypothesis_rank), None)
+    if selected is None:
+        raise ValueError(f"no hypothesis with rank {hypothesis_rank} in {scan_dir}")
+    trace_body = {
+        "schema_version": SCHEMA_VERSION,
+        "kind": "grounded_growth_implementation_trace",
+        "recorded_at": recorded_at or utc_now_iso(),
+        "scan_digest": scan["scan_digest"],
+        "payload_digest": scan["payload_digest"],
+        "hypotheses_digest": scan["hypotheses_digest"],
+        "hypothesis": selected,
+        "implemented_surface": selected["target_surface"],
+        "changed_paths": [str(path) for path in changed_paths],
+        "validation": {"command": validation_command, "exit_code": int(validation_exit_code)},
+    }
+    trace = {**trace_body, "trace_digest": _digest(trace_body)}
+    atomic_write_json(scan_dir / "implementation.json", trace)
+    if update_pointer and scan_dir.parent == LOOP_POINTER.parent:
+        atomic_write_json(LOOP_POINTER, {"scan_dir": scan_dir.name, "trace_digest": trace["trace_digest"]})
+    return {"ok": True, "trace_digest": trace["trace_digest"], "scan_dir": str(scan_dir)}
+
+
+def verify_implementation_trace(scan_dir: Path) -> dict[str, Any]:
+    """Re-verify the full chain: payload -> hypotheses -> scan -> trace -> patch."""
+
+    scan_check = verify_grounded_scan(scan_dir)
+    trace_path = scan_dir / "implementation.json"
+    if not trace_path.exists():
+        return {"ok": False, "error": f"missing implementation trace in {scan_dir}"}
+    trace = json.loads(trace_path.read_text(encoding="utf-8"))
+    scan = json.loads((scan_dir / "scan.json").read_text(encoding="utf-8"))
+    trace_body = {key: value for key, value in trace.items() if key != "trace_digest"}
+    hypotheses = scan.get("hypotheses") or []
+    selected = next(
+        (item for item in hypotheses if item.get("rank") == trace_body.get("hypothesis", {}).get("rank")),
+        None,
+    )
+    checks = {
+        "scan_verified": scan_check["ok"],
+        "trace_digest": _digest(trace_body) == trace.get("trace_digest"),
+        "scan_linkage": trace_body.get("scan_digest") == scan.get("scan_digest"),
+        "hypothesis_in_scan": selected == trace_body.get("hypothesis"),
+        "changed_paths_exist": all((REPO_ROOT / path).exists() for path in trace_body.get("changed_paths") or []),
+        "validation_attested_green": (trace_body.get("validation") or {}).get("exit_code") == 0,
+    }
+    return {"ok": all(checks.values()), "checks": checks, "trace_digest": trace.get("trace_digest")}
+
+
+def builtin_grounded_growth_loop_proof() -> dict[str, Any]:
+    """Registered proof for ``capability.grounded-growth-loop``.
+
+    Replays the committed fixture scan, follows the committed loop pointer to
+    the sealed live scan, and re-verifies the entire chain from external
+    signal to implemented patch. Also proves falsifiability: breaking the
+    trace digest must fail verification.
+    """
+
+    import shutil
+    import tempfile
+
+    fixture = REPO_ROOT / DEFAULT_FIXTURE
+    if not LOOP_POINTER.exists():
+        return {"ok": False, "error": f"missing loop pointer {LOOP_POINTER}"}
+    pointer = json.loads(LOOP_POINTER.read_text(encoding="utf-8"))
+    scan_dir = REPO_ROOT / DEFAULT_ARTIFACT_DIR / str(pointer.get("scan_dir") or "")
+    trace_check = verify_implementation_trace(scan_dir)
+    if not trace_check["ok"]:
+        return {"ok": False, "stage": "trace-verify", "checks": trace_check.get("checks")}
+
+    # Falsifiability: a tampered trace copy must fail verification.
+    with tempfile.TemporaryDirectory(prefix="grounded-loop-proof-") as tmp:
+        clone = Path(tmp) / "scan"
+        shutil.copytree(scan_dir, clone)
+        trace = json.loads((clone / "implementation.json").read_text(encoding="utf-8"))
+        trace["changed_paths"] = list(trace.get("changed_paths") or []) + ["src/blackhole_agent/nonexistent.py"]
+        atomic_write_json(clone / "implementation.json", trace)
+        tampered = verify_implementation_trace(clone)
+        replay_ok = run_replay_scan(fixture, output_dir=Path(tmp) / "replay")["ok"]
+    if tampered["ok"]:
+        return {"ok": False, "stage": "tamper-falsification", "detail": "tampered trace passed verification"}
+
+    scan = json.loads((scan_dir / "scan.json").read_text(encoding="utf-8"))
+    return {
+        "ok": replay_ok,
+        "scan_digest": scan["scan_digest"],
+        "trace_digest": trace_check["trace_digest"],
+        "implemented_surface": json.loads((scan_dir / "implementation.json").read_text(encoding="utf-8"))[
+            "implemented_surface"
+        ],
+        "fixture_replay_ok": replay_ok,
+    }
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Grounded growth scout")
     mode = parser.add_mutually_exclusive_group(required=True)

@@ -87,3 +87,33 @@ def test_cli_replay(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert rc == 0
     summary = json.loads(capsys.readouterr().out)
     assert summary["ok"]
+
+
+def test_implementation_trace_roundtrip_and_tamper(tmp_path: Path) -> None:
+    scan_dir = tmp_path / "scan"
+    gg.run_replay_scan(FIXTURE, output_dir=scan_dir)
+    recorded = gg.record_implementation_trace(
+        scan_dir=scan_dir,
+        hypothesis_rank=1,
+        changed_paths=["src/blackhole_agent/tool_routing.py"],
+        validation_command="uv run pytest -q",
+        validation_exit_code=0,
+        recorded_at="2026-07-31T20:00:00Z",
+    )
+    assert recorded["ok"]
+    verified = gg.verify_implementation_trace(scan_dir)
+    assert verified["ok"], verified
+    assert verified["trace_digest"] == recorded["trace_digest"]
+
+    trace = json.loads((scan_dir / "implementation.json").read_text(encoding="utf-8"))
+    trace["validation"]["exit_code"] = 1
+    (scan_dir / "implementation.json").write_text(json.dumps(trace), encoding="utf-8")
+    broken = gg.verify_implementation_trace(scan_dir)
+    assert not broken["ok"]
+
+
+def test_builtin_grounded_growth_loop_proof_passes() -> None:
+    result = gg.builtin_grounded_growth_loop_proof()
+    assert result["ok"], result
+    assert result["implemented_surface"] == "src/blackhole_agent/tool_routing.py"
+    assert result["fixture_replay_ok"] is True
