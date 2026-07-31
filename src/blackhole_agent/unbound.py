@@ -1338,11 +1338,11 @@ def evaluate_milestone(
                     # outcomes, run the closed plane once and inject evidence context.
                     needs_cosmos = bool(
 
-                        done_when
+                        contract_text
 
                         and any(
 
-                            token in done_when
+                            token in contract_text
 
                             for token in (
 
