@@ -1,0 +1,163 @@
+{
+  "fetched_at": "2026-07-31T19:35:06.712152Z",
+  "hypotheses": [
+    {
+      "matched_terms": [
+        "agent",
+        "mcp",
+        "skill",
+        "tool"
+      ],
+      "pattern": "tool exposure and routing",
+      "rank": 1,
+      "rationale": "5 trending repositories (0xwilliamortiz/openclaude-improved, TryCaspian/caspian-sdk, tsingyuai/growth-lab) signal 'tool exposure and routing'; matched terms ['agent', 'mcp', 'skill', 'tool']; candidate surface src/blackhole_agent/tool_routing.py.",
+      "score": 55.0,
+      "sources": [
+        {
+          "full_name": "0xwilliamortiz/openclaude-improved",
+          "html_url": "https://github.com/0xwilliamortiz/openclaude-improved",
+          "matched_terms": [
+            "mcp",
+            "agent"
+          ],
+          "stargazers_count": 563
+        },
+        {
+          "full_name": "TryCaspian/caspian-sdk",
+          "html_url": "https://github.com/TryCaspian/caspian-sdk",
+          "matched_terms": [
+            "mcp",
+            "agent"
+          ],
+          "stargazers_count": 368
+        },
+        {
+          "full_name": "tsingyuai/growth-lab",
+          "html_url": "https://github.com/tsingyuai/growth-lab",
+          "matched_terms": [
+            "tool",
+            "skill",
+            "agent"
+          ],
+          "stargazers_count": 165
+        },
+        {
+          "full_name": "Pinvou/pinvou-agent",
+          "html_url": "https://github.com/Pinvou/pinvou-agent",
+          "matched_terms": [
+            "mcp",
+            "tool",
+            "agent"
+          ],
+          "stargazers_count": 139
+        },
+        {
+          "full_name": "tianyupaipai-cmd/xinchao-dynamic-mind",
+          "html_url": "https://github.com/tianyupaipai-cmd/xinchao-dynamic-mind",
+          "matched_terms": [
+            "mcp",
+            "agent"
+          ],
+          "stargazers_count": 71
+        }
+      ],
+      "target_surface": "src/blackhole_agent/tool_routing.py"
+    },
+    {
+      "matched_terms": [
+        "agent"
+      ],
+      "pattern": "long-horizon agent runtime",
+      "rank": 2,
+      "rationale": "4 trending repositories (makecindy/cindy, hahhforest/pi-textbook, deerwork-ai/deer-workflow) signal 'long-horizon agent runtime'; matched terms ['agent']; candidate surface src/blackhole_agent/unbound.py.",
+      "score": 42.0,
+      "sources": [
+        {
+          "full_name": "makecindy/cindy",
+          "html_url": "https://github.com/makecindy/cindy",
+          "matched_terms": [
+            "agent"
+          ],
+          "stargazers_count": 1260
+        },
+        {
+          "full_name": "hahhforest/pi-textbook",
+          "html_url": "https://github.com/hahhforest/pi-textbook",
+          "matched_terms": [
+            "agent"
+          ],
+          "stargazers_count": 673
+        },
+        {
+          "full_name": "deerwork-ai/deer-workflow",
+          "html_url": "https://github.com/deerwork-ai/deer-workflow",
+          "matched_terms": [
+            "agent"
+          ],
+          "stargazers_count": 366
+        },
+        {
+          "full_name": "simonlin1212/vibe-astock",
+          "html_url": "https://github.com/simonlin1212/vibe-astock",
+          "matched_terms": [
+            "agent"
+          ],
+          "stargazers_count": 63
+        }
+      ],
+      "target_surface": "src/blackhole_agent/unbound.py"
+    },
+    {
+      "matched_terms": [
+        "agent",
+        "skill"
+      ],
+      "pattern": "skill routing",
+      "rank": 3,
+      "rationale": "1 trending repositories (powerycy/goutoujunshi) signal 'skill routing'; matched terms ['agent', 'skill']; candidate surface src/blackhole_agent/skill_routing.py.",
+      "score": 16.0,
+      "sources": [
+        {
+          "full_name": "powerycy/goutoujunshi",
+          "html_url": "https://github.com/powerycy/goutoujunshi",
+          "matched_terms": [
+            "skill",
+            "agent"
+          ],
+          "stargazers_count": 1354
+        }
+      ],
+      "target_surface": "src/blackhole_agent/skill_routing.py"
+    },
+    {
+      "matched_terms": [
+        "agent",
+        "planner"
+      ],
+      "pattern": "plan synthesis from signals",
+      "rank": 4,
+      "rationale": "1 trending repositories (giovannibrees/travel-roamradar) signal 'plan synthesis from signals'; matched terms ['agent', 'planner']; candidate surface src/blackhole_agent/proposal_synthesis.py.",
+      "score": 11.0,
+      "sources": [
+        {
+          "full_name": "giovannibrees/travel-roamradar",
+          "html_url": "https://github.com/giovannibrees/travel-roamradar",
+          "matched_terms": [
+            "planner",
+            "agent"
+          ],
+          "stargazers_count": 60
+        }
+      ],
+      "target_surface": "src/blackhole_agent/proposal_synthesis.py"
+    }
+  ],
+  "hypotheses_digest": "f2ac4f7f88b617f45db7f6266eac13d7615bac27526588bb3fc80605bec318dc",
+  "kind": "grounded_growth_scan",
+  "mode": "live",
+  "payload_digest": "fda024d18fe337b23ec51e90c05fff52c157b9ed53307ebae23f7fae78656b06",
+  "query": "topic:ai-agent created:>=2026-07-17 stars:>=50 fork:false",
+  "repository_count": 11,
+  "scan_digest": "4f1130d10b01a73607786dee05a23a855913559f26c29508ea4aca78e0687af9",
+  "schema_version": 1
+}

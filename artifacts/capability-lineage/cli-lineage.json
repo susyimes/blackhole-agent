@@ -1061,12 +1061,130 @@
       },
       "package_hash": "7878a785b9718369",
       "parent_hash": "beee4d6a975ae3a8f635e336"
+    },
+    {
+      "certificate_hash": "194c4be0390cb40b225ed1bb",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T192440Z-03b47f9a\\artifacts\\sovereignty-certificates\\sovereignty-194c4be0390cb40b225ed1bb.json",
+      "claims": {
+        "ablation_ok": true,
+        "adversarial_ok": true,
+        "assurance_ok": true,
+        "contract_met": true,
+        "contract_ok": true,
+        "machine_checkable": true,
+        "no_skill_route": true,
+        "transfer_ok": true
+      },
+      "detail": {
+        "sovereignty_ok": true,
+        "verify_valid": true
+      },
+      "entry_hash": "7af3f25e87a4121997183aad",
+      "entry_kind": "sovereignty_certificate",
+      "goal": "health inventory milestone",
+      "index": 36,
+      "issued_at": "2026-07-31T19:28:18.599929Z",
+      "metrics": {
+        "count": 91,
+        "primitive_count": 42,
+        "proved_count": 91,
+        "proved_ratio": 1.0
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "498ffbefe0854a344ed8b1cb"
+    },
+    {
+      "certificate_hash": "194c4be0390cb40b225ed1bb",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T192440Z-03b47f9a\\artifacts\\sovereignty-certificates\\sovereignty-194c4be0390cb40b225ed1bb.json",
+      "claims": {
+        "no_skill_route": true,
+        "sealed": true
+      },
+      "detail": {
+        "certificate_hash": "194c4be0390cb40b225ed1bb",
+        "chain_pre_valid": true,
+        "live_count": 91,
+        "live_proved": 91,
+        "prior_head": "7af3f25e87a4121997183aad"
+      },
+      "entry_hash": "f4b9f121b502b8168fb2f09d",
+      "entry_kind": "continuity_seal",
+      "goal": "seal:health inventory milestone",
+      "index": 37,
+      "issued_at": "2026-07-31T19:28:18.600296Z",
+      "metrics": {
+        "count": 91,
+        "primitive_count": 42,
+        "proved_count": 91,
+        "proved_ratio": 1.0
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "7af3f25e87a4121997183aad"
+    },
+    {
+      "certificate_hash": "9a572b0725c44a8b45bcbbb4",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T192440Z-03b47f9a\\artifacts\\sovereignty-certificates\\sovereignty-9a572b0725c44a8b45bcbbb4.json",
+      "claims": {
+        "ablation_ok": true,
+        "adversarial_ok": true,
+        "assurance_ok": true,
+        "contract_met": true,
+        "contract_ok": true,
+        "machine_checkable": true,
+        "no_skill_route": true,
+        "transfer_ok": true
+      },
+      "detail": {
+        "sovereignty_ok": true,
+        "verify_valid": true
+      },
+      "entry_hash": "0ac3223305585af599a12824",
+      "entry_kind": "sovereignty_certificate",
+      "goal": "health inventory milestone",
+      "index": 38,
+      "issued_at": "2026-07-31T19:38:10.216605Z",
+      "metrics": {
+        "count": 92,
+        "primitive_count": 43,
+        "proved_count": 92,
+        "proved_ratio": 1.0
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "f4b9f121b502b8168fb2f09d"
+    },
+    {
+      "certificate_hash": "9a572b0725c44a8b45bcbbb4",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T192440Z-03b47f9a\\artifacts\\sovereignty-certificates\\sovereignty-9a572b0725c44a8b45bcbbb4.json",
+      "claims": {
+        "no_skill_route": true,
+        "sealed": true
+      },
+      "detail": {
+        "certificate_hash": "9a572b0725c44a8b45bcbbb4",
+        "chain_pre_valid": true,
+        "live_count": 92,
+        "live_proved": 92,
+        "prior_head": "0ac3223305585af599a12824"
+      },
+      "entry_hash": "9fb5a4c486f9567ad07ca8bb",
+      "entry_kind": "continuity_seal",
+      "goal": "seal:health inventory milestone",
+      "index": 39,
+      "issued_at": "2026-07-31T19:38:10.216999Z",
+      "metrics": {
+        "count": 92,
+        "primitive_count": 43,
+        "proved_count": 92,
+        "proved_ratio": 1.0
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "0ac3223305585af599a12824"
     }
   ],
-  "entry_count": 36,
-  "head_hash": "498ffbefe0854a344ed8b1cb",
+  "entry_count": 40,
+  "head_hash": "9fb5a4c486f9567ad07ca8bb",
   "kind": "capability_lineage",
   "ok": true,
   "schema_version": 1,
-  "updated_at": "2026-07-31T18:52:57.195523Z"
+  "updated_at": "2026-07-31T19:38:10.235277Z"
 }

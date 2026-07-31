@@ -1,7 +1,7 @@
 {
   "action": "export_continuity_bundle",
-  "bundle_hash": "7427a39481bec17b0fc6def2",
-  "certificate_count": 32,
+  "bundle_hash": "0107c50e5e7b0db128eea3f6",
+  "certificate_count": 36,
   "certificates": {
     "059bfb1444643b2f382b55fa": {
       "certificate_hash": "059bfb1444643b2f382b55fa",
@@ -1603,6 +1603,70 @@
         "schema_version": 1
       }
     },
+    "b7c3b7d2e324610e10cee3fa": {
+      "certificate_hash": "b7c3b7d2e324610e10cee3fa",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T192440Z-03b47f9a\\artifacts\\sovereignty-certificates\\sovereignty-b7c3b7d2e324610e10cee3fa.json",
+      "payload": {
+        "certificate_hash": "b7c3b7d2e324610e10cee3fa",
+        "claims": {
+          "ablation_ok": true,
+          "adversarial_ok": true,
+          "assurance_ok": true,
+          "contract_met": true,
+          "contract_ok": true,
+          "machine_checkable": true,
+          "no_skill_route": true,
+          "transfer_ok": true
+        },
+        "done_when": "min_capabilities:5; min_primitives:3; capability_exists:repo.import-health; capability_proved:repo.import-health; program_passes:repo.import-health; no_skill_route",
+        "evidence": {
+          "assurance": {
+            "ablation": {
+              "failed_phases": [],
+              "live_ledger_mutated": false,
+              "ok": true,
+              "passed_count": 4,
+              "phase_count": 4
+            },
+            "adversarial": {
+              "negative_count": 4,
+              "negatives_ok": true,
+              "negatives_passed": 4,
+              "ok": true,
+              "positive_ok": true
+            },
+            "ok": true,
+            "transfer": {
+              "member_count": 3,
+              "ok": true,
+              "package_hash": "7878a785b9718369",
+              "proved_count": 3
+            }
+          },
+          "contract": {
+            "failed_count": 0,
+            "machine_checkable": true,
+            "met": true,
+            "mission_ok": null,
+            "ok": true,
+            "passed_count": 6
+          },
+          "metrics": {
+            "count": 91,
+            "primitive_count": 42,
+            "proved_count": 91,
+            "proved_ratio": 1.0
+          }
+        },
+        "goal": "reconcile:health inventory milestone",
+        "issued_at": "2026-07-31T19:28:46.088745Z",
+        "kind": "sovereignty_certificate",
+        "ok": true,
+        "package_hash": "7878a785b9718369",
+        "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T192440Z-03b47f9a",
+        "schema_version": 1
+      }
+    },
     "b9c2d955b9bc417093435be0": {
       "certificate_hash": "b9c2d955b9bc417093435be0",
       "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T142559Z-e0ddf92a\\artifacts\\sovereignty-certificates\\sovereignty-b9c2d955b9bc417093435be0.json",
@@ -1664,6 +1728,70 @@
         "ok": true,
         "package_hash": "7878a785b9718369",
         "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T142559Z-e0ddf92a",
+        "schema_version": 1
+      }
+    },
+    "baa07b10ce53aaca6f0c7061": {
+      "certificate_hash": "baa07b10ce53aaca6f0c7061",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T192440Z-03b47f9a\\artifacts\\sovereignty-certificates\\sovereignty-baa07b10ce53aaca6f0c7061.json",
+      "payload": {
+        "certificate_hash": "baa07b10ce53aaca6f0c7061",
+        "claims": {
+          "ablation_ok": true,
+          "adversarial_ok": true,
+          "assurance_ok": true,
+          "contract_met": true,
+          "contract_ok": true,
+          "machine_checkable": true,
+          "no_skill_route": true,
+          "transfer_ok": true
+        },
+        "done_when": "min_capabilities:5; min_primitives:3; capability_exists:repo.import-health; capability_proved:repo.import-health; program_passes:repo.import-health; no_skill_route",
+        "evidence": {
+          "assurance": {
+            "ablation": {
+              "failed_phases": [],
+              "live_ledger_mutated": false,
+              "ok": true,
+              "passed_count": 4,
+              "phase_count": 4
+            },
+            "adversarial": {
+              "negative_count": 4,
+              "negatives_ok": true,
+              "negatives_passed": 4,
+              "ok": true,
+              "positive_ok": true
+            },
+            "ok": true,
+            "transfer": {
+              "member_count": 3,
+              "ok": true,
+              "package_hash": "7878a785b9718369",
+              "proved_count": 3
+            }
+          },
+          "contract": {
+            "failed_count": 0,
+            "machine_checkable": true,
+            "met": true,
+            "mission_ok": null,
+            "ok": true,
+            "passed_count": 6
+          },
+          "metrics": {
+            "count": 92,
+            "primitive_count": 43,
+            "proved_count": 92,
+            "proved_ratio": 1.0
+          }
+        },
+        "goal": "reconcile:health inventory milestone",
+        "issued_at": "2026-07-31T19:38:34.993820Z",
+        "kind": "sovereignty_certificate",
+        "ok": true,
+        "package_hash": "7878a785b9718369",
+        "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T192440Z-03b47f9a",
         "schema_version": 1
       }
     },
@@ -1923,6 +2051,70 @@
         "schema_version": 1
       }
     },
+    "dbb01baa68f32e92b1030583": {
+      "certificate_hash": "dbb01baa68f32e92b1030583",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T192440Z-03b47f9a\\artifacts\\sovereignty-certificates\\sovereignty-dbb01baa68f32e92b1030583.json",
+      "payload": {
+        "certificate_hash": "dbb01baa68f32e92b1030583",
+        "claims": {
+          "ablation_ok": true,
+          "adversarial_ok": true,
+          "assurance_ok": true,
+          "contract_met": true,
+          "contract_ok": true,
+          "machine_checkable": true,
+          "no_skill_route": true,
+          "transfer_ok": true
+        },
+        "done_when": "min_capabilities:5; min_primitives:3; capability_exists:repo.import-health; capability_proved:repo.import-health; program_passes:repo.import-health; no_skill_route",
+        "evidence": {
+          "assurance": {
+            "ablation": {
+              "failed_phases": [],
+              "live_ledger_mutated": false,
+              "ok": true,
+              "passed_count": 4,
+              "phase_count": 4
+            },
+            "adversarial": {
+              "negative_count": 4,
+              "negatives_ok": true,
+              "negatives_passed": 4,
+              "ok": true,
+              "positive_ok": true
+            },
+            "ok": true,
+            "transfer": {
+              "member_count": 3,
+              "ok": true,
+              "package_hash": "7878a785b9718369",
+              "proved_count": 3
+            }
+          },
+          "contract": {
+            "failed_count": 0,
+            "machine_checkable": true,
+            "met": true,
+            "mission_ok": null,
+            "ok": true,
+            "passed_count": 6
+          },
+          "metrics": {
+            "count": 91,
+            "primitive_count": 42,
+            "proved_count": 91,
+            "proved_ratio": 1.0
+          }
+        },
+        "goal": "health inventory milestone",
+        "issued_at": "2026-07-31T19:28:43.604557Z",
+        "kind": "sovereignty_certificate",
+        "ok": true,
+        "package_hash": "7878a785b9718369",
+        "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T192440Z-03b47f9a",
+        "schema_version": 1
+      }
+    },
     "ec1ad55b13868046dec564a7": {
       "certificate_hash": "ec1ad55b13868046dec564a7",
       "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T142559Z-e0ddf92a\\artifacts\\sovereignty-certificates\\sovereignty-ec1ad55b13868046dec564a7.json",
@@ -2050,9 +2242,73 @@
         "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T142559Z-e0ddf92a",
         "schema_version": 1
       }
+    },
+    "ffb9c90e66b211f1fd6e4e33": {
+      "certificate_hash": "ffb9c90e66b211f1fd6e4e33",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T192440Z-03b47f9a\\artifacts\\sovereignty-certificates\\sovereignty-ffb9c90e66b211f1fd6e4e33.json",
+      "payload": {
+        "certificate_hash": "ffb9c90e66b211f1fd6e4e33",
+        "claims": {
+          "ablation_ok": true,
+          "adversarial_ok": true,
+          "assurance_ok": true,
+          "contract_met": true,
+          "contract_ok": true,
+          "machine_checkable": true,
+          "no_skill_route": true,
+          "transfer_ok": true
+        },
+        "done_when": "min_capabilities:5; min_primitives:3; capability_exists:repo.import-health; capability_proved:repo.import-health; program_passes:repo.import-health; no_skill_route",
+        "evidence": {
+          "assurance": {
+            "ablation": {
+              "failed_phases": [],
+              "live_ledger_mutated": false,
+              "ok": true,
+              "passed_count": 4,
+              "phase_count": 4
+            },
+            "adversarial": {
+              "negative_count": 4,
+              "negatives_ok": true,
+              "negatives_passed": 4,
+              "ok": true,
+              "positive_ok": true
+            },
+            "ok": true,
+            "transfer": {
+              "member_count": 3,
+              "ok": true,
+              "package_hash": "7878a785b9718369",
+              "proved_count": 3
+            }
+          },
+          "contract": {
+            "failed_count": 0,
+            "machine_checkable": true,
+            "met": true,
+            "mission_ok": null,
+            "ok": true,
+            "passed_count": 6
+          },
+          "metrics": {
+            "count": 92,
+            "primitive_count": 43,
+            "proved_count": 92,
+            "proved_ratio": 1.0
+          }
+        },
+        "goal": "health inventory milestone",
+        "issued_at": "2026-07-31T19:38:33.427673Z",
+        "kind": "sovereignty_certificate",
+        "ok": true,
+        "package_hash": "7878a785b9718369",
+        "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T192440Z-03b47f9a",
+        "schema_version": 1
+      }
     }
   },
-  "exported_at": "2026-07-31T18:53:21.552414Z",
+  "exported_at": "2026-07-31T19:38:35.349554Z",
   "kind": "continuity_bundle",
   "lineage": {
     "entries": [
@@ -4999,21 +5255,389 @@
         },
         "package_hash": "7878a785b9718369",
         "parent_hash": "09b9fa584edf55facbdbcfa9"
+      },
+      {
+        "certificate_hash": "dbb01baa68f32e92b1030583",
+        "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T192440Z-03b47f9a\\artifacts\\sovereignty-certificates\\sovereignty-dbb01baa68f32e92b1030583.json",
+        "claims": {
+          "ablation_ok": true,
+          "adversarial_ok": true,
+          "assurance_ok": true,
+          "contract_met": true,
+          "contract_ok": true,
+          "machine_checkable": true,
+          "no_skill_route": true,
+          "transfer_ok": true
+        },
+        "detail": {
+          "sovereignty_ok": true,
+          "verify_valid": true
+        },
+        "entry_hash": "d8409de148e3df520788c119",
+        "entry_kind": "sovereignty_certificate",
+        "goal": "health inventory milestone",
+        "index": 96,
+        "issued_at": "2026-07-31T19:28:43.638057Z",
+        "metrics": {
+          "count": 91,
+          "primitive_count": 42,
+          "proved_count": 91,
+          "proved_ratio": 1.0
+        },
+        "package_hash": "7878a785b9718369",
+        "parent_hash": "99f98580e7516cc562dc0745"
+      },
+      {
+        "certificate_hash": "dbb01baa68f32e92b1030583",
+        "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T192440Z-03b47f9a\\artifacts\\sovereignty-certificates\\sovereignty-dbb01baa68f32e92b1030583.json",
+        "claims": {
+          "no_skill_route": true,
+          "sealed": true
+        },
+        "detail": {
+          "certificate_hash": "dbb01baa68f32e92b1030583",
+          "chain_pre_valid": true,
+          "live_count": 91,
+          "live_proved": 91,
+          "prior_head": "d8409de148e3df520788c119"
+        },
+        "entry_hash": "8e39f16bfc75cdb5de0123ec",
+        "entry_kind": "continuity_seal",
+        "goal": "seal:health inventory milestone",
+        "index": 97,
+        "issued_at": "2026-07-31T19:28:43.639139Z",
+        "metrics": {
+          "count": 91,
+          "primitive_count": 42,
+          "proved_count": 91,
+          "proved_ratio": 1.0
+        },
+        "package_hash": "7878a785b9718369",
+        "parent_hash": "d8409de148e3df520788c119"
+      },
+      {
+        "certificate_hash": "000000000000000000000000",
+        "certificate_path": "artifacts\\capability-lineage\\__synthetic_missing_certificate__.json",
+        "claims": {
+          "ablation_ok": true,
+          "adversarial_ok": true,
+          "assurance_ok": true,
+          "contract_ok": true,
+          "no_skill_route": true,
+          "synthetic_drift": true,
+          "transfer_ok": true
+        },
+        "detail": {
+          "reason": "force_detectable_drift",
+          "synthetic_drift": true
+        },
+        "entry_hash": "9bef83809bbdd542b4e4422a",
+        "entry_kind": "sovereignty_certificate",
+        "goal": "synthetic-drift-injection",
+        "index": 98,
+        "issued_at": "2026-07-31T19:28:43.736652Z",
+        "metrics": {
+          "count": 1000000000,
+          "primitive_count": 1000000000,
+          "proved_count": 1000000000,
+          "proved_ratio": 1.0
+        },
+        "package_hash": "synthetic-drift",
+        "parent_hash": "8e39f16bfc75cdb5de0123ec"
+      },
+      {
+        "certificate_hash": "000000000000000000000000",
+        "certificate_path": "artifacts\\capability-lineage\\__synthetic_missing_certificate__.json",
+        "claims": {
+          "diagnosed": true,
+          "drift": true
+        },
+        "detail": {
+          "pre_drift": {
+            "drift": true,
+            "reasons": [
+              "missing_certificate_path",
+              "count_regressed live=91 recorded=1000000000"
+            ]
+          },
+          "reason_count": 2,
+          "reasons": [
+            "missing_certificate_path",
+            "count_regressed live=91 recorded=1000000000"
+          ]
+        },
+        "entry_hash": "f6833f1948d15863f9cf50d9",
+        "entry_kind": "drift_diagnosis",
+        "goal": "diagnose:reconcile:health inventory milestone",
+        "index": 99,
+        "issued_at": "2026-07-31T19:28:46.130392Z",
+        "metrics": {
+          "count": 91,
+          "primitive_count": 42,
+          "proved_count": 91,
+          "proved_ratio": 1.0
+        },
+        "package_hash": "",
+        "parent_hash": "9bef83809bbdd542b4e4422a"
+      },
+      {
+        "certificate_hash": "b7c3b7d2e324610e10cee3fa",
+        "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T192440Z-03b47f9a\\artifacts\\sovereignty-certificates\\sovereignty-b7c3b7d2e324610e10cee3fa.json",
+        "claims": {
+          "ablation_ok": true,
+          "adversarial_ok": true,
+          "assurance_ok": true,
+          "contract_met": true,
+          "contract_ok": true,
+          "machine_checkable": true,
+          "no_skill_route": true,
+          "transfer_ok": true
+        },
+        "detail": {
+          "healed": true,
+          "sovereignty_ok": true,
+          "verify_valid": true
+        },
+        "entry_hash": "0e26fe5a38f0b6031b3d153c",
+        "entry_kind": "heal_certificate",
+        "goal": "heal:reconcile:health inventory milestone",
+        "index": 100,
+        "issued_at": "2026-07-31T19:28:46.130488Z",
+        "metrics": {
+          "count": 91,
+          "primitive_count": 42,
+          "proved_count": 91,
+          "proved_ratio": 1.0
+        },
+        "package_hash": "7878a785b9718369",
+        "parent_hash": "f6833f1948d15863f9cf50d9"
+      },
+      {
+        "certificate_hash": "b7c3b7d2e324610e10cee3fa",
+        "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T192440Z-03b47f9a\\artifacts\\sovereignty-certificates\\sovereignty-b7c3b7d2e324610e10cee3fa.json",
+        "claims": {
+          "healed": true,
+          "no_skill_route": true,
+          "sealed": true
+        },
+        "detail": {
+          "certificate_hash": "b7c3b7d2e324610e10cee3fa",
+          "live_count": 91,
+          "live_proved": 91,
+          "prior_head_before_heal_seal": "0e26fe5a38f0b6031b3d153c"
+        },
+        "entry_hash": "fc2831e003c211ad55aa81bb",
+        "entry_kind": "heal_seal",
+        "goal": "heal-seal:reconcile:health inventory milestone",
+        "index": 101,
+        "issued_at": "2026-07-31T19:28:46.130528Z",
+        "metrics": {
+          "count": 91,
+          "primitive_count": 42,
+          "proved_count": 91,
+          "proved_ratio": 1.0
+        },
+        "package_hash": "7878a785b9718369",
+        "parent_hash": "0e26fe5a38f0b6031b3d153c"
+      },
+      {
+        "certificate_hash": "ffb9c90e66b211f1fd6e4e33",
+        "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T192440Z-03b47f9a\\artifacts\\sovereignty-certificates\\sovereignty-ffb9c90e66b211f1fd6e4e33.json",
+        "claims": {
+          "ablation_ok": true,
+          "adversarial_ok": true,
+          "assurance_ok": true,
+          "contract_met": true,
+          "contract_ok": true,
+          "machine_checkable": true,
+          "no_skill_route": true,
+          "transfer_ok": true
+        },
+        "detail": {
+          "sovereignty_ok": true,
+          "verify_valid": true
+        },
+        "entry_hash": "7895926fcd6c53aa0eed8db5",
+        "entry_kind": "sovereignty_certificate",
+        "goal": "health inventory milestone",
+        "index": 102,
+        "issued_at": "2026-07-31T19:38:33.453013Z",
+        "metrics": {
+          "count": 92,
+          "primitive_count": 43,
+          "proved_count": 92,
+          "proved_ratio": 1.0
+        },
+        "package_hash": "7878a785b9718369",
+        "parent_hash": "fc2831e003c211ad55aa81bb"
+      },
+      {
+        "certificate_hash": "ffb9c90e66b211f1fd6e4e33",
+        "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T192440Z-03b47f9a\\artifacts\\sovereignty-certificates\\sovereignty-ffb9c90e66b211f1fd6e4e33.json",
+        "claims": {
+          "no_skill_route": true,
+          "sealed": true
+        },
+        "detail": {
+          "certificate_hash": "ffb9c90e66b211f1fd6e4e33",
+          "chain_pre_valid": true,
+          "live_count": 92,
+          "live_proved": 92,
+          "prior_head": "7895926fcd6c53aa0eed8db5"
+        },
+        "entry_hash": "98d02ddb922d369df3da4974",
+        "entry_kind": "continuity_seal",
+        "goal": "seal:health inventory milestone",
+        "index": 103,
+        "issued_at": "2026-07-31T19:38:33.453893Z",
+        "metrics": {
+          "count": 92,
+          "primitive_count": 43,
+          "proved_count": 92,
+          "proved_ratio": 1.0
+        },
+        "package_hash": "7878a785b9718369",
+        "parent_hash": "7895926fcd6c53aa0eed8db5"
+      },
+      {
+        "certificate_hash": "000000000000000000000000",
+        "certificate_path": "artifacts\\capability-lineage\\__synthetic_missing_certificate__.json",
+        "claims": {
+          "ablation_ok": true,
+          "adversarial_ok": true,
+          "assurance_ok": true,
+          "contract_ok": true,
+          "no_skill_route": true,
+          "synthetic_drift": true,
+          "transfer_ok": true
+        },
+        "detail": {
+          "reason": "force_detectable_drift",
+          "synthetic_drift": true
+        },
+        "entry_hash": "89dd42a726b7c25bc9c1f2e8",
+        "entry_kind": "sovereignty_certificate",
+        "goal": "synthetic-drift-injection",
+        "index": 104,
+        "issued_at": "2026-07-31T19:38:33.499614Z",
+        "metrics": {
+          "count": 1000000000,
+          "primitive_count": 1000000000,
+          "proved_count": 1000000000,
+          "proved_ratio": 1.0
+        },
+        "package_hash": "synthetic-drift",
+        "parent_hash": "98d02ddb922d369df3da4974"
+      },
+      {
+        "certificate_hash": "000000000000000000000000",
+        "certificate_path": "artifacts\\capability-lineage\\__synthetic_missing_certificate__.json",
+        "claims": {
+          "diagnosed": true,
+          "drift": true
+        },
+        "detail": {
+          "pre_drift": {
+            "drift": true,
+            "reasons": [
+              "missing_certificate_path",
+              "count_regressed live=92 recorded=1000000000"
+            ]
+          },
+          "reason_count": 2,
+          "reasons": [
+            "missing_certificate_path",
+            "count_regressed live=92 recorded=1000000000"
+          ]
+        },
+        "entry_hash": "c358586e946391f1949a9cc6",
+        "entry_kind": "drift_diagnosis",
+        "goal": "diagnose:reconcile:health inventory milestone",
+        "index": 105,
+        "issued_at": "2026-07-31T19:38:35.061443Z",
+        "metrics": {
+          "count": 92,
+          "primitive_count": 43,
+          "proved_count": 92,
+          "proved_ratio": 1.0
+        },
+        "package_hash": "",
+        "parent_hash": "89dd42a726b7c25bc9c1f2e8"
+      },
+      {
+        "certificate_hash": "baa07b10ce53aaca6f0c7061",
+        "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T192440Z-03b47f9a\\artifacts\\sovereignty-certificates\\sovereignty-baa07b10ce53aaca6f0c7061.json",
+        "claims": {
+          "ablation_ok": true,
+          "adversarial_ok": true,
+          "assurance_ok": true,
+          "contract_met": true,
+          "contract_ok": true,
+          "machine_checkable": true,
+          "no_skill_route": true,
+          "transfer_ok": true
+        },
+        "detail": {
+          "healed": true,
+          "sovereignty_ok": true,
+          "verify_valid": true
+        },
+        "entry_hash": "e79a0e3ba61486b96c0c5524",
+        "entry_kind": "heal_certificate",
+        "goal": "heal:reconcile:health inventory milestone",
+        "index": 106,
+        "issued_at": "2026-07-31T19:38:35.061620Z",
+        "metrics": {
+          "count": 92,
+          "primitive_count": 43,
+          "proved_count": 92,
+          "proved_ratio": 1.0
+        },
+        "package_hash": "7878a785b9718369",
+        "parent_hash": "c358586e946391f1949a9cc6"
+      },
+      {
+        "certificate_hash": "baa07b10ce53aaca6f0c7061",
+        "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T192440Z-03b47f9a\\artifacts\\sovereignty-certificates\\sovereignty-baa07b10ce53aaca6f0c7061.json",
+        "claims": {
+          "healed": true,
+          "no_skill_route": true,
+          "sealed": true
+        },
+        "detail": {
+          "certificate_hash": "baa07b10ce53aaca6f0c7061",
+          "live_count": 92,
+          "live_proved": 92,
+          "prior_head_before_heal_seal": "e79a0e3ba61486b96c0c5524"
+        },
+        "entry_hash": "97f397853c945ddb95904b1b",
+        "entry_kind": "heal_seal",
+        "goal": "heal-seal:reconcile:health inventory milestone",
+        "index": 107,
+        "issued_at": "2026-07-31T19:38:35.061728Z",
+        "metrics": {
+          "count": 92,
+          "primitive_count": 43,
+          "proved_count": 92,
+          "proved_ratio": 1.0
+        },
+        "package_hash": "7878a785b9718369",
+        "parent_hash": "e79a0e3ba61486b96c0c5524"
       }
     ],
-    "entry_count": 96,
-    "head_hash": "99f98580e7516cc562dc0745",
+    "entry_count": 108,
+    "head_hash": "97f397853c945ddb95904b1b",
     "kind": "capability_lineage",
     "schema_version": 1,
-    "updated_at": "2026-07-31T18:53:21.517485Z"
+    "updated_at": "2026-07-31T19:38:35.287279Z"
   },
-  "lineage_entry_count": 96,
-  "lineage_head_hash": "99f98580e7516cc562dc0745",
+  "lineage_entry_count": 108,
+  "lineage_head_hash": "97f397853c945ddb95904b1b",
   "member_count": 3,
   "ok": true,
   "package": {
     "action": "export_capability_package",
-    "exported_at": "2026-07-31T18:53:21.539016Z",
+    "exported_at": "2026-07-31T19:38:35.315037Z",
     "member_count": 3,
     "member_ids": [
       "repo.import-health",
@@ -5036,7 +5660,7 @@
         "id": "capability.ledger-inventory",
         "kind": "python",
         "last_proof_exit_code": 0,
-        "last_proved_at": "2026-07-31T18:52:40.679797Z",
+        "last_proved_at": "2026-07-31T19:37:51.893467Z",
         "name": "Capability ledger inventory",
         "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_ledger_inventory; r=builtin_ledger_inventory(); assert r['ok'] and r['count'] >= 2\"",
         "source_milestone": null,
@@ -5045,7 +5669,7 @@
           "bootstrap",
           "compounder"
         ],
-        "updated_at": "2026-07-31T18:53:21.533992Z"
+        "updated_at": "2026-07-31T19:38:35.309167Z"
       },
       "repo.import-health": {
         "behavior_paths": [
@@ -5060,7 +5684,7 @@
         "id": "repo.import-health",
         "kind": "python",
         "last_proof_exit_code": 0,
-        "last_proved_at": "2026-07-31T18:53:21.311682Z",
+        "last_proved_at": "2026-07-31T19:38:34.867850Z",
         "name": "Repository import health",
         "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_repo_import_health; r=builtin_repo_import_health(); assert r['ok'] and not r['skill_route_symbols_in_compounder']\"",
         "source_milestone": null,
@@ -5069,7 +5693,7 @@
           "bootstrap",
           "health"
         ],
-        "updated_at": "2026-07-31T18:53:21.533835Z"
+        "updated_at": "2026-07-31T19:38:35.308779Z"
       },
       "unbound.milestone-gate": {
         "behavior_paths": [
@@ -5085,7 +5709,7 @@
         "id": "unbound.milestone-gate",
         "kind": "python",
         "last_proof_exit_code": 0,
-        "last_proved_at": "2026-07-31T18:52:40.858617Z",
+        "last_proved_at": "2026-07-31T19:37:52.113438Z",
         "name": "Unbound milestone gate smoke",
         "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_milestone_gate_smoke; r=builtin_milestone_gate_smoke(); assert r['ok']\"",
         "source_milestone": null,
@@ -5094,7 +5718,7 @@
           "bootstrap",
           "unbound"
         ],
-        "updated_at": "2026-07-31T18:53:21.533922Z"
+        "updated_at": "2026-07-31T19:38:35.309005Z"
       }
     },
     "ok": true,
@@ -5105,7 +5729,7 @@
       "unbound.milestone-gate"
     ],
     "schema_version": 1,
-    "source_ledger_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T103028Z-dbe749b8\\capabilities\\ledger.json",
+    "source_ledger_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T192440Z-03b47f9a\\capabilities\\ledger.json",
     "used_skill_route_discovery": false
   },
   "package_hash": "7878a785b9718369",
@@ -5115,7 +5739,7 @@
     "unbound.milestone-gate"
   ],
   "schema_version": 1,
-  "source_ledger_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T103028Z-dbe749b8\\capabilities\\ledger.json",
-  "source_lineage_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T103028Z-dbe749b8\\artifacts\\capability-lineage\\cli-continuity.json",
+  "source_ledger_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T192440Z-03b47f9a\\capabilities\\ledger.json",
+  "source_lineage_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T192440Z-03b47f9a\\artifacts\\capability-lineage\\cli-continuity.json",
   "used_skill_route_discovery": false
 }
