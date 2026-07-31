@@ -1,0 +1,151 @@
+{
+  "actuation_hash": "144be92bc8f1320279bcfc4a",
+  "bound_action_height": 2,
+  "bound_action_root": "bc9f34eaf8099cb1dd02f164",
+  "entries": [
+    {
+      "actuation_certificate_hash": "fdcd69bb2b287f6d4a0b7763",
+      "actuation_hash": "144be92bc8f1320279bcfc4a",
+      "applied_at": "2026-07-31T06:06:03.696193Z",
+      "bound_action_height": 1,
+      "bound_action_root": "8c09a0cad74a985b3572549e",
+      "capability_id": "capability.ledger-inventory",
+      "claims": {
+        "plane": "settlement",
+        "settlement_index": 1
+      },
+      "deterministic": true,
+      "effect": "prove",
+      "effect_digest": "bdf9fbcd3cda14f52ecd6082",
+      "entry": "blackhole_agent.capability_compounder:builtin_ledger_inventory",
+      "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (settlement 1)",
+      "kind": "settlement_receipt",
+      "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "outcome": "settled",
+      "package_hash": "6e604a6f16e45f9f",
+      "parent_settlement_root": "",
+      "post_actuation": true,
+      "receipt_digest": "f077f1e2d755d5582625a09d",
+      "schema_version": 1,
+      "settlement_certificate": {
+        "actuation_certificate_hash": "fdcd69bb2b287f6d4a0b7763",
+        "actuation_hash": "144be92bc8f1320279bcfc4a",
+        "bound_action_height": 1,
+        "bound_action_root": "8c09a0cad74a985b3572549e",
+        "certificate_hash": "3aeb4e5fc56bb24b0b8f9741",
+        "claims": {
+          "capability_id": "capability.ledger-inventory",
+          "effect": "prove",
+          "outcome": "settled",
+          "plane": "settlement",
+          "settlement_index": 1
+        },
+        "deterministic": true,
+        "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (settlement 1)",
+        "issued_at": "2026-07-31T06:06:03.696260Z",
+        "kind": "settlement_certificate",
+        "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "6e604a6f16e45f9f",
+        "parent_settlement_root": "",
+        "post_actuation": true,
+        "schema_version": 1,
+        "settlement_count": 1,
+        "settlement_height": 1,
+        "settlement_root": "a619f55abae1e84a1c661970",
+        "used_skill_route_discovery": false,
+        "valid": true
+      },
+      "settlement_height": 1,
+      "settlement_root": "a619f55abae1e84a1c661970",
+      "used_skill_route_discovery": false
+    },
+    {
+      "actuation_certificate_hash": "fdcd69bb2b287f6d4a0b7763",
+      "actuation_hash": "144be92bc8f1320279bcfc4a",
+      "applied_at": "2026-07-31T06:06:03.696483Z",
+      "bound_action_height": 2,
+      "bound_action_root": "bc9f34eaf8099cb1dd02f164",
+      "capability_id": "repo.import-health",
+      "claims": {
+        "plane": "settlement",
+        "settlement_index": 2
+      },
+      "deterministic": true,
+      "effect": "prove",
+      "effect_digest": "a3953f3569f1b63bf9eb3abb",
+      "entry": "blackhole_agent.capability_compounder:builtin_repo_import_health",
+      "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (settlement 2)",
+      "kind": "settlement_receipt",
+      "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "outcome": "settled",
+      "package_hash": "6e604a6f16e45f9f",
+      "parent_settlement_root": "a619f55abae1e84a1c661970",
+      "post_actuation": true,
+      "receipt_digest": "c36d4ff425f9a1226a4b6665",
+      "schema_version": 1,
+      "settlement_certificate": {
+        "actuation_certificate_hash": "fdcd69bb2b287f6d4a0b7763",
+        "actuation_hash": "144be92bc8f1320279bcfc4a",
+        "bound_action_height": 2,
+        "bound_action_root": "bc9f34eaf8099cb1dd02f164",
+        "certificate_hash": "5c23a892eccd1625050be890",
+        "claims": {
+          "capability_id": "repo.import-health",
+          "effect": "prove",
+          "outcome": "settled",
+          "plane": "settlement",
+          "settlement_index": 2
+        },
+        "deterministic": true,
+        "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (settlement 2)",
+        "issued_at": "2026-07-31T06:06:03.696535Z",
+        "kind": "settlement_certificate",
+        "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "6e604a6f16e45f9f",
+        "parent_settlement_root": "a619f55abae1e84a1c661970",
+        "post_actuation": true,
+        "schema_version": 1,
+        "settlement_count": 2,
+        "settlement_height": 2,
+        "settlement_root": "7a14b819bad310e6f326c948",
+        "used_skill_route_discovery": false,
+        "valid": true
+      },
+      "settlement_height": 2,
+      "settlement_root": "7a14b819bad310e6f326c948",
+      "used_skill_route_discovery": false
+    }
+  ],
+  "entry_count": 2,
+  "kind": "settlement_log",
+  "schema_version": 1,
+  "tip_height": 2,
+  "tip_settlement_root": "7a14b819bad310e6f326c948",
+  "updated_at": "2026-07-31T06:06:03.696599Z"
+}

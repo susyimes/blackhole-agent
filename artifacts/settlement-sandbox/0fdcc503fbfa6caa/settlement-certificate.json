@@ -1,0 +1,35 @@
+{
+  "actuation_certificate_hash": "85aed23421f6f9de76ea2619",
+  "actuation_hash": "af5fd9c0338b7793dfb6a088",
+  "bound_action_height": 2,
+  "bound_action_root": "025ea2ebdf76038de57a9fac",
+  "certificate_hash": "17b42e6e8b5d5a1abc6c5caa",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "effect": "prove",
+    "outcome": "settled",
+    "plane": "settlement",
+    "settlement_index": 2
+  },
+  "deterministic": true,
+  "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (settlement 2)",
+  "issued_at": "2026-07-31T06:04:45.841087Z",
+  "kind": "settlement_certificate",
+  "lineage_head_hash": "f15b0e31b79a0bd59b5db71e",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "1f33677aaaff9f91",
+  "parent_settlement_root": "30d9ba35e588f300a0961994",
+  "post_actuation": true,
+  "schema_version": 1,
+  "settlement_count": 2,
+  "settlement_height": 2,
+  "settlement_root": "09735950163396f4d9212e6d",
+  "used_skill_route_discovery": false,
+  "valid": true
+}

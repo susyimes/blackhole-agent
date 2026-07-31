@@ -1,0 +1,29 @@
+{
+  "agreeing_count": 2,
+  "byzantine_count": 1,
+  "certificate_hash": "096dface76e027a407baa84a",
+  "claims": {
+    "epoch_index": 2,
+    "member_count": 3,
+    "plane": "finality",
+    "roots": [
+      "repo.import-health",
+      "capability.ledger-inventory",
+      "unbound.milestone-gate"
+    ]
+  },
+  "epoch_hash": "cc1e9205c315f2ece4ec5744",
+  "epoch_height": 2,
+  "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (epoch 2)",
+  "irreversible": true,
+  "issued_at": "2026-07-31T06:06:01.765330Z",
+  "kind": "finality_certificate",
+  "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+  "ok": true,
+  "origin_count": 3,
+  "package_hash": "6e604a6f16e45f9f",
+  "parent_epoch_hash": "f23cb8a7310da1bdeadd10dc",
+  "quorum_hash": "b7576435e0a7be7109bd2213",
+  "schema_version": 1,
+  "used_skill_route_discovery": false
+}

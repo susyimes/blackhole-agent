@@ -1,0 +1,37 @@
+{
+  "bound_coalition_height": 2,
+  "bound_coalition_root": "a04a7a420f2f6d6e0a8d9114",
+  "certificate_hash": "c362886b94c7ff744cd488cd",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "confederated",
+    "plane": "confederation"
+  },
+  "coalition_certificate_hash": "0ad29c8744109841273f1050",
+  "coalition_hash": "ecc0a3d400ade11d48f4531c",
+  "coalition_plan_digest": "77131cfca420f89089b13d30",
+  "confederation_count": 2,
+  "confederation_height": 2,
+  "confederation_plan_digest": "dcc51f2eaa1272c1d9042295",
+  "confederation_root": "dbde4cd9e7ab98461bb58b49",
+  "deterministic": true,
+  "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (clearing 2)",
+  "issued_at": "2026-07-31T06:05:09.783934Z",
+  "kind": "confederation_certificate",
+  "lineage_head_hash": "f15b0e31b79a0bd59b5db71e",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "1f33677aaaff9f91",
+  "parent_confederation_root": "622dd2814c3023ea2b59a27d",
+  "post_coalition": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

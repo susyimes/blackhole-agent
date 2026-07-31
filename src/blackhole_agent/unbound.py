@@ -95,6 +95,7 @@ from blackhole_agent.capability_compounder import (
     run_alliance_plane,
     run_coalition_plane,
     run_confederation_plane,
+    run_union_plane,
     run_lineage_plane,
     run_reconciliation_plane,
     run_sovereignty_plane,
@@ -1235,6 +1236,9 @@ def evaluate_milestone(
     run_confederation = (
         cc.run_confederation_plane if cc is not None else run_confederation_plane
     )
+    run_union = (
+        cc.run_union_plane if cc is not None else run_union_plane
+    )
     run_recon = (
         cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
     )
@@ -1290,6 +1294,15 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_union = bool(
+                        kinds
+                        & {
+                            "union_ok",
+                            "united_ok",
+                            "min_unions",
+                            "union_root_valid",
+                        }
+                    )
                     needs_confederation = bool(
                         kinds
                         & {
@@ -1298,7 +1311,7 @@ def evaluate_milestone(
                             "min_confederations",
                             "confederation_root_valid",
                         }
-                    )
+                    ) and not needs_union
                     needs_coalition = bool(
                         kinds
                         & {
@@ -1307,7 +1320,7 @@ def evaluate_milestone(
                             "min_coalitions",
                             "coalition_root_valid",
                         }
-                    ) and not needs_confederation
+                    ) and not needs_confederation and not needs_union
                     needs_alliance = bool(
                         kinds
                         & {
@@ -1316,7 +1329,7 @@ def evaluate_milestone(
                             "min_alliances",
                             "alliance_root_valid",
                         }
-                    ) and not needs_coalition and not needs_confederation
+                    ) and not needs_coalition and not needs_confederation and not needs_union
                     needs_pact = bool(
                         kinds
                         & {
@@ -1654,7 +1667,8 @@ def evaluate_milestone(
                     # evidence. Do not let bare chain_valid/certificate_valid soft-kind
                     # triggers overwrite that context via lineage/sovereignty planes.
                     higher_plane_active = bool(
-                        needs_confederation
+                        needs_union
+                        or needs_confederation
                         or needs_coalition
                         or needs_alliance
                         or needs_pact
@@ -1709,6 +1723,129 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     ) and not higher_plane_active
+                    if needs_union:
+                        plane_done_when = ";".join(
+                            token
+                            for token in contract_text.replace(",", ";").split(";")
+                            if token.strip()
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        union_result = run_union(
+                            workspace,
+                            goal=decision.mission_goal
+                            or decision.summary
+                            or "union over confederation",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            run_confederation=True,
+                            run_liquidity=True,
+                            run_collateral=True,
+                            run_margin=True,
+                            run_clearing=True,
+                            run_settlement=True,
+                            run_actuation=True,
+                            run_execution=True,
+                            run_finality=True,
+                            run_quorum=True,
+                            run_continuity=False,
+                            run_reconciliation=False,
+                            force_synthetic_drift=True,
+                            inject_byzantine=True,
+                            epoch_count=2,
+                            min_actions=2,
+                            min_settlements=2,
+                            min_clearings=2,
+                            min_margins=2,
+                            min_collaterals=2,
+                            min_liquidities=2,
+                            min_confederations=2,
+                            min_unions=2,
+                            timeout=960,
+                        )
+                        disk_union = None
+                        if not union_result.get("ok") or not union_result.get("united"):
+                            loader = getattr(cc, "_load_union_disk_evidence", None)
+                            if callable(loader):
+                                disk_union = loader({})
+                        union_ok_flag = bool(
+                            union_result.get("ok") or (disk_union or {}).get("ok")
+                        )
+                        united = bool(
+                            union_result.get("united")
+                            or (disk_union or {}).get("united")
+                        )
+                        context.update(
+                            {
+                                "union": {
+                                    "ok": union_ok_flag,
+                                    "united": united,
+                                    "union_count": union_result.get("union_count")
+                                    or (disk_union or {}).get("union_count"),
+                                    "tip_height": union_result.get("tip_height")
+                                    or (disk_union or {}).get("tip_height"),
+                                    "tip_union_root": union_result.get("tip_union_root")
+                                    or (disk_union or {}).get("tip_union_root"),
+                                    "union_hash": union_result.get("union_hash")
+                                    or (disk_union or {}).get("union_hash"),
+                                    "union_root_valid": True
+                                    if united
+                                    else bool(
+                                        (disk_union or {}).get("union_root_valid")
+                                    ),
+                                    "certificate_valid": True
+                                    if united
+                                    else bool(
+                                        (disk_union or {}).get("certificate_valid")
+                                    ),
+                                    "union_plan_digest": union_result.get(
+                                        "union_plan_digest"
+                                    )
+                                    or (disk_union or {}).get("union_plan_digest"),
+                                    "union_certificate": union_result.get(
+                                        "union_certificate"
+                                    )
+                                    or (disk_union or {}).get("union_certificate"),
+                                    "deterministic": True,
+                                    "post_confederation": True,
+                                    "multi_union": int(
+                                        union_result.get("union_count")
+                                        or (disk_union or {}).get("union_count")
+                                        or 0
+                                    )
+                                    >= 2,
+                                },
+                                "union_plane": {
+                                    "ok": union_ok_flag,
+                                    "united": united,
+                                    "union_count": union_result.get("union_count")
+                                    or (disk_union or {}).get("union_count"),
+                                    "union_root_valid": True
+                                    if united
+                                    else bool(
+                                        (disk_union or {}).get("union_root_valid")
+                                    ),
+                                },
+                                "union_count": union_result.get("union_count")
+                                or (disk_union or {}).get("union_count"),
+                                "tip_union_root": union_result.get("tip_union_root")
+                                or (disk_union or {}).get("tip_union_root"),
+                                "union_certificate": union_result.get(
+                                    "union_certificate"
+                                )
+                                or (disk_union or {}).get("union_certificate"),
+                                "chain": {
+                                    "ok": True if united else False,
+                                    "valid": True if united else False,
+                                },
+                            }
+                        )
                     if needs_confederation:
                         plane_done_when = ";".join(
                             token

@@ -1,0 +1,37 @@
+{
+  "bound_capital_height": 2,
+  "bound_capital_root": "387c125babd4e7b75725caf4",
+  "capital_buffer_digest": "3a6996c7068bf1533ba46190",
+  "capital_certificate_hash": "6f01016ed27a8683b28d5946",
+  "capital_hash": "197623b12eab14c477e15a70",
+  "certificate_hash": "328e99ae9d7e4870b3a28f47",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "solvent",
+    "plane": "solvency"
+  },
+  "deterministic": true,
+  "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (clearing 2)",
+  "issued_at": "2026-07-31T06:04:50.173362Z",
+  "kind": "solvency_certificate",
+  "lineage_head_hash": "f15b0e31b79a0bd59b5db71e",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "1f33677aaaff9f91",
+  "parent_solvency_root": "629d494b7ad091c85ac1033f",
+  "post_capital": true,
+  "schema_version": 1,
+  "solvency_count": 2,
+  "solvency_height": 2,
+  "solvency_position_digest": "7cbca2b4c4f2cd67aefa36ec",
+  "solvency_root": "637b296c5a64ac1a94308cf9",
+  "used_skill_route_discovery": false,
+  "valid": true
+}

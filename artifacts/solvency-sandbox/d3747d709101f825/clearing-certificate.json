@@ -1,0 +1,37 @@
+{
+  "bound_funding_height": 2,
+  "bound_funding_root": "441877a80a7f88e03a84cab2",
+  "capital_buffer_digest": "be0a28a5f467efefc3778ac1",
+  "capital_count": 2,
+  "capital_height": 2,
+  "capital_root": "7de25ed1598312ab7d51efec",
+  "certificate_hash": "808879f05fdd751f27d21f21",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "capitalized",
+    "plane": "capital"
+  },
+  "deterministic": true,
+  "funding_certificate_hash": "ed63a19adc102b0e1d2980e3",
+  "funding_facility_digest": "714070c6ad3c652e4fca62e0",
+  "funding_hash": "88c83b343a01d14d257d6bdc",
+  "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (clearing 2)",
+  "issued_at": "2026-07-31T06:06:07.544376Z",
+  "kind": "capital_certificate",
+  "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "6e604a6f16e45f9f",
+  "parent_capital_root": "23167af413ade285cbc03b89",
+  "post_funding": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

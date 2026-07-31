@@ -9,7 +9,7 @@
   "byzantine_origins": [
     "origin-byzantine"
   ],
-  "certificate_count": 52,
+  "certificate_count": 54,
   "certificates": {
     "085bf6317cab0eb6fba382ea": {
       "certificate_hash": "085bf6317cab0eb6fba382ea",
@@ -1506,15 +1506,15 @@
         "schema_version": 1
       }
     },
-    "663dbea07f78f9ff5371e04b": {
-      "certificate_hash": "663dbea07f78f9ff5371e04b",
+    "5f02dd0b79c5985004ac0867": {
+      "certificate_hash": "5f02dd0b79c5985004ac0867",
       "certificate_path": "artifacts/federation-origins/origin-b-attest.json",
       "origin_id": "origin-b",
       "payload": {
-        "certificate_hash": "663dbea07f78f9ff5371e04b",
-        "issued_at": "2026-07-31T04:46:46.209039Z",
+        "certificate_hash": "5f02dd0b79c5985004ac0867",
+        "issued_at": "2026-07-31T06:06:00.980349Z",
         "kind": "federation_origin_attestation",
-        "lineage_head_hash": "945738a5442a0594edb55517",
+        "lineage_head_hash": "a2e442509cf4617c3668ea86",
         "member_count": 2,
         "origin_id": "origin-b",
         "package_hash": "8ece9182045d973a",
@@ -1525,61 +1525,145 @@
         "schema_version": 1
       }
     },
-    "7665931b1faf11bd7ec70cf2": {
-      "certificate_hash": "7665931b1faf11bd7ec70cf2",
-      "certificate_path": "artifacts/quorum-bundles/quorum-certificate.json",
-      "origin_id": "quorum",
+    "69508443609f4496a69d6fdc": {
+      "certificate_hash": "69508443609f4496a69d6fdc",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T051743Z-7b6fc786\\artifacts\\sovereignty-certificates\\sovereignty-69508443609f4496a69d6fdc.json",
+      "origin_id": "origin-a",
       "payload": {
-        "agreeing_count": 2,
-        "agreeing_origins": [
-          "origin-a",
-          "origin-b"
-        ],
-        "byzantine_count": 1,
-        "byzantine_origins": [
-          "origin-byzantine"
-        ],
-        "certificate_hash": "7665931b1faf11bd7ec70cf2",
+        "certificate_hash": "69508443609f4496a69d6fdc",
         "claims": {
-          "origin_ids": [
-            "origin-a",
-            "origin-b",
-            "origin-byzantine"
-          ],
-          "roots": [
-            "repo.import-health",
-            "capability.ledger-inventory",
-            "unbound.milestone-gate"
-          ],
-          "votes_accepted": 3
+          "ablation_ok": true,
+          "adversarial_ok": true,
+          "assurance_ok": true,
+          "contract_met": true,
+          "contract_ok": true,
+          "machine_checkable": true,
+          "no_skill_route": true,
+          "transfer_ok": true
         },
-        "goal": "coalition over alliance",
-        "issued_at": "2026-07-31T04:46:46.296380Z",
-        "kind": "quorum_certificate",
-        "lineage_head_hash": "621a1a0a2553ac0d13fa6a68",
-        "member_count": 3,
+        "done_when": "no_skill_route; confederation_ok; min_confederations:2; confederated_ok; confederation_root_valid",
+        "evidence": {
+          "assurance": {
+            "ablation": {
+              "failed_phases": [],
+              "live_ledger_mutated": false,
+              "ok": true,
+              "passed_count": 4,
+              "phase_count": 4
+            },
+            "adversarial": {
+              "negative_count": 4,
+              "negatives_ok": true,
+              "negatives_passed": 4,
+              "ok": true,
+              "positive_ok": true
+            },
+            "ok": true,
+            "transfer": {
+              "member_count": 3,
+              "ok": true,
+              "package_hash": "7878a785b9718369",
+              "proved_count": 3
+            }
+          },
+          "contract": {
+            "failed_count": 0,
+            "machine_checkable": true,
+            "met": true,
+            "mission_ok": null,
+            "ok": true,
+            "passed_count": 5
+          },
+          "metrics": {
+            "count": 125,
+            "primitive_count": 76,
+            "proved_count": 123,
+            "proved_ratio": 0.984
+          }
+        },
+        "goal": "reconcile:Add a confederation plane over the proved coalition plane: multi-coalition orders become deterministic hash-chained confederation grants with confederation plan digests bound to coalition roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery.",
+        "issued_at": "2026-07-31T05:25:36.437432Z",
+        "kind": "sovereignty_certificate",
         "ok": true,
-        "origin_count": 3,
-        "origin_hashes": [
-          "d05c1f4b4cdaf7b5a5bb8fd7",
-          "abc7959dccdc1bf71a4db65e",
-          "b9f8e2e560c3ed373d16c87d"
-        ],
-        "package_hash": "066545df3053adf5",
-        "schema_version": 1,
-        "threshold": 2,
-        "used_skill_route_discovery": false
+        "package_hash": "7878a785b9718369",
+        "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T051743Z-7b6fc786",
+        "schema_version": 1
       }
     },
-    "78f0a0ec1f4afc98f864facb": {
-      "certificate_hash": "78f0a0ec1f4afc98f864facb",
+    "6e8b2e46254b331348a3f1a2": {
+      "certificate_hash": "6e8b2e46254b331348a3f1a2",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T051743Z-7b6fc786\\artifacts\\sovereignty-certificates\\sovereignty-6e8b2e46254b331348a3f1a2.json",
+      "origin_id": "origin-a",
+      "payload": {
+        "certificate_hash": "6e8b2e46254b331348a3f1a2",
+        "claims": {
+          "ablation_ok": true,
+          "adversarial_ok": true,
+          "assurance_ok": true,
+          "contract_met": true,
+          "contract_ok": true,
+          "machine_checkable": true,
+          "no_skill_route": true,
+          "transfer_ok": true
+        },
+        "done_when": "no_skill_route; confederation_ok; min_confederations:2; confederated_ok; confederation_root_valid",
+        "evidence": {
+          "assurance": {
+            "ablation": {
+              "failed_phases": [],
+              "live_ledger_mutated": false,
+              "ok": true,
+              "passed_count": 4,
+              "phase_count": 4
+            },
+            "adversarial": {
+              "negative_count": 4,
+              "negatives_ok": true,
+              "negatives_passed": 4,
+              "ok": true,
+              "positive_ok": true
+            },
+            "ok": true,
+            "transfer": {
+              "member_count": 3,
+              "ok": true,
+              "package_hash": "7878a785b9718369",
+              "proved_count": 3
+            }
+          },
+          "contract": {
+            "failed_count": 0,
+            "machine_checkable": true,
+            "met": true,
+            "mission_ok": null,
+            "ok": true,
+            "passed_count": 5
+          },
+          "metrics": {
+            "count": 125,
+            "primitive_count": 76,
+            "proved_count": 123,
+            "proved_ratio": 0.984
+          }
+        },
+        "goal": "Add a confederation plane over the proved coalition plane: multi-coalition orders become deterministic hash-chained confederation grants with confederation plan digests bound to coalition roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery.",
+        "issued_at": "2026-07-31T05:25:33.495706Z",
+        "kind": "sovereignty_certificate",
+        "ok": true,
+        "package_hash": "7878a785b9718369",
+        "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T051743Z-7b6fc786",
+        "schema_version": 1
+      }
+    },
+    "72419708a121f1ccc78e0b6e": {
+      "certificate_hash": "72419708a121f1ccc78e0b6e",
       "certificate_path": "artifacts/federation-origins/origin-c-attest.json",
       "origin_id": "origin-byzantine",
       "payload": {
-        "certificate_hash": "78f0a0ec1f4afc98f864facb",
-        "issued_at": "2026-07-31T04:46:46.294777Z",
+        "certificate_hash": "72419708a121f1ccc78e0b6e",
+        "issued_at": "2026-07-31T06:06:01.024039Z",
         "kind": "federation_origin_attestation",
-        "lineage_head_hash": "3431f58f5682c15b66b6ce2c",
+        "lineage_head_hash": "af1ba5e414b6cc444ce1c17d",
         "member_count": 3,
         "origin_id": "origin-c",
         "package_hash": "7878a785b9718369",
@@ -2109,6 +2193,52 @@
         "package_hash": "7878a785b9718369",
         "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T134211Z-d3e39855",
         "schema_version": 1
+      }
+    },
+    "8d4b0a2f45a4fd155ccbd361": {
+      "certificate_hash": "8d4b0a2f45a4fd155ccbd361",
+      "certificate_path": "artifacts/quorum-bundles/quorum-certificate.json",
+      "origin_id": "quorum",
+      "payload": {
+        "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "byzantine_count": 1,
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "certificate_hash": "8d4b0a2f45a4fd155ccbd361",
+        "claims": {
+          "origin_ids": [
+            "origin-a",
+            "origin-b",
+            "origin-byzantine"
+          ],
+          "roots": [
+            "repo.import-health",
+            "capability.ledger-inventory",
+            "unbound.milestone-gate"
+          ],
+          "votes_accepted": 3
+        },
+        "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery.",
+        "issued_at": "2026-07-31T06:06:01.024938Z",
+        "kind": "quorum_certificate",
+        "lineage_head_hash": "d8b71ac1459c1f6e93a83be1",
+        "member_count": 3,
+        "ok": true,
+        "origin_count": 3,
+        "origin_hashes": [
+          "e66b5fae14051c9f21b673cf",
+          "a0d27ed1aa43dd0962faf6b0",
+          "f6c239fa825aa1a812c8710e"
+        ],
+        "package_hash": "066545df3053adf5",
+        "schema_version": 1,
+        "threshold": 2,
+        "used_skill_route_discovery": false
       }
     },
     "92b6e7fdbd33c79c7b1f8f3f": {
@@ -3282,7 +3412,7 @@
       }
     }
   },
-  "goal": "coalition over alliance",
+  "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery.",
   "kind": "quorum_bundle",
   "lineage": {
     "entries": [
@@ -3301,39 +3431,39 @@
         "detail": {
           "origins": [
             {
-              "bundle_hash": "d05c1f4b4cdaf7b5a5bb8fd7",
+              "bundle_hash": "e66b5fae14051c9f21b673cf",
               "byzantine": false,
-              "lineage_entry_count": 123,
-              "lineage_head_hash": "c0426b8f49a2398a4dfa5d4a",
+              "lineage_entry_count": 129,
+              "lineage_head_hash": "5c4dacb32f81386ea03a82ce",
               "member_count": 3,
               "origin_id": "origin-a",
               "package_hash": "7878a785b9718369"
             },
             {
-              "bundle_hash": "abc7959dccdc1bf71a4db65e",
+              "bundle_hash": "a0d27ed1aa43dd0962faf6b0",
               "byzantine": false,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "945738a5442a0594edb55517",
+              "lineage_head_hash": "a2e442509cf4617c3668ea86",
               "member_count": 2,
               "origin_id": "origin-b",
               "package_hash": "8ece9182045d973a"
             },
             {
-              "bundle_hash": "b9f8e2e560c3ed373d16c87d",
+              "bundle_hash": "f6c239fa825aa1a812c8710e",
               "byzantine": true,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "3431f58f5682c15b66b6ce2c",
+              "lineage_head_hash": "af1ba5e414b6cc444ce1c17d",
               "member_count": 3,
               "origin_id": "origin-byzantine",
               "package_hash": "7d88f7661e8407af"
             }
           ]
         },
-        "entry_hash": "111e8a97494afd581a7869fa",
+        "entry_hash": "43a19b5c8b2b4b511d66a60c",
         "entry_kind": "quorum_origin_manifest",
-        "goal": "coalition over alliance",
+        "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery.",
         "index": 0,
-        "issued_at": "2026-07-31T04:46:46.296142Z",
+        "issued_at": "2026-07-31T06:06:01.024678Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -3357,16 +3487,16 @@
         },
         "detail": {
           "origin_heads": [
-            "c0426b8f49a2398a4dfa5d4a",
-            "945738a5442a0594edb55517",
-            "3431f58f5682c15b66b6ce2c"
+            "5c4dacb32f81386ea03a82ce",
+            "a2e442509cf4617c3668ea86",
+            "af1ba5e414b6cc444ce1c17d"
           ]
         },
-        "entry_hash": "408aaae4b1425656f73c2e1e",
+        "entry_hash": "5986d4f4143683b17ec37f7e",
         "entry_kind": "quorum_vote",
-        "goal": "coalition over alliance",
+        "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery.",
         "index": 1,
-        "issued_at": "2026-07-31T04:46:46.296173Z",
+        "issued_at": "2026-07-31T06:06:01.024711Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -3374,7 +3504,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "111e8a97494afd581a7869fa"
+        "parent_hash": "43a19b5c8b2b4b511d66a60c"
       },
       {
         "certificate_hash": "",
@@ -3391,11 +3521,11 @@
             "origin-byzantine"
           ]
         },
-        "entry_hash": "c44414061ff49515a57ec447",
+        "entry_hash": "3f9080c07db3f80e71a34351",
         "entry_kind": "quorum_byzantine_exclude",
-        "goal": "coalition over alliance",
+        "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery.",
         "index": 2,
-        "issued_at": "2026-07-31T04:46:46.296192Z",
+        "issued_at": "2026-07-31T06:06:01.024734Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -3403,7 +3533,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "408aaae4b1425656f73c2e1e"
+        "parent_hash": "5986d4f4143683b17ec37f7e"
       },
       {
         "certificate_hash": "",
@@ -3423,16 +3553,16 @@
             "origin-byzantine"
           ],
           "origin_bundle_hashes": [
-            "d05c1f4b4cdaf7b5a5bb8fd7",
-            "abc7959dccdc1bf71a4db65e",
-            "b9f8e2e560c3ed373d16c87d"
+            "e66b5fae14051c9f21b673cf",
+            "a0d27ed1aa43dd0962faf6b0",
+            "f6c239fa825aa1a812c8710e"
           ]
         },
-        "entry_hash": "621a1a0a2553ac0d13fa6a68",
+        "entry_hash": "d8b71ac1459c1f6e93a83be1",
         "entry_kind": "quorum_seal",
-        "goal": "coalition over alliance",
+        "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery.",
         "index": 3,
-        "issued_at": "2026-07-31T04:46:46.296210Z",
+        "issued_at": "2026-07-31T06:06:01.024756Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -3440,41 +3570,41 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "c44414061ff49515a57ec447"
+        "parent_hash": "3f9080c07db3f80e71a34351"
       }
     ],
     "entry_count": 4,
-    "head_hash": "621a1a0a2553ac0d13fa6a68",
+    "head_hash": "d8b71ac1459c1f6e93a83be1",
     "kind": "capability_lineage",
     "schema_version": 1,
-    "updated_at": "2026-07-31T04:46:46.296224Z"
+    "updated_at": "2026-07-31T06:06:01.024772Z"
   },
   "lineage_entry_count": 4,
-  "lineage_head_hash": "621a1a0a2553ac0d13fa6a68",
+  "lineage_head_hash": "d8b71ac1459c1f6e93a83be1",
   "member_count": 3,
   "ok": true,
   "origin_count": 3,
   "origins": [
     {
-      "bundle_hash": "d05c1f4b4cdaf7b5a5bb8fd7",
+      "bundle_hash": "e66b5fae14051c9f21b673cf",
       "byzantine": false,
-      "lineage_head_hash": "c0426b8f49a2398a4dfa5d4a",
+      "lineage_head_hash": "5c4dacb32f81386ea03a82ce",
       "member_count": 3,
       "origin_id": "origin-a",
       "package_hash": "7878a785b9718369"
     },
     {
-      "bundle_hash": "abc7959dccdc1bf71a4db65e",
+      "bundle_hash": "a0d27ed1aa43dd0962faf6b0",
       "byzantine": false,
-      "lineage_head_hash": "945738a5442a0594edb55517",
+      "lineage_head_hash": "a2e442509cf4617c3668ea86",
       "member_count": 2,
       "origin_id": "origin-b",
       "package_hash": "8ece9182045d973a"
     },
     {
-      "bundle_hash": "b9f8e2e560c3ed373d16c87d",
+      "bundle_hash": "f6c239fa825aa1a812c8710e",
       "byzantine": true,
-      "lineage_head_hash": "3431f58f5682c15b66b6ce2c",
+      "lineage_head_hash": "af1ba5e414b6cc444ce1c17d",
       "member_count": 3,
       "origin_id": "origin-byzantine",
       "package_hash": "7d88f7661e8407af"
@@ -3489,7 +3619,7 @@
     "byzantine_origins": [
       "origin-byzantine"
     ],
-    "exported_at": "2026-07-31T04:46:46.296089Z",
+    "exported_at": "2026-07-31T06:06:01.024639Z",
     "federated": true,
     "member_count": 3,
     "member_ids": [
@@ -3535,7 +3665,7 @@
           "bootstrap",
           "compounder"
         ],
-        "updated_at": "2026-07-31T04:46:46.023509Z"
+        "updated_at": "2026-07-31T06:06:00.863723Z"
       },
       "repo.import-health": {
         "behavior_paths": [
@@ -3550,7 +3680,7 @@
         "id": "repo.import-health",
         "kind": "python",
         "last_proof_exit_code": 0,
-        "last_proved_at": "2026-07-30T10:40:37.565197Z",
+        "last_proved_at": "2026-07-31T05:25:36.061422Z",
         "name": "Repository import health",
         "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_repo_import_health; r=builtin_repo_import_health(); assert r['ok'] and not r['skill_route_symbols_in_compounder']\"",
         "source_milestone": null,
@@ -3559,7 +3689,7 @@
           "bootstrap",
           "health"
         ],
-        "updated_at": "2026-07-31T04:46:46.022351Z"
+        "updated_at": "2026-07-31T06:06:00.863106Z"
       },
       "unbound.milestone-gate": {
         "behavior_paths": [
@@ -3584,7 +3714,7 @@
           "bootstrap",
           "unbound"
         ],
-        "updated_at": "2026-07-31T04:46:46.023001Z"
+        "updated_at": "2026-07-31T06:06:00.863481Z"
       }
     },
     "ok": true,
@@ -3611,7 +3741,7 @@
     "byzantine_origins": [
       "origin-byzantine"
     ],
-    "certificate_hash": "7665931b1faf11bd7ec70cf2",
+    "certificate_hash": "8d4b0a2f45a4fd155ccbd361",
     "claims": {
       "origin_ids": [
         "origin-a",
@@ -3625,24 +3755,24 @@
       ],
       "votes_accepted": 3
     },
-    "goal": "coalition over alliance",
-    "issued_at": "2026-07-31T04:46:46.296380Z",
+    "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery.",
+    "issued_at": "2026-07-31T06:06:01.024938Z",
     "kind": "quorum_certificate",
-    "lineage_head_hash": "621a1a0a2553ac0d13fa6a68",
+    "lineage_head_hash": "d8b71ac1459c1f6e93a83be1",
     "member_count": 3,
     "ok": true,
     "origin_count": 3,
     "origin_hashes": [
-      "d05c1f4b4cdaf7b5a5bb8fd7",
-      "abc7959dccdc1bf71a4db65e",
-      "b9f8e2e560c3ed373d16c87d"
+      "e66b5fae14051c9f21b673cf",
+      "a0d27ed1aa43dd0962faf6b0",
+      "f6c239fa825aa1a812c8710e"
     ],
     "package_hash": "066545df3053adf5",
     "schema_version": 1,
     "threshold": 2,
     "used_skill_route_discovery": false
   },
-  "quorum_hash": "61f96a67e2dc74533fc6c897",
+  "quorum_hash": "4cd32c222dbc55c99e47cf99",
   "quorum_met": true,
   "quorum_size": 2,
   "schema_version": 1,

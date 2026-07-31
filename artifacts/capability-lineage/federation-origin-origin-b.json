@@ -14,14 +14,14 @@
         "origin_id": "origin-b",
         "plane": "federation"
       },
-      "entry_hash": "cfa4bbb11ef57993c7236eb3",
+      "entry_hash": "7e00b29261f94627cb945b12",
       "entry_kind": "federation_origin_seed",
-      "goal": "Add a confederation plane over the proved coalition plane: multi-coalition orders become deterministic hash-chained confederation grants with confederation plan digests bound to coalition roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (alternate origin)",
+      "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (honest origin-b)",
       "index": 0,
-      "issued_at": "2026-07-31T05:25:38.667764Z",
+      "issued_at": "2026-07-31T06:06:00.975804Z",
       "metrics": {
-        "count": 125,
-        "primitive_count": 76,
+        "count": 126,
+        "primitive_count": 77,
         "proved_count": 123,
         "proved_ratio": null
       },
@@ -42,11 +42,11 @@
         ],
         "origin_id": "origin-b"
       },
-      "entry_hash": "17d02063a5e3a7f5572eaaaf",
+      "entry_hash": "a2e442509cf4617c3668ea86",
       "entry_kind": "federation_origin_seal",
-      "goal": "Add a confederation plane over the proved coalition plane: multi-coalition orders become deterministic hash-chained confederation grants with confederation plan digests bound to coalition roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (alternate origin)",
+      "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (honest origin-b)",
       "index": 1,
-      "issued_at": "2026-07-31T05:25:38.667857Z",
+      "issued_at": "2026-07-31T06:06:00.975851Z",
       "metrics": {
         "count": 2,
         "primitive_count": null,
@@ -54,13 +54,13 @@
         "proved_ratio": null
       },
       "package_hash": "8ece9182045d973a",
-      "parent_hash": "cfa4bbb11ef57993c7236eb3"
+      "parent_hash": "7e00b29261f94627cb945b12"
     }
   ],
   "entry_count": 2,
-  "head_hash": "17d02063a5e3a7f5572eaaaf",
+  "head_hash": "a2e442509cf4617c3668ea86",
   "kind": "capability_lineage",
   "ok": true,
   "schema_version": 1,
-  "updated_at": "2026-07-31T05:25:38.668681Z"
+  "updated_at": "2026-07-31T06:06:00.976212Z"
 }

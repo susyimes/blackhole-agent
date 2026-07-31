@@ -1,0 +1,37 @@
+{
+  "bound_treaty_height": 2,
+  "bound_treaty_root": "339df7b7b68de6a116f79573",
+  "certificate_hash": "4d4a25766933ea5db1918f98",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "pacted",
+    "plane": "pact"
+  },
+  "deterministic": true,
+  "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (clearing 2)",
+  "issued_at": "2026-07-31T06:06:26.703728Z",
+  "kind": "pact_certificate",
+  "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "6e604a6f16e45f9f",
+  "pact_count": 2,
+  "pact_height": 2,
+  "pact_plan_digest": "92b71f66ce701f3fc83d30a2",
+  "pact_root": "b15a8b63f51e60803af2b717",
+  "parent_pact_root": "3cc9bd7cf3c7ca1ed8cc1640",
+  "post_treaty": true,
+  "schema_version": 1,
+  "treaty_certificate_hash": "8849ce6de07f80a86c3bca61",
+  "treaty_hash": "1ea74273d08403d782572875",
+  "treaty_plan_digest": "6fc1e7bf5d1d168f0ac96866",
+  "used_skill_route_discovery": false,
+  "valid": true
+}

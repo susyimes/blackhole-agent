@@ -1,0 +1,37 @@
+{
+  "bound_reauthorization_height": 2,
+  "bound_reauthorization_root": "b90096129f99eb0bc7e981e7",
+  "certificate_hash": "2430c848aedbb9a0a50e9f8e",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "recertified",
+    "plane": "recertification"
+  },
+  "deterministic": true,
+  "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (clearing 2)",
+  "issued_at": "2026-07-31T06:06:16.123396Z",
+  "kind": "recertification_certificate",
+  "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "6e604a6f16e45f9f",
+  "parent_recertification_root": "389e6f425340332ccad5bf39",
+  "post_reauthorization": true,
+  "reauthorization_certificate_hash": "68d484580758d0cb54f5d626",
+  "reauthorization_hash": "d323b349b9cd3e440179cca9",
+  "reauthorization_plan_digest": "4605e2c84ce8ec2bcf8a294e",
+  "recertification_count": 2,
+  "recertification_height": 2,
+  "recertification_plan_digest": "c78753d00739d836c258872c",
+  "recertification_root": "cd5138dab410f21842fad6da",
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

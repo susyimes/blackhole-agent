@@ -1,0 +1,37 @@
+{
+  "bound_stress_height": 2,
+  "bound_stress_root": "27f511a1707095dec2226ac1",
+  "certificate_hash": "9a51f5ceae11db37fe75ee9b",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "resilient",
+    "plane": "resilience"
+  },
+  "deterministic": true,
+  "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (clearing 2)",
+  "issued_at": "2026-07-31T06:06:10.123244Z",
+  "kind": "resilience_certificate",
+  "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "6e604a6f16e45f9f",
+  "parent_resilience_root": "062adbe5076a078efcd459ee",
+  "post_stress": true,
+  "resilience_buffer_digest": "b787f7072fc9ce17297505ae",
+  "resilience_count": 2,
+  "resilience_height": 2,
+  "resilience_root": "911d7334440d106ea9e41da3",
+  "schema_version": 1,
+  "stress_certificate_hash": "0ea2b51d76c24a6306c93fa2",
+  "stress_hash": "4421e85744751031bd765bf9",
+  "stress_scenario_digest": "fdf250556e3df2f93b1c4921",
+  "used_skill_route_discovery": false,
+  "valid": true
+}
