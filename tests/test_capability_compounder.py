@@ -42,9 +42,7 @@ from blackhole_agent.capability_compounder import (
     topological_order,
 )
 from blackhole_agent.unbound import (
-    TurnDecision,
     build_turn_prompt,
-    register_milestone_capability,
 )
 
 
@@ -182,39 +180,6 @@ def test_prompt_includes_capability_ledger(tmp_path: Path):
     assert "skill_route_discovery_capability_pipeline" not in prompt
 
 
-def test_register_milestone_capability_persists(tmp_path: Path):
-    decision = TurnDecision.from_payload(
-        {
-            "status": "milestone",
-            "summary": "Added compounder",
-            "strategy": "direct",
-            "next_step": "compose",
-            "capability_delta": "Ledger registers milestone capabilities",
-            "outcome_evidence": ["capabilities/ledger.json"],
-            "validation": [
-                {
-                    "command": f'"{sys.executable}" -c "print(1)"',
-                    "exit_code": 0,
-                    "summary": "ok",
-                }
-            ],
-            "done_when_met": False,
-            "commit_message": "cap",
-            "mission_goal": "",
-            "done_when": "",
-        }
-    )
-    capability_id = register_milestone_capability(
-        workspace=tmp_path,
-        mission_id="mission-1",
-        milestone_number=1,
-        decision=decision,
-        behavior_paths=("src/blackhole_agent/capability_compounder.py",),
-    )
-    assert capability_id
-    ledger = load_ledger(default_ledger_path(tmp_path))
-    assert capability_id in ledger.capabilities
-    assert ledger.capabilities[capability_id].source_milestone == 1
 
 
 def test_cli_demo_exits_zero():

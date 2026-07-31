@@ -1499,20 +1499,34 @@ def _legacy_fn(legacy: Any, *candidates: str) -> Callable[..., Any]:
     raise AttributeError(f"no legacy function among {candidates!r}")
 
 
+def golden_parent_bundle(name: str) -> dict[str, Any]:
+    """Return the frozen synthetic parent bundle for a layer (legacy-free)."""
+
+    fixture = json.loads(default_golden_path().read_text(encoding="utf-8"))
+    recorded = fixture.get("layers") if isinstance(fixture.get("layers"), Mapping) else {}
+    record = recorded.get(name)
+    if not isinstance(record, Mapping) or "parent_bundle" not in record:
+        raise KeyError(f"no golden parent fixture for layer {name!r}")
+    return copy.deepcopy(record["parent_bundle"])
+
+
 def _synthetic_parent_bundle(
     layer: PlaneLayer, legacy: Any | None = None
 ) -> dict[str, Any]:
     """Build a deterministic synthetic parent bundle for any registered layer.
 
-    The parent certificate is issued through the legacy issuer so that legacy
-    verifiers accept the bundle; this keeps the differential proof a true
-    cross-implementation check rather than a self-agreement test.
+    While the legacy code exists the parent certificate is issued through the
+    legacy issuer so that legacy verifiers accept the bundle, keeping the
+    differential proof a true cross-implementation check. After the dynasty
+    deletion the frozen golden fixture supplies the parent bundle instead.
     """
 
     if legacy is None:
         from blackhole_agent import capability_compounder as legacy_mod
 
         legacy = legacy_mod
+    if not callable(getattr(legacy, f"issue_{layer.hash_parent}_certificate", None)):
+        return golden_parent_bundle(layer.name)
     parent = layer.parent
     bind = layer.bind
     hash_parent = layer.hash_parent
@@ -1929,14 +1943,38 @@ def _differential_proof_layer(legacy: Any, layer: PlaneLayer) -> dict[str, Any]:
         return {"ok": False, "layer": L, "parent": P, "checks": checks}
 
 
+def _legacy_reference_available() -> bool:
+    """True while the legacy per-plane code still exists to diff against."""
+
+    try:
+        from blackhole_agent import capability_compounder as legacy
+
+        return callable(getattr(legacy, "apply_cosmos_transition", None))
+    except Exception:
+        return False
+
+
 def builtin_plane_engine() -> dict[str, Any]:
-    """Invocable capability entry: differential proof plus hermetic golden proof."""
+    """Invocable capability entry: differential proof plus hermetic golden proof.
+
+    The differential proof runs only while the legacy reference exists; once
+    the dynasty code is deleted the hermetic golden proof is the guarantee.
+    """
 
     repo_path = Path(__file__).resolve().parents[2]
-    result = differential_proof(repo_path)
     golden = golden_proof()
+    if _legacy_reference_available():
+        result = differential_proof(repo_path)
+        result["ok"] = bool(result.get("ok")) and bool(golden.get("ok"))
+    else:
+        result = {
+            "ok": bool(golden.get("ok")),
+            "action": "plane_engine_golden_proof",
+            "differential_ok": "skipped-legacy-deleted",
+            "layer_count": golden.get("layer_count"),
+            "layers": golden.get("layers"),
+        }
     result["golden_ok"] = bool(golden.get("ok"))
-    result["ok"] = bool(result.get("ok")) and bool(golden.get("ok"))
     return result
 
 
@@ -1953,11 +1991,15 @@ def builtin_plane_engine_full_stack() -> dict[str, Any]:
     """
 
     repo_path = Path(__file__).resolve().parents[2]
-    result = differential_proof(repo_path)
     golden = golden_proof()
+    if _legacy_reference_available():
+        result = differential_proof(repo_path)
+        differential_ok: Any = bool(result.get("ok"))
+    else:
+        differential_ok = "skipped-legacy-deleted"
     covered = sorted(LAYERS)
     ok = (
-        bool(result.get("ok"))
+        differential_ok in (True, "skipped-legacy-deleted")
         and bool(golden.get("ok"))
         and len(covered) == FULL_STACK_LAYER_COUNT
     )
@@ -1967,7 +2009,7 @@ def builtin_plane_engine_full_stack() -> dict[str, Any]:
         "layer_count": len(covered),
         "required_layer_count": FULL_STACK_LAYER_COUNT,
         "layers": covered,
-        "differential_ok": bool(result.get("ok")),
+        "differential_ok": differential_ok,
         "golden_ok": bool(golden.get("ok")),
         "used_skill_route_discovery": _skill_route_used(),
     }

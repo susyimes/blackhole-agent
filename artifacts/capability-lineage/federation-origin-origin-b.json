@@ -14,11 +14,11 @@
         "origin_id": "origin-b",
         "plane": "federation"
       },
-      "entry_hash": "0632d112df982b8082bd692e",
+      "entry_hash": "345b468d3feca485ffff591d",
       "entry_kind": "federation_origin_seed",
       "goal": "quorum multi-origin consensus (honest origin-b)",
       "index": 0,
-      "issued_at": "2026-07-31T18:26:37.651366Z",
+      "issued_at": "2026-07-31T18:53:13.338335Z",
       "metrics": {
         "count": 91,
         "primitive_count": 42,
@@ -42,11 +42,11 @@
         ],
         "origin_id": "origin-b"
       },
-      "entry_hash": "a4d2e4c65dc158f1a147eb47",
+      "entry_hash": "71b1f779819b79652e1d179c",
       "entry_kind": "federation_origin_seal",
       "goal": "quorum multi-origin consensus (honest origin-b)",
       "index": 1,
-      "issued_at": "2026-07-31T18:26:37.651398Z",
+      "issued_at": "2026-07-31T18:53:13.338365Z",
       "metrics": {
         "count": 2,
         "primitive_count": null,
@@ -54,13 +54,13 @@
         "proved_ratio": null
       },
       "package_hash": "8ece9182045d973a",
-      "parent_hash": "0632d112df982b8082bd692e"
+      "parent_hash": "345b468d3feca485ffff591d"
     }
   ],
   "entry_count": 2,
-  "head_hash": "a4d2e4c65dc158f1a147eb47",
+  "head_hash": "71b1f779819b79652e1d179c",
   "kind": "capability_lineage",
   "ok": true,
   "schema_version": 1,
-  "updated_at": "2026-07-31T18:26:37.651654Z"
+  "updated_at": "2026-07-31T18:53:13.338581Z"
 }
