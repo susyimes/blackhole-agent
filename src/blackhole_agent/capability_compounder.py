@@ -12182,14 +12182,37 @@ def builtin_tool_routing_preflight() -> dict[str, Any]:
     }
 
 
+def harness_activation_gate_decision(failure_mode: str) -> dict[str, Any]:
+    """Decide whether local agent harness evaluation may activate for a failure mode.
+
+    Native replacement for the deleted ``blackhole_agent.harness_eval`` gate.
+    Only the clean ``none`` mode activates, and activation stays local-only:
+    external harness execution is never allowed.
+    """
+
+    decisions = {
+        "none": ("ready_for_local_eval_activation", True),
+        "review_only_safety_boundary": ("review_safety_boundary_before_activation", False),
+        "weak_harness_evidence": ("review_weak_evidence_before_activation", False),
+        "unmapped_agent_claims": ("map_agent_claims_before_activation", False),
+    }
+    decision, allowed = decisions.get(failure_mode, ("blocked_before_activation", False))
+    return {
+        "controller_surface": "agent_harness_eval_lane",
+        "activation_scope": "local_eval_only",
+        "decision": decision,
+        "reason": failure_mode,
+        "local_eval_activation_allowed": allowed,
+        "external_harness_execution_allowed": False,
+    }
+
+
 def builtin_harness_activation_gate() -> dict[str, Any]:
-    """Prove harness eval activation gate decisions for ready vs blocked modes."""
+    """Prove harness activation gate decisions for ready vs blocked modes."""
 
-    from blackhole_agent.harness_eval import agent_harness_eval_activation_gate
-
-    ready = agent_harness_eval_activation_gate("none")
-    blocked = agent_harness_eval_activation_gate("review_only_safety_boundary")
-    weak = agent_harness_eval_activation_gate("weak_harness_evidence")
+    ready = harness_activation_gate_decision("none")
+    blocked = harness_activation_gate_decision("review_only_safety_boundary")
+    weak = harness_activation_gate_decision("weak_harness_evidence")
     ok = (
         bool(ready.get("local_eval_activation_allowed"))
         and not bool(blocked.get("local_eval_activation_allowed"))
@@ -12507,8 +12530,8 @@ DOMAIN_SURFACE_CATALOG: tuple[dict[str, Any], ...] = (
         "description": (
             "Decide whether local agent harness evaluation may activate for a failure mode."
         ),
-        "module": "blackhole_agent.harness_eval",
-        "module_path": "src/blackhole_agent/harness_eval.py",
+        "module": "blackhole_agent.capability_compounder",
+        "module_path": "src/blackhole_agent/capability_compounder.py",
         "entry": "blackhole_agent.capability_compounder:builtin_harness_activation_gate",
         "function": "builtin_harness_activation_gate",
         "capability_delta": (
