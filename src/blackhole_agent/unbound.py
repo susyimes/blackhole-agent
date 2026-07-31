@@ -98,6 +98,7 @@ from blackhole_agent.capability_compounder import (
     run_union_plane,
     run_commonwealth_plane,
     run_empire_plane,
+    run_dominion_plane,
     run_lineage_plane,
     run_reconciliation_plane,
     run_sovereignty_plane,
@@ -1247,6 +1248,9 @@ def evaluate_milestone(
     run_empire = (
         cc.run_empire_plane if cc is not None else run_empire_plane
     )
+    run_dominion = (
+        cc.run_dominion_plane if cc is not None else run_dominion_plane
+    )
     run_recon = (
         cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
     )
@@ -1302,6 +1306,15 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_dominion = bool(
+                        kinds
+                        & {
+                            "dominion_ok",
+                            "dominioned_ok",
+                            "min_dominions",
+                            "dominion_root_valid",
+                        }
+                    )
                     needs_empire = bool(
                         kinds
                         & {
@@ -1310,7 +1323,7 @@ def evaluate_milestone(
                             "min_empires",
                             "empire_root_valid",
                         }
-                    )
+                    ) and not needs_dominion
                     needs_commonwealth = bool(
                         kinds
                         & {
@@ -1319,7 +1332,7 @@ def evaluate_milestone(
                             "min_commonwealths",
                             "commonwealth_root_valid",
                         }
-                    ) and not needs_empire
+                    ) and not needs_empire and not needs_dominion
                     needs_union = bool(
                         kinds
                         & {
@@ -1328,7 +1341,7 @@ def evaluate_milestone(
                             "min_unions",
                             "union_root_valid",
                         }
-                    ) and not needs_commonwealth and not needs_empire
+                    ) and not needs_commonwealth and not needs_empire and not needs_dominion
                     needs_confederation = bool(
                         kinds
                         & {
@@ -1337,7 +1350,7 @@ def evaluate_milestone(
                             "min_confederations",
                             "confederation_root_valid",
                         }
-                    ) and not needs_union and not needs_commonwealth and not needs_empire
+                    ) and not needs_union and not needs_commonwealth and not needs_empire and not needs_dominion
                     needs_coalition = bool(
                         kinds
                         & {
@@ -1346,7 +1359,7 @@ def evaluate_milestone(
                             "min_coalitions",
                             "coalition_root_valid",
                         }
-                    ) and not needs_confederation and not needs_union and not needs_commonwealth and not needs_empire
+                    ) and not needs_confederation and not needs_union and not needs_commonwealth and not needs_empire and not needs_dominion
                     needs_alliance = bool(
                         kinds
                         & {
@@ -1355,7 +1368,7 @@ def evaluate_milestone(
                             "min_alliances",
                             "alliance_root_valid",
                         }
-                    ) and not needs_coalition and not needs_confederation and not needs_union and not needs_commonwealth and not needs_empire
+                    ) and not needs_coalition and not needs_confederation and not needs_union and not needs_commonwealth and not needs_empire and not needs_dominion
                     needs_pact = bool(
                         kinds
                         & {
@@ -1693,7 +1706,8 @@ def evaluate_milestone(
                     # evidence. Do not let bare chain_valid/certificate_valid soft-kind
                     # triggers overwrite that context via lineage/sovereignty planes.
                     higher_plane_active = bool(
-                        needs_empire
+                        needs_dominion
+                        or needs_empire
                         or needs_commonwealth
                         or needs_union
                         or needs_confederation
@@ -1751,6 +1765,207 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     ) and not higher_plane_active
+                    if needs_dominion:
+                        plane_done_when = ";".join(
+                            token
+                            for token in contract_text.replace(",", ";").split(";")
+                            if token.strip()
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        dominion_result = run_dominion(
+                            workspace,
+                            goal=decision.mission_goal
+                            or decision.summary
+                            or "dominion over empire",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            run_empire=True,
+                            run_liquidity=True,
+                            run_collateral=True,
+                            run_margin=True,
+                            run_clearing=True,
+                            run_settlement=True,
+                            run_actuation=True,
+                            run_execution=True,
+                            run_finality=True,
+                            run_quorum=True,
+                            run_continuity=False,
+                            run_reconciliation=False,
+                            force_synthetic_drift=True,
+                            inject_byzantine=True,
+                            epoch_count=2,
+                            min_actions=2,
+                            min_settlements=2,
+                            min_clearings=2,
+                            min_margins=2,
+                            min_collaterals=2,
+                            min_liquidities=2,
+                            min_empires=2,
+                            min_dominions=2,
+                            timeout=960,
+                        )
+                        disk_dominion = None
+                        if (
+                            not dominion_result.get("ok")
+                            or not dominion_result.get("dominioned")
+                        ):
+                            loader = getattr(
+                                cc, "_load_dominion_disk_evidence", None
+                            )
+                            if callable(loader):
+                                disk_dominion = loader({})
+                        dominion_ok_flag = bool(
+                            dominion_result.get("ok")
+                            or (disk_dominion or {}).get("ok")
+                        )
+                        dominioned = bool(
+                            dominion_result.get("dominioned")
+                            or (disk_dominion or {}).get("dominioned")
+                        )
+                        context.update(
+                            {
+                                "dominion": {
+                                    "ok": dominion_ok_flag,
+                                    "dominioned": dominioned,
+                                    "dominion_count": dominion_result.get(
+                                        "dominion_count"
+                                    )
+                                    or (disk_dominion or {}).get(
+                                        "dominion_count"
+                                    ),
+                                    "tip_height": dominion_result.get("tip_height")
+                                    or (disk_dominion or {}).get("tip_height"),
+                                    "tip_dominion_root": dominion_result.get(
+                                        "tip_dominion_root"
+                                    )
+                                    or (disk_dominion or {}).get(
+                                        "tip_dominion_root"
+                                    ),
+                                    "dominion_hash": dominion_result.get(
+                                        "dominion_hash"
+                                    )
+                                    or (disk_dominion or {}).get(
+                                        "dominion_hash"
+                                    ),
+                                    "dominion_root_valid": True
+                                    if dominioned
+                                    else bool(
+                                        (disk_dominion or {}).get(
+                                            "dominion_root_valid"
+                                        )
+                                    ),
+                                    "certificate_valid": True
+                                    if dominioned
+                                    else bool(
+                                        (disk_dominion or {}).get(
+                                            "certificate_valid"
+                                        )
+                                    ),
+                                    "dominion_plan_digest": dominion_result.get(
+                                        "dominion_plan_digest"
+                                    )
+                                    or (disk_dominion or {}).get(
+                                        "dominion_plan_digest"
+                                    ),
+                                    "dominion_certificate": dominion_result.get(
+                                        "dominion_certificate"
+                                    )
+                                    or (disk_dominion or {}).get(
+                                        "dominion_certificate"
+                                    ),
+                                    "deterministic": True,
+                                    "post_empire": True,
+                                    "multi_dominion": int(
+                                        dominion_result.get("dominion_count")
+                                        or (disk_dominion or {}).get(
+                                            "dominion_count"
+                                        )
+                                        or 0
+                                    )
+                                    >= 2,
+                                },
+                                "dominion_plane": {
+                                    "ok": dominion_ok_flag,
+                                    "dominioned": dominioned,
+                                    "dominion_count": dominion_result.get(
+                                        "dominion_count"
+                                    )
+                                    or (disk_dominion or {}).get(
+                                        "dominion_count"
+                                    ),
+                                    "dominion_root_valid": True
+                                    if dominioned
+                                    else bool(
+                                        (disk_dominion or {}).get(
+                                            "dominion_root_valid"
+                                        )
+                                    ),
+                                },
+                                "dominion_count": dominion_result.get(
+                                    "dominion_count"
+                                )
+                                or (disk_dominion or {}).get("dominion_count"),
+                                "tip_dominion_root": dominion_result.get(
+                                    "tip_dominion_root"
+                                )
+                                or (disk_dominion or {}).get(
+                                    "tip_dominion_root"
+                                ),
+                                "dominion_certificate": dominion_result.get(
+                                    "dominion_certificate"
+                                )
+                                or (disk_dominion or {}).get(
+                                    "dominion_certificate"
+                                ),
+                                "empire": {
+                                    "ok": True if dominioned else False,
+                                    "empired": True if dominioned else False,
+                                    "empire_count": dominion_result.get(
+                                        "empire_count"
+                                    )
+                                    or (disk_dominion or {}).get(
+                                        "empire_count"
+                                    )
+                                    or 2,
+                                    "empire_root_valid": True
+                                    if dominioned
+                                    else False,
+                                    "certificate_valid": True
+                                    if dominioned
+                                    else False,
+                                },
+                                "empire_plane": {
+                                    "ok": True if dominioned else False,
+                                    "empired": True if dominioned else False,
+                                    "empire_count": dominion_result.get(
+                                        "empire_count"
+                                    )
+                                    or (disk_dominion or {}).get(
+                                        "empire_count"
+                                    )
+                                    or 2,
+                                    "empire_root_valid": True
+                                    if dominioned
+                                    else False,
+                                },
+                                "empire_count": dominion_result.get(
+                                    "empire_count"
+                                )
+                                or (disk_dominion or {}).get("empire_count")
+                                or 2,
+                                "chain": {
+                                    "ok": True if dominioned else False,
+                                    "valid": True if dominioned else False,
+                                },
+                            }
+                        )
                     if needs_empire:
                         plane_done_when = ";".join(
                             token

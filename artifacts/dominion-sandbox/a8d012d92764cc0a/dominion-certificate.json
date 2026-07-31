@@ -1,0 +1,37 @@
+{
+  "bound_empire_height": 2,
+  "bound_empire_root": "64252d6c847e1dfa1ab00801",
+  "certificate_hash": "55d70738de57109fd834d534",
+  "claims": {
+    "capability_id": "repo.import-health",
+    "clearing_index": 2,
+    "effect": "prove",
+    "outcome": "dominioned",
+    "plane": "dominion"
+  },
+  "deterministic": true,
+  "dominion_count": 2,
+  "dominion_height": 2,
+  "dominion_plan_digest": "eaed2fadd70c1727d04529ac",
+  "dominion_root": "f43061182d9e8fc80686ac7a",
+  "empire_certificate_hash": "56444f89adec6a803199ebaa",
+  "empire_hash": "78d140ca0c7d7084e7ba5d46",
+  "empire_plan_digest": "979ef81a80dfb38fbe926f65",
+  "goal": "Close a dominion plane over empire: multi-empire orders become deterministic hash-chained dominion grants with plan digests bound to empire roots, dominion certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (clearing 2)",
+  "issued_at": "2026-07-31T08:04:03.840779Z",
+  "kind": "dominion_certificate",
+  "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "6e604a6f16e45f9f",
+  "parent_dominion_root": "2e07b98264d8c6dd9b10ffa2",
+  "post_empire": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "valid": true
+}

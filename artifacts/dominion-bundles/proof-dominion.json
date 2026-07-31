@@ -1,5 +1,5 @@
 {
-  "action": "build_empire_bundle",
+  "action": "build_dominion_bundle",
   "action_count": 3,
   "actions": {
     "bound_state_height": 2,
@@ -244,13 +244,95 @@
   "actuation_hash": "144be92bc8f1320279bcfc4a",
   "agreeing_count": 2,
   "bound_action_root": "bc9f34eaf8099cb1dd02f164",
-  "bound_commonwealth_height": 2,
-  "bound_commonwealth_root": "9796e60417c648e90b06e627",
+  "bound_empire_height": 2,
+  "bound_empire_root": "64252d6c847e1dfa1ab00801",
   "bound_settlement_root": "7a14b819bad310e6f326c948",
   "bound_state_root": "0f39b3a96f8389d3e4894801",
   "byzantine_count": 1,
   "certificate_count": 6,
   "certificates": {
+    "0ca23933f87a021e948f68fd": {
+      "certificate_hash": "0ca23933f87a021e948f68fd",
+      "dominion_height": 2,
+      "payload": {
+        "bound_empire_height": 2,
+        "bound_empire_root": "64252d6c847e1dfa1ab00801",
+        "certificate_hash": "0ca23933f87a021e948f68fd",
+        "claims": {
+          "capability_id": "repo.import-health",
+          "clearing_index": 2,
+          "effect": "prove",
+          "outcome": "dominioned",
+          "plane": "dominion"
+        },
+        "deterministic": true,
+        "dominion_count": 2,
+        "dominion_height": 2,
+        "dominion_plan_digest": "eaed2fadd70c1727d04529ac",
+        "dominion_root": "27f7638b1a8b541c01c48f95",
+        "empire_certificate_hash": "5397df451379327d8b8f2643",
+        "empire_hash": "6eb3291ec712266263a425f5",
+        "empire_plan_digest": "979ef81a80dfb38fbe926f65",
+        "goal": "Close a dominion plane over empire: multi-empire orders become deterministic hash-chained dominion grants with plan digests bound to empire roots, dominion certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (clearing 2)",
+        "issued_at": "2026-07-31T08:05:25.775288Z",
+        "kind": "dominion_certificate",
+        "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "6e604a6f16e45f9f",
+        "parent_dominion_root": "11594cbae0e60805bf164fd8",
+        "post_empire": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false,
+        "valid": true
+      }
+    },
+    "5397df451379327d8b8f2643": {
+      "certificate_hash": "5397df451379327d8b8f2643",
+      "kind": "dominion_certificate",
+      "payload": {
+        "bound_commonwealth_height": 2,
+        "bound_commonwealth_root": "9796e60417c648e90b06e627",
+        "certificate_hash": "5397df451379327d8b8f2643",
+        "claims": {
+          "capability_id": "repo.import-health",
+          "clearing_index": 2,
+          "effect": "prove",
+          "outcome": "empired",
+          "plane": "empire"
+        },
+        "commonwealth_certificate_hash": "8fe4c26cde24b93e60e9b200",
+        "commonwealth_hash": "1ab35a3dd69f8491bd5c3067",
+        "commonwealth_plan_digest": "f291146f266919a5cd6f7df3",
+        "deterministic": true,
+        "empire_count": 2,
+        "empire_height": 2,
+        "empire_plan_digest": "979ef81a80dfb38fbe926f65",
+        "empire_root": "64252d6c847e1dfa1ab00801",
+        "goal": "Close a dominion plane over empire: multi-empire orders become deterministic hash-chained dominion grants with plan digests bound to empire roots, dominion certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (clearing 2)",
+        "issued_at": "2026-07-31T08:05:20.504772Z",
+        "kind": "empire_certificate",
+        "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "6e604a6f16e45f9f",
+        "parent_empire_root": "4cdd0fa03ce3bf491e51bedf",
+        "post_commonwealth": true,
+        "schema_version": 1,
+        "used_skill_route_discovery": false,
+        "valid": true
+      }
+    },
     "5c23a892eccd1625050be890": {
       "certificate_hash": "5c23a892eccd1625050be890",
       "kind": "settlement_certificate",
@@ -290,31 +372,31 @@
         "valid": true
       }
     },
-    "5dfa7e9ea838f353868a94b4": {
-      "certificate_hash": "5dfa7e9ea838f353868a94b4",
-      "empire_height": 1,
+    "db3d5889791b9de0a95f40ee": {
+      "certificate_hash": "db3d5889791b9de0a95f40ee",
+      "dominion_height": 1,
       "payload": {
-        "bound_commonwealth_height": 1,
-        "bound_commonwealth_root": "364514c6ae6342db859cb07f",
-        "certificate_hash": "5dfa7e9ea838f353868a94b4",
+        "bound_empire_height": 1,
+        "bound_empire_root": "4cdd0fa03ce3bf491e51bedf",
+        "certificate_hash": "db3d5889791b9de0a95f40ee",
         "claims": {
           "capability_id": "capability.ledger-inventory",
           "clearing_index": 1,
           "effect": "prove",
-          "outcome": "empired",
-          "plane": "empire"
+          "outcome": "dominioned",
+          "plane": "dominion"
         },
-        "commonwealth_certificate_hash": "8fe4c26cde24b93e60e9b200",
-        "commonwealth_hash": "1ab35a3dd69f8491bd5c3067",
-        "commonwealth_plan_digest": "2e4d28fc4f32ed80abacdc63",
         "deterministic": true,
-        "empire_count": 1,
-        "empire_height": 1,
+        "dominion_count": 1,
+        "dominion_height": 1,
+        "dominion_plan_digest": "287b74552050c071e9037867",
+        "dominion_root": "11594cbae0e60805bf164fd8",
+        "empire_certificate_hash": "5397df451379327d8b8f2643",
+        "empire_hash": "6eb3291ec712266263a425f5",
         "empire_plan_digest": "c99f7065121e716ae5d70174",
-        "empire_root": "4cdd0fa03ce3bf491e51bedf",
-        "goal": "empire over commonwealth (clearing 1)",
-        "issued_at": "2026-07-31T08:03:29.579999Z",
-        "kind": "empire_certificate",
+        "goal": "Close a dominion plane over empire: multi-empire orders become deterministic hash-chained dominion grants with plan digests bound to empire roots, dominion certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (clearing 1)",
+        "issued_at": "2026-07-31T08:05:25.775154Z",
+        "kind": "dominion_certificate",
         "lineage_head_hash": "89c4ff0a6368875ef0800e26",
         "member_count": 3,
         "member_ids": [
@@ -324,50 +406,9 @@
         ],
         "ok": true,
         "package_hash": "6e604a6f16e45f9f",
-        "parent_empire_root": "",
-        "post_commonwealth": true,
+        "parent_dominion_root": "",
+        "post_empire": true,
         "schema_version": 1,
-        "used_skill_route_discovery": false,
-        "valid": true
-      }
-    },
-    "8fe4c26cde24b93e60e9b200": {
-      "certificate_hash": "8fe4c26cde24b93e60e9b200",
-      "kind": "empire_certificate",
-      "payload": {
-        "bound_union_height": 2,
-        "bound_union_root": "26f32db61f54d18631937b4e",
-        "certificate_hash": "8fe4c26cde24b93e60e9b200",
-        "claims": {
-          "capability_id": "repo.import-health",
-          "clearing_index": 2,
-          "effect": "prove",
-          "outcome": "commonwealthed",
-          "plane": "commonwealth"
-        },
-        "commonwealth_count": 2,
-        "commonwealth_height": 2,
-        "commonwealth_plan_digest": "f291146f266919a5cd6f7df3",
-        "commonwealth_root": "9796e60417c648e90b06e627",
-        "deterministic": true,
-        "goal": "commonwealth over union (clearing 2)",
-        "issued_at": "2026-07-31T07:24:57.422089Z",
-        "kind": "commonwealth_certificate",
-        "lineage_head_hash": "89c4ff0a6368875ef0800e26",
-        "member_count": 3,
-        "member_ids": [
-          "capability.ledger-inventory",
-          "repo.import-health",
-          "unbound.milestone-gate"
-        ],
-        "ok": true,
-        "package_hash": "6e604a6f16e45f9f",
-        "parent_commonwealth_root": "364514c6ae6342db859cb07f",
-        "post_union": true,
-        "schema_version": 1,
-        "union_certificate_hash": "5ca9072c6f1b413415fd7233",
-        "union_hash": "d186bc36689355cea11f0c42",
-        "union_plan_digest": "c9875d601444e8cb342c7cdc",
         "used_skill_route_discovery": false,
         "valid": true
       }
@@ -404,47 +445,6 @@
         "state_height": 2,
         "state_root": "0f39b3a96f8389d3e4894801",
         "used_skill_route_discovery": false
-      }
-    },
-    "f58db60a35cb97e35b2976e4": {
-      "certificate_hash": "f58db60a35cb97e35b2976e4",
-      "empire_height": 2,
-      "payload": {
-        "bound_commonwealth_height": 2,
-        "bound_commonwealth_root": "9796e60417c648e90b06e627",
-        "certificate_hash": "f58db60a35cb97e35b2976e4",
-        "claims": {
-          "capability_id": "repo.import-health",
-          "clearing_index": 2,
-          "effect": "prove",
-          "outcome": "empired",
-          "plane": "empire"
-        },
-        "commonwealth_certificate_hash": "8fe4c26cde24b93e60e9b200",
-        "commonwealth_hash": "1ab35a3dd69f8491bd5c3067",
-        "commonwealth_plan_digest": "f291146f266919a5cd6f7df3",
-        "deterministic": true,
-        "empire_count": 2,
-        "empire_height": 2,
-        "empire_plan_digest": "979ef81a80dfb38fbe926f65",
-        "empire_root": "64252d6c847e1dfa1ab00801",
-        "goal": "empire over commonwealth (clearing 2)",
-        "issued_at": "2026-07-31T08:03:29.580091Z",
-        "kind": "empire_certificate",
-        "lineage_head_hash": "89c4ff0a6368875ef0800e26",
-        "member_count": 3,
-        "member_ids": [
-          "capability.ledger-inventory",
-          "repo.import-health",
-          "unbound.milestone-gate"
-        ],
-        "ok": true,
-        "package_hash": "6e604a6f16e45f9f",
-        "parent_empire_root": "4cdd0fa03ce3bf491e51bedf",
-        "post_commonwealth": true,
-        "schema_version": 1,
-        "used_skill_route_discovery": false,
-        "valid": true
       }
     },
     "fdcd69bb2b287f6d4a0b7763": {
@@ -485,25 +485,29 @@
       }
     }
   },
-  "commonwealth_certificate": {
-    "bound_union_height": 2,
-    "bound_union_root": "26f32db61f54d18631937b4e",
-    "certificate_hash": "8fe4c26cde24b93e60e9b200",
+  "deterministic": true,
+  "dominion_certificate": {
+    "bound_empire_height": 2,
+    "bound_empire_root": "64252d6c847e1dfa1ab00801",
+    "certificate_hash": "0ca23933f87a021e948f68fd",
     "claims": {
       "capability_id": "repo.import-health",
       "clearing_index": 2,
       "effect": "prove",
-      "outcome": "commonwealthed",
-      "plane": "commonwealth"
+      "outcome": "dominioned",
+      "plane": "dominion"
     },
-    "commonwealth_count": 2,
-    "commonwealth_height": 2,
-    "commonwealth_plan_digest": "f291146f266919a5cd6f7df3",
-    "commonwealth_root": "9796e60417c648e90b06e627",
     "deterministic": true,
-    "goal": "commonwealth over union (clearing 2)",
-    "issued_at": "2026-07-31T07:24:57.422089Z",
-    "kind": "commonwealth_certificate",
+    "dominion_count": 2,
+    "dominion_height": 2,
+    "dominion_plan_digest": "eaed2fadd70c1727d04529ac",
+    "dominion_root": "27f7638b1a8b541c01c48f95",
+    "empire_certificate_hash": "5397df451379327d8b8f2643",
+    "empire_hash": "6eb3291ec712266263a425f5",
+    "empire_plan_digest": "979ef81a80dfb38fbe926f65",
+    "goal": "Close a dominion plane over empire: multi-empire orders become deterministic hash-chained dominion grants with plan digests bound to empire roots, dominion certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (clearing 2)",
+    "issued_at": "2026-07-31T08:05:25.775288Z",
+    "kind": "dominion_certificate",
     "lineage_head_hash": "89c4ff0a6368875ef0800e26",
     "member_count": 3,
     "member_ids": [
@@ -513,52 +517,54 @@
     ],
     "ok": true,
     "package_hash": "6e604a6f16e45f9f",
-    "parent_commonwealth_root": "364514c6ae6342db859cb07f",
-    "post_union": true,
+    "parent_dominion_root": "11594cbae0e60805bf164fd8",
+    "post_empire": true,
     "schema_version": 1,
-    "union_certificate_hash": "5ca9072c6f1b413415fd7233",
-    "union_hash": "d186bc36689355cea11f0c42",
-    "union_plan_digest": "c9875d601444e8cb342c7cdc",
     "used_skill_route_discovery": false,
     "valid": true
   },
-  "commonwealth_count": 2,
-  "commonwealth_hash": "1ab35a3dd69f8491bd5c3067",
-  "commonwealth_plan_digest": "f291146f266919a5cd6f7df3",
-  "commonwealths": {
-    "bound_union_height": 2,
-    "bound_union_root": "26f32db61f54d18631937b4e",
-    "commonwealth_plan_digest": "f291146f266919a5cd6f7df3",
+  "dominion_count": 2,
+  "dominion_hash": "f4b8e340668f2d3bd6223c25",
+  "dominion_plan_digest": "eaed2fadd70c1727d04529ac",
+  "dominions": {
+    "bound_empire_height": 2,
+    "bound_empire_root": "64252d6c847e1dfa1ab00801",
+    "dominion_plan_digest": "eaed2fadd70c1727d04529ac",
+    "empire_hash": "6eb3291ec712266263a425f5",
     "entries": [
       {
-        "applied_at": "2026-07-31T07:24:57.421964Z",
+        "applied_at": "2026-07-31T08:05:25.775120Z",
         "bound_action_root": "8c09a0cad74a985b3572549e",
-        "bound_union_height": 1,
-        "bound_union_root": "44b34aa0fce050d740e9c90f",
+        "bound_empire_height": 1,
+        "bound_empire_root": "4cdd0fa03ce3bf491e51bedf",
         "capability_id": "capability.ledger-inventory",
         "claims": {
           "clearing_index": 1,
-          "plane": "commonwealth"
+          "plane": "dominion"
         },
-        "commonwealth_certificate": {
-          "bound_union_height": 1,
-          "bound_union_root": "44b34aa0fce050d740e9c90f",
-          "certificate_hash": "6663b6a7ce59174347d63cee",
+        "deterministic": true,
+        "dominion_certificate": {
+          "bound_empire_height": 1,
+          "bound_empire_root": "4cdd0fa03ce3bf491e51bedf",
+          "certificate_hash": "db3d5889791b9de0a95f40ee",
           "claims": {
             "capability_id": "capability.ledger-inventory",
             "clearing_index": 1,
             "effect": "prove",
-            "outcome": "commonwealthed",
-            "plane": "commonwealth"
+            "outcome": "dominioned",
+            "plane": "dominion"
           },
-          "commonwealth_count": 1,
-          "commonwealth_height": 1,
-          "commonwealth_plan_digest": "2e4d28fc4f32ed80abacdc63",
-          "commonwealth_root": "364514c6ae6342db859cb07f",
           "deterministic": true,
-          "goal": "commonwealth over union (clearing 1)",
-          "issued_at": "2026-07-31T07:24:57.421990Z",
-          "kind": "commonwealth_certificate",
+          "dominion_count": 1,
+          "dominion_height": 1,
+          "dominion_plan_digest": "287b74552050c071e9037867",
+          "dominion_root": "11594cbae0e60805bf164fd8",
+          "empire_certificate_hash": "5397df451379327d8b8f2643",
+          "empire_hash": "6eb3291ec712266263a425f5",
+          "empire_plan_digest": "c99f7065121e716ae5d70174",
+          "goal": "Close a dominion plane over empire: multi-empire orders become deterministic hash-chained dominion grants with plan digests bound to empire roots, dominion certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (clearing 1)",
+          "issued_at": "2026-07-31T08:05:25.775154Z",
+          "kind": "dominion_certificate",
           "lineage_head_hash": "89c4ff0a6368875ef0800e26",
           "member_count": 3,
           "member_ids": [
@@ -568,22 +574,21 @@
           ],
           "ok": true,
           "package_hash": "6e604a6f16e45f9f",
-          "parent_commonwealth_root": "",
-          "post_union": true,
+          "parent_dominion_root": "",
+          "post_empire": true,
           "schema_version": 1,
-          "union_certificate_hash": "5ca9072c6f1b413415fd7233",
-          "union_hash": "d186bc36689355cea11f0c42",
-          "union_plan_digest": "8c7b9522e65db8d1e6db9d79",
           "used_skill_route_discovery": false,
           "valid": true
         },
-        "commonwealth_height": 1,
-        "commonwealth_plan_digest": "2e4d28fc4f32ed80abacdc63",
-        "commonwealth_root": "364514c6ae6342db859cb07f",
-        "deterministic": true,
+        "dominion_height": 1,
+        "dominion_plan_digest": "287b74552050c071e9037867",
+        "dominion_root": "11594cbae0e60805bf164fd8",
         "effect": "prove",
-        "goal": "commonwealth over union (clearing 1)",
-        "kind": "commonwealth_action",
+        "empire_certificate_hash": "5397df451379327d8b8f2643",
+        "empire_hash": "6eb3291ec712266263a425f5",
+        "empire_plan_digest": "c99f7065121e716ae5d70174",
+        "goal": "Close a dominion plane over empire: multi-empire orders become deterministic hash-chained dominion grants with plan digests bound to empire roots, dominion certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (clearing 1)",
+        "kind": "dominion_action",
         "lineage_head_hash": "89c4ff0a6368875ef0800e26",
         "member_ids": [
           "capability.ledger-inventory",
@@ -591,47 +596,48 @@
           "unbound.milestone-gate"
         ],
         "ok": true,
-        "outcome": "commonwealthed",
+        "outcome": "dominioned",
         "package_hash": "6e604a6f16e45f9f",
-        "parent_commonwealth_digest": "",
-        "parent_commonwealth_root": "",
+        "parent_dominion_digest": "",
+        "parent_dominion_root": "",
         "position_ratio_bps": 1000,
-        "post_union": true,
+        "post_empire": true,
         "schema_version": 1,
-        "union_certificate_hash": "5ca9072c6f1b413415fd7233",
-        "union_hash": "d186bc36689355cea11f0c42",
-        "union_plan_digest": "8c7b9522e65db8d1e6db9d79",
         "used_skill_route_discovery": false
       },
       {
-        "applied_at": "2026-07-31T07:24:57.422069Z",
+        "applied_at": "2026-07-31T08:05:25.775263Z",
         "bound_action_root": "bc9f34eaf8099cb1dd02f164",
-        "bound_union_height": 2,
-        "bound_union_root": "26f32db61f54d18631937b4e",
+        "bound_empire_height": 2,
+        "bound_empire_root": "64252d6c847e1dfa1ab00801",
         "capability_id": "repo.import-health",
         "claims": {
           "clearing_index": 2,
-          "plane": "commonwealth"
+          "plane": "dominion"
         },
-        "commonwealth_certificate": {
-          "bound_union_height": 2,
-          "bound_union_root": "26f32db61f54d18631937b4e",
-          "certificate_hash": "8fe4c26cde24b93e60e9b200",
+        "deterministic": true,
+        "dominion_certificate": {
+          "bound_empire_height": 2,
+          "bound_empire_root": "64252d6c847e1dfa1ab00801",
+          "certificate_hash": "0ca23933f87a021e948f68fd",
           "claims": {
             "capability_id": "repo.import-health",
             "clearing_index": 2,
             "effect": "prove",
-            "outcome": "commonwealthed",
-            "plane": "commonwealth"
+            "outcome": "dominioned",
+            "plane": "dominion"
           },
-          "commonwealth_count": 2,
-          "commonwealth_height": 2,
-          "commonwealth_plan_digest": "f291146f266919a5cd6f7df3",
-          "commonwealth_root": "9796e60417c648e90b06e627",
           "deterministic": true,
-          "goal": "commonwealth over union (clearing 2)",
-          "issued_at": "2026-07-31T07:24:57.422089Z",
-          "kind": "commonwealth_certificate",
+          "dominion_count": 2,
+          "dominion_height": 2,
+          "dominion_plan_digest": "eaed2fadd70c1727d04529ac",
+          "dominion_root": "27f7638b1a8b541c01c48f95",
+          "empire_certificate_hash": "5397df451379327d8b8f2643",
+          "empire_hash": "6eb3291ec712266263a425f5",
+          "empire_plan_digest": "979ef81a80dfb38fbe926f65",
+          "goal": "Close a dominion plane over empire: multi-empire orders become deterministic hash-chained dominion grants with plan digests bound to empire roots, dominion certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (clearing 2)",
+          "issued_at": "2026-07-31T08:05:25.775288Z",
+          "kind": "dominion_certificate",
           "lineage_head_hash": "89c4ff0a6368875ef0800e26",
           "member_count": 3,
           "member_ids": [
@@ -641,22 +647,21 @@
           ],
           "ok": true,
           "package_hash": "6e604a6f16e45f9f",
-          "parent_commonwealth_root": "364514c6ae6342db859cb07f",
-          "post_union": true,
+          "parent_dominion_root": "11594cbae0e60805bf164fd8",
+          "post_empire": true,
           "schema_version": 1,
-          "union_certificate_hash": "5ca9072c6f1b413415fd7233",
-          "union_hash": "d186bc36689355cea11f0c42",
-          "union_plan_digest": "c9875d601444e8cb342c7cdc",
           "used_skill_route_discovery": false,
           "valid": true
         },
-        "commonwealth_height": 2,
-        "commonwealth_plan_digest": "f291146f266919a5cd6f7df3",
-        "commonwealth_root": "9796e60417c648e90b06e627",
-        "deterministic": true,
+        "dominion_height": 2,
+        "dominion_plan_digest": "eaed2fadd70c1727d04529ac",
+        "dominion_root": "27f7638b1a8b541c01c48f95",
         "effect": "prove",
-        "goal": "commonwealth over union (clearing 2)",
-        "kind": "commonwealth_action",
+        "empire_certificate_hash": "5397df451379327d8b8f2643",
+        "empire_hash": "6eb3291ec712266263a425f5",
+        "empire_plan_digest": "979ef81a80dfb38fbe926f65",
+        "goal": "Close a dominion plane over empire: multi-empire orders become deterministic hash-chained dominion grants with plan digests bound to empire roots, dominion certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (clearing 2)",
+        "kind": "dominion_action",
         "lineage_head_hash": "89c4ff0a6368875ef0800e26",
         "member_ids": [
           "capability.ledger-inventory",
@@ -664,32 +669,27 @@
           "unbound.milestone-gate"
         ],
         "ok": true,
-        "outcome": "commonwealthed",
+        "outcome": "dominioned",
         "package_hash": "6e604a6f16e45f9f",
-        "parent_commonwealth_digest": "2e4d28fc4f32ed80abacdc63",
-        "parent_commonwealth_root": "364514c6ae6342db859cb07f",
+        "parent_dominion_digest": "287b74552050c071e9037867",
+        "parent_dominion_root": "11594cbae0e60805bf164fd8",
         "position_ratio_bps": 1100,
-        "post_union": true,
+        "post_empire": true,
         "schema_version": 1,
-        "union_certificate_hash": "5ca9072c6f1b413415fd7233",
-        "union_hash": "d186bc36689355cea11f0c42",
-        "union_plan_digest": "c9875d601444e8cb342c7cdc",
         "used_skill_route_discovery": false
       }
     ],
     "entry_count": 2,
-    "kind": "commonwealth_log",
+    "kind": "dominion_log",
     "schema_version": 1,
-    "tip_commonwealth_root": "9796e60417c648e90b06e627",
+    "tip_dominion_root": "27f7638b1a8b541c01c48f95",
     "tip_height": 2,
-    "union_hash": "d186bc36689355cea11f0c42",
-    "updated_at": "2026-07-31T07:24:57.422110Z"
+    "updated_at": "2026-07-31T08:05:25.775383Z"
   },
-  "deterministic": true,
   "empire_certificate": {
     "bound_commonwealth_height": 2,
     "bound_commonwealth_root": "9796e60417c648e90b06e627",
-    "certificate_hash": "f58db60a35cb97e35b2976e4",
+    "certificate_hash": "5397df451379327d8b8f2643",
     "claims": {
       "capability_id": "repo.import-health",
       "clearing_index": 2,
@@ -705,8 +705,8 @@
     "empire_height": 2,
     "empire_plan_digest": "979ef81a80dfb38fbe926f65",
     "empire_root": "64252d6c847e1dfa1ab00801",
-    "goal": "empire over commonwealth (clearing 2)",
-    "issued_at": "2026-07-31T08:03:29.580091Z",
+    "goal": "Close a dominion plane over empire: multi-empire orders become deterministic hash-chained dominion grants with plan digests bound to empire roots, dominion certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (clearing 2)",
+    "issued_at": "2026-07-31T08:05:20.504772Z",
     "kind": "empire_certificate",
     "lineage_head_hash": "89c4ff0a6368875ef0800e26",
     "member_count": 3,
@@ -724,7 +724,7 @@
     "valid": true
   },
   "empire_count": 2,
-  "empire_hash": "25d02631d8a69f8213ac70c8",
+  "empire_hash": "6eb3291ec712266263a425f5",
   "empire_plan_digest": "979ef81a80dfb38fbe926f65",
   "empires": {
     "bound_commonwealth_height": 2,
@@ -733,7 +733,7 @@
     "empire_plan_digest": "979ef81a80dfb38fbe926f65",
     "entries": [
       {
-        "applied_at": "2026-07-31T08:03:29.579978Z",
+        "applied_at": "2026-07-31T08:05:20.504523Z",
         "bound_action_root": "8c09a0cad74a985b3572549e",
         "bound_commonwealth_height": 1,
         "bound_commonwealth_root": "364514c6ae6342db859cb07f",
@@ -750,7 +750,7 @@
         "empire_certificate": {
           "bound_commonwealth_height": 1,
           "bound_commonwealth_root": "364514c6ae6342db859cb07f",
-          "certificate_hash": "5dfa7e9ea838f353868a94b4",
+          "certificate_hash": "8e2e1bbef7a939223cee3f36",
           "claims": {
             "capability_id": "capability.ledger-inventory",
             "clearing_index": 1,
@@ -766,8 +766,8 @@
           "empire_height": 1,
           "empire_plan_digest": "c99f7065121e716ae5d70174",
           "empire_root": "4cdd0fa03ce3bf491e51bedf",
-          "goal": "empire over commonwealth (clearing 1)",
-          "issued_at": "2026-07-31T08:03:29.579999Z",
+          "goal": "Close a dominion plane over empire: multi-empire orders become deterministic hash-chained dominion grants with plan digests bound to empire roots, dominion certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (clearing 1)",
+          "issued_at": "2026-07-31T08:05:20.504569Z",
           "kind": "empire_certificate",
           "lineage_head_hash": "89c4ff0a6368875ef0800e26",
           "member_count": 3,
@@ -787,7 +787,7 @@
         "empire_height": 1,
         "empire_plan_digest": "c99f7065121e716ae5d70174",
         "empire_root": "4cdd0fa03ce3bf491e51bedf",
-        "goal": "empire over commonwealth (clearing 1)",
+        "goal": "Close a dominion plane over empire: multi-empire orders become deterministic hash-chained dominion grants with plan digests bound to empire roots, dominion certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (clearing 1)",
         "kind": "empire_action",
         "lineage_head_hash": "89c4ff0a6368875ef0800e26",
         "member_ids": [
@@ -806,7 +806,7 @@
         "used_skill_route_discovery": false
       },
       {
-        "applied_at": "2026-07-31T08:03:29.580074Z",
+        "applied_at": "2026-07-31T08:05:20.504743Z",
         "bound_action_root": "bc9f34eaf8099cb1dd02f164",
         "bound_commonwealth_height": 2,
         "bound_commonwealth_root": "9796e60417c648e90b06e627",
@@ -823,7 +823,7 @@
         "empire_certificate": {
           "bound_commonwealth_height": 2,
           "bound_commonwealth_root": "9796e60417c648e90b06e627",
-          "certificate_hash": "f58db60a35cb97e35b2976e4",
+          "certificate_hash": "5397df451379327d8b8f2643",
           "claims": {
             "capability_id": "repo.import-health",
             "clearing_index": 2,
@@ -839,8 +839,8 @@
           "empire_height": 2,
           "empire_plan_digest": "979ef81a80dfb38fbe926f65",
           "empire_root": "64252d6c847e1dfa1ab00801",
-          "goal": "empire over commonwealth (clearing 2)",
-          "issued_at": "2026-07-31T08:03:29.580091Z",
+          "goal": "Close a dominion plane over empire: multi-empire orders become deterministic hash-chained dominion grants with plan digests bound to empire roots, dominion certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (clearing 2)",
+          "issued_at": "2026-07-31T08:05:20.504772Z",
           "kind": "empire_certificate",
           "lineage_head_hash": "89c4ff0a6368875ef0800e26",
           "member_count": 3,
@@ -860,7 +860,7 @@
         "empire_height": 2,
         "empire_plan_digest": "979ef81a80dfb38fbe926f65",
         "empire_root": "64252d6c847e1dfa1ab00801",
-        "goal": "empire over commonwealth (clearing 2)",
+        "goal": "Close a dominion plane over empire: multi-empire orders become deterministic hash-chained dominion grants with plan digests bound to empire roots, dominion certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery. (clearing 2)",
         "kind": "empire_action",
         "lineage_head_hash": "89c4ff0a6368875ef0800e26",
         "member_ids": [
@@ -884,7 +884,7 @@
     "schema_version": 1,
     "tip_empire_root": "64252d6c847e1dfa1ab00801",
     "tip_height": 2,
-    "updated_at": "2026-07-31T08:03:29.580109Z"
+    "updated_at": "2026-07-31T08:05:20.506078Z"
   },
   "epoch_count": 2,
   "execution_certificate": {
@@ -918,9 +918,9 @@
     "used_skill_route_discovery": false
   },
   "execution_hash": "f620923c33e7444ef74ccd1a",
-  "exported_at": "2026-07-31T08:03:29.580618Z",
-  "goal": "empire over commonwealth",
-  "kind": "empire_bundle",
+  "exported_at": "2026-07-31T08:05:25.776147Z",
+  "goal": "Close a dominion plane over empire: multi-empire orders become deterministic hash-chained dominion grants with plan digests bound to empire roots, dominion certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery.",
+  "kind": "dominion_bundle",
   "lineage": {
     "entries": [
       {
@@ -1243,7 +1243,7 @@
     "used_skill_route_discovery": false
   },
   "package_hash": "6e604a6f16e45f9f",
-  "post_commonwealth": true,
+  "post_empire": true,
   "schema_version": 1,
   "settlement_certificate": {
     "actuation_certificate_hash": "fdcd69bb2b287f6d4a0b7763",
@@ -1435,7 +1435,7 @@
   },
   "state_count": 2,
   "tip_action_root": "187f6fee7c5f467d229b5828",
-  "tip_commonwealth_root": "9796e60417c648e90b06e627",
+  "tip_dominion_root": "27f7638b1a8b541c01c48f95",
   "tip_empire_root": "64252d6c847e1dfa1ab00801",
   "tip_height": 2,
   "tip_settlement_root": "7a14b819bad310e6f326c948",

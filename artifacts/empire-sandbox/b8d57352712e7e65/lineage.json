@@ -1,0 +1,189 @@
+{
+  "entries": [
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "origin_ids": [
+          "origin-a",
+          "origin-b",
+          "origin-byzantine"
+        ],
+        "threshold": 2
+      },
+      "detail": {
+        "origins": [
+          {
+            "bundle_hash": "e66b5fae14051c9f21b673cf",
+            "byzantine": false,
+            "lineage_entry_count": 129,
+            "lineage_head_hash": "5c4dacb32f81386ea03a82ce",
+            "member_count": 3,
+            "origin_id": "origin-a",
+            "package_hash": "7878a785b9718369"
+          },
+          {
+            "bundle_hash": "a0d27ed1aa43dd0962faf6b0",
+            "byzantine": false,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "a2e442509cf4617c3668ea86",
+            "member_count": 2,
+            "origin_id": "origin-b",
+            "package_hash": "8ece9182045d973a"
+          },
+          {
+            "bundle_hash": "f6c239fa825aa1a812c8710e",
+            "byzantine": true,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "af1ba5e414b6cc444ce1c17d",
+            "member_count": 3,
+            "origin_id": "origin-byzantine",
+            "package_hash": "7d88f7661e8407af"
+          }
+        ]
+      },
+      "entry_hash": "43a19b5c8b2b4b511d66a60c",
+      "entry_kind": "quorum_origin_manifest",
+      "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery.",
+      "index": 0,
+      "issued_at": "2026-07-31T06:06:01.024678Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": ""
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "package_hash": "066545df3053adf5",
+        "threshold": 2
+      },
+      "detail": {
+        "origin_heads": [
+          "5c4dacb32f81386ea03a82ce",
+          "a2e442509cf4617c3668ea86",
+          "af1ba5e414b6cc444ce1c17d"
+        ]
+      },
+      "entry_hash": "5986d4f4143683b17ec37f7e",
+      "entry_kind": "quorum_vote",
+      "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery.",
+      "index": 1,
+      "issued_at": "2026-07-31T06:06:01.024711Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "43a19b5c8b2b4b511d66a60c"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "byzantine_count": 1,
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "excluded": true
+      },
+      "detail": {
+        "byzantine_origins": [
+          "origin-byzantine"
+        ]
+      },
+      "entry_hash": "3f9080c07db3f80e71a34351",
+      "entry_kind": "quorum_byzantine_exclude",
+      "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery.",
+      "index": 2,
+      "issued_at": "2026-07-31T06:06:01.024734Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "5986d4f4143683b17ec37f7e"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "quorum": true,
+        "quorum_met": true
+      },
+      "detail": {
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "origin_bundle_hashes": [
+          "e66b5fae14051c9f21b673cf",
+          "a0d27ed1aa43dd0962faf6b0",
+          "f6c239fa825aa1a812c8710e"
+        ]
+      },
+      "entry_hash": "d8b71ac1459c1f6e93a83be1",
+      "entry_kind": "quorum_seal",
+      "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery.",
+      "index": 3,
+      "issued_at": "2026-07-31T06:06:01.024756Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "3f9080c07db3f80e71a34351"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "prior_lineage_head": "d8b71ac1459c1f6e93a83be1",
+        "prior_package_hash": "066545df3053adf5",
+        "prior_quorum_hash": "4cd32c222dbc55c99e47cf99",
+        "progress_tag": "epoch-progress-2"
+      },
+      "detail": {},
+      "entry_hash": "89c4ff0a6368875ef0800e26",
+      "entry_kind": "finality_epoch_progress",
+      "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (progress 2)",
+      "index": 4,
+      "issued_at": "2026-07-31T06:06:01.762506Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "",
+      "parent_hash": "d8b71ac1459c1f6e93a83be1"
+    }
+  ],
+  "entry_count": 5,
+  "head_hash": "89c4ff0a6368875ef0800e26",
+  "kind": "capability_lineage",
+  "schema_version": 1,
+  "updated_at": "2026-07-31T08:02:32.079736Z"
+}
