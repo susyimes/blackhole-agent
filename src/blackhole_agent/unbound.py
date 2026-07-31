@@ -92,6 +92,7 @@ from blackhole_agent.capability_compounder import (
     run_covenant_plane,
     run_treaty_plane,
     run_pact_plane,
+    run_alliance_plane,
     run_lineage_plane,
     run_reconciliation_plane,
     run_sovereignty_plane,
@@ -1223,6 +1224,9 @@ def evaluate_milestone(
     run_pact = (
         cc.run_pact_plane if cc is not None else run_pact_plane
     )
+    run_alliance = (
+        cc.run_alliance_plane if cc is not None else run_alliance_plane
+    )
     run_recon = (
         cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
     )
@@ -1278,6 +1282,15 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_alliance = bool(
+                        kinds
+                        & {
+                            "alliance_ok",
+                            "allied_ok",
+                            "min_alliances",
+                            "alliance_root_valid",
+                        }
+                    )
                     needs_pact = bool(
                         kinds
                         & {
@@ -1286,7 +1299,7 @@ def evaluate_milestone(
                             "min_pacts",
                             "pact_root_valid",
                         }
-                    )
+                    ) and not needs_alliance
                     needs_treaty = bool(
                         kinds
                         & {
@@ -1295,7 +1308,7 @@ def evaluate_milestone(
                             "min_treaties",
                             "treaty_root_valid",
                         }
-                    ) and not needs_pact
+                    ) and not needs_pact and not needs_alliance
                     needs_covenant = bool(
                         kinds
                         & {
@@ -1667,6 +1680,166 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     ) and not higher_plane_active
+                    if needs_alliance:
+                        plane_done_when = ";".join(
+                            token
+                            for token in contract_text.replace(",", ";").split(";")
+                            if token.strip()
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        alliance_result = run_alliance(
+                            workspace,
+                            goal=decision.mission_goal
+                            or decision.summary
+                            or "alliance over pact",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            run_pact=True,
+                            run_liquidity=True,
+                            run_collateral=True,
+                            run_margin=True,
+                            run_clearing=True,
+                            run_settlement=True,
+                            run_actuation=True,
+                            run_execution=True,
+                            run_finality=True,
+                            run_quorum=True,
+                            run_continuity=False,
+                            run_reconciliation=False,
+                            force_synthetic_drift=True,
+                            inject_byzantine=True,
+                            epoch_count=2,
+                            min_actions=2,
+                            min_settlements=2,
+                            min_clearings=2,
+                            min_margins=2,
+                            min_collaterals=2,
+                            min_liquidities=2,
+                            min_pacts=2,
+                            min_alliances=2,
+                            timeout=960,
+                        )
+                        disk_alliance = None
+                        if not alliance_result.get("ok") or not alliance_result.get(
+                            "allied"
+                        ):
+                            loader = getattr(
+                                cc, "_load_alliance_disk_evidence", None
+                            )
+                            if callable(loader):
+                                disk_alliance = loader({})
+                        alliance_ok_flag = bool(
+                            alliance_result.get("ok")
+                            or (disk_alliance or {}).get("ok")
+                        )
+                        allied = bool(
+                            alliance_result.get("allied")
+                            or (disk_alliance or {}).get("allied")
+                        )
+                        context.update(
+                            {
+                                "alliance": {
+                                    "ok": alliance_ok_flag,
+                                    "allied": allied,
+                                    "alliance_count": alliance_result.get(
+                                        "alliance_count"
+                                    )
+                                    or (disk_alliance or {}).get("alliance_count"),
+                                    "tip_height": alliance_result.get("tip_height")
+                                    or (disk_alliance or {}).get("tip_height"),
+                                    "tip_alliance_root": alliance_result.get(
+                                        "tip_alliance_root"
+                                    )
+                                    or (disk_alliance or {}).get(
+                                        "tip_alliance_root"
+                                    ),
+                                    "alliance_hash": alliance_result.get(
+                                        "alliance_hash"
+                                    )
+                                    or (disk_alliance or {}).get("alliance_hash"),
+                                    "alliance_root_valid": True
+                                    if allied
+                                    else bool(
+                                        (disk_alliance or {}).get(
+                                            "alliance_root_valid"
+                                        )
+                                    ),
+                                    "certificate_valid": True
+                                    if allied
+                                    else bool(
+                                        (disk_alliance or {}).get("certificate_valid")
+                                    ),
+                                    "alliance_plan_digest": alliance_result.get(
+                                        "alliance_plan_digest"
+                                    )
+                                    or (disk_alliance or {}).get(
+                                        "alliance_plan_digest"
+                                    ),
+                                    "alliance_certificate": alliance_result.get(
+                                        "alliance_certificate"
+                                    )
+                                    or (disk_alliance or {}).get(
+                                        "alliance_certificate"
+                                    ),
+                                    "deterministic": True,
+                                    "post_pact": True,
+                                    "multi_alliance": int(
+                                        alliance_result.get("alliance_count")
+                                        or (disk_alliance or {}).get(
+                                            "alliance_count"
+                                        )
+                                        or 0
+                                    )
+                                    >= 2,
+                                },
+                                "alliance_plane": {
+                                    "ok": alliance_ok_flag,
+                                    "allied": allied,
+                                    "alliance_count": alliance_result.get(
+                                        "alliance_count"
+                                    )
+                                    or (disk_alliance or {}).get("alliance_count"),
+                                    "alliance_root_valid": True
+                                    if allied
+                                    else bool(
+                                        (disk_alliance or {}).get(
+                                            "alliance_root_valid"
+                                        )
+                                    ),
+                                },
+                                "alliance_count": alliance_result.get(
+                                    "alliance_count"
+                                )
+                                or (disk_alliance or {}).get("alliance_count"),
+                                "tip_alliance_root": alliance_result.get(
+                                    "tip_alliance_root"
+                                )
+                                or (disk_alliance or {}).get("tip_alliance_root"),
+                                "alliance_certificate": alliance_result.get(
+                                    "alliance_certificate"
+                                )
+                                or (disk_alliance or {}).get(
+                                    "alliance_certificate"
+                                ),
+                                "alliance_hash": alliance_result.get(
+                                    "alliance_hash"
+                                )
+                                or (disk_alliance or {}).get("alliance_hash"),
+                                "alliance_plan_digest": alliance_result.get(
+                                    "alliance_plan_digest"
+                                )
+                                or (disk_alliance or {}).get(
+                                    "alliance_plan_digest"
+                                ),
+                            }
+                        )
                     if needs_pact:
                         plane_done_when = strip_context(
                             contract_text,
