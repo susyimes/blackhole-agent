@@ -251,6 +251,47 @@
   "byzantine_count": 1,
   "certificate_count": 6,
   "certificates": {
+    "20537a6528f2ca0c9e5cc238": {
+      "certificate_hash": "20537a6528f2ca0c9e5cc238",
+      "payload": {
+        "bound_dominion_height": 1,
+        "bound_dominion_root": "11594cbae0e60805bf164fd8",
+        "certificate_hash": "20537a6528f2ca0c9e5cc238",
+        "claims": {
+          "capability_id": "capability.ledger-inventory",
+          "clearing_index": 1,
+          "effect": "prove",
+          "outcome": "realmed",
+          "plane": "realm"
+        },
+        "deterministic": true,
+        "dominion_certificate_hash": "24bb2bff2d2288f727b18626",
+        "dominion_hash": "56f43bf82ce25d3a0aa187fe",
+        "dominion_plan_digest": "287b74552050c071e9037867",
+        "goal": "realm over dominion (clearing 1)",
+        "issued_at": "2026-07-31T09:19:53.829551Z",
+        "kind": "realm_certificate",
+        "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "6e604a6f16e45f9f",
+        "parent_realm_root": "",
+        "post_dominion": true,
+        "realm_count": 1,
+        "realm_height": 1,
+        "realm_plan_digest": "587482628c76b0585e7d8f07",
+        "realm_root": "d5b203b2e9d634b27e1e79fc",
+        "schema_version": 1,
+        "used_skill_route_discovery": false,
+        "valid": true
+      },
+      "realm_height": 1
+    },
     "24bb2bff2d2288f727b18626": {
       "certificate_hash": "24bb2bff2d2288f727b18626",
       "kind": "realm_certificate",
@@ -292,12 +333,12 @@
         "valid": true
       }
     },
-    "2f1fee03006c06dc6fdc5d95": {
-      "certificate_hash": "2f1fee03006c06dc6fdc5d95",
+    "429372ef3b9d168e633d2043": {
+      "certificate_hash": "429372ef3b9d168e633d2043",
       "payload": {
         "bound_dominion_height": 2,
         "bound_dominion_root": "27f7638b1a8b541c01c48f95",
-        "certificate_hash": "2f1fee03006c06dc6fdc5d95",
+        "certificate_hash": "429372ef3b9d168e633d2043",
         "claims": {
           "capability_id": "repo.import-health",
           "clearing_index": 2,
@@ -310,7 +351,7 @@
         "dominion_hash": "56f43bf82ce25d3a0aa187fe",
         "dominion_plan_digest": "eaed2fadd70c1727d04529ac",
         "goal": "realm over dominion (clearing 2)",
-        "issued_at": "2026-07-31T09:20:53.877325Z",
+        "issued_at": "2026-07-31T09:19:53.829734Z",
         "kind": "realm_certificate",
         "lineage_head_hash": "89c4ff0a6368875ef0800e26",
         "member_count": 3,
@@ -332,47 +373,6 @@
         "valid": true
       },
       "realm_height": 2
-    },
-    "508b0a735694105b9c344611": {
-      "certificate_hash": "508b0a735694105b9c344611",
-      "payload": {
-        "bound_dominion_height": 1,
-        "bound_dominion_root": "11594cbae0e60805bf164fd8",
-        "certificate_hash": "508b0a735694105b9c344611",
-        "claims": {
-          "capability_id": "capability.ledger-inventory",
-          "clearing_index": 1,
-          "effect": "prove",
-          "outcome": "realmed",
-          "plane": "realm"
-        },
-        "deterministic": true,
-        "dominion_certificate_hash": "24bb2bff2d2288f727b18626",
-        "dominion_hash": "56f43bf82ce25d3a0aa187fe",
-        "dominion_plan_digest": "287b74552050c071e9037867",
-        "goal": "realm over dominion (clearing 1)",
-        "issued_at": "2026-07-31T09:20:53.877237Z",
-        "kind": "realm_certificate",
-        "lineage_head_hash": "89c4ff0a6368875ef0800e26",
-        "member_count": 3,
-        "member_ids": [
-          "capability.ledger-inventory",
-          "repo.import-health",
-          "unbound.milestone-gate"
-        ],
-        "ok": true,
-        "package_hash": "6e604a6f16e45f9f",
-        "parent_realm_root": "",
-        "post_dominion": true,
-        "realm_count": 1,
-        "realm_height": 1,
-        "realm_plan_digest": "587482628c76b0585e7d8f07",
-        "realm_root": "d5b203b2e9d634b27e1e79fc",
-        "schema_version": 1,
-        "used_skill_route_discovery": false,
-        "valid": true
-      },
-      "realm_height": 1
     },
     "5c23a892eccd1625050be890": {
       "certificate_hash": "5c23a892eccd1625050be890",
@@ -718,7 +718,7 @@
     "used_skill_route_discovery": false
   },
   "execution_hash": "f620923c33e7444ef74ccd1a",
-  "exported_at": "2026-07-31T09:20:53.877819Z",
+  "exported_at": "2026-07-31T09:19:53.830441Z",
   "goal": "realm over dominion",
   "kind": "realm_bundle",
   "lineage": {
@@ -1047,7 +1047,7 @@
   "realm_certificate": {
     "bound_dominion_height": 2,
     "bound_dominion_root": "27f7638b1a8b541c01c48f95",
-    "certificate_hash": "2f1fee03006c06dc6fdc5d95",
+    "certificate_hash": "429372ef3b9d168e633d2043",
     "claims": {
       "capability_id": "repo.import-health",
       "clearing_index": 2,
@@ -1060,7 +1060,7 @@
     "dominion_hash": "56f43bf82ce25d3a0aa187fe",
     "dominion_plan_digest": "eaed2fadd70c1727d04529ac",
     "goal": "realm over dominion (clearing 2)",
-    "issued_at": "2026-07-31T09:20:53.877325Z",
+    "issued_at": "2026-07-31T09:19:53.829734Z",
     "kind": "realm_certificate",
     "lineage_head_hash": "89c4ff0a6368875ef0800e26",
     "member_count": 3,
@@ -1082,7 +1082,7 @@
     "valid": true
   },
   "realm_count": 2,
-  "realm_hash": "22e32b4d1814927382e41ea9",
+  "realm_hash": "9ea5ff49ae25efc4c488c949",
   "realm_plan_digest": "284099ec5d402bba17e0898a",
   "realms": {
     "bound_dominion_height": 2,
@@ -1090,7 +1090,7 @@
     "dominion_hash": "56f43bf82ce25d3a0aa187fe",
     "entries": [
       {
-        "applied_at": "2026-07-31T09:20:53.877217Z",
+        "applied_at": "2026-07-31T09:19:53.829524Z",
         "bound_action_root": "8c09a0cad74a985b3572549e",
         "bound_dominion_height": 1,
         "bound_dominion_root": "11594cbae0e60805bf164fd8",
@@ -1122,7 +1122,7 @@
         "realm_certificate": {
           "bound_dominion_height": 1,
           "bound_dominion_root": "11594cbae0e60805bf164fd8",
-          "certificate_hash": "508b0a735694105b9c344611",
+          "certificate_hash": "20537a6528f2ca0c9e5cc238",
           "claims": {
             "capability_id": "capability.ledger-inventory",
             "clearing_index": 1,
@@ -1135,7 +1135,7 @@
           "dominion_hash": "56f43bf82ce25d3a0aa187fe",
           "dominion_plan_digest": "287b74552050c071e9037867",
           "goal": "realm over dominion (clearing 1)",
-          "issued_at": "2026-07-31T09:20:53.877237Z",
+          "issued_at": "2026-07-31T09:19:53.829551Z",
           "kind": "realm_certificate",
           "lineage_head_hash": "89c4ff0a6368875ef0800e26",
           "member_count": 3,
@@ -1163,7 +1163,7 @@
         "used_skill_route_discovery": false
       },
       {
-        "applied_at": "2026-07-31T09:20:53.877307Z",
+        "applied_at": "2026-07-31T09:19:53.829697Z",
         "bound_action_root": "bc9f34eaf8099cb1dd02f164",
         "bound_dominion_height": 2,
         "bound_dominion_root": "27f7638b1a8b541c01c48f95",
@@ -1195,7 +1195,7 @@
         "realm_certificate": {
           "bound_dominion_height": 2,
           "bound_dominion_root": "27f7638b1a8b541c01c48f95",
-          "certificate_hash": "2f1fee03006c06dc6fdc5d95",
+          "certificate_hash": "429372ef3b9d168e633d2043",
           "claims": {
             "capability_id": "repo.import-health",
             "clearing_index": 2,
@@ -1208,7 +1208,7 @@
           "dominion_hash": "56f43bf82ce25d3a0aa187fe",
           "dominion_plan_digest": "eaed2fadd70c1727d04529ac",
           "goal": "realm over dominion (clearing 2)",
-          "issued_at": "2026-07-31T09:20:53.877325Z",
+          "issued_at": "2026-07-31T09:19:53.829734Z",
           "kind": "realm_certificate",
           "lineage_head_hash": "89c4ff0a6368875ef0800e26",
           "member_count": 3,
@@ -1242,7 +1242,7 @@
     "schema_version": 1,
     "tip_height": 2,
     "tip_realm_root": "a08210fb41800ac482f885f1",
-    "updated_at": "2026-07-31T09:20:53.877342Z"
+    "updated_at": "2026-07-31T09:19:53.829762Z"
   },
   "schema_version": 1,
   "settlement_certificate": {

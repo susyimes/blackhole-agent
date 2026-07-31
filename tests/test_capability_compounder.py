@@ -3551,3 +3551,86 @@ def test_realm_plane_orders_and_adversarial():
     assert loaded.get("realm_plan_digest")
     assert path.name == "ledger.json"
 
+
+
+def test_cosmos_plane_orders_and_adversarial():
+    """Cosmos plane posts multi-realm orders and falsifies wrong-realm binds."""
+
+    from blackhole_agent.capability_compounder import (
+        ensure_seeded_ledger,
+        load_cosmos_bundle,
+        parse_outcome_contract,
+        run_cosmos_plane,
+        verify_cosmos_bundle_integrity,
+    )
+
+    repo = Path(__file__).resolve().parents[1]
+    path, ledger = ensure_seeded_ledger(repo)
+    assert "capability.cosmos-plane" in ledger.capabilities
+    assert "capability.realm-plane" in ledger.capabilities
+
+    parsed = parse_outcome_contract(
+        "no_skill_route; cosmos_ok; cosmosed_ok; min_cosmoses:2; "
+        "cosmos_root_valid; realm_ok; realmed_ok; min_realms:2; "
+        "realm_root_valid; chain_valid"
+    )
+    kinds = {item["kind"] for item in parsed["predicates"]}
+    assert "cosmos_ok" in kinds
+    assert "cosmosed_ok" in kinds
+    assert "min_cosmoses" in kinds
+    assert "cosmos_root_valid" in kinds
+
+    realm_path = (
+        repo / "artifacts" / "realm-bundles" / "proof-realm.json"
+    )
+    assert realm_path.is_file(), "requires existing realm proof bundle"
+    cosmos_path = (
+        repo / "artifacts" / "cosmos-bundles" / "test-cosmos-plane.json"
+    )
+    if cosmos_path.exists():
+        cosmos_path.unlink()
+
+    plane = run_cosmos_plane(
+        repo,
+        "cosmos over realm",
+        "min_capabilities:5; capability_exists:repo.import-health; no_skill_route",
+        max_steps=3,
+        run_realm=False,
+        realm_path=realm_path,
+        cosmos_path=cosmos_path,
+        prove_imported=True,
+        min_realms=2,
+        min_cosmoses=2,
+        timeout=180,
+    )
+    assert plane["ok"] is True, plane
+    assert plane["action"] == "cosmos_plane"
+    assert plane["cosmosed"] is True
+    assert int(plane["cosmos_count"]) >= 2
+    assert int(plane["tip_height"]) >= 2
+    assert plane.get("cosmos_plan_digest")
+    assert plane["integrity"]["ok"] is True
+    assert plane["integrity"]["multi_cosmos"] is True
+    assert plane["rehydrate"]["ok"] is True
+    assert plane["prove"]["ok"] is True
+    assert int(plane["prove"]["proved_count"]) >= 1
+    assert plane["chain"]["valid"] is True
+    assert plane["cosmos_certificate"]["valid"] is True
+    assert plane["adversarial"]["ok"] is True
+    assert plane["adversarial"]["wrong_realm_fails_as_expected"] is True
+    assert plane["adversarial"]["reorder_fails_as_expected"] is True
+    assert plane["adversarial"]["digest_tamper_fails_as_expected"] is True
+    assert plane["adversarial"]["single_cosmos_fails_as_expected"] is True
+    assert plane["adversarial"]["duplicate_apply_fails_as_expected"] is True
+    assert plane["adversarial"]["replay_matches_tip"] is True
+    assert plane["used_skill_route_discovery"] is False
+    assert cosmos_path.is_file()
+
+    loaded = load_cosmos_bundle(cosmos_path)
+    assert verify_cosmos_bundle_integrity(loaded)["ok"] is True
+    assert loaded.get("cosmos_hash")
+    assert int(loaded.get("cosmos_count") or 0) >= 2
+    assert int(loaded.get("tip_height") or 0) >= 2
+    assert loaded.get("cosmos_plan_digest")
+    assert path.name == "ledger.json"
+

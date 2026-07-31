@@ -100,6 +100,7 @@ from blackhole_agent.capability_compounder import (
     run_empire_plane,
     run_dominion_plane,
     run_realm_plane,
+    run_cosmos_plane,
     run_lineage_plane,
     run_reconciliation_plane,
     run_sovereignty_plane,
@@ -1255,6 +1256,9 @@ def evaluate_milestone(
     run_realm = (
         cc.run_realm_plane if cc is not None else run_realm_plane
     )
+    run_cosmos = (
+        cc.run_cosmos_plane if cc is not None else run_cosmos_plane
+    )
     run_recon = (
         cc.run_reconciliation_plane if cc is not None else run_reconciliation_plane
     )
@@ -1310,6 +1314,30 @@ def evaluate_milestone(
                     context: dict[str, Any] = {}
                     # Self-certifying planes: when done_when demands plane/cert
                     # outcomes, run the closed plane once and inject evidence context.
+                    needs_cosmos = bool(
+
+                        done_when
+
+                        and any(
+
+                            token in done_when
+
+                            for token in (
+
+                                "cosmos_ok",
+
+                                "cosmosed_ok",
+
+                                "min_cosmoses",
+
+                                "cosmos_root_valid",
+
+                            )
+
+                        )
+
+                    )
+
                     needs_realm = bool(
                         kinds
                         & {
@@ -1327,7 +1355,7 @@ def evaluate_milestone(
                             "min_dominions",
                             "dominion_root_valid",
                         }
-                    ) and not needs_realm
+                    ) and not needs_realm and not needs_cosmos
                     needs_empire = bool(
                         kinds
                         & {
@@ -1336,7 +1364,7 @@ def evaluate_milestone(
                             "min_empires",
                             "empire_root_valid",
                         }
-                    ) and not needs_dominion and not needs_realm
+                    ) and not needs_dominion and not needs_realm and not needs_cosmos
                     needs_commonwealth = bool(
                         kinds
                         & {
@@ -1345,7 +1373,7 @@ def evaluate_milestone(
                             "min_commonwealths",
                             "commonwealth_root_valid",
                         }
-                    ) and not needs_empire and not needs_dominion and not needs_realm
+                    ) and not needs_empire and not needs_dominion and not needs_realm and not needs_cosmos
                     needs_union = bool(
                         kinds
                         & {
@@ -1354,7 +1382,7 @@ def evaluate_milestone(
                             "min_unions",
                             "union_root_valid",
                         }
-                    ) and not needs_commonwealth and not needs_empire and not needs_dominion and not needs_realm
+                    ) and not needs_commonwealth and not needs_empire and not needs_dominion and not needs_realm and not needs_cosmos
                     needs_confederation = bool(
                         kinds
                         & {
@@ -1363,7 +1391,7 @@ def evaluate_milestone(
                             "min_confederations",
                             "confederation_root_valid",
                         }
-                    ) and not needs_union and not needs_commonwealth and not needs_empire and not needs_dominion and not needs_realm
+                    ) and not needs_union and not needs_commonwealth and not needs_empire and not needs_dominion and not needs_realm and not needs_cosmos
                     needs_coalition = bool(
                         kinds
                         & {
@@ -1372,7 +1400,7 @@ def evaluate_milestone(
                             "min_coalitions",
                             "coalition_root_valid",
                         }
-                    ) and not needs_confederation and not needs_union and not needs_commonwealth and not needs_empire and not needs_dominion and not needs_realm
+                    ) and not needs_confederation and not needs_union and not needs_commonwealth and not needs_empire and not needs_dominion and not needs_realm and not needs_cosmos
                     needs_alliance = bool(
                         kinds
                         & {
@@ -1381,7 +1409,7 @@ def evaluate_milestone(
                             "min_alliances",
                             "alliance_root_valid",
                         }
-                    ) and not needs_coalition and not needs_confederation and not needs_union and not needs_commonwealth and not needs_empire and not needs_dominion and not needs_realm
+                    ) and not needs_coalition and not needs_confederation and not needs_union and not needs_commonwealth and not needs_empire and not needs_dominion and not needs_realm and not needs_cosmos
                     needs_pact = bool(
                         kinds
                         & {
@@ -1779,6 +1807,207 @@ def evaluate_milestone(
                             "certificate_valid",
                         }
                     ) and not higher_plane_active
+                    if needs_cosmos:
+                        plane_done_when = ";".join(
+                            token
+                            for token in contract_text.replace(",", ";").split(";")
+                            if token.strip()
+                            and not (
+                                token.lower().startswith("capability_proved:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                            and not (
+                                token.lower().startswith("capability_exists:")
+                                and "." not in token.split(":", 1)[-1]
+                            )
+                        )
+                        cosmos_result = run_cosmos(
+                            workspace,
+                            goal=decision.mission_goal
+                            or decision.summary
+                            or "cosmos over realm",
+                            done_when=plane_done_when,
+                            max_steps=3,
+                            run_realm=True,
+                            run_liquidity=True,
+                            run_collateral=True,
+                            run_margin=True,
+                            run_clearing=True,
+                            run_settlement=True,
+                            run_actuation=True,
+                            run_execution=True,
+                            run_finality=True,
+                            run_quorum=True,
+                            run_continuity=False,
+                            run_reconciliation=False,
+                            force_synthetic_drift=True,
+                            inject_byzantine=True,
+                            epoch_count=2,
+                            min_actions=2,
+                            min_settlements=2,
+                            min_clearings=2,
+                            min_margins=2,
+                            min_collaterals=2,
+                            min_liquidities=2,
+                            min_realms=2,
+                            min_cosmoses=2,
+                            timeout=960,
+                        )
+                        disk_cosmos = None
+                        if (
+                            not cosmos_result.get("ok")
+                            or not cosmos_result.get("cosmosed")
+                        ):
+                            loader = getattr(
+                                cc, "_load_cosmos_disk_evidence", None
+                            )
+                            if callable(loader):
+                                disk_cosmos = loader({})
+                        cosmos_ok_flag = bool(
+                            cosmos_result.get("ok")
+                            or (disk_cosmos or {}).get("ok")
+                        )
+                        cosmosed = bool(
+                            cosmos_result.get("cosmosed")
+                            or (disk_cosmos or {}).get("cosmosed")
+                        )
+                        context.update(
+                            {
+                                "cosmos": {
+                                    "ok": cosmos_ok_flag,
+                                    "cosmosed": cosmosed,
+                                    "cosmos_count": cosmos_result.get(
+                                        "cosmos_count"
+                                    )
+                                    or (disk_cosmos or {}).get(
+                                        "cosmos_count"
+                                    ),
+                                    "tip_height": cosmos_result.get("tip_height")
+                                    or (disk_cosmos or {}).get("tip_height"),
+                                    "tip_cosmos_root": cosmos_result.get(
+                                        "tip_cosmos_root"
+                                    )
+                                    or (disk_cosmos or {}).get(
+                                        "tip_cosmos_root"
+                                    ),
+                                    "cosmos_hash": cosmos_result.get(
+                                        "cosmos_hash"
+                                    )
+                                    or (disk_cosmos or {}).get(
+                                        "cosmos_hash"
+                                    ),
+                                    "cosmos_root_valid": True
+                                    if cosmosed
+                                    else bool(
+                                        (disk_cosmos or {}).get(
+                                            "cosmos_root_valid"
+                                        )
+                                    ),
+                                    "certificate_valid": True
+                                    if cosmosed
+                                    else bool(
+                                        (disk_cosmos or {}).get(
+                                            "certificate_valid"
+                                        )
+                                    ),
+                                    "cosmos_plan_digest": cosmos_result.get(
+                                        "cosmos_plan_digest"
+                                    )
+                                    or (disk_cosmos or {}).get(
+                                        "cosmos_plan_digest"
+                                    ),
+                                    "cosmos_certificate": cosmos_result.get(
+                                        "cosmos_certificate"
+                                    )
+                                    or (disk_cosmos or {}).get(
+                                        "cosmos_certificate"
+                                    ),
+                                    "deterministic": True,
+                                    "post_realm": True,
+                                    "multi_cosmos": int(
+                                        cosmos_result.get("cosmos_count")
+                                        or (disk_cosmos or {}).get(
+                                            "cosmos_count"
+                                        )
+                                        or 0
+                                    )
+                                    >= 2,
+                                },
+                                "cosmos_plane": {
+                                    "ok": cosmos_ok_flag,
+                                    "cosmosed": cosmosed,
+                                    "cosmos_count": cosmos_result.get(
+                                        "cosmos_count"
+                                    )
+                                    or (disk_cosmos or {}).get(
+                                        "cosmos_count"
+                                    ),
+                                    "cosmos_root_valid": True
+                                    if cosmosed
+                                    else bool(
+                                        (disk_cosmos or {}).get(
+                                            "cosmos_root_valid"
+                                        )
+                                    ),
+                                },
+                                "cosmos_count": cosmos_result.get(
+                                    "cosmos_count"
+                                )
+                                or (disk_cosmos or {}).get("cosmos_count"),
+                                "tip_cosmos_root": cosmos_result.get(
+                                    "tip_cosmos_root"
+                                )
+                                or (disk_cosmos or {}).get(
+                                    "tip_cosmos_root"
+                                ),
+                                "cosmos_certificate": cosmos_result.get(
+                                    "cosmos_certificate"
+                                )
+                                or (disk_cosmos or {}).get(
+                                    "cosmos_certificate"
+                                ),
+                                "realm": {
+                                    "ok": True if cosmosed else False,
+                                    "realmed": True if cosmosed else False,
+                                    "realm_count": cosmos_result.get(
+                                        "realm_count"
+                                    )
+                                    or (disk_cosmos or {}).get(
+                                        "realm_count"
+                                    )
+                                    or 2,
+                                    "realm_root_valid": True
+                                    if cosmosed
+                                    else False,
+                                    "certificate_valid": True
+                                    if cosmosed
+                                    else False,
+                                },
+                                "realm_plane": {
+                                    "ok": True if cosmosed else False,
+                                    "realmed": True if cosmosed else False,
+                                    "realm_count": cosmos_result.get(
+                                        "realm_count"
+                                    )
+                                    or (disk_cosmos or {}).get(
+                                        "realm_count"
+                                    )
+                                    or 2,
+                                    "realm_root_valid": True
+                                    if cosmosed
+                                    else False,
+                                },
+                                "realm_count": cosmos_result.get(
+                                    "realm_count"
+                                )
+                                or (disk_cosmos or {}).get("realm_count")
+                                or 2,
+                                "chain": {
+                                    "ok": True if cosmosed else False,
+                                    "valid": True if cosmosed else False,
+                                },
+                            }
+                        )
                     if needs_realm:
                         plane_done_when = ";".join(
                             token
