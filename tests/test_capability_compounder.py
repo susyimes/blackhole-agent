@@ -3303,3 +3303,85 @@ def test_commonwealth_plane_orders_and_adversarial():
     assert int(loaded.get("tip_height") or 0) >= 2
     assert loaded.get("commonwealth_plan_digest")
     assert path.name == "ledger.json"
+
+def test_empire_plane_orders_and_adversarial():
+    """Empire plane posts multi-commonwealth orders and falsifies wrong-commonwealth binds."""
+
+    from blackhole_agent.capability_compounder import (
+        ensure_seeded_ledger,
+        load_empire_bundle,
+        parse_outcome_contract,
+        run_empire_plane,
+        verify_empire_bundle_integrity,
+    )
+
+    repo = Path(__file__).resolve().parents[1]
+    path, ledger = ensure_seeded_ledger(repo)
+    assert "capability.empire-plane" in ledger.capabilities
+    assert "capability.commonwealth-plane" in ledger.capabilities
+
+    parsed = parse_outcome_contract(
+        "no_skill_route; empire_ok; empired_ok; min_empires:2; "
+        "empire_root_valid; commonwealth_ok; commonwealthed_ok; min_commonwealths:2; "
+        "commonwealth_root_valid; chain_valid"
+    )
+    kinds = {item["kind"] for item in parsed["predicates"]}
+    assert "empire_ok" in kinds
+    assert "empired_ok" in kinds
+    assert "min_empires" in kinds
+    assert "empire_root_valid" in kinds
+
+    commonwealth_path = (
+        repo / "artifacts" / "commonwealth-bundles" / "proof-commonwealth.json"
+    )
+    assert commonwealth_path.is_file(), "requires existing commonwealth proof bundle"
+    empire_path = (
+        repo / "artifacts" / "empire-bundles" / "test-empire-plane.json"
+    )
+    if empire_path.exists():
+        empire_path.unlink()
+
+    plane = run_empire_plane(
+        repo,
+        "empire over commonwealth",
+        "min_capabilities:5; capability_exists:repo.import-health; no_skill_route",
+        max_steps=3,
+        run_commonwealth=False,
+        commonwealth_path=commonwealth_path,
+        empire_path=empire_path,
+        prove_imported=True,
+        min_commonwealths=2,
+        min_empires=2,
+        timeout=180,
+    )
+    assert plane["ok"] is True, plane
+    assert plane["action"] == "empire_plane"
+    assert plane["empired"] is True
+    assert int(plane["empire_count"]) >= 2
+    assert int(plane["tip_height"]) >= 2
+    assert plane.get("empire_plan_digest")
+    assert plane["integrity"]["ok"] is True
+    assert plane["integrity"]["multi_empire"] is True
+    assert plane["rehydrate"]["ok"] is True
+    assert plane["prove"]["ok"] is True
+    assert int(plane["prove"]["proved_count"]) >= 1
+    assert plane["chain"]["valid"] is True
+    assert plane["empire_certificate"]["valid"] is True
+    assert plane["adversarial"]["ok"] is True
+    assert plane["adversarial"]["wrong_commonwealth_fails_as_expected"] is True
+    assert plane["adversarial"]["reorder_fails_as_expected"] is True
+    assert plane["adversarial"]["digest_tamper_fails_as_expected"] is True
+    assert plane["adversarial"]["single_empire_fails_as_expected"] is True
+    assert plane["adversarial"]["duplicate_apply_fails_as_expected"] is True
+    assert plane["adversarial"]["replay_matches_tip"] is True
+    assert plane["used_skill_route_discovery"] is False
+    assert empire_path.is_file()
+
+    loaded = load_empire_bundle(empire_path)
+    assert verify_empire_bundle_integrity(loaded)["ok"] is True
+    assert loaded.get("empire_hash")
+    assert int(loaded.get("empire_count") or 0) >= 2
+    assert int(loaded.get("tip_height") or 0) >= 2
+    assert loaded.get("empire_plan_digest")
+    assert path.name == "ledger.json"
+

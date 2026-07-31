@@ -251,47 +251,6 @@
   "byzantine_count": 1,
   "certificate_count": 6,
   "certificates": {
-    "1688c8442dd9af181ebdee39": {
-      "certificate_hash": "1688c8442dd9af181ebdee39",
-      "commonwealth_height": 2,
-      "payload": {
-        "bound_union_height": 2,
-        "bound_union_root": "26f32db61f54d18631937b4e",
-        "certificate_hash": "1688c8442dd9af181ebdee39",
-        "claims": {
-          "capability_id": "repo.import-health",
-          "clearing_index": 2,
-          "effect": "prove",
-          "outcome": "commonwealthed",
-          "plane": "commonwealth"
-        },
-        "commonwealth_count": 2,
-        "commonwealth_height": 2,
-        "commonwealth_plan_digest": "f291146f266919a5cd6f7df3",
-        "commonwealth_root": "9796e60417c648e90b06e627",
-        "deterministic": true,
-        "goal": "commonwealth over union (clearing 2)",
-        "issued_at": "2026-07-31T06:45:24.043493Z",
-        "kind": "commonwealth_certificate",
-        "lineage_head_hash": "89c4ff0a6368875ef0800e26",
-        "member_count": 3,
-        "member_ids": [
-          "capability.ledger-inventory",
-          "repo.import-health",
-          "unbound.milestone-gate"
-        ],
-        "ok": true,
-        "package_hash": "6e604a6f16e45f9f",
-        "parent_commonwealth_root": "364514c6ae6342db859cb07f",
-        "post_union": true,
-        "schema_version": 1,
-        "union_certificate_hash": "5ca9072c6f1b413415fd7233",
-        "union_hash": "d186bc36689355cea11f0c42",
-        "union_plan_digest": "c9875d601444e8cb342c7cdc",
-        "used_skill_route_discovery": false,
-        "valid": true
-      }
-    },
     "5c23a892eccd1625050be890": {
       "certificate_hash": "5c23a892eccd1625050be890",
       "kind": "settlement_certificate",
@@ -372,13 +331,13 @@
         "valid": true
       }
     },
-    "db73e44dfc61a7a969557e03": {
-      "certificate_hash": "db73e44dfc61a7a969557e03",
+    "6663b6a7ce59174347d63cee": {
+      "certificate_hash": "6663b6a7ce59174347d63cee",
       "commonwealth_height": 1,
       "payload": {
         "bound_union_height": 1,
         "bound_union_root": "44b34aa0fce050d740e9c90f",
-        "certificate_hash": "db73e44dfc61a7a969557e03",
+        "certificate_hash": "6663b6a7ce59174347d63cee",
         "claims": {
           "capability_id": "capability.ledger-inventory",
           "clearing_index": 1,
@@ -392,7 +351,7 @@
         "commonwealth_root": "364514c6ae6342db859cb07f",
         "deterministic": true,
         "goal": "commonwealth over union (clearing 1)",
-        "issued_at": "2026-07-31T06:45:24.043409Z",
+        "issued_at": "2026-07-31T07:24:57.421990Z",
         "kind": "commonwealth_certificate",
         "lineage_head_hash": "89c4ff0a6368875ef0800e26",
         "member_count": 3,
@@ -409,6 +368,47 @@
         "union_certificate_hash": "5ca9072c6f1b413415fd7233",
         "union_hash": "d186bc36689355cea11f0c42",
         "union_plan_digest": "8c7b9522e65db8d1e6db9d79",
+        "used_skill_route_discovery": false,
+        "valid": true
+      }
+    },
+    "8fe4c26cde24b93e60e9b200": {
+      "certificate_hash": "8fe4c26cde24b93e60e9b200",
+      "commonwealth_height": 2,
+      "payload": {
+        "bound_union_height": 2,
+        "bound_union_root": "26f32db61f54d18631937b4e",
+        "certificate_hash": "8fe4c26cde24b93e60e9b200",
+        "claims": {
+          "capability_id": "repo.import-health",
+          "clearing_index": 2,
+          "effect": "prove",
+          "outcome": "commonwealthed",
+          "plane": "commonwealth"
+        },
+        "commonwealth_count": 2,
+        "commonwealth_height": 2,
+        "commonwealth_plan_digest": "f291146f266919a5cd6f7df3",
+        "commonwealth_root": "9796e60417c648e90b06e627",
+        "deterministic": true,
+        "goal": "commonwealth over union (clearing 2)",
+        "issued_at": "2026-07-31T07:24:57.422089Z",
+        "kind": "commonwealth_certificate",
+        "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "6e604a6f16e45f9f",
+        "parent_commonwealth_root": "364514c6ae6342db859cb07f",
+        "post_union": true,
+        "schema_version": 1,
+        "union_certificate_hash": "5ca9072c6f1b413415fd7233",
+        "union_hash": "d186bc36689355cea11f0c42",
+        "union_plan_digest": "c9875d601444e8cb342c7cdc",
         "used_skill_route_discovery": false,
         "valid": true
       }
@@ -488,7 +488,7 @@
   "commonwealth_certificate": {
     "bound_union_height": 2,
     "bound_union_root": "26f32db61f54d18631937b4e",
-    "certificate_hash": "1688c8442dd9af181ebdee39",
+    "certificate_hash": "8fe4c26cde24b93e60e9b200",
     "claims": {
       "capability_id": "repo.import-health",
       "clearing_index": 2,
@@ -502,7 +502,7 @@
     "commonwealth_root": "9796e60417c648e90b06e627",
     "deterministic": true,
     "goal": "commonwealth over union (clearing 2)",
-    "issued_at": "2026-07-31T06:45:24.043493Z",
+    "issued_at": "2026-07-31T07:24:57.422089Z",
     "kind": "commonwealth_certificate",
     "lineage_head_hash": "89c4ff0a6368875ef0800e26",
     "member_count": 3,
@@ -523,7 +523,7 @@
     "valid": true
   },
   "commonwealth_count": 2,
-  "commonwealth_hash": "4c68e577a537484caa7edfb3",
+  "commonwealth_hash": "1ab35a3dd69f8491bd5c3067",
   "commonwealth_plan_digest": "f291146f266919a5cd6f7df3",
   "commonwealths": {
     "bound_union_height": 2,
@@ -531,7 +531,7 @@
     "commonwealth_plan_digest": "f291146f266919a5cd6f7df3",
     "entries": [
       {
-        "applied_at": "2026-07-31T06:45:24.043388Z",
+        "applied_at": "2026-07-31T07:24:57.421964Z",
         "bound_action_root": "8c09a0cad74a985b3572549e",
         "bound_union_height": 1,
         "bound_union_root": "44b34aa0fce050d740e9c90f",
@@ -543,7 +543,7 @@
         "commonwealth_certificate": {
           "bound_union_height": 1,
           "bound_union_root": "44b34aa0fce050d740e9c90f",
-          "certificate_hash": "db73e44dfc61a7a969557e03",
+          "certificate_hash": "6663b6a7ce59174347d63cee",
           "claims": {
             "capability_id": "capability.ledger-inventory",
             "clearing_index": 1,
@@ -557,7 +557,7 @@
           "commonwealth_root": "364514c6ae6342db859cb07f",
           "deterministic": true,
           "goal": "commonwealth over union (clearing 1)",
-          "issued_at": "2026-07-31T06:45:24.043409Z",
+          "issued_at": "2026-07-31T07:24:57.421990Z",
           "kind": "commonwealth_certificate",
           "lineage_head_hash": "89c4ff0a6368875ef0800e26",
           "member_count": 3,
@@ -604,7 +604,7 @@
         "used_skill_route_discovery": false
       },
       {
-        "applied_at": "2026-07-31T06:45:24.043476Z",
+        "applied_at": "2026-07-31T07:24:57.422069Z",
         "bound_action_root": "bc9f34eaf8099cb1dd02f164",
         "bound_union_height": 2,
         "bound_union_root": "26f32db61f54d18631937b4e",
@@ -616,7 +616,7 @@
         "commonwealth_certificate": {
           "bound_union_height": 2,
           "bound_union_root": "26f32db61f54d18631937b4e",
-          "certificate_hash": "1688c8442dd9af181ebdee39",
+          "certificate_hash": "8fe4c26cde24b93e60e9b200",
           "claims": {
             "capability_id": "repo.import-health",
             "clearing_index": 2,
@@ -630,7 +630,7 @@
           "commonwealth_root": "9796e60417c648e90b06e627",
           "deterministic": true,
           "goal": "commonwealth over union (clearing 2)",
-          "issued_at": "2026-07-31T06:45:24.043493Z",
+          "issued_at": "2026-07-31T07:24:57.422089Z",
           "kind": "commonwealth_certificate",
           "lineage_head_hash": "89c4ff0a6368875ef0800e26",
           "member_count": 3,
@@ -683,7 +683,7 @@
     "tip_commonwealth_root": "9796e60417c648e90b06e627",
     "tip_height": 2,
     "union_hash": "d186bc36689355cea11f0c42",
-    "updated_at": "2026-07-31T06:45:24.043511Z"
+    "updated_at": "2026-07-31T07:24:57.422110Z"
   },
   "deterministic": true,
   "epoch_count": 2,
@@ -718,7 +718,7 @@
     "used_skill_route_discovery": false
   },
   "execution_hash": "f620923c33e7444ef74ccd1a",
-  "exported_at": "2026-07-31T06:45:24.043995Z",
+  "exported_at": "2026-07-31T07:24:57.422654Z",
   "goal": "commonwealth over union",
   "kind": "commonwealth_bundle",
   "lineage": {

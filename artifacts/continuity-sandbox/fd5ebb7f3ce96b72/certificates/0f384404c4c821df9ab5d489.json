@@ -1,0 +1,60 @@
+{
+  "certificate_hash": "0f384404c4c821df9ab5d489",
+  "claims": {
+    "ablation_ok": true,
+    "adversarial_ok": true,
+    "assurance_ok": true,
+    "contract_met": true,
+    "contract_ok": true,
+    "machine_checkable": true,
+    "no_skill_route": true,
+    "transfer_ok": true
+  },
+  "done_when": "no_skill_route; capability_exists:repo.import-health; capability_exists:capability.reauthorization-plane",
+  "evidence": {
+    "assurance": {
+      "ablation": {
+        "failed_phases": [],
+        "live_ledger_mutated": false,
+        "ok": true,
+        "passed_count": 4,
+        "phase_count": 4
+      },
+      "adversarial": {
+        "negative_count": 4,
+        "negatives_ok": true,
+        "negatives_passed": 4,
+        "ok": true,
+        "positive_ok": true
+      },
+      "ok": true,
+      "transfer": {
+        "member_count": 3,
+        "ok": true,
+        "package_hash": "7878a785b9718369",
+        "proved_count": 3
+      }
+    },
+    "contract": {
+      "failed_count": 0,
+      "machine_checkable": true,
+      "met": true,
+      "mission_ok": null,
+      "ok": true,
+      "passed_count": 3
+    },
+    "metrics": {
+      "count": 107,
+      "primitive_count": 58,
+      "proved_count": 106,
+      "proved_ratio": 0.9906542056074766
+    }
+  },
+  "goal": "Add a closed reauthorization plane over reinstatement: multi-reinstatement orders compound into deterministic hash-chained reauthorization mandates with certificates, sterile rehydrate+prove, and adversarial falsification without skill-route discovery.",
+  "issued_at": "2026-07-30T10:33:11.404568Z",
+  "kind": "sovereignty_certificate",
+  "ok": true,
+  "package_hash": "7878a785b9718369",
+  "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260730T102510Z-2797a93c",
+  "schema_version": 1
+}

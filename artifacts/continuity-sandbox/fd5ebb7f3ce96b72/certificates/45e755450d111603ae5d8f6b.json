@@ -1,0 +1,60 @@
+{
+  "certificate_hash": "45e755450d111603ae5d8f6b",
+  "claims": {
+    "ablation_ok": true,
+    "adversarial_ok": true,
+    "assurance_ok": true,
+    "contract_met": true,
+    "contract_ok": true,
+    "machine_checkable": true,
+    "no_skill_route": true,
+    "transfer_ok": true
+  },
+  "done_when": "no_skill_route",
+  "evidence": {
+    "assurance": {
+      "ablation": {
+        "failed_phases": [],
+        "live_ledger_mutated": false,
+        "ok": true,
+        "passed_count": 4,
+        "phase_count": 4
+      },
+      "adversarial": {
+        "negative_count": 4,
+        "negatives_ok": true,
+        "negatives_passed": 4,
+        "ok": true,
+        "positive_ok": true
+      },
+      "ok": true,
+      "transfer": {
+        "member_count": 3,
+        "ok": true,
+        "package_hash": "7878a785b9718369",
+        "proved_count": 3
+      }
+    },
+    "contract": {
+      "failed_count": 0,
+      "machine_checkable": true,
+      "met": true,
+      "mission_ok": null,
+      "ok": true,
+      "passed_count": 1
+    },
+    "metrics": {
+      "count": 90,
+      "primitive_count": 41,
+      "proved_count": 88,
+      "proved_ratio": 0.9777777777777777
+    }
+  },
+  "goal": "Build a closed settlement plane over multi-action actuation that settles certified capability effects into deterministic hash-chained settlement receipts bound to action roots, with settlement certificates, sterile rehydrate+prove, and adversarial falsification of wrong-action/reorder/double-settlement/forged-root/gap/single-settlement failures — past certified effects without settled outcomes, without skill-route discovery.",
+  "issued_at": "2026-07-29T18:32:38.692876Z",
+  "kind": "sovereignty_certificate",
+  "ok": true,
+  "package_hash": "7878a785b9718369",
+  "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T182221Z-aef5f6d9",
+  "schema_version": 1
+}

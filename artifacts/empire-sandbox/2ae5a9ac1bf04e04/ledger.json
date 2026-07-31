@@ -1,13 +1,5 @@
 {
-  "action": "export_capability_package",
-  "exported_at": "2026-07-31T07:25:41.621798Z",
-  "member_count": 3,
-  "member_ids": [
-    "repo.import-health",
-    "capability.ledger-inventory",
-    "unbound.milestone-gate"
-  ],
-  "members": {
+  "capabilities": {
     "capability.ledger-inventory": {
       "behavior_paths": [
         "src/blackhole_agent/capability_compounder.py",
@@ -32,7 +24,7 @@
         "bootstrap",
         "compounder"
       ],
-      "updated_at": "2026-07-31T07:25:41.564183Z"
+      "updated_at": "2026-07-31T07:24:57.188831Z"
     },
     "repo.import-health": {
       "behavior_paths": [
@@ -47,7 +39,7 @@
       "id": "repo.import-health",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-07-31T07:25:39.726384Z",
+      "last_proved_at": "2026-07-31T05:25:36.061422Z",
       "name": "Repository import health",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_repo_import_health; r=builtin_repo_import_health(); assert r['ok'] and not r['skill_route_symbols_in_compounder']\"",
       "source_milestone": null,
@@ -56,7 +48,7 @@
         "bootstrap",
         "health"
       ],
-      "updated_at": "2026-07-31T07:25:41.562506Z"
+      "updated_at": "2026-07-31T07:24:57.188817Z"
     },
     "unbound.milestone-gate": {
       "behavior_paths": [
@@ -81,17 +73,9 @@
         "bootstrap",
         "unbound"
       ],
-      "updated_at": "2026-07-31T07:25:41.563460Z"
+      "updated_at": "2026-07-31T07:24:57.188839Z"
     }
   },
-  "ok": true,
-  "package_hash": "7878a785b9718369",
-  "roots": [
-    "repo.import-health",
-    "capability.ledger-inventory",
-    "unbound.milestone-gate"
-  ],
   "schema_version": 1,
-  "source_ledger_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T071555Z-57574041\\capabilities\\ledger.json",
-  "used_skill_route_discovery": false
+  "updated_at": "2026-07-31T07:24:57.188855Z"
 }
