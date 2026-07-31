@@ -88,6 +88,8 @@ def test_kimi_kernel_writes_artifacts_extracts_session_and_redacts_recorded_prom
     assert "Implement the capability." not in json.dumps(result.command)
     assert (tmp_path / "out" / "latest-kimi-run.json").exists()
     assert seen["kwargs"]["cwd"] == tmp_path
+    assert seen["kwargs"]["encoding"] == "utf-8"
+    assert seen["kwargs"]["errors"] == "replace"
 
 
 def test_kimi_kernel_preserves_failure_artifact_before_raising(tmp_path, monkeypatch):
