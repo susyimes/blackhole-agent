@@ -1,0 +1,41 @@
+{
+  "agreeing_count": 2,
+  "agreeing_origins": [
+    "origin-a",
+    "origin-b"
+  ],
+  "byzantine_count": 1,
+  "byzantine_origins": [
+    "origin-byzantine"
+  ],
+  "certificate_hash": "abbcb5d1ead1d348b3dc951f",
+  "claims": {
+    "origin_ids": [
+      "origin-a",
+      "origin-b",
+      "origin-byzantine"
+    ],
+    "roots": [
+      "repo.import-health",
+      "capability.ledger-inventory",
+      "unbound.milestone-gate"
+    ],
+    "votes_accepted": 3
+  },
+  "goal": "epoch finality over quorum consensus",
+  "issued_at": "2026-07-31T20:56:11.794391Z",
+  "kind": "quorum_certificate",
+  "lineage_head_hash": "f4b84698c31ef6e2a933ff79",
+  "member_count": 3,
+  "ok": true,
+  "origin_count": 3,
+  "origin_hashes": [
+    "fc87f32ee1263ea8097739a2",
+    "f9c2a3dbefd08da81fecadd5",
+    "131f1ae7057fdfd5d030bff5"
+  ],
+  "package_hash": "066545df3053adf5",
+  "schema_version": 1,
+  "threshold": 2,
+  "used_skill_route_discovery": false
+}

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -70,3 +71,12 @@ def test_builtin_proof_is_green() -> None:
     assert result["ok"], result
     assert result["tamper_falsified"] and result["unknown_tool_fail_closed"]
     assert result["live_result_echoed"]
+
+
+@pytest.mark.skipif(shutil.which("npx") is None, reason="npx not available for external MCP server")
+def test_external_filesystem_proof_is_green() -> None:
+    result = mcp_client.builtin_mcp_live_external_proof()
+    assert result["ok"], result
+    assert result["server_info"]["name"] == "secure-filesystem-server"
+    assert result["external_result_verified"] and result["tamper_falsified"]
+    assert result["outside_allowed_dir_refused"]

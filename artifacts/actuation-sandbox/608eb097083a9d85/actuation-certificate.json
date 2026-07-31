@@ -1,0 +1,33 @@
+{
+  "action_height": 3,
+  "action_root": "965db201899ce03098bc9d39",
+  "bound_state_height": 2,
+  "bound_state_root": "d2bb68869dd95e1e67bd6452",
+  "certificate_hash": "8c3b55ca0837b80c46aae051",
+  "claims": {
+    "action_index": 3,
+    "capability_id": "unbound.milestone-gate",
+    "effect": "prove",
+    "plane": "actuation"
+  },
+  "deterministic": true,
+  "effect_count": 3,
+  "execution_certificate_hash": "bc32e3d4d2c6475e692b8c0e",
+  "execution_hash": "b18028301d4dcf5f900cf236",
+  "goal": "actuation over world-state execution (action 3)",
+  "issued_at": "2026-07-31T20:56:17.057807Z",
+  "kind": "actuation_certificate",
+  "lineage_head_hash": "4be4d4812a7277454028dada",
+  "member_count": 3,
+  "member_ids": [
+    "capability.ledger-inventory",
+    "repo.import-health",
+    "unbound.milestone-gate"
+  ],
+  "ok": true,
+  "package_hash": "8c603b84aa1980e9",
+  "parent_action_root": "aa8040924338d6536edc34e3",
+  "post_execution": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false
+}

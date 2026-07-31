@@ -204,6 +204,7 @@ def run_live_execution(
     arguments: Mapping[str, Any] | None = None,
     output_dir: Path | None = None,
     recorded_at: str | None = None,
+    timeout_seconds: float = 30.0,
 ) -> dict[str, Any]:
     """Run one live MCP session end-to-end and seal it as a digest-chained trace.
 
@@ -214,7 +215,7 @@ def run_live_execution(
 
     command = [str(part) for part in (command or echo_server_command())]
     arguments = dict(arguments or {"text": "blackhole-live-mcp"})
-    with McpStdioSession(command) as session:
+    with McpStdioSession(command, timeout_seconds=timeout_seconds) as session:
         handshake = {"serverInfo": session.server_info, "protocolVersion": session.protocol_version}
         tools_payload = session.list_tools()
         descriptors = tool_descriptors_from_mcp_tools(tools_payload, server_name=server_name)
@@ -299,6 +300,98 @@ def verify_execution_trace(trace_dir: Path) -> dict[str, Any]:
         in (trace.get("imported_tool_names") or []),
     }
     return {"ok": all(checks.values()), "checks": checks, "trace_digest": trace.get("trace_digest")}
+
+
+def external_filesystem_server_command(allowed_dir: Path) -> list[str] | None:
+    """Command line for the official third-party filesystem MCP server.
+
+    Returns None when no npx launcher is available. On Windows npx is a batch
+    shim that CreateProcess cannot exec directly, so it goes through cmd.exe.
+    """
+
+    import shutil
+
+    npx = shutil.which("npx")
+    if npx is None:
+        return None
+    base = ["cmd.exe", "/c", npx] if sys.platform.startswith("win") else [npx]
+    return [*base, "-y", "@modelcontextprotocol/server-filesystem", str(allowed_dir)]
+
+
+def builtin_mcp_live_external_proof() -> dict[str, Any]:
+    """Registered proof for ``capability.mcp-live-external``.
+
+    Runs the full live actuation path against a real external third-party MCP
+    server — the official ``@modelcontextprotocol/server-filesystem`` spawned
+    via npx: handshake against ``secure-filesystem-server``, live tools/list,
+    policy-routed import, a real ``read_file`` call returning a sentinel file
+    the server read from disk, sealed + re-verified trace, tamper
+    falsification, and a fail-closed check that reading outside the allowed
+    directory is refused by the server.
+    """
+
+    import shutil
+
+    with tempfile.TemporaryDirectory(prefix="mcp-external-proof-") as tmp:
+        sandbox = Path(tmp) / "sandbox"
+        sandbox.mkdir()
+        sentinel = "blackhole-external-mcp-sentinel"
+        sentinel_path = sandbox / "sentinel.txt"
+        sentinel_path.write_text(sentinel + "\n", encoding="utf-8")
+
+        command = external_filesystem_server_command(sandbox)
+        if command is None:
+            return {"ok": False, "error": "npx not available; cannot spawn external MCP server"}
+
+        out = Path(tmp) / "live"
+        try:
+            run = run_live_execution(
+                command=command,
+                server_name="fs",
+                tool_name="read_file",
+                arguments={"path": str(sentinel_path)},
+                output_dir=out,
+                timeout_seconds=180.0,
+            )
+        except McpProtocolError as error:
+            return {"ok": False, "error": f"external session failed: {error}"}
+        verify = verify_execution_trace(out)
+
+        # Tamper falsification: edited recorded result must fail verification.
+        clone = Path(tmp) / "tampered"
+        shutil.copytree(out, clone)
+        trace = json.loads((clone / "execution.json").read_text(encoding="utf-8"))
+        trace["call"]["result"]["content"][0]["text"] = "forged"
+        atomic_write_json(clone / "execution.json", trace)
+        tampered = verify_execution_trace(clone)
+
+        # Fail-closed: the server must refuse paths outside its allowed root.
+        outside_refused = False
+        with McpStdioSession(command, timeout_seconds=180.0) as session:
+            outside = session.call_tool("read_file", {"path": str(Path(tmp) / "outside.txt")})
+            outside_refused = bool(outside.get("isError"))
+
+    server = run.get("server_info") or {}
+    ok = (
+        run["ok"]
+        and verify["ok"]
+        and sentinel in run["result_text"]
+        and not tampered["ok"]
+        and outside_refused
+        and server.get("name") == "secure-filesystem-server"
+        and "fs:read_file" in run["imported_tool_names"]
+        and "fs:write_file" in run["imported_tool_names"]
+    )
+    return {
+        "ok": bool(ok),
+        "trace_digest": run.get("trace_digest"),
+        "server_info": server,
+        "imported_tool_count": len(run.get("imported_tool_names") or []),
+        "external_result_verified": sentinel in run.get("result_text", ""),
+        "trace_verified": verify["ok"],
+        "tamper_falsified": not tampered["ok"],
+        "outside_allowed_dir_refused": outside_refused,
+    }
 
 
 def builtin_mcp_live_execution_proof() -> dict[str, Any]:
