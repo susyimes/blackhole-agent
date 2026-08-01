@@ -29,7 +29,7 @@
         "ablation",
         "evidence"
       ],
-      "updated_at": "2026-08-01T17:04:08.896847Z"
+      "updated_at": "2026-08-01T17:49:10.475461Z"
     },
     "capability.actuation-plane": {
       "behavior_paths": [
@@ -84,7 +84,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-01T17:04:08.900114Z"
+      "updated_at": "2026-08-01T17:49:10.476172Z"
     },
     "capability.adaptive-grow": {
       "behavior_paths": [
@@ -116,7 +116,7 @@
         "growth",
         "adaptive"
       ],
-      "updated_at": "2026-08-01T17:04:08.894821Z"
+      "updated_at": "2026-08-01T17:49:10.474720Z"
     },
     "capability.adversarial-contract": {
       "behavior_paths": [
@@ -149,7 +149,42 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-08-01T17:04:08.897209Z"
+      "updated_at": "2026-08-01T17:49:10.475579Z"
+    },
+    "capability.application-plane": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_application.py",
+        "src/blackhole_agent/capability_compounder.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Application plane synthesizes executable capability pipelines from declarative goals instead of hand-authored step lists: BFS planning over the live proved ledger, outcome grading, plan-minimality and order-sensitivity ablation, and direct planner-honesty falsification - the ledger is applied to goals, not just composed, without skill-route.",
+      "created_at": "2026-08-01T17:49:10.474302Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.ablation-proof",
+        "capability.utility-plane"
+      ],
+      "description": "Goal-directed pipeline synthesis over the live proved ledger: declarative tasks (initial state, goal keys, frozen outcome oracle) carry no step sequence; a BFS planner derives a minimal capability chain whose provided state keys cover the goal, the executor threads real capability behavior through the planned order, and outcomes are graded against oracles. Plan minimality is proven by member-removal ablation, order sensitivity by reversed-plan execution, and planner honesty by hiding capabilities (dependent tasks must go honestly unplannable). Reports are digest-sealed and verification re-checks every recorded plan against the live ledger, so a plan naming an unproved capability fails - upgrading the ledger from hand-authored composition to goal-directed application. Includes a three-capability routed-triage-record goal that exists nowhere in the hand-authored utility suite.",
+      "entry": "blackhole_agent.capability_application:builtin_application_plane",
+      "id": "capability.application-plane",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-01T17:49:11.102832Z",
+      "name": "Capability application plane",
+      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_application import builtin_application_plane; r=builtin_application_plane(); assert r['ok'] and r.get('application',{}).get('application_score')==1.0 and r.get('application',{}).get('unsolvable_count')==0 and r.get('planner_honesty') and r.get('deterministic') and r.get('tamper_detected') and r.get('unsound_plan_detected') and r.get('misgrade_detected') and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "bootstrap",
+        "compounder",
+        "application",
+        "planning",
+        "goal-directed",
+        "outcome",
+        "evidence"
+      ],
+      "updated_at": "2026-08-01T17:49:11.102832Z"
     },
     "capability.assurance-plane": {
       "behavior_paths": [
@@ -186,7 +221,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-08-01T17:04:08.897387Z"
+      "updated_at": "2026-08-01T17:49:10.475633Z"
     },
     "capability.auto-kernel-routing": {
       "behavior_paths": [
@@ -250,7 +285,7 @@
         "autonomic",
         "novelty"
       ],
-      "updated_at": "2026-08-01T17:04:08.895582Z"
+      "updated_at": "2026-08-01T17:49:10.475039Z"
     },
     "capability.composed-core-health": {
       "behavior_paths": [
@@ -1604,7 +1639,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-08-01T17:04:08.898381Z"
+      "updated_at": "2026-08-01T17:49:10.475890Z"
     },
     "capability.contract-plane": {
       "behavior_paths": [
@@ -1639,7 +1674,7 @@
         "evidence",
         "growth"
       ],
-      "updated_at": "2026-08-01T17:04:08.896670Z"
+      "updated_at": "2026-08-01T17:49:10.475403Z"
     },
     "capability.distill-ledger": {
       "behavior_paths": [
@@ -1669,7 +1704,7 @@
         "growth",
         "distill"
       ],
-      "updated_at": "2026-08-01T17:04:08.895402Z"
+      "updated_at": "2026-08-01T17:49:10.474975Z"
     },
     "capability.execution-plane": {
       "behavior_paths": [
@@ -1722,7 +1757,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-01T17:04:08.899671Z"
+      "updated_at": "2026-08-01T17:49:10.476112Z"
     },
     "capability.federation-plane": {
       "behavior_paths": [
@@ -1767,7 +1802,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-08-01T17:04:08.898766Z"
+      "updated_at": "2026-08-01T17:49:10.475946Z"
     },
     "capability.finality-plane": {
       "behavior_paths": [
@@ -1816,7 +1851,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-01T17:04:08.899465Z"
+      "updated_at": "2026-08-01T17:49:10.476058Z"
     },
     "capability.frontier-novelty": {
       "behavior_paths": [
@@ -1846,7 +1881,7 @@
         "growth",
         "novelty"
       ],
-      "updated_at": "2026-08-01T17:04:08.895223Z"
+      "updated_at": "2026-08-01T17:49:10.474893Z"
     },
     "capability.github-live-actuation": {
       "behavior_paths": [
@@ -1905,7 +1940,7 @@
         "mission",
         "planner"
       ],
-      "updated_at": "2026-08-01T17:04:08.895759Z"
+      "updated_at": "2026-08-01T17:49:10.475097Z"
     },
     "capability.grounded-growth-loop": {
       "behavior_paths": [
@@ -1993,7 +2028,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-08-01T17:04:08.894640Z"
+      "updated_at": "2026-08-01T17:49:10.474661Z"
     },
     "capability.growth-proof-audit-gate": {
       "behavior_paths": [
@@ -2050,7 +2085,7 @@
         "compounder",
         "integrity"
       ],
-      "updated_at": "2026-08-01T17:04:08.895046Z"
+      "updated_at": "2026-08-01T17:49:10.474777Z"
     },
     "capability.ledger-inventory": {
       "behavior_paths": [
@@ -2076,7 +2111,7 @@
         "bootstrap",
         "compounder"
       ],
-      "updated_at": "2026-08-01T17:04:08.894048Z"
+      "updated_at": "2026-08-01T17:49:10.474463Z"
     },
     "capability.ledger-proof-reaudit": {
       "behavior_paths": [
@@ -2146,7 +2181,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-08-01T17:04:08.897942Z"
+      "updated_at": "2026-08-01T17:49:10.475739Z"
     },
     "capability.mcp-live-execution": {
       "behavior_paths": [
@@ -2292,7 +2327,7 @@
         "growth",
         "second-wave"
       ],
-      "updated_at": "2026-08-01T17:04:08.896291Z"
+      "updated_at": "2026-08-01T17:49:10.475283Z"
     },
     "capability.multi-kernel-harness-routing": {
       "behavior_paths": [
@@ -2351,7 +2386,7 @@
         "contract",
         "evidence"
       ],
-      "updated_at": "2026-08-01T17:04:08.896468Z"
+      "updated_at": "2026-08-01T17:49:10.475346Z"
     },
     "capability.plane-engine": {
       "behavior_paths": [
@@ -2442,7 +2477,7 @@
         "mission",
         "program"
       ],
-      "updated_at": "2026-08-01T17:04:08.895936Z"
+      "updated_at": "2026-08-01T17:49:10.475152Z"
     },
     "capability.quorum-plane": {
       "behavior_paths": [
@@ -2489,7 +2524,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-01T17:04:08.899197Z"
+      "updated_at": "2026-08-01T17:49:10.476001Z"
     },
     "capability.reconciliation-plane": {
       "behavior_paths": [
@@ -2532,7 +2567,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-08-01T17:04:08.898156Z"
+      "updated_at": "2026-08-01T17:49:10.475793Z"
     },
     "capability.repair-plane": {
       "behavior_paths": [
@@ -2567,7 +2602,7 @@
         "fitness",
         "evidence"
       ],
-      "updated_at": "2026-08-01T17:04:08.900866Z"
+      "updated_at": "2026-08-01T17:49:10.476227Z"
     },
     "capability.scout-gaps": {
       "behavior_paths": [
@@ -2595,7 +2630,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-08-01T17:04:08.894428Z"
+      "updated_at": "2026-08-01T17:49:10.474587Z"
     },
     "capability.second-wave-absorb": {
       "behavior_paths": [
@@ -2629,7 +2664,7 @@
         "second-wave",
         "domain"
       ],
-      "updated_at": "2026-08-01T17:04:08.896114Z"
+      "updated_at": "2026-08-01T17:49:10.475205Z"
     },
     "capability.sovereignty-plane": {
       "behavior_paths": [
@@ -2668,7 +2703,7 @@
         "certificate",
         "evidence"
       ],
-      "updated_at": "2026-08-01T17:04:08.897662Z"
+      "updated_at": "2026-08-01T17:49:10.475685Z"
     },
     "capability.transfer-plane": {
       "behavior_paths": [
@@ -2699,7 +2734,7 @@
         "transfer",
         "package"
       ],
-      "updated_at": "2026-08-01T17:04:08.897025Z"
+      "updated_at": "2026-08-01T17:49:10.475519Z"
     },
     "capability.utility-plane": {
       "behavior_paths": [
@@ -2732,7 +2767,7 @@
         "outcome",
         "evidence"
       ],
-      "updated_at": "2026-08-01T17:05:11.001057Z"
+      "updated_at": "2026-08-01T17:49:10.476279Z"
     },
     "domain.ci-security": {
       "behavior_paths": [
@@ -3038,7 +3073,7 @@
         "bootstrap",
         "evolution-route"
       ],
-      "updated_at": "2026-08-01T17:04:08.894242Z"
+      "updated_at": "2026-08-01T17:49:10.474526Z"
     },
     "repo.import-health": {
       "behavior_paths": [
@@ -3062,7 +3097,7 @@
         "bootstrap",
         "health"
       ],
-      "updated_at": "2026-08-01T17:04:08.893571Z"
+      "updated_at": "2026-08-01T17:49:10.474306Z"
     },
     "unbound.milestone-gate": {
       "behavior_paths": [
@@ -3087,9 +3122,9 @@
         "bootstrap",
         "unbound"
       ],
-      "updated_at": "2026-08-01T17:04:08.893837Z"
+      "updated_at": "2026-08-01T17:49:10.474394Z"
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-08-01T17:05:11.001088Z"
+  "updated_at": "2026-08-01T17:49:11.102870Z"
 }

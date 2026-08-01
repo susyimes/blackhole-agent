@@ -1,0 +1,204 @@
+{
+  "application": {
+    "application_score": 1.0,
+    "plan_attributed": [
+      "routed-triage-record",
+      "scan-gated-activation",
+      "blocked-scan-honesty",
+      "ledger-gated-proposal"
+    ],
+    "task_count": 4,
+    "task_pass_count": 4,
+    "unsolvable_count": 0
+  },
+  "grade_digest": "14ccadf92b160d0c09a276a0603c87da51884b649bce40feb0c63b0d5e988830",
+  "hidden_capabilities": [],
+  "kind": "capability_application_plane",
+  "ok": true,
+  "outcomes_digest": "1ad7c64f297282a4a340927cf5da6c551a9889898686d114852bf2dda7f8c0c5",
+  "plans_digest": "6e95bdc55bb3047f38fc035ade0c54377b5ff2ff3fd042c7d858d84a82be93d8",
+  "report_digest": "d1af29258db20bb2a7f93d4bb7d5b4ef7462f794c9f473713aa6a87bc21f9a1c",
+  "run_at": "2026-08-01T17:46:10.283542Z",
+  "schema_version": 1,
+  "task_records": [
+    {
+      "description": "From a raw bug report and a tool requirement, produce a persisted, verified triage record — a three-capability chain that exists nowhere in the hand-authored utility suite.",
+      "duration_ms": 19.662,
+      "error": "",
+      "goal": [
+        "triage",
+        "memory_record"
+      ],
+      "id": "routed-triage-record",
+      "minimality": [
+        {
+          "broke_outcome": true,
+          "removed": "domain.tool-routing"
+        },
+        {
+          "broke_outcome": true,
+          "removed": "domain.issue-triage"
+        },
+        {
+          "broke_outcome": true,
+          "removed": "domain.local-memory"
+        }
+      ],
+      "ok": true,
+      "outcome": {
+        "issue": {
+          "body": "regression in harness coverage",
+          "labels": [
+            "bug"
+          ],
+          "title": "tests failing on main"
+        },
+        "memory_record": {
+          "deleted": true,
+          "key": "last-triage",
+          "value": "triage:validation"
+        },
+        "preflight": {
+          "executable": [
+            "auto_merge",
+            "issue_triage"
+          ],
+          "missing_required": [],
+          "preflight_ok": true
+        },
+        "tool_requirements": [
+          "issue_triage"
+        ],
+        "triage": {
+          "gated": false,
+          "lane": "validation"
+        }
+      },
+      "plan": [
+        "domain.tool-routing",
+        "domain.issue-triage",
+        "domain.local-memory"
+      ],
+      "plan_sound": true,
+      "reversed_broke": true
+    },
+    {
+      "description": "From a raw scan verdict, reach an allowed harness activation.",
+      "duration_ms": 2.698,
+      "error": "",
+      "goal": [
+        "activation"
+      ],
+      "id": "scan-gated-activation",
+      "minimality": [
+        {
+          "broke_outcome": true,
+          "removed": "domain.ci-security"
+        },
+        {
+          "broke_outcome": true,
+          "removed": "domain.harness-activation"
+        }
+      ],
+      "ok": true,
+      "outcome": {
+        "activation": {
+          "allowed": true,
+          "decision": "ready_for_local_eval_activation",
+          "external_allowed": false
+        },
+        "scan": {
+          "scan_conclusion": "success"
+        },
+        "scan_gate": {
+          "allowed": true,
+          "outcome": "security_scan_passed"
+        }
+      },
+      "plan": [
+        "domain.ci-security",
+        "domain.harness-activation"
+      ],
+      "plan_sound": true,
+      "reversed_broke": true
+    },
+    {
+      "description": "From a failing scan verdict, reach the activation surface and honestly report the blocked outcome — negative oracles are goals too.",
+      "duration_ms": 0.027,
+      "error": "",
+      "goal": [
+        "activation"
+      ],
+      "id": "blocked-scan-honesty",
+      "minimality": [
+        {
+          "broke_outcome": true,
+          "removed": "domain.ci-security"
+        },
+        {
+          "broke_outcome": true,
+          "removed": "domain.harness-activation"
+        }
+      ],
+      "ok": true,
+      "outcome": {
+        "activation": {
+          "allowed": false,
+          "decision": "ready_for_local_eval_activation",
+          "external_allowed": false
+        },
+        "scan": {
+          "scan_conclusion": "failure"
+        },
+        "scan_gate": {
+          "allowed": false,
+          "outcome": "security_scan_blocked"
+        }
+      },
+      "plan": [
+        "domain.ci-security",
+        "domain.harness-activation"
+      ],
+      "plan_sound": true,
+      "reversed_broke": true
+    },
+    {
+      "description": "From a raw proposal fixture, reach a recorded review decision.",
+      "duration_ms": 345.988,
+      "error": "",
+      "goal": [
+        "proposal_review"
+      ],
+      "id": "ledger-gated-proposal",
+      "minimality": [
+        {
+          "broke_outcome": true,
+          "removed": "capability.ledger-inventory"
+        },
+        {
+          "broke_outcome": true,
+          "removed": "domain.proposal-eval"
+        }
+      ],
+      "ok": true,
+      "outcome": {
+        "ledger_ready": true,
+        "proposal_fixture": "benign_agent_harness.json",
+        "proposal_review": {
+          "accepted_count": 1,
+          "decision": "record",
+          "passed": true,
+          "rejected_count": 0,
+          "review_status": "accepted"
+        }
+      },
+      "plan": [
+        "capability.ledger-inventory",
+        "domain.proposal-eval"
+      ],
+      "plan_sound": true,
+      "reversed_broke": true
+    }
+  ],
+  "used_skill_route_discovery": false
+}

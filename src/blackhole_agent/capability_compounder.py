@@ -19042,6 +19042,70 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
             created_at=utc_now_iso(),
             updated_at=utc_now_iso(),
         ),
+        Capability(
+            id="capability.application-plane",
+            name="Capability application plane",
+            description=(
+                "Goal-directed pipeline synthesis over the live proved ledger: "
+                "declarative tasks (initial state, goal keys, frozen outcome "
+                "oracle) carry no step sequence; a BFS planner derives a "
+                "minimal capability chain whose provided state keys cover the "
+                "goal, the executor threads real capability behavior through "
+                "the planned order, and outcomes are graded against oracles. "
+                "Plan minimality is proven by member-removal ablation, order "
+                "sensitivity by reversed-plan execution, and planner honesty "
+                "by hiding capabilities (dependent tasks must go honestly "
+                "unplannable). Reports are digest-sealed and verification "
+                "re-checks every recorded plan against the live ledger, so a "
+                "plan naming an unproved capability fails - upgrading the "
+                "ledger from hand-authored composition to goal-directed "
+                "application. Includes a three-capability routed-triage-record "
+                "goal that exists nowhere in the hand-authored utility suite."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_application:builtin_application_plane",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_application import builtin_application_plane; '
+                "r=builtin_application_plane(); assert r['ok'] "
+                "and r.get('application',{}).get('application_score')==1.0 "
+                "and r.get('application',{}).get('unsolvable_count')==0 "
+                "and r.get('planner_honesty') and r.get('deterministic') "
+                "and r.get('tamper_detected') and r.get('unsound_plan_detected') "
+                "and r.get('misgrade_detected') "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.ablation-proof",
+                "capability.utility-plane",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_application.py",
+                "src/blackhole_agent/capability_compounder.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Application plane synthesizes executable capability pipelines "
+                "from declarative goals instead of hand-authored step lists: "
+                "BFS planning over the live proved ledger, outcome grading, "
+                "plan-minimality and order-sensitivity ablation, and direct "
+                "planner-honesty falsification - the ledger is applied to "
+                "goals, not just composed, without skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "application",
+                "planning",
+                "goal-directed",
+                "outcome",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
 
     ]
 
