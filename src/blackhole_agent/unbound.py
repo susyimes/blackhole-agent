@@ -217,6 +217,7 @@ class MilestoneGate:
     reasons: tuple[str, ...]
     changed_paths: tuple[str, ...]
     behavior_paths: tuple[str, ...]
+    validation_replay: tuple[dict[str, Any], ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -985,6 +986,9 @@ Milestone semantics:
 - status=blocked: progress genuinely cannot continue without an external state change.
 - milestone/complete require a non-empty capability_delta, outcome_evidence, and at least one changed behavior path
   outside docs/tests/artifacts. Passing tests alone is not enough.
+- The controller re-executes every validation command you report with exit_code 0 inside the mission workspace
+  before accepting a milestone. A claim that does not reproduce (non-zero exit, timeout) is rejected, so report
+  only exact commands you actually ran successfully, and prefer fast targeted commands over full suites.
 
 Return only one JSON object with exactly this shape:
 {{
@@ -1215,6 +1219,87 @@ def successful_validation(validation: tuple[dict[str, Any], ...]) -> bool:
     )
 
 
+VALIDATION_REPLAY_LIMIT = 5
+VALIDATION_REPLAY_TIMEOUT_SECONDS = 300
+
+
+def replay_validation_command(
+    workspace: Path,
+    command: str,
+    *,
+    timeout: int = VALIDATION_REPLAY_TIMEOUT_SECONDS,
+    command_runner: Callable[..., Any] = subprocess.run,
+) -> dict[str, Any]:
+    """Re-execute one agent-reported validation command under controller authority.
+
+    The agent already executes arbitrary commands during its own turn, so
+    replaying its claimed validation in the mission workspace adds no new
+    authority; it only removes the need to trust the reported exit code.
+    """
+
+    try:
+        completed = command_runner(
+            command,
+            cwd=workspace,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        return {
+            "command": command,
+            "reported_exit_code": 0,
+            "reproduced_exit_code": None,
+            "timed_out": True,
+            "ok": False,
+        }
+    except Exception as error:  # pragma: no cover - defensive replay guard
+        return {
+            "command": command,
+            "reported_exit_code": 0,
+            "reproduced_exit_code": None,
+            "timed_out": False,
+            "ok": False,
+            "error": str(error),
+        }
+    return {
+        "command": command,
+        "reported_exit_code": 0,
+        "reproduced_exit_code": completed.returncode,
+        "timed_out": False,
+        "ok": completed.returncode == 0,
+    }
+
+
+def reproduce_validation(
+    workspace: Path,
+    validation: tuple[dict[str, Any], ...],
+    *,
+    limit: int = VALIDATION_REPLAY_LIMIT,
+    timeout: int = VALIDATION_REPLAY_TIMEOUT_SECONDS,
+    command_runner: Callable[..., Any] = subprocess.run,
+) -> list[dict[str, Any]]:
+    """Replay reported successful validation commands so claims must reproduce."""
+
+    replays: list[dict[str, Any]] = []
+    for item in validation:
+        command = str(item.get("command") or "").strip()
+        if not command or item.get("exit_code") != 0:
+            continue
+        if len(replays) >= limit:
+            break
+        replays.append(
+            replay_validation_command(
+                workspace,
+                command,
+                timeout=timeout,
+                command_runner=command_runner,
+            )
+        )
+    return replays
+
+
 def evaluate_milestone(
     decision: TurnDecision,
     *,
@@ -1252,6 +1337,24 @@ def evaluate_milestone(
         reasons.append("outcome_evidence is empty")
     if not successful_validation(decision.validation):
         reasons.append("no successful exact validation command was reported")
+    # Controller-side replay: a claimed validation must reproduce in the
+    # mission workspace, not merely be reported with exit_code 0.
+    validation_replays: list[dict[str, Any]] = []
+    if workspace is not None and successful_validation(decision.validation):
+        validation_replays = reproduce_validation(workspace, decision.validation)
+        for replay in validation_replays:
+            if replay.get("ok"):
+                continue
+            if replay.get("timed_out"):
+                reasons.append(f"validation replay timed out: {replay['command']}")
+            else:
+                reasons.append(
+                    "validation replay failed: "
+                    f"{replay['command']} reported exit 0 but controller replay got "
+                    f"exit {replay.get('reproduced_exit_code')}"
+                )
+        if not any(replay.get("ok") for replay in validation_replays):
+            reasons.append("no reported validation command reproduced successfully")
     if decision.status == "complete" and not decision.done_when_met:
         reasons.append("complete was requested but done_when_met is false")
     # When done_when is machine-checkable, refuse complete unless live predicates pass.
@@ -1306,6 +1409,7 @@ def evaluate_milestone(
         reasons=tuple(reasons),
         changed_paths=tuple(changed_paths),
         behavior_paths=tuple(behavior_paths),
+        validation_replay=tuple(validation_replays),
     )
 
 
@@ -1482,6 +1586,7 @@ def run_unbound_turn(
                     reasons=(*gate.reasons, f"milestone commit failed: {error}"),
                     changed_paths=gate.changed_paths,
                     behavior_paths=gate.behavior_paths,
+                    validation_replay=gate.validation_replay,
                 )
                 effective_status = "continue"
             else:

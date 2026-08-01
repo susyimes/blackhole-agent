@@ -12122,6 +12122,60 @@ def builtin_milestone_gate_smoke() -> dict[str, Any]:
     }
 
 
+def builtin_milestone_replay_verification() -> dict[str, Any]:
+    """Prove the controller replays reported validation instead of trusting it.
+
+    A fabricated claim (reported exit 0, command actually exits 3) must be
+    rejected with a validation-replay reason, while an honest claim (reported
+    exit 0, command actually exits 0) must be accepted with a replay record.
+    """
+
+    import tempfile
+
+    from blackhole_agent.unbound import TurnDecision, evaluate_milestone
+
+    def _decision(command: str) -> TurnDecision:
+        return TurnDecision.from_payload(
+            {
+                "status": "milestone",
+                "summary": "replay verification smoke",
+                "strategy": "direct",
+                "next_step": "compose",
+                "capability_delta": "Milestone claims must reproduce under controller replay.",
+                "outcome_evidence": ["synthetic path src/blackhole_agent/unbound.py"],
+                "validation": [{"command": command, "exit_code": 0, "summary": "claimed"}],
+                "done_when_met": False,
+                "commit_message": "",
+                "mission_goal": "",
+                "done_when": "",
+            }
+        )
+
+    honest_command = f'"{sys.executable}" -c "pass"'
+    fabricated_command = f'"{sys.executable}" -c "import sys; sys.exit(3)"'
+    with tempfile.TemporaryDirectory() as raw_workspace:
+        workspace = Path(raw_workspace)
+        accepted = evaluate_milestone(
+            _decision(honest_command),
+            changed_paths=["src/blackhole_agent/unbound.py"],
+            workspace=workspace,
+        )
+        rejected = evaluate_milestone(
+            _decision(fabricated_command),
+            changed_paths=["src/blackhole_agent/unbound.py"],
+            workspace=workspace,
+        )
+    replay_reasons = [reason for reason in rejected.reasons if "validation replay failed" in reason]
+    honest_replays = [replay for replay in accepted.validation_replay if replay.get("ok")]
+    return {
+        "ok": bool(accepted.accepted and not rejected.accepted and replay_reasons and honest_replays),
+        "accepted_honest_claim": accepted.accepted,
+        "rejected_fabricated_claim": not rejected.accepted,
+        "replay_reject_reasons": replay_reasons,
+        "honest_replay_count": len(honest_replays),
+    }
+
+
 def builtin_ledger_inventory() -> dict[str, Any]:
     """Return the in-repo ledger inventory for composition demos."""
 

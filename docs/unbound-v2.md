@@ -58,6 +58,11 @@ An accepted milestone requires all of:
 - a non-empty description of the capability delta
 - concrete outcome evidence
 - an exact validation command with exit code `0`
+- controller replay: each validation command reported with exit code `0` is
+  re-executed by the controller inside the mission workspace before acceptance;
+  a claim that does not reproduce (non-zero exit, error, or timeout) rejects
+  the milestone. Replay is bounded (5 commands, 300 seconds each), so agents
+  should report fast targeted commands rather than full suites
 - `done_when_met=true` when the requested status is `complete`
 
 If any condition is missing, the requested milestone is downgraded to

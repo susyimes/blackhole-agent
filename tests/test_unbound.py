@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -145,13 +146,14 @@ def test_complete_gate_rejects_failed_machine_checkable_done_when():
     """Complete status must fail when structured done_when predicates do not hold."""
 
     repo = Path(__file__).resolve().parents[1]
+    reproducible = [{"command": f'"{sys.executable}" -c "pass"', "exit_code": 0, "summary": "worked"}]
     decision = TurnDecision.from_payload(
         json.loads(
             decision_payload(
                 "complete",
                 capability_delta="Evidence-bound completion path.",
                 outcome_evidence=["contract evaluator ran"],
-                validation=[{"command": "python demo.py", "exit_code": 0, "summary": "worked"}],
+                validation=reproducible,
                 done_when_met=True,
                 done_when="min_capabilities:999999",
             )
@@ -172,6 +174,70 @@ def test_complete_gate_rejects_failed_machine_checkable_done_when():
     assert rejected.accepted is False
     assert any("machine-checkable done_when failed" in reason for reason in rejected.reasons)
     assert accepted.accepted is True
+
+
+def test_milestone_gate_replays_validation_and_rejects_fabricated_claims(tmp_path):
+    """Controller replay must catch a validation claim that does not reproduce."""
+
+    honest = TurnDecision.from_payload(
+        json.loads(
+            decision_payload(
+                "milestone",
+                capability_delta="Honest replay increment.",
+                outcome_evidence=["replay ran"],
+                validation=[{"command": f'"{sys.executable}" -c "pass"', "exit_code": 0, "summary": "ok"}],
+            )
+        )
+    )
+    fabricated = TurnDecision.from_payload(
+        json.loads(
+            decision_payload(
+                "milestone",
+                capability_delta="Fabricated replay increment.",
+                outcome_evidence=["replay ran"],
+                validation=[
+                    {
+                        "command": f'"{sys.executable}" -c "import sys; sys.exit(3)"',
+                        "exit_code": 0,
+                        "summary": "never actually ran",
+                    }
+                ],
+            )
+        )
+    )
+
+    accepted = evaluate_milestone(
+        honest,
+        changed_paths=["src/blackhole_agent/unbound.py"],
+        workspace=tmp_path,
+    )
+    rejected = evaluate_milestone(
+        fabricated,
+        changed_paths=["src/blackhole_agent/unbound.py"],
+        workspace=tmp_path,
+    )
+
+    assert accepted.accepted is True
+    assert any(replay.get("ok") for replay in accepted.validation_replay)
+    assert rejected.accepted is False
+    assert any("validation replay failed" in reason for reason in rejected.reasons)
+    assert any("no reported validation command reproduced successfully" in reason for reason in rejected.reasons)
+
+
+def test_replay_validation_command_reports_timeout(tmp_path):
+    """A validation command that hangs must surface as a timed-out replay."""
+
+    from blackhole_agent.unbound import replay_validation_command
+
+    replay = replay_validation_command(
+        tmp_path,
+        f'"{sys.executable}" -c "import time; time.sleep(30)"',
+        timeout=1,
+    )
+
+    assert replay["ok"] is False
+    assert replay["timed_out"] is True
+    assert replay["reproduced_exit_code"] is None
 
 
 def test_unbound_grok_turn_keeps_one_persistent_agent_with_full_tools(tmp_path, monkeypatch):
