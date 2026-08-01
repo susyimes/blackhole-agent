@@ -1,0 +1,87 @@
+{
+  "fragility": {
+    "blast_radius": {
+      "capability.ledger-attestation": 0,
+      "capability.ledger-inventory": 0,
+      "domain.ci-security": 2,
+      "domain.harness-activation": 2,
+      "domain.issue-triage": 1,
+      "domain.local-memory": 1,
+      "domain.proposal-eval": 1,
+      "domain.tool-routing": 1
+    },
+    "critical_capabilities": [
+      "domain.ci-security",
+      "domain.harness-activation",
+      "domain.issue-triage",
+      "domain.local-memory",
+      "domain.proposal-eval",
+      "domain.tool-routing",
+      "capability.ledger-attestation",
+      "capability.ledger-inventory"
+    ],
+    "fragile_goals": [
+      "blocked-scan-honesty",
+      "ledger-gated-proposal",
+      "routed-triage-record",
+      "scan-gated-activation"
+    ],
+    "fragility_score": 0.2,
+    "max_blast_radius": 2,
+    "robust_goals": [
+      "ledger-inventory-check"
+    ],
+    "spofs_per_goal": {
+      "blocked-scan-honesty": [
+        "domain.ci-security",
+        "domain.harness-activation"
+      ],
+      "ledger-gated-proposal": [
+        "domain.proposal-eval"
+      ],
+      "ledger-inventory-check": [],
+      "routed-triage-record": [
+        "domain.issue-triage",
+        "domain.local-memory",
+        "domain.tool-routing"
+      ],
+      "scan-gated-activation": [
+        "domain.ci-security",
+        "domain.harness-activation"
+      ]
+    },
+    "task_count": 5
+  },
+  "grade_digest": "fa2d782592fc9a3711cde7fb876968ecf94c226e3f56dd4b6d0b7240d9da3249",
+  "impact_matrix": {
+    "capability.ledger-attestation": [],
+    "capability.ledger-inventory": [],
+    "domain.ci-security": [
+      "blocked-scan-honesty",
+      "scan-gated-activation"
+    ],
+    "domain.harness-activation": [
+      "blocked-scan-honesty",
+      "scan-gated-activation"
+    ],
+    "domain.issue-triage": [
+      "routed-triage-record"
+    ],
+    "domain.local-memory": [
+      "routed-triage-record"
+    ],
+    "domain.proposal-eval": [
+      "ledger-gated-proposal"
+    ],
+    "domain.tool-routing": [
+      "routed-triage-record"
+    ]
+  },
+  "kind": "capability_fragility_audit",
+  "matrix_digest": "a2c1b0eca335595de8a8095526f9a7ff478efc734798cc3a0ba9a3185ddaa721",
+  "ok": true,
+  "report_digest": "6e6aec2b3b0f51c96956798505f2a483d257376a85b1e3f6523d6cf6be0e2828",
+  "run_at": "2026-08-01T18:36:51.224251Z",
+  "schema_version": 1,
+  "used_skill_route_discovery": false
+}

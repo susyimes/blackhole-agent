@@ -19141,7 +19141,10 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "and r.get('healed') and r.get('transitive_healed') and r.get('honest_unsolved') "
                 "and r.get('recovery',{}).get('recovered')==['routed-triage-record'] "
                 "and r.get('recovery',{}).get('repaired_count')==2 "
-                "and r.get('honest_failure',{}).get('honest_unsolved')==['ledger-gated-proposal','ledger-inventory-check'] "
+                "and r.get('honest_failure',{}).get('honest_unsolved')==['scan-gated-activation','blocked-scan-honesty'] "
+                "and r.get('redundancy_absorbed') "
+                "and r.get('absorbed',{}).get('unrepairable_count')==1 "
+                "and r.get('absorbed',{}).get('unsolved_count')==0 "
                 "and r.get('deterministic') "
                 "and r.get('tamper_detected') and r.get('fake_healing_detected') "
                 "and r.get('misgrade_detected') "
@@ -19166,8 +19169,11 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "correlated multi-capability breaks and transitive healing of "
                 "a red root dependency through a member's chain re-proof - "
                 "re-plans and solves them, and fails honestly when repair is "
-                "impossible. Application and repair are one closed loop "
-                "without skill-route."
+                "impossible. With redundant readiness providers, an "
+                "unrepairable inventory break no longer blocks any goal: "
+                "the loop records the red stamp honestly while every goal "
+                "solves through the alternative path. Application and "
+                "repair are one closed loop without skill-route."
             ),
             tags=(
                 "bootstrap",
@@ -19191,9 +19197,13 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "that capability alone is hidden - computed by pure BFS "
                 "re-planning, never by executing pipelines. Per-goal SPOF "
                 "sets, per-capability blast radii, and an honest fragility "
-                "grade (0.0 on the current surface: no goal survives a "
-                "single failure; capability.ledger-inventory has the widest "
-                "blast radius at 2 goals). Reports are digest-sealed and "
+                "grade. After redundancy engineering (a second independent "
+                "readiness provider, capability.ledger-attestation), the "
+                "audit proves the score it reports moves: 0.0 before, 0.2 "
+                "after, with the ledger-inventory-check goal robust and "
+                "both readiness providers blocking nothing alone; the "
+                "security-scan chain now holds the widest blast radius at "
+                "2 goals. Reports are digest-sealed and "
                 "verification recomputes the entire matrix from the live "
                 "ledger, so every cell is independently falsifiable. The "
                 "recovery loop consumes blast radii as its repair priority "
@@ -19206,8 +19216,9 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 f'"{sys.executable}" -c '
                 '"from blackhole_agent.capability_fragility import builtin_fragility_audit; '
                 "r=builtin_fragility_audit(); assert r['ok'] "
+                "and r.get('fragility',{}).get('fragility_score')==0.2 "
+                "and r.get('fragility',{}).get('robust_goals')==['ledger-inventory-check'] "
                 "and r.get('fragility',{}).get('max_blast_radius')==2 "
-                "and r.get('fragility',{}).get('critical_capabilities',[None])[0]=='capability.ledger-inventory' "
                 "and r.get('priority_correct') and r.get('deterministic') "
                 "and r.get('matrix_forgery_detected') and r.get('misgrade_detected') "
                 "and r.get('tamper_detected') "
@@ -19240,6 +19251,61 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "reliability",
                 "planning",
                 "recovery",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.ledger-attestation",
+            name="Ledger structural attestation",
+            description=(
+                "Independent second path to ledger readiness: structural "
+                "validation (schema version, required entry fields, "
+                "dependency references resolve) rather than inventory's "
+                "entry count - a different code path so a proof-stamp "
+                "failure of one readiness provider leaves the other able to "
+                "attest. Registered as the redundancy provider that lifts "
+                "the ledger-inventory-check goal to zero single points of "
+                "failure in the fragility audit. Honesty boundary: both "
+                "providers read the same ledger file, so redundancy is at "
+                "the capability/proof-stamp level, not the data-source "
+                "level. Proof attests the live ledger and falsifies "
+                "unresolved-dependency and missing-field corruptions on "
+                "scratch payloads."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_attestation:builtin_ledger_attestation",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_attestation import builtin_ledger_attestation; '
+                "r=builtin_ledger_attestation(); assert r['ok'] "
+                "and r.get('attestation',{}).get('ready') "
+                "and r.get('deterministic') and r.get('unresolved_detected') "
+                "and r.get('missing_field_detected') "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_attestation.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Ledger readiness no longer depends on a single capability: "
+                "structural attestation validates schema, required fields, "
+                "and dependency resolution through an independent code path, "
+                "giving goal-directed planning a redundant readiness "
+                "provider without skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "attestation",
+                "redundancy",
+                "integrity",
                 "evidence",
             ),
             created_at=utc_now_iso(),

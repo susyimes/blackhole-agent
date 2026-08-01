@@ -69,19 +69,19 @@ def test_mixed_break_recovers_healable_and_fails_honestly() -> None:
     report = run_recovery_loop(
         breaks={
             "domain.tool-routing": BREAK_STALE_INTERPRETER,
-            "capability.ledger-inventory": BREAK_FAILING_PROOF,
+            "domain.ci-security": BREAK_FAILING_PROOF,
         }
     )
     assert report["ok"] is False
     assert report["recovery"]["recovered"] == ["routed-triage-record"]
-    assert report["recovery"]["honest_unsolved"] == ["ledger-gated-proposal", "ledger-inventory-check"]
+    assert report["recovery"]["honest_unsolved"] == ["scan-gated-activation", "blocked-scan-honesty"]
     assert report["recovery"]["repaired_count"] == 1
     assert report["recovery"]["unrepairable_count"] == 1
     assert report["break_stamps_after"]["domain.tool-routing"] == 0
-    assert report["break_stamps_after"]["capability.ledger-inventory"] != 0
+    assert report["break_stamps_after"]["domain.ci-security"] != 0
     # Blast-radius priority: the two-goal failure is repaired first.
     assert [repair["capability_id"] for repair in report["repairs"]] == [
-        "capability.ledger-inventory",
+        "domain.ci-security",
         "domain.tool-routing",
     ]
     assert [repair["blast_radius"] for repair in report["repairs"]] == [2, 1]
@@ -111,22 +111,24 @@ def test_stale_interpreter_break_heals_and_recovers_goal() -> None:
     assert record["plan"] == ["domain.tool-routing", "domain.issue-triage", "domain.local-memory"]
 
 
-def test_failing_proof_break_is_honestly_unsolved() -> None:
+def test_unrepairable_inventory_break_is_absorbed_by_redundancy() -> None:
     report = run_recovery_loop(breaks={"capability.ledger-inventory": BREAK_FAILING_PROOF})
-    assert report["ok"] is False
-    # The broken inventory blocks both goals that share it.
-    assert report["recovery"]["honest_unsolved"] == ["ledger-gated-proposal", "ledger-inventory-check"]
+    # Before redundancy this break blocked two goals; now the alternative
+    # readiness provider carries them and the loop reports honest success.
+    assert report["ok"] is True, report["recovery"]
+    assert report["recovery"]["unsolved_count"] == 0
+    assert report["recovery"]["task_pass_count"] == report["recovery"]["task_count"]
+    assert report["recovery"]["honest_unsolved"] == []
     assert report["recovery"]["unrepairable_count"] == 1
-    assert report["recovery"]["task_pass_count"] == report["recovery"]["task_count"] - 2
-    for task_id in ("ledger-gated-proposal", "ledger-inventory-check"):
-        record = next(item for item in report["task_records"] if item["id"] == task_id)
-        assert record["initially_unplannable"] is True
-        assert record["ok"] is False
     repair = next(item for item in report["repairs"] if item["capability_id"] == "capability.ledger-inventory")
     assert repair["verdict"] == "unrepairable"
     assert repair["last_proof_exit_code"] != 0
     assert repair["honest"] is True
-    assert repair["blast_radius"] == 2
+    assert repair["blast_radius"] == 0
+    # The readiness-gated goals re-planned through the redundant provider.
+    proposal = next(item for item in report["task_records"] if item["id"] == "ledger-gated-proposal")
+    assert proposal["ok"] is True
+    assert proposal["plan"] == ["capability.ledger-attestation", "domain.proposal-eval"]
 
 
 def test_synthetic_breaks_never_touch_live_ledger() -> None:

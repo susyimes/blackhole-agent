@@ -454,10 +454,13 @@ def builtin_recovery_loop() -> dict[str, Any]:
     stale interpreter on ``domain.tool-routing``) heals the root through the
     repaired member's dependency-chain re-proof without any direct repair of
     the root; a mixed break (one healable, one unrepairable) recovers the
-    healable goal and honestly leaves the unrepairable goal unsolved with
-    the stamp red. Then report sealing plus three falsifications: a flipped
-    task outcome, a forged repair verdict (fake healing), and a misgraded
-    recovery score must all fail verification.
+    healable goal and honestly leaves the unrepairable goals unsolved with
+    the stamps red; and an unrepairable break of
+    ``capability.ledger-inventory`` is absorbed by redundancy — the
+    alternative readiness provider carries every goal, so a formerly fatal
+    break becomes a recorded non-event. Then report sealing plus three
+    falsifications: a flipped task outcome, a forged repair verdict (fake
+    healing), and a misgraded recovery score must all fail verification.
     """
 
     import os
@@ -520,33 +523,51 @@ def builtin_recovery_loop() -> dict[str, Any]:
         return {"ok": False, "stage": "transitive-heal", "recovery": transitive["recovery"]}
 
     # Mixed break: one healable, one unrepairable — partial honest recovery.
-    # The unrepairable capability has the wider blast radius (it blocks two
-    # goals), so priority ordering repairs it first; both of its goals stay
+    # The unrepairable capability (domain.ci-security, blast radius 2) is
+    # repaired before the one-goal failure, and both of its goals stay
     # honestly unsolved while the healable goal recovers.
     mixed = run_recovery_loop(
         breaks={
             "domain.tool-routing": BREAK_STALE_INTERPRETER,
-            "capability.ledger-inventory": BREAK_FAILING_PROOF,
+            "domain.ci-security": BREAK_FAILING_PROOF,
         }
     )
     honest_failure = (
         not mixed["ok"]
         and mixed["recovery"]["recovered"] == ["routed-triage-record"]
-        and mixed["recovery"]["honest_unsolved"] == ["ledger-gated-proposal", "ledger-inventory-check"]
+        and mixed["recovery"]["honest_unsolved"] == ["scan-gated-activation", "blocked-scan-honesty"]
         and mixed["recovery"]["unrepairable_count"] == 1
         and mixed["recovery"]["repaired_count"] == 1
-        and mixed["break_stamps_after"].get("capability.ledger-inventory") != 0
+        and mixed["break_stamps_after"].get("domain.ci-security") != 0
         and mixed["break_stamps_after"].get("domain.tool-routing") == 0
         and mixed["recovery"]["task_pass_count"] == mixed["recovery"]["task_count"] - 2
         # Blast-radius priority: the two-goal failure is repaired before the
         # one-goal failure, and the order is digest-covered evidence.
         and [repair["capability_id"] for repair in mixed["repairs"]]
-        == ["capability.ledger-inventory", "domain.tool-routing"]
+        == ["domain.ci-security", "domain.tool-routing"]
         and mixed["repairs"][0]["blast_radius"] == 2
         and mixed["repairs"][1]["blast_radius"] == 1
     )
     if not honest_failure:
         return {"ok": False, "stage": "honest-failure", "recovery": mixed["recovery"]}
+
+    # Redundancy absorption: capability.ledger-inventory is unrepairable, yet
+    # every goal still solves — the redundant readiness provider
+    # (capability.ledger-attestation) carries both readiness-gated goals.
+    # What was a fatal break before redundancy engineering is now a
+    # non-event, recorded honestly (unrepairable, stamp left red).
+    absorbed = run_recovery_loop(breaks={"capability.ledger-inventory": BREAK_FAILING_PROOF})
+    redundancy_absorbed = (
+        absorbed["ok"]
+        and absorbed["recovery"]["unsolved_count"] == 0
+        and absorbed["recovery"]["task_pass_count"] == absorbed["recovery"]["task_count"]
+        and absorbed["recovery"]["unrepairable_count"] == 1
+        and absorbed["recovery"]["honest_unsolved"] == []
+        and absorbed["break_stamps_after"].get("capability.ledger-inventory") != 0
+        and all(record["plan"] for record in absorbed["task_records"])
+    )
+    if not redundancy_absorbed:
+        return {"ok": False, "stage": "redundancy-absorption", "recovery": absorbed["recovery"]}
 
     report_dir_raw = (os.environ.get("BLACKHOLE_RECOVERY_REPORT_DIR") or "").strip()
     if report_dir_raw:
@@ -587,7 +608,7 @@ def builtin_recovery_loop() -> dict[str, Any]:
         # verdict contradicts the recorded red stamp.
         forged = json.loads(json.dumps(mixed))
         for repair in forged["repairs"]:
-            if repair["capability_id"] == "capability.ledger-inventory":
+            if repair["capability_id"] == "domain.ci-security":
                 repair["verdict"] = "repaired"
         forged["repairs_digest"] = _digest(forged["repairs"])
         forged["recovery"] = compute_recovery_grade(forged["task_records"], forged["repairs"])
@@ -616,11 +637,13 @@ def builtin_recovery_loop() -> dict[str, Any]:
         "ok": not correlated_first["used_skill_route_discovery"],
         "recovery": correlated_first["recovery"],
         "honest_failure": mixed["recovery"],
+        "absorbed": absorbed["recovery"],
         "report_digest": correlated_first["report_digest"],
         "deterministic": True,
         "healed": True,
         "transitive_healed": True,
         "honest_unsolved": True,
+        "redundancy_absorbed": True,
         "tamper_detected": True,
         "fake_healing_detected": True,
         "misgrade_detected": True,

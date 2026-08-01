@@ -29,7 +29,9 @@ def _live_ledger():
 
 def test_impact_matrix_covers_surface_and_finds_shared_structure() -> None:
     matrix = compute_impact_matrix(_live_ledger())
-    assert matrix["capability.ledger-inventory"] == ["ledger-gated-proposal", "ledger-inventory-check"]
+    # Redundancy: neither readiness provider blocks anything alone.
+    assert matrix["capability.ledger-inventory"] == []
+    assert matrix["capability.ledger-attestation"] == []
     assert matrix["domain.tool-routing"] == ["routed-triage-record"]
     assert matrix["domain.local-memory"] == ["routed-triage-record"]
     assert matrix["domain.ci-security"] == ["blocked-scan-honesty", "scan-gated-activation"]
@@ -37,19 +39,17 @@ def test_impact_matrix_covers_surface_and_finds_shared_structure() -> None:
     assert matrix["domain.proposal-eval"] == ["ledger-gated-proposal"]
 
 
-def test_fragility_grade_is_honest_about_spofs() -> None:
+def test_fragility_grade_tracks_redundancy() -> None:
     matrix = compute_impact_matrix(_live_ledger())
     grade = compute_fragility_grade(matrix)
-    # Honest bad news: no goal currently survives a single failure.
-    assert grade["fragility_score"] == 0.0
-    assert grade["robust_goals"] == []
-    assert len(grade["fragile_goals"]) == len(APPLICATION_TASKS)
+    # The redundant readiness path lifted one goal to zero SPOFs: 0.0 -> 0.2.
+    assert grade["fragility_score"] == 0.2
+    assert grade["robust_goals"] == ["ledger-inventory-check"]
+    assert len(grade["fragile_goals"]) == len(APPLICATION_TASKS) - 1
     assert grade["max_blast_radius"] == 2
-    assert grade["critical_capabilities"][0] == "capability.ledger-inventory"
-    assert grade["spofs_per_goal"]["ledger-gated-proposal"] == [
-        "capability.ledger-inventory",
-        "domain.proposal-eval",
-    ]
+    assert grade["critical_capabilities"][0] == "domain.ci-security"
+    assert grade["spofs_per_goal"]["ledger-inventory-check"] == []
+    assert grade["spofs_per_goal"]["ledger-gated-proposal"] == ["domain.proposal-eval"]
 
 
 def test_compute_fragility_grade_is_pure() -> None:
@@ -65,11 +65,12 @@ def test_compute_fragility_grade_is_pure() -> None:
 
 def test_repair_priority_orders_by_blast_radius() -> None:
     ledger = _live_ledger()
-    order = repair_priority_order(ledger, ["domain.tool-routing", "capability.ledger-inventory"])
-    assert order == ["capability.ledger-inventory", "domain.tool-routing"]
+    order = repair_priority_order(ledger, ["capability.ledger-inventory", "domain.tool-routing"])
+    assert order == ["domain.tool-routing", "capability.ledger-inventory"]
     blast = blast_radius_map(ledger)
-    assert blast["capability.ledger-inventory"] == 2
+    assert blast["capability.ledger-inventory"] == 0
     assert blast["domain.tool-routing"] == 1
+    assert blast["domain.ci-security"] == 2
 
 
 def test_run_fragility_audit_is_deterministic() -> None:
@@ -99,7 +100,8 @@ def test_sealed_report_verifies_and_forged_cell_fails(tmp_path: Path) -> None:
 def test_builtin_fragility_audit_proof() -> None:
     result = builtin_fragility_audit()
     assert result["ok"] is True, result
-    assert result["fragility"]["max_blast_radius"] == 2
+    assert result["fragility"]["fragility_score"] == 0.2
+    assert result["fragility"]["robust_goals"] == ["ledger-inventory-check"]
     assert result["priority_correct"] is True
     assert result["deterministic"] is True
     assert result["used_skill_route_discovery"] is False

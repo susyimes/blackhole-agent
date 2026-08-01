@@ -134,6 +134,15 @@ def _invoke_ledger_inventory(state: Mapping[str, Any]) -> dict[str, Any]:
     return {"ledger_ready": out["ready"]}
 
 
+def _invoke_ledger_attestation(state: Mapping[str, Any]) -> dict[str, Any]:
+    from blackhole_agent.capability_attestation import attest_ledger_structure
+
+    # Redundant readiness path: structural attestation (schema, required
+    # fields, dependency resolution) instead of inventory's entry count.
+    out = attest_ledger_structure()
+    return {"ledger_ready": out["ready"]}
+
+
 def _invoke_proposal_eval(state: Mapping[str, Any]) -> dict[str, Any]:
     out = STEP_REGISTRY["domain.proposal-eval"](
         {"fixture": state["proposal_fixture"], "ledger_ready": state["ledger_ready"]}
@@ -179,6 +188,12 @@ APPLICATION_STEPS: dict[str, ApplicationStep] = {
             requires=(),
             provides=("ledger_ready",),
             invoke=_invoke_ledger_inventory,
+        ),
+        ApplicationStep(
+            capability_id="capability.ledger-attestation",
+            requires=(),
+            provides=("ledger_ready",),
+            invoke=_invoke_ledger_attestation,
         ),
         ApplicationStep(
             capability_id="domain.proposal-eval",
@@ -609,10 +624,13 @@ def check_planner_honesty() -> dict[str, Any]:
 
     Runs the plane with ``domain.tool-routing`` hidden: the routed triage
     chain has no plan and must be reported unsolved (never faked), while the
-    tasks that do not need routing still solve. Then with
-    ``capability.ledger-inventory`` hidden: the proposal gate must go
-    unsolvable. A planner that fabricates plans over hidden capabilities, or
-    that reports success without one, fails this check.
+    tasks that do not need routing still solve. Then with *both* readiness
+    providers hidden (``capability.ledger-inventory`` and its redundant
+    alternative ``capability.ledger-attestation``): the readiness-gated
+    tasks must go unsolvable — redundancy means hiding one provider is no
+    longer enough, and the honesty check says so. A planner that fabricates
+    plans over hidden capabilities, or that reports success without one,
+    fails this check.
     """
 
     hidden_routing = run_application_plane(hide=("domain.tool-routing",))
@@ -625,22 +643,24 @@ def check_planner_honesty() -> dict[str, Any]:
         and hidden_routing["application"]["unsolvable_count"] == 1
     )
 
-    hidden_inventory = run_application_plane(hide=("capability.ledger-inventory",))
-    inventory_records = {record["id"]: record for record in hidden_inventory["task_records"]}
-    proposal = inventory_records.get("ledger-gated-proposal") or {}
-    inventory_check = inventory_records.get("ledger-inventory-check") or {}
+    hidden_readiness = run_application_plane(
+        hide=("capability.ledger-inventory", "capability.ledger-attestation")
+    )
+    readiness_records = {record["id"]: record for record in hidden_readiness["task_records"]}
+    proposal = readiness_records.get("ledger-gated-proposal") or {}
+    inventory_check = readiness_records.get("ledger-inventory-check") or {}
     inventory_honest = (
         proposal.get("plan") is None
         and proposal.get("ok") is False
         and inventory_check.get("plan") is None
         and inventory_check.get("ok") is False
-        and hidden_inventory["application"]["unsolvable_count"] == 2
+        and hidden_readiness["application"]["unsolvable_count"] == 2
     )
 
     return {
         "honest": routing_honest and inventory_honest,
         "routing_hidden_unsolvable": routing_honest,
-        "inventory_hidden_unsolvable": inventory_honest,
+        "readiness_hidden_unsolvable": inventory_honest,
     }
 
 

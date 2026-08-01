@@ -25,9 +25,11 @@ directly from the live proved ledger:
   (``capability.ledger-inventory`` blocks two goals), and three
   falsification modes.
 
-The audit is deliberately honest about bad news: on the current surface
-every goal has at least one SPOF, so the fragility score is 0.0 — the report
-says so rather than rounding reliability up.
+The audit reports redundancy honestly in both directions: before the
+readiness providers were duplicated it reported 0.0 (no goal survived a
+single failure); with ``capability.ledger-attestation`` providing a second
+independent path to ``ledger_ready``, the ``ledger-inventory-check`` goal
+is robust and the score reads 0.2 — driven down, not rounded up.
 """
 
 from __future__ import annotations
@@ -223,13 +225,16 @@ def verify_fragility_report(report_dir: Path) -> dict[str, Any]:
 def builtin_fragility_audit() -> dict[str, Any]:
     """Registered proof for ``capability.fragility-audit``.
 
-    Proves the audit is deterministic, finds the surface's shared structure
-    (``capability.ledger-inventory`` single-handedly blocks two goals — the
-    highest blast radius — while every goal currently has at least one
-    SPOF), and that repair prioritization puts the widest-blast capability
-    first. Then seals and verifies a report and falsifies three ways: a
-    forged matrix cell, a misgraded fragility score, and a tampered digest
-    chain must all fail verification.
+    Proves the audit is deterministic, finds the surface's structure after
+    redundancy engineering (``capability.ledger-inventory`` and its
+    redundant alternative ``capability.ledger-attestation`` block nothing
+    alone — the ``ledger-inventory-check`` goal is robust and the fragility
+    score rose from 0.0 to 0.2 — while the security-scan chain still has
+    the widest blast radius at 2 goals), and that repair prioritization
+    puts the widest-blast capability first. Then seals and verifies a
+    report and falsifies three ways: a forged matrix cell, a misgraded
+    fragility score, and a tampered digest chain must all fail
+    verification.
     """
 
     import os
@@ -242,22 +247,25 @@ def builtin_fragility_audit() -> dict[str, Any]:
 
     grade = first["fragility"]
     structure = (
-        grade["blast_radius"].get("capability.ledger-inventory") == 2
+        # Redundancy: neither readiness provider single-handedly blocks a goal.
+        grade["blast_radius"].get("capability.ledger-inventory") == 0
+        and grade["blast_radius"].get("capability.ledger-attestation") == 0
+        and grade["robust_goals"] == ["ledger-inventory-check"]
+        and grade["fragility_score"] == 0.2
+        # The remaining critical pair: the security-scan chain blocks two goals.
+        and grade["blast_radius"].get("domain.ci-security") == 2
+        and grade["blast_radius"].get("domain.harness-activation") == 2
         and grade["max_blast_radius"] == 2
-        and grade["critical_capabilities"][0] == "capability.ledger-inventory"
-        and grade["blast_radius"].get("domain.tool-routing") == 1
-        # Honest bad news: no goal currently survives a single failure.
-        and grade["fragility_score"] == 0.0
-        and grade["robust_goals"] == []
+        and grade["critical_capabilities"][0] == "domain.ci-security"
     )
     if not structure:
         return {"ok": False, "stage": "structure", "fragility": grade}
 
     ledger = load_ledger(default_ledger_path(REPO_ROOT))
     priority = repair_priority_order(
-        ledger, ["domain.tool-routing", "capability.ledger-inventory"]
+        ledger, ["capability.ledger-inventory", "domain.tool-routing"]
     )
-    if priority != ["capability.ledger-inventory", "domain.tool-routing"]:
+    if priority != ["domain.tool-routing", "capability.ledger-inventory"]:
         return {"ok": False, "stage": "priority", "priority": priority}
 
     report_dir_raw = (os.environ.get("BLACKHOLE_FRAGILITY_REPORT_DIR") or "").strip()
