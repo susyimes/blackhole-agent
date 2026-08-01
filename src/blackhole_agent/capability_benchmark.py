@@ -38,6 +38,8 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
+
+from blackhole_agent.durable_state import durable_read_path
 from typing import Any, Callable, Mapping, Sequence
 from blackhole_agent.capability_compounder import atomic_write_json, utc_now_iso
 
@@ -307,9 +309,9 @@ def verify_fitness_report(report_dir: Path) -> dict[str, Any]:
     """
 
     report_path = report_dir / "report.json"
-    if not report_path.exists():
+    if not durable_read_path(report_path).exists():
         return {"ok": False, "error": f"missing report.json in {report_dir}"}
-    report = json.loads(report_path.read_text(encoding="utf-8"))
+    report = json.loads(durable_read_path(report_path).read_text(encoding="utf-8"))
     outcomes = report.get("task_outcomes") or []
 
     regraded = compute_fitness(outcomes)
@@ -458,9 +460,9 @@ def verify_sweep_report(report_dir: Path) -> dict[str, Any]:
     """
 
     report_path = report_dir / SWEEP_REPORT_NAME
-    if not report_path.exists():
+    if not durable_read_path(report_path).exists():
         return {"ok": False, "error": f"missing {SWEEP_REPORT_NAME} in {report_dir}"}
-    report = json.loads(report_path.read_text(encoding="utf-8"))
+    report = json.loads(durable_read_path(report_path).read_text(encoding="utf-8"))
     outcomes = report.get("sweep_outcomes") or []
 
     regraded = compute_sweep_fitness(outcomes)
@@ -485,14 +487,14 @@ def load_latest_sweep_map(repo_root: Path) -> dict[str, float] | None:
     """
 
     pointer_path = repo_root / DEFAULT_ARTIFACT_DIR / "latest-sweep.json"
-    if not pointer_path.exists():
+    if not durable_read_path(pointer_path).exists():
         return None
     try:
-        pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
+        pointer = json.loads(durable_read_path(pointer_path).read_text(encoding="utf-8"))
         report_dir = repo_root / DEFAULT_ARTIFACT_DIR / str(pointer.get("report_dir") or "")
         if not verify_sweep_report(report_dir)["ok"]:
             return None
-        report = json.loads((report_dir / SWEEP_REPORT_NAME).read_text(encoding="utf-8"))
+        report = json.loads(durable_read_path(report_dir / SWEEP_REPORT_NAME).read_text(encoding="utf-8"))
         fitness = (report.get("fitness") or {}).get("capability_fitness") or {}
         return {str(key): float(value) for key, value in fitness.items()}
     except Exception:  # noqa: BLE001 - an unreadable sweep means "no sweep signal"
@@ -528,7 +530,7 @@ def builtin_fitness_benchmark_proof() -> dict[str, Any]:
             return {"ok": False, "stage": "verify", "checks": verified.get("checks")}
 
         # Falsifiability 1: flip one recorded outcome; verification must fail.
-        tampered = json.loads((out / "report.json").read_text(encoding="utf-8"))
+        tampered = json.loads(durable_read_path(out / "report.json").read_text(encoding="utf-8"))
         tampered["task_outcomes"][0]["ok"] = not tampered["task_outcomes"][0]["ok"]
         atomic_write_json(out / "report.json", tampered)
         if verify_fitness_report(out)["ok"]:
@@ -571,10 +573,10 @@ def load_latest_fitness_map(repo_root: Path) -> dict[str, float] | None:
     pointer_path = repo_root / DEFAULT_ARTIFACT_DIR / "latest-benchmark.json"
     if pointer_path.exists():
         try:
-            pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
+            pointer = json.loads(durable_read_path(pointer_path).read_text(encoding="utf-8"))
             report_dir = repo_root / DEFAULT_ARTIFACT_DIR / str(pointer.get("report_dir") or "")
             if verify_fitness_report(report_dir)["ok"]:
-                report = json.loads((report_dir / "report.json").read_text(encoding="utf-8"))
+                report = json.loads(durable_read_path(report_dir / "report.json").read_text(encoding="utf-8"))
                 fitness = (report.get("fitness") or {}).get("capability_fitness") or {}
                 merged.update({str(key): float(value) for key, value in fitness.items()})
         except Exception:  # noqa: BLE001 - an unreadable report means "no core fitness signal"

@@ -26,6 +26,7 @@ from typing import Any, Callable, Iterator, Mapping
 import typer
 from rich.console import Console
 
+from blackhole_agent.durable_state import durable_overlay_session
 from blackhole_agent.capability_compounder import (
     Capability,
     absorb_domain_surface,
@@ -2727,15 +2728,31 @@ def capability_audit(
     repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
     capability_ids: str = typer.Option("", "--capability-ids", help="Optional comma-separated subset."),
     timeout_seconds: int = typer.Option(120, "--timeout-seconds", min=1),
+    max_seconds: int = typer.Option(
+        900,
+        "--max-seconds",
+        min=1,
+        help="Overall audit budget; unaudited entries fail the report when exhausted.",
+    ),
 ) -> None:
     root = repo_path.resolve()
     ledger = load_ledger(default_ledger_path(root))
     selected = [part.strip() for part in capability_ids.split(",") if part.strip()] or None
-    try:
-        report = audit_ledger_proofs(ledger, cwd=root, capability_ids=selected, timeout=timeout_seconds)
-    except KeyError as error:
-        console.print(f"Audit failed: {error}", style="red")
-        raise typer.Exit(1) from error
+    # Verification must not dirty the checkout it verifies: replayed proofs
+    # may persist bundles, certificates, or ledger stamps, so the audit runs
+    # inside a temporary durable-state overlay.
+    with durable_overlay_session():
+        try:
+            report = audit_ledger_proofs(
+                ledger,
+                cwd=root,
+                capability_ids=selected,
+                timeout=timeout_seconds,
+                max_seconds=float(max_seconds),
+            )
+        except KeyError as error:
+            console.print(f"Audit failed: {error}", style="red")
+            raise typer.Exit(1) from error
     console.print_json(data=report)
     if not report.get("ok"):
         raise typer.Exit(1)

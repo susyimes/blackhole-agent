@@ -20,6 +20,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
+from blackhole_agent.durable_state import durable_read_path, durable_write_path
+
 SCHEMA_VERSION = 1
 DEFAULT_LEDGER_RELATIVE = Path("capabilities") / "ledger.json"
 CAPABILITY_ID_PATTERN = re.compile(r"^[a-z][a-z0-9._-]{1,63}$")
@@ -177,6 +179,7 @@ def default_ledger_path(repo_path: Path) -> Path:
 
 
 def atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
+    path = durable_write_path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".tmp")
     text = json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
@@ -203,9 +206,10 @@ def atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
 
 
 def load_ledger(path: Path) -> CapabilityLedger:
+    path = durable_read_path(path)
     if not path.exists():
         return CapabilityLedger(updated_at=utc_now_iso())
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload = _read_json(path)
     if not isinstance(payload, dict):
         raise ValueError(f"Capability ledger must be a JSON object: {path}")
     ledger = CapabilityLedger.from_dict(payload)
@@ -219,6 +223,46 @@ def load_ledger(path: Path) -> CapabilityLedger:
 def save_ledger(path: Path, ledger: CapabilityLedger) -> None:
     ledger.updated_at = utc_now_iso()
     atomic_write_json(path, ledger.to_dict())
+
+
+def _read_json(path: Path) -> Any:
+    """Load JSON from a durable path, honoring the durable-state overlay."""
+
+    return json.loads(durable_read_path(path).read_text(encoding="utf-8"))
+
+
+def _durable_exists(path: Path) -> bool:
+    """True when a durable path exists in the overlay or the real checkout."""
+
+    return durable_read_path(path).exists()
+
+
+_ABSOLUTE_PYTHON_PROOF_PREFIX = re.compile(
+    r'^\s*"[A-Za-z]:[\\/][^"]*?[\\/]python(?:[\d.]*)?(?:\.exe)?"\s+-c\s+'
+)
+
+
+def portable_proof_command(command: str) -> str:
+    """Rewrite a proof command into machine-portable form.
+
+    Proof commands persist in the committed capability ledger; baking in an
+    absolute interpreter path ties every entry to the machine that recorded
+    it. A quoted absolute ``python``/``python.exe`` prefix is rewritten to
+    ``uv run python`` (proofs execute with the repository as ``cwd``, so uv
+    resolves the project environment). Commands that are already portable
+    pass through unchanged.
+    """
+
+    text = str(command or "")
+    if text.lstrip().startswith("uv run python"):
+        return text
+    return _ABSOLUTE_PYTHON_PROOF_PREFIX.sub("uv run python -c ", text, count=1)
+
+
+def proof_command_is_portable(command: str) -> bool:
+    """True when a proof command contains no absolute machine-specific path."""
+
+    return _ABSOLUTE_PYTHON_PROOF_PREFIX.search(str(command or "")) is None
 
 
 def validate_capability(capability: Capability, *, existing: Mapping[str, Capability] | None = None) -> None:
@@ -287,7 +331,7 @@ def register_capability(
         description=capability.description,
         kind=capability.kind,
         entry=capability.entry,
-        proof_command=capability.proof_command,
+        proof_command=portable_proof_command(capability.proof_command),
         dependencies=capability.dependencies,
         behavior_paths=capability.behavior_paths,
         capability_delta=capability.capability_delta,
@@ -397,7 +441,15 @@ def _pythonpath_env(cwd: Path, env: Mapping[str, str] | None = None) -> dict[str
     merged = dict(os.environ)
     if env:
         merged.update({str(key): str(value) for key, value in env.items()})
-    source_root = str((cwd / "src").resolve()) if (cwd / "src").exists() else str(cwd.resolve())
+    # Prefer the caller's checkout, but fall back to the running package's own
+    # src tree so proofs replay from foreign working directories (scratch
+    # workspaces, repair sandboxes) instead of inheriting an unrelated
+    # installed copy.
+    source_root = (
+        str((cwd / "src").resolve())
+        if (cwd / "src").exists()
+        else str(Path(__file__).resolve().parent.parent)
+    )
     existing = merged.get("PYTHONPATH", "")
     merged["PYTHONPATH"] = source_root + (os.pathsep + existing if existing else "")
     return merged
@@ -3094,7 +3146,7 @@ def write_capability_package(path: Path, package: Mapping[str, Any]) -> Path:
 def load_capability_package(path: Path) -> dict[str, Any]:
     """Load a portable capability package from disk."""
 
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload = _read_json(path)
     if not isinstance(payload, Mapping):
         raise ValueError("package must be a JSON object")
     return dict(payload)
@@ -3673,7 +3725,7 @@ def write_sovereignty_certificate(path: Path, certificate: Mapping[str, Any]) ->
 def load_sovereignty_certificate(path: Path) -> dict[str, Any]:
     """Load a sovereignty certificate from disk."""
 
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload = _read_json(path)
     if not isinstance(payload, Mapping):
         raise ValueError("sovereignty certificate must be a JSON object")
     return dict(payload)
@@ -4005,9 +4057,9 @@ def compute_lineage_entry_hash(entry: Mapping[str, Any]) -> str:
 
 def load_lineage_log(path: Path) -> dict[str, Any]:
     target = path.resolve()
-    if not target.exists():
+    if not _durable_exists(target):
         return empty_lineage_log()
-    payload = json.loads(target.read_text(encoding="utf-8"))
+    payload = _read_json(target)
     if not isinstance(payload, Mapping):
         raise ValueError("lineage log must be a JSON object")
     log = dict(payload)
@@ -4180,9 +4232,9 @@ def detect_lineage_drift(
     reasons: list[str] = []
     cert_verify: dict[str, Any] | None = None
     cert_path = str(cert_entry.get("certificate_path") or "").strip()
-    if cert_path and Path(cert_path).is_file():
+    if cert_path and durable_read_path(Path(cert_path)).is_file():
         cert_verify = verify_sovereignty_certificate(
-            Path(cert_path),
+            durable_read_path(Path(cert_path)),
             repo_path=root,
             recheck_live=True,
             command_runner=command_runner,
@@ -4359,7 +4411,7 @@ def run_lineage_plane(
             "used_skill_route_discovery": False,
         }
 
-    lineage = load_lineage_log(out_lineage) if out_lineage.exists() else empty_lineage_log()
+    lineage = load_lineage_log(out_lineage) if _durable_exists(out_lineage) else empty_lineage_log()
     cert = sovereignty.get("certificate") if isinstance(sovereignty.get("certificate"), Mapping) else {}
     cert_path_str = str(cert.get("certificate_path") or "")
     cert_hash = str(cert.get("certificate_hash") or "")
@@ -4367,7 +4419,7 @@ def run_lineage_plane(
 
     # Load full certificate claims when possible for the chain entry.
     claims: dict[str, Any] = {}
-    if cert_path_str and Path(cert_path_str).is_file():
+    if cert_path_str and durable_read_path(Path(cert_path_str)).is_file():
         try:
             full_cert = load_sovereignty_certificate(Path(cert_path_str))
             claims = dict(full_cert.get("claims") or {})
@@ -4518,7 +4570,7 @@ def run_lineage_plane(
                 for item in (lineage.get("entries") or [])
                 if isinstance(item, Mapping)
             ],
-            "persisted": persist and out_lineage.exists(),
+            "persisted": persist and _durable_exists(out_lineage),
         },
         "chain": {
             "ok": chain.get("ok"),
@@ -4683,7 +4735,7 @@ def heal_lineage_from_drift(
     metrics = snapshot_outcome_metrics(root, ledger=load_ledger(path))
 
     claims: dict[str, Any] = {}
-    if cert_path_str and Path(cert_path_str).is_file():
+    if cert_path_str and durable_read_path(Path(cert_path_str)).is_file():
         try:
             full_cert = load_sovereignty_certificate(Path(cert_path_str))
             claims = dict(full_cert.get("claims") or {})
@@ -4933,7 +4985,7 @@ def run_reconciliation_plane(
             persist=persist,
         )
     else:
-        existing = load_lineage_log(out_lineage) if out_lineage.exists() else empty_lineage_log()
+        existing = load_lineage_log(out_lineage) if _durable_exists(out_lineage) else empty_lineage_log()
         lineage_result = {
             "ok": int(existing.get("entry_count") or 0) >= 2,
             "action": "lineage_plane",
@@ -4946,7 +4998,7 @@ def run_reconciliation_plane(
                     for item in (existing.get("entries") or [])
                     if isinstance(item, Mapping)
                 ],
-                "persisted": out_lineage.exists(),
+                "persisted": _durable_exists(out_lineage),
             },
             "chain": verify_lineage_chain(existing),
             "drift": detect_lineage_drift(
@@ -4960,12 +5012,12 @@ def run_reconciliation_plane(
     if run_lineage:
         healthy = (
             load_lineage_log(out_lineage)
-            if out_lineage.exists()
+            if _durable_exists(out_lineage)
             else empty_lineage_log()
         )
     else:
         healthy = lineage_result.get("_loaded_lineage") or (
-            load_lineage_log(out_lineage) if out_lineage.exists() else empty_lineage_log()
+            load_lineage_log(out_lineage) if _durable_exists(out_lineage) else empty_lineage_log()
         )
 
     natural_drift = detect_lineage_drift(
@@ -5166,7 +5218,7 @@ def run_reconciliation_plane(
                 for item in (working.get("entries") or [])
                 if isinstance(item, Mapping)
             ],
-            "persisted": persist and out_lineage.exists(),
+            "persisted": persist and _durable_exists(out_lineage),
         },
         "chain": {
             "ok": chain.get("ok"),
@@ -5261,7 +5313,7 @@ def collect_lineage_certificates(
             candidates.append(p)
         for candidate in candidates:
             try:
-                if candidate.is_file():
+                if durable_read_path(candidate).is_file():
                     payload = load_sovereignty_certificate(candidate)
                     key = str(payload.get("certificate_hash") or cert_hash or candidate.name)
                     certificates[key] = {
@@ -5358,7 +5410,7 @@ def write_continuity_bundle(path: Path, bundle: Mapping[str, Any]) -> Path:
 
 
 def load_continuity_bundle(path: Path) -> dict[str, Any]:
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload = _read_json(path)
     if not isinstance(payload, Mapping):
         raise ValueError("continuity bundle must be a JSON object")
     return dict(payload)
@@ -5762,7 +5814,7 @@ def run_continuity_plane(
             persist=persist,
         )
     else:
-        existing = load_lineage_log(out_lineage) if out_lineage.exists() else empty_lineage_log()
+        existing = load_lineage_log(out_lineage) if _durable_exists(out_lineage) else empty_lineage_log()
         chain_existing = verify_lineage_chain(existing)
         drift_existing = detect_lineage_drift(
             root, existing, command_runner=command_runner, timeout=min(timeout, 60)
@@ -5801,7 +5853,7 @@ def run_continuity_plane(
 
     lineage = (
         load_lineage_log(out_lineage)
-        if out_lineage.exists()
+        if _durable_exists(out_lineage)
         else empty_lineage_log()
     )
     # Prefer live loaded lineage; fall back to reconciliation payload structure.
@@ -6060,7 +6112,7 @@ def run_continuity_plane(
             "certificate_count": cert_count,
             "lineage_entry_count": reloaded.get("lineage_entry_count"),
             "lineage_head_hash": reloaded.get("lineage_head_hash"),
-            "persisted": persist and out_bundle.exists() if bundle.get("ok") else False,
+            "persisted": persist and _durable_exists(out_bundle) if bundle.get("ok") else False,
         },
         "integrity": {
             "ok": integrity.get("ok"),
@@ -6484,7 +6536,7 @@ def issue_federation_certificate(
 
 def verify_federation_certificate(payload: Mapping[str, Any] | Path) -> dict[str, Any]:
     if isinstance(payload, Path):
-        data = json.loads(payload.read_text(encoding="utf-8"))
+        data = _read_json(payload)
     else:
         data = dict(payload)
     expected = str(data.get("certificate_hash") or "").strip()
@@ -6746,7 +6798,7 @@ def write_federation_bundle(path: Path, bundle: Mapping[str, Any]) -> Path:
 
 
 def load_federation_bundle(path: Path) -> dict[str, Any]:
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload = _read_json(path)
     if not isinstance(payload, Mapping):
         raise ValueError("federation bundle must be a JSON object")
     return dict(payload)
@@ -7064,10 +7116,10 @@ def run_federation_plane(
             (continuity_report.get("bundle") or {}).get("bundle_path")
             or ""
         )
-        if origin_a_path and origin_a_path.is_file():
+        if origin_a_path and durable_read_path(origin_a_path).is_file():
             origin_a = load_continuity_bundle(origin_a_path)
         else:
-            lineage_a = load_lineage_log(out_lineage_a) if out_lineage_a.exists() else empty_lineage_log()
+            lineage_a = load_lineage_log(out_lineage_a) if _durable_exists(out_lineage_a) else empty_lineage_log()
             origin_a = export_continuity_bundle(
                 root,
                 lineage_a,
@@ -7078,7 +7130,7 @@ def run_federation_plane(
             )
         origin_a["origin_id"] = "origin-a"
     else:
-        lineage_a = load_lineage_log(out_lineage_a) if out_lineage_a.exists() else empty_lineage_log()
+        lineage_a = load_lineage_log(out_lineage_a) if _durable_exists(out_lineage_a) else empty_lineage_log()
         if int(lineage_a.get("entry_count") or 0) < 1:
             # Bootstrap a minimal lineage for federation when continuity is skipped.
             lineage_a = append_lineage_entry(
@@ -7334,7 +7386,7 @@ def run_federation_plane(
             "certificate_count": reloaded.get("certificate_count"),
             "lineage_entry_count": reloaded.get("lineage_entry_count"),
             "lineage_head_hash": reloaded.get("lineage_head_hash"),
-            "persisted": persist and out_fed.exists() if federation.get("ok") else False,
+            "persisted": persist and _durable_exists(out_fed) if federation.get("ok") else False,
         },
         "integrity": {
             "ok": integrity.get("ok"),
@@ -7753,7 +7805,7 @@ def issue_quorum_certificate(
 
 def verify_quorum_certificate(payload: Mapping[str, Any] | Path) -> dict[str, Any]:
     if isinstance(payload, Path):
-        data = json.loads(payload.read_text(encoding="utf-8"))
+        data = _read_json(payload)
     else:
         data = dict(payload)
     expected = str(data.get("certificate_hash") or "").strip()
@@ -8075,7 +8127,7 @@ def write_quorum_bundle(path: Path, bundle: Mapping[str, Any]) -> Path:
 
 
 def load_quorum_bundle(path: Path) -> dict[str, Any]:
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload = _read_json(path)
     if not isinstance(payload, Mapping):
         raise ValueError("quorum bundle must be a JSON object")
     return dict(payload)
@@ -8416,10 +8468,10 @@ def run_quorum_plane(
         origin_a_path = Path(
             (continuity_report.get("bundle") or {}).get("bundle_path") or ""
         )
-        if origin_a_path and origin_a_path.is_file():
+        if origin_a_path and durable_read_path(origin_a_path).is_file():
             origin_a = load_continuity_bundle(origin_a_path)
         else:
-            lineage_a = load_lineage_log(out_lineage_a) if out_lineage_a.exists() else empty_lineage_log()
+            lineage_a = load_lineage_log(out_lineage_a) if _durable_exists(out_lineage_a) else empty_lineage_log()
             origin_a = export_continuity_bundle(
                 root,
                 lineage_a,
@@ -8430,7 +8482,7 @@ def run_quorum_plane(
             )
         origin_a["origin_id"] = "origin-a"
     else:
-        lineage_a = load_lineage_log(out_lineage_a) if out_lineage_a.exists() else empty_lineage_log()
+        lineage_a = load_lineage_log(out_lineage_a) if _durable_exists(out_lineage_a) else empty_lineage_log()
         if int(lineage_a.get("entry_count") or 0) < 1:
             lineage_a = append_lineage_entry(
                 empty_lineage_log(),
@@ -8715,7 +8767,7 @@ def run_quorum_plane(
             "certificate_count": reloaded.get("certificate_count"),
             "lineage_entry_count": reloaded.get("lineage_entry_count"),
             "lineage_head_hash": reloaded.get("lineage_head_hash"),
-            "persisted": persist and out_q.exists() if quorum.get("ok") else False,
+            "persisted": persist and _durable_exists(out_q) if quorum.get("ok") else False,
         },
         "integrity": {
             "ok": integrity.get("ok"),
@@ -8901,7 +8953,7 @@ def issue_finality_certificate(
 
 def verify_finality_certificate(payload: Mapping[str, Any] | Path) -> dict[str, Any]:
     if isinstance(payload, Path):
-        data = json.loads(payload.read_text(encoding="utf-8"))
+        data = _read_json(payload)
     else:
         data = dict(payload)
     expected = str(data.get("certificate_hash") or "").strip()
@@ -8944,7 +8996,7 @@ def write_finality_certificate(path: Path, certificate: Mapping[str, Any]) -> Pa
 
 
 def load_finality_certificate(path: Path) -> dict[str, Any]:
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload = _read_json(path)
     if not isinstance(payload, Mapping):
         raise ValueError("finality certificate must be a JSON object")
     return dict(payload)
@@ -9427,7 +9479,7 @@ def write_finality_bundle(path: Path, bundle: Mapping[str, Any]) -> Path:
 
 
 def load_finality_bundle(path: Path) -> dict[str, Any]:
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload = _read_json(path)
     if not isinstance(payload, Mapping):
         raise ValueError("finality bundle must be a JSON object")
     return dict(payload)
@@ -9859,15 +9911,15 @@ def run_finality_plane(
             persist=persist,
         )
         q_path = Path((quorum_report.get("quorum") or {}).get("bundle_path") or "")
-        if q_path and q_path.is_file():
+        if q_path and durable_read_path(q_path).is_file():
             quorum_bundle = load_quorum_bundle(q_path)
-        elif out_quorum.is_file():
+        elif durable_read_path(out_quorum).is_file():
             quorum_bundle = load_quorum_bundle(out_quorum)
         else:
             # Fall back: reconstruct minimal from report fields is insufficient.
             quorum_bundle = None
     else:
-        if out_quorum.is_file():
+        if durable_read_path(out_quorum).is_file():
             quorum_bundle = load_quorum_bundle(out_quorum)
         else:
             # Bootstrap a local quorum without continuity for offline sealing.
@@ -9886,7 +9938,7 @@ def run_finality_plane(
                 quorum_path=out_quorum,
                 persist=persist,
             )
-            if out_quorum.is_file():
+            if durable_read_path(out_quorum).is_file():
                 quorum_bundle = load_quorum_bundle(out_quorum)
 
     if quorum_bundle is None or not (
@@ -10136,7 +10188,7 @@ def run_finality_plane(
             "certificate_count": reloaded.get("certificate_count"),
             "lineage_entry_count": reloaded.get("lineage_entry_count"),
             "lineage_head_hash": reloaded.get("lineage_head_hash"),
-            "persisted": persist and out_f.exists() if finality.get("ok") else False,
+            "persisted": persist and _durable_exists(out_f) if finality.get("ok") else False,
             "irreversible": True,
         },
         "integrity": {
@@ -10359,7 +10411,7 @@ def issue_execution_certificate(
 
 def verify_execution_certificate(payload: Mapping[str, Any] | Path) -> dict[str, Any]:
     if isinstance(payload, Path):
-        data = json.loads(payload.read_text(encoding="utf-8"))
+        data = _read_json(payload)
     else:
         data = dict(payload)
     expected = str(data.get("certificate_hash") or "").strip()
@@ -10854,7 +10906,7 @@ def write_execution_bundle(path: Path, bundle: Mapping[str, Any]) -> Path:
 
 
 def load_execution_bundle(path: Path) -> dict[str, Any]:
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload = _read_json(path)
     if not isinstance(payload, Mapping):
         raise ValueError("execution bundle must be a JSON object")
     return dict(payload)
@@ -11331,14 +11383,14 @@ def run_execution_plane(
             persist=persist,
         )
         f_path = Path((finality_report.get("finality") or {}).get("bundle_path") or "")
-        if f_path and f_path.is_file():
+        if f_path and durable_read_path(f_path).is_file():
             finality_bundle = load_finality_bundle(f_path)
-        elif out_finality.is_file():
+        elif durable_read_path(out_finality).is_file():
             finality_bundle = load_finality_bundle(out_finality)
         else:
             finality_bundle = None
     else:
-        if out_finality.is_file():
+        if durable_read_path(out_finality).is_file():
             finality_bundle = load_finality_bundle(out_finality)
         else:
             finality_report = run_finality_plane(
@@ -11358,7 +11410,7 @@ def run_execution_plane(
                 finality_path=out_finality,
                 persist=persist,
             )
-            if out_finality.is_file():
+            if durable_read_path(out_finality).is_file():
                 finality_bundle = load_finality_bundle(out_finality)
 
     if finality_bundle is None or not (
@@ -11622,7 +11674,7 @@ def run_execution_plane(
             "lineage_entry_count": reloaded.get("lineage_entry_count"),
             "lineage_head_hash": reloaded.get("lineage_head_hash"),
             "finality_hash": reloaded.get("finality_hash"),
-            "persisted": persist and out_e.exists() if execution.get("ok") else False,
+            "persisted": persist and _durable_exists(out_e) if execution.get("ok") else False,
             "deterministic": True,
             "post_finality": True,
         },
@@ -11939,6 +11991,7 @@ def audit_ledger_proofs(
     cwd: Path,
     capability_ids: Sequence[str] | None = None,
     timeout: int = 120,
+    max_seconds: float | None = None,
     command_runner: Callable[..., Any] = subprocess.run,
 ) -> dict[str, Any]:
     """Replay recorded proof commands and flag claims that no longer reproduce.
@@ -11954,7 +12007,11 @@ def audit_ledger_proofs(
     - ``unproven``: no proof was ever recorded and the replay fails
     - ``failing``: a recorded non-green proof still fails
 
-    ``ok`` on the report means no recorded-green claim was falsified.
+    ``ok`` on the report means no recorded-green claim was falsified. When
+    ``max_seconds`` is set, no new proof is launched once the overall budget
+    is exhausted; unaudited capabilities are reported as ``budget_exceeded``
+    and the report is not ``ok``, so a partial audit can never pass as a full
+    verification.
     """
 
     selected = [str(cid) for cid in (capability_ids or ledger.capabilities.keys())]
@@ -11963,7 +12020,12 @@ def audit_ledger_proofs(
         raise KeyError(f"unknown capabilities: {', '.join(sorted(missing))}")
 
     outcomes: list[dict[str, Any]] = []
+    exhausted: list[str] = []
+    audit_started = time.perf_counter()
     for capability_id in selected:
+        if max_seconds is not None and time.perf_counter() - audit_started >= max_seconds:
+            exhausted.append(capability_id)
+            continue
         capability = ledger.capabilities[capability_id]
         recorded = capability.last_proof_exit_code
         exit_code: int | None = None
@@ -12012,8 +12074,9 @@ def audit_ledger_proofs(
         by_status.setdefault(outcome["status"], []).append(outcome["id"])
     stale = sorted(by_status.get("stale") or [])
     return {
-        "ok": not stale,
+        "ok": not stale and not exhausted,
         "audited": len(outcomes),
+        "budget_exceeded": sorted(exhausted),
         "statuses": {key: sorted(value) for key, value in sorted(by_status.items())},
         "status_counts": {key: len(value) for key, value in sorted(by_status.items())},
         "stale_capabilities": stale,
@@ -15767,7 +15830,7 @@ def issue_actuation_certificate(
 
 def verify_actuation_certificate(payload: Mapping[str, Any] | Path) -> dict[str, Any]:
     if isinstance(payload, Path):
-        data = json.loads(payload.read_text(encoding="utf-8"))
+        data = _read_json(payload)
     else:
         data = dict(payload)
     expected = str(data.get("certificate_hash") or "").strip()
@@ -16365,7 +16428,7 @@ def write_actuation_bundle(path: Path, bundle: Mapping[str, Any]) -> Path:
 
 
 def load_actuation_bundle(path: Path) -> dict[str, Any]:
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload = _read_json(path)
     if not isinstance(payload, Mapping):
         raise ValueError("actuation bundle must be a JSON object")
     return dict(payload)
@@ -16910,14 +16973,14 @@ def run_actuation_plane(
             persist=persist,
         )
         e_path = Path((execution_report.get("execution") or {}).get("bundle_path") or "")
-        if e_path and e_path.is_file():
+        if e_path and durable_read_path(e_path).is_file():
             execution_bundle = load_execution_bundle(e_path)
-        elif out_execution.is_file():
+        elif durable_read_path(out_execution).is_file():
             execution_bundle = load_execution_bundle(out_execution)
         else:
             execution_bundle = None
     else:
-        if out_execution.is_file():
+        if durable_read_path(out_execution).is_file():
             execution_bundle = load_execution_bundle(out_execution)
         else:
             execution_report = run_execution_plane(
@@ -16938,7 +17001,7 @@ def run_actuation_plane(
                 execution_path=out_execution,
                 persist=persist,
             )
-            if out_execution.is_file():
+            if durable_read_path(out_execution).is_file():
                 execution_bundle = load_execution_bundle(out_execution)
 
     if execution_bundle is None or not (
@@ -17240,7 +17303,7 @@ def run_actuation_plane(
             "lineage_entry_count": reloaded.get("lineage_entry_count"),
             "lineage_head_hash": reloaded.get("lineage_head_hash"),
             "execution_hash": reloaded.get("execution_hash"),
-            "persisted": persist and out_a.exists() if actuation.get("ok") else False,
+            "persisted": persist and _durable_exists(out_a) if actuation.get("ok") else False,
             "deterministic": True,
             "post_execution": True,
         },

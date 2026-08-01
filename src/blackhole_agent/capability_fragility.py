@@ -46,6 +46,8 @@ import sys
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from blackhole_agent.durable_state import durable_read_path
+
 from blackhole_agent.capability_application import (
     APPLICATION_TASKS,
     ApplicationTask,
@@ -259,9 +261,9 @@ def verify_fragility_report(report_dir: Path) -> dict[str, Any]:
     """
 
     report_path = report_dir / "report.json"
-    if not report_path.exists():
+    if not durable_read_path(report_path).exists():
         return {"ok": False, "error": f"missing report.json in {report_dir}"}
-    report = json.loads(report_path.read_text(encoding="utf-8"))
+    report = json.loads(durable_read_path(report_path).read_text(encoding="utf-8"))
 
     ledger = load_ledger(default_ledger_path(REPO_ROOT))
     recomputed_matrix = compute_impact_matrix(ledger)

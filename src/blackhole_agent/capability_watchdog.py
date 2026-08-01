@@ -30,6 +30,8 @@ import sys
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from blackhole_agent.durable_state import durable_read_path
+
 from blackhole_agent.capability_application import (
     APPLICATION_TASKS,
     _capability_proved,
@@ -131,9 +133,9 @@ def verify_watchdog_report(report_dir: Path) -> dict[str, Any]:
     """
 
     report_path = report_dir / "report.json"
-    if not report_path.exists():
+    if not durable_read_path(report_path).exists():
         return {"ok": False, "error": f"missing report.json in {report_dir}"}
-    report = json.loads(report_path.read_text(encoding="utf-8"))
+    report = json.loads(durable_read_path(report_path).read_text(encoding="utf-8"))
     goal_results = report.get("goal_results") or []
 
     ledger = load_ledger(default_ledger_path(REPO_ROOT))
@@ -221,7 +223,7 @@ def builtin_goal_watchdog() -> dict[str, Any]:
             return {"ok": False, "stage": "verify", "checks": verified.get("checks")}
 
         # Falsifiability 1: flip one recorded goal outcome; verification must fail.
-        tampered = json.loads((out / "report.json").read_text(encoding="utf-8"))
+        tampered = json.loads(durable_read_path(out / "report.json").read_text(encoding="utf-8"))
         tampered["goal_results"][0]["ok"] = not tampered["goal_results"][0]["ok"]
         atomic_write_json(out / "report.json", tampered)
         if verify_watchdog_report(out)["ok"]:

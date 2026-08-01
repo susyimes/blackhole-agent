@@ -74,6 +74,7 @@ from blackhole_agent.capability_compounder import (
     save_ledger,
     utc_now_iso,
 )
+from blackhole_agent.durable_state import durable_read_path
 
 SCHEMA_VERSION = 1
 
@@ -427,7 +428,7 @@ def synthesized_step_proof_command(task_id: str) -> str:
 def load_persisted_records(path: Path | None = None) -> list[dict[str, Any]]:
     """The persisted synthesized-step records; empty when nothing is persisted."""
 
-    steps_path = path or SYNTHESIZED_STEPS_PATH
+    steps_path = durable_read_path(path or SYNTHESIZED_STEPS_PATH)
     if not steps_path.exists():
         return []
     payload = json.loads(steps_path.read_text(encoding="utf-8"))
@@ -477,9 +478,10 @@ def persist_synthesized_steps(repo_root: Path = REPO_ROOT) -> dict[str, Any]:
         records.append(synthesized_step_record(task, result["candidate"]))
 
     steps_path = repo_root / "capabilities" / "synthesized-steps.json"
+    read_steps_path = durable_read_path(steps_path)
     wrote_steps_file = True
-    if steps_path.exists():
-        existing = json.loads(steps_path.read_text(encoding="utf-8"))
+    if read_steps_path.exists():
+        existing = json.loads(read_steps_path.read_text(encoding="utf-8"))
         wrote_steps_file = existing.get("steps") != records
     if wrote_steps_file:
         atomic_write_json(
@@ -867,9 +869,9 @@ def verify_synthesis_report(report_dir: Path) -> dict[str, Any]:
     """
 
     report_path = report_dir / "report.json"
-    if not report_path.exists():
+    if not durable_read_path(report_path).exists():
         return {"ok": False, "error": f"missing report.json in {report_dir}"}
-    report = json.loads(report_path.read_text(encoding="utf-8"))
+    report = json.loads(durable_read_path(report_path).read_text(encoding="utf-8"))
     task_records = report.get("task_records") or []
 
     regraded = compute_synthesis_grade(task_records)
@@ -993,7 +995,7 @@ def builtin_synthesis_plane() -> dict[str, Any]:
             return {"ok": False, "stage": "verify", "checks": verified.get("checks")}
 
         # Falsifiability 1: flip one recorded verdict; verification must fail.
-        tampered = json.loads((out / "report.json").read_text(encoding="utf-8"))
+        tampered = json.loads(durable_read_path(out / "report.json").read_text(encoding="utf-8"))
         tampered["task_records"][0]["held_out_pass"] = not tampered["task_records"][0]["held_out_pass"]
         atomic_write_json(out / "report.json", tampered)
         if verify_synthesis_report(out)["ok"]:

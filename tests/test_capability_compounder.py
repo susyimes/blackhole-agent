@@ -34,6 +34,8 @@ from blackhole_agent.capability_compounder import (
     promote_composition,
     prove_ledger_integrity,
     register_capability,
+    portable_proof_command,
+    proof_command_is_portable,
     run_adaptive_growth,
     run_end_to_end_demo,
     run_growth_loop,
@@ -46,6 +48,7 @@ from blackhole_agent.capability_compounder import (
     synthesize_superstack_compositions,
     topological_order,
 )
+from blackhole_agent.durable_state import durable_forget, durable_read_path
 from blackhole_agent.unbound import (
     build_turn_prompt,
 )
@@ -1316,7 +1319,7 @@ def test_sovereignty_plane_certificate_issue_and_verify():
     assert plane["verify"]["hash_ok"] is True
     assert plane["used_skill_route_discovery"] is False
     cert_path = Path(plane["certificate"]["certificate_path"])
-    assert cert_path.is_file()
+    assert durable_read_path(cert_path).is_file()
     loaded = load_sovereignty_certificate(cert_path)
     assert loaded["certificate_hash"] == plane["certificate"]["certificate_hash"]
     assert loaded["kind"] == "sovereignty_certificate"
@@ -1446,7 +1449,7 @@ def test_lineage_plane_chain_drift_and_adversarial():
 
     lineage_path = repo / "artifacts" / "capability-lineage" / "test-lineage-plane.json"
     if lineage_path.exists():
-        lineage_path.unlink()
+        durable_forget(lineage_path)
 
     plane = run_lineage_plane(
         repo,
@@ -1607,7 +1610,7 @@ def test_reconciliation_plane_heals_synthetic_drift():
         repo / "artifacts" / "capability-lineage" / "test-reconciliation-plane.json"
     )
     if lineage_path.exists():
-        lineage_path.unlink()
+        durable_forget(lineage_path)
 
     plane = run_reconciliation_plane(
         repo,
@@ -1720,7 +1723,7 @@ def test_finality_plane_multi_epoch_seal_and_adversarial():
     finality_path = repo / "artifacts" / "finality-bundles" / "test-finality-plane.json"
     for target in (lineage_path, quorum_path, finality_path):
         if target.exists():
-            target.unlink()
+            durable_forget(target)
 
     plane = run_finality_plane(
         repo,
@@ -1836,7 +1839,7 @@ def test_actuation_plane_effects_and_adversarial():
     actuation_path = repo / "artifacts" / "actuation-bundles" / "test-actuation-plane.json"
     for target in (lineage_path, quorum_path, finality_path, execution_path, actuation_path):
         if target.exists():
-            target.unlink()
+            durable_forget(target)
 
     plane = run_actuation_plane(
         repo,
@@ -1959,7 +1962,7 @@ def test_quorum_plane_majority_byzantine_and_adversarial():
     quorum_path = repo / "artifacts" / "quorum-bundles" / "test-quorum-plane.json"
     for target in (lineage_path, quorum_path):
         if target.exists():
-            target.unlink()
+            durable_forget(target)
 
     plane = run_quorum_plane(
         repo,
@@ -2069,7 +2072,7 @@ def test_continuity_plane_export_rehydrate_and_adversarial():
     )
     for target in (lineage_path, bundle_path):
         if target.exists():
-            target.unlink()
+            durable_forget(target)
 
     plane = run_continuity_plane(
         repo,
@@ -2335,3 +2338,62 @@ def test_builtin_growth_audit_gate():
     assert result["blocked_stale_base"] is True
     assert result["stale_members"] == ["gate.base"]
     assert result["allowed_honest_closure"] is True
+
+
+def test_portable_proof_command_rewrites_absolute_interpreter():
+    command = (
+        '"C:\\Users\\someone\\repo\\.venv\\Scripts\\python.exe" -c '
+        '"from blackhole_agent.capability_compounder import builtin_ledger_inventory; '
+        "r=builtin_ledger_inventory(); assert r['ok']\""
+    )
+    rewritten = portable_proof_command(command)
+    assert rewritten.startswith("uv run python -c ")
+    assert "C:\\" not in rewritten
+    assert proof_command_is_portable(rewritten)
+    assert not proof_command_is_portable(command)
+    already = 'uv run python -c "pass"'
+    assert portable_proof_command(already) == already
+
+
+def test_register_capability_normalizes_proof_command(tmp_path: Path):
+    from blackhole_agent.capability_compounder import Capability, CapabilityLedger
+
+    ledger = CapabilityLedger()
+    capability = Capability(
+        id="probe.portable-proof",
+        name="Portable proof probe",
+        description="Registration normalizes machine-local interpreter paths.",
+        kind="python",
+        entry="blackhole_agent.capability_compounder:builtin_ledger_inventory",
+        proof_command='"D:\\venv\\Scripts\\python.exe" -c "pass"',
+    )
+    registered = register_capability(ledger, capability)
+    proof = registered.capabilities["probe.portable-proof"].proof_command
+    assert proof == "uv run python -c \"pass\""
+
+
+def test_committed_ledger_proofs_are_portable():
+    repo = Path(__file__).resolve().parents[1]
+    ledger = load_ledger(default_ledger_path(repo))
+    offenders = [
+        capability_id
+        for capability_id, capability in ledger.capabilities.items()
+        if not proof_command_is_portable(capability.proof_command)
+    ]
+    assert offenders == []
+
+
+def test_audit_ledger_proofs_budget_exhaustion_fails_closed(tmp_path):
+    passing = f'"{sys.executable}" -c "pass"'
+    ledger = CapabilityLedger(
+        capabilities={
+            "audit.one": _audit_fixture_capability("audit.one", passing, 0),
+            "audit.two": _audit_fixture_capability("audit.two", passing, 0),
+        }
+    )
+
+    report = audit_ledger_proofs(ledger, cwd=tmp_path, timeout=60, max_seconds=0)
+
+    assert report["ok"] is False
+    assert report["audited"] == 0
+    assert sorted(report["budget_exceeded"]) == ["audit.one", "audit.two"]

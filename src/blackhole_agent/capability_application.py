@@ -43,6 +43,8 @@ import time
 from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
+
+from blackhole_agent.durable_state import durable_read_path
 from typing import Any, Callable, Mapping, Sequence
 
 from blackhole_agent.capability_compounder import (
@@ -678,9 +680,9 @@ def verify_application_report(report_dir: Path) -> dict[str, Any]:
     """
 
     report_path = report_dir / "report.json"
-    if not report_path.exists():
+    if not durable_read_path(report_path).exists():
         return {"ok": False, "error": f"missing report.json in {report_dir}"}
-    report = json.loads(report_path.read_text(encoding="utf-8"))
+    report = json.loads(durable_read_path(report_path).read_text(encoding="utf-8"))
     task_records = report.get("task_records") or []
 
     ledger = load_ledger(default_ledger_path(REPO_ROOT))
@@ -816,7 +818,7 @@ def builtin_application_plane() -> dict[str, Any]:
             return {"ok": False, "stage": "verify", "checks": verified.get("checks")}
 
         # Falsifiability 1: flip one recorded task outcome; verification must fail.
-        tampered = json.loads((out / "report.json").read_text(encoding="utf-8"))
+        tampered = json.loads(durable_read_path(out / "report.json").read_text(encoding="utf-8"))
         tampered["task_records"][0]["ok"] = not tampered["task_records"][0]["ok"]
         atomic_write_json(out / "report.json", tampered)
         if verify_application_report(out)["ok"]:

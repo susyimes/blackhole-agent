@@ -31,6 +31,8 @@ import sys
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from blackhole_agent.durable_state import durable_read_path
+
 from blackhole_agent.capability_compounder import (
     default_ledger_path,
     legacy_pipeline_was_used,
@@ -96,7 +98,7 @@ def attest_ledger_structure(repo_path: Path | None = None) -> dict[str, Any]:
     root = (repo_path or REPO_ROOT).resolve()
     path = default_ledger_path(root)
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload = json.loads(durable_read_path(path).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         return {
             "ready": False,

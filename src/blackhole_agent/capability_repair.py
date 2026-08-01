@@ -26,6 +26,8 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+
+from blackhole_agent.durable_state import durable_read_path, durable_write_path
 from typing import Any, Callable, Mapping, Sequence
 
 from blackhole_agent.capability_compounder import (
@@ -34,6 +36,7 @@ from blackhole_agent.capability_compounder import (
     ensure_seeded_ledger,
     evaluate_outcome_contract,
     legacy_pipeline_was_used,
+    portable_proof_command,
     prove_capability,
     run_capability,
     save_ledger,
@@ -51,11 +54,15 @@ __all__ = [
     "write_repair_report",
 ]
 
-# Proof commands are seeded as `"<sys.executable>" -c "..."`. When the ledger
-# travels between checkouts, worktrees, or machines the recorded absolute
-# interpreter path can cease to exist — every proof replay then fails even
-# though the capability itself is healthy.
+# Proof commands persist in the portable form `uv run python -c "..."`.
+# Historical ledgers recorded `"<sys.executable>" -c "..."`; when such an
+# absolute interpreter path travels between checkouts, worktrees, or machines
+# it can cease to exist — every proof replay then fails even though the
+# capability itself is healthy. Repair rebinds those commands to the portable
+# form rather than to another machine-local path.
 _INTERPRETER_PATTERN = re.compile(r'^\s*"(?P<exe>[^"]+)"')
+
+_PORTABLE_PROOF_PREFIX = "uv run python"
 
 _IMPORT_ERROR_MARKERS = (
     "ModuleNotFoundError",
@@ -105,12 +112,22 @@ def _replace_capability_fields(
 
 
 def _swap_proof_interpreter(command: str, executable: str) -> str:
-    """Replace the leading quoted interpreter token of a proof command."""
+    """Replace the interpreter a proof command runs through.
 
-    match = _INTERPRETER_PATTERN.match(command or "")
-    if match is None:
-        return command
-    return f'"{executable}"' + command[match.end() :]
+    Handles both the historical quoted-interpreter form and the portable
+    ``uv run python`` form; the result always uses the quoted-interpreter
+    form so callers can plant arbitrary (including nonexistent) interpreter
+    paths for falsification experiments.
+    """
+
+    text = command or ""
+    match = _INTERPRETER_PATTERN.match(text)
+    if match is not None:
+        return f'"{executable}"' + text[match.end() :]
+    stripped = text.lstrip()
+    if stripped.startswith(_PORTABLE_PROOF_PREFIX):
+        return f'"{executable}"' + stripped[len(_PORTABLE_PROOF_PREFIX) :]
+    return text
 
 
 def detect_stale_proof_interpreter(
@@ -145,8 +162,16 @@ def regenerate_proof_command(
     *,
     executable: str | None = None,
 ) -> str:
-    """Rebind a proof command to the current interpreter, keeping the body."""
+    """Rebind a proof command to a working interpreter, keeping the body.
 
+    Python proofs are rebound to the portable ``uv run python`` form so a
+    repaired ledger entry stays machine-independent; non-Python commands fall
+    back to swapping in the current interpreter path.
+    """
+
+    rebound = portable_proof_command(command)
+    if rebound != (command or "") or (command or "").lstrip().startswith(_PORTABLE_PROOF_PREFIX):
+        return rebound
     return _swap_proof_interpreter(command, executable or sys.executable)
 
 
@@ -273,6 +298,7 @@ def repair_capability(
 def write_repair_report(report: Mapping[str, Any], output_dir: Path) -> dict[str, Any]:
     """Write a digest-sealed repair report into ``output_dir``."""
 
+    output_dir = durable_write_path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     payload = {key: value for key, value in report.items() if key != "payload_digest"}
     sealed = dict(payload)
@@ -295,7 +321,7 @@ def verify_repair_report(report_dir: Path) -> dict[str, Any]:
     if not path.exists():
         return {"ok": False, "error": "missing report.json", "checks": {}}
     try:
-        sealed = json.loads(path.read_text(encoding="utf-8"))
+        sealed = json.loads(durable_read_path(path).read_text(encoding="utf-8"))
     except json.JSONDecodeError as error:
         return {"ok": False, "error": f"invalid report.json: {error}", "checks": {}}
     payload = {key: value for key, value in sealed.items() if key != "payload_digest"}

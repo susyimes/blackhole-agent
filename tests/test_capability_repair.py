@@ -43,7 +43,8 @@ def test_regenerate_proof_command_preserves_body() -> None:
     bogus = str(REPO_ROOT / ".blackhole-test-nonexistent" / "bin" / "python.exe")
     command = f'"{bogus}" -c "import sys; sys.exit(3)"'
     regenerated = regenerate_proof_command(command)
-    assert regenerated == f'"{sys.executable}" -c "import sys; sys.exit(3)"'
+    # Python proofs are rebound to the portable interpreter form.
+    assert regenerated == 'uv run python -c "import sys; sys.exit(3)"'
     # Commands without a quoted interpreter token pass through untouched.
     assert regenerate_proof_command("echo hi") == "echo hi"
 
@@ -62,9 +63,8 @@ def test_repair_stale_interpreter_on_scratch_ledger() -> None:
     target = scratch.capabilities["repo.import-health"]
     bogus = str(REPO_ROOT / ".blackhole-test-nonexistent" / "Scripts" / "python.exe")
     payload = target.to_dict()
-    payload["proof_command"] = f'"{bogus}"' + target.proof_command[
-        target.proof_command.index('"', 1) + 1 :
-    ]
+    body = target.proof_command.split(" -c ", 1)[1]
+    payload["proof_command"] = f'"{bogus}" -c {body}'
     scratch.capabilities["repo.import-health"] = Capability.from_dict(payload)
 
     scratch, report = repair_capability(
@@ -182,9 +182,8 @@ def test_growth_loop_resumes_after_autonomous_repair(tmp_path: Path, monkeypatch
     target = ledger.capabilities["capability.ledger-inventory"]
     bogus = str(tmp_path / ".nonexistent-venv" / "Scripts" / "python.exe")
     payload = target.to_dict()
-    payload["proof_command"] = f'"{bogus}"' + target.proof_command[
-        target.proof_command.index('"', 1) + 1 :
-    ]
+    body = target.proof_command.split(" -c ", 1)[1]
+    payload["proof_command"] = f'"{bogus}" -c {body}'
     payload["last_proof_exit_code"] = 0
     ledger.capabilities["capability.ledger-inventory"] = Capability.from_dict(payload)
     save_ledger(path, ledger)
