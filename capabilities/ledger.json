@@ -1997,6 +1997,41 @@
       ],
       "updated_at": "2026-08-01T00:19:02.183625Z"
     },
+    "capability.fitness-benchmark": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_benchmark.py",
+        "src/blackhole_agent/unbound.py"
+      ],
+      "capability_delta": "The evolution loop gains a fitness function: ledger abilities are measured as one working system (10 tasks, 10 capabilities, suite score) instead of binary self-referential proofs.",
+      "created_at": "2026-08-01T04:38:32.430148Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.grounded-scan",
+        "domain.local-memory",
+        "domain.tool-routing",
+        "domain.issue-triage",
+        "domain.ci-security",
+        "domain.proposal-eval"
+      ],
+      "description": "Deterministic hermetic task suite that grades real ledger abilities into per-capability fitness scores, sealed as a digest-verifiable report with tamper and misgrade falsification.",
+      "entry": "blackhole_agent.capability_benchmark:builtin_fitness_benchmark_proof",
+      "id": "capability.fitness-benchmark",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-01T04:38:33.284173Z",
+      "name": "Capability fitness benchmark",
+      "proof_command": "\"C:/Users/svmes/Documents/Playground/.blackhole-agent-unbound-worktrees/20260801T042309Z-4567ceee/.venv/Scripts/python.exe\" -c \"from blackhole_agent.capability_benchmark import builtin_fitness_benchmark_proof as f; import sys; r=f(); print(r); sys.exit(0 if r.get('ok') else 1)\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "benchmark",
+        "fitness",
+        "compounder",
+        "grounded"
+      ],
+      "updated_at": "2026-08-01T04:38:33.284173Z"
+    },
     "capability.frontier-novelty": {
       "behavior_paths": [
         "src/blackhole_agent/capability_compounder.py",
@@ -3116,5 +3151,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-08-01T00:19:25.535516Z"
+  "updated_at": "2026-08-01T04:38:33.284202Z"
 }

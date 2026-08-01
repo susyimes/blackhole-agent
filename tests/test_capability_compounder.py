@@ -295,6 +295,12 @@ def test_growth_loop_promotes_and_proves_on_repo():
             for capability_id in list(ledger.capabilities)
             if capability_id.startswith("capability.composed-")
             or capability_id.startswith("domain.")
+            # Dependents of composed/domain members (e.g. benchmark planes that
+            # exercise domain leaves) block their removal, so they go first.
+            or any(
+                dependency.startswith(("capability.composed-", "domain."))
+                for dependency in ledger.capabilities[capability_id].dependencies
+            )
         ]
         if not removable:
             break

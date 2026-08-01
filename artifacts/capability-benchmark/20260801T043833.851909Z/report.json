@@ -1,0 +1,132 @@
+{
+  "fitness": {
+    "capabilities_measured": 10,
+    "capability_fitness": {
+      "capability.grounded-scan": 1.0,
+      "capability.ledger-inventory": 1.0,
+      "domain.ci-security": 1.0,
+      "domain.issue-triage": 1.0,
+      "domain.local-memory": 1.0,
+      "domain.proposal-eval": 1.0,
+      "domain.tool-routing": 1.0,
+      "evolution.compounder-redirect": 1.0,
+      "repo.import-health": 1.0,
+      "unbound.milestone-gate": 1.0
+    },
+    "suite_score": 1.0,
+    "task_count": 10,
+    "task_pass_count": 10,
+    "weakest_capabilities": []
+  },
+  "fitness_digest": "ba1e1d407fca15b82f91256cbb6ac3674b0ba7929e19dd3b498c4b5cd9417d98",
+  "kind": "capability_fitness_benchmark",
+  "ok": true,
+  "outcomes_digest": "2aa1bfb0292e8f475d21a539f6a6aea6a1d7ce0395cffade7e9da9247b5c346a",
+  "report_digest": "3e866a8f56b7bd148f4d3e6e2bba742c176c54b0d9177e5bd861d18dec274693",
+  "run_at": "2026-08-01T04:38:33.851909Z",
+  "schema_version": 1,
+  "task_outcomes": [
+    {
+      "description": "Package imports cleanly with no legacy skill-route machinery.",
+      "duration_ms": 0.143,
+      "error": "",
+      "exercises": [
+        "repo.import-health"
+      ],
+      "id": "repo-import-health",
+      "ok": true
+    },
+    {
+      "description": "Unbound milestone gate accepts behavior changes and rejects docs-only churn.",
+      "duration_ms": 0.077,
+      "error": "",
+      "exercises": [
+        "unbound.milestone-gate"
+      ],
+      "id": "milestone-gate",
+      "ok": true
+    },
+    {
+      "description": "Durable capability ledger loads and inventories.",
+      "duration_ms": 2.374,
+      "error": "",
+      "exercises": [
+        "capability.ledger-inventory",
+        "repo.import-health"
+      ],
+      "id": "ledger-inventory",
+      "ok": true
+    },
+    {
+      "description": "Local memory write/read/delete with privacy rejection.",
+      "duration_ms": 6.093,
+      "error": "",
+      "exercises": [
+        "domain.local-memory"
+      ],
+      "id": "local-memory-roundtrip",
+      "ok": true
+    },
+    {
+      "description": "Tool routing preflight and executable registry.",
+      "duration_ms": 0.058,
+      "error": "",
+      "exercises": [
+        "domain.tool-routing"
+      ],
+      "id": "tool-routing-preflight",
+      "ok": true
+    },
+    {
+      "description": "Issue triage scoring on deterministic fixtures.",
+      "duration_ms": 3.002,
+      "error": "",
+      "exercises": [
+        "domain.issue-triage"
+      ],
+      "id": "issue-triage-smoke",
+      "ok": true
+    },
+    {
+      "description": "CI and supply-chain security gate.",
+      "duration_ms": 1.202,
+      "error": "",
+      "exercises": [
+        "domain.ci-security"
+      ],
+      "id": "ci-security-gate",
+      "ok": true
+    },
+    {
+      "description": "Proposal evaluation on deterministic fixtures.",
+      "duration_ms": 155.237,
+      "error": "",
+      "exercises": [
+        "domain.proposal-eval"
+      ],
+      "id": "proposal-eval-smoke",
+      "ok": true
+    },
+    {
+      "description": "Grounded growth scan replays the committed fixture with tamper falsification.",
+      "duration_ms": 9.159,
+      "error": "",
+      "exercises": [
+        "capability.grounded-scan"
+      ],
+      "id": "grounded-scan-replay",
+      "ok": true
+    },
+    {
+      "description": "Evolution surface redirects to the compounder when the ledger is ready.",
+      "duration_ms": 10.649,
+      "error": "",
+      "exercises": [
+        "evolution.compounder-redirect",
+        "capability.ledger-inventory"
+      ],
+      "id": "evolution-redirect",
+      "ok": true
+    }
+  ]
+}

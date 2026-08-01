@@ -2814,6 +2814,52 @@ def capability_novelty(
 
 
 @capability_app.command(
+    "benchmark",
+    help=(
+        "Run the deterministic capability fitness benchmark: a hermetic task suite that "
+        "grades real ledger abilities into per-capability fitness scores, sealed as a "
+        "digest-verifiable report artifact."
+    ),
+)
+def capability_benchmark(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    verify_only: Path | None = typer.Option(
+        None,
+        "--verify-only",
+        help="Only re-verify a sealed benchmark report directory.",
+    ),
+    output_dir: Path | None = typer.Option(
+        None,
+        "--output-dir",
+        help="Report artifact directory (default: artifacts/capability-benchmark/<timestamp>).",
+    ),
+) -> None:
+    from blackhole_agent.capability_benchmark import (
+        DEFAULT_ARTIFACT_DIR,
+        run_fitness_benchmark,
+        verify_fitness_report,
+        write_benchmark_report,
+    )
+
+    root = repo_path.resolve()
+    try:
+        if verify_only is not None:
+            result = verify_fitness_report(verify_only)
+        else:
+            report = run_fitness_benchmark()
+            stamp = report["run_at"].replace(":", "").replace("-", "")
+            out = output_dir or (root / DEFAULT_ARTIFACT_DIR / stamp)
+            result = write_benchmark_report(report, out)
+            result["fitness"] = report["fitness"]
+    except Exception as error:
+        console.print(f"Fitness benchmark failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
     "distill",
     help=(
         "Distill redundant composed capabilities that share identical primitive coverage. "
