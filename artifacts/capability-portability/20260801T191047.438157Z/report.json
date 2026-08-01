@@ -1,0 +1,69 @@
+{
+  "checkouts": {
+    "corrupted": {
+      "watchdog": {
+        "drifted_goals": [
+          "routed-triage-record"
+        ],
+        "exit_code": 1,
+        "goal_count": 6,
+        "healthy_count": 5,
+        "ok": false,
+        "report_digest": "c442ec079001b11ac4eef8e83cac63505be190cc0164e895e70f971628713abd"
+      }
+    },
+    "pristine_a": {
+      "application": {
+        "application_score": 1.0,
+        "exit_code": 0,
+        "ok": true,
+        "task_count": 6,
+        "unsolvable_count": 0
+      },
+      "archive": {
+        "dest": "C:\\Users\\svmes\\AppData\\Local\\Temp\\capability-portability-fq5lygms\\checkout-a",
+        "file_count": 652
+      },
+      "watchdog": {
+        "drifted_goals": [],
+        "exit_code": 0,
+        "goal_count": 6,
+        "healthy_count": 6,
+        "ok": true,
+        "report_digest": "1d755e69a47aefc6b1da23cdc9ab68560c3faa47e8efd26a53734c8228c2f357"
+      }
+    },
+    "pristine_b": {
+      "application": {
+        "application_score": 1.0,
+        "exit_code": 0,
+        "ok": true,
+        "task_count": 6,
+        "unsolvable_count": 0
+      },
+      "watchdog": {
+        "drifted_goals": [],
+        "exit_code": 0,
+        "goal_count": 6,
+        "healthy_count": 6,
+        "ok": true,
+        "report_digest": "1d755e69a47aefc6b1da23cdc9ab68560c3faa47e8efd26a53734c8228c2f357"
+      }
+    }
+  },
+  "checkouts_digest": "ac46047b0825089e6df93108b350c17465aaad08817310a154e116d331e2193a",
+  "grade_digest": "0235ae8e4111d0f9e0aedb5ff820a9cbd4ee9638e2cc3bd7a6ca630f1d332575",
+  "kind": "capability_portability_plane",
+  "ok": true,
+  "portability": {
+    "application_score": 1.0,
+    "corruption_detected": true,
+    "cross_checkout_determinism": true,
+    "goal_count": 6,
+    "pristine_ok": true
+  },
+  "report_digest": "275d8cd989e5c3941e9b2c079414acbdeddf66d314c8e21c57279ad13ccceb50",
+  "run_at": "2026-08-01T19:10:47.438157Z",
+  "schema_version": 1,
+  "used_skill_route_discovery": false
+}

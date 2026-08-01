@@ -19375,6 +19375,68 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
             created_at=utc_now_iso(),
             updated_at=utc_now_iso(),
         ),
+        Capability(
+            id="capability.portability-proof",
+            name="Goal-stack portability proof",
+            description=(
+                "The goal-directed stack is proven on pristine checkouts, "
+                "not just this worktree: git archive materializes the "
+                "tracked source of HEAD into a temp directory, and the goal "
+                "watchdog plus the application plane run there via "
+                "PYTHONPATH isolation - imports, ledger, fixtures, and "
+                "reports all resolve against the pristine tree. Two "
+                "independent pristine checkouts must produce identical "
+                "watchdog digests and application scores (cross-checkout "
+                "determinism), and a checkout whose ledger stamps "
+                "domain.tool-routing red must flag routed-triage-record as "
+                "drift with a non-zero exit - portability failures are "
+                "reported, never rounded up. Reports are digest-sealed; "
+                "verification recomputes the grade from the recorded "
+                "checkout summaries and rejects tampered summaries and "
+                "rounded-up grades."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_portability:builtin_portability_plane",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_portability import builtin_portability_plane; '
+                "r=builtin_portability_plane(); assert r['ok'] "
+                "and r.get('portability',{}).get('pristine_ok') "
+                "and r.get('portability',{}).get('cross_checkout_determinism') "
+                "and r.get('portability',{}).get('corruption_detected') "
+                "and r.get('portability',{}).get('application_score')==1.0 "
+                "and r.get('tamper_detected') and r.get('misgrade_detected') "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.application-plane",
+                "capability.goal-watchdog",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_portability.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "The goal stack no longer rests on this worktree's "
+                "environment: pristine-checkouts of HEAD run the watchdog "
+                "and application plane green with identical digests, and a "
+                "deliberately corrupted checkout is flagged - portability is "
+                "demonstrated evidence, not an assumption, without "
+                "skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "portability",
+                "application",
+                "watchdog",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
 
     ]
 
