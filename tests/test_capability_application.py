@@ -63,6 +63,7 @@ def test_planner_derives_minimal_plans_from_goals() -> None:
     assert plans["blocked-scan-honesty"] == ["domain.ci-security", "domain.harness-activation"]
     assert plans["ledger-gated-proposal"] == ["capability.ledger-attestation", "domain.proposal-eval"]
     assert plans["ledger-inventory-check"] == ["capability.ledger-attestation"]
+    assert plans["persona-stamped-proposal"] == ["domain.persona", "domain.proposal-synthesis"]
 
 
 def test_each_task_matches_oracle_and_plan_ablations_break() -> None:

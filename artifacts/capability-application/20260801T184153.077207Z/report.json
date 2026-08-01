@@ -1,0 +1,281 @@
+{
+  "application": {
+    "application_score": 1.0,
+    "plan_attributed": [
+      "routed-triage-record",
+      "scan-gated-activation",
+      "blocked-scan-honesty",
+      "ledger-gated-proposal",
+      "ledger-inventory-check",
+      "persona-stamped-proposal"
+    ],
+    "task_count": 6,
+    "task_pass_count": 6,
+    "unsolvable_count": 0
+  },
+  "grade_digest": "8b1d2053017c7f2edef5c83d8b525478827a98bb920b667cde2bef1a4d497fbb",
+  "hidden_capabilities": [],
+  "kind": "capability_application_plane",
+  "ok": true,
+  "outcomes_digest": "924ef612b846046f196396b183656e98d6fd1c9e96dac9f72c51389874aa2553",
+  "plans_digest": "fa07144f118df8b52bc7cdec635b6d9f30a98e45ba3722eca7baba0c07ccb832",
+  "report_digest": "c6e757f031a9a5d7e1158a44976dee7ddfa4eab3961f2c53acb22415b5663b8f",
+  "run_at": "2026-08-01T18:41:53.077207Z",
+  "schema_version": 1,
+  "task_records": [
+    {
+      "description": "From a raw bug report and a tool requirement, produce a persisted, verified triage record — a three-capability chain that exists nowhere in the hand-authored utility suite.",
+      "duration_ms": 11.828,
+      "error": "",
+      "goal": [
+        "triage",
+        "memory_record"
+      ],
+      "id": "routed-triage-record",
+      "minimality": [
+        {
+          "broke_outcome": true,
+          "removed": "domain.tool-routing"
+        },
+        {
+          "broke_outcome": true,
+          "removed": "domain.issue-triage"
+        },
+        {
+          "broke_outcome": true,
+          "removed": "domain.local-memory"
+        }
+      ],
+      "ok": true,
+      "outcome": {
+        "issue": {
+          "body": "regression in harness coverage",
+          "labels": [
+            "bug"
+          ],
+          "title": "tests failing on main"
+        },
+        "memory_record": {
+          "deleted": true,
+          "key": "last-triage",
+          "value": "triage:validation"
+        },
+        "preflight": {
+          "executable": [
+            "auto_merge",
+            "issue_triage"
+          ],
+          "missing_required": [],
+          "preflight_ok": true
+        },
+        "tool_requirements": [
+          "issue_triage"
+        ],
+        "triage": {
+          "gated": false,
+          "lane": "validation"
+        }
+      },
+      "plan": [
+        "domain.tool-routing",
+        "domain.issue-triage",
+        "domain.local-memory"
+      ],
+      "plan_sound": true,
+      "reversed_broke": true
+    },
+    {
+      "description": "From a raw scan verdict, reach an allowed harness activation.",
+      "duration_ms": 3.152,
+      "error": "",
+      "goal": [
+        "activation"
+      ],
+      "id": "scan-gated-activation",
+      "minimality": [
+        {
+          "broke_outcome": true,
+          "removed": "domain.ci-security"
+        },
+        {
+          "broke_outcome": true,
+          "removed": "domain.harness-activation"
+        }
+      ],
+      "ok": true,
+      "outcome": {
+        "activation": {
+          "allowed": true,
+          "decision": "ready_for_local_eval_activation",
+          "external_allowed": false
+        },
+        "scan": {
+          "scan_conclusion": "success"
+        },
+        "scan_gate": {
+          "allowed": true,
+          "outcome": "security_scan_passed"
+        }
+      },
+      "plan": [
+        "domain.ci-security",
+        "domain.harness-activation"
+      ],
+      "plan_sound": true,
+      "reversed_broke": true
+    },
+    {
+      "description": "From a failing scan verdict, reach the activation surface and honestly report the blocked outcome — negative oracles are goals too.",
+      "duration_ms": 0.026,
+      "error": "",
+      "goal": [
+        "activation"
+      ],
+      "id": "blocked-scan-honesty",
+      "minimality": [
+        {
+          "broke_outcome": true,
+          "removed": "domain.ci-security"
+        },
+        {
+          "broke_outcome": true,
+          "removed": "domain.harness-activation"
+        }
+      ],
+      "ok": true,
+      "outcome": {
+        "activation": {
+          "allowed": false,
+          "decision": "ready_for_local_eval_activation",
+          "external_allowed": false
+        },
+        "scan": {
+          "scan_conclusion": "failure"
+        },
+        "scan_gate": {
+          "allowed": false,
+          "outcome": "security_scan_blocked"
+        }
+      },
+      "plan": [
+        "domain.ci-security",
+        "domain.harness-activation"
+      ],
+      "plan_sound": true,
+      "reversed_broke": true
+    },
+    {
+      "description": "From a raw proposal fixture, reach a recorded review decision.",
+      "duration_ms": 157.294,
+      "error": "",
+      "goal": [
+        "proposal_review"
+      ],
+      "id": "ledger-gated-proposal",
+      "minimality": [
+        {
+          "broke_outcome": true,
+          "removed": "capability.ledger-attestation"
+        },
+        {
+          "broke_outcome": true,
+          "removed": "domain.proposal-eval"
+        }
+      ],
+      "ok": true,
+      "outcome": {
+        "ledger_ready": true,
+        "proposal_fixture": "benign_agent_harness.json",
+        "proposal_review": {
+          "accepted_count": 1,
+          "decision": "record",
+          "passed": true,
+          "rejected_count": 0,
+          "review_status": "accepted"
+        }
+      },
+      "plan": [
+        "capability.ledger-attestation",
+        "domain.proposal-eval"
+      ],
+      "plan_sound": true,
+      "reversed_broke": true
+    },
+    {
+      "description": "Attest that the capability ledger is ready to carry new records. Deliberately shares capability.ledger-inventory with ledger-gated-proposal so blast-radius analysis has shared structure to measure.",
+      "duration_ms": 1.365,
+      "error": "",
+      "goal": [
+        "ledger_ready"
+      ],
+      "id": "ledger-inventory-check",
+      "minimality": [
+        {
+          "broke_outcome": true,
+          "removed": "capability.ledger-attestation"
+        }
+      ],
+      "ok": true,
+      "outcome": {
+        "ledger_ready": true
+      },
+      "plan": [
+        "capability.ledger-attestation"
+      ],
+      "plan_sound": true,
+      "reversed_broke": true
+    },
+    {
+      "description": "From a raw digest item, produce an evidence package stamped with the persona contract it was synthesized under.",
+      "duration_ms": 0.139,
+      "error": "",
+      "goal": [
+        "proposal_package"
+      ],
+      "id": "persona-stamped-proposal",
+      "minimality": [
+        {
+          "broke_outcome": true,
+          "removed": "domain.persona"
+        },
+        {
+          "broke_outcome": true,
+          "removed": "domain.proposal-synthesis"
+        }
+      ],
+      "ok": true,
+      "outcome": {
+        "digest_item": {
+          "digest_id": "trend-digest-001",
+          "item": {
+            "confidence": 0.91,
+            "event_kind": "PushEvent",
+            "relevance_reason": "Offline second-wave domain absorption evidence.",
+            "risk_flags": [],
+            "source_url": "",
+            "summary": "Capability mission plane expands primitives past superstack plateau."
+          }
+        },
+        "persona_context": {
+          "name": "blackhole-agent",
+          "rendered": true,
+          "version": "2026-06-14.hermes-inspired"
+        },
+        "proposal_package": {
+          "digest_id": "trend-digest-001",
+          "item_count": 1,
+          "mode": "heuristic",
+          "persona_version": "2026-06-14.hermes-inspired",
+          "schema_version": 1
+        }
+      },
+      "plan": [
+        "domain.persona",
+        "domain.proposal-synthesis"
+      ],
+      "plan_sound": true,
+      "reversed_broke": true
+    }
+  ],
+  "used_skill_route_discovery": false
+}

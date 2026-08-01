@@ -143,6 +143,44 @@ def _invoke_ledger_attestation(state: Mapping[str, Any]) -> dict[str, Any]:
     return {"ledger_ready": out["ready"]}
 
 
+def _invoke_persona(state: Mapping[str, Any]) -> dict[str, Any]:
+    from blackhole_agent.persona import BLACKHOLE_PERSONA, PERSONA_VERSION, render_persona_layer
+
+    text = render_persona_layer()
+    return {
+        "persona_context": {
+            "version": PERSONA_VERSION,
+            "name": BLACKHOLE_PERSONA.name,
+            "rendered": bool(text.strip()) and PERSONA_VERSION in text,
+        }
+    }
+
+
+def _invoke_proposal_synthesis(state: Mapping[str, Any]) -> dict[str, Any]:
+    from blackhole_agent.proposal_synthesis import (
+        PROPOSAL_SYNTHESIS_SCHEMA_VERSION,
+        build_proposal_evidence_package,
+        validate_proposal_mode,
+    )
+
+    persona = state["persona_context"]
+    item = state["digest_item"]
+    mode = validate_proposal_mode("heuristic")
+    package = build_proposal_evidence_package({"digest_id": item["digest_id"], "items": [item["item"]]})
+    return {
+        "proposal_package": {
+            "mode": mode,
+            "schema_version": PROPOSAL_SYNTHESIS_SCHEMA_VERSION,
+            "digest_id": package["digest_id"],
+            "item_count": len(package["items"]),
+            # Composition rule: the package is stamped with the persona
+            # contract it was synthesized under — the chain, not one
+            # capability in isolation.
+            "persona_version": persona["version"],
+        }
+    }
+
+
 def _invoke_proposal_eval(state: Mapping[str, Any]) -> dict[str, Any]:
     out = STEP_REGISTRY["domain.proposal-eval"](
         {"fixture": state["proposal_fixture"], "ledger_ready": state["ledger_ready"]}
@@ -194,6 +232,18 @@ APPLICATION_STEPS: dict[str, ApplicationStep] = {
             requires=(),
             provides=("ledger_ready",),
             invoke=_invoke_ledger_attestation,
+        ),
+        ApplicationStep(
+            capability_id="domain.persona",
+            requires=(),
+            provides=("persona_context",),
+            invoke=_invoke_persona,
+        ),
+        ApplicationStep(
+            capability_id="domain.proposal-synthesis",
+            requires=("digest_item", "persona_context"),
+            provides=("proposal_package",),
+            invoke=_invoke_proposal_synthesis,
         ),
         ApplicationStep(
             capability_id="domain.proposal-eval",
@@ -307,6 +357,41 @@ APPLICATION_TASKS: tuple[ApplicationTask, ...] = (
         initial_state={},
         goal=("ledger_ready",),
         oracle={"ledger_ready": True},
+    ),
+    ApplicationTask(
+        id="persona-stamped-proposal",
+        description=(
+            "From a raw digest item, produce an evidence package stamped with "
+            "the persona contract it was synthesized under."
+        ),
+        initial_state={
+            "digest_item": {
+                "digest_id": "trend-digest-001",
+                "item": {
+                    "summary": "Capability mission plane expands primitives past superstack plateau.",
+                    "relevance_reason": "Offline second-wave domain absorption evidence.",
+                    "confidence": 0.91,
+                    "risk_flags": [],
+                    "source_url": "",
+                    "event_kind": "PushEvent",
+                },
+            },
+        },
+        goal=("proposal_package",),
+        oracle={
+            "persona_context": {
+                "version": "2026-06-14.hermes-inspired",
+                "name": "blackhole-agent",
+                "rendered": True,
+            },
+            "proposal_package": {
+                "mode": "heuristic",
+                "schema_version": 1,
+                "digest_id": "trend-digest-001",
+                "item_count": 1,
+                "persona_version": "2026-06-14.hermes-inspired",
+            },
+        },
     ),
 )
 

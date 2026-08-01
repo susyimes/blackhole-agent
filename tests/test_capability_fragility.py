@@ -37,19 +37,26 @@ def test_impact_matrix_covers_surface_and_finds_shared_structure() -> None:
     assert matrix["domain.ci-security"] == ["blocked-scan-honesty", "scan-gated-activation"]
     assert matrix["domain.harness-activation"] == ["blocked-scan-honesty", "scan-gated-activation"]
     assert matrix["domain.proposal-eval"] == ["ledger-gated-proposal"]
+    assert matrix["domain.persona"] == ["persona-stamped-proposal"]
+    assert matrix["domain.proposal-synthesis"] == ["persona-stamped-proposal"]
 
 
 def test_fragility_grade_tracks_redundancy() -> None:
     matrix = compute_impact_matrix(_live_ledger())
     grade = compute_fragility_grade(matrix)
-    # The redundant readiness path lifted one goal to zero SPOFs: 0.0 -> 0.2.
-    assert grade["fragility_score"] == 0.2
+    # The redundant readiness path lifted one goal to zero SPOFs; the
+    # widened 6-goal surface scores 1/6.
+    assert grade["fragility_score"] == round(1 / 6, 4)
     assert grade["robust_goals"] == ["ledger-inventory-check"]
     assert len(grade["fragile_goals"]) == len(APPLICATION_TASKS) - 1
     assert grade["max_blast_radius"] == 2
     assert grade["critical_capabilities"][0] == "domain.ci-security"
     assert grade["spofs_per_goal"]["ledger-inventory-check"] == []
     assert grade["spofs_per_goal"]["ledger-gated-proposal"] == ["domain.proposal-eval"]
+    assert grade["spofs_per_goal"]["persona-stamped-proposal"] == [
+        "domain.persona",
+        "domain.proposal-synthesis",
+    ]
 
 
 def test_compute_fragility_grade_is_pure() -> None:
@@ -100,7 +107,7 @@ def test_sealed_report_verifies_and_forged_cell_fails(tmp_path: Path) -> None:
 def test_builtin_fragility_audit_proof() -> None:
     result = builtin_fragility_audit()
     assert result["ok"] is True, result
-    assert result["fragility"]["fragility_score"] == 0.2
+    assert result["fragility"]["fragility_score"] == round(1 / 6, 4)
     assert result["fragility"]["robust_goals"] == ["ledger-inventory-check"]
     assert result["priority_correct"] is True
     assert result["deterministic"] is True

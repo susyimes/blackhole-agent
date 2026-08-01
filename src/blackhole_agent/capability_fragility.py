@@ -251,12 +251,16 @@ def builtin_fragility_audit() -> dict[str, Any]:
         grade["blast_radius"].get("capability.ledger-inventory") == 0
         and grade["blast_radius"].get("capability.ledger-attestation") == 0
         and grade["robust_goals"] == ["ledger-inventory-check"]
-        and grade["fragility_score"] == 0.2
+        and grade["fragility_score"] == round(1 / 6, 4)
         # The remaining critical pair: the security-scan chain blocks two goals.
         and grade["blast_radius"].get("domain.ci-security") == 2
         and grade["blast_radius"].get("domain.harness-activation") == 2
         and grade["max_blast_radius"] == 2
         and grade["critical_capabilities"][0] == "domain.ci-security"
+        # The widened surface is measured too: persona and synthesis each
+        # single-handedly block the persona-stamped-proposal goal.
+        and grade["blast_radius"].get("domain.persona") == 1
+        and grade["blast_radius"].get("domain.proposal-synthesis") == 1
     )
     if not structure:
         return {"ok": False, "stage": "structure", "fragility": grade}

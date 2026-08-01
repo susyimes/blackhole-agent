@@ -29,7 +29,7 @@
         "ablation",
         "evidence"
       ],
-      "updated_at": "2026-08-01T18:35:21.992885Z"
+      "updated_at": "2026-08-01T18:40:45.342939Z"
     },
     "capability.actuation-plane": {
       "behavior_paths": [
@@ -84,7 +84,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-01T18:35:21.993676Z"
+      "updated_at": "2026-08-01T18:40:45.343662Z"
     },
     "capability.adaptive-grow": {
       "behavior_paths": [
@@ -116,7 +116,7 @@
         "growth",
         "adaptive"
       ],
-      "updated_at": "2026-08-01T18:35:21.992222Z"
+      "updated_at": "2026-08-01T18:40:45.342330Z"
     },
     "capability.adversarial-contract": {
       "behavior_paths": [
@@ -149,7 +149,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-08-01T18:35:21.993014Z"
+      "updated_at": "2026-08-01T18:40:45.343067Z"
     },
     "capability.application-plane": {
       "behavior_paths": [
@@ -170,7 +170,7 @@
       "id": "capability.application-plane",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T18:35:29.920081Z",
+      "last_proved_at": "2026-08-01T18:40:45.893081Z",
       "name": "Capability application plane",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_application import builtin_application_plane; r=builtin_application_plane(); assert r['ok'] and r.get('application',{}).get('application_score')==1.0 and r.get('application',{}).get('unsolvable_count')==0 and r.get('planner_honesty') and r.get('deterministic') and r.get('tamper_detected') and r.get('unsound_plan_detected') and r.get('misgrade_detected') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -184,7 +184,7 @@
         "outcome",
         "evidence"
       ],
-      "updated_at": "2026-08-01T18:35:29.920081Z"
+      "updated_at": "2026-08-01T18:40:45.893081Z"
     },
     "capability.assurance-plane": {
       "behavior_paths": [
@@ -221,7 +221,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-08-01T18:35:21.993075Z"
+      "updated_at": "2026-08-01T18:40:45.343124Z"
     },
     "capability.auto-kernel-routing": {
       "behavior_paths": [
@@ -285,7 +285,7 @@
         "autonomic",
         "novelty"
       ],
-      "updated_at": "2026-08-01T18:35:21.992470Z"
+      "updated_at": "2026-08-01T18:40:45.342554Z"
     },
     "capability.composed-core-health": {
       "behavior_paths": [
@@ -1639,7 +1639,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-08-01T18:35:21.993331Z"
+      "updated_at": "2026-08-01T18:40:45.343378Z"
     },
     "capability.contract-plane": {
       "behavior_paths": [
@@ -1674,7 +1674,7 @@
         "evidence",
         "growth"
       ],
-      "updated_at": "2026-08-01T18:35:21.992826Z"
+      "updated_at": "2026-08-01T18:40:45.342883Z"
     },
     "capability.distill-ledger": {
       "behavior_paths": [
@@ -1704,7 +1704,7 @@
         "growth",
         "distill"
       ],
-      "updated_at": "2026-08-01T18:35:21.992406Z"
+      "updated_at": "2026-08-01T18:40:45.342500Z"
     },
     "capability.execution-plane": {
       "behavior_paths": [
@@ -1757,7 +1757,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-01T18:35:21.993617Z"
+      "updated_at": "2026-08-01T18:40:45.343603Z"
     },
     "capability.federation-plane": {
       "behavior_paths": [
@@ -1802,7 +1802,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-08-01T18:35:21.993427Z"
+      "updated_at": "2026-08-01T18:40:45.343434Z"
     },
     "capability.finality-plane": {
       "behavior_paths": [
@@ -1851,7 +1851,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-01T18:35:21.993557Z"
+      "updated_at": "2026-08-01T18:40:45.343547Z"
     },
     "capability.fragility-audit": {
       "behavior_paths": [
@@ -1873,9 +1873,9 @@
       "id": "capability.fragility-audit",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T18:35:30.312184Z",
+      "last_proved_at": "2026-08-01T18:40:46.269203Z",
       "name": "Goal fragility audit",
-      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_fragility import builtin_fragility_audit; r=builtin_fragility_audit(); assert r['ok'] and r.get('fragility',{}).get('fragility_score')==0.2 and r.get('fragility',{}).get('robust_goals')==['ledger-inventory-check'] and r.get('fragility',{}).get('max_blast_radius')==2 and r.get('priority_correct') and r.get('deterministic') and r.get('matrix_forgery_detected') and r.get('misgrade_detected') and r.get('tamper_detected') and not r.get('used_skill_route_discovery')\"",
+      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_fragility import builtin_fragility_audit; r=builtin_fragility_audit(); assert r['ok'] and r.get('fragility',{}).get('fragility_score')==0.1667 and r.get('fragility',{}).get('robust_goals')==['ledger-inventory-check'] and r.get('fragility',{}).get('max_blast_radius')==2 and r.get('priority_correct') and r.get('deterministic') and r.get('matrix_forgery_detected') and r.get('misgrade_detected') and r.get('tamper_detected') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
       "source_mission_id": "",
       "tags": [
@@ -1887,7 +1887,7 @@
         "recovery",
         "evidence"
       ],
-      "updated_at": "2026-08-01T18:35:30.312184Z"
+      "updated_at": "2026-08-01T18:40:46.269203Z"
     },
     "capability.frontier-novelty": {
       "behavior_paths": [
@@ -1917,7 +1917,7 @@
         "growth",
         "novelty"
       ],
-      "updated_at": "2026-08-01T18:35:21.992346Z"
+      "updated_at": "2026-08-01T18:40:45.342446Z"
     },
     "capability.github-live-actuation": {
       "behavior_paths": [
@@ -1976,7 +1976,7 @@
         "mission",
         "planner"
       ],
-      "updated_at": "2026-08-01T18:35:21.992530Z"
+      "updated_at": "2026-08-01T18:40:45.342611Z"
     },
     "capability.grounded-growth-loop": {
       "behavior_paths": [
@@ -2064,7 +2064,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-08-01T18:35:21.992153Z"
+      "updated_at": "2026-08-01T18:40:45.342270Z"
     },
     "capability.growth-proof-audit-gate": {
       "behavior_paths": [
@@ -2124,7 +2124,7 @@
         "integrity",
         "evidence"
       ],
-      "updated_at": "2026-08-01T18:35:29.337906Z"
+      "updated_at": "2026-08-01T18:40:45.343989Z"
     },
     "capability.ledger-integrity": {
       "behavior_paths": [
@@ -2152,7 +2152,7 @@
         "compounder",
         "integrity"
       ],
-      "updated_at": "2026-08-01T18:35:21.992285Z"
+      "updated_at": "2026-08-01T18:40:45.342388Z"
     },
     "capability.ledger-inventory": {
       "behavior_paths": [
@@ -2178,7 +2178,7 @@
         "bootstrap",
         "compounder"
       ],
-      "updated_at": "2026-08-01T18:35:21.991891Z"
+      "updated_at": "2026-08-01T18:40:45.342077Z"
     },
     "capability.ledger-proof-reaudit": {
       "behavior_paths": [
@@ -2248,7 +2248,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-08-01T18:35:21.993196Z"
+      "updated_at": "2026-08-01T18:40:45.343232Z"
     },
     "capability.mcp-live-execution": {
       "behavior_paths": [
@@ -2394,7 +2394,7 @@
         "growth",
         "second-wave"
       ],
-      "updated_at": "2026-08-01T18:35:21.992708Z"
+      "updated_at": "2026-08-01T18:40:45.342774Z"
     },
     "capability.multi-kernel-harness-routing": {
       "behavior_paths": [
@@ -2453,7 +2453,7 @@
         "contract",
         "evidence"
       ],
-      "updated_at": "2026-08-01T18:35:21.992767Z"
+      "updated_at": "2026-08-01T18:40:45.342827Z"
     },
     "capability.plane-engine": {
       "behavior_paths": [
@@ -2544,7 +2544,7 @@
         "mission",
         "program"
       ],
-      "updated_at": "2026-08-01T18:35:21.992588Z"
+      "updated_at": "2026-08-01T18:40:45.342666Z"
     },
     "capability.quorum-plane": {
       "behavior_paths": [
@@ -2591,7 +2591,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-01T18:35:21.993492Z"
+      "updated_at": "2026-08-01T18:40:45.343490Z"
     },
     "capability.reconciliation-plane": {
       "behavior_paths": [
@@ -2634,7 +2634,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-08-01T18:35:21.993257Z"
+      "updated_at": "2026-08-01T18:40:45.343287Z"
     },
     "capability.recovery-loop": {
       "behavior_paths": [
@@ -2656,7 +2656,7 @@
       "id": "capability.recovery-loop",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T18:35:33.640003Z",
+      "last_proved_at": "2026-08-01T18:40:49.545602Z",
       "name": "Capability recovery loop",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_recovery import builtin_recovery_loop; r=builtin_recovery_loop(); assert r['ok'] and r.get('healed') and r.get('transitive_healed') and r.get('honest_unsolved') and r.get('recovery',{}).get('recovered')==['routed-triage-record'] and r.get('recovery',{}).get('repaired_count')==2 and r.get('honest_failure',{}).get('honest_unsolved')==['scan-gated-activation','blocked-scan-honesty'] and r.get('redundancy_absorbed') and r.get('absorbed',{}).get('unrepairable_count')==1 and r.get('absorbed',{}).get('unsolved_count')==0 and r.get('deterministic') and r.get('tamper_detected') and r.get('fake_healing_detected') and r.get('misgrade_detected') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -2670,7 +2670,7 @@
         "self-healing",
         "evidence"
       ],
-      "updated_at": "2026-08-01T18:35:33.640003Z"
+      "updated_at": "2026-08-01T18:40:49.545602Z"
     },
     "capability.repair-plane": {
       "behavior_paths": [
@@ -2705,7 +2705,7 @@
         "fitness",
         "evidence"
       ],
-      "updated_at": "2026-08-01T18:35:21.993733Z"
+      "updated_at": "2026-08-01T18:40:45.343717Z"
     },
     "capability.scout-gaps": {
       "behavior_paths": [
@@ -2733,7 +2733,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-08-01T18:35:21.992042Z"
+      "updated_at": "2026-08-01T18:40:45.342207Z"
     },
     "capability.second-wave-absorb": {
       "behavior_paths": [
@@ -2767,7 +2767,7 @@
         "second-wave",
         "domain"
       ],
-      "updated_at": "2026-08-01T18:35:21.992648Z"
+      "updated_at": "2026-08-01T18:40:45.342720Z"
     },
     "capability.sovereignty-plane": {
       "behavior_paths": [
@@ -2806,7 +2806,7 @@
         "certificate",
         "evidence"
       ],
-      "updated_at": "2026-08-01T18:35:21.993136Z"
+      "updated_at": "2026-08-01T18:40:45.343178Z"
     },
     "capability.transfer-plane": {
       "behavior_paths": [
@@ -2837,7 +2837,7 @@
         "transfer",
         "package"
       ],
-      "updated_at": "2026-08-01T18:35:21.992953Z"
+      "updated_at": "2026-08-01T18:40:45.342994Z"
     },
     "capability.utility-plane": {
       "behavior_paths": [
@@ -2870,7 +2870,7 @@
         "outcome",
         "evidence"
       ],
-      "updated_at": "2026-08-01T18:35:21.993790Z"
+      "updated_at": "2026-08-01T18:40:45.343772Z"
     },
     "domain.ci-security": {
       "behavior_paths": [
@@ -3176,7 +3176,7 @@
         "bootstrap",
         "evolution-route"
       ],
-      "updated_at": "2026-08-01T18:35:21.991953Z"
+      "updated_at": "2026-08-01T18:40:45.342146Z"
     },
     "repo.import-health": {
       "behavior_paths": [
@@ -3200,7 +3200,7 @@
         "bootstrap",
         "health"
       ],
-      "updated_at": "2026-08-01T18:35:21.991738Z"
+      "updated_at": "2026-08-01T18:40:45.341909Z"
     },
     "unbound.milestone-gate": {
       "behavior_paths": [
@@ -3225,9 +3225,9 @@
         "bootstrap",
         "unbound"
       ],
-      "updated_at": "2026-08-01T18:35:21.991822Z"
+      "updated_at": "2026-08-01T18:40:45.341998Z"
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-08-01T18:35:33.640040Z"
+  "updated_at": "2026-08-01T18:40:49.545650Z"
 }

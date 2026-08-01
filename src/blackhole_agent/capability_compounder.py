@@ -19216,7 +19216,7 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 f'"{sys.executable}" -c '
                 '"from blackhole_agent.capability_fragility import builtin_fragility_audit; '
                 "r=builtin_fragility_audit(); assert r['ok'] "
-                "and r.get('fragility',{}).get('fragility_score')==0.2 "
+                "and r.get('fragility',{}).get('fragility_score')==0.1667 "
                 "and r.get('fragility',{}).get('robust_goals')==['ledger-inventory-check'] "
                 "and r.get('fragility',{}).get('max_blast_radius')==2 "
                 "and r.get('priority_correct') and r.get('deterministic') "

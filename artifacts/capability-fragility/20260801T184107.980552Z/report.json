@@ -1,0 +1,102 @@
+{
+  "fragility": {
+    "blast_radius": {
+      "capability.ledger-attestation": 0,
+      "capability.ledger-inventory": 0,
+      "domain.ci-security": 2,
+      "domain.harness-activation": 2,
+      "domain.issue-triage": 1,
+      "domain.local-memory": 1,
+      "domain.persona": 1,
+      "domain.proposal-eval": 1,
+      "domain.proposal-synthesis": 1,
+      "domain.tool-routing": 1
+    },
+    "critical_capabilities": [
+      "domain.ci-security",
+      "domain.harness-activation",
+      "domain.issue-triage",
+      "domain.local-memory",
+      "domain.persona",
+      "domain.proposal-eval",
+      "domain.proposal-synthesis",
+      "domain.tool-routing",
+      "capability.ledger-attestation",
+      "capability.ledger-inventory"
+    ],
+    "fragile_goals": [
+      "blocked-scan-honesty",
+      "ledger-gated-proposal",
+      "persona-stamped-proposal",
+      "routed-triage-record",
+      "scan-gated-activation"
+    ],
+    "fragility_score": 0.1667,
+    "max_blast_radius": 2,
+    "robust_goals": [
+      "ledger-inventory-check"
+    ],
+    "spofs_per_goal": {
+      "blocked-scan-honesty": [
+        "domain.ci-security",
+        "domain.harness-activation"
+      ],
+      "ledger-gated-proposal": [
+        "domain.proposal-eval"
+      ],
+      "ledger-inventory-check": [],
+      "persona-stamped-proposal": [
+        "domain.persona",
+        "domain.proposal-synthesis"
+      ],
+      "routed-triage-record": [
+        "domain.issue-triage",
+        "domain.local-memory",
+        "domain.tool-routing"
+      ],
+      "scan-gated-activation": [
+        "domain.ci-security",
+        "domain.harness-activation"
+      ]
+    },
+    "task_count": 6
+  },
+  "grade_digest": "125789bd2d9ece4cbfb1aa3b8132215f2538c246f22f96a4f23ef4ca93d82b3e",
+  "impact_matrix": {
+    "capability.ledger-attestation": [],
+    "capability.ledger-inventory": [],
+    "domain.ci-security": [
+      "blocked-scan-honesty",
+      "scan-gated-activation"
+    ],
+    "domain.harness-activation": [
+      "blocked-scan-honesty",
+      "scan-gated-activation"
+    ],
+    "domain.issue-triage": [
+      "routed-triage-record"
+    ],
+    "domain.local-memory": [
+      "routed-triage-record"
+    ],
+    "domain.persona": [
+      "persona-stamped-proposal"
+    ],
+    "domain.proposal-eval": [
+      "ledger-gated-proposal"
+    ],
+    "domain.proposal-synthesis": [
+      "persona-stamped-proposal"
+    ],
+    "domain.tool-routing": [
+      "routed-triage-record"
+    ]
+  },
+  "kind": "capability_fragility_audit",
+  "matrix_digest": "225a60945d94a2c2a528b685136b764e4c90ebd164256029edf3b794cd6fc8a9",
+  "ok": true,
+  "report_digest": "54af5bc8f397099a83cbe5cfb809b978f29338f7f540d2661be5460bc31688ff",
+  "run_at": "2026-08-01T18:41:07.980552Z",
+  "schema_version": 1,
+  "used_skill_route_discovery": false
+}
