@@ -236,6 +236,18 @@ uv run blackhole-unbound capability integrity --limit 16
   `fitness_recheck_passed` means the sealed map is stale, `repair_needed`
   means repair comes before stacking. Explicit recipe selection bypasses the
   gate so a fix can land.
+- `capability repair` closes the repair gap the fitness gate can only point at:
+  it diagnoses a stale or failed capability proof (stale proof-command
+  interpreter, import error, replay failure — never the self-attested stamp),
+  executes a bounded deterministic repair (interpreter regeneration, then a
+  full dependency-chain re-proof), and verifies the repair by an actual green
+  re-proof. Adversarial falsification runs on scratch ledgers: a synthetic
+  stale-interpreter break must heal and an always-failing proof must verdict
+  `unrepairable` with the recorded stamp left red — no fake healing
+  (`capability.repair-plane`). `--id <capability>` repairs one live ledger
+  member in place; digest-sealed reports land under
+  `artifacts/capability-repair/`. Predicates `repair_plane_ok`, `repaired_ok`,
+  and `min_repair_actions:N` gate machine-checkable completion.
 
 Promoted compositions are tagged `composed`/`promoted` and become ordinary
 ledger citizens that later turns can list, prove, run, and compose further.

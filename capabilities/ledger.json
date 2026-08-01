@@ -29,7 +29,7 @@
         "ablation",
         "evidence"
       ],
-      "updated_at": "2026-08-01T14:52:54.399058Z"
+      "updated_at": "2026-08-01T16:09:15.106739Z"
     },
     "capability.actuation-plane": {
       "behavior_paths": [
@@ -84,7 +84,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-01T14:52:54.400023Z"
+      "updated_at": "2026-08-01T16:09:15.107497Z"
     },
     "capability.adaptive-grow": {
       "behavior_paths": [
@@ -116,7 +116,7 @@
         "growth",
         "adaptive"
       ],
-      "updated_at": "2026-08-01T14:52:54.398228Z"
+      "updated_at": "2026-08-01T16:09:15.105043Z"
     },
     "capability.adversarial-contract": {
       "behavior_paths": [
@@ -149,7 +149,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-08-01T14:52:54.399226Z"
+      "updated_at": "2026-08-01T16:09:15.106863Z"
     },
     "capability.assurance-plane": {
       "behavior_paths": [
@@ -186,7 +186,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-08-01T14:52:54.399332Z"
+      "updated_at": "2026-08-01T16:09:15.106926Z"
     },
     "capability.auto-kernel-routing": {
       "behavior_paths": [
@@ -250,7 +250,7 @@
         "autonomic",
         "novelty"
       ],
-      "updated_at": "2026-08-01T14:52:54.398503Z"
+      "updated_at": "2026-08-01T16:09:15.105816Z"
     },
     "capability.composed-core-health": {
       "behavior_paths": [
@@ -258,7 +258,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of repo.import-health, capability.ledger-inventory, unbound.milestone-gate into one invocable unit.",
-      "created_at": "2026-08-01T14:32:37.687478Z",
+      "created_at": "2026-08-01T16:05:33.477502Z",
       "dependencies": [
         "repo.import-health",
         "capability.ledger-inventory",
@@ -269,7 +269,7 @@
       "id": "capability.composed-core-health",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:37.884434Z",
+      "last_proved_at": "2026-08-01T16:05:33.698142Z",
       "name": "Composed core health chain",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-core-health'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -279,7 +279,7 @@
         "promoted",
         "growth"
       ],
-      "updated_at": "2026-08-01T14:32:37.884434Z"
+      "updated_at": "2026-08-01T16:05:33.698142Z"
     },
     "capability.composed-domain-core": {
       "behavior_paths": [
@@ -287,7 +287,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of domain.local-memory, domain.tool-routing, domain.harness-activation into one invocable unit.",
-      "created_at": "2026-08-01T14:32:38.795590Z",
+      "created_at": "2026-08-01T16:05:36.752683Z",
       "dependencies": [
         "domain.local-memory",
         "domain.tool-routing",
@@ -298,7 +298,7 @@
       "id": "capability.composed-domain-core",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:38.934174Z",
+      "last_proved_at": "2026-08-01T16:05:36.924324Z",
       "name": "Composed domain core chain",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-domain-core'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -309,7 +309,7 @@
         "growth",
         "domain"
       ],
-      "updated_at": "2026-08-01T14:32:38.934174Z"
+      "updated_at": "2026-08-01T16:05:36.924324Z"
     },
     "capability.composed-domain-ops": {
       "behavior_paths": [
@@ -317,7 +317,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of domain.issue-triage, domain.ci-security, domain.proposal-eval into one invocable unit.",
-      "created_at": "2026-08-01T14:32:41.071040Z",
+      "created_at": "2026-08-01T16:05:45.547840Z",
       "dependencies": [
         "domain.issue-triage",
         "domain.ci-security",
@@ -328,7 +328,7 @@
       "id": "capability.composed-domain-ops",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:41.391388Z",
+      "last_proved_at": "2026-08-01T16:05:45.884323Z",
       "name": "Composed domain ops chain",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-domain-ops'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -340,7 +340,7 @@
         "domain",
         "ops"
       ],
-      "updated_at": "2026-08-01T14:32:41.391388Z"
+      "updated_at": "2026-08-01T16:05:45.884323Z"
     },
     "capability.composed-dyn-ci-security-harness-activation": {
       "behavior_paths": [
@@ -348,7 +348,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of domain.ci-security, domain.harness-activation into one invocable unit.",
-      "created_at": "2026-08-01T14:32:59.028097Z",
+      "created_at": "2026-08-01T16:06:59.161385Z",
       "dependencies": [
         "domain.ci-security",
         "domain.harness-activation"
@@ -358,7 +358,7 @@
       "id": "capability.composed-dyn-ci-security-harness-activation",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:59.216558Z",
+      "last_proved_at": "2026-08-01T16:06:59.344963Z",
       "name": "Dynamic domain composition (domain.ci-security + domain.harness-activation)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-dyn-ci-security-harness-activation'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -370,7 +370,7 @@
         "domain",
         "dynamic"
       ],
-      "updated_at": "2026-08-01T14:32:59.216558Z"
+      "updated_at": "2026-08-01T16:06:59.344963Z"
     },
     "capability.composed-dyn-ci-security-harness-activation-kerne": {
       "behavior_paths": [
@@ -378,7 +378,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of domain.ci-security, domain.harness-activation, domain.kernel-preflight into one invocable unit.",
-      "created_at": "2026-08-01T14:32:57.637495Z",
+      "created_at": "2026-08-01T16:06:55.895202Z",
       "dependencies": [
         "domain.ci-security",
         "domain.harness-activation",
@@ -389,7 +389,7 @@
       "id": "capability.composed-dyn-ci-security-harness-activation-kerne",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:57.829242Z",
+      "last_proved_at": "2026-08-01T16:06:56.049369Z",
       "name": "Dynamic domain composition (domain.ci-security + domain.harness-activation + domain.kernel-preflight)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-dyn-ci-security-harness-activation-kerne'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -401,7 +401,7 @@
         "domain",
         "dynamic"
       ],
-      "updated_at": "2026-08-01T14:32:57.829242Z"
+      "updated_at": "2026-08-01T16:06:56.049369Z"
     },
     "capability.composed-dyn-ci-security-kernel-preflight": {
       "behavior_paths": [
@@ -409,7 +409,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of domain.ci-security, domain.kernel-preflight into one invocable unit.",
-      "created_at": "2026-08-01T14:32:59.820786Z",
+      "created_at": "2026-08-01T16:07:00.826637Z",
       "dependencies": [
         "domain.ci-security",
         "domain.kernel-preflight"
@@ -419,7 +419,7 @@
       "id": "capability.composed-dyn-ci-security-kernel-preflight",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:33:00.096397Z",
+      "last_proved_at": "2026-08-01T16:07:00.983408Z",
       "name": "Dynamic domain composition (domain.ci-security + domain.kernel-preflight)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-dyn-ci-security-kernel-preflight'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -431,7 +431,7 @@
         "domain",
         "dynamic"
       ],
-      "updated_at": "2026-08-01T14:33:00.096397Z"
+      "updated_at": "2026-08-01T16:07:00.983408Z"
     },
     "capability.composed-dyn-ci-security-persona": {
       "behavior_paths": [
@@ -439,7 +439,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of domain.ci-security, domain.persona into one invocable unit.",
-      "created_at": "2026-08-01T14:33:01.513344Z",
+      "created_at": "2026-08-01T16:07:04.022246Z",
       "dependencies": [
         "domain.ci-security",
         "domain.persona"
@@ -449,7 +449,7 @@
       "id": "capability.composed-dyn-ci-security-persona",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:33:01.671690Z",
+      "last_proved_at": "2026-08-01T16:07:04.176508Z",
       "name": "Dynamic domain composition (domain.ci-security + domain.persona)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-dyn-ci-security-persona'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -461,7 +461,7 @@
         "domain",
         "dynamic"
       ],
-      "updated_at": "2026-08-01T14:33:01.671690Z"
+      "updated_at": "2026-08-01T16:07:04.176508Z"
     },
     "capability.composed-dyn-issue-triage-harness-activation-kern": {
       "behavior_paths": [
@@ -469,7 +469,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of domain.issue-triage, domain.harness-activation, domain.kernel-preflight into one invocable unit.",
-      "created_at": "2026-08-01T14:32:57.988363Z",
+      "created_at": "2026-08-01T16:06:56.827576Z",
       "dependencies": [
         "domain.issue-triage",
         "domain.harness-activation",
@@ -480,7 +480,7 @@
       "id": "capability.composed-dyn-issue-triage-harness-activation-kern",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:58.189198Z",
+      "last_proved_at": "2026-08-01T16:06:57.038729Z",
       "name": "Dynamic domain composition (domain.issue-triage + domain.harness-activation + domain.kernel-preflight)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-dyn-issue-triage-harness-activation-kern'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -492,7 +492,7 @@
         "domain",
         "dynamic"
       ],
-      "updated_at": "2026-08-01T14:32:58.189198Z"
+      "updated_at": "2026-08-01T16:06:57.038729Z"
     },
     "capability.composed-dyn-issue-triage-kernel-preflight": {
       "behavior_paths": [
@@ -500,7 +500,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of domain.issue-triage, domain.kernel-preflight into one invocable unit.",
-      "created_at": "2026-08-01T14:32:59.396556Z",
+      "created_at": "2026-08-01T16:07:00.034181Z",
       "dependencies": [
         "domain.issue-triage",
         "domain.kernel-preflight"
@@ -510,7 +510,7 @@
       "id": "capability.composed-dyn-issue-triage-kernel-preflight",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:59.600457Z",
+      "last_proved_at": "2026-08-01T16:07:00.206548Z",
       "name": "Dynamic domain composition (domain.issue-triage + domain.kernel-preflight)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-dyn-issue-triage-kernel-preflight'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -522,7 +522,7 @@
         "domain",
         "dynamic"
       ],
-      "updated_at": "2026-08-01T14:32:59.600457Z"
+      "updated_at": "2026-08-01T16:07:00.206548Z"
     },
     "capability.composed-dyn-issue-triage-persona": {
       "behavior_paths": [
@@ -530,7 +530,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of domain.issue-triage, domain.persona into one invocable unit.",
-      "created_at": "2026-08-01T14:33:01.840793Z",
+      "created_at": "2026-08-01T16:07:04.740873Z",
       "dependencies": [
         "domain.issue-triage",
         "domain.persona"
@@ -540,7 +540,7 @@
       "id": "capability.composed-dyn-issue-triage-persona",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:33:02.053240Z",
+      "last_proved_at": "2026-08-01T16:07:04.875108Z",
       "name": "Dynamic domain composition (domain.issue-triage + domain.persona)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-dyn-issue-triage-persona'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -552,7 +552,7 @@
         "domain",
         "dynamic"
       ],
-      "updated_at": "2026-08-01T14:33:02.053240Z"
+      "updated_at": "2026-08-01T16:07:04.875108Z"
     },
     "capability.composed-dyn-kernel-preflight-harness-activation": {
       "behavior_paths": [
@@ -560,7 +560,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of domain.kernel-preflight, domain.harness-activation into one invocable unit.",
-      "created_at": "2026-08-01T14:33:01.187800Z",
+      "created_at": "2026-08-01T16:07:03.262464Z",
       "dependencies": [
         "domain.kernel-preflight",
         "domain.harness-activation"
@@ -570,7 +570,7 @@
       "id": "capability.composed-dyn-kernel-preflight-harness-activation",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:33:01.346547Z",
+      "last_proved_at": "2026-08-01T16:07:03.411575Z",
       "name": "Dynamic domain composition (domain.kernel-preflight + domain.harness-activation)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-dyn-kernel-preflight-harness-activation'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -582,7 +582,7 @@
         "domain",
         "dynamic"
       ],
-      "updated_at": "2026-08-01T14:33:01.346547Z"
+      "updated_at": "2026-08-01T16:07:03.411575Z"
     },
     "capability.composed-dyn-persona-harness-activation": {
       "behavior_paths": [
@@ -590,7 +590,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of domain.persona, domain.harness-activation into one invocable unit.",
-      "created_at": "2026-08-01T14:33:03.314208Z",
+      "created_at": "2026-08-01T16:07:06.919377Z",
       "dependencies": [
         "domain.persona",
         "domain.harness-activation"
@@ -600,7 +600,7 @@
       "id": "capability.composed-dyn-persona-harness-activation",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:33:03.510772Z",
+      "last_proved_at": "2026-08-01T16:07:07.100254Z",
       "name": "Dynamic domain composition (domain.persona + domain.harness-activation)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-dyn-persona-harness-activation'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -612,7 +612,7 @@
         "domain",
         "dynamic"
       ],
-      "updated_at": "2026-08-01T14:33:03.510772Z"
+      "updated_at": "2026-08-01T16:07:07.100254Z"
     },
     "capability.composed-dyn-proposal-eval-harness-activation-ci": {
       "behavior_paths": [
@@ -620,7 +620,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of domain.proposal-eval, domain.harness-activation, domain.ci-security into one invocable unit.",
-      "created_at": "2026-08-01T14:32:58.340586Z",
+      "created_at": "2026-08-01T16:06:57.955367Z",
       "dependencies": [
         "domain.proposal-eval",
         "domain.harness-activation",
@@ -631,7 +631,7 @@
       "id": "capability.composed-dyn-proposal-eval-harness-activation-ci",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:58.716694Z",
+      "last_proved_at": "2026-08-01T16:06:58.348777Z",
       "name": "Dynamic domain composition (domain.proposal-eval + domain.harness-activation + domain.ci-security)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-dyn-proposal-eval-harness-activation-ci'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -643,7 +643,7 @@
         "domain",
         "dynamic"
       ],
-      "updated_at": "2026-08-01T14:32:58.716694Z"
+      "updated_at": "2026-08-01T16:06:58.348777Z"
     },
     "capability.composed-dyn-proposal-eval-kernel-preflight-harne": {
       "behavior_paths": [
@@ -651,7 +651,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of domain.proposal-eval, domain.kernel-preflight, domain.harness-activation into one invocable unit.",
-      "created_at": "2026-08-01T14:33:00.297240Z",
+      "created_at": "2026-08-01T16:07:02.065957Z",
       "dependencies": [
         "domain.proposal-eval",
         "domain.kernel-preflight",
@@ -662,7 +662,7 @@
       "id": "capability.composed-dyn-proposal-eval-kernel-preflight-harne",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:33:00.731290Z",
+      "last_proved_at": "2026-08-01T16:07:02.437797Z",
       "name": "Dynamic domain composition (domain.proposal-eval + domain.kernel-preflight + domain.harness-activation)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-dyn-proposal-eval-kernel-preflight-harne'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -674,7 +674,7 @@
         "domain",
         "dynamic"
       ],
-      "updated_at": "2026-08-01T14:33:00.731290Z"
+      "updated_at": "2026-08-01T16:07:02.437797Z"
     },
     "capability.composed-dyn-proposal-eval-persona-harness-activa": {
       "behavior_paths": [
@@ -682,7 +682,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of domain.proposal-eval, domain.persona, domain.harness-activation into one invocable unit.",
-      "created_at": "2026-08-01T14:33:02.238456Z",
+      "created_at": "2026-08-01T16:07:05.769280Z",
       "dependencies": [
         "domain.proposal-eval",
         "domain.persona",
@@ -693,7 +693,7 @@
       "id": "capability.composed-dyn-proposal-eval-persona-harness-activa",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:33:02.744399Z",
+      "last_proved_at": "2026-08-01T16:07:06.087058Z",
       "name": "Dynamic domain composition (domain.proposal-eval + domain.persona + domain.harness-activation)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-dyn-proposal-eval-persona-harness-activa'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -705,7 +705,7 @@
         "domain",
         "dynamic"
       ],
-      "updated_at": "2026-08-01T14:33:02.744399Z"
+      "updated_at": "2026-08-01T16:07:06.087058Z"
     },
     "capability.composed-evolution-ready": {
       "behavior_paths": [
@@ -713,7 +713,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of repo.import-health, capability.ledger-inventory, evolution.compounder-redirect into one invocable unit.",
-      "created_at": "2026-08-01T14:32:45.467405Z",
+      "created_at": "2026-08-01T16:06:02.255811Z",
       "dependencies": [
         "repo.import-health",
         "capability.ledger-inventory",
@@ -724,7 +724,7 @@
       "id": "capability.composed-evolution-ready",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:45.724323Z",
+      "last_proved_at": "2026-08-01T16:06:02.471051Z",
       "name": "Composed evolution-ready chain",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-evolution-ready'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -735,7 +735,7 @@
         "growth",
         "evolution-route"
       ],
-      "updated_at": "2026-08-01T14:32:45.724323Z"
+      "updated_at": "2026-08-01T16:06:02.471051Z"
     },
     "capability.composed-meta-core-health-domain-core-core-health": {
       "behavior_paths": [
@@ -743,7 +743,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of capability.composed-stack-core-health-domain-core, capability.composed-stack-core-health-grounded-growth-loop into one invocable unit.",
-      "created_at": "2026-08-01T14:32:39.500646Z",
+      "created_at": "2026-08-01T16:05:41.737544Z",
       "dependencies": [
         "capability.composed-stack-core-health-domain-core",
         "capability.composed-stack-core-health-grounded-growth-loop"
@@ -753,7 +753,7 @@
       "id": "capability.composed-meta-core-health-domain-core-core-health",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:39.956885Z",
+      "last_proved_at": "2026-08-01T16:05:42.107350Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-core + capability.composed-stack-core-health-grounded-growth-loop)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-core-core-health'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -766,7 +766,7 @@
         "meta",
         "synthesized"
       ],
-      "updated_at": "2026-08-01T14:32:39.956885Z"
+      "updated_at": "2026-08-01T16:05:42.107350Z"
     },
     "capability.composed-meta-core-health-domain-core-domain-core": {
       "behavior_paths": [
@@ -774,7 +774,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of capability.composed-stack-core-health-domain-core, capability.composed-stack-domain-core-evolution-ready into one invocable unit.",
-      "created_at": "2026-08-01T14:32:46.610835Z",
+      "created_at": "2026-08-01T16:06:06.741906Z",
       "dependencies": [
         "capability.composed-stack-core-health-domain-core",
         "capability.composed-stack-domain-core-evolution-ready"
@@ -784,7 +784,7 @@
       "id": "capability.composed-meta-core-health-domain-core-domain-core",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:46.857919Z",
+      "last_proved_at": "2026-08-01T16:06:07.017452Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-core + capability.composed-stack-domain-core-evolution-ready)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-core-domain-core'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -797,73 +797,7 @@
         "meta",
         "synthesized"
       ],
-      "updated_at": "2026-08-01T14:32:46.857919Z"
-    },
-    "capability.composed-meta-core-health-domain-core-domain-full": {
-      "behavior_paths": [
-        "src/blackhole_agent/capability_compounder.py",
-        "capabilities/ledger.json"
-      ],
-      "capability_delta": "Promoted multi-capability composition of capability.composed-stack-core-health-domain-core, capability.composed-stack-domain-full into one invocable unit.",
-      "created_at": "2026-08-01T14:33:07.695363Z",
-      "dependencies": [
-        "capability.composed-stack-core-health-domain-core",
-        "capability.composed-stack-domain-full"
-      ],
-      "description": "Synthesized stack-of-stacks of hierarchical compositions after first-order hierarchical recipes were exhausted.",
-      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
-      "id": "capability.composed-meta-core-health-domain-core-domain-full",
-      "kind": "python",
-      "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:33:08.265503Z",
-      "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-core + capability.composed-stack-domain-full)",
-      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-core-domain-full'; r=builtin_execute_composed_capability(); assert r['ok']\"",
-      "source_milestone": null,
-      "source_mission_id": "",
-      "tags": [
-        "composed",
-        "promoted",
-        "growth",
-        "hierarchical",
-        "meta",
-        "synthesized",
-        "redundant",
-        "distilled"
-      ],
-      "updated_at": "2026-08-01T14:33:31.948626Z"
-    },
-    "capability.composed-meta-core-health-domain-core-domain-ops-e": {
-      "behavior_paths": [
-        "src/blackhole_agent/capability_compounder.py",
-        "capabilities/ledger.json"
-      ],
-      "capability_delta": "Promoted multi-capability composition of capability.composed-stack-core-health-domain-core, capability.composed-stack-domain-ops-evolution-ready into one invocable unit.",
-      "created_at": "2026-08-01T14:33:11.630045Z",
-      "dependencies": [
-        "capability.composed-stack-core-health-domain-core",
-        "capability.composed-stack-domain-ops-evolution-ready"
-      ],
-      "description": "Synthesized stack-of-stacks of hierarchical compositions after first-order hierarchical recipes were exhausted.",
-      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
-      "id": "capability.composed-meta-core-health-domain-core-domain-ops-e",
-      "kind": "python",
-      "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:33:12.675759Z",
-      "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-core + capability.composed-stack-domain-ops-evolution-ready)",
-      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-core-domain-ops-e'; r=builtin_execute_composed_capability(); assert r['ok']\"",
-      "source_milestone": null,
-      "source_mission_id": "",
-      "tags": [
-        "composed",
-        "promoted",
-        "growth",
-        "hierarchical",
-        "meta",
-        "synthesized",
-        "redundant",
-        "distilled"
-      ],
-      "updated_at": "2026-08-01T14:33:31.948647Z"
+      "updated_at": "2026-08-01T16:06:07.017452Z"
     },
     "capability.composed-meta-core-health-domain-core-domain-ops-g": {
       "behavior_paths": [
@@ -871,7 +805,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of capability.composed-stack-core-health-domain-core, capability.composed-stack-domain-ops-grounded-growth-loop into one invocable unit.",
-      "created_at": "2026-08-01T14:32:44.578876Z",
+      "created_at": "2026-08-01T16:06:01.073967Z",
       "dependencies": [
         "capability.composed-stack-core-health-domain-core",
         "capability.composed-stack-domain-ops-grounded-growth-loop"
@@ -881,7 +815,7 @@
       "id": "capability.composed-meta-core-health-domain-core-domain-ops-g",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:44.988755Z",
+      "last_proved_at": "2026-08-01T16:06:01.460554Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-core + capability.composed-stack-domain-ops-grounded-growth-loop)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-core-domain-ops-g'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -892,11 +826,9 @@
         "growth",
         "hierarchical",
         "meta",
-        "synthesized",
-        "redundant",
-        "distilled"
+        "synthesized"
       ],
-      "updated_at": "2026-08-01T14:33:31.948654Z"
+      "updated_at": "2026-08-01T16:06:01.460554Z"
     },
     "capability.composed-meta-core-health-domain-core-domain-ops-s": {
       "behavior_paths": [
@@ -904,7 +836,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of capability.composed-stack-core-health-domain-core, capability.composed-stack-domain-ops-second-wave-identity into one invocable unit.",
-      "created_at": "2026-08-01T14:32:54.719914Z",
+      "created_at": "2026-08-01T16:06:43.913147Z",
       "dependencies": [
         "capability.composed-stack-core-health-domain-core",
         "capability.composed-stack-domain-ops-second-wave-identity"
@@ -914,7 +846,7 @@
       "id": "capability.composed-meta-core-health-domain-core-domain-ops-s",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:55.168590Z",
+      "last_proved_at": "2026-08-01T16:06:44.280032Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-core + capability.composed-stack-domain-ops-second-wave-identity)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-core-domain-ops-s'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -927,135 +859,7 @@
         "meta",
         "synthesized"
       ],
-      "updated_at": "2026-08-01T14:32:55.168590Z"
-    },
-    "capability.composed-meta-core-health-domain-core-evolution-re": {
-      "behavior_paths": [
-        "src/blackhole_agent/capability_compounder.py",
-        "capabilities/ledger.json"
-      ],
-      "capability_delta": "Promoted multi-capability composition of capability.composed-stack-core-health-domain-core, capability.composed-stack-evolution-ready-second-wave-identity into one invocable unit.",
-      "created_at": "2026-08-01T14:33:08.943327Z",
-      "dependencies": [
-        "capability.composed-stack-core-health-domain-core",
-        "capability.composed-stack-evolution-ready-second-wave-identity"
-      ],
-      "description": "Synthesized stack-of-stacks of hierarchical compositions after first-order hierarchical recipes were exhausted.",
-      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
-      "id": "capability.composed-meta-core-health-domain-core-evolution-re",
-      "kind": "python",
-      "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:33:09.428984Z",
-      "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-core + capability.composed-stack-evolution-ready-second-wave-identity)",
-      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-core-evolution-re'; r=builtin_execute_composed_capability(); assert r['ok']\"",
-      "source_milestone": null,
-      "source_mission_id": "",
-      "tags": [
-        "composed",
-        "promoted",
-        "growth",
-        "hierarchical",
-        "meta",
-        "synthesized"
-      ],
-      "updated_at": "2026-08-01T14:33:09.428984Z"
-    },
-    "capability.composed-meta-core-health-domain-core-meta-evoluti": {
-      "behavior_paths": [
-        "src/blackhole_agent/capability_compounder.py",
-        "capabilities/ledger.json"
-      ],
-      "capability_delta": "Promoted multi-capability composition of capability.composed-stack-core-health-domain-core, capability.composed-stack-meta-evolution into one invocable unit.",
-      "created_at": "2026-08-01T14:33:16.674367Z",
-      "dependencies": [
-        "capability.composed-stack-core-health-domain-core",
-        "capability.composed-stack-meta-evolution"
-      ],
-      "description": "Synthesized stack-of-stacks of hierarchical compositions after first-order hierarchical recipes were exhausted.",
-      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
-      "id": "capability.composed-meta-core-health-domain-core-meta-evoluti",
-      "kind": "python",
-      "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:33:17.425594Z",
-      "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-core + capability.composed-stack-meta-evolution)",
-      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-core-meta-evoluti'; r=builtin_execute_composed_capability(); assert r['ok']\"",
-      "source_milestone": null,
-      "source_mission_id": "",
-      "tags": [
-        "composed",
-        "promoted",
-        "growth",
-        "hierarchical",
-        "meta",
-        "synthesized",
-        "redundant",
-        "distilled"
-      ],
-      "updated_at": "2026-08-01T14:33:31.948574Z"
-    },
-    "capability.composed-meta-core-health-domain-core-platform": {
-      "behavior_paths": [
-        "src/blackhole_agent/capability_compounder.py",
-        "capabilities/ledger.json"
-      ],
-      "capability_delta": "Promoted multi-capability composition of capability.composed-stack-core-health-domain-core, capability.composed-stack-platform into one invocable unit.",
-      "created_at": "2026-08-01T14:33:18.037638Z",
-      "dependencies": [
-        "capability.composed-stack-core-health-domain-core",
-        "capability.composed-stack-platform"
-      ],
-      "description": "Synthesized stack-of-stacks of hierarchical compositions after first-order hierarchical recipes were exhausted.",
-      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
-      "id": "capability.composed-meta-core-health-domain-core-platform",
-      "kind": "python",
-      "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:33:19.122365Z",
-      "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-core + capability.composed-stack-platform)",
-      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-core-platform'; r=builtin_execute_composed_capability(); assert r['ok']\"",
-      "source_milestone": null,
-      "source_mission_id": "",
-      "tags": [
-        "composed",
-        "promoted",
-        "growth",
-        "hierarchical",
-        "meta",
-        "synthesized",
-        "redundant",
-        "distilled"
-      ],
-      "updated_at": "2026-08-01T14:33:31.948620Z"
-    },
-    "capability.composed-meta-core-health-domain-core-second-wave": {
-      "behavior_paths": [
-        "src/blackhole_agent/capability_compounder.py",
-        "capabilities/ledger.json"
-      ],
-      "capability_delta": "Promoted multi-capability composition of capability.composed-stack-core-health-domain-core, capability.composed-stack-second-wave-identity-grounded-growth into one invocable unit.",
-      "created_at": "2026-08-01T14:33:13.464527Z",
-      "dependencies": [
-        "capability.composed-stack-core-health-domain-core",
-        "capability.composed-stack-second-wave-identity-grounded-growth"
-      ],
-      "description": "Synthesized stack-of-stacks of hierarchical compositions after first-order hierarchical recipes were exhausted.",
-      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
-      "id": "capability.composed-meta-core-health-domain-core-second-wave",
-      "kind": "python",
-      "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:33:14.321033Z",
-      "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-core + capability.composed-stack-second-wave-identity-grounded-growth)",
-      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-core-second-wave'; r=builtin_execute_composed_capability(); assert r['ok']\"",
-      "source_milestone": null,
-      "source_mission_id": "",
-      "tags": [
-        "composed",
-        "promoted",
-        "growth",
-        "hierarchical",
-        "meta",
-        "synthesized"
-      ],
-      "updated_at": "2026-08-01T14:33:14.321033Z"
+      "updated_at": "2026-08-01T16:06:44.280032Z"
     },
     "capability.composed-meta-core-health-domain-ops-core-health-g": {
       "behavior_paths": [
@@ -1063,7 +867,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of capability.composed-stack-core-health-domain-ops, capability.composed-stack-core-health-grounded-growth-loop into one invocable unit.",
-      "created_at": "2026-08-01T14:32:48.837451Z",
+      "created_at": "2026-08-01T16:06:22.042809Z",
       "dependencies": [
         "capability.composed-stack-core-health-domain-ops",
         "capability.composed-stack-core-health-grounded-growth-loop"
@@ -1073,7 +877,7 @@
       "id": "capability.composed-meta-core-health-domain-ops-core-health-g",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:49.320261Z",
+      "last_proved_at": "2026-08-01T16:06:22.545019Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-ops + capability.composed-stack-core-health-grounded-growth-loop)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-ops-core-health-g'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1086,38 +890,7 @@
         "meta",
         "synthesized"
       ],
-      "updated_at": "2026-08-01T14:32:49.320261Z"
-    },
-    "capability.composed-meta-core-health-domain-ops-core-health-s": {
-      "behavior_paths": [
-        "src/blackhole_agent/capability_compounder.py",
-        "capabilities/ledger.json"
-      ],
-      "capability_delta": "Promoted multi-capability composition of capability.composed-stack-core-health-domain-ops, capability.composed-stack-core-health-second-wave-identity into one invocable unit.",
-      "created_at": "2026-08-01T14:33:15.082993Z",
-      "dependencies": [
-        "capability.composed-stack-core-health-domain-ops",
-        "capability.composed-stack-core-health-second-wave-identity"
-      ],
-      "description": "Synthesized stack-of-stacks of hierarchical compositions after first-order hierarchical recipes were exhausted.",
-      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
-      "id": "capability.composed-meta-core-health-domain-ops-core-health-s",
-      "kind": "python",
-      "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:33:15.979223Z",
-      "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-ops + capability.composed-stack-core-health-second-wave-identity)",
-      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-ops-core-health-s'; r=builtin_execute_composed_capability(); assert r['ok']\"",
-      "source_milestone": null,
-      "source_mission_id": "",
-      "tags": [
-        "composed",
-        "promoted",
-        "growth",
-        "hierarchical",
-        "meta",
-        "synthesized"
-      ],
-      "updated_at": "2026-08-01T14:33:15.979223Z"
+      "updated_at": "2026-08-01T16:06:22.545019Z"
     },
     "capability.composed-meta-core-health-domain-ops-domain-core-e": {
       "behavior_paths": [
@@ -1125,7 +898,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of capability.composed-stack-core-health-domain-ops, capability.composed-stack-domain-core-evolution-ready into one invocable unit.",
-      "created_at": "2026-08-01T14:32:49.719464Z",
+      "created_at": "2026-08-01T16:06:26.348360Z",
       "dependencies": [
         "capability.composed-stack-core-health-domain-ops",
         "capability.composed-stack-domain-core-evolution-ready"
@@ -1135,7 +908,7 @@
       "id": "capability.composed-meta-core-health-domain-ops-domain-core-e",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:50.189921Z",
+      "last_proved_at": "2026-08-01T16:06:26.743640Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-ops + capability.composed-stack-domain-core-evolution-ready)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-ops-domain-core-e'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1146,137 +919,9 @@
         "growth",
         "hierarchical",
         "meta",
-        "synthesized",
-        "redundant",
-        "distilled"
-      ],
-      "updated_at": "2026-08-01T14:33:31.948642Z"
-    },
-    "capability.composed-meta-core-health-domain-ops-domain-core-g": {
-      "behavior_paths": [
-        "src/blackhole_agent/capability_compounder.py",
-        "capabilities/ledger.json"
-      ],
-      "capability_delta": "Promoted multi-capability composition of capability.composed-stack-core-health-domain-ops, capability.composed-stack-domain-core-grounded-growth-loop into one invocable unit.",
-      "created_at": "2026-08-01T14:33:29.112946Z",
-      "dependencies": [
-        "capability.composed-stack-core-health-domain-ops",
-        "capability.composed-stack-domain-core-grounded-growth-loop"
-      ],
-      "description": "Synthesized stack-of-stacks of hierarchical compositions after first-order hierarchical recipes were exhausted.",
-      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
-      "id": "capability.composed-meta-core-health-domain-ops-domain-core-g",
-      "kind": "python",
-      "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:33:29.729380Z",
-      "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-ops + capability.composed-stack-domain-core-grounded-growth-loop)",
-      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-ops-domain-core-g'; r=builtin_execute_composed_capability(); assert r['ok']\"",
-      "source_milestone": null,
-      "source_mission_id": "",
-      "tags": [
-        "composed",
-        "promoted",
-        "growth",
-        "hierarchical",
-        "meta",
         "synthesized"
       ],
-      "updated_at": "2026-08-01T14:33:29.729380Z"
-    },
-    "capability.composed-meta-core-health-domain-ops-domain-ops-ev": {
-      "behavior_paths": [
-        "src/blackhole_agent/capability_compounder.py",
-        "capabilities/ledger.json"
-      ],
-      "capability_delta": "Promoted multi-capability composition of capability.composed-stack-core-health-domain-ops, capability.composed-stack-domain-ops-evolution-ready into one invocable unit.",
-      "created_at": "2026-08-01T14:33:30.530866Z",
-      "dependencies": [
-        "capability.composed-stack-core-health-domain-ops",
-        "capability.composed-stack-domain-ops-evolution-ready"
-      ],
-      "description": "Synthesized stack-of-stacks of hierarchical compositions after first-order hierarchical recipes were exhausted.",
-      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
-      "id": "capability.composed-meta-core-health-domain-ops-domain-ops-ev",
-      "kind": "python",
-      "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:33:31.165585Z",
-      "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-ops + capability.composed-stack-domain-ops-evolution-ready)",
-      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-ops-domain-ops-ev'; r=builtin_execute_composed_capability(); assert r['ok']\"",
-      "source_milestone": null,
-      "source_mission_id": "",
-      "tags": [
-        "composed",
-        "promoted",
-        "growth",
-        "hierarchical",
-        "meta",
-        "synthesized"
-      ],
-      "updated_at": "2026-08-01T14:33:31.165585Z"
-    },
-    "capability.composed-meta-domain-full-evolution": {
-      "behavior_paths": [
-        "src/blackhole_agent/capability_compounder.py",
-        "capabilities/ledger.json"
-      ],
-      "capability_delta": "Promoted multi-capability composition of capability.composed-stack-domain-full, capability.composed-stack-meta-evolution into one invocable unit.",
-      "created_at": "2026-08-01T14:33:06.523479Z",
-      "dependencies": [
-        "capability.composed-stack-domain-full",
-        "capability.composed-stack-meta-evolution"
-      ],
-      "description": "Domain-full and meta-evolution stacks form a second-order ops+evolution surface beyond first-gen hierarchical recipes.",
-      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
-      "id": "capability.composed-meta-domain-full-evolution",
-      "kind": "python",
-      "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:33:07.107704Z",
-      "name": "Meta-hierarchical domain-full × evolution stack",
-      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-domain-full-evolution'; r=builtin_execute_composed_capability(); assert r['ok']\"",
-      "source_milestone": null,
-      "source_mission_id": "",
-      "tags": [
-        "composed",
-        "promoted",
-        "growth",
-        "hierarchical",
-        "meta",
-        "redundant",
-        "distilled"
-      ],
-      "updated_at": "2026-08-01T14:33:31.948637Z"
-    },
-    "capability.composed-meta-platform-domain-full": {
-      "behavior_paths": [
-        "src/blackhole_agent/capability_compounder.py",
-        "capabilities/ledger.json"
-      ],
-      "capability_delta": "Promoted multi-capability composition of capability.composed-stack-platform, capability.composed-stack-domain-full into one invocable unit.",
-      "created_at": "2026-08-01T14:33:04.890329Z",
-      "dependencies": [
-        "capability.composed-stack-platform",
-        "capability.composed-stack-domain-full"
-      ],
-      "description": "Platform and domain-full hierarchical stacks form a meta domain-platform composition without re-absorbing leaf domains.",
-      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
-      "id": "capability.composed-meta-platform-domain-full",
-      "kind": "python",
-      "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:33:05.475561Z",
-      "name": "Meta-hierarchical platform × domain-full stack",
-      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-platform-domain-full'; r=builtin_execute_composed_capability(); assert r['ok']\"",
-      "source_milestone": null,
-      "source_mission_id": "",
-      "tags": [
-        "composed",
-        "promoted",
-        "growth",
-        "hierarchical",
-        "meta",
-        "redundant",
-        "distilled"
-      ],
-      "updated_at": "2026-08-01T14:33:31.948613Z"
+      "updated_at": "2026-08-01T16:06:26.743640Z"
     },
     "capability.composed-meta-platform-evolution": {
       "behavior_paths": [
@@ -1284,7 +929,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of capability.composed-stack-platform, capability.composed-stack-meta-evolution into one invocable unit.",
-      "created_at": "2026-08-01T14:33:03.756238Z",
+      "created_at": "2026-08-01T16:07:10.558826Z",
       "dependencies": [
         "capability.composed-stack-platform",
         "capability.composed-stack-meta-evolution"
@@ -1294,7 +939,7 @@
       "id": "capability.composed-meta-platform-evolution",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:33:04.290372Z",
+      "last_proved_at": "2026-08-01T16:07:11.004039Z",
       "name": "Meta-hierarchical platform × evolution stack",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-platform-evolution'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1306,7 +951,7 @@
         "hierarchical",
         "meta"
       ],
-      "updated_at": "2026-08-01T14:33:04.290372Z"
+      "updated_at": "2026-08-01T16:07:11.004039Z"
     },
     "capability.composed-second-wave-identity": {
       "behavior_paths": [
@@ -1314,7 +959,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of domain.persona, domain.proposal-synthesis, domain.kernel-preflight into one invocable unit.",
-      "created_at": "2026-08-01T14:32:52.765581Z",
+      "created_at": "2026-08-01T16:06:34.438179Z",
       "dependencies": [
         "domain.persona",
         "domain.proposal-synthesis",
@@ -1325,7 +970,7 @@
       "id": "capability.composed-second-wave-identity",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:52.938963Z",
+      "last_proved_at": "2026-08-01T16:06:34.592221Z",
       "name": "Composed second-wave identity chain",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-second-wave-identity'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1337,7 +982,7 @@
         "domain",
         "second-wave"
       ],
-      "updated_at": "2026-08-01T14:32:52.938963Z"
+      "updated_at": "2026-08-01T16:06:34.592221Z"
     },
     "capability.composed-stack-core-health-domain-core": {
       "behavior_paths": [
@@ -1345,7 +990,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of capability.composed-core-health, capability.composed-domain-core into one invocable unit.",
-      "created_at": "2026-08-01T14:32:39.070330Z",
+      "created_at": "2026-08-01T16:05:38.457766Z",
       "dependencies": [
         "capability.composed-core-health",
         "capability.composed-domain-core"
@@ -1355,7 +1000,7 @@
       "id": "capability.composed-stack-core-health-domain-core",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:39.289870Z",
+      "last_proved_at": "2026-08-01T16:05:38.687273Z",
       "name": "Hierarchical stack (capability.composed-core-health + capability.composed-domain-core)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-core-health-domain-core'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1367,7 +1012,7 @@
         "hierarchical",
         "synthesized"
       ],
-      "updated_at": "2026-08-01T14:32:39.289870Z"
+      "updated_at": "2026-08-01T16:05:38.687273Z"
     },
     "capability.composed-stack-core-health-domain-ops": {
       "behavior_paths": [
@@ -1375,7 +1020,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of capability.composed-core-health, capability.composed-domain-ops into one invocable unit.",
-      "created_at": "2026-08-01T14:32:43.135818Z",
+      "created_at": "2026-08-01T16:05:53.539007Z",
       "dependencies": [
         "capability.composed-core-health",
         "capability.composed-domain-ops"
@@ -1385,7 +1030,7 @@
       "id": "capability.composed-stack-core-health-domain-ops",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:43.525034Z",
+      "last_proved_at": "2026-08-01T16:05:53.904087Z",
       "name": "Hierarchical stack (capability.composed-core-health + capability.composed-domain-ops)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-core-health-domain-ops'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1397,7 +1042,7 @@
         "hierarchical",
         "synthesized"
       ],
-      "updated_at": "2026-08-01T14:32:43.525034Z"
+      "updated_at": "2026-08-01T16:05:53.904087Z"
     },
     "capability.composed-stack-core-health-grounded-growth-loop": {
       "behavior_paths": [
@@ -1405,7 +1050,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of capability.composed-core-health, capability.grounded-growth-loop into one invocable unit.",
-      "created_at": "2026-08-01T14:32:38.084533Z",
+      "created_at": "2026-08-01T16:05:35.416962Z",
       "dependencies": [
         "capability.composed-core-health",
         "capability.grounded-growth-loop"
@@ -1415,7 +1060,7 @@
       "id": "capability.composed-stack-core-health-grounded-growth-loop",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:38.433577Z",
+      "last_proved_at": "2026-08-01T16:05:35.780616Z",
       "name": "Hierarchical stack (capability.composed-core-health + capability.grounded-growth-loop)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-core-health-grounded-growth-loop'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1427,7 +1072,7 @@
         "hierarchical",
         "synthesized"
       ],
-      "updated_at": "2026-08-01T14:32:38.433577Z"
+      "updated_at": "2026-08-01T16:05:35.780616Z"
     },
     "capability.composed-stack-core-health-second-wave-identity": {
       "behavior_paths": [
@@ -1435,7 +1080,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of capability.composed-core-health, capability.composed-second-wave-identity into one invocable unit.",
-      "created_at": "2026-08-01T14:32:53.147582Z",
+      "created_at": "2026-08-01T16:06:36.031281Z",
       "dependencies": [
         "capability.composed-core-health",
         "capability.composed-second-wave-identity"
@@ -1445,7 +1090,7 @@
       "id": "capability.composed-stack-core-health-second-wave-identity",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:53.391828Z",
+      "last_proved_at": "2026-08-01T16:06:36.319765Z",
       "name": "Hierarchical stack (capability.composed-core-health + capability.composed-second-wave-identity)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-core-health-second-wave-identity'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1457,7 +1102,7 @@
         "hierarchical",
         "synthesized"
       ],
-      "updated_at": "2026-08-01T14:32:53.391828Z"
+      "updated_at": "2026-08-01T16:06:36.319765Z"
     },
     "capability.composed-stack-domain-core-evolution-ready": {
       "behavior_paths": [
@@ -1465,7 +1110,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of capability.composed-domain-core, capability.composed-evolution-ready into one invocable unit.",
-      "created_at": "2026-08-01T14:32:45.958250Z",
+      "created_at": "2026-08-01T16:06:03.965892Z",
       "dependencies": [
         "capability.composed-domain-core",
         "capability.composed-evolution-ready"
@@ -1475,7 +1120,7 @@
       "id": "capability.composed-stack-domain-core-evolution-ready",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:46.384034Z",
+      "last_proved_at": "2026-08-01T16:06:04.227944Z",
       "name": "Hierarchical stack (capability.composed-domain-core + capability.composed-evolution-ready)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-domain-core-evolution-ready'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1487,7 +1132,7 @@
         "hierarchical",
         "synthesized"
       ],
-      "updated_at": "2026-08-01T14:32:46.384034Z"
+      "updated_at": "2026-08-01T16:06:04.227944Z"
     },
     "capability.composed-stack-domain-core-grounded-growth-loop": {
       "behavior_paths": [
@@ -1495,7 +1140,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of capability.composed-domain-core, capability.grounded-growth-loop into one invocable unit.",
-      "created_at": "2026-08-01T14:32:40.393264Z",
+      "created_at": "2026-08-01T16:05:44.048896Z",
       "dependencies": [
         "capability.composed-domain-core",
         "capability.grounded-growth-loop"
@@ -1505,7 +1150,7 @@
       "id": "capability.composed-stack-domain-core-grounded-growth-loop",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:40.739998Z",
+      "last_proved_at": "2026-08-01T16:05:44.430204Z",
       "name": "Hierarchical stack (capability.composed-domain-core + capability.grounded-growth-loop)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-domain-core-grounded-growth-loop'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1517,7 +1162,7 @@
         "hierarchical",
         "synthesized"
       ],
-      "updated_at": "2026-08-01T14:32:40.739998Z"
+      "updated_at": "2026-08-01T16:05:44.430204Z"
     },
     "capability.composed-stack-domain-core-second-wave-identity": {
       "behavior_paths": [
@@ -1525,7 +1170,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of capability.composed-domain-core, capability.composed-second-wave-identity into one invocable unit.",
-      "created_at": "2026-08-01T14:32:53.618664Z",
+      "created_at": "2026-08-01T16:06:37.822238Z",
       "dependencies": [
         "capability.composed-domain-core",
         "capability.composed-second-wave-identity"
@@ -1535,7 +1180,7 @@
       "id": "capability.composed-stack-domain-core-second-wave-identity",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:53.848984Z",
+      "last_proved_at": "2026-08-01T16:06:37.998187Z",
       "name": "Hierarchical stack (capability.composed-domain-core + capability.composed-second-wave-identity)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-domain-core-second-wave-identity'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1547,7 +1192,7 @@
         "hierarchical",
         "synthesized"
       ],
-      "updated_at": "2026-08-01T14:32:53.848984Z"
+      "updated_at": "2026-08-01T16:06:37.998187Z"
     },
     "capability.composed-stack-domain-full": {
       "behavior_paths": [
@@ -1555,7 +1200,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of capability.composed-domain-core, capability.composed-domain-ops into one invocable unit.",
-      "created_at": "2026-08-01T14:32:42.418580Z",
+      "created_at": "2026-08-01T16:05:50.995278Z",
       "dependencies": [
         "capability.composed-domain-core",
         "capability.composed-domain-ops"
@@ -1565,7 +1210,7 @@
       "id": "capability.composed-stack-domain-full",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:42.820188Z",
+      "last_proved_at": "2026-08-01T16:05:51.497239Z",
       "name": "Hierarchical domain full stack",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-domain-full'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1577,7 +1222,7 @@
         "hierarchical",
         "domain"
       ],
-      "updated_at": "2026-08-01T14:32:42.820188Z"
+      "updated_at": "2026-08-01T16:05:51.497239Z"
     },
     "capability.composed-stack-domain-ops-evolution-ready": {
       "behavior_paths": [
@@ -1585,7 +1230,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of capability.composed-domain-ops, capability.composed-evolution-ready into one invocable unit.",
-      "created_at": "2026-08-01T14:32:50.734036Z",
+      "created_at": "2026-08-01T16:06:28.891366Z",
       "dependencies": [
         "capability.composed-domain-ops",
         "capability.composed-evolution-ready"
@@ -1595,7 +1240,7 @@
       "id": "capability.composed-stack-domain-ops-evolution-ready",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:51.147097Z",
+      "last_proved_at": "2026-08-01T16:06:29.242671Z",
       "name": "Hierarchical stack (capability.composed-domain-ops + capability.composed-evolution-ready)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-domain-ops-evolution-ready'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1607,7 +1252,7 @@
         "hierarchical",
         "synthesized"
       ],
-      "updated_at": "2026-08-01T14:32:51.147097Z"
+      "updated_at": "2026-08-01T16:06:29.242671Z"
     },
     "capability.composed-stack-domain-ops-grounded-growth-loop": {
       "behavior_paths": [
@@ -1615,7 +1260,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of capability.composed-domain-ops, capability.grounded-growth-loop into one invocable unit.",
-      "created_at": "2026-08-01T14:32:43.886976Z",
+      "created_at": "2026-08-01T16:05:56.427423Z",
       "dependencies": [
         "capability.composed-domain-ops",
         "capability.grounded-growth-loop"
@@ -1625,7 +1270,7 @@
       "id": "capability.composed-stack-domain-ops-grounded-growth-loop",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:44.242581Z",
+      "last_proved_at": "2026-08-01T16:05:56.807820Z",
       "name": "Hierarchical stack (capability.composed-domain-ops + capability.grounded-growth-loop)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-domain-ops-grounded-growth-loop'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1637,7 +1282,7 @@
         "hierarchical",
         "synthesized"
       ],
-      "updated_at": "2026-08-01T14:32:44.242581Z"
+      "updated_at": "2026-08-01T16:05:56.807820Z"
     },
     "capability.composed-stack-domain-ops-second-wave-identity": {
       "behavior_paths": [
@@ -1645,7 +1290,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of capability.composed-domain-ops, capability.composed-second-wave-identity into one invocable unit.",
-      "created_at": "2026-08-01T14:32:54.011163Z",
+      "created_at": "2026-08-01T16:06:40.021240Z",
       "dependencies": [
         "capability.composed-domain-ops",
         "capability.composed-second-wave-identity"
@@ -1655,7 +1300,7 @@
       "id": "capability.composed-stack-domain-ops-second-wave-identity",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:54.365235Z",
+      "last_proved_at": "2026-08-01T16:06:40.351062Z",
       "name": "Hierarchical stack (capability.composed-domain-ops + capability.composed-second-wave-identity)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-domain-ops-second-wave-identity'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1667,7 +1312,7 @@
         "hierarchical",
         "synthesized"
       ],
-      "updated_at": "2026-08-01T14:32:54.365235Z"
+      "updated_at": "2026-08-01T16:06:40.351062Z"
     },
     "capability.composed-stack-evolution-ready-grounded-growth-loop": {
       "behavior_paths": [
@@ -1675,7 +1320,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of capability.composed-evolution-ready, capability.grounded-growth-loop into one invocable unit.",
-      "created_at": "2026-08-01T14:32:52.044981Z",
+      "created_at": "2026-08-01T16:06:33.132526Z",
       "dependencies": [
         "capability.composed-evolution-ready",
         "capability.grounded-growth-loop"
@@ -1685,7 +1330,7 @@
       "id": "capability.composed-stack-evolution-ready-grounded-growth-loop",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:52.396931Z",
+      "last_proved_at": "2026-08-01T16:06:33.477551Z",
       "name": "Hierarchical stack (capability.composed-evolution-ready + capability.grounded-growth-loop)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-evolution-ready-grounded-growth-loop'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1697,7 +1342,7 @@
         "hierarchical",
         "synthesized"
       ],
-      "updated_at": "2026-08-01T14:32:52.396931Z"
+      "updated_at": "2026-08-01T16:06:33.477551Z"
     },
     "capability.composed-stack-evolution-ready-second-wave-identity": {
       "behavior_paths": [
@@ -1705,7 +1350,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of capability.composed-evolution-ready, capability.composed-second-wave-identity into one invocable unit.",
-      "created_at": "2026-08-01T14:32:56.504124Z",
+      "created_at": "2026-08-01T16:06:52.268258Z",
       "dependencies": [
         "capability.composed-evolution-ready",
         "capability.composed-second-wave-identity"
@@ -1715,7 +1360,7 @@
       "id": "capability.composed-stack-evolution-ready-second-wave-identity",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:56.755074Z",
+      "last_proved_at": "2026-08-01T16:06:52.563591Z",
       "name": "Hierarchical stack (capability.composed-evolution-ready + capability.composed-second-wave-identity)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-evolution-ready-second-wave-identity'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1727,7 +1372,7 @@
         "hierarchical",
         "synthesized"
       ],
-      "updated_at": "2026-08-01T14:32:56.755074Z"
+      "updated_at": "2026-08-01T16:06:52.563591Z"
     },
     "capability.composed-stack-meta-evolution": {
       "behavior_paths": [
@@ -1735,7 +1380,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of capability.composed-core-health, capability.composed-evolution-ready into one invocable unit.",
-      "created_at": "2026-08-01T14:32:51.572149Z",
+      "created_at": "2026-08-01T16:06:30.946983Z",
       "dependencies": [
         "capability.composed-core-health",
         "capability.composed-evolution-ready"
@@ -1745,7 +1390,7 @@
       "id": "capability.composed-stack-meta-evolution",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:51.816582Z",
+      "last_proved_at": "2026-08-01T16:06:31.216481Z",
       "name": "Hierarchical meta evolution stack",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-meta-evolution'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1757,7 +1402,7 @@
         "hierarchical",
         "evolution-route"
       ],
-      "updated_at": "2026-08-01T14:32:51.816582Z"
+      "updated_at": "2026-08-01T16:06:31.216481Z"
     },
     "capability.composed-stack-platform": {
       "behavior_paths": [
@@ -1765,7 +1410,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of capability.composed-core-health, capability.composed-domain-core, capability.composed-domain-ops into one invocable unit.",
-      "created_at": "2026-08-01T14:32:41.684521Z",
+      "created_at": "2026-08-01T16:05:48.380860Z",
       "dependencies": [
         "capability.composed-core-health",
         "capability.composed-domain-core",
@@ -1776,7 +1421,7 @@
       "id": "capability.composed-stack-platform",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:42.067361Z",
+      "last_proved_at": "2026-08-01T16:05:48.739654Z",
       "name": "Hierarchical platform stack",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-platform'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1788,7 +1433,7 @@
         "hierarchical",
         "platform"
       ],
-      "updated_at": "2026-08-01T14:32:42.067361Z"
+      "updated_at": "2026-08-01T16:05:48.739654Z"
     },
     "capability.composed-stack-second-wave-identity-grounded-growth": {
       "behavior_paths": [
@@ -1796,7 +1441,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of capability.composed-second-wave-identity, capability.grounded-growth-loop into one invocable unit.",
-      "created_at": "2026-08-01T14:32:56.994725Z",
+      "created_at": "2026-08-01T16:06:54.573785Z",
       "dependencies": [
         "capability.composed-second-wave-identity",
         "capability.grounded-growth-loop"
@@ -1806,7 +1451,7 @@
       "id": "capability.composed-stack-second-wave-identity-grounded-growth",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:57.322225Z",
+      "last_proved_at": "2026-08-01T16:06:54.937656Z",
       "name": "Hierarchical stack (capability.composed-second-wave-identity + capability.grounded-growth-loop)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-second-wave-identity-grounded-growth'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1818,39 +1463,7 @@
         "hierarchical",
         "synthesized"
       ],
-      "updated_at": "2026-08-01T14:32:57.322225Z"
-    },
-    "capability.composed-super-46793b684d": {
-      "behavior_paths": [
-        "src/blackhole_agent/capability_compounder.py",
-        "capabilities/ledger.json"
-      ],
-      "capability_delta": "Promoted multi-capability composition of capability.composed-meta-core-health-domain-core-core-health, capability.composed-meta-core-health-domain-core-evolution-re into one invocable unit.",
-      "created_at": "2026-08-01T14:33:09.953027Z",
-      "dependencies": [
-        "capability.composed-meta-core-health-domain-core-core-health",
-        "capability.composed-meta-core-health-domain-core-evolution-re"
-      ],
-      "description": "Synthesized third-order superstack of meta-hierarchical compositions after second-order meta recipes were exhausted.",
-      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
-      "id": "capability.composed-super-46793b684d",
-      "kind": "python",
-      "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:33:10.824962Z",
-      "name": "Superstack (capability.composed-meta-core-health-domain-core-core-health + capability.composed-meta-core-health-domain-core-evolution-re)",
-      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-super-46793b684d'; r=builtin_execute_composed_capability(); assert r['ok']\"",
-      "source_milestone": null,
-      "source_mission_id": "",
-      "tags": [
-        "composed",
-        "promoted",
-        "growth",
-        "hierarchical",
-        "meta",
-        "superstack",
-        "synthesized"
-      ],
-      "updated_at": "2026-08-01T14:33:10.824962Z"
+      "updated_at": "2026-08-01T16:06:54.937656Z"
     },
     "capability.composed-super-551acabcb0": {
       "behavior_paths": [
@@ -1858,7 +1471,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of capability.composed-meta-core-health-domain-core-domain-core, capability.composed-meta-core-health-domain-core-domain-ops-g into one invocable unit.",
-      "created_at": "2026-08-01T14:32:47.093006Z",
+      "created_at": "2026-08-01T16:06:12.678930Z",
       "dependencies": [
         "capability.composed-meta-core-health-domain-core-domain-core",
         "capability.composed-meta-core-health-domain-core-domain-ops-g"
@@ -1868,7 +1481,7 @@
       "id": "capability.composed-super-551acabcb0",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:47.538099Z",
+      "last_proved_at": "2026-08-01T16:06:13.160029Z",
       "name": "Superstack (capability.composed-meta-core-health-domain-core-domain-core + capability.composed-meta-core-health-domain-core-domain-ops-g)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-super-551acabcb0'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1882,7 +1495,7 @@
         "superstack",
         "synthesized"
       ],
-      "updated_at": "2026-08-01T14:32:47.538099Z"
+      "updated_at": "2026-08-01T16:06:13.160029Z"
     },
     "capability.composed-super-b31746f232": {
       "behavior_paths": [
@@ -1890,7 +1503,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of capability.composed-meta-core-health-domain-core-core-health, capability.composed-meta-core-health-domain-core-domain-ops-s into one invocable unit.",
-      "created_at": "2026-08-01T14:32:55.577320Z",
+      "created_at": "2026-08-01T16:06:50.070239Z",
       "dependencies": [
         "capability.composed-meta-core-health-domain-core-core-health",
         "capability.composed-meta-core-health-domain-core-domain-ops-s"
@@ -1900,7 +1513,7 @@
       "id": "capability.composed-super-b31746f232",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:56.079317Z",
+      "last_proved_at": "2026-08-01T16:06:50.538564Z",
       "name": "Superstack (capability.composed-meta-core-health-domain-core-core-health + capability.composed-meta-core-health-domain-core-domain-ops-s)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-super-b31746f232'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1914,7 +1527,7 @@
         "superstack",
         "synthesized"
       ],
-      "updated_at": "2026-08-01T14:32:56.079317Z"
+      "updated_at": "2026-08-01T16:06:50.538564Z"
     },
     "capability.composed-super-core-health-domain-core-health-d": {
       "behavior_paths": [
@@ -1922,7 +1535,7 @@
         "capabilities/ledger.json"
       ],
       "capability_delta": "Promoted multi-capability composition of capability.composed-meta-core-health-domain-core-core-health, capability.composed-meta-core-health-domain-core-domain-core into one invocable unit.",
-      "created_at": "2026-08-01T14:32:47.990590Z",
+      "created_at": "2026-08-01T16:06:17.837935Z",
       "dependencies": [
         "capability.composed-meta-core-health-domain-core-core-health",
         "capability.composed-meta-core-health-domain-core-domain-core"
@@ -1932,7 +1545,7 @@
       "id": "capability.composed-super-core-health-domain-core-health-d",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:48.397121Z",
+      "last_proved_at": "2026-08-01T16:06:18.288197Z",
       "name": "Superstack (capability.composed-meta-core-health-domain-core-core-health + capability.composed-meta-core-health-domain-core-domain-core)",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-super-core-health-domain-core-health-d'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1946,7 +1559,7 @@
         "superstack",
         "synthesized"
       ],
-      "updated_at": "2026-08-01T14:32:48.397121Z"
+      "updated_at": "2026-08-01T16:06:18.288197Z"
     },
     "capability.continuity-plane": {
       "behavior_paths": [
@@ -1991,7 +1604,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-08-01T14:52:54.399656Z"
+      "updated_at": "2026-08-01T16:09:15.107180Z"
     },
     "capability.contract-plane": {
       "behavior_paths": [
@@ -2026,7 +1639,7 @@
         "evidence",
         "growth"
       ],
-      "updated_at": "2026-08-01T14:52:54.398987Z"
+      "updated_at": "2026-08-01T16:09:15.106665Z"
     },
     "capability.distill-ledger": {
       "behavior_paths": [
@@ -2056,7 +1669,7 @@
         "growth",
         "distill"
       ],
-      "updated_at": "2026-08-01T14:52:54.398435Z"
+      "updated_at": "2026-08-01T16:09:15.105639Z"
     },
     "capability.execution-plane": {
       "behavior_paths": [
@@ -2109,7 +1722,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-01T14:52:54.399957Z"
+      "updated_at": "2026-08-01T16:09:15.107432Z"
     },
     "capability.federation-plane": {
       "behavior_paths": [
@@ -2154,7 +1767,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-08-01T14:52:54.399725Z"
+      "updated_at": "2026-08-01T16:09:15.107243Z"
     },
     "capability.finality-plane": {
       "behavior_paths": [
@@ -2203,7 +1816,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-01T14:52:54.399888Z"
+      "updated_at": "2026-08-01T16:09:15.107367Z"
     },
     "capability.frontier-novelty": {
       "behavior_paths": [
@@ -2233,7 +1846,7 @@
         "growth",
         "novelty"
       ],
-      "updated_at": "2026-08-01T14:52:54.398365Z"
+      "updated_at": "2026-08-01T16:09:15.105458Z"
     },
     "capability.github-live-actuation": {
       "behavior_paths": [
@@ -2292,7 +1905,7 @@
         "mission",
         "planner"
       ],
-      "updated_at": "2026-08-01T14:52:54.398570Z"
+      "updated_at": "2026-08-01T16:09:15.106004Z"
     },
     "capability.grounded-growth-loop": {
       "behavior_paths": [
@@ -2380,7 +1993,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-08-01T14:52:54.398152Z"
+      "updated_at": "2026-08-01T16:09:15.104855Z"
     },
     "capability.growth-proof-audit-gate": {
       "behavior_paths": [
@@ -2437,7 +2050,7 @@
         "compounder",
         "integrity"
       ],
-      "updated_at": "2026-08-01T14:52:54.398298Z"
+      "updated_at": "2026-08-01T16:09:15.105237Z"
     },
     "capability.ledger-inventory": {
       "behavior_paths": [
@@ -2454,7 +2067,7 @@
       "id": "capability.ledger-inventory",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:33:32.645463Z",
+      "last_proved_at": "2026-08-01T15:55:01.279113Z",
       "name": "Capability ledger inventory",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_ledger_inventory; r=builtin_ledger_inventory(); assert r['ok'] and r['count'] >= 2\"",
       "source_milestone": null,
@@ -2463,7 +2076,7 @@
         "bootstrap",
         "compounder"
       ],
-      "updated_at": "2026-08-01T14:52:54.397924Z"
+      "updated_at": "2026-08-01T16:09:15.104104Z"
     },
     "capability.ledger-proof-reaudit": {
       "behavior_paths": [
@@ -2533,7 +2146,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-08-01T14:52:54.399512Z"
+      "updated_at": "2026-08-01T16:09:15.107057Z"
     },
     "capability.mcp-live-execution": {
       "behavior_paths": [
@@ -2679,7 +2292,7 @@
         "growth",
         "second-wave"
       ],
-      "updated_at": "2026-08-01T14:52:54.398790Z"
+      "updated_at": "2026-08-01T16:09:15.106461Z"
     },
     "capability.multi-kernel-harness-routing": {
       "behavior_paths": [
@@ -2738,7 +2351,7 @@
         "contract",
         "evidence"
       ],
-      "updated_at": "2026-08-01T14:52:54.398905Z"
+      "updated_at": "2026-08-01T16:09:15.106597Z"
     },
     "capability.plane-engine": {
       "behavior_paths": [
@@ -2829,7 +2442,7 @@
         "mission",
         "program"
       ],
-      "updated_at": "2026-08-01T14:52:54.398638Z"
+      "updated_at": "2026-08-01T16:09:15.106185Z"
     },
     "capability.quorum-plane": {
       "behavior_paths": [
@@ -2876,7 +2489,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-01T14:52:54.399818Z"
+      "updated_at": "2026-08-01T16:09:15.107304Z"
     },
     "capability.reconciliation-plane": {
       "behavior_paths": [
@@ -2919,7 +2532,42 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-08-01T14:52:54.399585Z"
+      "updated_at": "2026-08-01T16:09:15.107119Z"
+    },
+    "capability.repair-plane": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_repair.py",
+        "src/blackhole_agent/capability_compounder.py",
+        "src/blackhole_agent/unbound.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Repair plane closes the measured-weakness halt: diagnoses stale or failed proofs, regenerates stale interpreter paths, re-proves the dependency chain, verifies repair by green re-proof, and adversarially proves synthetic breaks heal while unrepairable breaks fail honestly — growth can resume after autonomous repair without skill-route.",
+      "created_at": "2026-08-01T15:39:46.929076Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.outcome-contract",
+        "capability.ablation-proof"
+      ],
+      "description": "Closed repair plane: diagnose stale/failed capability proofs (stale proof-command interpreter, import error, replay failure) → bounded deterministic repair (interpreter regeneration + dependency-chain re-proof) → verified green re-proof → adversarial falsification: synthetic stale-interpreter break must heal, unrepairable break must fail honestly with the proof stamp left red — closes the fitness-gate repair_needed halt into autonomous repair.",
+      "entry": "blackhole_agent.capability_repair:builtin_repair_plane",
+      "id": "capability.repair-plane",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-01T16:09:15.047787Z",
+      "name": "Autonomous capability repair plane",
+      "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_repair import builtin_repair_plane; r=builtin_repair_plane(); assert r['ok'] and r.get('action')=='repair_plane' and r.get('synthetic_repair',{}).get('verdict')=='repaired' and 'regenerate_proof_command' in r.get('synthetic_repair',{}).get('repair_actions',[]) and r.get('unrepairable_check',{}).get('honest') is True and r.get('unrepairable_check',{}).get('verdict')=='unrepairable' and r.get('contract',{}).get('met') is True and r.get('report_verify',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "bootstrap",
+        "compounder",
+        "repair",
+        "self-healing",
+        "fitness",
+        "evidence"
+      ],
+      "updated_at": "2026-08-01T16:09:15.107617Z"
     },
     "capability.scout-gaps": {
       "behavior_paths": [
@@ -2947,7 +2595,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-08-01T14:52:54.398074Z"
+      "updated_at": "2026-08-01T16:09:15.104596Z"
     },
     "capability.second-wave-absorb": {
       "behavior_paths": [
@@ -2981,7 +2629,7 @@
         "second-wave",
         "domain"
       ],
-      "updated_at": "2026-08-01T14:52:54.398723Z"
+      "updated_at": "2026-08-01T16:09:15.106369Z"
     },
     "capability.sovereignty-plane": {
       "behavior_paths": [
@@ -3020,7 +2668,7 @@
         "certificate",
         "evidence"
       ],
-      "updated_at": "2026-08-01T14:52:54.399419Z"
+      "updated_at": "2026-08-01T16:09:15.106990Z"
     },
     "capability.transfer-plane": {
       "behavior_paths": [
@@ -3051,7 +2699,7 @@
         "transfer",
         "package"
       ],
-      "updated_at": "2026-08-01T14:52:54.399135Z"
+      "updated_at": "2026-08-01T16:09:15.106801Z"
     },
     "domain.ci-security": {
       "behavior_paths": [
@@ -3059,7 +2707,7 @@
         "src/blackhole_agent/capability_compounder.py"
       ],
       "capability_delta": "CI security-scan gating is invocable as a first-class ledger capability.",
-      "created_at": "2026-08-01T14:32:36.058613Z",
+      "created_at": "2026-08-01T16:05:31.198065Z",
       "dependencies": [
         "repo.import-health"
       ],
@@ -3068,7 +2716,7 @@
       "id": "domain.ci-security",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:36.179746Z",
+      "last_proved_at": "2026-08-01T16:05:31.329489Z",
       "name": "CI security scan gate",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_ci_security_gate; r=builtin_ci_security_gate(); assert r['ok']\"",
       "source_milestone": null,
@@ -3078,7 +2726,7 @@
         "security",
         "absorbable"
       ],
-      "updated_at": "2026-08-01T14:32:36.179746Z"
+      "updated_at": "2026-08-01T16:05:31.329489Z"
     },
     "domain.harness-activation": {
       "behavior_paths": [
@@ -3086,7 +2734,7 @@
         "src/blackhole_agent/capability_compounder.py"
       ],
       "capability_delta": "Harness activation gating is invocable as a first-class ledger capability.",
-      "created_at": "2026-08-01T14:32:35.546456Z",
+      "created_at": "2026-08-01T16:05:30.681247Z",
       "dependencies": [
         "repo.import-health"
       ],
@@ -3095,7 +2743,7 @@
       "id": "domain.harness-activation",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:35.651430Z",
+      "last_proved_at": "2026-08-01T16:05:30.809403Z",
       "name": "Harness activation gate",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_harness_activation_gate; r=builtin_harness_activation_gate(); assert r['ok']\"",
       "source_milestone": null,
@@ -3105,7 +2753,7 @@
         "harness",
         "absorbable"
       ],
-      "updated_at": "2026-08-01T14:32:35.651430Z"
+      "updated_at": "2026-08-01T16:05:30.809403Z"
     },
     "domain.issue-triage": {
       "behavior_paths": [
@@ -3113,7 +2761,7 @@
         "src/blackhole_agent/capability_compounder.py"
       ],
       "capability_delta": "Local issue triage is invocable as a first-class ledger capability.",
-      "created_at": "2026-08-01T14:32:35.804789Z",
+      "created_at": "2026-08-01T16:05:30.935787Z",
       "dependencies": [
         "repo.import-health"
       ],
@@ -3122,7 +2770,7 @@
       "id": "domain.issue-triage",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:35.936010Z",
+      "last_proved_at": "2026-08-01T16:05:31.068514Z",
       "name": "Issue triage lane smoke",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_issue_triage_smoke; r=builtin_issue_triage_smoke(); assert r['ok']\"",
       "source_milestone": null,
@@ -3132,7 +2780,7 @@
         "triage",
         "absorbable"
       ],
-      "updated_at": "2026-08-01T14:32:35.936010Z"
+      "updated_at": "2026-08-01T16:05:31.068514Z"
     },
     "domain.kernel-preflight": {
       "behavior_paths": [
@@ -3140,7 +2788,7 @@
         "src/blackhole_agent/capability_compounder.py"
       ],
       "capability_delta": "Kernel provider preflight is invocable as a second-wave domain capability.",
-      "created_at": "2026-08-01T14:32:37.368529Z",
+      "created_at": "2026-08-01T16:05:32.631614Z",
       "dependencies": [
         "repo.import-health"
       ],
@@ -3149,7 +2797,7 @@
       "id": "domain.kernel-preflight",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:37.508607Z",
+      "last_proved_at": "2026-08-01T16:05:32.772133Z",
       "name": "Kernel provider preflight",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_kernel_preflight; r=builtin_kernel_preflight(); assert r['ok']\"",
       "source_milestone": null,
@@ -3161,7 +2809,7 @@
         "absorbable",
         "second-wave"
       ],
-      "updated_at": "2026-08-01T14:32:37.508607Z"
+      "updated_at": "2026-08-01T16:05:32.772133Z"
     },
     "domain.local-memory": {
       "behavior_paths": [
@@ -3169,7 +2817,7 @@
         "src/blackhole_agent/capability_compounder.py"
       ],
       "capability_delta": "Local memory with privacy guards is invocable as a first-class ledger capability.",
-      "created_at": "2026-08-01T14:32:34.755960Z",
+      "created_at": "2026-08-01T16:05:29.821646Z",
       "dependencies": [
         "repo.import-health"
       ],
@@ -3178,7 +2826,7 @@
       "id": "domain.local-memory",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:34.882946Z",
+      "last_proved_at": "2026-08-01T16:05:29.973135Z",
       "name": "Local memory privacy roundtrip",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_local_memory_roundtrip; r=builtin_local_memory_roundtrip(); assert r['ok']\"",
       "source_milestone": null,
@@ -3188,7 +2836,7 @@
         "memory",
         "absorbable"
       ],
-      "updated_at": "2026-08-01T14:32:34.882946Z"
+      "updated_at": "2026-08-01T16:05:29.973135Z"
     },
     "domain.persona": {
       "behavior_paths": [
@@ -3196,7 +2844,7 @@
         "src/blackhole_agent/capability_compounder.py"
       ],
       "capability_delta": "Persona identity contract is invocable as a second-wave domain capability.",
-      "created_at": "2026-08-01T14:32:36.903751Z",
+      "created_at": "2026-08-01T16:05:32.130467Z",
       "dependencies": [
         "repo.import-health"
       ],
@@ -3205,7 +2853,7 @@
       "id": "domain.persona",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:37.015291Z",
+      "last_proved_at": "2026-08-01T16:05:32.249074Z",
       "name": "Persona layer render",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_persona_render; r=builtin_persona_render(); assert r['ok']\"",
       "source_milestone": null,
@@ -3217,7 +2865,7 @@
         "absorbable",
         "second-wave"
       ],
-      "updated_at": "2026-08-01T14:32:37.015291Z"
+      "updated_at": "2026-08-01T16:05:32.249074Z"
     },
     "domain.proposal-eval": {
       "behavior_paths": [
@@ -3225,7 +2873,7 @@
         "src/blackhole_agent/capability_compounder.py"
       ],
       "capability_delta": "Proposal evaluation replay is invocable as a first-class ledger capability.",
-      "created_at": "2026-08-01T14:32:36.295143Z",
+      "created_at": "2026-08-01T16:05:31.463749Z",
       "dependencies": [
         "repo.import-health"
       ],
@@ -3234,7 +2882,7 @@
       "id": "domain.proposal-eval",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:36.602259Z",
+      "last_proved_at": "2026-08-01T16:05:31.804569Z",
       "name": "Proposal eval replay smoke",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_proposal_eval_smoke; r=builtin_proposal_eval_smoke(); assert r['ok']\"",
       "source_milestone": null,
@@ -3244,7 +2892,7 @@
         "proposal",
         "absorbable"
       ],
-      "updated_at": "2026-08-01T14:32:36.602259Z"
+      "updated_at": "2026-08-01T16:05:31.804569Z"
     },
     "domain.proposal-synthesis": {
       "behavior_paths": [
@@ -3252,7 +2900,7 @@
         "src/blackhole_agent/capability_compounder.py"
       ],
       "capability_delta": "Proposal synthesis evidence packaging is invocable as a second-wave domain capability.",
-      "created_at": "2026-08-01T14:32:37.133669Z",
+      "created_at": "2026-08-01T16:05:32.371426Z",
       "dependencies": [
         "repo.import-health"
       ],
@@ -3261,7 +2909,7 @@
       "id": "domain.proposal-synthesis",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:37.255216Z",
+      "last_proved_at": "2026-08-01T16:05:32.506175Z",
       "name": "Proposal synthesis evidence smoke",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_proposal_synthesis_smoke; r=builtin_proposal_synthesis_smoke(); assert r['ok']\"",
       "source_milestone": null,
@@ -3273,7 +2921,7 @@
         "absorbable",
         "second-wave"
       ],
-      "updated_at": "2026-08-01T14:32:37.255216Z"
+      "updated_at": "2026-08-01T16:05:32.506175Z"
     },
     "domain.supervisor-compound": {
       "behavior_paths": [
@@ -3281,7 +2929,7 @@
         "src/blackhole_agent/capability_compounder.py"
       ],
       "capability_delta": "Supervisor compound-wake routing is invocable as a second-wave domain capability.",
-      "created_at": "2026-08-01T14:32:35.049952Z",
+      "created_at": "2026-08-01T16:05:30.125448Z",
       "dependencies": [
         "repo.import-health",
         "evolution.compounder-redirect"
@@ -3291,7 +2939,7 @@
       "id": "domain.supervisor-compound",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:35.159819Z",
+      "last_proved_at": "2026-08-01T16:05:30.262976Z",
       "name": "Supervisor compound wake routing",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_supervisor_compound_wake; r=builtin_supervisor_compound_wake(); assert r['ok']\"",
       "source_milestone": null,
@@ -3302,7 +2950,7 @@
         "absorbable",
         "second-wave"
       ],
-      "updated_at": "2026-08-01T14:32:35.159819Z"
+      "updated_at": "2026-08-01T16:05:30.262976Z"
     },
     "domain.tool-routing": {
       "behavior_paths": [
@@ -3310,7 +2958,7 @@
         "src/blackhole_agent/capability_compounder.py"
       ],
       "capability_delta": "Tool routing preflight is invocable as a first-class ledger capability.",
-      "created_at": "2026-08-01T14:32:35.266255Z",
+      "created_at": "2026-08-01T16:05:30.402285Z",
       "dependencies": [
         "repo.import-health"
       ],
@@ -3319,7 +2967,7 @@
       "id": "domain.tool-routing",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:35.381426Z",
+      "last_proved_at": "2026-08-01T16:05:30.544163Z",
       "name": "Tool routing preflight",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_tool_routing_preflight; r=builtin_tool_routing_preflight(); assert r['ok']\"",
       "source_milestone": null,
@@ -3329,7 +2977,7 @@
         "tools",
         "absorbable"
       ],
-      "updated_at": "2026-08-01T14:32:35.381426Z"
+      "updated_at": "2026-08-01T16:05:30.544163Z"
     },
     "evolution.compounder-redirect": {
       "behavior_paths": [
@@ -3348,7 +2996,7 @@
       "id": "evolution.compounder-redirect",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:32:34.100228Z",
+      "last_proved_at": "2026-08-01T15:55:01.500469Z",
       "name": "Evolution surface compounder redirect",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_evolution_route_redirect; r=builtin_evolution_route_redirect(); assert r['ok'] and r['pin_cascade_frozen']\"",
       "source_milestone": null,
@@ -3357,7 +3005,7 @@
         "bootstrap",
         "evolution-route"
       ],
-      "updated_at": "2026-08-01T14:52:54.398003Z"
+      "updated_at": "2026-08-01T16:09:15.104367Z"
     },
     "repo.import-health": {
       "behavior_paths": [
@@ -3372,7 +3020,7 @@
       "id": "repo.import-health",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:34:23.818713Z",
+      "last_proved_at": "2026-08-01T15:56:55.606211Z",
       "name": "Repository import health",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_repo_import_health; r=builtin_repo_import_health(); assert r['ok'] and not r['skill_route_symbols_in_compounder']\"",
       "source_milestone": null,
@@ -3381,7 +3029,7 @@
         "bootstrap",
         "health"
       ],
-      "updated_at": "2026-08-01T14:52:54.397717Z"
+      "updated_at": "2026-08-01T16:09:15.103386Z"
     },
     "unbound.milestone-gate": {
       "behavior_paths": [
@@ -3397,7 +3045,7 @@
       "id": "unbound.milestone-gate",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T14:33:33.059781Z",
+      "last_proved_at": "2026-08-01T15:55:01.825823Z",
       "name": "Unbound milestone gate smoke",
       "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_milestone_gate_smoke; r=builtin_milestone_gate_smoke(); assert r['ok']\"",
       "source_milestone": null,
@@ -3406,9 +3054,9 @@
         "bootstrap",
         "unbound"
       ],
-      "updated_at": "2026-08-01T14:52:54.397839Z"
+      "updated_at": "2026-08-01T16:09:15.103711Z"
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-08-01T14:52:54.400159Z"
+  "updated_at": "2026-08-01T16:09:15.107925Z"
 }

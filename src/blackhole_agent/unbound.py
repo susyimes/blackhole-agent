@@ -74,6 +74,7 @@ from blackhole_agent.capability_compounder import (
     detect_lineage_drift,
 )
 from blackhole_agent.kernels.codex_cli import CodexCliConfig, CodexCliKernel
+from blackhole_agent.capability_repair import run_repair_plane
 from blackhole_agent.kernels.grok_cli import GrokCliConfig, GrokCliKernel
 from blackhole_agent.kernels.kimi_cli import KimiCliConfig, KimiCliKernel
 from blackhole_agent.tool_routing import (
@@ -3411,6 +3412,44 @@ def capability_assurance(
     if not result.get("ok") or result.get("used_skill_route_discovery"):
         raise typer.Exit(1)
 
+
+@capability_app.command(
+    "repair",
+    help=(
+        "Repair plane: diagnose stale/failed capability proofs → regenerate stale "
+        "proof-command interpreters → dependency-chain re-proof → verified green "
+        "re-proof → adversarial synthetic-break heal + unrepairable-honesty "
+        "falsification. Pass --id to repair one live ledger member in place."
+    ),
+)
+def capability_repair(
+    capability_id: str = typer.Option(
+        "",
+        "--id",
+        help="Repair this live ledger member in place (empty = scratch-only plane).",
+    ),
+    target_id: str = typer.Option(
+        "capability.ledger-inventory",
+        "--target-id",
+        help="Scratch target for the synthetic break / unrepairable falsification phases.",
+    ),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    timeout_seconds: int = typer.Option(180, "--timeout-seconds", min=1),
+) -> None:
+    try:
+        result = run_repair_plane(
+            repo_path.resolve(),
+            target_id=target_id,
+            live_ids=(capability_id,) if capability_id.strip() else (),
+            persist=True,
+            timeout=timeout_seconds,
+        )
+    except Exception as error:
+        console.print(f"Repair plane failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
 
 
 @capability_app.command(

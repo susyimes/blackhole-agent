@@ -1023,6 +1023,7 @@ MISSION_GOAL_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("lineage", ("capability.lineage-plane", "capability.sovereignty-plane", "capability.assurance-plane")),
     ("sovereignty", ("capability.sovereignty-plane", "capability.assurance-plane", "capability.contract-plane")),
     ("reconcil", ("capability.reconciliation-plane", "capability.lineage-plane", "capability.sovereignty-plane")),
+    ("repair", ("capability.repair-plane", "capability.ledger-inventory", "repo.import-health")),
     ("heal", ("capability.reconciliation-plane", "capability.lineage-plane", "capability.assurance-plane")),
     ("drift", ("capability.reconciliation-plane", "capability.lineage-plane", "capability.sovereignty-plane")),
     ("continuity", ("capability.continuity-plane", "capability.reconciliation-plane", "capability.lineage-plane")),
@@ -1428,6 +1429,7 @@ def run_mission_plane(
 #   margin_ok | margined_ok | min_margins:N | margin_root_valid
 #   collateral_ok | collateralized_ok | min_collaterals:N | collateral_root_valid
 #   liquidity_ok | liquid_ok | min_liquidities:N | liquidity_root_valid
+#   repair_plane_ok | repaired_ok | min_repair_actions:N
 # Free-text lines without a known form are recorded as informational (not gating).
 OUTCOME_PREDICATE_PATTERN = re.compile(
     r"^(?P<kind>"
@@ -1444,7 +1446,8 @@ OUTCOME_PREDICATE_PATTERN = re.compile(
     r"quorum_ok|quorum_met|min_quorum|byzantine_excluded|quorum_cert_valid|"
     r"finality_ok|finalized_ok|min_epochs|finality_cert_valid|"
     r"execution_ok|state_applied_ok|min_state_height|state_root_valid|"
-    r"actuation_ok|effects_applied_ok|min_actions|action_root_valid"
+    r"actuation_ok|effects_applied_ok|min_actions|action_root_valid|"
+    r"repair_plane_ok|repaired_ok|min_repair_actions"
     r")(?::(?P<arg>.+))?$",
     re.IGNORECASE,
 )
@@ -1493,6 +1496,9 @@ CONTEXT_ONLY_OUTCOME_KINDS = frozenset(
         "action_root_valid",
         "reputable_ok",
         "standing_valid_ok",
+        "repair_plane_ok",
+        "repaired_ok",
+        "min_repair_actions",
     }
 )
 
@@ -2402,6 +2408,27 @@ def _eval_one_outcome_predicate(
                 )
         have_i = int(have or 0)
         return have_i >= need, f"heal_entries={have_i} need>={need}"
+    if kind == "repair_plane_ok":
+        plane = context.get("repair") or context.get("repair_plane") or {}
+        ok = bool(plane.get("ok"))
+        return ok, f"repair_plane_ok={ok}"
+    if kind == "repaired_ok":
+        plane = context.get("repair") or context.get("repair_plane") or {}
+        synthetic = plane.get("synthetic_repair") or {}
+        ok = synthetic.get("verdict") == "repaired" and bool(synthetic.get("ok", True))
+        live = plane.get("live_repairs") or []
+        if live:
+            ok = ok and all(bool(item.get("ok")) for item in live)
+        return ok, f"repaired_ok={ok}"
+    if kind == "min_repair_actions":
+        need = int(float(arg or "0"))
+        plane = context.get("repair") or context.get("repair_plane") or {}
+        have = plane.get("repair_action_count")
+        if have is None:
+            synthetic = plane.get("synthetic_repair") or {}
+            have = len(synthetic.get("repair_actions") or [])
+        have_i = int(have or 0)
+        return have_i >= need, f"repair_actions={have_i} need>={need}"
     if kind == "continuity_ok":
         plane = (
             context.get("continuity")
@@ -14345,7 +14372,7 @@ def run_growth_loop(
                     "reason": "fitness_recheck_passed" if recheck.ok else "repair_needed",
                     "hint": "re-run capability benchmark --sweep to refresh the sealed map"
                     if recheck.ok
-                    else f"repair {target} before promoting new growth",
+                    else f"run capability repair --id {target} to autonomously repair before promoting new growth",
                     "weakest_capabilities": weakest,
                     "target": target,
                     "recheck": recheck.to_dict(),
@@ -14668,7 +14695,11 @@ def run_growth_loop(
     # Proof-audit gate: never stack a new composition on a member whose
     # recorded-green proof no longer reproduces. prove_capability skips
     # recorded-green dependencies, so without this replay a falsified base
-    # would pass silently. Repair or re-prove stale members first.
+    # would pass silently. Before halting, hand stale members to the repair
+    # plane: stale proof-command interpreters and stale dependency stamps are
+    # exactly its failure class. Growth resumes only when every member
+    # replays green after the repair attempt; unrepairable members halt
+    # honestly with their stamps left red.
     audit_gate = gate_members_by_proof_audit(
         ledger,
         selected["members"],
@@ -14676,6 +14707,34 @@ def run_growth_loop(
         command_runner=command_runner,
         timeout=timeout,
     )
+    repair_reports: list[dict[str, Any]] = []
+    if not audit_gate["ok"]:
+        from blackhole_agent.capability_repair import repair_capability
+
+        stale_members = [str(item) for item in audit_gate["stale_members"]]
+        for stale_id in stale_members[:3]:
+            ledger, repair_report = repair_capability(
+                ledger,
+                stale_id,
+                cwd=root,
+                command_runner=command_runner,
+                timeout=timeout,
+            )
+            repair_reports.append(repair_report)
+        if any(item.get("ok") for item in repair_reports):
+            # Verified green re-proofs are worth keeping even when other
+            # members still halt the promotion.
+            save_ledger(path, ledger)
+        if len(repair_reports) == len(stale_members) and all(
+            item.get("ok") for item in repair_reports
+        ):
+            audit_gate = gate_members_by_proof_audit(
+                ledger,
+                selected["members"],
+                cwd=root,
+                command_runner=command_runner,
+                timeout=timeout,
+            )
     if not audit_gate["ok"]:
         return {
             "ok": False,
@@ -14685,6 +14744,7 @@ def run_growth_loop(
             "hint": "repair or re-prove stale members before promoting new growth",
             "stale_members": audit_gate["stale_members"],
             "audit": audit_gate,
+            "repair": repair_reports,
             "scout": scout,
             "selected": selected,
             "before_count": before_count,
@@ -18862,6 +18922,64 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "byzantine",
                 "multi-origin",
                 "lineage",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.repair-plane",
+            name="Autonomous capability repair plane",
+            description=(
+                "Closed repair plane: diagnose stale/failed capability proofs "
+                "(stale proof-command interpreter, import error, replay failure) "
+                "→ bounded deterministic repair (interpreter regeneration + "
+                "dependency-chain re-proof) → verified green re-proof → "
+                "adversarial falsification: synthetic stale-interpreter break "
+                "must heal, unrepairable break must fail honestly with the "
+                "proof stamp left red — closes the fitness-gate repair_needed "
+                "halt into autonomous repair."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_repair:builtin_repair_plane",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_repair import builtin_repair_plane; '
+                "r=builtin_repair_plane(); assert r['ok'] and r.get('action')=='repair_plane' "
+                "and r.get('synthetic_repair',{}).get('verdict')=='repaired' "
+                "and 'regenerate_proof_command' in r.get('synthetic_repair',{}).get('repair_actions',[]) "
+                "and r.get('unrepairable_check',{}).get('honest') is True "
+                "and r.get('unrepairable_check',{}).get('verdict')=='unrepairable' "
+                "and r.get('contract',{}).get('met') is True "
+                "and r.get('report_verify',{}).get('ok') "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.outcome-contract",
+                "capability.ablation-proof",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_repair.py",
+                "src/blackhole_agent/capability_compounder.py",
+                "src/blackhole_agent/unbound.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Repair plane closes the measured-weakness halt: diagnoses stale or "
+                "failed proofs, regenerates stale interpreter paths, re-proves the "
+                "dependency chain, verifies repair by green re-proof, and "
+                "adversarially proves synthetic breaks heal while unrepairable "
+                "breaks fail honestly — growth can resume after autonomous repair "
+                "without skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "repair",
+                "self-healing",
+                "fitness",
                 "evidence",
             ),
             created_at=utc_now_iso(),
