@@ -364,12 +364,16 @@ def record_implementation_trace(
     validation_exit_code: int,
     recorded_at: str | None = None,
     update_pointer: bool = True,
+    trace_name: str = "implementation.json",
 ) -> dict[str, Any]:
     """Seal the link from one scan hypothesis to the patch that implemented it.
 
     The trace binds the sealed scan digest, the selected hypothesis, the
     behavior paths changed, and the attested validation into one digest. A
-    pointer at ``latest-loop.json`` keeps the composed loop proof hermetic.
+    scan can carry several traces (one per implemented hypothesis) via
+    distinct ``trace_name`` values; the pointer at ``latest-loop.json``
+    keeps tracking the primary ``implementation.json`` trace so the
+    composed loop proof stays hermetic.
     """
 
     scan = json.loads((scan_dir / "scan.json").read_text(encoding="utf-8"))
@@ -390,19 +394,19 @@ def record_implementation_trace(
         "validation": {"command": validation_command, "exit_code": int(validation_exit_code)},
     }
     trace = {**trace_body, "trace_digest": _digest(trace_body)}
-    atomic_write_json(scan_dir / "implementation.json", trace)
-    if update_pointer and scan_dir.parent == LOOP_POINTER.parent:
+    atomic_write_json(scan_dir / trace_name, trace)
+    if update_pointer and trace_name == "implementation.json" and scan_dir.parent == LOOP_POINTER.parent:
         atomic_write_json(LOOP_POINTER, {"scan_dir": scan_dir.name, "trace_digest": trace["trace_digest"]})
-    return {"ok": True, "trace_digest": trace["trace_digest"], "scan_dir": str(scan_dir)}
+    return {"ok": True, "trace_digest": trace["trace_digest"], "scan_dir": str(scan_dir), "trace_name": trace_name}
 
 
-def verify_implementation_trace(scan_dir: Path) -> dict[str, Any]:
+def verify_implementation_trace(scan_dir: Path, *, trace_name: str = "implementation.json") -> dict[str, Any]:
     """Re-verify the full chain: payload -> hypotheses -> scan -> trace -> patch."""
 
     scan_check = verify_grounded_scan(scan_dir)
-    trace_path = scan_dir / "implementation.json"
+    trace_path = scan_dir / trace_name
     if not trace_path.exists():
-        return {"ok": False, "error": f"missing implementation trace in {scan_dir}"}
+        return {"ok": False, "error": f"missing implementation trace {trace_name} in {scan_dir}"}
     trace = json.loads(trace_path.read_text(encoding="utf-8"))
     scan = json.loads((scan_dir / "scan.json").read_text(encoding="utf-8"))
     trace_body = {key: value for key, value in trace.items() if key != "trace_digest"}

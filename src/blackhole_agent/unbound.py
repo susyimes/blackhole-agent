@@ -21,7 +21,7 @@ from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable, Iterator
+from typing import Any, Callable, Iterator, Mapping
 
 import typer
 from rich.console import Console
@@ -75,6 +75,11 @@ from blackhole_agent.capability_compounder import (
 from blackhole_agent.kernels.codex_cli import CodexCliConfig, CodexCliKernel
 from blackhole_agent.kernels.grok_cli import GrokCliConfig, GrokCliKernel
 from blackhole_agent.kernels.kimi_cli import KimiCliConfig, KimiCliKernel
+from blackhole_agent.tool_routing import (
+    ProviderHarness,
+    default_provider_harnesses,
+    select_provider_harness,
+)
 
 
 app = typer.Typer(rich_markup_mode="rich", add_completion=False)
@@ -93,6 +98,8 @@ WORKTREE_SETUP_TIMEOUT_SECONDS = 15 * 60
 MISSION_STATUSES = frozenset({"active", "complete", "blocked", "stopped"})
 TURN_STATUSES = frozenset({"continue", "milestone", "complete", "blocked"})
 KERNELS = frozenset({"codex", "grok", "kimi"})
+AUTO_KERNEL = "auto"
+KERNEL_CHOICES = frozenset({*KERNELS, AUTO_KERNEL})
 RECENT_TURN_LIMIT = 8
 STATE_HISTORY_LIMIT = 50
 PROMPT_TEXT_LIMIT = 12_000
@@ -618,6 +625,125 @@ def publish_lineage(
     )
 
 
+def unbound_kernel_harnesses() -> tuple[ProviderHarness, ...]:
+    """First-class CLI kernel harnesses in catalog priority order."""
+
+    return tuple(harness for harness in default_provider_harnesses() if harness.provider in KERNELS)
+
+
+def resolve_unbound_kernel(
+    kernel: str = AUTO_KERNEL,
+    *,
+    available_commands: set[str] | None = None,
+    environ: Mapping[str, str] | None = None,
+    platform: str | None = None,
+) -> tuple[str, dict[str, Any]]:
+    """Resolve a requested kernel route to a concrete, installed kernel.
+
+    An explicit kernel passes through unchanged. ``auto`` discovers the
+    first-class CLI kernel harnesses (Codex, Grok, Kimi — the catalog proved
+    by ``capability.multi-kernel-harness-routing``) and selects the
+    highest-priority kernel whose executable is actually installed, so a
+    mission works out of the box on any host that has at least one kernel.
+    Resolution fails closed with the per-harness skip diagnostics when no
+    first-class kernel is available, instead of creating a mission whose
+    turns can only fail at kernel invocation time.
+    """
+
+    if kernel != AUTO_KERNEL:
+        if kernel not in KERNELS:
+            raise ValueError(f"kernel must be one of: {', '.join(sorted(KERNEL_CHOICES))}")
+        return kernel, {"mode": "explicit", "kernel": kernel}
+    selection = select_provider_harness(
+        unbound_kernel_harnesses(),
+        available_commands=available_commands,
+        environ=environ,
+        platform=platform,
+    )
+    if selection.selected is None:
+        skips = {status.harness.name: list(status.skip_reasons) for status in selection.statuses}
+        raise ValueError(f"no first-class CLI kernel (codex, grok, kimi) is installed: {skips}")
+    resolved = selection.selected.provider
+    return resolved, {
+        "mode": "auto",
+        "requested": AUTO_KERNEL,
+        "kernel": resolved,
+        "selected_harness": selection.selected.name,
+        "skipped": {
+            status.harness.name: list(status.skip_reasons) for status in selection.statuses if not status.available
+        },
+    }
+
+
+def builtin_auto_kernel_routing_proof() -> dict[str, Any]:
+    """Registered proof for ``capability.auto-kernel-routing``.
+
+    Hermetically proves that ``auto`` kernel resolution routes to the
+    highest-priority installed first-class kernel, passes explicit kernels
+    through untouched, and fails closed with skip diagnostics when no kernel
+    is installed. Also re-verifies the sealed second implementation trace on
+    the live grounded scan and proves a tampered copy fails verification.
+    """
+
+    kimi_only = resolve_unbound_kernel(AUTO_KERNEL, available_commands={"kimi"}, environ={}, platform="linux")
+    all_installed = resolve_unbound_kernel(
+        AUTO_KERNEL,
+        available_commands={"codex", "grok", "kimi"},
+        environ={},
+        platform="linux",
+    )
+    explicit = resolve_unbound_kernel("kimi", available_commands=set(), environ={}, platform="linux")
+    try:
+        resolve_unbound_kernel(AUTO_KERNEL, available_commands=set(), environ={}, platform="linux")
+        fail_closed = False
+    except ValueError:
+        fail_closed = True
+    routing_ok = (
+        kimi_only[0] == "kimi"
+        and all_installed[0] == "codex"
+        and explicit == ("kimi", {"mode": "explicit", "kernel": "kimi"})
+        and fail_closed
+    )
+
+    import shutil
+    import tempfile
+
+    from blackhole_agent.grounded_growth import (
+        DEFAULT_ARTIFACT_DIR,
+        REPO_ROOT,
+        verify_implementation_trace,
+    )
+
+    pointer_path = REPO_ROOT / DEFAULT_ARTIFACT_DIR / "latest-loop.json"
+    if not pointer_path.exists():
+        return {"ok": False, "stage": "trace-verify", "error": f"missing loop pointer {pointer_path}"}
+    pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
+    scan_dir = REPO_ROOT / DEFAULT_ARTIFACT_DIR / str(pointer.get("scan_dir") or "")
+    trace_check = verify_implementation_trace(scan_dir, trace_name="implementation-2.json")
+    if not trace_check["ok"]:
+        return {"ok": False, "stage": "trace-verify", "checks": trace_check.get("checks"), "routing_ok": routing_ok}
+
+    with tempfile.TemporaryDirectory(prefix="auto-kernel-proof-") as tmp:
+        clone = Path(tmp) / "scan"
+        shutil.copytree(scan_dir, clone)
+        trace_path = clone / "implementation-2.json"
+        trace = json.loads(trace_path.read_text(encoding="utf-8"))
+        trace["changed_paths"] = list(trace.get("changed_paths") or []) + ["src/blackhole_agent/nonexistent.py"]
+        atomic_write_json(trace_path, trace)
+        tampered = verify_implementation_trace(clone, trace_name="implementation-2.json")
+
+    return {
+        "ok": bool(routing_ok and trace_check["ok"] and not tampered["ok"]),
+        "routing_ok": routing_ok,
+        "kimi_only_resolves_kimi": kimi_only[0] == "kimi",
+        "catalog_priority_prefers_codex": all_installed[0] == "codex",
+        "explicit_passthrough": explicit[0] == "kimi",
+        "fail_closed_without_kernels": fail_closed,
+        "trace_digest": trace_check.get("trace_digest"),
+        "tamper_detected": not tampered["ok"],
+    }
+
+
 def create_mission(
     *,
     repo_path: Path,
@@ -632,12 +758,12 @@ def create_mission(
     worktree_parent: Path | None = None,
     timeout_seconds: int = 7200,
     command_runner: Callable[..., Any] = subprocess.run,
+    kernel_resolver: Callable[..., tuple[str, dict[str, Any]]] = resolve_unbound_kernel,
 ) -> Path:
     """Create one durable mission branch, worktree, and state file."""
 
     repo_path = repo_path.resolve()
-    if kernel not in KERNELS:
-        raise ValueError(f"kernel must be one of: {', '.join(sorted(KERNELS))}")
+    kernel, kernel_resolution = kernel_resolver(kernel)
     if timeout_seconds < 1:
         raise ValueError("timeout_seconds must be greater than zero")
     run_command(
@@ -724,6 +850,7 @@ def create_mission(
             "branch": branch,
             "base_head": base_head,
             "worktree_setup_recovered": worktree_setup_recovered,
+            "kernel_resolution": kernel_resolution,
         },
     )
     return state_path.resolve()
@@ -1643,8 +1770,8 @@ def run_continuous_loop(
     """Continuously create autonomous missions, compounding their proven commits."""
 
     repo_path = repo_path.resolve()
-    if kernel not in KERNELS:
-        raise ValueError(f"kernel must be one of: {', '.join(sorted(KERNELS))}")
+    if kernel not in KERNEL_CHOICES:
+        raise ValueError(f"kernel must be one of: {', '.join(sorted(KERNEL_CHOICES))}")
     if interval_seconds < 1:
         raise ValueError("interval_seconds must be greater than zero")
     if timeout_seconds < 1:
@@ -2041,7 +2168,7 @@ def start(
     repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository to evolve."),
     goal: str = typer.Option("", "--goal", help="Mission goal. Leave blank for autonomous genesis."),
     done_when: str = typer.Option("", "--done-when", help="Outcome-level completion contract."),
-    kernel: str = typer.Option("grok", "--kernel", help="Execution kernel: grok, kimi, or codex."),
+    kernel: str = typer.Option(AUTO_KERNEL, "--kernel", help="Execution kernel: auto (detect installed), grok, kimi, or codex."),
     model: str | None = typer.Option(None, "--model", "-m", help="Optional model route."),
     profile: str | None = typer.Option(None, "--profile", help="Optional Codex profile."),
     target_branch: str = typer.Option("main", "--target-branch", help="Branch used as the mission base."),
@@ -2130,7 +2257,7 @@ def run(
 @app.command(help="Continuously run autonomous missions with a delay between completed missions.")
 def loop(
     repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository to evolve continuously."),
-    kernel: str = typer.Option("grok", "--kernel", help="Execution kernel: grok, kimi, or codex."),
+    kernel: str = typer.Option(AUTO_KERNEL, "--kernel", help="Execution kernel: auto (detect installed), grok, kimi, or codex."),
     model: str | None = typer.Option(None, "--model", "-m", help="Optional model route."),
     profile: str | None = typer.Option(None, "--profile", help="Optional Codex profile."),
     target_branch: str = typer.Option("main", "--target-branch", help="Initial lineage base."),

@@ -1,0 +1,63 @@
+{
+  "changed_paths": [
+    "src/blackhole_agent/unbound.py",
+    "src/blackhole_agent/grounded_growth.py",
+    "tests/test_unbound.py"
+  ],
+  "hypotheses_digest": "10ff9c104ca42b98a2d916991f5ebaee822c911803872bd7255789ee0d6a61a7",
+  "hypothesis": {
+    "matched_terms": [
+      "agent"
+    ],
+    "pattern": "long-horizon agent runtime",
+    "rank": 2,
+    "rationale": "4 trending repositories (makecindy/cindy, hahhforest/pi-textbook, deerwork-ai/deer-workflow) signal 'long-horizon agent runtime'; matched terms ['agent']; candidate surface src/blackhole_agent/unbound.py.",
+    "score": 42.0,
+    "sources": [
+      {
+        "full_name": "makecindy/cindy",
+        "html_url": "https://github.com/makecindy/cindy",
+        "matched_terms": [
+          "agent"
+        ],
+        "stargazers_count": 1263
+      },
+      {
+        "full_name": "hahhforest/pi-textbook",
+        "html_url": "https://github.com/hahhforest/pi-textbook",
+        "matched_terms": [
+          "agent"
+        ],
+        "stargazers_count": 673
+      },
+      {
+        "full_name": "deerwork-ai/deer-workflow",
+        "html_url": "https://github.com/deerwork-ai/deer-workflow",
+        "matched_terms": [
+          "agent"
+        ],
+        "stargazers_count": 367
+      },
+      {
+        "full_name": "simonlin1212/vibe-astock",
+        "html_url": "https://github.com/simonlin1212/vibe-astock",
+        "matched_terms": [
+          "agent"
+        ],
+        "stargazers_count": 63
+      }
+    ],
+    "target_surface": "src/blackhole_agent/unbound.py"
+  },
+  "implemented_surface": "src/blackhole_agent/unbound.py",
+  "kind": "grounded_growth_implementation_trace",
+  "payload_digest": "ef9f4ff5a44b2e66979bd7177f7dc6bba790e1f8b7c8738821639300bf1c37bf",
+  "recorded_at": "2026-08-01T00:16:59.491315Z",
+  "scan_digest": "d421485774d061d6ab0314bbc5605ace7d17ddfdb790c1f169ebf31969e759c2",
+  "schema_version": 1,
+  "trace_digest": "2a7dbc934463cceaf5b88b38b6ba3542075f94861c62af5ff973c923d5e39620",
+  "validation": {
+    "command": "uv run blackhole-unbound capability prove capability.auto-kernel-routing",
+    "exit_code": 0
+  }
+}

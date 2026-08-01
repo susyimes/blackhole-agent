@@ -3,6 +3,8 @@ import os
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from blackhole_agent.unbound import (
     DEFAULT_CONTINUOUS_INTERVAL_SECONDS,
     KernelTurnResult,
@@ -19,6 +21,7 @@ from blackhole_agent.unbound import (
     load_mission,
     mission_turn_lock,
     publish_lineage,
+    resolve_unbound_kernel,
     run_continuous_loop,
     run_unbound_turn,
     save_mission,
@@ -689,3 +692,89 @@ def test_execution_stage_turn_can_refine_done_when_before_gating(tmp_path):
 
     assert state.stage == "execution"
     assert state.done_when == "min_capabilities:1"
+
+
+def test_resolve_unbound_kernel_auto_selects_installed_first_class_kernel():
+    kernel, resolution = resolve_unbound_kernel(
+        "auto",
+        available_commands={"kimi"},
+        environ={},
+        platform="linux",
+    )
+
+    assert kernel == "kimi"
+    assert resolution["mode"] == "auto"
+    assert resolution["selected_harness"] == "kimi-cli"
+    assert resolution["skipped"]["codex-cli"] == ["missing_dependency:codex"]
+    assert resolution["skipped"]["grok-cli"] == ["missing_dependency:grok"]
+
+
+def test_resolve_unbound_kernel_auto_prefers_catalog_priority():
+    kernel, _ = resolve_unbound_kernel(
+        "auto",
+        available_commands={"codex", "grok", "kimi"},
+        environ={},
+        platform="linux",
+    )
+    grok_and_kimi, _ = resolve_unbound_kernel(
+        "auto",
+        available_commands={"grok", "kimi"},
+        environ={},
+        platform="linux",
+    )
+
+    assert kernel == "codex"
+    assert grok_and_kimi == "grok"
+
+
+def test_resolve_unbound_kernel_explicit_passthrough_and_unknown_rejected():
+    assert resolve_unbound_kernel("kimi", available_commands=set(), environ={}, platform="linux") == (
+        "kimi",
+        {"mode": "explicit", "kernel": "kimi"},
+    )
+
+    with pytest.raises(ValueError, match="kernel must be one of"):
+        resolve_unbound_kernel("not-a-kernel", available_commands=set(), environ={}, platform="linux")
+
+
+def test_resolve_unbound_kernel_auto_fails_closed_with_skip_diagnostics():
+    with pytest.raises(ValueError, match="no first-class CLI kernel"):
+        resolve_unbound_kernel("auto", available_commands=set(), environ={}, platform="linux")
+
+
+def test_create_mission_resolves_auto_kernel_and_records_resolution(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    init_repository(repo)
+
+    state_path = create_mission(
+        repo_path=repo,
+        kernel="auto",
+        worktree_parent=tmp_path / "worktrees",
+        kernel_resolver=lambda kernel: resolve_unbound_kernel(
+            kernel,
+            available_commands={"grok"},
+            environ={},
+            platform="linux",
+        ),
+    )
+    state = load_mission(state_path)
+
+    assert state.kernel == "grok"
+    events = [
+        json.loads(line)
+        for line in (state_path.parent / "events.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    created = next(event for event in events if event["event"] == "mission.created")
+    assert created["kernel_resolution"]["mode"] == "auto"
+    assert created["kernel_resolution"]["kernel"] == "grok"
+
+
+def test_create_mission_rejects_unknown_kernel(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    init_repository(repo)
+
+    with pytest.raises(ValueError, match="kernel must be one of"):
+        create_mission(repo_path=repo, kernel="not-a-kernel", worktree_parent=tmp_path / "worktrees")
