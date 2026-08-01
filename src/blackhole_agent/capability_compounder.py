@@ -19313,6 +19313,65 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
             created_at=utc_now_iso(),
             updated_at=utc_now_iso(),
         ),
+        Capability(
+            id="capability.goal-watchdog",
+            name="Goal watchdog and milestone regression gate",
+            description=(
+                "Drift detection for goal solvability: every application "
+                "goal is re-planned and re-executed over the live ledger, "
+                "and any goal that stops solving is reported by name as "
+                "drift - a milestone can claim a new capability while "
+                "silently breaking an old one no longer. Reports are "
+                "digest-sealed; verification recomputes the grade, re-checks "
+                "recorded plans against the live ledger, and rejects "
+                "drift-hiding (an ok flag or drifted list that disagrees "
+                "with the recorded goal results). The Unbound milestone gate "
+                "runs the watchdog in a workspace subprocess: a milestone "
+                "that regresses an existing goal is refused with the "
+                "drifted goal names in the gate reasons; worktrees predating "
+                "the watchdog are skipped, never penalized."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_watchdog:builtin_goal_watchdog",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_watchdog import builtin_goal_watchdog; '
+                "r=builtin_goal_watchdog(); assert r['ok'] "
+                "and r.get('drifted_goals')==[] "
+                "and r.get('drift_detected') and r.get('deterministic') "
+                "and r.get('tamper_detected') and r.get('drift_hiding_detected') "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.ablation-proof",
+                "capability.application-plane",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_watchdog.py",
+                "src/blackhole_agent/unbound.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Milestones can no longer regress existing goals silently: "
+                "the watchdog re-checks every application goal against the "
+                "live ledger and the milestone gate refuses milestones that "
+                "introduce drift, naming the broken goals - capability "
+                "growth is monotonic in goal solvability without "
+                "skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "watchdog",
+                "regression",
+                "application",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
 
     ]
 

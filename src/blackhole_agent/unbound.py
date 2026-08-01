@@ -1302,6 +1302,38 @@ def reproduce_validation(
     return replays
 
 
+def run_workspace_goal_watchdog(workspace: Path, *, timeout: int = 120) -> dict[str, Any] | None:
+    """Run the goal watchdog in a mission workspace subprocess.
+
+    Returns the watchdog summary, or ``None`` when the workspace predates
+    the application plane (import failure, timeout, malformed output) — old
+    worktrees are never penalized for lacking the watchdog.
+    """
+
+    script = (
+        "import json;"
+        "from blackhole_agent.capability_watchdog import run_goal_watchdog;"
+        "r=run_goal_watchdog();"
+        "print(json.dumps({'ok': bool(r['ok']), 'drifted_goals': r['drifted_goals']}))"
+    )
+    try:
+        completed = subprocess.run(
+            [sys.executable, "-c", script],
+            cwd=str(workspace),
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except Exception:  # noqa: BLE001 - watchdog unavailability must never block a milestone
+        return None
+    if completed.returncode != 0:
+        return None
+    try:
+        return json.loads(completed.stdout.strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        return None
+
+
 def evaluate_milestone(
     decision: TurnDecision,
     *,
@@ -1357,6 +1389,14 @@ def evaluate_milestone(
                 )
         if not any(replay.get("ok") for replay in validation_replays):
             reasons.append("no reported validation command reproduced successfully")
+    # Goal-regression gate: a milestone whose own validation passes but that
+    # silently breaks a previously-solvable application goal is refused with
+    # the drifted goal names. Worktrees predating the watchdog are skipped.
+    if workspace is not None and not reasons:
+        drift = run_workspace_goal_watchdog(workspace)
+        if drift is not None and not drift.get("ok", True):
+            drifted = ", ".join(str(goal) for goal in (drift.get("drifted_goals") or ["unknown"]))
+            reasons.append(f"goal regression detected by watchdog: {drifted}")
     if decision.status == "complete" and not decision.done_when_met:
         reasons.append("complete was requested but done_when_met is false")
     # When done_when is machine-checkable, refuse complete unless live predicates pass.

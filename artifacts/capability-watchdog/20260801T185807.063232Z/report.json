@@ -1,0 +1,80 @@
+{
+  "drifted_goals": [],
+  "goal_count": 6,
+  "goal_results": [
+    {
+      "error": "",
+      "id": "routed-triage-record",
+      "ok": true,
+      "plan": [
+        "domain.tool-routing",
+        "domain.issue-triage",
+        "domain.local-memory"
+      ],
+      "plan_sound": true,
+      "solvable": true
+    },
+    {
+      "error": "",
+      "id": "scan-gated-activation",
+      "ok": true,
+      "plan": [
+        "domain.ci-security",
+        "domain.harness-activation"
+      ],
+      "plan_sound": true,
+      "solvable": true
+    },
+    {
+      "error": "",
+      "id": "blocked-scan-honesty",
+      "ok": true,
+      "plan": [
+        "domain.ci-security",
+        "domain.harness-activation"
+      ],
+      "plan_sound": true,
+      "solvable": true
+    },
+    {
+      "error": "",
+      "id": "ledger-gated-proposal",
+      "ok": true,
+      "plan": [
+        "capability.ledger-attestation",
+        "domain.proposal-eval"
+      ],
+      "plan_sound": true,
+      "solvable": true
+    },
+    {
+      "error": "",
+      "id": "ledger-inventory-check",
+      "ok": true,
+      "plan": [
+        "capability.ledger-attestation"
+      ],
+      "plan_sound": true,
+      "solvable": true
+    },
+    {
+      "error": "",
+      "id": "persona-stamped-proposal",
+      "ok": true,
+      "plan": [
+        "domain.persona",
+        "domain.proposal-synthesis"
+      ],
+      "plan_sound": true,
+      "solvable": true
+    }
+  ],
+  "goals_digest": "daf4dae432f7d3272d7b1724eef813df6b907607470af009f3682e2e6ebe0269",
+  "healthy_count": 6,
+  "kind": "capability_goal_watchdog",
+  "ok": true,
+  "report_digest": "1d755e69a47aefc6b1da23cdc9ab68560c3faa47e8efd26a53734c8228c2f357",
+  "run_at": "2026-08-01T18:58:07.063232Z",
+  "schema_version": 1,
+  "used_skill_route_discovery": false
+}
