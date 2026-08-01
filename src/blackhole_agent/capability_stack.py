@@ -2,12 +2,17 @@
 
 The mission built a stack of planes — application (goals solved by BFS
 planning), recovery (blocked goals healed), fragility (reliability measured),
-watchdog (drift gated) — each with its own proof. This module compounds them
-into a single health surface:
+watchdog (drift gated), synthesis (missing capabilities authored from goal
+evidence) — each with its own proof. This module compounds them into a
+single health surface:
 
 - runs every plane's live pass and records only the headline fields
-  (score, healthy counts, drift, fragility, recovery) — the stack is
-  healthy only when ALL of them are green at once;
+  (score, healthy counts, drift, fragility, recovery, synthesis) — the
+  stack is healthy only when ALL of them are green at once;
+- the synthesis headline additionally attests that the persisted
+  synthesized capabilities are registered and proved in the live ledger and
+  that each synthesized goal still plans over the grown registry — a
+  synthesis score without durable registration is not health;
 - digest-sealed summary under ``artifacts/capability-stack/`` whose
   verification recomputes the health derivation from the recorded
   headlines — a summary that reports health while one plane is red fails
@@ -15,7 +20,7 @@ into a single health surface:
 - a registered proof (:func:`builtin_stack_health`) that proves the full
   stack is green and falsifies a tampered headline.
 
-This is deliberately a composition surface, not a fifth plane: no new
+This is deliberately a composition surface, not a sixth plane: no new
 behavior lives here beyond the honest aggregation of the planes' own
 live passes.
 """
@@ -29,14 +34,22 @@ import sys
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from blackhole_agent.capability_application import run_application_plane
+from blackhole_agent.capability_application import (
+    ApplicationTask,
+    build_application_registry,
+    plan_application_task,
+    run_application_plane,
+)
 from blackhole_agent.capability_compounder import (
     atomic_write_json,
+    default_ledger_path,
     legacy_pipeline_was_used,
+    load_ledger,
     utc_now_iso,
 )
 from blackhole_agent.capability_fragility import run_fragility_audit
 from blackhole_agent.capability_recovery import run_recovery_loop
+from blackhole_agent.capability_synthesis import load_persisted_records, run_synthesis_plane
 from blackhole_agent.capability_watchdog import run_goal_watchdog
 
 SCHEMA_VERSION = 1
@@ -68,6 +81,7 @@ def compute_stack_health(headlines: Mapping[str, Any]) -> dict[str, Any]:
     watchdog = headlines.get("watchdog") or {}
     fragility = headlines.get("fragility") or {}
     recovery = headlines.get("recovery") or {}
+    synthesis = headlines.get("synthesis") or {}
     planes_green = {
         "application": bool(
             application.get("application_score") == 1.0 and application.get("unsolvable_count") == 0
@@ -78,6 +92,13 @@ def compute_stack_health(headlines: Mapping[str, Any]) -> dict[str, Any]:
             and "ledger-inventory-check" in (fragility.get("robust_goals") or [])
         ),
         "recovery": bool(recovery.get("ok") is True and recovery.get("repair_count") == 0),
+        "synthesis": bool(
+            synthesis.get("ok") is True
+            and synthesis.get("synthesis_score") == 1.0
+            and synthesis.get("persisted_count", 0) >= 3
+            and synthesis.get("registered_proved_count") == synthesis.get("persisted_count")
+            and synthesis.get("grown_plan_count") == synthesis.get("persisted_count")
+        ),
     }
     return {
         "planes_green": planes_green,
@@ -94,6 +115,32 @@ def run_stack_health() -> dict[str, Any]:
     watchdog = run_goal_watchdog()
     fragility = run_fragility_audit()
     recovery = run_recovery_loop()
+    synthesis = run_synthesis_plane()
+
+    # Durable registration attestation: every persisted synthesized
+    # capability must be proved in the live ledger, and its goal must still
+    # plan over the grown registry (base steps + persisted synthesized
+    # steps) — a synthesis score without durable, plannable registration is
+    # not health.
+    ledger = load_ledger(default_ledger_path(REPO_ROOT))
+    persisted = load_persisted_records()
+    grown_registry = build_application_registry(ledger, include_synthesized=True)
+    registered_proved_count = 0
+    grown_plan_count = 0
+    for record in persisted:
+        capability = ledger.capabilities.get(str(record["capability_id"]))
+        if capability is not None and capability.last_proof_exit_code == 0:
+            registered_proved_count += 1
+        goal_task = ApplicationTask(
+            id=str(record["task_id"]),
+            description="",
+            initial_state=record["cases"][-1]["state"],
+            goal=(str(record["goal_key"]),),
+            oracle={},
+        )
+        plan = plan_application_task(goal_task, grown_registry)
+        if plan is not None and str(record["capability_id"]) in plan:
+            grown_plan_count += 1
 
     headlines = {
         "application": {
@@ -119,6 +166,14 @@ def run_stack_health() -> dict[str, Any]:
             "repair_count": recovery["recovery"]["repair_count"],
             "task_pass_count": recovery["recovery"]["task_pass_count"],
             "task_count": recovery["recovery"]["task_count"],
+        },
+        "synthesis": {
+            "ok": bool(synthesis["ok"]),
+            "synthesis_score": synthesis["synthesis"]["synthesis_score"],
+            "task_count": synthesis["synthesis"]["task_count"],
+            "persisted_count": len(persisted),
+            "registered_proved_count": registered_proved_count,
+            "grown_plan_count": grown_plan_count,
         },
     }
     health = compute_stack_health(headlines)

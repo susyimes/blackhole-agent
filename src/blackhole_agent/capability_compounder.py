@@ -19376,18 +19376,82 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
             updated_at=utc_now_iso(),
         ),
         Capability(
+            id="capability.synthesis-plane",
+            name="Capability synthesis plane",
+            description=(
+                "Generative growth past the composition frontier: when the "
+                "application plane honestly reports a goal unplannable over "
+                "the proved ledger, the synthesis plane derives the missing "
+                "capability from frozen input/output cases - a closed, "
+                "canonically-ordered family of pure state transforms is "
+                "searched with split-honest selection (fit the selection "
+                "split, generalize to held-out cases or lose), the "
+                "memorization decoy is rejected, the winner is installed as "
+                "a real invocable ApplicationStep, the goal re-plans and "
+                "matches the held-out outcome, and ablation makes the goal "
+                "honestly unplannable again. Reports are digest-sealed; "
+                "verification re-validates every recorded winner against its "
+                "recorded cases and re-runs planner honesty against the "
+                "live ledger. Winners persist to "
+                "capabilities/synthesized-steps.json and register as "
+                "first-class capability.synthesized-* ledger entries."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_synthesis:builtin_synthesis_plane",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_synthesis import builtin_synthesis_plane; '
+                "r=builtin_synthesis_plane(); assert r['ok'] "
+                "and r.get('synthesis',{}).get('synthesis_score')==1.0 "
+                "and r.get('deterministic') "
+                "and r.get('tamper_detected') and r.get('forged_winner_detected') "
+                "and r.get('misgrade_detected') "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.ablation-proof",
+                "capability.application-plane",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_synthesis.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Capabilities are no longer only composed - missing behavior "
+                "is synthesized from goal evidence: split-honest candidate "
+                "search derives a new invocable capability that makes a "
+                "previously unplannable goal solvable end-to-end, with "
+                "ablation, tamper, and memorization-decoy falsification, "
+                "without skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "synthesis",
+                "generative",
+                "goal-directed",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
             id="capability.portability-proof",
             name="Goal-stack portability proof",
             description=(
                 "The goal-directed stack is proven on pristine checkouts, "
                 "not just this worktree: git archive materializes the "
                 "tracked source of HEAD into a temp directory, and the goal "
-                "watchdog plus the application plane run there via "
-                "PYTHONPATH isolation - imports, ledger, fixtures, and "
-                "reports all resolve against the pristine tree. Two "
-                "independent pristine checkouts must produce identical "
-                "watchdog digests and application scores (cross-checkout "
-                "determinism), and a checkout whose ledger stamps "
+                "watchdog, the application plane, and the synthesis plane "
+                "run there via PYTHONPATH isolation - imports, ledger, "
+                "fixtures, persisted synthesized steps, and reports all "
+                "resolve against the pristine tree. Two independent pristine "
+                "checkouts must produce identical watchdog, application, and "
+                "synthesis digests (cross-checkout determinism), so the full "
+                "synthesize-plan cycle reproduces from tracked content "
+                "alone, and a checkout whose ledger stamps "
                 "domain.tool-routing red must flag routed-triage-record as "
                 "drift with a non-zero exit - portability failures are "
                 "reported, never rounded up. Reports are digest-sealed; "
@@ -19405,6 +19469,7 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "and r.get('portability',{}).get('cross_checkout_determinism') "
                 "and r.get('portability',{}).get('corruption_detected') "
                 "and r.get('portability',{}).get('application_score')==1.0 "
+                "and r.get('portability',{}).get('synthesis_score')==1.0 "
                 "and r.get('tamper_detected') and r.get('misgrade_detected') "
                 "and not r.get('used_skill_route_discovery')\""
             ),
@@ -19413,18 +19478,20 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "capability.ledger-inventory",
                 "capability.application-plane",
                 "capability.goal-watchdog",
+                "capability.synthesis-plane",
             ),
             behavior_paths=(
                 "src/blackhole_agent/capability_portability.py",
                 "capabilities/ledger.json",
+                "capabilities/synthesized-steps.json",
             ),
             capability_delta=(
                 "The goal stack no longer rests on this worktree's "
-                "environment: pristine-checkouts of HEAD run the watchdog "
-                "and application plane green with identical digests, and a "
-                "deliberately corrupted checkout is flagged - portability is "
-                "demonstrated evidence, not an assumption, without "
-                "skill-route."
+                "environment: pristine-checkouts of HEAD run the watchdog, "
+                "application, and synthesis planes green with identical "
+                "digests, and a deliberately corrupted checkout is flagged - "
+                "portability is demonstrated evidence, not an assumption, "
+                "without skill-route."
             ),
             tags=(
                 "bootstrap",
@@ -19432,6 +19499,7 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "portability",
                 "application",
                 "watchdog",
+                "synthesis",
                 "evidence",
             ),
             created_at=utc_now_iso(),
@@ -19442,15 +19510,19 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
             name="Goal-stack composite health",
             description=(
                 "The whole goal-directed stack as one invocable proof: runs "
-                "the application plane, goal watchdog, fragility audit, and "
-                "recovery baseline live, and is healthy only when ALL are "
-                "green at once - every goal plan-attributed, zero drift, "
-                "the robust goal intact, zero repairs needed. Headlines are "
-                "digest-sealed; verification recomputes health from the "
-                "recorded headlines so a summary that reports health while "
-                "one plane is red fails. This is the capstone composition "
-                "surface of the application-plane mission: no new behavior, "
-                "just honest aggregation of the planes' own live passes."
+                "the application plane, goal watchdog, fragility audit, "
+                "recovery baseline, and synthesis plane live, and is healthy "
+                "only when ALL are green at once - every goal "
+                "plan-attributed, zero drift, the robust goal intact, zero "
+                "repairs needed, and every persisted synthesized capability "
+                "registered, proved, and still planning its goal over the "
+                "grown registry (a synthesis score without durable "
+                "registration is not health). Headlines are digest-sealed; "
+                "verification recomputes health from the recorded headlines "
+                "so a summary that reports health while one plane is red "
+                "fails. This is the capstone composition surface: no new "
+                "behavior, just honest aggregation of the planes' own live "
+                "passes."
             ),
             kind="python",
             entry="blackhole_agent.capability_stack:builtin_stack_health",
@@ -19459,7 +19531,7 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 '"from blackhole_agent.capability_stack import builtin_stack_health; '
                 "r=builtin_stack_health(); assert r['ok'] "
                 "and r.get('health',{}).get('healthy') "
-                "and r.get('health',{}).get('green_count')==r.get('health',{}).get('plane_count')==4 "
+                "and r.get('health',{}).get('green_count')==r.get('health',{}).get('plane_count')==5 "
                 "and r.get('tamper_detected') and r.get('misgrade_detected') "
                 "and not r.get('used_skill_route_discovery')\""
             ),
@@ -19470,16 +19542,18 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "capability.recovery-loop",
                 "capability.fragility-audit",
                 "capability.goal-watchdog",
+                "capability.synthesis-plane",
             ),
             behavior_paths=(
                 "src/blackhole_agent/capability_stack.py",
                 "capabilities/ledger.json",
+                "capabilities/synthesized-steps.json",
             ),
             capability_delta=(
                 "One invocable capability now attests the entire goal-"
-                "directed stack: application, watchdog, fragility, and "
-                "recovery run live in a single pass whose health is a pure "
-                "function of sealed headlines - stack-wide health is "
+                "directed stack: application, watchdog, fragility, recovery, "
+                "and synthesis run live in a single pass whose health is a "
+                "pure function of sealed headlines - stack-wide health is "
                 "provable in one command without skill-route."
             ),
             tags=(

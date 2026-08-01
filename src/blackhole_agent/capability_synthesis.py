@@ -30,6 +30,12 @@ frozen evidence**, not hand-authored:
   re-checks every digest, re-validates each recorded winner against its
   recorded cases, and re-runs planner honesty against the live ledger, so a
   forged winner or an unsound honesty claim fails verification;
+- durable persistence: winners are written to
+  ``capabilities/synthesized-steps.json`` and registered as first-class
+  proved ledger capabilities (``capability.synthesized-*``); the grown
+  planning registry (``include_synthesized=True``) folds them in, and each
+  persisted capability carries its own proof that re-derives the winner from
+  the frozen cases so a hand-edited persistence file fails;
 - a registered proof (:func:`builtin_synthesis_plane`) that proves
   determinism across runs and falsifies tampered, forged, and misgraded
   reports.
@@ -59,10 +65,13 @@ from blackhole_agent.capability_application import (
     plan_application_task,
 )
 from blackhole_agent.capability_compounder import (
+    Capability,
     atomic_write_json,
     default_ledger_path,
     legacy_pipeline_was_used,
     load_ledger,
+    register_capability,
+    save_ledger,
     utc_now_iso,
 )
 
@@ -71,6 +80,7 @@ SCHEMA_VERSION = 1
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ARTIFACT_DIR = "artifacts/capability-synthesis"
 LATEST_POINTER = REPO_ROOT / DEFAULT_ARTIFACT_DIR / "latest-synthesis.json"
+SYNTHESIZED_STEPS_PATH = REPO_ROOT / "capabilities" / "synthesized-steps.json"
 
 # Canonical transform order: simpler hypotheses are tried first.
 _TRANSFORMS = ("const", "identity", "upper", "affix", "join")
@@ -367,6 +377,279 @@ def synthesized_step(task: SynthesisTask, candidate: Candidate) -> ApplicationSt
 
 
 # ---------------------------------------------------------------------------
+# Durable persistence: winners become first-class ledger capabilities.
+# ---------------------------------------------------------------------------
+
+
+def candidate_from_spec(spec: Mapping[str, Any]) -> Candidate:
+    """Rebuild a candidate from its recorded JSON spec."""
+
+    return Candidate(
+        transform=str(spec["transform"]),
+        extractor1=tuple(str(part) for part in spec["extractor1"]),
+        extractor2=tuple(str(part) for part in spec["extractor2"]) if spec.get("extractor2") else None,
+        prefix=str(spec.get("prefix", "")),
+        suffix=str(spec.get("suffix", "")),
+        constant=str(spec.get("constant", "")),
+    )
+
+
+def synthesized_capability_id(task_id: str) -> str:
+    return f"capability.synthesized-{task_id}"
+
+
+def synthesized_step_record(task: SynthesisTask, candidate: Candidate) -> dict[str, Any]:
+    """The durable record for one synthesized capability."""
+
+    return {
+        "capability_id": synthesized_capability_id(task.id),
+        "task_id": task.id,
+        "goal_key": task.goal_key,
+        "requires": list(candidate.requires()),
+        "provides": [task.goal_key],
+        "winner": candidate.spec(),
+        "cases": [dict(case) for case in task.cases],
+        "cases_digest": _digest([dict(case) for case in task.cases]),
+    }
+
+
+def synthesized_step_proof_command(task_id: str) -> str:
+    """The exact shell proof command registered for one synthesized step."""
+
+    return (
+        'uv run python -c "from blackhole_agent.capability_synthesis import prove_synthesized_step; '
+        f"r=prove_synthesized_step('{task_id}'); assert r['ok'] and r.get('winner_matches_search') "
+        "and r.get('cases_pass') and r.get('honestly_unplannable_without') and r.get('grown_plan_matched') "
+        "and r.get('tamper_rejected') and r.get('decoy_rejected')\""
+    )
+
+
+def load_persisted_records(path: Path | None = None) -> list[dict[str, Any]]:
+    """The persisted synthesized-step records; empty when nothing is persisted."""
+
+    steps_path = path or SYNTHESIZED_STEPS_PATH
+    if not steps_path.exists():
+        return []
+    payload = json.loads(steps_path.read_text(encoding="utf-8"))
+    return [dict(record) for record in payload.get("steps") or []]
+
+
+def load_persisted_synthesized_steps(path: Path | None = None) -> dict[str, ApplicationStep]:
+    """Rebuild invocable application steps from the persisted records.
+
+    This is what lets the grown planning registry plan over authored
+    behavior without re-running search: the persisted winner spec *is* the
+    capability, and its honesty is enforced by ``prove_synthesized_step``
+    re-deriving the winner from the frozen cases.
+    """
+
+    steps: dict[str, ApplicationStep] = {}
+    for record in load_persisted_records(path):
+        candidate = candidate_from_spec(record["winner"])
+        goal_key = str(record["goal_key"])
+
+        def invoke(state: Mapping[str, Any], _candidate: Candidate = candidate, _goal_key: str = goal_key) -> dict[str, Any]:
+            return {_goal_key: evaluate_candidate(_candidate, state)}
+
+        steps[str(record["capability_id"])] = ApplicationStep(
+            capability_id=str(record["capability_id"]),
+            requires=tuple(str(key) for key in record["requires"]),
+            provides=(goal_key,),
+            invoke=invoke,
+        )
+    return steps
+
+
+def persist_synthesized_steps(repo_root: Path = REPO_ROOT) -> dict[str, Any]:
+    """Synthesize, persist, and register every winner as a ledger capability.
+
+    Idempotent: the steps file is only rewritten when the derived records
+    change, so re-running persistence on an unchanged frontier produces no
+    artifact churn. Registration uses ``replace=True`` so a re-derived
+    winner upgrades its ledger entry in place.
+    """
+
+    records: list[dict[str, Any]] = []
+    for task in SYNTHESIS_TASKS:
+        result = synthesize_candidate(task)
+        if not result["found"] or result["candidate"] is None:
+            return {"ok": False, "stage": "synthesize", "task_id": task.id}
+        records.append(synthesized_step_record(task, result["candidate"]))
+
+    steps_path = repo_root / "capabilities" / "synthesized-steps.json"
+    wrote_steps_file = True
+    if steps_path.exists():
+        existing = json.loads(steps_path.read_text(encoding="utf-8"))
+        wrote_steps_file = existing.get("steps") != records
+    if wrote_steps_file:
+        atomic_write_json(
+            steps_path,
+            {
+                "schema_version": SCHEMA_VERSION,
+                "kind": "synthesized_steps",
+                "synthesized_at": utc_now_iso(),
+                "steps": records,
+                "steps_digest": _digest(records),
+            },
+        )
+
+    ledger_path = default_ledger_path(repo_root)
+    ledger = load_ledger(ledger_path)
+    registered: list[str] = []
+    for record in records:
+        capability = Capability(
+            id=record["capability_id"],
+            name=f"Synthesized capability: {record['task_id']}",
+            description=(
+                f"Authored by the capability synthesis plane from the frozen cases of goal "
+                f"'{record['task_id']}': a {record['winner']['transform']} transform providing "
+                f"'{record['goal_key']}'. Its proof re-derives the winner from the cases, so a "
+                "hand-edited persistence record fails."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_synthesis:demo_synthesized_steps",
+            proof_command=synthesized_step_proof_command(record["task_id"]),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.application-plane",
+                "capability.synthesis-plane",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_synthesis.py",
+                "capabilities/synthesized-steps.json",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                f"Goal '{record['task_id']}' was honestly unplannable over the base proved ledger; "
+                f"the synthesized {record['winner']['transform']} capability makes it solvable "
+                "end-to-end, and ablating it makes the goal unplannable again."
+            ),
+            # Not tagged "synthesized": that tag marks combinatorial stack
+            # growth. These are authored primitive behavior units.
+            tags=("authored", "generative", "goal-directed", "evidence"),
+        )
+        ledger = register_capability(ledger, capability, replace=True)
+        registered.append(record["capability_id"])
+    save_ledger(ledger_path, ledger)
+
+    return {
+        "ok": True,
+        "wrote_steps_file": wrote_steps_file,
+        "steps_path": str(steps_path),
+        "registered": registered,
+        "steps_digest": _digest(records),
+    }
+
+
+def prove_synthesized_step(task_id: str) -> dict[str, Any]:
+    """Registered proof for one persisted ``capability.synthesized-*`` entry.
+
+    Re-derives the winner from the module's frozen cases (the persisted
+    record must be the honest search result, not a hand-written artifact),
+    re-validates it against every case, proves the goal is still honestly
+    unplannable without the synthesized capability, proves the grown
+    registry plans and matches the held-out outcome with it, and re-checks
+    the tamper and memorization-decoy rejections.
+    """
+
+    task = next((candidate_task for candidate_task in SYNTHESIS_TASKS if candidate_task.id == task_id), None)
+    if task is None:
+        return {"ok": False, "stage": "unknown-task", "task_id": task_id}
+    record = next((item for item in load_persisted_records() if item.get("task_id") == task_id), None)
+    if record is None:
+        return {"ok": False, "stage": "persistence-missing", "task_id": task_id}
+
+    candidate = candidate_from_spec(record["winner"])
+    search = synthesize_candidate(task)
+    winner_matches_search = bool(
+        search["found"] and search["candidate"] is not None and search["candidate"].spec() == record["winner"]
+    )
+    cases_pass = candidate_matches(candidate, task.cases, task.goal_key) and candidate_matches(
+        candidate, record.get("cases") or [], task.goal_key
+    )
+
+    ledger = load_ledger(default_ledger_path(REPO_ROOT))
+    registered = record["capability_id"] in ledger.capabilities
+    base_registry = build_application_registry(ledger, include_synthesized=False)
+    goal_task = _goal_task(task)
+    honestly_unplannable_without = plan_application_task(goal_task, base_registry) is None
+
+    step = synthesized_step(task, candidate)
+    grown_registry = {**base_registry, step.capability_id: step}
+    plan = plan_application_task(goal_task, grown_registry)
+    grown_plan_matched = False
+    if plan == [step.capability_id]:
+        try:
+            outcome = execute_application_plan(goal_task, plan, grown_registry)
+            grown_plan_matched = outcome.get(task.goal_key) == goal_task.oracle[task.goal_key]
+        except Exception:  # noqa: BLE001 - a crashed plan is a broken outcome, not a crashed proof
+            grown_plan_matched = False
+
+    tamper_rejected = not candidate_matches(tamper_candidate(candidate), task.cases, task.goal_key)
+    decoy = build_memorization_decoy(task)
+    held_out_key = json.dumps(task.cases[-1]["state"], sort_keys=True, separators=(",", ":"))
+    decoy_rejected = held_out_key not in decoy
+
+    ok = all(
+        (
+            registered,
+            winner_matches_search,
+            cases_pass,
+            honestly_unplannable_without,
+            grown_plan_matched,
+            tamper_rejected,
+            decoy_rejected,
+        )
+    )
+    return {
+        "ok": ok,
+        "task_id": task_id,
+        "capability_id": record["capability_id"],
+        "registered": registered,
+        "winner_matches_search": winner_matches_search,
+        "cases_pass": cases_pass,
+        "honestly_unplannable_without": honestly_unplannable_without,
+        "grown_plan_matched": grown_plan_matched,
+        "tamper_rejected": tamper_rejected,
+        "decoy_rejected": decoy_rejected,
+    }
+
+
+def demo_synthesized_steps() -> dict[str, Any]:
+    """Invocable entry for persisted synthesized capabilities.
+
+    Executes every persisted synthesized step on its held-out goal instance
+    (the case the selector never optimized on) and grades the outputs
+    against the frozen expectations.
+    """
+
+    records = load_persisted_records()
+    steps = load_persisted_synthesized_steps()
+    outcomes: dict[str, Any] = {}
+    ok = bool(records)
+    for record in records:
+        capability_id = str(record["capability_id"])
+        step = steps.get(capability_id)
+        if step is None:
+            outcomes[capability_id] = {"matched": False, "error": "step not loadable"}
+            ok = False
+            continue
+        state = record["cases"][-1]["state"]
+        expected = record["cases"][-1]["expect"][record["goal_key"]]
+        try:
+            output = step.invoke(state).get(record["goal_key"])
+        except Exception as exc:  # noqa: BLE001 - a crashed step is a broken outcome
+            outcomes[capability_id] = {"matched": False, "error": f"{type(exc).__name__}: {exc}"}
+            ok = False
+            continue
+        matched = output == expected
+        outcomes[capability_id] = {"output": output, "expected": expected, "matched": matched}
+        ok = ok and matched
+    return {"ok": ok, "step_count": len(records), "outcomes": outcomes}
+
+
+# ---------------------------------------------------------------------------
 # Plane execution.
 # ---------------------------------------------------------------------------
 
@@ -396,7 +679,7 @@ def run_synthesis_plane() -> dict[str, Any]:
     """Prove honest unsolvability, synthesize, re-plan, and falsify per task."""
 
     ledger = load_ledger(default_ledger_path(REPO_ROOT))
-    base_registry = build_application_registry(ledger)
+    base_registry = build_application_registry(ledger, include_synthesized=False)
 
     task_records: list[dict[str, Any]] = []
     for task in SYNTHESIS_TASKS:
@@ -614,7 +897,7 @@ def verify_synthesis_report(report_dir: Path) -> dict[str, Any]:
     ).hexdigest()
 
     ledger = load_ledger(default_ledger_path(REPO_ROOT))
-    base_registry = build_application_registry(ledger)
+    base_registry = build_application_registry(ledger, include_synthesized=False)
     winners_sound = True
     honesty_sound = True
     for record in task_records:
@@ -774,10 +1057,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--run", action="store_true", help="run the plane and seal a report artifact")
     mode.add_argument("--verify", type=Path, help="verify a sealed report directory")
+    mode.add_argument(
+        "--persist",
+        action="store_true",
+        help="persist winners to capabilities/synthesized-steps.json and register them in the ledger",
+    )
     parser.add_argument("--output-dir", type=Path, default=None)
     args = parser.parse_args(argv)
 
-    if args.run:
+    if args.persist:
+        summary = persist_synthesized_steps()
+    elif args.run:
         report = run_synthesis_plane()
         stamp = report["run_at"].replace(":", "").replace("-", "")
         out = args.output_dir or (REPO_ROOT / DEFAULT_ARTIFACT_DIR / stamp)

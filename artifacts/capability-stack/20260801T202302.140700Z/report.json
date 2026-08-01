@@ -1,0 +1,58 @@
+{
+  "headlines": {
+    "application": {
+      "application_score": 1.0,
+      "ok": true,
+      "task_count": 6,
+      "unsolvable_count": 0
+    },
+    "fragility": {
+      "fragility_score": 0.1667,
+      "max_blast_radius": 2,
+      "max_redundancy_depth": 1,
+      "robust_goals": [
+        "ledger-inventory-check"
+      ]
+    },
+    "recovery": {
+      "ok": true,
+      "repair_count": 0,
+      "task_count": 6,
+      "task_pass_count": 6
+    },
+    "synthesis": {
+      "grown_plan_count": 3,
+      "ok": true,
+      "persisted_count": 3,
+      "registered_proved_count": 3,
+      "synthesis_score": 1.0,
+      "task_count": 3
+    },
+    "watchdog": {
+      "drifted_goals": [],
+      "goal_count": 6,
+      "healthy_count": 6,
+      "ok": true
+    }
+  },
+  "headlines_digest": "5ba370941487374e758a20ee582990e633de62510854571cb69aaf9abc8a4f7a",
+  "health": {
+    "green_count": 5,
+    "healthy": true,
+    "plane_count": 5,
+    "planes_green": {
+      "application": true,
+      "fragility": true,
+      "recovery": true,
+      "synthesis": true,
+      "watchdog": true
+    }
+  },
+  "health_digest": "b96e6f287d2ff7f514b6e03378a13675d8fab9074696dfb0237683f612c59e40",
+  "kind": "capability_stack_health",
+  "ok": true,
+  "report_digest": "d107459fd3722b217142ba3b07fe50c914927321d63362583c10cc1aeac4d5ed",
+  "run_at": "2026-08-01T20:23:02.140700Z",
+  "schema_version": 1,
+  "used_skill_route_discovery": false
+}

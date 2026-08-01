@@ -256,6 +256,7 @@ contracts.
 | Trend controller | `blackhole_agent.github_growth` | Search trends, fetch events, write digests, plan evolution |
 | Native supervisor | `blackhole_agent.supervisor` | Hourly wake loop for one-shot autonomous growth passes |
 | Unbound runtime | `blackhole_agent.unbound` | One persistent agent pursuing one long-horizon capability mission |
+| Synthesis plane | `blackhole_agent.capability_synthesis` | Derives brand-new executable capabilities from frozen goal evidence when no composition of the proved ledger can plan a goal |
 | Memory layer | `memory.json` | Repo/topic/lesson statistics that bias future proposal selection |
 | Persona layer | `blackhole_agent.persona` | Mission, selection policy, rollback contract, restart boundary |
 | Self-model layer | `docs/self-model.md` | Blank, revisable self-description maintained by the agent itself |

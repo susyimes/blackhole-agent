@@ -1,0 +1,205 @@
+{
+  "kind": "synthesized_steps",
+  "schema_version": 1,
+  "steps": [
+    {
+      "capability_id": "capability.synthesized-triage-record-key",
+      "cases": [
+        {
+          "expect": {
+            "record_key": "triage-record:validation"
+          },
+          "state": {
+            "triage": {
+              "gated": false,
+              "lane": "validation"
+            }
+          }
+        },
+        {
+          "expect": {
+            "record_key": "triage-record:security"
+          },
+          "state": {
+            "triage": {
+              "gated": false,
+              "lane": "security"
+            }
+          }
+        },
+        {
+          "expect": {
+            "record_key": "triage-record:documentation"
+          },
+          "state": {
+            "triage": {
+              "gated": true,
+              "lane": "documentation"
+            }
+          }
+        }
+      ],
+      "cases_digest": "44c12df112dff2a3b4dbdb761f40cc5262fc292857470905009833745e40b9cc",
+      "goal_key": "record_key",
+      "provides": [
+        "record_key"
+      ],
+      "requires": [
+        "triage"
+      ],
+      "task_id": "triage-record-key",
+      "winner": {
+        "constant": "",
+        "extractor1": [
+          "field",
+          "triage",
+          "lane"
+        ],
+        "extractor2": null,
+        "prefix": "triage-record:",
+        "suffix": "",
+        "transform": "affix"
+      }
+    },
+    {
+      "capability_id": "capability.synthesized-scan-verdict-label",
+      "cases": [
+        {
+          "expect": {
+            "verdict_label": "SUCCESS"
+          },
+          "state": {
+            "scan": {
+              "scan_conclusion": "success"
+            }
+          }
+        },
+        {
+          "expect": {
+            "verdict_label": "FAILURE"
+          },
+          "state": {
+            "scan": {
+              "scan_conclusion": "failure"
+            }
+          }
+        },
+        {
+          "expect": {
+            "verdict_label": "NEUTRAL"
+          },
+          "state": {
+            "scan": {
+              "scan_conclusion": "neutral"
+            }
+          }
+        }
+      ],
+      "cases_digest": "3437d6b3707168fc5a025682ed500a098255ef3a0d32e6557cb6e1508b2bfde4",
+      "goal_key": "verdict_label",
+      "provides": [
+        "verdict_label"
+      ],
+      "requires": [
+        "scan"
+      ],
+      "task_id": "scan-verdict-label",
+      "winner": {
+        "constant": "",
+        "extractor1": [
+          "field",
+          "scan",
+          "scan_conclusion"
+        ],
+        "extractor2": null,
+        "prefix": "",
+        "suffix": "",
+        "transform": "upper"
+      }
+    },
+    {
+      "capability_id": "capability.synthesized-triage-label-count-tag",
+      "cases": [
+        {
+          "expect": {
+            "triage_tag": "validation:2"
+          },
+          "state": {
+            "issue": {
+              "labels": [
+                "bug",
+                "regression"
+              ]
+            },
+            "triage": {
+              "gated": false,
+              "lane": "validation"
+            }
+          }
+        },
+        {
+          "expect": {
+            "triage_tag": "security:1"
+          },
+          "state": {
+            "issue": {
+              "labels": [
+                "cve"
+              ]
+            },
+            "triage": {
+              "gated": true,
+              "lane": "security"
+            }
+          }
+        },
+        {
+          "expect": {
+            "triage_tag": "documentation:3"
+          },
+          "state": {
+            "issue": {
+              "labels": [
+                "docs",
+                "typo",
+                "ui"
+              ]
+            },
+            "triage": {
+              "gated": false,
+              "lane": "documentation"
+            }
+          }
+        }
+      ],
+      "cases_digest": "f51646e0c9de8d21b618c1c5f94df964e287ff43cbbe5b4e7db96ed2ed95fab8",
+      "goal_key": "triage_tag",
+      "provides": [
+        "triage_tag"
+      ],
+      "requires": [
+        "issue",
+        "triage"
+      ],
+      "task_id": "triage-label-count-tag",
+      "winner": {
+        "constant": ":",
+        "extractor1": [
+          "field",
+          "triage",
+          "lane"
+        ],
+        "extractor2": [
+          "length",
+          "issue",
+          "labels"
+        ],
+        "prefix": "",
+        "suffix": "",
+        "transform": "join"
+      }
+    }
+  ],
+  "steps_digest": "b65a039b2028bdd8777cbed620695177ef105a9c5e3f2348ef17881804c4ab1e",
+  "synthesized_at": "2026-08-01T20:20:37.496063Z"
+}

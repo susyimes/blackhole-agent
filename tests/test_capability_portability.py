@@ -50,6 +50,11 @@ def test_run_portability_plane_end_to_end() -> None:
     assert report["portability"]["cross_checkout_determinism"] is True
     assert report["portability"]["corruption_detected"] is True
     assert report["portability"]["application_score"] == 1.0
+    assert report["portability"]["synthesis_score"] == 1.0
+    synthesis_a = report["checkouts"]["pristine_a"]["synthesis"]
+    synthesis_b = report["checkouts"]["pristine_b"]["synthesis"]
+    assert synthesis_a["ok"] is True
+    assert synthesis_a["report_digest"] == synthesis_b["report_digest"]
 
 
 def test_sealed_report_verifies_and_tamper_fails(tmp_path: Path) -> None:
@@ -71,6 +76,26 @@ def test_builtin_portability_plane_proof() -> None:
     assert result["ok"] is True, result
     assert result["portability"]["pristine_ok"] is True
     assert result["portability"]["corruption_detected"] is True
+    assert result["portability"]["synthesis_score"] == 1.0
     assert result["tamper_detected"] is True
     assert result["misgrade_detected"] is True
     assert result["used_skill_route_discovery"] is False
+
+
+def test_bootstrap_seed_matches_live_portability_contract() -> None:
+    # The seed registry re-installs bootstrap capabilities on every reseed;
+    # its portability definition must assert the synthesis cycle or a reseed
+    # silently reverts the ledger to the pre-synthesis contract.
+    from blackhole_agent.capability_compounder import (
+        default_ledger_path,
+        load_ledger,
+        seed_bootstrap_capabilities,
+    )
+    from blackhole_agent.capability_portability import REPO_ROOT
+
+    ledger = load_ledger(default_ledger_path(REPO_ROOT))
+    seeded = seed_bootstrap_capabilities(ledger)
+    seed = seeded.capabilities["capability.portability-proof"]
+    assert "synthesis_score')==1.0" in seed.proof_command
+    assert "capability.synthesis-plane" in seed.dependencies
+    assert "capabilities/synthesized-steps.json" in seed.behavior_paths

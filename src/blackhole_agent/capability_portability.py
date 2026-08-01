@@ -10,11 +10,14 @@ or environment. This module proves it directly:
   tracked source (``git archive HEAD`` — src, tests, capabilities,
   schemas, pyproject) into a temp directory; nothing from this worktree's
   filesystem leaks in except tracked content;
-- the goal watchdog and the application plane run **in that checkout**
-  (``PYTHONPATH=<checkout>/src``), so imports, the ledger, fixtures, and
-  report artifacts all resolve against the pristine tree;
+- the goal watchdog, the application plane, and the synthesis plane run
+  **in that checkout** (``PYTHONPATH=<checkout>/src``), so imports, the
+  ledger, fixtures, persisted synthesized steps, and report artifacts all
+  resolve against the pristine tree;
 - determinism is proven *across checkouts*: two independent pristine
-  checkouts must produce identical watchdog and application digests;
+  checkouts must produce identical watchdog, application, and synthesis
+  digests — the full synthesize-plan cycle reproduces from tracked content
+  alone;
 - falsification: a pristine checkout whose ledger stamps
   ``domain.tool-routing`` red must flag ``routed-triage-record`` as drift —
   portability failures are reported, never rounded up;
@@ -130,6 +133,19 @@ def _application_summary(checkout: Path) -> dict[str, Any]:
     }
 
 
+def _synthesis_summary(checkout: Path) -> dict[str, Any]:
+    result = _run_module(checkout, "blackhole_agent.capability_synthesis")
+    summary = result["summary"]
+    grade = summary.get("synthesis") or {}
+    return {
+        "exit_code": result["exit_code"],
+        "ok": bool(summary.get("ok")),
+        "synthesis_score": grade.get("synthesis_score"),
+        "task_count": grade.get("task_count"),
+        "report_digest": summary.get("report_digest"),
+    }
+
+
 def _stamp_capability_red(checkout: Path, capability_id: str) -> None:
     ledger_path = checkout / "capabilities" / "ledger.json"
     payload = json.loads(ledger_path.read_text(encoding="utf-8"))
@@ -150,10 +166,12 @@ def run_portability_plane() -> dict[str, Any]:
         archive_a = checkout_pristine_source(checkout_a)
         watchdog_a = _watchdog_summary(checkout_a)
         application_a = _application_summary(checkout_a)
+        synthesis_a = _synthesis_summary(checkout_a)
 
         checkout_pristine_source(checkout_b)
         watchdog_b = _watchdog_summary(checkout_b)
         application_b = _application_summary(checkout_b)
+        synthesis_b = _synthesis_summary(checkout_b)
 
         checkout_pristine_source(checkout_c)
         _stamp_capability_red(checkout_c, "domain.tool-routing")
@@ -165,10 +183,13 @@ def run_portability_plane() -> dict[str, Any]:
         and application_a["ok"]
         and application_a["application_score"] == 1.0
         and application_a["unsolvable_count"] == 0
+        and synthesis_a["ok"]
+        and synthesis_a["synthesis_score"] == 1.0
     )
     cross_checkout_determinism = (
         watchdog_a["report_digest"] == watchdog_b["report_digest"]
         and application_a["application_score"] == application_b["application_score"]
+        and synthesis_a["report_digest"] == synthesis_b["report_digest"]
     )
     corruption_detected = (
         not watchdog_c["ok"]
@@ -177,8 +198,13 @@ def run_portability_plane() -> dict[str, Any]:
     )
 
     checkouts = {
-        "pristine_a": {"archive": archive_a, "watchdog": watchdog_a, "application": application_a},
-        "pristine_b": {"watchdog": watchdog_b, "application": application_b},
+        "pristine_a": {
+            "archive": archive_a,
+            "watchdog": watchdog_a,
+            "application": application_a,
+            "synthesis": synthesis_a,
+        },
+        "pristine_b": {"watchdog": watchdog_b, "application": application_b, "synthesis": synthesis_b},
         "corrupted": {"watchdog": watchdog_c},
     }
     grade = {
@@ -187,6 +213,7 @@ def run_portability_plane() -> dict[str, Any]:
         "corruption_detected": corruption_detected,
         "goal_count": watchdog_a["goal_count"],
         "application_score": application_a["application_score"],
+        "synthesis_score": synthesis_a["synthesis_score"],
     }
     checkouts_digest = _digest(checkouts)
     grade_digest = _digest(grade)
@@ -244,8 +271,10 @@ def verify_portability_report(report_dir: Path) -> dict[str, Any]:
     corrupted = checkouts.get("corrupted") or {}
     watchdog_a = pristine.get("watchdog") or {}
     application_a = pristine.get("application") or {}
+    synthesis_a = pristine.get("synthesis") or {}
     watchdog_b = pristine_b.get("watchdog") or {}
     application_b = pristine_b.get("application") or {}
+    synthesis_b = pristine_b.get("synthesis") or {}
     watchdog_c = corrupted.get("watchdog") or {}
 
     regraded = {
@@ -255,11 +284,15 @@ def verify_portability_report(report_dir: Path) -> dict[str, Any]:
             and application_a.get("ok")
             and application_a.get("application_score") == 1.0
             and application_a.get("unsolvable_count") == 0
+            and synthesis_a.get("ok")
+            and synthesis_a.get("synthesis_score") == 1.0
         ),
         "cross_checkout_determinism": bool(
             watchdog_a.get("report_digest")
             and watchdog_a.get("report_digest") == watchdog_b.get("report_digest")
             and application_a.get("application_score") == application_b.get("application_score")
+            and synthesis_a.get("report_digest")
+            and synthesis_a.get("report_digest") == synthesis_b.get("report_digest")
         ),
         "corruption_detected": bool(
             not watchdog_c.get("ok", True)
@@ -268,6 +301,7 @@ def verify_portability_report(report_dir: Path) -> dict[str, Any]:
         ),
         "goal_count": watchdog_a.get("goal_count"),
         "application_score": application_a.get("application_score"),
+        "synthesis_score": synthesis_a.get("synthesis_score"),
     }
     checkouts_digest = _digest(checkouts)
     grade_digest = _digest(regraded)

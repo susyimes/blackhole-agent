@@ -1,0 +1,240 @@
+{
+  "grade_digest": "e8c0683ce5f73499e618a56c64feec6d140126be236ae5b4fac73f7527323a5a",
+  "kind": "capability_synthesis_plane",
+  "ok": true,
+  "report_digest": "fd3cbb7d355b41ebb354ab6561527544ac1a641cde4e946f1e54409d5f20f6a4",
+  "run_at": "2026-08-01T20:23:08.052813Z",
+  "schema_version": 1,
+  "synthesis": {
+    "synthesis_attributed": [
+      "triage-record-key",
+      "scan-verdict-label",
+      "triage-label-count-tag"
+    ],
+    "synthesis_score": 1.0,
+    "task_count": 3,
+    "task_solved_count": 3
+  },
+  "task_records": [
+    {
+      "ablation_unsolvable": true,
+      "candidates_tried": 72,
+      "cases": [
+        {
+          "expect": {
+            "record_key": "triage-record:validation"
+          },
+          "state": {
+            "triage": {
+              "gated": false,
+              "lane": "validation"
+            }
+          }
+        },
+        {
+          "expect": {
+            "record_key": "triage-record:security"
+          },
+          "state": {
+            "triage": {
+              "gated": false,
+              "lane": "security"
+            }
+          }
+        },
+        {
+          "expect": {
+            "record_key": "triage-record:documentation"
+          },
+          "state": {
+            "triage": {
+              "gated": true,
+              "lane": "documentation"
+            }
+          }
+        }
+      ],
+      "decoy_rejected": true,
+      "description": "From a triage record, derive the persistence key a downstream memory step would need. No existing capability provides record_key; the naming rule must be learned from cases.",
+      "duration_ms": 0.302,
+      "goal_key": "record_key",
+      "held_out_pass": true,
+      "honestly_unsolvable_before": true,
+      "id": "triage-record-key",
+      "near_misses": 0,
+      "outcome_matched": true,
+      "plan_after": [
+        "capability.synthesized-triage-record-key"
+      ],
+      "selection_pass": true,
+      "synthesized_capability": "capability.synthesized-triage-record-key",
+      "tamper_rejected": true,
+      "winner": {
+        "constant": "",
+        "extractor1": [
+          "field",
+          "triage",
+          "lane"
+        ],
+        "extractor2": null,
+        "prefix": "triage-record:",
+        "suffix": "",
+        "transform": "affix"
+      }
+    },
+    {
+      "ablation_unsolvable": true,
+      "candidates_tried": 8,
+      "cases": [
+        {
+          "expect": {
+            "verdict_label": "SUCCESS"
+          },
+          "state": {
+            "scan": {
+              "scan_conclusion": "success"
+            }
+          }
+        },
+        {
+          "expect": {
+            "verdict_label": "FAILURE"
+          },
+          "state": {
+            "scan": {
+              "scan_conclusion": "failure"
+            }
+          }
+        },
+        {
+          "expect": {
+            "verdict_label": "NEUTRAL"
+          },
+          "state": {
+            "scan": {
+              "scan_conclusion": "neutral"
+            }
+          }
+        }
+      ],
+      "decoy_rejected": true,
+      "description": "From a raw scan verdict, derive the normalized verdict label an activation report would print. The casing rule must be learned from cases.",
+      "duration_ms": 0.17,
+      "goal_key": "verdict_label",
+      "held_out_pass": true,
+      "honestly_unsolvable_before": true,
+      "id": "scan-verdict-label",
+      "near_misses": 0,
+      "outcome_matched": true,
+      "plan_after": [
+        "capability.synthesized-scan-verdict-label"
+      ],
+      "selection_pass": true,
+      "synthesized_capability": "capability.synthesized-scan-verdict-label",
+      "tamper_rejected": true,
+      "winner": {
+        "constant": "",
+        "extractor1": [
+          "field",
+          "scan",
+          "scan_conclusion"
+        ],
+        "extractor2": null,
+        "prefix": "",
+        "suffix": "",
+        "transform": "upper"
+      }
+    },
+    {
+      "ablation_unsolvable": true,
+      "candidates_tried": 304,
+      "cases": [
+        {
+          "expect": {
+            "triage_tag": "validation:2"
+          },
+          "state": {
+            "issue": {
+              "labels": [
+                "bug",
+                "regression"
+              ]
+            },
+            "triage": {
+              "gated": false,
+              "lane": "validation"
+            }
+          }
+        },
+        {
+          "expect": {
+            "triage_tag": "security:1"
+          },
+          "state": {
+            "issue": {
+              "labels": [
+                "cve"
+              ]
+            },
+            "triage": {
+              "gated": true,
+              "lane": "security"
+            }
+          }
+        },
+        {
+          "expect": {
+            "triage_tag": "documentation:3"
+          },
+          "state": {
+            "issue": {
+              "labels": [
+                "docs",
+                "typo",
+                "ui"
+              ]
+            },
+            "triage": {
+              "gated": false,
+              "lane": "documentation"
+            }
+          }
+        }
+      ],
+      "decoy_rejected": true,
+      "description": "From a triage record and the source issue, derive the compact audit tag '<lane>:<label-count>'. Two extractors must be composed; neither alone fits the cases.",
+      "duration_ms": 0.471,
+      "goal_key": "triage_tag",
+      "held_out_pass": true,
+      "honestly_unsolvable_before": true,
+      "id": "triage-label-count-tag",
+      "near_misses": 0,
+      "outcome_matched": true,
+      "plan_after": [
+        "capability.synthesized-triage-label-count-tag"
+      ],
+      "selection_pass": true,
+      "synthesized_capability": "capability.synthesized-triage-label-count-tag",
+      "tamper_rejected": true,
+      "winner": {
+        "constant": ":",
+        "extractor1": [
+          "field",
+          "triage",
+          "lane"
+        ],
+        "extractor2": [
+          "length",
+          "issue",
+          "labels"
+        ],
+        "prefix": "",
+        "suffix": "",
+        "transform": "join"
+      }
+    }
+  ],
+  "used_skill_route_discovery": false,
+  "verdicts_digest": "dd9fb87f5a0271957f4eb9dfe7dc8effe831b9d8ea9b1469b42a045a044e7996",
+  "winners_digest": "c74acf1fdfc82420a75534d090c87e7a2867b67a6075d46c1f7fe2b863fcb62b"
+}
