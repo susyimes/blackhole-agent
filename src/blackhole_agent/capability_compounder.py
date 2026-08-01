@@ -11906,6 +11906,94 @@ def prove_capability(
     return ledger, result
 
 
+def audit_ledger_proofs(
+    ledger: CapabilityLedger,
+    *,
+    cwd: Path,
+    capability_ids: Sequence[str] | None = None,
+    timeout: int = 120,
+    command_runner: Callable[..., Any] = subprocess.run,
+) -> dict[str, Any]:
+    """Replay recorded proof commands and flag claims that no longer reproduce.
+
+    The audit is read-only: it never re-stamps the ledger (that is
+    ``prove_capability``'s job). Per capability the recorded
+    ``last_proof_exit_code`` is compared against a fresh replay of
+    ``proof_command``:
+
+    - ``ok``: a recorded green proof still reproduces green
+    - ``reproved``: the replay is green but no green proof was recorded
+    - ``stale``: a recorded green proof no longer reproduces (falsified claim)
+    - ``unproven``: no proof was ever recorded and the replay fails
+    - ``failing``: a recorded non-green proof still fails
+
+    ``ok`` on the report means no recorded-green claim was falsified.
+    """
+
+    selected = [str(cid) for cid in (capability_ids or ledger.capabilities.keys())]
+    missing = [cid for cid in selected if cid not in ledger.capabilities]
+    if missing:
+        raise KeyError(f"unknown capabilities: {', '.join(sorted(missing))}")
+
+    outcomes: list[dict[str, Any]] = []
+    for capability_id in selected:
+        capability = ledger.capabilities[capability_id]
+        recorded = capability.last_proof_exit_code
+        exit_code: int | None = None
+        timed_out = False
+        error = ""
+        started = time.perf_counter()
+        try:
+            result = run_capability(
+                capability,
+                cwd=cwd,
+                command_runner=command_runner,
+                timeout=timeout,
+                use_proof=True,
+            )
+            exit_code = result.exit_code
+            if exit_code != 0:
+                error = (result.summary or result.stderr or "proof replay failed")[:300]
+        except subprocess.TimeoutExpired:
+            timed_out = True
+            error = f"proof replay exceeded {timeout}s"
+        except Exception as exc:  # noqa: BLE001 - a crashed replay is a failed outcome
+            error = f"{type(exc).__name__}: {exc}"[:300]
+        duration_ms = round((time.perf_counter() - started) * 1000, 3)
+        if exit_code == 0:
+            status = "ok" if recorded == 0 else "reproved"
+        elif recorded == 0:
+            status = "stale"
+        elif recorded is None:
+            status = "unproven"
+        else:
+            status = "failing"
+        outcomes.append(
+            {
+                "id": capability_id,
+                "status": status,
+                "recorded_exit_code": recorded,
+                "reproduced_exit_code": exit_code,
+                "timed_out": timed_out,
+                "duration_ms": duration_ms,
+                "error": error,
+            }
+        )
+
+    by_status: dict[str, list[str]] = {}
+    for outcome in outcomes:
+        by_status.setdefault(outcome["status"], []).append(outcome["id"])
+    stale = sorted(by_status.get("stale") or [])
+    return {
+        "ok": not stale,
+        "audited": len(outcomes),
+        "statuses": {key: sorted(value) for key, value in sorted(by_status.items())},
+        "status_counts": {key: len(value) for key, value in sorted(by_status.items())},
+        "stale_capabilities": stale,
+        "outcomes": outcomes,
+    }
+
+
 def direct_member_order(ledger: CapabilityLedger, capability_ids: Sequence[str]) -> list[str]:
     """Order only the requested ids among themselves (no transitive expansion)."""
 
@@ -12173,6 +12261,63 @@ def builtin_milestone_replay_verification() -> dict[str, Any]:
         "rejected_fabricated_claim": not rejected.accepted,
         "replay_reject_reasons": replay_reasons,
         "honest_replay_count": len(honest_replays),
+    }
+
+
+def builtin_ledger_proof_reaudit() -> dict[str, Any]:
+    """Prove the ledger proof audit catches stale and unproven claims.
+
+    Builds a synthetic four-capability ledger in a temporary directory: a
+    recorded-green proof that still passes (ok), a recorded-green proof that
+    now fails (stale), a never-recorded proof that fails (unproven), and a
+    never-recorded proof that passes (reproved). The audit must classify all
+    four correctly and report not-ok because a stale claim exists.
+    """
+
+    import tempfile
+
+    def _capability(capability_id: str, proof: str, recorded: int | None) -> Capability:
+        return Capability(
+            id=capability_id,
+            name=f"Audit synthetic {capability_id}",
+            description="Synthetic audit fixture capability.",
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_ledger_inventory",
+            proof_command=proof,
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+            last_proof_exit_code=recorded,
+        )
+
+    passing = f'"{sys.executable}" -c "pass"'
+    failing = f'"{sys.executable}" -c "import sys; sys.exit(5)"'
+    ledger = CapabilityLedger(
+        updated_at=utc_now_iso(),
+        capabilities={
+            "audit.honest": _capability("audit.honest", passing, 0),
+            "audit.stale": _capability("audit.stale", failing, 0),
+            "audit.unproven": _capability("audit.unproven", failing, None),
+            "audit.reproved": _capability("audit.reproved", passing, None),
+        },
+    )
+    with tempfile.TemporaryDirectory() as raw_workspace:
+        report = audit_ledger_proofs(ledger, cwd=Path(raw_workspace), timeout=60)
+    statuses = report.get("statuses") or {}
+    classified = {
+        "honest_ok": "audit.honest" in (statuses.get("ok") or []),
+        "stale_flagged": "audit.stale" in (statuses.get("stale") or []),
+        "unproven_flagged": "audit.unproven" in (statuses.get("unproven") or []),
+        "reproved_flagged": "audit.reproved" in (statuses.get("reproved") or []),
+    }
+    return {
+        "ok": bool(
+            all(classified.values())
+            and report.get("ok") is False
+            and report.get("stale_capabilities") == ["audit.stale"]
+        ),
+        **classified,
+        "report_ok": report.get("ok"),
+        "status_counts": report.get("status_counts"),
     }
 
 

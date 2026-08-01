@@ -30,6 +30,7 @@ from blackhole_agent.capability_compounder import (
     Capability,
     absorb_domain_surface,
     absorb_second_wave_domains,
+    audit_ledger_proofs,
     compose_capabilities,
     default_ledger_path,
     ensure_seeded_ledger,
@@ -2623,6 +2624,28 @@ def capability_prove(
     console.print_json(data=result.to_dict())
     if not result.ok:
         raise typer.Exit(result.exit_code or 1)
+
+
+@capability_app.command(
+    "audit",
+    help="Replay recorded proof commands and flag stale or unproven ledger claims.",
+)
+def capability_audit(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    capability_ids: str = typer.Option("", "--capability-ids", help="Optional comma-separated subset."),
+    timeout_seconds: int = typer.Option(120, "--timeout-seconds", min=1),
+) -> None:
+    root = repo_path.resolve()
+    ledger = load_ledger(default_ledger_path(root))
+    selected = [part.strip() for part in capability_ids.split(",") if part.strip()] or None
+    try:
+        report = audit_ledger_proofs(ledger, cwd=root, capability_ids=selected, timeout=timeout_seconds)
+    except KeyError as error:
+        console.print(f"Audit failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=report)
+    if not report.get("ok"):
+        raise typer.Exit(1)
 
 
 @capability_app.command("run", help="Execute one capability entry.")

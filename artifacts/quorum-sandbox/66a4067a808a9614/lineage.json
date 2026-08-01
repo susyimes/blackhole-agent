@@ -1,0 +1,165 @@
+{
+  "entries": [
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "origin_ids": [
+          "origin-a",
+          "origin-b",
+          "origin-byzantine"
+        ],
+        "threshold": 2
+      },
+      "detail": {
+        "origins": [
+          {
+            "bundle_hash": "dfcc878d63b95f22cd3a2b29",
+            "byzantine": false,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "5e2823360dc37d44dee8ebeb",
+            "member_count": 3,
+            "origin_id": "origin-a",
+            "package_hash": "7878a785b9718369"
+          },
+          {
+            "bundle_hash": "798ae417a7e9e03b30b65a35",
+            "byzantine": false,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "2453f3b859dcf897f4370e11",
+            "member_count": 2,
+            "origin_id": "origin-b",
+            "package_hash": "8ece9182045d973a"
+          },
+          {
+            "bundle_hash": "1d4a387f9a02b52e0bfe4ae9",
+            "byzantine": true,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "4253c0fb4f5962755d235a1c",
+            "member_count": 3,
+            "origin_id": "origin-byzantine",
+            "package_hash": "7d88f7661e8407af"
+          }
+        ]
+      },
+      "entry_hash": "64de334b2d58c760355fcfb2",
+      "entry_kind": "quorum_origin_manifest",
+      "goal": "quorum multi-origin consensus",
+      "index": 0,
+      "issued_at": "2026-08-01T14:34:14.313069Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": ""
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "package_hash": "066545df3053adf5",
+        "threshold": 2
+      },
+      "detail": {
+        "origin_heads": [
+          "5e2823360dc37d44dee8ebeb",
+          "2453f3b859dcf897f4370e11",
+          "4253c0fb4f5962755d235a1c"
+        ]
+      },
+      "entry_hash": "ee964446db48483b599d25bd",
+      "entry_kind": "quorum_vote",
+      "goal": "quorum multi-origin consensus",
+      "index": 1,
+      "issued_at": "2026-08-01T14:34:14.313101Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "64de334b2d58c760355fcfb2"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "byzantine_count": 1,
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "excluded": true
+      },
+      "detail": {
+        "byzantine_origins": [
+          "origin-byzantine"
+        ]
+      },
+      "entry_hash": "a355f08400b97a2073c781b6",
+      "entry_kind": "quorum_byzantine_exclude",
+      "goal": "quorum multi-origin consensus",
+      "index": 2,
+      "issued_at": "2026-08-01T14:34:14.313120Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "ee964446db48483b599d25bd"
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "quorum": true,
+        "quorum_met": true
+      },
+      "detail": {
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "origin_bundle_hashes": [
+          "dfcc878d63b95f22cd3a2b29",
+          "798ae417a7e9e03b30b65a35",
+          "1d4a387f9a02b52e0bfe4ae9"
+        ]
+      },
+      "entry_hash": "8c9ca6e132d63af82cf7af90",
+      "entry_kind": "quorum_seal",
+      "goal": "quorum multi-origin consensus",
+      "index": 3,
+      "issued_at": "2026-08-01T14:34:14.313137Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "066545df3053adf5",
+      "parent_hash": "a355f08400b97a2073c781b6"
+    }
+  ],
+  "entry_count": 4,
+  "head_hash": "8c9ca6e132d63af82cf7af90",
+  "kind": "capability_lineage",
+  "schema_version": 1,
+  "updated_at": "2026-08-01T14:34:14.317397Z"
+}

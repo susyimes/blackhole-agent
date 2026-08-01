@@ -13,9 +13,11 @@ from blackhole_agent.capability_compounder import (
     Capability,
     CapabilityLedger,
     absorb_domain_surface,
+    audit_ledger_proofs,
     builtin_ci_security_gate,
     builtin_harness_activation_gate,
     builtin_issue_triage_smoke,
+    builtin_ledger_proof_reaudit,
     builtin_local_memory_roundtrip,
     builtin_milestone_gate_smoke,
     builtin_proposal_eval_smoke,
@@ -2173,3 +2175,71 @@ def test_continuity_plane_export_rehydrate_and_adversarial():
 
 
 
+
+
+def _audit_fixture_capability(capability_id: str, proof: str, recorded: int | None) -> Capability:
+    return Capability(
+        id=capability_id,
+        name=f"Audit fixture {capability_id}",
+        description="Synthetic audit fixture capability.",
+        kind="python",
+        entry="blackhole_agent.capability_compounder:builtin_ledger_inventory",
+        proof_command=proof,
+        last_proof_exit_code=recorded,
+    )
+
+
+def test_audit_ledger_proofs_flags_stale_and_unproven_claims(tmp_path):
+    passing = f'"{sys.executable}" -c "pass"'
+    failing = f'"{sys.executable}" -c "import sys; sys.exit(5)"'
+    ledger = CapabilityLedger(
+        capabilities={
+            "audit.honest": _audit_fixture_capability("audit.honest", passing, 0),
+            "audit.stale": _audit_fixture_capability("audit.stale", failing, 0),
+            "audit.unproven": _audit_fixture_capability("audit.unproven", failing, None),
+            "audit.reproved": _audit_fixture_capability("audit.reproved", passing, None),
+        }
+    )
+
+    report = audit_ledger_proofs(ledger, cwd=tmp_path, timeout=60)
+
+    statuses = report["statuses"]
+    assert statuses["ok"] == ["audit.honest"]
+    assert statuses["stale"] == ["audit.stale"]
+    assert statuses["unproven"] == ["audit.unproven"]
+    assert statuses["reproved"] == ["audit.reproved"]
+    assert report["ok"] is False
+    assert report["stale_capabilities"] == ["audit.stale"]
+    assert report["audited"] == 4
+
+
+def test_audit_ledger_proofs_ok_when_green_claims_reproduce(tmp_path):
+    passing = f'"{sys.executable}" -c "pass"'
+    ledger = CapabilityLedger(
+        capabilities={
+            "audit.honest": _audit_fixture_capability("audit.honest", passing, 0),
+            "audit.reproved": _audit_fixture_capability("audit.reproved", passing, None),
+        }
+    )
+
+    report = audit_ledger_proofs(ledger, cwd=tmp_path, timeout=60)
+
+    assert report["ok"] is True
+    assert report["status_counts"] == {"ok": 1, "reproved": 1}
+
+
+def test_audit_ledger_proofs_rejects_unknown_capability(tmp_path):
+    ledger = CapabilityLedger(capabilities={})
+
+    with pytest.raises(KeyError):
+        audit_ledger_proofs(ledger, cwd=tmp_path, capability_ids=["audit.missing"])
+
+
+def test_builtin_ledger_proof_reaudit():
+    result = builtin_ledger_proof_reaudit()
+
+    assert result["ok"] is True
+    assert result["stale_flagged"] is True
+    assert result["unproven_flagged"] is True
+    assert result["reproved_flagged"] is True
+    assert result["report_ok"] is False
