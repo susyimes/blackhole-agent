@@ -334,7 +334,13 @@ class ProviderHarnessSelection:
 
 
 def default_provider_harnesses() -> tuple[ProviderHarness, ...]:
-    """Return the built-in fallback order for locally supported agent providers."""
+    """Return the built-in fallback order for locally supported agent providers.
+
+    The first-class local CLI kernels this repository actually runs (Codex,
+    Grok, Kimi — see ``blackhole_agent.kernels``) outrank third-party SDK
+    shims; the single-file function agent remains the dependency-free
+    fallback.
+    """
 
     return (
         ProviderHarness(
@@ -342,6 +348,18 @@ def default_provider_harnesses() -> tuple[ProviderHarness, ...]:
             provider="codex",
             priority=10,
             required_commands=("codex",),
+        ),
+        ProviderHarness(
+            name="grok-cli",
+            provider="grok",
+            priority=12,
+            required_commands=("grok",),
+        ),
+        ProviderHarness(
+            name="kimi-cli",
+            provider="kimi",
+            priority=14,
+            required_commands=("kimi",),
         ),
         ProviderHarness(
             name="copilot-sdk",
@@ -688,6 +706,76 @@ def builtin_mcp_tool_import_proof() -> dict[str, Any]:
         "fail_closed_by_default": fail_closed,
         "executable_after_opt_in": opt_in_ok,
         "names": [descriptor.name for descriptor in descriptors],
+    }
+
+
+def builtin_multi_kernel_harness_proof() -> dict[str, Any]:
+    """Registered proof for ``capability.multi-kernel-harness-routing``.
+
+    Grounded in the live-trend signal "runs anywhere, uses anything"
+    (multi-provider agent CLIs). Proves that the built-in provider harness
+    catalog covers every first-class local CLI kernel this repository runs
+    (Codex, Grok, Kimi), that discovery routes deterministically to whichever
+    kernel is installed, that first-class kernels outrank third-party SDK
+    shims, and that a machine with none of them still falls through to the
+    dependency-free function agent. Hermetic: command availability is
+    injected, never probed from the host.
+    """
+
+    catalog = default_provider_harnesses()
+    by_name = {harness.name: harness for harness in catalog}
+    first_class = {"codex-cli": "codex", "grok-cli": "grok", "kimi-cli": "kimi"}
+    catalog_covers_kernels = all(
+        name in by_name and by_name[name].required_commands == (command,) and by_name[name].provider == command
+        for name, command in first_class.items()
+    )
+
+    def selected_with(commands: set[str]) -> str | None:
+        selection = select_provider_harness(
+            catalog,
+            installed_modules=set(),
+            available_commands=commands,
+            environ={},
+            platform="linux",
+        )
+        return selection.selected.name if selection.selected else None
+
+    routes = {
+        "kimi_only": selected_with({"kimi"}),
+        "grok_only": selected_with({"grok"}),
+        "all_kernels": selected_with({"codex", "grok", "kimi"}),
+        "grok_and_kimi": selected_with({"grok", "kimi"}),
+        "none": selected_with(set()),
+    }
+    routing_ok = routes == {
+        "kimi_only": "kimi-cli",
+        "grok_only": "grok-cli",
+        "all_kernels": "codex-cli",
+        "grok_and_kimi": "grok-cli",
+        "none": "single-file-function-agent",
+    }
+
+    statuses = discover_provider_harnesses(
+        catalog,
+        installed_modules=set(),
+        available_commands={"kimi"},
+        environ={},
+        platform="linux",
+    )
+    skip_map = {status.harness.name: status.skip_reasons for status in statuses}
+    deterministic_skips = (
+        skip_map.get("codex-cli") == ("missing_dependency:codex",)
+        and skip_map.get("grok-cli") == ("missing_dependency:grok",)
+        and skip_map.get("kimi-cli") == ()
+    )
+
+    return {
+        "ok": bool(catalog_covers_kernels and routing_ok and deterministic_skips),
+        "catalog_covers_first_class_kernels": catalog_covers_kernels,
+        "routes": routes,
+        "routing_ok": routing_ok,
+        "deterministic_skip_reasons": deterministic_skips,
+        "harness_count": len(catalog),
     }
 
 

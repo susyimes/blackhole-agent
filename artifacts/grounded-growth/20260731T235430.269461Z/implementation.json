@@ -1,0 +1,80 @@
+{
+  "changed_paths": [
+    "src/blackhole_agent/tool_routing.py",
+    "tests/test_tool_routing.py"
+  ],
+  "hypotheses_digest": "10ff9c104ca42b98a2d916991f5ebaee822c911803872bd7255789ee0d6a61a7",
+  "hypothesis": {
+    "matched_terms": [
+      "agent",
+      "mcp",
+      "skill",
+      "tool"
+    ],
+    "pattern": "tool exposure and routing",
+    "rank": 1,
+    "rationale": "5 trending repositories (0xwilliamortiz/openclaude-improved, TryCaspian/caspian-sdk, tsingyuai/growth-lab) signal 'tool exposure and routing'; matched terms ['agent', 'mcp', 'skill', 'tool']; candidate surface src/blackhole_agent/tool_routing.py.",
+    "score": 55.0,
+    "sources": [
+      {
+        "full_name": "0xwilliamortiz/openclaude-improved",
+        "html_url": "https://github.com/0xwilliamortiz/openclaude-improved",
+        "matched_terms": [
+          "mcp",
+          "agent"
+        ],
+        "stargazers_count": 563
+      },
+      {
+        "full_name": "TryCaspian/caspian-sdk",
+        "html_url": "https://github.com/TryCaspian/caspian-sdk",
+        "matched_terms": [
+          "mcp",
+          "agent"
+        ],
+        "stargazers_count": 372
+      },
+      {
+        "full_name": "tsingyuai/growth-lab",
+        "html_url": "https://github.com/tsingyuai/growth-lab",
+        "matched_terms": [
+          "tool",
+          "skill",
+          "agent"
+        ],
+        "stargazers_count": 177
+      },
+      {
+        "full_name": "Pinvou/pinvou-agent",
+        "html_url": "https://github.com/Pinvou/pinvou-agent",
+        "matched_terms": [
+          "mcp",
+          "tool",
+          "agent"
+        ],
+        "stargazers_count": 141
+      },
+      {
+        "full_name": "tianyupaipai-cmd/xinchao-dynamic-mind",
+        "html_url": "https://github.com/tianyupaipai-cmd/xinchao-dynamic-mind",
+        "matched_terms": [
+          "mcp",
+          "agent"
+        ],
+        "stargazers_count": 71
+      }
+    ],
+    "target_surface": "src/blackhole_agent/tool_routing.py"
+  },
+  "implemented_surface": "src/blackhole_agent/tool_routing.py",
+  "kind": "grounded_growth_implementation_trace",
+  "payload_digest": "ef9f4ff5a44b2e66979bd7177f7dc6bba790e1f8b7c8738821639300bf1c37bf",
+  "recorded_at": "2026-08-01T00:04:38.877462Z",
+  "scan_digest": "d421485774d061d6ab0314bbc5605ace7d17ddfdb790c1f169ebf31969e759c2",
+  "schema_version": 1,
+  "trace_digest": "8e58faa1de09b0209d9e26067fa07e1cf821a796e798e6d563f140a0f2b06263",
+  "validation": {
+    "command": "uv run blackhole-unbound capability prove capability.multi-kernel-harness-routing",
+    "exit_code": 0
+  }
+}

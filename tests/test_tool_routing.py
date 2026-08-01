@@ -21,6 +21,8 @@ from blackhole_agent.tool_routing import (
     DEFAULT_EXECUTABLE_TOOL_PROVIDERS,
     MCP_TOOL_PROVIDER,
     builtin_mcp_tool_import_proof,
+    builtin_multi_kernel_harness_proof,
+    default_provider_harnesses,
     tool_descriptors_from_mcp_tools,
 )
 
@@ -592,6 +594,63 @@ def test_provider_harness_selection_exports_body_free_diagnostics_without_env_va
             "skip_reasons": [],
         }
     ]
+
+
+def test_default_provider_harnesses_cover_first_class_cli_kernels():
+    by_name = {harness.name: harness for harness in default_provider_harnesses()}
+
+    assert by_name["codex-cli"].required_commands == ("codex",)
+    assert by_name["grok-cli"].required_commands == ("grok",)
+    assert by_name["kimi-cli"].required_commands == ("kimi",)
+    assert (
+        by_name["codex-cli"].priority
+        < by_name["grok-cli"].priority
+        < by_name["kimi-cli"].priority
+        < by_name["copilot-sdk"].priority
+        < by_name["single-file-function-agent"].priority
+    )
+
+
+def test_default_provider_harnesses_route_to_installed_first_class_kernel():
+    selection = select_provider_harness(
+        installed_modules=set(),
+        available_commands={"kimi"},
+        environ={},
+        platform="linux",
+    )
+
+    assert selection.selected.name == "kimi-cli"
+    skip_map = {status.harness.name: status.skip_reasons for status in selection.statuses}
+    assert skip_map["codex-cli"] == ("missing_dependency:codex",)
+    assert skip_map["grok-cli"] == ("missing_dependency:grok",)
+    assert skip_map["kimi-cli"] == ()
+
+
+def test_default_provider_harnesses_prefer_codex_then_fall_back_to_function_agent():
+    all_kernels = select_provider_harness(
+        installed_modules=set(),
+        available_commands={"codex", "grok", "kimi"},
+        environ={},
+        platform="linux",
+    )
+    none_installed = select_provider_harness(
+        installed_modules=set(),
+        available_commands=set(),
+        environ={},
+        platform="linux",
+    )
+
+    assert all_kernels.selected.name == "codex-cli"
+    assert none_installed.selected.name == "single-file-function-agent"
+
+
+def test_multi_kernel_harness_proof_passes():
+    result = builtin_multi_kernel_harness_proof()
+
+    assert result["ok"] is True
+    assert result["catalog_covers_first_class_kernels"] is True
+    assert result["routing_ok"] is True
+    assert result["deterministic_skip_reasons"] is True
 
 
 def test_mcp_tool_import_namespaces_and_preserves_schema():

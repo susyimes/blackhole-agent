@@ -1,0 +1,167 @@
+{
+  "entries": [
+    {
+      "agreeing_count": 2,
+      "applied_at": "2026-08-01T00:06:29.769986Z",
+      "byzantine_count": 1,
+      "claims": {
+        "plane": "execution",
+        "state_index": 1
+      },
+      "deterministic": true,
+      "epoch_hash": "ed6696edb34b2ee9bf561353",
+      "epoch_height": 1,
+      "execution_certificate": {
+        "certificate_hash": "b308aee43bdf7561c026731e",
+        "claims": {
+          "member_count": 3,
+          "plane": "execution",
+          "state_index": 1
+        },
+        "deterministic": true,
+        "epoch_hash": "ed6696edb34b2ee9bf561353",
+        "epoch_height": 1,
+        "finality_certificate_hash": "4abee65ede6eeed9a03d0144",
+        "goal": "actuation over world-state execution (state 1)",
+        "issued_at": "2026-08-01T00:06:29.770021Z",
+        "kind": "execution_certificate",
+        "lineage_head_hash": "6aac1ed613fbbf5d7db574c1",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "066545df3053adf5",
+        "parent_state_root": "",
+        "post_finality": true,
+        "schema_version": 1,
+        "state_height": 1,
+        "state_root": "5ad0dd8dca3b9484c762925b",
+        "used_skill_route_discovery": false
+      },
+      "finality_certificate_hash": "4abee65ede6eeed9a03d0144",
+      "goal": "actuation over world-state execution (state 1)",
+      "kind": "execution_state",
+      "lineage_head_hash": "6aac1ed613fbbf5d7db574c1",
+      "member_count": 3,
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "origin_count": 3,
+      "package_hash": "066545df3053adf5",
+      "parent_state_root": "",
+      "post_finality": true,
+      "projection": {
+        "agreeing_count": 2,
+        "applied_from": "finality_epoch",
+        "byzantine_count": 1,
+        "epoch_hash": "ed6696edb34b2ee9bf561353",
+        "finality_certificate_hash": "4abee65ede6eeed9a03d0144",
+        "height": 1,
+        "lineage_head_hash": "6aac1ed613fbbf5d7db574c1",
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "origin_count": 3,
+        "package_hash": "066545df3053adf5",
+        "parent_state_root": ""
+      },
+      "schema_version": 1,
+      "state_height": 1,
+      "state_root": "5ad0dd8dca3b9484c762925b",
+      "used_skill_route_discovery": false
+    },
+    {
+      "agreeing_count": 2,
+      "applied_at": "2026-08-01T00:06:29.770094Z",
+      "byzantine_count": 1,
+      "claims": {
+        "plane": "execution",
+        "state_index": 2
+      },
+      "deterministic": true,
+      "epoch_hash": "b7aef612e583d4f843d5aaab",
+      "epoch_height": 2,
+      "execution_certificate": {
+        "certificate_hash": "5915023a1ba1513eb7f71951",
+        "claims": {
+          "member_count": 3,
+          "plane": "execution",
+          "state_index": 2
+        },
+        "deterministic": true,
+        "epoch_hash": "b7aef612e583d4f843d5aaab",
+        "epoch_height": 2,
+        "finality_certificate_hash": "63d64629fc767efaff808596",
+        "goal": "actuation over world-state execution (state 2)",
+        "issued_at": "2026-08-01T00:06:29.770121Z",
+        "kind": "execution_certificate",
+        "lineage_head_hash": "5c36dc1c99bec1245abb50eb",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "aa8764169737f41a",
+        "parent_state_root": "5ad0dd8dca3b9484c762925b",
+        "post_finality": true,
+        "schema_version": 1,
+        "state_height": 2,
+        "state_root": "2d4be50a67d0713f572fa24d",
+        "used_skill_route_discovery": false
+      },
+      "finality_certificate_hash": "63d64629fc767efaff808596",
+      "goal": "actuation over world-state execution (state 2)",
+      "kind": "execution_state",
+      "lineage_head_hash": "5c36dc1c99bec1245abb50eb",
+      "member_count": 3,
+      "member_ids": [
+        "capability.ledger-inventory",
+        "repo.import-health",
+        "unbound.milestone-gate"
+      ],
+      "ok": true,
+      "origin_count": 3,
+      "package_hash": "aa8764169737f41a",
+      "parent_state_root": "5ad0dd8dca3b9484c762925b",
+      "post_finality": true,
+      "projection": {
+        "agreeing_count": 2,
+        "applied_from": "finality_epoch",
+        "byzantine_count": 1,
+        "epoch_hash": "b7aef612e583d4f843d5aaab",
+        "finality_certificate_hash": "63d64629fc767efaff808596",
+        "height": 2,
+        "lineage_head_hash": "5c36dc1c99bec1245abb50eb",
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "origin_count": 3,
+        "package_hash": "aa8764169737f41a",
+        "parent_state_root": "5ad0dd8dca3b9484c762925b"
+      },
+      "schema_version": 1,
+      "state_height": 2,
+      "state_root": "2d4be50a67d0713f572fa24d",
+      "used_skill_route_discovery": false
+    }
+  ],
+  "entry_count": 2,
+  "kind": "execution_state_log",
+  "schema_version": 1,
+  "tip_epoch_hash": "b7aef612e583d4f843d5aaab",
+  "tip_height": 2,
+  "tip_state_root": "2d4be50a67d0713f572fa24d",
+  "updated_at": "2026-08-01T00:06:29.770194Z"
+}

@@ -1,0 +1,187 @@
+{
+  "fetched_at": "2026-07-31T23:54:30.269461Z",
+  "hypotheses": [
+    {
+      "matched_terms": [
+        "agent",
+        "mcp",
+        "skill",
+        "tool"
+      ],
+      "pattern": "tool exposure and routing",
+      "rank": 1,
+      "rationale": "5 trending repositories (0xwilliamortiz/openclaude-improved, TryCaspian/caspian-sdk, tsingyuai/growth-lab) signal 'tool exposure and routing'; matched terms ['agent', 'mcp', 'skill', 'tool']; candidate surface src/blackhole_agent/tool_routing.py.",
+      "score": 55.0,
+      "sources": [
+        {
+          "full_name": "0xwilliamortiz/openclaude-improved",
+          "html_url": "https://github.com/0xwilliamortiz/openclaude-improved",
+          "matched_terms": [
+            "mcp",
+            "agent"
+          ],
+          "stargazers_count": 563
+        },
+        {
+          "full_name": "TryCaspian/caspian-sdk",
+          "html_url": "https://github.com/TryCaspian/caspian-sdk",
+          "matched_terms": [
+            "mcp",
+            "agent"
+          ],
+          "stargazers_count": 372
+        },
+        {
+          "full_name": "tsingyuai/growth-lab",
+          "html_url": "https://github.com/tsingyuai/growth-lab",
+          "matched_terms": [
+            "tool",
+            "skill",
+            "agent"
+          ],
+          "stargazers_count": 177
+        },
+        {
+          "full_name": "Pinvou/pinvou-agent",
+          "html_url": "https://github.com/Pinvou/pinvou-agent",
+          "matched_terms": [
+            "mcp",
+            "tool",
+            "agent"
+          ],
+          "stargazers_count": 141
+        },
+        {
+          "full_name": "tianyupaipai-cmd/xinchao-dynamic-mind",
+          "html_url": "https://github.com/tianyupaipai-cmd/xinchao-dynamic-mind",
+          "matched_terms": [
+            "mcp",
+            "agent"
+          ],
+          "stargazers_count": 71
+        }
+      ],
+      "target_surface": "src/blackhole_agent/tool_routing.py"
+    },
+    {
+      "matched_terms": [
+        "agent"
+      ],
+      "pattern": "long-horizon agent runtime",
+      "rank": 2,
+      "rationale": "4 trending repositories (makecindy/cindy, hahhforest/pi-textbook, deerwork-ai/deer-workflow) signal 'long-horizon agent runtime'; matched terms ['agent']; candidate surface src/blackhole_agent/unbound.py.",
+      "score": 42.0,
+      "sources": [
+        {
+          "full_name": "makecindy/cindy",
+          "html_url": "https://github.com/makecindy/cindy",
+          "matched_terms": [
+            "agent"
+          ],
+          "stargazers_count": 1263
+        },
+        {
+          "full_name": "hahhforest/pi-textbook",
+          "html_url": "https://github.com/hahhforest/pi-textbook",
+          "matched_terms": [
+            "agent"
+          ],
+          "stargazers_count": 673
+        },
+        {
+          "full_name": "deerwork-ai/deer-workflow",
+          "html_url": "https://github.com/deerwork-ai/deer-workflow",
+          "matched_terms": [
+            "agent"
+          ],
+          "stargazers_count": 367
+        },
+        {
+          "full_name": "simonlin1212/vibe-astock",
+          "html_url": "https://github.com/simonlin1212/vibe-astock",
+          "matched_terms": [
+            "agent"
+          ],
+          "stargazers_count": 63
+        }
+      ],
+      "target_surface": "src/blackhole_agent/unbound.py"
+    },
+    {
+      "matched_terms": [
+        "agent",
+        "skill"
+      ],
+      "pattern": "evolution surface routing",
+      "rank": 3,
+      "rationale": "1 trending repositories (powerycy/goutoujunshi) signal 'evolution surface routing'; matched terms ['agent', 'skill']; candidate surface src/blackhole_agent/evolution_route.py.",
+      "score": 16.0,
+      "sources": [
+        {
+          "full_name": "powerycy/goutoujunshi",
+          "html_url": "https://github.com/powerycy/goutoujunshi",
+          "matched_terms": [
+            "skill",
+            "agent"
+          ],
+          "stargazers_count": 1356
+        }
+      ],
+      "target_surface": "src/blackhole_agent/evolution_route.py"
+    },
+    {
+      "matched_terms": [
+        "agent",
+        "memory",
+        "skill"
+      ],
+      "pattern": "durable agent memory",
+      "rank": 4,
+      "rationale": "1 trending repositories (HezaoHezao/poirot) signal 'durable agent memory'; matched terms ['agent', 'memory', 'skill']; candidate surface src/blackhole_agent/local_memory.py.",
+      "score": 13.0,
+      "sources": [
+        {
+          "full_name": "HezaoHezao/poirot",
+          "html_url": "https://github.com/HezaoHezao/poirot",
+          "matched_terms": [
+            "memory",
+            "skill",
+            "agent"
+          ],
+          "stargazers_count": 53
+        }
+      ],
+      "target_surface": "src/blackhole_agent/local_memory.py"
+    },
+    {
+      "matched_terms": [
+        "agent",
+        "planner"
+      ],
+      "pattern": "plan synthesis from signals",
+      "rank": 5,
+      "rationale": "1 trending repositories (giovannibrees/travel-roamradar) signal 'plan synthesis from signals'; matched terms ['agent', 'planner']; candidate surface src/blackhole_agent/proposal_synthesis.py.",
+      "score": 11.0,
+      "sources": [
+        {
+          "full_name": "giovannibrees/travel-roamradar",
+          "html_url": "https://github.com/giovannibrees/travel-roamradar",
+          "matched_terms": [
+            "planner",
+            "agent"
+          ],
+          "stargazers_count": 60
+        }
+      ],
+      "target_surface": "src/blackhole_agent/proposal_synthesis.py"
+    }
+  ],
+  "hypotheses_digest": "10ff9c104ca42b98a2d916991f5ebaee822c911803872bd7255789ee0d6a61a7",
+  "kind": "grounded_growth_scan",
+  "mode": "live",
+  "payload_digest": "ef9f4ff5a44b2e66979bd7177f7dc6bba790e1f8b7c8738821639300bf1c37bf",
+  "query": "topic:ai-agent created:>=2026-07-17 stars:>=50 fork:false",
+  "repository_count": 12,
+  "scan_digest": "d421485774d061d6ab0314bbc5605ace7d17ddfdb790c1f169ebf31969e759c2",
+  "schema_version": 1
+}
