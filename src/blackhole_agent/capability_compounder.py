@@ -18985,68 +18985,63 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
             created_at=utc_now_iso(),
             updated_at=utc_now_iso(),
         ),
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        Capability(
+            id="capability.utility-plane",
+            name="Capability utility plane",
+            description=(
+                "Outcome-graded composition tasks thread multiple real ledger "
+                "capabilities into multi-step pipelines (triage->memory record, "
+                "security-gate->activation chain, tool-routing->triage, "
+                "ledger->proposal-record gate) whose work products are compared "
+                "against frozen oracles; per-capability causal ablation corrupts "
+                "one step at a time and only counts when the pipeline outcome "
+                "actually breaks; grades are sealed in digest-verifiable reports "
+                "with tamper, ablation-fabrication, and misgrade falsification - "
+                "upgrading ledger measurement from liveness (entry exits 0) to "
+                "demonstrated composed utility. Dependencies stay on the durable "
+                "core set so the entry survives growth-loop ledger rebuilds; the "
+                "domain surfaces it grades are expressed through the pipelines "
+                "and behavior paths."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_utility:builtin_utility_plane",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_utility import builtin_utility_plane; '
+                "r=builtin_utility_plane(); assert r['ok'] "
+                "and r.get('utility',{}).get('utility_score')==1.0 "
+                "and r.get('utility',{}).get('ablation_break_count')==r.get('utility',{}).get('ablation_count') "
+                "and r.get('tamper_detected') and r.get('ablation_fabrication_detected') "
+                "and r.get('misgrade_detected') and r.get('deterministic') "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.ablation-proof",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_utility.py",
+                "src/blackhole_agent/unbound.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Utility plane grades composed capability pipelines by outcome "
+                "against frozen oracles and proves each capability's causal "
+                "contribution by corruption ablation - the ledger is measured on "
+                "demonstrated utility, not just liveness, without skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "utility",
+                "ablation",
+                "outcome",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
 
     ]
 

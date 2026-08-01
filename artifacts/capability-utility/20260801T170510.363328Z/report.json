@@ -1,0 +1,161 @@
+{
+  "ablation_outcomes": [
+    {
+      "broke_outcome": true,
+      "capability_id": "domain.issue-triage",
+      "duration_ms": 0.013,
+      "error": "KeyError: 'lane'",
+      "task_id": "triage-memory-record"
+    },
+    {
+      "broke_outcome": true,
+      "capability_id": "domain.local-memory",
+      "duration_ms": 0.148,
+      "error": "KeyError: 'read_key'",
+      "task_id": "triage-memory-record"
+    },
+    {
+      "broke_outcome": true,
+      "capability_id": "domain.ci-security",
+      "duration_ms": 0.005,
+      "error": "KeyError: 'allowed'",
+      "task_id": "secure-activation-chain"
+    },
+    {
+      "broke_outcome": true,
+      "capability_id": "domain.harness-activation",
+      "duration_ms": 0.011,
+      "error": "KeyError: 'decision'",
+      "task_id": "secure-activation-chain"
+    },
+    {
+      "broke_outcome": true,
+      "capability_id": "domain.tool-routing",
+      "duration_ms": 0.004,
+      "error": "KeyError: 'preflight_ok'",
+      "task_id": "routed-triage-pipeline"
+    },
+    {
+      "broke_outcome": true,
+      "capability_id": "domain.issue-triage",
+      "duration_ms": 0.021,
+      "error": "KeyError: 'lane'",
+      "task_id": "routed-triage-pipeline"
+    },
+    {
+      "broke_outcome": true,
+      "capability_id": "capability.ledger-inventory",
+      "duration_ms": 0.008,
+      "error": "KeyError: 'ready'",
+      "task_id": "proposal-ledger-gate"
+    },
+    {
+      "broke_outcome": true,
+      "capability_id": "domain.proposal-eval",
+      "duration_ms": 3.698,
+      "error": "KeyError: 'passed'",
+      "task_id": "proposal-ledger-gate"
+    }
+  ],
+  "ablations_digest": "f9a0cc67abeed51ca65776e97ddd2c9130b395b28ed19a4cf53d770d7575e794",
+  "kind": "capability_utility_plane",
+  "ok": true,
+  "outcomes_digest": "0f1b1f3cda2e454bd46cfb76d43292d2fceb578ef1d6ebad67ba15b11fd6ad6d",
+  "report_digest": "da30bb8020f0581fe4990490be55d13314cf0e51533b3bf1823a4acaa966f922",
+  "run_at": "2026-08-01T17:05:10.363328Z",
+  "schema_version": 1,
+  "task_outcomes": [
+    {
+      "description": "Triage a bug report, then persist and verify the triage record in local memory.",
+      "duration_ms": 8.724,
+      "error": "",
+      "id": "triage-memory-record",
+      "ok": true,
+      "outcome": {
+        "gated": false,
+        "lane": "validation",
+        "memory_deleted": true,
+        "memory_key": "last-triage",
+        "memory_value": "triage:validation"
+      },
+      "steps": [
+        "domain.issue-triage",
+        "domain.local-memory"
+      ]
+    },
+    {
+      "description": "Security-scan gate chains into harness activation: activation only when the scan allows.",
+      "duration_ms": 1.119,
+      "error": "",
+      "id": "secure-activation-chain",
+      "ok": true,
+      "outcome": {
+        "activation_allowed": true,
+        "activation_decision": "ready_for_local_eval_activation",
+        "blocked_activation_allowed": false,
+        "blocked_scan_outcome": "security_scan_blocked",
+        "scan_allowed": true,
+        "scan_outcome": "security_scan_passed"
+      },
+      "steps": [
+        "domain.ci-security",
+        "domain.harness-activation"
+      ]
+    },
+    {
+      "description": "Tool-routing preflight gates issue triage: triage only runs when its tool is executable.",
+      "duration_ms": 0.399,
+      "error": "",
+      "id": "routed-triage-pipeline",
+      "ok": true,
+      "outcome": {
+        "executable": [
+          "auto_merge",
+          "issue_triage"
+        ],
+        "gated": false,
+        "lane": "follow_up",
+        "missing_required": [],
+        "preflight_ok": true
+      },
+      "steps": [
+        "domain.tool-routing",
+        "domain.issue-triage"
+      ]
+    },
+    {
+      "description": "Proposal review is only recorded when the capability ledger is ready to carry it.",
+      "duration_ms": 119.873,
+      "error": "",
+      "id": "proposal-ledger-gate",
+      "ok": true,
+      "outcome": {
+        "accepted_count": 1,
+        "decision": "record",
+        "ledger_ready": true,
+        "proposal_passed": true,
+        "rejected_count": 0,
+        "review_status": "accepted"
+      },
+      "steps": [
+        "capability.ledger-inventory",
+        "domain.proposal-eval"
+      ]
+    }
+  ],
+  "used_skill_route_discovery": false,
+  "utility": {
+    "ablation_break_count": 8,
+    "ablation_count": 8,
+    "causally_attributed": [
+      "triage-memory-record",
+      "secure-activation-chain",
+      "routed-triage-pipeline",
+      "proposal-ledger-gate"
+    ],
+    "task_count": 4,
+    "task_pass_count": 4,
+    "utility_score": 1.0
+  },
+  "utility_digest": "82dfda353a1951554d610a206d9ed8ea2d1508a8322fef5b1c099d776bddc3d3"
+}

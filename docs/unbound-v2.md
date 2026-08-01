@@ -248,6 +248,16 @@ uv run blackhole-unbound capability integrity --limit 16
   member in place; digest-sealed reports land under
   `artifacts/capability-repair/`. Predicates `repair_plane_ok`, `repaired_ok`,
   and `min_repair_actions:N` gate machine-checkable completion.
+- `capability utility` closes the utility gap liveness measurement cannot see:
+  outcome-graded composition tasks thread multiple real ledger capabilities
+  into multi-step pipelines (triage→memory, security-gate→activation,
+  tool-routing→triage, ledger→proposal-record) whose work products are
+  compared against frozen oracles; per-capability causal ablation corrupts one
+  step at a time and only counts when the pipeline outcome actually breaks, so
+  a declared dependency the outcome does not depend on is measured, not
+  assumed. Grades are sealed as digest-verifiable reports under
+  `artifacts/capability-utility/` with tamper, ablation-fabrication, and
+  misgrade falsification (`capability.utility-plane`).
 
 Promoted compositions are tagged `composed`/`promoted` and become ordinary
 ledger citizens that later turns can list, prove, run, and compose further.

@@ -3010,6 +3010,53 @@ def capability_benchmark(
 
 
 @capability_app.command(
+    "utility",
+    help=(
+        "Run the capability utility plane: outcome-graded multi-capability composition "
+        "tasks with per-capability causal ablation (corrupting one step must break the "
+        "pipeline outcome), sealed as a digest-verifiable report artifact."
+    ),
+)
+def capability_utility(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+    verify_only: Path | None = typer.Option(
+        None,
+        "--verify-only",
+        help="Only re-verify a sealed utility report directory.",
+    ),
+    output_dir: Path | None = typer.Option(
+        None,
+        "--output-dir",
+        help="Report artifact directory (default: artifacts/capability-utility/<timestamp>).",
+    ),
+) -> None:
+    from blackhole_agent.capability_utility import (
+        DEFAULT_ARTIFACT_DIR,
+        run_utility_plane,
+        verify_utility_report,
+        write_utility_report,
+    )
+
+    root = repo_path.resolve()
+    try:
+        if verify_only is not None:
+            result = verify_utility_report(verify_only)
+        else:
+            report = run_utility_plane()
+            stamp = report["run_at"].replace(":", "").replace("-", "")
+            out = output_dir or (root / DEFAULT_ARTIFACT_DIR / stamp)
+            result = write_utility_report(report, out)
+            result["utility"] = report["utility"]
+            result["used_skill_route_discovery"] = report["used_skill_route_discovery"]
+    except Exception as error:
+        console.print(f"Utility plane failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=result)
+    if not result.get("ok") or result.get("used_skill_route_discovery"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
     "distill",
     help=(
         "Distill redundant composed capabilities that share identical primitive coverage. "
