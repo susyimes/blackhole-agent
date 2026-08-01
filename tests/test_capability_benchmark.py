@@ -165,3 +165,162 @@ def test_builtin_fitness_scout_ablation() -> None:
     assert result["causation"] is True
     assert result["weakest_targeting"]["lifted"] > 0
     assert result["used_skill_route_discovery"] is False
+
+
+def test_compute_sweep_fitness_grades_purely() -> None:
+    from blackhole_agent.capability_benchmark import compute_sweep_fitness
+
+    outcomes = [
+        {"id": "cap.b", "ok": True},
+        {"id": "cap.a", "ok": False},
+        {"id": "cap.c", "ok": True},
+    ]
+    graded = compute_sweep_fitness(outcomes)
+    assert graded["capability_fitness"] == {"cap.a": 0.0, "cap.b": 1.0, "cap.c": 1.0}
+    assert graded["weakest_capabilities"] == ["cap.a"]
+    assert graded["entry_pass_count"] == 2
+    assert graded["entry_count"] == 3
+    assert graded["suite_score"] < 1.0
+    assert compute_sweep_fitness(outcomes) == graded
+
+
+def test_sealed_sweep_report_verifies(tmp_path: Path) -> None:
+    from blackhole_agent.capability_benchmark import (
+        run_ledger_sweep,
+        verify_sweep_report,
+        write_sweep_report,
+    )
+
+    report = run_ledger_sweep(capability_ids=["repo.import-health", "capability.ledger-inventory"])
+    assert report["coverage"] > 0
+    assert report["ledger_size"] >= 2
+    write_sweep_report(report, tmp_path)
+    verified = verify_sweep_report(tmp_path)
+    assert verified["ok"] is True
+    assert all(verified["checks"].values())
+
+
+def test_tampered_sweep_outcome_fails_verification(tmp_path: Path) -> None:
+    from blackhole_agent.capability_benchmark import (
+        run_ledger_sweep,
+        verify_sweep_report,
+        write_sweep_report,
+    )
+
+    report = run_ledger_sweep(capability_ids=["repo.import-health"])
+    write_sweep_report(report, tmp_path)
+    tampered = json.loads((tmp_path / "sweep-report.json").read_text(encoding="utf-8"))
+    tampered["sweep_outcomes"][0]["ok"] = not tampered["sweep_outcomes"][0]["ok"]
+    (tmp_path / "sweep-report.json").write_text(json.dumps(tampered, indent=2), encoding="utf-8")
+    assert verify_sweep_report(tmp_path)["ok"] is False
+
+
+def test_misgraded_sweep_fitness_fails_verification(tmp_path: Path) -> None:
+    from blackhole_agent.capability_benchmark import (
+        run_ledger_sweep,
+        verify_sweep_report,
+        write_sweep_report,
+    )
+
+    report = run_ledger_sweep(capability_ids=["repo.import-health"])
+    write_sweep_report(report, tmp_path)
+    misgraded = json.loads((tmp_path / "sweep-report.json").read_text(encoding="utf-8"))
+    sample_id = sorted(misgraded["fitness"]["capability_fitness"])[0]
+    misgraded["fitness"]["capability_fitness"][sample_id] = 0.0
+    (tmp_path / "sweep-report.json").write_text(json.dumps(misgraded, indent=2), encoding="utf-8")
+    assert verify_sweep_report(tmp_path)["ok"] is False
+
+
+def test_missing_sweep_report_fails_closed(tmp_path: Path) -> None:
+    from blackhole_agent.capability_benchmark import verify_sweep_report
+
+    assert verify_sweep_report(tmp_path)["ok"] is False
+
+
+def test_fitness_map_merges_sweep_with_strictest_wins(tmp_path: Path) -> None:
+    from blackhole_agent.capability_benchmark import (
+        DEFAULT_ARTIFACT_DIR,
+        compute_sweep_fitness,
+        load_latest_fitness_map,
+    )
+    from blackhole_agent.capability_compounder import atomic_write_json
+
+    import hashlib
+
+    def seal(outcomes: list[dict], fitness: dict) -> dict:
+        canonical = lambda payload: json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)  # noqa: E731
+        outcomes_digest = hashlib.sha256(
+            canonical([{"id": item["id"], "ok": item["ok"]} for item in outcomes]).encode()
+        ).hexdigest()
+        fitness_digest = hashlib.sha256(canonical(fitness).encode()).hexdigest()
+        report_digest = hashlib.sha256(f"sweep:{outcomes_digest}:{fitness_digest}".encode()).hexdigest()
+        return {
+            "sweep_outcomes": outcomes,
+            "fitness": fitness,
+            "outcomes_digest": outcomes_digest,
+            "fitness_digest": fitness_digest,
+            "report_digest": report_digest,
+        }
+
+    artifact_root = tmp_path / DEFAULT_ARTIFACT_DIR
+    sweep_dir = artifact_root / "sweep-run"
+    sweep_dir.mkdir(parents=True)
+    outcomes = [
+        {"id": "repo.import-health", "ok": True},
+        {"id": "cap.only-in-sweep", "ok": False},
+    ]
+    fitness = compute_sweep_fitness(outcomes)
+    atomic_write_json(sweep_dir / "sweep-report.json", seal(outcomes, fitness))
+    atomic_write_json(
+        artifact_root / "latest-sweep.json",
+        {"report_dir": "sweep-run", "report_digest": seal(outcomes, fitness)["report_digest"]},
+    )
+
+    merged = load_latest_fitness_map(tmp_path)
+    assert merged is not None
+    # Sweep-only capability becomes measured; weakness survives the merge.
+    assert merged["cap.only-in-sweep"] == 0.0
+    assert "repo.import-health" in merged
+
+
+def test_sweep_failing_entry_recorded_not_raised() -> None:
+    from blackhole_agent.capability_benchmark import compute_sweep_fitness
+
+    # A timeout/crash-shaped outcome grades as weak without crashing the sweep.
+    outcomes = [{"id": "cap.slow", "ok": False, "error": "TimeoutExpired: ..."}]
+    graded = compute_sweep_fitness(outcomes)
+    assert graded["weakest_capabilities"] == ["cap.slow"]
+
+
+def test_growth_loop_fitness_gate_halts_on_measured_weakness(tmp_path: Path, monkeypatch) -> None:
+    from blackhole_agent import capability_benchmark
+    from blackhole_agent.capability_compounder import ensure_seeded_ledger, run_growth_loop
+
+    ensure_seeded_ledger(tmp_path)
+    monkeypatch.setattr(
+        capability_benchmark,
+        "load_latest_fitness_map",
+        lambda root: {"repo.import-health": 0.0},
+    )
+    result = run_growth_loop(tmp_path, timeout=180)
+    assert result["action"] == "fitness_gate"
+    assert result["grew"] is False
+    assert result["after_count"] == result["before_count"]
+    assert result["target"] == "repo.import-health"
+    assert result["weakest_capabilities"] == ["repo.import-health"]
+    # The live entry actually passes, so the gate flags a stale sealed map
+    # instead of a genuine repair need — growth stays halted until re-sealed.
+    assert result["ok"] is True
+    assert result["reason"] == "fitness_recheck_passed"
+    assert result["used_skill_route_discovery"] is False
+
+
+def test_growth_loop_ungated_without_fitness_signal(tmp_path: Path, monkeypatch) -> None:
+    from blackhole_agent import capability_benchmark
+    from blackhole_agent.capability_compounder import ensure_seeded_ledger, run_growth_loop
+
+    ensure_seeded_ledger(tmp_path)
+    monkeypatch.setattr(capability_benchmark, "load_latest_fitness_map", lambda root: None)
+    result = run_growth_loop(tmp_path, timeout=180)
+    assert result.get("action") != "fitness_gate"
+    assert result["used_skill_route_discovery"] is False

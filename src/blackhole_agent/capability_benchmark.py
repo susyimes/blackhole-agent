@@ -12,14 +12,21 @@ evolution loop:
   primitives become measurable and rankable instead of invisible;
 - a digest-sealed report artifact under ``artifacts/capability-benchmark/``
   whose fitness numbers are a pure function of the recorded task outcomes,
-  so tampering or misgrading fails verification.
+  so tampering or misgrading fails verification;
+- a **ledger sweep** that closes the measurement gap: the hand-written suite
+  grades a fixed set of core abilities deeply, while the sweep invokes every
+  ledger capability through its live registered entry (subprocess-isolated,
+  timeout-bounded, no proof commands) so all capabilities — not just the core
+  ten — carry a current measured fitness that scout ranking can target.
 
 Determinism contract: task *outcomes* (``ok`` booleans) must be reproducible
 across runs on the same checkout. Durations and timestamps are recorded for
 diagnostics but excluded from every digest; ``verify_fitness_report``
 recomputes fitness and digests from recorded outcomes only, and the
 registered proof additionally re-runs the whole suite to prove the outcome
-digest is stable across executions.
+digest is stable across executions. Sweep verification is likewise pure:
+``verify_sweep_report`` re-derives fitness and digests from recorded sweep
+outcomes without re-executing entries.
 """
 
 from __future__ import annotations
@@ -39,6 +46,9 @@ SCHEMA_VERSION = 1
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ARTIFACT_DIR = "artifacts/capability-benchmark"
 LATEST_POINTER = REPO_ROOT / DEFAULT_ARTIFACT_DIR / "latest-benchmark.json"
+SWEEP_REPORT_NAME = "sweep-report.json"
+LATEST_SWEEP_POINTER = REPO_ROOT / DEFAULT_ARTIFACT_DIR / "latest-sweep.json"
+SWEEP_ENTRY_TIMEOUT_SECONDS = 180
 
 
 @dataclass(frozen=True)
@@ -316,6 +326,180 @@ def verify_fitness_report(report_dir: Path) -> dict[str, Any]:
     return {"ok": all(checks.values()), "checks": checks, "report_digest": report_digest}
 
 
+def compute_sweep_fitness(sweep_outcomes: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Pure fitness derivation from recorded ledger-sweep outcomes.
+
+    Each swept capability contributes exactly one outcome (its live entry
+    invocation), so per-capability fitness is 1.0 or 0.0. This function is the
+    single sweep grading rule: a sweep report whose recorded fitness disagrees
+    with its recorded outcomes is misgraded and fails verification.
+    """
+
+    fitness: dict[str, float] = {}
+    for item in sweep_outcomes:
+        capability_id = str(item.get("id") or "")
+        if not capability_id:
+            continue
+        fitness[capability_id] = 1.0 if bool(item.get("ok")) else 0.0
+    fitness = dict(sorted(fitness.items()))
+    suite_score = round(sum(fitness.values()) / len(fitness), 4) if fitness else 0.0
+    weakest = [cid for cid, score in sorted(fitness.items(), key=lambda kv: (kv[1], kv[0])) if score < 1.0]
+    return {
+        "capability_fitness": fitness,
+        "suite_score": suite_score,
+        "capabilities_measured": len(fitness),
+        "weakest_capabilities": weakest,
+        "entry_pass_count": sum(1 for item in sweep_outcomes if bool(item.get("ok"))),
+        "entry_count": len(sweep_outcomes),
+    }
+
+
+def run_ledger_sweep(
+    *,
+    repo_root: Path | None = None,
+    timeout: int = SWEEP_ENTRY_TIMEOUT_SECONDS,
+    capability_ids: Sequence[str] | None = None,
+) -> dict[str, Any]:
+    """Invoke every ledger capability through its live registered entry.
+
+    Entries run subprocess-isolated with a per-entry timeout — never their
+    self-attested proof commands — so the sweep measures what an operator or
+    the growth loop would actually get by invoking the capability today.
+    A timeout, non-zero exit, or a payload without ``ok`` is recorded as a
+    failed outcome; a crashed entry fails its own outcome, not the sweep.
+    """
+
+    from blackhole_agent.capability_compounder import (
+        default_ledger_path,
+        load_ledger,
+        run_capability,
+        topological_order,
+    )
+
+    root = (repo_root or REPO_ROOT).resolve()
+    ledger = load_ledger(default_ledger_path(root))
+    selected = [str(cid) for cid in (capability_ids or ledger.capabilities.keys())]
+    order = topological_order(ledger, selected)
+
+    outcomes: list[dict[str, Any]] = []
+    for capability_id in order:
+        capability = ledger.capabilities[capability_id]
+        started = time.perf_counter()
+        error = ""
+        exit_code = 1
+        try:
+            result = run_capability(capability, cwd=root, timeout=timeout)
+            ok = bool(result.ok)
+            exit_code = int(result.exit_code)
+            if not ok:
+                error = (result.summary or result.stderr or "entry reported failure")[:300]
+        except Exception as exc:  # noqa: BLE001 - a crashed entry is a failed outcome, not a crashed sweep
+            ok = False
+            error = f"{type(exc).__name__}: {exc}"[:300]
+        duration_ms = round((time.perf_counter() - started) * 1000, 3)
+        outcomes.append(
+            {
+                "id": capability_id,
+                "entry": capability.entry,
+                "ok": ok,
+                "exit_code": exit_code,
+                "duration_ms": duration_ms,
+                "error": error,
+            }
+        )
+
+    graded = compute_sweep_fitness(outcomes)
+    outcomes_digest = _digest([{"id": item["id"], "ok": item["ok"]} for item in outcomes])
+    fitness_digest = _digest(graded)
+    report_digest = hashlib.sha256(f"sweep:{outcomes_digest}:{fitness_digest}".encode("utf-8")).hexdigest()
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "kind": "capability_ledger_sweep",
+        "run_at": utc_now_iso(),
+        "ledger_size": len(ledger.capabilities),
+        "coverage": round(graded["capabilities_measured"] / len(ledger.capabilities), 4)
+        if ledger.capabilities
+        else 0.0,
+        "sweep_outcomes": outcomes,
+        "fitness": graded,
+        "outcomes_digest": outcomes_digest,
+        "fitness_digest": fitness_digest,
+        "report_digest": report_digest,
+        "ok": graded["entry_pass_count"] == graded["entry_count"] and graded["suite_score"] == 1.0,
+    }
+
+
+def write_sweep_report(report: Mapping[str, Any], output_dir: Path) -> dict[str, Any]:
+    """Seal the sweep report artifact and refresh the latest-sweep pointer."""
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(output_dir / SWEEP_REPORT_NAME, dict(report))
+    if output_dir.parent == LATEST_SWEEP_POINTER.parent:
+        atomic_write_json(
+            LATEST_SWEEP_POINTER,
+            {"report_dir": output_dir.name, "report_digest": report.get("report_digest")},
+        )
+    return {
+        "ok": bool(report.get("ok")),
+        "output_dir": str(output_dir),
+        "report_digest": report.get("report_digest"),
+        "suite_score": (report.get("fitness") or {}).get("suite_score"),
+        "coverage": report.get("coverage"),
+        "weakest_capabilities": (report.get("fitness") or {}).get("weakest_capabilities"),
+    }
+
+
+def verify_sweep_report(report_dir: Path) -> dict[str, Any]:
+    """Recompute every sweep digest and re-grade fitness from recorded outcomes.
+
+    Verification is pure — it never re-executes capability entries. A report
+    whose outcomes were flipped, whose fitness was misgraded, or whose digest
+    chain was edited fails verification.
+    """
+
+    report_path = report_dir / SWEEP_REPORT_NAME
+    if not report_path.exists():
+        return {"ok": False, "error": f"missing {SWEEP_REPORT_NAME} in {report_dir}"}
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    outcomes = report.get("sweep_outcomes") or []
+
+    regraded = compute_sweep_fitness(outcomes)
+    outcomes_digest = _digest([{"id": item["id"], "ok": item["ok"]} for item in outcomes])
+    fitness_digest = _digest(regraded)
+    report_digest = hashlib.sha256(f"sweep:{outcomes_digest}:{fitness_digest}".encode("utf-8")).hexdigest()
+
+    checks = {
+        "outcomes_digest": outcomes_digest == report.get("outcomes_digest"),
+        "fitness_regraded_matches": regraded == report.get("fitness"),
+        "fitness_digest": fitness_digest == report.get("fitness_digest"),
+        "report_digest": report_digest == report.get("report_digest"),
+    }
+    return {"ok": all(checks.values()), "checks": checks, "report_digest": report_digest}
+
+
+def load_latest_sweep_map(repo_root: Path) -> dict[str, float] | None:
+    """Load the measured per-capability fitness map from the latest sealed sweep.
+
+    Returns ``None`` when no sealed sweep report exists or its digest chain
+    fails verification, so ranking falls back to the core benchmark only.
+    """
+
+    pointer_path = repo_root / DEFAULT_ARTIFACT_DIR / "latest-sweep.json"
+    if not pointer_path.exists():
+        return None
+    try:
+        pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
+        report_dir = repo_root / DEFAULT_ARTIFACT_DIR / str(pointer.get("report_dir") or "")
+        if not verify_sweep_report(report_dir)["ok"]:
+            return None
+        report = json.loads((report_dir / SWEEP_REPORT_NAME).read_text(encoding="utf-8"))
+        fitness = (report.get("fitness") or {}).get("capability_fitness") or {}
+        return {str(key): float(value) for key, value in fitness.items()}
+    except Exception:  # noqa: BLE001 - an unreadable sweep means "no sweep signal"
+        return None
+
+
+
 def builtin_fitness_benchmark_proof() -> dict[str, Any]:
     """Registered proof for ``capability.fitness-benchmark``.
 
@@ -373,26 +557,38 @@ def builtin_fitness_benchmark_proof() -> dict[str, Any]:
 
 
 def load_latest_fitness_map(repo_root: Path) -> dict[str, float] | None:
-    """Load the measured per-capability fitness map from the latest sealed report.
+    """Load the measured per-capability fitness map from the latest sealed reports.
 
-    Returns ``None`` when no sealed benchmark report exists, so ranking falls
-    back to pure novelty ordering. Only the measured fitness values are read;
-    the digest chain is re-verified before the map is trusted.
+    Merges the core benchmark map with the ledger-sweep map. On conflict the
+    stricter (lower) score wins, so a capability that passes its bare entry
+    but fails a richer core task stays visibly weak. Returns ``None`` when no
+    sealed report exists, so ranking falls back to pure novelty ordering.
+    Every digest chain is re-verified before its map is trusted.
     """
 
+    merged: dict[str, float] = {}
+
     pointer_path = repo_root / DEFAULT_ARTIFACT_DIR / "latest-benchmark.json"
-    if not pointer_path.exists():
-        return None
-    try:
-        pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
-        report_dir = repo_root / DEFAULT_ARTIFACT_DIR / str(pointer.get("report_dir") or "")
-        if not verify_fitness_report(report_dir)["ok"]:
-            return None
-        report = json.loads((report_dir / "report.json").read_text(encoding="utf-8"))
-        fitness = (report.get("fitness") or {}).get("capability_fitness") or {}
-        return {str(key): float(value) for key, value in fitness.items()}
-    except Exception:  # noqa: BLE001 - an unreadable report means "no fitness signal"
-        return None
+    if pointer_path.exists():
+        try:
+            pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
+            report_dir = repo_root / DEFAULT_ARTIFACT_DIR / str(pointer.get("report_dir") or "")
+            if verify_fitness_report(report_dir)["ok"]:
+                report = json.loads((report_dir / "report.json").read_text(encoding="utf-8"))
+                fitness = (report.get("fitness") or {}).get("capability_fitness") or {}
+                merged.update({str(key): float(value) for key, value in fitness.items()})
+        except Exception:  # noqa: BLE001 - an unreadable report means "no core fitness signal"
+            pass
+
+    sweep = load_latest_sweep_map(repo_root)
+    if sweep:
+        for capability_id, score in sweep.items():
+            if capability_id in merged:
+                merged[capability_id] = min(merged[capability_id], score)
+            else:
+                merged[capability_id] = score
+
+    return merged or None
 
 
 def builtin_fitness_scout_ablation() -> dict[str, Any]:
@@ -500,7 +696,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--run", action="store_true", help="run the suite and seal a report artifact")
     mode.add_argument("--verify", type=Path, help="verify a sealed report directory")
+    mode.add_argument("--sweep", action="store_true", help="sweep every ledger capability's live entry")
+    mode.add_argument("--verify-sweep", type=Path, help="verify a sealed sweep report directory")
     parser.add_argument("--output-dir", type=Path, default=None)
+    parser.add_argument("--sweep-timeout", type=int, default=SWEEP_ENTRY_TIMEOUT_SECONDS)
     args = parser.parse_args(argv)
 
     if args.run:
@@ -509,6 +708,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         out = args.output_dir or (REPO_ROOT / DEFAULT_ARTIFACT_DIR / stamp)
         summary = write_benchmark_report(report, out)
         summary["fitness"] = report["fitness"]
+    elif args.sweep:
+        report = run_ledger_sweep(timeout=args.sweep_timeout)
+        stamp = report["run_at"].replace(":", "").replace("-", "")
+        out = args.output_dir or (REPO_ROOT / DEFAULT_ARTIFACT_DIR / f"{stamp}-sweep")
+        summary = write_sweep_report(report, out)
+    elif args.verify_sweep is not None:
+        summary = verify_sweep_report(args.verify_sweep)
     else:
         summary = verify_fitness_report(args.verify)
     print(json.dumps(summary, indent=2, sort_keys=True))

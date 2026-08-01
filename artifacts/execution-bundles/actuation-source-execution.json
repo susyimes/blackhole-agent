@@ -4,13 +4,13 @@
   "byzantine_count": 1,
   "certificate_count": 3,
   "certificates": {
-    "096dface76e027a407baa84a": {
-      "certificate_hash": "096dface76e027a407baa84a",
+    "04c1ebdb3f6dd777ca0156d8": {
+      "certificate_hash": "04c1ebdb3f6dd777ca0156d8",
       "kind": "finality_certificate",
       "payload": {
         "agreeing_count": 2,
         "byzantine_count": 1,
-        "certificate_hash": "096dface76e027a407baa84a",
+        "certificate_hash": "04c1ebdb3f6dd777ca0156d8",
         "claims": {
           "epoch_index": 2,
           "member_count": 3,
@@ -21,39 +21,73 @@
             "unbound.milestone-gate"
           ]
         },
-        "epoch_hash": "cc1e9205c315f2ece4ec5744",
+        "epoch_hash": "4724c3a0f3190d91f607698a",
         "epoch_height": 2,
-        "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (epoch 2)",
+        "goal": "actuation over world-state execution (epoch 2)",
         "irreversible": true,
-        "issued_at": "2026-07-31T06:06:01.765330Z",
+        "issued_at": "2026-08-01T08:13:50.280304Z",
         "kind": "finality_certificate",
-        "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+        "lineage_head_hash": "69c31cb6b576d95764aadec6",
         "ok": true,
         "origin_count": 3,
-        "package_hash": "6e604a6f16e45f9f",
-        "parent_epoch_hash": "f23cb8a7310da1bdeadd10dc",
-        "quorum_hash": "b7576435e0a7be7109bd2213",
+        "package_hash": "1ce84ff9a663e04d",
+        "parent_epoch_hash": "6838e486b784fefbd3e1203d",
+        "quorum_hash": "69dd713c80f72490c5f3b263",
         "schema_version": 1,
         "used_skill_route_discovery": false
       }
     },
-    "a80f0adc446696728d1054ff": {
-      "certificate_hash": "a80f0adc446696728d1054ff",
+    "9a97be2d09d8bcbe83477a1b": {
+      "certificate_hash": "9a97be2d09d8bcbe83477a1b",
       "payload": {
-        "certificate_hash": "a80f0adc446696728d1054ff",
+        "certificate_hash": "9a97be2d09d8bcbe83477a1b",
+        "claims": {
+          "member_count": 3,
+          "plane": "execution",
+          "state_index": 2
+        },
+        "deterministic": true,
+        "epoch_hash": "4724c3a0f3190d91f607698a",
+        "epoch_height": 2,
+        "finality_certificate_hash": "04c1ebdb3f6dd777ca0156d8",
+        "goal": "actuation over world-state execution (state 2)",
+        "issued_at": "2026-08-01T08:13:51.027841Z",
+        "kind": "execution_certificate",
+        "lineage_head_hash": "69c31cb6b576d95764aadec6",
+        "member_count": 3,
+        "member_ids": [
+          "capability.ledger-inventory",
+          "repo.import-health",
+          "unbound.milestone-gate"
+        ],
+        "ok": true,
+        "package_hash": "1ce84ff9a663e04d",
+        "parent_state_root": "b595b670891d16daf7fc1d72",
+        "post_finality": true,
+        "schema_version": 1,
+        "state_height": 2,
+        "state_root": "4dc8ae24abe29ac6c4d76fe3",
+        "used_skill_route_discovery": false
+      },
+      "state_height": 2
+    },
+    "a3ff5a9ee40f7206a1803bb0": {
+      "certificate_hash": "a3ff5a9ee40f7206a1803bb0",
+      "payload": {
+        "certificate_hash": "a3ff5a9ee40f7206a1803bb0",
         "claims": {
           "member_count": 3,
           "plane": "execution",
           "state_index": 1
         },
         "deterministic": true,
-        "epoch_hash": "f23cb8a7310da1bdeadd10dc",
+        "epoch_hash": "6838e486b784fefbd3e1203d",
         "epoch_height": 1,
-        "finality_certificate_hash": "7c3818d0ce2ede63ec97ce4f",
-        "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (state 1)",
-        "issued_at": "2026-07-31T06:06:02.414294Z",
+        "finality_certificate_hash": "cc45a4db7b78ec4454aaa248",
+        "goal": "actuation over world-state execution (state 1)",
+        "issued_at": "2026-08-01T08:13:51.027752Z",
         "kind": "execution_certificate",
-        "lineage_head_hash": "d8b71ac1459c1f6e93a83be1",
+        "lineage_head_hash": "057db180b793b68dcab5d36c",
         "member_count": 3,
         "member_ids": [
           "capability.ledger-inventory",
@@ -66,63 +100,29 @@
         "post_finality": true,
         "schema_version": 1,
         "state_height": 1,
-        "state_root": "13c03775507da4fc4465d63f",
+        "state_root": "b595b670891d16daf7fc1d72",
         "used_skill_route_discovery": false
       },
       "state_height": 1
-    },
-    "ee8fdc54770fad4f28029f40": {
-      "certificate_hash": "ee8fdc54770fad4f28029f40",
-      "payload": {
-        "certificate_hash": "ee8fdc54770fad4f28029f40",
-        "claims": {
-          "member_count": 3,
-          "plane": "execution",
-          "state_index": 2
-        },
-        "deterministic": true,
-        "epoch_hash": "cc1e9205c315f2ece4ec5744",
-        "epoch_height": 2,
-        "finality_certificate_hash": "096dface76e027a407baa84a",
-        "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (state 2)",
-        "issued_at": "2026-07-31T06:06:02.414436Z",
-        "kind": "execution_certificate",
-        "lineage_head_hash": "89c4ff0a6368875ef0800e26",
-        "member_count": 3,
-        "member_ids": [
-          "capability.ledger-inventory",
-          "repo.import-health",
-          "unbound.milestone-gate"
-        ],
-        "ok": true,
-        "package_hash": "6e604a6f16e45f9f",
-        "parent_state_root": "13c03775507da4fc4465d63f",
-        "post_finality": true,
-        "schema_version": 1,
-        "state_height": 2,
-        "state_root": "0f39b3a96f8389d3e4894801",
-        "used_skill_route_discovery": false
-      },
-      "state_height": 2
     }
   },
   "deterministic": true,
   "epoch_count": 2,
   "execution_certificate": {
-    "certificate_hash": "ee8fdc54770fad4f28029f40",
+    "certificate_hash": "9a97be2d09d8bcbe83477a1b",
     "claims": {
       "member_count": 3,
       "plane": "execution",
       "state_index": 2
     },
     "deterministic": true,
-    "epoch_hash": "cc1e9205c315f2ece4ec5744",
+    "epoch_hash": "4724c3a0f3190d91f607698a",
     "epoch_height": 2,
-    "finality_certificate_hash": "096dface76e027a407baa84a",
-    "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (state 2)",
-    "issued_at": "2026-07-31T06:06:02.414436Z",
+    "finality_certificate_hash": "04c1ebdb3f6dd777ca0156d8",
+    "goal": "actuation over world-state execution (state 2)",
+    "issued_at": "2026-08-01T08:13:51.027841Z",
     "kind": "execution_certificate",
-    "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+    "lineage_head_hash": "69c31cb6b576d95764aadec6",
     "member_count": 3,
     "member_ids": [
       "capability.ledger-inventory",
@@ -130,20 +130,20 @@
       "unbound.milestone-gate"
     ],
     "ok": true,
-    "package_hash": "6e604a6f16e45f9f",
-    "parent_state_root": "13c03775507da4fc4465d63f",
+    "package_hash": "1ce84ff9a663e04d",
+    "parent_state_root": "b595b670891d16daf7fc1d72",
     "post_finality": true,
     "schema_version": 1,
     "state_height": 2,
-    "state_root": "0f39b3a96f8389d3e4894801",
+    "state_root": "4dc8ae24abe29ac6c4d76fe3",
     "used_skill_route_discovery": false
   },
-  "execution_hash": "f620923c33e7444ef74ccd1a",
-  "exported_at": "2026-07-31T06:06:02.415431Z",
+  "execution_hash": "d6385b3eb6ee60901a6ceddd",
+  "exported_at": "2026-08-01T08:13:51.028165Z",
   "finality_certificate": {
     "agreeing_count": 2,
     "byzantine_count": 1,
-    "certificate_hash": "096dface76e027a407baa84a",
+    "certificate_hash": "04c1ebdb3f6dd777ca0156d8",
     "claims": {
       "epoch_index": 2,
       "member_count": 3,
@@ -154,23 +154,23 @@
         "unbound.milestone-gate"
       ]
     },
-    "epoch_hash": "cc1e9205c315f2ece4ec5744",
+    "epoch_hash": "4724c3a0f3190d91f607698a",
     "epoch_height": 2,
-    "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (epoch 2)",
+    "goal": "actuation over world-state execution (epoch 2)",
     "irreversible": true,
-    "issued_at": "2026-07-31T06:06:01.765330Z",
+    "issued_at": "2026-08-01T08:13:50.280304Z",
     "kind": "finality_certificate",
-    "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+    "lineage_head_hash": "69c31cb6b576d95764aadec6",
     "ok": true,
     "origin_count": 3,
-    "package_hash": "6e604a6f16e45f9f",
-    "parent_epoch_hash": "f23cb8a7310da1bdeadd10dc",
-    "quorum_hash": "b7576435e0a7be7109bd2213",
+    "package_hash": "1ce84ff9a663e04d",
+    "parent_epoch_hash": "6838e486b784fefbd3e1203d",
+    "quorum_hash": "69dd713c80f72490c5f3b263",
     "schema_version": 1,
     "used_skill_route_discovery": false
   },
-  "finality_hash": "85c7272cd3ec49b7c5cd398d",
-  "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery.",
+  "finality_hash": "71f8337b6eced16021608f4b",
+  "goal": "actuation over world-state execution",
   "kind": "execution_bundle",
   "lineage": {
     "entries": [
@@ -189,39 +189,39 @@
         "detail": {
           "origins": [
             {
-              "bundle_hash": "e66b5fae14051c9f21b673cf",
+              "bundle_hash": "f8de12c20b51a7941e4d5eed",
               "byzantine": false,
-              "lineage_entry_count": 129,
-              "lineage_head_hash": "5c4dacb32f81386ea03a82ce",
+              "lineage_entry_count": 167,
+              "lineage_head_hash": "63e9d413ae2a4223f503e00e",
               "member_count": 3,
               "origin_id": "origin-a",
               "package_hash": "7878a785b9718369"
             },
             {
-              "bundle_hash": "a0d27ed1aa43dd0962faf6b0",
+              "bundle_hash": "6ef03a2ebff51c361c5f4c30",
               "byzantine": false,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "a2e442509cf4617c3668ea86",
+              "lineage_head_hash": "4669ba26f42e610e4f233faa",
               "member_count": 2,
               "origin_id": "origin-b",
               "package_hash": "8ece9182045d973a"
             },
             {
-              "bundle_hash": "f6c239fa825aa1a812c8710e",
+              "bundle_hash": "467870627cf1c4571a8b035c",
               "byzantine": true,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "af1ba5e414b6cc444ce1c17d",
+              "lineage_head_hash": "cbd72fe8769723e106f61cf0",
               "member_count": 3,
               "origin_id": "origin-byzantine",
               "package_hash": "7d88f7661e8407af"
             }
           ]
         },
-        "entry_hash": "43a19b5c8b2b4b511d66a60c",
+        "entry_hash": "8b0bf78897a74bee335324c9",
         "entry_kind": "quorum_origin_manifest",
-        "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery.",
+        "goal": "actuation over world-state execution",
         "index": 0,
-        "issued_at": "2026-07-31T06:06:01.024678Z",
+        "issued_at": "2026-08-01T08:13:49.344549Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -245,16 +245,16 @@
         },
         "detail": {
           "origin_heads": [
-            "5c4dacb32f81386ea03a82ce",
-            "a2e442509cf4617c3668ea86",
-            "af1ba5e414b6cc444ce1c17d"
+            "63e9d413ae2a4223f503e00e",
+            "4669ba26f42e610e4f233faa",
+            "cbd72fe8769723e106f61cf0"
           ]
         },
-        "entry_hash": "5986d4f4143683b17ec37f7e",
+        "entry_hash": "9c2f1507f60d3a8dca63a3f2",
         "entry_kind": "quorum_vote",
-        "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery.",
+        "goal": "actuation over world-state execution",
         "index": 1,
-        "issued_at": "2026-07-31T06:06:01.024711Z",
+        "issued_at": "2026-08-01T08:13:49.344578Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -262,7 +262,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "43a19b5c8b2b4b511d66a60c"
+        "parent_hash": "8b0bf78897a74bee335324c9"
       },
       {
         "certificate_hash": "",
@@ -279,11 +279,11 @@
             "origin-byzantine"
           ]
         },
-        "entry_hash": "3f9080c07db3f80e71a34351",
+        "entry_hash": "168f0a66ad37183df571cc57",
         "entry_kind": "quorum_byzantine_exclude",
-        "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery.",
+        "goal": "actuation over world-state execution",
         "index": 2,
-        "issued_at": "2026-07-31T06:06:01.024734Z",
+        "issued_at": "2026-08-01T08:13:49.344596Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -291,7 +291,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "5986d4f4143683b17ec37f7e"
+        "parent_hash": "9c2f1507f60d3a8dca63a3f2"
       },
       {
         "certificate_hash": "",
@@ -311,16 +311,16 @@
             "origin-byzantine"
           ],
           "origin_bundle_hashes": [
-            "e66b5fae14051c9f21b673cf",
-            "a0d27ed1aa43dd0962faf6b0",
-            "f6c239fa825aa1a812c8710e"
+            "f8de12c20b51a7941e4d5eed",
+            "6ef03a2ebff51c361c5f4c30",
+            "467870627cf1c4571a8b035c"
           ]
         },
-        "entry_hash": "d8b71ac1459c1f6e93a83be1",
+        "entry_hash": "057db180b793b68dcab5d36c",
         "entry_kind": "quorum_seal",
-        "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery.",
+        "goal": "actuation over world-state execution",
         "index": 3,
-        "issued_at": "2026-07-31T06:06:01.024756Z",
+        "issued_at": "2026-08-01T08:13:49.344613Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -328,23 +328,23 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "3f9080c07db3f80e71a34351"
+        "parent_hash": "168f0a66ad37183df571cc57"
       },
       {
         "certificate_hash": "",
         "certificate_path": "",
         "claims": {
-          "prior_lineage_head": "d8b71ac1459c1f6e93a83be1",
+          "prior_lineage_head": "057db180b793b68dcab5d36c",
           "prior_package_hash": "066545df3053adf5",
-          "prior_quorum_hash": "4cd32c222dbc55c99e47cf99",
+          "prior_quorum_hash": "a017a7f5088430920212a4ff",
           "progress_tag": "epoch-progress-2"
         },
         "detail": {},
-        "entry_hash": "89c4ff0a6368875ef0800e26",
+        "entry_hash": "69c31cb6b576d95764aadec6",
         "entry_kind": "finality_epoch_progress",
-        "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (progress 2)",
+        "goal": "actuation over world-state execution (progress 2)",
         "index": 4,
-        "issued_at": "2026-07-31T06:06:01.762506Z",
+        "issued_at": "2026-08-01T08:13:50.278170Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -352,17 +352,17 @@
           "proved_ratio": null
         },
         "package_hash": "",
-        "parent_hash": "d8b71ac1459c1f6e93a83be1"
+        "parent_hash": "057db180b793b68dcab5d36c"
       }
     ],
     "entry_count": 5,
-    "head_hash": "89c4ff0a6368875ef0800e26",
+    "head_hash": "69c31cb6b576d95764aadec6",
     "kind": "capability_lineage",
     "schema_version": 1,
-    "updated_at": "2026-07-31T06:06:01.762613Z"
+    "updated_at": "2026-08-01T08:13:50.278280Z"
   },
   "lineage_entry_count": 5,
-  "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+  "lineage_head_hash": "69c31cb6b576d95764aadec6",
   "member_count": 3,
   "member_ids": [
     "capability.ledger-inventory",
@@ -380,7 +380,7 @@
     "byzantine_origins": [
       "origin-byzantine"
     ],
-    "exported_at": "2026-07-31T06:06:01.024639Z",
+    "exported_at": "2026-08-01T08:13:49.344513Z",
     "federated": true,
     "member_count": 3,
     "member_ids": [
@@ -417,16 +417,16 @@
         "id": "capability.ledger-inventory",
         "kind": "python",
         "last_proof_exit_code": 0,
-        "last_proved_at": "2026-07-29T08:24:28.151271Z",
+        "last_proved_at": "2026-08-01T00:18:09.900752Z",
         "name": "Capability ledger inventory",
-        "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_ledger_inventory; r=builtin_ledger_inventory(); assert r['ok'] and r['count'] >= 2\"",
+        "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260801T080140Z-165e44b4\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_ledger_inventory; r=builtin_ledger_inventory(); assert r['ok'] and r['count'] >= 2\"",
         "source_milestone": null,
         "source_mission_id": "",
         "tags": [
           "bootstrap",
           "compounder"
         ],
-        "updated_at": "2026-07-31T06:06:00.863723Z"
+        "updated_at": "2026-08-01T08:13:49.267006Z"
       },
       "repo.import-health": {
         "behavior_paths": [
@@ -441,16 +441,16 @@
         "id": "repo.import-health",
         "kind": "python",
         "last_proof_exit_code": 0,
-        "last_proved_at": "2026-07-31T05:25:36.061422Z",
+        "last_proved_at": "2026-08-01T08:13:41.562354Z",
         "name": "Repository import health",
-        "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_repo_import_health; r=builtin_repo_import_health(); assert r['ok'] and not r['skill_route_symbols_in_compounder']\"",
+        "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260801T080140Z-165e44b4\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_repo_import_health; r=builtin_repo_import_health(); assert r['ok'] and not r['skill_route_symbols_in_compounder']\"",
         "source_milestone": null,
         "source_mission_id": "",
         "tags": [
           "bootstrap",
           "health"
         ],
-        "updated_at": "2026-07-31T06:06:00.863106Z"
+        "updated_at": "2026-08-01T08:13:49.266766Z"
       },
       "unbound.milestone-gate": {
         "behavior_paths": [
@@ -466,21 +466,21 @@
         "id": "unbound.milestone-gate",
         "kind": "python",
         "last_proof_exit_code": 0,
-        "last_proved_at": "2026-07-29T08:24:28.407348Z",
+        "last_proved_at": "2026-08-01T00:18:10.075534Z",
         "name": "Unbound milestone gate smoke",
-        "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_milestone_gate_smoke; r=builtin_milestone_gate_smoke(); assert r['ok']\"",
+        "proof_command": "\"C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260801T080140Z-165e44b4\\.venv\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_milestone_gate_smoke; r=builtin_milestone_gate_smoke(); assert r['ok']\"",
         "source_milestone": null,
         "source_mission_id": "",
         "tags": [
           "bootstrap",
           "unbound"
         ],
-        "updated_at": "2026-07-31T06:06:00.863481Z"
+        "updated_at": "2026-08-01T08:13:49.266909Z"
       }
     },
     "ok": true,
-    "package_hash": "6e604a6f16e45f9f",
-    "progress_at": "2026-07-31T06:06:01.762621Z",
+    "package_hash": "1ce84ff9a663e04d",
+    "progress_at": "2026-08-01T08:13:50.278289Z",
     "progress_tag": "epoch-progress-2",
     "quorum": true,
     "quorum_threshold": 2,
@@ -493,7 +493,7 @@
     "source_ledger_path": "quorum-merge",
     "used_skill_route_discovery": false
   },
-  "package_hash": "6e604a6f16e45f9f",
+  "package_hash": "1ce84ff9a663e04d",
   "post_finality": true,
   "schema_version": 1,
   "state_count": 2,
@@ -501,30 +501,30 @@
     "entries": [
       {
         "agreeing_count": 2,
-        "applied_at": "2026-07-31T06:06:02.414259Z",
+        "applied_at": "2026-08-01T08:13:51.027723Z",
         "byzantine_count": 1,
         "claims": {
           "plane": "execution",
           "state_index": 1
         },
         "deterministic": true,
-        "epoch_hash": "f23cb8a7310da1bdeadd10dc",
+        "epoch_hash": "6838e486b784fefbd3e1203d",
         "epoch_height": 1,
         "execution_certificate": {
-          "certificate_hash": "a80f0adc446696728d1054ff",
+          "certificate_hash": "a3ff5a9ee40f7206a1803bb0",
           "claims": {
             "member_count": 3,
             "plane": "execution",
             "state_index": 1
           },
           "deterministic": true,
-          "epoch_hash": "f23cb8a7310da1bdeadd10dc",
+          "epoch_hash": "6838e486b784fefbd3e1203d",
           "epoch_height": 1,
-          "finality_certificate_hash": "7c3818d0ce2ede63ec97ce4f",
-          "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (state 1)",
-          "issued_at": "2026-07-31T06:06:02.414294Z",
+          "finality_certificate_hash": "cc45a4db7b78ec4454aaa248",
+          "goal": "actuation over world-state execution (state 1)",
+          "issued_at": "2026-08-01T08:13:51.027752Z",
           "kind": "execution_certificate",
-          "lineage_head_hash": "d8b71ac1459c1f6e93a83be1",
+          "lineage_head_hash": "057db180b793b68dcab5d36c",
           "member_count": 3,
           "member_ids": [
             "capability.ledger-inventory",
@@ -537,13 +537,13 @@
           "post_finality": true,
           "schema_version": 1,
           "state_height": 1,
-          "state_root": "13c03775507da4fc4465d63f",
+          "state_root": "b595b670891d16daf7fc1d72",
           "used_skill_route_discovery": false
         },
-        "finality_certificate_hash": "7c3818d0ce2ede63ec97ce4f",
-        "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (state 1)",
+        "finality_certificate_hash": "cc45a4db7b78ec4454aaa248",
+        "goal": "actuation over world-state execution (state 1)",
         "kind": "execution_state",
-        "lineage_head_hash": "d8b71ac1459c1f6e93a83be1",
+        "lineage_head_hash": "057db180b793b68dcab5d36c",
         "member_count": 3,
         "member_ids": [
           "capability.ledger-inventory",
@@ -559,10 +559,10 @@
           "agreeing_count": 2,
           "applied_from": "finality_epoch",
           "byzantine_count": 1,
-          "epoch_hash": "f23cb8a7310da1bdeadd10dc",
-          "finality_certificate_hash": "7c3818d0ce2ede63ec97ce4f",
+          "epoch_hash": "6838e486b784fefbd3e1203d",
+          "finality_certificate_hash": "cc45a4db7b78ec4454aaa248",
           "height": 1,
-          "lineage_head_hash": "d8b71ac1459c1f6e93a83be1",
+          "lineage_head_hash": "057db180b793b68dcab5d36c",
           "member_ids": [
             "capability.ledger-inventory",
             "repo.import-health",
@@ -574,35 +574,35 @@
         },
         "schema_version": 1,
         "state_height": 1,
-        "state_root": "13c03775507da4fc4465d63f",
+        "state_root": "b595b670891d16daf7fc1d72",
         "used_skill_route_discovery": false
       },
       {
         "agreeing_count": 2,
-        "applied_at": "2026-07-31T06:06:02.414375Z",
+        "applied_at": "2026-08-01T08:13:51.027817Z",
         "byzantine_count": 1,
         "claims": {
           "plane": "execution",
           "state_index": 2
         },
         "deterministic": true,
-        "epoch_hash": "cc1e9205c315f2ece4ec5744",
+        "epoch_hash": "4724c3a0f3190d91f607698a",
         "epoch_height": 2,
         "execution_certificate": {
-          "certificate_hash": "ee8fdc54770fad4f28029f40",
+          "certificate_hash": "9a97be2d09d8bcbe83477a1b",
           "claims": {
             "member_count": 3,
             "plane": "execution",
             "state_index": 2
           },
           "deterministic": true,
-          "epoch_hash": "cc1e9205c315f2ece4ec5744",
+          "epoch_hash": "4724c3a0f3190d91f607698a",
           "epoch_height": 2,
-          "finality_certificate_hash": "096dface76e027a407baa84a",
-          "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (state 2)",
-          "issued_at": "2026-07-31T06:06:02.414436Z",
+          "finality_certificate_hash": "04c1ebdb3f6dd777ca0156d8",
+          "goal": "actuation over world-state execution (state 2)",
+          "issued_at": "2026-08-01T08:13:51.027841Z",
           "kind": "execution_certificate",
-          "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+          "lineage_head_hash": "69c31cb6b576d95764aadec6",
           "member_count": 3,
           "member_ids": [
             "capability.ledger-inventory",
@@ -610,18 +610,18 @@
             "unbound.milestone-gate"
           ],
           "ok": true,
-          "package_hash": "6e604a6f16e45f9f",
-          "parent_state_root": "13c03775507da4fc4465d63f",
+          "package_hash": "1ce84ff9a663e04d",
+          "parent_state_root": "b595b670891d16daf7fc1d72",
           "post_finality": true,
           "schema_version": 1,
           "state_height": 2,
-          "state_root": "0f39b3a96f8389d3e4894801",
+          "state_root": "4dc8ae24abe29ac6c4d76fe3",
           "used_skill_route_discovery": false
         },
-        "finality_certificate_hash": "096dface76e027a407baa84a",
-        "goal": "Add a union plane over the proved confederation plane: multi-confederation orders become deterministic hash-chained union grants with union plan digests bound to confederation roots, certificates, sterile rehydrate+prove, outcome predicates, unbound complete-gate wiring, and adversarial falsification — without skill-route discovery. (state 2)",
+        "finality_certificate_hash": "04c1ebdb3f6dd777ca0156d8",
+        "goal": "actuation over world-state execution (state 2)",
         "kind": "execution_state",
-        "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+        "lineage_head_hash": "69c31cb6b576d95764aadec6",
         "member_count": 3,
         "member_ids": [
           "capability.ledger-inventory",
@@ -630,42 +630,42 @@
         ],
         "ok": true,
         "origin_count": 3,
-        "package_hash": "6e604a6f16e45f9f",
-        "parent_state_root": "13c03775507da4fc4465d63f",
+        "package_hash": "1ce84ff9a663e04d",
+        "parent_state_root": "b595b670891d16daf7fc1d72",
         "post_finality": true,
         "projection": {
           "agreeing_count": 2,
           "applied_from": "finality_epoch",
           "byzantine_count": 1,
-          "epoch_hash": "cc1e9205c315f2ece4ec5744",
-          "finality_certificate_hash": "096dface76e027a407baa84a",
+          "epoch_hash": "4724c3a0f3190d91f607698a",
+          "finality_certificate_hash": "04c1ebdb3f6dd777ca0156d8",
           "height": 2,
-          "lineage_head_hash": "89c4ff0a6368875ef0800e26",
+          "lineage_head_hash": "69c31cb6b576d95764aadec6",
           "member_ids": [
             "capability.ledger-inventory",
             "repo.import-health",
             "unbound.milestone-gate"
           ],
           "origin_count": 3,
-          "package_hash": "6e604a6f16e45f9f",
-          "parent_state_root": "13c03775507da4fc4465d63f"
+          "package_hash": "1ce84ff9a663e04d",
+          "parent_state_root": "b595b670891d16daf7fc1d72"
         },
         "schema_version": 1,
         "state_height": 2,
-        "state_root": "0f39b3a96f8389d3e4894801",
+        "state_root": "4dc8ae24abe29ac6c4d76fe3",
         "used_skill_route_discovery": false
       }
     ],
     "entry_count": 2,
     "kind": "execution_state_log",
     "schema_version": 1,
-    "tip_epoch_hash": "cc1e9205c315f2ece4ec5744",
+    "tip_epoch_hash": "4724c3a0f3190d91f607698a",
     "tip_height": 2,
-    "tip_state_root": "0f39b3a96f8389d3e4894801",
-    "updated_at": "2026-07-31T06:06:02.414496Z"
+    "tip_state_root": "4dc8ae24abe29ac6c4d76fe3",
+    "updated_at": "2026-08-01T08:13:51.027859Z"
   },
-  "tip_epoch_hash": "cc1e9205c315f2ece4ec5744",
+  "tip_epoch_hash": "4724c3a0f3190d91f607698a",
   "tip_height": 2,
-  "tip_state_root": "0f39b3a96f8389d3e4894801",
+  "tip_state_root": "4dc8ae24abe29ac6c4d76fe3",
   "used_skill_route_discovery": false
 }

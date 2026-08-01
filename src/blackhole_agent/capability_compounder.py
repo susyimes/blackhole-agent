@@ -14015,6 +14015,55 @@ def run_growth_loop(
     before_ids = sorted(ledger.capabilities)
     scout = scout_capability_gaps(ledger, repo_path=root)
 
+    # Fitness gate: when a sealed benchmark/sweep map measures weakness in the
+    # live ledger, automatic growth halts before stacking new compositions on a
+    # broken base. The weakest capability is re-invoked through its live entry:
+    # a pass means the sealed measurement is stale (re-run the sweep), a
+    # failure means repair comes before any new promotion. Explicit recipe
+    # selection bypasses the gate so an operator can land a fix.
+    if recipe_id is None:
+        try:
+            from blackhole_agent.capability_benchmark import load_latest_fitness_map
+
+            gate_map = load_latest_fitness_map(root)
+        except Exception:  # noqa: BLE001 - no usable fitness signal means ungated growth
+            gate_map = None
+        if gate_map:
+            weakest = sorted(
+                (
+                    capability_id
+                    for capability_id in ledger.capabilities
+                    if float(gate_map.get(capability_id, 1.0)) < 1.0
+                ),
+                key=lambda cid: (float(gate_map[cid]), cid),
+            )
+            if weakest:
+                target = weakest[0]
+                recheck = run_capability(
+                    ledger.capabilities[target],
+                    cwd=root,
+                    command_runner=command_runner,
+                    timeout=timeout,
+                )
+                return {
+                    "ok": bool(recheck.ok),
+                    "grew": False,
+                    "action": "fitness_gate",
+                    "reason": "fitness_recheck_passed" if recheck.ok else "repair_needed",
+                    "hint": "re-run capability benchmark --sweep to refresh the sealed map"
+                    if recheck.ok
+                    else f"repair {target} before promoting new growth",
+                    "weakest_capabilities": weakest,
+                    "target": target,
+                    "recheck": recheck.to_dict(),
+                    "scout": scout,
+                    "before_count": before_count,
+                    "after_count": before_count,
+                    "before_ids": before_ids,
+                    "after_ids": before_ids,
+                    "used_skill_route_discovery": legacy_pipeline_was_used(),
+                }
+
     selected: dict[str, Any] | None = None
     if recipe_id:
         selected = next(

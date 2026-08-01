@@ -1,0 +1,60 @@
+{
+  "certificate_hash": "16f66ba372efa4f1e47f308a",
+  "claims": {
+    "ablation_ok": true,
+    "adversarial_ok": true,
+    "assurance_ok": true,
+    "contract_met": true,
+    "contract_ok": true,
+    "machine_checkable": true,
+    "no_skill_route": true,
+    "transfer_ok": true
+  },
+  "done_when": "capability_exists:capability.empire-plane; no_skill_route",
+  "evidence": {
+    "assurance": {
+      "ablation": {
+        "failed_phases": [],
+        "live_ledger_mutated": false,
+        "ok": true,
+        "passed_count": 4,
+        "phase_count": 4
+      },
+      "adversarial": {
+        "negative_count": 4,
+        "negatives_ok": true,
+        "negatives_passed": 4,
+        "ok": true,
+        "positive_ok": true
+      },
+      "ok": true,
+      "transfer": {
+        "member_count": 3,
+        "ok": true,
+        "package_hash": "7878a785b9718369",
+        "proved_count": 3
+      }
+    },
+    "contract": {
+      "failed_count": 0,
+      "machine_checkable": true,
+      "met": true,
+      "mission_ok": null,
+      "ok": true,
+      "passed_count": 2
+    },
+    "metrics": {
+      "count": 128,
+      "primitive_count": 79,
+      "proved_count": 123,
+      "proved_ratio": 0.9609375
+    }
+  },
+  "goal": "reconcile:Ship capability.empire-plane: a closed empire plane over commonwealth that posts multi-commonwealth orders into deterministic hash-chained empire grants with empire plan digests bound to commonwealth roots, empire certificates, sterile rehydrate+prove, and adversarial falsification, without skill-route discovery.",
+  "issued_at": "2026-07-31T07:25:42.842674Z",
+  "kind": "sovereignty_certificate",
+  "ok": true,
+  "package_hash": "7878a785b9718369",
+  "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260731T071555Z-57574041",
+  "schema_version": 1
+}

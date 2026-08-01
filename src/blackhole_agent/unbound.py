@@ -2828,6 +2828,16 @@ def capability_benchmark(
         "--verify-only",
         help="Only re-verify a sealed benchmark report directory.",
     ),
+    sweep: bool = typer.Option(
+        False,
+        "--sweep",
+        help="Sweep every ledger capability through its live entry (whole-ledger fitness).",
+    ),
+    sweep_timeout: int = typer.Option(
+        180,
+        "--sweep-timeout",
+        help="Per-entry timeout in seconds for --sweep.",
+    ),
     output_dir: Path | None = typer.Option(
         None,
         "--output-dir",
@@ -2837,14 +2847,25 @@ def capability_benchmark(
     from blackhole_agent.capability_benchmark import (
         DEFAULT_ARTIFACT_DIR,
         run_fitness_benchmark,
+        run_ledger_sweep,
         verify_fitness_report,
+        verify_sweep_report,
         write_benchmark_report,
+        write_sweep_report,
     )
 
     root = repo_path.resolve()
     try:
         if verify_only is not None:
-            result = verify_fitness_report(verify_only)
+            if (verify_only / "sweep-report.json").exists():
+                result = verify_sweep_report(verify_only)
+            else:
+                result = verify_fitness_report(verify_only)
+        elif sweep:
+            report = run_ledger_sweep(repo_root=root, timeout=sweep_timeout)
+            stamp = report["run_at"].replace(":", "").replace("-", "")
+            out = output_dir or (root / DEFAULT_ARTIFACT_DIR / f"{stamp}-sweep")
+            result = write_sweep_report(report, out)
         else:
             report = run_fitness_benchmark()
             stamp = report["run_at"].replace(":", "").replace("-", "")

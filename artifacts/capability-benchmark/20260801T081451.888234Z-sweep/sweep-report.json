@@ -1,0 +1,931 @@
+{
+  "coverage": 1.0,
+  "fitness": {
+    "capabilities_measured": 101,
+    "capability_fitness": {
+      "capability.ablation-proof": 1.0,
+      "capability.actuation-plane": 1.0,
+      "capability.adaptive-grow": 1.0,
+      "capability.adversarial-contract": 1.0,
+      "capability.assurance-plane": 1.0,
+      "capability.auto-kernel-routing": 1.0,
+      "capability.autonomic-cycle": 1.0,
+      "capability.composed-core-health": 1.0,
+      "capability.composed-domain-core": 1.0,
+      "capability.composed-domain-ops": 1.0,
+      "capability.composed-dyn-ci-security-harness-activation": 1.0,
+      "capability.composed-dyn-ci-security-harness-activation-local": 1.0,
+      "capability.composed-dyn-ci-security-persona": 1.0,
+      "capability.composed-dyn-ci-security-proposal-synthesis": 1.0,
+      "capability.composed-dyn-ci-security-supervisor-compound": 1.0,
+      "capability.composed-dyn-harness-activation-local-memory-supe": 1.0,
+      "capability.composed-dyn-issue-triage-harness-activation": 1.0,
+      "capability.composed-dyn-issue-triage-harness-activation-loca": 1.0,
+      "capability.composed-dyn-issue-triage-local-memory": 1.0,
+      "capability.composed-dyn-issue-triage-persona": 1.0,
+      "capability.composed-dyn-issue-triage-proposal-synthesis": 1.0,
+      "capability.composed-dyn-issue-triage-supervisor-compound": 1.0,
+      "capability.composed-dyn-local-memory-supervisor-compound": 1.0,
+      "capability.composed-dyn-local-memory-supervisor-compound-too": 1.0,
+      "capability.composed-dyn-persona-harness-activation": 1.0,
+      "capability.composed-dyn-proposal-eval-harness-activation-ci": 1.0,
+      "capability.composed-dyn-proposal-eval-persona-harness-activa": 1.0,
+      "capability.composed-dyn-proposal-eval-proposal-synthesis-har": 1.0,
+      "capability.composed-dyn-proposal-eval-supervisor-compound-ha": 1.0,
+      "capability.composed-dyn-proposal-synthesis-harness-activatio": 1.0,
+      "capability.composed-dyn-supervisor-compound-harness-activati": 1.0,
+      "capability.composed-dyn-supervisor-compound-tool-routing": 1.0,
+      "capability.composed-evolution-ready": 1.0,
+      "capability.composed-meta-core-health-domain-core-core-health": 1.0,
+      "capability.composed-meta-core-health-domain-core-domain-core": 1.0,
+      "capability.composed-meta-core-health-domain-core-domain-ops-g": 1.0,
+      "capability.composed-meta-core-health-domain-core-evolution-re": 1.0,
+      "capability.composed-meta-core-health-domain-core-meta-evoluti": 1.0,
+      "capability.composed-meta-core-health-grounded-growth-loop-met": 1.0,
+      "capability.composed-meta-platform-evolution": 1.0,
+      "capability.composed-second-wave-identity": 1.0,
+      "capability.composed-stack-core-health-domain-core": 1.0,
+      "capability.composed-stack-core-health-domain-ops": 1.0,
+      "capability.composed-stack-core-health-grounded-growth-loop": 1.0,
+      "capability.composed-stack-core-health-second-wave-identity": 1.0,
+      "capability.composed-stack-domain-core-evolution-ready": 1.0,
+      "capability.composed-stack-domain-core-grounded-growth-loop": 1.0,
+      "capability.composed-stack-domain-core-second-wave-identity": 1.0,
+      "capability.composed-stack-domain-full": 1.0,
+      "capability.composed-stack-domain-ops-evolution-ready": 1.0,
+      "capability.composed-stack-domain-ops-grounded-growth-loop": 1.0,
+      "capability.composed-stack-domain-ops-second-wave-identity": 1.0,
+      "capability.composed-stack-evolution-ready-grounded-growth-loop": 1.0,
+      "capability.composed-stack-meta-evolution": 1.0,
+      "capability.composed-stack-platform": 1.0,
+      "capability.composed-super-core-health-domain-core-health-d": 1.0,
+      "capability.continuity-plane": 1.0,
+      "capability.contract-plane": 1.0,
+      "capability.distill-ledger": 1.0,
+      "capability.execution-plane": 1.0,
+      "capability.federation-plane": 1.0,
+      "capability.finality-plane": 1.0,
+      "capability.fitness-benchmark": 1.0,
+      "capability.fitness-scout": 1.0,
+      "capability.frontier-novelty": 1.0,
+      "capability.github-live-actuation": 1.0,
+      "capability.goal-plan": 1.0,
+      "capability.grounded-growth-loop": 1.0,
+      "capability.grounded-scan": 1.0,
+      "capability.growth-loop": 1.0,
+      "capability.ledger-integrity": 1.0,
+      "capability.ledger-inventory": 1.0,
+      "capability.lineage-plane": 1.0,
+      "capability.mcp-live-execution": 1.0,
+      "capability.mcp-live-external": 1.0,
+      "capability.mcp-tool-import": 1.0,
+      "capability.mission-plane": 1.0,
+      "capability.multi-kernel-harness-routing": 1.0,
+      "capability.outcome-contract": 1.0,
+      "capability.plane-engine": 1.0,
+      "capability.plane-engine-full-stack": 1.0,
+      "capability.program-run": 1.0,
+      "capability.quorum-plane": 1.0,
+      "capability.reconciliation-plane": 1.0,
+      "capability.scout-gaps": 1.0,
+      "capability.second-wave-absorb": 1.0,
+      "capability.sovereignty-plane": 1.0,
+      "capability.transfer-plane": 1.0,
+      "domain.ci-security": 1.0,
+      "domain.harness-activation": 1.0,
+      "domain.issue-triage": 1.0,
+      "domain.kernel-preflight": 1.0,
+      "domain.local-memory": 1.0,
+      "domain.persona": 1.0,
+      "domain.proposal-eval": 1.0,
+      "domain.proposal-synthesis": 1.0,
+      "domain.supervisor-compound": 1.0,
+      "domain.tool-routing": 1.0,
+      "evolution.compounder-redirect": 1.0,
+      "repo.import-health": 1.0,
+      "unbound.milestone-gate": 1.0
+    },
+    "entry_count": 101,
+    "entry_pass_count": 101,
+    "suite_score": 1.0,
+    "weakest_capabilities": []
+  },
+  "fitness_digest": "d9251a609e6700166a972fb7ff82cbe753c13479791a65d492cde78f54b59de1",
+  "kind": "capability_ledger_sweep",
+  "ledger_size": 101,
+  "ok": true,
+  "outcomes_digest": "d2bdf35104661e59ebe399f8ed251cdce3b9c88694d833d77e3ba632dcd71b2c",
+  "report_digest": "83216d8971d8da686f5934d4fb58db136caa1bb17a6e685123b9c98d08379d09",
+  "run_at": "2026-08-01T08:14:51.888234Z",
+  "schema_version": 1,
+  "sweep_outcomes": [
+    {
+      "duration_ms": 440.478,
+      "entry": "blackhole_agent.capability_compounder:builtin_repo_import_health",
+      "error": "",
+      "exit_code": 0,
+      "id": "repo.import-health",
+      "ok": true
+    },
+    {
+      "duration_ms": 110.891,
+      "entry": "blackhole_agent.capability_compounder:builtin_ledger_inventory",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.ledger-inventory",
+      "ok": true
+    },
+    {
+      "duration_ms": 200.185,
+      "entry": "blackhole_agent.capability_compounder:builtin_milestone_gate_smoke",
+      "error": "",
+      "exit_code": 0,
+      "id": "unbound.milestone-gate",
+      "ok": true
+    },
+    {
+      "duration_ms": 757.839,
+      "entry": "blackhole_agent.capability_compounder:builtin_ablation_proof",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.ablation-proof",
+      "ok": true
+    },
+    {
+      "duration_ms": 123.011,
+      "entry": "blackhole_agent.capability_compounder:builtin_scout_gaps",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.scout-gaps",
+      "ok": true
+    },
+    {
+      "duration_ms": 132.854,
+      "entry": "blackhole_agent.capability_compounder:builtin_frontier_novelty",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.frontier-novelty",
+      "ok": true
+    },
+    {
+      "duration_ms": 176.019,
+      "entry": "blackhole_agent.capability_compounder:builtin_outcome_contract",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.outcome-contract",
+      "ok": true
+    },
+    {
+      "duration_ms": 104.026,
+      "entry": "blackhole_agent.capability_compounder:builtin_goal_plan",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.goal-plan",
+      "ok": true
+    },
+    {
+      "duration_ms": 544.149,
+      "entry": "blackhole_agent.capability_compounder:builtin_program_run",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.program-run",
+      "ok": true
+    },
+    {
+      "duration_ms": 124.658,
+      "entry": "blackhole_agent.capability_compounder:builtin_second_wave_absorb",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.second-wave-absorb",
+      "ok": true
+    },
+    {
+      "duration_ms": 1295.793,
+      "entry": "blackhole_agent.capability_compounder:builtin_growth_loop",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.growth-loop",
+      "ok": true
+    },
+    {
+      "duration_ms": 2938.91,
+      "entry": "blackhole_agent.capability_compounder:builtin_adaptive_grow",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.adaptive-grow",
+      "ok": true
+    },
+    {
+      "duration_ms": 1757.623,
+      "entry": "blackhole_agent.capability_compounder:builtin_mission_plane",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.mission-plane",
+      "ok": true
+    },
+    {
+      "duration_ms": 921.397,
+      "entry": "blackhole_agent.capability_compounder:builtin_contract_plane",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.contract-plane",
+      "ok": true
+    },
+    {
+      "duration_ms": 722.878,
+      "entry": "blackhole_agent.capability_compounder:builtin_transfer_plane",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.transfer-plane",
+      "ok": true
+    },
+    {
+      "duration_ms": 427.439,
+      "entry": "blackhole_agent.capability_compounder:builtin_adversarial_contract",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.adversarial-contract",
+      "ok": true
+    },
+    {
+      "duration_ms": 1519.021,
+      "entry": "blackhole_agent.capability_compounder:builtin_assurance_plane",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.assurance-plane",
+      "ok": true
+    },
+    {
+      "duration_ms": 2708.702,
+      "entry": "blackhole_agent.capability_compounder:builtin_sovereignty_plane",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.sovereignty-plane",
+      "ok": true
+    },
+    {
+      "duration_ms": 2636.199,
+      "entry": "blackhole_agent.capability_compounder:builtin_lineage_plane",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.lineage-plane",
+      "ok": true
+    },
+    {
+      "duration_ms": 5286.61,
+      "entry": "blackhole_agent.capability_compounder:builtin_reconciliation_plane",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.reconciliation-plane",
+      "ok": true
+    },
+    {
+      "duration_ms": 5641.356,
+      "entry": "blackhole_agent.capability_compounder:builtin_continuity_plane",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.continuity-plane",
+      "ok": true
+    },
+    {
+      "duration_ms": 9037.592,
+      "entry": "blackhole_agent.capability_compounder:builtin_federation_plane",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.federation-plane",
+      "ok": true
+    },
+    {
+      "duration_ms": 7706.954,
+      "entry": "blackhole_agent.capability_compounder:builtin_quorum_plane",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.quorum-plane",
+      "ok": true
+    },
+    {
+      "duration_ms": 1883.467,
+      "entry": "blackhole_agent.capability_compounder:builtin_finality_plane",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.finality-plane",
+      "ok": true
+    },
+    {
+      "duration_ms": 2768.299,
+      "entry": "blackhole_agent.capability_compounder:builtin_execution_plane",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.execution-plane",
+      "ok": true
+    },
+    {
+      "duration_ms": 3448.222,
+      "entry": "blackhole_agent.capability_compounder:builtin_actuation_plane",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.actuation-plane",
+      "ok": true
+    },
+    {
+      "duration_ms": 126.324,
+      "entry": "blackhole_agent.tool_routing:builtin_multi_kernel_harness_proof",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.multi-kernel-harness-routing",
+      "ok": true
+    },
+    {
+      "duration_ms": 464.603,
+      "entry": "blackhole_agent.unbound:builtin_auto_kernel_routing_proof",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.auto-kernel-routing",
+      "ok": true
+    },
+    {
+      "duration_ms": 135.092,
+      "entry": "blackhole_agent.capability_compounder:builtin_distill_ledger",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.distill-ledger",
+      "ok": true
+    },
+    {
+      "duration_ms": 6308.494,
+      "entry": "blackhole_agent.capability_compounder:builtin_ledger_integrity",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.ledger-integrity",
+      "ok": true
+    },
+    {
+      "duration_ms": 5624.826,
+      "entry": "blackhole_agent.capability_compounder:builtin_autonomic_cycle",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.autonomic-cycle",
+      "ok": true
+    },
+    {
+      "duration_ms": 232.309,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-core-health",
+      "ok": true
+    },
+    {
+      "duration_ms": 178.552,
+      "entry": "blackhole_agent.capability_compounder:builtin_local_memory_roundtrip",
+      "error": "",
+      "exit_code": 0,
+      "id": "domain.local-memory",
+      "ok": true
+    },
+    {
+      "duration_ms": 200.78,
+      "entry": "blackhole_agent.capability_compounder:builtin_tool_routing_preflight",
+      "error": "",
+      "exit_code": 0,
+      "id": "domain.tool-routing",
+      "ok": true
+    },
+    {
+      "duration_ms": 284.639,
+      "entry": "blackhole_agent.capability_compounder:builtin_harness_activation_gate",
+      "error": "",
+      "exit_code": 0,
+      "id": "domain.harness-activation",
+      "ok": true
+    },
+    {
+      "duration_ms": 144.349,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-domain-core",
+      "ok": true
+    },
+    {
+      "duration_ms": 111.054,
+      "entry": "blackhole_agent.capability_compounder:builtin_issue_triage_smoke",
+      "error": "",
+      "exit_code": 0,
+      "id": "domain.issue-triage",
+      "ok": true
+    },
+    {
+      "duration_ms": 114.173,
+      "entry": "blackhole_agent.capability_compounder:builtin_ci_security_gate",
+      "error": "",
+      "exit_code": 0,
+      "id": "domain.ci-security",
+      "ok": true
+    },
+    {
+      "duration_ms": 388.35,
+      "entry": "blackhole_agent.capability_compounder:builtin_proposal_eval_smoke",
+      "error": "",
+      "exit_code": 0,
+      "id": "domain.proposal-eval",
+      "ok": true
+    },
+    {
+      "duration_ms": 362.538,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-domain-ops",
+      "ok": true
+    },
+    {
+      "duration_ms": 125.743,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-dyn-ci-security-harness-activation",
+      "ok": true
+    },
+    {
+      "duration_ms": 153.992,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-dyn-ci-security-harness-activation-local",
+      "ok": true
+    },
+    {
+      "duration_ms": 147.183,
+      "entry": "blackhole_agent.capability_compounder:builtin_persona_render",
+      "error": "",
+      "exit_code": 0,
+      "id": "domain.persona",
+      "ok": true
+    },
+    {
+      "duration_ms": 179.856,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-dyn-ci-security-persona",
+      "ok": true
+    },
+    {
+      "duration_ms": 176.607,
+      "entry": "blackhole_agent.capability_compounder:builtin_proposal_synthesis_smoke",
+      "error": "",
+      "exit_code": 0,
+      "id": "domain.proposal-synthesis",
+      "ok": true
+    },
+    {
+      "duration_ms": 198.057,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-dyn-ci-security-proposal-synthesis",
+      "ok": true
+    },
+    {
+      "duration_ms": 133.472,
+      "entry": "blackhole_agent.capability_compounder:builtin_evolution_route_redirect",
+      "error": "",
+      "exit_code": 0,
+      "id": "evolution.compounder-redirect",
+      "ok": true
+    },
+    {
+      "duration_ms": 154.029,
+      "entry": "blackhole_agent.capability_compounder:builtin_supervisor_compound_wake",
+      "error": "",
+      "exit_code": 0,
+      "id": "domain.supervisor-compound",
+      "ok": true
+    },
+    {
+      "duration_ms": 149.784,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-dyn-ci-security-supervisor-compound",
+      "ok": true
+    },
+    {
+      "duration_ms": 141.964,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-dyn-harness-activation-local-memory-supe",
+      "ok": true
+    },
+    {
+      "duration_ms": 130.862,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-dyn-issue-triage-harness-activation",
+      "ok": true
+    },
+    {
+      "duration_ms": 176.184,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-dyn-issue-triage-harness-activation-loca",
+      "ok": true
+    },
+    {
+      "duration_ms": 166.451,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-dyn-issue-triage-local-memory",
+      "ok": true
+    },
+    {
+      "duration_ms": 225.031,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-dyn-issue-triage-persona",
+      "ok": true
+    },
+    {
+      "duration_ms": 191.123,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-dyn-issue-triage-proposal-synthesis",
+      "ok": true
+    },
+    {
+      "duration_ms": 151.517,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-dyn-issue-triage-supervisor-compound",
+      "ok": true
+    },
+    {
+      "duration_ms": 221.437,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-dyn-local-memory-supervisor-compound",
+      "ok": true
+    },
+    {
+      "duration_ms": 156.384,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-dyn-local-memory-supervisor-compound-too",
+      "ok": true
+    },
+    {
+      "duration_ms": 125.458,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-dyn-persona-harness-activation",
+      "ok": true
+    },
+    {
+      "duration_ms": 355.353,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-dyn-proposal-eval-harness-activation-ci",
+      "ok": true
+    },
+    {
+      "duration_ms": 407.763,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-dyn-proposal-eval-persona-harness-activa",
+      "ok": true
+    },
+    {
+      "duration_ms": 430.121,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-dyn-proposal-eval-proposal-synthesis-har",
+      "ok": true
+    },
+    {
+      "duration_ms": 442.003,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-dyn-proposal-eval-supervisor-compound-ha",
+      "ok": true
+    },
+    {
+      "duration_ms": 133.583,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-dyn-proposal-synthesis-harness-activatio",
+      "ok": true
+    },
+    {
+      "duration_ms": 161.41,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-dyn-supervisor-compound-harness-activati",
+      "ok": true
+    },
+    {
+      "duration_ms": 204.572,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-dyn-supervisor-compound-tool-routing",
+      "ok": true
+    },
+    {
+      "duration_ms": 267.39,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-evolution-ready",
+      "ok": true
+    },
+    {
+      "duration_ms": 252.213,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-stack-core-health-domain-core",
+      "ok": true
+    },
+    {
+      "duration_ms": 349.549,
+      "entry": "blackhole_agent.grounded_growth:builtin_grounded_scan_proof",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.grounded-scan",
+      "ok": true
+    },
+    {
+      "duration_ms": 105.868,
+      "entry": "blackhole_agent.tool_routing:builtin_mcp_tool_import_proof",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.mcp-tool-import",
+      "ok": true
+    },
+    {
+      "duration_ms": 357.364,
+      "entry": "blackhole_agent.grounded_growth:builtin_grounded_growth_loop_proof",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.grounded-growth-loop",
+      "ok": true
+    },
+    {
+      "duration_ms": 428.939,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-stack-core-health-grounded-growth-loop",
+      "ok": true
+    },
+    {
+      "duration_ms": 449.581,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-meta-core-health-domain-core-core-health",
+      "ok": true
+    },
+    {
+      "duration_ms": 125.802,
+      "entry": "blackhole_agent.capability_compounder:builtin_kernel_preflight",
+      "error": "",
+      "exit_code": 0,
+      "id": "domain.kernel-preflight",
+      "ok": true
+    },
+    {
+      "duration_ms": 134.392,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-second-wave-identity",
+      "ok": true
+    },
+    {
+      "duration_ms": 160.466,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-stack-domain-core-second-wave-identity",
+      "ok": true
+    },
+    {
+      "duration_ms": 283.418,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-meta-core-health-domain-core-domain-core",
+      "ok": true
+    },
+    {
+      "duration_ms": 360.289,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-stack-domain-ops-grounded-growth-loop",
+      "ok": true
+    },
+    {
+      "duration_ms": 411.941,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-meta-core-health-domain-core-domain-ops-g",
+      "ok": true
+    },
+    {
+      "duration_ms": 408.281,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-stack-evolution-ready-grounded-growth-loop",
+      "ok": true
+    },
+    {
+      "duration_ms": 515.28,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-meta-core-health-domain-core-evolution-re",
+      "ok": true
+    },
+    {
+      "duration_ms": 228.345,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-stack-meta-evolution",
+      "ok": true
+    },
+    {
+      "duration_ms": 258.671,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-meta-core-health-domain-core-meta-evoluti",
+      "ok": true
+    },
+    {
+      "duration_ms": 435.939,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-meta-core-health-grounded-growth-loop-met",
+      "ok": true
+    },
+    {
+      "duration_ms": 411.671,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-stack-platform",
+      "ok": true
+    },
+    {
+      "duration_ms": 463.693,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-meta-platform-evolution",
+      "ok": true
+    },
+    {
+      "duration_ms": 382.822,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-stack-core-health-domain-ops",
+      "ok": true
+    },
+    {
+      "duration_ms": 245.026,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-stack-core-health-second-wave-identity",
+      "ok": true
+    },
+    {
+      "duration_ms": 297.015,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-stack-domain-core-evolution-ready",
+      "ok": true
+    },
+    {
+      "duration_ms": 378.401,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-stack-domain-core-grounded-growth-loop",
+      "ok": true
+    },
+    {
+      "duration_ms": 350.265,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-stack-domain-full",
+      "ok": true
+    },
+    {
+      "duration_ms": 368.312,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-stack-domain-ops-evolution-ready",
+      "ok": true
+    },
+    {
+      "duration_ms": 396.26,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-stack-domain-ops-second-wave-identity",
+      "ok": true
+    },
+    {
+      "duration_ms": 591.994,
+      "entry": "blackhole_agent.capability_compounder:builtin_execute_composed_capability",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.composed-super-core-health-domain-core-health-d",
+      "ok": true
+    },
+    {
+      "duration_ms": 467.357,
+      "entry": "blackhole_agent.capability_benchmark:builtin_fitness_benchmark_proof",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.fitness-benchmark",
+      "ok": true
+    },
+    {
+      "duration_ms": 157.921,
+      "entry": "blackhole_agent.capability_benchmark:builtin_fitness_scout_ablation",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.fitness-scout",
+      "ok": true
+    },
+    {
+      "duration_ms": 402.334,
+      "entry": "blackhole_agent.mcp_client:builtin_mcp_live_execution_proof",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.mcp-live-execution",
+      "ok": true
+    },
+    {
+      "duration_ms": 3980.432,
+      "entry": "blackhole_agent.mcp_client:builtin_mcp_live_external_proof",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.mcp-live-external",
+      "ok": true
+    },
+    {
+      "duration_ms": 24651.221,
+      "entry": "blackhole_agent.github_live:builtin_github_live_actuation_proof",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.github-live-actuation",
+      "ok": true
+    },
+    {
+      "duration_ms": 165.949,
+      "entry": "blackhole_agent.plane_engine:builtin_plane_engine",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.plane-engine",
+      "ok": true
+    },
+    {
+      "duration_ms": 213.664,
+      "entry": "blackhole_agent.plane_engine:builtin_plane_engine_full_stack",
+      "error": "",
+      "exit_code": 0,
+      "id": "capability.plane-engine-full-stack",
+      "ok": true
+    }
+  ]
+}

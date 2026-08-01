@@ -221,6 +221,16 @@ uv run blackhole-unbound capability integrity --limit 16
   bundles (`capability.continuity-plane`). Bundles land under
   `artifacts/continuity-bundles/`. Predicates `continuity_ok`, `resurrected_ok`,
   `bundle_valid`, and `min_bundle_certs:N` gate machine-checkable completion.
+- `capability benchmark --sweep` closes the measurement gap: every ledger
+  capability is invoked through its live registered entry (subprocess-isolated,
+  timeout-bounded, never its self-attested proof command) and graded into a
+  digest-sealed sweep report under `artifacts/capability-benchmark/`. The
+  merged fitness map (core benchmark + sweep, strictest score wins) feeds
+  scout ranking, and automatic growth is fitness-gated: measured weakness
+  halts new promotions with a live re-invoke of the weakest capability —
+  `fitness_recheck_passed` means the sealed map is stale, `repair_needed`
+  means repair comes before stacking. Explicit recipe selection bypasses the
+  gate so a fix can land.
 
 Promoted compositions are tagged `composed`/`promoted` and become ordinary
 ledger citizens that later turns can list, prove, run, and compose further.

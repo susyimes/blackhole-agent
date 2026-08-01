@@ -1,0 +1,60 @@
+{
+  "certificate_hash": "e021bd7fc8e91c0648acc53a",
+  "claims": {
+    "ablation_ok": true,
+    "adversarial_ok": true,
+    "assurance_ok": true,
+    "contract_met": true,
+    "contract_ok": true,
+    "machine_checkable": true,
+    "no_skill_route": true,
+    "transfer_ok": true
+  },
+  "done_when": "no_skill_route; capability_exists:capability.federation-plane; capability_proved:capability.federation-plane",
+  "evidence": {
+    "assurance": {
+      "ablation": {
+        "failed_phases": [],
+        "live_ledger_mutated": false,
+        "ok": true,
+        "passed_count": 4,
+        "phase_count": 4
+      },
+      "adversarial": {
+        "negative_count": 4,
+        "negatives_ok": true,
+        "negatives_passed": 4,
+        "ok": true,
+        "positive_ok": true
+      },
+      "ok": true,
+      "transfer": {
+        "member_count": 3,
+        "ok": true,
+        "package_hash": "7878a785b9718369",
+        "proved_count": 3
+      }
+    },
+    "contract": {
+      "failed_count": 0,
+      "machine_checkable": true,
+      "met": true,
+      "mission_ok": null,
+      "ok": true,
+      "passed_count": 3
+    },
+    "metrics": {
+      "count": 85,
+      "primitive_count": 36,
+      "proved_count": 85,
+      "proved_ratio": 1.0
+    }
+  },
+  "goal": "reconcile:Build a multi-origin federated continuity plane that merges independent continuity bundles (ledger packages + lineages + certificates) into one re-provable federated ledger with dual-origin lineage seal, federation certificate, sterile rehydrate+prove, and adversarial conflict/tamper/single-origin falsification — past single-origin cold-start only.",
+  "issued_at": "2026-07-29T15:13:50.512818Z",
+  "kind": "sovereignty_certificate",
+  "ok": true,
+  "package_hash": "7878a785b9718369",
+  "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260729T150639Z-fa7a335b",
+  "schema_version": 1
+}

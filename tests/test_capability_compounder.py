@@ -240,11 +240,14 @@ def test_scout_and_absorb_domain_surfaces_on_repo():
         item["status"] == "ready_to_absorb" and item["suggested_id"] == "domain.local-memory"
         for item in scout["opportunities"]
     )
-    # One combined frontier score: fresh absorbs of unmeasured surfaces
-    # (novelty 1000 + fitness measurement-gap bonus) outrank ready stacking
-    # compositions, so growth expands the measured surface before re-packaging.
+    # One combined frontier score: fresh absorbs (novelty 1000) outrank ready
+    # stacking compositions, so growth expands the domain surface before
+    # re-packaging. The sealed ledger sweep now measures the whole live ledger,
+    # so catalogued surfaces are no longer "unmeasured" and earn no uncertainty
+    # bonus; novelty alone carries the absorb recommendation.
     assert scout["recommended"]["status"] == "ready_to_absorb"
-    assert int(scout["recommended"].get("fitness_bonus") or 0) > 0
+    assert int(scout["recommended"].get("fitness_bonus") or 0) == 0
+    assert scout["fitness_measured_count"] > 10
     assert any(
         item["status"] == "ready" and item["suggested_id"] == "capability.composed-core-health"
         for item in scout["opportunities"]
@@ -351,10 +354,10 @@ def test_growth_loop_promotes_and_proves_on_repo():
     assert result["ok"] is True, result
     assert result["used_skill_route_discovery"] is False
     assert result["grew"] is True
-    # One combined frontier score: fresh surface absorbs (novelty 1000, plus the
-    # fitness bonus for unmeasured surfaces) outrank stacking compositions, so
-    # growth drains the absorb frontier before composing. This keeps measured
-    # domains from starving behind endless composition waves.
+    # One combined frontier score: fresh surface absorbs (novelty 1000)
+    # outrank stacking compositions, so growth drains the absorb frontier
+    # before composing. This keeps measured domains from starving behind
+    # endless composition waves.
     assert result["promoted_id"].startswith("domain.")
     assert result["after_count"] > before
     assert result["proof"]["ok"] is True
