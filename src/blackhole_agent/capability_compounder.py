@@ -19218,6 +19218,8 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "r=builtin_fragility_audit(); assert r['ok'] "
                 "and r.get('fragility',{}).get('fragility_score')==0.1667 "
                 "and r.get('fragility',{}).get('robust_goals')==['ledger-inventory-check'] "
+                "and r.get('fragility',{}).get('max_redundancy_depth')==1 "
+                "and r.get('depth_honest') and r.get('depth_forgery_detected') "
                 "and r.get('fragility',{}).get('max_blast_radius')==2 "
                 "and r.get('priority_correct') and r.get('deterministic') "
                 "and r.get('matrix_forgery_detected') and r.get('misgrade_detected') "

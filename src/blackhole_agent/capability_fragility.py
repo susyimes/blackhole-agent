@@ -9,6 +9,10 @@ directly from the live proved ledger:
   set of goals that become unplannable when that capability alone is hidden
   — computed by pure BFS re-planning (hide-one analysis), never by executing
   pipelines;
+- **redundancy depth**: how many *simultaneous* failures each goal survives
+  (hide-k analysis over capability subsets), with the lexicographically
+  first killing subset recorded as witness — a "robust" goal is only as
+  robust as its redundant providers' joint failure domain;
 - per-goal **single points of failure** (SPOFs) and a fragility grade: the
   fraction of goals with zero SPOFs. A goal whose every plan needs a
   capability no alternative can replace is honest-to-report fragile;
@@ -36,6 +40,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import itertools
 import json
 import sys
 from pathlib import Path
@@ -56,7 +61,7 @@ from blackhole_agent.capability_compounder import (
     utc_now_iso,
 )
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ARTIFACT_DIR = "artifacts/capability-fragility"
@@ -85,15 +90,59 @@ def compute_impact_matrix(
     return matrix
 
 
+def compute_redundancy_depth(
+    ledger: CapabilityLedger,
+    *,
+    tasks: Sequence[ApplicationTask] = APPLICATION_TASKS,
+) -> dict[str, dict[str, Any]]:
+    """How many simultaneous failures each goal survives, with a witness.
+
+    Hide-one analysis certifies single-failure robustness only. This hides
+    *sets* of capabilities: a goal's depth is the largest ``k`` such that
+    every ``k``-subset of the surface still leaves it plannable. The
+    lexicographically first killing subset is recorded as the witness — for
+    a depth-1 goal that is the pair of redundant providers whose joint
+    failure breaks it. Pure planning throughout; verification recomputes
+    every cell.
+    """
+
+    registry = build_application_registry(ledger)
+    surface = sorted(registry)
+    depth: dict[str, dict[str, Any]] = {}
+    survivors = list(tasks)
+    level = 0
+    while survivors and level < len(surface):
+        level += 1
+        still: list[ApplicationTask] = []
+        for task in survivors:
+            killed_by: list[str] = []
+            for subset in itertools.combinations(surface, level):
+                reduced = {cid: step for cid, step in registry.items() if cid not in subset}
+                if plan_application_task(task, reduced) is None:
+                    killed_by = sorted(subset)
+                    break
+            if killed_by:
+                depth[task.id] = {"depth": level - 1, "killed_by": killed_by}
+            else:
+                still.append(task)
+        survivors = still
+    for task in survivors:
+        depth[task.id] = {"depth": len(surface), "killed_by": []}
+    return depth
+
+
 def compute_fragility_grade(
     matrix: Mapping[str, Sequence[str]],
     *,
     tasks: Sequence[ApplicationTask] = APPLICATION_TASKS,
+    depth: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Pure fragility derivation from a recorded impact matrix.
 
     This function is the single grading rule: a report whose recorded grade
     disagrees with its recorded matrix is misgraded and fails verification.
+    When a redundancy-depth map is recorded it is folded into the grade, so
+    a forged depth cell is a misgrade too.
     """
 
     spofs_per_goal: dict[str, list[str]] = {}
@@ -105,7 +154,7 @@ def compute_fragility_grade(
     robust_goals = sorted(task_id for task_id, spofs in spofs_per_goal.items() if not spofs)
     critical = sorted(blast_radius, key=lambda cid: (-blast_radius[cid], cid))
     task_count = len(tasks)
-    return {
+    grade: dict[str, Any] = {
         "task_count": task_count,
         "spofs_per_goal": spofs_per_goal,
         "blast_radius": blast_radius,
@@ -115,6 +164,13 @@ def compute_fragility_grade(
         "critical_capabilities": critical,
         "max_blast_radius": max(blast_radius.values(), default=0),
     }
+    if depth is not None:
+        depth_per_goal = {goal: int(cell.get("depth", 0)) for goal, cell in depth.items()}
+        max_depth = max(depth_per_goal.values(), default=0)
+        grade["redundancy_depth"] = depth_per_goal
+        grade["max_redundancy_depth"] = max_depth
+        grade["deepest_goals"] = sorted(goal for goal, d in depth_per_goal.items() if d == max_depth)
+    return grade
 
 
 def repair_priority_order(
@@ -147,23 +203,27 @@ def _digest(payload: Any) -> str:
 
 
 def run_fragility_audit() -> dict[str, Any]:
-    """Compute the impact matrix and fragility grade over the live ledger."""
+    """Compute the impact matrix, redundancy depth, and fragility grade."""
 
     ledger = load_ledger(default_ledger_path(REPO_ROOT))
     matrix = compute_impact_matrix(ledger)
-    grade = compute_fragility_grade(matrix)
+    depth = compute_redundancy_depth(ledger)
+    grade = compute_fragility_grade(matrix, depth=depth)
     matrix_digest = _digest(matrix)
+    depth_digest = _digest(depth)
     grade_digest = _digest(grade)
     report_digest = hashlib.sha256(
-        f"fragility:{matrix_digest}:{grade_digest}".encode("utf-8")
+        f"fragility:{matrix_digest}:{depth_digest}:{grade_digest}".encode("utf-8")
     ).hexdigest()
     return {
         "schema_version": SCHEMA_VERSION,
         "kind": "capability_fragility_audit",
         "run_at": utc_now_iso(),
         "impact_matrix": matrix,
+        "redundancy_depth": depth,
         "fragility": grade,
         "matrix_digest": matrix_digest,
+        "depth_digest": depth_digest,
         "grade_digest": grade_digest,
         "report_digest": report_digest,
         "ok": True,
@@ -205,16 +265,20 @@ def verify_fragility_report(report_dir: Path) -> dict[str, Any]:
 
     ledger = load_ledger(default_ledger_path(REPO_ROOT))
     recomputed_matrix = compute_impact_matrix(ledger)
-    regraded = compute_fragility_grade(recomputed_matrix)
+    recomputed_depth = compute_redundancy_depth(ledger)
+    regraded = compute_fragility_grade(recomputed_matrix, depth=recomputed_depth)
     matrix_digest = _digest(recomputed_matrix)
+    depth_digest = _digest(recomputed_depth)
     grade_digest = _digest(regraded)
     report_digest = hashlib.sha256(
-        f"fragility:{matrix_digest}:{grade_digest}".encode("utf-8")
+        f"fragility:{matrix_digest}:{depth_digest}:{grade_digest}".encode("utf-8")
     ).hexdigest()
 
     checks = {
         "matrix_recomputed_matches": recomputed_matrix == report.get("impact_matrix"),
         "matrix_digest": matrix_digest == report.get("matrix_digest"),
+        "depth_recomputed_matches": recomputed_depth == report.get("redundancy_depth"),
+        "depth_digest": depth_digest == report.get("depth_digest"),
         "grade_recomputed_matches": regraded == report.get("fragility"),
         "grade_digest": grade_digest == report.get("grade_digest"),
         "report_digest": report_digest == report.get("report_digest"),
@@ -242,10 +306,11 @@ def builtin_fragility_audit() -> dict[str, Any]:
 
     first = run_fragility_audit()
     second = run_fragility_audit()
-    if first["matrix_digest"] != second["matrix_digest"]:
+    if first["matrix_digest"] != second["matrix_digest"] or first["depth_digest"] != second["depth_digest"]:
         return {"ok": False, "stage": "determinism"}
 
     grade = first["fragility"]
+    depth = first["redundancy_depth"]
     structure = (
         # Redundancy: neither readiness provider single-handedly blocks a goal.
         grade["blast_radius"].get("capability.ledger-inventory") == 0
@@ -261,6 +326,17 @@ def builtin_fragility_audit() -> dict[str, Any]:
         # single-handedly block the persona-stamped-proposal goal.
         and grade["blast_radius"].get("domain.persona") == 1
         and grade["blast_radius"].get("domain.proposal-synthesis") == 1
+        # Depth honesty: the robust goal survives exactly ONE simultaneous
+        # failure — the killing witness is the pair of redundant providers
+        # whose joint failure breaks it. Every other goal has depth 0.
+        and depth["ledger-inventory-check"]["depth"] == 1
+        and depth["ledger-inventory-check"]["killed_by"]
+        == ["capability.ledger-attestation", "capability.ledger-inventory"]
+        and all(
+            cell["depth"] == 0 for goal, cell in depth.items() if goal != "ledger-inventory-check"
+        )
+        and grade["max_redundancy_depth"] == 1
+        and grade["deepest_goals"] == ["ledger-inventory-check"]
     )
     if not structure:
         return {"ok": False, "stage": "structure", "fragility": grade}
@@ -301,10 +377,10 @@ def builtin_fragility_audit() -> dict[str, Any]:
         forged = json.loads(json.dumps(first))
         forged["impact_matrix"]["domain.tool-routing"] = []
         forged["matrix_digest"] = _digest(forged["impact_matrix"])
-        forged["fragility"] = compute_fragility_grade(forged["impact_matrix"])
+        forged["fragility"] = compute_fragility_grade(forged["impact_matrix"], depth=forged["redundancy_depth"])
         forged["grade_digest"] = _digest(forged["fragility"])
         forged["report_digest"] = hashlib.sha256(
-            f"fragility:{forged['matrix_digest']}:{forged['grade_digest']}".encode("utf-8")
+            f"fragility:{forged['matrix_digest']}:{forged['depth_digest']}:{forged['grade_digest']}".encode("utf-8")
         ).hexdigest()
         atomic_write_json(out / "report.json", forged)
         if verify_fragility_report(out)["ok"]:
@@ -314,14 +390,37 @@ def builtin_fragility_audit() -> dict[str, Any]:
                 "detail": "forged matrix cell passed verification",
             }
 
-        # Falsifiability 2: keep the true matrix but misgrade the score.
+        # Falsifiability 2: forge a depth cell — claim the robust goal
+        # survives two simultaneous failures — and re-seal. Recomputation
+        # must catch it.
+        forged_depth = json.loads(json.dumps(first))
+        forged_depth["redundancy_depth"]["ledger-inventory-check"]["depth"] = 2
+        forged_depth["depth_digest"] = _digest(forged_depth["redundancy_depth"])
+        forged_depth["fragility"] = compute_fragility_grade(
+            forged_depth["impact_matrix"], depth=forged_depth["redundancy_depth"]
+        )
+        forged_depth["grade_digest"] = _digest(forged_depth["fragility"])
+        forged_depth["report_digest"] = hashlib.sha256(
+            "fragility:{}:{}:{}".format(
+                forged_depth["matrix_digest"], forged_depth["depth_digest"], forged_depth["grade_digest"]
+            ).encode("utf-8")
+        ).hexdigest()
+        atomic_write_json(out / "report.json", forged_depth)
+        if verify_fragility_report(out)["ok"]:
+            return {
+                "ok": False,
+                "stage": "depth-forgery-falsification",
+                "detail": "forged depth cell passed verification",
+            }
+
+        # Falsifiability 3: keep the true matrix but misgrade the score.
         misgraded = json.loads(json.dumps(first))
         misgraded["fragility"]["fragility_score"] = 1.0
         atomic_write_json(out / "report.json", misgraded)
         if verify_fragility_report(out)["ok"]:
             return {"ok": False, "stage": "misgrade-falsification", "detail": "misgraded score passed verification"}
 
-        # Falsifiability 3: flip one recorded blocked-goal list entry raw
+        # Falsifiability 4: flip one recorded blocked-goal list entry raw
         # (no re-sealing) — the digest chain must catch it.
         tampered = json.loads(json.dumps(first))
         tampered["impact_matrix"]["domain.tool-routing"] = ["ledger-gated-proposal"]
@@ -335,7 +434,9 @@ def builtin_fragility_audit() -> dict[str, Any]:
         "report_digest": first["report_digest"],
         "deterministic": True,
         "priority_correct": True,
+        "depth_honest": True,
         "matrix_forgery_detected": True,
+        "depth_forgery_detected": True,
         "misgrade_detected": True,
         "tamper_detected": True,
         "used_skill_route_discovery": first["used_skill_route_discovery"],

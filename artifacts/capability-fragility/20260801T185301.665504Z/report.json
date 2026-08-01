@@ -1,0 +1,154 @@
+{
+  "depth_digest": "aabca9017ddca61919fff44f86e518a8cb6611353303ab1abaef1c3a26f72a1a",
+  "fragility": {
+    "blast_radius": {
+      "capability.ledger-attestation": 0,
+      "capability.ledger-inventory": 0,
+      "domain.ci-security": 2,
+      "domain.harness-activation": 2,
+      "domain.issue-triage": 1,
+      "domain.local-memory": 1,
+      "domain.persona": 1,
+      "domain.proposal-eval": 1,
+      "domain.proposal-synthesis": 1,
+      "domain.tool-routing": 1
+    },
+    "critical_capabilities": [
+      "domain.ci-security",
+      "domain.harness-activation",
+      "domain.issue-triage",
+      "domain.local-memory",
+      "domain.persona",
+      "domain.proposal-eval",
+      "domain.proposal-synthesis",
+      "domain.tool-routing",
+      "capability.ledger-attestation",
+      "capability.ledger-inventory"
+    ],
+    "deepest_goals": [
+      "ledger-inventory-check"
+    ],
+    "fragile_goals": [
+      "blocked-scan-honesty",
+      "ledger-gated-proposal",
+      "persona-stamped-proposal",
+      "routed-triage-record",
+      "scan-gated-activation"
+    ],
+    "fragility_score": 0.1667,
+    "max_blast_radius": 2,
+    "max_redundancy_depth": 1,
+    "redundancy_depth": {
+      "blocked-scan-honesty": 0,
+      "ledger-gated-proposal": 0,
+      "ledger-inventory-check": 1,
+      "persona-stamped-proposal": 0,
+      "routed-triage-record": 0,
+      "scan-gated-activation": 0
+    },
+    "robust_goals": [
+      "ledger-inventory-check"
+    ],
+    "spofs_per_goal": {
+      "blocked-scan-honesty": [
+        "domain.ci-security",
+        "domain.harness-activation"
+      ],
+      "ledger-gated-proposal": [
+        "domain.proposal-eval"
+      ],
+      "ledger-inventory-check": [],
+      "persona-stamped-proposal": [
+        "domain.persona",
+        "domain.proposal-synthesis"
+      ],
+      "routed-triage-record": [
+        "domain.issue-triage",
+        "domain.local-memory",
+        "domain.tool-routing"
+      ],
+      "scan-gated-activation": [
+        "domain.ci-security",
+        "domain.harness-activation"
+      ]
+    },
+    "task_count": 6
+  },
+  "grade_digest": "7c6a9789a9206cf4161bc37af7e8eb6db4ae4c811e8042e1e4791566e83e5216",
+  "impact_matrix": {
+    "capability.ledger-attestation": [],
+    "capability.ledger-inventory": [],
+    "domain.ci-security": [
+      "blocked-scan-honesty",
+      "scan-gated-activation"
+    ],
+    "domain.harness-activation": [
+      "blocked-scan-honesty",
+      "scan-gated-activation"
+    ],
+    "domain.issue-triage": [
+      "routed-triage-record"
+    ],
+    "domain.local-memory": [
+      "routed-triage-record"
+    ],
+    "domain.persona": [
+      "persona-stamped-proposal"
+    ],
+    "domain.proposal-eval": [
+      "ledger-gated-proposal"
+    ],
+    "domain.proposal-synthesis": [
+      "persona-stamped-proposal"
+    ],
+    "domain.tool-routing": [
+      "routed-triage-record"
+    ]
+  },
+  "kind": "capability_fragility_audit",
+  "matrix_digest": "225a60945d94a2c2a528b685136b764e4c90ebd164256029edf3b794cd6fc8a9",
+  "ok": true,
+  "redundancy_depth": {
+    "blocked-scan-honesty": {
+      "depth": 0,
+      "killed_by": [
+        "domain.ci-security"
+      ]
+    },
+    "ledger-gated-proposal": {
+      "depth": 0,
+      "killed_by": [
+        "domain.proposal-eval"
+      ]
+    },
+    "ledger-inventory-check": {
+      "depth": 1,
+      "killed_by": [
+        "capability.ledger-attestation",
+        "capability.ledger-inventory"
+      ]
+    },
+    "persona-stamped-proposal": {
+      "depth": 0,
+      "killed_by": [
+        "domain.persona"
+      ]
+    },
+    "routed-triage-record": {
+      "depth": 0,
+      "killed_by": [
+        "domain.issue-triage"
+      ]
+    },
+    "scan-gated-activation": {
+      "depth": 0,
+      "killed_by": [
+        "domain.ci-security"
+      ]
+    }
+  },
+  "report_digest": "ab2e9da819a288cad98699c6a016ba2d06ea88846551561b84cba925d9ebc301",
+  "run_at": "2026-08-01T18:53:01.665504Z",
+  "schema_version": 2,
+  "used_skill_route_discovery": false
+}

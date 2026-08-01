@@ -180,3 +180,36 @@ def test_execute_application_plan_threads_state() -> None:
     state = execute_application_plan(task, ["domain.ci-security", "domain.harness-activation"], registry)
     assert state["scan_gate"]["allowed"] is True
     assert state["activation"]["allowed"] is True
+
+
+def test_unbound_cli_goals_lists_solvability() -> None:
+    import json as _json
+
+    from typer.testing import CliRunner
+
+    from blackhole_agent.unbound import app
+
+    result = CliRunner().invoke(app, ["capability", "goals"])
+    assert result.exit_code == 0, result.output
+    data = _json.loads(result.output)
+    assert data["solvable_count"] == len(APPLICATION_TASKS)
+    ids = {goal["id"] for goal in data["goals"]}
+    assert "persona-stamped-proposal" in ids
+
+
+def test_unbound_cli_apply_solves_declared_goal() -> None:
+    import json as _json
+
+    from typer.testing import CliRunner
+
+    from blackhole_agent.unbound import app
+
+    result = CliRunner().invoke(app, ["capability", "apply", "persona-stamped-proposal"])
+    assert result.exit_code == 0, result.output
+    data = _json.loads(result.output)
+    assert data["ok"] is True
+    assert data["plan"] == ["domain.persona", "domain.proposal-synthesis"]
+    assert data["outcome"]["proposal_package"]["persona_version"] == "2026-06-14.hermes-inspired"
+
+    unknown = CliRunner().invoke(app, ["capability", "apply", "no-such-goal"])
+    assert unknown.exit_code != 0

@@ -104,11 +104,31 @@ def test_sealed_report_verifies_and_forged_cell_fails(tmp_path: Path) -> None:
     assert result["checks"]["matrix_recomputed_matches"] is False
 
 
+def test_redundancy_depth_measures_simultaneous_failures() -> None:
+    from blackhole_agent.capability_fragility import compute_redundancy_depth
+
+    depth = compute_redundancy_depth(_live_ledger())
+    # The robust goal survives exactly one simultaneous failure; the killing
+    # witness is the joint loss of both readiness providers.
+    assert depth["ledger-inventory-check"]["depth"] == 1
+    assert depth["ledger-inventory-check"]["killed_by"] == [
+        "capability.ledger-attestation",
+        "capability.ledger-inventory",
+    ]
+    for goal, cell in depth.items():
+        if goal != "ledger-inventory-check":
+            assert cell["depth"] == 0, goal
+            assert len(cell["killed_by"]) == 1, goal
+
+
 def test_builtin_fragility_audit_proof() -> None:
     result = builtin_fragility_audit()
     assert result["ok"] is True, result
     assert result["fragility"]["fragility_score"] == round(1 / 6, 4)
     assert result["fragility"]["robust_goals"] == ["ledger-inventory-check"]
+    assert result["fragility"]["max_redundancy_depth"] == 1
+    assert result["depth_honest"] is True
+    assert result["depth_forgery_detected"] is True
     assert result["priority_correct"] is True
     assert result["deterministic"] is True
     assert result["used_skill_route_discovery"] is False

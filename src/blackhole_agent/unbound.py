@@ -3057,6 +3057,67 @@ def capability_utility(
 
 
 @capability_app.command(
+    "goals",
+    help="List declarative application goals with live solvability over the proved ledger.",
+)
+def capability_goals(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+) -> None:
+    from blackhole_agent.capability_application import (
+        APPLICATION_TASKS,
+        build_application_registry,
+        plan_application_task,
+    )
+    from blackhole_agent.capability_compounder import default_ledger_path, load_ledger
+
+    root = repo_path.resolve()
+    ledger = load_ledger(default_ledger_path(root))
+    registry = build_application_registry(ledger)
+    goals = []
+    for task in APPLICATION_TASKS:
+        plan = plan_application_task(task, registry)
+        goals.append(
+            {
+                "id": task.id,
+                "description": task.description,
+                "solvable": plan is not None,
+                "plan": plan,
+            }
+        )
+    console.print_json(data={"goals": goals, "solvable_count": sum(1 for g in goals if g["solvable"])})
+    if not all(goal["solvable"] for goal in goals):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
+    "apply",
+    help="Solve one declarative goal: plan over the live proved ledger, execute, grade against its oracle.",
+)
+def capability_apply(
+    goal_id: str = typer.Argument(..., help="Application goal id (see capability goals)."),
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository root."),
+) -> None:
+    from blackhole_agent.capability_application import (
+        APPLICATION_TASKS,
+        build_application_registry,
+        run_application_task,
+    )
+    from blackhole_agent.capability_compounder import default_ledger_path, load_ledger
+
+    root = repo_path.resolve()
+    task = next((item for item in APPLICATION_TASKS if item.id == goal_id), None)
+    if task is None:
+        console.print(f"Unknown goal: {goal_id}", style="red")
+        raise typer.Exit(1)
+    ledger = load_ledger(default_ledger_path(root))
+    registry = build_application_registry(ledger)
+    result = run_application_task(task, registry)
+    console.print_json(data=result)
+    if not result.get("ok"):
+        raise typer.Exit(1)
+
+
+@capability_app.command(
     "distill",
     help=(
         "Distill redundant composed capabilities that share identical primitive coverage. "
