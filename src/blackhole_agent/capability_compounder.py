@@ -19437,6 +19437,62 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
             created_at=utc_now_iso(),
             updated_at=utc_now_iso(),
         ),
+        Capability(
+            id="capability.goal-stack-health",
+            name="Goal-stack composite health",
+            description=(
+                "The whole goal-directed stack as one invocable proof: runs "
+                "the application plane, goal watchdog, fragility audit, and "
+                "recovery baseline live, and is healthy only when ALL are "
+                "green at once - every goal plan-attributed, zero drift, "
+                "the robust goal intact, zero repairs needed. Headlines are "
+                "digest-sealed; verification recomputes health from the "
+                "recorded headlines so a summary that reports health while "
+                "one plane is red fails. This is the capstone composition "
+                "surface of the application-plane mission: no new behavior, "
+                "just honest aggregation of the planes' own live passes."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_stack:builtin_stack_health",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_stack import builtin_stack_health; '
+                "r=builtin_stack_health(); assert r['ok'] "
+                "and r.get('health',{}).get('healthy') "
+                "and r.get('health',{}).get('green_count')==r.get('health',{}).get('plane_count')==4 "
+                "and r.get('tamper_detected') and r.get('misgrade_detected') "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.application-plane",
+                "capability.recovery-loop",
+                "capability.fragility-audit",
+                "capability.goal-watchdog",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_stack.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "One invocable capability now attests the entire goal-"
+                "directed stack: application, watchdog, fragility, and "
+                "recovery run live in a single pass whose health is a pure "
+                "function of sealed headlines - stack-wide health is "
+                "provable in one command without skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "stack",
+                "health",
+                "composition",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
 
     ]
 

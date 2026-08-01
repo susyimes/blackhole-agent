@@ -1,0 +1,49 @@
+{
+  "headlines": {
+    "application": {
+      "application_score": 1.0,
+      "ok": true,
+      "task_count": 6,
+      "unsolvable_count": 0
+    },
+    "fragility": {
+      "fragility_score": 0.1667,
+      "max_blast_radius": 2,
+      "max_redundancy_depth": 1,
+      "robust_goals": [
+        "ledger-inventory-check"
+      ]
+    },
+    "recovery": {
+      "ok": true,
+      "repair_count": 0,
+      "task_count": 6,
+      "task_pass_count": 6
+    },
+    "watchdog": {
+      "drifted_goals": [],
+      "goal_count": 6,
+      "healthy_count": 6,
+      "ok": true
+    }
+  },
+  "headlines_digest": "62d790a150b709f43d5a98ff0ba41134f941464570494d9d838c9c4ae2d016f9",
+  "health": {
+    "green_count": 4,
+    "healthy": true,
+    "plane_count": 4,
+    "planes_green": {
+      "application": true,
+      "fragility": true,
+      "recovery": true,
+      "watchdog": true
+    }
+  },
+  "health_digest": "74bae543431a7b48b02d14e0bea35116f3bfc29c6467c40f6a06a4eb329c61ae",
+  "kind": "capability_stack_health",
+  "ok": true,
+  "report_digest": "1447c3b8882e3c5239b0763adafb6dd936770ad11f16f60da36cb789e607d34a",
+  "run_at": "2026-08-01T19:19:06.374697Z",
+  "schema_version": 1,
+  "used_skill_route_discovery": false
+}
