@@ -19141,7 +19141,7 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "and r.get('healed') and r.get('transitive_healed') and r.get('honest_unsolved') "
                 "and r.get('recovery',{}).get('recovered')==['routed-triage-record'] "
                 "and r.get('recovery',{}).get('repaired_count')==2 "
-                "and r.get('honest_failure',{}).get('honest_unsolved')==['ledger-gated-proposal'] "
+                "and r.get('honest_failure',{}).get('honest_unsolved')==['ledger-gated-proposal','ledger-inventory-check'] "
                 "and r.get('deterministic') "
                 "and r.get('tamper_detected') and r.get('fake_healing_detected') "
                 "and r.get('misgrade_detected') "
@@ -19176,6 +19176,70 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "repair",
                 "application",
                 "self-healing",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.fragility-audit",
+            name="Goal fragility audit",
+            description=(
+                "Single-point-of-failure analysis across the application "
+                "planning surface: for every proved surface capability, the "
+                "impact matrix records which goals become unplannable when "
+                "that capability alone is hidden - computed by pure BFS "
+                "re-planning, never by executing pipelines. Per-goal SPOF "
+                "sets, per-capability blast radii, and an honest fragility "
+                "grade (0.0 on the current surface: no goal survives a "
+                "single failure; capability.ledger-inventory has the widest "
+                "blast radius at 2 goals). Reports are digest-sealed and "
+                "verification recomputes the entire matrix from the live "
+                "ledger, so every cell is independently falsifiable. The "
+                "recovery loop consumes blast radii as its repair priority "
+                "order: widest-blast failures heal first, with the order "
+                "recorded as digest-covered evidence."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_fragility:builtin_fragility_audit",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_fragility import builtin_fragility_audit; '
+                "r=builtin_fragility_audit(); assert r['ok'] "
+                "and r.get('fragility',{}).get('max_blast_radius')==2 "
+                "and r.get('fragility',{}).get('critical_capabilities',[None])[0]=='capability.ledger-inventory' "
+                "and r.get('priority_correct') and r.get('deterministic') "
+                "and r.get('matrix_forgery_detected') and r.get('misgrade_detected') "
+                "and r.get('tamper_detected') "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.ablation-proof",
+                "capability.application-plane",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_fragility.py",
+                "src/blackhole_agent/capability_application.py",
+                "src/blackhole_agent/capability_recovery.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Goal reliability is measured, not assumed: hide-one "
+                "re-planning names every single point of failure per goal "
+                "and each capability's blast radius over the live ledger, "
+                "verification recomputes the whole matrix so no cell can be "
+                "forged, and recovery repairs widest-blast failures first - "
+                "without skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "fragility",
+                "reliability",
+                "planning",
+                "recovery",
                 "evidence",
             ),
             created_at=utc_now_iso(),

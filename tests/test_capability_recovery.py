@@ -74,11 +74,17 @@ def test_mixed_break_recovers_healable_and_fails_honestly() -> None:
     )
     assert report["ok"] is False
     assert report["recovery"]["recovered"] == ["routed-triage-record"]
-    assert report["recovery"]["honest_unsolved"] == ["ledger-gated-proposal"]
+    assert report["recovery"]["honest_unsolved"] == ["ledger-gated-proposal", "ledger-inventory-check"]
     assert report["recovery"]["repaired_count"] == 1
     assert report["recovery"]["unrepairable_count"] == 1
     assert report["break_stamps_after"]["domain.tool-routing"] == 0
     assert report["break_stamps_after"]["capability.ledger-inventory"] != 0
+    # Blast-radius priority: the two-goal failure is repaired first.
+    assert [repair["capability_id"] for repair in report["repairs"]] == [
+        "capability.ledger-inventory",
+        "domain.tool-routing",
+    ]
+    assert [repair["blast_radius"] for repair in report["repairs"]] == [2, 1]
 
 
 def test_stamps_bind_verdicts_in_consistency_check() -> None:
@@ -108,15 +114,19 @@ def test_stale_interpreter_break_heals_and_recovers_goal() -> None:
 def test_failing_proof_break_is_honestly_unsolved() -> None:
     report = run_recovery_loop(breaks={"capability.ledger-inventory": BREAK_FAILING_PROOF})
     assert report["ok"] is False
-    assert report["recovery"]["honest_unsolved"] == ["ledger-gated-proposal"]
+    # The broken inventory blocks both goals that share it.
+    assert report["recovery"]["honest_unsolved"] == ["ledger-gated-proposal", "ledger-inventory-check"]
     assert report["recovery"]["unrepairable_count"] == 1
-    record = next(item for item in report["task_records"] if item["id"] == "ledger-gated-proposal")
-    assert record["initially_unplannable"] is True
-    assert record["ok"] is False
+    assert report["recovery"]["task_pass_count"] == report["recovery"]["task_count"] - 2
+    for task_id in ("ledger-gated-proposal", "ledger-inventory-check"):
+        record = next(item for item in report["task_records"] if item["id"] == task_id)
+        assert record["initially_unplannable"] is True
+        assert record["ok"] is False
     repair = next(item for item in report["repairs"] if item["capability_id"] == "capability.ledger-inventory")
     assert repair["verdict"] == "unrepairable"
     assert repair["last_proof_exit_code"] != 0
     assert repair["honest"] is True
+    assert repair["blast_radius"] == 2
 
 
 def test_synthetic_breaks_never_touch_live_ledger() -> None:

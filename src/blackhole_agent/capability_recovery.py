@@ -165,7 +165,15 @@ def run_recovery_loop(
         if not _capability_proved(ledger, capability_id)
     )
 
-    # Phase 2: repair — bounded, one attempt per blocked capability.
+    # Phase 2: repair — bounded, one attempt per blocked capability, widest
+    # blast radius first: the failure that blocks the most goals is healed
+    # before failures that block fewer. Blast radii come from the *healthy*
+    # surface structure (the live ledger), not the broken clone — a red
+    # capability is absent from its own impact matrix.
+    from blackhole_agent.capability_fragility import blast_radius_map
+
+    blast = blast_radius_map(live)
+    blocked_capabilities.sort(key=lambda cid: (-blast.get(cid, 0), cid))
     repairs: list[dict[str, Any]] = []
     for capability_id in blocked_capabilities:
         ledger, report = repair_capability(
@@ -175,7 +183,9 @@ def run_recovery_loop(
             command_runner=command_runner,
             timeout=timeout,
         )
-        repairs.append(_repair_projection(report))
+        projection = _repair_projection(report)
+        projection["blast_radius"] = blast.get(capability_id, 0)
+        repairs.append(projection)
     if persist and not requested and repairs:
         save_ledger(path, ledger)
 
@@ -510,6 +520,9 @@ def builtin_recovery_loop() -> dict[str, Any]:
         return {"ok": False, "stage": "transitive-heal", "recovery": transitive["recovery"]}
 
     # Mixed break: one healable, one unrepairable — partial honest recovery.
+    # The unrepairable capability has the wider blast radius (it blocks two
+    # goals), so priority ordering repairs it first; both of its goals stay
+    # honestly unsolved while the healable goal recovers.
     mixed = run_recovery_loop(
         breaks={
             "domain.tool-routing": BREAK_STALE_INTERPRETER,
@@ -519,12 +532,18 @@ def builtin_recovery_loop() -> dict[str, Any]:
     honest_failure = (
         not mixed["ok"]
         and mixed["recovery"]["recovered"] == ["routed-triage-record"]
-        and mixed["recovery"]["honest_unsolved"] == ["ledger-gated-proposal"]
+        and mixed["recovery"]["honest_unsolved"] == ["ledger-gated-proposal", "ledger-inventory-check"]
         and mixed["recovery"]["unrepairable_count"] == 1
         and mixed["recovery"]["repaired_count"] == 1
         and mixed["break_stamps_after"].get("capability.ledger-inventory") != 0
         and mixed["break_stamps_after"].get("domain.tool-routing") == 0
-        and mixed["recovery"]["task_pass_count"] == mixed["recovery"]["task_count"] - 1
+        and mixed["recovery"]["task_pass_count"] == mixed["recovery"]["task_count"] - 2
+        # Blast-radius priority: the two-goal failure is repaired before the
+        # one-goal failure, and the order is digest-covered evidence.
+        and [repair["capability_id"] for repair in mixed["repairs"]]
+        == ["capability.ledger-inventory", "domain.tool-routing"]
+        and mixed["repairs"][0]["blast_radius"] == 2
+        and mixed["repairs"][1]["blast_radius"] == 1
     )
     if not honest_failure:
         return {"ok": False, "stage": "honest-failure", "recovery": mixed["recovery"]}

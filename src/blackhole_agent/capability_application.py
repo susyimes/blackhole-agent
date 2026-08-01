@@ -281,6 +281,18 @@ APPLICATION_TASKS: tuple[ApplicationTask, ...] = (
             },
         },
     ),
+    ApplicationTask(
+        id="ledger-inventory-check",
+        description=(
+            "Attest that the capability ledger is ready to carry new records. "
+            "Deliberately shares capability.ledger-inventory with "
+            "ledger-gated-proposal so blast-radius analysis has shared "
+            "structure to measure."
+        ),
+        initial_state={},
+        goal=("ledger_ready",),
+        oracle={"ledger_ready": True},
+    ),
 )
 
 
@@ -616,10 +628,13 @@ def check_planner_honesty() -> dict[str, Any]:
     hidden_inventory = run_application_plane(hide=("capability.ledger-inventory",))
     inventory_records = {record["id"]: record for record in hidden_inventory["task_records"]}
     proposal = inventory_records.get("ledger-gated-proposal") or {}
+    inventory_check = inventory_records.get("ledger-inventory-check") or {}
     inventory_honest = (
         proposal.get("plan") is None
         and proposal.get("ok") is False
-        and hidden_inventory["application"]["unsolvable_count"] == 1
+        and inventory_check.get("plan") is None
+        and inventory_check.get("ok") is False
+        and hidden_inventory["application"]["unsolvable_count"] == 2
     )
 
     return {
