@@ -32,7 +32,6 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
-
 from blackhole_agent.capability_compounder import atomic_write_json, utc_now_iso
 
 SCHEMA_VERSION = 1
@@ -370,6 +369,129 @@ def builtin_fitness_benchmark_proof() -> dict[str, Any]:
         "deterministic": True,
         "tamper_detected": True,
         "misgrade_detected": True,
+    }
+
+
+def load_latest_fitness_map(repo_root: Path) -> dict[str, float] | None:
+    """Load the measured per-capability fitness map from the latest sealed report.
+
+    Returns ``None`` when no sealed benchmark report exists, so ranking falls
+    back to pure novelty ordering. Only the measured fitness values are read;
+    the digest chain is re-verified before the map is trusted.
+    """
+
+    pointer_path = repo_root / DEFAULT_ARTIFACT_DIR / "latest-benchmark.json"
+    if not pointer_path.exists():
+        return None
+    try:
+        pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
+        report_dir = repo_root / DEFAULT_ARTIFACT_DIR / str(pointer.get("report_dir") or "")
+        if not verify_fitness_report(report_dir)["ok"]:
+            return None
+        report = json.loads((report_dir / "report.json").read_text(encoding="utf-8"))
+        fitness = (report.get("fitness") or {}).get("capability_fitness") or {}
+        return {str(key): float(value) for key, value in fitness.items()}
+    except Exception:  # noqa: BLE001 - an unreadable report means "no fitness signal"
+        return None
+
+
+def builtin_fitness_scout_ablation() -> dict[str, Any]:
+    """Registered proof for ``capability.fitness-scout``.
+
+    Ablates fitness-aware frontier ranking against novelty-only ranking on the
+    live ledger:
+
+    1. coincide: with the live sealed report (uniform fitness, nothing weak),
+       fitness-aware selection matches novelty-only selection — a healthy
+       ledger has no weakness to target, so any divergence would be noise;
+    2. sensitivity: degrading one live measured capability to 0.0 changes the
+       ordered ready frontier list on the live ledger — selection tracks the
+       fitness signal, diverging from novelty-only whenever fitness is
+       non-uniform;
+    3. causation: a counterfactual map scoring every ledger capability 1.0
+       collapses fitness-aware ranking back to the exact novelty-only order,
+       so sensitivity is caused by the fitness signal;
+    4. weakest-targeting: the degraded capability's ready frontiers strictly
+       gain fitness bonus.
+    """
+
+    from blackhole_agent.capability_compounder import (
+        default_ledger_path,
+        load_ledger,
+        scout_capability_gaps,
+    )
+
+    ledger = load_ledger(default_ledger_path(REPO_ROOT))
+    fitness_map = load_latest_fitness_map(REPO_ROOT)
+    if not fitness_map:
+        return {"ok": False, "stage": "load-fitness", "detail": "no sealed benchmark report"}
+
+    def ready_order(fitness: Mapping[str, float] | None) -> list[str]:
+        scout = scout_capability_gaps(ledger, repo_path=REPO_ROOT, fitness_map=fitness)
+        return [
+            str(item.get("suggested_id"))
+            for item in (scout.get("opportunities") or [])
+            if item.get("status") in {"ready", "ready_to_absorb"}
+        ]
+
+    novelty_order = ready_order(None)
+    fitness_order = ready_order(fitness_map)
+    coincide = novelty_order == fitness_order
+
+    uniform_map = {capability_id: 1.0 for capability_id in ledger.capabilities}
+    causation = ready_order(uniform_map) == novelty_order
+
+    # Sensitivity + weakest-targeting: a uniform lift cannot reorder (adding a
+    # constant to every frontier preserves order), so probe measured
+    # capabilities from rarest to most common frontier coverage and accept the
+    # first whose degradation changes the ready order — a genuine crossing.
+    from collections import Counter
+
+    scout = scout_capability_gaps(ledger, repo_path=REPO_ROOT, fitness_map=None)
+
+    def frontier_members(item: Mapping[str, Any]) -> list[str]:
+        members = [str(m) for m in (item.get("coverage") or item.get("members") or [])]
+        return members or [str(item.get("suggested_id") or "")]
+
+    member_counter: Counter[str] = Counter()
+    for item in scout.get("opportunities") or []:
+        if item.get("status") in {"ready", "ready_to_absorb"}:
+            member_counter.update(m for m in frontier_members(item) if m in fitness_map)
+    sensitivity = False
+    weakest_detail: dict[str, Any] = {"target": None, "lifted": 0}
+    for target, _count in sorted(member_counter.items(), key=lambda kv: (kv[1], kv[0])):
+        degraded = dict(fitness_map)
+        degraded[target] = 0.0
+        degraded_scout = scout_capability_gaps(ledger, repo_path=REPO_ROOT, fitness_map=degraded)
+        degraded_items = [
+            item
+            for item in (degraded_scout.get("opportunities") or [])
+            if item.get("status") in {"ready", "ready_to_absorb"}
+        ]
+        degraded_order = [str(item.get("suggested_id")) for item in degraded_items]
+        lifted = sum(
+            1
+            for item in degraded_items
+            if target in frontier_members(item) and int(item.get("fitness_bonus") or 0) > 0
+        )
+        if degraded_order != novelty_order and lifted > 0:
+            sensitivity = True
+            weakest_detail = {"target": target, "lifted": lifted}
+            break
+        if lifted > 0 and not weakest_detail["lifted"]:
+            weakest_detail = {"target": target, "lifted": lifted}
+
+    ok = coincide and sensitivity and causation and weakest_detail["lifted"] > 0
+    return {
+        "ok": ok,
+        "coincide": coincide,
+        "sensitivity": sensitivity,
+        "causation": causation,
+        "weakest_targeting": weakest_detail,
+        "fitness_aware_top": fitness_order[:3],
+        "novelty_only_top": novelty_order[:3],
+        "measured_capabilities": len(fitness_map),
+        "used_skill_route_discovery": bool(scout.get("used_skill_route_discovery")),
     }
 
 

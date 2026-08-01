@@ -240,9 +240,15 @@ def test_scout_and_absorb_domain_surfaces_on_repo():
         item["status"] == "ready_to_absorb" and item["suggested_id"] == "domain.local-memory"
         for item in scout["opportunities"]
     )
-    # Composition still outranks domain absorb while ready meta recipes exist.
-    assert scout["recommended"]["status"] == "ready"
-    assert scout["recommended"]["suggested_id"] == "capability.composed-core-health"
+    # One combined frontier score: fresh absorbs of unmeasured surfaces
+    # (novelty 1000 + fitness measurement-gap bonus) outrank ready stacking
+    # compositions, so growth expands the measured surface before re-packaging.
+    assert scout["recommended"]["status"] == "ready_to_absorb"
+    assert int(scout["recommended"].get("fitness_bonus") or 0) > 0
+    assert any(
+        item["status"] == "ready" and item["suggested_id"] == "capability.composed-core-health"
+        for item in scout["opportunities"]
+    )
 
     ledger, absorbed = absorb_domain_surface(ledger, "domain.local-memory")
     assert absorbed.id == "domain.local-memory"
@@ -289,18 +295,28 @@ def test_growth_loop_promotes_and_proves_on_repo():
     # Multi-pass removal: hierarchical stacks depend on first-gen compositions, which
     # depend on domain leaves. Dependents must go first; a single alpha pass leaves
     # pillars in place and makes hierarchical stacks the next "growth" recommendation.
+    # The removal set is the full transitive dependent closure of composed/domain
+    # ids: planes that depend on them only indirectly (e.g. fitness-scout ->
+    # fitness-benchmark -> domain leaves) block removal just the same.
+    removal_closure = {
+        capability_id
+        for capability_id in ledger.capabilities
+        if capability_id.startswith(("capability.composed-", "domain."))
+    }
+    grew = True
+    while grew:
+        grew = False
+        for capability_id, capability in ledger.capabilities.items():
+            if capability_id not in removal_closure and any(
+                dependency in removal_closure for dependency in capability.dependencies
+            ):
+                removal_closure.add(capability_id)
+                grew = True
     for _ in range(12):
         removable = [
             capability_id
             for capability_id in list(ledger.capabilities)
-            if capability_id.startswith("capability.composed-")
-            or capability_id.startswith("domain.")
-            # Dependents of composed/domain members (e.g. benchmark planes that
-            # exercise domain leaves) block their removal, so they go first.
-            or any(
-                dependency.startswith(("capability.composed-", "domain."))
-                for dependency in ledger.capabilities[capability_id].dependencies
-            )
+            if capability_id in removal_closure
         ]
         if not removable:
             break
@@ -335,11 +351,24 @@ def test_growth_loop_promotes_and_proves_on_repo():
     assert result["ok"] is True, result
     assert result["used_skill_route_discovery"] is False
     assert result["grew"] is True
-    assert result["promoted_id"] == "capability.composed-core-health"
+    # One combined frontier score: fresh surface absorbs (novelty 1000, plus the
+    # fitness bonus for unmeasured surfaces) outrank stacking compositions, so
+    # growth drains the absorb frontier before composing. This keeps measured
+    # domains from starving behind endless composition waves.
+    assert result["promoted_id"].startswith("domain.")
     assert result["after_count"] > before
     assert result["proof"]["ok"] is True
     assert result["run"]["ok"] is True
     ledger = load_ledger(path)
+    # composed-core-health lands once the absorb frontier has drained.
+    for _ in range(14):
+        if "capability.composed-core-health" in ledger.capabilities:
+            break
+        result = run_growth_loop(repo, timeout=180)
+        assert result["ok"] is True, result
+        assert result["used_skill_route_discovery"] is False
+        assert result["grew"] is True
+        ledger = load_ledger(path)
     assert "capability.composed-core-health" in ledger.capabilities
     assert ledger.capabilities["capability.composed-core-health"].last_proof_exit_code == 0
     # Second pass promotes the domain composition only after domains exist, or evolution-ready,

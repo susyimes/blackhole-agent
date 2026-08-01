@@ -575,8 +575,67 @@ def annotate_opportunities_with_novelty(
     return opportunities
 
 
-def rank_growth_opportunities(opportunities: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Rank scout opportunities: ready+novel first, then other ready, then absorbs."""
+FITNESS_WEAK_WEIGHT = 100
+FITNESS_UNMEASURED_WEIGHT = 25
+
+
+def annotate_opportunities_with_fitness(
+    opportunities: list[dict[str, Any]],
+    fitness_map: Mapping[str, float],
+) -> list[dict[str, Any]]:
+    """Attach a fitness bonus to scout opportunities in-place.
+
+    The bonus steers growth toward measured weakness and measurement gaps:
+    members whose benchmark fitness is below 1.0 contribute a deficit-scaled
+    weight (weakest-capability targeting). Absorb candidates for surfaces with
+    no measurement at all contribute a smaller uncertainty weight, so growth
+    expands the measured surface. Compositions earn no uncertainty weight:
+    re-stacking an already-ledgered unmeasured primitive does not expand
+    measurement, it only re-packages it.
+    """
+
+    for item in opportunities:
+        is_absorb = str(item.get("kind") or "") == "domain_absorb" or str(
+            item.get("status") or ""
+        ) == "ready_to_absorb"
+        # Grade the full primitive footprint when novelty annotation already
+        # computed it; fall back to direct members (or the absorb surface).
+        members = [str(m) for m in (item.get("coverage") or []) if str(m).strip()]
+        if not members:
+            members = [str(m) for m in (item.get("members") or []) if str(m).strip()]
+        if not members and str(item.get("suggested_id") or "").strip():
+            members = [str(item["suggested_id"])]
+        weak: list[str] = []
+        unmeasured: list[str] = []
+        bonus = 0
+        for member in members:
+            if member in fitness_map:
+                deficit = 1.0 - float(fitness_map[member])
+                if deficit > 0:
+                    weak.append(member)
+                    bonus += int(round(deficit * FITNESS_WEAK_WEIGHT))
+            elif is_absorb:
+                unmeasured.append(member)
+                bonus += FITNESS_UNMEASURED_WEIGHT
+        item["fitness_bonus"] = int(bonus)
+        item["fitness_weak_members"] = weak
+        item["fitness_unmeasured_members"] = unmeasured
+    return opportunities
+
+
+def rank_growth_opportunities(
+    opportunities: list[dict[str, Any]],
+    fitness_map: Mapping[str, float] | None = None,
+) -> list[dict[str, Any]]:
+    """Rank scout opportunities: ready+novel first, then other ready, then absorbs.
+
+    When a measured fitness map is supplied, a fitness bonus breaks ties
+    within the same novelty tier toward frontiers that cover weak or
+    unmeasured capabilities; without a map the ordering is pure novelty.
+    """
+
+    if fitness_map is not None:
+        annotate_opportunities_with_fitness(opportunities, fitness_map)
 
     status_rank = {
         "ready": 0,
@@ -592,10 +651,17 @@ def rank_growth_opportunities(opportunities: list[dict[str, Any]]) -> list[dict[
         ready = status in {"ready", "ready_to_absorb"}
         # Among ready frontiers, novel coverage outranks combinatorial re-packages.
         novel_rank = 0 if (ready and item.get("novel")) else 1 if ready else 2
+        # One combined frontier score decides inside the novelty tier: new
+        # surface absorbs (novelty 1000) outrank stacking compositions, and
+        # fitness bonuses steer toward weak or unmeasured capabilities.
+        # Status only breaks remaining ties, so a fresh absorb can no longer
+        # starve behind an endless wave of ready compositions.
+        combined_score = int(item.get("novelty_score") or 0) + int(item.get("fitness_bonus") or 0)
         return (
             novel_rank,
+            -combined_score,
+            -int(item.get("fitness_bonus") or 0),
             status_rank.get(status, 9),
-            -int(item.get("novelty_score") or 0),
             -int(item.get("priority") or 0),
             str(item.get("suggested_id") or ""),
         )
@@ -13588,18 +13654,40 @@ def absorb_ready_domain_surfaces(
     return ledger, absorbed
 
 
+FITNESS_AUTO: Any = object()
+"""Sentinel: scout loads the sealed benchmark fitness map when available.
+
+Passing ``None`` explicitly disables fitness-aware ranking (pure novelty);
+omitting the argument auto-loads the sealed report when one exists.
+"""
+
+
 def scout_capability_gaps(
     ledger: CapabilityLedger,
     *,
     repo_path: Path | None = None,
+    fitness_map: Mapping[str, float] | None = FITNESS_AUTO,
 ) -> dict[str, Any]:
     """Rank ledger growth opportunities without skill-route machinery.
 
     Includes composition-promotion recipes and domain-surface absorption from the
     package filesystem, so growth continues after meta self-composition is exhausted.
+
+    When ``fitness_map`` is not supplied, the latest sealed capability
+    benchmark report in the repository (if any) is loaded so growth frontiers
+    are ranked by measured fitness — weakest-capability targeting and
+    measurement-gap expansion — in addition to primitive-coverage novelty.
     """
 
     root = (repo_path or Path(__file__).resolve().parents[2]).resolve()
+    if fitness_map is FITNESS_AUTO:
+        fitness_map = None
+        try:
+            from blackhole_agent.capability_benchmark import load_latest_fitness_map
+
+            fitness_map = load_latest_fitness_map(root)
+        except Exception:  # noqa: BLE001 - no usable fitness signal means novelty-only
+            fitness_map = None
     unproved = sorted(
         item.id
         for item in ledger.capabilities.values()
@@ -13643,9 +13731,11 @@ def scout_capability_gaps(
     superstack_opportunities = synthesize_superstack_compositions(ledger)
     opportunities.extend(superstack_opportunities)
     # Annotate primitive-coverage novelty, then rank novel ready frontiers ahead of
-    # combinatorial superstacks that re-package identical primitives.
+    # combinatorial superstacks that re-package identical primitives. A measured
+    # fitness map (sealed benchmark report) breaks ties toward weak/unmeasured
+    # capabilities.
     annotate_opportunities_with_novelty(ledger, opportunities)
-    rank_growth_opportunities(opportunities)
+    rank_growth_opportunities(opportunities, fitness_map=fitness_map)
     recommended = next(
         (
             item
@@ -13739,6 +13829,8 @@ def scout_capability_gaps(
             1 for capability in ledger.capabilities.values() if is_primitive_capability(capability)
         ),
         "used_skill_route_discovery": legacy_pipeline_was_used(),
+        "fitness_aware": fitness_map is not None,
+        "fitness_measured_count": len(fitness_map or {}),
         "ledger_path": str(default_ledger_path(root)),
     }
 

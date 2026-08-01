@@ -2032,6 +2032,36 @@
       ],
       "updated_at": "2026-08-01T04:38:33.284173Z"
     },
+    "capability.fitness-scout": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_compounder.py",
+        "src/blackhole_agent/capability_benchmark.py"
+      ],
+      "capability_delta": "Growth selection is fitness-driven: frontier ranking provably tracks the measured fitness signal on the live ledger, targets weak capabilities, and expands the measured surface first instead of re-stacking unmeasured primitives.",
+      "created_at": "2026-08-01T07:30:09.600332Z",
+      "dependencies": [
+        "capability.fitness-benchmark",
+        "capability.frontier-novelty",
+        "capability.scout-gaps"
+      ],
+      "description": "Scout/grow ranks growth frontiers by one combined score: novelty plus fitness bonus (weakest-capability deficit targeting on coverage, measurement-gap weight for unmeasured absorb surfaces); fresh absorbs outrank stacking compositions so measured surfaces never starve. Ablation proves coincide, sensitivity, causation, and weakest-targeting on the live ledger.",
+      "entry": "blackhole_agent.capability_benchmark:builtin_fitness_scout_ablation",
+      "id": "capability.fitness-scout",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-01T07:30:10.025487Z",
+      "name": "Fitness-driven frontier ranking",
+      "proof_command": "\"C:/Users/svmes/Documents/Playground/.blackhole-agent-unbound-worktrees/20260801T042309Z-4567ceee/.venv/Scripts/python.exe\" -c \"from blackhole_agent.capability_benchmark import builtin_fitness_scout_ablation as f; import sys; r=f(); print(r); sys.exit(0 if r.get('ok') else 1)\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "benchmark",
+        "fitness",
+        "scout",
+        "compounder"
+      ],
+      "updated_at": "2026-08-01T07:30:10.025487Z"
+    },
     "capability.frontier-novelty": {
       "behavior_paths": [
         "src/blackhole_agent/capability_compounder.py",
@@ -3151,5 +3181,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-08-01T04:38:33.284202Z"
+  "updated_at": "2026-08-01T07:30:10.025518Z"
 }
