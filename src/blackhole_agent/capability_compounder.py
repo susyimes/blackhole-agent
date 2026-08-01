@@ -11994,6 +11994,42 @@ def audit_ledger_proofs(
     }
 
 
+def gate_members_by_proof_audit(
+    ledger: CapabilityLedger,
+    members: Sequence[str],
+    *,
+    cwd: Path,
+    command_runner: Callable[..., Any] = subprocess.run,
+    timeout: int = 120,
+) -> dict[str, Any]:
+    """Replay proofs across the dependency closure of members before composition.
+
+    Growth proves new compositions with ``skip_proved_deps=True``, so a member
+    whose recorded-green proof no longer reproduces would silently pass. This
+    gate audits the full dependency closure first: any stale recorded-green
+    proof blocks the promotion until the member is repaired or re-proved.
+    """
+
+    requested = [str(member) for member in members]
+    closure = topological_order(ledger, requested)
+    report = audit_ledger_proofs(
+        ledger,
+        cwd=cwd,
+        capability_ids=closure,
+        timeout=timeout,
+        command_runner=command_runner,
+    )
+    stale = list(report.get("stale_capabilities") or [])
+    failing = sorted((report.get("statuses") or {}).get("failing") or [])
+    return {
+        "ok": not stale,
+        "stale_members": stale,
+        "failing_members": failing,
+        "closure": closure,
+        "audited": report.get("audited"),
+    }
+
+
 def direct_member_order(ledger: CapabilityLedger, capability_ids: Sequence[str]) -> list[str]:
     """Order only the requested ids among themselves (no transitive expansion)."""
 
@@ -12318,6 +12354,64 @@ def builtin_ledger_proof_reaudit() -> dict[str, Any]:
         **classified,
         "report_ok": report.get("ok"),
         "status_counts": report.get("status_counts"),
+    }
+
+
+def builtin_growth_audit_gate() -> dict[str, Any]:
+    """Prove the growth proof-audit gate blocks composition over stale members.
+
+    Synthetic closure: ``gate.mid`` depends on ``gate.base``. With ``gate.base``
+    recorded-green but replaying red, the gate must refuse composition and name
+    the stale member; with both members replaying green, the gate must pass.
+    """
+
+    import tempfile
+
+    def _capability(capability_id: str, proof: str, recorded: int | None, deps: tuple[str, ...] = ()) -> Capability:
+        return Capability(
+            id=capability_id,
+            name=f"Gate synthetic {capability_id}",
+            description="Synthetic growth-gate fixture capability.",
+            kind="python",
+            entry="blackhole_agent.capability_compounder:builtin_ledger_inventory",
+            proof_command=proof,
+            dependencies=deps,
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+            last_proof_exit_code=recorded,
+        )
+
+    passing = f'"{sys.executable}" -c "pass"'
+    failing = f'"{sys.executable}" -c "import sys; sys.exit(7)"'
+    stale_ledger = CapabilityLedger(
+        updated_at=utc_now_iso(),
+        capabilities={
+            "gate.base": _capability("gate.base", failing, 0),
+            "gate.mid": _capability("gate.mid", passing, 0, ("gate.base",)),
+        },
+    )
+    honest_ledger = CapabilityLedger(
+        updated_at=utc_now_iso(),
+        capabilities={
+            "gate.base": _capability("gate.base", passing, 0),
+            "gate.mid": _capability("gate.mid", passing, 0, ("gate.base",)),
+        },
+    )
+    with tempfile.TemporaryDirectory() as raw_workspace:
+        workspace = Path(raw_workspace)
+        blocked = gate_members_by_proof_audit(stale_ledger, ["gate.mid"], cwd=workspace, timeout=60)
+        allowed = gate_members_by_proof_audit(honest_ledger, ["gate.mid"], cwd=workspace, timeout=60)
+    return {
+        "ok": bool(
+            not blocked["ok"]
+            and blocked["stale_members"] == ["gate.base"]
+            and blocked["closure"] == ["gate.base", "gate.mid"]
+            and allowed["ok"]
+        ),
+        "blocked_stale_base": not blocked["ok"],
+        "stale_members": blocked["stale_members"],
+        "closure_audited": blocked["closure"],
+        "allowed_honest_closure": allowed["ok"],
     }
 
 
@@ -14571,6 +14665,34 @@ def run_growth_loop(
         promote_tags = ("composed", "promoted", "growth", "domain", "dynamic")
     else:
         promote_tags = ("composed", "promoted", "growth")
+    # Proof-audit gate: never stack a new composition on a member whose
+    # recorded-green proof no longer reproduces. prove_capability skips
+    # recorded-green dependencies, so without this replay a falsified base
+    # would pass silently. Repair or re-prove stale members first.
+    audit_gate = gate_members_by_proof_audit(
+        ledger,
+        selected["members"],
+        cwd=root,
+        command_runner=command_runner,
+        timeout=timeout,
+    )
+    if not audit_gate["ok"]:
+        return {
+            "ok": False,
+            "grew": False,
+            "action": "proof_audit_gate",
+            "reason": "stale_member_proofs",
+            "hint": "repair or re-prove stale members before promoting new growth",
+            "stale_members": audit_gate["stale_members"],
+            "audit": audit_gate,
+            "scout": scout,
+            "selected": selected,
+            "before_count": before_count,
+            "after_count": before_count,
+            "before_ids": before_ids,
+            "after_ids": before_ids,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
     ledger, promoted = promote_composition(
         ledger,
         selected["members"],

@@ -15,6 +15,7 @@ from blackhole_agent.capability_compounder import (
     absorb_domain_surface,
     audit_ledger_proofs,
     builtin_ci_security_gate,
+    builtin_growth_audit_gate,
     builtin_harness_activation_gate,
     builtin_issue_triage_smoke,
     builtin_ledger_proof_reaudit,
@@ -25,6 +26,8 @@ from blackhole_agent.capability_compounder import (
     builtin_supervisor_compound_wake,
     builtin_tool_routing_preflight,
     default_ledger_path,
+    ensure_seeded_ledger,
+    gate_members_by_proof_audit,
     hierarchical_stack_ids,
     load_ledger,
     meta_stack_ids,
@@ -2243,3 +2246,92 @@ def test_builtin_ledger_proof_reaudit():
     assert result["unproven_flagged"] is True
     assert result["reproved_flagged"] is True
     assert result["report_ok"] is False
+
+
+def _gate_fixture_capability(
+    capability_id: str, proof: str, recorded: int | None, deps: tuple[str, ...] = ()
+) -> Capability:
+    return Capability(
+        id=capability_id,
+        name=f"Gate fixture {capability_id}",
+        description="Synthetic growth-gate fixture capability.",
+        kind="python",
+        entry="blackhole_agent.capability_compounder:builtin_ledger_inventory",
+        proof_command=proof,
+        dependencies=deps,
+        last_proof_exit_code=recorded,
+    )
+
+
+def test_gate_members_by_proof_audit_blocks_stale_closure_member(tmp_path: Path):
+    passing = f'"{sys.executable}" -c "pass"'
+    failing = f'"{sys.executable}" -c "import sys; sys.exit(7)"'
+    ledger = CapabilityLedger(
+        capabilities={
+            "gate.base": _gate_fixture_capability("gate.base", failing, 0),
+            "gate.mid": _gate_fixture_capability("gate.mid", passing, 0, ("gate.base",)),
+        }
+    )
+
+    gate = gate_members_by_proof_audit(ledger, ["gate.mid"], cwd=tmp_path, timeout=60)
+
+    assert gate["ok"] is False
+    assert gate["stale_members"] == ["gate.base"]
+    assert gate["closure"] == ["gate.base", "gate.mid"]
+
+
+def test_gate_members_by_proof_audit_allows_reproducing_closure(tmp_path: Path):
+    passing = f'"{sys.executable}" -c "pass"'
+    ledger = CapabilityLedger(
+        capabilities={
+            "gate.base": _gate_fixture_capability("gate.base", passing, 0),
+            "gate.mid": _gate_fixture_capability("gate.mid", passing, 0, ("gate.base",)),
+        }
+    )
+
+    gate = gate_members_by_proof_audit(ledger, ["gate.mid"], cwd=tmp_path, timeout=60)
+
+    assert gate["ok"] is True
+    assert gate["stale_members"] == []
+
+
+def test_growth_loop_proof_audit_gate_blocks_stale_member(tmp_path: Path, monkeypatch):
+    """A recorded-green member whose proof no longer reproduces must halt growth."""
+
+    from dataclasses import replace as dataclass_replace
+
+    path, ledger = ensure_seeded_ledger(tmp_path)
+    poisoned = dataclass_replace(
+        ledger.capabilities["unbound.milestone-gate"],
+        proof_command=f'"{sys.executable}" -c "import sys; sys.exit(7)"',
+        last_proof_exit_code=0,
+    )
+    ledger.capabilities["unbound.milestone-gate"] = poisoned
+    save_ledger(path, ledger)
+    # ensure_seeded_ledger re-registers bootstrap seeds with replace=True, which
+    # would restore the original proof_command; load the poisoned ledger as-is.
+    monkeypatch.setattr(
+        "blackhole_agent.capability_compounder.ensure_seeded_ledger",
+        lambda repo_path: (
+            default_ledger_path(Path(repo_path).resolve()),
+            load_ledger(default_ledger_path(Path(repo_path).resolve())),
+        ),
+    )
+
+    result = run_growth_loop(tmp_path, recipe_id="capability.composed-core-health", timeout=60)
+
+    assert result["ok"] is False
+    assert result["grew"] is False
+    assert result["action"] == "proof_audit_gate"
+    assert result["reason"] == "stale_member_proofs"
+    assert result["stale_members"] == ["unbound.milestone-gate"]
+    assert "capability.composed-core-health" not in load_ledger(path).capabilities
+
+
+def test_builtin_growth_audit_gate():
+    result = builtin_growth_audit_gate()
+
+    assert result["ok"] is True
+    assert result["blocked_stale_base"] is True
+    assert result["stale_members"] == ["gate.base"]
+    assert result["allowed_honest_closure"] is True
