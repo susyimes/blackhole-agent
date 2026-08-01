@@ -8,6 +8,7 @@ from pathlib import Path
 from blackhole_agent.capability_recovery import (
     BREAK_FAILING_PROOF,
     BREAK_STALE_INTERPRETER,
+    BREAK_STALE_STAMP,
     apply_synthetic_break,
     builtin_recovery_loop,
     check_recovery_consistency,
@@ -30,6 +31,64 @@ def test_baseline_loop_solves_everything_without_repairs() -> None:
     assert report["recovery"]["task_pass_count"] == report["recovery"]["task_count"]
     assert report["recovery"]["recovered"] == []
     assert report["blocked_capabilities"] == []
+
+
+def test_correlated_double_break_heals_both_and_recovers() -> None:
+    report = run_recovery_loop(
+        breaks={
+            "domain.issue-triage": BREAK_STALE_INTERPRETER,
+            "domain.tool-routing": BREAK_STALE_INTERPRETER,
+        }
+    )
+    assert report["ok"] is True, report["recovery"]
+    assert report["recovery"]["recovered"] == ["routed-triage-record"]
+    assert report["recovery"]["repaired_count"] == 2
+    assert report["break_stamps_after"] == {
+        "domain.issue-triage": 0,
+        "domain.tool-routing": 0,
+    }
+
+
+def test_transitive_root_dependency_heals_without_direct_repair() -> None:
+    report = run_recovery_loop(
+        breaks={
+            "repo.import-health": BREAK_STALE_STAMP,
+            "domain.tool-routing": BREAK_STALE_INTERPRETER,
+        }
+    )
+    assert report["ok"] is True, report["recovery"]
+    # The root dependency was never repaired directly...
+    assert not any(repair["capability_id"] == "repo.import-health" for repair in report["repairs"])
+    # ...yet its red stamp healed through the member's chain re-proof.
+    assert report["break_stamps_after"]["repo.import-health"] == 0
+    assert report["break_stamps_after"]["domain.tool-routing"] == 0
+    assert report["recovery"]["recovered"] == ["routed-triage-record"]
+
+
+def test_mixed_break_recovers_healable_and_fails_honestly() -> None:
+    report = run_recovery_loop(
+        breaks={
+            "domain.tool-routing": BREAK_STALE_INTERPRETER,
+            "capability.ledger-inventory": BREAK_FAILING_PROOF,
+        }
+    )
+    assert report["ok"] is False
+    assert report["recovery"]["recovered"] == ["routed-triage-record"]
+    assert report["recovery"]["honest_unsolved"] == ["ledger-gated-proposal"]
+    assert report["recovery"]["repaired_count"] == 1
+    assert report["recovery"]["unrepairable_count"] == 1
+    assert report["break_stamps_after"]["domain.tool-routing"] == 0
+    assert report["break_stamps_after"]["capability.ledger-inventory"] != 0
+
+
+def test_stamps_bind_verdicts_in_consistency_check() -> None:
+    ledger = load_ledger(default_ledger_path(REPO_ROOT))
+    repairs = [{"capability_id": "x", "verdict": "unrepairable", "honest": True}]
+    # A green stamp contradicting an unrepairable verdict is inconsistent.
+    consistency = check_recovery_consistency([], repairs, ledger, break_stamps_after={"x": 0})
+    assert consistency["stamps_match_verdicts"] is False
+    consistency = check_recovery_consistency([], repairs, ledger, break_stamps_after={"x": 1})
+    assert consistency["stamps_match_verdicts"] is True
 
 
 def test_stale_interpreter_break_heals_and_recovers_goal() -> None:

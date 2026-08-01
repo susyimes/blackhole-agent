@@ -14,7 +14,12 @@ module closes those two into one loop:
    execute, and grade outcomes against the frozen oracles;
 4. **honesty** — a capability that repairs green must unblock its goals; a
    capability that is unrepairable must leave its goals unsolved and its
-   stamp red. Fake healing is a verification failure, not a result.
+   stamp red. Correlated breaks (several red capabilities at once) are
+   repaired one bounded attempt each; a red root dependency with a healthy
+   proof command heals transitively through a repaired member's
+   dependency-chain re-proof, and the post-loop stamps of every broken
+   capability are recorded as falsifiable evidence. Fake healing is a
+   verification failure, not a result.
 
 The report is digest-sealed under ``artifacts/capability-recovery/``.
 Verification is pure: it recomputes the grade from recorded task and repair
@@ -64,7 +69,7 @@ from blackhole_agent.capability_repair import (
     repair_capability,
 )
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ARTIFACT_DIR = "artifacts/capability-recovery"
@@ -75,6 +80,7 @@ BOGUS_INTERPRETER = str(REPO_ROOT / ".blackhole-recovery-nonexistent" / "Scripts
 # Synthetic break modes applied to a scratch ledger clone.
 BREAK_STALE_INTERPRETER = "stale_interpreter"
 BREAK_FAILING_PROOF = "failing_proof"
+BREAK_STALE_STAMP = "stale_stamp"
 
 
 def apply_synthetic_break(
@@ -98,6 +104,15 @@ def apply_synthetic_break(
             ledger,
             capability_id,
             proof_command=FAILING_PROOF,
+            last_proof_exit_code=1,
+            last_proved_at="",
+        )
+    if mode == BREAK_STALE_STAMP:
+        # The proof command is healthy; only the recorded stamp is falsified
+        # red. A re-proof of the dependency chain heals this transitively.
+        return _replace_capability_fields(
+            ledger,
+            capability_id,
             last_proof_exit_code=1,
             last_proved_at="",
         )
@@ -186,8 +201,16 @@ def run_recovery_loop(
             }
         )
 
+    # Post-loop stamps of every broken capability, including non-surface
+    # dependencies that were never repaired directly — this is where
+    # transitive dependency healing becomes falsifiable evidence.
+    break_stamps_after = {
+        capability_id: ledger.capabilities[capability_id].last_proof_exit_code
+        for capability_id in sorted(requested)
+    }
+
     grade = compute_recovery_grade(task_records, repairs)
-    breaks_digest = _digest(applied_breaks)
+    breaks_digest = _digest({"breaks": applied_breaks, "stamps_after": break_stamps_after})
     repairs_digest = _digest(repairs)
     tasks_digest = _digest(
         [
@@ -210,6 +233,7 @@ def run_recovery_loop(
         "kind": "capability_recovery_loop",
         "run_at": utc_now_iso(),
         "applied_breaks": applied_breaks,
+        "break_stamps_after": break_stamps_after,
         "blocked_capabilities": blocked_capabilities,
         "repairs": repairs,
         "task_records": task_records,
@@ -269,6 +293,8 @@ def check_recovery_consistency(
     task_records: Sequence[Mapping[str, Any]],
     repairs: Sequence[Mapping[str, Any]],
     ledger: CapabilityLedger,
+    *,
+    break_stamps_after: Mapping[str, Any] | None = None,
 ) -> dict[str, bool]:
     """Cross-checks that make fake healing a verification failure.
 
@@ -276,7 +302,10 @@ def check_recovery_consistency(
       ledger, and any recorded repair of a plan member healed;
     - every unsolved initially-blocked goal is backed by an ``unrepairable``
       verdict (the loop failed honestly, not silently);
-    - every repair stamped honest kept its stamp consistent with its verdict.
+    - every repair stamped honest kept its stamp consistent with its verdict;
+    - when post-loop break stamps are recorded, each verdict must match the
+      stamp it produced: ``repaired`` leaves a green stamp, ``unrepairable``
+      leaves a red one — a forged verdict contradicts its own stamp.
     """
 
     repair_verdicts = {str(repair.get("capability_id")): str(repair.get("verdict")) for repair in repairs}
@@ -296,11 +325,25 @@ def check_recovery_consistency(
         if record.get("initially_unplannable") and not record.get("ok") and not unrepairable_seen:
             unsolved_backed = False
     repairs_honest = all(bool(repair.get("honest")) for repair in repairs)
-    return {
+    checks = {
         "solved_plans_sound": solved_plans_sound,
         "unsolved_backed_by_unrepairable": unsolved_backed,
         "repairs_honest": repairs_honest,
     }
+    if break_stamps_after is not None:
+        stamps_match_verdicts = True
+        for repair in repairs:
+            capability_id = str(repair.get("capability_id"))
+            if capability_id not in break_stamps_after:
+                continue
+            stamp = break_stamps_after[capability_id]
+            verdict = str(repair.get("verdict"))
+            if verdict == "repaired" and stamp != 0:
+                stamps_match_verdicts = False
+            if verdict == "unrepairable" and stamp == 0:
+                stamps_match_verdicts = False
+        checks["stamps_match_verdicts"] = stamps_match_verdicts
+    return checks
 
 
 def _canonical(payload: Any) -> str:
@@ -347,7 +390,12 @@ def verify_recovery_report(report_dir: Path) -> dict[str, Any]:
 
     ledger = load_ledger(default_ledger_path(REPO_ROOT))
     regraded = compute_recovery_grade(task_records, repairs)
-    breaks_digest = _digest(report.get("applied_breaks") or [])
+    breaks_digest = _digest(
+        {
+            "breaks": report.get("applied_breaks") or [],
+            "stamps_after": report.get("break_stamps_after") or {},
+        }
+    )
     repairs_digest = _digest(repairs)
     tasks_digest = _digest(
         [
@@ -366,7 +414,12 @@ def verify_recovery_report(report_dir: Path) -> dict[str, Any]:
         f"recovery:{breaks_digest}:{repairs_digest}:{tasks_digest}:{grade_digest}".encode("utf-8")
     ).hexdigest()
 
-    consistency = check_recovery_consistency(task_records, repairs, ledger)
+    consistency = check_recovery_consistency(
+        task_records,
+        repairs,
+        ledger,
+        break_stamps_after=report.get("break_stamps_after") or {},
+    )
     checks = {
         "breaks_digest": breaks_digest == report.get("breaks_digest"),
         "repairs_digest": repairs_digest == report.get("repairs_digest"),
@@ -383,14 +436,18 @@ def builtin_recovery_loop() -> dict[str, Any]:
     """Registered proof for ``capability.recovery-loop``.
 
     Proves the loop end to end: a baseline run over the healthy live ledger
-    solves every goal with zero repairs; a synthetic stale-interpreter break
-    of ``domain.tool-routing`` is detected (routed-triage-record unplannable),
-    repaired, and the goal recovered with an oracle-matching outcome —
-    deterministically across two runs; a synthetic always-failing break of
-    ``capability.ledger-inventory`` is honestly unrepairable and leaves its
-    goal unsolved with the stamp red. Then report sealing plus three
-    falsifications: a flipped task outcome, a forged repair verdict (fake
-    healing), and a misgraded recovery score must all fail verification.
+    solves every goal with zero repairs; a correlated stale-interpreter break
+    of two capabilities (``domain.tool-routing`` + ``domain.issue-triage``)
+    is detected, both are repaired, and the blocked goal is recovered with an
+    oracle-matching outcome — deterministically across two runs; a transitive
+    break (red stamp on the root dependency ``repo.import-health`` plus a
+    stale interpreter on ``domain.tool-routing``) heals the root through the
+    repaired member's dependency-chain re-proof without any direct repair of
+    the root; a mixed break (one healable, one unrepairable) recovers the
+    healable goal and honestly leaves the unrepairable goal unsolved with
+    the stamp red. Then report sealing plus three falsifications: a flipped
+    task outcome, a forged repair verdict (fake healing), and a misgraded
+    recovery score must all fail verification.
     """
 
     import os
@@ -400,59 +457,99 @@ def builtin_recovery_loop() -> dict[str, Any]:
     if not baseline["ok"] or baseline["recovery"]["repair_count"] != 0:
         return {"ok": False, "stage": "baseline", "recovery": baseline["recovery"]}
 
-    stale_first = run_recovery_loop(breaks={"domain.tool-routing": BREAK_STALE_INTERPRETER})
-    stale_second = run_recovery_loop(breaks={"domain.tool-routing": BREAK_STALE_INTERPRETER})
+    # Correlated break: two surface capabilities red at once.
+    correlated_breaks = {
+        "domain.issue-triage": BREAK_STALE_INTERPRETER,
+        "domain.tool-routing": BREAK_STALE_INTERPRETER,
+    }
+    correlated_first = run_recovery_loop(breaks=correlated_breaks)
+    correlated_second = run_recovery_loop(breaks=correlated_breaks)
     healed = (
-        stale_first["ok"]
-        and stale_first["recovery"]["recovered"] == ["routed-triage-record"]
-        and stale_first["recovery"]["repaired_count"] == 1
-        and any(
-            repair["capability_id"] == "domain.tool-routing"
-            and repair["verdict"] == "repaired"
-            and "regenerate_proof_command" in repair["repair_actions"]
-            for repair in stale_first["repairs"]
+        correlated_first["ok"]
+        and correlated_first["recovery"]["recovered"] == ["routed-triage-record"]
+        and correlated_first["recovery"]["repaired_count"] == 2
+        and all(
+            any(
+                repair["capability_id"] == capability_id
+                and repair["verdict"] == "repaired"
+                and "regenerate_proof_command" in repair["repair_actions"]
+                for repair in correlated_first["repairs"]
+            )
+            for capability_id in correlated_breaks
         )
+        and correlated_first["break_stamps_after"] == {capability_id: 0 for capability_id in correlated_breaks}
     )
     if not healed:
-        return {"ok": False, "stage": "synthetic-heal", "recovery": stale_first["recovery"]}
+        return {"ok": False, "stage": "correlated-heal", "recovery": correlated_first["recovery"]}
     determinism = (
-        stale_first["repairs_digest"] == stale_second["repairs_digest"]
-        and stale_first["tasks_digest"] == stale_second["tasks_digest"]
+        correlated_first["repairs_digest"] == correlated_second["repairs_digest"]
+        and correlated_first["tasks_digest"] == correlated_second["tasks_digest"]
+        and correlated_first["breaks_digest"] == correlated_second["breaks_digest"]
     )
     if not determinism:
         return {"ok": False, "stage": "determinism"}
 
-    broken = run_recovery_loop(breaks={"capability.ledger-inventory": BREAK_FAILING_PROOF})
+    # Transitive break: the root dependency's stamp is falsified red and a
+    # surface member's interpreter is stale. Repairing the member re-proves
+    # its dependency chain, healing the root without a direct repair entry.
+    transitive = run_recovery_loop(
+        breaks={
+            "repo.import-health": BREAK_STALE_STAMP,
+            "domain.tool-routing": BREAK_STALE_INTERPRETER,
+        }
+    )
+    transitive_healed = (
+        transitive["ok"]
+        and transitive["recovery"]["recovered"] == ["routed-triage-record"]
+        and transitive["recovery"]["repaired_count"] == 1
+        and transitive["break_stamps_after"].get("repo.import-health") == 0
+        and transitive["break_stamps_after"].get("domain.tool-routing") == 0
+        and not any(repair["capability_id"] == "repo.import-health" for repair in transitive["repairs"])
+    )
+    if not transitive_healed:
+        return {"ok": False, "stage": "transitive-heal", "recovery": transitive["recovery"]}
+
+    # Mixed break: one healable, one unrepairable — partial honest recovery.
+    mixed = run_recovery_loop(
+        breaks={
+            "domain.tool-routing": BREAK_STALE_INTERPRETER,
+            "capability.ledger-inventory": BREAK_FAILING_PROOF,
+        }
+    )
     honest_failure = (
-        not broken["ok"]
-        and broken["recovery"]["honest_unsolved"] == ["ledger-gated-proposal"]
-        and broken["recovery"]["unrepairable_count"] == 1
-        and broken["recovery"]["task_pass_count"] == broken["recovery"]["task_count"] - 1
+        not mixed["ok"]
+        and mixed["recovery"]["recovered"] == ["routed-triage-record"]
+        and mixed["recovery"]["honest_unsolved"] == ["ledger-gated-proposal"]
+        and mixed["recovery"]["unrepairable_count"] == 1
+        and mixed["recovery"]["repaired_count"] == 1
+        and mixed["break_stamps_after"].get("capability.ledger-inventory") != 0
+        and mixed["break_stamps_after"].get("domain.tool-routing") == 0
+        and mixed["recovery"]["task_pass_count"] == mixed["recovery"]["task_count"] - 1
     )
     if not honest_failure:
-        return {"ok": False, "stage": "honest-failure", "recovery": broken["recovery"]}
+        return {"ok": False, "stage": "honest-failure", "recovery": mixed["recovery"]}
 
     report_dir_raw = (os.environ.get("BLACKHOLE_RECOVERY_REPORT_DIR") or "").strip()
     if report_dir_raw:
         out = Path(report_dir_raw)
         out.mkdir(parents=True, exist_ok=True)
-        write_recovery_report(stale_first, out)
+        write_recovery_report(correlated_first, out)
         verified = verify_recovery_report(out)
         if not verified["ok"]:
             return {"ok": False, "stage": "verify", "checks": verified.get("checks")}
         return {
             "ok": True,
-            "recovery": stale_first["recovery"],
-            "honest_failure": broken["recovery"],
-            "report_digest": stale_first["report_digest"],
+            "recovery": correlated_first["recovery"],
+            "honest_failure": mixed["recovery"],
+            "report_digest": correlated_first["report_digest"],
             "report_dir": str(out),
             "deterministic": True,
-            "used_skill_route_discovery": stale_first["used_skill_route_discovery"],
+            "used_skill_route_discovery": correlated_first["used_skill_route_discovery"],
         }
 
     with tempfile.TemporaryDirectory(prefix="capability-recovery-proof-") as tmp:
         out = Path(tmp) / "report"
-        write_recovery_report(stale_first, out)
+        write_recovery_report(correlated_first, out)
         verified = verify_recovery_report(out)
         if not verified["ok"]:
             return {"ok": False, "stage": "verify", "checks": verified.get("checks")}
@@ -464,11 +561,12 @@ def builtin_recovery_loop() -> dict[str, Any]:
         if verify_recovery_report(out)["ok"]:
             return {"ok": False, "stage": "tamper-falsification", "detail": "flipped outcome passed verification"}
 
-        # Falsifiability 2: fake a healing — forge the unrepairable scenario's
-        # verdict to "repaired" and re-seal every digest. The consistency
-        # cross-check must catch that the goal stayed unsolved with no
-        # unrepairable verdict backing it.
-        forged = json.loads(json.dumps(broken))
+        # Falsifiability 2: fake a healing — forge the mixed scenario's
+        # unrepairable verdict to "repaired" and re-seal every digest. The
+        # consistency cross-checks must catch it twice over: the goal stayed
+        # unsolved with no unrepairable verdict backing it, and the forged
+        # verdict contradicts the recorded red stamp.
+        forged = json.loads(json.dumps(mixed))
         for repair in forged["repairs"]:
             if repair["capability_id"] == "capability.ledger-inventory":
                 repair["verdict"] = "repaired"
@@ -489,24 +587,25 @@ def builtin_recovery_loop() -> dict[str, Any]:
             }
 
         # Falsifiability 3: restore the healing report but misgrade the score.
-        misgraded = json.loads(json.dumps(stale_first))
+        misgraded = json.loads(json.dumps(correlated_first))
         misgraded["recovery"]["task_pass_count"] = 0
         atomic_write_json(out / "report.json", misgraded)
         if verify_recovery_report(out)["ok"]:
             return {"ok": False, "stage": "misgrade-falsification", "detail": "misgraded recovery passed verification"}
 
     return {
-        "ok": not stale_first["used_skill_route_discovery"],
-        "recovery": stale_first["recovery"],
-        "honest_failure": broken["recovery"],
-        "report_digest": stale_first["report_digest"],
+        "ok": not correlated_first["used_skill_route_discovery"],
+        "recovery": correlated_first["recovery"],
+        "honest_failure": mixed["recovery"],
+        "report_digest": correlated_first["report_digest"],
         "deterministic": True,
         "healed": True,
+        "transitive_healed": True,
         "honest_unsolved": True,
         "tamper_detected": True,
         "fake_healing_detected": True,
         "misgrade_detected": True,
-        "used_skill_route_discovery": stale_first["used_skill_route_discovery"],
+        "used_skill_route_discovery": correlated_first["used_skill_route_discovery"],
     }
 
 

@@ -19120,10 +19120,15 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "repaired capability must unblock its goals (routed-triage-"
                 "record recovered from a synthetic stale-interpreter break), "
                 "and an unrepairable capability must leave its goals honestly "
-                "unsolved with the stamp red. Reports are digest-sealed; "
+                "unsolved with the stamp red. Correlated breaks (several red "
+                "capabilities at once) are repaired one bounded attempt each; "
+                "a red root dependency heals transitively through a repaired "
+                "member's dependency-chain re-proof, with post-loop break "
+                "stamps recorded as evidence. Reports are digest-sealed; "
                 "verification recomputes the grade, re-checks solved plans "
-                "against the live ledger, and enforces recovery consistency "
-                "so a forged repair verdict (fake healing) fails. Synthetic "
+                "against the live ledger, binds every repair verdict to its "
+                "recorded stamp, and enforces recovery consistency so a "
+                "forged repair verdict (fake healing) fails. Synthetic "
                 "breaks run on scratch ledger clones; the live ledger is only "
                 "mutated on explicit persist."
             ),
@@ -19133,8 +19138,9 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 f'"{sys.executable}" -c '
                 '"from blackhole_agent.capability_recovery import builtin_recovery_loop; '
                 "r=builtin_recovery_loop(); assert r['ok'] "
-                "and r.get('healed') and r.get('honest_unsolved') "
+                "and r.get('healed') and r.get('transitive_healed') and r.get('honest_unsolved') "
                 "and r.get('recovery',{}).get('recovered')==['routed-triage-record'] "
+                "and r.get('recovery',{}).get('repaired_count')==2 "
                 "and r.get('honest_failure',{}).get('honest_unsolved')==['ledger-gated-proposal'] "
                 "and r.get('deterministic') "
                 "and r.get('tamper_detected') and r.get('fake_healing_detected') "
@@ -19156,10 +19162,12 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
             capability_delta=(
                 "Recovery loop turns unplannable goals into repaired ones: "
                 "detects goals blocked by red proof stamps, heals the "
-                "blocking capabilities through bounded repair, re-plans and "
-                "solves them - and fails honestly when repair is impossible. "
-                "Application and repair are one closed loop without "
-                "skill-route."
+                "blocking capabilities through bounded repair - including "
+                "correlated multi-capability breaks and transitive healing of "
+                "a red root dependency through a member's chain re-proof - "
+                "re-plans and solves them, and fails honestly when repair is "
+                "impossible. Application and repair are one closed loop "
+                "without skill-route."
             ),
             tags=(
                 "bootstrap",

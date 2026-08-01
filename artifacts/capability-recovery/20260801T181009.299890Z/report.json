@@ -1,0 +1,145 @@
+{
+  "applied_breaks": [],
+  "blocked_capabilities": [],
+  "break_stamps_after": {},
+  "breaks_digest": "388aacfd55f3842179a4910e7a0a5e944d2120e28fa576382b6c3bf91fcd8dc5",
+  "grade_digest": "5da7f81bcae3a1a39b149adc05c3140597f5b2ecbf628cae01ca54f9fc80ecee",
+  "kind": "capability_recovery_loop",
+  "ok": true,
+  "recovery": {
+    "honest_unsolved": [],
+    "recovered": [],
+    "repair_count": 0,
+    "repaired_count": 0,
+    "task_count": 4,
+    "task_pass_count": 4,
+    "unrepairable_count": 0,
+    "unsolved_count": 0
+  },
+  "repairs": [],
+  "repairs_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "report_digest": "d2868f799ca2ba80a7d36d3727e535afa3ad8bbc19f4f3b9e94e7387f49c1842",
+  "run_at": "2026-08-01T18:10:09.299890Z",
+  "schema_version": 2,
+  "task_records": [
+    {
+      "duration_ms": 13.58,
+      "error": "",
+      "id": "routed-triage-record",
+      "initially_unplannable": false,
+      "ok": true,
+      "outcome": {
+        "issue": {
+          "body": "regression in harness coverage",
+          "labels": [
+            "bug"
+          ],
+          "title": "tests failing on main"
+        },
+        "memory_record": {
+          "deleted": true,
+          "key": "last-triage",
+          "value": "triage:validation"
+        },
+        "preflight": {
+          "executable": [
+            "auto_merge",
+            "issue_triage"
+          ],
+          "missing_required": [],
+          "preflight_ok": true
+        },
+        "tool_requirements": [
+          "issue_triage"
+        ],
+        "triage": {
+          "gated": false,
+          "lane": "validation"
+        }
+      },
+      "plan": [
+        "domain.tool-routing",
+        "domain.issue-triage",
+        "domain.local-memory"
+      ],
+      "plan_sound": true
+    },
+    {
+      "duration_ms": 1.299,
+      "error": "",
+      "id": "scan-gated-activation",
+      "initially_unplannable": false,
+      "ok": true,
+      "outcome": {
+        "activation": {
+          "allowed": true,
+          "decision": "ready_for_local_eval_activation",
+          "external_allowed": false
+        },
+        "scan": {
+          "scan_conclusion": "success"
+        },
+        "scan_gate": {
+          "allowed": true,
+          "outcome": "security_scan_passed"
+        }
+      },
+      "plan": [
+        "domain.ci-security",
+        "domain.harness-activation"
+      ],
+      "plan_sound": true
+    },
+    {
+      "duration_ms": 0.027,
+      "error": "",
+      "id": "blocked-scan-honesty",
+      "initially_unplannable": false,
+      "ok": true,
+      "outcome": {
+        "activation": {
+          "allowed": false,
+          "decision": "ready_for_local_eval_activation",
+          "external_allowed": false
+        },
+        "scan": {
+          "scan_conclusion": "failure"
+        },
+        "scan_gate": {
+          "allowed": false,
+          "outcome": "security_scan_blocked"
+        }
+      },
+      "plan": [
+        "domain.ci-security",
+        "domain.harness-activation"
+      ],
+      "plan_sound": true
+    },
+    {
+      "duration_ms": 157.963,
+      "error": "",
+      "id": "ledger-gated-proposal",
+      "initially_unplannable": false,
+      "ok": true,
+      "outcome": {
+        "ledger_ready": true,
+        "proposal_fixture": "benign_agent_harness.json",
+        "proposal_review": {
+          "accepted_count": 1,
+          "decision": "record",
+          "passed": true,
+          "rejected_count": 0,
+          "review_status": "accepted"
+        }
+      },
+      "plan": [
+        "capability.ledger-inventory",
+        "domain.proposal-eval"
+      ],
+      "plan_sound": true
+    }
+  ],
+  "tasks_digest": "8c3ccc8d66417b628e862aea1f29a82df1d8ebd1502153960fac103df8a8dac3",
+  "used_skill_route_discovery": false
+}
