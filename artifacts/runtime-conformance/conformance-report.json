@@ -1,0 +1,263 @@
+{
+  "action": "runtime_conformance_suite",
+  "controller": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260801T231153Z-77d32495\\src\\blackhole_agent\\unbound.py",
+  "ok": true,
+  "reported_at": "2026-08-01T23:25:59Z",
+  "scenario_count": 7,
+  "scenarios": [
+    {
+      "checks": [
+        {
+          "detail": "genesis",
+          "name": "genesis stage recorded",
+          "ok": true
+        },
+        {
+          "detail": "Prove the controller contract hermetically.",
+          "name": "goal adopted",
+          "ok": true
+        },
+        {
+          "detail": "Every lifecycle scenario passes against the candidate controller.",
+          "name": "done_when adopted",
+          "ok": true
+        },
+        {
+          "detail": "execution",
+          "name": "stage advanced to execution",
+          "ok": true
+        },
+        {
+          "detail": "",
+          "name": "no commit on genesis turn",
+          "ok": true
+        },
+        {
+          "detail": "",
+          "name": "turn record persisted",
+          "ok": true
+        },
+        {
+          "detail": "mission.created,turn.completed",
+          "name": "mission.created event recorded",
+          "ok": true
+        },
+        {
+          "detail": "mission.created,turn.completed",
+          "name": "turn.completed event recorded",
+          "ok": true
+        },
+        {
+          "detail": "1",
+          "name": "record reports iteration 1",
+          "ok": true
+        }
+      ],
+      "name": "genesis_adopts_mission",
+      "ok": true
+    },
+    {
+      "checks": [
+        {
+          "detail": "",
+          "name": "effective status continue",
+          "ok": true
+        },
+        {
+          "detail": "",
+          "name": "no commit on continue",
+          "ok": true
+        },
+        {
+          "detail": "M src/seed.py",
+          "name": "uncommitted work survives the turn",
+          "ok": true
+        },
+        {
+          "detail": "active",
+          "name": "mission stays active",
+          "ok": true
+        },
+        {
+          "detail": "0",
+          "name": "no milestone recorded",
+          "ok": true
+        }
+      ],
+      "name": "continue_preserves_work",
+      "ok": true
+    },
+    {
+      "checks": [
+        {
+          "detail": "",
+          "name": "milestone accepted",
+          "ok": true
+        },
+        {
+          "detail": "3fc5a2e6adc2f0b7560b4585b381b3ead4be67e8",
+          "name": "commit recorded",
+          "ok": true
+        },
+        {
+          "detail": "3fc5a2e6adc2f0b7560b4585b381b3ead4be67e8",
+          "name": "workspace head advanced",
+          "ok": true
+        },
+        {
+          "detail": "1",
+          "name": "milestone count incremented",
+          "ok": true
+        },
+        {
+          "detail": "3fc5a2e6adc2f0b7560b4585b381b3ead4be67e8",
+          "name": "last milestone head updated",
+          "ok": true
+        },
+        {
+          "detail": "mission.created,mission.milestone,turn.completed",
+          "name": "milestone event recorded",
+          "ok": true
+        }
+      ],
+      "name": "milestone_commits_reproducible",
+      "ok": true
+    },
+    {
+      "checks": [
+        {
+          "detail": "",
+          "name": "gate rejected the fabrication",
+          "ok": true
+        },
+        {
+          "detail": "validation replay failed: git rev-parse --verify refs/heads/does-not-exist reported exit 0 but controller replay got exit 128; no reported validation command reproduced successfully",
+          "name": "replay failure reported",
+          "ok": true
+        },
+        {
+          "detail": "",
+          "name": "status downgraded to continue",
+          "ok": true
+        },
+        {
+          "detail": "",
+          "name": "no commit recorded",
+          "ok": true
+        },
+        {
+          "detail": "",
+          "name": "workspace head unchanged",
+          "ok": true
+        },
+        {
+          "detail": "0",
+          "name": "no milestone counted",
+          "ok": true
+        }
+      ],
+      "name": "fabricated_validation_rejected",
+      "ok": true
+    },
+    {
+      "checks": [
+        {
+          "detail": "",
+          "name": "paperwork gate rejected",
+          "ok": true
+        },
+        {
+          "detail": "changes are limited to docs, tests, artifacts, or controller state",
+          "name": "docs-only reason reported",
+          "ok": true
+        },
+        {
+          "detail": "",
+          "name": "no commit recorded",
+          "ok": true
+        },
+        {
+          "detail": "",
+          "name": "workspace head unchanged",
+          "ok": true
+        }
+      ],
+      "name": "paperwork_milestone_rejected",
+      "ok": true
+    },
+    {
+      "checks": [
+        {
+          "detail": "1",
+          "name": "iteration persisted across reload",
+          "ok": true
+        },
+        {
+          "detail": "scripted-session-1",
+          "name": "session id persisted across reload",
+          "ok": true
+        },
+        {
+          "detail": "1",
+          "name": "recent turns persisted",
+          "ok": true
+        },
+        {
+          "detail": "2",
+          "name": "second turn increments iteration",
+          "ok": true
+        },
+        {
+          "detail": "scripted-session-1",
+          "name": "session continuity kept",
+          "ok": true
+        },
+        {
+          "detail": "",
+          "name": "history bounded and ordered",
+          "ok": true
+        }
+      ],
+      "name": "resume_keeps_continuity",
+      "ok": true
+    },
+    {
+      "checks": [
+        {
+          "detail": "",
+          "name": "premature complete rejected",
+          "ok": true
+        },
+        {
+          "detail": "machine-checkable done_when failed (min_capabilities:999999)",
+          "name": "machine-checkable failure reported",
+          "ok": true
+        },
+        {
+          "detail": "active",
+          "name": "mission stays active after rejection",
+          "ok": true
+        },
+        {
+          "detail": "",
+          "name": "honest complete accepted",
+          "ok": true
+        },
+        {
+          "detail": "",
+          "name": "complete status effective",
+          "ok": true
+        },
+        {
+          "detail": "complete",
+          "name": "mission recorded complete",
+          "ok": true
+        }
+      ],
+      "name": "complete_requires_contract",
+      "ok": true
+    }
+  ],
+  "schema_version": 1,
+  "verdict_digest": "6730ab6d0b75e7bac9482400a594725c76275c8395faf27632d8f64a94a002c1"
+}
