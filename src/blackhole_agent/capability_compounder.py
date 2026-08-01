@@ -19106,6 +19106,73 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
             created_at=utc_now_iso(),
             updated_at=utc_now_iso(),
         ),
+        Capability(
+            id="capability.recovery-loop",
+            name="Capability recovery loop",
+            description=(
+                "Goal-directed recovery closes the application plane and the "
+                "repair plane into one loop: detect goals the planner cannot "
+                "solve because a needed capability's proof stamp is red, run "
+                "bounded deterministic repair (diagnose, regenerate stale "
+                "proof interpreter, re-prove the dependency chain) on every "
+                "blocked capability, then re-plan, execute, and grade against "
+                "the frozen oracles. Honesty is enforced both ways: a "
+                "repaired capability must unblock its goals (routed-triage-"
+                "record recovered from a synthetic stale-interpreter break), "
+                "and an unrepairable capability must leave its goals honestly "
+                "unsolved with the stamp red. Reports are digest-sealed; "
+                "verification recomputes the grade, re-checks solved plans "
+                "against the live ledger, and enforces recovery consistency "
+                "so a forged repair verdict (fake healing) fails. Synthetic "
+                "breaks run on scratch ledger clones; the live ledger is only "
+                "mutated on explicit persist."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_recovery:builtin_recovery_loop",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.capability_recovery import builtin_recovery_loop; '
+                "r=builtin_recovery_loop(); assert r['ok'] "
+                "and r.get('healed') and r.get('honest_unsolved') "
+                "and r.get('recovery',{}).get('recovered')==['routed-triage-record'] "
+                "and r.get('honest_failure',{}).get('honest_unsolved')==['ledger-gated-proposal'] "
+                "and r.get('deterministic') "
+                "and r.get('tamper_detected') and r.get('fake_healing_detected') "
+                "and r.get('misgrade_detected') "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.ablation-proof",
+                "capability.application-plane",
+                "capability.repair-plane",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/capability_recovery.py",
+                "src/blackhole_agent/capability_compounder.py",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                "Recovery loop turns unplannable goals into repaired ones: "
+                "detects goals blocked by red proof stamps, heals the "
+                "blocking capabilities through bounded repair, re-plans and "
+                "solves them - and fails honestly when repair is impossible. "
+                "Application and repair are one closed loop without "
+                "skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "recovery",
+                "repair",
+                "application",
+                "self-healing",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
 
     ]
 
