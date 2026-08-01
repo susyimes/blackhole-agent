@@ -1334,6 +1334,38 @@ def run_workspace_goal_watchdog(workspace: Path, *, timeout: int = 120) -> dict[
         return None
 
 
+def run_workspace_goal_recovery(workspace: Path, *, timeout: int = 300) -> dict[str, Any] | None:
+    """Run the recovery loop (persist=True) in a mission workspace subprocess.
+
+    Returns the recovery summary, or ``None`` when the workspace predates
+    the recovery loop or the run fails — the caller then refuses on the
+    original drift evidence.
+    """
+
+    script = (
+        "import json;"
+        "from blackhole_agent.capability_recovery import run_recovery_loop;"
+        "r=run_recovery_loop(persist=True);"
+        "print(json.dumps({'ok': bool(r['ok']), 'repairs': r['repairs'], 'recovery': r['recovery']}))"
+    )
+    try:
+        completed = subprocess.run(
+            [sys.executable, "-c", script],
+            cwd=str(workspace),
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except Exception:  # noqa: BLE001 - recovery unavailability falls back to plain refusal
+        return None
+    if completed.returncode != 0:
+        return None
+    try:
+        return json.loads(completed.stdout.strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        return None
+
+
 def evaluate_milestone(
     decision: TurnDecision,
     *,
@@ -1390,13 +1422,33 @@ def evaluate_milestone(
         if not any(replay.get("ok") for replay in validation_replays):
             reasons.append("no reported validation command reproduced successfully")
     # Goal-regression gate: a milestone whose own validation passes but that
-    # silently breaks a previously-solvable application goal is refused with
-    # the drifted goal names. Worktrees predating the watchdog are skipped.
+    # silently breaks a previously-solvable application goal gets one bounded
+    # heal attempt — the recovery loop repairs red surface capabilities in
+    # the workspace and the watchdog re-checks. Healed drift is recorded as
+    # gate evidence; unhealed drift is refused with the goal names.
+    # Worktrees predating the watchdog/recovery loop are skipped.
     if workspace is not None and not reasons:
         drift = run_workspace_goal_watchdog(workspace)
         if drift is not None and not drift.get("ok", True):
-            drifted = ", ".join(str(goal) for goal in (drift.get("drifted_goals") or ["unknown"]))
-            reasons.append(f"goal regression detected by watchdog: {drifted}")
+            drifted_goals = [str(goal) for goal in (drift.get("drifted_goals") or ["unknown"])]
+            healed = run_workspace_goal_recovery(workspace)
+            post = run_workspace_goal_watchdog(workspace) if healed is not None else None
+            if post is not None and post.get("ok", False):
+                validation_replays.append(
+                    {
+                        "command": "goal-watchdog+recovery",
+                        "ok": True,
+                        "summary": f"goal drift healed before milestone: {', '.join(drifted_goals)}",
+                        "healed_goals": drifted_goals,
+                        "repairs": (healed or {}).get("repairs") or [],
+                    }
+                )
+            else:
+                reasons.append(
+                    "goal regression detected by watchdog"
+                    + (" and recovery failed to heal" if healed is not None else "")
+                    + f": {', '.join(drifted_goals)}"
+                )
     if decision.status == "complete" and not decision.done_when_met:
         reasons.append("complete was requested but done_when_met is false")
     # When done_when is machine-checkable, refuse complete unless live predicates pass.

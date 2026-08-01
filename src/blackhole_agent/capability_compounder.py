@@ -19326,10 +19326,13 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "recorded plans against the live ledger, and rejects "
                 "drift-hiding (an ok flag or drifted list that disagrees "
                 "with the recorded goal results). The Unbound milestone gate "
-                "runs the watchdog in a workspace subprocess: a milestone "
-                "that regresses an existing goal is refused with the "
-                "drifted goal names in the gate reasons; worktrees predating "
-                "the watchdog are skipped, never penalized."
+                "runs the watchdog in a workspace subprocess and answers "
+                "drift with refuse-and-heal: the recovery loop gets one "
+                "bounded attempt to repair the red surface capabilities, "
+                "the watchdog re-checks, and only unhealed drift is refused "
+                "- healed drift is recorded as gate evidence with the "
+                "repair verdicts. Worktrees predating the watchdog are "
+                "skipped, never penalized."
             ),
             kind="python",
             entry="blackhole_agent.capability_watchdog:builtin_goal_watchdog",

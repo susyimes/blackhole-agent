@@ -92,6 +92,11 @@ def test_milestone_gate_refuses_goal_regression(monkeypatch) -> None:
         "run_workspace_goal_watchdog",
         lambda workspace: {"ok": False, "drifted_goals": ["routed-triage-record"]},
     )
+    monkeypatch.setattr(
+        unbound,
+        "run_workspace_goal_recovery",
+        lambda workspace: {"ok": False, "repairs": [], "recovery": {}},
+    )
     gate = unbound.evaluate_milestone(
         decision,
         changed_paths=["src/blackhole_agent/unbound.py"],
@@ -99,6 +104,46 @@ def test_milestone_gate_refuses_goal_regression(monkeypatch) -> None:
     )
     assert gate.accepted is False
     assert any("goal regression detected by watchdog" in reason for reason in gate.reasons)
+    assert any("recovery failed to heal" in reason for reason in gate.reasons)
+
+
+def test_milestone_gate_heals_goal_regression(monkeypatch) -> None:
+    from blackhole_agent import unbound
+
+    decision = unbound.TurnDecision.from_payload(
+        {
+            "status": "milestone",
+            "summary": "s",
+            "capability_delta": "d",
+            "outcome_evidence": ["e"],
+            "validation": [{"command": f'"{sys.executable}" -c "pass"', "exit_code": 0, "summary": "ok"}],
+        }
+    )
+    watchdog_calls = iter(
+        [
+            {"ok": False, "drifted_goals": ["routed-triage-record"]},
+            {"ok": True, "drifted_goals": []},
+        ]
+    )
+    monkeypatch.setattr(unbound, "run_workspace_goal_watchdog", lambda workspace: next(watchdog_calls))
+    monkeypatch.setattr(
+        unbound,
+        "run_workspace_goal_recovery",
+        lambda workspace: {
+            "ok": True,
+            "repairs": [{"capability_id": "domain.tool-routing", "verdict": "repaired"}],
+            "recovery": {"repaired_count": 1},
+        },
+    )
+    gate = unbound.evaluate_milestone(
+        decision,
+        changed_paths=["src/blackhole_agent/unbound.py"],
+        workspace=REPO_ROOT,
+    )
+    assert gate.accepted is True, gate.reasons
+    heal = next(item for item in gate.validation_replay if item.get("command") == "goal-watchdog+recovery")
+    assert heal["ok"] is True
+    assert heal["healed_goals"] == ["routed-triage-record"]
 
 
 def test_milestone_gate_accepts_healthy_watchdog() -> None:
@@ -128,3 +173,12 @@ def test_workspace_watchdog_subprocess_reports_health() -> None:
     assert result is not None
     assert result["ok"] is True
     assert result["drifted_goals"] == []
+
+
+def test_workspace_recovery_subprocess_healthy_needs_no_repairs() -> None:
+    from blackhole_agent import unbound
+
+    result = unbound.run_workspace_goal_recovery(REPO_ROOT)
+    assert result is not None
+    assert result["ok"] is True
+    assert result["recovery"]["repair_count"] == 0
