@@ -335,8 +335,22 @@ def _tree_env(tree_root: Path, manifest: Mapping[str, Any]) -> dict[str, str]:
 
 def run_repro(defect: Defect, tree_root: Path, manifest: Mapping[str, Any]) -> dict[str, Any]:
     start = time.monotonic()
+    if defect.repro.suffix == ".cjs":
+        # node-runtime target: the repro expects the extracted package root
+        # (require(TARGET_DIR) resolves its package.json), not the tree root.
+        node = shutil.which("node")
+        if node is None:
+            return {
+                "defect_id": defect.id,
+                "exit_code": -1,
+                "duration_seconds": 0.0,
+                "stderr_tail": "node runtime not found on PATH",
+            }
+        cmd = [node, str(defect.repro), str(tree_root / manifest["src_subdir"])]
+    else:
+        cmd = [sys.executable, str(defect.repro), str(tree_root)]
     proc = subprocess.run(
-        [sys.executable, str(defect.repro), str(tree_root)],
+        cmd,
         capture_output=True,
         text=True,
         timeout=REPRO_TIMEOUT_SECONDS,

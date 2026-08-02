@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
+import io
 import json
 import shutil
+import tarfile
 from pathlib import Path
 
 import pytest
@@ -161,3 +164,104 @@ def test_builtin_proof_green_across_targets() -> None:
     assert result["tamper_detected"] and result["verified"] and result["suite_green"]
     assert not result["used_skill_route_discovery"]
     assert run_all_campaigns.__module__ == "blackhole_agent.upstream_repair"
+
+
+# ---------------------------------------------------------------------------
+# node runtime targets (driver.runtime="node"; requires a real node runtime)
+
+node_available = pytest.mark.skipif(shutil.which("node") is None, reason="node runtime not on PATH")
+
+_PRISTINE_JS = (
+    "exports.render_text = function (text) {\n"
+    "    if (text.includes('~~')) { throw new RangeError('spoiler stack overflow'); }\n"
+    "    return text;\n"
+    "};\n"
+)
+_FIXED_JS = _PRISTINE_JS.replace(
+    "throw new RangeError('spoiler stack overflow');",
+    "return text.replace(/~~/g, '');",
+)
+
+_REPRO_CJS = (
+    '"use strict";\n'
+    "const TARGET_DIR = process.argv[2];\n"
+    "try {\n"
+    "    require(TARGET_DIR).render_text('~~a ~~a');\n"
+    "    console.log(JSON.stringify({ defect: false }));\n"
+    "    process.exit(0);\n"
+    "} catch (e) {\n"
+    "    console.log(JSON.stringify({ defect: true }));\n"
+    "    process.exit(1);\n"
+    "}\n"
+)
+
+
+def _make_node_crash_target(tmp_path: Path) -> Path:
+    """Fabricated npm target: render_text throws on '~~'; a patch repairs it."""
+    import difflib
+
+    pkg_json = json.dumps({"name": "quirk", "version": "1.0.0", "main": "index.js"})
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+        for name, payload in (("package/package.json", pkg_json), ("package/index.js", _PRISTINE_JS)):
+            data = payload.encode()
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+    tarball = buf.getvalue()
+
+    target_root = tmp_path / "quirk-1.0.0"
+    (target_root / "patches").mkdir(parents=True)
+    (target_root / "repros").mkdir()
+    (target_root / "quirk-1.0.0.tgz").write_bytes(tarball)
+
+    diff = "".join(
+        difflib.unified_diff(
+            _PRISTINE_JS.splitlines(keepends=True),
+            _FIXED_JS.splitlines(keepends=True),
+            fromfile="a/package/index.js",
+            tofile="b/package/index.js",
+            n=1,
+        )
+    )
+    (target_root / "patches" / "spoiler-crash.patch").write_text(diff, encoding="utf-8")
+    (target_root / "repros" / "spoiler_crash.cjs").write_bytes(_REPRO_CJS.encode())
+    manifest = {
+        "name": "quirk",
+        "version": "1.0.0",
+        "sdist": "quirk-1.0.0.tgz",
+        "sdist_sha256": hashlib.sha256(tarball).hexdigest(),
+        "src_subdir": "package",
+        "tests_subdir": None,
+        "fixed_in": None,
+        "upstream_repo": None,
+        "upstream_changelog": None,
+        "source_url": "https://example.invalid/quirk-1.0.0.tgz",
+        "defects": [
+            {
+                "id": "spoiler-crash",
+                "kind": "crash",
+                "patch": "patches/spoiler-crash.patch",
+                "repro": "repros/spoiler_crash.cjs",
+                "title": "planted crash for the node repair campaign test",
+                "upstream_ref": "fabricated test target",
+            }
+        ],
+    }
+    (target_root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    return target_root
+
+
+@node_available
+def test_node_repair_campaign_end_to_end(tmp_path: Path) -> None:
+    target_root = _make_node_crash_target(tmp_path)
+    report = run_repair_campaign(target_root, artifact_dir=tmp_path / "artifacts")
+    assert report["ok"], json.dumps({k: report[k] for k in ("defects", "error") if k in report}, indent=2)[:2000]
+    assert report["repair_score"] == 1.0
+    (defect,) = report["defects"]
+    assert defect["reproduced_on_pristine"] and defect["repaired"] and defect["ablation_reopens"]
+    assert defect["patched_files"] == ["package/index.js"]
+    # suite gate is honestly vacuous for a target with no shipped suite
+    assert report["suites"]["pristine"]["summary"].startswith("skipped")
+    verdict = verify_repair_report(Path(report["report_dir"]), target_root)
+    assert verdict["ok"], verdict

@@ -1,0 +1,68 @@
+{
+  "created_at": "2026-08-02T14:57:48.338375Z",
+  "defect_count": 1,
+  "defects": [
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "footnote-defs-masking-quadratic",
+      "kind": "complexity",
+      "patched_files": [
+        "package/lib/marked.esm.js"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "inlineTokens rebuilds the reflink-mask preamble per call (Object.keys over all link defs), making n refs + n defs O(n^2) (measured exponent 3.0, 24s at n=13000)",
+      "upstream_ref": "discovered autonomously by capability.upstream-discovery (footnote_defs generator, minimized n=3250) on the live npm frontier target marked 18.0.7 (latest npm release, onboarded by capability.upstream-frontier); root cause: Lexer.inlineTokens executes the masking block (Object.keys(this.tokens.links) + reflinkSearch replace) on every call including thousands of recursive link-text calls that cannot contain reflinks - O(calls x defs) allocation churn; repair: skip the masking block when the source contains no '[' (reflinkSearch can only match text containing '['), and use a Set for the label lookup"
+    }
+  ],
+  "evidence_files": {
+    "patches": {
+      "footnote-defs-masking-quadratic": "da2a0640f2a3a10acd2c76d2c717cf9246a5595c811e20e83ae56485f9d39f67"
+    },
+    "repros": {
+      "footnote-defs-masking-quadratic": "606edf1f5e14e3fcc32da2912b9b230247361b87cf19464aee79a39a00df471f"
+    },
+    "sdist": "edcb08b6a56e5bfa9a1177a29943f19587771297e123694134d166546e1201b6"
+  },
+  "ok": true,
+  "outcomes_digest": "52f3044ca5758d2c4639320482a8eaf813876e074cbefbad10de3cbb83a43c4f",
+  "provenance": {
+    "actual": "edcb08b6a56e5bfa9a1177a29943f19587771297e123694134d166546e1201b6",
+    "expected": "edcb08b6a56e5bfa9a1177a29943f19587771297e123694134d166546e1201b6",
+    "ok": true,
+    "path": "stewardship\\marked-18.0.7\\marked-18.0.7.tgz"
+  },
+  "repair_score": 1.0,
+  "repaired_count": 1,
+  "report_digest": "97a5bc1b89c01b692532d2af632792d4d8985794b55f4e2f3271b11653ca672b",
+  "schema_version": 2,
+  "suite_digest": "b0bfea5861b6bddea554852a4bb2a1e726d8316b92f218c22bcf589dde8668b3",
+  "suite_overlay": null,
+  "suites": {
+    "pristine": {
+      "duration_seconds": 0.0,
+      "exit_code": 0,
+      "passed": 0,
+      "stderr_tail": "",
+      "summary": "skipped: no upstream test suite available"
+    },
+    "repaired": {
+      "duration_seconds": 0.0,
+      "exit_code": 0,
+      "passed": 0,
+      "stderr_tail": "",
+      "summary": "skipped: no upstream test suite available"
+    }
+  },
+  "target": {
+    "fixed_in": null,
+    "name": "marked",
+    "source_url": "https://registry.npmjs.org/marked/-/marked-18.0.7.tgz",
+    "upstream_changelog": null,
+    "upstream_repo": "https://github.com/markedjs/marked",
+    "version": "18.0.7"
+  }
+}
