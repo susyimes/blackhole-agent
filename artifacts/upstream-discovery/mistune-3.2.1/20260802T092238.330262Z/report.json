@@ -1,0 +1,341 @@
+{
+  "chain_digest": "f5ccb57144bcf4f38332c57c0144b18321c37ec9f1fb6ffc241dd4585ce2df09",
+  "finding_count": 4,
+  "findings": [
+    {
+      "exponent": 2.087,
+      "flagged": true,
+      "generator": "nested_link",
+      "kind": "complexity",
+      "minimized_n": 1875,
+      "pristine_repro_exit": 1,
+      "repro": "repros\\nested_link.py",
+      "repro_sha256": "0a696e94d4d3281f1b4cdb0f1b5d673e8f83e601af9b4bce20a0e5f740cb1a75",
+      "times": [
+        [
+          1000,
+          0.2188
+        ],
+        [
+          2000,
+          0.8947
+        ],
+        [
+          4000,
+          3.8005
+        ]
+      ]
+    },
+    {
+      "exponent": 2.11,
+      "flagged": true,
+      "generator": "nested_image",
+      "kind": "complexity",
+      "minimized_n": 1250,
+      "pristine_repro_exit": 1,
+      "repro": "repros\\nested_image.py",
+      "repro_sha256": "9cf0cef87275214a731c5c15cf25e2fee2b16dd77d4f0a07868d1c571047d0b8",
+      "times": [
+        [
+          1000,
+          0.4744
+        ],
+        [
+          2000,
+          2.0478
+        ]
+      ]
+    },
+    {
+      "exponent": 1.04,
+      "flagged": false,
+      "generator": "nested_emphasis",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0025
+        ],
+        [
+          2000,
+          0.005
+        ],
+        [
+          4000,
+          0.0111
+        ],
+        [
+          8000,
+          0.0214
+        ],
+        [
+          16000,
+          0.0439
+        ]
+      ]
+    },
+    {
+      "exponent": 0.851,
+      "flagged": false,
+      "generator": "unclosed_emphasis",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0027
+        ],
+        [
+          2000,
+          0.005
+        ],
+        [
+          4000,
+          0.0096
+        ],
+        [
+          8000,
+          0.0229
+        ],
+        [
+          16000,
+          0.0413
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "link_suffixes",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0003
+        ],
+        [
+          2000,
+          0.0006
+        ],
+        [
+          4000,
+          0.001
+        ],
+        [
+          8000,
+          0.0018
+        ],
+        [
+          16000,
+          0.0039
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "backtick_runs",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0006
+        ],
+        [
+          2000,
+          0.0009
+        ],
+        [
+          4000,
+          0.0017
+        ],
+        [
+          8000,
+          0.0033
+        ],
+        [
+          16000,
+          0.0076
+        ]
+      ]
+    },
+    {
+      "exponent": 2.095,
+      "flagged": true,
+      "generator": "footnote_refs",
+      "kind": "complexity",
+      "minimized_n": 3500,
+      "pristine_repro_exit": 1,
+      "repro": "repros\\footnote_refs.py",
+      "repro_sha256": "995e8e71c6a15c14b19d1e261e47fc29d441159fef4899c28bacbd77343e9242",
+      "times": [
+        [
+          1000,
+          0.059
+        ],
+        [
+          2000,
+          0.252
+        ],
+        [
+          4000,
+          0.9823
+        ],
+        [
+          8000,
+          4.1789
+        ]
+      ]
+    },
+    {
+      "exponent": 1.864,
+      "flagged": true,
+      "generator": "footnote_defs",
+      "kind": "complexity",
+      "minimized_n": 11500,
+      "pristine_repro_exit": 1,
+      "repro": "repros\\footnote_defs.py",
+      "repro_sha256": "079271bdfc031cd0a1eff1a196e8009245db9d5894d2e11bd34755d2a52cfadd",
+      "times": [
+        [
+          1000,
+          0.0157
+        ],
+        [
+          2000,
+          0.0409
+        ],
+        [
+          4000,
+          0.1276
+        ],
+        [
+          8000,
+          0.4019
+        ],
+        [
+          16000,
+          1.4627
+        ]
+      ]
+    },
+    {
+      "exponent": 1.043,
+      "flagged": false,
+      "generator": "inline_links",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.007
+        ],
+        [
+          2000,
+          0.015
+        ],
+        [
+          4000,
+          0.0278
+        ],
+        [
+          8000,
+          0.0573
+        ],
+        [
+          16000,
+          0.1094
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "unclosed_spoiler",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.001
+        ],
+        [
+          2000,
+          0.0018
+        ],
+        [
+          4000,
+          0.0036
+        ],
+        [
+          8000,
+          0.007
+        ],
+        [
+          16000,
+          0.0146
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "adjacent_ruby",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0009
+        ],
+        [
+          2000,
+          0.0019
+        ],
+        [
+          4000,
+          0.0037
+        ],
+        [
+          8000,
+          0.0074
+        ],
+        [
+          16000,
+          0.0155
+        ]
+      ]
+    },
+    {
+      "exponent": 1.032,
+      "flagged": false,
+      "generator": "table_row",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0069
+        ],
+        [
+          2000,
+          0.0149
+        ],
+        [
+          4000,
+          0.0274
+        ],
+        [
+          8000,
+          0.0561
+        ],
+        [
+          16000,
+          0.1136
+        ]
+      ]
+    }
+  ],
+  "scanned_at": "2026-08-02T09:23:28.048471Z",
+  "schema_version": 1,
+  "sdist_sha256": "7c8e5501d38bac1582e067e46c8343f17d57ea1aaa735823f3aba1fd59c88a28",
+  "target": {
+    "name": "mistune",
+    "version": "3.2.1"
+  }
+}

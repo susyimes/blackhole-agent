@@ -1,0 +1,333 @@
+{
+  "chain_digest": "19ef25ebe67ed414cb3c8641749bacafef4d5c5c4054d37e82e08e2ea37e9061",
+  "finding_count": 5,
+  "findings": [
+    {
+      "exponent": 1.996,
+      "flagged": true,
+      "generator": "nested_link",
+      "kind": "complexity",
+      "minimized_n": 2750,
+      "pristine_repro_exit": 1,
+      "repro": "repros\\nested_link.py",
+      "repro_sha256": "4b6c39ef4cf1dc84cc4a639a26ca47ab41dceea990c44523cfad1b6591815fdd",
+      "times": [
+        [
+          1000,
+          0.1106
+        ],
+        [
+          2000,
+          0.4412
+        ],
+        [
+          4000,
+          1.727
+        ]
+      ]
+    },
+    {
+      "exponent": 1.986,
+      "flagged": true,
+      "generator": "nested_image",
+      "kind": "complexity",
+      "minimized_n": 2125,
+      "pristine_repro_exit": 1,
+      "repro": "repros\\nested_image.py",
+      "repro_sha256": "12abd83cf1c59b9670b405da3c8f92c2b84bf6593b90067d82726e8a9863fb29",
+      "times": [
+        [
+          1000,
+          0.1736
+        ],
+        [
+          2000,
+          0.6595
+        ],
+        [
+          4000,
+          2.6129
+        ]
+      ]
+    },
+    {
+      "exponent": 1.468,
+      "flagged": false,
+      "generator": "nested_emphasis",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0121
+        ],
+        [
+          2000,
+          0.0261
+        ],
+        [
+          4000,
+          0.0621
+        ],
+        [
+          8000,
+          0.1485
+        ],
+        [
+          16000,
+          0.4109
+        ]
+      ]
+    },
+    {
+      "exponent": 1.716,
+      "flagged": false,
+      "generator": "unclosed_emphasis",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0054
+        ],
+        [
+          2000,
+          0.0098
+        ],
+        [
+          4000,
+          0.0249
+        ],
+        [
+          8000,
+          0.066
+        ],
+        [
+          16000,
+          0.2169
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "link_suffixes",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0003
+        ],
+        [
+          2000,
+          0.0004
+        ],
+        [
+          4000,
+          0.0006
+        ],
+        [
+          8000,
+          0.001
+        ],
+        [
+          16000,
+          0.0017
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "backtick_runs",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0003
+        ],
+        [
+          2000,
+          0.0003
+        ],
+        [
+          4000,
+          0.0005
+        ],
+        [
+          8000,
+          0.0007
+        ],
+        [
+          16000,
+          0.0012
+        ]
+      ]
+    },
+    {
+      "exponent": 2.072,
+      "flagged": true,
+      "generator": "footnote_refs",
+      "kind": "complexity",
+      "minimized_n": 2125,
+      "pristine_repro_exit": 1,
+      "repro": "repros\\footnote_refs.py",
+      "repro_sha256": "c4e6120a8dc061fb9e6601e3c223ec14b2c539caaba780befeafe78e48284ada",
+      "times": [
+        [
+          1000,
+          0.1703
+        ],
+        [
+          2000,
+          0.716
+        ],
+        [
+          4000,
+          2.948
+        ]
+      ]
+    },
+    {
+      "exponent": 1.895,
+      "flagged": true,
+      "generator": "footnote_defs",
+      "kind": "complexity",
+      "minimized_n": 2000,
+      "pristine_repro_exit": 1,
+      "repro": "repros\\footnote_defs.py",
+      "repro_sha256": "2ac6f151499ae943b624551ed469bb11c039afe12f199c921a5c1e49a5ed6fb4",
+      "times": [
+        [
+          1000,
+          0.2379
+        ],
+        [
+          2000,
+          0.8851
+        ],
+        [
+          4000,
+          2.9455
+        ]
+      ]
+    },
+    {
+      "exponent": 2.085,
+      "flagged": true,
+      "generator": "inline_links",
+      "kind": "complexity",
+      "minimized_n": 4250,
+      "pristine_repro_exit": 1,
+      "repro": "repros\\inline_links.py",
+      "repro_sha256": "fb2a5e97c96236e235e000a0cd50ece71b48ea81877bdfe313f5f3f9a47e1853",
+      "times": [
+        [
+          1000,
+          0.0648
+        ],
+        [
+          2000,
+          0.2747
+        ],
+        [
+          4000,
+          0.7457
+        ],
+        [
+          8000,
+          2.8797
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "unclosed_spoiler",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0005
+        ],
+        [
+          2000,
+          0.0009
+        ],
+        [
+          4000,
+          0.0018
+        ],
+        [
+          8000,
+          0.0033
+        ],
+        [
+          16000,
+          0.0066
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "adjacent_ruby",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0005
+        ],
+        [
+          2000,
+          0.0009
+        ],
+        [
+          4000,
+          0.0027
+        ],
+        [
+          8000,
+          0.0032
+        ],
+        [
+          16000,
+          0.0062
+        ]
+      ]
+    },
+    {
+      "exponent": 1.085,
+      "flagged": false,
+      "generator": "table_row",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0225
+        ],
+        [
+          2000,
+          0.045
+        ],
+        [
+          4000,
+          0.088
+        ],
+        [
+          8000,
+          0.1769
+        ],
+        [
+          16000,
+          0.3753
+        ]
+      ]
+    }
+  ],
+  "scanned_at": "2026-08-02T09:21:48.351837Z",
+  "schema_version": 1,
+  "sdist_sha256": "3589362618f743188b4d955b874402bc814f4f83f544dc207719f4baa7d9c45f",
+  "target": {
+    "name": "markdown",
+    "version": "3.10.3"
+  }
+}

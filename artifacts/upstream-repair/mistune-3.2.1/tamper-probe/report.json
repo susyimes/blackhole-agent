@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-08-02T05:35:08.183446Z",
+  "created_at": "2026-08-02T09:20:40.203852Z",
   "defect_count": 9,
   "defects": [
     {
@@ -163,8 +163,8 @@
       "image-unsafe-url": "dd880b9d706351d7b4250f23637b187accdf3a9bd35a3c5f7ed2fe2a1c557c97",
       "include-directive-hardening": "7195a980e694344367e0721cc134857f0d93ec78b5fcb6d0d4f174c3f09d1b2c",
       "math-currency-crossline": "c39a74fce87ef636a96bcb7cc48e3b77824941e98e0057a67348a8a81c7c08fa",
-      "nested-bracket-scan-quadratic": "8a030b912924ed14a8558f65a474643ef4857f3ecd9de82359f9480fac98cdcb",
-      "ref-link-blank-scan-quadratic": "0d9f1fe61013e0fbb0062a695841d9a29acd49d37d221711fe18a0b9d2a12f60",
+      "nested-bracket-scan-quadratic": "3f1e48bf2054c99d65d635a35b6e9b6fda8c35e6adcdeb6e688f3d6d06218782",
+      "ref-link-blank-scan-quadratic": "82b7872eaad1fe004c1092fb7ac4dc79bba51740a7363091a18762bd5be37d8c",
       "rst-blockquote-nested-list": "e1ba61a4f621393e6d92669a9b6e7abbc3c8bbf6f2b6a343094b31c1cc244854",
       "safe-url-percent-encoded": "875973e16edad323a829f308b976e50a000e89fad5c0d768f000f60cebc320cf",
       "toc-heading-id-collision": "b98bb5c9624486c548c540acab564b395870262c19bd1cced8c9cad131d14a24"
@@ -177,27 +177,27 @@
     "actual": "7c8e5501d38bac1582e067e46c8343f17d57ea1aaa735823f3aba1fd59c88a28",
     "expected": "7c8e5501d38bac1582e067e46c8343f17d57ea1aaa735823f3aba1fd59c88a28",
     "ok": true,
-    "path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260802T050926Z-c225aa6a\\stewardship\\mistune-3.2.1\\mistune-3.2.1.tar.gz"
+    "path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260802T060744Z-76b483a8\\stewardship\\mistune-3.2.1\\mistune-3.2.1.tar.gz"
   },
   "repair_score": 1.0,
   "repaired_count": 9,
-  "report_digest": "76af1756be5bb5e37312607271204ceab98056422a09d0ca904e8aa554e3b4fa",
+  "report_digest": "004b7a84bef7bcd5edf14e9641ac631c30304924601c8c5582b06584cb09d5e5",
   "schema_version": 2,
   "suite_digest": "ede8a8267de8c7d612fa5b6fc14daa12751845e8874b1847d2f59a1e6b10ca5d",
   "suites": {
     "pristine": {
-      "duration_seconds": 0.999,
+      "duration_seconds": 1.009,
       "exit_code": 0,
       "passed": 961,
       "stderr_tail": "",
-      "summary": "961 passed in 0.71s"
+      "summary": "961 passed in 0.70s"
     },
     "repaired": {
-      "duration_seconds": 1.149,
+      "duration_seconds": 1.037,
       "exit_code": 0,
       "passed": 981,
       "stderr_tail": "",
-      "summary": "981 passed in 0.82s"
+      "summary": "981 passed in 0.75s"
     }
   },
   "target": {

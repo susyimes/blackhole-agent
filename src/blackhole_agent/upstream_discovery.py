@@ -140,6 +140,21 @@ GENERATORS: dict[str, dict[str, Any]] = {
         ),
         "summary": "n footnote references with n footnote definitions",
     },
+    "footnote_defs": {
+        "plugins": ["footnotes"],
+        "source": (
+            "def gen(n):\n"
+            "    refs = ''.join('[^%d] ' % i for i in range(n))\n"
+            "    defs = '\\n'.join('[^%d]: x' % i for i in range(n))\n"
+            "    return refs + '\\n\\n' + defs\n"
+        ),
+        "summary": "n caret-footnote references with n caret-footnote definitions",
+    },
+    "inline_links": {
+        "plugins": [],
+        "source": "def gen(n):\n    return '[l](u) ' * n\n",
+        "summary": "n valid inline links in one paragraph",
+    },
     "unclosed_spoiler": {
         "plugins": ["spoiler"],
         "source": "def gen(n):\n    return '~~a ' * n\n",
@@ -350,7 +365,9 @@ while n <= limit:
         crashed = type(e).__name__
         break
     times.append((n, elapsed))
-    if elapsed >= 1.0:
+    if elapsed >= 1.0 and len(times) >= 2:
+        # Always measure at least two sizes: one load-inflated run must not
+        # end the ladder before any growth pair exists.
         break
     n *= 2
 

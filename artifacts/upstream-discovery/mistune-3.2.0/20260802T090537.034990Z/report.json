@@ -1,0 +1,341 @@
+{
+  "chain_digest": "cdc751ec2bd8829b49dda178ea73bf7dccbea531a866bd4b4594f997f8e3a735",
+  "finding_count": 4,
+  "findings": [
+    {
+      "exponent": 2.076,
+      "flagged": true,
+      "generator": "nested_link",
+      "kind": "complexity",
+      "minimized_n": 1875,
+      "pristine_repro_exit": 1,
+      "repro": "repros\\nested_link.py",
+      "repro_sha256": "6bb8c5a06c7ec1ed62eb9854dc4223b71f7c0d24ab6a153c87b6fde29991a5f4",
+      "times": [
+        [
+          1000,
+          0.2209
+        ],
+        [
+          2000,
+          0.9317
+        ],
+        [
+          4000,
+          3.7697
+        ]
+      ]
+    },
+    {
+      "exponent": 2.024,
+      "flagged": true,
+      "generator": "nested_image",
+      "kind": "complexity",
+      "minimized_n": 1312,
+      "pristine_repro_exit": 1,
+      "repro": "repros\\nested_image.py",
+      "repro_sha256": "709fd67aba0dcb0a32705d55547e8a28aba00dc079b8dfc75092c347f220fbe2",
+      "times": [
+        [
+          1000,
+          0.4611
+        ],
+        [
+          2000,
+          1.8755
+        ]
+      ]
+    },
+    {
+      "exponent": 1.047,
+      "flagged": false,
+      "generator": "nested_emphasis",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0024
+        ],
+        [
+          2000,
+          0.0047
+        ],
+        [
+          4000,
+          0.0099
+        ],
+        [
+          8000,
+          0.0209
+        ],
+        [
+          16000,
+          0.0432
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "unclosed_emphasis",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0027
+        ],
+        [
+          2000,
+          0.0048
+        ],
+        [
+          4000,
+          0.0093
+        ],
+        [
+          8000,
+          0.0198
+        ],
+        [
+          16000,
+          0.0397
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "link_suffixes",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0003
+        ],
+        [
+          2000,
+          0.0005
+        ],
+        [
+          4000,
+          0.0009
+        ],
+        [
+          8000,
+          0.0017
+        ],
+        [
+          16000,
+          0.0036
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "backtick_runs",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0005
+        ],
+        [
+          2000,
+          0.001
+        ],
+        [
+          4000,
+          0.0017
+        ],
+        [
+          8000,
+          0.0032
+        ],
+        [
+          16000,
+          0.0071
+        ]
+      ]
+    },
+    {
+      "exponent": 2.108,
+      "flagged": true,
+      "generator": "footnote_refs",
+      "kind": "complexity",
+      "minimized_n": 3500,
+      "pristine_repro_exit": 1,
+      "repro": "repros\\footnote_refs.py",
+      "repro_sha256": "0c2d6ec9fdcd2d9463dd21c75ee4fd1fdf24bb5869f89ed6028cf0dd2f21a85c",
+      "times": [
+        [
+          1000,
+          0.0558
+        ],
+        [
+          2000,
+          0.2404
+        ],
+        [
+          4000,
+          0.9675
+        ],
+        [
+          8000,
+          4.127
+        ]
+      ]
+    },
+    {
+      "exponent": 1.855,
+      "flagged": true,
+      "generator": "footnote_defs",
+      "kind": "complexity",
+      "minimized_n": 11500,
+      "pristine_repro_exit": 1,
+      "repro": "repros\\footnote_defs.py",
+      "repro_sha256": "c740925c6f45d48e4241a82f6f760e373142c2210e4ffe1098f1080b8aafd2d8",
+      "times": [
+        [
+          1000,
+          0.0145
+        ],
+        [
+          2000,
+          0.0402
+        ],
+        [
+          4000,
+          0.1214
+        ],
+        [
+          8000,
+          0.3912
+        ],
+        [
+          16000,
+          1.4151
+        ]
+      ]
+    },
+    {
+      "exponent": 0.984,
+      "flagged": false,
+      "generator": "inline_links",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.007
+        ],
+        [
+          2000,
+          0.0143
+        ],
+        [
+          4000,
+          0.028
+        ],
+        [
+          8000,
+          0.0545
+        ],
+        [
+          16000,
+          0.1078
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "unclosed_spoiler",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0009
+        ],
+        [
+          2000,
+          0.0017
+        ],
+        [
+          4000,
+          0.0036
+        ],
+        [
+          8000,
+          0.007
+        ],
+        [
+          16000,
+          0.0144
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "adjacent_ruby",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0009
+        ],
+        [
+          2000,
+          0.0018
+        ],
+        [
+          4000,
+          0.0036
+        ],
+        [
+          8000,
+          0.0072
+        ],
+        [
+          16000,
+          0.0143
+        ]
+      ]
+    },
+    {
+      "exponent": 0.985,
+      "flagged": false,
+      "generator": "table_row",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0065
+        ],
+        [
+          2000,
+          0.014
+        ],
+        [
+          4000,
+          0.0277
+        ],
+        [
+          8000,
+          0.0527
+        ],
+        [
+          16000,
+          0.1043
+        ]
+      ]
+    }
+  ],
+  "scanned_at": "2026-08-02T09:06:26.020178Z",
+  "schema_version": 1,
+  "sdist_sha256": "708487c8a8cdd99c9d90eb3ed4c3ed961246ff78ac82f03418f5183ab70e398a",
+  "target": {
+    "name": "mistune",
+    "version": "3.2.0"
+  }
+}

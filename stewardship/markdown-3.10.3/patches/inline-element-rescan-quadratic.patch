@@ -1,0 +1,148 @@
+--- a/markdown-3.10.3/markdown/treeprocessors.py
++++ b/markdown-3.10.3/markdown/treeprocessors.py
+@@ -277,59 +277,101 @@
+             if exclude.lower() in self.ancestors:
+                 return data, False, 0
+ 
+-        if new_style:
+-            match = None
+-            # Since `handleMatch` may reject our first match,
+-            # we iterate over the buffer looking for matches
+-            # until we can't find any more.
+-            for match in pattern.getCompiledRegExp().finditer(data, startIndex):
+-                node, start, end = pattern.handleMatch(match, data)
+-                if start is None or end is None:
+-                    startIndex += match.end(0)
+-                    match = None
+-                    continue
+-                break
+-        else:  # pragma: no cover
++        if not new_style:  # pragma: no cover
+             match = pattern.getCompiledRegExp().match(data[startIndex:])
+             leftData = data[:startIndex]
+-
+-        if not match:
+-            return data, False, 0
+-
+-        if not new_style:  # pragma: no cover
++            if not match:
++                return data, False, 0
+             node = pattern.handleMatch(match)
+             start = match.start(0)
+             end = match.end(0)
+-
+-        if node is None:
+-            return data, True, end
+-
+-        if not isinstance(node, str):
+-            if not isinstance(node.text, util.AtomicString):
+-                # We need to process current node too
+-                for child in [node] + list(node):
+-                    if not isString(node):
+-                        if child.text:
+-                            self.ancestors.append(child.tag.lower())
+-                            child.text = self.__handleInline(
+-                                child.text, patternIndex + 1
+-                            )
+-                            self.ancestors.pop()
+-                        if child.tail:
+-                            child.tail = self.__handleInline(
+-                                child.tail, patternIndex
+-                            )
+-
+-        placeholder = self.__stashNode(node, pattern.type())
+-
+-        if new_style:
+-            return "{}{}{}".format(data[:start],
+-                                   placeholder, data[end:]), True, 0
+-        else:  # pragma: no cover
++            if node is None:
++                return data, True, end
++            if not isinstance(node, str):
++                if not isinstance(node.text, util.AtomicString):
++                    # We need to process current node too
++                    for child in [node] + list(node):
++                        if not isString(node):
++                            if child.text:
++                                self.ancestors.append(child.tag.lower())
++                                child.text = self.__handleInline(
++                                    child.text, patternIndex + 1
++                                )
++                                self.ancestors.pop()
++                            if child.tail:
++                                child.tail = self.__handleInline(
++                                    child.tail, patternIndex
++                                )
++            placeholder = self.__stashNode(node, pattern.type())
+             return "{}{}{}{}".format(leftData,
+                                      match.group(1),
+                                      placeholder, match.groups()[-1]), True, 0
+ 
++        # Apply the pattern left to right over an evolving buffer, rebuilding
++        # only the buffer tail instead of rescanning the whole string from
++        # the start after every accepted match (which makes n matches in one
++        # text node cost O(n^2)). The buffer always reflects every
++        # substitution made so far, so lookbehind and `handleMatch` see the
++        # same substituted context as a full rescan. `FLUSH_KEEP` characters
++        # of context are retained behind the scan position when the buffer is
++        # flushed, and any pass that stashed at least one element is followed
++        # by a full re-pass, so the fixed point matches the rescan semantics.
++        _FLUSH_AT = 4096
++        _FLUSH_KEEP = 64
++        parts: list[str] = [data[:startIndex]]
++        buf = data[startIndex:]
++        scan = 0
++        stashed = False
++        regex = pattern.getCompiledRegExp()
++        while True:
++            node = start = end = None
++            # Since `handleMatch` may reject a match,
++            # we iterate over the buffer looking for matches
++            # until we can't find any more.
++            for match in regex.finditer(buf, scan):
++                node, start, end = pattern.handleMatch(match, buf)
++                if start is None or end is None:
++                    node = start = end = None
++                    continue
++                break
++            if node is None and start is None:
++                break
++            if node is None:
++                # Pattern claims the region but yields no element; skip it.
++                scan = end
++                continue
++            stashed = True
++            if not isinstance(node, str):
++                if not isinstance(node.text, util.AtomicString):
++                    # We need to process current node too
++                    for child in [node] + list(node):
++                        if not isString(node):
++                            if child.text:
++                                self.ancestors.append(child.tag.lower())
++                                child.text = self.__handleInline(
++                                    child.text, patternIndex + 1
++                                )
++                                self.ancestors.pop()
++                            if child.tail:
++                                child.tail = self.__handleInline(
++                                    child.tail, patternIndex
++                                )
++            placeholder = self.__stashNode(node, pattern.type())
++            buf = buf[:start] + placeholder + buf[end:]
++            scan = start + len(placeholder)
++            if scan > _FLUSH_AT:
++                cut = scan - _FLUSH_KEEP
++                parts.append(buf[:cut])
++                buf = buf[cut:]
++                scan = _FLUSH_KEEP
++
++        if not stashed:
++            # No element was stashed, so the (unchanged) data needs no
++            # second pass with this pattern.
++            return data, False, 0
++        parts.append(buf)
++        return ''.join(parts), True, 0
++
+     def __build_ancestors(self, parent: etree.Element | None, parents: list[str]) -> None:
+         """Build the ancestor list."""
+         ancestors = []

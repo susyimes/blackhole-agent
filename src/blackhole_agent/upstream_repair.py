@@ -43,6 +43,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -412,10 +413,9 @@ def run_repair_campaign(
         return {"ok": False, "error": "sdist provenance mismatch", "provenance": provenance}
 
     target_dir = _target_artifact_dir(target, artifact_dir)
-    work_root = target_dir / "work"
-    if work_root.exists():
-        shutil.rmtree(work_root)
-    work_root.mkdir(parents=True)
+    # Scratch trees extract to a short temp dir: artifact paths under a deep
+    # workspace plus long upstream fixture names overflow Windows MAX_PATH.
+    work_root = Path(tempfile.mkdtemp(prefix="upstream-repair-"))
 
     # evidence file hashes: any post-hoc edit of a repro or patch breaks verification
     evidence_files = {
@@ -529,6 +529,7 @@ def run_repair_campaign(
     report_dir.mkdir(parents=True, exist_ok=True)
     atomic_write_json(report_dir / "report.json", report)
     atomic_write_json(target_dir / "latest-report.json", {"report_dir": str(report_dir), "report_digest": report_digest})
+    shutil.rmtree(work_root, ignore_errors=True)
     report["report_dir"] = str(report_dir)
     return report
 

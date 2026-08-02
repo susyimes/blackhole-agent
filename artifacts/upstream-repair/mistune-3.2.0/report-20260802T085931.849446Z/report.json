@@ -1,0 +1,243 @@
+{
+  "created_at": "2026-08-02T08:59:31.849430Z",
+  "defect_count": 11,
+  "defects": [
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "math-xss",
+      "kind": "xss",
+      "patched_files": [
+        "mistune-3.2.0/src/mistune/plugins/math.py",
+        "mistune-3.2.0/tests/fixtures/math.txt"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "Math plugin renders raw HTML in block and inline math (XSS)",
+      "upstream_ref": "mistune 3.2.1 changelog: 'Escape text in math plugin' / 'Fix regex for math plugin'"
+    },
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "heading-id-xss",
+      "kind": "xss",
+      "patched_files": [
+        "mistune-3.2.0/src/mistune/renderers/html.py"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "Heading id attribute is not escaped (XSS attribute breakout)",
+      "upstream_ref": "mistune 3.2.1 changelog: 'Escape heading's ID attribute'"
+    },
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "toc-link-xss",
+      "kind": "xss",
+      "patched_files": [
+        "mistune-3.2.0/src/mistune/toc.py"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "render_toc_ul does not escape the link fragment (XSS attribute breakout)",
+      "upstream_ref": "mistune 3.2.1 changelog: 'Escape link in render_toc_ul'"
+    },
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "block-error-xss",
+      "kind": "xss",
+      "patched_files": [
+        "mistune-3.2.0/src/mistune/renderers/html.py",
+        "mistune-3.2.0/tests/fixtures/fenced_toc.txt",
+        "mistune-3.2.0/tests/fixtures/rst_toc.txt"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "block_error renderer emits raw text (XSS)",
+      "upstream_ref": "mistune 3.2.1 changelog: directive error output escaping (fixture updates)"
+    },
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "image-alt-double-encoding",
+      "kind": "correctness",
+      "patched_files": [
+        "mistune-3.2.0/src/mistune/renderers/html.py",
+        "mistune-3.2.0/tests/test_misc.py"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "Image alt text is HTML-encoded twice",
+      "upstream_ref": "mistune 3.2.1 changelog: 'Remove double-encoding of image alt text'"
+    },
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "admonition-class-xss",
+      "kind": "xss",
+      "patched_files": [
+        "mistune-3.2.0/src/mistune/directives/admonition.py"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "Admonition directive class attribute is not escaped (XSS attribute breakout)",
+      "upstream_ref": "mistune 3.2.1 changelog: 'Escape class attribute for admonition directive'"
+    },
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "figure-attrs-xss",
+      "kind": "xss",
+      "patched_files": [
+        "mistune-3.2.0/src/mistune/directives/image.py"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "Figure directive figclass/figwidth attributes are not escaped (XSS attribute breakout)",
+      "upstream_ref": "mistune 3.2.1 changelog: 'Escape class attribute for image directive'"
+    },
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "image-width-validation",
+      "kind": "correctness",
+      "patched_files": [
+        "mistune-3.2.0/src/mistune/directives/image.py"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "Image directive accepts invalid width/height values (regex not anchored)",
+      "upstream_ref": "mistune 3.2.1 changelog: 'Fix width/height attribute for image directive'"
+    },
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "link-title-redos",
+      "kind": "redos",
+      "patched_files": [
+        "mistune-3.2.0/src/mistune/helpers.py",
+        "mistune-3.2.0/tests/test_commonmark.py"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "LINK_TITLE_RE allows catastrophic backtracking on backslash runs (ReDoS)",
+      "upstream_ref": "mistune 3.2.1 changelog: 'Fix LINK_TITLE_RE to prevent DoS'"
+    },
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "ref-link-blank-scan-quadratic",
+      "kind": "complexity",
+      "patched_files": [
+        "mistune-3.2.0/src/mistune/block_parser.py"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "Block ref-link parsing rescans the whole remaining document for the next blank line per definition (quadratic DoS on n reference-link definitions)",
+      "upstream_ref": "mistune 3.3.0 changelog: 'Fix quadratic scans in inline links, reference links, and formatting markers'; discovered autonomously by capability.upstream-discovery (generator 'footnote_refs'), absent from every curated manifest before discovery"
+    },
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "nested-bracket-scan-quadratic",
+      "kind": "complexity",
+      "patched_files": [
+        "mistune-3.2.0/src/mistune/helpers.py",
+        "mistune-3.2.0/src/mistune/inline_parser.py"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "Inline link/image parsing rescans the remaining source for the matching ']' once per '[' or '![' marker (quadratic DoS on n nested brackets)",
+      "upstream_ref": "mistune 3.3.0 changelog: 'Fix quadratic scans in inline links, reference links, and formatting markers'; discovered autonomously by capability.upstream-discovery (generators 'nested_link' and 'nested_image'), absent from every curated manifest before discovery"
+    }
+  ],
+  "evidence_files": {
+    "patches": {
+      "admonition-class-xss": "588cc28997ca8f9f37e8e5c3878189ede23744a80c2633b1b864dfac0691cf8e",
+      "block-error-xss": "44b24743bc5bf0e2fece0098236207ce52b3210a5b7fbba8bbbd8ba1f4b8e587",
+      "figure-attrs-xss": "4c36ccfac0fe35a71feaba78f40c2dfabc7a527c6fd4a390c6727dc1f9eed5ae",
+      "heading-id-xss": "fcfc568f1a91795d4643731d0a7f2e54e33658aa6a1bdeede46672e30cccc61a",
+      "image-alt-double-encoding": "fdd31ad661161acb1b26e2ba150c4c74d5217b3aefe26a289bc544ee4bea0fb8",
+      "image-width-validation": "d5285b63600b2b485296a7f4682300f21fadd48ea049432b7c64e8243352f4f7",
+      "link-title-redos": "95a08fe4bf26b5a5edd75ecad6a940ee21bd7a89894e9255ffe4b4f4c54300e7",
+      "math-xss": "7567aa46e9b73ab2959c5d872f10cb891e1f0274e01efd34d21af1417e9c8a5a",
+      "nested-bracket-scan-quadratic": "347561382d5db3e344feeae847af0fccafb71b7e9a29ed47da1d22873adbb39d",
+      "ref-link-blank-scan-quadratic": "d9405ee93c098e2e306108d59f0ec69f33fe2fb7ab4353f4a090c8e36e3d4dc2",
+      "toc-link-xss": "83754ea328f3f1e36e6762df6b293c5077d3fc720efa6a0005dc4f190517d975"
+    },
+    "repros": {
+      "admonition-class-xss": "398431feec3ed55f03320ef48b685097119aaa0f7b60b24edc66f249048ea031",
+      "block-error-xss": "013afcb1bb40663b9e73fb0578cbe8a70fa59f38b3117d2028d3ec21e2734641",
+      "figure-attrs-xss": "b4e98dde297f2b0c74dc83e978fc769ba9102738565c647a7e63b10d29de205c",
+      "heading-id-xss": "aab737bd05b31173ae538d6ceeaaf3f75c3e5cec032332bf5d73e386d810f636",
+      "image-alt-double-encoding": "4d4d4c43688d53ee8368dcae2c82766200313d0d386d4041b337ee00d18b59cb",
+      "image-width-validation": "931c86028b517f77f976d07d4ee64d4427bdb40f9a5c5ab6fc472eb2713944e4",
+      "link-title-redos": "270c6cc044721a2093a5795b0784fb1007f2ff83a845b11fa1b0256bb7942899",
+      "math-xss": "865d79f95d602d69869e1b997e1369072877524fa212038ac661d5ea3372f25a",
+      "nested-bracket-scan-quadratic": "f15ad223bcef494ed632660d719a78d29e224ec40d0e515dd958cf6971f854fe",
+      "ref-link-blank-scan-quadratic": "3b677dfefb37aa8e680b09ee80926d933d5efb47c0f9ceafc993e86029fe189b",
+      "toc-link-xss": "35c376559f2df736cba0da023344b23aa5e39ede18739f9fd1ec5f3d36cb0ab5"
+    },
+    "sdist": "708487c8a8cdd99c9d90eb3ed4c3ed961246ff78ac82f03418f5183ab70e398a"
+  },
+  "ok": true,
+  "outcomes_digest": "4357aeff0a1d7eafb4b5a88665687f5f20b6df8f2779a99bf4ff80806baf3d1f",
+  "provenance": {
+    "actual": "708487c8a8cdd99c9d90eb3ed4c3ed961246ff78ac82f03418f5183ab70e398a",
+    "expected": "708487c8a8cdd99c9d90eb3ed4c3ed961246ff78ac82f03418f5183ab70e398a",
+    "ok": true,
+    "path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260802T060744Z-76b483a8\\stewardship\\mistune-3.2.0\\mistune-3.2.0.tar.gz"
+  },
+  "repair_score": 1.0,
+  "repaired_count": 11,
+  "report_digest": "6e2a31f95d2d966acc7a0caaa3eef4375a979993878ab98e20fc773d8b84be03",
+  "schema_version": 2,
+  "suite_digest": "2155d51cec45b6e8f3d12860b4aa1d2419a9206166cb5b974efa6c860a9d6a5d",
+  "suites": {
+    "pristine": {
+      "duration_seconds": 1.047,
+      "exit_code": 0,
+      "passed": 959,
+      "stderr_tail": "",
+      "summary": "959 passed in 0.62s"
+    },
+    "repaired": {
+      "duration_seconds": 0.878,
+      "exit_code": 0,
+      "passed": 961,
+      "stderr_tail": "",
+      "summary": "961 passed in 0.61s"
+    }
+  },
+  "target": {
+    "fixed_in": "3.2.1",
+    "name": "mistune",
+    "source_url": "https://files.pythonhosted.org/packages/9d/55/d01f0c4b45ade6536c51170b9043db8b2ec6ddf4a35c7ea3f5f559ac935b/mistune-3.2.0.tar.gz",
+    "upstream_changelog": "https://github.com/lepture/mistune/blob/main/docs/changes.rst",
+    "upstream_repo": "https://github.com/lepture/mistune",
+    "version": "3.2.0"
+  }
+}

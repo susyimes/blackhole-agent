@@ -1,0 +1,45 @@
+--- a/markdown-3.10.3/markdown/blockprocessors.py
++++ b/markdown-3.10.3/markdown/blockprocessors.py
+@@ -586,21 +586,31 @@
+     def run(self, parent: etree.Element, blocks: list[str]) -> bool:
+         block = blocks.pop(0)
+         m = self.RE.search(block)
+-        if m:
++        if not m:
++            # No match. Restore block.
++            blocks.insert(0, block)
++            return False
++        start = m.start()
++        while m is not None:
+             id = m.group(1).strip().lower()
+             link = m.group(2).lstrip('<').rstrip('>')
+             title = m.group(5) or m.group(6)
+             self.parser.md.references[id] = (link, title)
+-            if block[m.end():].strip():
+-                # Add any content after match back to blocks as separate block
+-                blocks.insert(0, block[m.end():].lstrip('\n'))
+-            if block[:m.start()].strip():
+-                # Add any content before match back to blocks as separate block
+-                blocks.insert(0, block[:m.start()].rstrip('\n'))
+-            return True
+-        # No match. Restore block.
+-        blocks.insert(0, block)
+-        return False
++            end = m.end()
++            # Consume every reference definition immediately following this
++            # one in the same block. Re-searching the shrinking remainder
++            # once per definition makes n definitions cost O(n^2); following
++            # definitions are consecutive in the common case, so one forward
++            # pass over the block is O(n).
++            pos = end + 1 if end < len(block) and block[end] == '\n' else end
++            m = self.RE.match(block, pos)
++        if block[pos:].strip():
++            # Add any content after match back to blocks as separate block
++            blocks.insert(0, block[pos:].lstrip('\n'))
++        if block[:start].strip():
++            # Add any content before match back to blocks as separate block
++            blocks.insert(0, block[:start].rstrip('\n'))
++        return True
+ 
+ 
+ class ParagraphProcessor(BlockProcessor):

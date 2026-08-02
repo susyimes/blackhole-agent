@@ -15,5 +15,38 @@
   "driver": {
     "prelude": "import markdown\n\n_EXT_MAP = {'footnotes': 'footnotes', 'table': 'tables'}\n\ndef render(text, plugins):\n    exts = [_EXT_MAP[p] for p in plugins if p in _EXT_MAP]\n    markdown.markdown(text, extensions=exts)"
   },
-  "defects": []
+  "defects": [
+    {
+      "id": "nested-bracket-scan-quadratic",
+      "title": "Inline link/image parsing rescans the remaining text for the matching ']' once per '[' or '![' marker (quadratic DoS on n nested brackets)",
+      "kind": "complexity",
+      "upstream_ref": "discovered autonomously by capability.upstream-discovery (generators 'nested_link' and 'nested_image'); absent from the Python-Markdown changelog through 3.10.3",
+      "repro": "repros/nested_bracket_scan_quadratic.py",
+      "patch": "patches/nested-bracket-scan-quadratic.patch"
+    },
+    {
+      "id": "inline-element-rescan-quadratic",
+      "title": "Inline tree processor rebuilds and rescans the whole text node after every accepted match (quadratic DoS on n valid inline elements in one paragraph)",
+      "kind": "complexity",
+      "upstream_ref": "discovered autonomously by capability.upstream-discovery (generator 'inline_links'); absent from the Python-Markdown changelog through 3.10.3",
+      "repro": "repros/inline_element_rescan_quadratic.py",
+      "patch": "patches/inline-element-rescan-quadratic.patch"
+    },
+    {
+      "id": "ref-def-block-rescan-quadratic",
+      "title": "ReferenceProcessor re-searches a shrinking block once per reference definition (quadratic DoS on n reference definitions)",
+      "kind": "complexity",
+      "upstream_ref": "discovered autonomously by capability.upstream-discovery (generator 'footnote_refs'); absent from the Python-Markdown changelog through 3.10.3",
+      "repro": "repros/ref_def_block_rescan_quadratic.py",
+      "patch": "patches/ref-def-block-rescan-quadratic.patch"
+    },
+    {
+      "id": "footnote-scaling-quadratic",
+      "title": "Footnote extension rescans a shrinking block per definition and rebuilds/scans definition/reference order lists per reference (quadratic DoS on n caret-footnote definitions with references)",
+      "kind": "complexity",
+      "upstream_ref": "discovered autonomously by capability.upstream-discovery (generator 'footnote_defs'); absent from the Python-Markdown changelog through 3.10.3",
+      "repro": "repros/footnote_scaling_quadratic.py",
+      "patch": "patches/footnote-scaling-quadratic.patch"
+    }
+  ]
 }

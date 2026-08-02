@@ -1,0 +1,114 @@
+--- a/markdown-3.10.3/markdown/extensions/footnotes.py
++++ b/markdown-3.10.3/markdown/extensions/footnotes.py
+@@ -128,6 +128,13 @@
+     def reset(self) -> None:
+         """ Clear footnotes on reset, and prepare for distinct document. """
+         self.footnote_order: list[str] = []
++        # Position of each referenced id in `footnote_order`, kept in sync by
++        # `addFootnoteRef` so reference numbering is O(1) per reference
++        # instead of a linear scan of the growing list.
++        self.footnote_order_lookup: dict[str, int] = {}
++        # Lazily-built id -> position map in definition order; definitions
++        # are complete before inline processing runs.
++        self._footnote_def_lookup: dict[str, int] | None = None
+         self.footnotes: OrderedDict[str, str] = OrderedDict()
+         self.unique_prefix += 1
+         self.found_refs = {}
+@@ -180,9 +187,16 @@
+ 
+     def addFootnoteRef(self, id: str) -> None:
+         """ Store a footnote reference id in order of appearance. """
+-        if id not in self.footnote_order:
++        if id not in self.footnote_order_lookup:
++            self.footnote_order_lookup[id] = len(self.footnote_order)
+             self.footnote_order.append(id)
+ 
++    def footnoteDefPosition(self, id: str) -> int:
++        """ Position (0-based) of a footnote id in definition order. """
++        if self._footnote_def_lookup is None:
++            self._footnote_def_lookup = {key: i for i, key in enumerate(self.footnotes)}
++        return self._footnote_def_lookup[id]
++
+     def get_separator(self) -> str:
+         """ Get the footnote separator. """
+         return self.getConfig("SEPARATOR")
+@@ -261,32 +275,44 @@
+ 
+         m = self.RE.search(block)
+         if m:
+-            id = m.group(1)
+-            fn_blocks = [m.group(2)]
+-
+-            # Handle rest of block
+-            therest = block[m.end():].lstrip('\n')
+-            m2 = self.RE.search(therest)
+-            if m2:
+-                # Another footnote exists in the rest of this block.
+-                # Any content before match is continuation of this footnote, which may be lazily indented.
+-                before = therest[:m2.start()].rstrip('\n')
+-                fn_blocks[0] = '\n'.join([fn_blocks[0], self.detab(before)]).lstrip('\n')
+-                # Add back to blocks everything from beginning of match forward for next iteration.
+-                blocks.insert(0, therest[m2.start():])
+-            else:
+-                # All remaining lines of block are continuation of this footnote, which may be lazily indented.
+-                fn_blocks[0] = '\n'.join([fn_blocks[0], self.detab(therest)]).strip('\n')
++            prefix = block[:m.start()]
++            while True:
++                id = m.group(1)
++                fn_blocks = [m.group(2)]
++
++                # Handle rest of block
++                therest = block[m.end():].lstrip('\n')
++                m2 = self.RE.search(therest)
++                if m2 and not therest[:m2.start()].strip():
++                    # Another footnote definition follows immediately, with no
++                    # continuation lines in between. Consume it in this same
++                    # pass: re-searching a shrinking block once per definition
++                    # makes n consecutive definitions cost O(n^2).
++                    self.footnotes.setFootnote(id, fn_blocks[0].rstrip())
++                    block = therest
++                    m = m2
++                    continue
++                if m2:
++                    # Another footnote exists in the rest of this block.
++                    # Any content before match is continuation of this footnote, which may be lazily indented.
++                    before = therest[:m2.start()].rstrip('\n')
++                    fn_blocks[0] = '\n'.join([fn_blocks[0], self.detab(before)]).lstrip('\n')
++                    # Add back to blocks everything from beginning of match forward for next iteration.
++                    blocks.insert(0, therest[m2.start():])
++                else:
++                    # All remaining lines of block are continuation of this footnote, which may be lazily indented.
++                    fn_blocks[0] = '\n'.join([fn_blocks[0], self.detab(therest)]).strip('\n')
+ 
+-                # Check for child elements in remaining blocks.
+-                fn_blocks.extend(self.detectTabbed(blocks))
++                    # Check for child elements in remaining blocks.
++                    fn_blocks.extend(self.detectTabbed(blocks))
+ 
+-            footnote = "\n\n".join(fn_blocks)
+-            self.footnotes.setFootnote(id, footnote.rstrip())
++                footnote = "\n\n".join(fn_blocks)
++                self.footnotes.setFootnote(id, footnote.rstrip())
++                break
+ 
+-            if block[:m.start()].strip():
++            if prefix.strip():
+                 # Add any content before match back to blocks as separate block
+-                blocks.insert(0, block[:m.start()].rstrip('\n'))
++                blocks.insert(0, prefix.rstrip('\n'))
+             return True
+         # No match. Restore block.
+         blocks.insert(0, block)
+@@ -347,10 +373,10 @@
+ 
+             if not self.footnotes.getConfig("USE_DEFINITION_ORDER"):
+                 # Order by reference
+-                footnote_num = self.footnotes.footnote_order.index(id) + 1
++                footnote_num = self.footnotes.footnote_order_lookup[id] + 1
+             else:
+                 # Order by definition
+-                footnote_num = list(self.footnotes.footnotes.keys()).index(id) + 1
++                footnote_num = self.footnotes.footnoteDefPosition(id) + 1
+ 
+             sup = etree.Element("sup")
+             a = etree.SubElement(sup, "a")

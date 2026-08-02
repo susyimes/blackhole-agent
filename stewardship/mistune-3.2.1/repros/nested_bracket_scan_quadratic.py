@@ -34,7 +34,9 @@ def ladder(gen):
         md(gen(n))
         elapsed = time.perf_counter() - t0
         times.append((n, elapsed))
-        if elapsed >= 1.0:
+        if elapsed >= 1.0 and len(times) >= 2:
+            # Always measure at least two sizes: one load-inflated run must
+            # not end the ladder before any growth pair exists.
             break
         n *= 2
     worst = 0.0

@@ -1,0 +1,62 @@
+--- a/markdown-3.10.3/markdown/inlinepatterns.py
++++ b/markdown-3.10.3/markdown/inlinepatterns.py
+@@ -829,24 +829,54 @@
+ 
+         return href, title, index, handled
+ 
++    # Per-document bracket-pairing cache for `getText`. The inline parser
++    # calls `getText` once per `[` marker; scanning for the matching `]` from
++    # scratch each time makes n nested brackets cost O(n^2). Pairing every
++    # bracket of the document text in one pass (a closer pops the most recent
++    # unmatched opener) yields the same result as the level-counting scan,
++    # because a pair depends only on the brackets between the opener and its
++    # closer. The map is only built when a single scan runs long
++    # (`_BRACKET_SCAN_BUDGET`): short lookups stay per-call cheap, and one
++    # build serves every subsequent lookup on the same document text.
++    _BRACKET_SCAN_BUDGET = 1024
++    _bracket_map_source: str | None = None
++    _bracket_map: dict[int, int] = {}
++
++    def _bracketPairs(self, data: str) -> dict[int, int]:
++        """Pair every bracket of `data` in one pass; cache per document text."""
++        if data is not self._bracket_map_source:
++            pairs: dict[int, int] = {}
++            stack: list[int] = []
++            for pos, c in enumerate(data):
++                if c == '[':
++                    stack.append(pos)
++                elif c == ']' and stack:
++                    pairs[stack.pop()] = pos
++            self._bracket_map_source = data
++            self._bracket_map = pairs
++        return self._bracket_map
++
+     def getText(self, data: str, index: int) -> tuple[str, int, bool]:
+         """Parse the content between `[]` of the start of an image or link
+         resolving nested square brackets.
+ 
+         """
++        start = index
+         bracket_count = 1
+-        text = []
+         for pos in range(index, len(data)):
+             c = data[pos]
+             if c == ']':
+                 bracket_count -= 1
+             elif c == '[':
+                 bracket_count += 1
+-            index += 1
+             if bracket_count == 0:
+-                break
+-            text.append(c)
+-        return ''.join(text), index, bracket_count == 0
++                return data[start:pos], pos + 1, True
++            if pos - start >= self._BRACKET_SCAN_BUDGET:
++                close = self._bracketPairs(data).get(start - 1)
++                if close is None:
++                    return data[start:], len(data), False
++                return data[start:close], close + 1, True
++        return data[start:], len(data), False
+ 
+ 
+ class ImageInlineProcessor(LinkInlineProcessor):

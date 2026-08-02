@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-08-02T05:34:35.315815Z",
+  "created_at": "2026-08-02T09:20:04.529592Z",
   "defect_count": 11,
   "defects": [
     {
@@ -197,8 +197,8 @@
       "image-width-validation": "931c86028b517f77f976d07d4ee64d4427bdb40f9a5c5ab6fc472eb2713944e4",
       "link-title-redos": "270c6cc044721a2093a5795b0784fb1007f2ff83a845b11fa1b0256bb7942899",
       "math-xss": "865d79f95d602d69869e1b997e1369072877524fa212038ac661d5ea3372f25a",
-      "nested-bracket-scan-quadratic": "f15ad223bcef494ed632660d719a78d29e224ec40d0e515dd958cf6971f854fe",
-      "ref-link-blank-scan-quadratic": "3b677dfefb37aa8e680b09ee80926d933d5efb47c0f9ceafc993e86029fe189b",
+      "nested-bracket-scan-quadratic": "4aa647200a7ed0dc3bf31f97a5d70f51cae9747d926a40ff9cc09d47b537b873",
+      "ref-link-blank-scan-quadratic": "40b8e1d254af28c907041fbae8a83e95489a126a360ea2cf483b77672ecd5854",
       "toc-link-xss": "35c376559f2df736cba0da023344b23aa5e39ede18739f9fd1ec5f3d36cb0ab5"
     },
     "sdist": "708487c8a8cdd99c9d90eb3ed4c3ed961246ff78ac82f03418f5183ab70e398a"
@@ -209,27 +209,27 @@
     "actual": "708487c8a8cdd99c9d90eb3ed4c3ed961246ff78ac82f03418f5183ab70e398a",
     "expected": "708487c8a8cdd99c9d90eb3ed4c3ed961246ff78ac82f03418f5183ab70e398a",
     "ok": true,
-    "path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260802T050926Z-c225aa6a\\stewardship\\mistune-3.2.0\\mistune-3.2.0.tar.gz"
+    "path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260802T060744Z-76b483a8\\stewardship\\mistune-3.2.0\\mistune-3.2.0.tar.gz"
   },
   "repair_score": 1.0,
   "repaired_count": 11,
-  "report_digest": "6e2a31f95d2d966acc7a0caaa3eef4375a979993878ab98e20fc773d8b84be03",
+  "report_digest": "f0c2bb20d4ae394e71d7d25111573a6521a9b969379e847feeb83ee9d5eea8aa",
   "schema_version": 2,
   "suite_digest": "2155d51cec45b6e8f3d12860b4aa1d2419a9206166cb5b974efa6c860a9d6a5d",
   "suites": {
     "pristine": {
-      "duration_seconds": 1.114,
+      "duration_seconds": 1.22,
       "exit_code": 0,
       "passed": 959,
       "stderr_tail": "",
-      "summary": "959 passed in 0.65s"
+      "summary": "959 passed in 0.69s"
     },
     "repaired": {
-      "duration_seconds": 1.052,
+      "duration_seconds": 1.066,
       "exit_code": 0,
       "passed": 961,
       "stderr_tail": "",
-      "summary": "961 passed in 0.75s"
+      "summary": "961 passed in 0.76s"
     }
   },
   "target": {
