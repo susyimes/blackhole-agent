@@ -35,6 +35,15 @@ Falsification is part of the contract: a defect already fixed at HEAD never
 produces a submittable bundle, and a patch that breaks the upstream suite is
 rejected, never sealed. The plane performs no outward action — the bundle is
 submission-ready evidence, not a submission.
+
+The plane is ecosystem-general: for npm targets (manifest ``ecosystem: npm``
+or ``driver.runtime: node``) the checkout is installed and built with the
+manifest-declared ``contribution`` command lists, the synthesized repro runs
+under ``node`` against the built checkout, the suite is the project's own
+npm suite commands, and the offered patch is the defect's repo-native
+``repo_patch`` (tarball patches target built bundles and cannot rebase onto
+repo source). npm defects must declare a native ``regression_test`` written
+in the upstream project's own test conventions.
 """
 
 from __future__ import annotations
@@ -51,7 +60,7 @@ import sys
 import tarfile
 import tempfile
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 from blackhole_agent.capability_compounder import (
     atomic_write_json,
@@ -102,6 +111,21 @@ def fetch_repo_archive(repo_url: str, ref: str, *, fetcher: Any = None) -> bytes
     return get(github_archive_url(repo_url, ref))
 
 
+def fetch_tag_archive(repo_url: str, version: str, *, fetcher: Any = None) -> tuple[bytes, str]:
+    """Fetch the release-tag archive, resolving the project's tag convention.
+
+    Projects tag releases both ways (``2.4.1`` vs ``v18.0.7``); try the bare
+    version first, then the ``v``-prefixed form. Returns (archive, tag_ref).
+    """
+    last_error: Exception | None = None
+    for ref in (version, f"v{version}"):
+        try:
+            return fetch_repo_archive(repo_url, ref, fetcher=fetcher), ref
+        except Exception as exc:  # 404 for the wrong convention; network errors retry once
+            last_error = exc
+    raise ContributionRejected("tag_unknown", f"no tag archive for {version} or v{version}: {last_error}")
+
+
 def _extract_archive(data: bytes, dest: Path) -> Path:
     """Extract a repo archive; return the single top-level checkout dir."""
     with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tar:
@@ -118,8 +142,15 @@ def _extract_archive(data: bytes, dest: Path) -> Path:
 
 def run_repro(repro_path: Path, src_dir: Path) -> bool:
     """True while the defect reproduces (repro exits nonzero)."""
+    if repro_path.suffix == ".cjs":
+        node = shutil.which("node")
+        if node is None:
+            raise ContributionRejected("runtime_missing", "node runtime not found on PATH")
+        cmd = [node, str(repro_path), str(src_dir)]
+    else:
+        cmd = [sys.executable, str(repro_path), str(src_dir)]
     proc = subprocess.run(
-        [sys.executable, str(repro_path), str(src_dir)],
+        cmd,
         capture_output=True,
         text=True,
         timeout=DOWNLOAD_TIMEOUT_SECONDS,
@@ -240,6 +271,228 @@ def synthesize_regression_test(defect_id: str, repro_name: str, tests_rel: str, 
 
 
 # ---------------------------------------------------------------------------
+# npm ecosystem primitives
+#
+# An npm stewardship target declares its build/suite contract in the
+# manifest's ``contribution`` section: ``install`` (optional),
+# ``build``, and ``suite`` command lists plus the repo-relative
+# ``tests_subdir`` the regression test installs into. The checkout is built
+# (install + build steps) before any repro or suite run so
+# ``require(<checkout>)`` resolves the freshly built bundle through the
+# target's own package.json.
+
+
+def _resolve_cmd(argv0: str) -> str:
+    resolved = shutil.which(argv0)
+    if resolved is None:
+        raise ContributionRejected("runtime_missing", f"{argv0!r} not found on PATH")
+    return resolved
+
+
+def _run_npm_steps(checkout: Path, steps: Sequence[Sequence[str]], label: str) -> None:
+    for step in steps:
+        if not step:
+            continue
+        proc = subprocess.run(
+            [_resolve_cmd(step[0]), *step[1:]],
+            cwd=checkout,
+            capture_output=True,
+            text=True,
+            timeout=SUITE_TIMEOUT_SECONDS,
+        )
+        if proc.returncode != 0:
+            tail = ((proc.stderr or "") + (proc.stdout or "")).strip().splitlines()
+            raise ContributionRejected(
+                f"{label}_failed",
+                f"{' '.join(step)} exited {proc.returncode}: {(tail[-1] if tail else '')[:300]}",
+            )
+
+
+def npm_prepare(checkout: Path, contribution: Mapping[str, Any]) -> None:
+    """Install (optional) and build an npm repo checkout."""
+    _run_npm_steps(checkout, contribution.get("install") or [], "install")
+    _run_npm_steps(checkout, contribution["build"], "build")
+
+
+def run_npm_suite(checkout: Path, contribution: Mapping[str, Any]) -> dict[str, Any]:
+    """Run the manifest-declared npm suite commands; aggregate node --test counts."""
+    passed = 0
+    failed = 0
+    tail = ""
+    for step in contribution["suite"]:
+        proc = subprocess.run(
+            [_resolve_cmd(step[0]), *step[1:]],
+            cwd=checkout,
+            capture_output=True,
+            text=True,
+            timeout=SUITE_TIMEOUT_SECONDS,
+        )
+        output = (proc.stdout or "") + (proc.stderr or "")
+        for m in re.finditer(r"ℹ pass (\d+)", output):
+            passed += int(m.group(1))
+        for m in re.finditer(r"ℹ fail (\d+)", output):
+            failed += int(m.group(1))
+        lines = output.strip().splitlines()
+        tail = lines[-1][:300] if lines else ""
+        if proc.returncode != 0:
+            return {
+                "exit_code": proc.returncode,
+                "passed": passed,
+                "failed": failed,
+                "tail": tail,
+                "ok": False,
+            }
+    return {
+        "exit_code": 0,
+        "passed": passed,
+        "failed": failed,
+        "tail": tail,
+        "ok": True,
+    }
+
+
+def _build_npm_contribution(
+    target_dir: Path,
+    manifest: dict[str, Any],
+    defect: dict[str, Any],
+    *,
+    out_root: Path | None,
+    fetcher: Any,
+    head_refs: Sequence[str],
+) -> dict[str, Any]:
+    """Build (or triage-reject) a contribution bundle for an npm defect.
+
+    Same contract as the python path, but the checkout is built with the
+    manifest-declared install/build steps, the repro runs under node against
+    the built checkout, the suite is the manifest-declared npm suite, and
+    the patch is the defect's repo-native ``repo_patch`` (the tarball patch
+    targets the built bundle and cannot rebase onto repo source).
+    """
+    repo_url = manifest["upstream_repo"]
+    version = manifest["version"]
+    contribution = manifest.get("contribution")
+    if not contribution or not contribution.get("build") or not contribution.get("suite"):
+        raise ContributionRejected(
+            "contribution_contract", "npm target manifest lacks a contribution build/suite contract"
+        )
+    repo_patch_rel = defect.get("repo_patch")
+    if not repo_patch_rel:
+        raise ContributionRejected(
+            "repo_patch_missing", "npm defects must carry a repo-native repo_patch"
+        )
+    native = defect.get("regression_test")
+    if not native:
+        raise ContributionRejected(
+            "regression_test_required", "npm defects must declare a native regression_test"
+        )
+    tests_rel = contribution["tests_subdir"]
+    repro_path = target_dir / defect["repro"]
+    patch_text = durable_read_path(target_dir / repo_patch_rel).read_text(encoding="utf-8")
+
+    scratch = Path(tempfile.mkdtemp(prefix=f"contribution-{defect['id']}-"))
+    try:
+        # 1. true upstream source at the pinned tag, built; defect must reproduce.
+        tag_archive, _tag_ref = fetch_tag_archive(repo_url, version, fetcher=fetcher)
+        tag_checkout = _extract_archive(tag_archive, scratch / "tag")
+        npm_prepare(tag_checkout, contribution)
+        if not run_repro(repro_path, tag_checkout):
+            raise ContributionRejected(
+                "defect_absent_at_tag", f"repro does not trigger on upstream {version} source"
+            )
+
+        # 2. pristine baseline: the project's own suite must be green.
+        tests_dir = tag_checkout / tests_rel
+        if not tests_dir.is_dir():
+            raise ContributionRejected("suite_missing", f"no tests dir at {tests_rel} in repo archive")
+        baseline = run_npm_suite(tag_checkout, contribution)
+        if not baseline["ok"]:
+            raise ContributionRejected(
+                "suite_baseline_broken", f"pristine suite red: {baseline['tail']}"
+            )
+
+        # 3. HEAD triage: already fixed upstream means triage-only bundle.
+        head_verdict = "unfixed_at_head"
+        for head_ref in head_refs:
+            try:
+                head_archive = fetch_repo_archive(repo_url, head_ref, fetcher=fetcher)
+            except Exception:
+                continue
+            head_checkout = _extract_archive(head_archive, scratch / f"head-{head_ref}")
+            try:
+                npm_prepare(head_checkout, contribution)
+            except ContributionRejected:
+                continue
+            if not run_repro(repro_path, head_checkout):
+                head_verdict = "already_fixed_at_head"
+            break
+        if head_verdict == "already_fixed_at_head":
+            bundle = _seal_bundle(
+                out_root=out_root,
+                target_dir=target_dir,
+                manifest=manifest,
+                defect=defect,
+                verdict=head_verdict,
+                submittable=False,
+                payloads={},
+                baseline=baseline,
+                patched=None,
+                head_ref=head_refs[0],
+                head_triage=head_verdict,
+            )
+            return {"ok": True, "submittable": False, "verdict": head_verdict, "bundle_dir": bundle}
+
+        # 4. apply the repo-native patch, rebuild, re-prove the repro passes.
+        apply_patch(tag_checkout, patch_text)
+        _run_npm_steps(tag_checkout, contribution["build"], "build")
+        if run_repro(repro_path, tag_checkout):
+            raise ContributionRejected(
+                "repair_ineffective", "repro still triggers on the patched repo checkout"
+            )
+
+        # 5. install the defect-declared native regression test.
+        test_text = durable_read_path(target_dir / native).read_text(encoding="utf-8")
+        test_name = Path(native).name
+        (tests_dir / test_name).write_text(test_text, encoding="utf-8")
+
+        # 6. patched suite must stay green, regression test included.
+        patched = run_npm_suite(tag_checkout, contribution)
+        if not patched["ok"]:
+            raise ContributionRejected(
+                "patch_regression", f"patched suite red: {patched['tail']}"
+            )
+
+        # 7. seal.
+        payloads = {
+            "contribution.patch": patch_text,
+            test_name: test_text,
+            Path(defect["repro"]).name: durable_read_path(repro_path).read_text(encoding="utf-8"),
+        }
+        bundle = _seal_bundle(
+            out_root=out_root,
+            target_dir=target_dir,
+            manifest=manifest,
+            defect=defect,
+            verdict="submittable",
+            submittable=True,
+            payloads=payloads,
+            baseline=baseline,
+            patched=patched,
+            head_ref=head_refs[0],
+            head_triage=head_verdict,
+        )
+        return {
+            "ok": True,
+            "submittable": True,
+            "verdict": "submittable",
+            "bundle_dir": bundle,
+            "baseline": baseline,
+            "patched": patched,
+        }
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+# ---------------------------------------------------------------------------
 # bundle build / verify
 
 
@@ -274,6 +527,15 @@ def build_contribution(
     repo_url = manifest.get("upstream_repo")
     if not repo_url:
         raise ContributionRejected("repo_unknown", "manifest has no upstream_repo")
+    if manifest.get("driver", {}).get("runtime") == "node" or manifest.get("ecosystem") == "npm":
+        return _build_npm_contribution(
+            target_dir,
+            manifest,
+            defect,
+            out_root=out_root,
+            fetcher=fetcher,
+            head_refs=head_refs,
+        )
     version = manifest["version"]
     top_dir = manifest["src_subdir"].split("/")[0]
     src_rel = _rel(manifest["src_subdir"])
@@ -582,6 +844,208 @@ def _proof_target(root: Path) -> Path:
     return target
 
 
+# ---------------------------------------------------------------------------
+# hermetic npm proof leg (fabricated zero-dependency npm repo; real node)
+
+_NPM_PKG = "quirkcontrib"
+_NPM_VERSION = "2.0.0"
+
+_NPM_INDEX_BUGGY = (
+    "exports.render_text = function (text) {\n"
+    "    if (text.includes('~~')) { throw new RangeError('spoiler stack overflow'); }\n"
+    "    return text;\n"
+    "};\n"
+)
+_NPM_INDEX_FIXED = _NPM_INDEX_BUGGY.replace(
+    "throw new RangeError('spoiler stack overflow');",
+    "return text.replace(/~~/g, '');",
+)
+
+_NPM_PACKAGE_JSON = json.dumps(
+    {
+        "name": _NPM_PKG,
+        "version": _NPM_VERSION,
+        "main": "lib/index.js",
+        "scripts": {"build": "node build.cjs", "test": "node test.cjs"},
+    }
+)
+
+_NPM_BUILD_CJS = (
+    '"use strict";\n'
+    "const fs = require('fs');\n"
+    "fs.rmSync('lib', { recursive: true, force: true });\n"
+    "fs.cpSync('src', 'lib', { recursive: true });\n"
+)
+
+_NPM_TEST_CJS = (
+    '"use strict";\n'
+    "const fs = require('fs');\n"
+    "const path = require('path');\n"
+    "let failures = 0;\n"
+    "const files = fs.readdirSync('test').filter((f) => f.endsWith('.test.cjs'));\n"
+    "for (const f of files) {\n"
+    "    try { require(path.resolve('test', f)); console.log('ok ' + f); }\n"
+    "    catch (e) { failures++; console.error('FAIL ' + f + ': ' + e.message); }\n"
+    "}\n"
+    "console.log('\u2139 pass ' + (files.length - failures));\n"
+    "console.log('\u2139 fail ' + failures);\n"
+    "process.exit(failures ? 1 : 0);\n"
+)
+
+_NPM_BASIC_TEST = (
+    '"use strict";\n'
+    "const assert = require('assert');\n"
+    "const lib = require('../lib/index.js');\n"
+    "assert.strictEqual(lib.render_text('plain'), 'plain');\n"
+)
+
+_NPM_REGRESSION_TEST = (
+    '"use strict";\n'
+    "const lib = require('../lib/index.js');\n"
+    "lib.render_text('~~a ~~a');\n"
+)
+
+_NPM_REPRO = (
+    '"use strict";\n'
+    "const TARGET_DIR = process.argv[2];\n"
+    "try {\n"
+    "    require(TARGET_DIR).render_text('~~a ~~a');\n"
+    "    process.exit(0);\n"
+    "} catch (e) {\n"
+    "    process.exit(1);\n"
+    "}\n"
+)
+
+_NPM_REPO_PATCH = (
+    "--- a/src/index.js\n"
+    "+++ b/src/index.js\n"
+    "@@ -1,4 +1,4 @@\n"
+    " exports.render_text = function (text) {\n"
+    "-    if (text.includes('~~')) { throw new RangeError('spoiler stack overflow'); }\n"
+    "+    if (text.includes('~~')) { return text.replace(/~~/g, ''); }\n"
+    "     return text;\n"
+    " };\n"
+)
+
+
+def _npm_proof_archive(index_src: str, *, top: str) -> bytes:
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+        for name, text in (
+            (f"{top}/package.json", _NPM_PACKAGE_JSON),
+            (f"{top}/build.cjs", _NPM_BUILD_CJS),
+            (f"{top}/test.cjs", _NPM_TEST_CJS),
+            (f"{top}/src/index.js", index_src),
+            (f"{top}/test/basic.test.cjs", _NPM_BASIC_TEST),
+        ):
+            data = text.encode("utf-8")
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+    return buf.getvalue()
+
+
+def _npm_proof_target(root: Path) -> Path:
+    """Fabricate an npm stewardship target carrying one repaired defect."""
+    target = root / f"{_NPM_PKG}-{_NPM_VERSION}"
+    (target / "repros").mkdir(parents=True)
+    (target / "patches").mkdir()
+    (target / "regression-tests").mkdir()
+    (target / "repros" / "spoiler.cjs").write_text(_NPM_REPRO, encoding="utf-8")
+    (target / "patches" / "spoiler.repo.patch").write_text(_NPM_REPO_PATCH, encoding="utf-8")
+    (target / "regression-tests" / "regression.test.cjs").write_text(_NPM_REGRESSION_TEST, encoding="utf-8")
+    manifest = {
+        "schema_version": 1,
+        "name": _NPM_PKG,
+        "version": _NPM_VERSION,
+        "kind": "npm-tarball",
+        "ecosystem": "npm",
+        "frontier": True,
+        "src_subdir": "package",
+        "upstream_repo": "https://github.com/proof/quirkcontrib",
+        "driver": {"prelude": "function render(text, plugins) {}", "runtime": "node"},
+        "contribution": {
+            "install": [],
+            "build": [["npm", "run", "build"]],
+            "suite": [["npm", "test"]],
+            "tests_subdir": "test",
+        },
+        "defects": [
+            {
+                "id": "spoiler-crash",
+                "kind": "crash",
+                "patch": "patches/spoiler.bundle.patch",
+                "repo_patch": "patches/spoiler.repo.patch",
+                "repro": "repros/spoiler.cjs",
+                "regression_test": "regression-tests/regression.test.cjs",
+                "title": "uncaught RangeError escapes render_text on spoiler markers",
+            }
+        ],
+    }
+    (target / "patches" / "spoiler.bundle.patch").write_text(_NPM_REPO_PATCH, encoding="utf-8")
+    (target / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    return target
+
+
+def _npm_contribution_leg(scratch: Path) -> dict[str, Any]:
+    """Prove the npm contribution path hermetically under the real node runtime.
+
+    Unfixed-at-HEAD seals a submittable bundle whose regression test ran in
+    the patched suite; fixed-at-HEAD triages without a submittable bundle;
+    the seal verifies and a tampered payload digest is detected.
+    """
+    repo_url = "https://github.com/proof/quirkcontrib"
+    tag_url = github_archive_url(repo_url, _NPM_VERSION)
+    head_url = github_archive_url(repo_url, "HEAD")
+    tag_archive = _npm_proof_archive(_NPM_INDEX_BUGGY, top=f"{_NPM_PKG}-{_NPM_VERSION}")
+
+    target = _npm_proof_target(scratch / "npm-stewardship")
+
+    def fetcher_unfixed(url: str) -> bytes:
+        if url == head_url:
+            return _npm_proof_archive(_NPM_INDEX_BUGGY, top=f"{_NPM_PKG}-HEAD")
+        return tag_archive
+
+    built = build_contribution(target, "spoiler-crash", out_root=scratch / "npm-artifacts", fetcher=fetcher_unfixed)
+    verified = verify_contribution_bundle(Path(built["bundle_dir"]))
+
+    bundle_dir = Path(built["bundle_dir"])
+    tampered = json.loads((bundle_dir / "bundle.json").read_text(encoding="utf-8"))
+    tampered["payload_sha256"]["contribution.patch"] = "0" * 64
+    (bundle_dir / "bundle.json").write_text(json.dumps(tampered), encoding="utf-8")
+    tamper = verify_contribution_bundle(bundle_dir)
+
+    def fetcher_fixed(url: str) -> bytes:
+        if url == head_url:
+            return _npm_proof_archive(_NPM_INDEX_FIXED, top=f"{_NPM_PKG}-HEAD")
+        return tag_archive
+
+    triaged = build_contribution(
+        target, "spoiler-crash", out_root=scratch / "npm-artifacts-fixed", fetcher=fetcher_fixed
+    )
+
+    ok = bool(
+        built["ok"]
+        and built["submittable"]
+        and built["baseline"]["ok"]
+        and built["patched"]["ok"]
+        and built["patched"]["passed"] > built["baseline"]["passed"]  # regression test joined the suite
+        and verified["ok"]
+        and not tamper["ok"]
+        and triaged["ok"]
+        and not triaged["submittable"]
+        and triaged["verdict"] == "already_fixed_at_head"
+    )
+    return {
+        "ok": ok,
+        "npm_submittable_sealed": bool(built["submittable"]),
+        "npm_regression_joined_suite": built["patched"]["passed"] > built["baseline"]["passed"],
+        "npm_seal_verified": bool(verified["ok"]),
+        "npm_tamper_detected": not tamper["ok"],
+        "npm_already_fixed_triaged": triaged["verdict"] == "already_fixed_at_head" and not triaged["submittable"],
+    }
+
+
 def builtin_upstream_contribution_proof() -> dict[str, Any]:
     """Prove the contribution plane hermetically with fabricated archives.
 
@@ -647,8 +1111,9 @@ def builtin_upstream_contribution_proof() -> dict[str, Any]:
             and rejected is not None
             and rejected["verdict"] == "patch_regression"
         )
+        npm_leg = _npm_contribution_leg(scratch)
         return {
-            "ok": ok,
+            "ok": bool(ok and npm_leg["ok"]),
             "submittable_sealed": bool(built["submittable"]),
             "seal_verified": bool(verified["ok"]),
             "tamper_detected": not tamper["ok"],
@@ -656,6 +1121,7 @@ def builtin_upstream_contribution_proof() -> dict[str, Any]:
             "breaking_patch_rejected": rejected == {"verdict": "patch_regression"},
             "baseline_passed": built["baseline"]["passed"],
             "patched_passed": built["patched"]["passed"],
+            **npm_leg,
             "used_skill_route_discovery": legacy_pipeline_was_used(),
         }
     finally:

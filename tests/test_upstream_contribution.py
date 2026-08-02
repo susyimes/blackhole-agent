@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -138,3 +139,63 @@ def test_builtin_proof_ok() -> None:
     result = uc.builtin_upstream_contribution_proof()
     assert result["ok"], result
     assert not result["used_skill_route_discovery"]
+
+
+# ---------------------------------------------------------------------------
+# npm ecosystem (node runtime; hermetic fabricated repo)
+
+node_available = pytest.mark.skipif(shutil.which("node") is None, reason="node runtime not on PATH")
+
+
+@node_available
+def test_npm_contribution_leg_submittable_and_triaged(tmp_path: Path) -> None:
+    target = uc._npm_proof_target(tmp_path / "stewardship")
+    tag_archive = uc._npm_proof_archive(uc._NPM_INDEX_BUGGY, top=f"{uc._NPM_PKG}-{uc._NPM_VERSION}")
+    repo_url = "https://github.com/proof/quirkcontrib"
+    tag_url = uc.github_archive_url(repo_url, uc._NPM_VERSION)
+    head_url = uc.github_archive_url(repo_url, "HEAD")
+
+    def fetcher_unfixed(url: str) -> bytes:
+        if url == head_url:
+            return uc._npm_proof_archive(uc._NPM_INDEX_BUGGY, top=f"{uc._NPM_PKG}-HEAD")
+        if url == tag_url:
+            return tag_archive
+        raise ValueError(url)
+
+    built = uc.build_contribution(target, "spoiler-crash", out_root=tmp_path / "artifacts", fetcher=fetcher_unfixed)
+    assert built["ok"] and built["submittable"]
+    assert built["baseline"]["ok"] and built["patched"]["ok"]
+    # the installed regression test joined the patched suite
+    assert built["patched"]["passed"] > built["baseline"]["passed"]
+    verdict = uc.verify_contribution_bundle(Path(built["bundle_dir"]))
+    assert verdict["ok"], verdict
+    payloads = json.loads((Path(built["bundle_dir"]) / "bundle.json").read_text(encoding="utf-8"))["payload_sha256"]
+    assert "contribution.patch" in payloads and "regression.test.cjs" in payloads
+
+    def fetcher_fixed(url: str) -> bytes:
+        if url == head_url:
+            return uc._npm_proof_archive(uc._NPM_INDEX_FIXED, top=f"{uc._NPM_PKG}-HEAD")
+        return tag_archive
+
+    triaged = uc.build_contribution(target, "spoiler-crash", out_root=tmp_path / "artifacts-fixed", fetcher=fetcher_fixed)
+    assert triaged["ok"] and not triaged["submittable"]
+    assert triaged["verdict"] == "already_fixed_at_head"
+
+
+@node_available
+def test_npm_contribution_requires_repo_native_patch(tmp_path: Path) -> None:
+    target = uc._npm_proof_target(tmp_path / "stewardship")
+    manifest = json.loads((target / "manifest.json").read_text(encoding="utf-8"))
+    del manifest["defects"][0]["repo_patch"]
+    (target / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(uc.ContributionRejected) as excinfo:
+        uc.build_contribution(target, "spoiler-crash", out_root=tmp_path / "artifacts", fetcher=lambda u: b"")
+    assert excinfo.value.verdict == "repo_patch_missing"
+
+
+def test_builtin_contribution_proof_covers_npm_leg() -> None:
+    if shutil.which("node") is None:
+        pytest.skip("node runtime not on PATH")
+    proof = uc.builtin_upstream_contribution_proof()
+    assert proof["ok"], proof
+    assert proof["npm_submittable_sealed"] and proof["npm_tamper_detected"]

@@ -6,7 +6,9 @@
       "patch": "patches/footnote-defs-masking-quadratic.patch",
       "repro": "repros/footnote_defs.cjs",
       "title": "inlineTokens rebuilds the reflink-mask preamble per call (Object.keys over all link defs), making n refs + n defs O(n^2) (measured exponent 3.0, 24s at n=13000)",
-      "upstream_ref": "discovered autonomously by capability.upstream-discovery (footnote_defs generator, minimized n=3250) on the live npm frontier target marked 18.0.7 (latest npm release, onboarded by capability.upstream-frontier); root cause: Lexer.inlineTokens executes the masking block (Object.keys(this.tokens.links) + reflinkSearch replace) on every call including thousands of recursive link-text calls that cannot contain reflinks - O(calls x defs) allocation churn; repair: skip the masking block when the source contains no '[' (reflinkSearch can only match text containing '['), and use a Set for the label lookup"
+      "upstream_ref": "discovered autonomously by capability.upstream-discovery (footnote_defs generator, minimized n=3250) on the live npm frontier target marked 18.0.7 (latest npm release, onboarded by capability.upstream-frontier); root cause: Lexer.inlineTokens executes the masking block (Object.keys(this.tokens.links) + reflinkSearch replace) on every call including thousands of recursive link-text calls that cannot contain reflinks - O(calls x defs) allocation churn; repair: skip the masking block when the source contains no '[' (reflinkSearch can only match text containing '['), and use a Set for the label lookup",
+      "repo_patch": "patches/footnote-defs-masking-quadratic.repo.patch",
+      "regression_test": "regression-tests/inlineTokens-masking.test.js"
     }
   ],
   "driver": {
@@ -31,5 +33,35 @@
   "tests_subdir": null,
   "upstream_changelog": null,
   "upstream_repo": "https://github.com/markedjs/marked",
-  "version": "18.0.7"
+  "version": "18.0.7",
+  "contribution": {
+    "install": [
+      [
+        "npm",
+        "ci",
+        "--no-audit",
+        "--no-fund"
+      ]
+    ],
+    "build": [
+      [
+        "npm",
+        "run",
+        "build:esbuild"
+      ]
+    ],
+    "suite": [
+      [
+        "npm",
+        "run",
+        "test:specs"
+      ],
+      [
+        "npm",
+        "run",
+        "test:unit"
+      ]
+    ],
+    "tests_subdir": "test/unit"
+  }
 }
