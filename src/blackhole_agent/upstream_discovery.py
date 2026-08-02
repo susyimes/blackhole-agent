@@ -173,6 +173,16 @@ GENERATORS: dict[str, dict[str, Any]] = {
         ),
         "summary": "a table whose rows have n cells",
     },
+    "digit_run": {
+        "plugins": [],
+        "source": "def gen(n):\n    return '8' * n\n",
+        "summary": "a run of n decimal digit characters",
+    },
+    "dotted_key": {
+        "plugins": [],
+        "source": "def gen(n):\n    return '.'.join('a%d' % i for i in range(n)) + ' = 1'\n",
+        "summary": "one dotted key with n parts assigned a value",
+    },
 }
 
 

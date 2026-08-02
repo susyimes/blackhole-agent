@@ -1,7 +1,16 @@
 {
-  "defects": [],
+  "defects": [
+    {
+      "id": "long-decimal-int-valueerror",
+      "kind": "crash",
+      "patch": "patches/long-decimal-int-valueerror.patch",
+      "repro": "repros/long_decimal_int.py",
+      "title": "Decimal integer literal with more digits than sys.get_int_max_str_digits() escapes loads() as uncaught ValueError instead of TOMLDecodeError",
+      "upstream_ref": "discovered autonomously by capability.upstream-discovery (digit_run generator, minimized n=4500) on the live frontier target tomli 2.4.1 (latest upstream release, onboarded by capability.upstream-frontier); tomli's _parser.py sanctions only RecursionError for pathological input - ValueError leaking from int() conversion is undocumented and unintended"
+    }
+  ],
   "driver": {
-    "prelude": "import tomli\n\n\ndef render(text, plugins):\n    # Feed generated text to the TOML parser both as a standalone document\n    # and as a value in assignment context, so value-shaped probes\n    # (e.g. nested arrays) reach the parser core. TOMLDecodeError is the\n    # parser's specified rejection of invalid input, not a defect.\n    try:\n        tomli.loads(text)\n    except tomli.TOMLDecodeError:\n        pass\n    try:\n        tomli.loads(\"k = \" + text)\n    except tomli.TOMLDecodeError:\n        pass\n",
+    "prelude": "import tomli\n\n\ndef render(text, plugins):\n    # Feed generated text to the TOML parser both as a standalone document\n    # and as a value in assignment context, so value-shaped probes\n    # (e.g. nested arrays) reach the parser core. TOMLDecodeError is the\n    # parser's specified rejection of invalid input, not a defect.\n    # RecursionError is likewise sanctioned: tomli's _parser.py documents\n    # that pathologically nested documents raise RecursionError on purpose\n    # (pure Python), with MAX_INLINE_NESTING guarding mypyc binaries.\n    try:\n        tomli.loads(text)\n    except (tomli.TOMLDecodeError, RecursionError):\n        pass\n    try:\n        tomli.loads(\"k = \" + text)\n    except (tomli.TOMLDecodeError, RecursionError):\n        pass\n",
     "smoke_input": "key = \"value\"\n\n[table]\nlist = [1, 2, 3]\nnested = {a = 1, b = {c = 2}}\n"
   },
   "fixed_in": null,
@@ -15,7 +24,10 @@
   "sdist_sha256": "7c7e1a961a0b2f2472c1ac5b69affa0ae1132c39adcb67aba98568702b9cc23f",
   "source_url": "https://files.pythonhosted.org/packages/22/de/48c59722572767841493b26183a0d1cc411d54fd759c5607c4590b6563a6/tomli-2.4.1.tar.gz",
   "src_subdir": "tomli-2.4.1/src",
-  "tests_subdir": null,
+  "suite_overlay": "suite",
+  "suite_overlay_sha256": "47e26414d9df2ab4c4c9b14d8c01f77ed1fb51c40decdade9fb82b07d09b95e8",
+  "suite_source_url": "https://github.com/hukkin/tomli/archive/refs/tags/2.4.1.tar.gz",
+  "tests_subdir": "tomli-2.4.1/tests",
   "upstream_changelog": null,
   "upstream_repo": "https://github.com/hukkin/tomli",
   "version": "2.4.1"

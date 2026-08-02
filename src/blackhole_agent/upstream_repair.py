@@ -263,6 +263,52 @@ def verify_sdist(target: Target) -> dict[str, Any]:
     return {"path": str(target.sdist), "expected": expected, "actual": actual, "ok": actual == expected}
 
 
+def tree_digest(root: Path) -> str:
+    """Deterministic digest over a directory tree's relative paths and bytes."""
+    digest = hashlib.sha256()
+    for path in sorted(p for p in root.rglob("*") if p.is_file()):
+        digest.update(str(path.relative_to(root)).replace("\\", "/").encode("utf-8"))
+        digest.update(_sha256_file(path).encode("ascii"))
+    return digest.hexdigest()
+
+
+def verify_suite_overlay(target: Target) -> dict[str, Any] | None:
+    """Verify the vendored upstream suite overlay against its pinned digest.
+
+    Returns ``None`` when the manifest declares no overlay (nothing pinned).
+    """
+    overlay = target.manifest.get("suite_overlay")
+    if not overlay:
+        return None
+    root = target.root / overlay
+    actual = tree_digest(root) if root.is_dir() else None
+    expected = target.manifest.get("suite_overlay_sha256")
+    return {
+        "path": str(root),
+        "source_url": target.manifest.get("suite_source_url"),
+        "expected": expected,
+        "actual": actual,
+        "ok": actual is not None and actual == expected,
+    }
+
+
+def stage_suite_overlay(tree_root: Path, target: Target) -> None:
+    """Overlay the vendored upstream suite into an extracted tree.
+
+    Frontier targets whose sdist ships no test suite vendor upstream's own
+    suite (digest-pinned) in the target dir; it is copied to
+    ``tests_subdir`` so campaigns exercise upstream's real tests.
+    """
+    overlay = target.manifest.get("suite_overlay")
+    if not overlay:
+        return
+    src = target.root / overlay
+    dest = tree_root / target.manifest["tests_subdir"]
+    if dest.exists():
+        shutil.rmtree(dest)
+    shutil.copytree(src, dest)
+
+
 def extract_sdist(target: Target, dest: Path) -> Path:
     """Extract the pristine sdist into dest (recreated). Returns the tree root."""
     if dest.exists():
@@ -341,7 +387,18 @@ def run_upstream_suite(tree_root: Path, manifest: Mapping[str, Any]) -> dict[str
     ``python -m unittest discover`` (and whose pytest collection requires
     optional tooling) are exercised through their own supported runner.
     """
-    tests_dir = tree_root / manifest["tests_subdir"]
+    tests_subdir = manifest["tests_subdir"]
+    if tests_subdir is None:
+        # Target ships no runnable suite (and none is overlaid): the suite
+        # gate is vacuous for this target, recorded honestly as skipped.
+        return {
+            "exit_code": 0,
+            "passed": 0,
+            "summary": "skipped: no upstream test suite available",
+            "stderr_tail": "",
+            "duration_seconds": 0.0,
+        }
+    tests_dir = tree_root / tests_subdir
     runner = manifest.get("suite_runner", "pytest")
     start = time.monotonic()
     if runner == "unittest":
@@ -411,6 +468,9 @@ def run_repair_campaign(
     provenance = verify_sdist(target)
     if not provenance["ok"]:
         return {"ok": False, "error": "sdist provenance mismatch", "provenance": provenance}
+    suite_overlay = verify_suite_overlay(target)
+    if suite_overlay is not None and not suite_overlay["ok"]:
+        return {"ok": False, "error": "suite overlay digest mismatch", "suite_overlay": suite_overlay}
 
     target_dir = _target_artifact_dir(target, artifact_dir)
     # Scratch trees extract to a short temp dir: artifact paths under a deep
@@ -426,11 +486,13 @@ def run_repair_campaign(
 
     # 1. reproduce every defect on the pristine tree
     pristine = extract_sdist(target, work_root / "pristine")
+    stage_suite_overlay(pristine, target)
     baseline_outcomes = [run_repro(d, pristine, target.manifest) for d in target.defects]
     baseline_suite = run_upstream_suite(pristine, target.manifest)
 
     # 2. apply all patches and re-run every repro
     repaired = extract_sdist(target, work_root / "repaired")
+    stage_suite_overlay(repaired, target)
     patched_files: dict[str, list[str]] = {}
     for d in target.defects:
         patched_files[d.id] = apply_patch_text(repaired, d.patch.read_text(encoding="utf-8"))
@@ -509,6 +571,7 @@ def run_repair_campaign(
             "source_url": target.manifest["source_url"],
         },
         "provenance": provenance,
+        "suite_overlay": suite_overlay,
         "evidence_files": evidence_files,
         "defects": defect_results,
         "suites": {
