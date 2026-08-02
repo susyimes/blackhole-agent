@@ -24,6 +24,7 @@ from blackhole_agent.capability_absorption import (
     record_digest,
     run_absorption_cases,
     run_absorption_plane,
+    run_absorption_scenario,
     tree_digest,
     upsert_persisted_record,
     verify_absorption_plane,
@@ -82,6 +83,19 @@ def test_tree_digest_stable_and_sensitive(tmp_path: Path) -> None:
         (copied / "tool.py").read_text(encoding="utf-8") + "\n# drift\n", encoding="utf-8"
     )
     assert tree_digest(copied) != first
+
+
+def test_tree_digest_ignores_tool_caches(tmp_path: Path) -> None:
+    """Lint/test tooling must never break a vendored tree digest."""
+
+    copied = tmp_path / "tool"
+    shutil.copytree(FIXTURE_TOOL, copied)
+    before = tree_digest(copied)
+    for cache_dir in (".ruff_cache", ".mypy_cache", "__pycache__"):
+        cache = copied / cache_dir
+        cache.mkdir()
+        (cache / "junk").write_text("tooling litter", encoding="utf-8")
+    assert tree_digest(copied) == before
 
 
 def test_absorb_registers_proves_and_persists() -> None:
@@ -191,11 +205,22 @@ def test_absorption_plane_end_to_end(tmp_path: Path) -> None:
     assert verification["ok"], verification
 
     # A tampered report fails verification.
-    report_path = tmp_path / "report" / "absorption-report.json"
+    report_path = tmp_path / "report" / "text-reverser-report.json"
     report = json.loads(report_path.read_text(encoding="utf-8"))
     report["verdicts"]["tamper_rejected"] = False
     report_path.write_text(json.dumps(report), encoding="utf-8")
     assert not verify_absorption_plane(tmp_path / "report")["ok"]
+
+
+def test_absorption_scenario_by_slug(tmp_path: Path) -> None:
+    absorb_external_capability(FIXTURE_TOOL)
+    result = run_absorption_scenario("text-reverser", tmp_path / "scenario")
+    assert result["ok"], result
+    verification = verify_absorption_plane(tmp_path / "scenario", slug="text-reverser")
+    assert verification["ok"], verification
+    # Unknown slug fails honestly.
+    missing = run_absorption_scenario("no-such-tool", tmp_path / "scenario")
+    assert not missing["ok"]
 
 
 def test_builtin_absorption_plane_proof() -> None:

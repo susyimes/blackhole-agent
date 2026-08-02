@@ -31,6 +31,35 @@
       ],
       "updated_at": "2026-08-02T00:03:34.057530Z"
     },
+    "capability.absorbed-mistune-markdown": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_absorption.py",
+        "capabilities/absorbed-steps.json",
+        "capabilities/absorbed/mistune-markdown/",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "External tool 'mistune-markdown' is now a first-class invocable capability providing ['rendered_html']; goals needing it plan and execute through the application plane where they were honestly unplannable before absorption.",
+      "created_at": "2026-08-02T01:02:32.906720Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory"
+      ],
+      "description": "Absorbed from external tool 'mistune-markdown' (git origin https://github.com/lepture/mistune): provides ['rendered_html'] from ['markdown_source']. Vendored under capabilities/absorbed/mistune-markdown/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case, so a hand-edited record or tampered file fails.",
+      "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+      "id": "capability.absorbed-mistune-markdown",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-02T01:02:33.377687Z",
+      "name": "Absorbed external capability: mistune markdown renderer (github.com/lepture/mistune)",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('mistune-markdown'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "absorbed",
+        "external"
+      ],
+      "updated_at": "2026-08-02T01:02:33.377687Z"
+    },
     "capability.absorbed-text-reverser": {
       "behavior_paths": [
         "src/blackhole_agent/capability_absorption.py",
@@ -49,7 +78,7 @@
       "id": "capability.absorbed-text-reverser",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-02T00:57:52.514125Z",
+      "last_proved_at": "2026-08-02T01:07:02.519224Z",
       "name": "Absorbed external capability: Text Reverser (external fixture tool)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('text-reverser'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
       "source_milestone": null,
@@ -58,7 +87,7 @@
         "absorbed",
         "external"
       ],
-      "updated_at": "2026-08-02T00:57:52.514125Z"
+      "updated_at": "2026-08-02T01:07:02.519224Z"
     },
     "capability.absorption-plane": {
       "behavior_paths": [
@@ -3946,5 +3975,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-08-02T00:57:52.514153Z"
+  "updated_at": "2026-08-02T01:07:02.519248Z"
 }

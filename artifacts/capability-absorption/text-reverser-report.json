@@ -1,0 +1,43 @@
+{
+  "capability_id": "capability.absorbed-text-reverser",
+  "generated_at": "2026-08-02T01:03:16.900871Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-text-reverser"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "commit": "",
+    "kind": "fixture",
+    "source": "tests/fixtures/external_tools/text-reverser"
+  },
+  "record_digest": "1e3c0d824a3ce5ad5ba4099a6ea17de3dac37dd8137dd69661cd77caa93e3f9a",
+  "report_digest": "f63afdab6fc09255908ddd605989442bc2a3d54f2c0b2d82a2c19f10422c1afd",
+  "schema_version": 1,
+  "slug": "text-reverser",
+  "task": {
+    "goal": [
+      "reversed_text"
+    ],
+    "id": "absorbed-text-reverser",
+    "initial_state": {
+      "raw_text": "blackhole"
+    },
+    "oracle": {
+      "reversed_text": "elohkcalb"
+    }
+  },
+  "vendored_tree_digest": "1ea584313fc7fcf441305f5a62b1d42ff35d08fadf41019f93c45f50e0ce8593",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "capability_id": "capability.absorbed-mistune-markdown",
+  "generated_at": "2026-08-02T01:02:40.127594Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-mistune-markdown"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "commit": "75cab785a339eadfa7e760ed7ab2b0a3ad98c642",
+    "kind": "git",
+    "source": "https://github.com/lepture/mistune"
+  },
+  "record_digest": "b1dff1afb80050e521c5f71b22ead0ae65e457996be6f3f59f2c5049c774d54f",
+  "report_digest": "69d8a9627b802a61cf41514120d1b715ac53d7250df97bd027e583f1718e6a5a",
+  "schema_version": 1,
+  "slug": "mistune-markdown",
+  "task": {
+    "goal": [
+      "rendered_html"
+    ],
+    "id": "absorbed-mistune-markdown",
+    "initial_state": {
+      "markdown_source": "# Blackhole"
+    },
+    "oracle": {
+      "rendered_html": "<h1>Blackhole</h1>\n"
+    }
+  },
+  "vendored_tree_digest": "0e36ca7e5e59fa0b15e6be95d1b942299fd15a4e91c15c5cf70dfb3a2288b96b",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

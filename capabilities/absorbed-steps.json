@@ -1,8 +1,58 @@
 {
-  "absorbed_at": "2026-08-02T00:47:17.904970Z",
+  "absorbed_at": "2026-08-02T01:02:32.902748Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
+    {
+      "capability_id": "capability.absorbed-mistune-markdown",
+      "cases": [
+        {
+          "expect": {
+            "rendered_html": "<h1>Blackhole</h1>\n"
+          },
+          "input": {
+            "markdown_source": "# Blackhole"
+          }
+        },
+        {
+          "expect": {
+            "rendered_html": "<p><strong>unbound</strong> growth</p>\n"
+          },
+          "input": {
+            "markdown_source": "**unbound** growth"
+          }
+        },
+        {
+          "expect": {
+            "rendered_html": "<ul>\n<li>absorb</li>\n<li>prove</li>\n<li>compose</li>\n</ul>\n"
+          },
+          "input": {
+            "markdown_source": "- absorb\n- prove\n- compose"
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "absorption_adapter.py"
+      ],
+      "name": "mistune markdown renderer (github.com/lepture/mistune)",
+      "origin": {
+        "commit": "75cab785a339eadfa7e760ed7ab2b0a3ad98c642",
+        "kind": "git",
+        "source": "https://github.com/lepture/mistune"
+      },
+      "provides": [
+        "rendered_html"
+      ],
+      "record_digest": "b1dff1afb80050e521c5f71b22ead0ae65e457996be6f3f59f2c5049c774d54f",
+      "requires": [
+        "markdown_source"
+      ],
+      "schema_version": 1,
+      "slug": "mistune-markdown",
+      "vendored_tree_digest": "0e36ca7e5e59fa0b15e6be95d1b942299fd15a4e91c15c5cf70dfb3a2288b96b",
+      "version": "3.4.0"
+    },
     {
       "capability_id": "capability.absorbed-text-reverser",
       "cases": [
@@ -54,5 +104,5 @@
       "version": "1.0.0"
     }
   ],
-  "steps_digest": "b3c003e82b0162a37848007aa19f28636e9d1119017d5008883d7fb9e28117ae"
+  "steps_digest": "750281efd9cea055e987aac836d55cab5d09bc9866e52950dd231d8b0387ee7f"
 }

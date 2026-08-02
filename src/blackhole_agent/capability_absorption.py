@@ -78,7 +78,19 @@ FIXTURE_TOOL = REPO_ROOT / "tests" / "fixtures" / "external_tools" / "text-rever
 
 SLUG_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{0,47}$")
 _STATE_KEY_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
-_TREE_SKIP_DIRS = {".git", "__pycache__", ".pytest_cache", ".venv"}
+_TREE_SKIP_DIRS = {
+    ".git",
+    ".hg",
+    ".svn",
+    "__pycache__",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".mypy_cache",
+    ".tox",
+    ".nox",
+    ".venv",
+    "node_modules",
+}
 CASE_TIMEOUT_SECONDS = 30
 
 
@@ -448,7 +460,20 @@ def absorb_external_capability(
     shutil.copytree(
         source_path,
         vendored_dir,
-        ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc", ".pytest_cache"),
+        ignore=shutil.ignore_patterns(
+            ".git",
+            ".hg",
+            ".svn",
+            "__pycache__",
+            "*.pyc",
+            ".pytest_cache",
+            ".ruff_cache",
+            ".mypy_cache",
+            ".tox",
+            ".nox",
+            ".venv",
+            "node_modules",
+        ),
     )
     vendored = run_absorption_cases(vendored_dir, manifest)
     if not vendored["ok"]:
@@ -586,25 +611,35 @@ def _absorption_task(record: Mapping[str, Any]) -> ApplicationTask:
     )
 
 
-def run_absorption_plane(output_dir: Path | None = None) -> dict[str, Any]:
-    """Run the sealed absorption demonstration over the live ledger.
+def scenario_report_name(slug: str) -> str:
+    return f"{slug}-report.json"
 
-    Honesty chain: the fixture goal is honestly unplannable with the absorbed
-    capability hidden (pre-absorption), plans and executes to the oracle
-    after absorption, is unplannable again under ablation, a tampered
-    vendored tree fails its proof, and a hand-edited persistence record fails
-    its record digest.
+
+def _first_vendored_file(vendored_dir: Path) -> Path:
+    for path in sorted(vendored_dir.rglob("*")):
+        if any(part in _TREE_SKIP_DIRS for part in path.parts):
+            continue
+        if path.is_file():
+            return path
+    raise ValueError(f"vendored tree has no files: {vendored_dir}")
+
+
+def run_absorption_scenario(slug: str, output_dir: Path | None = None) -> dict[str, Any]:
+    """Run the sealed end-to-end honesty scenario for one absorbed capability.
+
+    Honesty chain: the absorbed goal is honestly unplannable with the
+    capability hidden (pre-absorption), plans and executes to the oracle with
+    it visible (post-absorption), is unplannable again under ablation, a
+    tampered vendored tree fails its proof, and a hand-edited persistence
+    record fails its record digest. Works for any persisted absorbed record —
+    fixture or live-cloned external repository alike.
     """
 
-    if not FIXTURE_TOOL.is_dir():
-        return {"ok": False, "stage": "fixture", "error": f"fixture tool missing: {FIXTURE_TOOL}"}
-
-    absorption = absorb_external_capability(FIXTURE_TOOL)
-    if not absorption["ok"]:
-        return {"ok": False, "stage": "absorb", "absorption": absorption}
-    slug = str(absorption["slug"])
-    capability_id = str(absorption["capability_id"])
-    record = next(item for item in load_persisted_records() if item["slug"] == slug)
+    records = {str(item.get("slug")): item for item in load_persisted_records()}
+    record = records.get(slug)
+    if record is None:
+        return {"ok": False, "stage": "record", "error": f"no persisted absorption record: {slug}"}
+    capability_id = str(record["capability_id"])
     task = _absorption_task(record)
 
     ledger = load_ledger(default_ledger_path(REPO_ROOT))
@@ -633,8 +668,8 @@ def run_absorption_plane(output_dir: Path | None = None) -> dict[str, Any]:
     with tempfile.TemporaryDirectory(prefix="blackhole-absorption-tamper-") as tmp:
         tampered_root = Path(tmp) / "absorbed"
         shutil.copytree(ABSORBED_ROOT / slug, tampered_root / slug)
-        tool_file = tampered_root / slug / "tool.py"
-        tool_file.write_text(tool_file.read_text(encoding="utf-8") + "\n# tampered\n", encoding="utf-8")
+        victim = _first_vendored_file(tampered_root / slug)
+        victim.write_bytes(victim.read_bytes() + b"\n# tampered\n")
         tamper_proof = prove_absorbed_capability(slug, vendored_root=tampered_root)
     tamper_rejected = not tamper_proof["ok"]
 
@@ -661,11 +696,12 @@ def run_absorption_plane(output_dir: Path | None = None) -> dict[str, Any]:
     }
     report: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
-        "kind": "capability_absorption_plane",
+        "kind": "capability_absorption_scenario",
         "generated_at": utc_now_iso(),
         "slug": slug,
         "capability_id": capability_id,
-        "vendored_tree_digest": absorption["vendored_tree_digest"],
+        "origin": dict(record.get("origin") or {}),
+        "vendored_tree_digest": record["vendored_tree_digest"],
         "record_digest": record["record_digest"],
         "task": {
             "id": task.id,
@@ -683,18 +719,39 @@ def run_absorption_plane(output_dir: Path | None = None) -> dict[str, Any]:
 
     target_dir = output_dir or DEFAULT_ARTIFACT_DIR
     target_dir.mkdir(parents=True, exist_ok=True)
-    atomic_write_json(target_dir / "absorption-report.json", report)
+    report_name = scenario_report_name(slug)
+    atomic_write_json(target_dir / report_name, report)
     atomic_write_json(
         LATEST_POINTER,
-        {"report": "absorption-report.json", "report_digest": report["report_digest"], "ok": grade["ok"]},
+        {"report": report_name, "report_digest": report["report_digest"], "ok": grade["ok"]},
     )
     return {"ok": grade["ok"], "report_dir": str(target_dir), **verdicts, "grade": grade}
 
 
-def verify_absorption_plane(report_dir: Path) -> dict[str, Any]:
+def run_absorption_plane(output_dir: Path | None = None) -> dict[str, Any]:
+    """Run the sealed absorption demonstration over the live ledger.
+
+    Absorbs the fixture external tool (idempotently) and then runs the same
+    end-to-end honesty scenario that any absorbed capability — including a
+    live-cloned external repository — is graded by.
+    """
+
+    if not FIXTURE_TOOL.is_dir():
+        return {"ok": False, "stage": "fixture", "error": f"fixture tool missing: {FIXTURE_TOOL}"}
+    absorption = absorb_external_capability(FIXTURE_TOOL)
+    if not absorption["ok"]:
+        return {"ok": False, "stage": "absorb", "absorption": absorption}
+    return run_absorption_scenario(str(absorption["slug"]), output_dir)
+
+
+def verify_absorption_plane(report_dir: Path, *, slug: str | None = None) -> dict[str, Any]:
     """Re-grade a sealed absorption report; any forgery or drift fails."""
 
-    report_path = report_dir / "absorption-report.json"
+    if slug:
+        report_path = report_dir / scenario_report_name(slug)
+    else:
+        candidates = sorted(report_dir.glob("*-report.json"))
+        report_path = candidates[0] if candidates else report_dir / "<none>"
     if not report_path.is_file():
         return {"ok": False, "error": f"report not found: {report_path}"}
     report = json.loads(report_path.read_text(encoding="utf-8"))
@@ -800,8 +857,15 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     sub.add_parser("demo", help="run the sealed absorption demonstration")
 
+    scenario_parser = sub.add_parser(
+        "scenario", help="run the sealed honesty scenario for one absorbed capability"
+    )
+    scenario_parser.add_argument("--slug", required=True)
+    scenario_parser.add_argument("--output-dir", type=Path, default=None)
+
     verify_parser = sub.add_parser("verify", help="verify a sealed absorption report")
     verify_parser.add_argument("--report-dir", type=Path, default=DEFAULT_ARTIFACT_DIR)
+    verify_parser.add_argument("--slug", default=None)
 
     args = parser.parse_args(argv)
     if args.command_name == "absorb":
@@ -819,8 +883,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = prove_absorbed_capability(args.slug)
     elif args.command_name == "demo":
         result = run_absorption_plane()
+    elif args.command_name == "scenario":
+        result = run_absorption_scenario(args.slug, args.output_dir)
     else:
-        result = verify_absorption_plane(args.report_dir)
+        result = verify_absorption_plane(args.report_dir, slug=args.slug)
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0 if result.get("ok") else 1
 

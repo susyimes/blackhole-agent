@@ -1,0 +1,222 @@
+Changelog
+=========
+
+Here is the full history of mistune v3.
+
+Unreleased
+----------
+
+Version 3.3.4
+-------------
+
+**Released on Jul 22, 2026**
+
+* Harden inline parsing against deeply nested and adversarial link, image,
+  emphasis, formatting, math, and reference inputs.
+* Improve performance for repeated link suffixes, dense emphasis, unclosed
+  formatting markers, inline spoilers, and adjacent ruby tokens.
+* Refactor the inline parser into dedicated emphasis and link modules.
+* Escape literal ``*``/``_`` emphasis markers in the Markdown renderer so
+  round-tripping escaped text does not re-introduce emphasis.
+
+Version 3.3.3
+-------------
+
+**Released on Jul 9, 2026**
+
+* Limit deeply nested emphasis and image parsing to avoid ``RecursionError``.
+* Fix repeated link suffix and unclosed formatting marker performance issues.
+* Fix unclosed inline spoiler performance issues.
+* Avoid recursive parsing for adjacent ruby tokens.
+* Speed up footnote reference indexing.
+
+Version 3.3.2
+-------------
+
+**Released on Jun 23, 2026**
+
+* Fix Python 3.8 import compatibility in the inline parser.
+* Fix mypy compatibility for list parsing on Python 3.8 and 3.9+.
+
+Version 3.3.1
+-------------
+
+**Released on Jun 22, 2026**
+
+* Fix ``abbr`` plugin compatibility with escaped inline text.
+* Normalize included Markdown line endings before parsing directives.
+
+Version 3.3.0
+-------------
+
+**Released on Jun 21, 2026**
+
+* Improve CommonMark compatibility and parser performance.
+* Add command line entrypoint with UTF-8 output.
+* Support display and backtick math.
+* Render plugin list and table nodes in Markdown renderer.
+* Escape leading block markers in Markdown renderer.
+* Fix RST renderer for block quotes nested in lists.
+* Avoid generated heading ID collisions in TOC.
+* Harden URL, image, figure, and include directive handling.
+* Fix quadratic scans in inline links, reference links, and formatting markers.
+* Fix math escaping, currency pattern matching, and cross-line matching.
+
+Version 3.2.1
+-------------
+
+**Released on May 3, 2026**
+
+* Escape link in ``render_toc_ul``.
+* Escape text in math plugin.
+* Fix regex for math plugin.
+* Escape heading's ID attribute.
+* Fix ``LINK_TITLE_RE`` to prevent DoS.
+* Escape class attribute for admonition directive.
+* Remove double-encoding of image alt text.
+* Escape class attribute for image directive.
+* Fix width/height attribute for image directive.
+
+Version 3.2.0
+-------------
+
+**Released on Dec 23, 2025**
+
+* Announce supports for python 3.14
+* Fix footnotes plugins for code blocks, ref links, blockquote and etc.
+* Fix ref links in TOC.
+
+Version 3.1.4
+-------------
+
+**Released on Aug 29, 2025**
+
+* Add fenced directive break rule in list parser.
+* Prevent removing unicode whitespace when parsing atx heading.
+
+Version 3.1.3
+-------------
+
+**Released on Mar 19, 2025**
+
+* Announce supports for python 3.12 and 3.13
+
+Version 3.1.2
+-------------
+
+**Released on Feb 19, 2025**
+
+* Fix ``footnotes`` plugin for AST renderer
+
+Version 3.1.1
+-------------
+
+**Released on Jan 28, 2025**
+
+* Fix ``render_toc_ul`` method for empty iterable
+* Fix ruby plugin's regex pattern and HTML rendering
+
+Version 3.1.0
+-------------
+
+**Released on Dec 30, 2024**
+
+* Fix only HTML-escape URLs when rendering to HTML
+* Add block_quote prefix on empty lines too
+
+Version 3.0.2
+-------------
+
+**Released on Sep 30, 2023**
+
+* Fix list parser to avoid RecursionError
+
+Version 3.0.1
+-------------
+
+**Released on Jun 10, 2023**
+
+* Add ``py.typed`` for mypy
+* Add ``tests``, ``docs`` for sdist
+* Support ``renderer="ast"`` for rendering AST
+
+Version 3.0.0
+-------------
+
+**Released on Jun 08, 2023**
+
+* Do not strip leading unicode spaces like emsp
+* Ensure new line at end of the text
+
+Version 3.0.0rc5
+----------------
+
+**Released on Mar 22, 2023**
+
+* Fix fenced directives
+* Fix inline link parser
+* Fix block math plugin for multiple lines
+* Fix empty list item for markdown renderer
+
+Version 3.0.0rc4
+----------------
+
+**Released on Nov 30, 2022**
+
+* Fix plugin footnotes when there is no newline at the end
+* Move safe HTML entities to HTMLRenderer
+* Redesign directives parsing
+* Add Image and Figure directive
+
+Version 3.0.0rc3
+----------------
+
+**Released on Nov 25, 2022**
+
+* Render inline math with ``\(`` and ``\)``
+* Added ``RSTRenderer``, and ``MarkdownRenderer``
+* Fix ``toc_hook`` method
+* **Breaking change**, rename ``RstDirective`` to ``RSTDirective``
+
+Version 3.0.0rc2
+----------------
+
+**Released on Nov 6, 2022**
+
+* Add **spoiler** plugin
+* Add ``collapse`` option for ``TableOfContents`` directive
+* **Breaking change** on directive design, added fenced directive
+
+Version 3.0.0rc1
+----------------
+
+**Released on Sep 26, 2022**
+
+* Add **superscript** plugin
+
+Version 3.0.0a3
+---------------
+
+**Released on Jul 14, 2022**
+
+* Fix ruby plugin
+* Change toc parameter ``depth`` to ``level``
+
+Version 3.0.0a2
+---------------
+
+**Released on Jul 13, 2022**
+
+* Escape block code in HTMLRenderer
+* Fix parsing links
+
+Version 3.0.0a1
+---------------
+
+**Released on Jul 12, 2022**
+
+This is the first release of v3. Features included:
+
+* redesigned mistune
+* plugins
+* directives

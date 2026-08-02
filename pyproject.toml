@@ -36,6 +36,10 @@ include = ["blackhole_agent*"]
 [tool.ruff]
 line-length = 120
 target-version = "py310"
+# Vendored third-party trees are digest-sealed snapshots, not project code:
+# linting them would both flag foreign style and litter them with .ruff_cache,
+# breaking their vendored tree digests.
+extend-exclude = ["capabilities/absorbed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
