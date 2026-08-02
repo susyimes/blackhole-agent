@@ -67,6 +67,14 @@
       "upstream_ref": "mistune 3.3.0 changelog: 'Fix RST renderer for block quotes nested in lists'",
       "repro": "repros/rst_blockquote_nested_list.py",
       "patch": "patches/rst-blockquote-nested-list.patch"
+    },
+    {
+      "id": "ref-link-blank-scan-quadratic",
+      "title": "Block ref-link parsing rescans the whole remaining document for the next blank line per definition (quadratic DoS on n reference-link definitions)",
+      "kind": "complexity",
+      "upstream_ref": "mistune 3.3.0 changelog: 'Fix quadratic scans in inline links, reference links, and formatting markers'; discovered autonomously by capability.upstream-discovery (generator 'footnote_refs'), absent from every curated manifest before discovery",
+      "repro": "repros/ref_link_blank_scan_quadratic.py",
+      "patch": "patches/ref-link-blank-scan-quadratic.patch"
     }
   ]
 }

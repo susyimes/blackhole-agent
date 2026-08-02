@@ -4,7 +4,7 @@
   "findings": [
     {
       "exponent": 2.305,
-      "flagged": false,
+      "flagged": true,
       "generator": "nested_link",
       "kind": "complexity",
       "minimized_n": 1875,

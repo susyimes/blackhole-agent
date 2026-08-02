@@ -1,0 +1,40 @@
+--- a/mistune-3.2.1/src/mistune/block_parser.py
++++ b/mistune-3.2.1/src/mistune/block_parser.py
+@@ -1,4 +1,5 @@
+ import re
++from bisect import bisect_left
+ from typing import Optional, List, Tuple, Match, Pattern
+ import string
+ from .util import (
+@@ -251,10 +252,10 @@
+         assert href_pos is not None
+ 
+-        _blank = self.BLANK_LINE.search(state.src, href_pos)
+-        if _blank:
+-            max_pos = _blank.start()
+-        else:
++        blank_pos = _find_next_blank_line(state, href_pos, self.BLANK_LINE)
++        if blank_pos is None:
+             max_pos = state.cursor_max
++        else:
++            max_pos = blank_pos
+ 
+         title, title_pos = parse_link_title(state.src, href_pos, max_pos)
+         if title_pos:
+@@ -496,3 +497,16 @@
+ 
+     state.append_token({"type": "block_html", "raw": text})
+     return end_pos
++
++
++def _find_next_blank_line(state: BlockState, pos: int, pattern: Pattern[str]) -> Optional[int]:
++    cache = state.env.get("__blank_line_starts__")
++    if cache is None or cache[0] is not state.src:
++        cache = (state.src, [m.start() for m in pattern.finditer(state.src)])
++        state.env["__blank_line_starts__"] = cache
++
++    positions = cache[1]
++    index = bisect_left(positions, pos)
++    if index < len(positions):
++        return positions[index]
++    return None

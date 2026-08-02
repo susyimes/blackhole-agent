@@ -135,7 +135,11 @@ def test_second_release_repaired_end_to_end() -> None:
     report = run_repair_campaign(TARGET_321)
     assert report["ok"], json.dumps(report, indent=2)[:2000]
     assert report["repair_score"] == 1.0
-    assert report["repaired_count"] == report["defect_count"] == 7
+    assert report["repaired_count"] == report["defect_count"] == 8
+    # the 8th defect was discovered autonomously by capability.upstream-discovery
+    discovered = [d for d in report["defects"] if d["id"] == "ref-link-blank-scan-quadratic"]
+    assert discovered and discovered[0]["reproduced_on_pristine"]
+    assert discovered[0]["repaired"] and discovered[0]["ablation_reopens"]
     # repaired suite additionally runs upstream's own added security tests
     assert report["suites"]["repaired"]["passed"] > report["suites"]["pristine"]["passed"]
     verdict = verify_repair_report(Path(report["report_dir"]), TARGET_321)
