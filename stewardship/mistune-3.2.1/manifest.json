@@ -75,6 +75,14 @@
       "upstream_ref": "mistune 3.3.0 changelog: 'Fix quadratic scans in inline links, reference links, and formatting markers'; discovered autonomously by capability.upstream-discovery (generator 'footnote_refs'), absent from every curated manifest before discovery",
       "repro": "repros/ref_link_blank_scan_quadratic.py",
       "patch": "patches/ref-link-blank-scan-quadratic.patch"
+    },
+    {
+      "id": "nested-bracket-scan-quadratic",
+      "title": "Inline link/image parsing rescans the remaining source for the matching ']' once per '[' or '![' marker (quadratic DoS on n nested brackets)",
+      "kind": "complexity",
+      "upstream_ref": "mistune 3.3.0 changelog: 'Fix quadratic scans in inline links, reference links, and formatting markers'; discovered autonomously by capability.upstream-discovery (generators 'nested_link' and 'nested_image'), absent from every curated manifest before discovery",
+      "repro": "repros/nested_bracket_scan_quadratic.py",
+      "patch": "patches/nested-bracket-scan-quadratic.patch"
     }
   ]
 }
