@@ -18,6 +18,10 @@ dependencies = [
 dev = [
     "pytest",
     "ruff",
+    # Python-Markdown's vendored upstream suite (stewardship/markdown-*)
+    # imports yaml in test_apis.py; without it the repair fleet proof fails
+    # on a fresh worktree venv.
+    "pyyaml",
 ]
 
 [project.scripts]

@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import io
 import json
+import shutil
 import tarfile
 
 import pytest
@@ -168,3 +170,127 @@ def test_onboard_frontier_target_rejects_provenance_mismatch(tmp_path) -> None:
     with pytest.raises(ValueError, match="provenance mismatch"):
         uf.onboard_frontier_target("foolib", _PRELUDE, stewardship_root=tmp_path, fetcher=fetcher)
     assert not (tmp_path / "foolib-9.9.9" / "manifest.json").exists()
+
+
+# ---------------------------------------------------------------------------
+# npm ecosystem (node driver contract; smoke tests need a real node runtime)
+
+
+_NODE_PRELUDE = (
+    "function render(text, plugins) {\n"
+    "    return require(TARGET_DIR).render_text(text);\n"
+    "}\n"
+)
+
+node_available = pytest.mark.skipif(shutil.which("node") is None, reason="node runtime not on PATH")
+
+
+def _make_npm_tarball(package: str = "nodeprobe", version: str = "1.2.3") -> bytes:
+    buf = io.BytesIO()
+    pkg_json = json.dumps({"name": package, "version": version, "main": "index.js"}).encode()
+    index_js = b"exports.render_text = function (text) { return text; };\n"
+    with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+        for name, payload in (("package/package.json", pkg_json), ("package/index.js", index_js)):
+            info = tarfile.TarInfo(name)
+            info.size = len(payload)
+            tar.addfile(info, io.BytesIO(payload))
+    return buf.getvalue()
+
+
+def _npm_index_payload(name: str, version: str, tarball_url: str, tarball: bytes) -> bytes:
+    integrity = "sha512-" + base64.b64encode(hashlib.sha512(tarball).digest()).decode()
+    return json.dumps(
+        {
+            "name": name,
+            "version": version,
+            "dist": {"tarball": tarball_url, "integrity": integrity, "shasum": hashlib.sha1(tarball).hexdigest()},
+            "repository": {"url": "git+https://x.test/owner/repo.git"},
+        }
+    ).encode()
+
+
+def test_fetch_latest_npm_release_normalizes_repository_url() -> None:
+    tarball = _make_npm_tarball()
+    url = "https://x/nodeprobe/-/nodeprobe-1.2.3.tgz"
+    fetcher = _fake_fetcher(_npm_index_payload("nodeprobe", "1.2.3", url, tarball), tarball, url)
+    release = uf.fetch_latest_npm_release("nodeprobe", fetcher=fetcher)
+    assert release.version == "1.2.3"
+    assert release.integrity.startswith("sha512-")
+    assert release.upstream_repo == "https://x.test/owner/repo"
+
+
+def test_detect_npm_package_root_and_tests_subdir() -> None:
+    tarball = _make_npm_tarball()
+    assert uf.detect_npm_package_root(tarball) == "package"
+    assert uf.detect_npm_tests_subdir(tarball) is None
+
+
+def test_validate_node_driver_prelude() -> None:
+    uf.validate_node_driver_prelude(_NODE_PRELUDE)
+    uf.validate_node_driver_prelude("const render = (text, plugins) => text;\n")
+    with pytest.raises(ValueError, match="must define render"):
+        uf.validate_node_driver_prelude("const x = 1;\n")
+    # "renderer" is not a render definition.
+    with pytest.raises(ValueError, match="must define render"):
+        uf.validate_node_driver_prelude("const renderer = make();\n")
+
+
+@node_available
+def test_onboard_npm_frontier_target_roundtrip_reuse_tamper(tmp_path) -> None:
+    tarball = _make_npm_tarball()
+    url = "https://x/nodeprobe/-/nodeprobe-1.2.3.tgz"
+    fetcher = _fake_fetcher(_npm_index_payload("nodeprobe", "1.2.3", url, tarball), tarball, url)
+
+    result = uf.onboard_npm_frontier_target("nodeprobe", _NODE_PRELUDE, stewardship_root=tmp_path, fetcher=fetcher)
+    assert result["ok"] and not result["reused"]
+    manifest = json.loads((tmp_path / "nodeprobe-1.2.3" / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["kind"] == "npm-tarball"
+    assert manifest["ecosystem"] == "npm"
+    assert manifest["driver"]["runtime"] == "node"
+    assert manifest["sdist_sha256"] == hashlib.sha256(tarball).hexdigest()
+    assert manifest["sdist_sha1"] == hashlib.sha1(tarball).hexdigest()
+    assert manifest["src_subdir"] == "package"
+    assert manifest["defects"] == []
+
+    reused = uf.onboard_npm_frontier_target("nodeprobe", _NODE_PRELUDE, stewardship_root=tmp_path, fetcher=fetcher)
+    assert reused["reused"]
+
+    tarball_path = tmp_path / "nodeprobe-1.2.3" / manifest["sdist"]
+    raw = tarball_path.read_bytes()
+    tarball_path.write_bytes(bytes([raw[0] ^ 0xFF]) + raw[1:])
+    tampered = uf.onboard_npm_frontier_target("nodeprobe", _NODE_PRELUDE, stewardship_root=tmp_path, fetcher=fetcher)
+    assert not tampered["reused"] and tampered["ok"]
+
+
+@node_available
+def test_onboard_npm_frontier_target_rejects_provenance_mismatch(tmp_path) -> None:
+    tarball = _make_npm_tarball()
+    url = "https://x/nodeprobe/-/nodeprobe-1.2.3.tgz"
+    bad_index = json.dumps(
+        {
+            "name": "nodeprobe",
+            "version": "1.2.3",
+            "dist": {"tarball": url, "integrity": "sha512-" + "A" * 88, "shasum": "0" * 40},
+        }
+    ).encode()
+    fetcher = _fake_fetcher(bad_index, tarball, url)
+    with pytest.raises(ValueError, match="provenance mismatch"):
+        uf.onboard_npm_frontier_target("nodeprobe", _NODE_PRELUDE, stewardship_root=tmp_path, fetcher=fetcher)
+    assert not (tmp_path / "nodeprobe-1.2.3" / "manifest.json").exists()
+
+
+@node_available
+def test_onboard_npm_frontier_target_smoke_failure_rejected(tmp_path) -> None:
+    tarball = _make_npm_tarball()
+    url = "https://x/nodeprobe/-/nodeprobe-1.2.3.tgz"
+    fetcher = _fake_fetcher(_npm_index_payload("nodeprobe", "1.2.3", url, tarball), tarball, url)
+    bad_prelude = "function render(text, plugins) { return require(TARGET_DIR).missing(text); }\n"
+    with pytest.raises(ValueError, match="smoke test failed"):
+        uf.onboard_npm_frontier_target("nodeprobe", bad_prelude, stewardship_root=tmp_path, fetcher=fetcher)
+
+
+@node_available
+def test_builtin_upstream_frontier_proof_covers_npm_leg() -> None:
+    proof = uf.builtin_upstream_frontier_proof()
+    assert proof["ok"], proof
+    assert proof["npm_pinned"] and proof["npm_mismatch_rejected"]

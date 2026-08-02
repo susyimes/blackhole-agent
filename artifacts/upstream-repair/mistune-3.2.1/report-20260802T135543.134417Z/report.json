@@ -13,7 +13,7 @@
         "mistune-3.2.1/tests/test_security_toc.py"
       ],
       "repaired": true,
-      "repaired_exit": 1,
+      "repaired_exit": 0,
       "reproduced_on_pristine": true,
       "title": "Generated TOC heading IDs can collide with ids already present in raw HTML",
       "upstream_ref": "mistune 3.3.0 changelog: 'Avoid generated heading ID collisions in TOC'"

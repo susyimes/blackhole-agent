@@ -1,0 +1,26 @@
+{
+  "defects": [],
+  "driver": {
+    "prelude": "// Node driver prelude for the marked markdown renderer (npm frontier target).\n// TARGET_DIR is bound by the frontier plane to the extracted package root;\n// require(TARGET_DIR) resolves through marked's own package.json main field.\nfunction render(text, plugins) {\n    const { marked } = require(TARGET_DIR);\n    return marked.parse(text);\n}\n",
+    "runtime": "node",
+    "smoke_input": "# frontier smoke\n\ntext with [a](b) and `code`\n"
+  },
+  "ecosystem": "npm",
+  "fixed_in": null,
+  "frontier": true,
+  "kind": "npm-tarball",
+  "name": "marked",
+  "npm_registry_url": "https://registry.npmjs.org/marked/latest",
+  "retrieved_at": "2026-08-02T13:45:05.711526Z",
+  "schema_version": 1,
+  "sdist": "marked-18.0.7.tgz",
+  "sdist_integrity": "sha512-iDVQ5ldaiKXn6b2JroX5kgRfmwgqolW7NpaEzTl1k/2Zh1njIEN9yniyLV/mOvWwtsE8OGgkjsCYvijuPk1dtA==",
+  "sdist_sha1": "6d8d4dd777730263e7e25bedad56a26bb2809232",
+  "sdist_sha256": "edcb08b6a56e5bfa9a1177a29943f19587771297e123694134d166546e1201b6",
+  "source_url": "https://registry.npmjs.org/marked/-/marked-18.0.7.tgz",
+  "src_subdir": "package",
+  "tests_subdir": null,
+  "upstream_changelog": null,
+  "upstream_repo": "https://github.com/markedjs/marked",
+  "version": "18.0.7"
+}

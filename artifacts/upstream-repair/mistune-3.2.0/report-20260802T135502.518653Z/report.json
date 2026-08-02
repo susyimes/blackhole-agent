@@ -13,7 +13,7 @@
         "mistune-3.2.0/tests/fixtures/math.txt"
       ],
       "repaired": true,
-      "repaired_exit": 1,
+      "repaired_exit": 0,
       "reproduced_on_pristine": true,
       "title": "Math plugin renders raw HTML in block and inline math (XSS)",
       "upstream_ref": "mistune 3.2.1 changelog: 'Escape text in math plugin' / 'Fix regex for math plugin'"
