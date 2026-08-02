@@ -1124,12 +1124,11 @@ def invoke_kernel_turn(
 
 
 def _normalize_repo_relpath(path: str) -> str:
-    """Normalize git path output; repair known porcelain truncation artifacts."""
+    """Normalize git path output to a repo-relative forward-slash path."""
 
-    value = path.strip().strip('"').replace("\\", "/").lstrip("./")
-    # Observed on Windows porcelain: leading 'a' dropped from artifacts/.
-    if value.startswith("rtifacts/"):
-        value = "a" + value
+    value = path.strip().strip('"').replace("\\", "/")
+    if value.startswith("./"):
+        value = value[2:]
     return value
 
 
@@ -1138,20 +1137,21 @@ def status_changed_paths(
     *,
     command_runner: Callable[..., Any] = subprocess.run,
 ) -> list[str]:
-    output = git_text(
-        workspace,
+    # porcelain v1 prefixes each entry with a two-column status and one
+    # space, so the path starts at column 3. Read the raw stdout instead of
+    # git_text: stripping the whole output would delete the leading status
+    # space of the FIRST entry and mangle its path (src/x -> rc/x).
+    completed = run_command(
         ["git", "status", "--porcelain=v1", "--untracked-files=all"],
+        cwd=workspace,
         command_runner=command_runner,
     )
     paths: list[str] = []
-    for line in output.splitlines():
+    for line in (completed.stdout or "").splitlines():
+        line = line.rstrip()
         if len(line) < 4:
             continue
-        # porcelain v1: two status columns, then a space, then path.
         value = line[3:]
-        if value.startswith(" "):
-            value = value[1:]
-        value = value.strip()
         if " -> " in value:
             value = value.split(" -> ", 1)[1]
         value = _normalize_repo_relpath(value)

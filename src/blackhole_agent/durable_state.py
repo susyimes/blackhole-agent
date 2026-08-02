@@ -8,10 +8,15 @@ and left the worktree dirty.
 
 When ``BLACKHOLE_DURABLE_ROOT`` is set (the test suite sets it to a per-session
 temporary directory), writes that target paths inside a Git worktree are
-redirected into the overlay root while preserving their layout relative to the
-worktree root. Reads fall through to the real path when no overlay copy
-exists, so read-only callers still see committed state while writers can never
-dirty the checkout.
+redirected into the overlay root under a per-worktree key, preserving their
+layout relative to the worktree root. The per-worktree key matters: a shared
+session overlay sees many worktrees (the real checkout plus scratch mission
+worktrees), and two worktrees whose files share a relative layout — every
+checkout has a ``capabilities/ledger.json`` — must never collide, or a
+scratch worktree's write would poison later reads of the real checkout's
+file. Reads fall through to the real path when no overlay copy exists, so
+read-only callers still see committed state while writers can never dirty
+the checkout.
 
 The variable is read live on every call; nothing is cached at import time, so
 subprocesses inherit the overlay through the environment and callers may
@@ -22,6 +27,7 @@ landing in the real ledger.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import tempfile
 from contextlib import contextmanager
@@ -80,6 +86,19 @@ def overlay_root() -> Path | None:
     return Path(raw).resolve()
 
 
+def worktree_overlay_key(base: Path) -> str:
+    """Stable overlay key for one worktree root.
+
+    A shared session overlay sees many worktrees at once; keying by the
+    resolved root keeps identical relative layouts from different worktrees
+    (every checkout has a ``capabilities/ledger.json``) from colliding.
+    """
+
+    resolved = base.resolve()
+    digest = hashlib.sha256(str(resolved).encode("utf-8")).hexdigest()[:16]
+    return f"{resolved.name}-{digest}"
+
+
 def _worktree_root(path: Path) -> Path | None:
     """Return the enclosing Git worktree root for ``path``, if any.
 
@@ -120,7 +139,7 @@ def durable_write_path(path: Path | str) -> Path:
         relative = resolved.relative_to(base)
     except ValueError:
         return target
-    overlay_path = root / relative
+    overlay_path = root / worktree_overlay_key(base) / relative
     tombstone = _tombstone_path(overlay_path)
     if tombstone.exists():
         tombstone.unlink()
@@ -149,7 +168,7 @@ def durable_read_path(path: Path | str) -> Path:
         relative = resolved.relative_to(base)
     except ValueError:
         return target
-    overlay_path = root / relative
+    overlay_path = root / worktree_overlay_key(base) / relative
     if overlay_path.exists() or _tombstone_path(overlay_path).exists():
         return overlay_path
     return target
@@ -180,7 +199,7 @@ def durable_forget(path: Path | str) -> None:
     except ValueError:
         target.unlink(missing_ok=True)
         return
-    overlay_path = root / relative
+    overlay_path = root / worktree_overlay_key(base) / relative
     overlay_path.unlink(missing_ok=True)
     tombstone = _tombstone_path(overlay_path)
     tombstone.parent.mkdir(parents=True, exist_ok=True)

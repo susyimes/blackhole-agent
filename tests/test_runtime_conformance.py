@@ -67,3 +67,27 @@ def test_load_controller_from_candidate_path(tmp_path):
 
     assert hasattr(module, "run_unbound_turn")
     assert hasattr(module, "evaluate_milestone")
+
+
+def test_mutation_registry_covers_contract_surface():
+    scenario_names = {name for name, _ in runtime_conformance.SCENARIOS}
+    assert len(runtime_conformance.MUTATIONS) >= 5
+    for mutation in runtime_conformance.MUTATIONS:
+        assert mutation["name"]
+        assert mutation["violates"]
+        assert set(mutation["scenarios"]) <= scenario_names
+
+
+def test_mutation_gate_catches_seeded_violations():
+    fast = [
+        mutation
+        for mutation in runtime_conformance.MUTATIONS
+        if mutation["name"] in {"broken_decision_parser", "non_durable_state", "paperwork_blind_gate"}
+    ]
+    report = runtime_conformance.run_mutation_gate(unbound, mutations=fast)
+
+    assert report["ok"] is True, report["mutations"]
+    assert all(mutation["caught"] for mutation in report["mutations"])
+    # The controller is restored after each mutation.
+    report_after = runtime_conformance.run_conformance_suite(unbound, only=("paperwork_milestone_rejected",))
+    assert report_after["ok"] is True

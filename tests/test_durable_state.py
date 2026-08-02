@@ -21,6 +21,7 @@ from blackhole_agent.durable_state import (
     durable_forget,
     durable_read_path,
     durable_write_path,
+    worktree_overlay_key,
 )
 
 
@@ -37,7 +38,7 @@ def overlay(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 def test_write_redirect_preserves_relative_layout(overlay: Path) -> None:
     target = default_ledger_path(REPO_ROOT)
     redirected = durable_write_path(target)
-    assert redirected == overlay / "capabilities" / "ledger.json"
+    assert redirected == overlay / worktree_overlay_key(REPO_ROOT) / "capabilities" / "ledger.json"
     assert durable_write_path(target) != target
 
 
@@ -57,7 +58,7 @@ def test_write_then_read_observes_overlay_copy(overlay: Path) -> None:
     atomic_write_json(target, {"probe": 1})
     try:
         assert not target.exists()
-        overlay_copy = overlay / "capabilities" / "overlay-probe.json"
+        overlay_copy = overlay / worktree_overlay_key(REPO_ROOT) / "capabilities" / "overlay-probe.json"
         assert json.loads(overlay_copy.read_text(encoding="utf-8")) == {"probe": 1}
         assert durable_read_path(target) == overlay_copy
     finally:
@@ -72,7 +73,7 @@ def test_forget_tombstones_real_file_without_deleting_it(overlay: Path) -> None:
     assert not durable_read_path(target).exists()  # but readers see it as gone
     # Rewriting clears the tombstone and produces an overlay copy.
     atomic_write_json(target, {"schema_version": 1, "capabilities": {}})
-    rewritten = overlay / "capabilities" / "ledger.json"
+    rewritten = overlay / worktree_overlay_key(REPO_ROOT) / "capabilities" / "ledger.json"
     assert durable_read_path(target) == rewritten
     assert target.read_bytes() == before
 
@@ -96,3 +97,37 @@ def test_ledger_round_trip_stays_off_the_checkout(overlay: Path) -> None:
         assert loaded.schema_version == ledger.schema_version
     finally:
         durable_forget(target)
+
+
+def test_sibling_worktrees_never_collide_in_shared_overlay(overlay: Path, tmp_path: Path) -> None:
+    """Identical relative layouts from different worktrees stay isolated.
+
+    A scratch mission worktree's ``capabilities/ledger.json`` and the real
+    checkout's share a relative layout; keyed by worktree root, a write in
+    one must never poison reads in the other.
+    """
+
+    import subprocess
+
+    def make_worktree(path: Path) -> None:
+        path.mkdir()
+        subprocess.run(["git", "init", "-b", "main"], cwd=path, check=True, capture_output=True)
+
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    make_worktree(first)
+    make_worktree(second)
+    first_target = first / "capabilities" / "ledger.json"
+    second_target = second / "capabilities" / "ledger.json"
+
+    first_redirect = durable_write_path(first_target)
+    second_redirect = durable_write_path(second_target)
+    assert first_redirect != second_redirect
+    assert first_redirect.relative_to(overlay).parts[0] == worktree_overlay_key(first)
+    assert second_redirect.relative_to(overlay).parts[0] == worktree_overlay_key(second)
+
+    first_redirect.parent.mkdir(parents=True, exist_ok=True)
+    first_redirect.write_text('{"origin": "first"}\n', encoding="utf-8")
+    assert durable_read_path(first_target) == first_redirect
+    # The sibling's read falls through to its own (nonexistent) real path.
+    assert durable_read_path(second_target) == second_target

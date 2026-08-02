@@ -294,6 +294,32 @@ evolving copy.
 Use `--keep-controller-loaded` only for debugging when this self-reload behavior
 is not wanted.
 
+### Conformance gate for self-modification
+
+Because every tick can run a rewritten controller, self-modification needs a
+contract proof. `blackhole_agent.runtime_conformance` is that gate:
+
+- `run_conformance_suite` drives a candidate controller module (the installed
+  `blackhole_agent.unbound`, or a rewritten `unbound.py` loaded from a file
+  path) through ten hermetic lifecycle scenarios in throwaway git
+  repositories with a scripted kernel: genesis adoption, continue durability,
+  milestone gating with validation replay, fabricated-claim and paperwork
+  rejection, resume continuity, machine-checkable completion, exact status
+  paths, the self-reload boundary (a patched worktree copy must govern the
+  next tick; a corrupted copy must fail it), and publication lineage against
+  a bare remote.
+- `run_mutation_gate` proves the suite's honesty: it seeds distinct
+  controller contract violations (permissive gate, replay-blind gate, broken
+  decision parser, non-durable state, paperwork-blind classification,
+  contract-blind completion, reload short-circuit) and passes only when the
+  suite catches every one.
+- `builtin_runtime_conformance` is the invocable proof for the registered
+  `capability.runtime-conformance` ledger entry; it writes a digest-sealed
+  report under `artifacts/runtime-conformance/`.
+
+A rewritten controller that fails any scenario, or a suite that fails to
+catch any mutation, must not govern a real mission.
+
 ## Continuous Self-Evolution
 
 The outer continuous loop starts a new autonomous-genesis mission after the

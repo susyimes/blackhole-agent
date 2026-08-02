@@ -16,14 +16,24 @@ kernel process, no network — and asserts the contract at every transition:
 - fabricated validations (exit 0 claimed, real exit non-zero) are rejected;
 - paperwork-only milestones (docs/tests/artifacts) are rejected;
 - resume reloads state.json from disk and keeps iteration/session continuity;
-- complete requires done_when_met and passes machine-checkable contracts.
+- complete requires done_when_met and passes machine-checkable contracts;
+- the reload boundary is real: ``run_reloadable_tick`` runs the tick in a
+  fresh interpreter governed by the *worktree's* controller copy — a patched
+  copy governs the tick, a corrupted copy fails it;
+- publication fast-forwards the proven commit to the remote branch and
+  verifies the remote head, idempotently, and refuses missing commits.
 
 The suite runs against any candidate controller module (the installed
 ``blackhole_agent.unbound`` by default, or a rewritten ``unbound.py`` loaded
 from a file path), which is what makes self-modification gateable: a candidate
 controller that breaks any scenario fails the suite before it can govern a
-real mission. ``builtin_runtime_conformance`` is the invocable entry point;
-its report digest is a pure function of scenario names and verdicts.
+real mission. ``run_mutation_gate`` proves the suite's honesty: it seeds
+distinct contract violations (permissive gate, replay-blind gate, broken
+decision parser, non-durable state, paperwork-blind classification,
+contract-blind completion, reload short-circuit) and passes only when the
+suite catches every one. ``builtin_runtime_conformance`` is the invocable
+entry point; its report digest is a pure function of scenario and mutation
+verdicts.
 """
 
 from __future__ import annotations
@@ -31,6 +41,8 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -86,7 +98,7 @@ def _git(repo: Path, *args: str) -> str:
     return completed.stdout.strip()
 
 
-def _init_operator_repo(repo: Path) -> None:
+def _init_operator_repo(repo: Path, *, shadow: bool = True) -> None:
     """Create a minimal operator repository with one real behavior path."""
 
     repo.mkdir(parents=True, exist_ok=True)
@@ -96,18 +108,33 @@ def _init_operator_repo(repo: Path) -> None:
     (repo / "src").mkdir()
     (repo / "src" / "seed.py").write_text("VALUE = 1\n", encoding="utf-8")
     (repo / "README.md").write_text("# operator repo\n", encoding="utf-8")
-    # Hermeticity guard: the milestone gate's goal watchdog shells out with
-    # cwd=workspace; an empty shadow package makes the capability_watchdog
-    # import fail there, so the gate takes its designed "pre-watchdog
-    # worktree" skip path instead of evaluating the ambient repository's
-    # goals inside a minimal operator repo (environment-dependent verdicts).
-    (repo / "blackhole_agent").mkdir()
-    (repo / "blackhole_agent" / "__init__.py").write_text(
-        '"""Shadow package: minimal operator repos predate the goal watchdog."""\n',
-        encoding="utf-8",
-    )
+    if shadow:
+        # Hermeticity guard: the milestone gate's goal watchdog shells out with
+        # cwd=workspace; an empty shadow package makes the capability_watchdog
+        # import fail there, so the gate takes its designed "pre-watchdog
+        # worktree" skip path instead of evaluating the ambient repository's
+        # goals inside a minimal operator repo (environment-dependent verdicts).
+        (repo / "blackhole_agent").mkdir()
+        (repo / "blackhole_agent" / "__init__.py").write_text(
+            '"""Shadow package: minimal operator repos predate the goal watchdog."""\n',
+            encoding="utf-8",
+        )
     _git(repo, "add", ".")
     _git(repo, "commit", "-m", "seed")
+
+
+def _copy_runtime_package(controller: ModuleType, repo: Path) -> None:
+    """Commit a full copy of the candidate controller's package into the repo."""
+
+    package_dir = Path(controller.__file__).resolve().parent
+    destination = repo / "src" / package_dir.name
+    shutil.copytree(
+        package_dir,
+        destination,
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+    )
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "runtime package")
 
 
 def _decision(status: str, **overrides: Any) -> dict[str, Any]:
@@ -496,6 +523,177 @@ def scenario_complete_requires_contract(controller: ModuleType, scratch: Path) -
     return _scenario_result("complete_requires_contract", checks)
 
 
+def scenario_status_paths_reported_exactly(controller: ModuleType, scratch: Path) -> dict[str, Any]:
+    """Porcelain status paths are reported exactly, including the first line.
+
+    ``git status --porcelain=v1`` prefixes entries with a two-column status
+    and one space; stripping the whole command output mangles the first
+    entry's path (``src/seed.py`` -> ``rc/seed.py``), which both corrupts
+    durable records and can misclassify gated paths (a mangled
+    ``capabilities/ledger.json`` stops matching the non-behavior prefix).
+    Dotfile paths must keep their leading dot as well.
+    """
+
+    checks: list[dict[str, Any]] = []
+    repo = scratch / "repo"
+    _init_operator_repo(repo)
+    (repo / "capabilities").mkdir()
+    (repo / "capabilities" / "ledger.json").write_text("{}\n", encoding="utf-8")
+    (repo / ".github" / "workflows").mkdir(parents=True)
+    (repo / ".github" / "workflows" / "ci.yml").write_text("name: ci\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "gated surfaces")
+    state_path = _create_mission(
+        controller,
+        repo,
+        scratch,
+        goal="Grow a capability.",
+        done_when="The capability is invocable.",
+    )
+    state = controller.load_mission(state_path)
+    workspace = Path(state.workspace_path)
+
+    (workspace / "src" / "seed.py").write_text("VALUE = 7\n", encoding="utf-8")
+    (workspace / "capabilities" / "ledger.json").write_text('{"changed": true}\n', encoding="utf-8")
+    (workspace / ".github" / "workflows" / "ci.yml").write_text("name: ci2\n", encoding="utf-8")
+
+    paths = controller.status_changed_paths(workspace)
+    _check(checks, "seed path exact", "src/seed.py" in paths, ",".join(paths))
+    _check(checks, "ledger path exact", "capabilities/ledger.json" in paths, ",".join(paths))
+    _check(checks, "dotfile path keeps leading dot", ".github/workflows/ci.yml" in paths, ",".join(paths))
+    missing = [path for path in paths if not (workspace / path).exists()]
+    _check(checks, "every reported path names a real file", not missing, ",".join(missing))
+    behavior = sorted(path for path in paths if controller.is_behavior_path(path))
+    _check(
+        checks,
+        "behavior classification intact",
+        behavior == [".github/workflows/ci.yml", "capabilities/ledger.json", "src/seed.py"],
+        ",".join(behavior),
+    )
+    return _scenario_result("status_paths_reported_exactly", checks)
+
+
+_INVOKE_KERNEL_SPAN = re.compile(r"^def invoke_kernel_turn\(.*?(?=^def )", re.DOTALL | re.MULTILINE)
+
+_SCRIPTED_INVOKE_TEMPLATE = '''def invoke_kernel_turn(
+    state,
+    prompt,
+    turn_dir,
+    *,
+    command_runner=None,
+):
+    """Conformance patch: scripted kernel proving worktree-controller governance."""
+
+    return KernelTurnResult(
+        kernel="scripted-reload",
+        last_message={decision!r},
+        session_id="reload-session",
+        command=("worktree-controller",),
+        result_path="",
+    )
+
+
+'''
+
+
+def scenario_reload_boundary_governs_tick(controller: ModuleType, scratch: Path) -> dict[str, Any]:
+    """run_reloadable_tick runs the tick under the worktree's controller copy.
+
+    The operator repo carries a full copy of the candidate package, so the
+    mission worktree contains ``src/blackhole_agent/unbound.py``. Patching
+    that copy (a scripted kernel) must govern the next tick; corrupting it
+    must fail the tick. Both directions prove the reload boundary loads the
+    evolving worktree code rather than the invoking checkout's code.
+    """
+
+    checks: list[dict[str, Any]] = []
+    repo = scratch / "repo"
+    _init_operator_repo(repo, shadow=False)
+    _copy_runtime_package(controller, repo)
+    state_path = _create_mission(
+        controller,
+        repo,
+        scratch,
+        goal="Grow a capability.",
+        done_when="The capability is invocable.",
+    )
+    state = controller.load_mission(state_path)
+    workspace = Path(state.workspace_path)
+    worktree_runtime = workspace / "src" / "blackhole_agent" / "unbound.py"
+    _check(checks, "worktree carries controller copy", worktree_runtime.exists())
+
+    source = worktree_runtime.read_text(encoding="utf-8")
+    decision = json.dumps(_decision("continue", summary="governed-by-worktree-controller"))
+    patched, count = _INVOKE_KERNEL_SPAN.subn(_SCRIPTED_INVOKE_TEMPLATE.format(decision=decision), source)
+    _check(checks, "invoke_kernel_turn patch applied once", count == 1, f"replacements={count}")
+    worktree_runtime.write_text(patched, encoding="utf-8")
+
+    returncode = controller.run_reloadable_tick(state_path)
+    _check(checks, "reloadable tick succeeded", returncode == 0, f"returncode={returncode}")
+    turn_record_path = state_path.parent / "turns" / "0001" / "turn.json"
+    if turn_record_path.exists():
+        turn_record = json.loads(turn_record_path.read_text(encoding="utf-8"))
+    else:
+        turn_record = {}
+    _check(checks, "turn governed by worktree controller", turn_record.get("kernel") == "scripted-reload",
+           str(turn_record.get("kernel")))
+    _check(checks, "worktree command recorded", turn_record.get("command") == ["worktree-controller"],
+           str(turn_record.get("command")))
+    final_message_path = state_path.parent / "turns" / "0001" / "final-message.md"
+    final_message = final_message_path.read_text(encoding="utf-8") if final_message_path.exists() else ""
+    _check(checks, "scripted decision delivered", "governed-by-worktree-controller" in final_message)
+    state = controller.load_mission(state_path)
+    _check(checks, "iteration persisted through reload", state.iteration == 1, str(state.iteration))
+    _check(checks, "session persisted through reload", state.session_id == "reload-session", state.session_id)
+
+    worktree_runtime.write_text(patched + "\ndef broken(:\n", encoding="utf-8")
+    broken_returncode = controller.run_reloadable_tick(state_path)
+    _check(checks, "corrupted worktree controller fails the tick", broken_returncode != 0,
+           f"returncode={broken_returncode}")
+    return _scenario_result("reload_boundary_governs_tick", checks)
+
+
+def scenario_publication_verifies_remote(controller: ModuleType, scratch: Path) -> dict[str, Any]:
+    """publish_lineage fast-forwards a real remote and verifies its head."""
+
+    checks: list[dict[str, Any]] = []
+    repo = scratch / "repo"
+    _init_operator_repo(repo)
+    remote = scratch / "remote.git"
+    subprocess.run(
+        ["git", "init", "--bare", str(remote)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    _git(repo, "remote", "add", "origin", remote.as_posix())
+    _git(repo, "push", "-u", "origin", "main")
+
+    (repo / "src" / "seed.py").write_text("VALUE = 10\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "advance seed")
+    sha = _git(repo, "rev-parse", "HEAD")
+
+    published = controller.publish_lineage(repo, sha, "origin", "lineage")
+    _check(checks, "publication ok", published.ok, published.error)
+    _check(checks, "remote head verified after push", published.remote_after == sha, published.remote_after)
+    remote_head = subprocess.run(
+        ["git", "--git-dir", str(remote), "rev-parse", "refs/heads/lineage"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    _check(checks, "bare remote carries lineage branch", remote_head == sha, remote_head)
+
+    republished = controller.publish_lineage(repo, sha, "origin", "lineage")
+    _check(checks, "republication idempotent", republished.ok and republished.remote_before == sha,
+           f"before={republished.remote_before} error={republished.error}")
+
+    missing = controller.publish_lineage(repo, "0" * 40, "origin", "lineage")
+    _check(checks, "missing commit refused", not missing.ok and "does not exist" in missing.error, missing.error)
+    return _scenario_result("publication_verifies_remote", checks)
+
+
 SCENARIOS: tuple[tuple[str, Callable[[ModuleType, Path], dict[str, Any]]], ...] = (
     ("genesis_adopts_mission", scenario_genesis_adopts_mission),
     ("continue_preserves_work", scenario_continue_preserves_work),
@@ -504,6 +702,9 @@ SCENARIOS: tuple[tuple[str, Callable[[ModuleType, Path], dict[str, Any]]], ...] 
     ("paperwork_milestone_rejected", scenario_paperwork_milestone_rejected),
     ("resume_keeps_continuity", scenario_resume_keeps_continuity),
     ("complete_requires_contract", scenario_complete_requires_contract),
+    ("status_paths_reported_exactly", scenario_status_paths_reported_exactly),
+    ("reload_boundary_governs_tick", scenario_reload_boundary_governs_tick),
+    ("publication_verifies_remote", scenario_publication_verifies_remote),
 )
 
 
@@ -565,12 +766,215 @@ def run_conformance_suite(
     }
 
 
+def _patch_attr(controller: ModuleType, name: str, value: Any) -> Callable[[], None]:
+    original = getattr(controller, name)
+
+    def restore() -> None:
+        setattr(controller, name, original)
+
+    setattr(controller, name, value)
+    return restore
+
+
+def _mutation_permissive_gate(controller: ModuleType) -> Callable[[], None]:
+    def permissive(
+        decision: Any,
+        *,
+        changed_paths: list[str],
+        workspace: Path | None = None,
+        mission_done_when: str = "",
+    ) -> Any:
+        return controller.MilestoneGate(
+            requested=decision.status in {"milestone", "complete"},
+            accepted=True,
+            reasons=(),
+            changed_paths=tuple(changed_paths),
+            behavior_paths=tuple(changed_paths),
+        )
+
+    return _patch_attr(controller, "evaluate_milestone", permissive)
+
+
+def _mutation_replay_blind(controller: ModuleType) -> Callable[[], None]:
+    def blind_replay(
+        workspace: Path,
+        command: str,
+        *,
+        timeout: int = 300,
+        command_runner: Any = None,
+    ) -> dict[str, Any]:
+        return {
+            "command": command,
+            "reported_exit_code": 0,
+            "reproduced_exit_code": 0,
+            "timed_out": False,
+            "ok": True,
+        }
+
+    return _patch_attr(controller, "replay_validation_command", blind_replay)
+
+
+def _mutation_decision_parser(controller: ModuleType) -> Callable[[], None]:
+    return _patch_attr(controller, "extract_json_decision", lambda message: {})
+
+
+def _mutation_non_durable_state(controller: ModuleType) -> Callable[[], None]:
+    return _patch_attr(controller, "save_mission", lambda state_path, state: None)
+
+
+def _mutation_paperwork_blind(controller: ModuleType) -> Callable[[], None]:
+    return _patch_attr(controller, "is_behavior_path", lambda path: True)
+
+
+def _mutation_contract_blind(controller: ModuleType) -> Callable[[], None]:
+    from blackhole_agent.capability_compounder import parse_outcome_contract
+
+    class ContractBlindCompounder:
+        @staticmethod
+        def parse_outcome_contract(done_when: str) -> dict[str, Any]:
+            return parse_outcome_contract(done_when)
+
+        @staticmethod
+        def evaluate_outcome_contract(*args: Any, **kwargs: Any) -> dict[str, Any]:
+            return {"met": True, "failed": []}
+
+    return _patch_attr(controller, "reload_worktree_compounder", lambda: ContractBlindCompounder)
+
+
+def _mutation_reload_shortcircuit(controller: ModuleType) -> Callable[[], None]:
+    def in_process_tick(state_path: Path) -> int:
+        controller.run_unbound_turn(state_path)
+        return 0
+
+    return _patch_attr(controller, "run_reloadable_tick", in_process_tick)
+
+
+MUTATIONS: tuple[dict[str, Any], ...] = (
+    {
+        "name": "permissive_gate",
+        "violates": "milestone gate accepts every claim without evidence",
+        "apply": _mutation_permissive_gate,
+        "scenarios": (
+            "fabricated_validation_rejected",
+            "paperwork_milestone_rejected",
+            "complete_requires_contract",
+        ),
+    },
+    {
+        "name": "replay_blind_gate",
+        "violates": "validation replay trusts reported exit codes",
+        "apply": _mutation_replay_blind,
+        "scenarios": ("fabricated_validation_rejected",),
+    },
+    {
+        "name": "broken_decision_parser",
+        "violates": "agent decision JSON is discarded",
+        "apply": _mutation_decision_parser,
+        "scenarios": ("genesis_adopts_mission",),
+    },
+    {
+        "name": "non_durable_state",
+        "violates": "mission state is never persisted",
+        "apply": _mutation_non_durable_state,
+        "scenarios": ("resume_keeps_continuity",),
+    },
+    {
+        "name": "paperwork_blind_gate",
+        "violates": "docs-only changes count as behavior",
+        "apply": _mutation_paperwork_blind,
+        "scenarios": ("paperwork_milestone_rejected",),
+    },
+    {
+        "name": "contract_blind_gate",
+        "violates": "machine-checkable done_when always reports met",
+        "apply": _mutation_contract_blind,
+        "scenarios": ("complete_requires_contract",),
+    },
+    {
+        "name": "reload_shortcircuit",
+        "violates": "tick runs the invoking checkout instead of the worktree controller",
+        "apply": _mutation_reload_shortcircuit,
+        "scenarios": ("reload_boundary_governs_tick",),
+    },
+)
+
+
+def run_mutation_gate(
+    controller: ModuleType | None = None,
+    *,
+    mutations: Iterable[dict[str, Any]] = MUTATIONS,
+) -> dict[str, Any]:
+    """Prove the conformance suite catches seeded controller violations.
+
+    Each mutation injects one distinct contract violation into the candidate
+    controller; the gate passes only when the suite rejects every one of
+    them (the targeted scenarios fail) and the controller is restored
+    afterwards. A suite that cannot catch these mutations cannot gate
+    self-modification.
+    """
+
+    if controller is None:
+        controller = load_controller()
+    results: list[dict[str, Any]] = []
+    for mutation in mutations:
+        restore = mutation["apply"](controller)
+        try:
+            report = run_conformance_suite(controller, only=mutation["scenarios"])
+        finally:
+            restore()
+        failed = sorted(s["name"] for s in report["scenarios"] if not s["ok"])
+        expected = sorted(mutation["scenarios"])
+        caught = not report["ok"] and all(name in failed for name in expected)
+        results.append(
+            {
+                "name": mutation["name"],
+                "violates": mutation["violates"],
+                "expected_failures": expected,
+                "observed_failures": failed,
+                "caught": caught,
+            }
+        )
+    verdicts = [{"name": item["name"], "caught": item["caught"]} for item in results]
+    digest = hashlib.sha256(json.dumps(verdicts, sort_keys=True).encode("utf-8")).hexdigest()
+    return {
+        "ok": bool(results) and all(item["caught"] for item in results),
+        "action": "runtime_mutation_gate",
+        "schema_version": SCHEMA_VERSION,
+        "controller": getattr(controller, "__file__", "") or "",
+        "mutation_count": len(results),
+        "mutations": results,
+        "verdict_digest": digest,
+    }
+
+
 def builtin_runtime_conformance() -> dict[str, Any]:
-    """Invocable capability entry: suite against the installed controller."""
+    """Invocable capability entry: suite plus mutation gate, digest-sealed."""
 
     repo_path = Path(__file__).resolve().parents[2]
-    report = run_conformance_suite()
-    report["reported_at"] = utc_now_iso()
+    controller = load_controller()
+    suite = run_conformance_suite(controller)
+    gate = run_mutation_gate(controller) if suite["ok"] else {
+        "ok": False,
+        "action": "runtime_mutation_gate",
+        "mutations": [],
+        "mutation_count": 0,
+        "verdict_digest": "",
+        "skipped": "conformance suite not green",
+    }
+    report = {
+        "ok": bool(suite["ok"]) and bool(gate["ok"]),
+        "action": "runtime_conformance_proof",
+        "schema_version": SCHEMA_VERSION,
+        "reported_at": utc_now_iso(),
+        "suite": suite,
+        "mutation_gate": gate,
+        "verdict_digest": hashlib.sha256(
+            json.dumps(
+                {"suite": suite["verdict_digest"], "gate": gate["verdict_digest"]},
+                sort_keys=True,
+            ).encode("utf-8")
+        ).hexdigest(),
+    }
     report_path = default_report_dir(repo_path) / "conformance-report.json"
     atomic_write_json(report_path, report)
     report["report_path"] = str(report_path)
