@@ -31,6 +31,69 @@
       ],
       "updated_at": "2026-08-02T00:03:34.057530Z"
     },
+    "capability.absorbed-text-reverser": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_absorption.py",
+        "capabilities/absorbed-steps.json",
+        "capabilities/absorbed/text-reverser/",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "External tool 'text-reverser' is now a first-class invocable capability providing ['reversed_text']; goals needing it plan and execute through the application plane where they were honestly unplannable before absorption.",
+      "created_at": "2026-08-02T00:47:17.908606Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory"
+      ],
+      "description": "Absorbed from external tool 'text-reverser' (fixture origin tests/fixtures/external_tools/text-reverser): provides ['reversed_text'] from ['raw_text']. Vendored under capabilities/absorbed/text-reverser/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case, so a hand-edited record or tampered file fails.",
+      "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+      "id": "capability.absorbed-text-reverser",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-02T00:57:52.514125Z",
+      "name": "Absorbed external capability: Text Reverser (external fixture tool)",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('text-reverser'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "absorbed",
+        "external"
+      ],
+      "updated_at": "2026-08-02T00:57:52.514125Z"
+    },
+    "capability.absorption-plane": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_absorption.py",
+        "src/blackhole_agent/capability_application.py",
+        "capabilities/absorbed-steps.json",
+        "capabilities/absorbed/text-reverser/",
+        "tests/fixtures/external_tools/text-reverser/",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "External behavior is absorbable: a third-party tool becomes a proved, invocable, digest-sealed ledger capability that composes with the application planner, with falsifiable honesty (pre-absorption unplannable, post-absorption solved, ablation reverts) and tamper/forgery rejection.",
+      "created_at": "2026-08-02T00:48:28.846080Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.application-plane",
+        "capability.ablation-proof"
+      ],
+      "description": "Absorbs external tools into first-class invocable ledger capabilities: an absorption.json manifest (command, requires/provides, frozen cases) is validated, the tool tree is vendored under capabilities/absorbed/<slug>/ with a deterministic tree digest, the cases are re-executed against the vendored snapshot, and the capability is registered with a proof that re-checks record digest, tree digest, and every frozen case. The plane proves end-to-end honesty: goals needing the external behavior are honestly unplannable before absorption, plan and execute after, and are unplannable again under ablation; tampered trees and hand-edited records fail their proofs.",
+      "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+      "id": "capability.absorption-plane",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-02T00:50:44.509040Z",
+      "name": "Capability absorption plane",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import builtin_absorption_plane_proof; r=builtin_absorption_plane_proof(); assert r['ok'] and r.get('unplannable_before') and r.get('grown_plan_solved') and r.get('ablation_unplannable') and r.get('tamper_rejected') and r.get('forgery_rejected') and r.get('verify_ok')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "plane",
+        "absorption",
+        "external"
+      ],
+      "updated_at": "2026-08-02T00:50:44.509040Z"
+    },
     "capability.actuation-plane": {
       "behavior_paths": [
         "src/blackhole_agent/capability_compounder.py",
@@ -3883,5 +3946,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-08-02T00:03:34.061903Z"
+  "updated_at": "2026-08-02T00:57:52.514153Z"
 }

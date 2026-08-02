@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "slug": "text-reverser",
+  "name": "Text Reverser (external fixture tool)",
+  "version": "1.0.0",
+  "origin": {
+    "kind": "fixture",
+    "source": "tests/fixtures/external_tools/text-reverser",
+    "commit": ""
+  },
+  "command": ["python", "tool.py"],
+  "requires": ["raw_text"],
+  "provides": ["reversed_text"],
+  "cases": [
+    {"input": {"raw_text": "blackhole"}, "expect": {"reversed_text": "elohkcalb"}},
+    {"input": {"raw_text": "unbound"}, "expect": {"reversed_text": "dnuobnu"}},
+    {"input": {"raw_text": "absorption plane"}, "expect": {"reversed_text": "enalp noitprosba"}}
+  ]
+}

@@ -409,7 +409,11 @@ def _capability_proved(ledger: CapabilityLedger, capability_id: str) -> bool:
 
 
 def build_application_registry(
-    ledger: CapabilityLedger, *, hide: Sequence[str] = (), include_synthesized: bool = False
+    ledger: CapabilityLedger,
+    *,
+    hide: Sequence[str] = (),
+    include_synthesized: bool = False,
+    include_absorbed: bool = False,
 ) -> dict[str, ApplicationStep]:
     """The planning surface: registered steps whose capability is proved live.
 
@@ -421,8 +425,10 @@ def build_application_registry(
     ``include_synthesized=True`` additionally folds in the durably persisted
     synthesized steps (``capabilities/synthesized-steps.json``) whose
     capability is proved in the ledger — the grown frontier after generative
-    growth. It is opt-in so the base planes (application, fragility,
-    recovery, watchdog) keep their exact pre-synthesis semantics.
+    growth. ``include_absorbed=True`` likewise folds in durably persisted
+    absorbed steps (``capabilities/absorbed-steps.json``) vendored from
+    external tools. Both are opt-in so the base planes (application,
+    fragility, recovery, watchdog) keep their exact pre-growth semantics.
     """
 
     hidden = set(hide)
@@ -435,6 +441,12 @@ def build_application_registry(
         from blackhole_agent.capability_synthesis import load_persisted_synthesized_steps
 
         for capability_id, step in load_persisted_synthesized_steps().items():
+            if capability_id not in hidden and _capability_proved(ledger, capability_id):
+                registry[capability_id] = step
+    if include_absorbed:
+        from blackhole_agent.capability_absorption import load_persisted_absorbed_steps
+
+        for capability_id, step in load_persisted_absorbed_steps().items():
             if capability_id not in hidden and _capability_proved(ledger, capability_id):
                 registry[capability_id] = step
     return registry

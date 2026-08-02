@@ -1,0 +1,58 @@
+{
+  "absorbed_at": "2026-08-02T00:47:17.904970Z",
+  "kind": "absorbed_steps",
+  "schema_version": 1,
+  "steps": [
+    {
+      "capability_id": "capability.absorbed-text-reverser",
+      "cases": [
+        {
+          "expect": {
+            "reversed_text": "elohkcalb"
+          },
+          "input": {
+            "raw_text": "blackhole"
+          }
+        },
+        {
+          "expect": {
+            "reversed_text": "dnuobnu"
+          },
+          "input": {
+            "raw_text": "unbound"
+          }
+        },
+        {
+          "expect": {
+            "reversed_text": "enalp noitprosba"
+          },
+          "input": {
+            "raw_text": "absorption plane"
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "tool.py"
+      ],
+      "name": "Text Reverser (external fixture tool)",
+      "origin": {
+        "commit": "",
+        "kind": "fixture",
+        "source": "tests/fixtures/external_tools/text-reverser"
+      },
+      "provides": [
+        "reversed_text"
+      ],
+      "record_digest": "1e3c0d824a3ce5ad5ba4099a6ea17de3dac37dd8137dd69661cd77caa93e3f9a",
+      "requires": [
+        "raw_text"
+      ],
+      "schema_version": 1,
+      "slug": "text-reverser",
+      "vendored_tree_digest": "1ea584313fc7fcf441305f5a62b1d42ff35d08fadf41019f93c45f50e0ce8593",
+      "version": "1.0.0"
+    }
+  ],
+  "steps_digest": "b3c003e82b0162a37848007aa19f28636e9d1119017d5008883d7fb9e28117ae"
+}
