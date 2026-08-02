@@ -11,6 +11,9 @@
   "upstream_changelog": "https://github.com/lepture/mistune/blob/main/docs/changes.rst",
   "src_subdir": "mistune-3.2.1/src",
   "tests_subdir": "mistune-3.2.1/tests",
+  "driver": {
+    "prelude": "import mistune\n\n_RENDERERS = {}\n\ndef render(text, plugins):\n    key = tuple(plugins)\n    md = _RENDERERS.get(key)\n    if md is None:\n        md = mistune.create_markdown(plugins=list(plugins))\n        _RENDERERS[key] = md\n    md(text)"
+  },
   "defects": [
     {
       "id": "toc-heading-id-collision",

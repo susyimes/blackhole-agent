@@ -6,7 +6,10 @@ repairs it. Nothing discovers defects nobody documented. This module closes
 that gap: given a stewardship target (a pinned, sha256-verified upstream
 sdist), the discovery plane runs a battery of generic adversarial-input
 generators against the pristine extracted tree in subprocess isolation and
-grades behavior with two oracles:
+grades behavior with two oracles. How generated text is fed to the target is
+declared by the target itself: the manifest's ``driver.prelude`` snippet
+defines ``render(text, plugins)`` and is embedded verbatim into probe workers
+and synthesized repros, so this module carries no target-specific code:
 
 - **crash oracle** — an uncaught exception (e.g. ``RecursionError``) on a
   generated input is a defect;
@@ -173,13 +176,13 @@ GENERATORS = {}
 
 __GENERATOR_SOURCES__
 
+__DRIVER_PRELUDE__
+
 try:
-    import mistune
-    md = mistune.create_markdown(plugins=plugins)
     text = GENERATORS[name](n)
-    md('warmup')
+    render('warmup', plugins)
     t0 = time.perf_counter()
-    md(text)
+    render(text, plugins)
     elapsed = time.perf_counter() - t0
     print(json.dumps({'elapsed': elapsed, 'crashed': False, 'exc': None}))
 except Exception as e:  # crash oracle
@@ -187,12 +190,14 @@ except Exception as e:  # crash oracle
 """
 
 
-def _worker_source() -> str:
+def _worker_source(driver_prelude: str) -> str:
     sources = []
     for name, spec in GENERATORS.items():
         fn_src = spec["source"].rstrip("\n")
         sources.append(f"{fn_src}\nGENERATORS[{name!r}] = gen\ndel gen")
-    return _WORKER.replace("__GENERATOR_SOURCES__", "\n\n".join(sources))
+    return _WORKER.replace("__GENERATOR_SOURCES__", "\n\n".join(sources)).replace(
+        "__DRIVER_PRELUDE__", driver_prelude.rstrip("\n")
+    )
 
 
 @dataclass(frozen=True)
@@ -203,10 +208,18 @@ class ProbeResult:
     timed_out: bool
 
 
-def run_probe(src_dir: Path, generator: str, n: int) -> ProbeResult:
+def run_probe(src_dir: Path, generator: str, n: int, driver_prelude: str) -> ProbeResult:
     """Measure one generator at one size against src_dir in a subprocess."""
     plugins = ",".join(GENERATORS[generator]["plugins"])
-    cmd = [sys.executable, "-c", _worker_source(), str(src_dir), generator, str(n), plugins]
+    cmd = [
+        sys.executable,
+        "-c",
+        _worker_source(driver_prelude),
+        str(src_dir),
+        generator,
+        str(n),
+        plugins,
+    ]
     try:
         proc = subprocess.run(
             cmd, capture_output=True, text=True, timeout=PROBE_TIMEOUT_SECONDS
@@ -236,14 +249,14 @@ def _max_exponent(times: list[tuple[int, float]]) -> float:
     return worst
 
 
-def probe_ladder(src_dir: Path, generator: str) -> dict[str, Any]:
+def probe_ladder(src_dir: Path, generator: str, driver_prelude: str) -> dict[str, Any]:
     """Run the doubling ladder for one generator; return measurement + verdict."""
     times: list[tuple[int, float]] = []
     crash: dict[str, Any] | None = None
     timeout_n: int | None = None
     n = LADDER_START
     while n <= LADDER_MAX:
-        result = run_probe(src_dir, generator, n)
+        result = run_probe(src_dir, generator, n, driver_prelude)
         if result.timed_out:
             timeout_n = n
             break
@@ -276,7 +289,9 @@ def probe_ladder(src_dir: Path, generator: str) -> dict[str, Any]:
     }
 
 
-def minimize_size(src_dir: Path, generator: str, ladder: dict[str, Any]) -> int:
+def minimize_size(
+    src_dir: Path, generator: str, ladder: dict[str, Any], driver_prelude: str
+) -> int:
     """Binary-search the smallest size whose run exceeds the repro floor."""
     if ladder["crash"] is not None:
         target_n = int(ladder["crash"]["n"])
@@ -290,7 +305,7 @@ def minimize_size(src_dir: Path, generator: str, ladder: dict[str, Any]) -> int:
     lo, hi = max(1, target_n // 2), target_n
     while hi - lo > max(8, hi // 16):
         mid = (lo + hi) // 2
-        result = run_probe(src_dir, generator, mid)
+        result = run_probe(src_dir, generator, mid, driver_prelude)
         if result.crashed or result.timed_out or (result.elapsed or 0.0) >= REPRO_MINIMIZE_FLOOR:
             hi = mid
         else:
@@ -318,9 +333,9 @@ TIME_FLAG_FLOOR = {time_floor!r}
 
 {gen_src}
 
-import mistune
-md = mistune.create_markdown(plugins=PLUGINS)
-md('warmup')
+{prelude}
+
+render('warmup', PLUGINS)
 n = {start}
 times = []
 crashed = None
@@ -329,7 +344,7 @@ while n <= limit:
     text = gen(n)
     t0 = time.perf_counter()
     try:
-        md(text)
+        render(text, PLUGINS)
         elapsed = time.perf_counter() - t0
     except Exception as e:
         crashed = type(e).__name__
@@ -353,7 +368,9 @@ sys.exit(1 if defect else 0)
 '''
 
 
-def synthesize_repro(generator: str, kind: str, minimized_n: int, dest: Path) -> Path:
+def synthesize_repro(
+    generator: str, kind: str, minimized_n: int, dest: Path, driver_prelude: str
+) -> Path:
     """Write a standalone repro script for one finding; return its path."""
     spec = GENERATORS[generator]
     content = _REPRO_TEMPLATE.format(
@@ -361,6 +378,7 @@ def synthesize_repro(generator: str, kind: str, minimized_n: int, dest: Path) ->
         kind=kind,
         plugins=spec["plugins"],
         gen_src=spec["source"].rstrip("\n"),
+        prelude=driver_prelude.rstrip("\n"),
         start=minimized_n,
         exp_threshold=EXPONENT_THRESHOLD,
         time_floor=TIME_FLAG_FLOOR,
@@ -393,10 +411,18 @@ class DiscoveryTarget:
     sdist: Path
     sdist_sha256: str
     src_subdir: str
+    driver_prelude: str
 
 
 def load_target(target_root: Path) -> DiscoveryTarget:
-    """Load a stewardship manifest, deliberately ignoring its 'defects' list."""
+    """Load a stewardship manifest, deliberately ignoring its 'defects' list.
+
+    The manifest's ``driver.prelude`` is a self-contained python snippet
+    (stdlib + the target's own package only) that defines
+    ``render(text, plugins) -> None``: build the target's renderer over the
+    extracted source tree and render ``text`` with the generator's option
+    list. All target specificity lives here, not in this module.
+    """
     manifest = json.loads(durable_read_path(target_root / "manifest.json").read_text(encoding="utf-8"))
     return DiscoveryTarget(
         root=target_root,
@@ -405,6 +431,7 @@ def load_target(target_root: Path) -> DiscoveryTarget:
         sdist=target_root / manifest["sdist"],
         sdist_sha256=manifest["sdist_sha256"],
         src_subdir=manifest["src_subdir"],
+        driver_prelude=manifest["driver"]["prelude"],
     )
 
 
@@ -466,9 +493,10 @@ def run_discovery_scan(
     scratch = Path(tempfile.mkdtemp(prefix="upstream-discovery-"))
     try:
         src_dir = extract_pristine(target, scratch)
+        prelude = target.driver_prelude
         findings: list[dict[str, Any]] = []
         for generator in GENERATORS:
-            ladder = probe_ladder(src_dir, generator)
+            ladder = probe_ladder(src_dir, generator, prelude)
             finding: dict[str, Any] = {
                 "generator": generator,
                 "kind": ladder["kind"],
@@ -477,8 +505,10 @@ def run_discovery_scan(
                 "times": ladder["times"],
             }
             if ladder["flagged"]:
-                minimized = minimize_size(src_dir, generator, ladder)
-                repro = synthesize_repro(generator, ladder["kind"], minimized, report_dir / "repros")
+                minimized = minimize_size(src_dir, generator, ladder, prelude)
+                repro = synthesize_repro(
+                    generator, ladder["kind"], minimized, report_dir / "repros", prelude
+                )
                 pristine_exit = run_repro(repro, src_dir)
                 finding.update(
                     minimized_n=minimized,

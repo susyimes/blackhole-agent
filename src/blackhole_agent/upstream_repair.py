@@ -333,8 +333,36 @@ def _pytest_prefix() -> list[str]:
 
 
 def run_upstream_suite(tree_root: Path, manifest: Mapping[str, Any]) -> dict[str, Any]:
+    """Run the target's own test suite.
+
+    The runner is manifest-selectable via ``suite_runner``: ``pytest``
+    (default) or ``unittest`` — upstream projects that support
+    ``python -m unittest discover`` (and whose pytest collection requires
+    optional tooling) are exercised through their own supported runner.
+    """
     tests_dir = tree_root / manifest["tests_subdir"]
+    runner = manifest.get("suite_runner", "pytest")
     start = time.monotonic()
+    if runner == "unittest":
+        proc = subprocess.run(
+            [sys.executable, "-m", "unittest", "discover", "-s", str(tests_dir), "-t", "."],
+            capture_output=True,
+            text=True,
+            timeout=SUITE_TIMEOUT_SECONDS,
+            cwd=str(tree_root / manifest["src_subdir"].split("/")[0]),
+            env=_tree_env(tree_root, manifest),
+        )
+        output = (proc.stdout or "") + (proc.stderr or "")
+        tail = output.strip().splitlines()
+        summary = tail[-1] if tail else ""
+        m = re.search(r"Ran (\d+) tests", output)
+        return {
+            "exit_code": proc.returncode,
+            "passed": int(m.group(1)) if (m and proc.returncode == 0) else 0,
+            "summary": summary[-300:],
+            "stderr_tail": (proc.stderr or "")[-300:],
+            "duration_seconds": round(time.monotonic() - start, 3),
+        }
     proc = subprocess.run(
         [*_pytest_prefix(), str(tests_dir), "-q", "-p", "no:cacheprovider"],
         capture_output=True,
@@ -369,6 +397,16 @@ def run_repair_campaign(
 ) -> dict[str, Any]:
     """Run the full reproduce -> repair -> ablate campaign and seal a report."""
     target = load_target(target_root)
+    if not target.defects:
+        # Discovery-staging target: onboarded for autonomous discovery but no
+        # defect admitted to the manifest yet. There is nothing to repair.
+        return {
+            "ok": False,
+            "error": "no curated defects: discovery-staging target",
+            "defect_count": 0,
+            "repaired_count": 0,
+            "repair_score": 0.0,
+        }
     provenance = verify_sdist(target)
     if not provenance["ok"]:
         return {"ok": False, "error": "sdist provenance mismatch", "provenance": provenance}
@@ -597,6 +635,20 @@ def run_all_campaigns(
     all_verified = True
     all_tamper_detected = True
     for target_root in target_roots:
+        if not load_target(target_root).defects:
+            # Discovery-staging target (no curated defects yet): the repair
+            # plane does not score it, but it must not fail the fleet either.
+            targets.append(
+                {
+                    "target_root": str(target_root),
+                    "ok": True,
+                    "skipped": "no curated defects: discovery-staging target",
+                    "repair_score": None,
+                    "defect_count": 0,
+                    "repaired_count": 0,
+                }
+            )
+            continue
         report = run_repair_campaign(target_root, artifact_dir)
         entry: dict[str, Any] = {
             "target_root": str(target_root),

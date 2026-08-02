@@ -6,6 +6,8 @@ import json
 
 from blackhole_agent import upstream_discovery as ud
 
+_TEST_PRELUDE = "def render(text, plugins):\n    return None"
+
 
 def test_max_exponent_flags_quadratic_growth() -> None:
     times = [(1000, 0.1), (2000, 0.4), (4000, 1.6)]
@@ -19,23 +21,27 @@ def test_max_exponent_ignores_linear_growth_and_noise() -> None:
     assert ud._max_exponent(noisy) == 0.0
 
 
-def test_worker_source_embeds_every_generator() -> None:
-    src = ud._worker_source()
+def test_worker_source_embeds_every_generator_and_driver() -> None:
+    src = ud._worker_source(_TEST_PRELUDE)
     for name in ud.GENERATORS:
         assert f"GENERATORS[{name!r}]" in src
     assert "__GENERATOR_SOURCES__" not in src
+    assert "__DRIVER_PRELUDE__" not in src
+    assert _TEST_PRELUDE in src
 
 
 def test_synthesize_repro_writes_standalone_script(tmp_path) -> None:
-    repro = ud.synthesize_repro("nested_link", "complexity", 1875, tmp_path)
+    repro = ud.synthesize_repro("nested_link", "complexity", 1875, tmp_path, _TEST_PRELUDE)
     content = repro.read_text(encoding="utf-8")
     assert "def gen(n):" in content
     assert "'[' * n" in content
+    assert _TEST_PRELUDE in content
+    assert "render(text, PLUGINS)" in content
     assert "sys.exit(1 if defect else 0)" in content
 
 
 def test_report_verification_detects_tampered_verdict(tmp_path) -> None:
-    repro = ud.synthesize_repro("footnote_refs", "complexity", 3500, tmp_path / "repros")
+    repro = ud.synthesize_repro("footnote_refs", "complexity", 3500, tmp_path / "repros", _TEST_PRELUDE)
     finding = {
         "generator": "footnote_refs",
         "kind": "complexity",
@@ -66,7 +72,7 @@ def test_report_verification_detects_tampered_verdict(tmp_path) -> None:
 
 
 def test_report_verification_detects_tampered_repro_file(tmp_path) -> None:
-    repro = ud.synthesize_repro("nested_link", "complexity", 1875, tmp_path / "repros")
+    repro = ud.synthesize_repro("nested_link", "complexity", 1875, tmp_path / "repros", _TEST_PRELUDE)
     finding = {
         "generator": "nested_link",
         "kind": "complexity",
@@ -99,9 +105,11 @@ def test_load_target_never_reads_defects(tmp_path) -> None:
         "sdist": "x.tar.gz",
         "sdist_sha256": "0" * 64,
         "src_subdir": "x-1.0/src",
+        "driver": {"prelude": _TEST_PRELUDE},
         "defects": [{"id": "curated-only"}],
     }
     (tmp_path / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
     target = ud.load_target(tmp_path)
     assert target.name == "x"
+    assert target.driver_prelude == _TEST_PRELUDE
     assert not hasattr(target, "defects")

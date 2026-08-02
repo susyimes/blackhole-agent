@@ -100,5 +100,8 @@
       "repro": "repros/nested_bracket_scan_quadratic.py",
       "patch": "patches/nested-bracket-scan-quadratic.patch"
     }
-  ]
+  ],
+  "driver": {
+    "prelude": "import mistune\n\n_RENDERERS = {}\n\ndef render(text, plugins):\n    key = tuple(plugins)\n    md = _RENDERERS.get(key)\n    if md is None:\n        md = mistune.create_markdown(plugins=list(plugins))\n        _RENDERERS[key] = md\n    md(text)"
+  }
 }

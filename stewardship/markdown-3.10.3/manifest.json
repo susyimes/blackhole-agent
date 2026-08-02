@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "name": "markdown",
+  "version": "3.10.3",
+  "kind": "pypi-sdist",
+  "sdist": "markdown-3.10.3.tar.gz",
+  "sdist_sha256": "3589362618f743188b4d955b874402bc814f4f83f544dc207719f4baa7d9c45f",
+  "source_url": "https://files.pythonhosted.org/packages/29/6f/da4c6aea59b3001f2e8c0ec7497475aadaf3b021c10cab5b2858f0f32b26/markdown-3.10.3.tar.gz",
+  "upstream_repo": "https://github.com/Python-Markdown/markdown",
+  "fixed_in": null,
+  "upstream_changelog": "https://github.com/Python-Markdown/markdown/blob/master/docs/changelog.md",
+  "src_subdir": "markdown-3.10.3",
+  "tests_subdir": "markdown-3.10.3/tests",
+  "suite_runner": "unittest",
+  "driver": {
+    "prelude": "import markdown\n\n_EXT_MAP = {'footnotes': 'footnotes', 'table': 'tables'}\n\ndef render(text, plugins):\n    exts = [_EXT_MAP[p] for p in plugins if p in _EXT_MAP]\n    markdown.markdown(text, extensions=exts)"
+  },
+  "defects": []
+}
