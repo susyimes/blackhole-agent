@@ -9,7 +9,13 @@ generators against the pristine extracted tree in subprocess isolation and
 grades behavior with two oracles. How generated text is fed to the target is
 declared by the target itself: the manifest's ``driver.prelude`` snippet
 defines ``render(text, plugins)`` and is embedded verbatim into probe workers
-and synthesized repros, so this module carries no target-specific code:
+and synthesized repros, so this module carries no target-specific code.
+``driver.runtime`` selects the probe interpreter: ``python`` workers run the
+prelude with the extracted src dir on ``sys.path``; ``node`` workers run it
+under ``node`` with ``TARGET_DIR`` bound to the extracted package root
+(``require(TARGET_DIR)`` resolves the target's own package.json). Every
+generator carries both a python and a JS source so the same adversarial
+battery fires on either runtime:
 
 - **crash oracle** — an uncaught exception (e.g. ``RecursionError``) on a
   generated input is a defect;
@@ -23,8 +29,9 @@ Every generator that does *not* flag is recorded as a negative control: the
 battery is honest only if it leaves benign shapes unflagged. For each finding
 the plane minimizes the triggering size (binary search on the elapsed-time
 floor), then *synthesizes a standalone repro script*: a self-contained python
-file that re-runs the ladder against any source tree given on its command line
-and exits 1 while the defect is present, 0 once repaired. The synthesized
+or node file (matching ``driver.runtime``) that re-runs the ladder against
+any source tree given on its command line and exits 1 while the defect is
+present, 0 once repaired. The synthesized
 repro must fail on the pristine tree (defect is real, not imagined) before it
 is admitted into the sealed report.
 
@@ -103,31 +110,37 @@ GENERATORS: dict[str, dict[str, Any]] = {
     "nested_link": {
         "plugins": [],
         "source": "def gen(n):\n    return '[' * n + 'a' + ']' * n\n",
+        "js_source": "function gen(n) {\n    return '['.repeat(n) + 'a' + ']'.repeat(n);\n}\n",
         "summary": "n nested open/close link brackets around one token",
     },
     "nested_image": {
         "plugins": [],
         "source": "def gen(n):\n    return '![' * n + 'a' + ']' * n\n",
+        "js_source": "function gen(n) {\n    return '!['.repeat(n) + 'a' + ']'.repeat(n);\n}\n",
         "summary": "n nested image open brackets, one token, n close brackets",
     },
     "nested_emphasis": {
         "plugins": [],
         "source": "def gen(n):\n    return '**' * n + 'a' + '**' * n\n",
+        "js_source": "function gen(n) {\n    return '**'.repeat(n) + 'a' + '**'.repeat(n);\n}\n",
         "summary": "n pairs of emphasis markers around one token",
     },
     "unclosed_emphasis": {
         "plugins": [],
         "source": "def gen(n):\n    return '**a' * n\n",
+        "js_source": "function gen(n) {\n    return '**a'.repeat(n);\n}\n",
         "summary": "n unclosed strong-emphasis markers",
     },
     "link_suffixes": {
         "plugins": [],
         "source": "def gen(n):\n    return '[a' + ']' * n\n",
+        "js_source": "function gen(n) {\n    return '[a' + ']'.repeat(n);\n}\n",
         "summary": "one open bracket followed by n unmatched close brackets",
     },
     "backtick_runs": {
         "plugins": [],
         "source": "def gen(n):\n    return '`' * n + 'a' + '`' * n\n",
+        "js_source": "function gen(n) {\n    return '`'.repeat(n) + 'a' + '`'.repeat(n);\n}\n",
         "summary": "matched runs of n backticks around one token",
     },
     "footnote_refs": {
@@ -137,6 +150,14 @@ GENERATORS: dict[str, dict[str, Any]] = {
             "    refs = ''.join('[%d]' % i for i in range(n))\n"
             "    defs = '\\n'.join('[%d]: x' % i for i in range(n))\n"
             "    return refs + '\\n\\n' + defs\n"
+        ),
+        "js_source": (
+            "function gen(n) {\n"
+            "    let refs = '';\n"
+            "    let defs = [];\n"
+            "    for (let i = 0; i < n; i++) { refs += '[' + i + ']'; defs.push('[' + i + ']: x'); }\n"
+            "    return refs + '\\n\\n' + defs.join('\\n');\n"
+            "}\n"
         ),
         "summary": "n footnote references with n footnote definitions",
     },
@@ -148,21 +169,32 @@ GENERATORS: dict[str, dict[str, Any]] = {
             "    defs = '\\n'.join('[^%d]: x' % i for i in range(n))\n"
             "    return refs + '\\n\\n' + defs\n"
         ),
+        "js_source": (
+            "function gen(n) {\n"
+            "    let refs = '';\n"
+            "    let defs = [];\n"
+            "    for (let i = 0; i < n; i++) { refs += '[^' + i + '] '; defs.push('[^' + i + ']: x'); }\n"
+            "    return refs + '\\n\\n' + defs.join('\\n');\n"
+            "}\n"
+        ),
         "summary": "n caret-footnote references with n caret-footnote definitions",
     },
     "inline_links": {
         "plugins": [],
         "source": "def gen(n):\n    return '[l](u) ' * n\n",
+        "js_source": "function gen(n) {\n    return '[l](u) '.repeat(n);\n}\n",
         "summary": "n valid inline links in one paragraph",
     },
     "unclosed_spoiler": {
         "plugins": ["spoiler"],
         "source": "def gen(n):\n    return '~~a ' * n\n",
+        "js_source": "function gen(n) {\n    return '~~a '.repeat(n);\n}\n",
         "summary": "n unclosed inline spoiler markers",
     },
     "adjacent_ruby": {
         "plugins": ["ruby"],
         "source": "def gen(n):\n    return 'a(b)' * n\n",
+        "js_source": "function gen(n) {\n    return 'a(b)'.repeat(n);\n}\n",
         "summary": "n adjacent ruby tokens",
     },
     "table_row": {
@@ -171,16 +203,29 @@ GENERATORS: dict[str, dict[str, Any]] = {
             "def gen(n):\n"
             "    return '|' + 'a|' * n + '\\n' + '|' + '-|' * n + '\\n' + '|' + 'b|' * n\n"
         ),
+        "js_source": (
+            "function gen(n) {\n"
+            "    return '|' + 'a|'.repeat(n) + '\\n' + '|' + '-|'.repeat(n) + '\\n' + '|' + 'b|'.repeat(n);\n"
+            "}\n"
+        ),
         "summary": "a table whose rows have n cells",
     },
     "digit_run": {
         "plugins": [],
         "source": "def gen(n):\n    return '8' * n\n",
+        "js_source": "function gen(n) {\n    return '8'.repeat(n);\n}\n",
         "summary": "a run of n decimal digit characters",
     },
     "dotted_key": {
         "plugins": [],
         "source": "def gen(n):\n    return '.'.join('a%d' % i for i in range(n)) + ' = 1'\n",
+        "js_source": (
+            "function gen(n) {\n"
+            "    let parts = [];\n"
+            "    for (let i = 0; i < n; i++) { parts.push('a' + i); }\n"
+            "    return parts.join('.') + ' = 1';\n"
+            "}\n"
+        ),
         "summary": "one dotted key with n parts assigned a value",
     },
 }
@@ -225,6 +270,55 @@ def _worker_source(driver_prelude: str) -> str:
     )
 
 
+_NODE_WORKER = r"""
+"use strict";
+const TARGET_DIR = process.argv[2];
+const name = process.argv[3];
+const n = parseInt(process.argv[4], 10);
+const plugins = (process.argv[5] || "").split(",").filter(Boolean);
+
+const GENERATORS = {};
+
+__GENERATOR_SOURCES__
+
+__DRIVER_PRELUDE__
+
+(async () => {
+    try {
+        const text = GENERATORS[name](n);
+        await render("warmup", plugins);
+        const t0 = process.hrtime.bigint();
+        await render(text, plugins);
+        const elapsed = Number(process.hrtime.bigint() - t0) / 1e9;
+        console.log(JSON.stringify({ elapsed: elapsed, crashed: false, exc: null }));
+    } catch (e) {
+        const exc = (e && e.constructor && e.constructor.name) || "Error";
+        console.log(JSON.stringify({ elapsed: null, crashed: true, exc: exc }));
+    }
+})();
+"""
+
+
+def _node_worker_source(driver_prelude: str) -> str:
+    sources = []
+    for name, spec in GENERATORS.items():
+        fn_src = spec["js_source"].rstrip("\n")
+        # Block-scope each registration: bare function declarations hoist to
+        # the top of the script, so without braces every GENERATORS entry
+        # would bind the *last* declared gen.
+        sources.append(f"{{\n{fn_src}\nGENERATORS[{json.dumps(name)}] = gen;\n}}")
+    return _NODE_WORKER.replace("__GENERATOR_SOURCES__", "\n\n".join(sources)).replace(
+        "__DRIVER_PRELUDE__", driver_prelude.rstrip("\n")
+    )
+
+
+def _find_node() -> str:
+    node = shutil.which("node")
+    if node is None:
+        raise ValueError("node runtime not found on PATH; cannot probe a node-runtime target")
+    return node
+
+
 @dataclass(frozen=True)
 class ProbeResult:
     elapsed: float | None
@@ -233,24 +327,39 @@ class ProbeResult:
     timed_out: bool
 
 
-def run_probe(src_dir: Path, generator: str, n: int, driver_prelude: str) -> ProbeResult:
+def run_probe(
+    src_dir: Path, generator: str, n: int, driver_prelude: str, runtime: str = "python"
+) -> ProbeResult:
     """Measure one generator at one size against src_dir in a subprocess."""
     plugins = ",".join(GENERATORS[generator]["plugins"])
-    cmd = [
-        sys.executable,
-        "-c",
-        _worker_source(driver_prelude),
-        str(src_dir),
-        generator,
-        str(n),
-        plugins,
-    ]
+    if runtime == "node":
+        cmd = None
+        scratch = tempfile.TemporaryDirectory(prefix="probe-node-")
+        worker_path = Path(scratch.name) / "worker.cjs"
+        worker_path.write_bytes(_node_worker_source(driver_prelude).encode("utf-8"))
+        cmd = [_find_node(), str(worker_path), str(src_dir), generator, str(n), plugins]
+    elif runtime == "python":
+        scratch = None
+        cmd = [
+            sys.executable,
+            "-c",
+            _worker_source(driver_prelude),
+            str(src_dir),
+            generator,
+            str(n),
+            plugins,
+        ]
+    else:
+        raise ValueError(f"unsupported driver runtime: {runtime!r}")
     try:
         proc = subprocess.run(
             cmd, capture_output=True, text=True, timeout=PROBE_TIMEOUT_SECONDS
         )
     except subprocess.TimeoutExpired:
         return ProbeResult(elapsed=None, crashed=False, exc=None, timed_out=True)
+    finally:
+        if scratch is not None:
+            scratch.cleanup()
     line = proc.stdout.strip().splitlines()
     if not line:
         return ProbeResult(
@@ -274,14 +383,16 @@ def _max_exponent(times: list[tuple[int, float]]) -> float:
     return worst
 
 
-def probe_ladder(src_dir: Path, generator: str, driver_prelude: str) -> dict[str, Any]:
+def probe_ladder(
+    src_dir: Path, generator: str, driver_prelude: str, runtime: str = "python"
+) -> dict[str, Any]:
     """Run the doubling ladder for one generator; return measurement + verdict."""
     times: list[tuple[int, float]] = []
     crash: dict[str, Any] | None = None
     timeout_n: int | None = None
     n = LADDER_START
     while n <= LADDER_MAX:
-        result = run_probe(src_dir, generator, n, driver_prelude)
+        result = run_probe(src_dir, generator, n, driver_prelude, runtime)
         if result.timed_out:
             timeout_n = n
             break
@@ -315,7 +426,7 @@ def probe_ladder(src_dir: Path, generator: str, driver_prelude: str) -> dict[str
 
 
 def minimize_size(
-    src_dir: Path, generator: str, ladder: dict[str, Any], driver_prelude: str
+    src_dir: Path, generator: str, ladder: dict[str, Any], driver_prelude: str, runtime: str = "python"
 ) -> int:
     """Binary-search the smallest size whose run exceeds the repro floor."""
     if ladder["crash"] is not None:
@@ -330,7 +441,7 @@ def minimize_size(
     lo, hi = max(1, target_n // 2), target_n
     while hi - lo > max(8, hi // 16):
         mid = (lo + hi) // 2
-        result = run_probe(src_dir, generator, mid, driver_prelude)
+        result = run_probe(src_dir, generator, mid, driver_prelude, runtime)
         if result.crashed or result.timed_out or (result.elapsed or 0.0) >= REPRO_MINIMIZE_FLOOR:
             hi = mid
         else:
@@ -395,22 +506,104 @@ sys.exit(1 if defect else 0)
 '''
 
 
+_NODE_REPRO_TEMPLATE = r"""// Synthesized standalone repro for the __GENERATOR__ defect (__KIND__).
+//
+// Discovered autonomously by blackhole_agent.upstream_discovery. Runs a
+// doubling ladder against the source tree given as argv[2]; exits 1 while
+// the defect is present, 0 once repaired. Usage: node <this file> <path-to-package-root>
+"use strict";
+const TARGET_DIR = process.argv[2];
+const PLUGINS = __PLUGINS__;
+const KIND = __KIND__;
+const EXPONENT_THRESHOLD = __EXP_THRESHOLD__;
+const TIME_FLAG_FLOOR = __TIME_FLOOR__;
+
+__GEN_SRC__
+
+__PRELUDE__
+
+(async () => {
+    await render("warmup", PLUGINS);
+    let n = __START__;
+    const times = [];
+    let crashed = null;
+    const limit = Math.max(__START__ * 4, __START__ + 1);
+    while (n <= limit) {
+        const text = gen(n);
+        const t0 = process.hrtime.bigint();
+        try {
+            await render(text, PLUGINS);
+        } catch (e) {
+            crashed = (e && e.constructor && e.constructor.name) || "Error";
+            break;
+        }
+        const elapsed = Number(process.hrtime.bigint() - t0) / 1e9;
+        times.push([n, elapsed]);
+        if (elapsed >= 1.0 && times.length >= 2) {
+            // Always measure at least two sizes: one load-inflated run must
+            // not end the ladder before any growth pair exists.
+            break;
+        }
+        n *= 2;
+    }
+    if (crashed !== null) {
+        console.log(JSON.stringify({ defect: true, kind: KIND, crash: crashed }));
+        process.exit(1);
+    }
+    let worst = 0.0;
+    for (let i = 0; i + 1 < times.length; i++) {
+        const n1 = times[i][0], t1 = times[i][1], n2 = times[i + 1][0], t2 = times[i + 1][1];
+        if (t1 >= 0.02 && n2 > n1) {
+            worst = Math.max(worst, Math.log2(Math.max(t2, 1e-9) / t1) / Math.log2(n2 / n1));
+        }
+    }
+    const tMax = times.reduce((m, pair) => Math.max(m, pair[1]), 0.0);
+    const defect = worst >= EXPONENT_THRESHOLD && tMax >= TIME_FLAG_FLOOR;
+    console.log(JSON.stringify({
+        defect: defect, kind: KIND,
+        exponent: Math.round(worst * 1000) / 1000, t_max: Math.round(tMax * 10000) / 10000,
+    }));
+    process.exit(defect ? 1 : 0);
+})();
+"""
+
+
 def synthesize_repro(
-    generator: str, kind: str, minimized_n: int, dest: Path, driver_prelude: str
+    generator: str,
+    kind: str,
+    minimized_n: int,
+    dest: Path,
+    driver_prelude: str,
+    runtime: str = "python",
 ) -> Path:
     """Write a standalone repro script for one finding; return its path."""
     spec = GENERATORS[generator]
-    content = _REPRO_TEMPLATE.format(
-        generator=generator,
-        kind=kind,
-        plugins=spec["plugins"],
-        gen_src=spec["source"].rstrip("\n"),
-        prelude=driver_prelude.rstrip("\n"),
-        start=minimized_n,
-        exp_threshold=EXPONENT_THRESHOLD,
-        time_floor=TIME_FLAG_FLOOR,
-    )
-    path = dest / f"{generator}.py"
+    if runtime == "node":
+        content = (
+            _NODE_REPRO_TEMPLATE.replace("__GENERATOR__", generator)
+            .replace("__KIND__", json.dumps(kind))
+            .replace("__PLUGINS__", json.dumps(spec["plugins"]))
+            .replace("__GEN_SRC__", spec["js_source"].rstrip("\n"))
+            .replace("__PRELUDE__", driver_prelude.rstrip("\n"))
+            .replace("__START__", str(minimized_n))
+            .replace("__EXP_THRESHOLD__", repr(EXPONENT_THRESHOLD))
+            .replace("__TIME_FLOOR__", repr(TIME_FLAG_FLOOR))
+        )
+        path = dest / f"{generator}.cjs"
+    elif runtime == "python":
+        content = _REPRO_TEMPLATE.format(
+            generator=generator,
+            kind=kind,
+            plugins=spec["plugins"],
+            gen_src=spec["source"].rstrip("\n"),
+            prelude=driver_prelude.rstrip("\n"),
+            start=minimized_n,
+            exp_threshold=EXPONENT_THRESHOLD,
+            time_floor=TIME_FLAG_FLOOR,
+        )
+        path = dest / f"{generator}.py"
+    else:
+        raise ValueError(f"unsupported driver runtime: {runtime!r}")
     path.parent.mkdir(parents=True, exist_ok=True)
     # Write bytes, not text: repro_sha256 must be host-independent, and CRLF
     # translation on Windows would change the sealed evidence hash.
@@ -419,8 +612,12 @@ def synthesize_repro(
 
 
 def run_repro(repro: Path, src_dir: Path) -> int:
+    if repro.suffix == ".cjs":
+        cmd = [_find_node(), str(repro), str(src_dir)]
+    else:
+        cmd = [sys.executable, str(repro), str(src_dir)]
     proc = subprocess.run(
-        [sys.executable, str(repro), str(src_dir)],
+        cmd,
         capture_output=True,
         text=True,
         timeout=PROBE_TIMEOUT_SECONDS,
@@ -441,18 +638,22 @@ class DiscoveryTarget:
     sdist_sha256: str
     src_subdir: str
     driver_prelude: str
+    driver_runtime: str = "python"
 
 
 def load_target(target_root: Path) -> DiscoveryTarget:
     """Load a stewardship manifest, deliberately ignoring its 'defects' list.
 
-    The manifest's ``driver.prelude`` is a self-contained python snippet
-    (stdlib + the target's own package only) that defines
-    ``render(text, plugins) -> None``: build the target's renderer over the
-    extracted source tree and render ``text`` with the generator's option
-    list. All target specificity lives here, not in this module.
+    The manifest's ``driver.prelude`` is a self-contained snippet (stdlib +
+    the target's own package only) that defines ``render(text, plugins)``:
+    build the target's renderer over the extracted source tree and render
+    ``text`` with the generator's option list. ``driver.runtime`` selects
+    the probe interpreter (``python`` or ``node``; absent means ``python``
+    for backward compatibility with pre-npm manifests). All target
+    specificity lives here, not in this module.
     """
     manifest = json.loads(durable_read_path(target_root / "manifest.json").read_text(encoding="utf-8"))
+    driver = manifest["driver"]
     return DiscoveryTarget(
         root=target_root,
         name=manifest["name"],
@@ -460,7 +661,8 @@ def load_target(target_root: Path) -> DiscoveryTarget:
         sdist=target_root / manifest["sdist"],
         sdist_sha256=manifest["sdist_sha256"],
         src_subdir=manifest["src_subdir"],
-        driver_prelude=manifest["driver"]["prelude"],
+        driver_prelude=driver["prelude"],
+        driver_runtime=driver.get("runtime", "python"),
     )
 
 
@@ -523,9 +725,10 @@ def run_discovery_scan(
     try:
         src_dir = extract_pristine(target, scratch)
         prelude = target.driver_prelude
+        runtime = target.driver_runtime
         findings: list[dict[str, Any]] = []
         for generator in GENERATORS:
-            ladder = probe_ladder(src_dir, generator, prelude)
+            ladder = probe_ladder(src_dir, generator, prelude, runtime)
             finding: dict[str, Any] = {
                 "generator": generator,
                 "kind": ladder["kind"],
@@ -534,9 +737,9 @@ def run_discovery_scan(
                 "times": ladder["times"],
             }
             if ladder["flagged"]:
-                minimized = minimize_size(src_dir, generator, ladder, prelude)
+                minimized = minimize_size(src_dir, generator, ladder, prelude, runtime)
                 repro = synthesize_repro(
-                    generator, ladder["kind"], minimized, report_dir / "repros", prelude
+                    generator, ladder["kind"], minimized, report_dir / "repros", prelude, runtime
                 )
                 pristine_exit = run_repro(repro, src_dir)
                 finding.update(
@@ -554,6 +757,7 @@ def run_discovery_scan(
             "schema_version": SCHEMA_VERSION,
             "target": {"name": target.name, "version": target.version},
             "sdist_sha256": target.sdist_sha256,
+            "driver_runtime": runtime,
             "findings": findings,
             "finding_count": sum(1 for f in findings if f["flagged"]),
             "scanned_at": utc_now_iso(),
