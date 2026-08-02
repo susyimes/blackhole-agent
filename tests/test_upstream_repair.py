@@ -108,7 +108,12 @@ def test_full_campaign_and_tamper_falsification() -> None:
     report = run_repair_campaign(TARGET_320)
     assert report["ok"], json.dumps(report, indent=2)[:2000]
     assert report["repair_score"] == 1.0
-    assert report["repaired_count"] == report["defect_count"] == 9
+    assert report["repaired_count"] == report["defect_count"] == 11
+    # the 10th and 11th defects were discovered autonomously by capability.upstream-discovery
+    for discovered_id in ("ref-link-blank-scan-quadratic", "nested-bracket-scan-quadratic"):
+        discovered = [d for d in report["defects"] if d["id"] == discovered_id]
+        assert discovered and discovered[0]["reproduced_on_pristine"], discovered_id
+        assert discovered[0]["repaired"] and discovered[0]["ablation_reopens"], discovered_id
     assert report["suites"]["pristine"]["exit_code"] == 0
     assert report["suites"]["repaired"]["exit_code"] == 0
 

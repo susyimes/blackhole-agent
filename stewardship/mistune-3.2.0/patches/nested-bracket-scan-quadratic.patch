@@ -1,0 +1,81 @@
+--- a/mistune-3.2.0/src/mistune/helpers.py
++++ b/mistune-3.2.0/src/mistune/helpers.py
+@@ -1,6 +1,6 @@
+ import re
+ import string
+-from typing import Any, Dict, Tuple, Union
++from typing import Any, Dict, List, Tuple, Union
+ 
+ from .util import escape_url
+ 
+@@ -107,7 +107,50 @@
+     return _ESCAPE_CHAR_RE.sub(r"\1", text)
+ 
+ 
++# Per-source bracket pairing cache. parse_link_text is invoked once per '['
++# marker by the inline parser; scanning for the matching ']' from scratch each
++# time makes n nested brackets cost O(n^2). Pairing every bracket in one pass
++# (a closer pops the most recent unmatched opener) yields the same result as
++# the level-counting scan, because a pair depends only on the brackets between
++# the opener and its closer. Entries are keyed by id(src) and keep a reference
++# to src, so an id can never be reused while its entry is alive.
++_LINK_TEXT_CACHE_SIZE = 8
++_link_text_match_cache: Dict[int, Tuple[str, Dict[int, Union[int, None]]]] = {}
++
++
++def _link_text_match_table(src: str) -> Dict[int, Union[int, None]]:
++    key = id(src)
++    cached = _link_text_match_cache.get(key)
++    if cached is not None and cached[0] is src:
++        return cached[1]
++
++    stack: List[int] = []
++    table: Dict[int, Union[int, None]] = {}
++    for m in _INLINE_SQUARE_BRACKET_RE.finditer(src):
++        if m.group(0) == "]":
++            if stack:
++                table[stack.pop()] = m.end()
++        else:
++            stack.append(m.end())
++    for end_pos in stack:
++        table[end_pos] = None
++
++    if len(_link_text_match_cache) >= _LINK_TEXT_CACHE_SIZE:
++        _link_text_match_cache.clear()
++    _link_text_match_cache[key] = (src, table)
++    return table
++
++
+ def parse_link_text(src: str, pos: int) -> Union[Tuple[str, int], Tuple[None, None]]:
++    # fast path: pos sits right after a bracket match, so the precomputed
++    # pairing answers the scan in O(1)
++    table = _link_text_match_table(src)
++    if pos in table:
++        end_pos = table[pos]
++        if end_pos is None:
++            return None, None
++        return src[pos : end_pos - 1], end_pos
++
+     level = 1
+     found = False
+     start_pos = pos
+--- a/mistune-3.2.0/src/mistune/inline_parser.py
++++ b/mistune-3.2.0/src/mistune/inline_parser.py
+@@ -141,9 +141,14 @@
+             return None
+ 
+         rules = ["codespan", "prec_auto_link", "prec_inline_html"]
+-        prec_pos = self.precedence_scan(m, state, end_pos, rules)
+-        if prec_pos:
+-            return prec_pos
++        # every precedence rule starts with '`' or '<'; skip the regex scan
++        # (O(region) per '[' marker, i.e. O(n^2) on nested brackets) when the
++        # candidate text cannot contain a precedence token
++        region = state.src[pos:end_pos]
++        if "`" in region or "<" in region:
++            prec_pos = self.precedence_scan(m, state, end_pos, rules)
++            if prec_pos:
++                return prec_pos
+ 
+         if end_pos < len(state.src):
+             c = state.src[end_pos]

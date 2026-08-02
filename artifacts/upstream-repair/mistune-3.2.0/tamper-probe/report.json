@@ -1,6 +1,6 @@
 {
-  "created_at": "2026-08-02T04:35:54.319281Z",
-  "defect_count": 9,
+  "created_at": "2026-08-02T05:34:35.315815Z",
+  "defect_count": 11,
   "defects": [
     {
       "ablation_exit": 1,
@@ -141,6 +141,37 @@
       "reproduced_on_pristine": true,
       "title": "LINK_TITLE_RE allows catastrophic backtracking on backslash runs (ReDoS)",
       "upstream_ref": "mistune 3.2.1 changelog: 'Fix LINK_TITLE_RE to prevent DoS'"
+    },
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "ref-link-blank-scan-quadratic",
+      "kind": "complexity",
+      "patched_files": [
+        "mistune-3.2.0/src/mistune/block_parser.py"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "Block ref-link parsing rescans the whole remaining document for the next blank line per definition (quadratic DoS on n reference-link definitions)",
+      "upstream_ref": "mistune 3.3.0 changelog: 'Fix quadratic scans in inline links, reference links, and formatting markers'; discovered autonomously by capability.upstream-discovery (generator 'footnote_refs'), absent from every curated manifest before discovery"
+    },
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "nested-bracket-scan-quadratic",
+      "kind": "complexity",
+      "patched_files": [
+        "mistune-3.2.0/src/mistune/helpers.py",
+        "mistune-3.2.0/src/mistune/inline_parser.py"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "Inline link/image parsing rescans the remaining source for the matching ']' once per '[' or '![' marker (quadratic DoS on n nested brackets)",
+      "upstream_ref": "mistune 3.3.0 changelog: 'Fix quadratic scans in inline links, reference links, and formatting markers'; discovered autonomously by capability.upstream-discovery (generators 'nested_link' and 'nested_image'), absent from every curated manifest before discovery"
     }
   ],
   "evidence_files": {
@@ -153,6 +184,8 @@
       "image-width-validation": "d5285b63600b2b485296a7f4682300f21fadd48ea049432b7c64e8243352f4f7",
       "link-title-redos": "95a08fe4bf26b5a5edd75ecad6a940ee21bd7a89894e9255ffe4b4f4c54300e7",
       "math-xss": "7567aa46e9b73ab2959c5d872f10cb891e1f0274e01efd34d21af1417e9c8a5a",
+      "nested-bracket-scan-quadratic": "347561382d5db3e344feeae847af0fccafb71b7e9a29ed47da1d22873adbb39d",
+      "ref-link-blank-scan-quadratic": "d9405ee93c098e2e306108d59f0ec69f33fe2fb7ab4353f4a090c8e36e3d4dc2",
       "toc-link-xss": "83754ea328f3f1e36e6762df6b293c5077d3fc720efa6a0005dc4f190517d975"
     },
     "repros": {
@@ -164,37 +197,39 @@
       "image-width-validation": "931c86028b517f77f976d07d4ee64d4427bdb40f9a5c5ab6fc472eb2713944e4",
       "link-title-redos": "270c6cc044721a2093a5795b0784fb1007f2ff83a845b11fa1b0256bb7942899",
       "math-xss": "865d79f95d602d69869e1b997e1369072877524fa212038ac661d5ea3372f25a",
+      "nested-bracket-scan-quadratic": "f15ad223bcef494ed632660d719a78d29e224ec40d0e515dd958cf6971f854fe",
+      "ref-link-blank-scan-quadratic": "3b677dfefb37aa8e680b09ee80926d933d5efb47c0f9ceafc993e86029fe189b",
       "toc-link-xss": "35c376559f2df736cba0da023344b23aa5e39ede18739f9fd1ec5f3d36cb0ab5"
     },
     "sdist": "708487c8a8cdd99c9d90eb3ed4c3ed961246ff78ac82f03418f5183ab70e398a"
   },
   "ok": true,
-  "outcomes_digest": "d43d4bcf49926bafcee8fed689e6e7813e5bdfc7ffff74941a169dd39441d6ef",
+  "outcomes_digest": "4357aeff0a1d7eafb4b5a88665687f5f20b6df8f2779a99bf4ff80806baf3d1f",
   "provenance": {
     "actual": "708487c8a8cdd99c9d90eb3ed4c3ed961246ff78ac82f03418f5183ab70e398a",
     "expected": "708487c8a8cdd99c9d90eb3ed4c3ed961246ff78ac82f03418f5183ab70e398a",
     "ok": true,
-    "path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260802T035655Z-28fd55dc\\stewardship\\mistune-3.2.0\\mistune-3.2.0.tar.gz"
+    "path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260802T050926Z-c225aa6a\\stewardship\\mistune-3.2.0\\mistune-3.2.0.tar.gz"
   },
   "repair_score": 1.0,
-  "repaired_count": 9,
-  "report_digest": "82bbe79ff22d667c89c4ea783a509de941c0cf0f7c45f6cce2beda9e4b5fea32",
+  "repaired_count": 11,
+  "report_digest": "6e2a31f95d2d966acc7a0caaa3eef4375a979993878ab98e20fc773d8b84be03",
   "schema_version": 2,
   "suite_digest": "2155d51cec45b6e8f3d12860b4aa1d2419a9206166cb5b974efa6c860a9d6a5d",
   "suites": {
     "pristine": {
-      "duration_seconds": 1.043,
+      "duration_seconds": 1.114,
       "exit_code": 0,
       "passed": 959,
       "stderr_tail": "",
-      "summary": "959 passed in 0.62s"
+      "summary": "959 passed in 0.65s"
     },
     "repaired": {
-      "duration_seconds": 0.871,
+      "duration_seconds": 1.052,
       "exit_code": 0,
       "passed": 961,
       "stderr_tail": "",
-      "summary": "961 passed in 0.61s"
+      "summary": "961 passed in 0.75s"
     }
   },
   "target": {
