@@ -9,3 +9,6 @@ __pycache__/
 .symphony-handoff.md
 .blackhole-agent/
 
+# regenerable campaign work trees (extracted sdists); sealed reports stay tracked
+artifacts/upstream-repair/work/
+

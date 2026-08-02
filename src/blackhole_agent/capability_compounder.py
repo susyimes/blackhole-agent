@@ -19630,6 +19630,74 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
             created_at=utc_now_iso(),
             updated_at=utc_now_iso(),
         ),
+        Capability(
+            id="capability.upstream-repair",
+            name="Upstream repair plane (real-release security stewardship)",
+            description=(
+                "Provable security stewardship of a real vendored upstream "
+                "release: mistune 3.2.0 (PyPI sdist, sha256 pinned) carries "
+                "nine defects that upstream documented and fixed in 3.2.1 - "
+                "math/heading-id/TOC-link/block-error/admonition/figure XSS, "
+                "image alt double-encoding, image width validation, and a "
+                "LINK_TITLE_RE ReDoS. The campaign verifies sdist provenance, "
+                "reproduces every defect on the pristine tree (each repro "
+                "must fail), applies minimal unified-diff patches with a "
+                "strict zero-fuzz applier, re-runs every repro (must pass), "
+                "runs the upstream test suite on both pristine and repaired "
+                "trees (both must be green), and proves causality by "
+                "per-defect ablation: all patches except one must re-open "
+                "exactly that defect. Reports are digest-sealed with sha256 "
+                "of the sdist, every repro, and every patch; verification is "
+                "pure (digests recomputed from recorded outcomes, on-disk "
+                "evidence re-hashed) so tampering with the report, a repro, "
+                "or a patch fails verification."
+            ),
+            kind="python",
+            entry="blackhole_agent.upstream_repair:builtin_upstream_repair_proof",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.upstream_repair import builtin_upstream_repair_proof; '
+                "r=builtin_upstream_repair_proof(); assert r['ok'] "
+                "and r.get('repair_score')==1.0 and r.get('repaired_count')==9 "
+                "and r.get('defect_count')==9 "
+                "and r.get('verified') and r.get('tamper_detected') "
+                "and r.get('suite_green') "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.ablation-proof",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/upstream_repair.py",
+                "stewardship/mistune-3.2.0/manifest.json",
+                "stewardship/mistune-3.2.0/repros",
+                "stewardship/mistune-3.2.0/patches",
+            ),
+            capability_delta=(
+                "The ledger can now repair real upstream releases, not just "
+                "itself: nine documented mistune 3.2.0 defects (XSS, ReDoS, "
+                "encoding, validation) are reproduced on the pristine PyPI "
+                "sdist, fixed with minimal patches, proven against the "
+                "project's own 959-test suite on both trees, and shown causal "
+                "by per-defect ablation - absorbed dependencies are "
+                "maintainable and their security state is falsifiable "
+                "evidence, without skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "upstream",
+                "repair",
+                "security",
+                "stewardship",
+                "ablation",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
 
     ]
 

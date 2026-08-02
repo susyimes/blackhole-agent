@@ -1,0 +1,69 @@
+--- a/mistune-3.2.0/src/mistune/renderers/html.py
++++ b/mistune-3.2.0/src/mistune/renderers/html.py
+@@ -138,7 +138,7 @@
+         return html + "\n"
+ 
+     def block_error(self, text: str) -> str:
+-        return '<div class="error"><pre>' + text + "</pre></div>\n"
++        return '<div class="error"><pre>' + escape_text(text) + "</pre></div>\n"
+ 
+     def list(self, text: str, ordered: bool, **attrs: Any) -> str:
+         if ordered:
+--- a/mistune-3.2.0/tests/fixtures/fenced_toc.txt
++++ b/mistune-3.2.0/tests/fixtures/fenced_toc.txt
+@@ -52,7 +52,7 @@
+ .
+ <h1>H1</h1>
+ <h2>H2</h2>
+-<div class="error"><pre>"max-level" option MUST be integer</pre></div>
++<div class="error"><pre>&quot;max-level&quot; option MUST be integer</pre></div>
+ ````````````````````````````````
+ 
+ ```````````````````````````````` example
+@@ -65,7 +65,7 @@
+ .
+ <h1>H1</h1>
+ <h2>H2</h2>
+-<div class="error"><pre>"max-level" option MUST be <= 3</pre></div>
++<div class="error"><pre>&quot;max-level&quot; option MUST be &lt;= 3</pre></div>
+ ````````````````````````````````
+ 
+ ```````````````````````````````` example
+@@ -79,7 +79,7 @@
+ .
+ <h1>H1</h1>
+ <h2>H2</h2>
+-<div class="error"><pre>"min-level" option MUST be less than "max-level" option</pre></div>
++<div class="error"><pre>&quot;min-level&quot; option MUST be less than &quot;max-level&quot; option</pre></div>
+ ````````````````````````````````
+ 
+ ## Complex
+--- a/mistune-3.2.0/tests/fixtures/rst_toc.txt
++++ b/mistune-3.2.0/tests/fixtures/rst_toc.txt
+@@ -50,7 +50,7 @@
+ .
+ <h1>H1</h1>
+ <h2>H2</h2>
+-<div class="error"><pre>"max-level" option MUST be integer</pre></div>
++<div class="error"><pre>&quot;max-level&quot; option MUST be integer</pre></div>
+ ````````````````````````````````
+ 
+ ```````````````````````````````` example
+@@ -61,7 +61,7 @@
+ .
+ <h1>H1</h1>
+ <h2>H2</h2>
+-<div class="error"><pre>"max-level" option MUST be <= 3</pre></div>
++<div class="error"><pre>&quot;max-level&quot; option MUST be &lt;= 3</pre></div>
+ ````````````````````````````````
+ 
+ ```````````````````````````````` example
+@@ -73,7 +73,7 @@
+ .
+ <h1>H1</h1>
+ <h2>H2</h2>
+-<div class="error"><pre>"min-level" option MUST be less than "max-level" option</pre></div>
++<div class="error"><pre>&quot;min-level&quot; option MUST be less than &quot;max-level&quot; option</pre></div>
+ ````````````````````````````````
+ 
+ 

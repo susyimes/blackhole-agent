@@ -44,3 +44,6 @@ extend-exclude = ["capabilities/absorbed"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+    "slow: end-to-end plane campaigns that re-run full repair/benchmark cycles",
+]

@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "name": "mistune",
+  "version": "3.2.0",
+  "kind": "pypi-sdist",
+  "sdist": "mistune-3.2.0.tar.gz",
+  "sdist_sha256": "708487c8a8cdd99c9d90eb3ed4c3ed961246ff78ac82f03418f5183ab70e398a",
+  "source_url": "https://files.pythonhosted.org/packages/9d/55/d01f0c4b45ade6536c51170b9043db8b2ec6ddf4a35c7ea3f5f559ac935b/mistune-3.2.0.tar.gz",
+  "upstream_repo": "https://github.com/lepture/mistune",
+  "fixed_in": "3.2.1",
+  "upstream_changelog": "https://github.com/lepture/mistune/blob/main/docs/changes.rst",
+  "src_subdir": "mistune-3.2.0/src",
+  "tests_subdir": "mistune-3.2.0/tests",
+  "defects": [
+    {
+      "id": "math-xss",
+      "title": "Math plugin renders raw HTML in block and inline math (XSS)",
+      "kind": "xss",
+      "upstream_ref": "mistune 3.2.1 changelog: 'Escape text in math plugin' / 'Fix regex for math plugin'",
+      "repro": "repros/math_xss.py",
+      "patch": "patches/math-xss.patch"
+    },
+    {
+      "id": "heading-id-xss",
+      "title": "Heading id attribute is not escaped (XSS attribute breakout)",
+      "kind": "xss",
+      "upstream_ref": "mistune 3.2.1 changelog: 'Escape heading's ID attribute'",
+      "repro": "repros/heading_id_xss.py",
+      "patch": "patches/heading-id-xss.patch"
+    },
+    {
+      "id": "toc-link-xss",
+      "title": "render_toc_ul does not escape the link fragment (XSS attribute breakout)",
+      "kind": "xss",
+      "upstream_ref": "mistune 3.2.1 changelog: 'Escape link in render_toc_ul'",
+      "repro": "repros/toc_link_xss.py",
+      "patch": "patches/toc-link-xss.patch"
+    },
+    {
+      "id": "block-error-xss",
+      "title": "block_error renderer emits raw text (XSS)",
+      "kind": "xss",
+      "upstream_ref": "mistune 3.2.1 changelog: directive error output escaping (fixture updates)",
+      "repro": "repros/block_error_xss.py",
+      "patch": "patches/block-error-xss.patch"
+    },
+    {
+      "id": "image-alt-double-encoding",
+      "title": "Image alt text is HTML-encoded twice",
+      "kind": "correctness",
+      "upstream_ref": "mistune 3.2.1 changelog: 'Remove double-encoding of image alt text'",
+      "repro": "repros/image_alt_double_encoding.py",
+      "patch": "patches/image-alt-double-encoding.patch"
+    },
+    {
+      "id": "admonition-class-xss",
+      "title": "Admonition directive class attribute is not escaped (XSS attribute breakout)",
+      "kind": "xss",
+      "upstream_ref": "mistune 3.2.1 changelog: 'Escape class attribute for admonition directive'",
+      "repro": "repros/admonition_class_xss.py",
+      "patch": "patches/admonition-class-xss.patch"
+    },
+    {
+      "id": "figure-attrs-xss",
+      "title": "Figure directive figclass/figwidth attributes are not escaped (XSS attribute breakout)",
+      "kind": "xss",
+      "upstream_ref": "mistune 3.2.1 changelog: 'Escape class attribute for image directive'",
+      "repro": "repros/figure_attrs_xss.py",
+      "patch": "patches/figure-attrs-xss.patch"
+    },
+    {
+      "id": "image-width-validation",
+      "title": "Image directive accepts invalid width/height values (regex not anchored)",
+      "kind": "correctness",
+      "upstream_ref": "mistune 3.2.1 changelog: 'Fix width/height attribute for image directive'",
+      "repro": "repros/image_width_validation.py",
+      "patch": "patches/image-width-validation.patch"
+    },
+    {
+      "id": "link-title-redos",
+      "title": "LINK_TITLE_RE allows catastrophic backtracking on backslash runs (ReDoS)",
+      "kind": "redos",
+      "upstream_ref": "mistune 3.2.1 changelog: 'Fix LINK_TITLE_RE to prevent DoS'",
+      "repro": "repros/link_title_redos.py",
+      "patch": "patches/link-title-redos.patch"
+    }
+  ]
+}

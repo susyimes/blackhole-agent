@@ -1,0 +1,16 @@
+--- a/mistune-3.2.0/src/mistune/directives/image.py
++++ b/mistune-3.2.0/src/mistune/directives/image.py
+@@ -160,11 +160,11 @@
+     if align:
+         _cls += " align-" + align
+     if figclass:
+-        _cls += " " + figclass
++        _cls += " " + escape_text(figclass)
+ 
+     html = '<figure class="' + _cls + '"'
+     if figwidth:
+-        html += ' style="width:' + figwidth + '"'
++        html += ' style="width:' + escape_text(figwidth) + '"'
+     return html + ">\n" + text + "</figure>\n"
+ 
+ 

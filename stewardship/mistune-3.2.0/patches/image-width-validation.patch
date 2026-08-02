@@ -1,0 +1,11 @@
+--- a/mistune-3.2.0/src/mistune/directives/image.py
++++ b/mistune-3.2.0/src/mistune/directives/image.py
+@@ -13,7 +13,7 @@
+ 
+ __all__ = ["Image", "Figure"]
+ 
+-_num_re = re.compile(r"^\d+(?:\.\d*)?")
++_num_re = re.compile(r"^\d+(?:\.\d*)?(?:px|ch|em|rem|ex|rex|vw|vh|%)?$")
+ _allowed_aligns = ["top", "middle", "bottom", "left", "center", "right"]
+ 
+ 

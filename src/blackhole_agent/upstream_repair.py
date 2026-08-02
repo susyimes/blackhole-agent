@@ -1,0 +1,616 @@
+"""Upstream repair plane: provable security stewardship of real vendored releases.
+
+The absorption plane makes external tools invocable, but nothing maintains them:
+a vendored release with publicly documented defects (XSS, ReDoS) stays
+vulnerable forever, and the ledger would still call the capability "proved".
+This module closes that gap with a falsifiable repair campaign over a real,
+pinned upstream artifact (mistune 3.2.0 sdist, sha256 pinned to the PyPI
+digest; defects and fixes documented by upstream in the 3.2.1 changelog):
+
+- **provenance** — the pristine sdist's sha256 is verified against the pinned
+  PyPI digest before every campaign; a substituted tarball fails closed;
+- **reproduction** — every defect carries a standalone repro script that exits
+  non-zero while the defect is present and zero once repaired; the campaign
+  requires every repro to fail on the pristine tree (defect is real, not
+  imagined) before any patch is applied;
+- **repair** — minimal unified-diff patches (derived from the upstream fix)
+  are applied by a strict, zero-fuzz applier; after repair every repro must
+  pass and the project's own test suite must pass on both the pristine and
+  the repaired tree (so a green repaired suite is not a side effect of a
+  broken baseline suite);
+- **causal ablation** — per defect, a fresh pristine tree is patched with
+  every patch *except* that defect's; its repro must fail again, proving the
+  patch — not some other hunk — causes the fix;
+- **sealed evidence** — the report under ``artifacts/upstream-repair/`` records
+  sha256 of the sdist, every repro, and every patch, plus digest chains over
+  recorded outcomes; verification is pure (recomputes digests from recorded
+  outcomes and re-hashes the on-disk evidence files) so tampering with the
+  report, a repro, or a patch fails verification.
+
+Determinism contract: only exit codes and pass/fail counts enter digests.
+Durations (notably the ReDoS probe timing) are diagnostics and are excluded.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import re
+import shutil
+import subprocess
+import sys
+import tarfile
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Mapping, Sequence
+
+from blackhole_agent.capability_compounder import (
+    atomic_write_json,
+    legacy_pipeline_was_used,
+    utc_now_iso,
+)
+from blackhole_agent.durable_state import durable_read_path
+
+SCHEMA_VERSION = 1
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+TARGET_ROOT = REPO_ROOT / "stewardship" / "mistune-3.2.0"
+ARTIFACT_DIR = REPO_ROOT / "artifacts" / "upstream-repair"
+LATEST_POINTER = ARTIFACT_DIR / "latest-report.json"
+
+REPRO_TIMEOUT_SECONDS = 90
+SUITE_TIMEOUT_SECONDS = 240
+
+
+# ---------------------------------------------------------------------------
+# canonical hashing helpers (same convention as the other evidence planes)
+
+
+def _canonical(payload: Any) -> str:
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+
+
+def _digest(payload: Any) -> str:
+    return hashlib.sha256(_canonical(payload).encode("utf-8")).hexdigest()
+
+
+def _sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+# ---------------------------------------------------------------------------
+# strict unified-diff application (zero fuzz: context must match exactly)
+
+
+@dataclass(frozen=True)
+class Hunk:
+    old_start: int
+    lines: tuple[str, ...]  # raw hunk body lines, each prefixed with ' ', '-' or '+'
+
+
+@dataclass(frozen=True)
+class FilePatch:
+    path: str
+    hunks: tuple[Hunk, ...]
+
+
+_HUNK_RE = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
+
+
+def parse_unified_diff(text: str) -> list[FilePatch]:
+    """Parse a unified diff into per-file patches. Raises on malformed input."""
+    lines = text.split("\n")
+    patches: list[FilePatch] = []
+    i = 0
+    while i < len(lines):
+        if not lines[i].startswith("--- "):
+            i += 1
+            continue
+        new_line = lines[i + 1]
+        if not new_line.startswith("+++ "):
+            raise ValueError(f"malformed diff: expected '+++ ' after {lines[i]!r}")
+        path = new_line[4:].split("\t")[0].strip()
+        if path.startswith("b/"):
+            path = path[2:]
+        i += 2
+        hunks: list[Hunk] = []
+        while i < len(lines) and lines[i].startswith("@@ "):
+            m = _HUNK_RE.match(lines[i])
+            if not m:
+                raise ValueError(f"malformed hunk header: {lines[i]!r}")
+            old_start = int(m.group(1))
+            old_count = int(m.group(2) or "1")
+            new_count = int(m.group(4) or "1")
+            i += 1
+            # consume exactly the declared body: old_count context/removal lines
+            # and new_count context/addition lines (counts bound the body, so a
+            # following '--- ' file header is never mistaken for a removal)
+            body: list[str] = []
+            old_seen = new_seen = 0
+            while old_seen < old_count or new_seen < new_count:
+                if i >= len(lines) or not lines[i]:
+                    raise ValueError(f"truncated hunk body in {path}")
+                tag = lines[i][0]
+                if tag == "\\":  # '\ No newline at end of file' marker
+                    i += 1
+                    continue
+                if tag == " ":
+                    old_seen += 1
+                    new_seen += 1
+                elif tag == "-":
+                    old_seen += 1
+                elif tag == "+":
+                    new_seen += 1
+                else:
+                    raise ValueError(f"unexpected hunk line {lines[i]!r} in {path}")
+                body.append(lines[i])
+                i += 1
+            hunks.append(Hunk(old_start=old_start, lines=tuple(body)))
+        patches.append(FilePatch(path=path, hunks=tuple(hunks)))
+    return patches
+
+
+def apply_file_patch(file_text: str, patch: FilePatch) -> str:
+    """Apply one file's hunks strictly; raise on any context mismatch."""
+    lines = file_text.split("\n")
+    offset = 0
+    for hunk in patch.hunks:
+        pos = hunk.old_start - 1 + offset
+        out = lines[:pos]
+        cursor = pos
+        for entry in hunk.lines:
+            tag, content = entry[0], entry[1:]
+            if tag in (" ", "-"):
+                if cursor >= len(lines) or lines[cursor] != content:
+                    raise ValueError(
+                        f"context mismatch in {patch.path} at line {cursor + 1}: "
+                        f"expected {content!r}, found {lines[cursor] if cursor < len(lines) else '<eof>'!r}"
+                    )
+                cursor += 1
+            if tag in (" ", "+"):
+                out.append(content)
+        out.extend(lines[cursor:])
+        offset += sum(1 for e in hunk.lines if e[0] == "+") - sum(1 for e in hunk.lines if e[0] == "-")
+        lines = out
+    return "\n".join(lines)
+
+
+def apply_patch_text(tree_root: Path, patch_text: str) -> list[str]:
+    """Apply a unified diff to an extracted tree; returns touched paths."""
+    touched: list[str] = []
+    for file_patch in parse_unified_diff(patch_text):
+        target = tree_root / file_patch.path
+        original = target.read_text(encoding="utf-8", newline="")
+        patched = apply_file_patch(original, file_patch)
+        target.write_text(patched, encoding="utf-8", newline="")
+        touched.append(file_patch.path)
+    return touched
+
+
+# ---------------------------------------------------------------------------
+# target loading
+
+
+@dataclass(frozen=True)
+class Defect:
+    id: str
+    title: str
+    kind: str
+    upstream_ref: str
+    repro: Path
+    patch: Path
+
+
+@dataclass(frozen=True)
+class Target:
+    manifest: Mapping[str, Any]
+    sdist: Path
+    defects: tuple[Defect, ...]
+
+
+def load_target(target_root: Path = TARGET_ROOT) -> Target:
+    manifest = json.loads((target_root / "manifest.json").read_text(encoding="utf-8"))
+    defects = tuple(
+        Defect(
+            id=d["id"],
+            title=d["title"],
+            kind=d["kind"],
+            upstream_ref=d["upstream_ref"],
+            repro=target_root / d["repro"],
+            patch=target_root / d["patch"],
+        )
+        for d in manifest["defects"]
+    )
+    return Target(manifest=manifest, sdist=target_root / manifest["sdist"], defects=defects)
+
+
+def verify_sdist(target: Target) -> dict[str, Any]:
+    actual = _sha256_file(target.sdist)
+    expected = target.manifest["sdist_sha256"]
+    return {"path": str(target.sdist), "expected": expected, "actual": actual, "ok": actual == expected}
+
+
+def extract_sdist(target: Target, dest: Path) -> Path:
+    """Extract the pristine sdist into dest (recreated). Returns the tree root."""
+    if dest.exists():
+        shutil.rmtree(dest)
+    dest.mkdir(parents=True)
+    with tarfile.open(target.sdist, "r:gz") as tar:
+        tar.extractall(dest, filter="data")
+    return dest
+
+
+# ---------------------------------------------------------------------------
+# subprocess runners
+
+
+def _tree_env(tree_root: Path, manifest: Mapping[str, Any]) -> dict[str, str]:
+    import os
+
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(tree_root / manifest["src_subdir"])
+    env["PYTHONUTF8"] = "1"  # hermetic decoding of upstream fixtures on any host
+    env.pop("PYTHONHOME", None)
+    return env
+
+
+def run_repro(defect: Defect, tree_root: Path, manifest: Mapping[str, Any]) -> dict[str, Any]:
+    start = time.monotonic()
+    proc = subprocess.run(
+        [sys.executable, str(defect.repro), str(tree_root)],
+        capture_output=True,
+        text=True,
+        timeout=REPRO_TIMEOUT_SECONDS,
+        env=_tree_env(tree_root, manifest),
+    )
+    return {
+        "defect_id": defect.id,
+        "exit_code": proc.returncode,
+        "duration_seconds": round(time.monotonic() - start, 3),
+        "stderr_tail": (proc.stderr or "")[-400:],
+    }
+
+
+_PYTEST_PROBE: list[str] | None = None
+
+
+def _pytest_prefix() -> list[str]:
+    """Interpreter prefix that can run pytest.
+
+    Proofs may execute under ``uv run`` (portable ledger proof commands),
+    whose synced project env carries only main dependencies. When the ambient
+    interpreter lacks pytest, fall back to ``uv run --extra dev`` so the
+    pinned dev extra from uv.lock provides it.
+    """
+    global _PYTEST_PROBE
+    if _PYTEST_PROBE is None:
+        probe = subprocess.run(
+            [sys.executable, "-m", "pytest", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if probe.returncode == 0:
+            _PYTEST_PROBE = [sys.executable, "-m", "pytest"]
+        else:
+            _PYTEST_PROBE = [
+                "uv", "run", "--project", str(REPO_ROOT), "--extra", "dev",
+                "python", "-m", "pytest",
+            ]
+    return list(_PYTEST_PROBE)
+
+
+def run_upstream_suite(tree_root: Path, manifest: Mapping[str, Any]) -> dict[str, Any]:
+    tests_dir = tree_root / manifest["tests_subdir"]
+    start = time.monotonic()
+    proc = subprocess.run(
+        [*_pytest_prefix(), str(tests_dir), "-q", "-p", "no:cacheprovider"],
+        capture_output=True,
+        text=True,
+        timeout=SUITE_TIMEOUT_SECONDS,
+        cwd=str(tree_root / manifest["src_subdir"].split("/")[0]),
+        env=_tree_env(tree_root, manifest),
+    )
+    tail = (proc.stdout or "").strip().splitlines()
+    summary = tail[-1] if tail else ""
+    m = re.search(r"(\d+) passed", proc.stdout or "")
+    return {
+        "exit_code": proc.returncode,
+        "passed": int(m.group(1)) if m else 0,
+        "summary": summary[-300:],
+        "stderr_tail": (proc.stderr or "")[-300:],
+        "duration_seconds": round(time.monotonic() - start, 3),
+    }
+
+
+# ---------------------------------------------------------------------------
+# campaign
+
+
+def run_repair_campaign(
+    target_root: Path = TARGET_ROOT,
+    artifact_dir: Path = ARTIFACT_DIR,
+) -> dict[str, Any]:
+    """Run the full reproduce -> repair -> ablate campaign and seal a report."""
+    target = load_target(target_root)
+    provenance = verify_sdist(target)
+    if not provenance["ok"]:
+        return {"ok": False, "error": "sdist provenance mismatch", "provenance": provenance}
+
+    work_root = artifact_dir / "work"
+    if work_root.exists():
+        shutil.rmtree(work_root)
+    work_root.mkdir(parents=True)
+
+    # evidence file hashes: any post-hoc edit of a repro or patch breaks verification
+    evidence_files = {
+        "sdist": provenance["actual"],
+        "repros": {d.id: _sha256_file(d.repro) for d in target.defects},
+        "patches": {d.id: _sha256_file(d.patch) for d in target.defects},
+    }
+
+    # 1. reproduce every defect on the pristine tree
+    pristine = extract_sdist(target, work_root / "pristine")
+    baseline_outcomes = [run_repro(d, pristine, target.manifest) for d in target.defects]
+    baseline_suite = run_upstream_suite(pristine, target.manifest)
+
+    # 2. apply all patches and re-run every repro
+    repaired = extract_sdist(target, work_root / "repaired")
+    patched_files: dict[str, list[str]] = {}
+    for d in target.defects:
+        patched_files[d.id] = apply_patch_text(repaired, d.patch.read_text(encoding="utf-8"))
+    repaired_outcomes = [run_repro(d, repaired, target.manifest) for d in target.defects]
+    repaired_suite = run_upstream_suite(repaired, target.manifest)
+
+    # 3. per-defect causal ablation: all patches except this one must re-open the defect
+    ablation_outcomes: list[dict[str, Any]] = []
+    for d in target.defects:
+        ablated = extract_sdist(target, work_root / f"ablation-{d.id}")
+        for other in target.defects:
+            if other.id != d.id:
+                apply_patch_text(ablated, other.patch.read_text(encoding="utf-8"))
+        outcome = run_repro(d, ablated, target.manifest)
+        ablation_outcomes.append(outcome)
+
+    defect_results = []
+    for d, base, fixed, abl in zip(target.defects, baseline_outcomes, repaired_outcomes, ablation_outcomes):
+        defect_results.append(
+            {
+                "id": d.id,
+                "kind": d.kind,
+                "title": d.title,
+                "upstream_ref": d.upstream_ref,
+                "reproduced_on_pristine": base["exit_code"] != 0,
+                "repaired": fixed["exit_code"] == 0,
+                "ablation_reopens": abl["exit_code"] != 0,
+                "baseline_exit": base["exit_code"],
+                "repaired_exit": fixed["exit_code"],
+                "ablation_exit": abl["exit_code"],
+                "patched_files": patched_files[d.id],
+            }
+        )
+
+    repaired_count = sum(
+        1 for r in defect_results if r["reproduced_on_pristine"] and r["repaired"] and r["ablation_reopens"]
+    )
+    repair_score = repaired_count / len(defect_results) if defect_results else 0.0
+
+    outcomes_digest = _digest(
+        [
+            {k: r[k] for k in ("id", "baseline_exit", "repaired_exit", "ablation_exit")}
+            for r in defect_results
+        ]
+    )
+    suite_record = {
+        "pristine": {"exit_code": baseline_suite["exit_code"], "passed": baseline_suite["passed"]},
+        "repaired": {"exit_code": repaired_suite["exit_code"], "passed": repaired_suite["passed"]},
+    }
+    suite_digest = _digest(suite_record)
+    report_digest = _digest(
+        {
+            "schema_version": SCHEMA_VERSION,
+            "target": target.manifest["name"] + "==" + target.manifest["version"],
+            "evidence_files": evidence_files,
+            "outcomes_digest": outcomes_digest,
+            "suite_digest": suite_digest,
+        }
+    )
+
+    ok = (
+        repair_score == 1.0
+        and baseline_suite["exit_code"] == 0
+        and repaired_suite["exit_code"] == 0
+    )
+
+    report = {
+        "schema_version": SCHEMA_VERSION,
+        "created_at": utc_now_iso(),
+        "target": {
+            "name": target.manifest["name"],
+            "version": target.manifest["version"],
+            "fixed_in": target.manifest["fixed_in"],
+            "upstream_repo": target.manifest["upstream_repo"],
+            "upstream_changelog": target.manifest["upstream_changelog"],
+            "source_url": target.manifest["source_url"],
+        },
+        "provenance": provenance,
+        "evidence_files": evidence_files,
+        "defects": defect_results,
+        "suites": {
+            "pristine": baseline_suite,
+            "repaired": repaired_suite,
+        },
+        "repair_score": repair_score,
+        "repaired_count": repaired_count,
+        "defect_count": len(defect_results),
+        "outcomes_digest": outcomes_digest,
+        "suite_digest": suite_digest,
+        "report_digest": report_digest,
+        "ok": ok,
+    }
+
+    stamp = utc_now_iso().replace(":", "").replace("-", "")
+    report_dir = artifact_dir / f"report-{stamp}"
+    report_dir.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(report_dir / "report.json", report)
+    atomic_write_json(LATEST_POINTER, {"report_dir": str(report_dir), "report_digest": report_digest})
+    report["report_dir"] = str(report_dir)
+    return report
+
+
+# ---------------------------------------------------------------------------
+# verification (pure: digests recomputed from recorded outcomes + on-disk evidence)
+
+
+def verify_repair_report(report_dir: Path, target_root: Path = TARGET_ROOT) -> dict[str, Any]:
+    report_path = durable_read_path(report_dir / "report.json")
+    if not report_path.is_file():
+        return {"ok": False, "error": f"missing report: {report_path}"}
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    problems: list[str] = []
+
+    target = load_target(target_root)
+
+    # on-disk evidence must match the recorded hashes
+    ev = report.get("evidence_files", {})
+    if _sha256_file(target.sdist) != ev.get("sdist"):
+        problems.append("sdist hash mismatch")
+    for d in target.defects:
+        if _sha256_file(d.repro) != ev.get("repros", {}).get(d.id):
+            problems.append(f"repro hash mismatch: {d.id}")
+        if _sha256_file(d.patch) != ev.get("patches", {}).get(d.id):
+            problems.append(f"patch hash mismatch: {d.id}")
+
+    defects = report.get("defects", [])
+    outcomes_digest = _digest(
+        [
+            {k: r[k] for k in ("id", "baseline_exit", "repaired_exit", "ablation_exit")}
+            for r in defects
+        ]
+    )
+    if outcomes_digest != report.get("outcomes_digest"):
+        problems.append("outcomes digest mismatch")
+
+    suites = report.get("suites", {})
+    suite_record = {
+        "pristine": {"exit_code": suites.get("pristine", {}).get("exit_code"), "passed": suites.get("pristine", {}).get("passed")},
+        "repaired": {"exit_code": suites.get("repaired", {}).get("exit_code"), "passed": suites.get("repaired", {}).get("passed")},
+    }
+    if _digest(suite_record) != report.get("suite_digest"):
+        problems.append("suite digest mismatch")
+
+    report_digest = _digest(
+        {
+            "schema_version": report.get("schema_version"),
+            "target": f"{report.get('target', {}).get('name')}=={report.get('target', {}).get('version')}",
+            "evidence_files": ev,
+            "outcomes_digest": report.get("outcomes_digest"),
+            "suite_digest": report.get("suite_digest"),
+        }
+    )
+    if report_digest != report.get("report_digest"):
+        problems.append("report digest mismatch")
+
+    # semantic consistency: every defect must show the full causal chain
+    for r in defects:
+        if not (r.get("reproduced_on_pristine") and r.get("repaired") and r.get("ablation_reopens")):
+            problems.append(f"incomplete causal chain: {r.get('id')}")
+    repaired_count = sum(
+        1 for r in defects if r.get("reproduced_on_pristine") and r.get("repaired") and r.get("ablation_reopens")
+    )
+    score = repaired_count / len(defects) if defects else 0.0
+    if score != report.get("repair_score"):
+        problems.append("repair score mismatch")
+    if suites.get("pristine", {}).get("exit_code") != 0 or suites.get("repaired", {}).get("exit_code") != 0:
+        problems.append("upstream suite not green on both trees")
+
+    return {
+        "ok": not problems and bool(defects) and score == 1.0,
+        "problems": problems,
+        "defect_count": len(defects),
+        "repair_score": score,
+    }
+
+
+def load_latest_report_dir() -> Path | None:
+    pointer_path = durable_read_path(LATEST_POINTER)
+    if not pointer_path.is_file():
+        return None
+    pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
+    report_dir = Path(pointer["report_dir"])
+    return report_dir if durable_read_path(report_dir / "report.json").is_file() else None
+
+
+# ---------------------------------------------------------------------------
+# registered proof
+
+
+def builtin_upstream_repair_proof() -> dict[str, Any]:
+    """Prove the upstream repair plane: campaign, pure verification, tamper falsification."""
+    report = run_repair_campaign()
+    result: dict[str, Any] = {
+        "ok": bool(report.get("ok")),
+        "repair_score": report.get("repair_score"),
+        "defect_count": report.get("defect_count"),
+        "repaired_count": report.get("repaired_count"),
+        "suite_green": report.get("suites", {}).get("repaired", {}).get("exit_code") == 0
+        and report.get("suites", {}).get("pristine", {}).get("exit_code") == 0,
+        "report_dir": report.get("report_dir"),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    if not report.get("ok"):
+        result["error"] = "campaign failed"
+        return result
+
+    report_dir = Path(report["report_dir"])
+    verification = verify_repair_report(report_dir)
+    result["verified"] = verification["ok"]
+    result["verify_problems"] = verification.get("problems", [])
+
+    # falsify the verifier: one flipped outcome must be detected
+    tampered = json.loads(durable_read_path(report_dir / "report.json").read_text(encoding="utf-8"))
+    tampered["defects"][0]["repaired_exit"] = 1 if tampered["defects"][0]["repaired_exit"] == 0 else 0
+    tamper_dir = report_dir.parent / "tamper-probe"
+    tamper_dir.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(tamper_dir / "report.json", tampered)
+    tamper_verdict = verify_repair_report(tamper_dir)
+    result["tamper_detected"] = not tamper_verdict["ok"]
+
+    result["ok"] = result["ok"] and verification["ok"] and result["tamper_detected"] and result["suite_green"]
+    return result
+
+
+# ---------------------------------------------------------------------------
+# CLI
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="upstream repair plane")
+    sub = parser.add_subparsers(dest="command", required=True)
+    sub.add_parser("campaign", help="run the full repair campaign and seal a report")
+    verify_p = sub.add_parser("verify", help="purely verify a sealed report")
+    verify_p.add_argument("report_dir", nargs="?", default=None)
+    sub.add_parser("proof", help="run the registered proof")
+    args = parser.parse_args(argv)
+
+    if args.command == "campaign":
+        report = run_repair_campaign()
+        print(json.dumps({k: report[k] for k in ("ok", "repair_score", "repaired_count", "defect_count", "report_dir")}, indent=2))
+        return 0 if report.get("ok") else 1
+    if args.command == "verify":
+        report_dir = Path(args.report_dir) if args.report_dir else load_latest_report_dir()
+        if report_dir is None:
+            print("no report found")
+            return 1
+        verdict = verify_repair_report(report_dir)
+        print(json.dumps(verdict, indent=2))
+        return 0 if verdict["ok"] else 1
+    result = builtin_upstream_repair_proof()
+    print(json.dumps({k: v for k, v in result.items() if k != "verify_problems"}, indent=2))
+    return 0 if result.get("ok") else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

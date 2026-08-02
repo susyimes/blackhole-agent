@@ -1,0 +1,5 @@
+# Digest-sealed trees must check out byte-identical on every host.
+# CRLF conversion breaks vendored tree digests, repair evidence hashes,
+# and unified-diff context matching.
+capabilities/absorbed/** text eol=lf
+stewardship/** text eol=lf

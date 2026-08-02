@@ -1,0 +1,206 @@
+{
+  "created_at": "2026-08-02T02:03:36.505230Z",
+  "defect_count": 9,
+  "defects": [
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "math-xss",
+      "kind": "xss",
+      "patched_files": [
+        "mistune-3.2.0/src/mistune/plugins/math.py",
+        "mistune-3.2.0/tests/fixtures/math.txt"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "Math plugin renders raw HTML in block and inline math (XSS)",
+      "upstream_ref": "mistune 3.2.1 changelog: 'Escape text in math plugin' / 'Fix regex for math plugin'"
+    },
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "heading-id-xss",
+      "kind": "xss",
+      "patched_files": [
+        "mistune-3.2.0/src/mistune/renderers/html.py"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "Heading id attribute is not escaped (XSS attribute breakout)",
+      "upstream_ref": "mistune 3.2.1 changelog: 'Escape heading's ID attribute'"
+    },
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "toc-link-xss",
+      "kind": "xss",
+      "patched_files": [
+        "mistune-3.2.0/src/mistune/toc.py"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "render_toc_ul does not escape the link fragment (XSS attribute breakout)",
+      "upstream_ref": "mistune 3.2.1 changelog: 'Escape link in render_toc_ul'"
+    },
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "block-error-xss",
+      "kind": "xss",
+      "patched_files": [
+        "mistune-3.2.0/src/mistune/renderers/html.py",
+        "mistune-3.2.0/tests/fixtures/fenced_toc.txt",
+        "mistune-3.2.0/tests/fixtures/rst_toc.txt"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "block_error renderer emits raw text (XSS)",
+      "upstream_ref": "mistune 3.2.1 changelog: directive error output escaping (fixture updates)"
+    },
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "image-alt-double-encoding",
+      "kind": "correctness",
+      "patched_files": [
+        "mistune-3.2.0/src/mistune/renderers/html.py",
+        "mistune-3.2.0/tests/test_misc.py"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "Image alt text is HTML-encoded twice",
+      "upstream_ref": "mistune 3.2.1 changelog: 'Remove double-encoding of image alt text'"
+    },
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "admonition-class-xss",
+      "kind": "xss",
+      "patched_files": [
+        "mistune-3.2.0/src/mistune/directives/admonition.py"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "Admonition directive class attribute is not escaped (XSS attribute breakout)",
+      "upstream_ref": "mistune 3.2.1 changelog: 'Escape class attribute for admonition directive'"
+    },
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "figure-attrs-xss",
+      "kind": "xss",
+      "patched_files": [
+        "mistune-3.2.0/src/mistune/directives/image.py"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "Figure directive figclass/figwidth attributes are not escaped (XSS attribute breakout)",
+      "upstream_ref": "mistune 3.2.1 changelog: 'Escape class attribute for image directive'"
+    },
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "image-width-validation",
+      "kind": "correctness",
+      "patched_files": [
+        "mistune-3.2.0/src/mistune/directives/image.py"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "Image directive accepts invalid width/height values (regex not anchored)",
+      "upstream_ref": "mistune 3.2.1 changelog: 'Fix width/height attribute for image directive'"
+    },
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "link-title-redos",
+      "kind": "redos",
+      "patched_files": [
+        "mistune-3.2.0/src/mistune/helpers.py",
+        "mistune-3.2.0/tests/test_commonmark.py"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "LINK_TITLE_RE allows catastrophic backtracking on backslash runs (ReDoS)",
+      "upstream_ref": "mistune 3.2.1 changelog: 'Fix LINK_TITLE_RE to prevent DoS'"
+    }
+  ],
+  "evidence_files": {
+    "patches": {
+      "admonition-class-xss": "6da8a0533d12a29addc7f7f2fcc24178170b1537b5f38ce419b9974ef6f5f553",
+      "block-error-xss": "7d000b72c2fbfbcc0c09812d694ba9f9b6ba22078321c0af0111ff90db2770aa",
+      "figure-attrs-xss": "d757c462f69292b2ff4e637ab0ef127ee89beb581b22ac6dc661fc3f37d44d13",
+      "heading-id-xss": "a3b0f3ec3224bc446b95a330e25227a0cf9a0e4be9b5d90effcff041742e627e",
+      "image-alt-double-encoding": "e7d1f81a2a74dffdb7ccc4634c650b45796c5629d0c9bcdf9856936f3d3ff891",
+      "image-width-validation": "4895c064b6adf6fccfc808148b008d8169a885da05fcb26fb1e28bda095cb35b",
+      "link-title-redos": "eac6a50d3f79256163105a9b07fe33bfcf6750da6b5769ca57c998084e3d0e2c",
+      "math-xss": "703290ab2f21ea058f23dfad2d7177b4eb89d4722de4527d253e723bb8b44f67",
+      "toc-link-xss": "1acecfb7dd816816230d08591d6a8539035abfb7838e4d69a67459a2f584b31b"
+    },
+    "repros": {
+      "admonition-class-xss": "398431feec3ed55f03320ef48b685097119aaa0f7b60b24edc66f249048ea031",
+      "block-error-xss": "118b0cb3d1b2866575a96e06dd223e6d367cbf6f27cdc63cce11e7c6f88a5c61",
+      "figure-attrs-xss": "b4e98dde297f2b0c74dc83e978fc769ba9102738565c647a7e63b10d29de205c",
+      "heading-id-xss": "4323513b94b023fcddf1c5086f2b9c8c731f6f1e9ace8ba4a03adc9c8bbd40c2",
+      "image-alt-double-encoding": "483f4ef15c9c02b04f0eeacf3b1be2e1228381d0fe438211f2aa1208ec84172d",
+      "image-width-validation": "931c86028b517f77f976d07d4ee64d4427bdb40f9a5c5ab6fc472eb2713944e4",
+      "link-title-redos": "4f2b3e1767d38953f49cb55d63f3e679a770482bc21b69756a99557be9341d92",
+      "math-xss": "865d79f95d602d69869e1b997e1369072877524fa212038ac661d5ea3372f25a",
+      "toc-link-xss": "838d1744bdda793f323d1d40f0c0b39643306889e69799d0acc8234ef518244f"
+    },
+    "sdist": "708487c8a8cdd99c9d90eb3ed4c3ed961246ff78ac82f03418f5183ab70e398a"
+  },
+  "ok": true,
+  "outcomes_digest": "d43d4bcf49926bafcee8fed689e6e7813e5bdfc7ffff74941a169dd39441d6ef",
+  "provenance": {
+    "actual": "708487c8a8cdd99c9d90eb3ed4c3ed961246ff78ac82f03418f5183ab70e398a",
+    "expected": "708487c8a8cdd99c9d90eb3ed4c3ed961246ff78ac82f03418f5183ab70e398a",
+    "ok": true,
+    "path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260802T014350Z-f2c8ec29\\stewardship\\mistune-3.2.0\\mistune-3.2.0.tar.gz"
+  },
+  "repair_score": 1.0,
+  "repaired_count": 9,
+  "report_digest": "7d9eabbbec796f300a50f1db164b6980fde58715d1c6d95b6d1550d089e633fe",
+  "schema_version": 1,
+  "suite_digest": "2155d51cec45b6e8f3d12860b4aa1d2419a9206166cb5b974efa6c860a9d6a5d",
+  "suites": {
+    "pristine": {
+      "duration_seconds": 0.888,
+      "exit_code": 0,
+      "passed": 959,
+      "summary": "959 passed in 0.61s"
+    },
+    "repaired": {
+      "duration_seconds": 0.896,
+      "exit_code": 0,
+      "passed": 961,
+      "summary": "961 passed in 0.63s"
+    }
+  },
+  "target": {
+    "fixed_in": "3.2.1",
+    "name": "mistune",
+    "source_url": "https://files.pythonhosted.org/packages/9d/55/d01f0c4b45ade6536c51170b9043db8b2ec6ddf4a35c7ea3f5f559ac935b/mistune-3.2.0.tar.gz",
+    "upstream_changelog": "https://github.com/lepture/mistune/blob/main/docs/changes.rst",
+    "upstream_repo": "https://github.com/lepture/mistune",
+    "version": "3.2.0"
+  }
+}
