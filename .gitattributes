@@ -17,3 +17,8 @@ capabilities/absorbed/**/*.zip binary
 # crlf cases). eol=lf normalization silently rewrites those bytes and breaks
 # the pin, so overlays check out verbatim instead.
 stewardship/**/suite/** -text
+# Sealed evidence under artifacts/ (contribution bundles, publication
+# receipts, capability payloads) is sha256-pinned byte-for-byte. EOL
+# conversion on checkout silently breaks every seal, so artifacts check
+# out verbatim on every host.
+artifacts/** -text

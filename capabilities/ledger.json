@@ -3682,6 +3682,38 @@
       ],
       "updated_at": "2026-08-02T13:04:47.156445Z"
     },
+    "capability.upstream-publication": {
+      "behavior_paths": [
+        "src/blackhole_agent/upstream_publication.py",
+        ".gitattributes"
+      ],
+      "capability_delta": "Stewardship evidence is no longer local-only: a sealed submittable bundle becomes a real upstream pull request through verified outward actuation - fork, patch-at-HEAD gating, exact-tree re-verification, disclosed automated authorship, idempotent PR triage, and a digest-sealed receipt verifiable online against the live PR. Also root-caused and fixed the artifacts/** EOL seal corruption that broke every sha256 bundle seal on CRLF checkouts.",
+      "created_at": "2026-08-02T16:29:07.271571Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.upstream-contribution"
+      ],
+      "description": "Closes the stewardship loop with real outward actuation. For one sealed, submittable contribution bundle the plane re-verifies the bundle seal (bundle_not_submittable refuses), triages existing upstream PRs for the publication branch (open -> idempotent already_published, merged -> upstream_already_merged, closed -> upstream_closed_unmerged; never a second PR), forks the true upstream repo, applies the bundle patch at the default-branch HEAD (patch_diverged_at_head refuses), installs the native regression test, re-verifies the exact pushed tree (build + repro must pass + upstream suite green: repair_ineffective_at_head / patch_regression_at_head refuse), commits with an automation-disclosure trailer, opens the pull request with an evidence body carrying the sha256 payload digests and a plain disclosure of automated authorship, and seals a digest-pinned receipt under artifacts/upstream-publication/ re-checkable offline and online (live PR state + head SHA). First real publication: marked 18.0.7 footnote-defs-masking-quadratic -> https://github.com/markedjs/marked/pull/4040 (OPEN, head 3f0a7505, repro passed at patched master HEAD, marked's own suite 1959 passed / 0 failed with the regression test installed).",
+      "entry": "blackhole_agent.upstream_publication:builtin_upstream_publication_proof",
+      "id": "capability.upstream-publication",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-02T16:29:33.920550Z",
+      "name": "Upstream publication plane (verified outward actuation of sealed contribution bundles)",
+      "proof_command": "uv run python -c \"from blackhole_agent.upstream_publication import builtin_upstream_publication_proof; r=builtin_upstream_publication_proof(); assert r['ok'] and r.get('published') and r.get('receipt_verified') and r.get('tamper_detected') and r.get('idempotent_republish') and r.get('stale_bundle_refused') and r.get('divergence_refused') and r.get('merged_triaged') and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": 1,
+      "source_mission_id": "20260802T161126Z-a3fc542d",
+      "tags": [
+        "bootstrap",
+        "compounder",
+        "upstream",
+        "publication",
+        "actuation",
+        "evidence"
+      ],
+      "updated_at": "2026-08-02T16:29:07.271571Z"
+    },
     "capability.upstream-repair": {
       "behavior_paths": [
         "src/blackhole_agent/upstream_repair.py",
@@ -4107,5 +4139,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-08-02T13:04:47.156720Z"
+  "updated_at": "2026-08-02T16:29:33.920565Z"
 }

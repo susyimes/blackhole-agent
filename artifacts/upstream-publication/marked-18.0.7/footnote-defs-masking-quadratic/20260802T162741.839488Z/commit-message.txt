@@ -1,0 +1,8 @@
+fix: inlineTokens rebuilds the reflink-mask preamble per call
+
+inlineTokens rebuilds the reflink-mask preamble per call (Object.keys over all link defs), making n refs + n defs O(n^2) (measured exponent 3.0, 24s at n=13000)
+
+Defect id: footnote-defs-masking-quadratic
+Verified against upstream tag 18.0.7 and HEAD (triage: unfixed_at_head).
+
+Generated-by: blackhole-agent upstream-publication plane (autonomous stewardship mission)

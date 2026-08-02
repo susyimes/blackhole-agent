@@ -1,0 +1,39 @@
+{
+  "branch": "blackhole/footnote-defs-masking-quadratic",
+  "bundle_dir": "artifacts\\upstream-contribution\\marked-18.0.7\\footnote-defs-masking-quadratic\\20260802T153638.119826Z",
+  "bundle_payload_sha256": {
+    "contribution.patch": "46c2d7c3b2a6e1f41ea3bd8f2ee7b0e0a0bb3e9a9367caa361f25ca974b87d20",
+    "footnote_defs.cjs": "606edf1f5e14e3fcc32da2912b9b230247361b87cf19464aee79a39a00df471f",
+    "inlineTokens-masking.test.js": "af5a9ef040cb19b55f9ea6a774ed54ab11d7149200314c1c310989b1f5ffd3a4"
+  },
+  "created_at": "2026-08-02T16:27:41.845156Z",
+  "defect_id": "footnote-defs-masking-quadratic",
+  "head_sha": "3f0a75057f1a7e87f031696acf3d4987a367694d",
+  "name": "marked",
+  "payload_sha256": {
+    "commit-message.txt": "a01e27d561a2a49505e0733e005a0a2446f3d0cb3fc30e82e96c2baa2fcfed00",
+    "pr-body.md": "10889e9a07da8ee0c4f500c686f6bb008c59b04af741072531ec46ee8e47f78d"
+  },
+  "published": true,
+  "pull_request": {
+    "headRefOid": "3f0a75057f1a7e87f031696acf3d4987a367694d",
+    "number": 4040,
+    "state": "OPEN",
+    "url": "https://github.com/markedjs/marked/pull/4040"
+  },
+  "schema_version": 1,
+  "upstream_repo": "https://github.com/markedjs/marked",
+  "used_skill_route_discovery": false,
+  "verdict": "published",
+  "verification": {
+    "repro_passed": true,
+    "suite": {
+      "exit_code": 0,
+      "failed": 0,
+      "ok": true,
+      "passed": 1959,
+      "tail": "ℹ duration_ms 913.1862"
+    }
+  },
+  "version": "18.0.7"
+}
