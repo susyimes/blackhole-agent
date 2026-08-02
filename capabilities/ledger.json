@@ -29,7 +29,7 @@
         "ablation",
         "evidence"
       ],
-      "updated_at": "2026-08-02T10:16:52.552500Z"
+      "updated_at": "2026-08-02T13:04:47.152931Z"
     },
     "capability.absorbed-mistune-markdown": {
       "behavior_paths": [
@@ -176,7 +176,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-02T10:16:52.553424Z"
+      "updated_at": "2026-08-02T13:04:47.154573Z"
     },
     "capability.adaptive-grow": {
       "behavior_paths": [
@@ -208,7 +208,7 @@
         "growth",
         "adaptive"
       ],
-      "updated_at": "2026-08-02T10:16:52.551663Z"
+      "updated_at": "2026-08-02T13:04:47.151906Z"
     },
     "capability.adversarial-contract": {
       "behavior_paths": [
@@ -241,7 +241,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-08-02T10:16:52.552642Z"
+      "updated_at": "2026-08-02T13:04:47.153116Z"
     },
     "capability.application-plane": {
       "behavior_paths": [
@@ -276,7 +276,7 @@
         "outcome",
         "evidence"
       ],
-      "updated_at": "2026-08-02T10:16:52.553642Z"
+      "updated_at": "2026-08-02T13:04:47.154914Z"
     },
     "capability.assurance-plane": {
       "behavior_paths": [
@@ -313,7 +313,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-08-02T10:16:52.552714Z"
+      "updated_at": "2026-08-02T13:04:47.153208Z"
     },
     "capability.auto-kernel-routing": {
       "behavior_paths": [
@@ -377,7 +377,7 @@
         "autonomic",
         "novelty"
       ],
-      "updated_at": "2026-08-02T10:16:52.551975Z"
+      "updated_at": "2026-08-02T13:04:47.152267Z"
     },
     "capability.composed-core-health": {
       "behavior_paths": [
@@ -2118,7 +2118,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-08-02T10:16:52.553066Z"
+      "updated_at": "2026-08-02T13:04:47.153863Z"
     },
     "capability.contract-plane": {
       "behavior_paths": [
@@ -2153,7 +2153,7 @@
         "evidence",
         "growth"
       ],
-      "updated_at": "2026-08-02T10:16:52.552412Z"
+      "updated_at": "2026-08-02T13:04:47.152821Z"
     },
     "capability.distill-ledger": {
       "behavior_paths": [
@@ -2183,7 +2183,7 @@
         "growth",
         "distill"
       ],
-      "updated_at": "2026-08-02T10:16:52.551901Z"
+      "updated_at": "2026-08-02T13:04:47.152179Z"
     },
     "capability.execution-plane": {
       "behavior_paths": [
@@ -2236,7 +2236,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-02T10:16:52.553354Z"
+      "updated_at": "2026-08-02T13:04:47.154466Z"
     },
     "capability.federation-plane": {
       "behavior_paths": [
@@ -2281,7 +2281,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-08-02T10:16:52.553138Z"
+      "updated_at": "2026-08-02T13:04:47.154041Z"
     },
     "capability.finality-plane": {
       "behavior_paths": [
@@ -2330,7 +2330,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-02T10:16:52.553281Z"
+      "updated_at": "2026-08-02T13:04:47.154332Z"
     },
     "capability.fragility-audit": {
       "behavior_paths": [
@@ -2366,7 +2366,7 @@
         "recovery",
         "evidence"
       ],
-      "updated_at": "2026-08-02T10:16:52.553792Z"
+      "updated_at": "2026-08-02T13:04:47.155260Z"
     },
     "capability.frontier-novelty": {
       "behavior_paths": [
@@ -2396,7 +2396,7 @@
         "growth",
         "novelty"
       ],
-      "updated_at": "2026-08-02T10:16:52.551827Z"
+      "updated_at": "2026-08-02T13:04:47.152087Z"
     },
     "capability.github-live-actuation": {
       "behavior_paths": [
@@ -2455,7 +2455,7 @@
         "mission",
         "planner"
       ],
-      "updated_at": "2026-08-02T10:16:52.552051Z"
+      "updated_at": "2026-08-02T13:04:47.152358Z"
     },
     "capability.goal-stack-health": {
       "behavior_paths": [
@@ -2492,7 +2492,7 @@
         "composition",
         "evidence"
       ],
-      "updated_at": "2026-08-02T10:16:52.556043Z"
+      "updated_at": "2026-08-02T13:04:47.156033Z"
     },
     "capability.goal-watchdog": {
       "behavior_paths": [
@@ -2526,7 +2526,7 @@
         "application",
         "evidence"
       ],
-      "updated_at": "2026-08-02T10:16:52.553930Z"
+      "updated_at": "2026-08-02T13:04:47.155573Z"
     },
     "capability.grounded-growth-loop": {
       "behavior_paths": [
@@ -2614,7 +2614,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-08-02T10:16:52.551583Z"
+      "updated_at": "2026-08-02T13:04:47.151811Z"
     },
     "capability.growth-proof-audit-gate": {
       "behavior_paths": [
@@ -2674,7 +2674,7 @@
         "integrity",
         "evidence"
       ],
-      "updated_at": "2026-08-02T10:16:52.553862Z"
+      "updated_at": "2026-08-02T13:04:47.155382Z"
     },
     "capability.ledger-integrity": {
       "behavior_paths": [
@@ -2702,7 +2702,7 @@
         "compounder",
         "integrity"
       ],
-      "updated_at": "2026-08-02T10:16:52.551738Z"
+      "updated_at": "2026-08-02T13:04:47.151996Z"
     },
     "capability.ledger-inventory": {
       "behavior_paths": [
@@ -2728,7 +2728,7 @@
         "bootstrap",
         "compounder"
       ],
-      "updated_at": "2026-08-02T10:16:52.551303Z"
+      "updated_at": "2026-08-02T13:04:47.151508Z"
     },
     "capability.ledger-proof-reaudit": {
       "behavior_paths": [
@@ -2798,7 +2798,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-08-02T10:16:52.552860Z"
+      "updated_at": "2026-08-02T13:04:47.153550Z"
     },
     "capability.mcp-live-execution": {
       "behavior_paths": [
@@ -2944,7 +2944,7 @@
         "growth",
         "second-wave"
       ],
-      "updated_at": "2026-08-02T10:16:52.552268Z"
+      "updated_at": "2026-08-02T13:04:47.152632Z"
     },
     "capability.multi-kernel-harness-routing": {
       "behavior_paths": [
@@ -3003,7 +3003,7 @@
         "contract",
         "evidence"
       ],
-      "updated_at": "2026-08-02T10:16:52.552341Z"
+      "updated_at": "2026-08-02T13:04:47.152722Z"
     },
     "capability.plane-engine": {
       "behavior_paths": [
@@ -3100,7 +3100,7 @@
         "synthesis",
         "evidence"
       ],
-      "updated_at": "2026-08-02T10:16:52.555915Z"
+      "updated_at": "2026-08-02T13:04:47.155874Z"
     },
     "capability.program-run": {
       "behavior_paths": [
@@ -3130,7 +3130,7 @@
         "mission",
         "program"
       ],
-      "updated_at": "2026-08-02T10:16:52.552124Z"
+      "updated_at": "2026-08-02T13:04:47.152451Z"
     },
     "capability.quorum-plane": {
       "behavior_paths": [
@@ -3177,7 +3177,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-02T10:16:52.553209Z"
+      "updated_at": "2026-08-02T13:04:47.154209Z"
     },
     "capability.reconciliation-plane": {
       "behavior_paths": [
@@ -3220,7 +3220,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-08-02T10:16:52.552993Z"
+      "updated_at": "2026-08-02T13:04:47.153734Z"
     },
     "capability.recovery-loop": {
       "behavior_paths": [
@@ -3256,7 +3256,7 @@
         "self-healing",
         "evidence"
       ],
-      "updated_at": "2026-08-02T10:16:52.553720Z"
+      "updated_at": "2026-08-02T13:04:47.155101Z"
     },
     "capability.repair-plane": {
       "behavior_paths": [
@@ -3291,7 +3291,7 @@
         "fitness",
         "evidence"
       ],
-      "updated_at": "2026-08-02T10:16:52.553495Z"
+      "updated_at": "2026-08-02T13:04:47.154668Z"
     },
     "capability.runtime-conformance": {
       "behavior_paths": [
@@ -3350,7 +3350,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-08-02T10:16:52.551505Z"
+      "updated_at": "2026-08-02T13:04:47.151708Z"
     },
     "capability.second-wave-absorb": {
       "behavior_paths": [
@@ -3384,7 +3384,7 @@
         "second-wave",
         "domain"
       ],
-      "updated_at": "2026-08-02T10:16:52.552196Z"
+      "updated_at": "2026-08-02T13:04:47.152541Z"
     },
     "capability.sovereignty-plane": {
       "behavior_paths": [
@@ -3423,7 +3423,7 @@
         "certificate",
         "evidence"
       ],
-      "updated_at": "2026-08-02T10:16:52.552785Z"
+      "updated_at": "2026-08-02T13:04:47.153402Z"
     },
     "capability.synthesis-plane": {
       "behavior_paths": [
@@ -3456,7 +3456,7 @@
         "goal-directed",
         "evidence"
       ],
-      "updated_at": "2026-08-02T10:16:52.555815Z"
+      "updated_at": "2026-08-02T13:04:47.155763Z"
     },
     "capability.synthesized-scan-verdict-label": {
       "behavior_paths": [
@@ -3583,7 +3583,38 @@
         "transfer",
         "package"
       ],
-      "updated_at": "2026-08-02T10:16:52.552571Z"
+      "updated_at": "2026-08-02T13:04:47.153024Z"
+    },
+    "capability.upstream-contribution": {
+      "behavior_paths": [
+        "src/blackhole_agent/upstream_contribution.py",
+        "stewardship/tomli-2.4.1"
+      ],
+      "capability_delta": "Stewarded repairs are no longer local-only claims: a repaired defect becomes a submission-ready contribution bundle verified against the true upstream repository - tag reproduction, HEAD triage, repo-layout patch rebase, upstream-suite gating with an installed regression test, digest-sealed and tamper-evident, without skill-route.",
+      "created_at": "2026-08-02T13:03:19.130615Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.upstream-repair"
+      ],
+      "description": "Closes the stewardship loop back to the real upstream project. For one stewarded, repaired defect the plane fetches the true upstream repository archive at the pinned release tag, re-confirms the synthesized repro on upstream source (defect_absent_at_tag rejects stale claims), runs the project's own test suite as a pristine baseline (suite_baseline_broken rejects), triages upstream HEAD (already_fixed_at_head seals a triage-only, non-submittable bundle), rebases the sdist-layout patch onto the repo layout and applies it (patch_apply / repair_ineffective reject), installs a defect-declared native regression test in the project's conventions or a synthesized repro-wrapper test, and requires the patched upstream suite green (patch_regression rejects). The bundle under artifacts/upstream-contribution/ is digest-sealed (sha256 per payload) and re-checkable with verify; tampering is detected. No outward action: the bundle is submission-ready evidence, not a submission. First real bundle: tomli 2.4.1 long-decimal-int-valueerror against github.com/hukkin/tomli - defect reproduced at tag 2.4.1, HEAD triaged unfixed_at_head, rebased patch applied, tomli's own suite green on the patched checkout (19 passed, 744 subtests, including the 2 native regression tests), sealed and verified.",
+      "entry": "blackhole_agent.upstream_contribution:builtin_upstream_contribution_proof",
+      "id": "capability.upstream-contribution",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-02T13:04:46.638498Z",
+      "name": "Upstream contribution plane (submission-ready bundles verified against the true upstream repo)",
+      "proof_command": "uv run python -c \"from blackhole_agent.upstream_contribution import builtin_upstream_contribution_proof; r=builtin_upstream_contribution_proof(); assert r['ok'] and r.get('submittable_sealed') and r.get('seal_verified') and r.get('tamper_detected') and r.get('already_fixed_triaged') and r.get('breaking_patch_rejected') and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": 2,
+      "source_mission_id": "20260802T123226Z-2e81a32e",
+      "tags": [
+        "bootstrap",
+        "compounder",
+        "upstream",
+        "contribution",
+        "evidence"
+      ],
+      "updated_at": "2026-08-02T13:04:46.638498Z"
     },
     "capability.upstream-discovery": {
       "behavior_paths": [
@@ -3616,7 +3647,7 @@
         "security",
         "evidence"
       ],
-      "updated_at": "2026-08-02T10:16:52.556192Z"
+      "updated_at": "2026-08-02T13:04:47.156330Z"
     },
     "capability.upstream-frontier": {
       "behavior_paths": [
@@ -3630,7 +3661,7 @@
         "capability.ledger-inventory",
         "capability.upstream-discovery"
       ],
-      "description": "Extends the discovery plane's reach from pinned historical releases to the live upstream frontier. Given only a PyPI project name, the plane resolves the latest release from index metadata, downloads the sdist, pins it by the index-declared sha256 (mismatched downloads are rejected before any manifest exists), auto-detects the importable source layout (flat or src/), validates the driver prelude statically, and proves it with a subprocess smoke test against the extracted frontier tree. The result is an ordinary stewardship target with an empty defects list, so the discovery battery scans it blind from the moment it is onboarded; onboarding is idempotent and detects on-disk sdist tampering. First frontier target mistune 3.3.4 (latest upstream release): the discovery battery found a quadratic footnote-definition parsing defect (exponent ~1.9, 3.35s at n=16000) that is absent from the 3.3.x changelogs including 'Unreleased' - unfixed and undocumented upstream.",
+      "description": "Extends the discovery plane's reach from pinned historical releases to the live upstream frontier. Given only a PyPI project name, the plane resolves the latest release from index metadata, downloads the sdist, pins it by the index-declared sha256 (mismatched downloads are rejected before any manifest exists), auto-detects the importable source layout (flat or src/), validates the driver prelude statically, and proves it with a subprocess smoke test against the extracted frontier tree. The result is an ordinary stewardship target with an empty defects list, so the discovery battery scans it blind from the moment it is onboarded; onboarding is idempotent and detects on-disk sdist tampering. First frontier target mistune 3.3.4 (latest upstream release): the discovery battery found a quadratic footnote-definition parsing defect (exponent ~1.9, 3.35s at n=16000) that is absent from the 3.3.x changelogs including 'Unreleased' - unfixed and undocumented upstream. The loop then closed on the frontier: root cause (O(n) list membership per footnote reference in parse_inline_footnote despite the footnote_indexes dict) repaired by a one-line patch, sealed by a repair campaign with causal ablation and mistune's own 1155-test suite green on the patched tree.",
       "entry": "blackhole_agent.upstream_frontier:builtin_upstream_frontier_proof",
       "id": "capability.upstream-frontier",
       "kind": "python",
@@ -3649,7 +3680,7 @@
         "security",
         "evidence"
       ],
-      "updated_at": "2026-08-02T10:16:52.556262Z"
+      "updated_at": "2026-08-02T13:04:47.156445Z"
     },
     "capability.upstream-repair": {
       "behavior_paths": [
@@ -3684,7 +3715,7 @@
         "ablation",
         "evidence"
       ],
-      "updated_at": "2026-08-02T10:16:52.556119Z"
+      "updated_at": "2026-08-02T13:04:47.156136Z"
     },
     "capability.utility-plane": {
       "behavior_paths": [
@@ -3717,7 +3748,7 @@
         "outcome",
         "evidence"
       ],
-      "updated_at": "2026-08-02T10:16:52.553566Z"
+      "updated_at": "2026-08-02T13:04:47.154802Z"
     },
     "domain.ci-security": {
       "behavior_paths": [
@@ -4023,7 +4054,7 @@
         "bootstrap",
         "evolution-route"
       ],
-      "updated_at": "2026-08-02T10:16:52.551386Z"
+      "updated_at": "2026-08-02T13:04:47.151613Z"
     },
     "repo.import-health": {
       "behavior_paths": [
@@ -4047,7 +4078,7 @@
         "bootstrap",
         "health"
       ],
-      "updated_at": "2026-08-02T10:16:52.551088Z"
+      "updated_at": "2026-08-02T13:04:47.150433Z"
     },
     "unbound.milestone-gate": {
       "behavior_paths": [
@@ -4072,9 +4103,9 @@
         "bootstrap",
         "unbound"
       ],
-      "updated_at": "2026-08-02T10:16:52.551212Z"
+      "updated_at": "2026-08-02T13:04:47.151374Z"
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-08-02T10:25:30.843023Z"
+  "updated_at": "2026-08-02T13:04:47.156720Z"
 }

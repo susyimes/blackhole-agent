@@ -329,6 +329,7 @@ def build_contribution(
                 baseline=baseline,
                 patched=None,
                 head_ref=head_refs[0],
+                head_triage=head_verdict,
             )
             return {"ok": True, "submittable": False, "verdict": head_verdict, "bundle_dir": bundle}
 
@@ -377,6 +378,7 @@ def build_contribution(
             baseline=baseline,
             patched=patched,
             head_ref=head_refs[0],
+            head_triage=head_verdict,
         )
         return {
             "ok": True,
@@ -402,6 +404,7 @@ def _seal_bundle(
     baseline: dict[str, Any],
     patched: dict[str, Any] | None,
     head_ref: str,
+    head_triage: str,
 ) -> str:
     root = Path(out_root) if out_root else ARTIFACTS_ROOT
     stamp = utc_now_iso().replace(":", "").replace("-", "")
@@ -424,6 +427,8 @@ def _seal_bundle(
         "upstream_repo": manifest["upstream_repo"],
         "tag_ref": manifest["version"],
         "head_ref": head_ref,
+        "reproduced_at_tag": True,
+        "head_triage": head_triage,
         "verdict": verdict,
         "submittable": submittable,
         "baseline_suite": baseline,

@@ -5,6 +5,7 @@
       "kind": "crash",
       "patch": "patches/long-decimal-int-valueerror.patch",
       "repro": "repros/long_decimal_int.py",
+      "regression_test": "regression-tests/test_long_decimal_int.py",
       "title": "Decimal integer literal with more digits than sys.get_int_max_str_digits() escapes loads() as uncaught ValueError instead of TOMLDecodeError",
       "upstream_ref": "discovered autonomously by capability.upstream-discovery (digit_run generator, minimized n=4500) on the live frontier target tomli 2.4.1 (latest upstream release, onboarded by capability.upstream-frontier); tomli's _parser.py sanctions only RecursionError for pathological input - ValueError leaking from int() conversion is undocumented and unintended"
     }
