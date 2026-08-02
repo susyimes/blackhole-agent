@@ -402,7 +402,9 @@ def synthesize_repro(
     )
     path = dest / f"{generator}.py"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding="utf-8")
+    # Write bytes, not text: repro_sha256 must be host-independent, and CRLF
+    # translation on Windows would change the sealed evidence hash.
+    path.write_bytes(content.encode("utf-8"))
     return path
 
 

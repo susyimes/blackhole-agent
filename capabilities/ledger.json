@@ -17,7 +17,7 @@
       "id": "capability.ablation-proof",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T20:44:58.529078Z",
+      "last_proved_at": "2026-08-02T10:16:37.968747Z",
       "name": "Capability ablation proof",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_ablation_proof; r=builtin_ablation_proof(); assert r['ok'] and r.get('action')=='ablation_proof' and r.get('live_ledger_mutated') is False and r.get('passed_count',0) >= 3 and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -29,7 +29,7 @@
         "ablation",
         "evidence"
       ],
-      "updated_at": "2026-08-02T04:28:48.879287Z"
+      "updated_at": "2026-08-02T10:16:52.552500Z"
     },
     "capability.absorbed-mistune-markdown": {
       "behavior_paths": [
@@ -49,7 +49,7 @@
       "id": "capability.absorbed-mistune-markdown",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-02T02:27:56.258397Z",
+      "last_proved_at": "2026-08-02T10:16:38.433993Z",
       "name": "Absorbed external capability: mistune markdown renderer (github.com/lepture/mistune)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('mistune-markdown'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
       "source_milestone": null,
@@ -58,7 +58,7 @@
         "absorbed",
         "external"
       ],
-      "updated_at": "2026-08-02T02:27:56.258397Z"
+      "updated_at": "2026-08-02T10:16:38.433993Z"
     },
     "capability.absorbed-text-reverser": {
       "behavior_paths": [
@@ -78,7 +78,7 @@
       "id": "capability.absorbed-text-reverser",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-02T02:27:56.577179Z",
+      "last_proved_at": "2026-08-02T10:25:30.842996Z",
       "name": "Absorbed external capability: Text Reverser (external fixture tool)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('text-reverser'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
       "source_milestone": null,
@@ -87,7 +87,7 @@
         "absorbed",
         "external"
       ],
-      "updated_at": "2026-08-02T02:27:56.577179Z"
+      "updated_at": "2026-08-02T10:25:30.842996Z"
     },
     "capability.absorption-plane": {
       "behavior_paths": [
@@ -176,7 +176,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-02T04:28:48.880119Z"
+      "updated_at": "2026-08-02T10:16:52.553424Z"
     },
     "capability.adaptive-grow": {
       "behavior_paths": [
@@ -208,7 +208,7 @@
         "growth",
         "adaptive"
       ],
-      "updated_at": "2026-08-02T04:28:48.878509Z"
+      "updated_at": "2026-08-02T10:16:52.551663Z"
     },
     "capability.adversarial-contract": {
       "behavior_paths": [
@@ -241,7 +241,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-08-02T04:28:48.879420Z"
+      "updated_at": "2026-08-02T10:16:52.552642Z"
     },
     "capability.application-plane": {
       "behavior_paths": [
@@ -262,7 +262,7 @@
       "id": "capability.application-plane",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T18:52:51.937764Z",
+      "last_proved_at": "2026-08-02T10:16:39.353819Z",
       "name": "Capability application plane",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_application import builtin_application_plane; r=builtin_application_plane(); assert r['ok'] and r.get('application',{}).get('application_score')==1.0 and r.get('application',{}).get('unsolvable_count')==0 and r.get('planner_honesty') and r.get('deterministic') and r.get('tamper_detected') and r.get('unsound_plan_detected') and r.get('misgrade_detected') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -276,7 +276,7 @@
         "outcome",
         "evidence"
       ],
-      "updated_at": "2026-08-02T04:28:48.880332Z"
+      "updated_at": "2026-08-02T10:16:52.553642Z"
     },
     "capability.assurance-plane": {
       "behavior_paths": [
@@ -313,7 +313,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-08-02T04:28:48.879489Z"
+      "updated_at": "2026-08-02T10:16:52.552714Z"
     },
     "capability.auto-kernel-routing": {
       "behavior_paths": [
@@ -377,7 +377,7 @@
         "autonomic",
         "novelty"
       ],
-      "updated_at": "2026-08-02T04:28:48.878787Z"
+      "updated_at": "2026-08-02T10:16:52.551975Z"
     },
     "capability.composed-core-health": {
       "behavior_paths": [
@@ -957,7 +957,7 @@
         "redundant",
         "distilled"
       ],
-      "updated_at": "2026-08-01T20:44:56.320425Z"
+      "updated_at": "2026-08-02T10:16:14.269459Z"
     },
     "capability.composed-meta-core-health-domain-core-domain-ops-e": {
       "behavior_paths": [
@@ -990,7 +990,7 @@
         "redundant",
         "distilled"
       ],
-      "updated_at": "2026-08-01T20:44:56.320447Z"
+      "updated_at": "2026-08-02T10:16:14.269476Z"
     },
     "capability.composed-meta-core-health-domain-core-domain-ops-g": {
       "behavior_paths": [
@@ -1023,7 +1023,7 @@
         "redundant",
         "distilled"
       ],
-      "updated_at": "2026-08-01T20:44:56.320456Z"
+      "updated_at": "2026-08-02T10:16:14.269483Z"
     },
     "capability.composed-meta-core-health-domain-core-domain-ops-s": {
       "behavior_paths": [
@@ -1118,7 +1118,7 @@
         "redundant",
         "distilled"
       ],
-      "updated_at": "2026-08-01T20:44:56.320369Z"
+      "updated_at": "2026-08-02T10:16:14.269420Z"
     },
     "capability.composed-meta-core-health-domain-core-platform": {
       "behavior_paths": [
@@ -1151,7 +1151,7 @@
         "redundant",
         "distilled"
       ],
-      "updated_at": "2026-08-01T20:44:56.320419Z"
+      "updated_at": "2026-08-02T10:16:14.269455Z"
     },
     "capability.composed-meta-core-health-domain-core-second-wave": {
       "behavior_paths": [
@@ -1277,7 +1277,7 @@
         "redundant",
         "distilled"
       ],
-      "updated_at": "2026-08-01T20:44:56.320443Z"
+      "updated_at": "2026-08-02T10:16:14.269473Z"
     },
     "capability.composed-meta-core-health-domain-ops-domain-core-g": {
       "behavior_paths": [
@@ -1371,7 +1371,7 @@
         "redundant",
         "distilled"
       ],
-      "updated_at": "2026-08-01T20:44:56.320438Z"
+      "updated_at": "2026-08-02T10:16:14.269469Z"
     },
     "capability.composed-meta-platform-domain-full": {
       "behavior_paths": [
@@ -1403,7 +1403,7 @@
         "redundant",
         "distilled"
       ],
-      "updated_at": "2026-08-01T20:44:56.320411Z"
+      "updated_at": "2026-08-02T10:16:14.269449Z"
     },
     "capability.composed-meta-platform-evolution": {
       "behavior_paths": [
@@ -2118,7 +2118,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-08-02T04:28:48.879768Z"
+      "updated_at": "2026-08-02T10:16:52.553066Z"
     },
     "capability.contract-plane": {
       "behavior_paths": [
@@ -2153,7 +2153,7 @@
         "evidence",
         "growth"
       ],
-      "updated_at": "2026-08-02T04:28:48.879218Z"
+      "updated_at": "2026-08-02T10:16:52.552412Z"
     },
     "capability.distill-ledger": {
       "behavior_paths": [
@@ -2183,7 +2183,7 @@
         "growth",
         "distill"
       ],
-      "updated_at": "2026-08-02T04:28:48.878719Z"
+      "updated_at": "2026-08-02T10:16:52.551901Z"
     },
     "capability.execution-plane": {
       "behavior_paths": [
@@ -2236,7 +2236,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-02T04:28:48.880046Z"
+      "updated_at": "2026-08-02T10:16:52.553354Z"
     },
     "capability.federation-plane": {
       "behavior_paths": [
@@ -2281,7 +2281,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-08-02T04:28:48.879837Z"
+      "updated_at": "2026-08-02T10:16:52.553138Z"
     },
     "capability.finality-plane": {
       "behavior_paths": [
@@ -2330,7 +2330,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-02T04:28:48.879978Z"
+      "updated_at": "2026-08-02T10:16:52.553281Z"
     },
     "capability.fragility-audit": {
       "behavior_paths": [
@@ -2366,7 +2366,7 @@
         "recovery",
         "evidence"
       ],
-      "updated_at": "2026-08-02T04:28:48.880467Z"
+      "updated_at": "2026-08-02T10:16:52.553792Z"
     },
     "capability.frontier-novelty": {
       "behavior_paths": [
@@ -2396,7 +2396,7 @@
         "growth",
         "novelty"
       ],
-      "updated_at": "2026-08-02T04:28:48.878650Z"
+      "updated_at": "2026-08-02T10:16:52.551827Z"
     },
     "capability.github-live-actuation": {
       "behavior_paths": [
@@ -2455,7 +2455,7 @@
         "mission",
         "planner"
       ],
-      "updated_at": "2026-08-02T04:28:48.878855Z"
+      "updated_at": "2026-08-02T10:16:52.552051Z"
     },
     "capability.goal-stack-health": {
       "behavior_paths": [
@@ -2492,7 +2492,7 @@
         "composition",
         "evidence"
       ],
-      "updated_at": "2026-08-02T04:28:48.880823Z"
+      "updated_at": "2026-08-02T10:16:52.556043Z"
     },
     "capability.goal-watchdog": {
       "behavior_paths": [
@@ -2526,7 +2526,7 @@
         "application",
         "evidence"
       ],
-      "updated_at": "2026-08-02T04:28:48.880616Z"
+      "updated_at": "2026-08-02T10:16:52.553930Z"
     },
     "capability.grounded-growth-loop": {
       "behavior_paths": [
@@ -2614,7 +2614,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-08-02T04:28:48.878438Z"
+      "updated_at": "2026-08-02T10:16:52.551583Z"
     },
     "capability.growth-proof-audit-gate": {
       "behavior_paths": [
@@ -2674,7 +2674,7 @@
         "integrity",
         "evidence"
       ],
-      "updated_at": "2026-08-02T04:28:48.880548Z"
+      "updated_at": "2026-08-02T10:16:52.553862Z"
     },
     "capability.ledger-integrity": {
       "behavior_paths": [
@@ -2702,7 +2702,7 @@
         "compounder",
         "integrity"
       ],
-      "updated_at": "2026-08-02T04:28:48.878579Z"
+      "updated_at": "2026-08-02T10:16:52.551738Z"
     },
     "capability.ledger-inventory": {
       "behavior_paths": [
@@ -2719,7 +2719,7 @@
       "id": "capability.ledger-inventory",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T20:44:56.830567Z",
+      "last_proved_at": "2026-08-02T10:16:37.073055Z",
       "name": "Capability ledger inventory",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_ledger_inventory; r=builtin_ledger_inventory(); assert r['ok'] and r['count'] >= 2\"",
       "source_milestone": null,
@@ -2728,7 +2728,7 @@
         "bootstrap",
         "compounder"
       ],
-      "updated_at": "2026-08-02T04:28:48.878217Z"
+      "updated_at": "2026-08-02T10:16:52.551303Z"
     },
     "capability.ledger-proof-reaudit": {
       "behavior_paths": [
@@ -2798,7 +2798,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-08-02T04:28:48.879629Z"
+      "updated_at": "2026-08-02T10:16:52.552860Z"
     },
     "capability.mcp-live-execution": {
       "behavior_paths": [
@@ -2944,7 +2944,7 @@
         "growth",
         "second-wave"
       ],
-      "updated_at": "2026-08-02T04:28:48.879060Z"
+      "updated_at": "2026-08-02T10:16:52.552268Z"
     },
     "capability.multi-kernel-harness-routing": {
       "behavior_paths": [
@@ -3003,7 +3003,7 @@
         "contract",
         "evidence"
       ],
-      "updated_at": "2026-08-02T04:28:48.879132Z"
+      "updated_at": "2026-08-02T10:16:52.552341Z"
     },
     "capability.plane-engine": {
       "behavior_paths": [
@@ -3100,7 +3100,7 @@
         "synthesis",
         "evidence"
       ],
-      "updated_at": "2026-08-02T04:28:48.880755Z"
+      "updated_at": "2026-08-02T10:16:52.555915Z"
     },
     "capability.program-run": {
       "behavior_paths": [
@@ -3130,7 +3130,7 @@
         "mission",
         "program"
       ],
-      "updated_at": "2026-08-02T04:28:48.878923Z"
+      "updated_at": "2026-08-02T10:16:52.552124Z"
     },
     "capability.quorum-plane": {
       "behavior_paths": [
@@ -3177,7 +3177,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-02T04:28:48.879907Z"
+      "updated_at": "2026-08-02T10:16:52.553209Z"
     },
     "capability.reconciliation-plane": {
       "behavior_paths": [
@@ -3220,7 +3220,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-08-02T04:28:48.879698Z"
+      "updated_at": "2026-08-02T10:16:52.552993Z"
     },
     "capability.recovery-loop": {
       "behavior_paths": [
@@ -3256,7 +3256,7 @@
         "self-healing",
         "evidence"
       ],
-      "updated_at": "2026-08-02T04:28:48.880398Z"
+      "updated_at": "2026-08-02T10:16:52.553720Z"
     },
     "capability.repair-plane": {
       "behavior_paths": [
@@ -3291,7 +3291,7 @@
         "fitness",
         "evidence"
       ],
-      "updated_at": "2026-08-02T04:28:48.880196Z"
+      "updated_at": "2026-08-02T10:16:52.553495Z"
     },
     "capability.runtime-conformance": {
       "behavior_paths": [
@@ -3350,7 +3350,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-08-02T04:28:48.878367Z"
+      "updated_at": "2026-08-02T10:16:52.551505Z"
     },
     "capability.second-wave-absorb": {
       "behavior_paths": [
@@ -3384,7 +3384,7 @@
         "second-wave",
         "domain"
       ],
-      "updated_at": "2026-08-02T04:28:48.878991Z"
+      "updated_at": "2026-08-02T10:16:52.552196Z"
     },
     "capability.sovereignty-plane": {
       "behavior_paths": [
@@ -3423,7 +3423,7 @@
         "certificate",
         "evidence"
       ],
-      "updated_at": "2026-08-02T04:28:48.879555Z"
+      "updated_at": "2026-08-02T10:16:52.552785Z"
     },
     "capability.synthesis-plane": {
       "behavior_paths": [
@@ -3456,7 +3456,7 @@
         "goal-directed",
         "evidence"
       ],
-      "updated_at": "2026-08-02T04:28:48.880682Z"
+      "updated_at": "2026-08-02T10:16:52.555815Z"
     },
     "capability.synthesized-scan-verdict-label": {
       "behavior_paths": [
@@ -3583,7 +3583,7 @@
         "transfer",
         "package"
       ],
-      "updated_at": "2026-08-02T04:28:48.879355Z"
+      "updated_at": "2026-08-02T10:16:52.552571Z"
     },
     "capability.upstream-discovery": {
       "behavior_paths": [
@@ -3616,7 +3616,40 @@
         "security",
         "evidence"
       ],
-      "updated_at": "2026-08-02T04:28:48.880953Z"
+      "updated_at": "2026-08-02T10:16:52.556192Z"
+    },
+    "capability.upstream-frontier": {
+      "behavior_paths": [
+        "src/blackhole_agent/upstream_frontier.py",
+        "stewardship/mistune-3.3.4"
+      ],
+      "capability_delta": "The stewardship loop no longer stops at historical releases whose defects upstream already fixed: any PyPI project's latest release can be onboarded as a sha256-pinned, provenance-checked, smoke-tested discovery target in one step, and the battery immediately measures it blind - the first frontier scan produced a genuinely novel, unfixed quadratic DoS in mistune 3.3.4 (latest), without skill-route.",
+      "created_at": "2026-08-02T10:16:03.212724Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.upstream-discovery"
+      ],
+      "description": "Extends the discovery plane's reach from pinned historical releases to the live upstream frontier. Given only a PyPI project name, the plane resolves the latest release from index metadata, downloads the sdist, pins it by the index-declared sha256 (mismatched downloads are rejected before any manifest exists), auto-detects the importable source layout (flat or src/), validates the driver prelude statically, and proves it with a subprocess smoke test against the extracted frontier tree. The result is an ordinary stewardship target with an empty defects list, so the discovery battery scans it blind from the moment it is onboarded; onboarding is idempotent and detects on-disk sdist tampering. First frontier target mistune 3.3.4 (latest upstream release): the discovery battery found a quadratic footnote-definition parsing defect (exponent ~1.9, 3.35s at n=16000) that is absent from the 3.3.x changelogs including 'Unreleased' - unfixed and undocumented upstream.",
+      "entry": "blackhole_agent.upstream_frontier:builtin_upstream_frontier_proof",
+      "id": "capability.upstream-frontier",
+      "kind": "python",
+      "last_proof_exit_code": null,
+      "last_proved_at": "",
+      "name": "Upstream frontier plane (latest-release onboarding)",
+      "proof_command": "uv run python -c \"from blackhole_agent.upstream_frontier import builtin_upstream_frontier_proof; r=builtin_upstream_frontier_proof(); assert r['ok'] and r.get('pinned') and r.get('reused') and r.get('tamper_detected') and r.get('mismatch_rejected') and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "bootstrap",
+        "compounder",
+        "upstream",
+        "frontier",
+        "discovery",
+        "security",
+        "evidence"
+      ],
+      "updated_at": "2026-08-02T10:16:52.556262Z"
     },
     "capability.upstream-repair": {
       "behavior_paths": [
@@ -3631,7 +3664,7 @@
         "capability.ledger-inventory",
         "capability.ablation-proof"
       ],
-      "description": "Provable security stewardship of real vendored upstream releases, generalized over stewardship manifests: every stewardship/<target>/ with a manifest.json is a pinned release (PyPI sdist, sha256 verified) with documented upstream defects, one repro and one minimal unified-diff patch per defect. Current targets: mistune 3.2.0 (eleven defects: nine fixed upstream in 3.2.1 - math/heading-id/TOC-link/block-error/admonition/figure XSS, image alt double-encoding, image width validation, LINK_TITLE_RE ReDoS - plus the ref-link blank-line rescan and nested link/image bracket rescan quadratic DoS defects discovered autonomously by capability.upstream-discovery and backported from the 3.2.1 root-cause repairs) and mistune 3.2.1 (nine defects fixed upstream in 3.3.x: TOC heading-ID collision, image directive unsafe URL and figwidth CSS injection, percent-encoded harmful URL scheme bypass, math currency/cross-line misparsing, include directive traversal/circular/CRLF hardening, RST renderer nested-blockquote crash, the ref-link blank-line rescan quadratic DoS, and the nested link/image bracket rescan quadratic DoS - the latter two discovered autonomously by capability.upstream-discovery and carried end-to-end through this campaign). Per target the campaign verifies sdist provenance, reproduces every defect on the pristine tree (each repro must fail), applies patches with a strict zero-fuzz applier, re-runs every repro (must pass), runs the upstream test suite on both pristine and repaired trees (both green; repaired suites additionally run upstream's own added security regression tests), and proves causality by per-defect ablation: all patches except one must re-open exactly that defect. Reports are digest-sealed with sha256 of the sdist, every repro, and every patch; verification is pure (digests recomputed from recorded outcomes, on-disk evidence re-hashed) and is falsified per target by a tamper probe.",
+      "description": "Provable security stewardship of real vendored upstream releases, generalized over stewardship manifests: every stewardship/<target>/ with a manifest.json is a pinned release (PyPI sdist, sha256 verified) with documented upstream defects, one repro and one minimal unified-diff patch per defect. Current targets: mistune 3.2.0 (nine defects fixed upstream in 3.2.1: math/heading-id/TOC-link/block-error/admonition/figure XSS, image alt double-encoding, image width validation, LINK_TITLE_RE ReDoS) and mistune 3.2.1 (eight defects fixed upstream in 3.3.x: TOC heading-ID collision, image directive unsafe URL and figwidth CSS injection, percent-encoded harmful URL scheme bypass, math currency/cross-line misparsing, include directive traversal/circular/CRLF hardening, RST renderer nested-blockquote crash, and the ref-link blank-line rescan quadratic DoS discovered autonomously by capability.upstream-discovery and carried end-to-end through this campaign). Per target the campaign verifies sdist provenance, reproduces every defect on the pristine tree (each repro must fail), applies patches with a strict zero-fuzz applier, re-runs every repro (must pass), runs the upstream test suite on both pristine and repaired trees (both green; repaired suites additionally run upstream's own added security regression tests), and proves causality by per-defect ablation: all patches except one must re-open exactly that defect. Reports are digest-sealed with sha256 of the sdist, every repro, and every patch; verification is pure (digests recomputed from recorded outcomes, on-disk evidence re-hashed) and is falsified per target by a tamper probe.",
       "entry": "blackhole_agent.upstream_repair:builtin_upstream_repair_proof",
       "id": "capability.upstream-repair",
       "kind": "python",
@@ -3651,7 +3684,7 @@
         "ablation",
         "evidence"
       ],
-      "updated_at": "2026-08-02T04:28:48.880888Z"
+      "updated_at": "2026-08-02T10:16:52.556119Z"
     },
     "capability.utility-plane": {
       "behavior_paths": [
@@ -3671,7 +3704,7 @@
       "id": "capability.utility-plane",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T17:05:11.001057Z",
+      "last_proved_at": "2026-08-02T10:16:38.987159Z",
       "name": "Capability utility plane",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_utility import builtin_utility_plane; r=builtin_utility_plane(); assert r['ok'] and r.get('utility',{}).get('utility_score')==1.0 and r.get('utility',{}).get('ablation_break_count')==r.get('utility',{}).get('ablation_count') and r.get('tamper_detected') and r.get('ablation_fabrication_detected') and r.get('misgrade_detected') and r.get('deterministic') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -3684,7 +3717,7 @@
         "outcome",
         "evidence"
       ],
-      "updated_at": "2026-08-02T04:28:48.880266Z"
+      "updated_at": "2026-08-02T10:16:52.553566Z"
     },
     "domain.ci-security": {
       "behavior_paths": [
@@ -3990,7 +4023,7 @@
         "bootstrap",
         "evolution-route"
       ],
-      "updated_at": "2026-08-02T04:28:48.878294Z"
+      "updated_at": "2026-08-02T10:16:52.551386Z"
     },
     "repo.import-health": {
       "behavior_paths": [
@@ -4005,7 +4038,7 @@
       "id": "repo.import-health",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T20:45:54.432930Z",
+      "last_proved_at": "2026-08-02T10:16:36.933218Z",
       "name": "Repository import health",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_repo_import_health; r=builtin_repo_import_health(); assert r['ok'] and not r['skill_route_symbols_in_compounder']\"",
       "source_milestone": null,
@@ -4014,7 +4047,7 @@
         "bootstrap",
         "health"
       ],
-      "updated_at": "2026-08-02T04:28:48.878013Z"
+      "updated_at": "2026-08-02T10:16:52.551088Z"
     },
     "unbound.milestone-gate": {
       "behavior_paths": [
@@ -4030,7 +4063,7 @@
       "id": "unbound.milestone-gate",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-01T20:44:57.307969Z",
+      "last_proved_at": "2026-08-02T10:16:37.281164Z",
       "name": "Unbound milestone gate smoke",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_milestone_gate_smoke; r=builtin_milestone_gate_smoke(); assert r['ok']\"",
       "source_milestone": null,
@@ -4039,9 +4072,9 @@
         "bootstrap",
         "unbound"
       ],
-      "updated_at": "2026-08-02T04:28:48.878130Z"
+      "updated_at": "2026-08-02T10:16:52.551212Z"
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-08-02T04:28:48.881071Z"
+  "updated_at": "2026-08-02T10:25:30.843023Z"
 }

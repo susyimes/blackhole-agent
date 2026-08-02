@@ -183,7 +183,9 @@ def atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".tmp")
     text = json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
-    temporary.write_text(text, encoding="utf-8")
+    # Write bytes, not text: on CRLF hosts text mode translates "\n" and
+    # corrupts digest-sealed trees (the bytes must be identical on every host).
+    temporary.write_bytes(text.encode("utf-8"))
     # Windows may transiently lock the target while another capability subprocess
     # still has the ledger open; retry replace briefly before failing hard.
     last_error: Exception | None = None
@@ -19777,6 +19779,75 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "upstream",
                 "discovery",
                 "fuzzing",
+                "security",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.upstream-frontier",
+            name="Upstream frontier plane (latest-release onboarding)",
+            description=(
+                "Extends the discovery plane's reach from pinned historical "
+                "releases to the live upstream frontier. Given only a PyPI "
+                "project name, the plane resolves the latest release from "
+                "index metadata, downloads the sdist, pins it by the "
+                "index-declared sha256 (mismatched downloads are rejected "
+                "before any manifest exists), auto-detects the importable "
+                "source layout (flat or src/), validates the driver prelude "
+                "statically, and proves it with a subprocess smoke test "
+                "against the extracted frontier tree. The result is an "
+                "ordinary stewardship target with an empty defects list, so "
+                "the discovery battery scans it blind from the moment it is "
+                "onboarded; onboarding is idempotent and detects on-disk "
+                "sdist tampering. First frontier target mistune 3.3.4 "
+                "(latest upstream release): the discovery battery found a "
+                "quadratic footnote-definition parsing defect (exponent "
+                "~1.9, 3.35s at n=16000) that is absent from the 3.3.x "
+                "changelogs including 'Unreleased' - unfixed and "
+                "undocumented upstream. The loop then closed on the "
+                "frontier: root cause (O(n) list membership per footnote "
+                "reference in parse_inline_footnote despite the "
+                "footnote_indexes dict) repaired by a one-line patch, "
+                "sealed by a repair campaign with causal ablation and "
+                "mistune's own 1155-test suite green on the patched tree."
+            ),
+            kind="python",
+            entry="blackhole_agent.upstream_frontier:builtin_upstream_frontier_proof",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.upstream_frontier import builtin_upstream_frontier_proof; '
+                "r=builtin_upstream_frontier_proof(); assert r['ok'] "
+                "and r.get('pinned') and r.get('reused') "
+                "and r.get('tamper_detected') and r.get('mismatch_rejected') "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.upstream-discovery",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/upstream_frontier.py",
+                "stewardship/mistune-3.3.4",
+            ),
+            capability_delta=(
+                "The stewardship loop no longer stops at historical releases "
+                "whose defects upstream already fixed: any PyPI project's "
+                "latest release can be onboarded as a sha256-pinned, "
+                "provenance-checked, smoke-tested discovery target in one "
+                "step, and the battery immediately measures it blind - the "
+                "first frontier scan produced a genuinely novel, unfixed "
+                "quadratic DoS in mistune 3.3.4 (latest), without "
+                "skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "upstream",
+                "frontier",
+                "discovery",
                 "security",
                 "evidence",
             ),

@@ -3,6 +3,9 @@
 # and unified-diff context matching.
 capabilities/absorbed/** text eol=lf
 stewardship/** text eol=lf
+# Absorption fixtures are re-vendored into sealed trees: they must also
+# check out byte-identical, or re-absorption on CRLF hosts corrupts digests.
+tests/fixtures/** text eol=lf
 # Vendored release archives are binary: EOL normalization corrupts their
 # gzip streams (this is what broke the mistune-3.2.1 sdist provenance pin).
 stewardship/**/*.tar.gz binary
