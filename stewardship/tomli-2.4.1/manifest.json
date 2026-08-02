@@ -1,0 +1,22 @@
+{
+  "defects": [],
+  "driver": {
+    "prelude": "import tomli\n\n\ndef render(text, plugins):\n    # Feed generated text to the TOML parser both as a standalone document\n    # and as a value in assignment context, so value-shaped probes\n    # (e.g. nested arrays) reach the parser core. TOMLDecodeError is the\n    # parser's specified rejection of invalid input, not a defect.\n    try:\n        tomli.loads(text)\n    except tomli.TOMLDecodeError:\n        pass\n    try:\n        tomli.loads(\"k = \" + text)\n    except tomli.TOMLDecodeError:\n        pass\n",
+    "smoke_input": "key = \"value\"\n\n[table]\nlist = [1, 2, 3]\nnested = {a = 1, b = {c = 2}}\n"
+  },
+  "fixed_in": null,
+  "frontier": true,
+  "kind": "pypi-sdist",
+  "name": "tomli",
+  "pypi_index_url": "https://pypi.org/pypi/tomli/json",
+  "retrieved_at": "2026-08-02T11:39:40.656258Z",
+  "schema_version": 1,
+  "sdist": "tomli-2.4.1.tar.gz",
+  "sdist_sha256": "7c7e1a961a0b2f2472c1ac5b69affa0ae1132c39adcb67aba98568702b9cc23f",
+  "source_url": "https://files.pythonhosted.org/packages/22/de/48c59722572767841493b26183a0d1cc411d54fd759c5607c4590b6563a6/tomli-2.4.1.tar.gz",
+  "src_subdir": "tomli-2.4.1/src",
+  "tests_subdir": null,
+  "upstream_changelog": null,
+  "upstream_repo": "https://github.com/hukkin/tomli",
+  "version": "2.4.1"
+}

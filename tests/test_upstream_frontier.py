@@ -124,9 +124,41 @@ def test_onboard_frontier_target_end_to_end_and_idempotent(tmp_path) -> None:
     assert manifest["defects"] == []
     assert manifest["src_subdir"] == "foolib-9.9.9/src"
     assert manifest["driver"]["prelude"] == _PRELUDE
+    assert manifest["driver"]["smoke_input"] == uf.DEFAULT_SMOKE_INPUT
 
     again = uf.onboard_frontier_target("foolib", _PRELUDE, stewardship_root=tmp_path, fetcher=fetcher)
     assert again["ok"] and again["reused"]
+
+
+def test_onboard_frontier_target_custom_smoke_input(tmp_path) -> None:
+    """A non-markdown target declares its own smoke probe input."""
+    buf = io.BytesIO()
+    init_src = (
+        b"def render_text(text):\n"
+        b"    if not text.startswith('key'):\n"
+        b"        raise ValueError('not a document')\n"
+        b"    return text\n"
+    )
+    with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+        info = tarfile.TarInfo("foolib-9.9.9/src/foolib/__init__.py")
+        info.size = len(init_src)
+        tar.addfile(info, io.BytesIO(init_src))
+    sdist = buf.getvalue()
+    digest = hashlib.sha256(sdist).hexdigest()
+    url = "https://x/foolib-9.9.9.tar.gz"
+    fetcher = _fake_fetcher(_index_payload("foolib", "9.9.9", url, digest), sdist, url)
+
+    # The markdown-shaped default is rejected by this driver.
+    with pytest.raises(ValueError, match="smoke test failed"):
+        uf.onboard_frontier_target("foolib", _PRELUDE, stewardship_root=tmp_path, fetcher=fetcher)
+
+    result = uf.onboard_frontier_target(
+        "foolib", _PRELUDE, smoke_input='key = "value"\n', stewardship_root=tmp_path, fetcher=fetcher
+    )
+    assert result["ok"]
+    manifest = json.loads((tmp_path / "foolib-9.9.9" / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["driver"]["smoke_input"] == 'key = "value"\n'
+    assert uf.load_smoke_input_from(tmp_path / "foolib-9.9.9") == 'key = "value"\n'
 
 
 def test_onboard_frontier_target_rejects_provenance_mismatch(tmp_path) -> None:

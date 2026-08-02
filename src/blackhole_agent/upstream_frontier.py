@@ -20,7 +20,9 @@ The driver prelude (how generated text is fed to the target) is the one
 piece of target knowledge the plane does not invent; it is supplied by the
 caller, typically reused from an earlier release of the same project via
 ``--driver-from``. The prelude is validated before admission: it must
-define a callable ``render``.
+define a callable ``render``. The smoke probe input the driver is proven
+against is likewise declared by the caller (``--smoke-input-file``);
+it defaults to a markdown-shaped sample for historical renderer targets.
 
 Determinism contract: the manifest records only index-declared metadata and
 digests, never timestamps of the scan or download paths; the onboarded
@@ -58,6 +60,10 @@ STEWARDSHIP_ROOT = REPO_ROOT / "stewardship"
 
 PYPI_INDEX_URL = "https://pypi.org/pypi/{name}/json"
 DOWNLOAD_TIMEOUT_SECONDS = 60
+
+# Default smoke probe input, shaped for markdown renderers. Non-markdown
+# target classes declare their own via ``driver.smoke_input``.
+DEFAULT_SMOKE_INPUT = "# frontier smoke\n\ntext with [a](b) and `code`\n"
 
 
 @dataclass(frozen=True)
@@ -185,13 +191,18 @@ def validate_driver_prelude(prelude: str) -> None:
     raise ValueError("driver prelude must define render(text, plugins)")
 
 
-def smoke_test_driver(src_dir: Path, prelude: str) -> None:
-    """Prove the driver actually drives the onboarded tree, in isolation."""
+def smoke_test_driver(src_dir: Path, prelude: str, smoke_input: str = DEFAULT_SMOKE_INPUT) -> None:
+    """Prove the driver actually drives the onboarded tree, in isolation.
+
+    The smoke input is target-class knowledge, declared alongside the
+    prelude: a markdown renderer smokes on markdown text, a TOML parser on
+    a TOML document.
+    """
     worker = (
         "import sys\n"
         f"sys.path.insert(0, {str(src_dir)!r})\n"
         f"{prelude}\n"
-        "render('# frontier smoke\\n\\ntext with [a](b) and `code`\\n', [])\n"
+        f"render({smoke_input!r}, [])\n"
     )
     proc = subprocess.run(
         [sys.executable, "-c", worker],
@@ -207,6 +218,7 @@ def onboard_frontier_target(
     pypi_name: str,
     driver_prelude: str,
     *,
+    smoke_input: str | None = None,
     stewardship_root: Path | None = None,
     fetcher: Any = None,
     retrieved_at: str | None = None,
@@ -227,6 +239,7 @@ def onboard_frontier_target(
             return {"ok": True, "target_dir": str(target_dir), "version": release.version, "reused": True}
 
     validate_driver_prelude(driver_prelude)
+    smoke_input = DEFAULT_SMOKE_INPUT if smoke_input is None else smoke_input
     sdist_bytes = (fetcher or _http_get)(release.sdist_url)
     actual_sha256 = _sha256_bytes(sdist_bytes)
     if actual_sha256 != release.sdist_sha256:
@@ -244,7 +257,7 @@ def onboard_frontier_target(
     with tempfile.TemporaryDirectory(prefix="frontier-smoke-") as scratch:
         with tarfile.open(fileobj=io.BytesIO(sdist_bytes), mode="r:gz") as tar:
             tar.extractall(scratch, filter="data")
-        smoke_test_driver(Path(scratch) / src_subdir, driver_prelude)
+        smoke_test_driver(Path(scratch) / src_subdir, driver_prelude, smoke_input)
 
     manifest = {
         "schema_version": SCHEMA_VERSION,
@@ -262,7 +275,7 @@ def onboard_frontier_target(
         "tests_subdir": tests_subdir,
         "upstream_repo": release.upstream_repo,
         "upstream_changelog": None,
-        "driver": {"prelude": driver_prelude},
+        "driver": {"prelude": driver_prelude, "smoke_input": smoke_input},
         "defects": [],
     }
     atomic_write_json(manifest_path, manifest)
@@ -284,6 +297,12 @@ def load_driver_from(target_root: Path) -> str:
     """Reuse the driver prelude from an existing stewardship target."""
     manifest = json.loads(durable_read_path(target_root / "manifest.json").read_text(encoding="utf-8"))
     return manifest["driver"]["prelude"]
+
+
+def load_smoke_input_from(target_root: Path) -> str | None:
+    """Reuse the declared smoke input from an existing target, if any."""
+    manifest = json.loads(durable_read_path(target_root / "manifest.json").read_text(encoding="utf-8"))
+    return manifest["driver"].get("smoke_input")
 
 
 # ---------------------------------------------------------------------------
@@ -381,6 +400,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="existing stewardship target dir to reuse the driver prelude from",
     )
     onboard_p.add_argument("--driver-file", default=None, help="file containing a driver prelude")
+    onboard_p.add_argument(
+        "--smoke-input-file",
+        default=None,
+        help="file containing the driver smoke probe input (default: markdown-shaped sample; "
+        "reused from --driver-from when that manifest declares one)",
+    )
     args = parser.parse_args(argv)
 
     if args.command == "onboard":
@@ -390,7 +415,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             prelude = durable_read_path(Path(args.driver_file)).read_text(encoding="utf-8")
         else:
             parser.error("one of --driver-from or --driver-file is required")
-        result = onboard_frontier_target(args.pypi_name, prelude)
+        smoke_input: str | None = None
+        if args.smoke_input_file:
+            smoke_input = durable_read_path(Path(args.smoke_input_file)).read_text(encoding="utf-8")
+        elif args.driver_from:
+            smoke_input = load_smoke_input_from(Path(args.driver_from))
+        result = onboard_frontier_target(args.pypi_name, prelude, smoke_input=smoke_input)
         print(json.dumps(result, indent=2))
         return 0 if result.get("ok") else 1
     return 1

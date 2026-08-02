@@ -1,0 +1,332 @@
+{
+  "chain_digest": "16ba55af34573100481cdb32f67746d7b66262e0b4f097723b686cdc0319145b",
+  "finding_count": 1,
+  "findings": [
+    {
+      "exponent": 0.0,
+      "flagged": true,
+      "generator": "nested_link",
+      "kind": "crash",
+      "minimized_n": 531,
+      "pristine_repro_exit": 1,
+      "repro": "repros\\nested_link.py",
+      "repro_sha256": "e27ab61b97969393221e4cdbe46de4e47e84ffb14430b029f120b836931a0ce8",
+      "times": []
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "nested_image",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0
+        ],
+        [
+          2000,
+          0.0
+        ],
+        [
+          4000,
+          0.0
+        ],
+        [
+          8000,
+          0.0
+        ],
+        [
+          16000,
+          0.0
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "nested_emphasis",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0
+        ],
+        [
+          2000,
+          0.0
+        ],
+        [
+          4000,
+          0.0
+        ],
+        [
+          8000,
+          0.0001
+        ],
+        [
+          16000,
+          0.0001
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "unclosed_emphasis",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0
+        ],
+        [
+          2000,
+          0.0
+        ],
+        [
+          4000,
+          0.0
+        ],
+        [
+          8000,
+          0.0
+        ],
+        [
+          16000,
+          0.0001
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "link_suffixes",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0
+        ],
+        [
+          2000,
+          0.0
+        ],
+        [
+          4000,
+          0.0
+        ],
+        [
+          8000,
+          0.0
+        ],
+        [
+          16000,
+          0.0
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "backtick_runs",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0
+        ],
+        [
+          2000,
+          0.0
+        ],
+        [
+          4000,
+          0.0
+        ],
+        [
+          8000,
+          0.0
+        ],
+        [
+          16000,
+          0.0
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "footnote_refs",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0
+        ],
+        [
+          2000,
+          0.0
+        ],
+        [
+          4000,
+          0.0001
+        ],
+        [
+          8000,
+          0.0001
+        ],
+        [
+          16000,
+          0.0002
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "footnote_defs",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0
+        ],
+        [
+          2000,
+          0.0
+        ],
+        [
+          4000,
+          0.0
+        ],
+        [
+          8000,
+          0.0001
+        ],
+        [
+          16000,
+          0.0003
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "inline_links",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0
+        ],
+        [
+          2000,
+          0.0
+        ],
+        [
+          4000,
+          0.0
+        ],
+        [
+          8000,
+          0.0001
+        ],
+        [
+          16000,
+          0.0001
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "unclosed_spoiler",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0
+        ],
+        [
+          2000,
+          0.0
+        ],
+        [
+          4000,
+          0.0
+        ],
+        [
+          8000,
+          0.0
+        ],
+        [
+          16000,
+          0.0001
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "adjacent_ruby",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0
+        ],
+        [
+          2000,
+          0.0
+        ],
+        [
+          4000,
+          0.0
+        ],
+        [
+          8000,
+          0.0
+        ],
+        [
+          16000,
+          0.0001
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "table_row",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0
+        ],
+        [
+          2000,
+          0.0
+        ],
+        [
+          4000,
+          0.0
+        ],
+        [
+          8000,
+          0.0003
+        ],
+        [
+          16000,
+          0.0001
+        ]
+      ]
+    }
+  ],
+  "scanned_at": "2026-08-02T11:40:02.332188Z",
+  "schema_version": 1,
+  "sdist_sha256": "7c7e1a961a0b2f2472c1ac5b69affa0ae1132c39adcb67aba98568702b9cc23f",
+  "target": {
+    "name": "tomli",
+    "version": "2.4.1"
+  }
+}
