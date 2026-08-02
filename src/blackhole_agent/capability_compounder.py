@@ -19634,23 +19634,33 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
             id="capability.upstream-repair",
             name="Upstream repair plane (real-release security stewardship)",
             description=(
-                "Provable security stewardship of a real vendored upstream "
-                "release: mistune 3.2.0 (PyPI sdist, sha256 pinned) carries "
-                "nine defects that upstream documented and fixed in 3.2.1 - "
-                "math/heading-id/TOC-link/block-error/admonition/figure XSS, "
-                "image alt double-encoding, image width validation, and a "
-                "LINK_TITLE_RE ReDoS. The campaign verifies sdist provenance, "
-                "reproduces every defect on the pristine tree (each repro "
-                "must fail), applies minimal unified-diff patches with a "
-                "strict zero-fuzz applier, re-runs every repro (must pass), "
-                "runs the upstream test suite on both pristine and repaired "
-                "trees (both must be green), and proves causality by "
-                "per-defect ablation: all patches except one must re-open "
-                "exactly that defect. Reports are digest-sealed with sha256 "
-                "of the sdist, every repro, and every patch; verification is "
-                "pure (digests recomputed from recorded outcomes, on-disk "
-                "evidence re-hashed) so tampering with the report, a repro, "
-                "or a patch fails verification."
+                "Provable security stewardship of real vendored upstream "
+                "releases, generalized over stewardship manifests: every "
+                "stewardship/<target>/ with a manifest.json is a pinned "
+                "release (PyPI sdist, sha256 verified) with documented "
+                "upstream defects, one repro and one minimal unified-diff "
+                "patch per defect. Current targets: mistune 3.2.0 (nine "
+                "defects fixed upstream in 3.2.1: math/heading-id/TOC-link/"
+                "block-error/admonition/figure XSS, image alt double-"
+                "encoding, image width validation, LINK_TITLE_RE ReDoS) and "
+                "mistune 3.2.1 (seven defects fixed upstream in 3.3.x: TOC "
+                "heading-ID collision, image directive unsafe URL and "
+                "figwidth CSS injection, percent-encoded harmful URL scheme "
+                "bypass, math currency/cross-line misparsing, include "
+                "directive traversal/circular/CRLF hardening, RST renderer "
+                "nested-blockquote crash). Per target the campaign verifies "
+                "sdist provenance, reproduces every defect on the pristine "
+                "tree (each repro must fail), applies patches with a strict "
+                "zero-fuzz applier, re-runs every repro (must pass), runs "
+                "the upstream test suite on both pristine and repaired trees "
+                "(both green; repaired suites additionally run upstream's "
+                "own added security regression tests), and proves causality "
+                "by per-defect ablation: all patches except one must "
+                "re-open exactly that defect. Reports are digest-sealed "
+                "with sha256 of the sdist, every repro, and every patch; "
+                "verification is pure (digests recomputed from recorded "
+                "outcomes, on-disk evidence re-hashed) and is falsified per "
+                "target by a tamper probe."
             ),
             kind="python",
             entry="blackhole_agent.upstream_repair:builtin_upstream_repair_proof",
@@ -19658,8 +19668,9 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 f'"{sys.executable}" -c '
                 '"from blackhole_agent.upstream_repair import builtin_upstream_repair_proof; '
                 "r=builtin_upstream_repair_proof(); assert r['ok'] "
-                "and r.get('repair_score')==1.0 and r.get('repaired_count')==9 "
-                "and r.get('defect_count')==9 "
+                "and r.get('target_count')>=2 "
+                "and r.get('repair_score')==1.0 "
+                "and r.get('repaired_count')==r.get('defect_count') "
                 "and r.get('verified') and r.get('tamper_detected') "
                 "and r.get('suite_green') "
                 "and not r.get('used_skill_route_discovery')\""
@@ -19671,18 +19682,19 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
             ),
             behavior_paths=(
                 "src/blackhole_agent/upstream_repair.py",
-                "stewardship/mistune-3.2.0/manifest.json",
-                "stewardship/mistune-3.2.0/repros",
-                "stewardship/mistune-3.2.0/patches",
+                "stewardship/mistune-3.2.0",
+                "stewardship/mistune-3.2.1",
             ),
             capability_delta=(
-                "The ledger can now repair real upstream releases, not just "
-                "itself: nine documented mistune 3.2.0 defects (XSS, ReDoS, "
-                "encoding, validation) are reproduced on the pristine PyPI "
-                "sdist, fixed with minimal patches, proven against the "
-                "project's own 959-test suite on both trees, and shown causal "
-                "by per-defect ablation - absorbed dependencies are "
-                "maintainable and their security state is falsifiable "
+                "The ledger repairs real upstream releases across a "
+                "generalized target plane: two pinned mistune releases, "
+                "sixteen documented defects (XSS, ReDoS, traversal, "
+                "injection, misparsing, crashes) reproduced on pristine "
+                "PyPI sdists, fixed with minimal patches, proven against "
+                "the projects' own test suites (981 tests on the repaired "
+                "3.2.1 tree including upstream's security regressions), and "
+                "shown causal by per-defect ablation - absorbed dependencies "
+                "are maintainable and their security state is falsifiable "
                 "evidence, without skill-route."
             ),
             tags=(

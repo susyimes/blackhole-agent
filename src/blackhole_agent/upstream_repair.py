@@ -3,32 +3,34 @@
 The absorption plane makes external tools invocable, but nothing maintains them:
 a vendored release with publicly documented defects (XSS, ReDoS) stays
 vulnerable forever, and the ledger would still call the capability "proved".
-This module closes that gap with a falsifiable repair campaign over a real,
-pinned upstream artifact (mistune 3.2.0 sdist, sha256 pinned to the PyPI
-digest; defects and fixes documented by upstream in the 3.2.1 changelog):
+This module closes that gap with a falsifiable repair campaign over real,
+pinned upstream artifacts. Every directory under ``stewardship/`` with a
+``manifest.json`` is a **target**: a pristine sdist (sha256 pinned to the
+published digest), a set of documented upstream defects, one standalone repro
+per defect, and one minimal unified-diff patch per defect. The plane
+discovers all targets and runs the same campaign over each:
 
 - **provenance** — the pristine sdist's sha256 is verified against the pinned
-  PyPI digest before every campaign; a substituted tarball fails closed;
-- **reproduction** — every defect carries a standalone repro script that exits
-  non-zero while the defect is present and zero once repaired; the campaign
-  requires every repro to fail on the pristine tree (defect is real, not
-  imagined) before any patch is applied;
-- **repair** — minimal unified-diff patches (derived from the upstream fix)
-  are applied by a strict, zero-fuzz applier; after repair every repro must
-  pass and the project's own test suite must pass on both the pristine and
-  the repaired tree (so a green repaired suite is not a side effect of a
-  broken baseline suite);
+  published digest before every campaign; a substituted tarball fails closed;
+- **reproduction** — every repro exits non-zero while the defect is present
+  and zero once repaired; the campaign requires every repro to fail on the
+  pristine tree (defect is real, not imagined) before any patch is applied;
+- **repair** — patches are applied by a strict, zero-fuzz unified-diff
+  applier; after repair every repro must pass and the project's own test
+  suite must pass on both the pristine and the repaired tree (so a green
+  repaired suite is not a side effect of a broken baseline suite);
 - **causal ablation** — per defect, a fresh pristine tree is patched with
   every patch *except* that defect's; its repro must fail again, proving the
   patch — not some other hunk — causes the fix;
-- **sealed evidence** — the report under ``artifacts/upstream-repair/`` records
-  sha256 of the sdist, every repro, and every patch, plus digest chains over
-  recorded outcomes; verification is pure (recomputes digests from recorded
-  outcomes and re-hashes the on-disk evidence files) so tampering with the
-  report, a repro, or a patch fails verification.
+- **sealed evidence** — the report under
+  ``artifacts/upstream-repair/<target>/`` records sha256 of the sdist, every
+  repro, and every patch, plus digest chains over recorded outcomes;
+  verification is pure (recomputes digests from recorded outcomes and
+  re-hashes the on-disk evidence files) so tampering with the report, a
+  repro, or a patch fails verification.
 
 Determinism contract: only exit codes and pass/fail counts enter digests.
-Durations (notably the ReDoS probe timing) are diagnostics and are excluded.
+Durations (notably ReDoS probe timings) are diagnostics and are excluded.
 """
 
 from __future__ import annotations
@@ -53,12 +55,11 @@ from blackhole_agent.capability_compounder import (
 )
 from blackhole_agent.durable_state import durable_read_path
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-TARGET_ROOT = REPO_ROOT / "stewardship" / "mistune-3.2.0"
+STEWARDSHIP_ROOT = REPO_ROOT / "stewardship"
 ARTIFACT_DIR = REPO_ROOT / "artifacts" / "upstream-repair"
-LATEST_POINTER = ARTIFACT_DIR / "latest-report.json"
 
 REPRO_TIMEOUT_SECONDS = 90
 SUITE_TIMEOUT_SECONDS = 240
@@ -178,19 +179,33 @@ def apply_file_patch(file_text: str, patch: FilePatch) -> str:
 
 
 def apply_patch_text(tree_root: Path, patch_text: str) -> list[str]:
-    """Apply a unified diff to an extracted tree; returns touched paths."""
+    """Apply a unified diff to an extracted tree; returns touched paths.
+
+    A ``+++ b/path`` whose old header is ``--- /dev/null`` creates the file.
+    """
     touched: list[str] = []
     for file_patch in parse_unified_diff(patch_text):
         target = tree_root / file_patch.path
-        original = target.read_text(encoding="utf-8", newline="")
-        patched = apply_file_patch(original, file_patch)
+        if target.is_file():
+            original = target.read_text(encoding="utf-8", newline="")
+            patched = apply_file_patch(original, file_patch)
+        else:
+            # new file (--- /dev/null): body is additions only
+            added = [
+                entry[1:]
+                for hunk in file_patch.hunks
+                for entry in hunk.lines
+                if entry[0] in ("+", " ")
+            ]
+            patched = "\n".join(added)
+        target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(patched, encoding="utf-8", newline="")
         touched.append(file_patch.path)
     return touched
 
 
 # ---------------------------------------------------------------------------
-# target loading
+# target discovery and loading
 
 
 @dataclass(frozen=True)
@@ -206,11 +221,26 @@ class Defect:
 @dataclass(frozen=True)
 class Target:
     manifest: Mapping[str, Any]
+    root: Path
     sdist: Path
     defects: tuple[Defect, ...]
 
+    @property
+    def slug(self) -> str:
+        return f"{self.manifest['name']}-{self.manifest['version']}"
 
-def load_target(target_root: Path = TARGET_ROOT) -> Target:
+
+def discover_targets(stewardship_root: Path = STEWARDSHIP_ROOT) -> list[Path]:
+    """Every stewardship/<target>/ with a manifest.json, sorted by name."""
+    if not stewardship_root.is_dir():
+        return []
+    return sorted(
+        (child for child in stewardship_root.iterdir() if (child / "manifest.json").is_file()),
+        key=lambda p: p.name,
+    )
+
+
+def load_target(target_root: Path) -> Target:
     manifest = json.loads((target_root / "manifest.json").read_text(encoding="utf-8"))
     defects = tuple(
         Defect(
@@ -223,7 +253,7 @@ def load_target(target_root: Path = TARGET_ROOT) -> Target:
         )
         for d in manifest["defects"]
     )
-    return Target(manifest=manifest, sdist=target_root / manifest["sdist"], defects=defects)
+    return Target(manifest=manifest, root=target_root, sdist=target_root / manifest["sdist"], defects=defects)
 
 
 def verify_sdist(target: Target) -> dict[str, Any]:
@@ -326,11 +356,15 @@ def run_upstream_suite(tree_root: Path, manifest: Mapping[str, Any]) -> dict[str
 
 
 # ---------------------------------------------------------------------------
-# campaign
+# campaign (per target)
+
+
+def _target_artifact_dir(target: Target, artifact_dir: Path) -> Path:
+    return artifact_dir / target.slug
 
 
 def run_repair_campaign(
-    target_root: Path = TARGET_ROOT,
+    target_root: Path,
     artifact_dir: Path = ARTIFACT_DIR,
 ) -> dict[str, Any]:
     """Run the full reproduce -> repair -> ablate campaign and seal a report."""
@@ -339,7 +373,8 @@ def run_repair_campaign(
     if not provenance["ok"]:
         return {"ok": False, "error": "sdist provenance mismatch", "provenance": provenance}
 
-    work_root = artifact_dir / "work"
+    target_dir = _target_artifact_dir(target, artifact_dir)
+    work_root = target_dir / "work"
     if work_root.exists():
         shutil.rmtree(work_root)
     work_root.mkdir(parents=True)
@@ -452,10 +487,10 @@ def run_repair_campaign(
     }
 
     stamp = utc_now_iso().replace(":", "").replace("-", "")
-    report_dir = artifact_dir / f"report-{stamp}"
+    report_dir = target_dir / f"report-{stamp}"
     report_dir.mkdir(parents=True, exist_ok=True)
     atomic_write_json(report_dir / "report.json", report)
-    atomic_write_json(LATEST_POINTER, {"report_dir": str(report_dir), "report_digest": report_digest})
+    atomic_write_json(target_dir / "latest-report.json", {"report_dir": str(report_dir), "report_digest": report_digest})
     report["report_dir"] = str(report_dir)
     return report
 
@@ -464,7 +499,7 @@ def run_repair_campaign(
 # verification (pure: digests recomputed from recorded outcomes + on-disk evidence)
 
 
-def verify_repair_report(report_dir: Path, target_root: Path = TARGET_ROOT) -> dict[str, Any]:
+def verify_repair_report(report_dir: Path, target_root: Path) -> dict[str, Any]:
     report_path = durable_read_path(report_dir / "report.json")
     if not report_path.is_file():
         return {"ok": False, "error": f"missing report: {report_path}"}
@@ -534,8 +569,8 @@ def verify_repair_report(report_dir: Path, target_root: Path = TARGET_ROOT) -> d
     }
 
 
-def load_latest_report_dir() -> Path | None:
-    pointer_path = durable_read_path(LATEST_POINTER)
+def load_latest_report_dir(target_dir: Path) -> Path | None:
+    pointer_path = durable_read_path(target_dir / "latest-report.json")
     if not pointer_path.is_file():
         return None
     pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
@@ -544,42 +579,88 @@ def load_latest_report_dir() -> Path | None:
 
 
 # ---------------------------------------------------------------------------
-# registered proof
+# multi-target campaign + registered proof
+
+
+def run_all_campaigns(
+    stewardship_root: Path = STEWARDSHIP_ROOT,
+    artifact_dir: Path = ARTIFACT_DIR,
+) -> dict[str, Any]:
+    """Run the repair campaign over every discovered stewardship target.
+
+    Each target gets its own sealed report; every report is then verified
+    purely, and the verifier is falsified per target by flipping one recorded
+    outcome (tamper must be detected everywhere).
+    """
+    target_roots = discover_targets(stewardship_root)
+    targets: list[dict[str, Any]] = []
+    all_verified = True
+    all_tamper_detected = True
+    for target_root in target_roots:
+        report = run_repair_campaign(target_root, artifact_dir)
+        entry: dict[str, Any] = {
+            "target_root": str(target_root),
+            "ok": bool(report.get("ok")),
+            "repair_score": report.get("repair_score"),
+            "defect_count": report.get("defect_count"),
+            "repaired_count": report.get("repaired_count"),
+            "report_dir": report.get("report_dir"),
+        }
+        if not report.get("ok"):
+            entry["error"] = report.get("error", "campaign failed")
+            all_verified = False
+            all_tamper_detected = False
+            targets.append(entry)
+            continue
+
+        report_dir = Path(report["report_dir"])
+        verification = verify_repair_report(report_dir, target_root)
+        entry["verified"] = verification["ok"]
+        entry["verify_problems"] = verification.get("problems", [])
+        all_verified = all_verified and verification["ok"]
+
+        # falsify the verifier: one flipped outcome must be detected
+        tampered = json.loads(durable_read_path(report_dir / "report.json").read_text(encoding="utf-8"))
+        tampered["defects"][0]["repaired_exit"] = 1 if tampered["defects"][0]["repaired_exit"] == 0 else 0
+        tamper_dir = report_dir.parent / "tamper-probe"
+        tamper_dir.mkdir(parents=True, exist_ok=True)
+        atomic_write_json(tamper_dir / "report.json", tampered)
+        tamper_verdict = verify_repair_report(tamper_dir, target_root)
+        entry["tamper_detected"] = not tamper_verdict["ok"]
+        all_tamper_detected = all_tamper_detected and entry["tamper_detected"]
+        targets.append(entry)
+
+    defect_count = sum(t.get("defect_count") or 0 for t in targets)
+    repaired_count = sum(t.get("repaired_count") or 0 for t in targets)
+    scores = [t["repair_score"] for t in targets if t.get("repair_score") is not None]
+    suite_green = all(
+        t.get("ok") for t in targets
+    ) and bool(targets)
+    ok = (
+        bool(targets)
+        and all(t["ok"] for t in targets)
+        and all_verified
+        and all_tamper_detected
+        and repaired_count == defect_count
+        and all(score == 1.0 for score in scores)
+    )
+    return {
+        "ok": ok,
+        "target_count": len(targets),
+        "targets": targets,
+        "defect_count": defect_count,
+        "repaired_count": repaired_count,
+        "repair_score": min(scores) if scores else 0.0,
+        "verified": all_verified,
+        "tamper_detected": all_tamper_detected,
+        "suite_green": suite_green,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
 
 
 def builtin_upstream_repair_proof() -> dict[str, Any]:
-    """Prove the upstream repair plane: campaign, pure verification, tamper falsification."""
-    report = run_repair_campaign()
-    result: dict[str, Any] = {
-        "ok": bool(report.get("ok")),
-        "repair_score": report.get("repair_score"),
-        "defect_count": report.get("defect_count"),
-        "repaired_count": report.get("repaired_count"),
-        "suite_green": report.get("suites", {}).get("repaired", {}).get("exit_code") == 0
-        and report.get("suites", {}).get("pristine", {}).get("exit_code") == 0,
-        "report_dir": report.get("report_dir"),
-        "used_skill_route_discovery": legacy_pipeline_was_used(),
-    }
-    if not report.get("ok"):
-        result["error"] = "campaign failed"
-        return result
-
-    report_dir = Path(report["report_dir"])
-    verification = verify_repair_report(report_dir)
-    result["verified"] = verification["ok"]
-    result["verify_problems"] = verification.get("problems", [])
-
-    # falsify the verifier: one flipped outcome must be detected
-    tampered = json.loads(durable_read_path(report_dir / "report.json").read_text(encoding="utf-8"))
-    tampered["defects"][0]["repaired_exit"] = 1 if tampered["defects"][0]["repaired_exit"] == 0 else 0
-    tamper_dir = report_dir.parent / "tamper-probe"
-    tamper_dir.mkdir(parents=True, exist_ok=True)
-    atomic_write_json(tamper_dir / "report.json", tampered)
-    tamper_verdict = verify_repair_report(tamper_dir)
-    result["tamper_detected"] = not tamper_verdict["ok"]
-
-    result["ok"] = result["ok"] and verification["ok"] and result["tamper_detected"] and result["suite_green"]
-    return result
+    """Prove the upstream repair plane across every stewardship target."""
+    return run_all_campaigns()
 
 
 # ---------------------------------------------------------------------------
@@ -589,26 +670,37 @@ def builtin_upstream_repair_proof() -> dict[str, Any]:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="upstream repair plane")
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("campaign", help="run the full repair campaign and seal a report")
+    campaign_p = sub.add_parser("campaign", help="run repair campaign(s) and seal report(s)")
+    campaign_p.add_argument("target", nargs="?", default=None, help="stewardship target dir (default: all)")
     verify_p = sub.add_parser("verify", help="purely verify a sealed report")
     verify_p.add_argument("report_dir", nargs="?", default=None)
-    sub.add_parser("proof", help="run the registered proof")
+    verify_p.add_argument("--target", default=None, help="stewardship target dir of the report")
+    sub.add_parser("proof", help="run the registered proof over all targets")
     args = parser.parse_args(argv)
 
     if args.command == "campaign":
-        report = run_repair_campaign()
-        print(json.dumps({k: report[k] for k in ("ok", "repair_score", "repaired_count", "defect_count", "report_dir")}, indent=2))
-        return 0 if report.get("ok") else 1
+        if args.target:
+            report = run_repair_campaign(Path(args.target))
+            print(json.dumps({k: report[k] for k in ("ok", "repair_score", "repaired_count", "defect_count", "report_dir")}, indent=2))
+            return 0 if report.get("ok") else 1
+        result = run_all_campaigns()
+        print(json.dumps({k: v for k, v in result.items() if k != "targets"}, indent=2))
+        return 0 if result.get("ok") else 1
     if args.command == "verify":
-        report_dir = Path(args.report_dir) if args.report_dir else load_latest_report_dir()
-        if report_dir is None:
-            print("no report found")
+        if args.report_dir:
+            report_dir = Path(args.report_dir)
+        else:
+            target_dir = ARTIFACT_DIR / (Path(args.target).name if args.target else "")
+            found = load_latest_report_dir(target_dir) if args.target else None
+            report_dir = found if found else None  # type: ignore[assignment]
+        if report_dir is None or args.target is None:
+            print("usage: verify <report_dir> --target <stewardship-target-dir>")
             return 1
-        verdict = verify_repair_report(report_dir)
+        verdict = verify_repair_report(report_dir, Path(args.target))
         print(json.dumps(verdict, indent=2))
         return 0 if verdict["ok"] else 1
     result = builtin_upstream_repair_proof()
-    print(json.dumps({k: v for k, v in result.items() if k != "verify_problems"}, indent=2))
+    print(json.dumps({k: v for k, v in result.items() if k != "targets"}, indent=2))
     return 0 if result.get("ok") else 1
 
 

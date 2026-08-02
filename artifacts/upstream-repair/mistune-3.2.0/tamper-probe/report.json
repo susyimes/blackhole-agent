@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-08-02T02:45:12.215155Z",
+  "created_at": "2026-08-02T03:26:41.371887Z",
   "defect_count": 9,
   "defects": [
     {
@@ -178,23 +178,23 @@
   },
   "repair_score": 1.0,
   "repaired_count": 9,
-  "report_digest": "7d9eabbbec796f300a50f1db164b6980fde58715d1c6d95b6d1550d089e633fe",
-  "schema_version": 1,
+  "report_digest": "ac0a3ae0c3c5c5924ccb059ca2712492927858e08d190ec99478da553753b48b",
+  "schema_version": 2,
   "suite_digest": "2155d51cec45b6e8f3d12860b4aa1d2419a9206166cb5b974efa6c860a9d6a5d",
   "suites": {
     "pristine": {
-      "duration_seconds": 1.261,
+      "duration_seconds": 1.056,
       "exit_code": 0,
       "passed": 959,
       "stderr_tail": "",
-      "summary": "959 passed in 0.74s"
+      "summary": "959 passed in 0.62s"
     },
     "repaired": {
-      "duration_seconds": 1.041,
+      "duration_seconds": 0.871,
       "exit_code": 0,
       "passed": 961,
       "stderr_tail": "",
-      "summary": "961 passed in 0.69s"
+      "summary": "961 passed in 0.61s"
     }
   },
   "target": {

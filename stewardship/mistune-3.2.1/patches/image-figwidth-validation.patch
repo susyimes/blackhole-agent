@@ -1,0 +1,66 @@
+--- a/mistune-3.2.1/src/mistune/directives/image.py
++++ b/mistune-3.2.1/src/mistune/directives/image.py
+@@ -13,7 +13,7 @@
+ 
+ __all__ = ["Image", "Figure"]
+ 
+-_num_re = re.compile(r"^\d+(?:\.\d*)?(?:px|ch|em|rem|ex|rex|vw|vh|%)?$")
++_num_re = re.compile(r"^\d+(?:\.\d+)?(?:px|ch|em|rem|ex|rex|vw|vh|%)?$")
+ _allowed_aligns = ["top", "middle", "bottom", "left", "center", "right"]
+ 
+ 
+@@ -29,9 +29,9 @@
+ 
+     height = options.get("height")
+     width = options.get("width")
+-    if height and _num_re.match(height):
++    if height and _num_re.fullmatch(height):
+         attrs["height"] = height
+-    if width and _num_re.match(width):
++    if width and _num_re.fullmatch(width):
+         attrs["width"] = width
+     if "target" in options:
+         attrs["target"] = escape_url(options["target"])
+@@ -124,9 +124,11 @@
+         fig_attrs = {}
+         if align:
+             fig_attrs["align"] = align
+-        for k in ["figwidth", "figclass"]:
+-            if k in options:
+-                fig_attrs[k] = options[k]
++        figwidth = options.get("figwidth")
++        if figwidth and _num_re.fullmatch(figwidth):
++            fig_attrs["figwidth"] = figwidth
++        if "figclass" in options:
++            fig_attrs["figclass"] = options["figclass"]
+ 
+         children = [{"type": "block_image", "attrs": image_attrs}]
+         content = self.parse_directive_content(block, m, state)
+--- a/mistune-3.2.1/tests/test_security_image.py
++++ b/mistune-3.2.1/tests/test_security_image.py
+@@ -0,0 +1,25 @@
++from unittest import TestCase
++
++from mistune import create_markdown
++from mistune.directives import FencedDirective, Figure, Image
++
++
++class TestImageDirectiveSecurity(TestCase):
++    def test_image_directive_rejects_css_dimension_injection(self):
++        md = create_markdown(escape=True, plugins=[FencedDirective([Image()])])
++        html = md("```{image} x.jpg\n:width: 100vw;height:100vh;position:fixed;top:0\n:height: 50%\n:alt: <alt>\n```\n")
++
++        self.assertIn('alt="&lt;alt&gt;"', html)
++        self.assertIn('style="height:50%;"', html)
++        self.assertNotIn("position:fixed", html)
++
++    def test_figure_directive_escapes_class_and_rejects_figwidth_css_injection(self):
++        md = create_markdown(escape=True, plugins=[FencedDirective([Figure()])])
++        html = md(
++            '```{figure} x.jpg\n:figclass: evil" onclick="alert(1)\n:figwidth: 10px;position:fixed\n\ncaption\n```\n'
++        )
++
++        self.assertIn('class="figure evil&quot; onclick=&quot;alert(1)"', html)
++        self.assertNotIn('onclick="alert(1)"', html)
++        self.assertNotIn("position:fixed", html)
++        self.assertNotIn('style="width:', html)

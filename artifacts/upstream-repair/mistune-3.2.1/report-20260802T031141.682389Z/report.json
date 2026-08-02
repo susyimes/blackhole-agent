@@ -1,0 +1,176 @@
+{
+  "created_at": "2026-08-02T03:11:41.682358Z",
+  "defect_count": 7,
+  "defects": [
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "toc-heading-id-collision",
+      "kind": "correctness",
+      "patched_files": [
+        "mistune-3.2.1/src/mistune/toc.py",
+        "mistune-3.2.1/tests/test_security_toc.py"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "Generated TOC heading IDs can collide with ids already present in raw HTML",
+      "upstream_ref": "mistune 3.3.0 changelog: 'Avoid generated heading ID collisions in TOC'"
+    },
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "image-unsafe-url",
+      "kind": "xss",
+      "patched_files": [
+        "mistune-3.2.1/src/mistune/directives/image.py",
+        "mistune-3.2.1/tests/test_directives.py"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "Image directive src is not URL-sanitized (javascript: URL XSS)",
+      "upstream_ref": "mistune 3.3.0 changelog: 'Harden URL, image, figure, and include directive handling'"
+    },
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "image-figwidth-validation",
+      "kind": "xss",
+      "patched_files": [
+        "mistune-3.2.1/src/mistune/directives/image.py",
+        "mistune-3.2.1/tests/test_security_image.py"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "Figure figwidth accepts arbitrary CSS (injection into style attribute)",
+      "upstream_ref": "mistune 3.3.0 changelog: 'Harden URL, image, figure, and include directive handling'"
+    },
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "safe-url-percent-encoded",
+      "kind": "xss",
+      "patched_files": [
+        "mistune-3.2.1/src/mistune/renderers/html.py",
+        "mistune-3.2.1/tests/test_security_urls.py"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "safe_url does not decode percent-encoded harmful schemes (javascript%3A bypass)",
+      "upstream_ref": "mistune 3.3.0 changelog: 'Harden URL ... handling' (percent-decode before scheme check)"
+    },
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "math-currency-crossline",
+      "kind": "correctness",
+      "patched_files": [
+        "mistune-3.2.1/src/mistune/plugins/math.py",
+        "mistune-3.2.1/tests/fixtures/math.txt"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "Inline math pattern misparses currency amounts and matches across lines",
+      "upstream_ref": "mistune 3.3.0 changelog: 'Fix math escaping, currency pattern matching, and cross-line matching'"
+    },
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "include-directive-hardening",
+      "kind": "security",
+      "patched_files": [
+        "mistune-3.2.1/src/mistune/directives/include.py",
+        "mistune-3.2.1/tests/test_security_include.py",
+        "mistune-3.2.1/tests/test_directives.py"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "Include directive allows path traversal/absolute paths, circular references, unescaped text, and misparses CRLF includes",
+      "upstream_ref": "mistune 3.3.0 changelog: 'Harden URL, image, figure, and include directive handling'; 3.3.1: 'Normalize included Markdown line endings before parsing directives'"
+    },
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "rst-blockquote-nested-list",
+      "kind": "correctness",
+      "patched_files": [
+        "mistune-3.2.1/src/mistune/renderers/rst.py"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "RST renderer crashes with KeyError 'prev' on block quotes nested in lists",
+      "upstream_ref": "mistune 3.3.0 changelog: 'Fix RST renderer for block quotes nested in lists'"
+    }
+  ],
+  "evidence_files": {
+    "patches": {
+      "image-figwidth-validation": "704873e926da04f5c6c3d925bf8df37bcb31df40bc3bd4ea7da96ccdd245f57a",
+      "image-unsafe-url": "d64e4fe1ccbbffe972027f84d797ef66e445fa56bd4e09a9f639335603019386",
+      "include-directive-hardening": "ea5e344a41a6fb49bf77a54ad768e24da3c6e912f713b43872a2a70e975e6e29",
+      "math-currency-crossline": "24c1d352e9a3725810b513cc4c16d0b59ffe899d84a9ae1344f41207a5f1fa6e",
+      "rst-blockquote-nested-list": "cdb9171c287801a0e78fc17a741aa644e824fbb3958b38c58cc30497fe7361da",
+      "safe-url-percent-encoded": "77d5ea077068abb0b9fcc43aeadf051a5a16bfc7da2ba2566ef50e3eb79da86d",
+      "toc-heading-id-collision": "a348325749bbcdfbcb7597644c9f1caa8306c76c8c987584c8716712465cc2f5"
+    },
+    "repros": {
+      "image-figwidth-validation": "257d50821c5f7719b7def4c14f2b004ffd90a58a6ba76dea166de9888ddc19d1",
+      "image-unsafe-url": "dd880b9d706351d7b4250f23637b187accdf3a9bd35a3c5f7ed2fe2a1c557c97",
+      "include-directive-hardening": "7195a980e694344367e0721cc134857f0d93ec78b5fcb6d0d4f174c3f09d1b2c",
+      "math-currency-crossline": "c39a74fce87ef636a96bcb7cc48e3b77824941e98e0057a67348a8a81c7c08fa",
+      "rst-blockquote-nested-list": "e1ba61a4f621393e6d92669a9b6e7abbc3c8bbf6f2b6a343094b31c1cc244854",
+      "safe-url-percent-encoded": "875973e16edad323a829f308b976e50a000e89fad5c0d768f000f60cebc320cf",
+      "toc-heading-id-collision": "b98bb5c9624486c548c540acab564b395870262c19bd1cced8c9cad131d14a24"
+    },
+    "sdist": "7c8e5501d38bac1582e067e46c8343f17d57ea1aaa735823f3aba1fd59c88a28"
+  },
+  "ok": true,
+  "outcomes_digest": "40849f182e1e7ecef76bb477916db11b9ff0109c7edc2540940beebae411595a",
+  "provenance": {
+    "actual": "7c8e5501d38bac1582e067e46c8343f17d57ea1aaa735823f3aba1fd59c88a28",
+    "expected": "7c8e5501d38bac1582e067e46c8343f17d57ea1aaa735823f3aba1fd59c88a28",
+    "ok": true,
+    "path": "stewardship\\mistune-3.2.1\\mistune-3.2.1.tar.gz"
+  },
+  "repair_score": 1.0,
+  "repaired_count": 7,
+  "report_digest": "f9da8b2cbb59602967b847b8e5438a21e9c20abf3f94313d2c4f1d554855140c",
+  "schema_version": 2,
+  "suite_digest": "ede8a8267de8c7d612fa5b6fc14daa12751845e8874b1847d2f59a1e6b10ca5d",
+  "suites": {
+    "pristine": {
+      "duration_seconds": 1.025,
+      "exit_code": 0,
+      "passed": 961,
+      "stderr_tail": "",
+      "summary": "961 passed in 0.61s"
+    },
+    "repaired": {
+      "duration_seconds": 0.962,
+      "exit_code": 0,
+      "passed": 981,
+      "stderr_tail": "",
+      "summary": "981 passed in 0.68s"
+    }
+  },
+  "target": {
+    "fixed_in": "3.3.1",
+    "name": "mistune",
+    "source_url": "https://files.pythonhosted.org/packages/ca/84/620cc3f7e3adf6f5067e10f4dbae71295d8f9e16d5d3f9ef97c40f2f592c/mistune-3.2.1.tar.gz",
+    "upstream_changelog": "https://github.com/lepture/mistune/blob/main/docs/changes.rst",
+    "upstream_repo": "https://github.com/lepture/mistune",
+    "version": "3.2.1"
+  }
+}

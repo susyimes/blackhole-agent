@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "name": "mistune",
+  "version": "3.2.1",
+  "kind": "pypi-sdist",
+  "sdist": "mistune-3.2.1.tar.gz",
+  "sdist_sha256": "7c8e5501d38bac1582e067e46c8343f17d57ea1aaa735823f3aba1fd59c88a28",
+  "source_url": "https://files.pythonhosted.org/packages/ca/84/620cc3f7e3adf6f5067e10f4dbae71295d8f9e16d5d3f9ef97c40f2f592c/mistune-3.2.1.tar.gz",
+  "upstream_repo": "https://github.com/lepture/mistune",
+  "fixed_in": "3.3.1",
+  "upstream_changelog": "https://github.com/lepture/mistune/blob/main/docs/changes.rst",
+  "src_subdir": "mistune-3.2.1/src",
+  "tests_subdir": "mistune-3.2.1/tests",
+  "defects": [
+    {
+      "id": "toc-heading-id-collision",
+      "title": "Generated TOC heading IDs can collide with ids already present in raw HTML",
+      "kind": "correctness",
+      "upstream_ref": "mistune 3.3.0 changelog: 'Avoid generated heading ID collisions in TOC'",
+      "repro": "repros/toc_heading_id_collision.py",
+      "patch": "patches/toc-heading-id-collision.patch"
+    },
+    {
+      "id": "image-unsafe-url",
+      "title": "Image directive src is not URL-sanitized (javascript: URL XSS)",
+      "kind": "xss",
+      "upstream_ref": "mistune 3.3.0 changelog: 'Harden URL, image, figure, and include directive handling'",
+      "repro": "repros/image_unsafe_url.py",
+      "patch": "patches/image-unsafe-url.patch"
+    },
+    {
+      "id": "image-figwidth-validation",
+      "title": "Figure figwidth accepts arbitrary CSS (injection into style attribute)",
+      "kind": "xss",
+      "upstream_ref": "mistune 3.3.0 changelog: 'Harden URL, image, figure, and include directive handling'",
+      "repro": "repros/image_figwidth_validation.py",
+      "patch": "patches/image-figwidth-validation.patch"
+    },
+    {
+      "id": "safe-url-percent-encoded",
+      "title": "safe_url does not decode percent-encoded harmful schemes (javascript%3A bypass)",
+      "kind": "xss",
+      "upstream_ref": "mistune 3.3.0 changelog: 'Harden URL ... handling' (percent-decode before scheme check)",
+      "repro": "repros/safe_url_percent_encoded.py",
+      "patch": "patches/safe-url-percent-encoded.patch"
+    },
+    {
+      "id": "math-currency-crossline",
+      "title": "Inline math pattern misparses currency amounts and matches across lines",
+      "kind": "correctness",
+      "upstream_ref": "mistune 3.3.0 changelog: 'Fix math escaping, currency pattern matching, and cross-line matching'",
+      "repro": "repros/math_currency_crossline.py",
+      "patch": "patches/math-currency-crossline.patch"
+    },
+    {
+      "id": "include-directive-hardening",
+      "title": "Include directive allows path traversal/absolute paths, circular references, unescaped text, and misparses CRLF includes",
+      "kind": "security",
+      "upstream_ref": "mistune 3.3.0 changelog: 'Harden URL, image, figure, and include directive handling'; 3.3.1: 'Normalize included Markdown line endings before parsing directives'",
+      "repro": "repros/include_directive_hardening.py",
+      "patch": "patches/include-directive-hardening.patch"
+    },
+    {
+      "id": "rst-blockquote-nested-list",
+      "title": "RST renderer crashes with KeyError 'prev' on block quotes nested in lists",
+      "kind": "correctness",
+      "upstream_ref": "mistune 3.3.0 changelog: 'Fix RST renderer for block quotes nested in lists'",
+      "repro": "repros/rst_blockquote_nested_list.py",
+      "patch": "patches/rst-blockquote-nested-list.patch"
+    }
+  ]
+}

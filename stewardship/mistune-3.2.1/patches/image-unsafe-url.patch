@@ -1,0 +1,34 @@
+--- a/mistune-3.2.1/src/mistune/directives/image.py
++++ b/mistune-3.2.1/src/mistune/directives/image.py
+@@ -62,7 +62,7 @@
+     height: Optional[str] = None,
+     **attrs: Any,
+ ) -> str:
+-    img = '<img src="' + escape_text(src) + '"'
++    img = '<img src="' + self.safe_url(src) + '"'
+     style = ""
+     if alt:
+         img += ' alt="' + escape_text(alt) + '"'
+--- a/mistune-3.2.1/tests/test_directives.py
++++ b/mistune-3.2.1/tests/test_directives.py
+@@ -91,3 +91,20 @@
+         s = ".. include:: foo.txt"
+         html = self.md(s)
+         self.assertIn("Missing source file", html)
++
++
++class TestImageDirectiveSrc(BaseTestCase):
++    md = create_markdown(escape=False, plugins=[RSTDirective([Image()])])  # type: ignore[list-item]
++
++    def test_harmful_src_blocked(self):
++        html = self.md(".. image:: javascript:alert")
++        self.assertIn('src="#harmful-link"', html)
++        self.assertNotIn("javascript:alert", html)
++
++    def test_safe_src_preserved(self):
++        html = self.md(".. image:: cat.png")
++        self.assertIn('src="cat.png"', html)
++
++    def test_target_still_filtered(self):
++        html = self.md(".. image:: cat.png\n   :target: javascript:alert")
++        self.assertNotIn("javascript:alert", html)

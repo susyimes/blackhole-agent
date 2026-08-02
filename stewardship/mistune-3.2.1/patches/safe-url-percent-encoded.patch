@@ -1,0 +1,68 @@
+--- a/mistune-3.2.1/src/mistune/renderers/html.py
++++ b/mistune-3.2.1/src/mistune/renderers/html.py
+@@ -1,4 +1,5 @@
+ from typing import Any, ClassVar, Dict, Optional, Tuple, Literal
++from urllib.parse import unquote
+ from ..core import BaseRenderer, BlockState
+ from ..util import escape as escape_text
+ from ..util import safe_entity, striptags
+@@ -14,6 +15,14 @@
+         "vbscript:",
+         "file:",
+         "data:",
++        "feed:",
++        "jar:",
++        "livescript:",
++        "mocha:",
++        "ms-its:",
++        "mk:",
++        "res:",
++        "view-source:",
+     )
+     GOOD_DATA_PROTOCOLS: ClassVar[Tuple[str, ...]] = (
+         "data:image/gif;",
+@@ -53,7 +62,7 @@
+         if self._allow_harmful_protocols is True:
+             return escape_text(url)
+ 
+-        _url = url.lower()
++        _url = _unquote_url(url).lower()
+         if self._allow_harmful_protocols and _url.startswith(tuple(self._allow_harmful_protocols)):
+             return escape_text(url)
+ 
+@@ -151,3 +160,12 @@
+ 
+     def list_item(self, text: str) -> str:
+         return "<li>" + text + "</li>\n"
++
++
++def _unquote_url(url: str) -> str:
++    for _ in range(3):
++        decoded = unquote(url)
++        if decoded == url:
++            break
++        url = decoded
++    return url
+--- a/mistune-3.2.1/tests/test_security_urls.py
++++ b/mistune-3.2.1/tests/test_security_urls.py
+@@ -0,0 +1,20 @@
++from unittest import TestCase
++
++from mistune import create_markdown
++
++
++class TestSafeUrlSecurity(TestCase):
++    def test_percent_encoded_harmful_url_scheme_is_blocked(self):
++        for text in [
++            "[h](javascript%3Aalert(1))",
++            "[h](javascript%253Aalert(1))",
++            "[h][r]\n\n[r]: javascript%3Aalert(1)",
++            "![h](data%3Atext/html;base64,PHNjcmlwdD4=)",
++            "[h](view-source:javascript:alert(1))",
++        ]:
++            html = create_markdown()(text)
++            self.assertIn("#harmful-link", html, text)
++
++    def test_safe_percent_encoded_data_image_is_allowed(self):
++        html = create_markdown()("![h](data%3Aimage/png;base64,AAAA)")
++        self.assertIn('src="data%3Aimage/png;base64,AAAA"', html)

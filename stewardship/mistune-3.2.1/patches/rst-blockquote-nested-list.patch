@@ -1,0 +1,11 @@
+--- a/mistune-3.2.1/src/mistune/renderers/rst.py
++++ b/mistune-3.2.1/src/mistune/renderers/rst.py
+@@ -127,7 +127,7 @@
+ 
+     def block_quote(self, token: Dict[str, Any], state: BlockState) -> str:
+         text = indent(self.render_children(token, state), "   ")
+-        prev = token["prev"]
++        prev = token.get("prev")
+         ignore_blocks = (
+             "paragraph",
+             "thematic_break",

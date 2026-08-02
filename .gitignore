@@ -10,5 +10,5 @@ __pycache__/
 .blackhole-agent/
 
 # regenerable campaign work trees (extracted sdists); sealed reports stay tracked
-artifacts/upstream-repair/work/
+artifacts/upstream-repair/*/work/
 

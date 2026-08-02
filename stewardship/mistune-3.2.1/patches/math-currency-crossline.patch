@@ -1,0 +1,41 @@
+--- a/mistune-3.2.1/src/mistune/plugins/math.py
++++ b/mistune-3.2.1/src/mistune/plugins/math.py
+@@ -10,7 +10,7 @@
+ __all__ = ["math", "math_in_quote", "math_in_list"]
+ 
+ BLOCK_MATH_PATTERN = r"^ {0,3}\$\$[ \t]*\n(?P<math_text>[\s\S]+?)\n\$\$[ \t]*$"
+-INLINE_MATH_PATTERN = r"\$(?!\s)(?P<math_text>(?:[^$\\]|\\.)+?)(?!\s)\$"
++INLINE_MATH_PATTERN = r"\$(?!\$)(?!\s)(?P<math_text>(?:[^$\\\n]|\\.)+?)\$(?!\d)"
+ 
+ 
+ def parse_block_math(block: "BlockParser", m: Match[str], state: "BlockState") -> int:
+--- a/mistune-3.2.1/tests/fixtures/math.txt
++++ b/mistune-3.2.1/tests/fixtures/math.txt
+@@ -61,3 +61,27 @@
+ .
+ <p>Escaped dollar sign in math: <span class="math">\(x=\$\)</span></p>
+ ````````````````````````````````
++
++## Currency rejection
++
++```````````````````````````````` example
++Price is $51,300 and cost is $51,300 total.
++.
++<p>Price is $51,300 and cost is $51,300 total.</p>
++````````````````````````````````
++
++```````````````````````````````` example
++The $1.6T valuation narrative.
++.
++<p>The $1.6T valuation narrative.</p>
++````````````````````````````````
++
++## Cross-line rejection
++
++```````````````````````````````` example
++Line one $500
++Line two $600
++.
++<p>Line one $500
++Line two $600</p>
++````````````````````````````````

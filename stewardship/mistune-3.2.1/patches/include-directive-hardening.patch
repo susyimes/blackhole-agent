@@ -1,0 +1,201 @@
+--- a/mistune-3.2.1/src/mistune/directives/include.py
++++ b/mistune-3.2.1/src/mistune/directives/include.py
+@@ -1,6 +1,7 @@
+ import os
+ from typing import TYPE_CHECKING, Any, Dict, List, Match, Union
+ 
++from ..util import escape as escape_text
+ from ._base import BaseDirective, DirectivePlugin
+ 
+ if TYPE_CHECKING:
+@@ -27,41 +28,76 @@
+             attrs = {}
+ 
+         relpath = self.parse_title(m)
+-        dest = os.path.join(os.path.dirname(source_file), relpath)
+-        dest = os.path.normpath(dest)
++        source_file = os.path.realpath(source_file)
++        source_dir = os.path.dirname(source_file)
++        dest = os.path.realpath(os.path.join(source_dir, relpath))
+ 
+-        if os.path.abspath(dest) == os.path.abspath(source_file):
++        if os.path.isabs(relpath) or os.path.commonpath([source_dir, dest]) != source_dir:
++            return {
++                "type": "block_error",
++                "raw": "Could not include outside source dir: " + relpath,
++            }
++
++        if dest == source_file:
+             return {
+                 "type": "block_error",
+                 "raw": "Could not include self: " + relpath,
+             }
+ 
++        include_stack = state.env.setdefault("__include_stack__", [])
++        source_added = False
++        if source_file not in include_stack:
++            include_stack.append(source_file)
++            source_added = True
++        if dest in include_stack:
++            if source_added:
++                include_stack.pop()
++            return {
++                "type": "block_error",
++                "raw": "Could not include circular reference: " + relpath,
++            }
++
+         if not os.path.isfile(dest):
++            if source_added:
++                include_stack.pop()
+             return {
+                 "type": "block_error",
+                 "raw": "Could not find file: " + relpath,
+             }
+ 
+-        with open(dest, "rb") as f:
+-            content = f.read().decode(encoding)
++        include_stack.append(dest)
++        try:
++            with open(dest, "rb") as f:
++                content = f.read().decode(encoding)
++
++            ext = os.path.splitext(dest)[1]
++            if ext in {".md", ".markdown", ".mkd"}:
++                content = content.replace("\r\n", "\n").replace("\r", "\n")
++                new_state = state.child_state(content)
++                previous_file = new_state.env.get("__file__")
++                new_state.env["__file__"] = dest
++                try:
++                    block.parse(new_state)
++                finally:
++                    if previous_file is None:
++                        new_state.env.pop("__file__", None)
++                    else:
++                        new_state.env["__file__"] = previous_file
++                return new_state.tokens
++
++            elif ext in {".html", ".xhtml", ".htm"}:
++                return {"type": "block_html", "raw": content}
+ 
+-        ext = os.path.splitext(relpath)[1]
+-        if ext in {".md", ".markdown", ".mkd"}:
+-            new_state = block.state_cls()
+-            new_state.env["__file__"] = dest
+-            new_state.process(content)
+-            block.parse(new_state)
+-            return new_state.tokens
+-
+-        elif ext in {".html", ".xhtml", ".htm"}:
+-            return {"type": "block_html", "raw": content}
+-
+-        attrs["filepath"] = dest
+-        return {
+-            "type": "include",
+-            "raw": content,
+-            "attrs": attrs,
+-        }
++            attrs["filepath"] = dest
++            return {
++                "type": "include",
++                "raw": content,
++                "attrs": attrs,
++            }
++        finally:
++            include_stack.pop()
++            if source_added:
++                include_stack.pop()
+ 
+     def __call__(self, directive: BaseDirective, md: "Markdown") -> None:
+         directive.register("include", self.parse)
+@@ -70,4 +106,6 @@
+ 
+ 
+ def render_html_include(renderer: "BaseRenderer", text: str, **attrs: Any) -> str:
++    if getattr(renderer, "_escape", True):
++        text = escape_text(text)
+     return '<pre class="directive-include">\n' + text + "</pre>\n"
+--- a/mistune-3.2.1/tests/test_security_include.py
++++ b/mistune-3.2.1/tests/test_security_include.py
+@@ -0,0 +1,69 @@
++import os
++import tempfile
++from unittest import TestCase
++
++from mistune import create_markdown
++from mistune.directives import Include, RSTDirective
++
++
++class TestIncludeSecurity(TestCase):
++    def test_include_rejects_traversal_and_absolute_paths(self):
++        with tempfile.TemporaryDirectory() as tmpdir:
++            root = os.path.join(tmpdir, "root")
++            os.mkdir(root)
++            secret = os.path.join(tmpdir, "secret.txt")
++            source = os.path.join(root, "source.md")
++            with open(secret, "w") as f:
++                f.write("topsecret")
++            with open(source, "w") as f:
++                f.write(".. include:: ../secret.txt\n\n.. include:: " + secret + "\n")
++
++            md = create_markdown(plugins=[RSTDirective([Include()])])
++            html = md.read(source)[0]
++
++        self.assertIn("Could not include outside source dir", html)
++        self.assertNotIn("topsecret", html)
++
++    def test_include_text_escapes_with_html_escape_enabled(self):
++        with tempfile.TemporaryDirectory() as tmpdir:
++            source = os.path.join(tmpdir, "source.md")
++            child = os.path.join(tmpdir, "child.txt")
++            with open(source, "w") as f:
++                f.write(".. include:: child.txt\n")
++            with open(child, "w") as f:
++                f.write("<script>alert(1)</script>")
++
++            md = create_markdown(plugins=[RSTDirective([Include()])])
++            html = md.read(source)[0]
++
++        self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt;", html)
++        self.assertNotIn("<script>", html)
++
++    def test_include_html_escapes_with_html_escape_enabled(self):
++        with tempfile.TemporaryDirectory() as tmpdir:
++            source = os.path.join(tmpdir, "source.md")
++            child = os.path.join(tmpdir, "child.html")
++            with open(source, "w") as f:
++                f.write(".. include:: child.html\n")
++            with open(child, "w") as f:
++                f.write("<script>alert(1)</script>")
++
++            md = create_markdown(plugins=[RSTDirective([Include()])])
++            html = md.read(source)[0]
++
++        self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt;", html)
++        self.assertNotIn("<script>", html)
++
++    def test_include_rejects_circular_references(self):
++        with tempfile.TemporaryDirectory() as tmpdir:
++            a = os.path.join(tmpdir, "a.md")
++            b = os.path.join(tmpdir, "b.md")
++            with open(a, "w") as f:
++                f.write(".. include:: b.md\n")
++            with open(b, "w") as f:
++                f.write(".. include:: a.md\n")
++
++            md = create_markdown(plugins=[RSTDirective([Include()])])
++            html = md.read(a)[0]
++
++        self.assertIn("Could not include circular reference", html)
+--- a/mistune-3.2.1/tests/test_directives.py
++++ b/mistune-3.2.1/tests/test_directives.py
+@@ -85,9 +85,9 @@
+         self.assertIn("Could not find file", html)
+         self.assertIn("<div>include html</div>", html)
+         self.assertIn("<blockquote>", html)
+-        self.assertIn("# Table of Contents", html)
++        self.assertIn("Could not include outside source dir", html)
+ 
+     def test_include_missing_source(self):
+         s = ".. include:: foo.txt"
+         html = self.md(s)
+         self.assertIn("Missing source file", html)
