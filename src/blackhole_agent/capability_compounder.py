@@ -19710,6 +19710,76 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
             created_at=utc_now_iso(),
             updated_at=utc_now_iso(),
         ),
+        Capability(
+            id="capability.upstream-discovery",
+            name="Upstream discovery plane (autonomous defect discovery)",
+            description=(
+                "Autonomous defect discovery in pinned vendored upstream "
+                "releases, blind to any documented defect list: the manifest's "
+                "'defects' field is deliberately never read. A battery of "
+                "generic adversarial-input generators (nested links/images/"
+                "emphasis, unclosed markers, link suffixes, backtick runs, "
+                "footnote references, spoilers, ruby tokens, table rows) is "
+                "run against the pristine sha256-verified sdist tree in "
+                "subprocess isolation and graded by two oracles: a crash "
+                "oracle (uncaught exception) and a complexity oracle "
+                "(sustained per-doubling growth exponent >= 1.75 above a "
+                "noise floor; probe timeouts are the severe instance). "
+                "Unflagged generators are recorded as negative controls. "
+                "Each finding is minimized (binary search on the timing "
+                "floor) and compiled into a synthesized standalone repro "
+                "script that exits 1 while the defect is present and 0 once "
+                "repaired; the repro must fail on the pristine tree before "
+                "admission. Reports under artifacts/upstream-discovery/ are "
+                "digest-sealed (sdist sha256, verdicts, minimized sizes, "
+                "repro hashes); verification is pure and falsified by a "
+                "tamper probe. On mistune 3.2.1 the plane discovers three "
+                "defects absent from the curated stewardship manifest: "
+                "quadratic nested-link parsing (exponent ~2.4), super-linear "
+                "nested-image parsing (~1.9), and quadratic footnote "
+                "reference indexing (~2.6) - all confirmed fixed upstream in "
+                "3.3.x, none previously curated."
+            ),
+            kind="python",
+            entry="blackhole_agent.upstream_discovery:builtin_upstream_discovery_proof",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.upstream_discovery import builtin_upstream_discovery_proof; '
+                "r=builtin_upstream_discovery_proof(); assert r['ok'] "
+                "and r.get('finding_count')>=1 "
+                "and r.get('verified') and r.get('tamper_detected') "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.upstream-repair",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/upstream_discovery.py",
+                "stewardship/mistune-3.2.1",
+            ),
+            capability_delta=(
+                "The ledger no longer waits for humans or changelogs to name "
+                "defects: given only a pinned sdist it measures crash and "
+                "algorithmic-complexity oracles over adversarial input "
+                "generators, minimizes each trigger, and synthesizes "
+                "standalone repro scripts that fail on the pristine tree and "
+                "pass once repaired - discovery is measured, minimized, "
+                "sealed, and tamper-falsified, without skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "upstream",
+                "discovery",
+                "fuzzing",
+                "security",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
 
     ]
 

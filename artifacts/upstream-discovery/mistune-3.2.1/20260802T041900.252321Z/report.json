@@ -1,0 +1,281 @@
+{
+  "chain_digest": "036b40bf59bf3364ff8115f23d8fbd8d150d7733db3666dde885a026214fee04",
+  "finding_count": 3,
+  "findings": [
+    {
+      "exponent": 2.302,
+      "flagged": true,
+      "generator": "nested_link",
+      "kind": "complexity",
+      "minimized_n": 2000,
+      "pristine_repro_exit": 1,
+      "repro": "repros\\nested_link.py",
+      "repro_sha256": "ae03528a890afc662ccd6c89884a1f6a6fa40986f41f7ccbdf75b6bf54ad2cec",
+      "times": [
+        [
+          1000,
+          0.2147
+        ],
+        [
+          2000,
+          0.882
+        ],
+        [
+          4000,
+          4.3498
+        ]
+      ]
+    },
+    {
+      "exponent": 2.029,
+      "flagged": true,
+      "generator": "nested_image",
+      "kind": "complexity",
+      "minimized_n": 1312,
+      "pristine_repro_exit": 1,
+      "repro": "repros\\nested_image.py",
+      "repro_sha256": "dbaa60bc493afea899697aa6a36b9898caa579a62a81bbdd2bc80384bc84973d",
+      "times": [
+        [
+          1000,
+          0.4698
+        ],
+        [
+          2000,
+          1.9181
+        ]
+      ]
+    },
+    {
+      "exponent": 0.949,
+      "flagged": false,
+      "generator": "nested_emphasis",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0018
+        ],
+        [
+          2000,
+          0.0051
+        ],
+        [
+          4000,
+          0.0106
+        ],
+        [
+          8000,
+          0.0222
+        ],
+        [
+          16000,
+          0.0429
+        ]
+      ]
+    },
+    {
+      "exponent": 0.865,
+      "flagged": false,
+      "generator": "unclosed_emphasis",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0026
+        ],
+        [
+          2000,
+          0.0052
+        ],
+        [
+          4000,
+          0.0095
+        ],
+        [
+          8000,
+          0.0211
+        ],
+        [
+          16000,
+          0.0383
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "link_suffixes",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0003
+        ],
+        [
+          2000,
+          0.0007
+        ],
+        [
+          4000,
+          0.0009
+        ],
+        [
+          8000,
+          0.0017
+        ],
+        [
+          16000,
+          0.0034
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "backtick_runs",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0004
+        ],
+        [
+          2000,
+          0.0009
+        ],
+        [
+          4000,
+          0.002
+        ],
+        [
+          8000,
+          0.0036
+        ],
+        [
+          16000,
+          0.0077
+        ]
+      ]
+    },
+    {
+      "exponent": 2.615,
+      "flagged": true,
+      "generator": "footnote_refs",
+      "kind": "complexity",
+      "minimized_n": 3625,
+      "pristine_repro_exit": 1,
+      "repro": "repros\\footnote_refs.py",
+      "repro_sha256": "254f258a0d626ae97a89d83010e9bc8ff6aec187279777fcbb25821549fe5f3f",
+      "times": [
+        [
+          1000,
+          0.0566
+        ],
+        [
+          2000,
+          0.2455
+        ],
+        [
+          4000,
+          0.9702
+        ],
+        [
+          8000,
+          5.9433
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "unclosed_spoiler",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0009
+        ],
+        [
+          2000,
+          0.0018
+        ],
+        [
+          4000,
+          0.0037
+        ],
+        [
+          8000,
+          0.0074
+        ],
+        [
+          16000,
+          0.0141
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "adjacent_ruby",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0009
+        ],
+        [
+          2000,
+          0.0018
+        ],
+        [
+          4000,
+          0.0037
+        ],
+        [
+          8000,
+          0.0071
+        ],
+        [
+          16000,
+          0.0163
+        ]
+      ]
+    },
+    {
+      "exponent": 1.014,
+      "flagged": false,
+      "generator": "table_row",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0066
+        ],
+        [
+          2000,
+          0.0138
+        ],
+        [
+          4000,
+          0.0265
+        ],
+        [
+          8000,
+          0.0536
+        ],
+        [
+          16000,
+          0.1073
+        ]
+      ]
+    }
+  ],
+  "scanned_at": "2026-08-02T04:19:48.952740Z",
+  "schema_version": 1,
+  "sdist_sha256": "7c8e5501d38bac1582e067e46c8343f17d57ea1aaa735823f3aba1fd59c88a28",
+  "target": {
+    "name": "mistune",
+    "version": "3.2.1"
+  }
+}

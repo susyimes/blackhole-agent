@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-08-02T03:26:41.371887Z",
+  "created_at": "2026-08-02T04:01:55.989157Z",
   "defect_count": 9,
   "defects": [
     {
@@ -145,26 +145,26 @@
   ],
   "evidence_files": {
     "patches": {
-      "admonition-class-xss": "6da8a0533d12a29addc7f7f2fcc24178170b1537b5f38ce419b9974ef6f5f553",
-      "block-error-xss": "7d000b72c2fbfbcc0c09812d694ba9f9b6ba22078321c0af0111ff90db2770aa",
-      "figure-attrs-xss": "d757c462f69292b2ff4e637ab0ef127ee89beb581b22ac6dc661fc3f37d44d13",
-      "heading-id-xss": "a3b0f3ec3224bc446b95a330e25227a0cf9a0e4be9b5d90effcff041742e627e",
-      "image-alt-double-encoding": "e7d1f81a2a74dffdb7ccc4634c650b45796c5629d0c9bcdf9856936f3d3ff891",
-      "image-width-validation": "4895c064b6adf6fccfc808148b008d8169a885da05fcb26fb1e28bda095cb35b",
-      "link-title-redos": "eac6a50d3f79256163105a9b07fe33bfcf6750da6b5769ca57c998084e3d0e2c",
-      "math-xss": "703290ab2f21ea058f23dfad2d7177b4eb89d4722de4527d253e723bb8b44f67",
-      "toc-link-xss": "1acecfb7dd816816230d08591d6a8539035abfb7838e4d69a67459a2f584b31b"
+      "admonition-class-xss": "588cc28997ca8f9f37e8e5c3878189ede23744a80c2633b1b864dfac0691cf8e",
+      "block-error-xss": "44b24743bc5bf0e2fece0098236207ce52b3210a5b7fbba8bbbd8ba1f4b8e587",
+      "figure-attrs-xss": "4c36ccfac0fe35a71feaba78f40c2dfabc7a527c6fd4a390c6727dc1f9eed5ae",
+      "heading-id-xss": "fcfc568f1a91795d4643731d0a7f2e54e33658aa6a1bdeede46672e30cccc61a",
+      "image-alt-double-encoding": "fdd31ad661161acb1b26e2ba150c4c74d5217b3aefe26a289bc544ee4bea0fb8",
+      "image-width-validation": "d5285b63600b2b485296a7f4682300f21fadd48ea049432b7c64e8243352f4f7",
+      "link-title-redos": "95a08fe4bf26b5a5edd75ecad6a940ee21bd7a89894e9255ffe4b4f4c54300e7",
+      "math-xss": "7567aa46e9b73ab2959c5d872f10cb891e1f0274e01efd34d21af1417e9c8a5a",
+      "toc-link-xss": "83754ea328f3f1e36e6762df6b293c5077d3fc720efa6a0005dc4f190517d975"
     },
     "repros": {
       "admonition-class-xss": "398431feec3ed55f03320ef48b685097119aaa0f7b60b24edc66f249048ea031",
-      "block-error-xss": "118b0cb3d1b2866575a96e06dd223e6d367cbf6f27cdc63cce11e7c6f88a5c61",
+      "block-error-xss": "013afcb1bb40663b9e73fb0578cbe8a70fa59f38b3117d2028d3ec21e2734641",
       "figure-attrs-xss": "b4e98dde297f2b0c74dc83e978fc769ba9102738565c647a7e63b10d29de205c",
-      "heading-id-xss": "4323513b94b023fcddf1c5086f2b9c8c731f6f1e9ace8ba4a03adc9c8bbd40c2",
-      "image-alt-double-encoding": "483f4ef15c9c02b04f0eeacf3b1be2e1228381d0fe438211f2aa1208ec84172d",
+      "heading-id-xss": "aab737bd05b31173ae538d6ceeaaf3f75c3e5cec032332bf5d73e386d810f636",
+      "image-alt-double-encoding": "4d4d4c43688d53ee8368dcae2c82766200313d0d386d4041b337ee00d18b59cb",
       "image-width-validation": "931c86028b517f77f976d07d4ee64d4427bdb40f9a5c5ab6fc472eb2713944e4",
-      "link-title-redos": "4f2b3e1767d38953f49cb55d63f3e679a770482bc21b69756a99557be9341d92",
+      "link-title-redos": "270c6cc044721a2093a5795b0784fb1007f2ff83a845b11fa1b0256bb7942899",
       "math-xss": "865d79f95d602d69869e1b997e1369072877524fa212038ac661d5ea3372f25a",
-      "toc-link-xss": "838d1744bdda793f323d1d40f0c0b39643306889e69799d0acc8234ef518244f"
+      "toc-link-xss": "35c376559f2df736cba0da023344b23aa5e39ede18739f9fd1ec5f3d36cb0ab5"
     },
     "sdist": "708487c8a8cdd99c9d90eb3ed4c3ed961246ff78ac82f03418f5183ab70e398a"
   },
@@ -174,23 +174,23 @@
     "actual": "708487c8a8cdd99c9d90eb3ed4c3ed961246ff78ac82f03418f5183ab70e398a",
     "expected": "708487c8a8cdd99c9d90eb3ed4c3ed961246ff78ac82f03418f5183ab70e398a",
     "ok": true,
-    "path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260802T014350Z-f2c8ec29\\stewardship\\mistune-3.2.0\\mistune-3.2.0.tar.gz"
+    "path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260802T035655Z-28fd55dc\\stewardship\\mistune-3.2.0\\mistune-3.2.0.tar.gz"
   },
   "repair_score": 1.0,
   "repaired_count": 9,
-  "report_digest": "ac0a3ae0c3c5c5924ccb059ca2712492927858e08d190ec99478da553753b48b",
+  "report_digest": "82bbe79ff22d667c89c4ea783a509de941c0cf0f7c45f6cce2beda9e4b5fea32",
   "schema_version": 2,
   "suite_digest": "2155d51cec45b6e8f3d12860b4aa1d2419a9206166cb5b974efa6c860a9d6a5d",
   "suites": {
     "pristine": {
-      "duration_seconds": 1.056,
+      "duration_seconds": 1.038,
       "exit_code": 0,
       "passed": 959,
       "stderr_tail": "",
       "summary": "959 passed in 0.62s"
     },
     "repaired": {
-      "duration_seconds": 0.871,
+      "duration_seconds": 0.882,
       "exit_code": 0,
       "passed": 961,
       "stderr_tail": "",
