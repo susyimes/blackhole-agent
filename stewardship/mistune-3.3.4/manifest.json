@@ -24,6 +24,10 @@
   "source_url": "https://files.pythonhosted.org/packages/7b/92/328a294a6de83bacb95bed01f04e0eaff4e3616ee359fc821a5dfc539b02/mistune-3.3.4.tar.gz",
   "src_subdir": "mistune-3.3.4/src",
   "tests_subdir": "mistune-3.3.4/tests",
+  "contribution": {
+    "tests_subdir": "tests",
+    "src_subdir": "src"
+  },
   "upstream_changelog": "https://github.com/lepture/mistune/blob/main/docs/changes.rst",
   "upstream_repo": "https://github.com/lepture/mistune",
   "version": "3.3.4"

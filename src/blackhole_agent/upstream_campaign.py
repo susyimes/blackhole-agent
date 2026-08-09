@@ -350,11 +350,16 @@ def run_campaign(
     contribution_out_root: Path | None = None,
     publication_out_root: Path | None = None,
     out_root: Path | None = None,
+    bundle_dirs: Sequence[str | Path] | None = None,
 ) -> dict[str, Any]:
     """Run a multi-stage stewardship campaign and seal a campaign receipt.
 
     Parameters mirror the underlying planes so proofs can inject hermetic
     seams. ``publish=False`` (default) never performs outward GitHub mutation.
+
+    ``bundle_dirs`` supplies pre-sealed contribution bundles for a publication
+    stage that runs without (or after) contribution rebuild — used to publish
+    an already-sealed submittable bundle through the campaign receipt chain.
     """
     target_dir = Path(target_dir)
     manifest = _load_manifest(target_dir)
@@ -395,7 +400,7 @@ def run_campaign(
             )
 
     # --- contribution ---
-    submittable: list[str] = []
+    submittable: list[str] = [str(p) for p in (bundle_dirs or [])]
     if "contribution" in stage_list:
         contribution = _stage_contribution(
             target_dir,
@@ -405,8 +410,11 @@ def run_campaign(
             out_root=contribution_out_root,
         )
         stage_results["contribution"] = contribution
-        submittable = list(contribution.get("submittable_bundle_dirs") or [])
-        if contribution.get("verdict") == "contribution_failed":
+        # Freshly built bundles take precedence; pre-supplied dirs remain if
+        # contribution produced nothing submittable (e.g. all already fixed).
+        built = list(contribution.get("submittable_bundle_dirs") or [])
+        submittable = built if built else submittable
+        if contribution.get("verdict") == "contribution_failed" and not submittable:
             campaign_ok = False
             terminal_verdict = "contribution_failed"
             return _seal_campaign(
@@ -420,7 +428,7 @@ def run_campaign(
                 verdict=terminal_verdict,
                 out_root=out_root,
             )
-        if contribution.get("verdict") == "all_already_fixed":
+        if contribution.get("verdict") == "all_already_fixed" and not submittable:
             terminal_verdict = "all_already_fixed"
             # Still allow publication stage to be skipped cleanly.
 

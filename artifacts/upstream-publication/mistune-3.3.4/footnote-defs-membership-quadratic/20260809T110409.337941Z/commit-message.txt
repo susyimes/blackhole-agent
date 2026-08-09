@@ -1,0 +1,8 @@
+fix: Inline footnote parsing does O
+
+Inline footnote parsing does O(n) list membership per reference (quadratic DoS on n footnote references)
+
+Defect id: footnote-defs-membership-quadratic
+Verified against upstream tag v3.3.4 and HEAD (triage: unfixed_at_head).
+
+Generated-by: blackhole-agent upstream-publication plane (autonomous stewardship mission)

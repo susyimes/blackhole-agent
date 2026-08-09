@@ -50,6 +50,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -91,20 +92,37 @@ class PublicationRefused(Exception):
 # seams: gh runner, git, verifier
 
 
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+
+
+def _strip_ansi(text: str) -> str:
+    """Remove ANSI SGR/CSI sequences (gh colors JSON when a TTY is forced)."""
+    return _ANSI_RE.sub("", text)
+
+
 def _default_gh_runner(argv: Sequence[str], cwd: Path | None = None) -> str:
     """Run the real ``gh`` CLI; returns stdout. Raises on nonzero exit."""
+    env = os.environ.copy()
+    # Force machine-readable output: colored ``[]`` breaks json.loads on Windows
+    # hosts that inject ANSI even under capture_output.
+    env["NO_COLOR"] = "1"
+    env["CLICOLOR"] = "0"
+    env["CLICOLOR_FORCE"] = "0"
+    env["GH_FORCE_TTY"] = "0"
+    env["GH_PROMPT_DISABLED"] = "1"
     proc = subprocess.run(
         ["gh", *argv],
         cwd=cwd,
         capture_output=True,
         text=True,
         timeout=GH_TIMEOUT_SECONDS,
+        env=env,
     )
     if proc.returncode != 0:
         raise PublicationRefused(
             "gh_failed", f"gh {argv[0]} {argv[1] if len(argv) > 1 else ''}: {proc.stderr.strip()[:300]}"
         )
-    return proc.stdout
+    return _strip_ansi(proc.stdout)
 
 
 def _git(argv: Sequence[str], cwd: Path | None = None, *, input_bytes: bytes | None = None) -> str:
@@ -122,11 +140,14 @@ def _git(argv: Sequence[str], cwd: Path | None = None, *, input_bytes: bytes | N
 
 
 def _gh_json(gh: Callable[..., str], argv: Sequence[str]) -> Any:
-    out = gh(list(argv))
+    out = _strip_ansi(gh(list(argv)))
     try:
         return json.loads(out) if out.strip() else None
     except json.JSONDecodeError as exc:
-        raise PublicationRefused("gh_failed", f"gh returned non-JSON for {argv[:2]}: {exc}")
+        raise PublicationRefused(
+            "gh_failed",
+            f"gh returned non-JSON for {argv[:2]}: {exc}; raw={out[:120]!r}",
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -152,14 +173,20 @@ def load_submittable_bundle(bundle_dir: Path) -> dict[str, Any]:
 
 def _load_manifest(bundle: Mapping[str, Any], manifest: Mapping[str, Any] | None) -> dict[str, Any]:
     if manifest is not None:
-        return dict(manifest)
-    target = Path(str(bundle.get("target") or ""))
-    if not target.is_absolute():
-        target = REPO_ROOT / target
-    manifest_path = target / "manifest.json"
-    if not manifest_path.exists():
-        raise PublicationRefused("manifest_missing", f"no stewardship manifest at {manifest_path}")
-    return json.loads(durable_read_path(manifest_path).read_text(encoding="utf-8"))
+        loaded = dict(manifest)
+    else:
+        target = Path(str(bundle.get("target") or ""))
+        if not target.is_absolute():
+            target = REPO_ROOT / target
+        manifest_path = target / "manifest.json"
+        if not manifest_path.exists():
+            raise PublicationRefused("manifest_missing", f"no stewardship manifest at {manifest_path}")
+        loaded = json.loads(durable_read_path(manifest_path).read_text(encoding="utf-8"))
+    # Ensure a resolved contribution contract is always available to the
+    # verifier and test-install path (PyPI derives it when omitted).
+    if "contribution" not in loaded or not loaded.get("contribution"):
+        loaded["contribution"] = resolve_contribution_contract(loaded)
+    return loaded
 
 
 def publication_branch(defect_id: str) -> str:
@@ -212,6 +239,41 @@ def _repo_slug(repo_url: str) -> str:
 # verification of the exact tree to be pushed
 
 
+def _strip_sdist_top(path_value: str | None, *, default: str) -> str:
+    """Strip the sdist top-dir component (``name-version/``) from a layout path."""
+    if not path_value:
+        return default
+    parts = [p for p in str(path_value).replace("\\", "/").split("/") if p]
+    if len(parts) > 1:
+        return "/".join(parts[1:])
+    return parts[0]
+
+
+def resolve_contribution_contract(manifest: Mapping[str, Any]) -> dict[str, Any]:
+    """Return the publication build/suite contract for a stewardship manifest.
+
+    npm targets must declare an explicit ``contribution`` block (install/build/
+    suite). PyPI targets may declare one too; when absent, the contract is
+    derived from the stewardship layout fields (``src_subdir`` / ``tests_subdir``)
+    by stripping the sdist top-level directory so the paths match a git checkout.
+    """
+    existing = manifest.get("contribution")
+    if isinstance(existing, Mapping) and existing:
+        return dict(existing)
+    ecosystem = manifest.get("ecosystem") or (
+        "npm" if (manifest.get("driver") or {}).get("runtime") == "node" else "pypi"
+    )
+    if ecosystem == "npm":
+        raise PublicationRefused(
+            "contribution_contract",
+            "npm manifest lacks a contribution build/suite contract",
+        )
+    return {
+        "tests_subdir": _strip_sdist_top(manifest.get("tests_subdir"), default="tests"),
+        "src_subdir": _strip_sdist_top(manifest.get("src_subdir"), default="src"),
+    }
+
+
 def default_verifier(
     checkout: Path,
     *,
@@ -220,34 +282,39 @@ def default_verifier(
     run_suite: bool = True,
 ) -> dict[str, Any]:
     """Build the patched checkout, require the repro to pass and the suite green."""
-    contribution = manifest.get("contribution")
-    if not contribution:
-        raise PublicationRefused(
-            "contribution_contract", "manifest lacks a contribution build/suite contract"
-        )
+    contribution = resolve_contribution_contract(manifest)
     repro_name = _repro_payload_name(bundle)
     scratch = Path(tempfile.mkdtemp(prefix="publication-repro-"))
     repro_path = scratch / repro_name
     repro_path.write_bytes(_bundle_payload(bundle, repro_name))
     try:
-        if manifest.get("ecosystem") == "npm" or contribution.get("install"):
+        is_npm = (
+            manifest.get("ecosystem") == "npm"
+            or (manifest.get("driver") or {}).get("runtime") == "node"
+            or bool(contribution.get("install") or contribution.get("build"))
+        )
+        if is_npm and (contribution.get("build") or contribution.get("install")):
             if contribution.get("install"):
                 uc._run_npm_steps(checkout, contribution["install"], "install")
-            uc._run_npm_steps(checkout, contribution["build"], "build")
+            if contribution.get("build"):
+                uc._run_npm_steps(checkout, contribution["build"], "build")
             if uc.run_repro(repro_path, checkout):
                 raise PublicationRefused(
                     "repair_ineffective_at_head", "repro still triggers on the patched HEAD checkout"
                 )
             suite = uc.run_npm_suite(checkout, contribution) if run_suite else {"ok": True, "skipped": True}
         else:
-            if uc.run_repro(repro_path, checkout):
+            tests_rel = contribution.get("tests_subdir") or "tests"
+            src_rel = contribution.get("src_subdir") or "src"
+            src_abs = checkout / src_rel
+            # PyPI repros take the importable source root as argv[1], not the
+            # repo checkout root (``import mistune`` needs ``src/`` on sys.path).
+            if uc.run_repro(repro_path, src_abs if src_abs.is_dir() else checkout):
                 raise PublicationRefused(
                     "repair_ineffective_at_head", "repro still triggers on the patched HEAD checkout"
                 )
-            tests_rel = contribution.get("tests_subdir") or "tests"
-            src_rel = contribution.get("src_subdir") or "src"
             suite = (
-                uc.run_suite(checkout, tests_rel, checkout / src_rel)
+                uc.run_suite(checkout, tests_rel, src_abs if src_abs.is_dir() else checkout / "src")
                 if run_suite
                 else {"ok": True, "skipped": True}
             )
@@ -526,15 +593,20 @@ def publish_contribution(
         contribution = manifest.get("contribution") or {}
         tests_rel = contribution.get("tests_subdir") or "tests"
         test_name = _test_payload_name(bundle)
+        repro_name = _repro_payload_name(bundle)
         tests_dir = checkout / tests_rel
         tests_dir.mkdir(parents=True, exist_ok=True)
-        (tests_dir / test_name).write_bytes(_bundle_payload(bundle, test_name))
+        # Install every non-patch payload: the native/synthesized regression
+        # test *and* its companion repro (synthesized tests invoke the repro
+        # as a sibling file under tests/).
+        for payload_name in bundle.get("payload_sha256", {}):
+            if payload_name == "contribution.patch":
+                continue
+            (tests_dir / payload_name).write_bytes(_bundle_payload(bundle, payload_name))
 
         verification = verifier(
             checkout, manifest=manifest, bundle=bundle, run_suite=run_suite
         )
-
-        repro_name = _repro_payload_name(bundle)
         pr_body = render_pr_body(bundle, test_name, repro_name)
         commit_message = render_commit_message(bundle)
         _git(["add", "-A"], cwd=checkout)

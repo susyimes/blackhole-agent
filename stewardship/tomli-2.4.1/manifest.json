@@ -29,6 +29,10 @@
   "suite_overlay_sha256": "47e26414d9df2ab4c4c9b14d8c01f77ed1fb51c40decdade9fb82b07d09b95e8",
   "suite_source_url": "https://github.com/hukkin/tomli/archive/refs/tags/2.4.1.tar.gz",
   "tests_subdir": "tomli-2.4.1/tests",
+  "contribution": {
+    "tests_subdir": "tests",
+    "src_subdir": "src"
+  },
   "upstream_changelog": null,
   "upstream_repo": "https://github.com/hukkin/tomli",
   "version": "2.4.1"

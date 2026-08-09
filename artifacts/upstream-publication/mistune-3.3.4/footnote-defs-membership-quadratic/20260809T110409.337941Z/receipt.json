@@ -1,0 +1,39 @@
+{
+  "branch": "blackhole/footnote-defs-membership-quadratic",
+  "bundle_dir": "artifacts\\upstream-contribution\\mistune-3.3.4\\footnote-defs-membership-quadratic\\20260809T105407.623213Z",
+  "bundle_payload_sha256": {
+    "contribution.patch": "8a758bb485f192f4fd12c0e1241b4b79f3fcf6b13a3856046a0821ebb0dbea37",
+    "footnote_defs_quadratic.py": "855ff503fd2fe4010a8b0fce332657479aa6fe24de29fdc6f9255b150c9b19d2",
+    "test_contribution_footnote_defs_membership_quadratic.py": "2588f06ca2b93548bdfb0ff13e9b75719e0128b1d7120334bcfbf22aa12194e3"
+  },
+  "created_at": "2026-08-09T11:04:09.340475Z",
+  "defect_id": "footnote-defs-membership-quadratic",
+  "head_sha": "e264eca0b5a285672cab94457de2fba7bd89207c",
+  "name": "mistune",
+  "payload_sha256": {
+    "commit-message.txt": "53510529a78f5940f06e4b86911484818198d65ee51722cd4dea1acc53ab868b",
+    "pr-body.md": "efcfbb7deba1ed48903c7a88e14c8a9c333d860cdf0454166370c226c54d6a78"
+  },
+  "published": true,
+  "pull_request": {
+    "headRefOid": "e264eca0b5a285672cab94457de2fba7bd89207c",
+    "number": 478,
+    "state": "OPEN",
+    "url": "https://github.com/lepture/mistune/pull/478"
+  },
+  "schema_version": 1,
+  "upstream_repo": "https://github.com/lepture/mistune",
+  "used_skill_route_discovery": false,
+  "verdict": "published",
+  "verification": {
+    "repro_passed": true,
+    "suite": {
+      "exit_code": 0,
+      "failed": 0,
+      "ok": true,
+      "passed": 765,
+      "tail": "\u001b[32m\u001b[32m\u001b[1m765 passed\u001b[0m, \u001b[32m\u001b[1m6 subtests passed\u001b[0m\u001b[32m in 3.20s\u001b[0m\u001b[0m"
+    }
+  },
+  "version": "3.3.4"
+}

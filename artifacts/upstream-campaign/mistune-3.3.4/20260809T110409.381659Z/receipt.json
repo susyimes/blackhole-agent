@@ -1,0 +1,52 @@
+{
+  "campaign_digest": "5cdf4a07ae73aa353215611367bc2163e4b101ca11fb64b9b7904d59febad60f",
+  "created_at": "2026-08-09T11:04:09.381908Z",
+  "defect_ids": [
+    "footnote-defs-membership-quadratic"
+  ],
+  "ecosystem": "pypi",
+  "name": "mistune",
+  "ok": true,
+  "publish_requested": true,
+  "schema_version": 1,
+  "stage_digests": {
+    "publication.20260809T105407.623213Z.receipt": "d6ab49c5075c17b6484c376ec1b8afba6286b3f7e1c158ef453b490137bbc4da",
+    "publication.20260809T105407.623213Z.verdict": "b04e5ea201bb040cae53f693f6a38a3e00b62da6039ca248fecd59b7fc842894"
+  },
+  "stage_results": {
+    "publication": {
+      "ok": true,
+      "publications": [
+        {
+          "branch": null,
+          "bundle_dir": "artifacts\\upstream-contribution\\mistune-3.3.4\\footnote-defs-membership-quadratic\\20260809T105407.623213Z",
+          "head_sha": "e264eca0b5a285672cab94457de2fba7bd89207c",
+          "ok": true,
+          "published": true,
+          "pull_request": {
+            "headRefOid": "e264eca0b5a285672cab94457de2fba7bd89207c",
+            "number": 478,
+            "state": "OPEN",
+            "url": "https://github.com/lepture/mistune/pull/478"
+          },
+          "receipt_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260809T104700Z-b61ec32e\\artifacts\\upstream-publication\\mistune-3.3.4\\footnote-defs-membership-quadratic\\20260809T110409.337941Z",
+          "receipt_sha256": "d6ab49c5075c17b6484c376ec1b8afba6286b3f7e1c158ef453b490137bbc4da",
+          "seal_ok": true,
+          "verdict": "published"
+        }
+      ],
+      "publish_requested": true,
+      "published_count": 1,
+      "stage": "publication",
+      "verdict": "published"
+    }
+  },
+  "stages": [
+    "publication"
+  ],
+  "target": "stewardship\\mistune-3.3.4",
+  "upstream_repo": "https://github.com/lepture/mistune",
+  "used_skill_route_discovery": false,
+  "verdict": "published",
+  "version": "3.3.4"
+}

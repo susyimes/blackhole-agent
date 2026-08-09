@@ -1,0 +1,22 @@
+{
+  "branch": "blackhole/footnote-defs-membership-quadratic",
+  "bundle_dir": "artifacts\\upstream-contribution\\mistune-3.3.4\\footnote-defs-membership-quadratic\\20260809T105407.623213Z",
+  "bundle_payload_sha256": {
+    "contribution.patch": "8a758bb485f192f4fd12c0e1241b4b79f3fcf6b13a3856046a0821ebb0dbea37",
+    "footnote_defs_quadratic.py": "855ff503fd2fe4010a8b0fce332657479aa6fe24de29fdc6f9255b150c9b19d2",
+    "test_contribution_footnote_defs_membership_quadratic.py": "2588f06ca2b93548bdfb0ff13e9b75719e0128b1d7120334bcfbf22aa12194e3"
+  },
+  "created_at": "2026-08-09T11:02:51.719683Z",
+  "defect_id": "footnote-defs-membership-quadratic",
+  "head_sha": "",
+  "name": "mistune",
+  "payload_sha256": {},
+  "published": false,
+  "pull_request": null,
+  "refusal_detail": "patched HEAD suite red: \u001b[31m\u001b[31m\u001b[1m1 failed\u001b[0m, \u001b[32m764 passed\u001b[0m, \u001b[32m6 subtests passed\u001b[0m\u001b[31m in 1.85s\u001b[0m\u001b[0m",
+  "schema_version": 1,
+  "upstream_repo": "https://github.com/lepture/mistune",
+  "used_skill_route_discovery": false,
+  "verdict": "patch_regression_at_head",
+  "version": "3.3.4"
+}

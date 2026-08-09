@@ -1,0 +1,41 @@
+{
+  "campaign_digest": "b7397047c3ff790aacfedfb4746ae860db3a0c419eb17ef3651d279af0c32665",
+  "created_at": "2026-08-09T11:01:53.721692Z",
+  "defect_ids": [
+    "footnote-defs-membership-quadratic"
+  ],
+  "ecosystem": "pypi",
+  "name": "mistune",
+  "ok": false,
+  "publish_requested": true,
+  "schema_version": 1,
+  "stage_digests": {
+    "publication.20260809T105407.623213Z.verdict": "b17d63810b7874e8e5ea4f69b2c3edfdae6efe726c8deede84b8fabdae301daf"
+  },
+  "stage_results": {
+    "publication": {
+      "ok": false,
+      "publications": [
+        {
+          "bundle_dir": "artifacts\\upstream-contribution\\mistune-3.3.4\\footnote-defs-membership-quadratic\\20260809T105407.623213Z",
+          "detail": "gh returned non-JSON for ['pr', 'list']: Expecting value: line 1 column 1 (char 0)",
+          "ok": false,
+          "published": false,
+          "verdict": "gh_failed"
+        }
+      ],
+      "publish_requested": true,
+      "published_count": 0,
+      "stage": "publication",
+      "verdict": "publication_failed"
+    }
+  },
+  "stages": [
+    "publication"
+  ],
+  "target": "stewardship\\mistune-3.3.4",
+  "upstream_repo": "https://github.com/lepture/mistune",
+  "used_skill_route_discovery": false,
+  "verdict": "publication_failed",
+  "version": "3.3.4"
+}

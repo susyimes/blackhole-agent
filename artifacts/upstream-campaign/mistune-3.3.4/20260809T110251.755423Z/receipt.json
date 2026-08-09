@@ -1,0 +1,47 @@
+{
+  "campaign_digest": "1769eb52544e6517f6de6228173024f047c1b03bf8f60e69029d38fd4045c444",
+  "created_at": "2026-08-09T11:02:51.755957Z",
+  "defect_ids": [
+    "footnote-defs-membership-quadratic"
+  ],
+  "ecosystem": "pypi",
+  "name": "mistune",
+  "ok": false,
+  "publish_requested": true,
+  "schema_version": 1,
+  "stage_digests": {
+    "publication.20260809T105407.623213Z.receipt": "9103364cdac32d49373e3e725f2559bf98d41eaa3fbb55fdbdd1c7a6c0b0066e",
+    "publication.20260809T105407.623213Z.verdict": "534f7dc98ba82fee49ebbe95973a25de25242f9ba4505203e0a96488313bba3a"
+  },
+  "stage_results": {
+    "publication": {
+      "ok": false,
+      "publications": [
+        {
+          "branch": null,
+          "bundle_dir": "artifacts\\upstream-contribution\\mistune-3.3.4\\footnote-defs-membership-quadratic\\20260809T105407.623213Z",
+          "head_sha": null,
+          "ok": false,
+          "published": false,
+          "pull_request": null,
+          "receipt_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260809T104700Z-b61ec32e\\artifacts\\upstream-publication\\mistune-3.3.4\\footnote-defs-membership-quadratic\\20260809T110251.718673Z",
+          "receipt_sha256": "9103364cdac32d49373e3e725f2559bf98d41eaa3fbb55fdbdd1c7a6c0b0066e",
+          "seal_ok": false,
+          "verdict": "patch_regression_at_head"
+        }
+      ],
+      "publish_requested": true,
+      "published_count": 0,
+      "stage": "publication",
+      "verdict": "publication_failed"
+    }
+  },
+  "stages": [
+    "publication"
+  ],
+  "target": "stewardship\\mistune-3.3.4",
+  "upstream_repo": "https://github.com/lepture/mistune",
+  "used_skill_route_discovery": false,
+  "verdict": "publication_failed",
+  "version": "3.3.4"
+}
