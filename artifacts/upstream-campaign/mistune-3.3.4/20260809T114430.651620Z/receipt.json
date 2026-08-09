@@ -1,0 +1,43 @@
+{
+  "campaign_digest": "fc938bbd47e45dadcff88d1e337e5f75e9874df8af233a78002bf999ac1e0f3a",
+  "created_at": "2026-08-09T11:44:30.651930Z",
+  "defect_ids": [],
+  "ecosystem": "pypi",
+  "name": "mistune",
+  "ok": false,
+  "publish_requested": false,
+  "schema_version": 1,
+  "stage_digests": {
+    "admit.verdict": "681184daa458b0c95162fc8df78bfaf9ad25f2deb8447886abdeaaad00bd4aa1",
+    "discovery.report": "4abb041be9cb3ea92ff9caf610ca61f038304f8324dfb643f3ec9f06f5c5a234",
+    "discovery.verdict": "46b1a23984dd3da94257d860fa664348eb038091e7c49daf92c222cea7c56386"
+  },
+  "stage_results": {
+    "admit": {
+      "detail": "discovery report failed verification: ['repro repros\\\\footnote_defs.py hash mismatch: evidence file tampered']",
+      "ok": false,
+      "stage": "admit",
+      "verdict": "report_unsealed"
+    },
+    "discovery": {
+      "finding_count": 1,
+      "findings": [],
+      "ok": true,
+      "report_dir": "artifacts\\upstream-discovery\\mistune-3.3.4\\20260802T100330.020840Z",
+      "report_sha256": "4abb041be9cb3ea92ff9caf610ca61f038304f8324dfb643f3ec9f06f5c5a234",
+      "seal_ok": false,
+      "stage": "discovery",
+      "verdict": "scanned"
+    }
+  },
+  "stages": [
+    "discovery",
+    "admit",
+    "repair"
+  ],
+  "target": "artifacts\\upstream-admission\\live-demo-target",
+  "upstream_repo": "https://github.com/lepture/mistune",
+  "used_skill_route_discovery": false,
+  "verdict": "admit_failed",
+  "version": "3.3.4"
+}

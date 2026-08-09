@@ -1,32 +1,34 @@
 """Upstream campaign plane: sealed end-to-end orchestration of the stewardship loop.
 
-The five upstream planes (frontier, discovery, repair, contribution,
-publication) are independently invocable but require manual stage wiring.
-The campaign plane closes that gap: one request drives a multi-stage campaign
-over a stewarded target, with digest-chained receipts, stage short-circuits,
-and optional outward publication.
+The upstream planes (discovery, admission, repair, contribution, publication)
+are independently invocable but require manual stage wiring. The campaign
+plane closes that gap: one request drives a multi-stage campaign over a
+stewarded target, with digest-chained receipts, stage short-circuits, and
+optional outward publication.
 
-For one stewardship target the plane:
+For one stewardship target the plane can run any prefix/suffix of:
 
-1. **repair** — re-runs (or reuses a green) local repair campaign and records
+1. **discovery** — blind adversarial scan; seals a discovery report (findings
+   + synthesized repros). Inject ``discovery_runner`` for hermetic proofs.
+2. **admit** — promotes sealed discovery findings into stewardship defect
+   entries (repro copy, optional patch bind, pending_patch when no patch).
+   Requires a prior discovery stage or an explicit ``discovery_report_dir``.
+3. **repair** — re-runs (or reuses a green) local repair campaign and records
    the report digests; a red repair aborts before any outward stage
-   (``repair_failed``);
-2. **contribution** — builds a sealed contribution bundle for each requested
-   defect (or every defect on the manifest); already-fixed-at-HEAD defects
-   are triaged non-submittable without aborting the campaign; a rejected
-   build seals a stage failure for that defect but continues siblings;
-3. **publication** — for each submittable bundle, gates and optionally
-   actuates publication (``publish=False`` default is dry-run only); open /
-   merged / closed PR triage is preserved from the publication plane;
-4. seals a campaign receipt under ``artifacts/upstream-campaign/`` with
-   sha256 digests of every stage artifact (repair report, contribution
-   bundles, publication receipts); ``verify_campaign_receipt`` re-checks
-   the chain and detects tampering.
+   (``repair_failed``). Pending-patch defects are skipped by the repair plane.
+4. **contribution** — builds a sealed contribution bundle for each requested
+   defect (or every *patch-bound* defect on the manifest); already-fixed-at-HEAD
+   defects are triaged non-submittable without aborting the campaign.
+5. **publication** — for each submittable bundle, gates and optionally
+   actuates publication (``publish=False`` default is dry-run only).
+
+Seals a campaign receipt under ``artifacts/upstream-campaign/`` with sha256
+digests of every stage artifact; ``verify_campaign_receipt`` re-checks the
+chain and detects tampering.
 
 The plane is orchestration, not a sixth independent verifier: each stage
-delegates to the existing planes through injected seams (``repair_runner``,
-``contribution_builder``, ``publisher``, ``fetcher``, ``gh``, ``verifier``)
-so the builtin proof is hermetic. No skill-route discovery is used.
+delegates to the existing planes through injected seams so the builtin proof
+is hermetic. No skill-route discovery is used.
 """
 
 from __future__ import annotations
@@ -40,7 +42,9 @@ import tempfile
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
+from blackhole_agent import upstream_admission as ua
 from blackhole_agent import upstream_contribution as uc
+from blackhole_agent import upstream_discovery as udi
 from blackhole_agent import upstream_publication as up
 from blackhole_agent import upstream_repair as ur
 from blackhole_agent.capability_compounder import (
@@ -56,7 +60,14 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS_ROOT = REPO_ROOT / "artifacts" / "upstream-campaign"
 
 DEFAULT_STAGES: tuple[str, ...] = ("repair", "contribution", "publication")
-VALID_STAGES = frozenset(DEFAULT_STAGES)
+FULL_LOOP_STAGES: tuple[str, ...] = (
+    "discovery",
+    "admit",
+    "repair",
+    "contribution",
+    "publication",
+)
+VALID_STAGES = frozenset(FULL_LOOP_STAGES)
 
 
 class CampaignRefused(Exception):
@@ -92,9 +103,32 @@ def _load_manifest(target_dir: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _defect_ids(manifest: Mapping[str, Any], requested: Sequence[str] | None) -> list[str]:
-    available = [str(d["id"]) for d in manifest.get("defects", []) if d.get("id")]
+def _patch_bound_defect_ids(manifest: Mapping[str, Any]) -> list[str]:
+    """Defects that carry a patch (contribution/repair-ready), not pending admissions."""
+    ids: list[str] = []
+    for d in manifest.get("defects") or []:
+        if not d.get("id"):
+            continue
+        if d.get("pending_patch") or not d.get("patch"):
+            continue
+        ids.append(str(d["id"]))
+    return ids
+
+
+def _defect_ids(
+    manifest: Mapping[str, Any],
+    requested: Sequence[str] | None,
+    *,
+    allow_empty: bool = False,
+    patch_bound_only: bool = False,
+) -> list[str]:
+    if patch_bound_only:
+        available = _patch_bound_defect_ids(manifest)
+    else:
+        available = [str(d["id"]) for d in manifest.get("defects", []) if d.get("id")]
     if not available:
+        if allow_empty:
+            return []
         raise CampaignRefused("no_defects", "manifest carries no defects to campaign")
     if not requested:
         return available
@@ -106,6 +140,95 @@ def _defect_ids(manifest: Mapping[str, Any], requested: Sequence[str] | None) ->
 
 # ---------------------------------------------------------------------------
 # stages
+
+
+def _stage_discovery(
+    target_dir: Path,
+    *,
+    discovery_runner: Callable[[Path], dict[str, Any]] | None,
+    artifact_root: Path | None,
+) -> dict[str, Any]:
+    """Run (or inject) a blind discovery scan; seal stage digests."""
+    runner = discovery_runner or (
+        lambda td: udi.run_discovery_scan(td, artifact_root=artifact_root)
+    )
+    result = runner(Path(target_dir))
+    report_dir = result.get("report_dir")
+    stage: dict[str, Any] = {
+        "stage": "discovery",
+        "verdict": "scanned" if result.get("ok") else "discovery_failed",
+        "ok": bool(result.get("ok")),
+        "report_dir": report_dir,
+        "finding_count": result.get("finding_count"),
+        "findings": result.get("findings"),
+    }
+    if report_dir:
+        report_path = Path(report_dir) / "report.json"
+        if report_path.is_file():
+            stage["report_sha256"] = _sha256_path(report_path)
+            seal = udi.verify_discovery_report(Path(report_dir))
+            stage["seal_ok"] = bool(seal.get("ok"))
+    if not result.get("ok"):
+        stage["detail"] = result.get("error") or "discovery scan failed"
+    return stage
+
+
+def _stage_admit(
+    target_dir: Path,
+    report_dir: Path | None,
+    *,
+    admission_runner: Callable[..., dict[str, Any]] | None,
+    patch_map: Mapping[str, str] | None,
+    out_root: Path | None,
+) -> dict[str, Any]:
+    """Promote sealed discovery findings into the stewardship manifest."""
+    if not report_dir:
+        return {
+            "stage": "admit",
+            "verdict": "no_discovery_report",
+            "ok": False,
+            "detail": "admit requires a discovery report_dir",
+        }
+    runner = admission_runner or ua.admit_discovery_findings
+    try:
+        result = runner(
+            Path(target_dir),
+            Path(report_dir),
+            patch_map=patch_map,
+            out_root=out_root,
+        )
+    except ua.AdmissionRefused as exc:
+        return {
+            "stage": "admit",
+            "verdict": exc.verdict,
+            "ok": False,
+            "detail": exc.detail,
+        }
+    except Exception as exc:  # noqa: BLE001 — stage isolation
+        return {
+            "stage": "admit",
+            "verdict": "admission_error",
+            "ok": False,
+            "detail": f"{type(exc).__name__}: {exc}"[:400],
+        }
+    stage: dict[str, Any] = {
+        "stage": "admit",
+        "verdict": result.get("verdict"),
+        "ok": bool(result.get("ok")),
+        "receipt_dir": result.get("receipt_dir"),
+        "admission_digest": result.get("admission_digest"),
+        "admitted_count": result.get("admitted_count"),
+        "pending_patch_ids": result.get("pending_patch_ids"),
+        "admitted": result.get("admitted"),
+    }
+    receipt_dir = result.get("receipt_dir")
+    if receipt_dir:
+        receipt_json = Path(receipt_dir) / "receipt.json"
+        if receipt_json.is_file():
+            stage["receipt_sha256"] = _sha256_path(receipt_json)
+            seal = ua.verify_admission_receipt(Path(receipt_dir))
+            stage["seal_ok"] = bool(seal.get("ok"))
+    return stage
 
 
 def _target_repair_dir(target_dir: Path, artifact_dir: Path | None = None) -> Path:
@@ -343,10 +466,16 @@ def run_campaign(
     repair_runner: Callable[[Path], dict[str, Any]] | None = None,
     contribution_builder: Callable[..., dict[str, Any]] | None = None,
     publisher: Callable[..., dict[str, Any]] | None = None,
+    discovery_runner: Callable[[Path], dict[str, Any]] | None = None,
+    admission_runner: Callable[..., dict[str, Any]] | None = None,
     fetcher: Any = None,
     gh: Callable[..., str] | None = None,
     verifier: Callable[..., dict[str, Any]] | None = None,
     repair_artifact_dir: Path | None = None,
+    discovery_artifact_root: Path | None = None,
+    discovery_report_dir: str | Path | None = None,
+    admission_out_root: Path | None = None,
+    admission_patch_map: Mapping[str, str] | None = None,
     contribution_out_root: Path | None = None,
     publication_out_root: Path | None = None,
     out_root: Path | None = None,
@@ -360,6 +489,11 @@ def run_campaign(
     ``bundle_dirs`` supplies pre-sealed contribution bundles for a publication
     stage that runs without (or after) contribution rebuild — used to publish
     an already-sealed submittable bundle through the campaign receipt chain.
+
+    Full-loop stages (``discovery`` → ``admit`` → ``repair`` → ``contribution``
+    → ``publication``) close the stewardship loop from a blind scan through
+    optional outward publication. Default stages remain the historical
+    repair→contribution→publication suffix for backward compatibility.
     """
     target_dir = Path(target_dir)
     manifest = _load_manifest(target_dir)
@@ -368,25 +502,34 @@ def run_campaign(
     unknown = [s for s in stages if s not in VALID_STAGES]
     if unknown:
         raise CampaignRefused("stages_unknown", f"unknown stages: {unknown}")
-    stage_list = [s for s in stages if s in VALID_STAGES]
+    # Preserve caller order while dropping duplicates.
+    stage_list = list(dict.fromkeys(s for s in stages if s in VALID_STAGES))
 
-    ids = _defect_ids(manifest, defect_ids)
+    needs_defects = any(s in stage_list for s in ("repair", "contribution", "publication"))
+    # Discovery/admit may populate defects before outward stages run.
+    allow_empty_upfront = ("discovery" in stage_list) or ("admit" in stage_list) or bool(bundle_dirs)
+    ids = _defect_ids(
+        manifest,
+        defect_ids,
+        allow_empty=allow_empty_upfront or not needs_defects,
+        patch_bound_only=False,
+    )
     stage_results: dict[str, Any] = {}
     campaign_ok = True
     terminal_verdict = "campaign_complete"
+    active_report_dir: Path | None = Path(discovery_report_dir) if discovery_report_dir else None
 
-    # --- repair ---
-    if "repair" in stage_list:
-        repair = _stage_repair(
+    # --- discovery ---
+    if "discovery" in stage_list:
+        discovery = _stage_discovery(
             target_dir,
-            repair_runner=repair_runner,
-            skip_if_green=skip_repair_if_green,
-            artifact_dir=repair_artifact_dir,
+            discovery_runner=discovery_runner,
+            artifact_root=discovery_artifact_root,
         )
-        stage_results["repair"] = repair
-        if not repair.get("ok"):
+        stage_results["discovery"] = discovery
+        if not discovery.get("ok"):
             campaign_ok = False
-            terminal_verdict = "repair_failed"
+            terminal_verdict = "discovery_failed"
             return _seal_campaign(
                 target_dir=target_dir,
                 manifest=manifest,
@@ -398,39 +541,135 @@ def run_campaign(
                 verdict=terminal_verdict,
                 out_root=out_root,
             )
+        if discovery.get("report_dir"):
+            active_report_dir = Path(str(discovery["report_dir"]))
+
+    # --- admit ---
+    if "admit" in stage_list:
+        admit = _stage_admit(
+            target_dir,
+            active_report_dir,
+            admission_runner=admission_runner,
+            patch_map=admission_patch_map,
+            out_root=admission_out_root,
+        )
+        stage_results["admit"] = admit
+        if not admit.get("ok"):
+            campaign_ok = False
+            terminal_verdict = "admit_failed"
+            return _seal_campaign(
+                target_dir=target_dir,
+                manifest=_load_manifest(target_dir),
+                defect_ids=ids,
+                stages=stage_list,
+                stage_results=stage_results,
+                publish=publish,
+                ok=False,
+                verdict=terminal_verdict,
+                out_root=out_root,
+            )
+        # Reload manifest + defect ids after admission mutates stewardship.
+        manifest = _load_manifest(target_dir)
+        ids = _defect_ids(
+            manifest,
+            defect_ids,
+            allow_empty=True,
+            patch_bound_only=False,
+        )
+        if admit.get("verdict") in {"admitted", "all_already_admitted", "nothing_to_admit"}:
+            # Keep campaign_complete unless later stages override.
+            if terminal_verdict == "campaign_complete" and not any(
+                s in stage_list for s in ("repair", "contribution", "publication")
+            ):
+                terminal_verdict = str(admit.get("verdict") or "admitted")
+
+    # --- repair ---
+    if "repair" in stage_list:
+        # Repair only acts on patch-bound defects; pending admissions are skipped.
+        repair_ids = _defect_ids(manifest, defect_ids, allow_empty=True, patch_bound_only=True)
+        if not repair_ids and not defect_ids:
+            stage_results["repair"] = {
+                "stage": "repair",
+                "verdict": "no_patch_bound_defects",
+                "ok": True,
+                "reused": False,
+                "detail": "no patch-bound defects; discovery admissions may still be pending_patch",
+            }
+            if terminal_verdict == "campaign_complete" and not any(
+                s in stage_list for s in ("contribution", "publication")
+            ):
+                terminal_verdict = "no_patch_bound_defects"
+        else:
+            repair = _stage_repair(
+                target_dir,
+                repair_runner=repair_runner,
+                skip_if_green=skip_repair_if_green,
+                artifact_dir=repair_artifact_dir,
+            )
+            stage_results["repair"] = repair
+            if not repair.get("ok"):
+                campaign_ok = False
+                terminal_verdict = "repair_failed"
+                return _seal_campaign(
+                    target_dir=target_dir,
+                    manifest=manifest,
+                    defect_ids=ids,
+                    stages=stage_list,
+                    stage_results=stage_results,
+                    publish=publish,
+                    ok=False,
+                    verdict=terminal_verdict,
+                    out_root=out_root,
+                )
 
     # --- contribution ---
     submittable: list[str] = [str(p) for p in (bundle_dirs or [])]
     if "contribution" in stage_list:
-        contribution = _stage_contribution(
-            target_dir,
-            ids,
-            contribution_builder=contribution_builder,
-            fetcher=fetcher,
-            out_root=contribution_out_root,
+        contrib_ids = _defect_ids(
+            manifest,
+            defect_ids,
+            allow_empty=bool(submittable),
+            patch_bound_only=True,
         )
-        stage_results["contribution"] = contribution
-        # Freshly built bundles take precedence; pre-supplied dirs remain if
-        # contribution produced nothing submittable (e.g. all already fixed).
-        built = list(contribution.get("submittable_bundle_dirs") or [])
-        submittable = built if built else submittable
-        if contribution.get("verdict") == "contribution_failed" and not submittable:
-            campaign_ok = False
-            terminal_verdict = "contribution_failed"
-            return _seal_campaign(
-                target_dir=target_dir,
-                manifest=manifest,
-                defect_ids=ids,
-                stages=stage_list,
-                stage_results=stage_results,
-                publish=publish,
-                ok=False,
-                verdict=terminal_verdict,
-                out_root=out_root,
+        if not contrib_ids and not submittable:
+            stage_results["contribution"] = {
+                "stage": "contribution",
+                "verdict": "no_patch_bound_defects",
+                "ok": True,
+                "defects": [],
+                "submittable_bundle_dirs": [],
+                "submittable_count": 0,
+            }
+            if terminal_verdict == "campaign_complete":
+                terminal_verdict = "no_patch_bound_defects"
+        else:
+            contribution = _stage_contribution(
+                target_dir,
+                contrib_ids,
+                contribution_builder=contribution_builder,
+                fetcher=fetcher,
+                out_root=contribution_out_root,
             )
-        if contribution.get("verdict") == "all_already_fixed" and not submittable:
-            terminal_verdict = "all_already_fixed"
-            # Still allow publication stage to be skipped cleanly.
+            stage_results["contribution"] = contribution
+            built = list(contribution.get("submittable_bundle_dirs") or [])
+            submittable = built if built else submittable
+            if contribution.get("verdict") == "contribution_failed" and not submittable:
+                campaign_ok = False
+                terminal_verdict = "contribution_failed"
+                return _seal_campaign(
+                    target_dir=target_dir,
+                    manifest=manifest,
+                    defect_ids=contrib_ids,
+                    stages=stage_list,
+                    stage_results=stage_results,
+                    publish=publish,
+                    ok=False,
+                    verdict=terminal_verdict,
+                    out_root=out_root,
+                )
+            if contribution.get("verdict") == "all_already_fixed" and not submittable:
+                terminal_verdict = "all_already_fixed"
+            ids = contrib_ids
 
     # --- publication ---
     if "publication" in stage_list:
@@ -447,11 +686,12 @@ def run_campaign(
         if not publication.get("ok"):
             campaign_ok = False
             terminal_verdict = "publication_failed"
-        elif terminal_verdict == "campaign_complete":
+        elif terminal_verdict in {"campaign_complete", "no_patch_bound_defects"}:
             if publication.get("verdict") == "nothing_to_publish":
-                # contribution may have triaged everything fixed
                 if stage_results.get("contribution", {}).get("verdict") == "all_already_fixed":
                     terminal_verdict = "all_already_fixed"
+                elif stage_results.get("contribution", {}).get("verdict") == "no_patch_bound_defects":
+                    terminal_verdict = "no_patch_bound_defects"
                 else:
                     terminal_verdict = "campaign_complete_no_publication"
             else:
@@ -490,6 +730,22 @@ def _seal_campaign(
 
     # Collect stage artifact digests for the seal chain.
     stage_digests: dict[str, str] = {}
+    if "discovery" in stage_results:
+        d = stage_results["discovery"]
+        if d.get("report_sha256"):
+            stage_digests["discovery.report"] = str(d["report_sha256"])
+        stage_digests["discovery.verdict"] = _sha256_bytes(
+            str(d.get("verdict") or "").encode("utf-8")
+        )
+    if "admit" in stage_results:
+        a = stage_results["admit"]
+        if a.get("receipt_sha256"):
+            stage_digests["admit.receipt"] = str(a["receipt_sha256"])
+        if a.get("admission_digest"):
+            stage_digests["admit.admission_digest"] = str(a["admission_digest"])
+        stage_digests["admit.verdict"] = _sha256_bytes(
+            str(a.get("verdict") or "").encode("utf-8")
+        )
     if "repair" in stage_results:
         r = stage_results["repair"]
         if r.get("report_sha256"):
@@ -584,6 +840,32 @@ def verify_campaign_receipt(campaign_dir: Path) -> dict[str, Any]:
     stage_digests = dict(receipt.get("stage_digests") or {})
 
     # Recompute digests from live stage artifacts where present.
+    discovery = stage_results.get("discovery") or {}
+    if discovery.get("report_dir"):
+        report_path = Path(discovery["report_dir"]) / "report.json"
+        if report_path.is_file():
+            actual = _sha256_path(report_path)
+            expected = stage_digests.get("discovery.report")
+            if expected and actual != expected:
+                mismatched.append("discovery.report")
+                problems.append("discovery report digest mismatch")
+            seal = udi.verify_discovery_report(Path(discovery["report_dir"]))
+            if discovery.get("ok") and not seal.get("ok"):
+                problems.append(f"discovery seal broken: {seal.get('problems')}")
+
+    admit = stage_results.get("admit") or {}
+    if admit.get("receipt_dir"):
+        receipt_json = Path(admit["receipt_dir"]) / "receipt.json"
+        if receipt_json.is_file():
+            actual = _sha256_path(receipt_json)
+            expected = stage_digests.get("admit.receipt")
+            if expected and actual != expected:
+                mismatched.append("admit.receipt")
+                problems.append("admission receipt digest mismatch")
+            seal = ua.verify_admission_receipt(Path(admit["receipt_dir"]))
+            if admit.get("ok") and not seal.get("ok"):
+                problems.append(f"admission seal broken: {seal.get('problems')}")
+
     repair = stage_results.get("repair") or {}
     if repair.get("report_dir"):
         report_path = Path(repair["report_dir"]) / "report.json"
@@ -852,9 +1134,42 @@ def builtin_upstream_campaign_proof() -> dict[str, Any]:
             and not gh2.prs
         )
 
+        # 7. Full-loop: discovery → admit on an empty-defect staging target.
+        # Inject a sealed discovery report; admission mutates the manifest;
+        # repair short-circuits with no_patch_bound_defects (pending patch).
+        loop_target = ua._proof_target(scratch / "full-loop")
+        sealed_report = ua._proof_discovery_report(scratch / "loop-discovery")
+
+        def discovery_inject(_td: Path) -> dict[str, Any]:
+            return {
+                "ok": True,
+                "report_dir": str(sealed_report),
+                "finding_count": 1,
+                "findings": [{"generator": "nested_link", "flagged": True, "kind": "complexity"}],
+            }
+
+        loop = run_campaign(
+            loop_target,
+            stages=("discovery", "admit", "repair"),
+            discovery_runner=discovery_inject,
+            admission_out_root=scratch / "loop-admission",
+            out_root=scratch / "campaigns-loop",
+        )
+        loop_manifest = json.loads((loop_target / "manifest.json").read_text(encoding="utf-8"))
+        loop_ok = (
+            loop["ok"]
+            and loop["stage_results"]["discovery"]["ok"]
+            and loop["stage_results"]["admit"]["ok"]
+            and int(loop["stage_results"]["admit"].get("admitted_count") or 0) == 1
+            and loop["stage_results"]["repair"]["verdict"] == "no_patch_bound_defects"
+            and any(d.get("pending_patch") for d in (loop_manifest.get("defects") or []))
+        )
+        loop_verified = verify_campaign_receipt(Path(loop["campaign_dir"]))
+        loop_seal_ok = bool(loop_verified.get("ok"))
+
         ok = all([
             full_ok, verify_ok, tamper_detected, fixed_ok, fixed_verified.get("ok"),
-            red_aborts, empty_refused, dry_ok,
+            red_aborts, empty_refused, dry_ok, loop_ok, loop_seal_ok,
         ])
         return {
             "ok": ok,
@@ -865,6 +1180,7 @@ def builtin_upstream_campaign_proof() -> dict[str, Any]:
             "repair_failure_aborts": red_aborts,
             "empty_defects_refused": empty_refused,
             "dry_run_gated": dry_ok,
+            "full_loop_discovery_admit": loop_ok and loop_seal_ok,
             "campaign_digest": full.get("campaign_digest"),
             "used_skill_route_discovery": legacy_pipeline_was_used(),
         }
@@ -883,7 +1199,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--stages",
         default="repair,contribution,publication",
-        help="comma-separated stages (default: repair,contribution,publication)",
+        help=(
+            "comma-separated stages "
+            "(discovery,admit,repair,contribution,publication; "
+            "default: repair,contribution,publication)"
+        ),
+    )
+    parser.add_argument(
+        "--full-loop",
+        action="store_true",
+        help="shorthand for stages=discovery,admit,repair,contribution,publication",
+    )
+    parser.add_argument(
+        "--discovery-report",
+        help="pre-sealed discovery report dir (skips live scan when used with admit)",
     )
     parser.add_argument("--publish", action="store_true", help="perform outward publication")
     parser.add_argument("--force-repair", action="store_true", help="re-run repair even if green")
@@ -905,7 +1234,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not args.target:
         parser.error("--target is required unless --proof or --verify-receipt")
 
-    stages = tuple(s.strip() for s in args.stages.split(",") if s.strip())
+    if args.full_loop:
+        stages = FULL_LOOP_STAGES
+    else:
+        stages = tuple(s.strip() for s in args.stages.split(",") if s.strip())
     try:
         result = run_campaign(
             Path(args.target),
@@ -913,6 +1245,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             stages=stages,
             publish=args.publish,
             skip_repair_if_green=not args.force_repair,
+            discovery_report_dir=args.discovery_report,
         )
     except CampaignRefused as exc:
         print(json.dumps({"ok": False, "verdict": exc.verdict, "detail": exc.detail}, indent=2))

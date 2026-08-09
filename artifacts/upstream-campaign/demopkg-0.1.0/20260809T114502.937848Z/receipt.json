@@ -1,0 +1,66 @@
+{
+  "campaign_digest": "138c2436230485738f3e633f8f4b564f7612b827e2372953468985aeaa321676",
+  "created_at": "2026-08-09T11:45:02.938680Z",
+  "defect_ids": [
+    "nested-link-complexity",
+    "footnote-defs-complexity"
+  ],
+  "ecosystem": "pypi",
+  "name": "demopkg",
+  "ok": true,
+  "publish_requested": false,
+  "schema_version": 1,
+  "stage_digests": {
+    "admit.admission_digest": "73752ce00418753070611f587e2d4fe8a98dcb60283e7b92965c022d0000636c",
+    "admit.receipt": "29a7e05ae080d49e67d3d2de8305ee10da65f442544175fd3abcb01c4bc0bdcd",
+    "admit.verdict": "c5a16abd6d1cd4a7f804ca1d7d8032234926d50360db3998e7c5bea43cc2ba08",
+    "discovery.report": "8a76a11aee2c2a1d8389646a404bd2161009f10b0f177598cf518b95db403ac8",
+    "discovery.verdict": "46b1a23984dd3da94257d860fa664348eb038091e7c49daf92c222cea7c56386",
+    "repair.report_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "stage_results": {
+    "admit": {
+      "admission_digest": "73752ce00418753070611f587e2d4fe8a98dcb60283e7b92965c022d0000636c",
+      "admitted": [],
+      "admitted_count": 0,
+      "ok": true,
+      "pending_patch_ids": [],
+      "receipt_dir": "artifacts\\upstream-admission\\demopkg-0.1.0\\20260809T114502.935076Z",
+      "receipt_sha256": "29a7e05ae080d49e67d3d2de8305ee10da65f442544175fd3abcb01c4bc0bdcd",
+      "seal_ok": true,
+      "stage": "admit",
+      "verdict": "all_already_admitted"
+    },
+    "discovery": {
+      "finding_count": 1,
+      "findings": [],
+      "ok": true,
+      "report_dir": "artifacts\\upstream-admission\\demo-discovery-report-2\\discovery-report",
+      "report_sha256": "8a76a11aee2c2a1d8389646a404bd2161009f10b0f177598cf518b95db403ac8",
+      "seal_ok": true,
+      "stage": "discovery",
+      "verdict": "scanned"
+    },
+    "repair": {
+      "defect_count": 1,
+      "ok": true,
+      "repair_score": 1.0,
+      "repaired_count": 1,
+      "report_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "report_dir": "artifacts\\upstream-repair\\demo",
+      "reused": false,
+      "stage": "repair",
+      "verdict": "repaired"
+    }
+  },
+  "stages": [
+    "discovery",
+    "admit",
+    "repair"
+  ],
+  "target": "artifacts\\upstream-admission\\demo-staging-target",
+  "upstream_repo": "https://github.com/proof/demopkg",
+  "used_skill_route_discovery": false,
+  "verdict": "campaign_complete",
+  "version": "0.1.0"
+}

@@ -1,0 +1,32 @@
+{
+  "admission_digest": "fc8f36d59af5baee010a0287b73a27c3ca04b6937ad3287c3279495584ac9689",
+  "admitted": [
+    {
+      "defect_id": "nested-link-complexity",
+      "generator": "nested_link",
+      "kind": "complexity",
+      "patch": null,
+      "pending_patch": true,
+      "repro": "repros/nested_link.py",
+      "repro_sha256": "5586297c56d25ae0180134191abadf6f24fbc01e3bbf5042f32fca5738ba178b"
+    }
+  ],
+  "admitted_count": 1,
+  "created_at": "2026-08-09T11:44:51.649861Z",
+  "dry_run": false,
+  "manifest_sha256": "7060c3f9f0e62526066306436d97e32c56c864459dc80d792766a76eca1a0987",
+  "name": "demopkg",
+  "ok": true,
+  "pending_patch_ids": [
+    "nested-link-complexity"
+  ],
+  "report_chain_digest": "dde83403e1322c0ff21802c70c4c4916d1d1aa7d77b80fb017d3d25036dc5e01",
+  "report_dir": "artifacts\\upstream-admission\\demo-discovery-report\\discovery-report",
+  "report_sha256": "7c13d9f3a39ab1543248912639f3dd6b606b4d44d8524d3301dc4da9d286c049",
+  "schema_version": 1,
+  "skipped": [],
+  "target": "artifacts\\upstream-admission\\demo-staging-target",
+  "used_skill_route_discovery": false,
+  "verdict": "admitted",
+  "version": "0.1.0"
+}

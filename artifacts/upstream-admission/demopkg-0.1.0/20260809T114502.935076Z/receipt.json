@@ -1,0 +1,26 @@
+{
+  "admission_digest": "73752ce00418753070611f587e2d4fe8a98dcb60283e7b92965c022d0000636c",
+  "admitted": [],
+  "admitted_count": 0,
+  "created_at": "2026-08-09T11:45:02.935487Z",
+  "dry_run": false,
+  "manifest_sha256": "00dc121ca43c5002fb08b520d7aa3389116b0c8cb3bc2b8e99ec573052a3ecc8",
+  "name": "demopkg",
+  "ok": true,
+  "pending_patch_ids": [],
+  "report_chain_digest": "bfcca46987be7df6cef539fa5b4accb2f24ae31d0e2d2f45d32b227544790a18",
+  "report_dir": "artifacts\\upstream-admission\\demo-discovery-report-2\\discovery-report",
+  "report_sha256": "8a76a11aee2c2a1d8389646a404bd2161009f10b0f177598cf518b95db403ac8",
+  "schema_version": 1,
+  "skipped": [
+    {
+      "defect_id": "footnote-defs-complexity",
+      "generator": "footnote_defs",
+      "reason": "already_admitted"
+    }
+  ],
+  "target": "artifacts\\upstream-admission\\demo-staging-target",
+  "used_skill_route_discovery": false,
+  "verdict": "all_already_admitted",
+  "version": "0.1.0"
+}

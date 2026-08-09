@@ -1,0 +1,25 @@
+{
+  "defects": [],
+  "driver": {
+    "prelude": "import mistune\n\n_RENDERERS = {}\n\ndef render(text, plugins):\n    key = tuple(plugins)\n    md = _RENDERERS.get(key)\n    if md is None:\n        md = mistune.create_markdown(plugins=list(plugins))\n        _RENDERERS[key] = md\n    md(text)"
+  },
+  "fixed_in": null,
+  "frontier": true,
+  "kind": "pypi-sdist",
+  "name": "mistune",
+  "pypi_index_url": "https://pypi.org/pypi/mistune/json",
+  "retrieved_at": "2026-08-02T10:03:19.312750Z",
+  "schema_version": 1,
+  "sdist": "mistune-3.3.4.tar.gz",
+  "sdist_sha256": "58b5c96d6fcb61190dfe5fae498d2b2065f99cf61e9649418fd54cf1ada86dfe",
+  "source_url": "https://files.pythonhosted.org/packages/7b/92/328a294a6de83bacb95bed01f04e0eaff4e3616ee359fc821a5dfc539b02/mistune-3.3.4.tar.gz",
+  "src_subdir": "mistune-3.3.4/src",
+  "tests_subdir": "mistune-3.3.4/tests",
+  "contribution": {
+    "tests_subdir": "tests",
+    "src_subdir": "src"
+  },
+  "upstream_changelog": "https://github.com/lepture/mistune/blob/main/docs/changes.rst",
+  "upstream_repo": "https://github.com/lepture/mistune",
+  "version": "3.3.4"
+}

@@ -1,0 +1,30 @@
+{
+  "chain_digest": "dde83403e1322c0ff21802c70c4c4916d1d1aa7d77b80fb017d3d25036dc5e01",
+  "driver_runtime": "python",
+  "finding_count": 1,
+  "findings": [
+    {
+      "exponent": 2.1,
+      "flagged": true,
+      "generator": "nested_link",
+      "kind": "complexity",
+      "minimized_n": 2000,
+      "pristine_repro_exit": 1,
+      "repro": "repros/nested_link.py",
+      "repro_sha256": "5586297c56d25ae0180134191abadf6f24fbc01e3bbf5042f32fca5738ba178b"
+    },
+    {
+      "exponent": 1.0,
+      "flagged": false,
+      "generator": "benign_control",
+      "kind": "complexity"
+    }
+  ],
+  "scanned_at": "2026-08-09T11:44:51.643515Z",
+  "schema_version": 1,
+  "sdist_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "target": {
+    "name": "admitprobe",
+    "version": "0.0.1"
+  }
+}

@@ -192,4 +192,35 @@ def test_builtin_proof_passes() -> None:
     assert result["repair_failure_aborts"]
     assert result["empty_defects_refused"]
     assert result["dry_run_gated"]
+    assert result["full_loop_discovery_admit"]
     assert not result["used_skill_route_discovery"]
+
+
+def test_full_loop_discovery_admit_pending_patch(tmp_path: Path) -> None:
+    from blackhole_agent import upstream_admission as ua
+
+    target = ua._proof_target(tmp_path / "stewardship")
+    sealed = ua._proof_discovery_report(tmp_path / "disc")
+
+    def discovery_inject(_td: Path) -> dict:
+        return {
+            "ok": True,
+            "report_dir": str(sealed),
+            "finding_count": 1,
+            "findings": [{"generator": "nested_link", "flagged": True, "kind": "complexity"}],
+        }
+
+    result = camp.run_campaign(
+        target,
+        stages=("discovery", "admit", "repair"),
+        discovery_runner=discovery_inject,
+        admission_out_root=tmp_path / "admission",
+        out_root=tmp_path / "campaigns",
+    )
+    assert result["ok"]
+    assert result["stage_results"]["discovery"]["ok"]
+    assert result["stage_results"]["admit"]["admitted_count"] == 1
+    assert result["stage_results"]["repair"]["verdict"] == "no_patch_bound_defects"
+    assert camp.verify_campaign_receipt(Path(result["campaign_dir"]))["ok"]
+    manifest = json.loads((target / "manifest.json").read_text(encoding="utf-8"))
+    assert any(d.get("pending_patch") for d in manifest["defects"])

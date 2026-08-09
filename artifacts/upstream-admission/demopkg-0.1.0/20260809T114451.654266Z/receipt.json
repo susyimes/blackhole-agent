@@ -1,0 +1,30 @@
+{
+  "admission_digest": "5178205b26126dd7088d82b52e33a4451d397092c8de6b0768cf95679b976cc1",
+  "admitted": [
+    {
+      "defect_id": "footnote-defs-complexity",
+      "generator": "footnote_defs",
+      "kind": "complexity",
+      "patch": "patches/footnote-defs-complexity.patch",
+      "pending_patch": false,
+      "repro": "repros/footnote_defs.py",
+      "repro_sha256": "278e092cf8943518ef02e1f4753b9f0779c563af49e4011e66640ffa531024f5"
+    }
+  ],
+  "admitted_count": 1,
+  "created_at": "2026-08-09T11:44:51.654516Z",
+  "dry_run": false,
+  "manifest_sha256": "00dc121ca43c5002fb08b520d7aa3389116b0c8cb3bc2b8e99ec573052a3ecc8",
+  "name": "demopkg",
+  "ok": true,
+  "pending_patch_ids": [],
+  "report_chain_digest": "bfcca46987be7df6cef539fa5b4accb2f24ae31d0e2d2f45d32b227544790a18",
+  "report_dir": "artifacts\\upstream-admission\\demo-discovery-report-2\\discovery-report",
+  "report_sha256": "d692f9b095da3c434cde11d21733ed8a7890934ab795b6447f1dfcf36e5ef5ca",
+  "schema_version": 1,
+  "skipped": [],
+  "target": "artifacts\\upstream-admission\\demo-staging-target",
+  "used_skill_route_discovery": false,
+  "verdict": "admitted",
+  "version": "0.1.0"
+}

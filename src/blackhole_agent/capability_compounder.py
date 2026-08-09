@@ -19854,6 +19854,115 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
             created_at=utc_now_iso(),
             updated_at=utc_now_iso(),
         ),
+        Capability(
+            id="capability.upstream-admission",
+            name="Upstream admission plane (discovery findings -> stewardship defects)",
+            description=(
+                "Closes the gap between sealed discovery reports and "
+                "repair-ready stewardship. Re-verifies a discovery report "
+                "seal, copies synthesized repros into the target, appends "
+                "deterministic defect entries (pending_patch when no patch "
+                "is bound), is idempotent, and seals a tamper-evident "
+                "admission receipt."
+            ),
+            kind="python",
+            entry="blackhole_agent.upstream_admission:builtin_upstream_admission_proof",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.upstream_admission import builtin_upstream_admission_proof; '
+                "r=builtin_upstream_admission_proof(); assert r['ok'] "
+                "and r.get('admitted') and r.get('idempotent') "
+                "and r.get('patch_bound') and r.get('receipt_verified') "
+                "and r.get('tamper_detected') and r.get('unsealed_refused') "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.upstream-discovery",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/upstream_admission.py",
+                "src/blackhole_agent/upstream_discovery.py",
+            ),
+            capability_delta=(
+                "Discovery findings are no longer stranded under "
+                "artifacts/: a sealed report promotes into stewardship "
+                "defect entries with copied repro evidence, optional patch "
+                "binding, idempotent re-admit, and digest-sealed receipts "
+                "without skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "upstream",
+                "admission",
+                "discovery",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.upstream-campaign",
+            name="Upstream campaign plane (full-loop stewardship orchestration)",
+            description=(
+                "Closes manual stage-wiring across discovery, admission, "
+                "repair, contribution, and publication. Default stages "
+                "remain repair->contribution->publication; full-loop "
+                "stages discovery->admit->repair->contribution->publication "
+                "promote blind findings into stewarded defects "
+                "(pending_patch until a patch is bound) and seal "
+                "digest-chained campaign receipts."
+            ),
+            kind="python",
+            entry="blackhole_agent.upstream_campaign:builtin_upstream_campaign_proof",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.upstream_campaign import builtin_upstream_campaign_proof; '
+                "r=builtin_upstream_campaign_proof(); assert r['ok'] "
+                "and r.get('campaign_published') and r.get('receipt_verified') "
+                "and r.get('tamper_detected') "
+                "and r.get('already_fixed_short_circuit') "
+                "and r.get('repair_failure_aborts') "
+                "and r.get('empty_defects_refused') and r.get('dry_run_gated') "
+                "and r.get('full_loop_discovery_admit') "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.upstream-discovery",
+                "capability.upstream-admission",
+                "capability.upstream-repair",
+                "capability.upstream-contribution",
+                "capability.upstream-publication",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/upstream_campaign.py",
+                "src/blackhole_agent/upstream_admission.py",
+                "src/blackhole_agent/upstream_contribution.py",
+                "src/blackhole_agent/upstream_publication.py",
+            ),
+            capability_delta=(
+                "Stewardship loop now runs full-loop: discovery findings "
+                "admit into the manifest, pending-patch defects skip "
+                "repair/contribution, and digest-chained campaign receipts "
+                "cover discovery+admit+repair+contribution+publication "
+                "without skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "upstream",
+                "campaign",
+                "orchestration",
+                "full-loop",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
 
     ]
 

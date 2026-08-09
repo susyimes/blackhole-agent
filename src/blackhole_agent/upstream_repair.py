@@ -243,17 +243,26 @@ def discover_targets(stewardship_root: Path = STEWARDSHIP_ROOT) -> list[Path]:
 
 def load_target(target_root: Path) -> Target:
     manifest = json.loads((target_root / "manifest.json").read_text(encoding="utf-8"))
-    defects = tuple(
-        Defect(
-            id=d["id"],
-            title=d["title"],
-            kind=d["kind"],
-            upstream_ref=d["upstream_ref"],
-            repro=target_root / d["repro"],
-            patch=target_root / d["patch"],
+    defects_list: list[Defect] = []
+    for d in manifest.get("defects") or []:
+        # Admission may record discoveries before a patch exists. Repair only
+        # operates on defects that already carry an on-disk patch.
+        if d.get("pending_patch") or not d.get("patch"):
+            continue
+        patch_path = target_root / d["patch"]
+        if not patch_path.is_file():
+            continue
+        defects_list.append(
+            Defect(
+                id=d["id"],
+                title=d["title"],
+                kind=d["kind"],
+                upstream_ref=d.get("upstream_ref") or "",
+                repro=target_root / d["repro"],
+                patch=patch_path,
+            )
         )
-        for d in manifest["defects"]
-    )
+    defects = tuple(defects_list)
     return Target(manifest=manifest, root=target_root, sdist=target_root / manifest["sdist"], defects=defects)
 
 

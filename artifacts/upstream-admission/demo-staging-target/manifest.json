@@ -1,0 +1,38 @@
+{
+  "defects": [
+    {
+      "discovery_generator": "nested_link",
+      "discovery_report_sha256": "7c13d9f3a39ab1543248912639f3dd6b606b4d44d8524d3301dc4da9d286c049",
+      "id": "nested-link-complexity",
+      "kind": "complexity",
+      "pending_patch": true,
+      "repro": "repros/nested_link.py",
+      "repro_sha256": "5586297c56d25ae0180134191abadf6f24fbc01e3bbf5042f32fca5738ba178b",
+      "title": "Autonomous discovery finding: generator='nested_link' kind=complexity (exponent≈2.1)",
+      "upstream_ref": "admitted from discovery report discovery-report (generator=nested_link, kind=complexity)"
+    },
+    {
+      "discovery_generator": "footnote_defs",
+      "discovery_report_sha256": "d692f9b095da3c434cde11d21733ed8a7890934ab795b6447f1dfcf36e5ef5ca",
+      "id": "footnote-defs-complexity",
+      "kind": "complexity",
+      "patch": "patches/footnote-defs-complexity.patch",
+      "pending_patch": false,
+      "repro": "repros/footnote_defs.py",
+      "repro_sha256": "278e092cf8943518ef02e1f4753b9f0779c563af49e4011e66640ffa531024f5",
+      "title": "Autonomous discovery finding: generator='footnote_defs' kind=complexity (exponent≈2.1)",
+      "upstream_ref": "admitted from discovery report discovery-report (generator=footnote_defs, kind=complexity)"
+    }
+  ],
+  "driver": {
+    "prelude": "def render(text, plugins):\\n    return text\\n"
+  },
+  "kind": "pypi-sdist",
+  "name": "demopkg",
+  "schema_version": 1,
+  "sdist": "demopkg-0.1.0.tar.gz",
+  "sdist_sha256": "00e97637093405337a9e58faa312f518b9f3dcf25521b5cfb981daa187f533c4",
+  "src_subdir": "demopkg-0.1.0/src",
+  "upstream_repo": "https://github.com/proof/demopkg",
+  "version": "0.1.0"
+}
