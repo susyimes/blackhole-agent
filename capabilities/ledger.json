@@ -3835,6 +3835,65 @@
       ],
       "updated_at": "2026-08-09T17:53:20.328586Z"
     },
+    "capability.upstream-domain": {
+      "behavior_paths": [
+        "src/blackhole_agent/upstream_domain.py",
+        "src/blackhole_agent/upstream_commonwealth.py",
+        "src/blackhole_agent/upstream_confederation.py",
+        "src/blackhole_agent/upstream_league.py"
+      ],
+      "capability_delta": "Stewardship is no longer single-commonwealth: multi-commonwealth domain charters federate independent commonwealth unions, defer admission under max_active_commonwealths, schedule by priority/ROI, share global dispatch budget, persist durable resume state, and seal a tamper-evident multi-commonwealth chronicle without skill-route.",
+      "created_at": "2026-08-09T18:34:29.748937Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.upstream-commonwealth",
+        "capability.upstream-confederation",
+        "capability.upstream-league",
+        "capability.upstream-institution",
+        "capability.upstream-program",
+        "capability.upstream-succession",
+        "capability.upstream-epoch",
+        "capability.upstream-fleet",
+        "capability.upstream-impact",
+        "capability.upstream-campaign"
+      ],
+      "description": "Closes the outer multi-commonwealth loop the commonwealth plane leaves open. Chains independent commonwealth constitutions under a durable domain constitution: admits commonwealth slots with nested confederation charters (optionally deferred via max_active_commonwealths concurrent-active capacity so the domain grows as commonwealths retire), schedules open commonwealths by priority and ROI, allocates shared global dispatch budget across commonwealths, federates multi-commonwealth portfolios into one domain world-model, retires met commonwealths, persists domain_state.json for resume (including pending charter + admission history), and seals a tamper-evident multi-commonwealth chronicle under artifacts/upstream-domain/. Stops on domain_met (all_commonwealths_met or terminal_coverage with charter exhausted), max_rounds, dispatch_budget, domain_idle, rank_only, or custom stop_when. No skill-route discovery.",
+      "entry": "blackhole_agent.upstream_domain:builtin_upstream_domain_proof",
+      "id": "capability.upstream-domain",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-09T18:34:29.748937Z",
+      "name": "Upstream domain plane (multi-commonwealth durable stewardship domain)",
+      "proof_command": "uv run python -c \"from blackhole_agent.upstream_domain import builtin_upstream_domain_proof; r=builtin_upstream_domain_proof(); assert r['ok'] and r.get('domain_met') and r.get('multi_commonwealth_progressed') and r.get('federation_coverage') and r.get('priority_scheduling') and r.get('deferred_admission') and r.get('seal_verified') and r.get('tamper_detected') and r.get('budget_stops') and r.get('premet_short_circuits') and r.get('rank_only') and r.get('empty_refused') and r.get('custom_stop') and r.get('durable_resume') and r.get('roi_scored') and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": 1,
+      "source_mission_id": "20260809T182326Z-fb3e6ea7",
+      "tags": [
+        "bootstrap",
+        "compounder",
+        "upstream",
+        "domain",
+        "commonwealth",
+        "confederation",
+        "league",
+        "institution",
+        "program",
+        "succession",
+        "epoch",
+        "fleet",
+        "impact",
+        "charter",
+        "durable",
+        "closed-loop",
+        "orchestration",
+        "evidence",
+        "federation",
+        "budget",
+        "deferred-admission",
+        "constitution"
+      ],
+      "updated_at": "2026-08-09T18:34:29.754526Z"
+    },
     "capability.upstream-epoch": {
       "behavior_paths": [
         "src/blackhole_agent/upstream_epoch.py",
@@ -4626,5 +4685,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-08-09T17:53:20.329422Z"
+  "updated_at": "2026-08-09T18:34:29.754664Z"
 }
