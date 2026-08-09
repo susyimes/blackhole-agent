@@ -205,3 +205,98 @@ def test_commonwealth_slot_wraps_institutions() -> None:
     assert slot["charter"][0]["confederation_id"] == "c1c"
     assert slot["charter"][0]["charter"][0]["league_id"] == "c1cl"
     assert slot["charter"][0]["charter"][0]["charter"][0]["institution_id"] == "i1"
+
+
+def test_merge_domain_charter_appends_and_dedupes() -> None:
+    a = ud._commonwealth_slot(
+        "a",
+        institutions=[
+            ud._inst_slot(
+                "ia",
+                programs=[ud._program_slot("pa", initial=[("x", "1.0.0", "x-1")])],
+            )
+        ],
+    )
+    b = ud._commonwealth_slot(
+        "b",
+        institutions=[
+            ud._inst_slot(
+                "ib",
+                programs=[ud._program_slot("pb", initial=[("y", "1.0.0", "y-1")])],
+            )
+        ],
+    )
+    a_dup = ud._commonwealth_slot(
+        "a",
+        institutions=[
+            ud._inst_slot(
+                "ia2",
+                programs=[ud._program_slot("pa2", initial=[("z", "1.0.0", "z-1")])],
+            )
+        ],
+    )
+    merged = ud.merge_domain_charter([a], [a_dup, b])
+    assert [s["commonwealth_id"] for s in merged] == ["a", "b"]
+    # existing id wins — nested charter of first a kept
+    assert merged[0]["charter"][0]["confederation_id"] == "ac"
+
+
+def test_charter_expand_grows_constitution() -> None:
+    # Short root: deep domain→wave nesting must stay under Windows MAX_PATH.
+    scratch = ud._proof_scratch()
+    try:
+        campaign = ud._proof_campaign_runner(scratch / "c")
+        expand = ud.make_domain_charter_expand(
+            [
+                ud._commonwealth_slot(
+                    "g2",
+                    institutions=[
+                        ud._inst_slot(
+                            "i2",
+                            programs=[
+                                ud._program_slot(
+                                    "p2", initial=[("g2", "1.0.0", "g2-1")]
+                                )
+                            ],
+                        )
+                    ],
+                )
+            ]
+        )
+        result = ud.run_domain(
+            charter=[
+                ud._commonwealth_slot(
+                    "g1",
+                    institutions=[
+                        ud._inst_slot(
+                            "i1",
+                            programs=[
+                                ud._program_slot(
+                                    "p1", initial=[("g1", "1.0.0", "g1-1")]
+                                )
+                            ],
+                        )
+                    ],
+                )
+            ],
+            max_rounds=6,
+            max_epochs_per_succession=2,
+            max_waves_per_epoch=2,
+            per_wave_dispatch_limit=1,
+            dispatch_budget=4,
+            max_active_commonwealths=1,
+            dispatch=True,
+            campaign_runner=campaign,
+            charter_expand=expand,
+            domain_goal="all_commonwealths_met",
+            out_root=scratch / "d",
+        )
+        assert result["ok"]
+        assert result["domain_met"]
+        assert result["commonwealths_admitted"] == 2
+        assert result["charter_expansion_count"] >= 1
+        assert "g2" in set(result.get("charter_expanded_ids") or [])
+    finally:
+        import shutil
+
+        shutil.rmtree(scratch, ignore_errors=True)

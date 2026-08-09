@@ -1,15 +1,17 @@
 """Upstream domain plane: multi-commonwealth durable stewardship domain.
 
-The commonwealth plane (``upstream_domain``) closes multi-league unions
-*within one commonwealth*. It does not:
+The commonwealth plane (``upstream_commonwealth``) closes multi-confederation
+unions *within one commonwealth*. It does not:
 
 1. chain multiple independent commonwealths under a durable domain constitution;
 2. allocate a shared global dispatch budget across commonwealths by ROI;
 3. admit/retire commonwealth slots from a domain charter over time
    (deferred admission under a concurrent-active cap);
-4. federate multi-commonwealth portfolio coverage into one domain world-model;
-5. persist domain state so a later process can resume the union;
-6. seal a multi-commonwealth domain chronicle linking commonwealth digests.
+4. grow the domain charter mid-run via ``charter_expand`` (constitution growth
+   beyond the initial charter, not just deferred admission of a fixed set);
+5. federate multi-commonwealth portfolio coverage into one domain world-model;
+6. persist domain state so a later process can resume the union;
+7. seal a multi-commonwealth domain chronicle linking commonwealth digests.
 
 The domain plane closes that outer multi-commonwealth loop:
 
@@ -26,10 +28,13 @@ The domain plane closes that outer multi-commonwealth loop:
    and re-score coverage across all stewarded keys;
 5. **retire** — mark commonwealths met when their commonwealth_goal is satisfied,
    then re-admit pending charter slots up to the active capacity;
-6. **persist** — write ``domain_state.json`` after every commonwealth round so a
+6. **expand** — optional ``charter_expand`` may append new commonwealth slots when
+   the active charter has no pending work and all admitted commonwealths are met,
+   so the domain constitution can grow after start (not only defer a fixed charter);
+7. **persist** — write ``domain_state.json`` after every commonwealth round so a
    later ``run_domain(..., resume_dir=...)`` continues the same union
    (including pending charter and admission history);
-7. **stop** when any of:
+8. **stop** when any of:
 
    - ``max_rounds`` reached
    - global ``dispatch_budget`` exhausted across commonwealths
@@ -38,7 +43,7 @@ The domain plane closes that outer multi-commonwealth loop:
    - consecutive idle/no-progress rounds (``idle_round_limit``)
    - explicit ``stop_when`` predicate returns a reason string
 
-8. **seal** — write a domain receipt under
+9. **seal** — write a domain receipt under
    ``artifacts/upstream-domain/`` with sha256 digests of every
    commonwealth, portfolio federation, admission history, ROI history, stop
    reason, and a domain chain digest; ``verify_domain_receipt``
@@ -445,6 +450,99 @@ def constitution_satisfied(
     return False
 
 
+def merge_domain_charter(
+    existing: Sequence[Mapping[str, Any]] | None,
+    additions: Sequence[Mapping[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    """Merge additional commonwealth slots into a domain charter.
+
+    Existing ``commonwealth_id`` values win (additions with the same id are
+    ignored). Returns a fully re-normalized charter so nested confederation
+    charters stay deterministic.
+    """
+    base = normalize_domain_charter(existing)
+    if not additions:
+        return base
+    known = {str(s.get("commonwealth_id") or "") for s in base}
+    merged: list[Mapping[str, Any]] = list(base)
+    for raw in additions:
+        if not isinstance(raw, Mapping):
+            continue
+        cid = str(raw.get("commonwealth_id") or raw.get("id") or "").strip()
+        if not cid or cid in known:
+            continue
+        known.add(cid)
+        merged.append(raw)
+    return normalize_domain_charter(merged)
+
+
+def make_domain_charter_expand(
+    growth: Sequence[Mapping[str, Any]],
+    *,
+    max_slots_per_expand: int = 1,
+    applied: Sequence[str] | None = None,
+) -> Callable[..., dict[str, Any]]:
+    """Build a charter-expand runner that appends commonwealth slots mid-run.
+
+    Invoked when every *admitted* commonwealth is met and no pending slots
+    remain on the active charter. Returns ``{"expanded": bool, "added": [...],
+    "charter": [...]}`` where ``charter`` is the full merged charter.
+    """
+    pending_growth = normalize_domain_charter(growth)
+    applied_ids: set[str] = set(str(x) for x in (applied or []))
+    state: dict[str, Any] = {
+        "applied": applied_ids,
+        "growth": pending_growth,
+        "max_slots_per_expand": max(1, int(max_slots_per_expand)),
+    }
+
+    def _runner(
+        *,
+        active_charter: Sequence[Mapping[str, Any]],
+        commonwealth_states: Sequence[Mapping[str, Any]],
+        round_index: int,
+        roi_history: Sequence[Mapping[str, Any]],
+    ) -> dict[str, Any]:
+        remaining = [
+            s
+            for s in pending_growth
+            if str(s.get("commonwealth_id") or "") not in applied_ids
+            and str(s.get("commonwealth_id") or "")
+            not in {str(x.get("commonwealth_id") or "") for x in active_charter}
+        ]
+        if not remaining:
+            return {
+                "expanded": False,
+                "added": [],
+                "charter": list(active_charter),
+                "detail": "charter_growth_exhausted",
+                "round_index": round_index,
+            }
+        # ROI-productive domains may take one extra slot.
+        batch = int(state["max_slots_per_expand"])
+        summary = _roi_summary(roi_history)
+        if float(summary.get("mean_efficiency") or 0.0) > 0.0 and int(
+            summary.get("total_dispatched_ok") or 0
+        ) > 0:
+            batch = min(len(remaining), batch + 1)
+        take = remaining[:batch]
+        for s in take:
+            applied_ids.add(str(s.get("commonwealth_id") or ""))
+        merged = merge_domain_charter(active_charter, take)
+        state["applied"] = applied_ids
+        return {
+            "expanded": True,
+            "added": [str(s.get("commonwealth_id") or "") for s in take],
+            "charter": merged,
+            "detail": "charter_growth_applied",
+            "round_index": round_index,
+            "commonwealths_met": commonwealths_all_met(commonwealth_states),
+        }
+
+    _runner.charter_state = state  # type: ignore[attr-defined]
+    return _runner
+
+
 def admit_pending_slots(
     *,
     domain_dir: Path,
@@ -455,7 +553,7 @@ def admit_pending_slots(
 ) -> list[dict[str, Any]]:
     """Admit pending charter slots up to concurrent-active capacity.
 
-    ``max_active_commonwealths`` caps *unmet* concurrent institutions. ``None``
+    ``max_active_commonwealths`` caps *unmet* concurrent commonwealths. ``None``
     admits every remaining pending slot. Returns admission records for newly
     admitted slots (also mutates ``commonwealth_states``).
     """
@@ -668,6 +766,7 @@ def _state_payload(
     domain_goal: str,
     max_active_commonwealths: int | None = None,
     admissions: Sequence[Mapping[str, Any]] | None = None,
+    charter_expansions: Sequence[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
@@ -685,6 +784,7 @@ def _state_payload(
         "domain_goal": domain_goal,
         "max_active_commonwealths": max_active_commonwealths,
         "admissions": [dict(a) for a in (admissions or [])],
+        "charter_expansions": [dict(e) for e in (charter_expansions or [])],
         "pending_domain_ids": [
             str(s.get("commonwealth_id") or "")
             for s in pending_charter_slots(charter, commonwealth_states)
@@ -780,6 +880,8 @@ def _domain_digest_payload(receipt: Mapping[str, Any]) -> dict[str, Any]:
         "commonwealths_admitted": receipt.get("commonwealths_admitted"),
         "admission_count": receipt.get("admission_count"),
         "pending_remaining": receipt.get("pending_remaining"),
+        "charter_expansion_count": receipt.get("charter_expansion_count"),
+        "charter_expanded_ids": list(receipt.get("charter_expanded_ids") or []),
         "roi_summary": receipt.get("roi_summary"),
     }
 
@@ -854,6 +956,7 @@ def run_domain(
     epoch_runner: Callable[..., dict[str, Any]] | None = None,
     impact_refresh_runner: Callable[..., dict[str, Any]] | None = None,
     feedback_runner: Callable[..., dict[str, Any]] | None = None,
+    charter_expand: Callable[..., dict[str, Any]] | None = None,
     stop_when: Callable[[Mapping[str, Any]], str | None] | None = None,
     domain_goal: str = "all_commonwealths_met",
     refresh_promotions: Mapping[str, str] | None = None,
@@ -917,6 +1020,7 @@ def run_domain(
     active_charter: list[dict[str, Any]] = []
     federated_portfolio: dict[str, Any] | None = None
     admissions: list[dict[str, Any]] = []
+    charter_expansions: list[dict[str, Any]] = []
     resumed_max_active: int | None = None
 
     if resume_dir is not None:
@@ -945,11 +1049,18 @@ def run_domain(
             admissions = [
                 dict(a) for a in state["admissions"] if isinstance(a, Mapping)
             ]
+        if isinstance(state.get("charter_expansions"), list):
+            charter_expansions = [
+                dict(e) for e in state["charter_expansions"] if isinstance(e, Mapping)
+            ]
         if (
             state.get("max_active_commonwealths") is not None
             and max_active_commonwealths is None
         ):
             resumed_max_active = int(state["max_active_commonwealths"])
+        # Resume may also merge a caller-supplied charter growth tail.
+        if charter:
+            active_charter = merge_domain_charter(active_charter, charter)
     else:
         active_charter = normalize_domain_charter(charter)
 
@@ -1276,6 +1387,7 @@ def run_domain(
                 domain_goal=domain_goal,
                 max_active_commonwealths=active_max,
                 admissions=admissions,
+                charter_expansions=charter_expansions,
             ),
         )
 
@@ -1310,11 +1422,66 @@ def run_domain(
                         )
                     ],
                     "admissions": admissions,
+                    "charter_expansions": charter_expansions,
                 }
             )
             if reason:
                 stop_reason = str(reason)
                 break
+
+        # Grow constitution before declaring domain_met when expand remains.
+        if (
+            charter_expand is not None
+            and not pending_charter_slots(active_charter, commonwealth_states)
+            and commonwealths_all_met(commonwealth_states)
+        ):
+            growth = charter_expand(
+                active_charter=active_charter,
+                commonwealth_states=commonwealth_states,
+                round_index=round_index,
+                roi_history=roi_history,
+            )
+            if growth.get("expanded") and growth.get("charter"):
+                active_charter = normalize_domain_charter(
+                    [e for e in (growth.get("charter") or []) if isinstance(e, Mapping)]
+                )
+                charter_expansions.append(
+                    {
+                        "round_index": round_index,
+                        "added": list(growth.get("added") or []),
+                        "detail": growth.get("detail"),
+                    }
+                )
+                post_growth = admit_pending_slots(
+                    domain_dir=domain_dir,
+                    charter=active_charter,
+                    commonwealth_states=commonwealth_states,
+                    max_active_commonwealths=active_max,
+                    round_index=round_index + 1,
+                )
+                if post_growth:
+                    admissions.extend(post_growth)
+                write_domain_state(
+                    domain_dir,
+                    _state_payload(
+                        domain_id=lid,
+                        round_count=round_index + 1,
+                        total_dispatched=total_dispatched,
+                        total_dispatched_ok=total_dispatched_ok,
+                        federated_portfolio=federated_portfolio,
+                        roi_history=roi_history,
+                        commonwealth_states=commonwealth_states,
+                        commonwealth_digests=commonwealth_digests,
+                        charter=active_charter,
+                        stop_reason=None,
+                        domain_goal=domain_goal,
+                        max_active_commonwealths=active_max,
+                        admissions=admissions,
+                        charter_expansions=charter_expansions,
+                    ),
+                )
+                # Continue the outer loop with the grown charter.
+                continue
 
         if constitution_satisfied(
             commonwealth_states=commonwealth_states,
@@ -1446,6 +1613,13 @@ def run_domain(
         "admission_count": len(admissions),
         "pending_remaining": pending_remaining,
         "charter": active_charter,
+        "charter_expansions": charter_expansions,
+        "charter_expansion_count": len(charter_expansions),
+        "charter_expanded_ids": [
+            str(cid)
+            for exp in charter_expansions
+            for cid in list(exp.get("added") or [])
+        ],
         "roi_history": roi_history,
         "roi_summary": roi_summary,
         "total_dispatched": total_dispatched,
@@ -1472,6 +1646,7 @@ def run_domain(
             "commonwealths_met_count": receipt["commonwealths_met_count"],
             "admission_count": receipt["admission_count"],
             "pending_remaining": receipt["pending_remaining"],
+            "charter_expansion_count": receipt["charter_expansion_count"],
             "max_active_commonwealths": receipt["max_active_commonwealths"],
             "coverage_ratio": (receipt.get("coverage_end") or {}).get("coverage_ratio"),
             "portfolio_start_digest": receipt["portfolio_start_digest"],
@@ -1497,6 +1672,7 @@ def run_domain(
             domain_goal=domain_goal,
             max_active_commonwealths=active_max,
             admissions=admissions,
+            charter_expansions=charter_expansions,
         ),
     )
 
@@ -1518,6 +1694,9 @@ def run_domain(
         "pending_remaining": pending_remaining,
         "max_active_commonwealths": active_max,
         "admissions": admissions,
+        "charter_expansions": charter_expansions,
+        "charter_expansion_count": len(charter_expansions),
+        "charter_expanded_ids": list(receipt["charter_expanded_ids"]),
         "coverage_end": receipt["coverage_end"],
         "portfolio_start_digest": portfolio_start_digest,
         "portfolio_end_digest": portfolio_end_digest,
@@ -2279,6 +2458,78 @@ def builtin_upstream_domain_proof() -> dict[str, Any]:
             and min(admit_rounds) == 0
         )
 
+        # Charter expansion: start with one commonwealth; grow constitution mid-run.
+        campaign7 = _proof_campaign_runner(scratch / "xg")
+        expand_runner = make_domain_charter_expand(
+            [
+                _commonwealth_slot(
+                    "xg",
+                    priority=1,
+                    institutions=[
+                        _inst_slot(
+                            "xgi",
+                            programs=[
+                                _program_slot(
+                                    "xgp", initial=[("xg", "1.0.0", "xg-1")]
+                                )
+                            ],
+                        )
+                    ],
+                    max_rounds=3,
+                )
+            ],
+            max_slots_per_expand=1,
+        )
+        expanded = run_domain(
+            charter=[
+                _commonwealth_slot(
+                    "xe",
+                    priority=2,
+                    institutions=[
+                        _inst_slot(
+                            "xei",
+                            programs=[
+                                _program_slot(
+                                    "xep", initial=[("xe", "1.0.0", "xe-1")]
+                                )
+                            ],
+                        )
+                    ],
+                    max_rounds=3,
+                )
+            ],
+            max_rounds=6,
+            max_epochs_per_succession=2,
+            max_waves_per_epoch=2,
+            per_wave_dispatch_limit=1,
+            dispatch_budget=6,
+            max_active_commonwealths=1,
+            dispatch=True,
+            campaign_runner=campaign7,
+            charter_expand=expand_runner,
+            domain_goal="all_commonwealths_met",
+            out_root=scratch / "xe",
+        )
+        expand_ok = (
+            expanded["ok"]
+            and expanded["domain_met"] is True
+            and expanded["commonwealths_admitted"] == 2
+            and expanded["commonwealths_met_count"] == 2
+            and int(expanded.get("charter_expansion_count") or 0) >= 1
+            and "xg" in set(expanded.get("charter_expanded_ids") or [])
+            and not (expanded.get("pending_remaining") or [])
+        )
+
+        # merge_domain_charter unit evidence (ids de-dupe, additions append).
+        merged = merge_domain_charter(
+            [_commonwealth_slot("m1", institutions=[_inst_slot("mi", programs=[_program_slot("mp", initial=[("m", "1.0.0", "m-1")])])])],
+            [
+                _commonwealth_slot("m1", institutions=[_inst_slot("mi2", programs=[_program_slot("mp2", initial=[("m2", "1.0.0", "m2-1")])])]),
+                _commonwealth_slot("m2", institutions=[_inst_slot("mj", programs=[_program_slot("mq", initial=[("n", "1.0.0", "n-1")])])]),
+            ],
+        )
+        merge_ok = [s["commonwealth_id"] for s in merged] == ["m1", "m2"]
+
         ok = all(
             [
                 multi_commonwealth_ok,
@@ -2295,6 +2546,8 @@ def builtin_upstream_domain_proof() -> dict[str, Any]:
                 priority_ok,
                 federation_ok,
                 deferred_ok,
+                expand_ok,
+                merge_ok,
             ]
         )
         return {
@@ -2304,6 +2557,8 @@ def builtin_upstream_domain_proof() -> dict[str, Any]:
             "federation_coverage": federation_ok,
             "priority_scheduling": priority_ok,
             "deferred_admission": deferred_ok,
+            "charter_expand": expand_ok,
+            "charter_merge": merge_ok,
             "seal_verified": seal_ok,
             "tamper_detected": tamper_detected,
             "budget_stops": budget_ok,
@@ -2333,6 +2588,8 @@ def builtin_upstream_domain_proof() -> dict[str, Any]:
                 "priority_ok": priority_ok,
                 "federation_ok": federation_ok,
                 "deferred_ok": deferred_ok,
+                "expand_ok": expand_ok,
+                "merge_ok": merge_ok,
             },
         }
     finally:
@@ -2350,7 +2607,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--verify",
         type=str,
         default="",
-        help="verify a sealed league directory",
+        help="verify a sealed domain directory",
     )
     args = parser.parse_args(list(argv) if argv is not None else None)
     if args.verify:
