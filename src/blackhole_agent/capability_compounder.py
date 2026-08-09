@@ -20222,6 +20222,79 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
             created_at=utc_now_iso(),
             updated_at=utc_now_iso(),
         ),
+        Capability(
+            id="capability.upstream-program",
+            name="Upstream program plane (multi-succession durable stewardship charter)",
+            description=(
+                "Closes the outer multi-succession loop the succession plane "
+                "leaves open. Chains successive multi-epoch mandates under a "
+                "durable program charter: each succession dispatches and updates "
+                "the portfolio, then an inter-succession surface expand seam "
+                "re-opens mandate scope when new patch-bound defects enter "
+                "(default no-op; live deployments inject frontier onboarding), "
+                "ROI scores bias expansion, program_state.json enables durable "
+                "resume across process boundaries, and the program stops on "
+                "terminal_and_exhausted, terminal_coverage, max_successions, "
+                "global dispatch_budget, program_idle, rank_only, or a custom "
+                "stop_when. Seals a digest-chained program receipt under "
+                "artifacts/upstream-program/ with per-succession digests, "
+                "surface expansions, ROI history, and tamper detection. No "
+                "skill-route discovery is used."
+            ),
+            kind="python",
+            entry="blackhole_agent.upstream_program:builtin_upstream_program_proof",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.upstream_program import builtin_upstream_program_proof; '
+                "r=builtin_upstream_program_proof(); assert r['ok'] "
+                "and r.get('program_met') and r.get('surface_expand_reopens_mandate') "
+                "and r.get('multi_succession_progressed') and r.get('seal_verified') "
+                "and r.get('tamper_detected') and r.get('budget_stops') "
+                "and r.get('premet_short_circuits') and r.get('rank_only') "
+                "and r.get('empty_refused') and r.get('custom_stop') "
+                "and r.get('durable_resume') and r.get('roi_scored') "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.upstream-succession",
+                "capability.upstream-epoch",
+                "capability.upstream-fleet",
+                "capability.upstream-impact",
+                "capability.upstream-campaign",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/upstream_program.py",
+                "src/blackhole_agent/upstream_succession.py",
+                "src/blackhole_agent/upstream_epoch.py",
+                "src/blackhole_agent/upstream_fleet.py",
+            ),
+            capability_delta=(
+                "Stewardship is no longer single-succession: multi-succession "
+                "program charters chain mandates, re-expand the surface between "
+                "successions, re-derive mandate scope, score ROI, persist durable "
+                "resume state, and seal a tamper-evident multi-succession "
+                "chronicle without skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "upstream",
+                "program",
+                "succession",
+                "epoch",
+                "fleet",
+                "impact",
+                "charter",
+                "durable",
+                "closed-loop",
+                "orchestration",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
 
     ]
 
