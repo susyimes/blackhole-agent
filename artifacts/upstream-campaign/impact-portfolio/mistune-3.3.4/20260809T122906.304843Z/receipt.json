@@ -1,0 +1,79 @@
+{
+  "campaign_digest": "13416d6c3fed8a6838ff5632ba4d3a7b89a2b9bf5a4353ba3b20d042a5af7302",
+  "created_at": "2026-08-09T12:29:06.305450Z",
+  "defect_ids": [
+    "footnote-defs-membership-quadratic"
+  ],
+  "ecosystem": "pypi",
+  "name": "mistune",
+  "ok": true,
+  "publish_requested": false,
+  "schema_version": 1,
+  "stage_digests": {
+    "impact.footnote-defs-masking-quadratic.certificate": "0fa617bb0442308f7f234f52f6ea71a50e72bb32e0d2a429b3ba124b6f5e5b28",
+    "impact.footnote-defs-masking-quadratic.digest": "2ec2f2734c07c18276cd308fde647c0452cb8fbfc67072755cfeafb8183a86e6",
+    "impact.footnote-defs-masking-quadratic.outcome": "1b57aed4f82c0103879f4205607466ae412315da9f0d1b1b0c13a0d37d15a2f9",
+    "impact.footnote-defs-membership-quadratic.certificate": "54cd0011202fce281bb864946544eebbd727a0804bb01e82de0568278ace481e",
+    "impact.footnote-defs-membership-quadratic.digest": "787c11820056a49ee03bb0b30b96f31f02f204c1c3acaaf71e2cc9e543698fd9",
+    "impact.footnote-defs-membership-quadratic.outcome": "7168e48bf4db642be2c72bce1e3cf0721ca9ec60fdc77d7633d008faca37a0cc",
+    "impact.verdict": "8c814c692b322c0c2e88cce71ef4a68a05a5e00ff367c0e45434f8181b57f27f"
+  },
+  "stage_results": {
+    "impact": {
+      "assessed_count": 2,
+      "assessments": [
+        {
+          "absorption": {},
+          "certificate_dir": "artifacts\\upstream-impact\\campaign-entries\\marked-18.0.7\\footnote-defs-masking-quadratic\\20260809T122905.487242Z",
+          "certificate_sha256": "0fa617bb0442308f7f234f52f6ea71a50e72bb32e0d2a429b3ba124b6f5e5b28",
+          "defect_id": "footnote-defs-masking-quadratic",
+          "detail": "PR #4040 open but head moved (3f0a75057f1a -> ea5678516b7a)",
+          "impact_digest": "2ec2f2734c07c18276cd308fde647c0452cb8fbfc67072755cfeafb8183a86e6",
+          "live_state": "OPEN",
+          "name": "marked",
+          "ok": true,
+          "outcome": "impact_open_diverged",
+          "pr_number": 4040,
+          "pr_url": "https://github.com/markedjs/marked/pull/4040",
+          "receipt_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260809T121602Z-3883f5c7\\artifacts\\upstream-publication\\marked-18.0.7\\footnote-defs-masking-quadratic\\20260802T162741.839488Z",
+          "seal_ok": true,
+          "verdict": "impact_open_diverged",
+          "version": "18.0.7"
+        },
+        {
+          "absorption": {},
+          "certificate_dir": "artifacts\\upstream-impact\\campaign-entries\\mistune-3.3.4\\footnote-defs-membership-quadratic\\20260809T122906.300597Z",
+          "certificate_sha256": "54cd0011202fce281bb864946544eebbd727a0804bb01e82de0568278ace481e",
+          "defect_id": "footnote-defs-membership-quadratic",
+          "detail": "PR #478 still open; repair not yet landed",
+          "impact_digest": "787c11820056a49ee03bb0b30b96f31f02f204c1c3acaaf71e2cc9e543698fd9",
+          "live_state": "OPEN",
+          "name": "mistune",
+          "ok": true,
+          "outcome": "impact_open",
+          "pr_number": 478,
+          "pr_url": "https://github.com/lepture/mistune/pull/478",
+          "receipt_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260809T121602Z-3883f5c7\\artifacts\\upstream-publication\\mistune-3.3.4\\footnote-defs-membership-quadratic\\20260809T110409.337941Z",
+          "seal_ok": true,
+          "verdict": "impact_open",
+          "version": "3.3.4"
+        }
+      ],
+      "ok": true,
+      "outcomes": {
+        "impact_open": 1,
+        "impact_open_diverged": 1
+      },
+      "stage": "impact",
+      "verdict": "impact_assessed"
+    }
+  },
+  "stages": [
+    "impact"
+  ],
+  "target": "stewardship\\mistune-3.3.4",
+  "upstream_repo": "https://github.com/lepture/mistune",
+  "used_skill_route_discovery": false,
+  "verdict": "impact_assessed",
+  "version": "3.3.4"
+}

@@ -193,7 +193,87 @@ def test_builtin_proof_passes() -> None:
     assert result["empty_defects_refused"]
     assert result["dry_run_gated"]
     assert result["full_loop_discovery_admit"]
+    assert result["impact_stage_chained"]
+    assert result["impact_nothing_to_assess"]
     assert not result["used_skill_route_discovery"]
+
+
+def test_impact_stage_after_publication(tmp_path: Path) -> None:
+    from blackhole_agent import upstream_impact as ui
+
+    target = uc._proof_target(tmp_path / "stewardship")
+    repo_url = "https://github.com/proof/contribprobe"
+    head_url = uc.github_archive_url(repo_url, "HEAD")
+    tag_archive = uc._proof_archive(uc._PROOF_INIT_BUGGY)
+
+    def fetcher(url: str) -> bytes:
+        if url == head_url:
+            return uc._proof_archive(uc._PROOF_INIT_BUGGY, top=f"{uc._PROOF_PKG}-HEAD")
+        return tag_archive
+
+    _, fork = up._proof_remotes(tmp_path / "remotes", up._PROOF_SOURCE_V1)
+    gh = up._FakeGh(fork)
+
+    def publisher(bundle_dir: Path, **kwargs):
+        pub_bundle = up._proof_write_bundle(
+            tmp_path / "pub" / Path(bundle_dir).name,
+            patch=up._PROOF_PATCH,
+            test_text=up._PROOF_TEST,
+            repro_text=up._PROOF_REPRO,
+        )
+        return up.publish_contribution(
+            pub_bundle,
+            publish=True,
+            gh=gh,
+            verifier=up._proof_verifier,
+            manifest={"contribution": {"tests_subdir": "tests"}},
+            out_root=kwargs.get("out_root") or (tmp_path / "pub-receipts"),
+        )
+
+    def impact_assessor(receipt_dir: Path, **kwargs):
+        receipt = json.loads((Path(receipt_dir) / "receipt.json").read_text(encoding="utf-8"))
+        pr = receipt.get("pull_request") or {}
+        number = int(pr.get("number") or 0)
+        head = str(receipt.get("head_sha") or pr.get("headRefOid") or "")
+        fake = ui._FakeImpactGh({
+            ("proof/pubprobe", number): {
+                "number": number,
+                "url": pr.get("url"),
+                "state": "OPEN",
+                "headRefOid": head,
+                "mergedAt": None,
+                "closedAt": None,
+                "title": "t",
+                "baseRefName": "main",
+            }
+        })
+        return ui.assess_publication_impact(
+            receipt_dir, gh=fake, out_root=kwargs.get("out_root") or (tmp_path / "impact")
+        )
+
+    result = camp.run_campaign(
+        target,
+        stages=("contribution", "publication", "impact"),
+        publish=True,
+        fetcher=fetcher,
+        publisher=publisher,
+        impact_assessor=impact_assessor,
+        contribution_out_root=tmp_path / "contrib",
+        publication_out_root=tmp_path / "pub-receipts",
+        impact_out_root=tmp_path / "impact",
+        out_root=tmp_path / "campaigns",
+    )
+    assert result["ok"]
+    assert result["verdict"] == "impact_open"
+    impact = result["stage_results"]["impact"]
+    assert impact["assessed_count"] == 1
+    assert impact["outcomes"]["impact_open"] == 1
+    verified = camp.verify_campaign_receipt(Path(result["campaign_dir"]))
+    assert verified["ok"]
+    receipt = json.loads(
+        (Path(result["campaign_dir"]) / "receipt.json").read_text(encoding="utf-8")
+    )
+    assert any(k.startswith("impact.") for k in receipt["stage_digests"])
 
 
 def test_full_loop_discovery_admit_pending_patch(tmp_path: Path) -> None:

@@ -1,10 +1,10 @@
 """Upstream campaign plane: sealed end-to-end orchestration of the stewardship loop.
 
-The upstream planes (discovery, admission, repair, contribution, publication)
-are independently invocable but require manual stage wiring. The campaign
-plane closes that gap: one request drives a multi-stage campaign over a
-stewarded target, with digest-chained receipts, stage short-circuits, and
-optional outward publication.
+The upstream planes (discovery, admission, repair, contribution, publication,
+impact) are independently invocable but require manual stage wiring. The
+campaign plane closes that gap: one request drives a multi-stage campaign over
+a stewarded target, with digest-chained receipts, stage short-circuits, and
+optional outward publication plus post-publication outcome tracking.
 
 For one stewardship target the plane can run any prefix/suffix of:
 
@@ -21,6 +21,10 @@ For one stewardship target the plane can run any prefix/suffix of:
    defects are triaged non-submittable without aborting the campaign.
 5. **publication** — for each submittable bundle, gates and optionally
    actuates publication (``publish=False`` default is dry-run only).
+6. **impact** — optional post-publication stage: re-verifies sealed publication
+   receipts from this campaign (or explicit ``impact_receipt_dirs``), classifies
+   live PR outcomes via the impact plane, and chains impact certificate digests
+   into the campaign receipt so full-loop stewardship ends in measured outcomes.
 
 Seals a campaign receipt under ``artifacts/upstream-campaign/`` with sha256
 digests of every stage artifact; ``verify_campaign_receipt`` re-checks the
@@ -45,6 +49,7 @@ from typing import Any, Callable, Mapping, Sequence
 from blackhole_agent import upstream_admission as ua
 from blackhole_agent import upstream_contribution as uc
 from blackhole_agent import upstream_discovery as udi
+from blackhole_agent import upstream_impact as ui
 from blackhole_agent import upstream_publication as up
 from blackhole_agent import upstream_repair as ur
 from blackhole_agent.capability_compounder import (
@@ -67,7 +72,16 @@ FULL_LOOP_STAGES: tuple[str, ...] = (
     "contribution",
     "publication",
 )
-VALID_STAGES = frozenset(FULL_LOOP_STAGES)
+# Full stewardship loop including post-publication outcome closure.
+OUTCOME_LOOP_STAGES: tuple[str, ...] = FULL_LOOP_STAGES + ("impact",)
+VALID_STAGES = frozenset(OUTCOME_LOOP_STAGES)
+
+# Publication verdicts whose sealed receipts the impact stage can assess.
+_IMPACT_ASSESSABLE_PUBLICATION_VERDICTS = frozenset({
+    "published",
+    "already_published",
+    "upstream_already_merged",
+})
 
 
 class CampaignRefused(Exception):
@@ -452,6 +466,116 @@ def _stage_publication(
     }
 
 
+def _publication_receipt_dirs(publication_stage: Mapping[str, Any] | None) -> list[str]:
+    """Receipt dirs from a publication stage that are impact-assessable."""
+    dirs: list[str] = []
+    for p in (publication_stage or {}).get("publications") or []:
+        receipt_dir = p.get("receipt_dir")
+        if not receipt_dir:
+            continue
+        verdict = str(p.get("verdict") or "")
+        if p.get("published") or verdict in _IMPACT_ASSESSABLE_PUBLICATION_VERDICTS:
+            dirs.append(str(receipt_dir))
+    return dirs
+
+
+def _stage_impact(
+    receipt_dirs: Sequence[str],
+    *,
+    impact_assessor: Callable[..., dict[str, Any]] | None = None,
+    gh: Callable[..., str] | None = None,
+    absorption_checker: Callable[[Mapping[str, Any]], Mapping[str, Any]] | None = None,
+    out_root: Path | None = None,
+) -> dict[str, Any]:
+    """Assess post-publication impact for sealed publication receipts."""
+    if not receipt_dirs:
+        return {
+            "stage": "impact",
+            "verdict": "nothing_to_assess",
+            "ok": True,
+            "assessments": [],
+            "assessed_count": 0,
+            "outcomes": {},
+        }
+
+    assess = impact_assessor or ui.assess_publication_impact
+    assessments: list[dict[str, Any]] = []
+    for receipt_dir in receipt_dirs:
+        try:
+            result = assess(
+                Path(receipt_dir),
+                gh=gh,
+                absorption_checker=absorption_checker,
+                out_root=out_root,
+            )
+        except ui.ImpactRefused as exc:
+            assessments.append({
+                "receipt_dir": str(receipt_dir),
+                "ok": False,
+                "outcome": None,
+                "verdict": exc.verdict,
+                "detail": exc.detail,
+            })
+            continue
+        entry: dict[str, Any] = {
+            "receipt_dir": str(receipt_dir),
+            "ok": bool(result.get("ok")),
+            "outcome": result.get("outcome") or result.get("verdict"),
+            "verdict": result.get("verdict") or result.get("outcome"),
+            "detail": result.get("detail"),
+            "certificate_dir": result.get("certificate_dir"),
+            "impact_digest": result.get("impact_digest"),
+            "pr_number": result.get("pr_number"),
+            "pr_url": result.get("pr_url"),
+            "live_state": result.get("live_state"),
+            "name": result.get("name"),
+            "version": result.get("version"),
+            "defect_id": result.get("defect_id"),
+            "absorption": result.get("absorption") or {},
+        }
+        cert_dir = result.get("certificate_dir")
+        if cert_dir:
+            cert_json = Path(str(cert_dir)) / "certificate.json"
+            if cert_json.is_file():
+                entry["certificate_sha256"] = _sha256_path(cert_json)
+                verified = ui.verify_impact_certificate(Path(str(cert_dir)))
+                entry["seal_ok"] = bool(verified.get("ok"))
+        assessments.append(entry)
+
+    outcomes: dict[str, int] = {}
+    for a in assessments:
+        key = str(a.get("outcome") or a.get("verdict") or "unknown")
+        outcomes[key] = outcomes.get(key, 0) + 1
+
+    assessed_ok = [a for a in assessments if a.get("ok") and a.get("outcome")]
+    assessed_count = len(assessed_ok)
+    if not assessments:
+        verdict = "nothing_to_assess"
+        ok = True
+    elif assessed_count == 0:
+        verdict = "impact_failed"
+        ok = False
+    elif assessed_count == len(assessments) and len(outcomes) == 1:
+        # Single shared outcome across all assessed receipts.
+        verdict = next(iter(outcomes))
+        ok = True
+    elif assessed_count == len(assessments):
+        verdict = "impact_assessed"
+        ok = True
+    else:
+        verdict = "impact_partial"
+        ok = assessed_count > 0
+
+    return {
+        "stage": "impact",
+        "verdict": verdict,
+        "ok": ok,
+        "assessments": assessments,
+        "assessed_count": assessed_count,
+        "outcomes": outcomes,
+    }
+
+
 # ---------------------------------------------------------------------------
 # campaign orchestration
 
@@ -468,8 +592,11 @@ def run_campaign(
     publisher: Callable[..., dict[str, Any]] | None = None,
     discovery_runner: Callable[[Path], dict[str, Any]] | None = None,
     admission_runner: Callable[..., dict[str, Any]] | None = None,
+    impact_assessor: Callable[..., dict[str, Any]] | None = None,
     fetcher: Any = None,
     gh: Callable[..., str] | None = None,
+    impact_gh: Callable[..., str] | None = None,
+    absorption_checker: Callable[[Mapping[str, Any]], Mapping[str, Any]] | None = None,
     verifier: Callable[..., dict[str, Any]] | None = None,
     repair_artifact_dir: Path | None = None,
     discovery_artifact_root: Path | None = None,
@@ -478,6 +605,8 @@ def run_campaign(
     admission_patch_map: Mapping[str, str] | None = None,
     contribution_out_root: Path | None = None,
     publication_out_root: Path | None = None,
+    impact_out_root: Path | None = None,
+    impact_receipt_dirs: Sequence[str | Path] | None = None,
     out_root: Path | None = None,
     bundle_dirs: Sequence[str | Path] | None = None,
 ) -> dict[str, Any]:
@@ -490,10 +619,16 @@ def run_campaign(
     stage that runs without (or after) contribution rebuild — used to publish
     an already-sealed submittable bundle through the campaign receipt chain.
 
+    ``impact_receipt_dirs`` supplies explicit publication receipt directories for
+    an impact stage (alone or in addition to receipts produced by a publication
+    stage in this campaign). ``impact_gh`` defaults to ``gh`` when omitted.
+
     Full-loop stages (``discovery`` → ``admit`` → ``repair`` → ``contribution``
     → ``publication``) close the stewardship loop from a blind scan through
-    optional outward publication. Default stages remain the historical
-    repair→contribution→publication suffix for backward compatibility.
+    optional outward publication. Append ``impact`` (or use
+    ``OUTCOME_LOOP_STAGES``) to chain post-publication outcome certificates.
+    Default stages remain the historical repair→contribution→publication
+    suffix for backward compatibility.
     """
     target_dir = Path(target_dir)
     manifest = _load_manifest(target_dir)
@@ -507,7 +642,14 @@ def run_campaign(
 
     needs_defects = any(s in stage_list for s in ("repair", "contribution", "publication"))
     # Discovery/admit may populate defects before outward stages run.
-    allow_empty_upfront = ("discovery" in stage_list) or ("admit" in stage_list) or bool(bundle_dirs)
+    # Impact-only campaigns may assess pre-sealed publication receipts.
+    allow_empty_upfront = (
+        ("discovery" in stage_list)
+        or ("admit" in stage_list)
+        or bool(bundle_dirs)
+        or bool(impact_receipt_dirs)
+        or (stage_list == ["impact"])
+    )
     ids = _defect_ids(
         manifest,
         defect_ids,
@@ -697,6 +839,40 @@ def run_campaign(
             else:
                 terminal_verdict = str(publication.get("verdict") or "campaign_complete")
 
+    # --- impact (optional post-publication outcome closure) ---
+    if "impact" in stage_list:
+        from_pub = _publication_receipt_dirs(stage_results.get("publication"))
+        explicit = [str(p) for p in (impact_receipt_dirs or [])]
+        # Explicit dirs first, then campaign-produced receipts (deduped, order-preserving).
+        receipt_dirs = list(dict.fromkeys([*explicit, *from_pub]))
+        impact = _stage_impact(
+            receipt_dirs,
+            impact_assessor=impact_assessor,
+            gh=impact_gh if impact_gh is not None else gh,
+            absorption_checker=absorption_checker,
+            out_root=impact_out_root,
+        )
+        stage_results["impact"] = impact
+        if not impact.get("ok"):
+            campaign_ok = False
+            terminal_verdict = "impact_failed"
+        elif terminal_verdict in {
+            "campaign_complete",
+            "published",
+            "already_published",
+            "dry_run_gates_passed",
+            "campaign_complete_no_publication",
+            "no_patch_bound_defects",
+            "all_already_fixed",
+        }:
+            # Surface the measured impact outcome when assessment produced one;
+            # keep nothing_to_assess from masking a successful publication.
+            if impact.get("verdict") == "nothing_to_assess":
+                if terminal_verdict == "campaign_complete" and stage_list == ["impact"]:
+                    terminal_verdict = "nothing_to_assess"
+            else:
+                terminal_verdict = str(impact.get("verdict") or "impact_assessed")
+
     return _seal_campaign(
         target_dir=target_dir,
         manifest=manifest,
@@ -766,6 +942,20 @@ def _seal_campaign(
                 stage_digests[f"publication.{key}.receipt"] = str(p["receipt_sha256"])
             stage_digests[f"publication.{key}.verdict"] = _sha256_bytes(
                 str(p.get("verdict") or "").encode("utf-8")
+            )
+    if "impact" in stage_results:
+        impact = stage_results["impact"]
+        stage_digests["impact.verdict"] = _sha256_bytes(
+            str(impact.get("verdict") or "").encode("utf-8")
+        )
+        for i, a in enumerate(impact.get("assessments") or []):
+            key = str(a.get("defect_id") or Path(str(a.get("receipt_dir") or i)).name)
+            if a.get("impact_digest"):
+                stage_digests[f"impact.{key}.digest"] = str(a["impact_digest"])
+            if a.get("certificate_sha256"):
+                stage_digests[f"impact.{key}.certificate"] = str(a["certificate_sha256"])
+            stage_digests[f"impact.{key}.outcome"] = _sha256_bytes(
+                str(a.get("outcome") or a.get("verdict") or "").encode("utf-8")
             )
 
     receipt = {
@@ -909,6 +1099,26 @@ def verify_campaign_receipt(campaign_dir: Path) -> dict[str, Any]:
         if p.get("published") and not seal.get("ok"):
             problems.append(f"publication seal broken for {key}")
 
+    for a in (stage_results.get("impact") or {}).get("assessments") or []:
+        cert_dir = a.get("certificate_dir")
+        if not cert_dir:
+            continue
+        cert_json = Path(str(cert_dir)) / "certificate.json"
+        key = str(a.get("defect_id") or Path(str(a.get("receipt_dir") or "")).name)
+        if cert_json.is_file():
+            actual = _sha256_path(cert_json)
+            expected = stage_digests.get(f"impact.{key}.certificate")
+            if expected and actual != expected:
+                mismatched.append(f"impact.{key}.certificate")
+                problems.append(f"impact certificate digest mismatch for {key}")
+            seal = ui.verify_impact_certificate(Path(str(cert_dir)))
+            if a.get("ok") and not seal.get("ok"):
+                problems.append(f"impact certificate seal broken for {key}")
+            expected_digest = stage_digests.get(f"impact.{key}.digest")
+            if expected_digest and a.get("impact_digest") and expected_digest != a.get("impact_digest"):
+                mismatched.append(f"impact.{key}.digest")
+                problems.append(f"impact digest mismatch for {key}")
+
     expected_chain = _sha256_json({
         "schema_version": receipt.get("schema_version", SCHEMA_VERSION),
         "name": receipt.get("name"),
@@ -945,7 +1155,8 @@ def builtin_upstream_campaign_proof() -> dict[str, Any]:
     and publication seams (reusing the contribution/publication proof
     fixtures), seals a campaign receipt across repair→contribution→publication,
     verifies the chain, detects tampering, proves already-fixed short-circuit,
-    and proves empty-defect refusal.
+    proves empty-defect refusal, and proves the optional impact stage chains
+    post-publication outcome certificates into the campaign receipt.
     """
     scratch = Path(tempfile.mkdtemp(prefix="campaign-proof-"))
     try:
@@ -1167,9 +1378,123 @@ def builtin_upstream_campaign_proof() -> dict[str, Any]:
         loop_verified = verify_campaign_receipt(Path(loop["campaign_dir"]))
         loop_seal_ok = bool(loop_verified.get("ok"))
 
+        # 8. Impact stage: publication → impact chains outcome certificates.
+        # Fresh remotes/gh produce a sealed published receipt; impact assessor
+        # mirrors that PR into the impact FakeGh without mutating the receipt
+        # (so publication digests in the campaign seal stay valid).
+        impact_fork = up._proof_remotes(scratch / "impact-remotes", up._PROOF_SOURCE_V1)[1]
+        impact_gh_pub = up._FakeGh(impact_fork)
+
+        def publisher_for_impact(bundle_dir: Path, **kwargs: Any) -> dict[str, Any]:
+            pub_bundle = up._proof_write_bundle(
+                scratch / "impact-pub-bundle" / Path(bundle_dir).name,
+                patch=up._PROOF_PATCH,
+                test_text=up._PROOF_TEST,
+                repro_text=up._PROOF_REPRO,
+            )
+            return up.publish_contribution(
+                pub_bundle,
+                publish=kwargs.get("publish", False),
+                gh=impact_gh_pub,
+                verifier=up._proof_verifier,
+                manifest={"contribution": {"tests_subdir": "tests"}},
+                out_root=kwargs.get("out_root") or (scratch / "impact-pub-receipts"),
+            )
+
+        def impact_assessor_hermetic(
+            receipt_dir: Path,
+            **kwargs: Any,
+        ) -> dict[str, Any]:
+            receipt = json.loads(
+                (Path(receipt_dir) / "receipt.json").read_text(encoding="utf-8")
+            )
+            pr = receipt.get("pull_request") or {}
+            number = int(pr.get("number") or 0)
+            head = str(receipt.get("head_sha") or pr.get("headRefOid") or "")
+            slug = "proof/pubprobe"
+            impact_fake = ui._FakeImpactGh({
+                (slug, number): {
+                    "number": number,
+                    "url": pr.get("url") or f"https://github.com/{slug}/pull/{number}",
+                    "state": "OPEN",
+                    "headRefOid": head,
+                    "mergedAt": None,
+                    "closedAt": None,
+                    "title": "campaign impact proof",
+                    "baseRefName": "main",
+                }
+            })
+            return ui.assess_publication_impact(
+                receipt_dir,
+                gh=impact_fake,
+                out_root=kwargs.get("out_root") or (scratch / "impact-certs"),
+            )
+
+        with_impact = run_campaign(
+            target,
+            stages=("contribution", "publication", "impact"),
+            publish=True,
+            fetcher=fetcher_unfixed,
+            publisher=publisher_for_impact,
+            impact_assessor=impact_assessor_hermetic,
+            contribution_out_root=scratch / "contrib-impact",
+            publication_out_root=scratch / "impact-pub-receipts",
+            impact_out_root=scratch / "impact-certs",
+            out_root=scratch / "campaigns-impact",
+        )
+        impact_stage = with_impact.get("stage_results", {}).get("impact") or {}
+        impact_ok = (
+            with_impact["ok"]
+            and with_impact["verdict"] == "impact_open"
+            and impact_stage.get("ok")
+            and impact_stage.get("assessed_count") == 1
+            and impact_stage.get("outcomes", {}).get("impact_open") == 1
+            and (impact_stage.get("assessments") or [{}])[0].get("seal_ok")
+        )
+        impact_verified = verify_campaign_receipt(Path(with_impact["campaign_dir"]))
+        impact_seal_ok = bool(impact_verified.get("ok"))
+        # Impact digests must appear in the campaign seal chain.
+        impact_receipt = json.loads(
+            (Path(with_impact["campaign_dir"]) / "receipt.json").read_text(encoding="utf-8")
+        )
+        impact_digests_chained = any(
+            k.startswith("impact.") and k.endswith(".digest")
+            for k in (impact_receipt.get("stage_digests") or {})
+        )
+
+        # 9. Impact with nothing to assess (dry-run publication only).
+        nothing = run_campaign(
+            target,
+            stages=("contribution", "publication", "impact"),
+            publish=False,
+            fetcher=fetcher_unfixed,
+            publisher=lambda bundle_dir, **kwargs: up.publish_contribution(
+                up._proof_write_bundle(
+                    scratch / "nothing-bundle" / Path(bundle_dir).name,
+                    patch=up._PROOF_PATCH,
+                    test_text=up._PROOF_TEST,
+                    repro_text=up._PROOF_REPRO,
+                ),
+                publish=False,
+                gh=up._FakeGh(impact_fork),
+                verifier=up._proof_verifier,
+                manifest={"contribution": {"tests_subdir": "tests"}},
+                out_root=kwargs.get("out_root") or (scratch / "nothing-pub"),
+            ),
+            contribution_out_root=scratch / "contrib-nothing",
+            publication_out_root=scratch / "nothing-pub",
+            out_root=scratch / "campaigns-nothing",
+        )
+        nothing_ok = (
+            nothing["ok"]
+            and nothing["stage_results"]["impact"]["verdict"] == "nothing_to_assess"
+            and nothing["verdict"] == "dry_run_gates_passed"
+        )
+
         ok = all([
             full_ok, verify_ok, tamper_detected, fixed_ok, fixed_verified.get("ok"),
             red_aborts, empty_refused, dry_ok, loop_ok, loop_seal_ok,
+            impact_ok, impact_seal_ok, impact_digests_chained, nothing_ok,
         ])
         return {
             "ok": ok,
@@ -1181,7 +1506,10 @@ def builtin_upstream_campaign_proof() -> dict[str, Any]:
             "empty_defects_refused": empty_refused,
             "dry_run_gated": dry_ok,
             "full_loop_discovery_admit": loop_ok and loop_seal_ok,
+            "impact_stage_chained": impact_ok and impact_seal_ok and impact_digests_chained,
+            "impact_nothing_to_assess": nothing_ok,
             "campaign_digest": full.get("campaign_digest"),
+            "impact_campaign_digest": with_impact.get("campaign_digest"),
             "used_skill_route_discovery": legacy_pipeline_was_used(),
         }
     finally:
@@ -1201,7 +1529,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         default="repair,contribution,publication",
         help=(
             "comma-separated stages "
-            "(discovery,admit,repair,contribution,publication; "
+            "(discovery,admit,repair,contribution,publication,impact; "
             "default: repair,contribution,publication)"
         ),
     )
@@ -1211,8 +1539,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="shorthand for stages=discovery,admit,repair,contribution,publication",
     )
     parser.add_argument(
+        "--outcome-loop",
+        action="store_true",
+        help=(
+            "shorthand for stages=discovery,admit,repair,contribution,publication,impact "
+            "(full loop plus post-publication outcome closure)"
+        ),
+    )
+    parser.add_argument(
         "--discovery-report",
         help="pre-sealed discovery report dir (skips live scan when used with admit)",
+    )
+    parser.add_argument(
+        "--impact-receipt",
+        action="append",
+        dest="impact_receipts",
+        default=None,
+        help="publication receipt dir for impact stage (repeatable)",
     )
     parser.add_argument("--publish", action="store_true", help="perform outward publication")
     parser.add_argument("--force-repair", action="store_true", help="re-run repair even if green")
@@ -1234,7 +1577,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not args.target:
         parser.error("--target is required unless --proof or --verify-receipt")
 
-    if args.full_loop:
+    if args.outcome_loop:
+        stages = OUTCOME_LOOP_STAGES
+    elif args.full_loop:
         stages = FULL_LOOP_STAGES
     else:
         stages = tuple(s.strip() for s in args.stages.split(",") if s.strip())
@@ -1246,6 +1591,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             publish=args.publish,
             skip_repair_if_green=not args.force_repair,
             discovery_report_dir=args.discovery_report,
+            impact_receipt_dirs=args.impact_receipts,
         )
     except CampaignRefused as exc:
         print(json.dumps({"ok": False, "verdict": exc.verdict, "detail": exc.detail}, indent=2))

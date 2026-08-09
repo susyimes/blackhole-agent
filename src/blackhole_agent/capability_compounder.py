@@ -19908,12 +19908,14 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
             name="Upstream campaign plane (full-loop stewardship orchestration)",
             description=(
                 "Closes manual stage-wiring across discovery, admission, "
-                "repair, contribution, and publication. Default stages "
-                "remain repair->contribution->publication; full-loop "
-                "stages discovery->admit->repair->contribution->publication "
-                "promote blind findings into stewarded defects "
-                "(pending_patch until a patch is bound) and seal "
-                "digest-chained campaign receipts."
+                "repair, contribution, publication, and optional impact. "
+                "Default stages remain repair->contribution->publication; "
+                "full-loop stages discovery->admit->repair->contribution->"
+                "publication promote blind findings into stewarded defects "
+                "(pending_patch until a patch is bound); outcome-loop appends "
+                "impact to chain post-publication outcome certificates into "
+                "the campaign receipt digest. Dry-run publication yields "
+                "impact nothing_to_assess without failing the campaign."
             ),
             kind="python",
             entry="blackhole_agent.upstream_campaign:builtin_upstream_campaign_proof",
@@ -19927,6 +19929,8 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "and r.get('repair_failure_aborts') "
                 "and r.get('empty_defects_refused') and r.get('dry_run_gated') "
                 "and r.get('full_loop_discovery_admit') "
+                "and r.get('impact_stage_chained') "
+                "and r.get('impact_nothing_to_assess') "
                 "and not r.get('used_skill_route_discovery')\""
             ),
             dependencies=(
@@ -19937,18 +19941,21 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "capability.upstream-repair",
                 "capability.upstream-contribution",
                 "capability.upstream-publication",
+                "capability.upstream-impact",
             ),
             behavior_paths=(
                 "src/blackhole_agent/upstream_campaign.py",
                 "src/blackhole_agent/upstream_admission.py",
                 "src/blackhole_agent/upstream_contribution.py",
                 "src/blackhole_agent/upstream_publication.py",
+                "src/blackhole_agent/upstream_impact.py",
             ),
             capability_delta=(
-                "Stewardship loop now runs full-loop: discovery findings "
-                "admit into the manifest, pending-patch defects skip "
-                "repair/contribution, and digest-chained campaign receipts "
-                "cover discovery+admit+repair+contribution+publication "
+                "Stewardship loop now runs full-loop through measured outcomes: "
+                "discovery findings admit into the manifest, pending-patch "
+                "defects skip repair/contribution, publication actuates "
+                "outward PRs, and an optional impact stage chains live PR "
+                "outcome certificates into digest-sealed campaign receipts "
                 "without skill-route."
             ),
             tags=(
@@ -19958,6 +19965,7 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "campaign",
                 "orchestration",
                 "full-loop",
+                "impact",
                 "evidence",
             ),
             created_at=utc_now_iso(),
@@ -19998,7 +20006,6 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "repo.import-health",
                 "capability.ledger-inventory",
                 "capability.upstream-publication",
-                "capability.upstream-campaign",
             ),
             behavior_paths=(
                 "src/blackhole_agent/upstream_impact.py",

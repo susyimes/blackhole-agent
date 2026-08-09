@@ -1,0 +1,10 @@
+{
+  "baseRefName": "main",
+  "closedAt": null,
+  "headRefOid": "e264eca0b5a285672cab94457de2fba7bd89207c",
+  "mergedAt": null,
+  "number": 478,
+  "state": "OPEN",
+  "title": "fix: Inline footnote parsing does O",
+  "url": "https://github.com/lepture/mistune/pull/478"
+}
