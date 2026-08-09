@@ -20155,6 +20155,73 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
             created_at=utc_now_iso(),
             updated_at=utc_now_iso(),
         ),
+        Capability(
+            id="capability.upstream-succession",
+            name="Upstream succession plane (multi-epoch stewardship mandate)",
+            description=(
+                "Closes the outer multi-epoch loop the epoch plane leaves open. "
+                "Chains successive fleet epochs under a stewardship mandate: "
+                "each epoch dispatches and updates the portfolio, then an "
+                "inter-epoch impact refresh re-assesses open outcomes (default: "
+                "impact_open→impact_merged; live deployments inject impact-plane "
+                "refresh), re-ranking and rework priority shift across epochs, "
+                "and the succession stops on mandate terminal coverage, "
+                "max_epochs, global dispatch_budget, succession_idle, rank_only, "
+                "or a custom stop_when. Seals a digest-chained succession "
+                "receipt under artifacts/upstream-succession/ with per-epoch "
+                "epoch digests, coverage ratios, and tamper detection. No "
+                "skill-route discovery is used."
+            ),
+            kind="python",
+            entry="blackhole_agent.upstream_succession:builtin_upstream_succession_proof",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.upstream_succession import builtin_upstream_succession_proof; '
+                "r=builtin_upstream_succession_proof(); assert r['ok'] "
+                "and r.get('mandate_met') and r.get('refresh_promotes_terminals') "
+                "and r.get('multi_epoch_progressed') and r.get('seal_verified') "
+                "and r.get('tamper_detected') and r.get('budget_stops') "
+                "and r.get('premet_short_circuits') and r.get('rank_only') "
+                "and r.get('empty_refused') and r.get('custom_stop') "
+                "and r.get('refresh_drives_rework') "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.upstream-epoch",
+                "capability.upstream-fleet",
+                "capability.upstream-impact",
+                "capability.upstream-campaign",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/upstream_succession.py",
+                "src/blackhole_agent/upstream_epoch.py",
+                "src/blackhole_agent/upstream_fleet.py",
+                "src/blackhole_agent/upstream_impact.py",
+            ),
+            capability_delta=(
+                "Stewardship is no longer single-epoch: multi-epoch succession "
+                "mandates dispatch across epochs, refresh open impact outcomes "
+                "between epochs, stop when terminal coverage is met, and seal "
+                "a tamper-evident multi-epoch chronicle without skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "upstream",
+                "succession",
+                "epoch",
+                "fleet",
+                "impact",
+                "mandate",
+                "closed-loop",
+                "orchestration",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
 
     ]
 

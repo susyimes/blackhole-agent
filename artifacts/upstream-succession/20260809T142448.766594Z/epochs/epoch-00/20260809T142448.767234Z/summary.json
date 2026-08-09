@@ -1,0 +1,11 @@
+{
+  "epoch_digest": "aacb18bce73fbb5b89e59d1c47fedb8b9693817856964766300d1e13725a5c6f",
+  "ok": true,
+  "portfolio_end_digest": null,
+  "portfolio_start_digest": null,
+  "stop_reason": "rank_only",
+  "total_dispatched": 0,
+  "total_dispatched_ok": 0,
+  "verdict": "epoch_ranked",
+  "wave_count": 1
+}

@@ -1,0 +1,13 @@
+{
+  "coverage_ratio": 0.0,
+  "epoch_count": 1,
+  "mandate_met": false,
+  "ok": true,
+  "portfolio_end_digest": null,
+  "portfolio_start_digest": null,
+  "stop_reason": "rank_only",
+  "succession_digest": "89bc713119b280873711eded014859374f6098ec24da2e97465522b0b3eae9de",
+  "total_dispatched": 0,
+  "total_dispatched_ok": 0,
+  "verdict": "succession_ranked"
+}

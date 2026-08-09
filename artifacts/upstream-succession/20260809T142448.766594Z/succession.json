@@ -1,0 +1,363 @@
+{
+  "coverage_end": {
+    "coverage_ratio": 0.0,
+    "covered": 0,
+    "met": false,
+    "open_or_missing": [
+      {
+        "defect_id": "nested-bracket-scan-quadratic",
+        "name": "markdown",
+        "outcome": null,
+        "version": "3.10.3"
+      },
+      {
+        "defect_id": "inline-element-rescan-quadratic",
+        "name": "markdown",
+        "outcome": null,
+        "version": "3.10.3"
+      },
+      {
+        "defect_id": "ref-def-block-rescan-quadratic",
+        "name": "markdown",
+        "outcome": null,
+        "version": "3.10.3"
+      },
+      {
+        "defect_id": "footnote-scaling-quadratic",
+        "name": "markdown",
+        "outcome": null,
+        "version": "3.10.3"
+      },
+      {
+        "defect_id": "footnote-defs-masking-quadratic",
+        "name": "marked",
+        "outcome": null,
+        "version": "18.0.7"
+      },
+      {
+        "defect_id": "math-xss",
+        "name": "mistune",
+        "outcome": null,
+        "version": "3.2.0"
+      },
+      {
+        "defect_id": "heading-id-xss",
+        "name": "mistune",
+        "outcome": null,
+        "version": "3.2.0"
+      },
+      {
+        "defect_id": "toc-link-xss",
+        "name": "mistune",
+        "outcome": null,
+        "version": "3.2.0"
+      },
+      {
+        "defect_id": "block-error-xss",
+        "name": "mistune",
+        "outcome": null,
+        "version": "3.2.0"
+      },
+      {
+        "defect_id": "image-alt-double-encoding",
+        "name": "mistune",
+        "outcome": null,
+        "version": "3.2.0"
+      },
+      {
+        "defect_id": "admonition-class-xss",
+        "name": "mistune",
+        "outcome": null,
+        "version": "3.2.0"
+      },
+      {
+        "defect_id": "figure-attrs-xss",
+        "name": "mistune",
+        "outcome": null,
+        "version": "3.2.0"
+      },
+      {
+        "defect_id": "image-width-validation",
+        "name": "mistune",
+        "outcome": null,
+        "version": "3.2.0"
+      },
+      {
+        "defect_id": "link-title-redos",
+        "name": "mistune",
+        "outcome": null,
+        "version": "3.2.0"
+      },
+      {
+        "defect_id": "ref-link-blank-scan-quadratic",
+        "name": "mistune",
+        "outcome": null,
+        "version": "3.2.0"
+      },
+      {
+        "defect_id": "nested-bracket-scan-quadratic",
+        "name": "mistune",
+        "outcome": null,
+        "version": "3.2.0"
+      },
+      {
+        "defect_id": "toc-heading-id-collision",
+        "name": "mistune",
+        "outcome": null,
+        "version": "3.2.1"
+      },
+      {
+        "defect_id": "image-unsafe-url",
+        "name": "mistune",
+        "outcome": null,
+        "version": "3.2.1"
+      },
+      {
+        "defect_id": "image-figwidth-validation",
+        "name": "mistune",
+        "outcome": null,
+        "version": "3.2.1"
+      },
+      {
+        "defect_id": "safe-url-percent-encoded",
+        "name": "mistune",
+        "outcome": null,
+        "version": "3.2.1"
+      },
+      {
+        "defect_id": "math-currency-crossline",
+        "name": "mistune",
+        "outcome": null,
+        "version": "3.2.1"
+      },
+      {
+        "defect_id": "include-directive-hardening",
+        "name": "mistune",
+        "outcome": null,
+        "version": "3.2.1"
+      },
+      {
+        "defect_id": "rst-blockquote-nested-list",
+        "name": "mistune",
+        "outcome": null,
+        "version": "3.2.1"
+      },
+      {
+        "defect_id": "ref-link-blank-scan-quadratic",
+        "name": "mistune",
+        "outcome": null,
+        "version": "3.2.1"
+      },
+      {
+        "defect_id": "nested-bracket-scan-quadratic",
+        "name": "mistune",
+        "outcome": null,
+        "version": "3.2.1"
+      },
+      {
+        "defect_id": "footnote-defs-membership-quadratic",
+        "name": "mistune",
+        "outcome": null,
+        "version": "3.3.4"
+      },
+      {
+        "defect_id": "long-decimal-int-valueerror",
+        "name": "tomli",
+        "outcome": null,
+        "version": "2.4.1"
+      }
+    ],
+    "required": 27
+  },
+  "created_at": "2026-08-09T14:24:48.776547Z",
+  "dispatch_budget": null,
+  "dispatch_enabled": false,
+  "epoch_count": 1,
+  "epoch_digests": [
+    "aacb18bce73fbb5b89e59d1c47fedb8b9693817856964766300d1e13725a5c6f"
+  ],
+  "epochs": [
+    {
+      "coverage_after": {
+        "coverage_ratio": 0.0,
+        "covered": 0,
+        "met": false,
+        "required": 27
+      },
+      "coverage_before": {
+        "coverage_ratio": 0.0,
+        "covered": 0,
+        "met": false,
+        "required": 27
+      },
+      "epoch": 0,
+      "epoch_digest": "aacb18bce73fbb5b89e59d1c47fedb8b9693817856964766300d1e13725a5c6f",
+      "epoch_dir": "artifacts\\upstream-succession\\20260809T142448.766594Z\\epochs\\epoch-00\\20260809T142448.767234Z",
+      "ok": true,
+      "portfolio_after_epoch_digest": null,
+      "portfolio_after_refresh_digest": null,
+      "portfolio_before_digest": null,
+      "refresh_applied": [],
+      "refresh_count": 0,
+      "stop_reason": "rank_only",
+      "total_dispatched": 0,
+      "total_dispatched_ok": 0,
+      "verdict": "epoch_ranked",
+      "wave_count": 1
+    }
+  ],
+  "mandate_goal": "none",
+  "mandate_met": false,
+  "max_epochs": 1,
+  "max_waves_per_epoch": 3,
+  "ok": true,
+  "per_wave_dispatch_limit": 1,
+  "portfolio_end_digest": null,
+  "portfolio_final": null,
+  "portfolio_source": "none",
+  "portfolio_start_digest": null,
+  "required_keys": [
+    {
+      "defect_id": "nested-bracket-scan-quadratic",
+      "name": "markdown",
+      "version": "3.10.3"
+    },
+    {
+      "defect_id": "inline-element-rescan-quadratic",
+      "name": "markdown",
+      "version": "3.10.3"
+    },
+    {
+      "defect_id": "ref-def-block-rescan-quadratic",
+      "name": "markdown",
+      "version": "3.10.3"
+    },
+    {
+      "defect_id": "footnote-scaling-quadratic",
+      "name": "markdown",
+      "version": "3.10.3"
+    },
+    {
+      "defect_id": "footnote-defs-masking-quadratic",
+      "name": "marked",
+      "version": "18.0.7"
+    },
+    {
+      "defect_id": "math-xss",
+      "name": "mistune",
+      "version": "3.2.0"
+    },
+    {
+      "defect_id": "heading-id-xss",
+      "name": "mistune",
+      "version": "3.2.0"
+    },
+    {
+      "defect_id": "toc-link-xss",
+      "name": "mistune",
+      "version": "3.2.0"
+    },
+    {
+      "defect_id": "block-error-xss",
+      "name": "mistune",
+      "version": "3.2.0"
+    },
+    {
+      "defect_id": "image-alt-double-encoding",
+      "name": "mistune",
+      "version": "3.2.0"
+    },
+    {
+      "defect_id": "admonition-class-xss",
+      "name": "mistune",
+      "version": "3.2.0"
+    },
+    {
+      "defect_id": "figure-attrs-xss",
+      "name": "mistune",
+      "version": "3.2.0"
+    },
+    {
+      "defect_id": "image-width-validation",
+      "name": "mistune",
+      "version": "3.2.0"
+    },
+    {
+      "defect_id": "link-title-redos",
+      "name": "mistune",
+      "version": "3.2.0"
+    },
+    {
+      "defect_id": "ref-link-blank-scan-quadratic",
+      "name": "mistune",
+      "version": "3.2.0"
+    },
+    {
+      "defect_id": "nested-bracket-scan-quadratic",
+      "name": "mistune",
+      "version": "3.2.0"
+    },
+    {
+      "defect_id": "toc-heading-id-collision",
+      "name": "mistune",
+      "version": "3.2.1"
+    },
+    {
+      "defect_id": "image-unsafe-url",
+      "name": "mistune",
+      "version": "3.2.1"
+    },
+    {
+      "defect_id": "image-figwidth-validation",
+      "name": "mistune",
+      "version": "3.2.1"
+    },
+    {
+      "defect_id": "safe-url-percent-encoded",
+      "name": "mistune",
+      "version": "3.2.1"
+    },
+    {
+      "defect_id": "math-currency-crossline",
+      "name": "mistune",
+      "version": "3.2.1"
+    },
+    {
+      "defect_id": "include-directive-hardening",
+      "name": "mistune",
+      "version": "3.2.1"
+    },
+    {
+      "defect_id": "rst-blockquote-nested-list",
+      "name": "mistune",
+      "version": "3.2.1"
+    },
+    {
+      "defect_id": "ref-link-blank-scan-quadratic",
+      "name": "mistune",
+      "version": "3.2.1"
+    },
+    {
+      "defect_id": "nested-bracket-scan-quadratic",
+      "name": "mistune",
+      "version": "3.2.1"
+    },
+    {
+      "defect_id": "footnote-defs-membership-quadratic",
+      "name": "mistune",
+      "version": "3.3.4"
+    },
+    {
+      "defect_id": "long-decimal-int-valueerror",
+      "name": "tomli",
+      "version": "2.4.1"
+    }
+  ],
+  "schema_version": 1,
+  "stop_reason": "rank_only",
+  "succession_digest": "89bc713119b280873711eded014859374f6098ec24da2e97465522b0b3eae9de",
+  "total_dispatched": 0,
+  "total_dispatched_ok": 0,
+  "used_skill_route_discovery": false,
+  "verdict": "succession_ranked"
+}
