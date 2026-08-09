@@ -17,6 +17,7 @@ def test_builtin_proof_green() -> None:
     assert result["multi_program_progressed"]
     assert result["federation_coverage"]
     assert result["priority_scheduling"]
+    assert result["deferred_admission"]
     assert result["seal_verified"]
     assert result["tamper_detected"]
     assert result["budget_stops"]
@@ -269,3 +270,69 @@ def test_verify_detects_missing_receipt(tmp_path: Path) -> None:
     result = ui.verify_institution_receipt(tmp_path)
     assert not result["ok"]
     assert result["verdict"] == "receipt_missing"
+
+
+def test_pending_charter_and_deferred_capacity(tmp_path: Path) -> None:
+    charter = ui.normalize_institution_charter(
+        [
+            {
+                "program_id": "high",
+                "priority": 5,
+                "initial_targets": [
+                    {
+                        "name": "h",
+                        "version": "1.0.0",
+                        "defects": [{"id": "h-1"}],
+                    }
+                ],
+            },
+            {
+                "program_id": "low",
+                "priority": 1,
+                "initial_targets": [
+                    {
+                        "name": "l",
+                        "version": "1.0.0",
+                        "defects": [{"id": "l-1"}],
+                    }
+                ],
+            },
+        ]
+    )
+    states: list[dict] = []
+    first = ui.admit_pending_slots(
+        institution_dir=tmp_path,
+        charter=charter,
+        program_states=states,
+        max_active_programs=1,
+        max_successions_per_program=2,
+        round_index=0,
+    )
+    assert len(first) == 1
+    assert first[0]["program_id"] == "high"
+    assert len(states) == 1
+    pending = ui.pending_charter_slots(charter, states)
+    assert [p["program_id"] for p in pending] == ["low"]
+    assert not ui.constitution_satisfied(
+        program_states=states,
+        charter=charter,
+        institution_goal="all_programs_met",
+    )
+    # Mark met → capacity frees.
+    states[0]["program_met"] = True
+    second = ui.admit_pending_slots(
+        institution_dir=tmp_path,
+        charter=charter,
+        program_states=states,
+        max_active_programs=1,
+        max_successions_per_program=2,
+        round_index=1,
+    )
+    assert len(second) == 1
+    assert second[0]["program_id"] == "low"
+    states[1]["program_met"] = True
+    assert ui.constitution_satisfied(
+        program_states=states,
+        charter=charter,
+        institution_goal="all_programs_met",
+    )

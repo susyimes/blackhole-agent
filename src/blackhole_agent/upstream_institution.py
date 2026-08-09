@@ -5,7 +5,8 @@ The program plane (``upstream_program``) closes multi-succession charters
 
 1. chain multiple independent programs under a durable institutional constitution;
 2. allocate a shared global dispatch budget across programs by ROI;
-3. admit/retire program slots from an institutional charter;
+3. admit/retire program slots from an institutional charter over time
+   (deferred admission under a concurrent-active cap);
 4. federate multi-program portfolio coverage into one institutional world-model;
 5. persist institution state so a later process can resume the constitution;
 6. seal a multi-program institutional chronicle linking program digests.
@@ -13,30 +14,34 @@ The program plane (``upstream_program``) closes multi-succession charters
 The institution plane closes that outer institutional loop:
 
 1. **admit** — materialize program slots from a durable institution charter
-   (each slot owns a stewardship surface + optional surface_charter);
+   (each slot owns a stewardship surface + optional surface_charter). When
+   ``max_active_programs`` is set, only that many *unmet* programs are
+   concurrent: further charter slots stay pending and are admitted as
+   capacity frees after retirements (constitution growth over time);
 2. **schedule** — pick the next open program by priority and historical ROI;
 3. **program** — call the program plane (injected ``program_runner``; default
    ``run_program``) with a share of the remaining global dispatch budget;
 4. **federate** — merge per-program portfolios into one institutional
    world-model and re-score coverage across all stewarded keys;
-5. **retire** — mark programs met when their program_goal is satisfied;
+5. **retire** — mark programs met when their program_goal is satisfied, then
+   re-admit pending charter slots up to the active capacity;
 6. **persist** — write ``institution_state.json`` after every program round
    so a later ``run_institution(..., resume_dir=...)`` continues the same
-   constitution;
+   constitution (including pending charter and admission history);
 7. **stop** when any of:
 
    - ``max_rounds`` reached
    - global ``dispatch_budget`` exhausted across programs
-   - institution goal met (``all_programs_met``: every charter program is
-     terminal-success covered and no pending admission remains)
+   - institution goal met (``all_programs_met``: every *admitted* program is
+     met *and* no pending charter slots remain)
    - consecutive idle/no-progress rounds (``idle_round_limit``)
    - explicit ``stop_when`` predicate returns a reason string
 
 8. **seal** — write an institution receipt under
    ``artifacts/upstream-institution/`` with sha256 digests of every program,
-   portfolio federation, ROI history, stop reason, and an institution chain
-   digest; ``verify_institution_receipt`` re-checks the chain and detects
-   tampering.
+   portfolio federation, admission history, ROI history, stop reason, and an
+   institution chain digest; ``verify_institution_receipt`` re-checks the
+   chain and detects tampering.
 
 No skill-route discovery is used. The plane is constitution-level direction
 over the program plane, not a new verifier of individual repairs.
@@ -321,6 +326,113 @@ def programs_all_met(program_states: Sequence[Mapping[str, Any]]) -> bool:
     return all(bool(ps.get("program_met")) for ps in program_states)
 
 
+def open_unmet_count(program_states: Sequence[Mapping[str, Any]]) -> int:
+    """Count admitted programs that are not yet program_met."""
+    return sum(1 for ps in program_states if not ps.get("program_met"))
+
+
+def pending_charter_slots(
+    charter: Sequence[Mapping[str, Any]],
+    program_states: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    """Charter slots not yet admitted, priority-desc then program_id-asc."""
+    known = {str(ps.get("program_id") or "") for ps in program_states}
+    pending = [
+        dict(slot)
+        for slot in charter
+        if str(slot.get("program_id") or "") and str(slot.get("program_id")) not in known
+    ]
+    pending.sort(
+        key=lambda s: (-int(s.get("priority") or 0), str(s.get("program_id") or ""))
+    )
+    return pending
+
+
+def constitution_satisfied(
+    *,
+    program_states: Sequence[Mapping[str, Any]],
+    charter: Sequence[Mapping[str, Any]],
+    institution_goal: str,
+    federated_portfolio: Mapping[str, Any] | None = None,
+) -> bool:
+    """True when the institution goal is fully met including pending charter."""
+    if institution_goal == "none":
+        return False
+    if institution_goal == "terminal_coverage":
+        cov = institution_terminal_coverage(
+            program_states=program_states,
+            federated_portfolio=federated_portfolio,
+        )
+        return bool(cov.get("met")) and not pending_charter_slots(charter, program_states)
+    if institution_goal == "all_programs_met":
+        if not program_states:
+            return False
+        if pending_charter_slots(charter, program_states):
+            return False
+        return programs_all_met(program_states)
+    return False
+
+
+def admit_pending_slots(
+    *,
+    institution_dir: Path,
+    charter: Sequence[Mapping[str, Any]],
+    program_states: list[dict[str, Any]],
+    max_active_programs: int | None,
+    max_successions_per_program: int | None,
+    round_index: int | None = None,
+) -> list[dict[str, Any]]:
+    """Admit pending charter slots up to concurrent-active capacity.
+
+    ``max_active_programs`` caps *unmet* concurrent programs. ``None`` admits
+    every remaining pending slot. Returns admission records for newly admitted
+    slots (also mutates ``program_states``).
+    """
+    pending = pending_charter_slots(charter, program_states)
+    if not pending:
+        return []
+
+    open_n = open_unmet_count(program_states)
+    if max_active_programs is None:
+        capacity = len(pending)
+    else:
+        capacity = max(0, int(max_active_programs) - open_n)
+    if capacity <= 0:
+        return []
+
+    admissions: list[dict[str, Any]] = []
+    for slot in pending[:capacity]:
+        admission = admit_program_slot(institution_dir=institution_dir, slot=slot)
+        if round_index is not None:
+            admission = dict(admission)
+            admission["admitted_at_round"] = round_index
+        admissions.append(admission)
+        program_states.append(
+            {
+                "program_id": admission["program_id"],
+                "stewardship_root": admission["stewardship_root"],
+                "program_root": admission["program_root"],
+                "surface_charter": admission["surface_charter"],
+                "max_successions": (
+                    int(max_successions_per_program)
+                    if max_successions_per_program is not None
+                    else admission["max_successions"]
+                ),
+                "program_goal": admission["program_goal"],
+                "mandate_goal": admission["mandate_goal"],
+                "priority": admission["priority"],
+                "program_met": False,
+                "last_program_dir": None,
+                "last_program_digest": None,
+                "portfolio": None,
+                "total_dispatched": 0,
+                "total_dispatched_ok": 0,
+                "admitted_at_round": round_index,
+            }
+        )
+    return admissions
+
+
 # ---------------------------------------------------------------------------
 # ROI + scheduling
 
@@ -481,6 +593,8 @@ def _state_payload(
     charter: Sequence[Mapping[str, Any]],
     stop_reason: str | None,
     institution_goal: str,
+    max_active_programs: int | None = None,
+    admissions: Sequence[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
@@ -496,6 +610,12 @@ def _state_payload(
         "charter": list(charter),
         "stop_reason": stop_reason,
         "institution_goal": institution_goal,
+        "max_active_programs": max_active_programs,
+        "admissions": [dict(a) for a in (admissions or [])],
+        "pending_program_ids": [
+            str(s.get("program_id") or "")
+            for s in pending_charter_slots(charter, program_states)
+        ],
     }
 
 
@@ -572,6 +692,7 @@ def _institution_digest_payload(receipt: Mapping[str, Any]) -> dict[str, Any]:
         "institution_id": receipt.get("institution_id"),
         "institution_goal": receipt.get("institution_goal"),
         "max_rounds": receipt.get("max_rounds"),
+        "max_active_programs": receipt.get("max_active_programs"),
         "dispatch_budget": receipt.get("dispatch_budget"),
         "portfolio_start_digest": receipt.get("portfolio_start_digest"),
         "portfolio_end_digest": receipt.get("portfolio_end_digest"),
@@ -583,6 +704,8 @@ def _institution_digest_payload(receipt: Mapping[str, Any]) -> dict[str, Any]:
         "coverage_end": receipt.get("coverage_end"),
         "programs_met_count": receipt.get("programs_met_count"),
         "programs_admitted": receipt.get("programs_admitted"),
+        "admission_count": receipt.get("admission_count"),
+        "pending_remaining": receipt.get("pending_remaining"),
         "roi_summary": receipt.get("roi_summary"),
     }
 
@@ -649,6 +772,7 @@ def run_institution(
     per_wave_dispatch_limit: int = 1,
     dispatch_budget: int | None = None,
     idle_round_limit: int = 1,
+    max_active_programs: int | None = None,
     dispatch: bool = True,
     program_runner: Callable[..., dict[str, Any]] | None = None,
     campaign_runner: Callable[..., dict[str, Any]] | None = None,
@@ -676,10 +800,16 @@ def run_institution(
     dispatch_budget:
         Total dispatch *attempts* across all programs; ``None`` means
         unlimited (still bounded by per-program succession/epoch/wave caps).
+    max_active_programs:
+        Constitution concurrent-active cap. When set, only this many *unmet*
+        programs are admitted at once; remaining charter slots stay pending
+        and are admitted as programs retire (deferred constitution growth).
+        ``None`` admits the full charter eagerly (legacy behaviour).
     institution_goal:
         ``all_programs_met`` (default) stops when every admitted program is
-        met; ``terminal_coverage`` stops when federated inventory is fully
-        terminal-success; ``none`` disables institution-goal stopping.
+        met *and* the charter has no pending slots; ``terminal_coverage``
+        stops when federated inventory is fully terminal-success and the
+        charter is exhausted; ``none`` disables institution-goal stopping.
     resume_dir:
         Load ``institution_state.json`` from a prior institution dir and
         continue. New receipt is written under ``out_root`` (or a fresh stamp).
@@ -689,6 +819,10 @@ def run_institution(
     if per_wave_dispatch_limit < 0:
         raise InstitutionRefused(
             "institution_invalid", "per_wave_dispatch_limit must be >= 0"
+        )
+    if max_active_programs is not None and int(max_active_programs) < 1:
+        raise InstitutionRefused(
+            "institution_invalid", "max_active_programs must be >= 1 when set"
         )
     if institution_goal not in {"all_programs_met", "terminal_coverage", "none"}:
         raise InstitutionRefused(
@@ -709,6 +843,8 @@ def run_institution(
     program_states: list[dict[str, Any]] = []
     active_charter: list[dict[str, Any]] = []
     federated_portfolio: dict[str, Any] | None = None
+    admissions: list[dict[str, Any]] = []
+    resumed_max_active: int | None = None
 
     if resume_dir is not None:
         state = load_institution_state(resume_dir)
@@ -730,8 +866,20 @@ def run_institution(
             active_charter = normalize_institution_charter(
                 [e for e in state["charter"] if isinstance(e, Mapping)]
             )
+        if isinstance(state.get("admissions"), list):
+            admissions = [
+                dict(a) for a in state["admissions"] if isinstance(a, Mapping)
+            ]
+        if state.get("max_active_programs") is not None and max_active_programs is None:
+            resumed_max_active = int(state["max_active_programs"])
     else:
         active_charter = normalize_institution_charter(charter)
+
+    active_max = (
+        max_active_programs
+        if max_active_programs is not None
+        else resumed_max_active
+    )
 
     if not active_charter and not program_states:
         raise InstitutionRefused(
@@ -760,43 +908,27 @@ def run_institution(
     )
     prog_root.mkdir(parents=True, exist_ok=True)
 
-    # Admit any charter slots not yet present in program_states (fresh or new).
-    known_ids = {str(ps.get("program_id") or "") for ps in program_states}
-    admissions: list[dict[str, Any]] = []
-    for slot in active_charter:
-        pid = str(slot["program_id"])
-        if pid in known_ids:
-            continue
-        admission = admit_program_slot(institution_dir=institution_dir, slot=slot)
-        admissions.append(admission)
-        program_states.append(
-            {
-                "program_id": pid,
-                "stewardship_root": admission["stewardship_root"],
-                "program_root": admission["program_root"],
-                "surface_charter": admission["surface_charter"],
-                "max_successions": (
-                    int(max_successions_per_program)
-                    if max_successions_per_program is not None
-                    else admission["max_successions"]
-                ),
-                "program_goal": admission["program_goal"],
-                "mandate_goal": admission["mandate_goal"],
-                "priority": admission["priority"],
-                "program_met": False,
-                "last_program_dir": None,
-                "last_program_digest": None,
-                "portfolio": None,
-                "total_dispatched": 0,
-                "total_dispatched_ok": 0,
-            }
-        )
-        known_ids.add(pid)
+    # Admit up to concurrent-active capacity (deferred constitution growth).
+    initial_admissions = admit_pending_slots(
+        institution_dir=institution_dir,
+        charter=active_charter,
+        program_states=program_states,
+        max_active_programs=active_max,
+        max_successions_per_program=max_successions_per_program,
+        round_index=prior_round_count,
+    )
+    admissions.extend(initial_admissions)
 
-    if not program_states:
+    if not program_states and not pending_charter_slots(active_charter, program_states):
         raise InstitutionRefused(
             "institution_empty",
             "no program slots admitted",
+        )
+    if not program_states and pending_charter_slots(active_charter, program_states):
+        # max_active blocked everything — invalid constitution.
+        raise InstitutionRefused(
+            "institution_empty",
+            "no program slots admitted under max_active_programs policy",
         )
 
     # Seed federated portfolio from per-program portfolios when resuming.
@@ -819,18 +951,30 @@ def run_institution(
     for local_index in range(max_rounds):
         round_index = prior_round_count + local_index
 
+        # Re-fill capacity before each round (retirements free slots).
+        mid_admissions = admit_pending_slots(
+            institution_dir=institution_dir,
+            charter=active_charter,
+            program_states=program_states,
+            max_active_programs=active_max,
+            max_successions_per_program=max_successions_per_program,
+            round_index=round_index,
+        )
+        if mid_admissions:
+            admissions.extend(mid_admissions)
+
         coverage_before = institution_terminal_coverage(
             program_states=program_states,
             federated_portfolio=federated_portfolio,
         )
 
         # Institution-goal short-circuit before dispatching another program.
-        if institution_goal == "all_programs_met" and programs_all_met(program_states):
-            stop_reason = "institution_met"
-            institution_met = True
-            coverage_end = coverage_before
-            break
-        if institution_goal == "terminal_coverage" and coverage_before.get("met"):
+        if constitution_satisfied(
+            program_states=program_states,
+            charter=active_charter,
+            institution_goal=institution_goal,
+            federated_portfolio=federated_portfolio,
+        ):
             stop_reason = "institution_met"
             institution_met = True
             coverage_end = coverage_before
@@ -848,8 +992,12 @@ def run_institution(
             program_states, roi_history, round_index=round_index
         )
         if selected is None:
-            stop_reason = "institution_met"
-            institution_met = True
+            # No open work: either charter exhausted (met) or blocked pending.
+            if not pending_charter_slots(active_charter, program_states):
+                stop_reason = "institution_met"
+                institution_met = True
+            else:
+                stop_reason = "institution_idle"
             coverage_end = coverage_before
             break
 
@@ -1000,6 +1148,23 @@ def run_institution(
         )
         programs.append(rec)
 
+        # Free capacity after retirements: admit next pending charter slots.
+        post_admissions = admit_pending_slots(
+            institution_dir=institution_dir,
+            charter=active_charter,
+            program_states=program_states,
+            max_active_programs=active_max,
+            max_successions_per_program=max_successions_per_program,
+            round_index=round_index + 1,
+        )
+        if post_admissions:
+            admissions.extend(post_admissions)
+            # Re-federate after new surfaces materialize (coverage required grows).
+            coverage_after = institution_terminal_coverage(
+                program_states=program_states,
+                federated_portfolio=federated_portfolio,
+            )
+
         # Persist durable state after each round.
         write_institution_state(
             institution_dir,
@@ -1015,6 +1180,8 @@ def run_institution(
                 charter=active_charter,
                 stop_reason=None,
                 institution_goal=institution_goal,
+                max_active_programs=active_max,
+                admissions=admissions,
             ),
         )
 
@@ -1038,17 +1205,23 @@ def run_institution(
                     "last_program_id": program_id,
                     "federated_portfolio": federated_portfolio,
                     "institution_dir": str(institution_dir),
+                    "pending_program_ids": [
+                        str(s.get("program_id") or "")
+                        for s in pending_charter_slots(active_charter, program_states)
+                    ],
+                    "admissions": admissions,
                 }
             )
             if reason:
                 stop_reason = str(reason)
                 break
 
-        if institution_goal == "all_programs_met" and programs_all_met(program_states):
-            stop_reason = "institution_met"
-            institution_met = True
-            break
-        if institution_goal == "terminal_coverage" and coverage_after.get("met"):
+        if constitution_satisfied(
+            program_states=program_states,
+            charter=active_charter,
+            institution_goal=institution_goal,
+            federated_portfolio=federated_portfolio,
+        ):
             stop_reason = "institution_met"
             institution_met = True
             break
@@ -1061,13 +1234,32 @@ def run_institution(
             stop_reason = "rank_only"
             break
 
-        if idle_streak >= idle_round_limit and not programs_all_met(program_states):
+        if (
+            idle_streak >= idle_round_limit
+            and not constitution_satisfied(
+                program_states=program_states,
+                charter=active_charter,
+                institution_goal=institution_goal,
+                federated_portfolio=federated_portfolio,
+            )
+        ):
             stop_reason = "institution_idle"
             break
     else:
         stop_reason = "max_rounds"
 
-    # Final coverage snapshot.
+    # Final admission fill + coverage snapshot.
+    final_admissions = admit_pending_slots(
+        institution_dir=institution_dir,
+        charter=active_charter,
+        program_states=program_states,
+        max_active_programs=active_max,
+        max_successions_per_program=max_successions_per_program,
+        round_index=prior_round_count + len(programs),
+    )
+    if final_admissions:
+        admissions.extend(final_admissions)
+
     federated_portfolio = federate_portfolios(
         [ps.get("portfolio") for ps in program_states]
     )
@@ -1075,9 +1267,12 @@ def run_institution(
         program_states=program_states,
         federated_portfolio=federated_portfolio,
     )
-    if institution_goal == "all_programs_met" and programs_all_met(program_states):
-        institution_met = True
-    if institution_goal == "terminal_coverage" and coverage_end.get("met"):
+    if constitution_satisfied(
+        program_states=program_states,
+        charter=active_charter,
+        institution_goal=institution_goal,
+        federated_portfolio=federated_portfolio,
+    ):
         institution_met = True
 
     portfolio_end_digest = (
@@ -1085,6 +1280,10 @@ def run_institution(
     )
     roi_summary = _roi_summary(roi_history)
     programs_met_count = sum(1 for ps in program_states if ps.get("program_met"))
+    pending_remaining = [
+        str(s.get("program_id") or "")
+        for s in pending_charter_slots(active_charter, program_states)
+    ]
 
     if institution_met and stop_reason in {"institution_met", "max_rounds"}:
         verdict = "institution_met"
@@ -1118,6 +1317,7 @@ def run_institution(
         "resumed": resumed,
         "prior_round_count": prior_round_count,
         "max_rounds": max_rounds,
+        "max_active_programs": active_max,
         "max_epochs_per_succession": max_epochs_per_succession,
         "max_waves_per_epoch": max_waves_per_epoch,
         "per_wave_dispatch_limit": per_wave_dispatch_limit,
@@ -1143,7 +1343,9 @@ def run_institution(
         "program_states": program_states,
         "programs_admitted": len(program_states),
         "programs_met_count": programs_met_count,
-        "admissions": admissions if not resumed else [],
+        "admissions": admissions,
+        "admission_count": len(admissions),
+        "pending_remaining": pending_remaining,
         "charter": active_charter,
         "roi_history": roi_history,
         "roi_summary": roi_summary,
@@ -1169,6 +1371,9 @@ def run_institution(
             "institution_met": receipt["institution_met"],
             "programs_admitted": receipt["programs_admitted"],
             "programs_met_count": receipt["programs_met_count"],
+            "admission_count": receipt["admission_count"],
+            "pending_remaining": receipt["pending_remaining"],
+            "max_active_programs": receipt["max_active_programs"],
             "coverage_ratio": (receipt.get("coverage_end") or {}).get("coverage_ratio"),
             "portfolio_start_digest": receipt["portfolio_start_digest"],
             "portfolio_end_digest": receipt["portfolio_end_digest"],
@@ -1191,6 +1396,8 @@ def run_institution(
             charter=active_charter,
             stop_reason=stop_reason,
             institution_goal=institution_goal,
+            max_active_programs=active_max,
+            admissions=admissions,
         ),
     )
 
@@ -1208,6 +1415,10 @@ def run_institution(
         "institution_met": institution_met,
         "programs_admitted": len(program_states),
         "programs_met_count": programs_met_count,
+        "admission_count": len(admissions),
+        "pending_remaining": pending_remaining,
+        "max_active_programs": active_max,
+        "admissions": admissions,
         "coverage_end": receipt["coverage_end"],
         "portfolio_start_digest": portfolio_start_digest,
         "portfolio_end_digest": portfolio_end_digest,
@@ -1580,6 +1791,44 @@ def builtin_upstream_institution_proof() -> dict[str, Any]:
                     fed_keys.add((n, v, d))
         federation_ok = multi_program_ok and len(fed_keys) >= 3
 
+        # Deferred admission: max_active=1 grows charter over time.
+        campaign6 = _proof_campaign_runner(scratch / "deferred")
+        deferred = run_institution(
+            charter=[
+                _slot("da", priority=3, initial=[("da", "1.0.0", "da-1")]),
+                _slot("db", priority=2, initial=[("db", "1.0.0", "db-1")]),
+                _slot("dc", priority=1, initial=[("dc", "1.0.0", "dc-1")]),
+            ],
+            max_rounds=8,
+            max_epochs_per_succession=2,
+            max_waves_per_epoch=2,
+            per_wave_dispatch_limit=1,
+            dispatch_budget=6,
+            max_active_programs=1,
+            dispatch=True,
+            campaign_runner=campaign6,
+            institution_goal="all_programs_met",
+            out_root=scratch / "inst-deferred",
+        )
+        admit_rounds = [
+            a.get("admitted_at_round")
+            for a in (deferred.get("admissions") or [])
+            if a.get("admitted_at_round") is not None
+        ]
+        admit_ids = [a.get("program_id") for a in (deferred.get("admissions") or [])]
+        deferred_ok = (
+            deferred["ok"]
+            and deferred["institution_met"] is True
+            and deferred["programs_admitted"] == 3
+            and deferred["programs_met_count"] == 3
+            and deferred.get("max_active_programs") == 1
+            and not (deferred.get("pending_remaining") or [])
+            and admit_ids == ["da", "db", "dc"]
+            # Staggered: not all admitted at the same round index.
+            and len(set(admit_rounds)) >= 2
+            and min(admit_rounds) == 0
+        )
+
         ok = all(
             [
                 multi_program_ok,
@@ -1595,6 +1844,7 @@ def builtin_upstream_institution_proof() -> dict[str, Any]:
                 roi_ok,
                 priority_ok,
                 federation_ok,
+                deferred_ok,
             ]
         )
         return {
@@ -1603,6 +1853,7 @@ def builtin_upstream_institution_proof() -> dict[str, Any]:
             "multi_program_progressed": multi_program_scheduled,
             "federation_coverage": federation_ok,
             "priority_scheduling": priority_ok,
+            "deferred_admission": deferred_ok,
             "seal_verified": seal_ok,
             "tamper_detected": tamper_detected,
             "budget_stops": budget_ok,
