@@ -1,0 +1,10 @@
+{
+  "baseRefName": "master",
+  "closedAt": null,
+  "headRefOid": "ea5678516b7a2a9f28643f4b07e17dbbeeda97a4",
+  "mergedAt": null,
+  "number": 4040,
+  "state": "OPEN",
+  "title": "fix: inlineTokens rebuilds the reflink-mask preamble per call",
+  "url": "https://github.com/markedjs/marked/pull/4040"
+}

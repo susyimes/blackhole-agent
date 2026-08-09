@@ -1,0 +1,42 @@
+{
+  "assessed_count": 2,
+  "counts": {
+    "impact_open": 1,
+    "impact_open_diverged": 1
+  },
+  "created_at": "2026-08-09T12:21:23.298248Z",
+  "entries": [
+    {
+      "certificate_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260809T121602Z-3883f5c7\\artifacts\\upstream-impact\\entries\\marked-18.0.7\\footnote-defs-masking-quadratic\\20260809T122122.313727Z",
+      "defect_id": "footnote-defs-masking-quadratic",
+      "impact_digest": "2ec2f2734c07c18276cd308fde647c0452cb8fbfc67072755cfeafb8183a86e6",
+      "live_state": "OPEN",
+      "name": "marked",
+      "ok": true,
+      "outcome": "impact_open_diverged",
+      "pr_number": 4040,
+      "pr_url": "https://github.com/markedjs/marked/pull/4040",
+      "receipt_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260809T121602Z-3883f5c7\\artifacts\\upstream-publication\\marked-18.0.7\\footnote-defs-masking-quadratic\\20260802T162741.839488Z",
+      "version": "18.0.7"
+    },
+    {
+      "certificate_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260809T121602Z-3883f5c7\\artifacts\\upstream-impact\\entries\\mistune-3.3.4\\footnote-defs-membership-quadratic\\20260809T122123.292296Z",
+      "defect_id": "footnote-defs-membership-quadratic",
+      "impact_digest": "787c11820056a49ee03bb0b30b96f31f02f204c1c3acaaf71e2cc9e543698fd9",
+      "live_state": "OPEN",
+      "name": "mistune",
+      "ok": true,
+      "outcome": "impact_open",
+      "pr_number": 478,
+      "pr_url": "https://github.com/lepture/mistune/pull/478",
+      "receipt_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260809T121602Z-3883f5c7\\artifacts\\upstream-publication\\mistune-3.3.4\\footnote-defs-membership-quadratic\\20260809T110409.337941Z",
+      "version": "3.3.4"
+    }
+  ],
+  "failure_count": 0,
+  "failures": [],
+  "ok_count": 2,
+  "portfolio_digest": "2bd8f28bc65d0720d9c36452f9d59cd1337750b31275323ad544061847431d0f",
+  "schema_version": 1,
+  "used_skill_route_discovery": false
+}

@@ -19963,6 +19963,67 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
             created_at=utc_now_iso(),
             updated_at=utc_now_iso(),
         ),
+        Capability(
+            id="capability.upstream-impact",
+            name="Upstream impact plane (post-publication outcome closure)",
+            description=(
+                "Closes the post-publication outcome loop over sealed "
+                "publication receipts. Re-verifies the publication seal, "
+                "queries live pull-request state through an injected gh "
+                "seam, and classifies durable outcomes: impact_open, "
+                "impact_open_diverged, impact_merged, impact_closed_unmerged, "
+                "impact_pr_missing, and impact_released (when an absorption "
+                "checker confirms a released version absorbed the repair). "
+                "Seals tamper-evident impact certificates under "
+                "artifacts/upstream-impact/ and a portfolio rollup over all "
+                "newest published receipts per (name, version, defect_id). "
+                "Unsealed or non-published receipts are refused. No "
+                "skill-route discovery is used."
+            ),
+            kind="python",
+            entry="blackhole_agent.upstream_impact:builtin_upstream_impact_proof",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.upstream_impact import builtin_upstream_impact_proof; '
+                "r=builtin_upstream_impact_proof(); assert r['ok'] "
+                "and r.get('open_classified') and r.get('merged_classified') "
+                "and r.get('closed_classified') and r.get('diverged_classified') "
+                "and r.get('released_classified') and r.get('missing_classified') "
+                "and r.get('certificate_verified') and r.get('tamper_detected') "
+                "and r.get('unsealed_refused') and r.get('not_published_refused') "
+                "and r.get('portfolio_assessed') "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.upstream-publication",
+                "capability.upstream-campaign",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/upstream_impact.py",
+                "src/blackhole_agent/upstream_publication.py",
+            ),
+            capability_delta=(
+                "Published stewardship repairs are no longer fire-and-forget: "
+                "sealed publication receipts become live-tracked outcomes "
+                "(open/merged/closed/diverged/released/missing) with "
+                "tamper-evident impact certificates and a portfolio rollup "
+                "over the whole outward contribution surface, without "
+                "skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "upstream",
+                "impact",
+                "publication",
+                "portfolio",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
 
     ]
 

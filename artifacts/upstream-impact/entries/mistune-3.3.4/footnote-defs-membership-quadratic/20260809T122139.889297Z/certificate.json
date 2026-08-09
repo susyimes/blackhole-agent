@@ -1,0 +1,38 @@
+{
+  "absorption": {},
+  "branch": "blackhole/footnote-defs-membership-quadratic",
+  "closed_at": null,
+  "created_at": "2026-08-09T12:21:39.889726Z",
+  "defect_id": "footnote-defs-membership-quadratic",
+  "detail": "PR #478 still open; repair not yet landed",
+  "impact_digest": "787c11820056a49ee03bb0b30b96f31f02f204c1c3acaaf71e2cc9e543698fd9",
+  "live_head": "e264eca0b5a285672cab94457de2fba7bd89207c",
+  "live_pr": {
+    "baseRefName": "main",
+    "closedAt": null,
+    "headRefOid": "e264eca0b5a285672cab94457de2fba7bd89207c",
+    "mergedAt": null,
+    "number": 478,
+    "state": "OPEN",
+    "title": "fix: Inline footnote parsing does O",
+    "url": "https://github.com/lepture/mistune/pull/478"
+  },
+  "live_state": "OPEN",
+  "merged_at": null,
+  "name": "mistune",
+  "outcome": "impact_open",
+  "pr_number": 478,
+  "pr_url": "https://github.com/lepture/mistune/pull/478",
+  "publication_payload_sha256": {
+    "commit-message.txt": "53510529a78f5940f06e4b86911484818198d65ee51722cd4dea1acc53ab868b",
+    "pr-body.md": "efcfbb7deba1ed48903c7a88e14c8a9c333d860cdf0454166370c226c54d6a78"
+  },
+  "publication_receipt_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260809T121602Z-3883f5c7\\artifacts\\upstream-publication\\mistune-3.3.4\\footnote-defs-membership-quadratic\\20260809T110409.337941Z",
+  "publication_receipt_sha256": "d6ab49c5075c17b6484c376ec1b8afba6286b3f7e1c158ef453b490137bbc4da",
+  "publication_verdict": "published",
+  "recorded_head": "e264eca0b5a285672cab94457de2fba7bd89207c",
+  "schema_version": 1,
+  "upstream_repo": "https://github.com/lepture/mistune",
+  "used_skill_route_discovery": false,
+  "version": "3.3.4"
+}
