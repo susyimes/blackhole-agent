@@ -14,6 +14,7 @@ def test_builtin_proof_green() -> None:
     assert result["ok"]
     assert result["program_met"]
     assert result["surface_expand_reopens_mandate"]
+    assert result["charter_surface_expand"]
     assert result["multi_succession_progressed"]
     assert result["seal_verified"]
     assert result["tamper_detected"]
@@ -116,6 +117,67 @@ def test_verify_detects_missing_receipt(tmp_path: Path) -> None:
     result = up.verify_program_receipt(tmp_path)
     assert not result["ok"]
     assert result["verdict"] == "receipt_missing"
+
+
+def test_charter_surface_expand_materializes(tmp_path: Path) -> None:
+    stew = tmp_path / "stew"
+    stew.mkdir()
+    uf._proof_target(
+        stew,
+        name="seed",
+        version="1.0.0",
+        defects=[{
+            "id": "seed-1",
+            "title": "seed",
+            "kind": "complexity",
+            "patch": "patches/seed.patch",
+            "repro": "repros/seed.py",
+        }],
+    )
+    charter = [
+        {
+            "name": "wave2",
+            "version": "1.0.0",
+            "defects": [{
+                "id": "wave2-1",
+                "title": "wave2",
+                "kind": "complexity",
+                "patch": "patches/wave2.patch",
+                "repro": "repros/wave2.py",
+            }],
+        }
+    ]
+    campaign = up._proof_campaign_runner(tmp_path / "camp")
+    result = up.run_program(
+        stewardship_root=stew,
+        portfolio=None,
+        max_successions=4,
+        max_epochs_per_succession=2,
+        max_waves_per_epoch=2,
+        per_wave_dispatch_limit=1,
+        dispatch_budget=4,
+        dispatch=True,
+        campaign_runner=campaign,
+        surface_charter=charter,
+        program_goal="terminal_and_exhausted",
+        mandate_goal="terminal_coverage",
+        out_root=tmp_path / "prog-charter",
+    )
+    assert result["ok"]
+    assert result["program_met"]
+    assert result["succession_count"] >= 2
+    assert "wave2@1.0.0" in (result.get("charter_applied") or [])
+    assert any(
+        e.get("detail") == "charter_materialize"
+        for e in (result.get("surface_expansions") or [])
+    )
+    keys = up.inventory_defect_keys(stew)
+    assert ("wave2", "1.0.0", "wave2-1") in keys
+    state = json.loads(
+        (Path(result["program_dir"]) / "program_state.json").read_text(encoding="utf-8")
+    )
+    assert "wave2@1.0.0" in state.get("charter_applied", [])
+    assert state.get("surface_charter")
 
 
 def test_surface_expand_reopens_coverage(tmp_path: Path) -> None:

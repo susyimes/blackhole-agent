@@ -20229,17 +20229,17 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "Closes the outer multi-succession loop the succession plane "
                 "leaves open. Chains successive multi-epoch mandates under a "
                 "durable program charter: each succession dispatches and updates "
-                "the portfolio, then an inter-succession surface expand seam "
-                "re-opens mandate scope when new patch-bound defects enter "
-                "(default no-op; live deployments inject frontier onboarding), "
-                "ROI scores bias expansion, program_state.json enables durable "
-                "resume across process boundaries, and the program stops on "
-                "terminal_and_exhausted, terminal_coverage, max_successions, "
-                "global dispatch_budget, program_idle, rank_only, or a custom "
-                "stop_when. Seals a digest-chained program receipt under "
-                "artifacts/upstream-program/ with per-succession digests, "
-                "surface expansions, ROI history, and tamper detection. No "
-                "skill-route discovery is used."
+                "the portfolio, then an inter-succession surface expand re-opens "
+                "mandate scope when new patch-bound defects enter. First-class "
+                "surface_charter + make_charter_surface_expand materialize deferred "
+                "targets between successions (ROI-biased batching; progress "
+                "persisted in program_state.json for resume); injected expand "
+                "runners remain supported. Stops on terminal_and_exhausted, "
+                "terminal_coverage, max_successions, global dispatch_budget, "
+                "program_idle, rank_only, or custom stop_when. Seals a "
+                "digest-chained program receipt under artifacts/upstream-program/ "
+                "with per-succession digests, surface expansions, ROI history, "
+                "and tamper detection. No skill-route discovery is used."
             ),
             kind="python",
             entry="blackhole_agent.upstream_program:builtin_upstream_program_proof",
@@ -20248,6 +20248,7 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 '"from blackhole_agent.upstream_program import builtin_upstream_program_proof; '
                 "r=builtin_upstream_program_proof(); assert r['ok'] "
                 "and r.get('program_met') and r.get('surface_expand_reopens_mandate') "
+                "and r.get('charter_surface_expand') "
                 "and r.get('multi_succession_progressed') and r.get('seal_verified') "
                 "and r.get('tamper_detected') and r.get('budget_stops') "
                 "and r.get('premet_short_circuits') and r.get('rank_only') "
@@ -20273,9 +20274,10 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
             capability_delta=(
                 "Stewardship is no longer single-succession: multi-succession "
                 "program charters chain mandates, re-expand the surface between "
-                "successions, re-derive mandate scope, score ROI, persist durable "
-                "resume state, and seal a tamper-evident multi-succession "
-                "chronicle without skill-route."
+                "successions via first-class surface_charter materialization, "
+                "re-derive mandate scope, score ROI, persist durable resume "
+                "state (including charter progress), and seal a tamper-evident "
+                "multi-succession chronicle without skill-route."
             ),
             tags=(
                 "bootstrap",

@@ -156,7 +156,7 @@ def default_surface_expand(
     succession_index: int,
     roi_history: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any]:
-    """Default expand: no new surface. Live deployments inject frontier onboarding.
+    """Default expand: no new surface. Prefer ``surface_charter`` or an injected runner.
 
     Returns ``{"added_keys": [...], "detail": str, "expanded": bool}``.
     """
@@ -167,6 +167,217 @@ def default_surface_expand(
         "succession_index": succession_index,
         "roi_hint": _roi_summary(roi_history),
     }
+
+
+def normalize_surface_charter(
+    charter: Sequence[Mapping[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    """Normalize a program surface charter into deterministic onboard entries.
+
+    Each entry is ``{name, version, defects: [...], slug, entry_id}``. Defects
+    must be patch-bound (``patch`` + ``repro``) so mandate re-derivation sees
+    them after materialization.
+    """
+    if not charter:
+        return []
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for raw in charter:
+        if not isinstance(raw, Mapping):
+            continue
+        name = str(raw.get("name") or "").strip()
+        version = str(raw.get("version") or "").strip()
+        if not name or not version:
+            continue
+        defects_in = list(raw.get("defects") or [])
+        defects: list[dict[str, Any]] = []
+        for d in defects_in:
+            if not isinstance(d, Mapping):
+                continue
+            did = str(d.get("id") or "").strip()
+            if not did:
+                continue
+            patch = str(d.get("patch") or f"patches/{did}.patch")
+            repro = str(d.get("repro") or f"repros/{did}.py")
+            defects.append(
+                {
+                    "id": did,
+                    "title": str(d.get("title") or did),
+                    "kind": str(d.get("kind") or "complexity"),
+                    "patch": patch,
+                    "repro": repro,
+                }
+            )
+        if not defects:
+            continue
+        entry_id = str(raw.get("entry_id") or f"{name}@{version}")
+        if entry_id in seen:
+            continue
+        seen.add(entry_id)
+        out.append(
+            {
+                "entry_id": entry_id,
+                "name": name,
+                "version": version,
+                "slug": f"{name}-{version}",
+                "defects": defects,
+                "kind": str(raw.get("kind") or "local_proof_target"),
+            }
+        )
+    return out
+
+
+def materialize_charter_entry(
+    stewardship_root: Path,
+    entry: Mapping[str, Any],
+) -> list[dict[str, str]]:
+    """Materialize one charter entry onto the stewardship surface.
+
+    Returns the patch-bound keys that became available (name/version/defect_id).
+    """
+    root = Path(stewardship_root)
+    root.mkdir(parents=True, exist_ok=True)
+    name = str(entry.get("name") or "")
+    version = str(entry.get("version") or "")
+    defects = list(entry.get("defects") or [])
+    uf._proof_target(
+        root,
+        name=name,
+        version=version,
+        defects=defects,
+    )
+    return [
+        {
+            "name": name,
+            "version": version,
+            "defect_id": str(d.get("id") or ""),
+        }
+        for d in defects
+        if d.get("id")
+    ]
+
+
+def make_charter_surface_expand(
+    charter: Sequence[Mapping[str, Any]],
+    *,
+    only_when_covered: bool = True,
+    max_entries_per_expand: int = 1,
+    applied: Sequence[str] | None = None,
+) -> Callable[..., dict[str, Any]]:
+    """Build a surface-expand runner from a durable program charter.
+
+    Between successions the runner materializes the next unapplied charter
+    entry onto ``stewardship_root`` (via :func:`materialize_charter_entry`).
+    When ``only_when_covered`` is true (default), expansion waits until the
+    current inventoried surface is terminal-covered — so each mandate wave
+    completes before the charter grows. ROI history is recorded on the result
+    for program learning; high mean efficiency can raise the batch size by one
+    (capped by ``max_entries_per_expand + 1``).
+
+    ``applied`` seeds already-materialized entry ids (resume continuity).
+    """
+    normalized = normalize_surface_charter(charter)
+    applied_ids: set[str] = set(str(x) for x in (applied or []))
+    # Also treat on-disk targets as applied so re-runs are idempotent.
+    state = {
+        "applied": applied_ids,
+        "normalized": normalized,
+        "only_when_covered": bool(only_when_covered),
+        "max_entries_per_expand": max(1, int(max_entries_per_expand)),
+    }
+
+    def _runner(
+        *,
+        stewardship_root: Path | None,
+        portfolio: Mapping[str, Any] | None,
+        succession_index: int,
+        roi_history: Sequence[Mapping[str, Any]],
+    ) -> dict[str, Any]:
+        if stewardship_root is None:
+            return {
+                "added_keys": [],
+                "detail": "charter_no_stewardship_root",
+                "expanded": False,
+                "charter_remaining": len(state["normalized"]) - len(state["applied"]),
+                "charter_applied": sorted(state["applied"]),
+            }
+        root = Path(stewardship_root)
+        # Sync applied from on-disk inventory (idempotent resume / re-entry).
+        existing = {
+            f"{n}@{v}"
+            for n, v, _did in inventory_defect_keys(root)
+        }
+        for entry in state["normalized"]:
+            eid = str(entry["entry_id"])
+            slug_key = f"{entry['name']}@{entry['version']}"
+            if slug_key in existing:
+                state["applied"].add(eid)
+
+        if state["only_when_covered"]:
+            keys = inventory_defect_keys(root)
+            # Empty surface with pending charter should expand immediately.
+            if keys:
+                cov = program_terminal_coverage(
+                    portfolio, root, required_keys=keys
+                )
+                if not cov.get("met"):
+                    return {
+                        "added_keys": [],
+                        "detail": "charter_wait_coverage",
+                        "expanded": False,
+                        "charter_remaining": len(
+                            [e for e in state["normalized"] if e["entry_id"] not in state["applied"]]
+                        ),
+                        "charter_applied": sorted(state["applied"]),
+                        "roi_hint": _roi_summary(roi_history),
+                    }
+
+        pending = [
+            e for e in state["normalized"] if e["entry_id"] not in state["applied"]
+        ]
+        if not pending:
+            return {
+                "added_keys": [],
+                "detail": "charter_exhausted",
+                "expanded": False,
+                "charter_remaining": 0,
+                "charter_applied": sorted(state["applied"]),
+                "roi_hint": _roi_summary(roi_history),
+            }
+
+        # ROI bias: strong mean efficiency unlocks one extra entry this expand.
+        batch = state["max_entries_per_expand"]
+        roi = _roi_summary(roi_history)
+        if (
+            float(roi.get("mean_coverage_delta") or 0.0) > 0.0
+            and int(roi.get("total_dispatched_ok") or 0) > 0
+        ):
+            batch = min(batch + 1, len(pending))
+
+        added_keys: list[dict[str, str]] = []
+        applied_now: list[str] = []
+        for entry in pending[:batch]:
+            keys_added = materialize_charter_entry(root, entry)
+            added_keys.extend(keys_added)
+            state["applied"].add(str(entry["entry_id"]))
+            applied_now.append(str(entry["entry_id"]))
+
+        return {
+            "added_keys": added_keys,
+            "detail": "charter_materialize",
+            "expanded": bool(added_keys),
+            "charter_entries_applied": applied_now,
+            "charter_remaining": len(
+                [e for e in state["normalized"] if e["entry_id"] not in state["applied"]]
+            ),
+            "charter_applied": sorted(state["applied"]),
+            "roi_hint": roi,
+            "batch": batch,
+        }
+
+    # Expose mutable applied set for program-state persistence.
+    _runner.charter_state = state  # type: ignore[attr-defined]
+    return _runner
 
 
 def _roi_summary(roi_history: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
@@ -245,6 +456,8 @@ def _state_payload(
     succession_digests: Sequence[str],
     stop_reason: str | None,
     program_goal: str,
+    surface_charter: Sequence[Mapping[str, Any]] | None = None,
+    charter_applied: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
@@ -261,6 +474,8 @@ def _state_payload(
         "succession_digests": list(succession_digests),
         "stop_reason": stop_reason,
         "program_goal": program_goal,
+        "surface_charter": list(surface_charter or []),
+        "charter_applied": list(charter_applied or []),
     }
 
 
@@ -423,6 +638,7 @@ def run_program(
     dispatch: bool = True,
     succession_runner: Callable[..., dict[str, Any]] | None = None,
     surface_expand_runner: Callable[..., dict[str, Any]] | None = None,
+    surface_charter: Sequence[Mapping[str, Any]] | None = None,
     campaign_runner: Callable[..., dict[str, Any]] | None = None,
     epoch_runner: Callable[..., dict[str, Any]] | None = None,
     impact_refresh_runner: Callable[..., dict[str, Any]] | None = None,
@@ -461,10 +677,16 @@ def run_program(
         Called after each succession (except when the program stops without
         needing expansion). Receives stewardship_root, portfolio,
         succession_index, roi_history.
+    surface_charter:
+        Optional durable list of future stewardship targets. When provided and
+        ``surface_expand_runner`` is omitted, the program wires
+        :func:`make_charter_surface_expand` so mandate waves re-open from the
+        charter between successions. Charter progress is written into
+        ``program_state.json`` for resume.
     resume_dir:
         Load ``program_state.json`` from a prior program dir and continue
-        (portfolio, counters, roi_history). New receipt is written under
-        ``out_root`` (or a fresh stamp under the same parent).
+        (portfolio, counters, roi_history, charter progress). New receipt is
+        written under ``out_root`` (or a fresh stamp under the same parent).
     """
     if max_successions < 1:
         raise ProgramRefused("program_invalid", "max_successions must be >= 1")
@@ -479,7 +701,6 @@ def run_program(
         )
 
     runner = succession_runner or us.run_succession
-    expand = surface_expand_runner or default_surface_expand
 
     # Resume durable state if requested.
     prior_succession_count = 0
@@ -489,6 +710,8 @@ def run_program(
     total_dispatched_ok = 0
     resumed = False
     resume_program_id: str | None = None
+    resumed_charter: list[dict[str, Any]] = []
+    resumed_charter_applied: list[str] = []
 
     current_portfolio: dict[str, Any] | None = None
     portfolio_source = "none"
@@ -504,6 +727,12 @@ def run_program(
         if isinstance(state.get("portfolio"), Mapping):
             current_portfolio = dict(state["portfolio"])
             portfolio_source = "resume"
+        if isinstance(state.get("surface_charter"), list):
+            resumed_charter = [
+                dict(e) for e in state["surface_charter"] if isinstance(e, Mapping)
+            ]
+        if isinstance(state.get("charter_applied"), list):
+            resumed_charter_applied = [str(x) for x in state["charter_applied"]]
     elif portfolio is not None:
         current_portfolio = dict(portfolio)
         portfolio_source = "injected"
@@ -515,6 +744,22 @@ def run_program(
             )
         current_portfolio = json.loads(path.read_text(encoding="utf-8"))
         portfolio_source = "dir"
+
+    # Surface expand: explicit runner wins; else charter (arg or resumed); else noop.
+    active_charter = normalize_surface_charter(
+        surface_charter if surface_charter is not None else resumed_charter
+    )
+    charter_expand: Callable[..., dict[str, Any]] | None = None
+    if surface_expand_runner is not None:
+        expand = surface_expand_runner
+    elif active_charter:
+        charter_expand = make_charter_surface_expand(
+            active_charter,
+            applied=resumed_charter_applied,
+        )
+        expand = charter_expand
+    else:
+        expand = default_surface_expand
 
     if current_portfolio and not current_portfolio.get("portfolio_digest"):
         current_portfolio["portfolio_digest"] = _recompute_portfolio_digest(
@@ -701,6 +946,8 @@ def run_program(
                 "added_keys": added_keys,
                 "detail": expand_result.get("detail"),
                 "expanded": expand_result.get("expanded"),
+                "charter_remaining": expand_result.get("charter_remaining"),
+                "charter_entries_applied": expand_result.get("charter_entries_applied"),
             }
         )
 
@@ -740,6 +987,15 @@ def run_program(
         )
         successions.append(rec)
 
+        # Charter applied ids: prefer expand result, else runner state.
+        charter_applied_now: list[str] = []
+        if expand_result.get("charter_applied"):
+            charter_applied_now = [str(x) for x in expand_result["charter_applied"]]
+        elif charter_expand is not None and hasattr(charter_expand, "charter_state"):
+            charter_applied_now = sorted(
+                str(x) for x in (charter_expand.charter_state.get("applied") or [])  # type: ignore[attr-defined]
+            )
+
         # Persist durable state after each succession for resume.
         state = _state_payload(
             program_id=pid,
@@ -752,6 +1008,8 @@ def run_program(
             succession_digests=succession_digests,
             stop_reason=None,
             program_goal=program_goal,
+            surface_charter=active_charter,
+            charter_applied=charter_applied_now,
         )
         write_program_state(program_dir, state)
 
@@ -892,6 +1150,19 @@ def run_program(
             s.get("succession_digest") for s in successions if s.get("succession_digest")
         ],
         "surface_expansions": surface_expansions,
+        "surface_charter": active_charter,
+        "charter_applied": (
+            sorted(
+                str(x)
+                for x in (
+                    (charter_expand.charter_state.get("applied") or [])  # type: ignore[attr-defined]
+                    if charter_expand is not None and hasattr(charter_expand, "charter_state")
+                    else []
+                )
+            )
+            if active_charter
+            else []
+        ),
         "roi_history": roi_history,
         "roi_summary": roi_summary,
         "total_dispatched": total_dispatched,
@@ -919,6 +1190,8 @@ def run_program(
             "surface_expansion_count": sum(
                 1 for e in surface_expansions if e.get("added_count", 0) > 0
             ),
+            "charter_size": len(active_charter),
+            "charter_applied_count": len(receipt.get("charter_applied") or []),
             "portfolio_start_digest": receipt["portfolio_start_digest"],
             "portfolio_end_digest": receipt["portfolio_end_digest"],
             "program_digest": receipt["program_digest"],
@@ -940,6 +1213,8 @@ def run_program(
             succession_digests=receipt["succession_digests"],
             stop_reason=stop_reason,
             program_goal=program_goal,
+            surface_charter=active_charter,
+            charter_applied=list(receipt.get("charter_applied") or []),
         ),
     )
 
@@ -960,6 +1235,8 @@ def run_program(
         "portfolio_end_digest": portfolio_end_digest,
         "portfolio_source": portfolio_source,
         "surface_expansions": surface_expansions,
+        "surface_charter": active_charter,
+        "charter_applied": list(receipt.get("charter_applied") or []),
         "roi_summary": roi_summary,
         "resumed": resumed,
         "successions": successions,
@@ -1002,55 +1279,22 @@ def builtin_upstream_program_proof() -> dict[str, Any]:
 
         campaign = _proof_campaign_runner(scratch)
 
-        # Surface expand once after succession 0: add gamma when alpha+beta done.
-        expand_calls = {"n": 0}
-
-        def expand_once(
-            *,
-            stewardship_root: Path | None,
-            portfolio: Mapping[str, Any] | None,
-            succession_index: int,
-            roi_history: Sequence[Mapping[str, Any]],
-        ) -> dict[str, Any]:
-            expand_calls["n"] += 1
-            # After first succession that terminal-covers the initial surface,
-            # onboard gamma. Subsequent expands are no-ops.
-            keys = inventory_defect_keys(stewardship_root)
-            has_gamma = any(k[0] == "gamma" for k in keys)
-            cov = program_terminal_coverage(
-                portfolio, stewardship_root, required_keys=keys
-            )
-            if not has_gamma and cov.get("met"):
-                uf._proof_target(
-                    Path(stewardship_root) if stewardship_root else stew,
-                    name="gamma",
-                    version="3.0.0",
-                    defects=[{
-                        "id": "gamma-rce",
-                        "title": "gamma",
-                        "kind": "correctness",
-                        "patch": "patches/gamma-rce.patch",
-                        "repro": "repros/gamma-rce.py",
-                    }],
-                )
-                return {
-                    "added_keys": [
-                        {
-                            "name": "gamma",
-                            "version": "3.0.0",
-                            "defect_id": "gamma-rce",
-                        }
-                    ],
-                    "detail": "frontier_onboard_gamma",
-                    "expanded": True,
-                }
-            return {
-                "added_keys": [],
-                "detail": "noop",
-                "expanded": False,
+        # First-class surface charter: gamma materializes after alpha+beta terminal.
+        surface_charter = [
+            {
+                "name": "gamma",
+                "version": "3.0.0",
+                "defects": [{
+                    "id": "gamma-rce",
+                    "title": "gamma",
+                    "kind": "correctness",
+                    "patch": "patches/gamma-rce.patch",
+                    "repro": "repros/gamma-rce.py",
+                }],
             }
+        ]
 
-        # Multi-succession with surface expansion → program_met.
+        # Multi-succession with charter surface expansion → program_met.
         program = run_program(
             stewardship_root=stew,
             portfolio=None,
@@ -1061,7 +1305,7 @@ def builtin_upstream_program_proof() -> dict[str, Any]:
             dispatch_budget=8,
             dispatch=True,
             campaign_runner=campaign,
-            surface_expand_runner=expand_once,
+            surface_charter=surface_charter,
             program_goal="terminal_and_exhausted",
             mandate_goal="terminal_coverage",
             out_root=scratch / "prog-mandate",
@@ -1077,7 +1321,15 @@ def builtin_upstream_program_proof() -> dict[str, Any]:
                 e.get("added_count", 0) > 0 for e in (program.get("surface_expansions") or [])
             )
         )
-        surface_expand_ok = multi_succ_ok and expand_calls["n"] >= 2
+        charter_expand_ok = (
+            multi_succ_ok
+            and any(
+                e.get("detail") == "charter_materialize"
+                for e in (program.get("surface_expansions") or [])
+            )
+            and "gamma@3.0.0" in (program.get("charter_applied") or [])
+        )
+        surface_expand_ok = charter_expand_ok
 
         # Seal + verify.
         verified = verify_program_receipt(Path(program["program_dir"]))
@@ -1338,6 +1590,7 @@ def builtin_upstream_program_proof() -> dict[str, Any]:
         ok = all([
             multi_succ_ok,
             surface_expand_ok,
+            charter_expand_ok,
             seal_ok,
             tamper_detected,
             multi_succession_ok,
@@ -1353,6 +1606,7 @@ def builtin_upstream_program_proof() -> dict[str, Any]:
             "ok": ok,
             "program_met": multi_succ_ok,
             "surface_expand_reopens_mandate": surface_expand_ok,
+            "charter_surface_expand": charter_expand_ok,
             "multi_succession_progressed": multi_succession_ok,
             "seal_verified": seal_ok,
             "tamper_detected": tamper_detected,
