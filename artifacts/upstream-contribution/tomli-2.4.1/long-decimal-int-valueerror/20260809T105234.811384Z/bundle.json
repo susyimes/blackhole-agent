@@ -1,0 +1,37 @@
+{
+  "baseline_suite": {
+    "exit_code": 0,
+    "failed": 0,
+    "ok": true,
+    "passed": 17,
+    "tail": "\u001b[32m\u001b[32m\u001b[1m17 passed\u001b[0m, \u001b[32m\u001b[1m744 subtests passed\u001b[0m\u001b[32m in 0.33s\u001b[0m\u001b[0m"
+  },
+  "created_at": "2026-08-09T10:52:34.814046Z",
+  "defect_id": "long-decimal-int-valueerror",
+  "defect_title": "Decimal integer literal with more digits than sys.get_int_max_str_digits() escapes loads() as uncaught ValueError instead of TOMLDecodeError",
+  "head_ref": "HEAD",
+  "head_triage": "unfixed_at_head",
+  "name": "tomli",
+  "native_regression_test": true,
+  "patched_suite": {
+    "exit_code": 0,
+    "failed": 0,
+    "ok": true,
+    "passed": 19,
+    "tail": "\u001b[32m\u001b[32m\u001b[1m19 passed\u001b[0m, \u001b[32m\u001b[1m744 subtests passed\u001b[0m\u001b[32m in 0.31s\u001b[0m\u001b[0m"
+  },
+  "payload_sha256": {
+    "contribution.patch": "703ec8bfee5faa8caec9156f7fd2a4df5f13b7e3dadd8c564c05dd68581b941d",
+    "long_decimal_int.py": "ad3ffac6e550595430d9007fdda9b7c402e98d16af174f805d1fef9e659083a0",
+    "test_long_decimal_int.py": "a5d329e93abd08e33669d22f26267a4e77184791d0d2addcd88b09feedb1d6d6"
+  },
+  "reproduced_at_tag": true,
+  "schema_version": 1,
+  "submittable": true,
+  "tag_ref": "2.4.1",
+  "target": "stewardship\\tomli-2.4.1",
+  "upstream_repo": "https://github.com/hukkin/tomli",
+  "used_skill_route_discovery": false,
+  "verdict": "submittable",
+  "version": "2.4.1"
+}

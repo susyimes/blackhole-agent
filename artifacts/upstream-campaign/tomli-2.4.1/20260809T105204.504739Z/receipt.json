@@ -1,0 +1,64 @@
+{
+  "campaign_digest": "208d1f8a389e4cd231ef5727b2f7548dc6ff510bf6e1a6dd0939a00340871d96",
+  "created_at": "2026-08-09T10:52:04.506737Z",
+  "defect_ids": [
+    "long-decimal-int-valueerror"
+  ],
+  "ecosystem": "pypi",
+  "name": "tomli",
+  "ok": false,
+  "publish_requested": false,
+  "schema_version": 1,
+  "stage_digests": {
+    "contribution.long-decimal-int-valueerror.bundle": "44e928d4439da9bfe33df11e2437de82bddb5eaf7d81962faeff7256006320b7",
+    "contribution.long-decimal-int-valueerror.verdict": "0d10bc1801f21b0c58e4907afc6f3cd945ceac570b96dc6747266051ad2ebcd2",
+    "publication.20260809T105202.149933Z.verdict": "b17d63810b7874e8e5ea4f69b2c3edfdae6efe726c8deede84b8fabdae301daf"
+  },
+  "stage_results": {
+    "contribution": {
+      "defects": [
+        {
+          "bundle_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260809T104700Z-b61ec32e\\artifacts\\upstream-contribution\\tomli-2.4.1\\long-decimal-int-valueerror\\20260809T105202.149933Z",
+          "bundle_sha256": "44e928d4439da9bfe33df11e2437de82bddb5eaf7d81962faeff7256006320b7",
+          "defect_id": "long-decimal-int-valueerror",
+          "ok": true,
+          "seal_ok": true,
+          "submittable": true,
+          "verdict": "submittable"
+        }
+      ],
+      "ok": true,
+      "stage": "contribution",
+      "submittable_bundle_dirs": [
+        "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260809T104700Z-b61ec32e\\artifacts\\upstream-contribution\\tomli-2.4.1\\long-decimal-int-valueerror\\20260809T105202.149933Z"
+      ],
+      "submittable_count": 1,
+      "verdict": "submittable_ready"
+    },
+    "publication": {
+      "ok": false,
+      "publications": [
+        {
+          "bundle_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260809T104700Z-b61ec32e\\artifacts\\upstream-contribution\\tomli-2.4.1\\long-decimal-int-valueerror\\20260809T105202.149933Z",
+          "detail": "gh returned non-JSON for ['pr', 'list']: Expecting value: line 1 column 1 (char 0)",
+          "ok": false,
+          "published": false,
+          "verdict": "gh_failed"
+        }
+      ],
+      "publish_requested": false,
+      "published_count": 0,
+      "stage": "publication",
+      "verdict": "publication_failed"
+    }
+  },
+  "stages": [
+    "contribution",
+    "publication"
+  ],
+  "target": "stewardship\\tomli-2.4.1",
+  "upstream_repo": "https://github.com/hukkin/tomli",
+  "used_skill_route_discovery": false,
+  "verdict": "publication_failed",
+  "version": "2.4.1"
+}

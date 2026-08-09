@@ -3585,6 +3585,40 @@
       ],
       "updated_at": "2026-08-02T13:04:47.153024Z"
     },
+    "capability.upstream-campaign": {
+      "behavior_paths": [
+        "src/blackhole_agent/upstream_campaign.py",
+        "src/blackhole_agent/upstream_contribution.py"
+      ],
+      "capability_delta": "Stewardship is no longer a manually wired multi-plane sequence: one campaign request drives repair->contribution->publication with digest-chained receipts, stage short-circuits, and hermetic inject seams. Live: mistune 3.3.4 novel DoS and tomli long-decimal-int sealed as campaign-orchestrated contribution bundles; v-prefixed GitHub tags resolve for contribution.",
+      "created_at": "2026-08-09T10:54:55.132559Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.upstream-repair",
+        "capability.upstream-contribution",
+        "capability.upstream-publication"
+      ],
+      "description": "Closes the manual stage-wiring gap across the five upstream planes. For one stewardship target the plane runs a multi-stage campaign (repair -> contribution -> publication) with digest-chained receipts, stage short-circuits (already-fixed, dry-run, red-repair abort), and optional outward publication. Each stage delegates to the existing planes through injectable seams so proofs are hermetic. Also hardened PyPI contribution tag resolution (bare version and v-prefix) so mistune-style vX.Y.Z tags resolve. First live campaign: mistune 3.3.4 footnote-defs membership quadratic DoS sealed as a submittable contribution bundle verified against the true upstream repo, plus tomli contribution campaign.",
+      "entry": "blackhole_agent.upstream_campaign:builtin_upstream_campaign_proof",
+      "id": "capability.upstream-campaign",
+      "kind": "python",
+      "last_proof_exit_code": null,
+      "last_proved_at": "",
+      "name": "Upstream campaign plane (sealed end-to-end stewardship orchestration)",
+      "proof_command": "uv run python -c \"from blackhole_agent.upstream_campaign import builtin_upstream_campaign_proof; r=builtin_upstream_campaign_proof(); assert r['ok'] and r.get('campaign_published') and r.get('receipt_verified') and r.get('tamper_detected') and r.get('already_fixed_short_circuit') and r.get('repair_failure_aborts') and r.get('empty_defects_refused') and r.get('dry_run_gated') and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": 1,
+      "source_mission_id": "20260809T104700Z-b61ec32e",
+      "tags": [
+        "bootstrap",
+        "compounder",
+        "upstream",
+        "campaign",
+        "orchestration",
+        "evidence"
+      ],
+      "updated_at": "2026-08-09T10:55:23.926771Z"
+    },
     "capability.upstream-contribution": {
       "behavior_paths": [
         "src/blackhole_agent/upstream_contribution.py",
@@ -4139,5 +4173,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-08-02T16:29:33.920565Z"
+  "updated_at": "2026-08-09T10:55:23.926906Z"
 }

@@ -1,0 +1,46 @@
+{
+  "campaign_digest": "353c22de6d3af2ed5b881201b7d63fdd7dcf6af23f965b7861c5809f11760313",
+  "created_at": "2026-08-09T10:52:35.222686Z",
+  "defect_ids": [
+    "long-decimal-int-valueerror"
+  ],
+  "ecosystem": "pypi",
+  "name": "tomli",
+  "ok": true,
+  "publish_requested": false,
+  "schema_version": 1,
+  "stage_digests": {
+    "contribution.long-decimal-int-valueerror.bundle": "3ba88c18979591ed19d6fadb9a55c81396ec2edfb897cd124c8ea03ca08b3a91",
+    "contribution.long-decimal-int-valueerror.verdict": "0d10bc1801f21b0c58e4907afc6f3cd945ceac570b96dc6747266051ad2ebcd2"
+  },
+  "stage_results": {
+    "contribution": {
+      "defects": [
+        {
+          "bundle_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260809T104700Z-b61ec32e\\artifacts\\upstream-contribution\\tomli-2.4.1\\long-decimal-int-valueerror\\20260809T105234.811384Z",
+          "bundle_sha256": "3ba88c18979591ed19d6fadb9a55c81396ec2edfb897cd124c8ea03ca08b3a91",
+          "defect_id": "long-decimal-int-valueerror",
+          "ok": true,
+          "seal_ok": true,
+          "submittable": true,
+          "verdict": "submittable"
+        }
+      ],
+      "ok": true,
+      "stage": "contribution",
+      "submittable_bundle_dirs": [
+        "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260809T104700Z-b61ec32e\\artifacts\\upstream-contribution\\tomli-2.4.1\\long-decimal-int-valueerror\\20260809T105234.811384Z"
+      ],
+      "submittable_count": 1,
+      "verdict": "submittable_ready"
+    }
+  },
+  "stages": [
+    "contribution"
+  ],
+  "target": "stewardship\\tomli-2.4.1",
+  "upstream_repo": "https://github.com/hukkin/tomli",
+  "used_skill_route_discovery": false,
+  "verdict": "campaign_complete",
+  "version": "2.4.1"
+}

@@ -546,12 +546,21 @@ def build_contribution(
     scratch = Path(tempfile.mkdtemp(prefix=f"contribution-{defect_id}-"))
     try:
         # 1. true upstream source at the pinned tag; defect must reproduce.
-        tag_archive = fetch_repo_archive(repo_url, version, fetcher=fetcher)
+        # Prefer tag variants (bare version and v-prefixed) so projects that tag
+        # as vX.Y.Z (mistune) and X.Y.Z (tomli) both resolve.
+        try:
+            tag_archive, tag_ref = fetch_tag_archive(repo_url, version, fetcher=fetcher)
+        except ContributionRejected:
+            raise
+        except Exception as exc:
+            raise ContributionRejected(
+                "tag_fetch_failed", f"could not fetch release tag for {version}: {exc}"
+            ) from exc
         tag_checkout = _extract_archive(tag_archive, scratch / "tag")
         tag_src = tag_checkout / src_rel
         if not run_repro(repro_path, tag_src):
             raise ContributionRejected(
-                "defect_absent_at_tag", f"repro does not trigger on upstream {version} source"
+                "defect_absent_at_tag", f"repro does not trigger on upstream {tag_ref} source"
             )
 
         # 2. pristine baseline: the project's own suite must be green.
@@ -592,6 +601,7 @@ def build_contribution(
                 patched=None,
                 head_ref=head_refs[0],
                 head_triage=head_verdict,
+                tag_ref=tag_ref,
             )
             return {"ok": True, "submittable": False, "verdict": head_verdict, "bundle_dir": bundle}
 
@@ -641,6 +651,7 @@ def build_contribution(
             patched=patched,
             head_ref=head_refs[0],
             head_triage=head_verdict,
+            tag_ref=tag_ref,
         )
         return {
             "ok": True,
@@ -649,6 +660,7 @@ def build_contribution(
             "bundle_dir": bundle,
             "baseline": baseline,
             "patched": patched,
+            "tag_ref": tag_ref,
         }
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
@@ -667,6 +679,7 @@ def _seal_bundle(
     patched: dict[str, Any] | None,
     head_ref: str,
     head_triage: str,
+    tag_ref: str | None = None,
 ) -> str:
     root = Path(out_root) if out_root else ARTIFACTS_ROOT
     stamp = utc_now_iso().replace(":", "").replace("-", "")
@@ -687,7 +700,7 @@ def _seal_bundle(
         "defect_id": defect["id"],
         "defect_title": defect.get("title", ""),
         "upstream_repo": manifest["upstream_repo"],
-        "tag_ref": manifest["version"],
+        "tag_ref": tag_ref or manifest["version"],
         "head_ref": head_ref,
         "reproduced_at_tag": True,
         "head_triage": head_triage,
