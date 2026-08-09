@@ -20031,6 +20031,66 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
             created_at=utc_now_iso(),
             updated_at=utc_now_iso(),
         ),
+        Capability(
+            id="capability.upstream-fleet",
+            name="Upstream fleet plane (impact-driven multi-target direction)",
+            description=(
+                "Closes the gap between measured post-publication outcomes and "
+                "the next multi-target stewardship action. Inventories every "
+                "stewardship target for defect readiness, consumes a sealed "
+                "impact portfolio (or assesses one through an injected seam), "
+                "and ranks next actions: rework_closed_unmerged / rework_diverged "
+                "/ rework_pr_missing outrank campaign_patch_bound, bind_pending_patch, "
+                "and discover_empty; follow_open and done_merged/done_released are "
+                "monitor-only. Optionally dispatches the top campaignable action "
+                "through the campaign plane and seals a digest-chained fleet plan "
+                "under artifacts/upstream-fleet/ with tamper detection. No "
+                "skill-route discovery is used."
+            ),
+            kind="python",
+            entry="blackhole_agent.upstream_fleet:builtin_upstream_fleet_proof",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.upstream_fleet import builtin_upstream_fleet_proof; '
+                "r=builtin_upstream_fleet_proof(); assert r['ok'] "
+                "and r.get('inventory_ranked') and r.get('rework_outranks') "
+                "and r.get('plan_verified') and r.get('tamper_detected') "
+                "and r.get('dispatch_chained') and r.get('empty_refused') "
+                "and r.get('monitor_only') and r.get('portfolio_assessed_path') "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.upstream-impact",
+                "capability.upstream-campaign",
+                "capability.upstream-repair",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/upstream_fleet.py",
+                "src/blackhole_agent/upstream_impact.py",
+                "src/blackhole_agent/upstream_campaign.py",
+            ),
+            capability_delta=(
+                "Measured impact portfolios no longer sit idle: stewardship "
+                "targets are inventoried, outcomes become ranked multi-target "
+                "next actions (rework > campaign > bind > discover > follow/done), "
+                "optional campaign dispatch is digest-chained into a sealed fleet "
+                "plan, and empty/monitor-only fleets are honest, without skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "upstream",
+                "fleet",
+                "impact",
+                "campaign",
+                "orchestration",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
 
     ]
 

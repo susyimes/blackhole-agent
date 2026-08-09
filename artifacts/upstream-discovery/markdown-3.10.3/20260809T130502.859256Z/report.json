@@ -1,105 +1,109 @@
 {
-  "chain_digest": "dc77a697280fc36fe48efabc50ca1e245a300afc503c9de70c21f6f1e57d3d82",
+  "chain_digest": "1455ec24744ce8e97970ea9ee9d745e5ac46a82129eec99e25cb27d4e5891c00",
   "driver_runtime": "python",
-  "finding_count": 4,
+  "finding_count": 5,
   "findings": [
     {
-      "exponent": 2.056,
-      "flagged": false,
+      "exponent": 2.017,
+      "flagged": true,
       "generator": "nested_link",
       "kind": "complexity",
-      "minimized_n": 1500,
+      "minimized_n": 2750,
       "pristine_repro_exit": 1,
       "repro": "repros\\nested_link.py",
-      "repro_sha256": "e633712a8727ce4a61c1fa302fd8698feba386c1f196ea627cf40f4539c9289b",
+      "repro_sha256": "87b76c0d986d7508e054eb25aca39763d0478a901323143b2446fb7c9c47af9f",
       "times": [
         [
           1000,
-          0.2141
+          0.1115
         ],
         [
           2000,
-          0.869
+          0.4449
         ],
         [
           4000,
-          3.613
+          1.8004
         ]
       ]
     },
     {
-      "exponent": 2.075,
+      "exponent": 2.006,
       "flagged": true,
       "generator": "nested_image",
       "kind": "complexity",
-      "minimized_n": 1125,
+      "minimized_n": 2125,
       "pristine_repro_exit": 1,
       "repro": "repros\\nested_image.py",
-      "repro_sha256": "b70e88309655aeabd008fbfed32fa30424b3a08a55f7ecfff919b0daece59b14",
+      "repro_sha256": "aacb26c7813e8c3bf01d963716d2df70093e3d00a5252eb4bb21eed25b3c8451",
       "times": [
         [
           1000,
-          0.5791
+          0.168
         ],
         [
           2000,
-          2.4403
+          0.6748
+        ],
+        [
+          4000,
+          2.7109
         ]
       ]
     },
     {
-      "exponent": 1.023,
+      "exponent": 1.377,
       "flagged": false,
       "generator": "nested_emphasis",
       "kind": "complexity",
       "times": [
         [
           1000,
-          0.002
+          0.018
         ],
         [
           2000,
-          0.0046
+          0.0323
         ],
         [
           4000,
-          0.0108
+          0.0786
         ],
         [
           8000,
-          0.0212
+          0.1644
         ],
         [
           16000,
-          0.0431
+          0.4269
         ]
       ]
     },
     {
-      "exponent": 0.0,
+      "exponent": 1.67,
       "flagged": false,
       "generator": "unclosed_emphasis",
       "kind": "complexity",
       "times": [
         [
           1000,
-          0.0026
+          0.0049
         ],
         [
           2000,
-          0.0051
+          0.0107
         ],
         [
           4000,
-          0.0094
+          0.0281
         ],
         [
           8000,
-          0.0197
+          0.0669
         ],
         [
           16000,
-          0.0395
+          0.213
         ]
       ]
     },
@@ -115,19 +119,19 @@
         ],
         [
           2000,
-          0.0005
+          0.0004
         ],
         [
           4000,
-          0.001
+          0.0005
         ],
         [
           8000,
-          0.0017
+          0.001
         ],
         [
           16000,
-          0.0034
+          0.0026
         ]
       ]
     },
@@ -135,6 +139,110 @@
       "exponent": 0.0,
       "flagged": false,
       "generator": "backtick_runs",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0005
+        ],
+        [
+          2000,
+          0.0009
+        ],
+        [
+          4000,
+          0.0005
+        ],
+        [
+          8000,
+          0.0007
+        ],
+        [
+          16000,
+          0.0013
+        ]
+      ]
+    },
+    {
+      "exponent": 2.25,
+      "flagged": true,
+      "generator": "footnote_refs",
+      "kind": "complexity",
+      "minimized_n": 2125,
+      "pristine_repro_exit": 1,
+      "repro": "repros\\footnote_refs.py",
+      "repro_sha256": "d4eb0fc8d6eb01577950090f56d452d388fe5e471d1a2504c461796cc12934ca",
+      "times": [
+        [
+          1000,
+          0.1758
+        ],
+        [
+          2000,
+          0.7496
+        ],
+        [
+          4000,
+          3.5668
+        ]
+      ]
+    },
+    {
+      "exponent": 1.928,
+      "flagged": true,
+      "generator": "footnote_defs",
+      "kind": "complexity",
+      "minimized_n": 2000,
+      "pristine_repro_exit": 1,
+      "repro": "repros\\footnote_defs.py",
+      "repro_sha256": "3b8c980dbeb1783bbc56fedaede8efd56b9a3a90ddf4acdabd2e7812e5edeb04",
+      "times": [
+        [
+          1000,
+          0.2457
+        ],
+        [
+          2000,
+          0.835
+        ],
+        [
+          4000,
+          3.1771
+        ]
+      ]
+    },
+    {
+      "exponent": 1.928,
+      "flagged": true,
+      "generator": "inline_links",
+      "kind": "complexity",
+      "minimized_n": 4000,
+      "pristine_repro_exit": 1,
+      "repro": "repros\\inline_links.py",
+      "repro_sha256": "165fb21b2033214dc4c9ea42419119a0080728f440e2c24108962634e5fee244",
+      "times": [
+        [
+          1000,
+          0.0702
+        ],
+        [
+          2000,
+          0.223
+        ],
+        [
+          4000,
+          0.7877
+        ],
+        [
+          8000,
+          2.9975
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "unclosed_spoiler",
       "kind": "complexity",
       "times": [
         [
@@ -147,131 +255,15 @@
         ],
         [
           4000,
-          0.0017
+          0.0018
         ],
         [
           8000,
-          0.0032
+          0.0035
         ],
         [
           16000,
-          0.0076
-        ]
-      ]
-    },
-    {
-      "exponent": 2.024,
-      "flagged": true,
-      "generator": "footnote_refs",
-      "kind": "complexity",
-      "minimized_n": 3500,
-      "pristine_repro_exit": 1,
-      "repro": "repros\\footnote_refs.py",
-      "repro_sha256": "c1648aa12e2b296be23157116650c4003a57749897a8f56ea64872546f97bc1a",
-      "times": [
-        [
-          1000,
-          0.0591
-        ],
-        [
-          2000,
-          0.2405
-        ],
-        [
-          4000,
-          0.9608
-        ],
-        [
-          8000,
-          3.8889
-        ]
-      ]
-    },
-    {
-      "exponent": 2.04,
-      "flagged": true,
-      "generator": "footnote_defs",
-      "kind": "complexity",
-      "minimized_n": 11000,
-      "pristine_repro_exit": 1,
-      "repro": "repros\\footnote_defs.py",
-      "repro_sha256": "4cd40daaaf3ab4c12d6ae4f70031802c65c00d39237257f2c0c3ca530df17378",
-      "times": [
-        [
-          1000,
-          0.0162
-        ],
-        [
-          2000,
-          0.0442
-        ],
-        [
-          4000,
-          0.1301
-        ],
-        [
-          8000,
-          0.5348
-        ],
-        [
-          16000,
-          1.9386
-        ]
-      ]
-    },
-    {
-      "exponent": 1.254,
-      "flagged": false,
-      "generator": "inline_links",
-      "kind": "complexity",
-      "times": [
-        [
-          1000,
-          0.0084
-        ],
-        [
-          2000,
-          0.0165
-        ],
-        [
-          4000,
-          0.0315
-        ],
-        [
-          8000,
-          0.0751
-        ],
-        [
-          16000,
-          0.125
-        ]
-      ]
-    },
-    {
-      "exponent": 0.0,
-      "flagged": false,
-      "generator": "unclosed_spoiler",
-      "kind": "complexity",
-      "times": [
-        [
-          1000,
-          0.001
-        ],
-        [
-          2000,
-          0.0032
-        ],
-        [
-          4000,
-          0.0041
-        ],
-        [
-          8000,
-          0.0079
-        ],
-        [
-          16000,
-          0.0157
+          0.0065
         ]
       ]
     },
@@ -283,51 +275,51 @@
       "times": [
         [
           1000,
-          0.0014
+          0.0006
         ],
         [
           2000,
-          0.0019
+          0.0009
         ],
         [
           4000,
-          0.0046
+          0.002
         ],
         [
           8000,
-          0.0071
+          0.0033
         ],
         [
           16000,
-          0.0159
+          0.0064
         ]
       ]
     },
     {
-      "exponent": 0.96,
+      "exponent": 1.076,
       "flagged": false,
       "generator": "table_row",
       "kind": "complexity",
       "times": [
         [
           1000,
-          0.0084
+          0.0242
         ],
         [
           2000,
-          0.0176
+          0.0471
         ],
         [
           4000,
-          0.0326
+          0.0905
         ],
         [
           8000,
-          0.0634
+          0.1854
         ],
         [
           16000,
-          0.1152
+          0.3908
         ]
       ]
     },
@@ -339,7 +331,7 @@
       "times": [
         [
           1000,
-          0.0004
+          0.0002
         ],
         [
           2000,
@@ -347,15 +339,15 @@
         ],
         [
           4000,
-          0.0011
+          0.0006
         ],
         [
           8000,
-          0.0016
+          0.0009
         ],
         [
           16000,
-          0.0038
+          0.0024
         ]
       ]
     },
@@ -371,28 +363,28 @@
         ],
         [
           2000,
-          0.0024
+          0.0019
         ],
         [
           4000,
-          0.0052
+          0.003
         ],
         [
           8000,
-          0.0115
+          0.0056
         ],
         [
           16000,
-          0.0235
+          0.0102
         ]
       ]
     }
   ],
-  "scanned_at": "2026-08-09T13:07:49.699142Z",
+  "scanned_at": "2026-08-09T13:06:10.304628Z",
   "schema_version": 1,
-  "sdist_sha256": "708487c8a8cdd99c9d90eb3ed4c3ed961246ff78ac82f03418f5183ab70e398a",
+  "sdist_sha256": "3589362618f743188b4d955b874402bc814f4f83f544dc207719f4baa7d9c45f",
   "target": {
-    "name": "mistune",
-    "version": "3.2.0"
+    "name": "markdown",
+    "version": "3.10.3"
   }
 }

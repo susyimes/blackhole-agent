@@ -1,105 +1,106 @@
 {
-  "chain_digest": "dc77a697280fc36fe48efabc50ca1e245a300afc503c9de70c21f6f1e57d3d82",
+  "chain_digest": "41c94fd4d6810ecddcc943affc2d5e0f01f9f99d4a1162e1487cdd37a43b0670",
   "driver_runtime": "python",
-  "finding_count": 4,
+  "finding_count": 3,
   "findings": [
     {
-      "exponent": 2.056,
-      "flagged": false,
+      "exponent": 1.955,
+      "flagged": true,
       "generator": "nested_link",
       "kind": "complexity",
-      "minimized_n": 1500,
+      "minimized_n": 1875,
       "pristine_repro_exit": 1,
       "repro": "repros\\nested_link.py",
-      "repro_sha256": "e633712a8727ce4a61c1fa302fd8698feba386c1f196ea627cf40f4539c9289b",
+      "repro_sha256": "38ab5350fe3051b06812e866882f015482645611c8eb8eea0a3a6612924c6ee1",
       "times": [
         [
           1000,
-          0.2141
+          0.2424
         ],
         [
           2000,
-          0.869
+          0.9246
         ],
         [
           4000,
-          3.613
+          3.584
         ]
       ]
     },
     {
-      "exponent": 2.075,
-      "flagged": true,
+      "exponent": 1.984,
+      "flagged": false,
       "generator": "nested_image",
       "kind": "complexity",
-      "minimized_n": 1125,
-      "pristine_repro_exit": 1,
+      "minimized_n": 1187,
+      "pristine_repro_exit": 0,
       "repro": "repros\\nested_image.py",
-      "repro_sha256": "b70e88309655aeabd008fbfed32fa30424b3a08a55f7ecfff919b0daece59b14",
+      "repro_sha256": "558f17939945ec6d2480ed4b2e4aa89a619203ac07df67bd74b2ab793d7e4892",
+      "retracted": "synthesized repro passed on pristine tree",
       "times": [
         [
           1000,
-          0.5791
+          0.4922
         ],
         [
           2000,
-          2.4403
+          1.9466
         ]
       ]
     },
     {
-      "exponent": 1.023,
+      "exponent": 1.021,
       "flagged": false,
       "generator": "nested_emphasis",
       "kind": "complexity",
       "times": [
         [
           1000,
-          0.002
+          0.0024
         ],
         [
           2000,
-          0.0046
+          0.0049
         ],
         [
           4000,
-          0.0108
+          0.0107
         ],
         [
           8000,
-          0.0212
+          0.0209
         ],
         [
           16000,
-          0.0431
+          0.0423
         ]
       ]
     },
     {
-      "exponent": 0.0,
+      "exponent": 0.993,
       "flagged": false,
       "generator": "unclosed_emphasis",
       "kind": "complexity",
       "times": [
         [
           1000,
-          0.0026
+          0.0027
         ],
         [
           2000,
-          0.0051
+          0.0049
         ],
         [
           4000,
-          0.0094
+          0.0111
         ],
         [
           8000,
-          0.0197
+          0.0215
         ],
         [
           16000,
-          0.0395
+          0.0427
         ]
       ]
     },
@@ -111,23 +112,23 @@
       "times": [
         [
           1000,
-          0.0003
+          0.0006
         ],
         [
           2000,
-          0.0005
+          0.0007
         ],
         [
           4000,
-          0.001
+          0.0009
         ],
         [
           8000,
-          0.0017
+          0.0019
         ],
         [
           16000,
-          0.0034
+          0.0035
         ]
       ]
     },
@@ -139,28 +140,28 @@
       "times": [
         [
           1000,
-          0.0006
+          0.0005
         ],
         [
           2000,
-          0.0009
+          0.001
         ],
         [
           4000,
-          0.0017
+          0.0019
         ],
         [
           8000,
-          0.0032
+          0.0039
         ],
         [
           16000,
-          0.0076
+          0.0075
         ]
       ]
     },
     {
-      "exponent": 2.024,
+      "exponent": 2.029,
       "flagged": true,
       "generator": "footnote_refs",
       "kind": "complexity",
@@ -171,79 +172,79 @@
       "times": [
         [
           1000,
-          0.0591
+          0.0622
         ],
         [
           2000,
-          0.2405
+          0.2414
         ],
         [
           4000,
-          0.9608
+          0.983
         ],
         [
           8000,
-          3.8889
+          4.0122
         ]
       ]
     },
     {
-      "exponent": 2.04,
+      "exponent": 1.858,
       "flagged": true,
       "generator": "footnote_defs",
       "kind": "complexity",
-      "minimized_n": 11000,
+      "minimized_n": 11500,
       "pristine_repro_exit": 1,
       "repro": "repros\\footnote_defs.py",
-      "repro_sha256": "4cd40daaaf3ab4c12d6ae4f70031802c65c00d39237257f2c0c3ca530df17378",
+      "repro_sha256": "64b28ede483cc138896e3a66148627284a5912de5ac4797830503a378fb00938",
       "times": [
         [
           1000,
-          0.0162
+          0.0157
         ],
         [
           2000,
-          0.0442
+          0.0433
         ],
         [
           4000,
-          0.1301
+          0.1299
         ],
         [
           8000,
-          0.5348
+          0.4184
         ],
         [
           16000,
-          1.9386
+          1.5168
         ]
       ]
     },
     {
-      "exponent": 1.254,
+      "exponent": 1.041,
       "flagged": false,
       "generator": "inline_links",
       "kind": "complexity",
       "times": [
         [
           1000,
-          0.0084
+          0.0068
         ],
         [
           2000,
-          0.0165
+          0.0163
         ],
         [
           4000,
-          0.0315
+          0.0287
         ],
         [
           8000,
-          0.0751
+          0.059
         ],
         [
           16000,
-          0.125
+          0.1183
         ]
       ]
     },
@@ -255,23 +256,23 @@
       "times": [
         [
           1000,
-          0.001
+          0.0009
         ],
         [
           2000,
-          0.0032
+          0.0018
         ],
         [
           4000,
-          0.0041
+          0.0039
         ],
         [
           8000,
-          0.0079
+          0.0074
         ],
         [
           16000,
-          0.0157
+          0.015
         ]
       ]
     },
@@ -283,51 +284,51 @@
       "times": [
         [
           1000,
-          0.0014
+          0.001
         ],
         [
           2000,
-          0.0019
+          0.002
         ],
         [
           4000,
-          0.0046
+          0.0039
         ],
         [
           8000,
-          0.0071
+          0.008
         ],
         [
           16000,
-          0.0159
+          0.0148
         ]
       ]
     },
     {
-      "exponent": 0.96,
+      "exponent": 1.026,
       "flagged": false,
       "generator": "table_row",
       "kind": "complexity",
       "times": [
         [
           1000,
-          0.0084
+          0.0067
         ],
         [
           2000,
-          0.0176
+          0.0154
         ],
         [
           4000,
-          0.0326
+          0.0282
         ],
         [
           8000,
-          0.0634
+          0.0573
         ],
         [
           16000,
-          0.1152
+          0.1137
         ]
       ]
     },
@@ -339,11 +340,11 @@
       "times": [
         [
           1000,
-          0.0004
+          0.0002
         ],
         [
           2000,
-          0.0004
+          0.0006
         ],
         [
           4000,
@@ -355,7 +356,7 @@
         ],
         [
           16000,
-          0.0038
+          0.0035
         ]
       ]
     },
@@ -367,7 +368,7 @@
       "times": [
         [
           1000,
-          0.0011
+          0.001
         ],
         [
           2000,
@@ -375,24 +376,24 @@
         ],
         [
           4000,
-          0.0052
+          0.0049
         ],
         [
           8000,
-          0.0115
+          0.0104
         ],
         [
           16000,
-          0.0235
+          0.027
         ]
       ]
     }
   ],
-  "scanned_at": "2026-08-09T13:07:49.699142Z",
+  "scanned_at": "2026-08-09T13:08:39.704499Z",
   "schema_version": 1,
-  "sdist_sha256": "708487c8a8cdd99c9d90eb3ed4c3ed961246ff78ac82f03418f5183ab70e398a",
+  "sdist_sha256": "7c8e5501d38bac1582e067e46c8343f17d57ea1aaa735823f3aba1fd59c88a28",
   "target": {
     "name": "mistune",
-    "version": "3.2.0"
+    "version": "3.2.1"
   }
 }
