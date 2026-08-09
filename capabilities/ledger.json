@@ -3826,6 +3826,69 @@
       ],
       "updated_at": "2026-08-09T17:14:01.428693Z"
     },
+    "capability.upstream-continuum": {
+      "behavior_paths": [
+        "src/blackhole_agent/upstream_continuum.py",
+        "src/blackhole_agent/upstream_omniverse.py",
+        "src/blackhole_agent/upstream_multiverse.py"
+      ],
+      "capability_delta": "Omniverse direction is no longer the outer ceiling: multi-omniverse continuum constitutions admit/retire omniverse constitutions under a durable shared budget, grow the continuum charter mid-run, federate multi-omniverse portfolios, resume sealed state, and prove tamper-evident multi-omniverse chronicles without skill-route.",
+      "created_at": "2026-08-09T23:11:08.237304Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.upstream-omniverse",
+        "capability.upstream-multiverse",
+        "capability.upstream-cosmos",
+        "capability.upstream-civilization",
+        "capability.upstream-empire",
+        "capability.upstream-realm",
+        "capability.upstream-domain",
+        "capability.upstream-commonwealth",
+        "capability.upstream-confederation",
+        "capability.upstream-league",
+        "capability.upstream-institution",
+        "capability.upstream-program",
+        "capability.upstream-succession",
+        "capability.upstream-epoch",
+        "capability.upstream-fleet",
+        "capability.upstream-impact",
+        "capability.upstream-campaign",
+        "capability.ablation-proof"
+      ],
+      "description": "Closes the outer multi-omniverse loop the omniverse plane leaves open. Chains independent omniverse constitutions under a durable continuum constitution: admits omniverse slots with nested multiverse charters (optionally deferred via max_active_omniverses), grows the charter mid-run via charter_expand, schedules open omniverses by priority and ROI, allocates shared global dispatch budget, federates multi-omniverse portfolios into one continuum world-model, retires met omniverses, persists continuum_state.json for resume, and seals a tamper-evident multi-omniverse chronicle under artifacts/upstream-continuum/. No skill-route discovery.",
+      "entry": "blackhole_agent.upstream_continuum:builtin_upstream_continuum_proof",
+      "id": "capability.upstream-continuum",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-09T23:11:08.237278Z",
+      "name": "Upstream continuum plane (multi-omniverse durable stewardship continuum)",
+      "proof_command": "uv run python -m blackhole_agent.upstream_continuum --proof",
+      "source_milestone": 1,
+      "source_mission_id": "20260809T230430Z-3001cd17",
+      "tags": [
+        "bootstrap",
+        "compounder",
+        "upstream",
+        "continuum",
+        "omniverse",
+        "multiverse",
+        "cosmos",
+        "civilization",
+        "empire",
+        "realm",
+        "domain",
+        "charter",
+        "charter-expand",
+        "durable",
+        "closed-loop",
+        "federation",
+        "budget",
+        "deferred-admission",
+        "constitution"
+      ],
+      "updated_at": "2026-08-09T23:11:08.237304Z"
+    },
     "capability.upstream-contribution": {
       "behavior_paths": [
         "src/blackhole_agent/upstream_contribution.py",
@@ -5026,5 +5089,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-08-09T22:34:24.729954Z"
+  "updated_at": "2026-08-09T23:11:08.237445Z"
 }
