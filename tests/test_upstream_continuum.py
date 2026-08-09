@@ -15,6 +15,7 @@ def test_builtin_proof_green() -> None:
     assert result["deferred_admission"]
     assert result["charter_expand"]
     assert result["charter_merge"]
+    assert result["terminal_coverage_goal"]
     assert result["seal_verified"]
     assert result["tamper_detected"]
     assert result["budget_stops"]

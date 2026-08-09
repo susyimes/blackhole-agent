@@ -519,6 +519,77 @@ def constitution_satisfied(
     return False
 
 
+def reopen_incomplete_omniverses(
+    omniverse_states: list[dict[str, Any]],
+    *,
+    federated_portfolio: Mapping[str, Any] | None,
+) -> list[str]:
+    """Clear ``omniverse_met`` on children still short of terminal coverage.
+
+    Nested omniverses can retire after only partial surface work (e.g. before
+    deferred program targets expand). Under a ``terminal_coverage`` continuum
+    goal those children must re-run until federated inventory is fully
+    terminal-success. Returns the reopened ``omniverse_id`` list.
+    """
+    cov = continuum_terminal_coverage(
+        omniverse_states=omniverse_states,
+        federated_portfolio=federated_portfolio,
+    )
+    if cov.get("met"):
+        return []
+    open_keys: set[tuple[str, str, str]] = set()
+    for item in list(cov.get("open_or_missing") or []):
+        if not isinstance(item, Mapping):
+            continue
+        key = (
+            str(item.get("name") or ""),
+            str(item.get("version") or ""),
+            str(item.get("defect_id") or ""),
+        )
+        if key[0] and key[2]:
+            open_keys.add(key)
+    reopened: list[str] = []
+    for i, ist in enumerate(omniverse_states):
+        if not ist.get("omniverse_met"):
+            continue
+        # Prefer precise reopen when inventory keys are known; otherwise reopen
+        # every met child until federated coverage is green.
+        child_keys: set[tuple[str, str, str]] = set()
+        for raw in list(ist.get("inventory_keys") or []):
+            if isinstance(raw, (list, tuple)) and len(raw) >= 3:
+                child_keys.add((str(raw[0]), str(raw[1]), str(raw[2])))
+            elif isinstance(raw, Mapping):
+                child_keys.add(
+                    (
+                        str(raw.get("name") or ""),
+                        str(raw.get("version") or ""),
+                        str(raw.get("defect_id") or ""),
+                    )
+                )
+        # Walk nested multiverse / program charter surfaces for keys.
+        for mv in list(ist.get("multiverse_states") or []) + list(
+            ist.get("charter") or []
+        ):
+            if isinstance(mv, Mapping):
+                child_keys.update(_collect_from_realm_state(mv))
+                # multiverse charter slots may be multiverse-shaped
+                for cos in list(mv.get("charter") or []) + list(mv.get("cosmoses") or []):
+                    if isinstance(cos, Mapping):
+                        child_keys.update(_collect_from_realm_state(cos))
+        owns_open = (not open_keys) or (not child_keys) or bool(child_keys & open_keys)
+        if not owns_open and open_keys:
+            # Still reopen when this child contributed zero covered entries but
+            # federated coverage is incomplete (inventory may only live nested).
+            owns_open = True
+        if not owns_open:
+            continue
+        updated = dict(ist)
+        updated["omniverse_met"] = False
+        omniverse_states[i] = updated
+        reopened.append(str(updated.get("omniverse_id") or ""))
+    return [r for r in reopened if r]
+
+
 def merge_continuum_charter(
     existing: Sequence[Mapping[str, Any]] | None,
     additions: Sequence[Mapping[str, Any]] | None,
@@ -1221,6 +1292,8 @@ def run_continuum(
     stop_reason = "max_rounds"
     idle_streak = 0
     continuum_met = False
+    terminal_reopen_count = 0
+    max_terminal_reopens = max(2, (len(omniverse_states) or 1) * 4)
     coverage_end: dict[str, Any] = continuum_terminal_coverage(
         omniverse_states=omniverse_states,
         federated_portfolio=federated_portfolio,
@@ -1267,13 +1340,36 @@ def run_continuum(
             omniverse_states, roi_history, round_index=round_index
         )
         if selected is None:
-            if not pending_charter_slots(active_charter, omniverse_states):
+            # Children may all report met while federated terminal coverage is
+            # still incomplete (e.g. deferred surfaces). Only declare continuum
+            # met when the active continuum_goal is actually satisfied.
+            if constitution_satisfied(
+                omniverse_states=omniverse_states,
+                charter=active_charter,
+                continuum_goal=continuum_goal,
+                federated_portfolio=federated_portfolio,
+            ):
                 stop_reason = "continuum_met"
                 continuum_met = True
-            else:
+                coverage_end = coverage_before
+                break
+            if (
+                continuum_goal == "terminal_coverage"
+                and terminal_reopen_count < max_terminal_reopens
+            ):
+                reopened = reopen_incomplete_omniverses(
+                    omniverse_states,
+                    federated_portfolio=federated_portfolio,
+                )
+                if reopened:
+                    terminal_reopen_count += 1
+                    selected = select_next_omniverse(
+                        omniverse_states, roi_history, round_index=round_index
+                    )
+            if selected is None:
                 stop_reason = "continuum_idle"
-            coverage_end = coverage_before
-            break
+                coverage_end = coverage_before
+                break
 
         open_count = sum(
             1 for ist in omniverse_states if not ist.get("omniverse_met")
@@ -2731,6 +2827,74 @@ def builtin_upstream_continuum_proof() -> dict[str, Any]:
         )
         merge_ok = [s["omniverse_id"] for s in merged] == ["m1", "m2"]
 
+        # Terminal-coverage constitution goal: continuum_met when federated
+        # inventory is fully terminal-success (not only per-omniverse met flags).
+        # Uses the same multi-defect shape as the main multi-omniverse run so
+        # nested deferred surface expansion is exercised under terminal_coverage.
+        campaign8 = _proof_campaign_runner(scratch / "tc")
+        terminal = run_continuum(
+            charter=[
+                _omniverse_slot(
+                    "t1",
+                    priority=2,
+                    institutions=[
+                        _inst_slot(
+                            "ti",
+                            programs=[
+                                _program_slot(
+                                    "tp",
+                                    priority=1,
+                                    initial=[("tau", "1.0.0", "tau-dos")],
+                                )
+                            ],
+                            max_rounds=4,
+                        )
+                    ],
+                    max_rounds=4,
+                ),
+                _omniverse_slot(
+                    "t2",
+                    priority=1,
+                    institutions=[
+                        _inst_slot(
+                            "tj",
+                            programs=[
+                                _program_slot(
+                                    "tq",
+                                    priority=1,
+                                    initial=[("upsilon", "2.0.0", "ups-xss")],
+                                    deferred=[("phi", "3.0.0", "phi-rce")],
+                                )
+                            ],
+                            max_rounds=5,
+                        )
+                    ],
+                    max_rounds=5,
+                ),
+            ],
+            max_rounds=8,
+            max_epochs_per_succession=3,
+            max_waves_per_epoch=3,
+            per_wave_dispatch_limit=1,
+            dispatch_budget=12,
+            dispatch=True,
+            campaign_runner=campaign8,
+            continuum_goal="terminal_coverage",
+            out_root=scratch / "tc",
+        )
+        cov_end = terminal.get("coverage_end") or {}
+        terminal_ok = (
+            terminal["ok"]
+            and terminal["continuum_met"] is True
+            and terminal["stop_reason"] == "continuum_met"
+            and float(cov_end.get("coverage_ratio") or 0) == 1.0
+            and int(cov_end.get("required") or 0) >= 3
+            and bool(cov_end.get("met"))
+            and not (terminal.get("pending_remaining") or [])
+            and terminal["omniverses_admitted"] == 2
+            and terminal["total_dispatched_ok"] >= 3
+        )
+
         ok = all(
             [
                 multi_continuum_ok,
@@ -2749,6 +2913,7 @@ def builtin_upstream_continuum_proof() -> dict[str, Any]:
                 deferred_ok,
                 expand_ok,
                 merge_ok,
+                terminal_ok,
             ]
         )
         return {
@@ -2760,6 +2925,7 @@ def builtin_upstream_continuum_proof() -> dict[str, Any]:
             "deferred_admission": deferred_ok,
             "charter_expand": expand_ok,
             "charter_merge": merge_ok,
+            "terminal_coverage_goal": terminal_ok,
             "seal_verified": seal_ok,
             "tamper_detected": tamper_detected,
             "budget_stops": budget_ok,
@@ -2791,6 +2957,7 @@ def builtin_upstream_continuum_proof() -> dict[str, Any]:
                 "deferred_ok": deferred_ok,
                 "expand_ok": expand_ok,
                 "merge_ok": merge_ok,
+                "terminal_ok": terminal_ok,
             },
         }
     finally:
