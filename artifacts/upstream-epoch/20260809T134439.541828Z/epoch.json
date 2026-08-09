@@ -1,0 +1,64 @@
+{
+  "created_at": "2026-08-09T13:44:39.547149Z",
+  "dispatch_budget": null,
+  "dispatch_enabled": false,
+  "epoch_digest": "aacb18bce73fbb5b89e59d1c47fedb8b9693817856964766300d1e13725a5c6f",
+  "max_waves": 1,
+  "ok": true,
+  "per_wave_dispatch_limit": 1,
+  "portfolio_end_digest": null,
+  "portfolio_final": null,
+  "portfolio_source": "none",
+  "portfolio_start_digest": null,
+  "schema_version": 1,
+  "stop_reason": "rank_only",
+  "total_dispatched": 0,
+  "total_dispatched_ok": 0,
+  "used_skill_route_discovery": false,
+  "verdict": "epoch_ranked",
+  "wave_count": 1,
+  "wave_digests": [
+    "028fb5ea4df5173818a9cd412cdb6b39a03c2f424fa875e2d5ff69693883ed0f"
+  ],
+  "waves": [
+    {
+      "action_count": 27,
+      "action_counts": {
+        "campaign_patch_bound": 27
+      },
+      "campaignable_count": 27,
+      "campaignable_digest": "9fb09c7b27d0c2fa4ea2c9c06470ed1335e968e28b411efebc0b7a25bd52bbf9",
+      "dispatch_digests": {},
+      "dispatched_count": 0,
+      "dispatched_ok": 0,
+      "dispatches": [],
+      "feedback_applied": [],
+      "fleet_digest": "028fb5ea4df5173818a9cd412cdb6b39a03c2f424fa875e2d5ff69693883ed0f",
+      "inventory_count": 6,
+      "ok": true,
+      "plan_dir": "artifacts\\upstream-epoch\\20260809T134439.541828Z\\waves\\wave-00\\20260809T134439.543425Z",
+      "portfolio_after_digest": null,
+      "portfolio_before_digest": null,
+      "top_action": {
+        "action": "campaign_patch_bound",
+        "campaignable": true,
+        "defect_id": "footnote-scaling-quadratic",
+        "name": "markdown",
+        "outcome": null,
+        "priority": 40,
+        "rank": 1,
+        "reason": "patch-bound defect with no successful merge/release",
+        "source": "inventory",
+        "suggested_stages": [
+          "repair",
+          "contribution",
+          "publication"
+        ],
+        "target_dir": "stewardship\\markdown-3.10.3",
+        "version": "3.10.3"
+      },
+      "verdict": "fleet_ranked",
+      "wave": 0
+    }
+  ]
+}

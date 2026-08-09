@@ -20091,6 +20091,70 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
             created_at=utc_now_iso(),
             updated_at=utc_now_iso(),
         ),
+        Capability(
+            id="capability.upstream-epoch",
+            name="Upstream epoch plane (multi-wave closed-loop fleet)",
+            description=(
+                "Closes the multi-wave loop the fleet plane leaves open. Runs "
+                "repeated plan→dispatch→portfolio-feedback→re-rank waves over "
+                "the whole stewardship surface: successful dispatches update "
+                "the impact portfolio world-model (default: post-dispatch "
+                "impact_open so work is not re-campaigned; injectable terminal "
+                "feedback for merged/released), re-ranking changes urgency "
+                "mid-epoch, and the epoch stops on max_waves, dispatch_budget, "
+                "epoch_idle, no_progress thrashing, or rank_only. Seals a "
+                "digest-chained epoch receipt under artifacts/upstream-epoch/ "
+                "with per-wave fleet digests and tamper detection. No "
+                "skill-route discovery is used."
+            ),
+            kind="python",
+            entry="blackhole_agent.upstream_epoch:builtin_upstream_epoch_proof",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.upstream_epoch import builtin_upstream_epoch_proof; '
+                "r=builtin_upstream_epoch_proof(); assert r['ok'] "
+                "and r.get('multi_wave_progressed') and r.get('feedback_retires_work') "
+                "and r.get('seal_verified') and r.get('tamper_detected') "
+                "and r.get('idle_short_circuits') and r.get('budget_stops') "
+                "and r.get('rank_only') and r.get('terminal_feedback_idles') "
+                "and r.get('empty_refused') and r.get('no_progress_stops') "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.upstream-fleet",
+                "capability.upstream-impact",
+                "capability.upstream-campaign",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/upstream_epoch.py",
+                "src/blackhole_agent/upstream_fleet.py",
+                "src/blackhole_agent/upstream_impact.py",
+                "src/blackhole_agent/upstream_campaign.py",
+            ),
+            capability_delta=(
+                "Fleet direction is no longer one-shot: multi-wave epochs "
+                "dispatch, fold outcomes into the portfolio world-model, "
+                "re-rank remaining stewardship work, stop on budget/idle/"
+                "thrash, and seal a tamper-evident wave-chained receipt "
+                "without skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "upstream",
+                "epoch",
+                "fleet",
+                "impact",
+                "campaign",
+                "closed-loop",
+                "orchestration",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
 
     ]
 
