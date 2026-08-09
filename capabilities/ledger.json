@@ -3866,6 +3866,55 @@
       ],
       "updated_at": "2026-08-09T15:10:08.382167Z"
     },
+    "capability.upstream-institution": {
+      "behavior_paths": [
+        "src/blackhole_agent/upstream_institution.py",
+        "src/blackhole_agent/upstream_program.py",
+        "src/blackhole_agent/upstream_succession.py",
+        "src/blackhole_agent/upstream_fleet.py"
+      ],
+      "capability_delta": "Stewardship is no longer single-program: multi-program institution charters admit isolated program lanes, schedule by priority/ROI, allocate shared dispatch budget, federate portfolios, retire completed programs, persist durable resume state, and seal a tamper-evident multi-program chronicle without skill-route.",
+      "created_at": "2026-08-09T15:46:30.673088Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.upstream-program",
+        "capability.upstream-succession",
+        "capability.upstream-epoch",
+        "capability.upstream-fleet",
+        "capability.upstream-impact",
+        "capability.upstream-campaign"
+      ],
+      "description": "Closes the outer multi-program loop the program plane leaves open. Chains independent program charters under a durable institutional constitution: admits program slots onto isolated stewardship surfaces, schedules open programs by priority and ROI, allocates shared global dispatch budget across programs, federates multi-program portfolios into one institutional world-model, retires met programs, persists institution_state.json for resume, and seals a tamper-evident multi-program chronicle under artifacts/upstream-institution/. Stops on institution_met (all_programs_met or terminal_coverage), max_rounds, dispatch_budget, institution_idle, rank_only, or custom stop_when. No skill-route discovery.",
+      "entry": "blackhole_agent.upstream_institution:builtin_upstream_institution_proof",
+      "id": "capability.upstream-institution",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-09T15:50:36.104604Z",
+      "name": "Upstream institution plane (multi-program durable stewardship constitution)",
+      "proof_command": "uv run python -c \"from blackhole_agent.upstream_institution import builtin_upstream_institution_proof; r=builtin_upstream_institution_proof(); assert r['ok'] and r.get('institution_met') and r.get('multi_program_progressed') and r.get('federation_coverage') and r.get('priority_scheduling') and r.get('seal_verified') and r.get('tamper_detected') and r.get('budget_stops') and r.get('premet_short_circuits') and r.get('rank_only') and r.get('empty_refused') and r.get('custom_stop') and r.get('durable_resume') and r.get('roi_scored') and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": 1,
+      "source_mission_id": "20260809T154015Z-5cb81fc3",
+      "tags": [
+        "bootstrap",
+        "compounder",
+        "upstream",
+        "institution",
+        "program",
+        "succession",
+        "epoch",
+        "fleet",
+        "impact",
+        "charter",
+        "durable",
+        "closed-loop",
+        "orchestration",
+        "evidence",
+        "federation",
+        "budget"
+      ],
+      "updated_at": "2026-08-09T15:50:36.104604Z"
+    },
     "capability.upstream-program": {
       "behavior_paths": [
         "src/blackhole_agent/upstream_program.py",
@@ -4410,5 +4459,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-08-09T15:10:08.382673Z"
+  "updated_at": "2026-08-09T15:50:36.104626Z"
 }
