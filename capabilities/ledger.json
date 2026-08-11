@@ -5237,6 +5237,43 @@
       ],
       "updated_at": "2026-08-11T13:10:18.760209Z"
     },
+    "capability.upstream-stewardship-facade": {
+      "behavior_paths": [
+        "src/blackhole_agent/upstream_stewardship_facade.py",
+        "src/blackhole_agent/upstream_quettacontinuum.py",
+        "src/blackhole_agent/upstream_institution.py",
+        "src/blackhole_agent/upstream_league.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Multi-child stewardship tower is no longer 63k LOC of copy-paste: all 23 layers (quettacontinuum..institution) are ENGINE_FACADE thin modules (~18 LOC each) exporting run_*/normalize_*/verify_*/builtin proofs via upstream_stewardship_facade over the constitution engine; 153x tower LOC reduction; full nested composition still seals; no skill-route.",
+      "created_at": "2026-08-11T15:59:17.882751Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.upstream-constitution-engine"
+      ],
+      "description": "Collapses the multi-child stewardship copy-paste tower (quettacontinuum..institution, 23 layers) into thin ENGINE_FACADE modules that re-export noun-parameterized public APIs over upstream_constitution_engine. Replaces ~64k LOC of rename-copies with ~400 LOC facades + one shared facade factory; every layer builtin proof and nested composition remains invocable without skill-route discovery.",
+      "entry": "blackhole_agent.upstream_stewardship_facade:builtin_stewardship_facade_proof",
+      "id": "capability.upstream-stewardship-facade",
+      "kind": "python",
+      "last_proof_exit_code": null,
+      "last_proved_at": "",
+      "name": "Upstream stewardship facade collapse (23-layer engine thin APIs)",
+      "proof_command": "uv run python -m blackhole_agent.upstream_stewardship_facade --proof",
+      "source_milestone": 1,
+      "source_mission_id": "20260811T154930Z-cba56206",
+      "tags": [
+        "bootstrap",
+        "collapse",
+        "constitution",
+        "engine",
+        "facade",
+        "simplification",
+        "stewardship-stack",
+        "upstream"
+      ],
+      "updated_at": "2026-08-11T15:59:17.882767Z"
+    },
     "capability.upstream-succession": {
       "behavior_paths": [
         "src/blackhole_agent/upstream_succession.py",
@@ -5973,5 +6010,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-08-11T15:11:55.225825Z"
+  "updated_at": "2026-08-11T15:59:17.882942Z"
 }
