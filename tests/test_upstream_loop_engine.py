@@ -17,9 +17,10 @@ def test_loop_dialects_registered() -> None:
         assert d.child_plural
 
 
-def test_succession_and_epoch_owned_by_engine() -> None:
+def test_full_leaf_stack_owned_by_engine() -> None:
     assert us.LOOP_ENGINE is True
     assert ue.LOOP_ENGINE is True
+    assert up.LOOP_ENGINE is True
     assert up.LOOP_ENGINE_NESTED is True
 
 
@@ -29,7 +30,9 @@ def test_builtin_loop_engine_proof_green() -> None:
     assert result["dialect_count"] == 3
     assert result["succession_loop_engine"]
     assert result["epoch_loop_engine"]
-    assert result["program_loop_engine_nested"] or result["program_loop_engine"]
+    assert result["program_loop_engine"]
+    assert result["full_stack_owned"]
+    assert result["live_program_flag"]
     assert result["live_proofs_ok"]
     assert result["seal_verified"]
     assert result["tamper_detected"]

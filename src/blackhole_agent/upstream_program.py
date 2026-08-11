@@ -56,6 +56,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
 from blackhole_agent import upstream_fleet as uf
+from blackhole_agent import upstream_loop_engine as le
 from blackhole_agent import upstream_succession as us
 from blackhole_agent.capability_compounder import (
     atomic_write_json,
@@ -66,10 +67,10 @@ from blackhole_agent.durable_state import durable_read_path
 
 SCHEMA_VERSION = 1
 
-# Program still owns resume/charter/ROI dialect hooks; its child succession and
-# grandchild epoch rounds run through upstream_loop_engine (nested ownership).
-LOOP_ENGINE = False
-LOOP_ENGINE_NESTED = True
+# Owned by the multi-round durable loop engine (not a copy-paste tower).
+# Program-dialect hooks still live here: surface expand, charter, ROI, resume.
+LOOP_ENGINE = True
+LOOP_ENGINE_NESTED = True  # children also engine-owned (succession → epoch)
 LOOP_DIALECT = "program"
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -660,6 +661,10 @@ def run_program(
 ) -> dict[str, Any]:
     """Run a multi-succession stewardship program and seal the receipt.
 
+    Control flow is owned by :mod:`blackhole_agent.upstream_loop_engine`;
+    this module supplies program-dialect hooks (surface expand, charter, ROI,
+    resume/persist, program goals) only.
+
     Parameters
     ----------
     max_successions:
@@ -706,14 +711,15 @@ def run_program(
             f"unknown program_goal: {program_goal}",
         )
 
+    dialect = le.get_loop_dialect("program")
     runner = succession_runner or us.run_succession
 
     # Resume durable state if requested.
     prior_succession_count = 0
     roi_history: list[dict[str, Any]] = []
-    succession_digests: list[str] = []
-    total_dispatched = 0
-    total_dispatched_ok = 0
+    succession_digests_prior: list[str] = []
+    prior_total_dispatched = 0
+    prior_total_dispatched_ok = 0
     resumed = False
     resume_program_id: str | None = None
     resumed_charter: list[dict[str, Any]] = []
@@ -722,23 +728,33 @@ def run_program(
     current_portfolio: dict[str, Any] | None = None
     portfolio_source = "none"
     if resume_dir is not None:
-        state = load_program_state(resume_dir)
+        prior_state = load_program_state(resume_dir)
         resumed = True
-        resume_program_id = str(state.get("program_id") or "") or None
-        prior_succession_count = int(state.get("succession_count") or 0)
-        total_dispatched = int(state.get("total_dispatched") or 0)
-        total_dispatched_ok = int(state.get("total_dispatched_ok") or 0)
-        roi_history = [dict(r) for r in (state.get("roi_history") or []) if isinstance(r, Mapping)]
-        succession_digests = [str(d) for d in (state.get("succession_digests") or [])]
-        if isinstance(state.get("portfolio"), Mapping):
-            current_portfolio = dict(state["portfolio"])
+        resume_program_id = str(prior_state.get("program_id") or "") or None
+        prior_succession_count = int(prior_state.get("succession_count") or 0)
+        prior_total_dispatched = int(prior_state.get("total_dispatched") or 0)
+        prior_total_dispatched_ok = int(prior_state.get("total_dispatched_ok") or 0)
+        roi_history = [
+            dict(r)
+            for r in (prior_state.get("roi_history") or [])
+            if isinstance(r, Mapping)
+        ]
+        succession_digests_prior = [
+            str(d) for d in (prior_state.get("succession_digests") or [])
+        ]
+        if isinstance(prior_state.get("portfolio"), Mapping):
+            current_portfolio = dict(prior_state["portfolio"])
             portfolio_source = "resume"
-        if isinstance(state.get("surface_charter"), list):
+        if isinstance(prior_state.get("surface_charter"), list):
             resumed_charter = [
-                dict(e) for e in state["surface_charter"] if isinstance(e, Mapping)
+                dict(e)
+                for e in prior_state["surface_charter"]
+                if isinstance(e, Mapping)
             ]
-        if isinstance(state.get("charter_applied"), list):
-            resumed_charter_applied = [str(x) for x in state["charter_applied"]]
+        if isinstance(prior_state.get("charter_applied"), list):
+            resumed_charter_applied = [
+                str(x) for x in prior_state["charter_applied"]
+            ]
     elif portfolio is not None:
         current_portfolio = dict(portfolio)
         portfolio_source = "injected"
@@ -772,11 +788,11 @@ def run_program(
             current_portfolio
         )
 
-    portfolio_start_digest = (
-        current_portfolio.get("portfolio_digest") if current_portfolio else None
+    pid = (
+        program_id
+        or resume_program_id
+        or f"program-{utc_now_iso().replace(':', '').replace('-', '')}"
     )
-
-    pid = program_id or resume_program_id or f"program-{utc_now_iso().replace(':', '').replace('-', '')}"
 
     stamp = utc_now_iso().replace(":", "").replace("-", "")
     if out_root is not None:
@@ -793,130 +809,16 @@ def run_program(
         else (program_dir / "successions")
     )
 
-    successions: list[dict[str, Any]] = []
-    surface_expansions: list[dict[str, Any]] = []
-    stop_reason = "max_successions"
-    idle_streak = 0
-    program_met = False
-    last_expand_added = 0
-    coverage_end: dict[str, Any] = program_terminal_coverage(
-        current_portfolio,
-        stewardship_root,
-    )
-
-    for local_index in range(max_successions):
-        succession_index = prior_succession_count + local_index
-        portfolio_before_digest = (
-            current_portfolio.get("portfolio_digest") if current_portfolio else None
-        )
-        required_keys = inventory_defect_keys(stewardship_root)
-        coverage_before = program_terminal_coverage(
-            current_portfolio,
-            stewardship_root,
-            required_keys=required_keys,
+    def _coverage(
+        port: Mapping[str, Any] | None,
+        *,
+        required_keys: Sequence[tuple[str, str, str]] | None = None,
+    ) -> dict[str, Any]:
+        return program_terminal_coverage(
+            port, stewardship_root, required_keys=required_keys
         )
 
-        # Program-goal short-circuit before dispatching another succession.
-        if program_goal == "terminal_coverage" and coverage_before.get("met"):
-            stop_reason = "program_met"
-            program_met = True
-            coverage_end = coverage_before
-            break
-        if (
-            program_goal == "terminal_and_exhausted"
-            and coverage_before.get("met")
-            and local_index > 0
-            and last_expand_added == 0
-        ):
-            # Met coverage after a prior expand that added nothing (or start
-            # with met + we already tried expand and got nothing).
-            stop_reason = "program_met"
-            program_met = True
-            coverage_end = coverage_before
-            break
-
-        remaining_budget = None
-        if dispatch_budget is not None:
-            remaining_budget = max(0, int(dispatch_budget) - total_dispatched)
-            if dispatch and remaining_budget <= 0:
-                stop_reason = "dispatch_budget"
-                coverage_end = coverage_before
-                break
-
-        succ_kwargs: dict[str, Any] = {
-            "stewardship_root": stewardship_root,
-            "portfolio": current_portfolio,
-            "max_epochs": max_epochs_per_succession,
-            "max_waves_per_epoch": max_waves_per_epoch,
-            "per_wave_dispatch_limit": per_wave_dispatch_limit,
-            "dispatch_budget": remaining_budget,
-            "no_progress_limit": no_progress_limit,
-            "idle_epoch_limit": idle_epoch_limit,
-            "dispatch": bool(dispatch),
-            "mandate_goal": mandate_goal,
-            "out_root": succ_root / f"succession-{succession_index:02d}",
-        }
-        if campaign_runner is not None:
-            succ_kwargs["campaign_runner"] = campaign_runner
-        if epoch_runner is not None:
-            succ_kwargs["epoch_runner"] = epoch_runner
-        if impact_refresh_runner is not None:
-            succ_kwargs["impact_refresh_runner"] = impact_refresh_runner
-        if feedback_runner is not None:
-            succ_kwargs["feedback_runner"] = feedback_runner
-        if refresh_promotions is not None:
-            succ_kwargs["refresh_promotions"] = refresh_promotions
-
-        try:
-            succ_result = runner(**succ_kwargs)
-        except us.SuccessionRefused as exc:
-            if local_index == 0 and not resumed:
-                raise ProgramRefused(exc.verdict, exc.detail) from exc
-            stop_reason = f"succession_refused:{exc.verdict}"
-            coverage_end = coverage_before
-            break
-        except uf.FleetRefused as exc:
-            if local_index == 0 and not resumed:
-                raise ProgramRefused(exc.verdict, exc.detail) from exc
-            stop_reason = f"fleet_refused:{exc.verdict}"
-            coverage_end = coverage_before
-            break
-
-        dispatched_n = int(succ_result.get("total_dispatched") or 0)
-        dispatched_ok = int(succ_result.get("total_dispatched_ok") or 0)
-        total_dispatched += dispatched_n
-        total_dispatched_ok += dispatched_ok
-
-        # Pull portfolio_final from succession receipt when present.
-        after_succ_portfolio: dict[str, Any] | None = current_portfolio
-        succ_dir = succ_result.get("succession_dir")
-        if succ_dir and (Path(str(succ_dir)) / "succession.json").is_file():
-            receipt = json.loads(
-                (Path(str(succ_dir)) / "succession.json").read_text(encoding="utf-8")
-            )
-            if isinstance(receipt.get("portfolio_final"), Mapping):
-                after_succ_portfolio = dict(receipt["portfolio_final"])
-        if after_succ_portfolio is not None:
-            current_portfolio = dict(after_succ_portfolio)
-            if not current_portfolio.get("portfolio_digest"):
-                current_portfolio["portfolio_digest"] = _recompute_portfolio_digest(
-                    current_portfolio
-                )
-
-        coverage_mid = program_terminal_coverage(
-            current_portfolio,
-            stewardship_root,
-            required_keys=required_keys,
-        )
-
-        # Surface expand between successions (even if mandate just met — new
-        # frontier work may reopen the program).
-        expand_result = expand(
-            stewardship_root=stewardship_root,
-            portfolio=current_portfolio,
-            succession_index=succession_index,
-            roi_history=roi_history,
-        )
+    def _normalize_expand(expand_result: Any) -> dict[str, Any]:
         if not isinstance(expand_result, Mapping):
             expand_result = {
                 "added_keys": [],
@@ -925,7 +827,6 @@ def run_program(
             }
         expand_result = dict(expand_result)
         added_keys_raw = list(expand_result.get("added_keys") or [])
-        # Normalize added keys to dicts.
         added_keys: list[dict[str, str]] = []
         for k in added_keys_raw:
             if isinstance(k, Mapping):
@@ -944,27 +845,108 @@ def run_program(
         expand_result["expanded"] = bool(
             expand_result.get("expanded") or len(added_keys) > 0
         )
-        last_expand_added = len(added_keys)
+        return expand_result
+
+    def _charter_applied_now(expand_result: Mapping[str, Any]) -> list[str]:
+        if expand_result.get("charter_applied"):
+            return [str(x) for x in expand_result["charter_applied"]]
+        if charter_expand is not None and hasattr(charter_expand, "charter_state"):
+            return sorted(
+                str(x)
+                for x in (charter_expand.charter_state.get("applied") or [])  # type: ignore[attr-defined]
+            )
+        return []
+
+    def build_child_kwargs(state: le.LoopState, round_index: int) -> dict[str, Any]:
+        succession_index = prior_succession_count + round_index
+        remaining = None
+        if state.dispatch_budget is not None:
+            remaining = max(0, int(state.dispatch_budget) - state.total_dispatched)
+        kwargs: dict[str, Any] = {
+            "stewardship_root": stewardship_root,
+            "portfolio": state.portfolio,
+            "max_epochs": max_epochs_per_succession,
+            "max_waves_per_epoch": max_waves_per_epoch,
+            "per_wave_dispatch_limit": per_wave_dispatch_limit,
+            "dispatch_budget": remaining,
+            "no_progress_limit": no_progress_limit,
+            "idle_epoch_limit": idle_epoch_limit,
+            "dispatch": bool(dispatch),
+            "mandate_goal": mandate_goal,
+            "out_root": state.child_root / f"succession-{succession_index:02d}",
+        }
+        if campaign_runner is not None:
+            kwargs["campaign_runner"] = campaign_runner
+        if epoch_runner is not None:
+            kwargs["epoch_runner"] = epoch_runner
+        if impact_refresh_runner is not None:
+            kwargs["impact_refresh_runner"] = impact_refresh_runner
+        if feedback_runner is not None:
+            kwargs["feedback_runner"] = feedback_runner
+        if refresh_promotions is not None:
+            kwargs["refresh_promotions"] = refresh_promotions
+        return kwargs
+
+    def on_child_result(
+        state: le.LoopState, round_index: int, succ_result: dict[str, Any]
+    ) -> dict[str, Any]:
+        succession_index = prior_succession_count + round_index
+        portfolio_before_digest = (
+            state.portfolio.get("portfolio_digest") if state.portfolio else None
+        )
+        required_keys = inventory_defect_keys(stewardship_root)
+        coverage_before = _coverage(state.portfolio, required_keys=required_keys)
+
+        after_succ_portfolio: dict[str, Any] | None = state.portfolio
+        succ_dir = succ_result.get("succession_dir")
+        if succ_dir and (Path(str(succ_dir)) / "succession.json").is_file():
+            nested = json.loads(
+                (Path(str(succ_dir)) / "succession.json").read_text(encoding="utf-8")
+            )
+            if isinstance(nested.get("portfolio_final"), Mapping):
+                after_succ_portfolio = dict(nested["portfolio_final"])
+        if after_succ_portfolio is not None:
+            state.portfolio = dict(after_succ_portfolio)
+            if not state.portfolio.get("portfolio_digest"):
+                state.portfolio["portfolio_digest"] = _recompute_portfolio_digest(
+                    state.portfolio
+                )
+
+        # Surface expand between successions (even if mandate just met — new
+        # frontier work may reopen the program).
+        expand_result = _normalize_expand(
+            expand(
+                stewardship_root=stewardship_root,
+                portfolio=state.portfolio,
+                succession_index=succession_index,
+                roi_history=list(state.extras.get("roi_history") or []),
+            )
+        )
+        last_expand_added = len(list(expand_result.get("added_keys") or []))
+        state.extras["last_expand_added"] = last_expand_added
+        surface_expansions: list[dict[str, Any]] = list(
+            state.extras.get("surface_expansions") or []
+        )
         surface_expansions.append(
             {
                 "after_succession": succession_index,
                 "added_count": last_expand_added,
-                "added_keys": added_keys,
+                "added_keys": list(expand_result.get("added_keys") or []),
                 "detail": expand_result.get("detail"),
                 "expanded": expand_result.get("expanded"),
                 "charter_remaining": expand_result.get("charter_remaining"),
-                "charter_entries_applied": expand_result.get("charter_entries_applied"),
+                "charter_entries_applied": expand_result.get(
+                    "charter_entries_applied"
+                ),
             }
         )
+        state.extras["surface_expansions"] = surface_expansions
 
-        # Re-derive mandate after surface growth.
         required_after = inventory_defect_keys(stewardship_root)
-        coverage_after = program_terminal_coverage(
-            current_portfolio,
-            stewardship_root,
-            required_keys=required_after,
-        )
+        coverage_after = _coverage(state.portfolio, required_keys=required_after)
+        state.extras["coverage_end"] = coverage_after
 
+        roi_hist: list[dict[str, Any]] = list(state.extras.get("roi_history") or [])
         roi = score_succession_roi(
             succession_index=succession_index,
             succession_result=succ_result,
@@ -972,16 +954,50 @@ def run_program(
             coverage_after=coverage_after,
             surface_added=last_expand_added,
         )
-        roi_history.append(roi)
+        roi_hist.append(roi)
+        state.extras["roi_history"] = roi_hist
 
         portfolio_after_digest = (
-            current_portfolio.get("portfolio_digest") if current_portfolio else None
+            state.portfolio.get("portfolio_digest") if state.portfolio else None
         )
         succ_digest = str(succ_result.get("succession_digest") or "")
+        digests: list[str] = list(state.extras.get("succession_digests_acc") or [])
         if succ_digest:
-            succession_digests.append(succ_digest)
+            digests.append(succ_digest)
+            state.child_digests.append(succ_digest)
+        state.extras["succession_digests_acc"] = digests
 
-        rec = _succession_record(
+        charter_applied_now = _charter_applied_now(expand_result)
+        state.extras["charter_applied"] = charter_applied_now
+
+        write_program_state(
+            state.loop_dir,
+            _state_payload(
+                program_id=str(state.extras.get("program_id") or pid),
+                succession_count=succession_index + 1,
+                total_dispatched=state.total_dispatched,
+                total_dispatched_ok=state.total_dispatched_ok,
+                portfolio=state.portfolio,
+                roi_history=roi_hist,
+                required_keys=required_after,
+                succession_digests=digests,
+                stop_reason=None,
+                program_goal=program_goal,
+                surface_charter=active_charter,
+                charter_applied=charter_applied_now,
+            ),
+        )
+
+        if program_goal == "terminal_coverage" and coverage_after.get("met"):
+            state.goal_met = True
+        if (
+            program_goal == "terminal_and_exhausted"
+            and coverage_after.get("met")
+            and last_expand_added == 0
+        ):
+            state.goal_met = True
+
+        return _succession_record(
             succession_index=succession_index,
             succession_result=succ_result,
             portfolio_before_digest=portfolio_before_digest,
@@ -991,263 +1007,294 @@ def run_program(
             surface_expand=expand_result,
             roi=roi,
         )
-        successions.append(rec)
 
-        # Charter applied ids: prefer expand result, else runner state.
-        charter_applied_now: list[str] = []
-        if expand_result.get("charter_applied"):
-            charter_applied_now = [str(x) for x in expand_result["charter_applied"]]
-        elif charter_expand is not None and hasattr(charter_expand, "charter_state"):
-            charter_applied_now = sorted(
-                str(x) for x in (charter_expand.charter_state.get("applied") or [])  # type: ignore[attr-defined]
-            )
+    def pre_round_stop(state: le.LoopState, round_index: int) -> str | None:
+        coverage = _coverage(state.portfolio)
+        state.extras["coverage_end"] = coverage
+        if program_goal == "terminal_coverage" and coverage.get("met"):
+            state.goal_met = True
+            return dialect.goal_stop_reason
+        if (
+            program_goal == "terminal_and_exhausted"
+            and coverage.get("met")
+            and round_index > 0
+            and int(state.extras.get("last_expand_added") or 0) == 0
+        ):
+            state.goal_met = True
+            return dialect.goal_stop_reason
+        return None
 
-        # Persist durable state after each succession for resume.
-        state = _state_payload(
-            program_id=pid,
-            succession_count=succession_index + 1,
-            total_dispatched=total_dispatched,
-            total_dispatched_ok=total_dispatched_ok,
-            portfolio=current_portfolio,
-            roi_history=roi_history,
-            required_keys=required_after,
-            succession_digests=succession_digests,
-            stop_reason=None,
-            program_goal=program_goal,
-            surface_charter=active_charter,
-            charter_applied=charter_applied_now,
-        )
-        write_program_state(program_dir, state)
-
-        coverage_end = coverage_after
-
-        # New surface work re-opens the program; do not treat an expand as idle.
-        if last_expand_added > 0:
-            idle_streak = 0
-        elif dispatched_ok == 0 and dispatched_n == 0:
-            idle_streak += 1
-        else:
-            idle_streak = 0
-
-        # Custom stop.
+    def post_round_stop(
+        state: le.LoopState, round_index: int, succ_result: dict[str, Any]
+    ) -> str | None:
+        coverage = state.extras.get("coverage_end") or _coverage(state.portfolio)
+        last_expand_added = int(state.extras.get("last_expand_added") or 0)
         if stop_when is not None:
             reason = stop_when(
                 {
-                    "succession_index": succession_index,
-                    "succession_count": len(successions),
-                    "total_dispatched": total_dispatched,
-                    "total_dispatched_ok": total_dispatched_ok,
-                    "coverage": coverage_after,
-                    "roi_history": roi_history,
+                    "succession_index": prior_succession_count + round_index,
+                    "succession_count": len(state.records),
+                    "total_dispatched": state.total_dispatched,
+                    "total_dispatched_ok": state.total_dispatched_ok,
+                    "coverage": coverage,
+                    "roi_history": list(state.extras.get("roi_history") or []),
                     "last_expand_added": last_expand_added,
-                    "portfolio": current_portfolio,
-                    "program_dir": str(program_dir),
+                    "portfolio": state.portfolio,
+                    "program_dir": str(state.loop_dir),
                 }
             )
             if reason:
-                stop_reason = str(reason)
-                break
-
-        # Program goal after this succession + expand.
-        if program_goal == "terminal_coverage" and coverage_after.get("met"):
-            stop_reason = "program_met"
-            program_met = True
-            break
+                return str(reason)
+        if program_goal == "terminal_coverage" and coverage.get("met"):
+            state.goal_met = True
+            return dialect.goal_stop_reason
         if program_goal == "terminal_and_exhausted":
-            if coverage_after.get("met") and last_expand_added == 0:
-                stop_reason = "program_met"
-                program_met = True
-                break
-
-        if dispatch_budget is not None and total_dispatched >= int(dispatch_budget):
-            stop_reason = "dispatch_budget"
-            break
-
+            if coverage.get("met") and last_expand_added == 0:
+                state.goal_met = True
+                return dialect.goal_stop_reason
         # Rank-only programs stop after one succession; do not mislabel as idle.
-        if not dispatch:
-            stop_reason = "rank_only"
-            break
+        if not state.dispatch:
+            return dialect.rank_only_stop_reason
+        return None
 
-        if idle_streak >= idle_succession_limit and not coverage_after.get("met"):
-            stop_reason = "program_idle"
-            break
-    else:
-        stop_reason = "max_successions"
+    def is_idle(
+        state: le.LoopState, round_index: int, succ_result: dict[str, Any]
+    ) -> bool:
+        # New surface work re-opens the program; do not treat an expand as idle.
+        if int(state.extras.get("last_expand_added") or 0) > 0:
+            return False
+        if (state.extras.get("coverage_end") or {}).get("met"):
+            return False
+        n = int(succ_result.get("total_dispatched") or 0)
+        ok = int(succ_result.get("total_dispatched_ok") or 0)
+        return n == 0 and ok == 0
 
-    # Final coverage snapshot.
-    final_keys = inventory_defect_keys(stewardship_root)
-    coverage_end = program_terminal_coverage(
-        current_portfolio,
-        stewardship_root,
-        required_keys=final_keys,
-    )
-    if program_goal == "terminal_coverage" and coverage_end.get("met"):
-        program_met = True
-    if (
-        program_goal == "terminal_and_exhausted"
-        and coverage_end.get("met")
-        and last_expand_added == 0
-        and successions
-    ):
-        program_met = True
+    def classify(state: le.LoopState) -> tuple[bool, str]:
+        final_keys = inventory_defect_keys(stewardship_root)
+        coverage_end = _coverage(state.portfolio, required_keys=final_keys)
+        state.extras["coverage_end"] = coverage_end
+        state.extras["final_keys"] = final_keys
+        last_expand_added = int(state.extras.get("last_expand_added") or 0)
+        if program_goal == "terminal_coverage" and coverage_end.get("met"):
+            state.goal_met = True
+        if (
+            program_goal == "terminal_and_exhausted"
+            and coverage_end.get("met")
+            and last_expand_added == 0
+            and state.records
+        ):
+            state.goal_met = True
 
-    portfolio_end_digest = (
-        current_portfolio.get("portfolio_digest") if current_portfolio else None
-    )
-    roi_summary = _roi_summary(roi_history)
+        stop_reason = state.stop_reason
+        if state.goal_met and stop_reason in {
+            dialect.goal_stop_reason,
+            dialect.max_stop_reason,
+        }:
+            state.stop_reason = dialect.goal_stop_reason
+            return True, "program_met"
+        if stop_reason == dialect.rank_only_stop_reason:
+            return True, "program_ranked"
+        if stop_reason == dialect.idle_stop_reason:
+            return True, "program_idle"
+        if stop_reason == dialect.budget_stop_reason:
+            return True, "program_budgeted"
+        if stop_reason.startswith("succession_refused") or stop_reason.startswith(
+            "fleet_refused"
+        ):
+            return False, "program_refused_mid"
+        if state.goal_met:
+            state.stop_reason = dialect.goal_stop_reason
+            return True, "program_met"
+        return True, "program_completed"
 
-    if program_met and stop_reason in {"program_met", "max_successions"}:
-        verdict = "program_met"
-        ok = True
-        stop_reason = "program_met"
-    elif stop_reason == "rank_only":
-        verdict = "program_ranked"
-        ok = True
-    elif stop_reason == "program_idle":
-        verdict = "program_idle"
-        ok = True
-    elif stop_reason == "dispatch_budget":
-        verdict = "program_budgeted"
-        ok = True
-    elif stop_reason.startswith("succession_refused") or stop_reason.startswith(
-        "fleet_refused"
-    ):
-        verdict = "program_refused_mid"
-        ok = False
-    else:
-        verdict = "program_completed"
-        ok = True
-
-    receipt: dict[str, Any] = {
-        "schema_version": SCHEMA_VERSION,
-        "created_at": utc_now_iso(),
-        "ok": ok,
-        "verdict": verdict,
-        "stop_reason": stop_reason,
-        "program_id": pid,
-        "resumed": resumed,
-        "prior_succession_count": prior_succession_count,
-        "max_successions": max_successions,
-        "max_epochs_per_succession": max_epochs_per_succession,
-        "max_waves_per_epoch": max_waves_per_epoch,
-        "per_wave_dispatch_limit": per_wave_dispatch_limit,
-        "dispatch_budget": dispatch_budget,
-        "dispatch_enabled": bool(dispatch),
-        "program_goal": program_goal,
-        "mandate_goal": mandate_goal,
-        "program_met": program_met,
-        "portfolio_source": portfolio_source,
-        "portfolio_start_digest": portfolio_start_digest,
-        "portfolio_end_digest": portfolio_end_digest,
-        "portfolio_final": current_portfolio,
-        "required_keys": [
-            {"name": n, "version": v, "defect_id": d} for n, v, d in final_keys
-        ],
-        "coverage_end": {
-            "required": coverage_end.get("required"),
-            "covered": coverage_end.get("covered"),
-            "met": coverage_end.get("met"),
-            "coverage_ratio": coverage_end.get("coverage_ratio"),
-            "open_or_missing": coverage_end.get("open_or_missing"),
-        },
-        "succession_count": len(successions),
-        "successions": successions,
-        "succession_digests": [
-            s.get("succession_digest") for s in successions if s.get("succession_digest")
-        ],
-        "surface_expansions": surface_expansions,
-        "surface_charter": active_charter,
-        "charter_applied": (
-            sorted(
-                str(x)
-                for x in (
-                    (charter_expand.charter_state.get("applied") or [])  # type: ignore[attr-defined]
-                    if charter_expand is not None and hasattr(charter_expand, "charter_state")
-                    else []
+    def seal(state: le.LoopState) -> dict[str, Any]:
+        final_keys = state.extras.get("final_keys") or inventory_defect_keys(
+            stewardship_root
+        )
+        coverage_end = state.extras.get("coverage_end") or _coverage(
+            state.portfolio, required_keys=final_keys
+        )
+        surface_expansions = list(state.extras.get("surface_expansions") or [])
+        roi_hist = list(state.extras.get("roi_history") or [])
+        roi_summary = _roi_summary(roi_hist)
+        portfolio_end_digest = (
+            state.portfolio.get("portfolio_digest") if state.portfolio else None
+        )
+        charter_applied = list(state.extras.get("charter_applied") or [])
+        if active_charter and not charter_applied and charter_expand is not None:
+            if hasattr(charter_expand, "charter_state"):
+                charter_applied = sorted(
+                    str(x)
+                    for x in (charter_expand.charter_state.get("applied") or [])  # type: ignore[attr-defined]
                 )
-            )
-            if active_charter
-            else []
-        ),
-        "roi_history": roi_history,
-        "roi_summary": roi_summary,
-        "total_dispatched": total_dispatched,
-        "total_dispatched_ok": total_dispatched_ok,
-        "used_skill_route_discovery": legacy_pipeline_was_used(),
-    }
-    # Align succession_digests with records for seal integrity.
-    receipt["succession_digests"] = [
-        str(s.get("succession_digest") or "") for s in successions
-    ]
-    receipt["program_digest"] = _sha256_json(_program_digest_payload(receipt))
-    atomic_write_json(program_dir / "program.json", receipt)
-    atomic_write_json(
-        program_dir / "summary.json",
-        {
-            "verdict": receipt["verdict"],
-            "ok": receipt["ok"],
-            "stop_reason": receipt["stop_reason"],
-            "program_id": receipt["program_id"],
-            "succession_count": receipt["succession_count"],
-            "total_dispatched": receipt["total_dispatched"],
-            "total_dispatched_ok": receipt["total_dispatched_ok"],
-            "program_met": receipt["program_met"],
-            "coverage_ratio": (receipt.get("coverage_end") or {}).get("coverage_ratio"),
-            "surface_expansion_count": sum(
-                1 for e in surface_expansions if e.get("added_count", 0) > 0
+
+        receipt: dict[str, Any] = {
+            "schema_version": SCHEMA_VERSION,
+            "created_at": utc_now_iso(),
+            "ok": state.extras.get("ok"),
+            "verdict": state.extras.get("verdict"),
+            "stop_reason": state.stop_reason,
+            "program_id": state.extras.get("program_id") or pid,
+            "resumed": bool(state.extras.get("resumed")),
+            "prior_succession_count": prior_succession_count,
+            "max_successions": max_successions,
+            "max_epochs_per_succession": max_epochs_per_succession,
+            "max_waves_per_epoch": max_waves_per_epoch,
+            "per_wave_dispatch_limit": per_wave_dispatch_limit,
+            "dispatch_budget": dispatch_budget,
+            "dispatch_enabled": bool(dispatch),
+            "program_goal": program_goal,
+            "mandate_goal": mandate_goal,
+            "program_met": state.goal_met,
+            "portfolio_source": state.extras.get("portfolio_source")
+            or state.portfolio_source,
+            "portfolio_start_digest": state.portfolio_start_digest,
+            "portfolio_end_digest": portfolio_end_digest,
+            "portfolio_final": state.portfolio,
+            "required_keys": [
+                {"name": n, "version": v, "defect_id": d} for n, v, d in final_keys
+            ],
+            "coverage_end": {
+                "required": coverage_end.get("required"),
+                "covered": coverage_end.get("covered"),
+                "met": coverage_end.get("met"),
+                "coverage_ratio": coverage_end.get("coverage_ratio"),
+                "open_or_missing": coverage_end.get("open_or_missing"),
+            },
+            "succession_count": len(state.records),
+            "successions": state.records,
+            "succession_digests": [
+                str(s.get("succession_digest") or "") for s in state.records
+            ],
+            "surface_expansions": surface_expansions,
+            "surface_charter": active_charter,
+            "charter_applied": charter_applied if active_charter else [],
+            "roi_history": roi_hist,
+            "roi_summary": roi_summary,
+            "total_dispatched": state.total_dispatched,
+            "total_dispatched_ok": state.total_dispatched_ok,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "loop_engine": True,
+            "loop_dialect": dialect.name,
+        }
+        receipt["program_digest"] = _sha256_json(_program_digest_payload(receipt))
+        atomic_write_json(state.loop_dir / "program.json", receipt)
+        atomic_write_json(
+            state.loop_dir / "summary.json",
+            {
+                "verdict": receipt["verdict"],
+                "ok": receipt["ok"],
+                "stop_reason": receipt["stop_reason"],
+                "program_id": receipt["program_id"],
+                "succession_count": receipt["succession_count"],
+                "total_dispatched": receipt["total_dispatched"],
+                "total_dispatched_ok": receipt["total_dispatched_ok"],
+                "program_met": receipt["program_met"],
+                "coverage_ratio": (receipt.get("coverage_end") or {}).get(
+                    "coverage_ratio"
+                ),
+                "surface_expansion_count": sum(
+                    1 for e in surface_expansions if e.get("added_count", 0) > 0
+                ),
+                "charter_size": len(active_charter),
+                "charter_applied_count": len(receipt.get("charter_applied") or []),
+                "portfolio_start_digest": receipt["portfolio_start_digest"],
+                "portfolio_end_digest": receipt["portfolio_end_digest"],
+                "program_digest": receipt["program_digest"],
+                "resumed": receipt["resumed"],
+                "loop_engine": True,
+            },
+        )
+
+        write_program_state(
+            state.loop_dir,
+            _state_payload(
+                program_id=str(receipt["program_id"]),
+                succession_count=prior_succession_count + len(state.records),
+                total_dispatched=state.total_dispatched,
+                total_dispatched_ok=state.total_dispatched_ok,
+                portfolio=state.portfolio,
+                roi_history=roi_hist,
+                required_keys=final_keys,
+                succession_digests=receipt["succession_digests"],
+                stop_reason=state.stop_reason,
+                program_goal=program_goal,
+                surface_charter=active_charter,
+                charter_applied=list(receipt.get("charter_applied") or []),
             ),
-            "charter_size": len(active_charter),
-            "charter_applied_count": len(receipt.get("charter_applied") or []),
-            "portfolio_start_digest": receipt["portfolio_start_digest"],
-            "portfolio_end_digest": receipt["portfolio_end_digest"],
+        )
+
+        return {
+            "ok": bool(receipt["ok"]),
+            "verdict": receipt["verdict"],
+            "stop_reason": state.stop_reason,
+            "program_dir": str(state.loop_dir),
             "program_digest": receipt["program_digest"],
-            "resumed": resumed,
-        },
-    )
+            "program_id": receipt["program_id"],
+            "succession_count": len(state.records),
+            "succession_digests": list(receipt["succession_digests"]),
+            "total_dispatched": state.total_dispatched,
+            "total_dispatched_ok": state.total_dispatched_ok,
+            "program_met": state.goal_met,
+            "coverage_end": receipt["coverage_end"],
+            "portfolio_start_digest": state.portfolio_start_digest,
+            "portfolio_end_digest": portfolio_end_digest,
+            "portfolio_source": receipt["portfolio_source"],
+            "surface_expansions": surface_expansions,
+            "surface_charter": active_charter,
+            "charter_applied": list(receipt.get("charter_applied") or []),
+            "roi_summary": roi_summary,
+            "resumed": bool(receipt["resumed"]),
+            "successions": state.records,
+            "used_skill_route_discovery": receipt["used_skill_route_discovery"],
+            "loop_engine": True,
+            "loop_dialect": dialect.name,
+        }
 
-    # Final durable state with stop reason.
-    write_program_state(
-        program_dir,
-        _state_payload(
-            program_id=pid,
-            succession_count=prior_succession_count + len(successions),
-            total_dispatched=total_dispatched,
-            total_dispatched_ok=total_dispatched_ok,
+    def wrap_refuse(exc: BaseException) -> BaseException:
+        if isinstance(exc, ProgramRefused):
+            return exc
+        verdict = getattr(exc, "verdict", "refused")
+        detail = getattr(exc, "detail", str(exc))
+        return ProgramRefused(str(verdict), str(detail))
+
+    try:
+        return le.run_durable_loop(
+            dialect,
+            max_rounds=max_successions,
+            dispatch=dispatch,
+            dispatch_budget=dispatch_budget,
+            idle_limit=idle_succession_limit,
             portfolio=current_portfolio,
-            roi_history=roi_history,
-            required_keys=final_keys,
-            succession_digests=receipt["succession_digests"],
-            stop_reason=stop_reason,
-            program_goal=program_goal,
-            surface_charter=active_charter,
-            charter_applied=list(receipt.get("charter_applied") or []),
-        ),
-    )
-
-    return {
-        "ok": ok,
-        "verdict": verdict,
-        "stop_reason": stop_reason,
-        "program_dir": str(program_dir),
-        "program_digest": receipt["program_digest"],
-        "program_id": pid,
-        "succession_count": len(successions),
-        "succession_digests": list(receipt["succession_digests"]),
-        "total_dispatched": total_dispatched,
-        "total_dispatched_ok": total_dispatched_ok,
-        "program_met": program_met,
-        "coverage_end": receipt["coverage_end"],
-        "portfolio_start_digest": portfolio_start_digest,
-        "portfolio_end_digest": portfolio_end_digest,
-        "portfolio_source": portfolio_source,
-        "surface_expansions": surface_expansions,
-        "surface_charter": active_charter,
-        "charter_applied": list(receipt.get("charter_applied") or []),
-        "roi_summary": roi_summary,
-        "resumed": resumed,
-        "successions": successions,
-        "used_skill_route_discovery": receipt["used_skill_route_discovery"],
-    }
+            out_root=program_dir,
+            child_out_root=succ_root,
+            child_runner=runner,
+            build_child_kwargs=build_child_kwargs,
+            on_child_result=on_child_result,
+            pre_round_stop=pre_round_stop,
+            post_round_stop=post_round_stop,
+            is_idle_round=is_idle,
+            classify_verdict=classify,
+            seal=seal,
+            recompute_digest=_recompute_portfolio_digest,
+            prior_total_dispatched=prior_total_dispatched,
+            prior_total_dispatched_ok=prior_total_dispatched_ok,
+            refuse_on_first=(us.SuccessionRefused, uf.FleetRefused),
+            wrap_refuse=wrap_refuse,
+            nest_stamp=False,
+            initial_extras={
+                "resumed": resumed,
+                "program_id": pid,
+                "portfolio_source": portfolio_source,
+                "roi_history": list(roi_history),
+                "surface_expansions": [],
+                "succession_digests_acc": list(succession_digests_prior),
+                "last_expand_added": 0,
+                "charter_applied": list(resumed_charter_applied),
+            },
+        )
+    except le.LoopRefused as exc:
+        raise ProgramRefused(exc.verdict, exc.detail) from exc
 
 
 # ---------------------------------------------------------------------------

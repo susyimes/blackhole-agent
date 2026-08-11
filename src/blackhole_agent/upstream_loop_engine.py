@@ -594,10 +594,10 @@ def builtin_loop_engine_proof() -> dict[str, Any]:
 
     Closes:
     - 3 dialects registered as data (program, succession, epoch)
-    - succession run goes through run_durable_loop (loop_engine flag)
-    - epoch run goes through run_durable_loop (loop_engine flag)
-    - existing succession + epoch hermetic proofs still green
-    - nested composition: program proof still green (calls succession→engine)
+    - program + succession + epoch runs go through run_durable_loop
+      (LOOP_ENGINE=True and loop_engine flag on live results)
+    - existing program / succession / epoch hermetic proofs still green
+    - nested composition: program → succession → epoch all engine-owned
     - no skill-route discovery
     """
     from blackhole_agent import upstream_epoch as ue
@@ -845,7 +845,7 @@ def builtin_loop_engine_proof() -> dict[str, Any]:
             and bool(program_proof.get("ok"))
         )
 
-        # Spot-check that a live succession run advertises loop_engine.
+        # Spot-check live succession + program advertise loop_engine ownership.
         stew = scratch / "stew"
         stew.mkdir()
         uf._proof_target(
@@ -875,6 +875,25 @@ def builtin_loop_engine_proof() -> dict[str, Any]:
             out_root=scratch / "live-succ",
         )
         live_flag = live.get("loop_engine") is True and live.get("loop_dialect") == "succession"
+
+        live_prog = up.run_program(
+            stewardship_root=stew,
+            portfolio=None,
+            max_successions=1,
+            max_epochs_per_succession=1,
+            max_waves_per_epoch=1,
+            per_wave_dispatch_limit=1,
+            dispatch_budget=1,
+            dispatch=True,
+            campaign_runner=us._proof_campaign_runner(scratch / "live-prog"),
+            program_goal="none",
+            mandate_goal="none",
+            out_root=scratch / "live-prog",
+        )
+        live_program_flag = (
+            live_prog.get("loop_engine") is True
+            and live_prog.get("loop_dialect") == "program"
+        )
 
         # LOC evidence: prior tower was three large modules; engine is the shared core.
         engine_path = Path(__file__).resolve()
@@ -917,8 +936,13 @@ def builtin_loop_engine_proof() -> dict[str, Any]:
         except Exception:  # noqa: BLE001
             ledger_ok = False
 
-        # done_when: engine owns succession+epoch control flow; program nests
-        # into that stack (resume/charter/ROI remain program-dialect hooks).
+        # Full-stack ownership: program + succession + epoch control flow.
+        full_stack_owned = (
+            program_uses_engine and succession_uses_engine and epoch_uses_engine
+        )
+
+        # done_when: engine owns program+succession+epoch control flow;
+        # dialect modules keep only hooks (expand/ROI/resume/coverage).
         ok = all(
             [
                 dialects_ok,
@@ -927,8 +951,10 @@ def builtin_loop_engine_proof() -> dict[str, Any]:
                 tamper_ok,
                 succession_uses_engine,
                 epoch_uses_engine,
-                program_nested or program_uses_engine,
+                program_uses_engine,
+                full_stack_owned,
                 live_flag,
+                live_program_flag,
                 live_proofs_ok,
                 ledger_ok,
                 not legacy_pipeline_was_used(),
@@ -947,7 +973,9 @@ def builtin_loop_engine_proof() -> dict[str, Any]:
             "epoch_loop_engine": epoch_uses_engine,
             "program_loop_engine": program_uses_engine,
             "program_loop_engine_nested": program_nested,
+            "full_stack_owned": full_stack_owned,
             "live_succession_flag": live_flag,
+            "live_program_flag": live_program_flag,
             "succession_proof_ok": bool(succ_proof.get("ok")),
             "epoch_proof_ok": bool(epoch_proof.get("ok")),
             "program_proof_ok": bool(program_proof.get("ok")),
