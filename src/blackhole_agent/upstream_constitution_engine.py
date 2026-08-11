@@ -1,4 +1,3 @@
-
 """Generic multi-child durable stewardship constitution engine.
 
 Collapses the continuum copy-paste tower (continuum..quettacontinuum) into one
@@ -30,6 +29,23 @@ from blackhole_agent.durable_state import durable_read_path
 SCHEMA_VERSION = 1
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TERMINAL_SUCCESS_OUTCOMES = frozenset({"impact_released", "impact_merged"})
+
+# Outer continuum tower as data (parent -> child). Order is outer-first.
+# New SI-scale layers are one row here, not a new ~2800-line module.
+CONTINUUM_STACK: tuple[tuple[str, str], ...] = (
+    ("quettacontinuum", "ronnacontinuum"),
+    ("ronnacontinuum", "yottacontinuum"),
+    ("yottacontinuum", "zettacontinuum"),
+    ("zettacontinuum", "exacontinuum"),
+    ("exacontinuum", "petacontinuum"),
+    ("petacontinuum", "teracontinuum"),
+    ("teracontinuum", "gigacontinuum"),
+    ("gigacontinuum", "megacontinuum"),
+    ("megacontinuum", "ultracontinuum"),
+    ("ultracontinuum", "hypercontinuum"),
+    ("hypercontinuum", "continuum"),
+    ("continuum", "omniverse"),
+)
 
 
 class ConstitutionRefused(Exception):
@@ -102,6 +118,49 @@ class ConstitutionLayer:
     @property
     def slot_kind(self) -> str:
         return self.kind_default or f"stewardship_{self.child}"
+
+
+CONTINUUM_LAYERS: dict[str, ConstitutionLayer] = {
+    name: ConstitutionLayer(
+        name=name,
+        child=child,
+        artifacts_relative=f"artifacts/upstream-{name}",
+    )
+    for name, child in CONTINUUM_STACK
+}
+
+
+def get_continuum_layer(name: str) -> ConstitutionLayer:
+    """Return a registered continuum tower layer by self noun."""
+    key = str(name or "").strip()
+    if key not in CONTINUUM_LAYERS:
+        raise ConstitutionRefused(
+            "constitution_unknown_layer",
+            f"unknown continuum layer {name!r}; known={sorted(CONTINUUM_LAYERS)}",
+        )
+    return CONTINUUM_LAYERS[key]
+
+
+def list_continuum_layers() -> list[str]:
+    """Outer-first continuum layer names registered as data."""
+    return [name for name, _child in CONTINUUM_STACK]
+
+
+def run_continuum_layer(
+    name: str,
+    *,
+    charter: Sequence[Mapping[str, Any]] | None = None,
+    child_runner: Callable[..., dict[str, Any]] | None = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Run one registered continuum layer through the shared constitution engine.
+
+    When ``child_runner`` is omitted, a hermetic fast child is used so the
+    layer can be exercised without pulling the full nested legacy tower.
+    """
+    layer = get_continuum_layer(name)
+    runner = child_runner or _fast_child_runner(layer)
+    return run_constitution(layer, charter=charter, child_runner=runner, **kwargs)
 
 
 def _sha256_bytes(data: bytes) -> str:
@@ -1153,7 +1212,15 @@ def run_constitution(
             "out_root": out_dir,
         }
         if selected.get("max_active_children") is not None:
-            child_kwargs["max_active_children"] = int(selected["max_active_children"])
+            mac = int(selected["max_active_children"])
+            child_kwargs["max_active_children"] = mac
+            # Legacy continuum runners use max_active_{grandchild}s nouns.
+            child_kwargs[f"max_active_{layer.child}s"] = mac
+            # Grandchild of this child is often the nested max_active target.
+            for name, child in CONTINUUM_STACK:
+                if name == layer.child:
+                    child_kwargs[f"max_active_{child}s"] = mac
+                    break
         if child_resume is not None:
             child_kwargs["resume_dir"] = child_resume
             # Keep charter/inventory on reopen so terminal_coverage re-runs can
@@ -2024,6 +2091,84 @@ def _legacy_quetta_parity(scratch: Path) -> dict[str, Any]:
     }
 
 
+def _continuum_tower_as_data_proof(scratch: Path) -> dict[str, Any]:
+    """Prove every continuum tower layer is invocable as registered data only."""
+    names = list_continuum_layers()
+    if len(names) < 8:
+        return {"ok": False, "detail": "stack too short", "layers": names}
+    layer_results: list[dict[str, Any]] = []
+    for idx, name in enumerate(names):
+        layer = get_continuum_layer(name)
+        # Each layer must resolve child from CONTINUUM_STACK without new modules.
+        expected_child = dict(CONTINUUM_STACK)[name]
+        if layer.child != expected_child:
+            layer_results.append(
+                {
+                    "layer": name,
+                    "ok": False,
+                    "detail": f"child mismatch {layer.child}!={expected_child}",
+                }
+            )
+            continue
+        result = run_continuum_layer(
+            name,
+            charter=[
+                _slot(layer, "a", priority=2, keys=[(f"{name[:2]}a", "1.0.0", f"{name}-a")]),
+                _slot(layer, "b", priority=1, keys=[(f"{name[:2]}b", "1.0.0", f"{name}-b")]),
+            ],
+            max_rounds=4,
+            dispatch=True,
+            goal=layer.all_children_met_goal,
+            constitution_id=f"tower-{idx}",
+            out_root=scratch / f"L{idx}",
+        )
+        sealed = verify_receipt(layer, Path(result[f"{layer.name}_dir"]))
+        ok = bool(
+            result.get("ok")
+            and result.get(layer.self_met_field)
+            and result.get(f"{layer.plural}_met_count") == 2
+            and sealed.get("ok")
+            and (result.get("layer") or {}).get("name") == name
+            and (result.get("layer") or {}).get("child") == expected_child
+            and not result.get("used_skill_route_discovery")
+        )
+        layer_results.append(
+            {
+                "layer": name,
+                "child": expected_child,
+                "ok": ok,
+                "stop_reason": result.get("stop_reason"),
+                "met_count": result.get(f"{layer.plural}_met_count"),
+                "seal_ok": bool(sealed.get("ok")),
+            }
+        )
+
+    # Unknown layer must refuse without inventing a module.
+    unknown_refused = False
+    try:
+        get_continuum_layer("not-a-real-layer")
+    except ConstitutionRefused as exc:
+        unknown_refused = exc.verdict == "constitution_unknown_layer"
+
+    # Outer-first order is stable and includes quetta + continuum ends.
+    order_ok = (
+        names[0] == "quettacontinuum"
+        and names[-1] == "continuum"
+        and "ronnacontinuum" in names
+        and "hypercontinuum" in names
+    )
+    all_layers_ok = all(item.get("ok") for item in layer_results)
+    ok = all_layers_ok and unknown_refused and order_ok and not legacy_pipeline_was_used()
+    return {
+        "ok": ok,
+        "layer_count": len(layer_results),
+        "layers": layer_results,
+        "unknown_refused": unknown_refused,
+        "order_ok": order_ok,
+        "names": names,
+    }
+
+
 def builtin_constitution_engine_proof() -> dict[str, Any]:
     """Hermetic proof that multi-child constitutions are data, not copy-paste modules."""
     scratch = _proof_scratch()
@@ -2266,6 +2411,12 @@ def builtin_constitution_engine_proof() -> dict[str, Any]:
         parity = _legacy_quetta_parity(scratch / "parity")
         flags["legacy_quetta_parity"] = bool(parity.get("ok"))
         flags["legacy_quetta_parity_detail"] = parity
+
+        # Entire continuum tower is data: every registered layer runs through
+        # the same engine without a per-layer code path.
+        tower = _continuum_tower_as_data_proof(scratch / "tower")
+        flags["continuum_tower_as_data"] = bool(tower.get("ok"))
+        flags["continuum_tower_detail"] = tower
         flags["used_skill_route_discovery"] = legacy_pipeline_was_used()
 
         required = (
@@ -2285,6 +2436,7 @@ def builtin_constitution_engine_proof() -> dict[str, Any]:
             "roi_scored",
             "second_layer_data_only",
             "legacy_quetta_parity",
+            "continuum_tower_as_data",
         )
         ok = all(bool(flags[k]) for k in required) and not flags[
             "used_skill_route_discovery"
@@ -2294,6 +2446,7 @@ def builtin_constitution_engine_proof() -> dict[str, Any]:
             "action": "constitution_engine_proof",
             "flags": flags,
             "used_skill_route_discovery": flags["used_skill_route_discovery"],
+            "continuum_layers": list_continuum_layers(),
             **{k: flags[k] for k in required},
         }
     finally:

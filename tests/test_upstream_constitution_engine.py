@@ -24,7 +24,20 @@ def test_builtin_proof_green() -> None:
     assert result["roi_scored"]
     assert result["second_layer_data_only"]
     assert result["legacy_quetta_parity"]
+    assert result["continuum_tower_as_data"]
     assert not result["used_skill_route_discovery"]
+    assert "quettacontinuum" in (result.get("continuum_layers") or [])
+    assert "continuum" in (result.get("continuum_layers") or [])
+
+
+def test_continuum_stack_registered_as_data() -> None:
+    names = ce.list_continuum_layers()
+    assert names[0] == "quettacontinuum"
+    assert names[-1] == "continuum"
+    assert len(names) == len(ce.CONTINUUM_STACK)
+    quetta = ce.get_continuum_layer("quettacontinuum")
+    assert quetta.child == "ronnacontinuum"
+    assert quetta.all_children_met_goal == "all_ronnacontinuums_met"
 
 
 def test_normalize_charter_dedupes_and_requires_work() -> None:
