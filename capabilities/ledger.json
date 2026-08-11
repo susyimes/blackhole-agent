@@ -3826,6 +3826,47 @@
       ],
       "updated_at": "2026-08-09T17:14:01.428693Z"
     },
+    "capability.upstream-constitution-engine": {
+      "behavior_paths": [
+        "src/blackhole_agent/upstream_constitution_engine.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Multi-child durable stewardship constitutions are data (noun pairs + child runner), not per-layer 2800-line clones: one engine admits/schedules/federates/retires/expands/resumes/seals any continuum layer, defines new outer layers without copy-paste, and proves behavioral parity with legacy quettacontinuum under injected runners without skill-route.",
+      "created_at": "2026-08-11T14:31:51.032723Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.plane-engine",
+        "capability.upstream-quettacontinuum"
+      ],
+      "description": "Collapses the continuum copy-paste tower into one noun-parameterized engine. A ConstitutionLayer (self/child nouns) + child runner implements admit/schedule/federate/retire/expand/persist/seal/terminal_coverage/resume without a new 2800-line module. Proves behavioral parity with legacy quettacontinuum under injected runners. No skill-route discovery.",
+      "entry": "blackhole_agent.upstream_constitution_engine:builtin_constitution_engine_proof",
+      "id": "capability.upstream-constitution-engine",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-11T14:31:51.032703Z",
+      "name": "Upstream constitution engine (generic multi-child durable stewardship)",
+      "proof_command": "uv run python -m blackhole_agent.upstream_constitution_engine --proof",
+      "source_milestone": 1,
+      "source_mission_id": "20260811T141540Z-fba14670",
+      "tags": [
+        "bootstrap",
+        "compounder",
+        "upstream",
+        "constitution",
+        "engine",
+        "generic",
+        "federation",
+        "durable",
+        "closed-loop",
+        "charter-expand",
+        "terminal-coverage",
+        "deferred-admission",
+        "budget",
+        "quettacontinuum"
+      ],
+      "updated_at": "2026-08-11T14:31:51.032723Z"
+    },
     "capability.upstream-continuum": {
       "behavior_paths": [
         "src/blackhole_agent/upstream_continuum.py",
@@ -5925,5 +5966,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-08-11T13:44:56.522202Z"
+  "updated_at": "2026-08-11T14:31:51.032915Z"
 }
