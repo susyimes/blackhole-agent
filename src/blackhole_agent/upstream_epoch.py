@@ -45,6 +45,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
 from blackhole_agent import upstream_fleet as uf
+from blackhole_agent import upstream_loop_engine as le
 from blackhole_agent.capability_compounder import (
     atomic_write_json,
     legacy_pipeline_was_used,
@@ -53,6 +54,10 @@ from blackhole_agent.capability_compounder import (
 from blackhole_agent.durable_state import durable_read_path
 
 SCHEMA_VERSION = 1
+
+# Owned by the multi-round durable loop engine (not a copy-paste tower).
+LOOP_ENGINE = True
+LOOP_DIALECT = "epoch"
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS_ROOT = REPO_ROOT / "artifacts" / "upstream-epoch"
@@ -350,6 +355,10 @@ def run_epoch(
 ) -> dict[str, Any]:
     """Run a multi-wave closed-loop fleet epoch and seal the receipt.
 
+    Control flow is owned by :mod:`blackhole_agent.upstream_loop_engine`;
+    this module supplies epoch-dialect hooks (fleet feedback, campaignable
+    progress, receipt schema) only.
+
     Parameters
     ----------
     max_waves:
@@ -375,267 +384,256 @@ def run_epoch(
     if per_wave_dispatch_limit < 0:
         raise EpochRefused("epoch_invalid", "per_wave_dispatch_limit must be >= 0")
 
+    dialect = le.get_loop_dialect("epoch")
     runner = fleet_runner or uf.plan_fleet
     feedback = feedback_runner or (
         lambda port, disps, **kw: default_dispatch_feedback(
             port,
             disps,
-            post_dispatch_outcome=kw.get("post_dispatch_outcome", post_dispatch_outcome),
+            post_dispatch_outcome=kw.get(
+                "post_dispatch_outcome", post_dispatch_outcome
+            ),
         )
     )
 
-    # Resolve starting portfolio (may be None → inventory-only ranking).
-    current_portfolio: dict[str, Any] | None = None
-    portfolio_source = "none"
-    if portfolio is not None:
-        current_portfolio = dict(portfolio)
-        portfolio_source = "injected"
-    elif portfolio_dir is not None:
-        path = durable_read_path(Path(portfolio_dir) / "portfolio.json")
-        if not path.is_file():
-            raise EpochRefused("portfolio_missing", f"no portfolio.json under {portfolio_dir}")
-        current_portfolio = json.loads(path.read_text(encoding="utf-8"))
-        portfolio_source = "dir"
-
-    portfolio_start_digest = (
-        current_portfolio.get("portfolio_digest") if current_portfolio else None
-    )
-    if current_portfolio and not portfolio_start_digest:
-        portfolio_start_digest = _recompute_portfolio_digest(current_portfolio)
-        current_portfolio["portfolio_digest"] = portfolio_start_digest
-
-    root = Path(out_root) if out_root else ARTIFACTS_ROOT
-    stamp = utc_now_iso().replace(":", "").replace("-", "")
-    epoch_dir = root / stamp
-    epoch_dir.mkdir(parents=True, exist_ok=True)
-    wave_fleet_root = Path(fleet_out_root) if fleet_out_root else (epoch_dir / "waves")
-
-    waves: list[dict[str, Any]] = []
-    wave_digests: list[str] = []
-    total_dispatched = 0
-    total_dispatched_ok = 0
-    stop_reason = "max_waves"
-    no_progress_streak = 0
-    prev_campaignable_digest: str | None = None
-
-    for wave_index in range(max_waves):
-        portfolio_before = (
-            current_portfolio.get("portfolio_digest") if current_portfolio else None
+    def extract_dispatched(result: dict[str, Any]) -> tuple[int, int]:
+        return (
+            int(result.get("dispatched_count") or 0),
+            int(result.get("dispatched_ok") or 0),
         )
 
-        remaining_budget = None
-        if dispatch_budget is not None:
-            remaining_budget = max(0, int(dispatch_budget) - total_dispatched)
-            if dispatch and remaining_budget <= 0:
-                stop_reason = "dispatch_budget"
-                break
-
+    def build_child_kwargs(state: le.LoopState, round_index: int) -> dict[str, Any]:
+        remaining = None
+        if state.dispatch_budget is not None:
+            remaining = max(0, int(state.dispatch_budget) - state.total_dispatched)
         wave_limit = per_wave_dispatch_limit
-        if remaining_budget is not None:
-            wave_limit = min(wave_limit, remaining_budget)
+        if remaining is not None:
+            wave_limit = min(wave_limit, remaining)
+        kwargs: dict[str, Any] = {
+            "stewardship_root": stewardship_root,
+            "portfolio": state.portfolio,
+            "dispatch": bool(dispatch) and wave_limit > 0,
+            "dispatch_limit": wave_limit,
+            "assess_portfolio": (
+                assess_portfolio
+                and round_index == 0
+                and state.portfolio is None
+            ),
+            "out_root": state.child_root / f"wave-{round_index:02d}",
+        }
+        if campaign_runner is not None:
+            kwargs["campaign_runner"] = campaign_runner
+        if portfolio_runner is not None:
+            kwargs["portfolio_runner"] = portfolio_runner
+        return kwargs
 
-        try:
-            fleet_kwargs: dict[str, Any] = {
-                "stewardship_root": stewardship_root,
-                "portfolio": current_portfolio,
-                "dispatch": bool(dispatch) and wave_limit > 0,
-                "dispatch_limit": wave_limit,
-                "assess_portfolio": assess_portfolio and wave_index == 0 and current_portfolio is None,
-                "out_root": wave_fleet_root / f"wave-{wave_index:02d}",
-            }
-            if campaign_runner is not None:
-                fleet_kwargs["campaign_runner"] = campaign_runner
-            if portfolio_runner is not None:
-                fleet_kwargs["portfolio_runner"] = portfolio_runner
-            fleet_result = runner(**fleet_kwargs)
-        except uf.FleetRefused as exc:
-            if wave_index == 0:
-                raise EpochRefused(exc.verdict, exc.detail) from exc
-            stop_reason = f"fleet_refused:{exc.verdict}"
-            break
-
-        plan_actions = []
+    def on_child_result(
+        state: le.LoopState, round_index: int, fleet_result: dict[str, Any]
+    ) -> dict[str, Any]:
+        portfolio_before = (
+            state.portfolio.get("portfolio_digest") if state.portfolio else None
+        )
+        plan_actions: list[Any] = []
         plan_dir = fleet_result.get("plan_dir")
         if plan_dir and (Path(plan_dir) / "plan.json").is_file():
-            plan = json.loads((Path(plan_dir) / "plan.json").read_text(encoding="utf-8"))
+            plan = json.loads(
+                (Path(plan_dir) / "plan.json").read_text(encoding="utf-8")
+            )
             plan_actions = list(plan.get("actions") or [])
         camp_digest = _campaignable_set_digest(plan_actions)
 
         dispatches = list(fleet_result.get("dispatches") or [])
-        dispatched_n = int(fleet_result.get("dispatched_count") or 0)
-        dispatched_ok = int(fleet_result.get("dispatched_ok") or 0)
-        total_dispatched += dispatched_n
-        total_dispatched_ok += dispatched_ok
         campaignable_count = int(fleet_result.get("campaignable_count") or 0)
+        state.extras["last_campaignable_count"] = campaignable_count
+        state.extras["last_campaignable_digest"] = camp_digest
 
-        # Feedback: fold successful dispatches into portfolio world-model.
         feedback_applied: list[dict[str, Any]] = []
         if dispatches:
             updated = feedback(
-                current_portfolio,
+                state.portfolio,
                 dispatches,
                 post_dispatch_outcome=post_dispatch_outcome,
             )
             if isinstance(updated, Mapping):
-                current_portfolio = dict(updated)
-                feedback_applied = list(current_portfolio.pop("feedback_applied", []) or [])
-                # Keep feedback_applied only on the wave record, not necessarily
-                # on the rolling portfolio (re-attach counts/digest only).
-                if "portfolio_digest" not in current_portfolio:
-                    current_portfolio["portfolio_digest"] = _recompute_portfolio_digest(
-                        current_portfolio
+                state.portfolio = dict(updated)
+                feedback_applied = list(
+                    state.portfolio.pop("feedback_applied", []) or []
+                )
+                if "portfolio_digest" not in state.portfolio:
+                    state.portfolio["portfolio_digest"] = _recompute_portfolio_digest(
+                        state.portfolio
                     )
 
         portfolio_after = (
-            current_portfolio.get("portfolio_digest") if current_portfolio else None
+            state.portfolio.get("portfolio_digest") if state.portfolio else None
         )
+        if fleet_result.get("fleet_digest"):
+            state.child_digests.append(str(fleet_result["fleet_digest"]))
 
-        wave = _wave_record(
-            wave_index=wave_index,
+        # Track no-progress dialect state (not simple idle).
+        prev = state.extras.get("prev_campaignable_digest")
+        portfolio_changed = portfolio_before != portfolio_after
+        set_changed = prev is not None and camp_digest != prev
+        advanced = bool(portfolio_changed or set_changed)
+        if advanced:
+            state.extras["no_progress_streak"] = 0
+        else:
+            state.extras["no_progress_streak"] = int(
+                state.extras.get("no_progress_streak") or 0
+            ) + 1
+        state.extras["prev_campaignable_digest"] = camp_digest
+
+        return _wave_record(
+            wave_index=round_index,
             fleet_result=fleet_result,
             portfolio_before_digest=portfolio_before,
             portfolio_after_digest=portfolio_after,
             feedback_applied=feedback_applied,
             campaignable_digest=camp_digest,
         )
-        waves.append(wave)
-        if fleet_result.get("fleet_digest"):
-            wave_digests.append(str(fleet_result["fleet_digest"]))
 
-        # Custom stop predicate.
+    def post_round_stop(
+        state: le.LoopState, round_index: int, fleet_result: dict[str, Any]
+    ) -> str | None:
         if stop_when is not None:
-            reason = stop_when({
-                "wave_index": wave_index,
-                "fleet_result": fleet_result,
-                "portfolio": current_portfolio,
-                "waves": waves,
-                "total_dispatched": total_dispatched,
-                "total_dispatched_ok": total_dispatched_ok,
-            })
+            reason = stop_when(
+                {
+                    "wave_index": round_index,
+                    "fleet_result": fleet_result,
+                    "portfolio": state.portfolio,
+                    "waves": state.records,
+                    "total_dispatched": state.total_dispatched,
+                    "total_dispatched_ok": state.total_dispatched_ok,
+                }
+            )
             if reason:
-                stop_reason = str(reason)
-                break
-
-        # Idle: nothing campaignable.
+                return str(reason)
+        campaignable_count = int(state.extras.get("last_campaignable_count") or 0)
         if campaignable_count == 0:
-            stop_reason = "epoch_idle"
-            break
-
-        # Progress = world-model or remaining-work change, not mere dispatch
-        # thrashing (re-running the same campaignable set without feedback).
+            return "epoch_idle"
         if not dispatch:
-            stop_reason = "rank_only"
-            break
+            return dialect.rank_only_stop_reason
+        streak = int(state.extras.get("no_progress_streak") or 0)
+        if streak >= no_progress_limit:
+            return "no_progress"
+        return None
 
-        portfolio_changed = portfolio_before != portfolio_after
-        set_changed = (
-            prev_campaignable_digest is not None
-            and camp_digest != prev_campaignable_digest
+    def is_idle(
+        state: le.LoopState, round_index: int, fleet_result: dict[str, Any]
+    ) -> bool:
+        # Epoch uses campaignable idle / no_progress via post_round_stop, not
+        # the engine's generic dispatch-zero idle streak.
+        return False
+
+    def classify(state: le.LoopState) -> tuple[bool, str]:
+        if not state.records:
+            return False, "epoch_empty"
+        if state.total_dispatched_ok > 0:
+            return True, "epoch_progressed"
+        if any(int(w.get("campaignable_count") or 0) == 0 for w in state.records):
+            if state.stop_reason == "epoch_idle" and state.total_dispatched == 0:
+                return True, "epoch_idle"
+            if state.stop_reason == dialect.rank_only_stop_reason:
+                return True, "epoch_ranked"
+            return True, "epoch_no_progress"
+        if state.stop_reason == dialect.rank_only_stop_reason:
+            return True, "epoch_ranked"
+        if state.stop_reason == "no_progress":
+            return True, "epoch_no_progress"
+        return True, "epoch_completed"
+
+    def seal(state: le.LoopState) -> dict[str, Any]:
+        portfolio_end_digest = (
+            state.portfolio.get("portfolio_digest") if state.portfolio else None
         )
-        advanced = bool(portfolio_changed or set_changed)
-        if advanced:
-            no_progress_streak = 0
-        else:
-            no_progress_streak += 1
-            if no_progress_streak >= no_progress_limit:
-                stop_reason = "no_progress"
-                break
-
-        if dispatch_budget is not None and total_dispatched >= int(dispatch_budget):
-            stop_reason = "dispatch_budget"
-            break
-
-        prev_campaignable_digest = camp_digest
-    else:
-        # for-else: completed without break → max_waves
-        stop_reason = "max_waves"
-
-    portfolio_end_digest = (
-        current_portfolio.get("portfolio_digest") if current_portfolio else None
-    )
-
-    # Verdict
-    if not waves:
-        verdict = "epoch_empty"
-        ok = False
-    elif total_dispatched_ok > 0:
-        verdict = "epoch_progressed"
-        ok = True
-    elif any(int(w.get("campaignable_count") or 0) == 0 for w in waves) and waves:
-        # Started or ended idle without dispatches.
-        if stop_reason == "epoch_idle" and total_dispatched == 0:
-            verdict = "epoch_idle"
-            ok = True
-        elif stop_reason == "rank_only":
-            verdict = "epoch_ranked"
-            ok = True
-        else:
-            verdict = "epoch_no_progress"
-            ok = True
-    elif stop_reason == "rank_only":
-        verdict = "epoch_ranked"
-        ok = True
-    elif stop_reason == "no_progress":
-        verdict = "epoch_no_progress"
-        ok = True
-    else:
-        verdict = "epoch_completed"
-        ok = True
-
-    receipt: dict[str, Any] = {
-        "schema_version": SCHEMA_VERSION,
-        "created_at": utc_now_iso(),
-        "ok": ok,
-        "verdict": verdict,
-        "stop_reason": stop_reason,
-        "max_waves": max_waves,
-        "per_wave_dispatch_limit": per_wave_dispatch_limit,
-        "dispatch_budget": dispatch_budget,
-        "dispatch_enabled": bool(dispatch),
-        "portfolio_source": portfolio_source,
-        "portfolio_start_digest": portfolio_start_digest,
-        "portfolio_end_digest": portfolio_end_digest,
-        "portfolio_final": current_portfolio,
-        "wave_count": len(waves),
-        "waves": waves,
-        "wave_digests": wave_digests,
-        "total_dispatched": total_dispatched,
-        "total_dispatched_ok": total_dispatched_ok,
-        "used_skill_route_discovery": legacy_pipeline_was_used(),
-    }
-    receipt["epoch_digest"] = _sha256_json(_epoch_digest_payload(receipt))
-    atomic_write_json(epoch_dir / "epoch.json", receipt)
-    atomic_write_json(
-        epoch_dir / "summary.json",
-        {
+        receipt: dict[str, Any] = {
+            "schema_version": SCHEMA_VERSION,
+            "created_at": utc_now_iso(),
+            "ok": state.extras.get("ok"),
+            "verdict": state.extras.get("verdict"),
+            "stop_reason": state.stop_reason,
+            "max_waves": max_waves,
+            "per_wave_dispatch_limit": per_wave_dispatch_limit,
+            "dispatch_budget": dispatch_budget,
+            "dispatch_enabled": bool(dispatch),
+            "portfolio_source": state.portfolio_source,
+            "portfolio_start_digest": state.portfolio_start_digest,
+            "portfolio_end_digest": portfolio_end_digest,
+            "portfolio_final": state.portfolio,
+            "wave_count": len(state.records),
+            "waves": state.records,
+            "wave_digests": list(state.child_digests),
+            "total_dispatched": state.total_dispatched,
+            "total_dispatched_ok": state.total_dispatched_ok,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "loop_engine": True,
+            "loop_dialect": dialect.name,
+        }
+        receipt["epoch_digest"] = _sha256_json(_epoch_digest_payload(receipt))
+        atomic_write_json(state.loop_dir / "epoch.json", receipt)
+        atomic_write_json(
+            state.loop_dir / "summary.json",
+            {
+                "verdict": receipt["verdict"],
+                "ok": receipt["ok"],
+                "stop_reason": receipt["stop_reason"],
+                "wave_count": receipt["wave_count"],
+                "total_dispatched": receipt["total_dispatched"],
+                "total_dispatched_ok": receipt["total_dispatched_ok"],
+                "portfolio_start_digest": receipt["portfolio_start_digest"],
+                "portfolio_end_digest": receipt["portfolio_end_digest"],
+                "epoch_digest": receipt["epoch_digest"],
+            },
+        )
+        return {
+            "ok": bool(receipt["ok"]),
             "verdict": receipt["verdict"],
-            "ok": receipt["ok"],
             "stop_reason": receipt["stop_reason"],
-            "wave_count": receipt["wave_count"],
-            "total_dispatched": receipt["total_dispatched"],
-            "total_dispatched_ok": receipt["total_dispatched_ok"],
-            "portfolio_start_digest": receipt["portfolio_start_digest"],
-            "portfolio_end_digest": receipt["portfolio_end_digest"],
+            "epoch_dir": str(state.loop_dir),
             "epoch_digest": receipt["epoch_digest"],
-        },
-    )
+            "wave_count": len(state.records),
+            "wave_digests": list(state.child_digests),
+            "total_dispatched": state.total_dispatched,
+            "total_dispatched_ok": state.total_dispatched_ok,
+            "portfolio_start_digest": state.portfolio_start_digest,
+            "portfolio_end_digest": portfolio_end_digest,
+            "portfolio_source": state.portfolio_source,
+            "waves": state.records,
+            "used_skill_route_discovery": receipt["used_skill_route_discovery"],
+            "loop_engine": True,
+            "loop_dialect": dialect.name,
+        }
 
-    return {
-        "ok": ok,
-        "verdict": verdict,
-        "stop_reason": stop_reason,
-        "epoch_dir": str(epoch_dir),
-        "epoch_digest": receipt["epoch_digest"],
-        "wave_count": len(waves),
-        "wave_digests": wave_digests,
-        "total_dispatched": total_dispatched,
-        "total_dispatched_ok": total_dispatched_ok,
-        "portfolio_start_digest": portfolio_start_digest,
-        "portfolio_end_digest": portfolio_end_digest,
-        "portfolio_source": portfolio_source,
-        "waves": waves,
-        "used_skill_route_discovery": receipt["used_skill_route_discovery"],
-    }
+    def wrap_refuse(exc: BaseException) -> BaseException:
+        verdict = getattr(exc, "verdict", "refused")
+        detail = getattr(exc, "detail", str(exc))
+        return EpochRefused(str(verdict), str(detail))
+
+    try:
+        return le.run_durable_loop(
+            dialect,
+            max_rounds=max_waves,
+            dispatch=dispatch,
+            dispatch_budget=dispatch_budget,
+            idle_limit=max(1, no_progress_limit),
+            portfolio=portfolio,
+            portfolio_dir=portfolio_dir,
+            out_root=out_root,
+            child_out_root=fleet_out_root,
+            child_runner=runner,
+            build_child_kwargs=build_child_kwargs,
+            on_child_result=on_child_result,
+            post_round_stop=post_round_stop,
+            is_idle_round=is_idle,
+            classify_verdict=classify,
+            seal=seal,
+            extract_dispatched=extract_dispatched,
+            recompute_digest=_recompute_portfolio_digest,
+            refuse_on_first=(uf.FleetRefused,),
+            wrap_refuse=wrap_refuse,
+        )
+    except le.LoopRefused as exc:
+        raise EpochRefused(exc.verdict, exc.detail) from exc
 
 
 # ---------------------------------------------------------------------------

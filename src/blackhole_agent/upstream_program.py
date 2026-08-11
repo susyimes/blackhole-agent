@@ -66,6 +66,12 @@ from blackhole_agent.durable_state import durable_read_path
 
 SCHEMA_VERSION = 1
 
+# Program still owns resume/charter/ROI dialect hooks; its child succession and
+# grandchild epoch rounds run through upstream_loop_engine (nested ownership).
+LOOP_ENGINE = False
+LOOP_ENGINE_NESTED = True
+LOOP_DIALECT = "program"
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS_ROOT = REPO_ROOT / "artifacts" / "upstream-program"
 

@@ -50,6 +50,7 @@ from typing import Any, Callable, Mapping, Sequence
 
 from blackhole_agent import upstream_epoch as ue
 from blackhole_agent import upstream_fleet as uf
+from blackhole_agent import upstream_loop_engine as le
 from blackhole_agent.capability_compounder import (
     atomic_write_json,
     legacy_pipeline_was_used,
@@ -58,6 +59,10 @@ from blackhole_agent.capability_compounder import (
 from blackhole_agent.durable_state import durable_read_path
 
 SCHEMA_VERSION = 1
+
+# Owned by the multi-round durable loop engine (not a copy-paste tower).
+LOOP_ENGINE = True
+LOOP_DIALECT = "succession"
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS_ROOT = REPO_ROOT / "artifacts" / "upstream-succession"
@@ -419,6 +424,10 @@ def run_succession(
 ) -> dict[str, Any]:
     """Run a multi-epoch succession mandate and seal the receipt.
 
+    Control flow is owned by :mod:`blackhole_agent.upstream_loop_engine`;
+    this module supplies succession-dialect hooks (mandate coverage, impact
+    refresh, receipt schema) only.
+
     Parameters
     ----------
     max_epochs:
@@ -446,6 +455,7 @@ def run_succession(
             "succession_invalid", "per_wave_dispatch_limit must be >= 0"
         )
 
+    dialect = le.get_loop_dialect("succession")
     runner = epoch_runner or ue.run_epoch
     refresh = impact_refresh_runner or (
         lambda port, **kw: default_impact_refresh(
@@ -455,120 +465,51 @@ def run_succession(
         )
     )
 
-    current_portfolio: dict[str, Any] | None = None
-    portfolio_source = "none"
-    if portfolio is not None:
-        current_portfolio = dict(portfolio)
-        portfolio_source = "injected"
-    elif portfolio_dir is not None:
-        path = durable_read_path(Path(portfolio_dir) / "portfolio.json")
-        if not path.is_file():
-            raise SuccessionRefused(
-                "portfolio_missing", f"no portfolio.json under {portfolio_dir}"
-            )
-        current_portfolio = json.loads(path.read_text(encoding="utf-8"))
-        portfolio_source = "dir"
-
-    portfolio_start_digest = (
-        current_portfolio.get("portfolio_digest") if current_portfolio else None
-    )
-    if current_portfolio and not portfolio_start_digest:
-        portfolio_start_digest = _recompute_portfolio_digest(current_portfolio)
-        current_portfolio["portfolio_digest"] = portfolio_start_digest
-
     # Freeze required keys at succession start so mid-mandate inventory
     # mutations do not move the goalposts mid-proof.
     required_keys = inventory_defect_keys(stewardship_root)
 
-    root = Path(out_root) if out_root else ARTIFACTS_ROOT
-    stamp = utc_now_iso().replace(":", "").replace("-", "")
-    succession_dir = root / stamp
-    succession_dir.mkdir(parents=True, exist_ok=True)
-    epochs_root = Path(epoch_out_root) if epoch_out_root else (succession_dir / "epochs")
-
-    epochs: list[dict[str, Any]] = []
-    epoch_digests: list[str] = []
-    total_dispatched = 0
-    total_dispatched_ok = 0
-    stop_reason = "max_epochs"
-    idle_streak = 0
-    mandate_met = False
-    coverage_end: dict[str, Any] = mandate_terminal_coverage(
-        current_portfolio,
-        stewardship_root,
-        required_keys=required_keys,
-    )
-
-    for epoch_index in range(max_epochs):
-        portfolio_before = (
-            current_portfolio.get("portfolio_digest") if current_portfolio else None
+    def _coverage(port: Mapping[str, Any] | None) -> dict[str, Any]:
+        return mandate_terminal_coverage(
+            port, stewardship_root, required_keys=required_keys
         )
-        coverage_before = mandate_terminal_coverage(
-            current_portfolio,
-            stewardship_root,
-            required_keys=required_keys,
-        )
-        if mandate_goal == "terminal_coverage" and coverage_before.get("met"):
-            stop_reason = "mandate_met"
-            mandate_met = True
-            coverage_end = coverage_before
-            break
 
-        remaining_budget = None
-        if dispatch_budget is not None:
-            remaining_budget = max(0, int(dispatch_budget) - total_dispatched)
-            if dispatch and remaining_budget <= 0:
-                stop_reason = "dispatch_budget"
-                coverage_end = coverage_before
-                break
-
-        epoch_kwargs: dict[str, Any] = {
+    def build_child_kwargs(state: le.LoopState, round_index: int) -> dict[str, Any]:
+        remaining = None
+        if state.dispatch_budget is not None:
+            remaining = max(0, int(state.dispatch_budget) - state.total_dispatched)
+        kwargs: dict[str, Any] = {
             "stewardship_root": stewardship_root,
-            "portfolio": current_portfolio,
+            "portfolio": state.portfolio,
             "max_waves": max_waves_per_epoch,
             "per_wave_dispatch_limit": per_wave_dispatch_limit,
-            "dispatch_budget": remaining_budget,
+            "dispatch_budget": remaining,
             "no_progress_limit": no_progress_limit,
             "dispatch": bool(dispatch),
-            "out_root": epochs_root / f"epoch-{epoch_index:02d}",
+            "out_root": state.child_root / f"epoch-{round_index:02d}",
         }
         if campaign_runner is not None:
-            epoch_kwargs["campaign_runner"] = campaign_runner
+            kwargs["campaign_runner"] = campaign_runner
         if feedback_runner is not None:
-            epoch_kwargs["feedback_runner"] = feedback_runner
+            kwargs["feedback_runner"] = feedback_runner
+        return kwargs
 
-        try:
-            epoch_result = runner(**epoch_kwargs)
-        except ue.EpochRefused as exc:
-            if epoch_index == 0:
-                raise SuccessionRefused(exc.verdict, exc.detail) from exc
-            stop_reason = f"epoch_refused:{exc.verdict}"
-            coverage_end = coverage_before
-            break
-        except uf.FleetRefused as exc:
-            if epoch_index == 0:
-                raise SuccessionRefused(exc.verdict, exc.detail) from exc
-            stop_reason = f"fleet_refused:{exc.verdict}"
-            coverage_end = coverage_before
-            break
+    def on_child_result(
+        state: le.LoopState, round_index: int, epoch_result: dict[str, Any]
+    ) -> dict[str, Any]:
+        portfolio_before = (
+            state.portfolio.get("portfolio_digest") if state.portfolio else None
+        )
+        coverage_before = _coverage(state.portfolio)
 
-        dispatched_n = int(epoch_result.get("total_dispatched") or 0)
-        dispatched_ok = int(epoch_result.get("total_dispatched_ok") or 0)
-        total_dispatched += dispatched_n
-        total_dispatched_ok += dispatched_ok
-
-        # Pull portfolio_final from epoch receipt when present.
-        after_epoch_portfolio: dict[str, Any] | None = current_portfolio
+        after_epoch_portfolio: dict[str, Any] | None = state.portfolio
         epoch_dir = epoch_result.get("epoch_dir")
         if epoch_dir and (Path(str(epoch_dir)) / "epoch.json").is_file():
-            receipt = json.loads(
+            nested = json.loads(
                 (Path(str(epoch_dir)) / "epoch.json").read_text(encoding="utf-8")
             )
-            if isinstance(receipt.get("portfolio_final"), Mapping):
-                after_epoch_portfolio = dict(receipt["portfolio_final"])
-        elif epoch_result.get("portfolio_end_digest") and current_portfolio:
-            # Runner returned digests only; keep prior portfolio if no file.
-            after_epoch_portfolio = current_portfolio
+            if isinstance(nested.get("portfolio_final"), Mapping):
+                after_epoch_portfolio = dict(nested["portfolio_final"])
 
         portfolio_after_epoch = (
             after_epoch_portfolio.get("portfolio_digest")
@@ -576,37 +517,37 @@ def run_succession(
             else epoch_result.get("portfolio_end_digest")
         )
         if after_epoch_portfolio is not None:
-            current_portfolio = dict(after_epoch_portfolio)
+            state.portfolio = dict(after_epoch_portfolio)
 
-        # Inter-epoch impact refresh (live PR reassessment seam).
         refresh_applied: list[dict[str, Any]] = []
         portfolio_after_refresh = portfolio_after_epoch
-        if current_portfolio is not None:
+        if state.portfolio is not None:
             refreshed = refresh(
-                current_portfolio,
-                epoch_index=epoch_index,
+                state.portfolio,
+                epoch_index=round_index,
                 epoch_result=epoch_result,
             )
             if isinstance(refreshed, Mapping):
-                current_portfolio = dict(refreshed)
+                state.portfolio = dict(refreshed)
                 refresh_applied = list(
-                    current_portfolio.pop("refresh_applied", []) or []
+                    state.portfolio.pop("refresh_applied", []) or []
                 )
-                if "portfolio_digest" not in current_portfolio:
-                    current_portfolio["portfolio_digest"] = _recompute_portfolio_digest(
-                        current_portfolio
+                if "portfolio_digest" not in state.portfolio:
+                    state.portfolio["portfolio_digest"] = _recompute_portfolio_digest(
+                        state.portfolio
                     )
-                portfolio_after_refresh = current_portfolio.get("portfolio_digest")
+                portfolio_after_refresh = state.portfolio.get("portfolio_digest")
 
-        coverage_after = mandate_terminal_coverage(
-            current_portfolio,
-            stewardship_root,
-            required_keys=required_keys,
-        )
-        coverage_end = coverage_after
+        coverage_after = _coverage(state.portfolio)
+        state.extras["coverage_end"] = coverage_after
+        if mandate_goal == "terminal_coverage" and coverage_after.get("met"):
+            state.goal_met = True
 
-        rec = _epoch_record(
-            epoch_index=epoch_index,
+        if epoch_result.get("epoch_digest"):
+            state.child_digests.append(str(epoch_result["epoch_digest"]))
+
+        return _epoch_record(
+            epoch_index=round_index,
             epoch_result=epoch_result,
             portfolio_before_digest=portfolio_before,
             portfolio_after_epoch_digest=portfolio_after_epoch,
@@ -615,168 +556,176 @@ def run_succession(
             coverage_before=coverage_before,
             coverage_after=coverage_after,
         )
-        epochs.append(rec)
-        if epoch_result.get("epoch_digest"):
-            epoch_digests.append(str(epoch_result["epoch_digest"]))
 
-        # Custom stop predicate.
+    def pre_round_stop(state: le.LoopState, round_index: int) -> str | None:
+        coverage = _coverage(state.portfolio)
+        state.extras["coverage_end"] = coverage
+        if mandate_goal == "terminal_coverage" and coverage.get("met"):
+            state.goal_met = True
+            return dialect.goal_stop_reason
+        return None
+
+    def post_round_stop(
+        state: le.LoopState, round_index: int, epoch_result: dict[str, Any]
+    ) -> str | None:
+        coverage = state.extras.get("coverage_end") or _coverage(state.portfolio)
         if stop_when is not None:
-            reason = stop_when({
-                "epoch_index": epoch_index,
-                "epoch_result": epoch_result,
-                "portfolio": current_portfolio,
-                "epochs": epochs,
-                "total_dispatched": total_dispatched,
-                "total_dispatched_ok": total_dispatched_ok,
-                "coverage": coverage_after,
-            })
+            reason = stop_when(
+                {
+                    "epoch_index": round_index,
+                    "epoch_result": epoch_result,
+                    "portfolio": state.portfolio,
+                    "epochs": state.records,
+                    "total_dispatched": state.total_dispatched,
+                    "total_dispatched_ok": state.total_dispatched_ok,
+                    "coverage": coverage,
+                }
+            )
             if reason:
-                stop_reason = str(reason)
-                break
+                return str(reason)
+        if mandate_goal == "terminal_coverage" and coverage.get("met"):
+            state.goal_met = True
+            return dialect.goal_stop_reason
+        return None
 
-        # Mandate goal after refresh.
-        if mandate_goal == "terminal_coverage" and coverage_after.get("met"):
-            stop_reason = "mandate_met"
-            mandate_met = True
-            break
+    def is_idle(
+        state: le.LoopState, round_index: int, epoch_result: dict[str, Any]
+    ) -> bool:
+        return int(epoch_result.get("total_dispatched") or 0) == 0
 
-        # Idle streak: epochs that dispatch nothing while mandate unmet.
-        if dispatched_n == 0:
-            idle_streak += 1
-            if idle_streak >= idle_epoch_limit:
-                # Distinguish true idle fleet vs rank-only mode.
-                if not dispatch:
-                    stop_reason = "rank_only"
-                elif epoch_result.get("stop_reason") == "epoch_idle" or (
-                    epoch_result.get("verdict") == "epoch_idle"
-                ):
-                    stop_reason = "succession_idle"
-                else:
-                    stop_reason = "succession_idle"
-                break
-        else:
-            idle_streak = 0
+    def classify(state: le.LoopState) -> tuple[bool, str]:
+        final_coverage = _coverage(state.portfolio)
+        state.extras["coverage_end"] = final_coverage
+        if mandate_goal == "terminal_coverage" and final_coverage.get("met"):
+            state.goal_met = True
+        if not state.records:
+            if state.goal_met:
+                return True, "succession_mandate_met"
+            return False, "succession_empty"
+        if state.goal_met:
+            return True, "succession_mandate_met"
+        if state.total_dispatched_ok > 0:
+            return True, "succession_progressed"
+        if state.stop_reason == dialect.rank_only_stop_reason:
+            return True, "succession_ranked"
+        if state.stop_reason in {dialect.idle_stop_reason, "epoch_idle"}:
+            return True, "succession_idle"
+        if state.stop_reason == dialect.budget_stop_reason:
+            return True, "succession_budgeted"
+        return True, "succession_completed"
 
-        if dispatch_budget is not None and total_dispatched >= int(dispatch_budget):
-            stop_reason = "dispatch_budget"
-            break
-    else:
-        stop_reason = "max_epochs"
-
-    portfolio_end_digest = (
-        current_portfolio.get("portfolio_digest") if current_portfolio else None
-    )
-    final_coverage = mandate_terminal_coverage(
-        current_portfolio,
-        stewardship_root,
-        required_keys=required_keys,
-    )
-    if mandate_goal == "terminal_coverage" and final_coverage.get("met"):
-        mandate_met = True
-        if stop_reason == "max_epochs" and epochs:
-            # Prefer mandate_met when the last refresh closed coverage on the
-            # final allowed epoch (already handled via break) — leave as-is.
-            pass
-    coverage_end = final_coverage
-
-    # Verdict
-    if not epochs:
-        if mandate_met:
-            verdict = "succession_mandate_met"
-            ok = True
-        else:
-            verdict = "succession_empty"
-            ok = False
-    elif mandate_met:
-        verdict = "succession_mandate_met"
-        ok = True
-    elif total_dispatched_ok > 0:
-        verdict = "succession_progressed"
-        ok = True
-    elif stop_reason == "rank_only":
-        verdict = "succession_ranked"
-        ok = True
-    elif stop_reason in {"succession_idle", "epoch_idle"}:
-        verdict = "succession_idle"
-        ok = True
-    elif stop_reason == "dispatch_budget":
-        verdict = "succession_budgeted"
-        ok = True
-    else:
-        verdict = "succession_completed"
-        ok = True
-
-    receipt: dict[str, Any] = {
-        "schema_version": SCHEMA_VERSION,
-        "created_at": utc_now_iso(),
-        "ok": ok,
-        "verdict": verdict,
-        "stop_reason": stop_reason,
-        "max_epochs": max_epochs,
-        "max_waves_per_epoch": max_waves_per_epoch,
-        "per_wave_dispatch_limit": per_wave_dispatch_limit,
-        "dispatch_budget": dispatch_budget,
-        "dispatch_enabled": bool(dispatch),
-        "mandate_goal": mandate_goal,
-        "mandate_met": mandate_met,
-        "portfolio_source": portfolio_source,
-        "portfolio_start_digest": portfolio_start_digest,
-        "portfolio_end_digest": portfolio_end_digest,
-        "portfolio_final": current_portfolio,
-        "required_keys": [
-            {"name": n, "version": v, "defect_id": d} for n, v, d in required_keys
-        ],
-        "coverage_end": {
-            "required": coverage_end.get("required"),
-            "covered": coverage_end.get("covered"),
-            "met": coverage_end.get("met"),
-            "coverage_ratio": coverage_end.get("coverage_ratio"),
-            "open_or_missing": coverage_end.get("open_or_missing"),
-        },
-        "epoch_count": len(epochs),
-        "epochs": epochs,
-        "epoch_digests": epoch_digests,
-        "total_dispatched": total_dispatched,
-        "total_dispatched_ok": total_dispatched_ok,
-        "used_skill_route_discovery": legacy_pipeline_was_used(),
-    }
-    receipt["succession_digest"] = _sha256_json(_succession_digest_payload(receipt))
-    atomic_write_json(succession_dir / "succession.json", receipt)
-    atomic_write_json(
-        succession_dir / "summary.json",
-        {
+    def seal(state: le.LoopState) -> dict[str, Any]:
+        coverage_end = state.extras.get("coverage_end") or _coverage(state.portfolio)
+        portfolio_end_digest = (
+            state.portfolio.get("portfolio_digest") if state.portfolio else None
+        )
+        receipt: dict[str, Any] = {
+            "schema_version": SCHEMA_VERSION,
+            "created_at": utc_now_iso(),
+            "ok": state.extras.get("ok"),
+            "verdict": state.extras.get("verdict"),
+            "stop_reason": state.stop_reason,
+            "max_epochs": max_epochs,
+            "max_waves_per_epoch": max_waves_per_epoch,
+            "per_wave_dispatch_limit": per_wave_dispatch_limit,
+            "dispatch_budget": dispatch_budget,
+            "dispatch_enabled": bool(dispatch),
+            "mandate_goal": mandate_goal,
+            "mandate_met": state.goal_met,
+            "portfolio_source": state.portfolio_source,
+            "portfolio_start_digest": state.portfolio_start_digest,
+            "portfolio_end_digest": portfolio_end_digest,
+            "portfolio_final": state.portfolio,
+            "required_keys": [
+                {"name": n, "version": v, "defect_id": d} for n, v, d in required_keys
+            ],
+            "coverage_end": {
+                "required": coverage_end.get("required"),
+                "covered": coverage_end.get("covered"),
+                "met": coverage_end.get("met"),
+                "coverage_ratio": coverage_end.get("coverage_ratio"),
+                "open_or_missing": coverage_end.get("open_or_missing"),
+            },
+            "epoch_count": len(state.records),
+            "epochs": state.records,
+            "epoch_digests": list(state.child_digests),
+            "total_dispatched": state.total_dispatched,
+            "total_dispatched_ok": state.total_dispatched_ok,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "loop_engine": True,
+            "loop_dialect": dialect.name,
+        }
+        receipt["succession_digest"] = _sha256_json(_succession_digest_payload(receipt))
+        atomic_write_json(state.loop_dir / "succession.json", receipt)
+        atomic_write_json(
+            state.loop_dir / "summary.json",
+            {
+                "verdict": receipt["verdict"],
+                "ok": receipt["ok"],
+                "stop_reason": receipt["stop_reason"],
+                "epoch_count": receipt["epoch_count"],
+                "total_dispatched": receipt["total_dispatched"],
+                "total_dispatched_ok": receipt["total_dispatched_ok"],
+                "mandate_met": receipt["mandate_met"],
+                "coverage_ratio": (receipt.get("coverage_end") or {}).get(
+                    "coverage_ratio"
+                ),
+                "portfolio_start_digest": receipt["portfolio_start_digest"],
+                "portfolio_end_digest": receipt["portfolio_end_digest"],
+                "succession_digest": receipt["succession_digest"],
+            },
+        )
+        return {
+            "ok": bool(receipt["ok"]),
             "verdict": receipt["verdict"],
-            "ok": receipt["ok"],
             "stop_reason": receipt["stop_reason"],
-            "epoch_count": receipt["epoch_count"],
-            "total_dispatched": receipt["total_dispatched"],
-            "total_dispatched_ok": receipt["total_dispatched_ok"],
-            "mandate_met": receipt["mandate_met"],
-            "coverage_ratio": (receipt.get("coverage_end") or {}).get("coverage_ratio"),
-            "portfolio_start_digest": receipt["portfolio_start_digest"],
-            "portfolio_end_digest": receipt["portfolio_end_digest"],
+            "succession_dir": str(state.loop_dir),
             "succession_digest": receipt["succession_digest"],
-        },
-    )
+            "epoch_count": len(state.records),
+            "epoch_digests": list(state.child_digests),
+            "total_dispatched": state.total_dispatched,
+            "total_dispatched_ok": state.total_dispatched_ok,
+            "mandate_met": state.goal_met,
+            "coverage_end": receipt["coverage_end"],
+            "portfolio_start_digest": state.portfolio_start_digest,
+            "portfolio_end_digest": portfolio_end_digest,
+            "portfolio_source": state.portfolio_source,
+            "epochs": state.records,
+            "used_skill_route_discovery": receipt["used_skill_route_discovery"],
+            "loop_engine": True,
+            "loop_dialect": dialect.name,
+        }
 
-    return {
-        "ok": ok,
-        "verdict": verdict,
-        "stop_reason": stop_reason,
-        "succession_dir": str(succession_dir),
-        "succession_digest": receipt["succession_digest"],
-        "epoch_count": len(epochs),
-        "epoch_digests": epoch_digests,
-        "total_dispatched": total_dispatched,
-        "total_dispatched_ok": total_dispatched_ok,
-        "mandate_met": mandate_met,
-        "coverage_end": receipt["coverage_end"],
-        "portfolio_start_digest": portfolio_start_digest,
-        "portfolio_end_digest": portfolio_end_digest,
-        "portfolio_source": portfolio_source,
-        "epochs": epochs,
-        "used_skill_route_discovery": receipt["used_skill_route_discovery"],
-    }
+    def wrap_refuse(exc: BaseException) -> BaseException:
+        verdict = getattr(exc, "verdict", "refused")
+        detail = getattr(exc, "detail", str(exc))
+        return SuccessionRefused(str(verdict), str(detail))
+
+    try:
+        return le.run_durable_loop(
+            dialect,
+            max_rounds=max_epochs,
+            dispatch=dispatch,
+            dispatch_budget=dispatch_budget,
+            idle_limit=idle_epoch_limit,
+            portfolio=portfolio,
+            portfolio_dir=portfolio_dir,
+            out_root=out_root,
+            child_out_root=epoch_out_root,
+            child_runner=runner,
+            build_child_kwargs=build_child_kwargs,
+            on_child_result=on_child_result,
+            pre_round_stop=pre_round_stop,
+            post_round_stop=post_round_stop,
+            is_idle_round=is_idle,
+            classify_verdict=classify,
+            seal=seal,
+            recompute_digest=_recompute_portfolio_digest,
+            refuse_on_first=(ue.EpochRefused, uf.FleetRefused),
+            wrap_refuse=wrap_refuse,
+        )
+    except le.LoopRefused as exc:
+        raise SuccessionRefused(exc.verdict, exc.detail) from exc
 
 
 # ---------------------------------------------------------------------------
