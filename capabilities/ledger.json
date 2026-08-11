@@ -29,7 +29,7 @@
         "ablation",
         "evidence"
       ],
-      "updated_at": "2026-08-11T09:04:18.747976Z"
+      "updated_at": "2026-08-11T10:39:53.725621Z"
     },
     "capability.absorbed-mistune-markdown": {
       "behavior_paths": [
@@ -2728,7 +2728,7 @@
         "bootstrap",
         "compounder"
       ],
-      "updated_at": "2026-08-11T09:04:18.745959Z"
+      "updated_at": "2026-08-11T10:39:53.725621Z"
     },
     "capability.ledger-proof-reaudit": {
       "behavior_paths": [
@@ -4238,7 +4238,7 @@
         "constitution",
         "terminal-coverage"
       ],
-      "updated_at": "2026-08-11T09:00:33.445992Z"
+      "updated_at": "2026-08-11T10:39:53.725621Z"
     },
     "capability.upstream-fleet": {
       "behavior_paths": [
@@ -5202,6 +5202,86 @@
         "terminal-coverage"
       ],
       "updated_at": "2026-08-10T00:38:19.986717Z"
+    },
+    "capability.upstream-zettacontinuum": {
+      "behavior_paths": [
+        "src/blackhole_agent/upstream_zettacontinuum.py",
+        "src/blackhole_agent/upstream_exacontinuum.py",
+        "src/blackhole_agent/upstream_petacontinuum.py"
+      ],
+      "capability_delta": "Exacontinuum is no longer the outer ceiling: multi-exacontinuum zettacontinuum constitutions admit/retire exacontinuum constitutions under a durable shared budget, grow the zettacontinuum charter mid-run, federate multi-exacontinuum portfolios, resume sealed state, prove terminal_coverage with reopen of incomplete exacontinua, and seal tamper-evident multi-exacontinuum chronicles without skill-route.",
+      "created_at": "2026-08-11T10:39:53.725621Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.upstream-exacontinuum",
+        "capability.upstream-petacontinuum",
+        "capability.upstream-teracontinuum",
+        "capability.upstream-gigacontinuum",
+        "capability.upstream-megacontinuum",
+        "capability.upstream-ultracontinuum",
+        "capability.upstream-hypercontinuum",
+        "capability.upstream-continuum",
+        "capability.upstream-omniverse",
+        "capability.upstream-multiverse",
+        "capability.upstream-cosmos",
+        "capability.upstream-civilization",
+        "capability.upstream-empire",
+        "capability.upstream-realm",
+        "capability.upstream-domain",
+        "capability.upstream-commonwealth",
+        "capability.upstream-confederation",
+        "capability.upstream-league",
+        "capability.upstream-institution",
+        "capability.upstream-program",
+        "capability.upstream-succession",
+        "capability.upstream-epoch",
+        "capability.upstream-fleet",
+        "capability.upstream-impact",
+        "capability.upstream-campaign",
+        "capability.ablation-proof"
+      ],
+      "description": "Closes the outer multi-exacontinuum loop the exacontinuum plane leaves open. Chains independent exacontinuum constitutions under a durable zettacontinuum constitution: admits exacontinuum slots with nested petacontinuum charters (optionally deferred via max_active_exacontinuums), grows the charter mid-run via charter_expand, schedules open exacontinua by priority and ROI, allocates shared global dispatch budget, federates multi-exacontinuum portfolios into one zettacontinuum world-model, retires met exacontinua, reopens incomplete exacontinua under terminal_coverage, persists zettacontinuum_state.json for resume, and seals a tamper-evident multi-exacontinuum chronicle under artifacts/upstream-zettacontinuum/. No skill-route discovery.",
+      "entry": "blackhole_agent.upstream_zettacontinuum:builtin_upstream_zettacontinuum_proof",
+      "id": "capability.upstream-zettacontinuum",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-11T10:39:53.725621Z",
+      "name": "Upstream zettacontinuum plane (multi-exacontinuum durable stewardship zettacontinuum)",
+      "proof_command": "uv run python -m blackhole_agent.upstream_zettacontinuum --proof",
+      "source_milestone": 1,
+      "source_mission_id": "20260811T103525Z-f1e74dd3",
+      "tags": [
+        "bootstrap",
+        "compounder",
+        "upstream",
+        "zettacontinuum",
+        "exacontinuum",
+        "petacontinuum",
+        "teracontinuum",
+        "gigacontinuum",
+        "megacontinuum",
+        "ultracontinuum",
+        "hypercontinuum",
+        "continuum",
+        "omniverse",
+        "multiverse",
+        "cosmos",
+        "civilization",
+        "empire",
+        "realm",
+        "domain",
+        "charter",
+        "charter-expand",
+        "durable",
+        "closed-loop",
+        "federation",
+        "budget",
+        "deferred-admission",
+        "constitution",
+        "terminal-coverage"
+      ],
+      "updated_at": "2026-08-11T10:39:53.725621Z"
     },
     "capability.utility-plane": {
       "behavior_paths": [
