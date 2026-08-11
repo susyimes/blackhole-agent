@@ -1,5 +1,10 @@
 """Upstream campaign plane: sealed end-to-end orchestration of the stewardship loop.
 
+Control flow is owned by :mod:`blackhole_agent.upstream_stage_engine`
+(``STAGE_ENGINE=True``). This module keeps stage domain runners (``_stage_*``)
+and campaign-specific verdict/context hooks; the ordered short-circuit
+pipeline, abort policy, and engine annotations are shared.
+
 The upstream planes (discovery, admission, repair, contribution, publication,
 impact) are independently invocable but require manual stage wiring. The
 campaign plane closes that gap: one request drives a multi-stage campaign over
@@ -52,6 +57,7 @@ from blackhole_agent import upstream_discovery as udi
 from blackhole_agent import upstream_impact as ui
 from blackhole_agent import upstream_publication as up
 from blackhole_agent import upstream_repair as ur
+from blackhole_agent import upstream_stage_engine as se
 from blackhole_agent.capability_compounder import (
     atomic_write_json,
     legacy_pipeline_was_used,
@@ -60,6 +66,11 @@ from blackhole_agent.capability_compounder import (
 from blackhole_agent.durable_state import durable_read_path
 
 SCHEMA_VERSION = 1
+
+# Owned by the multi-stage durable pipeline engine (not a hand-wired if-chain).
+# Stage domain runners (_stage_*) still live here; control flow is engine-owned.
+STAGE_ENGINE = True
+STAGE_ENGINE_DIALECT = "campaign"
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS_ROOT = REPO_ROOT / "artifacts" / "upstream-campaign"
@@ -75,6 +86,8 @@ FULL_LOOP_STAGES: tuple[str, ...] = (
 # Full stewardship loop including post-publication outcome closure.
 OUTCOME_LOOP_STAGES: tuple[str, ...] = FULL_LOOP_STAGES + ("impact",)
 VALID_STAGES = frozenset(OUTCOME_LOOP_STAGES)
+# Keep VALID_STAGES aligned with the engine dialect registration.
+assert VALID_STAGES == se.get_pipeline_dialect("campaign").valid_stages
 
 # Publication verdicts whose sealed receipts the impact stage can assess.
 _IMPACT_ASSESSABLE_PUBLICATION_VERDICTS = frozenset({
@@ -612,6 +625,9 @@ def run_campaign(
 ) -> dict[str, Any]:
     """Run a multi-stage stewardship campaign and seal a campaign receipt.
 
+    Control flow is owned by :mod:`upstream_stage_engine` (``STAGE_ENGINE``).
+    Stage domain runners (``_stage_*``) remain campaign-local hooks.
+
     Parameters mirror the underlying planes so proofs can inject hermetic
     seams. ``publish=False`` (default) never performs outward GitHub mutation.
 
@@ -632,13 +648,10 @@ def run_campaign(
     """
     target_dir = Path(target_dir)
     manifest = _load_manifest(target_dir)
-    if not stages:
-        raise CampaignRefused("stages_empty", "no stages requested")
-    unknown = [s for s in stages if s not in VALID_STAGES]
-    if unknown:
-        raise CampaignRefused("stages_unknown", f"unknown stages: {unknown}")
-    # Preserve caller order while dropping duplicates.
-    stage_list = list(dict.fromkeys(s for s in stages if s in VALID_STAGES))
+    try:
+        stage_list = se.normalize_stages("campaign", stages)
+    except se.StageRefused as exc:
+        raise CampaignRefused(exc.verdict, exc.detail) from exc
 
     needs_defects = any(s in stage_list for s in ("repair", "contribution", "publication"))
     # Discovery/admit may populate defects before outward stages run.
@@ -656,233 +669,275 @@ def run_campaign(
         allow_empty=allow_empty_upfront or not needs_defects,
         patch_bound_only=False,
     )
-    stage_results: dict[str, Any] = {}
-    campaign_ok = True
-    terminal_verdict = "campaign_complete"
-    active_report_dir: Path | None = Path(discovery_report_dir) if discovery_report_dir else None
 
-    # --- discovery ---
-    if "discovery" in stage_list:
-        discovery = _stage_discovery(
-            target_dir,
-            discovery_runner=discovery_runner,
-            artifact_root=discovery_artifact_root,
-        )
-        stage_results["discovery"] = discovery
-        if not discovery.get("ok"):
-            campaign_ok = False
-            terminal_verdict = "discovery_failed"
-            return _seal_campaign(
-                target_dir=target_dir,
-                manifest=manifest,
-                defect_ids=ids,
-                stages=stage_list,
-                stage_results=stage_results,
-                publish=publish,
-                ok=False,
-                verdict=terminal_verdict,
-                out_root=out_root,
+    # Shared mutable context for stage hooks (engine threads PipelineState).
+    ctx: dict[str, Any] = {
+        "target_dir": target_dir,
+        "manifest": manifest,
+        "ids": list(ids),
+        "requested_defect_ids": defect_ids,
+        "active_report_dir": (
+            Path(discovery_report_dir) if discovery_report_dir else None
+        ),
+        "submittable": [str(p) for p in (bundle_dirs or [])],
+        "terminal_hint": "campaign_complete",
+    }
+
+    def run_stage(state: se.PipelineState, name: str) -> dict[str, Any]:
+        c = state.context
+        td: Path = c["target_dir"]
+        man: dict[str, Any] = c["manifest"]
+        if name == "discovery":
+            return _stage_discovery(
+                td,
+                discovery_runner=discovery_runner,
+                artifact_root=discovery_artifact_root,
             )
-        if discovery.get("report_dir"):
-            active_report_dir = Path(str(discovery["report_dir"]))
-
-    # --- admit ---
-    if "admit" in stage_list:
-        admit = _stage_admit(
-            target_dir,
-            active_report_dir,
-            admission_runner=admission_runner,
-            patch_map=admission_patch_map,
-            out_root=admission_out_root,
-        )
-        stage_results["admit"] = admit
-        if not admit.get("ok"):
-            campaign_ok = False
-            terminal_verdict = "admit_failed"
-            return _seal_campaign(
-                target_dir=target_dir,
-                manifest=_load_manifest(target_dir),
-                defect_ids=ids,
-                stages=stage_list,
-                stage_results=stage_results,
-                publish=publish,
-                ok=False,
-                verdict=terminal_verdict,
-                out_root=out_root,
+        if name == "admit":
+            return _stage_admit(
+                td,
+                c.get("active_report_dir"),
+                admission_runner=admission_runner,
+                patch_map=admission_patch_map,
+                out_root=admission_out_root,
             )
-        # Reload manifest + defect ids after admission mutates stewardship.
-        manifest = _load_manifest(target_dir)
-        ids = _defect_ids(
-            manifest,
-            defect_ids,
-            allow_empty=True,
-            patch_bound_only=False,
-        )
-        if admit.get("verdict") in {"admitted", "all_already_admitted", "nothing_to_admit"}:
-            # Keep campaign_complete unless later stages override.
-            if terminal_verdict == "campaign_complete" and not any(
-                s in stage_list for s in ("repair", "contribution", "publication")
-            ):
-                terminal_verdict = str(admit.get("verdict") or "admitted")
-
-    # --- repair ---
-    if "repair" in stage_list:
-        # Repair only acts on patch-bound defects; pending admissions are skipped.
-        repair_ids = _defect_ids(manifest, defect_ids, allow_empty=True, patch_bound_only=True)
-        if not repair_ids and not defect_ids:
-            stage_results["repair"] = {
-                "stage": "repair",
-                "verdict": "no_patch_bound_defects",
-                "ok": True,
-                "reused": False,
-                "detail": "no patch-bound defects; discovery admissions may still be pending_patch",
-            }
-            if terminal_verdict == "campaign_complete" and not any(
-                s in stage_list for s in ("contribution", "publication")
-            ):
-                terminal_verdict = "no_patch_bound_defects"
-        else:
-            repair = _stage_repair(
-                target_dir,
+        if name == "repair":
+            # Repair only acts on patch-bound defects; pending admissions are skipped.
+            repair_ids = _defect_ids(
+                man, c.get("requested_defect_ids"), allow_empty=True, patch_bound_only=True
+            )
+            if not repair_ids and not c.get("requested_defect_ids"):
+                return {
+                    "stage": "repair",
+                    "verdict": "no_patch_bound_defects",
+                    "ok": True,
+                    "reused": False,
+                    "detail": (
+                        "no patch-bound defects; discovery admissions may "
+                        "still be pending_patch"
+                    ),
+                }
+            return _stage_repair(
+                td,
                 repair_runner=repair_runner,
                 skip_if_green=skip_repair_if_green,
                 artifact_dir=repair_artifact_dir,
             )
-            stage_results["repair"] = repair
-            if not repair.get("ok"):
-                campaign_ok = False
-                terminal_verdict = "repair_failed"
-                return _seal_campaign(
-                    target_dir=target_dir,
-                    manifest=manifest,
-                    defect_ids=ids,
-                    stages=stage_list,
-                    stage_results=stage_results,
-                    publish=publish,
-                    ok=False,
-                    verdict=terminal_verdict,
-                    out_root=out_root,
-                )
-
-    # --- contribution ---
-    submittable: list[str] = [str(p) for p in (bundle_dirs or [])]
-    if "contribution" in stage_list:
-        contrib_ids = _defect_ids(
-            manifest,
-            defect_ids,
-            allow_empty=bool(submittable),
-            patch_bound_only=True,
-        )
-        if not contrib_ids and not submittable:
-            stage_results["contribution"] = {
-                "stage": "contribution",
-                "verdict": "no_patch_bound_defects",
-                "ok": True,
-                "defects": [],
-                "submittable_bundle_dirs": [],
-                "submittable_count": 0,
-            }
-            if terminal_verdict == "campaign_complete":
-                terminal_verdict = "no_patch_bound_defects"
-        else:
+        if name == "contribution":
+            submittable = list(c.get("submittable") or [])
+            contrib_ids = _defect_ids(
+                man,
+                c.get("requested_defect_ids"),
+                allow_empty=bool(submittable),
+                patch_bound_only=True,
+            )
+            if not contrib_ids and not submittable:
+                return {
+                    "stage": "contribution",
+                    "verdict": "no_patch_bound_defects",
+                    "ok": True,
+                    "defects": [],
+                    "submittable_bundle_dirs": [],
+                    "submittable_count": 0,
+                }
             contribution = _stage_contribution(
-                target_dir,
+                td,
                 contrib_ids,
                 contribution_builder=contribution_builder,
                 fetcher=fetcher,
                 out_root=contribution_out_root,
             )
-            stage_results["contribution"] = contribution
-            built = list(contribution.get("submittable_bundle_dirs") or [])
-            submittable = built if built else submittable
-            if contribution.get("verdict") == "contribution_failed" and not submittable:
-                campaign_ok = False
-                terminal_verdict = "contribution_failed"
-                return _seal_campaign(
-                    target_dir=target_dir,
-                    manifest=manifest,
-                    defect_ids=contrib_ids,
-                    stages=stage_list,
-                    stage_results=stage_results,
-                    publish=publish,
-                    ok=False,
-                    verdict=terminal_verdict,
-                    out_root=out_root,
-                )
-            if contribution.get("verdict") == "all_already_fixed" and not submittable:
-                terminal_verdict = "all_already_fixed"
-            ids = contrib_ids
+            # Stash resolved contrib ids for seal / abort path.
+            c["contrib_ids"] = contrib_ids
+            return contribution
+        if name == "publication":
+            return _stage_publication(
+                list(c.get("submittable") or []),
+                publisher=publisher,
+                publish=publish,
+                gh=gh,
+                verifier=verifier,
+                manifest=man,
+                out_root=publication_out_root,
+            )
+        if name == "impact":
+            from_pub = _publication_receipt_dirs(
+                state.stage_results.get("publication")
+            )
+            explicit = [str(p) for p in (impact_receipt_dirs or [])]
+            receipt_dirs = list(dict.fromkeys([*explicit, *from_pub]))
+            return _stage_impact(
+                receipt_dirs,
+                impact_assessor=impact_assessor,
+                gh=impact_gh if impact_gh is not None else gh,
+                absorption_checker=absorption_checker,
+                out_root=impact_out_root,
+            )
+        raise CampaignRefused("stages_unknown", f"unknown stage {name!r}")
 
-    # --- publication ---
-    if "publication" in stage_list:
-        publication = _stage_publication(
-            submittable,
-            publisher=publisher,
-            publish=publish,
-            gh=gh,
-            verifier=verifier,
-            manifest=manifest,
-            out_root=publication_out_root,
-        )
-        stage_results["publication"] = publication
-        if not publication.get("ok"):
-            campaign_ok = False
-            terminal_verdict = "publication_failed"
-        elif terminal_verdict in {"campaign_complete", "no_patch_bound_defects"}:
-            if publication.get("verdict") == "nothing_to_publish":
-                if stage_results.get("contribution", {}).get("verdict") == "all_already_fixed":
-                    terminal_verdict = "all_already_fixed"
-                elif stage_results.get("contribution", {}).get("verdict") == "no_patch_bound_defects":
-                    terminal_verdict = "no_patch_bound_defects"
+    def after_stage(
+        state: se.PipelineState, name: str, result: Mapping[str, Any]
+    ) -> None:
+        c = state.context
+        stage_list_local = state.stages
+        if name == "discovery":
+            if result.get("report_dir"):
+                c["active_report_dir"] = Path(str(result["report_dir"]))
+            return
+        if name == "admit":
+            # Reload manifest + defect ids after admission mutates stewardship.
+            c["manifest"] = _load_manifest(c["target_dir"])
+            c["ids"] = _defect_ids(
+                c["manifest"],
+                c.get("requested_defect_ids"),
+                allow_empty=True,
+                patch_bound_only=False,
+            )
+            if result.get("verdict") in {
+                "admitted",
+                "all_already_admitted",
+                "nothing_to_admit",
+            }:
+                if c.get("terminal_hint") == "campaign_complete" and not any(
+                    s in stage_list_local
+                    for s in ("repair", "contribution", "publication")
+                ):
+                    c["terminal_hint"] = str(result.get("verdict") or "admitted")
+            return
+        if name == "repair":
+            if result.get("verdict") == "no_patch_bound_defects":
+                if c.get("terminal_hint") == "campaign_complete" and not any(
+                    s in stage_list_local for s in ("contribution", "publication")
+                ):
+                    c["terminal_hint"] = "no_patch_bound_defects"
+            return
+        if name == "contribution":
+            built = list(result.get("submittable_bundle_dirs") or [])
+            if built:
+                c["submittable"] = built
+            if c.get("contrib_ids") is not None:
+                c["ids"] = list(c["contrib_ids"])
+            if (
+                result.get("verdict") == "all_already_fixed"
+                and not c.get("submittable")
+            ):
+                c["terminal_hint"] = "all_already_fixed"
+            elif (
+                result.get("verdict") == "no_patch_bound_defects"
+                and c.get("terminal_hint") == "campaign_complete"
+            ):
+                c["terminal_hint"] = "no_patch_bound_defects"
+            return
+        if name == "publication":
+            # Terminal verdict derivation mirrors historical campaign rules.
+            hint = str(c.get("terminal_hint") or "campaign_complete")
+            if not result.get("ok"):
+                c["terminal_hint"] = "publication_failed"
+            elif hint in {"campaign_complete", "no_patch_bound_defects"}:
+                if result.get("verdict") == "nothing_to_publish":
+                    contrib_v = (
+                        state.stage_results.get("contribution") or {}
+                    ).get("verdict")
+                    if contrib_v == "all_already_fixed":
+                        c["terminal_hint"] = "all_already_fixed"
+                    elif contrib_v == "no_patch_bound_defects":
+                        c["terminal_hint"] = "no_patch_bound_defects"
+                    else:
+                        c["terminal_hint"] = "campaign_complete_no_publication"
                 else:
-                    terminal_verdict = "campaign_complete_no_publication"
-            else:
-                terminal_verdict = str(publication.get("verdict") or "campaign_complete")
+                    c["terminal_hint"] = str(
+                        result.get("verdict") or "campaign_complete"
+                    )
+            return
+        if name == "impact":
+            hint = str(c.get("terminal_hint") or "campaign_complete")
+            if not result.get("ok"):
+                c["terminal_hint"] = "impact_failed"
+            elif hint in {
+                "campaign_complete",
+                "published",
+                "already_published",
+                "dry_run_gates_passed",
+                "campaign_complete_no_publication",
+                "no_patch_bound_defects",
+                "all_already_fixed",
+            }:
+                if result.get("verdict") == "nothing_to_assess":
+                    if hint == "campaign_complete" and stage_list_local == ["impact"]:
+                        c["terminal_hint"] = "nothing_to_assess"
+                else:
+                    c["terminal_hint"] = str(
+                        result.get("verdict") or "impact_assessed"
+                    )
+            return
 
-    # --- impact (optional post-publication outcome closure) ---
-    if "impact" in stage_list:
-        from_pub = _publication_receipt_dirs(stage_results.get("publication"))
-        explicit = [str(p) for p in (impact_receipt_dirs or [])]
-        # Explicit dirs first, then campaign-produced receipts (deduped, order-preserving).
-        receipt_dirs = list(dict.fromkeys([*explicit, *from_pub]))
-        impact = _stage_impact(
-            receipt_dirs,
-            impact_assessor=impact_assessor,
-            gh=impact_gh if impact_gh is not None else gh,
-            absorption_checker=absorption_checker,
-            out_root=impact_out_root,
+    def should_abort(
+        state: se.PipelineState, name: str, result: Mapping[str, Any]
+    ) -> bool:
+        if result.get("ok"):
+            return False
+        # Contribution: only hard-abort when failed AND no submittable leftovers.
+        if name == "contribution":
+            submittable = list(state.context.get("submittable") or [])
+            if result.get("verdict") == "contribution_failed" and not submittable:
+                return True
+            return False
+        # Hard abort set matches dialect; publication/impact soft-fail.
+        return se.get_pipeline_dialect("campaign").aborts_on_fail(name)
+
+    def classify(state: se.PipelineState) -> tuple[bool, str]:
+        # Prefer context terminal_hint accumulated by after_stage; fall back.
+        hint = str(state.context.get("terminal_hint") or "campaign_complete")
+        if state.aborted:
+            return False, state.terminal_verdict
+        if not state.pipeline_ok:
+            # Soft-fail path already set terminal_verdict via engine; prefer hint
+            # when after_stage refined it (publication_failed / impact_failed).
+            if hint in {"publication_failed", "impact_failed"}:
+                return False, hint
+            return False, state.terminal_verdict
+        return True, hint
+
+    def seal(state: se.PipelineState) -> dict[str, Any]:
+        c = state.context
+        # On hard abort the engine already set terminal_verdict; keep it.
+        if state.aborted:
+            ok = False
+            verdict = state.terminal_verdict
+        else:
+            ok, verdict = classify(state)
+            # Re-sync so seal payload matches classify (engine also calls classify
+            # after this seal only on non-abort path — on abort seal is early).
+            state.pipeline_ok = ok
+            state.terminal_verdict = verdict
+        return _seal_campaign(
+            target_dir=c["target_dir"],
+            manifest=c["manifest"],
+            defect_ids=list(c.get("ids") or []),
+            stages=state.stages,
+            stage_results=state.stage_results,
+            publish=publish,
+            ok=ok,
+            verdict=verdict,
+            out_root=out_root,
         )
-        stage_results["impact"] = impact
-        if not impact.get("ok"):
-            campaign_ok = False
-            terminal_verdict = "impact_failed"
-        elif terminal_verdict in {
-            "campaign_complete",
-            "published",
-            "already_published",
-            "dry_run_gates_passed",
-            "campaign_complete_no_publication",
-            "no_patch_bound_defects",
-            "all_already_fixed",
-        }:
-            # Surface the measured impact outcome when assessment produced one;
-            # keep nothing_to_assess from masking a successful publication.
-            if impact.get("verdict") == "nothing_to_assess":
-                if terminal_verdict == "campaign_complete" and stage_list == ["impact"]:
-                    terminal_verdict = "nothing_to_assess"
-            else:
-                terminal_verdict = str(impact.get("verdict") or "impact_assessed")
 
-    return _seal_campaign(
-        target_dir=target_dir,
-        manifest=manifest,
-        defect_ids=ids,
+    def wrap_refuse(exc: BaseException) -> BaseException:
+        if isinstance(exc, se.StageRefused):
+            return CampaignRefused(exc.verdict, exc.detail)
+        return exc
+
+    return se.run_stage_pipeline(
+        "campaign",
         stages=stage_list,
-        stage_results=stage_results,
-        publish=publish,
-        ok=campaign_ok,
-        verdict=terminal_verdict,
-        out_root=out_root,
+        run_stage=run_stage,
+        after_stage=after_stage,
+        should_abort=should_abort,
+        classify_verdict=classify,
+        seal=seal,
+        initial_context=ctx,
+        initial_verdict="campaign_complete",
+        wrap_refuse=wrap_refuse,
     )
 
 
@@ -904,59 +959,8 @@ def _seal_campaign(
     campaign_dir = root / name / stamp
     campaign_dir.mkdir(parents=True, exist_ok=True)
 
-    # Collect stage artifact digests for the seal chain.
-    stage_digests: dict[str, str] = {}
-    if "discovery" in stage_results:
-        d = stage_results["discovery"]
-        if d.get("report_sha256"):
-            stage_digests["discovery.report"] = str(d["report_sha256"])
-        stage_digests["discovery.verdict"] = _sha256_bytes(
-            str(d.get("verdict") or "").encode("utf-8")
-        )
-    if "admit" in stage_results:
-        a = stage_results["admit"]
-        if a.get("receipt_sha256"):
-            stage_digests["admit.receipt"] = str(a["receipt_sha256"])
-        if a.get("admission_digest"):
-            stage_digests["admit.admission_digest"] = str(a["admission_digest"])
-        stage_digests["admit.verdict"] = _sha256_bytes(
-            str(a.get("verdict") or "").encode("utf-8")
-        )
-    if "repair" in stage_results:
-        r = stage_results["repair"]
-        if r.get("report_sha256"):
-            stage_digests["repair.report"] = str(r["report_sha256"])
-        elif r.get("report_digest"):
-            stage_digests["repair.report_digest"] = str(r["report_digest"])
-    if "contribution" in stage_results:
-        for i, d in enumerate(stage_results["contribution"].get("defects") or []):
-            if d.get("bundle_sha256"):
-                stage_digests[f"contribution.{d['defect_id']}.bundle"] = str(d["bundle_sha256"])
-            stage_digests[f"contribution.{d['defect_id']}.verdict"] = _sha256_bytes(
-                str(d.get("verdict") or "").encode("utf-8")
-            )
-    if "publication" in stage_results:
-        for i, p in enumerate(stage_results["publication"].get("publications") or []):
-            key = Path(str(p.get("bundle_dir") or i)).name
-            if p.get("receipt_sha256"):
-                stage_digests[f"publication.{key}.receipt"] = str(p["receipt_sha256"])
-            stage_digests[f"publication.{key}.verdict"] = _sha256_bytes(
-                str(p.get("verdict") or "").encode("utf-8")
-            )
-    if "impact" in stage_results:
-        impact = stage_results["impact"]
-        stage_digests["impact.verdict"] = _sha256_bytes(
-            str(impact.get("verdict") or "").encode("utf-8")
-        )
-        for i, a in enumerate(impact.get("assessments") or []):
-            key = str(a.get("defect_id") or Path(str(a.get("receipt_dir") or i)).name)
-            if a.get("impact_digest"):
-                stage_digests[f"impact.{key}.digest"] = str(a["impact_digest"])
-            if a.get("certificate_sha256"):
-                stage_digests[f"impact.{key}.certificate"] = str(a["certificate_sha256"])
-            stage_digests[f"impact.{key}.outcome"] = _sha256_bytes(
-                str(a.get("outcome") or a.get("verdict") or "").encode("utf-8")
-            )
+    # Collect stage artifact digests for the seal chain (engine-shared helper).
+    stage_digests = se.collect_stage_digests(stage_results)
 
     receipt = {
         "schema_version": SCHEMA_VERSION,
@@ -976,6 +980,8 @@ def _seal_campaign(
         "ok": ok,
         "verdict": verdict,
         "used_skill_route_discovery": legacy_pipeline_was_used(),
+        "stage_engine": True,
+        "pipeline_dialect": STAGE_ENGINE_DIALECT,
     }
     chain = _sha256_json({
         "schema_version": SCHEMA_VERSION,
@@ -1013,6 +1019,8 @@ def _seal_campaign(
         "version": receipt["version"],
         "defect_ids": list(defect_ids),
         "used_skill_route_discovery": legacy_pipeline_was_used(),
+        "stage_engine": True,
+        "pipeline_dialect": STAGE_ENGINE_DIALECT,
     }
 
 
