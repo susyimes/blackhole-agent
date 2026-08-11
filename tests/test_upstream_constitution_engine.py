@@ -25,9 +25,13 @@ def test_builtin_proof_green() -> None:
     assert result["second_layer_data_only"]
     assert result["legacy_quetta_parity"]
     assert result["continuum_tower_as_data"]
+    assert result["stewardship_stack_as_data"]
+    assert result["nested_composition"]
     assert not result["used_skill_route_discovery"]
     assert "quettacontinuum" in (result.get("continuum_layers") or [])
     assert "continuum" in (result.get("continuum_layers") or [])
+    assert "institution" in (result.get("stewardship_layers") or [])
+    assert int(result.get("stewardship_layer_count") or 0) >= 23
 
 
 def test_continuum_stack_registered_as_data() -> None:
@@ -38,6 +42,67 @@ def test_continuum_stack_registered_as_data() -> None:
     quetta = ce.get_continuum_layer("quettacontinuum")
     assert quetta.child == "ronnacontinuum"
     assert quetta.all_children_met_goal == "all_ronnacontinuums_met"
+
+
+def test_stewardship_stack_covers_civilization_tower() -> None:
+    names = ce.list_stewardship_layers()
+    assert names[0] == "quettacontinuum"
+    assert names[-1] == "institution"
+    assert "omniverse" in names
+    assert "league" in names
+    assert len(names) == len(ce.STEWARDSHIP_STACK)
+    assert len(names) > len(ce.CONTINUUM_STACK)
+    multi = ce.get_stewardship_layer("multiverse")
+    assert multi.child == "cosmos"
+    assert multi.plural == "cosmoses"
+    inst = ce.get_stewardship_layer("institution")
+    assert inst.child == "program"
+    assert inst.all_children_met_goal == "all_programs_met"
+    assert ce.list_civilization_layers()[0] == "omniverse"
+    assert ce.list_civilization_layers()[-1] == "institution"
+
+
+def test_nested_composition_league_to_institution() -> None:
+    from pathlib import Path
+    import tempfile
+    import shutil
+
+    scratch = Path(tempfile.mkdtemp(prefix="ce-nest-"))
+    try:
+        league = ce.get_stewardship_layer("league")
+        institution = ce.get_stewardship_layer("institution")
+        runner = ce.make_nested_child_runner(institution)
+        result = ce.run_constitution(
+            league,
+            charter=[
+                {
+                    "institution_id": "i1",
+                    "priority": 1,
+                    "max_rounds": 4,
+                    "charter": [
+                        ce._slot(institution, "p1", keys=[("n", "1.0.0", "d1")]),
+                    ],
+                }
+            ],
+            max_rounds=4,
+            dispatch=True,
+            child_runner=runner,
+            goal=league.all_children_met_goal,
+            out_root=scratch / "L",
+        )
+        assert result["ok"]
+        assert result[league.self_met_field]
+        sealed = ce.verify_receipt(league, Path(result[f"{league.name}_dir"]))
+        assert sealed["ok"]
+        nested_dirs = [
+            r.get(league.child_dir_field)
+            for r in (result.get(league.plural) or [])
+            if r.get(league.child_dir_field)
+        ]
+        assert nested_dirs
+        assert ce.verify_receipt(institution, Path(str(nested_dirs[0])))["ok"]
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
 
 
 def test_normalize_charter_dedupes_and_requires_work() -> None:

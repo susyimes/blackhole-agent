@@ -30,9 +30,26 @@ SCHEMA_VERSION = 1
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TERMINAL_SUCCESS_OUTCOMES = frozenset({"impact_released", "impact_merged"})
 
-# Outer continuum tower as data (parent -> child). Order is outer-first.
-# New SI-scale layers are one row here, not a new ~2800-line module.
-CONTINUUM_STACK: tuple[tuple[str, str], ...] = (
+# Irregular plurals for stewardship nouns (naive f"{noun}s" is wrong).
+_IRREGULAR_PLURALS: dict[str, str] = {
+    "cosmos": "cosmoses",
+}
+
+
+def _pluralize(noun: str) -> str:
+    key = str(noun or "").strip()
+    if key in _IRREGULAR_PLURALS:
+        return _IRREGULAR_PLURALS[key]
+    return f"{key}s"
+
+
+# Full multi-child durable stewardship stack as data (parent -> child).
+# Outer-first: SI continuum tower, then civilization tower down to program.
+# New layers are one row here — not another ~2800-line rename module.
+# Bottom child "program" is a leaf under institution (program plane is
+# multi-succession, a different dialect outside this multi-child engine).
+STEWARDSHIP_STACK: tuple[tuple[str, str], ...] = (
+    # SI continuum tower (outer)
     ("quettacontinuum", "ronnacontinuum"),
     ("ronnacontinuum", "yottacontinuum"),
     ("yottacontinuum", "zettacontinuum"),
@@ -45,6 +62,43 @@ CONTINUUM_STACK: tuple[tuple[str, str], ...] = (
     ("ultracontinuum", "hypercontinuum"),
     ("hypercontinuum", "continuum"),
     ("continuum", "omniverse"),
+    # Civilization / institutional tower (inner)
+    ("omniverse", "multiverse"),
+    ("multiverse", "cosmos"),
+    ("cosmos", "civilization"),
+    ("civilization", "empire"),
+    ("empire", "realm"),
+    ("realm", "domain"),
+    ("domain", "commonwealth"),
+    ("commonwealth", "confederation"),
+    ("confederation", "league"),
+    ("league", "institution"),
+    ("institution", "program"),
+)
+
+# Outer continuum tower as data — the SI-scale prefix of STEWARDSHIP_STACK.
+CONTINUUM_STACK: tuple[tuple[str, str], ...] = tuple(
+    pair for pair in STEWARDSHIP_STACK if pair[0].endswith("continuum") or pair[0] == "continuum"
+)
+# continuum is included; ensure exact outer-12 SI rows match prior contract.
+CONTINUUM_STACK = (
+    ("quettacontinuum", "ronnacontinuum"),
+    ("ronnacontinuum", "yottacontinuum"),
+    ("yottacontinuum", "zettacontinuum"),
+    ("zettacontinuum", "exacontinuum"),
+    ("exacontinuum", "petacontinuum"),
+    ("petacontinuum", "teracontinuum"),
+    ("teracontinuum", "gigacontinuum"),
+    ("gigacontinuum", "megacontinuum"),
+    ("megacontinuum", "ultracontinuum"),
+    ("ultracontinuum", "hypercontinuum"),
+    ("hypercontinuum", "continuum"),
+    ("continuum", "omniverse"),
+)
+
+# Inner civilization tower (omniverse..institution) — stewardship-only rows.
+CIVILIZATION_STACK: tuple[tuple[str, str], ...] = tuple(
+    pair for pair in STEWARDSHIP_STACK if pair not in CONTINUUM_STACK
 )
 
 
@@ -61,10 +115,11 @@ class ConstitutionLayer:
     child: str
     artifacts_relative: str = ""
     kind_default: str = ""
+    child_plural: str = ""  # override irregular plurals (e.g. cosmos -> cosmoses)
 
     @property
     def plural(self) -> str:
-        return f"{self.child}s"
+        return self.child_plural or _pluralize(self.child)
 
     @property
     def child_id_field(self) -> str:
@@ -120,14 +175,43 @@ class ConstitutionLayer:
         return self.kind_default or f"stewardship_{self.child}"
 
 
-CONTINUUM_LAYERS: dict[str, ConstitutionLayer] = {
-    name: ConstitutionLayer(
+def _layer_from_pair(name: str, child: str) -> ConstitutionLayer:
+    return ConstitutionLayer(
         name=name,
         child=child,
         artifacts_relative=f"artifacts/upstream-{name}",
+        child_plural=_IRREGULAR_PLURALS.get(child, ""),
     )
-    for name, child in CONTINUUM_STACK
+
+
+STEWARDSHIP_LAYERS: dict[str, ConstitutionLayer] = {
+    name: _layer_from_pair(name, child) for name, child in STEWARDSHIP_STACK
 }
+
+CONTINUUM_LAYERS: dict[str, ConstitutionLayer] = {
+    name: STEWARDSHIP_LAYERS[name] for name, _child in CONTINUUM_STACK
+}
+
+
+def get_stewardship_layer(name: str) -> ConstitutionLayer:
+    """Return any registered stewardship stack layer by self noun."""
+    key = str(name or "").strip()
+    if key not in STEWARDSHIP_LAYERS:
+        raise ConstitutionRefused(
+            "constitution_unknown_layer",
+            f"unknown stewardship layer {name!r}; known={sorted(STEWARDSHIP_LAYERS)}",
+        )
+    return STEWARDSHIP_LAYERS[key]
+
+
+def list_stewardship_layers() -> list[str]:
+    """Outer-first full stewardship layer names (quetta..institution)."""
+    return [name for name, _child in STEWARDSHIP_STACK]
+
+
+def list_civilization_layers() -> list[str]:
+    """Outer-first civilization-tower layer names (omniverse..institution)."""
+    return [name for name, _child in CIVILIZATION_STACK]
 
 
 def get_continuum_layer(name: str) -> ConstitutionLayer:
@@ -146,6 +230,23 @@ def list_continuum_layers() -> list[str]:
     return [name for name, _child in CONTINUUM_STACK]
 
 
+def run_stewardship_layer(
+    name: str,
+    *,
+    charter: Sequence[Mapping[str, Any]] | None = None,
+    child_runner: Callable[..., dict[str, Any]] | None = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Run any registered stewardship layer through the shared constitution engine.
+
+    When ``child_runner`` is omitted, a hermetic fast child is used so the
+    layer can be exercised without pulling the full nested legacy tower.
+    """
+    layer = get_stewardship_layer(name)
+    runner = child_runner or _fast_child_runner(layer)
+    return run_constitution(layer, charter=charter, child_runner=runner, **kwargs)
+
+
 def run_continuum_layer(
     name: str,
     *,
@@ -161,6 +262,120 @@ def run_continuum_layer(
     layer = get_continuum_layer(name)
     runner = child_runner or _fast_child_runner(layer)
     return run_constitution(layer, charter=charter, child_runner=runner, **kwargs)
+
+
+def make_nested_child_runner(
+    child_layer: ConstitutionLayer,
+    *,
+    grandchild_runner: Callable[..., dict[str, Any]] | None = None,
+    goal: str | None = None,
+) -> Callable[..., dict[str, Any]]:
+    """Build a child_runner that itself is a constitution-engine run.
+
+    This is true multi-depth composition: the parent layer's dispatch calls
+    ``run_constitution`` for the child layer (with its own admit/schedule/
+    federate/seal), not a flat mock. ``grandchild_runner`` defaults to the
+    hermetic fast leaf for the child layer.
+    """
+    leaf = grandchild_runner or _fast_child_runner(child_layer)
+    child_goal = goal or child_layer.all_children_met_goal
+
+    def runner(**kwargs: Any) -> dict[str, Any]:
+        nested_charter = list(kwargs.get("charter") or [])
+        # Parent may pass inventory_keys-only leaves; lift them into child slots
+        # so the nested constitution has admitable work.
+        if nested_charter and all(
+            isinstance(n, Mapping)
+            and not n.get(child_layer.child_id_field)
+            and (n.get("inventory_keys") or collect_inventory_keys(n))
+            for n in nested_charter
+        ):
+            lifted: list[dict[str, Any]] = []
+            for idx, node in enumerate(nested_charter):
+                keys = list(node.get("inventory_keys") or []) or [
+                    list(k) for k in collect_inventory_keys(node)
+                ]
+                lifted.append(
+                    _slot(
+                        child_layer,
+                        f"auto-{idx}",
+                        keys=[tuple(k) for k in keys if len(k) >= 3],  # type: ignore[misc]
+                    )
+                )
+            nested_charter = lifted
+        max_rounds = max(1, int(kwargs.get("max_rounds") or 4))
+        max_active = kwargs.get("max_active")
+        if max_active is None:
+            max_active = kwargs.get("max_active_children")
+        if max_active is None:
+            max_active = kwargs.get(child_layer.max_active_field)
+        constitution_id = str(
+            kwargs.get(child_layer.self_id_field)
+            or kwargs.get("child_id")
+            or kwargs.get(f"{child_layer.name}_id")
+            or "nested"
+        )
+        # Prefer the id the parent placed under child_id_field of *parent*
+        # which is this layer's self id.
+        for key in (
+            child_layer.self_id_field,
+            "child_id",
+        ):
+            if kwargs.get(key):
+                constitution_id = str(kwargs[key])
+                break
+        # Parent engine sets layer.child_id_field of the *parent*, which equals
+        # this layer's self_id_field (parent.child == this.name).
+        # Also accept any *_id that matches self.
+        for k, v in kwargs.items():
+            if k == child_layer.self_id_field and v:
+                constitution_id = str(v)
+                break
+        result = run_constitution(
+            child_layer,
+            charter=nested_charter,
+            max_rounds=max_rounds,
+            max_active=int(max_active) if max_active is not None else None,
+            dispatch_budget=kwargs.get("dispatch_budget"),
+            dispatch=bool(kwargs.get("dispatch", True)),
+            child_runner=leaf,
+            goal=str(kwargs.get(child_layer.self_goal_field) or child_goal),
+            constitution_id=constitution_id,
+            resume_dir=kwargs.get("resume_dir"),
+            out_root=kwargs.get("out_root"),
+        )
+        return result
+
+    return runner
+
+
+def make_nested_stack_runner(
+    layer_names: Sequence[str],
+    *,
+    leaf_runner: Callable[..., dict[str, Any]] | None = None,
+) -> Callable[..., dict[str, Any]]:
+    """Wire a chain of stewardship layers so each child's runner is the next.
+
+    ``layer_names`` is outer-first for the *child chain*: e.g. for parent
+    omniverse with nested multiverse→cosmos composition, pass
+    ``[\"multiverse\", \"cosmos\"]``. The deepest layer uses ``leaf_runner``
+    (default: fast child of the deepest layer). Returns a runner suitable as
+    the parent's ``child_runner``.
+    """
+    names = [str(n).strip() for n in layer_names if str(n).strip()]
+    if not names:
+        raise ConstitutionRefused(
+            "constitution_invalid", "make_nested_stack_runner requires layer names"
+        )
+    layers = [get_stewardship_layer(n) for n in names]
+    # Build inside-out: deepest leaf first, then wrap each layer as a nested
+    # constitution runner whose child_runner is the already-built inner runner.
+    runner: Callable[..., dict[str, Any]] = (
+        leaf_runner if leaf_runner is not None else _fast_child_runner(layers[-1])
+    )
+    for layer in reversed(layers):
+        runner = make_nested_child_runner(layer, grandchild_runner=runner)
+    return runner
 
 
 def _sha256_bytes(data: bytes) -> str:
@@ -1215,11 +1430,11 @@ def run_constitution(
             mac = int(selected["max_active_children"])
             child_kwargs["max_active_children"] = mac
             # Legacy continuum runners use max_active_{grandchild}s nouns.
-            child_kwargs[f"max_active_{layer.child}s"] = mac
+            child_kwargs[f"max_active_{_pluralize(layer.child)}"] = mac
             # Grandchild of this child is often the nested max_active target.
-            for name, child in CONTINUUM_STACK:
+            for name, child in STEWARDSHIP_STACK:
                 if name == layer.child:
-                    child_kwargs[f"max_active_{child}s"] = mac
+                    child_kwargs[f"max_active_{_pluralize(child)}"] = mac
                     break
         if child_resume is not None:
             child_kwargs["resume_dir"] = child_resume
@@ -2091,16 +2306,23 @@ def _legacy_quetta_parity(scratch: Path) -> dict[str, Any]:
     }
 
 
-def _continuum_tower_as_data_proof(scratch: Path) -> dict[str, Any]:
-    """Prove every continuum tower layer is invocable as registered data only."""
-    names = list_continuum_layers()
-    if len(names) < 8:
-        return {"ok": False, "detail": "stack too short", "layers": names}
+def _stack_as_data_proof(
+    scratch: Path,
+    *,
+    names: Sequence[str],
+    expected_pairs: Mapping[str, str],
+    order_first: str,
+    order_last: str,
+    required_mid: Sequence[str] = (),
+) -> dict[str, Any]:
+    """Prove every named stack layer is invocable as registered data only."""
+    name_list = list(names)
+    if len(name_list) < 4:
+        return {"ok": False, "detail": "stack too short", "layers": name_list}
     layer_results: list[dict[str, Any]] = []
-    for idx, name in enumerate(names):
-        layer = get_continuum_layer(name)
-        # Each layer must resolve child from CONTINUUM_STACK without new modules.
-        expected_child = dict(CONTINUUM_STACK)[name]
+    for idx, name in enumerate(name_list):
+        layer = get_stewardship_layer(name)
+        expected_child = expected_pairs[name]
         if layer.child != expected_child:
             layer_results.append(
                 {
@@ -2110,7 +2332,7 @@ def _continuum_tower_as_data_proof(scratch: Path) -> dict[str, Any]:
                 }
             )
             continue
-        result = run_continuum_layer(
+        result = run_stewardship_layer(
             name,
             charter=[
                 _slot(layer, "a", priority=2, keys=[(f"{name[:2]}a", "1.0.0", f"{name}-a")]),
@@ -2140,22 +2362,20 @@ def _continuum_tower_as_data_proof(scratch: Path) -> dict[str, Any]:
                 "stop_reason": result.get("stop_reason"),
                 "met_count": result.get(f"{layer.plural}_met_count"),
                 "seal_ok": bool(sealed.get("ok")),
+                "plural": layer.plural,
             }
         )
 
-    # Unknown layer must refuse without inventing a module.
     unknown_refused = False
     try:
-        get_continuum_layer("not-a-real-layer")
+        get_stewardship_layer("not-a-real-layer")
     except ConstitutionRefused as exc:
         unknown_refused = exc.verdict == "constitution_unknown_layer"
 
-    # Outer-first order is stable and includes quetta + continuum ends.
     order_ok = (
-        names[0] == "quettacontinuum"
-        and names[-1] == "continuum"
-        and "ronnacontinuum" in names
-        and "hypercontinuum" in names
+        name_list[0] == order_first
+        and name_list[-1] == order_last
+        and all(m in name_list for m in required_mid)
     )
     all_layers_ok = all(item.get("ok") for item in layer_results)
     ok = all_layers_ok and unknown_refused and order_ok and not legacy_pipeline_was_used()
@@ -2165,8 +2385,213 @@ def _continuum_tower_as_data_proof(scratch: Path) -> dict[str, Any]:
         "layers": layer_results,
         "unknown_refused": unknown_refused,
         "order_ok": order_ok,
-        "names": names,
+        "names": name_list,
     }
+
+
+def _continuum_tower_as_data_proof(scratch: Path) -> dict[str, Any]:
+    """Prove every continuum tower layer is invocable as registered data only."""
+    return _stack_as_data_proof(
+        scratch,
+        names=list_continuum_layers(),
+        expected_pairs=dict(CONTINUUM_STACK),
+        order_first="quettacontinuum",
+        order_last="continuum",
+        required_mid=("ronnacontinuum", "hypercontinuum"),
+    )
+
+
+def _stewardship_stack_as_data_proof(scratch: Path) -> dict[str, Any]:
+    """Prove the full stewardship stack (SI + civilization) is pure data."""
+    return _stack_as_data_proof(
+        scratch,
+        names=list_stewardship_layers(),
+        expected_pairs=dict(STEWARDSHIP_STACK),
+        order_first="quettacontinuum",
+        order_last="institution",
+        required_mid=(
+            "continuum",
+            "omniverse",
+            "cosmos",
+            "empire",
+            "league",
+            "institution",
+        ),
+    )
+
+
+def _nested_composition_proof(scratch: Path) -> dict[str, Any]:
+    """Prove multi-depth composition: outer layer dispatches engine-backed children.
+
+    League → institution (engine) → program (fast leaf), with a second depth
+    slice Omniverse → multiverse (engine) → cosmos (engine) → civilization (leaf).
+    Nested child digests and sealed receipts must chain without skill-route.
+    """
+    checks: dict[str, Any] = {}
+
+    # --- depth-2: league → institution(engine) → program(leaf) ---
+    league = get_stewardship_layer("league")
+    institution = get_stewardship_layer("institution")
+    inst_runner = make_nested_child_runner(institution)
+    league_charter = [
+        {
+            "institution_id": "i1",
+            "priority": 2,
+            "max_rounds": 4,
+            "charter": [
+                _slot(institution, "p1", keys=[("lp", "1.0.0", "lp-1")]),
+                _slot(institution, "p2", keys=[("lp", "1.0.0", "lp-2")]),
+            ],
+        },
+        {
+            "institution_id": "i2",
+            "priority": 1,
+            "max_rounds": 4,
+            "charter": [
+                _slot(institution, "p3", keys=[("lq", "1.0.0", "lq-1")]),
+            ],
+        },
+    ]
+    league_result = run_constitution(
+        league,
+        charter=league_charter,
+        max_rounds=6,
+        dispatch=True,
+        child_runner=inst_runner,
+        goal=league.all_children_met_goal,
+        constitution_id="nested-league",
+        out_root=scratch / "league",
+    )
+    league_dir = Path(league_result[f"{league.name}_dir"])
+    league_sealed = verify_receipt(league, league_dir)
+    # Nested institution receipts must exist and seal.
+    nested_ok = 0
+    nested_sealed = 0
+    for rec in list(league_result.get(league.plural) or []):
+        idir = rec.get(league.child_dir_field)
+        if not idir:
+            continue
+        nested_ok += 1
+        nested = verify_receipt(institution, Path(str(idir)))
+        if nested.get("ok"):
+            nested_sealed += 1
+    checks["league_depth2_met"] = bool(
+        league_result.get("ok")
+        and league_result.get(league.self_met_field)
+        and league_result.get(f"{league.plural}_met_count") == 2
+        and league_sealed.get("ok")
+        and nested_ok >= 2
+        and nested_sealed >= 2
+        and float((league_result.get("coverage_end") or {}).get("coverage_ratio") or 0) == 1.0
+    )
+    checks["league_detail"] = {
+        "met_count": league_result.get(f"{league.plural}_met_count"),
+        "nested_ok": nested_ok,
+        "nested_sealed": nested_sealed,
+        "coverage": (league_result.get("coverage_end") or {}).get("coverage_ratio"),
+        "stop_reason": league_result.get("stop_reason"),
+    }
+
+    # --- depth-3: omniverse → multiverse → cosmos → civilization leaf ---
+    omniverse = get_stewardship_layer("omniverse")
+    multiverse = get_stewardship_layer("multiverse")
+    cosmos = get_stewardship_layer("cosmos")
+    # Parent omniverse's child runner is nested stack multiverse→cosmos.
+    nested_runner = make_nested_stack_runner(["multiverse", "cosmos"])
+    # Build a properly nested charter: omniverse slots → multiverse slots → cosmos slots.
+    omni_charter = [
+        {
+            "multiverse_id": "mv1",
+            "priority": 1,
+            "max_rounds": 6,
+            "charter": [
+                {
+                    "cosmos_id": "c1",
+                    "priority": 1,
+                    "max_rounds": 4,
+                    "charter": [
+                        _slot(cosmos, "civ1", keys=[("oc", "1.0.0", "oc-1")]),
+                        _slot(cosmos, "civ2", keys=[("oc", "1.0.0", "oc-2")]),
+                    ],
+                }
+            ],
+        },
+        {
+            "multiverse_id": "mv2",
+            "priority": 0,
+            "max_rounds": 6,
+            "charter": [
+                {
+                    "cosmos_id": "c2",
+                    "priority": 1,
+                    "max_rounds": 4,
+                    "charter": [
+                        _slot(cosmos, "civ3", keys=[("od", "1.0.0", "od-1")]),
+                    ],
+                }
+            ],
+        },
+    ]
+    omni_result = run_constitution(
+        omniverse,
+        charter=omni_charter,
+        max_rounds=8,
+        dispatch=True,
+        child_runner=nested_runner,
+        goal=omniverse.all_children_met_goal,
+        constitution_id="nested-omni",
+        out_root=scratch / "omni",
+    )
+    omni_dir = Path(omni_result[f"{omniverse.name}_dir"])
+    omni_sealed = verify_receipt(omniverse, omni_dir)
+    # Walk nested multiverse receipts.
+    mv_sealed = 0
+    cosmos_sealed = 0
+    for rec in list(omni_result.get(omniverse.plural) or []):
+        mv_dir = rec.get(omniverse.child_dir_field)
+        if not mv_dir:
+            continue
+        mv_v = verify_receipt(multiverse, Path(str(mv_dir)))
+        if mv_v.get("ok"):
+            mv_sealed += 1
+        try:
+            mv_receipt = json.loads(
+                (Path(str(mv_dir)) / f"{multiverse.name}.json").read_text(encoding="utf-8")
+            )
+        except (OSError, json.JSONDecodeError):
+            continue
+        for crec in list(mv_receipt.get(multiverse.plural) or []):
+            cdir = crec.get(multiverse.child_dir_field)
+            if not cdir:
+                continue
+            if verify_receipt(cosmos, Path(str(cdir))).get("ok"):
+                cosmos_sealed += 1
+    checks["omniverse_depth3_met"] = bool(
+        omni_result.get("ok")
+        and omni_result.get(omniverse.self_met_field)
+        and omni_result.get(f"{omniverse.plural}_met_count") == 2
+        and omni_sealed.get("ok")
+        and mv_sealed >= 2
+        and cosmos_sealed >= 2
+        and float((omni_result.get("coverage_end") or {}).get("coverage_ratio") or 0) == 1.0
+    )
+    checks["omniverse_detail"] = {
+        "met_count": omni_result.get(f"{omniverse.plural}_met_count"),
+        "mv_sealed": mv_sealed,
+        "cosmos_sealed": cosmos_sealed,
+        "coverage": (omni_result.get("coverage_end") or {}).get("coverage_ratio"),
+        "stop_reason": omni_result.get("stop_reason"),
+        "plural_cosmos": multiverse.plural,  # cosmoses
+    }
+    checks["irregular_plural_cosmoses"] = multiverse.plural == "cosmoses"
+    checks["no_skill_route"] = not legacy_pipeline_was_used()
+    ok = (
+        bool(checks.get("league_depth2_met"))
+        and bool(checks.get("omniverse_depth3_met"))
+        and bool(checks.get("irregular_plural_cosmoses"))
+        and bool(checks.get("no_skill_route"))
+    )
+    return {"ok": ok, "checks": checks}
 
 
 def builtin_constitution_engine_proof() -> dict[str, Any]:
@@ -2417,6 +2842,20 @@ def builtin_constitution_engine_proof() -> dict[str, Any]:
         tower = _continuum_tower_as_data_proof(scratch / "tower")
         flags["continuum_tower_as_data"] = bool(tower.get("ok"))
         flags["continuum_tower_detail"] = tower
+
+        # Full stewardship stack (SI continuum + civilization tower down to
+        # institution→program) is pure data — 23 layers, zero new modules.
+        full = _stewardship_stack_as_data_proof(scratch / "full")
+        flags["stewardship_stack_as_data"] = bool(full.get("ok"))
+        flags["stewardship_stack_detail"] = full
+        flags["stewardship_layer_count"] = int(full.get("layer_count") or 0)
+
+        # Multi-depth nested composition: outer layers dispatch engine-backed
+        # children (not flat mocks), sealed digests chain across depths.
+        nested = _nested_composition_proof(scratch / "nested")
+        flags["nested_composition"] = bool(nested.get("ok"))
+        flags["nested_composition_detail"] = nested
+
         flags["used_skill_route_discovery"] = legacy_pipeline_was_used()
 
         required = (
@@ -2437,6 +2876,8 @@ def builtin_constitution_engine_proof() -> dict[str, Any]:
             "second_layer_data_only",
             "legacy_quetta_parity",
             "continuum_tower_as_data",
+            "stewardship_stack_as_data",
+            "nested_composition",
         )
         ok = all(bool(flags[k]) for k in required) and not flags[
             "used_skill_route_discovery"
@@ -2447,6 +2888,8 @@ def builtin_constitution_engine_proof() -> dict[str, Any]:
             "flags": flags,
             "used_skill_route_discovery": flags["used_skill_route_discovery"],
             "continuum_layers": list_continuum_layers(),
+            "stewardship_layers": list_stewardship_layers(),
+            "stewardship_layer_count": flags["stewardship_layer_count"],
             **{k: flags[k] for k in required},
         }
     finally:
