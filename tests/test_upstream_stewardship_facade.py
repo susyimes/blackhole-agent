@@ -16,6 +16,10 @@ def test_builtin_facade_collapse_proof_green() -> None:
     assert result["facade_files"] == 23
     assert result["tower_loc_after"] < result["tower_loc_before"] // 10
     assert result["nested_composition"]
+    assert result["constitution_engine_ok"]
+    assert result["ledger_capability_ok"]
+    assert result["stack_complete"]
+    assert result["done_when_met"]
     assert not result["used_skill_route_discovery"]
 
 

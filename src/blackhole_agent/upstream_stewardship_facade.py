@@ -947,8 +947,47 @@ def builtin_layer_proof(layer_name: str) -> dict[str, Any]:
         shutil.rmtree(scratch, ignore_errors=True)
 
 
+def _ledger_facade_capability_ok() -> dict[str, Any]:
+    """Assert capability.upstream-stewardship-facade is registered and points here."""
+    from blackhole_agent.capability_compounder import (
+        DEFAULT_LEDGER_RELATIVE,
+        load_ledger,
+    )
+
+    ledger_path = Path(__file__).resolve().parents[2] / DEFAULT_LEDGER_RELATIVE
+    try:
+        ledger = load_ledger(ledger_path)
+    except Exception as exc:  # noqa: BLE001 — proof must not raise
+        return {"ok": False, "detail": f"ledger_unreadable:{exc}"}
+    cap = (ledger.capabilities or {}).get("capability.upstream-stewardship-facade")
+    if cap is None:
+        return {"ok": False, "detail": "capability_missing"}
+    entry = str(getattr(cap, "entry", "") or "")
+    proof_cmd = str(getattr(cap, "proof_command", "") or "")
+    expected_entry = (
+        "blackhole_agent.upstream_stewardship_facade:builtin_stewardship_facade_proof"
+    )
+    ok = (
+        entry == expected_entry
+        and "upstream_stewardship_facade" in proof_cmd
+        and "--proof" in proof_cmd
+    )
+    return {
+        "ok": ok,
+        "id": getattr(cap, "id", None),
+        "entry": entry,
+        "proof_command": proof_cmd,
+        "expected_entry": expected_entry,
+    }
+
+
 def builtin_stewardship_facade_proof() -> dict[str, Any]:
-    """Prove every multi-child stewardship layer is a thin engine facade."""
+    """Prove every multi-child stewardship layer is a thin engine facade.
+
+    Closes the full mission done_when surface in one invocable proof:
+    23 ENGINE_FACADE modules, nested composition, >=10x tower LOC reduction,
+    constitution engine still green, and ledger capability registered.
+    """
     names = ce.list_stewardship_layers()
     results: list[dict[str, Any]] = []
     loc_before_claim = 63667  # measured pre-collapse tower LOC
@@ -972,9 +1011,18 @@ def builtin_stewardship_facade_proof() -> dict[str, Any]:
         )
 
     # Nested composition still works through facades.
-    nested = ce._nested_composition_proof(
-        Path(tempfile.mkdtemp(prefix="facade-nest-"))
-    )
+    nest_scratch = Path(tempfile.mkdtemp(prefix="facade-nest-"))
+    try:
+        nested = ce._nested_composition_proof(nest_scratch)
+    finally:
+        shutil.rmtree(nest_scratch, ignore_errors=True)
+
+    # Constitution engine remains healthy (full hermetic proof).
+    engine = ce.builtin_constitution_engine_proof()
+
+    # Ledger registration + invocable entry binding.
+    ledger = _ledger_facade_capability_ok()
+
     # Measure current tower module sizes.
     root = Path(__file__).resolve().parents[2]
     loc_after = 0
@@ -989,10 +1037,14 @@ def builtin_stewardship_facade_proof() -> dict[str, Any]:
 
     all_ok = all(r["ok"] for r in results)
     loc_reduced = loc_after < (loc_before_claim // 10)  # at least 10x reduction
+    stack_complete = len(names) == 23 and names[0] == "quettacontinuum" and names[-1] == "institution"
     ok = (
         all_ok
         and bool(nested.get("ok"))
+        and bool(engine.get("ok"))
+        and bool(ledger.get("ok"))
         and facade_files == len(names)
+        and stack_complete
         and loc_reduced
         and not legacy_pipeline_was_used()
     )
@@ -1006,8 +1058,13 @@ def builtin_stewardship_facade_proof() -> dict[str, Any]:
         "tower_loc_before": loc_before_claim,
         "loc_reduction_ratio": (loc_before_claim / max(1, loc_after)),
         "nested_composition": bool(nested.get("ok")),
+        "constitution_engine_ok": bool(engine.get("ok")),
+        "ledger_capability_ok": bool(ledger.get("ok")),
+        "ledger_detail": ledger,
+        "stack_complete": stack_complete,
         "results": results,
         "used_skill_route_discovery": legacy_pipeline_was_used(),
+        "done_when_met": ok,
     }
 
 
@@ -1446,6 +1503,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "tower_loc_before": result.get("tower_loc_before"),
                     "loc_reduction_ratio": result.get("loc_reduction_ratio"),
                     "nested_composition": result.get("nested_composition"),
+                    "constitution_engine_ok": result.get("constitution_engine_ok"),
+                    "ledger_capability_ok": result.get("ledger_capability_ok"),
+                    "stack_complete": result.get("stack_complete"),
+                    "done_when_met": result.get("done_when_met"),
                 },
                 indent=2,
             )
