@@ -24,6 +24,9 @@ Composition:
 * ``run_governance_spine`` — bridges constitution multi-child stewardship
   (institution→program) onto the operational nest so institution→…→campaign
   is one continuous engine-owned governance path (not a mock program leaf)
+* ``run_outer_governance_spine`` — outer constitution (league→institution)
+  dispatches governance-backed institutions so the mock-leaf cliff stays
+  closed above institution (depth-7 nest)
 
 No skill-route discovery.
 """
@@ -3810,6 +3813,310 @@ def annotate_governance_spine(
     return body
 
 
+def outer_governance_nest_path(outer_dialect: str = "league") -> list[dict[str, Any]]:
+    """Outer constitution dialect → institution → operational nest (depth 7)."""
+    outer = str(outer_dialect or "league").strip().lower() or "league"
+    return [
+        {
+            "mode": "constitution",
+            "dialect": outer,
+            "child": "institution",
+        },
+        *governance_nest_path(),
+    ]
+
+
+def outer_governance_nest_depth(outer_dialect: str = "league") -> int:
+    return len(outer_governance_nest_path(outer_dialect))
+
+
+def recover_governance_child_path(
+    result: Mapping[str, Any],
+) -> list[dict[str, Any]] | None:
+    """Recover operational nest path from governance_child.json under result.
+
+    Program adapters write flat short dirs on Windows (outside the parent
+    constitution tree), so recovery walks nested ``child_states`` for
+    ``last_program_dir`` pointers rather than only rglob under institution_dir.
+    """
+
+    def _read_path(gpath: Path) -> list[dict[str, Any]] | None:
+        if not gpath.is_file():
+            return None
+        try:
+            blob = json.loads(gpath.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        cpath = blob.get("control_nest_path")
+        if cpath:
+            return [dict(s) for s in cpath if isinstance(s, Mapping)]
+        return None
+
+    def _from_dir(pdir: Any) -> list[dict[str, Any]] | None:
+        if not pdir:
+            return None
+        root = Path(str(pdir))
+        found = _read_path(root / "governance_child.json")
+        if found:
+            return found
+        if root.is_dir():
+            try:
+                for gpath in root.rglob("governance_child.json"):
+                    found = _read_path(gpath)
+                    if found:
+                        return found
+            except OSError:
+                pass
+        return None
+
+    def _walk_states(states: Any, *, depth: int = 0) -> list[dict[str, Any]] | None:
+        if depth > 6 or not states:
+            return None
+        for st in list(states or []):
+            if not isinstance(st, Mapping):
+                continue
+            for key in (
+                "last_program_dir",
+                "program_dir",
+                "last_institution_dir",
+                "institution_dir",
+                "out_root",
+            ):
+                found = _from_dir(st.get(key))
+                if found:
+                    return found
+            # Nested program states under institution (or deeper outer layers).
+            for nest_key in (
+                "child_states",
+                "program_states",
+                "institution_states",
+                "yottacontinuum_states",
+            ):
+                found = _walk_states(st.get(nest_key), depth=depth + 1)
+                if found:
+                    return found
+        return None
+
+    for key in (
+        "child_states",
+        "program_states",
+        "programs",
+        "institutions",
+        "institution_states",
+    ):
+        found = _walk_states(result.get(key))
+        if found:
+            return found
+    # Round records may carry program_dir directly.
+    for key in ("programs", "institutions", "rounds"):
+        for rec in list(result.get(key) or []):
+            if not isinstance(rec, Mapping):
+                continue
+            found = _from_dir(
+                rec.get("program_dir")
+                or rec.get("institution_dir")
+                or rec.get("out_root")
+            )
+            if found:
+                return found
+    return None
+
+
+def annotate_outer_governance_spine(
+    result: Mapping[str, Any],
+    *,
+    outer_dialect: str = "league",
+    live: bool = True,
+    child_control_path: Sequence[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Stamp nested outer governance (e.g. league→institution→…→campaign)."""
+    body = dict(result)
+    outer = str(outer_dialect or "league").strip().lower() or "league"
+    path = outer_governance_nest_path(outer)
+    body["governance_spine"] = True
+    body["governance_spine_live"] = bool(live)
+    body["governance_outer"] = True
+    body["governance_outer_dialect"] = outer
+    body["governance_nest_path"] = path
+    body["governance_nest_depth"] = len(path)
+    body["governance_edge"] = f"{outer}->institution"
+    body["governance_operational_edge"] = "program->campaign"
+    body["control_engine"] = True
+    body["control_operational_spine"] = True
+    body["control_graph"] = True
+    if live:
+        body["control_graph_live"] = True
+        body["control_nest_live"] = True
+    if child_control_path is not None:
+        body["governance_child_control_path"] = [
+            dict(s) for s in child_control_path
+        ]
+    body["used_skill_route_discovery"] = legacy_pipeline_was_used()
+    return body
+
+
+def make_governance_institution_child_runner(
+    *,
+    max_rounds: int = 3,
+    max_successions: int = 2,
+    max_epochs: int = 2,
+    max_waves: int = 2,
+    idle_limit: int = 1,
+    goal_dispatched_ok: int = 1,
+    campaign_run_stage: RunStage | None = None,
+    stewardship_root: Path | None = None,
+) -> Callable[..., dict[str, Any]]:
+    """Constitution child_runner for league→institution via governance spine.
+
+    Each institution child runs with default operational program attach
+    (``governance_spine=True``), so outer multi-child layers do not fall back
+    to mock program leaves.
+    """
+
+    def runner(**kwargs: Any) -> dict[str, Any]:
+        from blackhole_agent import upstream_institution as ui
+
+        institution_id = str(
+            kwargs.get("institution_id")
+            or kwargs.get("child_id")
+            or "gov-institution"
+        )
+        out = kwargs.get("out_root")
+        result = ui.run_institution(
+            charter=list(kwargs.get("charter") or []),
+            max_rounds=int(kwargs.get("max_rounds") or max_rounds),
+            dispatch_budget=kwargs.get("dispatch_budget"),
+            dispatch=bool(kwargs.get("dispatch", True)),
+            institution_id=institution_id,
+            institution_goal=str(
+                kwargs.get("institution_goal") or "all_programs_met"
+            ),
+            out_root=out,
+            resume_dir=kwargs.get("resume_dir"),
+            governance_spine=True,
+            max_successions=int(
+                kwargs.get("max_successions") or max_successions
+            ),
+            max_epochs=int(kwargs.get("max_epochs") or max_epochs),
+            max_waves=int(kwargs.get("max_waves") or max_waves),
+            idle_limit=int(kwargs.get("idle_limit") or idle_limit),
+            goal_dispatched_ok=int(
+                kwargs.get("goal_dispatched_ok") or goal_dispatched_ok
+            ),
+            campaign_run_stage=campaign_run_stage
+            or kwargs.get("campaign_run_stage"),
+            stewardship_root=stewardship_root
+            or kwargs.get("stewardship_root"),
+        )
+        # Ensure parent can locate nested governance receipts.
+        result.setdefault("institution_id", institution_id)
+        result["governance_outer_child"] = True
+        return result
+
+    return runner
+
+
+def run_outer_governance_spine(
+    *,
+    outer_layer: str = "league",
+    charter: Sequence[Mapping[str, Any]] | None = None,
+    institutions: Sequence[Mapping[str, Any]] | None = None,
+    out_root: Path | None = None,
+    max_rounds: int = 4,
+    dispatch: bool = True,
+    dispatch_budget: int | None = None,
+    max_active: int | None = None,
+    constitution_id: str | None = None,
+    goal: str | None = None,
+    max_successions: int = 2,
+    max_epochs: int = 2,
+    max_waves: int = 2,
+    idle_limit: int = 1,
+    goal_dispatched_ok: int = 1,
+    campaign_run_stage: RunStage | None = None,
+    stewardship_root: Path | None = None,
+    institution_runner: Callable[..., dict[str, Any]] | None = None,
+    live: bool = True,
+) -> dict[str, Any]:
+    """Public entry: outer constitution (league…) with governance institutions.
+
+    Proves the mock-leaf cliff stays closed above institution: outer layers
+    dispatch institution children that themselves run the operational nest.
+    """
+    from blackhole_agent import upstream_constitution_engine as ce
+
+    outer = str(outer_layer or "league").strip().lower() or "league"
+    layer = ce.get_stewardship_layer(outer)
+    if layer.child != "institution":
+        raise StageRefused(
+            "governance_outer_invalid",
+            f"outer governance requires child=institution (got {layer.name}"
+            f"→{layer.child})",
+        )
+
+    if charter is not None:
+        slots = [dict(s) for s in charter if isinstance(s, Mapping)]
+    elif institutions is not None:
+        slots = [dict(i) for i in institutions if isinstance(i, Mapping)]
+    else:
+        slots = [
+            {
+                "institution_id": "gi1",
+                "priority": 1,
+                "max_rounds": 3,
+                "kind": "stewardship_institution",
+                "charter": [
+                    {
+                        "program_id": "gp-outer",
+                        "priority": 1,
+                        "program_goal": "none",
+                        "kind": "stewardship_program",
+                        "inventory_keys": [("og1", "1.0.0", "og1-1")],
+                        "charter": [
+                            {
+                                "inventory_keys": [
+                                    ["og1", "1.0.0", "og1-1"]
+                                ]
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+
+    runner = institution_runner or make_governance_institution_child_runner(
+        max_successions=max_successions,
+        max_epochs=max_epochs,
+        max_waves=max_waves,
+        idle_limit=idle_limit,
+        goal_dispatched_ok=goal_dispatched_ok,
+        campaign_run_stage=campaign_run_stage,
+        stewardship_root=stewardship_root,
+    )
+
+    result = ce.run_constitution(
+        layer,
+        charter=slots,
+        max_rounds=max_rounds,
+        dispatch=dispatch,
+        dispatch_budget=dispatch_budget,
+        max_active=max_active,
+        child_runner=runner,
+        goal=goal or layer.all_children_met_goal,
+        constitution_id=constitution_id or f"outer-governance-{outer}",
+        out_root=out_root,
+    )
+
+    child_path = recover_governance_child_path(result)
+    annotated = annotate_outer_governance_spine(
+        result,
+        outer_dialect=outer,
+        live=live,
+        child_control_path=child_path,
+    )
+    return annotated
+
+
 def run_governance_spine(
     *,
     charter: Sequence[Mapping[str, Any]] | None = None,
@@ -3890,39 +4197,7 @@ def run_governance_spine(
         out_root=out_root,
     )
 
-    child_path: list[dict[str, Any]] | None = None
-    # Recover control path from governance_child.json written by the program
-    # adapter (round records only store digests, not full nest paths).
-    state_lists = [
-        result.get("child_states"),
-        result.get("program_states"),
-        result.get("programs"),
-    ]
-    for states in state_lists:
-        if child_path is not None:
-            break
-        for st in list(states or []):
-            if not isinstance(st, Mapping):
-                continue
-            pdir = (
-                st.get("last_program_dir")
-                or st.get("program_dir")
-                or st.get("out_root")
-            )
-            if not pdir:
-                continue
-            gpath = Path(str(pdir)) / "governance_child.json"
-            if not gpath.is_file():
-                continue
-            try:
-                blob = json.loads(gpath.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                continue
-            cpath = blob.get("control_nest_path")
-            if cpath:
-                child_path = [dict(s) for s in cpath if isinstance(s, Mapping)]
-                break
-
+    child_path = recover_governance_child_path(result)
     annotated = annotate_governance_spine(
         result, live=live, child_control_path=child_path
     )
@@ -3932,11 +4207,14 @@ def run_governance_spine(
 
 
 def builtin_governance_spine_proof() -> dict[str, Any]:
-    """Hermetic proof: institution→program→…→campaign is one governance spine."""
+    """Hermetic proof: institution→program→…→campaign is one governance spine.
+
+    Also proves default attach (no flag), opt-out, and outer league nesting.
+    """
     scratch = Path(tempfile.mkdtemp(prefix="governance-spine-proof-"))
     try:
-        from blackhole_agent import upstream_constitution_engine as ce
         from blackhole_agent import upstream_institution as ui
+        from blackhole_agent import upstream_league as ul
         from blackhole_agent import upstream_loop_engine as le_facade
         from blackhole_agent import upstream_program as up
         from blackhole_agent.capability_compounder import (
@@ -3959,6 +4237,20 @@ def builtin_governance_spine_proof() -> dict[str, Any]:
             and path[0].get("mode") == "constitution"
             and path[1].get("mode") == "loop"
             and path[-1].get("mode") == "pipeline"
+        )
+        outer_path = outer_governance_nest_path("league")
+        outer_path_ok = (
+            outer_governance_nest_depth("league") == 7
+            and [s.get("dialect") for s in outer_path]
+            == [
+                "league",
+                "institution",
+                "program",
+                "succession",
+                "epoch",
+                "fleet",
+                "campaign",
+            ]
         )
 
         # Core public entry.
@@ -4030,7 +4322,7 @@ def builtin_governance_spine_proof() -> dict[str, Any]:
             and (Path(str(adapted["program_dir"])) / "program.json").is_file()
         )
 
-        # Live domain: run_institution(governance_spine=True).
+        # Live domain: explicit governance_spine=True still works.
         live_inst = ui.run_institution(
             governance_spine=True,
             charter=[
@@ -4058,33 +4350,210 @@ def builtin_governance_spine_proof() -> dict[str, Any]:
             and bool(live_inst.get("institution_digest"))
         )
 
-        # Module flags: institution advertises governance attach; program
-        # remains the operational graph leaf.
+        # Default attach: omit governance_spine flag → still operational spine.
+        default_inst = ui.run_institution(
+            charter=[
+                {
+                    "program_id": "def-gp",
+                    "priority": 1,
+                    "inventory_keys": [("def", "1.0.0", "def-1")],
+                    "charter": [
+                        {"inventory_keys": [["def", "1.0.0", "def-1"]]}
+                    ],
+                }
+            ],
+            max_rounds=3,
+            dispatch=True,
+            dispatch_budget=4,
+            out_root=scratch / "default-inst",
+            institution_id="default-gov",
+        )
+        default_ok = (
+            bool(default_inst.get("ok"))
+            and default_inst.get("governance_spine") is True
+            and default_inst.get("governance_spine_default") is True
+            and default_inst.get("control_operational_spine") is True
+            and int(default_inst.get("total_dispatched_ok") or 0) >= 1
+            and [
+                s.get("dialect")
+                for s in (
+                    default_inst.get("governance_child_control_path") or []
+                )
+            ]
+            == ["program", "succession", "epoch", "fleet", "campaign"]
+        )
+
+        # Opt-out: governance_spine=False keeps mock leaf (no governance seals).
+        opt_out = ui.run_institution(
+            governance_spine=False,
+            charter=[
+                {
+                    "program_id": "fast-gp",
+                    "priority": 1,
+                    "inventory_keys": [("fast", "1.0.0", "fast-1")],
+                    "charter": [
+                        {"inventory_keys": [["fast", "1.0.0", "fast-1"]]}
+                    ],
+                }
+            ],
+            max_rounds=3,
+            dispatch=True,
+            dispatch_budget=4,
+            out_root=scratch / "opt-out",
+            institution_id="fast-gov",
+        )
+        opt_out_ok = (
+            bool(opt_out.get("ok"))
+            and opt_out.get("governance_spine") is not True
+            and int(opt_out.get("total_dispatched_ok") or 0) >= 1
+            and bool(opt_out.get("institution_digest"))
+        )
+
+        # Outer nest: league→institution→program→…→campaign.
+        outer = run_outer_governance_spine(
+            outer_layer="league",
+            out_root=scratch / "outer-league",
+            max_rounds=3,
+            dispatch=True,
+            dispatch_budget=4,
+            institutions=[
+                {
+                    "institution_id": "oi1",
+                    "priority": 1,
+                    "max_rounds": 3,
+                    "kind": "stewardship_institution",
+                    "charter": [
+                        {
+                            "program_id": "op1",
+                            "priority": 1,
+                            "program_goal": "none",
+                            "kind": "stewardship_program",
+                            "inventory_keys": [("o1", "1.0.0", "o1-1")],
+                            "charter": [
+                                {
+                                    "inventory_keys": [
+                                        ["o1", "1.0.0", "o1-1"]
+                                    ]
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+        )
+        outer_child = outer.get("governance_child_control_path") or []
+        outer_ok = (
+            bool(outer.get("ok"))
+            and outer.get("governance_spine") is True
+            and outer.get("governance_outer") is True
+            and outer.get("governance_outer_dialect") == "league"
+            and int(outer.get("governance_nest_depth") or 0) == 7
+            and int(outer.get("total_dispatched_ok") or 0) >= 1
+            and bool(outer.get("league_digest") or outer.get("league_met"))
+            and [
+                s.get("dialect") for s in outer.get("governance_nest_path") or []
+            ]
+            == [
+                "league",
+                "institution",
+                "program",
+                "succession",
+                "epoch",
+                "fleet",
+                "campaign",
+            ]
+            and [
+                s.get("dialect")
+                for s in outer_child
+                if isinstance(s, Mapping)
+            ]
+            == ["program", "succession", "epoch", "fleet", "campaign"]
+        )
+
+        # Live league API with injected governance institution runner.
+        live_league = ul.run_league(
+            governance_spine=True,
+            institution_runner=make_governance_institution_child_runner(
+                max_successions=2, max_epochs=2, max_waves=2
+            ),
+            charter=[
+                {
+                    "institution_id": "li1",
+                    "priority": 1,
+                    "max_rounds": 3,
+                    "charter": [
+                        {
+                            "program_id": "lp1",
+                            "priority": 1,
+                            "inventory_keys": [("l1", "1.0.0", "l1-1")],
+                            "charter": [
+                                {
+                                    "inventory_keys": [
+                                        ["l1", "1.0.0", "l1-1"]
+                                    ]
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+            max_rounds=3,
+            dispatch=True,
+            dispatch_budget=4,
+            out_root=scratch / "live-league",
+            league_id="live-outer-gov",
+        )
+        live_league_ok = (
+            bool(live_league.get("ok"))
+            and live_league.get("governance_spine") is True
+            and live_league.get("governance_outer") is True
+            and int(live_league.get("total_dispatched_ok") or 0) >= 1
+            and bool(live_league.get("league_digest"))
+        )
+
+        # Module flags: institution default + outer league surface.
         flags_ok = (
             getattr(ui, "GOVERNANCE_SPINE", False) is True
             and getattr(ui, "GOVERNANCE_SPINE_LIVE", False) is True
+            and getattr(ui, "GOVERNANCE_SPINE_DEFAULT", False) is True
             and getattr(ui, "ENGINE_FACADE", False) is True
+            and getattr(ul, "GOVERNANCE_OUTER", False) is True
             and getattr(up, "CONTROL_GRAPH", False) is True
             and getattr(up, "CONTROL_GRAPH_LIVE", False) is True
             and callable(getattr(le_facade, "run_governance_spine", None))
-            and callable(getattr(le_facade, "make_operational_program_child_runner", None))
+            and callable(
+                getattr(le_facade, "make_operational_program_child_runner", None)
+            )
+            and callable(
+                getattr(le_facade, "run_outer_governance_spine", None)
+            )
+            and callable(
+                getattr(le_facade, "make_governance_institution_child_runner", None)
+            )
             and getattr(le_facade, "GOVERNANCE_SPINE_IMPL", False) is True
         )
 
-        # Source-level: facade wires governance_spine → operational runner.
-        facade_path = Path(ui.__file__).resolve().parent / "upstream_stewardship_facade.py"
+        # Source-level: facade default + outer annotate wiring.
+        facade_path = (
+            Path(ui.__file__).resolve().parent / "upstream_stewardship_facade.py"
+        )
         facade_text = facade_path.read_text(encoding="utf-8")
         source_ok = (
             "governance_spine" in facade_text
+            and "institution_wants_governance_spine" in facade_text
             and "make_operational_program_child_runner" in facade_text
             and "annotate_governance_spine" in facade_text
+            and "annotate_outer_governance_spine" in facade_text
+            and "GOVERNANCE_SPINE_DEFAULT" in facade_text
         )
 
         engine_path = Path(__file__).resolve()
         engine_text = engine_path.read_text(encoding="utf-8")
         engine_source_ok = (
             "def run_governance_spine" in engine_text
+            and "def run_outer_governance_spine" in engine_text
             and "def make_operational_program_child_runner" in engine_text
+            and "def make_governance_institution_child_runner" in engine_text
             and "GOVERNANCE_NEST_PATH" in engine_text
             and "builtin_governance_spine_proof" in engine_text
         )
@@ -4093,7 +4562,9 @@ def builtin_governance_spine_proof() -> dict[str, Any]:
         ledger_ok = False
         try:
             ledger = load_ledger(ledger_path)
-            entry = ledger.capabilities.get("capability.upstream-governance-spine")
+            entry = ledger.capabilities.get(
+                "capability.upstream-governance-spine"
+            )
             tags_blob = " ".join(entry.tags).lower() if entry else ""
             delta_blob = (entry.capability_delta or "").lower() if entry else ""
             name_blob = (entry.name or "").lower() if entry else ""
@@ -4118,6 +4589,11 @@ def builtin_governance_spine_proof() -> dict[str, Any]:
                     "program" in delta_blob
                     and ("campaign" in delta_blob or "spine" in delta_blob)
                 )
+                and (
+                    "default" in delta_blob
+                    or "league" in delta_blob
+                    or "outer" in delta_blob
+                )
             )
         except Exception:  # noqa: BLE001
             ledger_ok = False
@@ -4131,9 +4607,14 @@ def builtin_governance_spine_proof() -> dict[str, Any]:
         ok = all(
             [
                 path_ok,
+                outer_path_ok,
                 gov_ok,
                 adapter_ok,
                 live_ok,
+                default_ok,
+                opt_out_ok,
+                outer_ok,
+                live_league_ok,
                 flags_ok,
                 source_ok,
                 engine_source_ok,
@@ -4145,8 +4626,13 @@ def builtin_governance_spine_proof() -> dict[str, Any]:
             "ok": ok,
             "action": "governance_spine_proof",
             "path_ok": path_ok,
+            "outer_path_ok": outer_path_ok,
             "governance_nest_path": path,
             "governance_nest_depth": governance_nest_depth(),
+            "outer_governance_nest_path": outer_path,
+            "outer_governance_nest_depth": outer_governance_nest_depth(
+                "league"
+            ),
             "gov_ok": gov_ok,
             "gov_dispatched_ok": gov.get("total_dispatched_ok"),
             "gov_institution_digest": gov.get("institution_digest"),
@@ -4157,6 +4643,15 @@ def builtin_governance_spine_proof() -> dict[str, Any]:
             "live_ok": live_ok,
             "live_dispatched_ok": live_inst.get("total_dispatched_ok"),
             "live_institution_digest": live_inst.get("institution_digest"),
+            "default_ok": default_ok,
+            "default_dispatched_ok": default_inst.get("total_dispatched_ok"),
+            "opt_out_ok": opt_out_ok,
+            "outer_ok": outer_ok,
+            "outer_dispatched_ok": outer.get("total_dispatched_ok"),
+            "outer_league_digest": outer.get("league_digest"),
+            "outer_child_path": outer_child,
+            "live_league_ok": live_league_ok,
+            "live_league_digest": live_league.get("league_digest"),
             "flags_ok": flags_ok,
             "source_ok": source_ok,
             "engine_source_ok": engine_source_ok,
@@ -4168,6 +4663,8 @@ def builtin_governance_spine_proof() -> dict[str, Any]:
             "control_operational_spine": True,
             "governance_spine": True,
             "governance_spine_live": True,
+            "governance_spine_default": True,
+            "governance_outer": True,
             "done_when_met": ok,
         }
     finally:

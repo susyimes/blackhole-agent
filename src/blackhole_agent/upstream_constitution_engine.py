@@ -47,10 +47,10 @@ def _pluralize(noun: str) -> str:
 # Outer-first: SI continuum tower, then civilization tower down to program.
 # New layers are one row here — not another ~2800-line rename module.
 # Bottom child "program" under institution is the operational-control leaf:
-# hermetic proofs use a fast mock; live governance attaches program via
-# control-engine run_operational_spine (see run_governance_spine /
-# governance_spine=True on run_institution) so institution→…→campaign is one
-# continuous engine-owned path.
+# hermetic proofs may opt out with governance_spine=False (fast mock); live
+# institution defaults to control-engine run_operational_spine so
+# institution→…→campaign is continuous. Outer layers (league→institution)
+# attach via make_governance_institution_child_runner / run_outer_governance_spine.
 STEWARDSHIP_STACK: tuple[tuple[str, str], ...] = (
     # SI continuum tower (outer)
     ("quettacontinuum", "ronnacontinuum"),
