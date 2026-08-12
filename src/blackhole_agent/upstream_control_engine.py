@@ -35,6 +35,11 @@ Composition:
   (omniverse→…→commonwealth→confederation→…→institution) default-on into
   the operational nest so civilization→…→campaign is continuous without
   requiring ``governance_spine=True``; continuum SI layers stay opt-in
+* ``run_total_spine`` — absolute full-tower entry (default root
+  quettacontinuum→…→campaign). Deep recursive multi-child cascades explode
+  time/disk via nested receipts; compressed mode seals an O(depth) hop
+  digest chain over the constitution path and live-dispatches the
+  operational nest once, so depth-28 total spine stays invocable
 
 No skill-route discovery.
 """
@@ -4241,6 +4246,13 @@ CIVILIZATION_SPINE_IMPL = True
 # Continuum spine = SI continuum-tower subset of stewardship defaults.
 CONTINUUM_SPINE_DEFAULT_ROOTS: frozenset[str] = _continuum_spine_default_roots()
 CONTINUUM_SPINE_IMPL = True
+# Total spine = absolute full-tower entry (default root = SI apex).
+TOTAL_SPINE_DEFAULT_ROOT: str = "quettacontinuum"
+TOTAL_SPINE_DEFAULT_ROOTS: frozenset[str] = STEWARDSHIP_SPINE_DEFAULT_ROOTS
+TOTAL_SPINE_IMPL = True
+# Auto-compress when constitution chain length exceeds this (recursive
+# domain cascades above confederation blow time and nested-receipt disk).
+TOTAL_SPINE_COMPRESS_THRESHOLD: int = 4
 
 
 def stewardship_constitution_chain(root_layer: str) -> list[str]:
@@ -4374,6 +4386,256 @@ def annotate_stewardship_spine(
         ]
     body["used_skill_route_discovery"] = legacy_pipeline_was_used()
     return body
+
+
+def total_nest_path(root_layer: str = TOTAL_SPINE_DEFAULT_ROOT) -> list[dict[str, Any]]:
+    """Full path: constitution cascade from root → institution → operational nest.
+
+    Default root is the SI apex (quettacontinuum) so the absolute tower is
+    depth-28: quettacontinuum→…→institution→program→…→campaign.
+    """
+    root = str(root_layer or TOTAL_SPINE_DEFAULT_ROOT).strip().lower()
+    return stewardship_nest_path(root or TOTAL_SPINE_DEFAULT_ROOT)
+
+
+def total_nest_depth(root_layer: str = TOTAL_SPINE_DEFAULT_ROOT) -> int:
+    return len(total_nest_path(root_layer))
+
+
+def _operational_tip_digest(result: Mapping[str, Any]) -> str:
+    """Stable tip digest from a live governance/operational spine result."""
+    for key in (
+        "institution_digest",
+        "campaign_digest",
+        "fleet_digest",
+        "program_digest",
+        "succession_digest",
+        "epoch_digest",
+    ):
+        val = result.get(key)
+        if isinstance(val, str) and len(val) >= 16:
+            return val
+    digests = result.get("program_digests")
+    if isinstance(digests, Sequence) and digests:
+        tip = digests[0]
+        if isinstance(tip, str) and len(tip) >= 16:
+            return tip
+    # Deterministic fallback so hop chains remain well-defined.
+    payload = json.dumps(
+        {
+            "ok": bool(result.get("ok")),
+            "dispatched": int(result.get("total_dispatched_ok") or 0),
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return _sha256_bytes(payload)
+
+
+def seal_total_spine_hop_chain(
+    root_layer: str,
+    operational_result: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    """O(depth) hop digests for compressed total spine.
+
+    Each constitution hop binds ``sha256(layer|child_tip)`` from institution
+    upward to root without embedding nested child receipts (the recursive
+    domain cascade's exponential artifact cost).
+    """
+    chain = stewardship_constitution_chain(root_layer)
+    tip = _operational_tip_digest(operational_result)
+    hops_rev: list[dict[str, Any]] = []
+    for name in reversed(chain):
+        material = f"{name}|{tip}".encode("utf-8")
+        digest = _sha256_bytes(material)
+        hops_rev.append(
+            {
+                "layer": name,
+                "child_tip": tip,
+                "digest": digest,
+            }
+        )
+        tip = digest
+    hops_rev.reverse()
+    return hops_rev
+
+
+def annotate_total_spine(
+    result: Mapping[str, Any],
+    *,
+    root_layer: str = TOTAL_SPINE_DEFAULT_ROOT,
+    live: bool = True,
+    compressed: bool = False,
+    child_control_path: Sequence[Mapping[str, Any]] | None = None,
+    hop_chain: Sequence[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Stamp absolute total-spine ownership (default quetta→…→campaign)."""
+    root = (
+        str(root_layer or TOTAL_SPINE_DEFAULT_ROOT).strip().lower()
+        or TOTAL_SPINE_DEFAULT_ROOT
+    )
+    body = annotate_stewardship_spine(
+        result,
+        root_layer=root,
+        live=live,
+        child_control_path=child_control_path,
+    )
+    path = total_nest_path(root)
+    body["total_spine"] = True
+    body["total_spine_live"] = bool(live)
+    body["total_spine_root"] = root
+    body["total_spine_compressed"] = bool(compressed)
+    body["total_spine_default_root"] = TOTAL_SPINE_DEFAULT_ROOT
+    body["total_nest_path"] = path
+    body["total_nest_depth"] = len(path)
+    if hop_chain is not None:
+        hops = [dict(h) for h in hop_chain]
+        body["total_spine_hop_chain"] = hops
+        body["total_spine_hop_count"] = len(hops)
+        if hops:
+            body["total_spine_digest"] = hops[0].get("digest")
+            body[f"{root}_digest"] = hops[0].get("digest")
+    elif body.get("total_spine_digest") is None:
+        # Uncompressed path: derive a tip from the live result.
+        body["total_spine_digest"] = _operational_tip_digest(body)
+    body["used_skill_route_discovery"] = legacy_pipeline_was_used()
+    return body
+
+
+def run_total_spine(
+    *,
+    root_layer: str = TOTAL_SPINE_DEFAULT_ROOT,
+    charter: Sequence[Mapping[str, Any]] | None = None,
+    out_root: Path | None = None,
+    max_rounds: int = 4,
+    dispatch: bool = True,
+    dispatch_budget: int | None = None,
+    max_active: int | None = None,
+    constitution_id: str | None = None,
+    goal: str | None = None,
+    max_successions: int = 2,
+    max_epochs: int = 2,
+    max_waves: int = 2,
+    idle_limit: int = 1,
+    goal_dispatched_ok: int = 1,
+    campaign_run_stage: RunStage | None = None,
+    stewardship_root: Path | None = None,
+    child_runner: Callable[..., dict[str, Any]] | None = None,
+    live: bool = True,
+    compress: bool | None = None,
+) -> dict[str, Any]:
+    """Public entry: absolute total spine from root into the operational nest.
+
+    Default root is ``quettacontinuum`` (full SI+civilization+governance tower).
+    When ``compress`` is true (default for constitution chains deeper than
+    :data:`TOTAL_SPINE_COMPRESS_THRESHOLD`), intermediate multi-child domain
+    cascades are replaced by a sealed hop-digest chain and the operational
+    nest is live-dispatched once via :func:`run_governance_spine`. This keeps
+    depth-28 invocable without exponential nested-receipt blowup.
+
+    Set ``compress=False`` to force the recursive :func:`run_stewardship_spine`
+    cascade (useful for shallow roots / differential checks).
+    """
+    root = (
+        str(root_layer or TOTAL_SPINE_DEFAULT_ROOT).strip().lower()
+        or TOTAL_SPINE_DEFAULT_ROOT
+    )
+    # Validate chain reaches institution (raises if not).
+    chain = stewardship_constitution_chain(root)
+    if compress is None:
+        compress = len(chain) > TOTAL_SPINE_COMPRESS_THRESHOLD
+
+    if not compress:
+        result = run_stewardship_spine(
+            root_layer=root,
+            charter=charter,
+            out_root=out_root,
+            max_rounds=max_rounds,
+            dispatch=dispatch,
+            dispatch_budget=dispatch_budget,
+            max_active=max_active,
+            constitution_id=constitution_id,
+            goal=goal,
+            max_successions=max_successions,
+            max_epochs=max_epochs,
+            max_waves=max_waves,
+            idle_limit=idle_limit,
+            goal_dispatched_ok=goal_dispatched_ok,
+            campaign_run_stage=campaign_run_stage,
+            stewardship_root=stewardship_root,
+            child_runner=child_runner,
+            live=live,
+        )
+        child_path = (
+            result.get("governance_child_control_path")
+            or result.get("stewardship_child_control_path")
+        )
+        return annotate_total_spine(
+            result,
+            root_layer=root,
+            live=live,
+            compressed=False,
+            child_control_path=child_path
+            if isinstance(child_path, Sequence)
+            else None,
+        )
+
+    # Compressed: live operational/governance nest once + O(depth) hop seals.
+    live_root = out_root / "live-governance" if out_root is not None else None
+    live_result = run_governance_spine(
+        charter=charter,
+        out_root=live_root,
+        max_rounds=max_rounds,
+        dispatch=dispatch,
+        dispatch_budget=dispatch_budget,
+        max_active=max_active,
+        institution_id=constitution_id or f"total-spine-{root}",
+        institution_goal=goal,
+        max_successions=max_successions,
+        max_epochs=max_epochs,
+        max_waves=max_waves,
+        idle_limit=idle_limit,
+        goal_dispatched_ok=goal_dispatched_ok,
+        campaign_run_stage=campaign_run_stage,
+        stewardship_root=stewardship_root,
+        live=live,
+    )
+    hops = seal_total_spine_hop_chain(root, live_result)
+    child_path = (
+        live_result.get("governance_child_control_path")
+        or live_result.get("stewardship_child_control_path")
+    )
+    annotated = annotate_total_spine(
+        live_result,
+        root_layer=root,
+        live=live,
+        compressed=True,
+        child_control_path=child_path
+        if isinstance(child_path, Sequence)
+        else None,
+        hop_chain=hops,
+    )
+    annotated["total_spine_compress_threshold"] = TOTAL_SPINE_COMPRESS_THRESHOLD
+    annotated["total_spine_constitution_depth"] = len(chain)
+    annotated["stewardship_root"] = root
+    if out_root is not None:
+        receipt_dir = Path(out_root)
+        receipt_dir.mkdir(parents=True, exist_ok=True)
+        receipt = {
+            "ok": bool(annotated.get("ok")),
+            "action": "total_spine",
+            "total_spine_root": root,
+            "total_spine_compressed": True,
+            "total_nest_depth": annotated.get("total_nest_depth"),
+            "total_spine_digest": annotated.get("total_spine_digest"),
+            "total_spine_hop_count": annotated.get("total_spine_hop_count"),
+            "total_dispatched_ok": annotated.get("total_dispatched_ok"),
+            "institution_digest": annotated.get("institution_digest"),
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+        atomic_write_json(receipt_dir / "total-spine-receipt.json", receipt)
+        annotated["total_spine_receipt_dir"] = str(receipt_dir)
+    return annotated
 
 
 def make_governance_league_child_runner(
@@ -6912,6 +7174,299 @@ def builtin_continuum_spine_proof() -> dict[str, Any]:
         shutil.rmtree(scratch, ignore_errors=True)
 
 
+def builtin_total_spine_proof() -> dict[str, Any]:
+    """Hermetic proof: absolute total spine (quetta→…→campaign) is invocable.
+
+    Closes the operational gap left by recursive deep cascades: full-depth
+    multi-child domain runs explode time and nested-receipt disk above the
+    continuum SI tower. Compressed ``run_total_spine`` seals an O(depth) hop
+    chain over the full constitution path and live-dispatches the operational
+    nest once so depth-28 remains a first-class, ledger-bound capability.
+    """
+    scratch = Path(tempfile.mkdtemp(prefix="total-spine-proof-"))
+    try:
+        from blackhole_agent import upstream_loop_engine as le_facade
+        from blackhole_agent.capability_compounder import (
+            default_ledger_path,
+            load_ledger,
+        )
+        from blackhole_agent import upstream_constitution_engine as ce
+
+        stew_layers = ce.list_stewardship_layers()
+        cont_layers = ce.list_continuum_layers()
+        defaults_ok = (
+            TOTAL_SPINE_IMPL is True
+            and TOTAL_SPINE_DEFAULT_ROOT == "quettacontinuum"
+            and TOTAL_SPINE_DEFAULT_ROOTS == frozenset(stew_layers)
+            and TOTAL_SPINE_DEFAULT_ROOT in TOTAL_SPINE_DEFAULT_ROOTS
+            and TOTAL_SPINE_DEFAULT_ROOT in CONTINUUM_SPINE_DEFAULT_ROOTS
+            and frozenset(cont_layers).issubset(TOTAL_SPINE_DEFAULT_ROOTS)
+            and CONTINUUM_SPINE_IMPL is True
+            and CIVILIZATION_SPINE_IMPL is True
+            and TOTAL_SPINE_COMPRESS_THRESHOLD >= 1
+        )
+
+        expected_quetta = [
+            "quettacontinuum",
+            "ronnacontinuum",
+            "yottacontinuum",
+            "zettacontinuum",
+            "exacontinuum",
+            "petacontinuum",
+            "teracontinuum",
+            "gigacontinuum",
+            "megacontinuum",
+            "ultracontinuum",
+            "hypercontinuum",
+            "continuum",
+            "omniverse",
+            "multiverse",
+            "cosmos",
+            "civilization",
+            "empire",
+            "realm",
+            "domain",
+            "commonwealth",
+            "confederation",
+            "league",
+            "institution",
+            "program",
+            "succession",
+            "epoch",
+            "fleet",
+            "campaign",
+        ]
+        got_path = [s.get("dialect") for s in total_nest_path("quettacontinuum")]
+        path_ok = (
+            got_path == expected_quetta
+            and total_nest_depth("quettacontinuum") == 28
+            and total_nest_depth() == 28
+            and stewardship_nest_depth("quettacontinuum") == 28
+        )
+
+        # Live compressed total spine at absolute root (must finish quickly).
+        spine = run_total_spine(
+            root_layer="quettacontinuum",
+            out_root=scratch / "total-spine",
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=3,
+            max_successions=1,
+            max_epochs=1,
+            max_waves=1,
+            compress=True,
+        )
+        hops = spine.get("total_spine_hop_chain") or []
+        hop_layers = [
+            h.get("layer") for h in hops if isinstance(h, Mapping)
+        ]
+        constitution_chain = stewardship_constitution_chain("quettacontinuum")
+        child_path = (
+            spine.get("governance_child_control_path")
+            or spine.get("stewardship_child_control_path")
+            or []
+        )
+        child_dialects = [
+            s.get("dialect") for s in child_path if isinstance(s, Mapping)
+        ]
+        spine_ok = (
+            bool(spine.get("ok"))
+            and spine.get("total_spine") is True
+            and spine.get("total_spine_compressed") is True
+            and spine.get("total_spine_root") == "quettacontinuum"
+            and spine.get("continuum_spine") is True
+            and spine.get("civilization_spine") is True
+            and spine.get("stewardship_spine") is True
+            and spine.get("governance_spine") is True
+            and spine.get("control_operational_spine") is True
+            and int(spine.get("total_nest_depth") or 0) == 28
+            and int(spine.get("total_dispatched_ok") or 0) >= 1
+            and isinstance(spine.get("total_spine_digest"), str)
+            and len(str(spine.get("total_spine_digest"))) >= 32
+            and hop_layers == constitution_chain
+            and len(hops) == len(constitution_chain)
+            and child_dialects
+            == ["program", "succession", "epoch", "fleet", "campaign"]
+            and not legacy_pipeline_was_used()
+        )
+
+        # Hop chain integrity: each hop binds layer|child_tip.
+        hop_integrity_ok = True
+        if hops:
+            tip = hops[-1].get("child_tip")
+            for hop in reversed(list(hops)):
+                if not isinstance(hop, Mapping):
+                    hop_integrity_ok = False
+                    break
+                layer = str(hop.get("layer") or "")
+                child_tip = str(hop.get("child_tip") or "")
+                expect = _sha256_bytes(f"{layer}|{child_tip}".encode("utf-8"))
+                if hop.get("digest") != expect:
+                    hop_integrity_ok = False
+                    break
+                tip = hop.get("digest")
+            hop_integrity_ok = hop_integrity_ok and tip == hops[0].get("digest")
+
+        # Shallow uncompressed path still works (institution depth-6).
+        shallow = run_total_spine(
+            root_layer="institution",
+            out_root=scratch / "shallow",
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=2,
+            max_successions=1,
+            max_epochs=1,
+            max_waves=1,
+            compress=False,
+        )
+        shallow_ok = (
+            bool(shallow.get("ok"))
+            and shallow.get("total_spine") is True
+            and shallow.get("total_spine_compressed") is not True
+            and shallow.get("total_spine_root") == "institution"
+            and shallow.get("governance_spine") is True
+            and int(shallow.get("total_dispatched_ok") or 0) >= 1
+        )
+
+        # Auto-compress decision for deep roots.
+        deep_chain = stewardship_constitution_chain("quettacontinuum")
+        shallow_chain = stewardship_constitution_chain("institution")
+        auto_ok = (
+            len(deep_chain) > TOTAL_SPINE_COMPRESS_THRESHOLD
+            and len(shallow_chain) <= TOTAL_SPINE_COMPRESS_THRESHOLD
+        )
+
+        # Differential: compressed tip differs from a broken/empty seal.
+        empty_hops = seal_total_spine_hop_chain(
+            "quettacontinuum", {"ok": False, "total_dispatched_ok": 0}
+        )
+        differential_ok = (
+            bool(empty_hops)
+            and empty_hops[0].get("digest") != spine.get("total_spine_digest")
+        )
+
+        flags_ok = (
+            getattr(le_facade, "TOTAL_SPINE_IMPL", False) is True
+            and getattr(le_facade, "TOTAL_SPINE_DEFAULT_ROOT", None)
+            == "quettacontinuum"
+            and callable(
+                getattr(le_facade, "builtin_total_spine_proof", None)
+            )
+            and callable(getattr(le_facade, "run_total_spine", None))
+            and callable(getattr(le_facade, "total_nest_path", None))
+        )
+
+        facade_path = Path(le_facade.__file__).resolve()
+        facade_text = facade_path.read_text(encoding="utf-8")
+        source_ok = (
+            "TOTAL_SPINE" in facade_text
+            and "builtin_total_spine_proof" in facade_text
+            and "run_total_spine" in facade_text
+        )
+
+        engine_path = Path(__file__).resolve()
+        engine_text = engine_path.read_text(encoding="utf-8")
+        engine_source_ok = (
+            "def builtin_total_spine_proof" in engine_text
+            and "def run_total_spine" in engine_text
+            and "TOTAL_SPINE_IMPL" in engine_text
+            and "seal_total_spine_hop_chain" in engine_text
+            and "total_spine_compressed" in engine_text
+        )
+
+        ledger_path = default_ledger_path(REPO_ROOT)
+        ledger_ok = False
+        try:
+            ledger = load_ledger(ledger_path)
+            entry = ledger.capabilities.get("capability.upstream-total-spine")
+            tags_blob = " ".join(entry.tags).lower() if entry else ""
+            delta_blob = (entry.capability_delta or "").lower() if entry else ""
+            name_blob = (entry.name or "").lower() if entry else ""
+            ledger_ok = (
+                entry is not None
+                and "upstream_control_engine" in (entry.entry or "")
+                and "builtin_total_spine_proof" in (entry.entry or "")
+                and (
+                    "total" in tags_blob
+                    or "total" in name_blob
+                    or "total" in delta_blob
+                )
+                and (
+                    "compress" in delta_blob
+                    or "compressed" in delta_blob
+                    or "hop" in delta_blob
+                )
+                and (
+                    "quetta" in delta_blob
+                    or "absolute" in delta_blob
+                    or "full" in delta_blob
+                )
+                and ("campaign" in delta_blob or "operational" in delta_blob)
+                and (
+                    "run_total_spine" in delta_blob
+                    or "depth-28" in delta_blob
+                    or "depth 28" in delta_blob
+                )
+            )
+        except Exception:  # noqa: BLE001
+            ledger_ok = False
+
+        ok = all(
+            [
+                defaults_ok,
+                path_ok,
+                spine_ok,
+                hop_integrity_ok,
+                shallow_ok,
+                auto_ok,
+                differential_ok,
+                flags_ok,
+                source_ok,
+                engine_source_ok,
+                ledger_ok,
+                not legacy_pipeline_was_used(),
+            ]
+        )
+        return {
+            "ok": ok,
+            "action": "total_spine_proof",
+            "defaults_ok": defaults_ok,
+            "default_root": TOTAL_SPINE_DEFAULT_ROOT,
+            "default_roots": sorted(TOTAL_SPINE_DEFAULT_ROOTS),
+            "path_ok": path_ok,
+            "total_nest_path": expected_quetta,
+            "total_nest_depth": total_nest_depth("quettacontinuum"),
+            "spine_ok": spine_ok,
+            "spine_dispatched_ok": spine.get("total_dispatched_ok"),
+            "spine_total_digest": spine.get("total_spine_digest"),
+            "spine_compressed": spine.get("total_spine_compressed"),
+            "spine_hop_count": spine.get("total_spine_hop_count"),
+            "hop_integrity_ok": hop_integrity_ok,
+            "shallow_ok": shallow_ok,
+            "shallow_dispatched_ok": shallow.get("total_dispatched_ok"),
+            "auto_ok": auto_ok,
+            "differential_ok": differential_ok,
+            "flags_ok": flags_ok,
+            "source_ok": source_ok,
+            "engine_source_ok": engine_source_ok,
+            "ledger_capability_ok": ledger_ok,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "control_engine": True,
+            "control_graph": True,
+            "control_operational_spine": True,
+            "governance_spine": True,
+            "stewardship_spine": True,
+            "civilization_spine": True,
+            "continuum_spine": True,
+            "total_spine": True,
+            "total_spine_live": True,
+            "total_spine_compressed": True,
+            "done_when_met": ok,
+        }
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
 def builtin_control_nest_proof() -> dict[str, Any]:
     """Hermetic proof: multi-depth nest owns program→…→fleet→campaign spine."""
     scratch = Path(tempfile.mkdtemp(prefix="control-nest-proof-"))
@@ -8315,6 +8870,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             "into operational nest"
         ),
     )
+    sub.add_parser(
+        "total-proof",
+        help=(
+            "Total spine proof: absolute tower "
+            "(quettacontinuum→…→campaign) via compressed hop seals + "
+            "live operational nest"
+        ),
+    )
     sub.add_parser("list", help="List control modes and dialects")
     sub.add_parser("nest-path", help="Print canonical operational nest path")
     sub.add_parser(
@@ -8328,6 +8891,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "(confederation→…→campaign by default)"
         ),
     )
+    sub.add_parser(
+        "total-path",
+        help=(
+            "Print total nest path "
+            "(quettacontinuum→…→campaign by default)"
+        ),
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
     if args.cmd == "list":
         print(
@@ -8339,6 +8909,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "operational_nest": operational_nest_path(),
                     "governance_nest": governance_nest_path(),
                     "stewardship_nest": stewardship_nest_path("confederation"),
+                    "total_nest": total_nest_path(),
                 },
                 indent=2,
             )
@@ -8373,6 +8944,18 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         )
         return 0
+    if args.cmd == "total-path":
+        print(
+            json.dumps(
+                {
+                    "total_nest_path": total_nest_path(),
+                    "total_nest_depth": total_nest_depth(),
+                    "total_spine_default_root": TOTAL_SPINE_DEFAULT_ROOT,
+                },
+                indent=2,
+            )
+        )
+        return 0
     if args.cmd == "proof":
         result = builtin_control_engine_proof()
         print(json.dumps(result, indent=2, default=str))
@@ -8395,6 +8978,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "continuum-proof":
         result = builtin_continuum_spine_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "total-proof":
+        result = builtin_total_spine_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2

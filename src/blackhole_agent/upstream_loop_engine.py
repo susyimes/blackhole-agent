@@ -22,6 +22,10 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     REPO_ROOT,
     SCHEMA_VERSION,
     STEWARDSHIP_SPINE_DEFAULT_ROOTS,
+    TOTAL_SPINE_COMPRESS_THRESHOLD,
+    TOTAL_SPINE_DEFAULT_ROOT,
+    TOTAL_SPINE_DEFAULT_ROOTS,
+    TOTAL_SPINE_IMPL,
     BuildChildKwargs,
     ExtractChildDigest,
     ExtractDispatched,
@@ -42,6 +46,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     annotate_governance_spine,
     annotate_outer_governance_spine,
     annotate_stewardship_spine,
+    annotate_total_spine,
     build_live_domain_hooks,
     builtin_civilization_spine_proof,
     builtin_continuum_spine_proof,
@@ -49,6 +54,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     builtin_governance_spine_proof,
     builtin_loop_engine_proof,
     builtin_stewardship_spine_proof,
+    builtin_total_spine_proof,
     compose_loop_of_loop,
     compose_pipeline_of_pipeline,
     default_extract_dispatched,
@@ -76,10 +82,14 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     run_operational_spine,
     run_outer_governance_spine,
     run_stewardship_spine,
+    run_total_spine,
     seal_json_receipt,
+    seal_total_spine_hop_chain,
     stewardship_constitution_chain,
     stewardship_nest_depth,
     stewardship_nest_path,
+    total_nest_depth,
+    total_nest_path,
     verify_loop_receipt,
 )
 
@@ -121,6 +131,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "operational nest"
         ),
     )
+    sub.add_parser(
+        "total-proof",
+        help=(
+            "Total spine: absolute quettacontinuum→…→campaign via compressed "
+            "hop seals + live operational nest"
+        ),
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
     if args.cmd == "list":
         print(json.dumps({"dialects": list_loop_dialects()}, indent=2))
@@ -143,6 +160,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "continuum-proof":
         result = builtin_continuum_spine_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "total-proof":
+        result = builtin_total_spine_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2
