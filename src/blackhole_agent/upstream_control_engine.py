@@ -110,6 +110,15 @@ Composition:
   refuses uncleared / mismatched / failed / wrong-root / tampered
   closures, short-circuits on re-clear, and rebinds the depth-28 tip
   without skill-route
+* total-spine **post-clearing delivery-versus-payment** — closes the
+  cleared-but-undelivered cliff: after multilateral clearing nets and
+  discharges matching observation books, ``deliver_total_spine(...)``
+  (and ``run_total_spine(delivery=True)``) independently confirms a
+  second clearing, pairs each netted obligation with a consideration,
+  seals a re-verifiable atomic DvP certificate, refuses partial /
+  one-sided / mismatched / failed / wrong-root / tampered deliveries,
+  short-circuits on re-deliver, and rebinds the depth-28 tip without
+  skill-route
 
 No skill-route discovery.
 """
@@ -4413,6 +4422,25 @@ from blackhole_agent.upstream_total_spine_clearing import (  # noqa: E402
     verify_total_spine_clearing_certificate,
     write_total_spine_clearing_certificate,
 )
+# Post-clearing delivery-versus-payment: atomic deliver+pay of discharged nets.
+# Implementation lives in upstream_total_spine_delivery; re-exported here.
+from blackhole_agent.upstream_total_spine_delivery import (  # noqa: E402
+    TOTAL_SPINE_DELIVERY_FILENAME,
+    TOTAL_SPINE_DELIVERY_IMPL,
+    TOTAL_SPINE_DELIVERY_KIND,
+    TOTAL_SPINE_DELIVERY_MIN_CLEARINGS,
+    annotate_total_spine_delivery,
+    builtin_total_spine_delivery_proof,
+    compute_total_spine_delivery_root,
+    deliver_total_spine,
+    delivery_certificate_path,
+    load_total_spine_delivery_certificate,
+    pair_total_spine_clearings,
+    seal_total_spine_delivery_certificate,
+    seal_total_spine_delivery_chain,
+    verify_total_spine_delivery_certificate,
+    write_total_spine_delivery_certificate,
+)
 # Constitution-layer goals accepted by run_constitution (not free-text).
 TOTAL_SPINE_CONSTITUTION_GOALS: frozenset[str] = frozenset(
     {
@@ -7149,6 +7177,49 @@ def _maybe_clear_total_spine(
     return annotated
 
 
+def _maybe_deliver_total_spine(
+    annotated: dict[str, Any],
+    *,
+    delivery_on: bool,
+    out_root: Path | None,
+    resume_dir: Path | None,
+    repo_path: Path | None,
+) -> dict[str, Any]:
+    """Optionally deliver after clearing; refuse unless clearing is present."""
+    if delivery_on and TOTAL_SPINE_DELIVERY_IMPL:
+        if annotated.get("total_spine_clearing") is True:
+            dlv_out = None
+            if out_root is not None:
+                dlv_out = Path(out_root)
+            elif resume_dir is not None:
+                dlv_out = Path(resume_dir)
+            prior_dlv = str(
+                annotated.get("total_spine_clearing_bound_tip")
+                or annotated.get("total_spine_digest")
+                or ""
+            )
+            source_dlv: Any = (
+                annotated.get("total_spine_delivery_certificate")
+                or annotated.get("total_spine_clearing_certificate")
+                or annotated
+            )
+            annotated = deliver_total_spine(
+                source_dlv,
+                out_root=dlv_out,
+                prior_tip=prior_dlv,
+                body=annotated,
+                repo_path=repo_path or REPO_ROOT,
+            )
+        else:
+            annotated["total_spine_delivery"] = False
+            annotated["total_spine_delivery_requires_clearing"] = True
+    elif not delivery_on:
+        annotated.setdefault("total_spine_delivery", False)
+        annotated["total_spine_delivery_impl"] = TOTAL_SPINE_DELIVERY_IMPL
+    annotated["total_spine_delivery_impl"] = TOTAL_SPINE_DELIVERY_IMPL
+    return annotated
+
+
 def _attach_total_spine_effects(
     annotated: dict[str, Any],
     *,
@@ -7178,6 +7249,7 @@ def _attach_total_spine_effects(
     actuation: bool = False,
     settlement: bool = False,
     clearing: bool = False,
+    delivery: bool = False,
 ) -> dict[str, Any]:
     """Optionally dispatch ledger effects, gate contracts, rebind hop digests.
 
@@ -7231,7 +7303,15 @@ def _attach_total_spine_effects(
     net matching observation books, seal an irreversible clearing certificate,
     and rebind the tip. Implies settlement/actuation/execution/finality.
     Resume of an already-cleared run short-circuits.
+
+    Post-clearing delivery (``delivery=True``): after clearing discharges
+    matching books, independently confirm a second clearing, pair each netted
+    obligation with a consideration (DvP), seal an irreversible delivery
+    certificate, and rebind the tip. Implies clearing and the planes above.
+    Resume of an already-delivered run short-circuits.
     """
+    if delivery:
+        clearing = True
     if clearing:
         settlement = True
         actuation = True
@@ -7260,8 +7340,17 @@ def _attach_total_spine_effects(
     resume_actuation: dict[str, Any] | None = None
     resume_settlement: dict[str, Any] | None = None
     resume_clearing: dict[str, Any] | None = None
+    resume_delivery: dict[str, Any] | None = None
     if resume_dir is not None:
-        # Prefer clearing short-circuit, then settlement, actuation, execution, finality.
+        # Prefer delivery short-circuit, then clearing, settlement, actuation,
+        # execution, finality.
+        try:
+            resume_delivery = load_total_spine_delivery_certificate(resume_dir)
+        except Exception as exc:  # noqa: BLE001 — delivery StageRefused is modular
+            verdict = getattr(exc, "verdict", "")
+            if str(verdict) == "total_spine_delivery_tampered":
+                raise
+            resume_delivery = None
         try:
             resume_clearing = load_total_spine_clearing_certificate(resume_dir)
         except Exception as exc:  # noqa: BLE001 — clearing StageRefused is modular
@@ -7317,12 +7406,14 @@ def _attach_total_spine_effects(
                 and resume_actuation is None
                 and resume_settlement is None
                 and resume_clearing is None
+                and resume_delivery is None
             ):
                 raise
             resumed = True
         # Prefer checkpoint mission config when caller left fields empty.
         config_src: Mapping[str, Any] = (
             resume_checkpoint
+            or resume_delivery
             or resume_clearing
             or resume_settlement
             or resume_actuation
@@ -7341,9 +7432,11 @@ def _attach_total_spine_effects(
             or (resume_actuation or {}).get("capabilities")
             or (resume_settlement or {}).get("capabilities")
             or (resume_clearing or {}).get("capabilities")
+            or (resume_delivery or {}).get("capabilities")
         ):
             capabilities = list(
                 (resume_checkpoint or {}).get("capabilities")
+                or (resume_delivery or {}).get("capabilities")
                 or (resume_clearing or {}).get("capabilities")
                 or (resume_settlement or {}).get("capabilities")
                 or (resume_actuation or {}).get("capabilities")
@@ -7361,7 +7454,7 @@ def _attach_total_spine_effects(
                 (resume_actuation or {}).get("capabilities")
             ) or bool((resume_settlement or {}).get("capabilities")) or bool(
                 (resume_clearing or {}).get("capabilities")
-            )
+            ) or bool((resume_delivery or {}).get("capabilities"))
         if max_effect_steps is None and (resume_checkpoint or {}).get(
             "max_effect_steps"
         ) is not None:
@@ -7399,6 +7492,13 @@ def _attach_total_spine_effects(
             actuation = True
             settlement = True
             clearing = True
+        if resume_delivery is not None:
+            finality = True
+            execution = True
+            actuation = True
+            settlement = True
+            clearing = True
+            delivery = True
 
     continuity_on = bool(continuity) or resumed or resume_dir is not None
     finality_on = bool(finality) or resume_finality is not None
@@ -7406,6 +7506,7 @@ def _attach_total_spine_effects(
     actuation_on = bool(actuation) or resume_actuation is not None
     settlement_on = bool(settlement) or resume_settlement is not None
     clearing_on = bool(clearing) or resume_clearing is not None
+    delivery_on = bool(delivery) or resume_delivery is not None
     # Finality needs a durable write root for the certificate.
     if finality_on and not continuity_on and (out_root is not None or resume_dir is not None):
         # Keep continuity optional; finality can seal alone under out_root.
@@ -7511,6 +7612,203 @@ def _attach_total_spine_effects(
         annotated["total_spine_continuity_checkpoint_path"] = (
             resume_checkpoint.get("checkpoint_path")
         )
+
+    # --- Irreversible delivery short-circuit (no effect re-dispatch) ---
+    if resume_delivery is not None:
+        short_circuited = True
+        recovered = recovered or bool(resume_delivery.get("recovered"))
+        dlv_caps = list(resume_delivery.get("capabilities") or [])
+        dlv_prior = str(resume_delivery.get("prior_tip") or bound_tip)
+        bound_tip = dlv_prior
+        annotated["ok"] = True
+        annotated["verdict"] = "total_spine_delivery_short_circuit"
+        annotated["total_spine_effects"] = bool(dlv_caps) or want_effects
+        annotated["total_spine_effects_ok"] = bool(
+            resume_delivery.get("effects_ok", True)
+        )
+        annotated["total_spine_effect_capabilities"] = dlv_caps
+        annotated["total_spine_effect_count"] = len(dlv_caps)
+        annotated["total_spine_effects_ok_count"] = len(dlv_caps)
+        annotated["total_spine_effects_failed_count"] = 0
+        annotated["total_spine_goal"] = (
+            goal_text or str(resume_delivery.get("goal") or "")
+        )
+        if contract_text or resume_delivery.get("done_when"):
+            annotated["total_spine_contract"] = True
+            annotated["total_spine_contract_met"] = resume_delivery.get(
+                "contract_met"
+            )
+            annotated["total_spine_contract_ok"] = (
+                resume_delivery.get("contract_met") is True
+                or resume_delivery.get("contract_met") is None
+            )
+            annotated["total_spine_done_when"] = (
+                contract_text
+                or str(resume_delivery.get("done_when") or "")
+            )
+        annotated["total_spine_adaptive"] = prior_round_count > 0 or bool(
+            adaptive_rounds_log
+        )
+        if adaptive_rounds_log:
+            annotated["total_spine_adaptive_rounds"] = adaptive_rounds_log
+            annotated["total_spine_adaptive_round_count"] = len(
+                adaptive_rounds_log
+            )
+            annotated["total_spine_adaptive_recovered"] = recovered
+            annotated["total_spine_adaptive_excluded"] = sorted(exclude)
+        annotated["total_spine_continuity"] = resume_checkpoint is not None
+        if resume_checkpoint is not None:
+            annotated["total_spine_continuity_status"] = resume_checkpoint.get(
+                "status"
+            )
+            annotated["total_spine_continuity_recovered"] = recovered
+            annotated["total_spine_continuity_digest"] = resume_checkpoint.get(
+                "checkpoint_digest"
+            )
+        if resume_finality is not None:
+            annotated = annotate_total_spine_finality(
+                annotated,
+                certificate=resume_finality,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_finality_bound_tip") or bound_tip
+            )
+        else:
+            annotated["total_spine_finality"] = True
+            annotated["total_spine_finality_irreversible"] = True
+            annotated["total_spine_finality_short_circuit"] = True
+        if resume_execution is not None:
+            annotated = annotate_total_spine_execution(
+                annotated,
+                certificate=resume_execution,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_execution_bound_tip") or bound_tip
+            )
+        else:
+            annotated["total_spine_execution"] = True
+            annotated["total_spine_execution_irreversible"] = True
+            annotated["total_spine_execution_short_circuit"] = True
+            annotated["total_spine_state_applied"] = True
+            annotated["total_spine_state_root"] = resume_delivery.get(
+                "bound_state_root"
+            )
+            annotated["state_root"] = resume_delivery.get("bound_state_root")
+            annotated["state_applied"] = True
+        if resume_actuation is not None:
+            annotated = annotate_total_spine_actuation(
+                annotated,
+                certificate=resume_actuation,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_actuation_bound_tip") or bound_tip
+            )
+        else:
+            annotated["total_spine_actuation"] = True
+            annotated["total_spine_actuation_irreversible"] = True
+            annotated["total_spine_actuation_short_circuit"] = True
+            annotated["total_spine_effects_applied"] = True
+            annotated["total_spine_tip_action_root"] = resume_delivery.get(
+                "bound_action_root"
+            )
+            annotated["action_root"] = resume_delivery.get("bound_action_root")
+            annotated["tip_action_root"] = resume_delivery.get(
+                "bound_action_root"
+            )
+        if resume_settlement is not None:
+            annotated = annotate_total_spine_settlement(
+                annotated,
+                certificate=resume_settlement,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_settlement_bound_tip") or bound_tip
+            )
+        else:
+            annotated["total_spine_settlement"] = True
+            annotated["total_spine_settlement_irreversible"] = True
+            annotated["total_spine_settlement_short_circuit"] = True
+            annotated["total_spine_settled"] = True
+            annotated["total_spine_tip_settlement_root"] = resume_delivery.get(
+                "bound_settlement_root"
+            )
+            annotated["settlement_root"] = resume_delivery.get(
+                "bound_settlement_root"
+            )
+            annotated["tip_settlement_root"] = resume_delivery.get(
+                "bound_settlement_root"
+            )
+        if resume_clearing is not None:
+            annotated = annotate_total_spine_clearing(
+                annotated,
+                certificate=resume_clearing,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_clearing_bound_tip") or bound_tip
+            )
+        else:
+            annotated["total_spine_clearing"] = True
+            annotated["total_spine_clearing_irreversible"] = True
+            annotated["total_spine_clearing_short_circuit"] = True
+            annotated["total_spine_cleared"] = True
+            annotated["total_spine_discharged"] = True
+            annotated["total_spine_tip_clearing_root"] = resume_delivery.get(
+                "bound_clearing_root"
+            )
+            annotated["clearing_root"] = resume_delivery.get(
+                "bound_clearing_root"
+            )
+            annotated["tip_clearing_root"] = resume_delivery.get(
+                "bound_clearing_root"
+            )
+        annotated = annotate_total_spine_delivery(
+            annotated,
+            certificate=resume_delivery,
+            prior_tip=bound_tip,
+            short_circuit=True,
+        )
+        bound_tip = str(
+            annotated.get("total_spine_delivery_bound_tip") or bound_tip
+        )
+        if compressed:
+            hops = seal_total_spine_hop_chain(
+                root, live_result, tip=bound_tip
+            )
+            annotated["total_spine_hop_chain"] = hops
+            annotated["total_spine_hop_count"] = len(hops)
+            if hops:
+                annotated["total_spine_digest"] = hops[0].get("digest")
+                annotated[f"{root}_digest"] = hops[0].get("digest")
+        else:
+            annotated["total_spine_digest"] = bound_tip
+            annotated[f"{root}_digest"] = bound_tip
+        annotated["total_spine_delivery_short_circuit"] = True
+        annotated["total_spine_constitution_depth"] = chain_len
+        annotated["total_spine_goal_impl"] = TOTAL_SPINE_GOAL_IMPL
+        annotated["total_spine_adaptive_impl"] = TOTAL_SPINE_ADAPTIVE_IMPL
+        annotated["total_spine_continuity_impl"] = TOTAL_SPINE_CONTINUITY_IMPL
+        annotated["total_spine_finality_impl"] = TOTAL_SPINE_FINALITY_IMPL
+        annotated["total_spine_federation_impl"] = TOTAL_SPINE_FEDERATION_IMPL
+        annotated["total_spine_quorum_impl"] = TOTAL_SPINE_QUORUM_IMPL
+        annotated["total_spine_execution_impl"] = TOTAL_SPINE_EXECUTION_IMPL
+        annotated["total_spine_actuation_impl"] = TOTAL_SPINE_ACTUATION_IMPL
+        annotated["total_spine_settlement_impl"] = TOTAL_SPINE_SETTLEMENT_IMPL
+        annotated["total_spine_clearing_impl"] = TOTAL_SPINE_CLEARING_IMPL
+        annotated["total_spine_delivery_impl"] = TOTAL_SPINE_DELIVERY_IMPL
+        if goal_text and not annotated.get("total_spine_goal"):
+            annotated["total_spine_goal"] = goal_text
+        annotated.setdefault("total_spine_federation", False)
+        annotated.setdefault("total_spine_quorum", False)
+        return annotated
 
     # --- Irreversible clearing short-circuit (no effect re-dispatch) ---
     if resume_clearing is not None:
@@ -7681,6 +7979,13 @@ def _attach_total_spine_effects(
             annotated["total_spine_goal"] = goal_text
         annotated.setdefault("total_spine_federation", False)
         annotated.setdefault("total_spine_quorum", False)
+        annotated = _maybe_deliver_total_spine(
+            annotated,
+            delivery_on=delivery_on,
+            out_root=out_root,
+            resume_dir=resume_dir,
+            repo_path=repo_path,
+        )
         return annotated
 
     # --- Irreversible settlement short-circuit (no effect re-dispatch) ---
@@ -7834,6 +8139,13 @@ def _attach_total_spine_effects(
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
+        annotated = _maybe_deliver_total_spine(
+            annotated,
+            delivery_on=delivery_on,
+            out_root=out_root,
+            resume_dir=resume_dir,
+            repo_path=repo_path,
+        )
         return annotated
 
     # --- Irreversible actuation short-circuit (no effect re-dispatch) ---
@@ -7968,6 +8280,13 @@ def _attach_total_spine_effects(
         annotated = _maybe_clear_total_spine(
             annotated,
             clearing_on=clearing_on,
+            out_root=out_root,
+            resume_dir=resume_dir,
+            repo_path=repo_path,
+        )
+        annotated = _maybe_deliver_total_spine(
+            annotated,
+            delivery_on=delivery_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
@@ -8118,6 +8437,13 @@ def _attach_total_spine_effects(
         annotated = _maybe_clear_total_spine(
             annotated,
             clearing_on=clearing_on,
+            out_root=out_root,
+            resume_dir=resume_dir,
+            repo_path=repo_path,
+        )
+        annotated = _maybe_deliver_total_spine(
+            annotated,
+            delivery_on=delivery_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
@@ -8329,6 +8655,13 @@ def _attach_total_spine_effects(
         annotated = _maybe_clear_total_spine(
             annotated,
             clearing_on=clearing_on,
+            out_root=out_root,
+            resume_dir=resume_dir,
+            repo_path=repo_path,
+        )
+        annotated = _maybe_deliver_total_spine(
+            annotated,
+            delivery_on=delivery_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
@@ -9142,6 +9475,13 @@ def _attach_total_spine_effects(
         resume_dir=resume_dir,
         repo_path=repo_path,
     )
+    annotated = _maybe_deliver_total_spine(
+        annotated,
+        delivery_on=delivery_on,
+        out_root=out_root,
+        resume_dir=resume_dir,
+        repo_path=repo_path,
+    )
     return annotated
 
 
@@ -9186,6 +9526,7 @@ def run_total_spine(
     actuation: bool = False,
     settlement: bool = False,
     clearing: bool = False,
+    delivery: bool = False,
 ) -> dict[str, Any]:
     """Public entry: absolute total spine from root into the operational nest.
 
@@ -9253,6 +9594,13 @@ def run_total_spine(
     re-verifiable clearing certificate, refuses uncleared / mismatched /
     wrong-root closures, and short-circuits on re-clear so a unilateral
     settlement receipt is no longer an open book.
+
+    Post-clearing delivery: ``delivery=True`` independently confirms a second
+    clearing of the same discharged book, pairs each netted obligation with a
+    consideration (delivery-versus-payment), seals a re-verifiable atomic DvP
+    certificate, refuses partial / one-sided / mismatched / wrong-root
+    closures, and short-circuits on re-deliver so a cleared net is no longer
+    undelivered.
     """
     root = (
         str(root_layer or TOTAL_SPINE_DEFAULT_ROOT).strip().lower()
@@ -9329,6 +9677,7 @@ def run_total_spine(
             actuation=actuation,
             settlement=settlement,
             clearing=clearing,
+            delivery=delivery,
         )
         return annotated
 
@@ -9398,6 +9747,7 @@ def run_total_spine(
         actuation=actuation,
         settlement=settlement,
         clearing=clearing,
+        delivery=delivery,
     )
     if out_root is not None:
         receipt_dir = Path(out_root)
@@ -16803,6 +17153,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "matching observation books into irreversible clearing receipts"
         ),
     )
+    sub.add_parser(
+        "delivery-proof",
+        help=(
+            "Total spine delivery proof: post-clearing atomic DvP seals "
+            "matching clearing books into irreversible delivery receipts"
+        ),
+    )
     sub.add_parser("list", help="List control modes and dialects")
     sub.add_parser("nest-path", help="Print canonical operational nest path")
     sub.add_parser(
@@ -16951,6 +17308,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "clearing-proof":
         result = builtin_total_spine_clearing_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "delivery-proof":
+        result = builtin_total_spine_delivery_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2
