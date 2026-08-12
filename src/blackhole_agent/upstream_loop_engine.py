@@ -43,6 +43,8 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     TOTAL_SPINE_FINALITY_KIND,
     TOTAL_SPINE_GOAL_IMPL,
     TOTAL_SPINE_IMPL,
+    TOTAL_SPINE_QUORUM_IMPL,
+    TOTAL_SPINE_QUORUM_MIN_ORIGINS,
     BuildChildKwargs,
     ExtractChildDigest,
     ExtractDispatched,
@@ -82,7 +84,10 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     builtin_total_spine_finality_proof,
     builtin_total_spine_goal_proof,
     builtin_total_spine_proof,
+    builtin_total_spine_quorum_proof,
     classify_total_spine_federation_conflict,
+    cluster_total_spine_finality_origins,
+    default_total_spine_quorum_threshold,
     compose_loop_of_loop,
     compose_pipeline_of_pipeline,
     continuity_checkpoint_path,
@@ -133,6 +138,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     seal_total_spine_finality_certificate,
     seal_total_spine_finality_chain,
     seal_total_spine_hop_chain,
+    select_total_spine_quorum_cluster,
     stewardship_constitution_chain,
     stewardship_nest_depth,
     stewardship_nest_path,
@@ -234,6 +240,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "federate into a dual-origin sealed absolute-tower tip"
         ),
     )
+    sub.add_parser(
+        "quorum-proof",
+        help=(
+            "Total spine quorum: N-of-M majority federation excludes "
+            "Byzantine minority finality and rebinds the absolute-tower tip"
+        ),
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
     if args.cmd == "list":
         print(json.dumps({"dialects": list_loop_dialects()}, indent=2))
@@ -284,6 +297,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "federation-proof":
         result = builtin_total_spine_federation_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "quorum-proof":
+        result = builtin_total_spine_quorum_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2

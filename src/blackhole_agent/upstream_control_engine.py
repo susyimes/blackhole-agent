@@ -72,6 +72,13 @@ Composition:
   independent absolute-tower finality certificates, refuses single-origin
   and hard conflicts, seals a dual-origin federation certificate, and
   rebinds the depth-28 tip without re-dispatching effects
+* total-spine **N-of-M quorum federation** — closes the dual-origin
+  all-agree cliff: ``federate_total_spine(..., quorum=True)`` (and
+  ``run_total_spine(federation_quorum=True, federation_peers=...)``)
+  clusters ≥3 independent finality certificates by hard-compatibility,
+  seals a strict-majority quorum federation tip, excludes a Byzantine
+  minority that hard-conflicts, and refuses below-threshold or tied
+  majorities — without re-dispatch or skill-route
 
 No skill-route discovery.
 """
@@ -4311,6 +4318,9 @@ TOTAL_SPINE_FEDERATION_IMPL = True
 TOTAL_SPINE_FEDERATION_KIND: str = "total_spine_federation"
 TOTAL_SPINE_FEDERATION_FILENAME: str = "total-spine-federation.json"
 TOTAL_SPINE_FEDERATION_MIN_ORIGINS: int = 2
+# N-of-M quorum federation: strict-majority over ≥3 finality origins.
+TOTAL_SPINE_QUORUM_IMPL = True
+TOTAL_SPINE_QUORUM_MIN_ORIGINS: int = 3
 # Constitution-layer goals accepted by run_constitution (not free-text).
 TOTAL_SPINE_CONSTITUTION_GOALS: frozenset[str] = frozenset(
     {
@@ -5188,7 +5198,24 @@ def _federation_certificate_material(body: Mapping[str, Any]) -> dict[str, Any]:
     origin_rows.sort(
         key=lambda r: (r["finality_digest"], r["origin_id"])
     )
-    return {
+    excluded = body.get("byzantine_excluded") or []
+    excluded_rows: list[dict[str, Any]] = []
+    for row in excluded:
+        if not isinstance(row, Mapping):
+            continue
+        excluded_rows.append(
+            {
+                "origin_id": str(row.get("origin_id") or ""),
+                "finality_digest": str(row.get("finality_digest") or ""),
+                "root_layer": str(row.get("root_layer") or ""),
+                "done_when": str(row.get("done_when") or ""),
+                "reasons": list(row.get("reasons") or []),
+            }
+        )
+    excluded_rows.sort(
+        key=lambda r: (r["finality_digest"], r["origin_id"])
+    )
+    material: dict[str, Any] = {
         "schema_version": int(body.get("schema_version") or SCHEMA_VERSION),
         "kind": str(body.get("kind") or TOTAL_SPINE_FEDERATION_KIND),
         "root_layer": str(body.get("root_layer") or ""),
@@ -5203,6 +5230,20 @@ def _federation_certificate_material(body: Mapping[str, Any]) -> dict[str, Any]:
         "irreversible": True,
         "success": bool(body.get("success", True)),
     }
+    # Quorum-mode fields bind majority size, threshold, and Byzantine exclusions
+    # into the federation digest so excluded minorities cannot be rewritten.
+    if body.get("quorum") is True or body.get("total_spine_quorum") is True:
+        material["quorum"] = True
+        material["quorum_met"] = bool(body.get("quorum_met", True))
+        material["quorum_threshold"] = int(body.get("quorum_threshold") or 0)
+        material["submitted_origin_count"] = int(
+            body.get("submitted_origin_count") or 0
+        )
+        material["byzantine_excluded"] = excluded_rows
+        material["byzantine_excluded_count"] = int(
+            body.get("byzantine_excluded_count") or len(excluded_rows)
+        )
+    return material
 
 
 def seal_total_spine_federation_certificate(
@@ -5391,16 +5432,27 @@ def seal_total_spine_federation_chain(
     federation_digest: str,
     origin_count: int,
     conflict_free: bool,
+    quorum: bool = False,
+    quorum_threshold: int = 0,
+    byzantine_excluded_count: int = 0,
+    quorum_met: bool = False,
 ) -> dict[str, Any]:
-    """Seal federation hop into the absolute-tower tip."""
+    """Seal federation (or quorum federation) hop into the absolute-tower tip."""
     tip = str(prior_tip or "").strip() or ("0" * 64)
     fd = str(federation_digest or "").strip() or ("0" * 64)
-    material = (
-        f"federation|{int(origin_count)}|{int(bool(conflict_free))}|"
-        f"{fd}|{tip}"
-    ).encode("utf-8")
+    if quorum:
+        material = (
+            f"quorum|{int(origin_count)}|{int(quorum_threshold)}|"
+            f"{int(byzantine_excluded_count)}|{int(bool(quorum_met))}|"
+            f"{int(bool(conflict_free))}|{fd}|{tip}"
+        ).encode("utf-8")
+    else:
+        material = (
+            f"federation|{int(origin_count)}|{int(bool(conflict_free))}|"
+            f"{fd}|{tip}"
+        ).encode("utf-8")
     digest = _sha256_bytes(material)
-    return {
+    sealed: dict[str, Any] = {
         "origin_count": int(origin_count),
         "conflict_free": bool(conflict_free),
         "federation_digest": fd,
@@ -5409,6 +5461,13 @@ def seal_total_spine_federation_chain(
         "total_spine_federation": True,
         "irreversible": True,
     }
+    if quorum:
+        sealed["quorum"] = True
+        sealed["quorum_met"] = bool(quorum_met)
+        sealed["quorum_threshold"] = int(quorum_threshold)
+        sealed["byzantine_excluded_count"] = int(byzantine_excluded_count)
+        sealed["total_spine_quorum"] = True
+    return sealed
 
 
 def annotate_total_spine_federation(
@@ -5425,11 +5484,22 @@ def annotate_total_spine_federation(
     )
     origin_count = int(certificate.get("origin_count") or 0)
     conflict_free = bool(certificate.get("conflict_free", True))
+    is_quorum = (
+        certificate.get("quorum") is True
+        or certificate.get("total_spine_quorum") is True
+    )
     chain = seal_total_spine_federation_chain(
         prior_tip=prior_tip,
         federation_digest=fed_digest,
         origin_count=origin_count,
         conflict_free=conflict_free,
+        quorum=is_quorum,
+        quorum_threshold=int(certificate.get("quorum_threshold") or 0),
+        byzantine_excluded_count=int(
+            certificate.get("byzantine_excluded_count")
+            or len(certificate.get("byzantine_excluded") or [])
+        ),
+        quorum_met=bool(certificate.get("quorum_met", is_quorum)),
     )
     fed_tip = str(chain.get("digest") or prior_tip)
     bound = _sha256_bytes(f"{prior_tip}|{fed_tip}".encode("utf-8"))
@@ -5445,9 +5515,31 @@ def annotate_total_spine_federation(
     body["total_spine_digest_pre_federation"] = prior_tip
     if certificate.get("federation_path"):
         body["total_spine_federation_path"] = certificate.get("federation_path")
+    if is_quorum:
+        body["total_spine_quorum"] = True
+        body["total_spine_quorum_impl"] = TOTAL_SPINE_QUORUM_IMPL
+        body["total_spine_quorum_met"] = bool(
+            certificate.get("quorum_met", True)
+        )
+        body["total_spine_quorum_threshold"] = int(
+            certificate.get("quorum_threshold") or 0
+        )
+        body["total_spine_quorum_submitted_count"] = int(
+            certificate.get("submitted_origin_count") or 0
+        )
+        body["total_spine_quorum_byzantine_excluded"] = list(
+            certificate.get("byzantine_excluded") or []
+        )
+        body["total_spine_quorum_byzantine_excluded_count"] = int(
+            certificate.get("byzantine_excluded_count")
+            or len(certificate.get("byzantine_excluded") or [])
+        )
+        body["verdict"] = "total_spine_quorum_ok"
+    else:
+        body.setdefault("total_spine_quorum", False)
+        body["verdict"] = "total_spine_federation_ok"
     body["total_spine_digest"] = bound
     body["ok"] = True
-    body["verdict"] = "total_spine_federation_ok"
     return body
 
 
@@ -5528,30 +5620,137 @@ def _origin_row_from_finality(
     }
 
 
-def federate_total_spine(
-    origins: Sequence[Path | str | Mapping[str, Any]],
+def default_total_spine_quorum_threshold(submitted_count: int) -> int:
+    """Strict majority: floor(n/2)+1 for n submitted distinct origins."""
+    n = max(0, int(submitted_count))
+    if n <= 0:
+        return 0
+    return n // 2 + 1
+
+
+def _total_spine_quorum_cluster_key(
+    certificate: Mapping[str, Any],
     *,
-    out_root: Path | None = None,
+    require_same_root: bool,
+    require_same_done_when: bool,
+) -> tuple[str, str]:
+    """Hard-compatibility key used to cluster finality origins for quorum."""
+    root = (
+        str(certificate.get("root_layer") or "").strip().lower()
+        if require_same_root
+        else ""
+    )
+    done_when = (
+        str(certificate.get("done_when") or "").strip()
+        if require_same_done_when
+        else ""
+    )
+    return (root, done_when)
+
+
+def cluster_total_spine_finality_origins(
+    origins: Sequence[Mapping[str, Any]],
+    *,
     require_same_root: bool = True,
     require_same_done_when: bool = True,
-    prior_tip: str | None = None,
-    body: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Federate ≥2 independent absolute-tower finality certificates.
+) -> list[dict[str, Any]]:
+    """Partition verified finality certificates into hard-compatibility clusters.
 
-    Closes the solo-origin finality cliff: each origin is integrity-checked,
-    pairwise hard conflicts refuse the merge, and a dual-origin federation
-    certificate rebinds the tower tip without re-dispatching effects.
+    Origins that lack success/irreversible flags or digests are skipped (they
+    never join a majority). Clusters are ordered largest-first, then by key.
     """
-    if not TOTAL_SPINE_FEDERATION_IMPL:
-        raise StageRefused(
-            "total_spine_federation_disabled",
-            "TOTAL_SPINE_FEDERATION_IMPL is False",
+    buckets: dict[tuple[str, str], list[Mapping[str, Any]]] = {}
+    for cert in origins:
+        if not bool(cert.get("success")):
+            continue
+        if cert.get("irreversible") is not True:
+            continue
+        digest = str(
+            cert.get("finality_digest") or cert.get("certificate_hash") or ""
         )
+        if not digest:
+            continue
+        key = _total_spine_quorum_cluster_key(
+            cert,
+            require_same_root=require_same_root,
+            require_same_done_when=require_same_done_when,
+        )
+        buckets.setdefault(key, []).append(cert)
+    clusters: list[dict[str, Any]] = []
+    for key, members in buckets.items():
+        clusters.append(
+            {
+                "key": {"root_layer": key[0], "done_when": key[1]},
+                "size": len(members),
+                "members": list(members),
+            }
+        )
+    clusters.sort(
+        key=lambda c: (
+            -int(c["size"]),
+            str((c.get("key") or {}).get("root_layer") or ""),
+            str((c.get("key") or {}).get("done_when") or ""),
+        )
+    )
+    return clusters
+
+
+def select_total_spine_quorum_cluster(
+    clusters: Sequence[Mapping[str, Any]],
+    *,
+    submitted_count: int,
+    threshold: int | None = None,
+) -> dict[str, Any]:
+    """Pick the strict-majority cluster or raise :class:`StageRefused`.
+
+    Refuses when no cluster meets the threshold, or when two top clusters
+    share the same size at/above threshold (ambiguous majority).
+    """
+    n = int(submitted_count)
+    thr = (
+        int(threshold)
+        if threshold is not None
+        else default_total_spine_quorum_threshold(n)
+    )
+    thr = max(1, thr)
+    if not clusters:
+        raise StageRefused(
+            "total_spine_quorum_not_met",
+            f"no hard-compatible finality cluster (submitted={n} threshold={thr})",
+        )
+    top = clusters[0]
+    top_size = int(top.get("size") or 0)
+    if top_size < thr:
+        raise StageRefused(
+            "total_spine_quorum_not_met",
+            f"largest cluster size {top_size} < threshold {thr} "
+            f"(submitted={n})",
+        )
+    # Ambiguous tie: second cluster same size at/above threshold.
+    if len(clusters) > 1:
+        second_size = int(clusters[1].get("size") or 0)
+        if second_size == top_size and second_size >= thr:
+            raise StageRefused(
+                "total_spine_quorum_tie",
+                f"ambiguous majority: two clusters of size {top_size} "
+                f"(threshold={thr})",
+            )
+    return {
+        "cluster": top,
+        "threshold": thr,
+        "submitted_count": n,
+        "quorum_met": True,
+        "accepted_count": top_size,
+    }
+
+
+def _load_total_spine_federation_origins(
+    origins: Sequence[Path | str | Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    """Load/verify origin finality certificates and dedupe by digest."""
     loaded: list[dict[str, Any]] = []
     for idx, origin in enumerate(origins):
         if isinstance(origin, Mapping):
-            # Already-loaded certificate mapping (must still verify).
             verify = verify_total_spine_finality_certificate(origin)
             if not verify.get("ok"):
                 raise StageRefused(
@@ -5563,15 +5762,6 @@ def federate_total_spine(
             loaded.append(row)
         else:
             loaded.append(load_total_spine_finality_certificate(origin))
-
-    if len(loaded) < TOTAL_SPINE_FEDERATION_MIN_ORIGINS:
-        raise StageRefused(
-            "total_spine_federation_single_origin",
-            f"federation requires ≥{TOTAL_SPINE_FEDERATION_MIN_ORIGINS} "
-            f"independent finality origins (got {len(loaded)})",
-        )
-
-    # Deduplicate by finality digest after load (duplicate paths → single origin).
     unique: list[dict[str, Any]] = []
     seen_digests: set[str] = set()
     for cert in loaded:
@@ -5581,44 +5771,173 @@ def federate_total_spine(
         if d:
             seen_digests.add(d)
         unique.append(cert)
-    if len(unique) < TOTAL_SPINE_FEDERATION_MIN_ORIGINS:
+    return unique
+
+
+def federate_total_spine(
+    origins: Sequence[Path | str | Mapping[str, Any]],
+    *,
+    out_root: Path | None = None,
+    require_same_root: bool = True,
+    require_same_done_when: bool = True,
+    prior_tip: str | None = None,
+    body: dict[str, Any] | None = None,
+    quorum: bool = False,
+    quorum_threshold: int | None = None,
+) -> dict[str, Any]:
+    """Federate independent absolute-tower finality certificates.
+
+    Default dual-origin mode closes the solo-origin finality cliff: each
+    origin is integrity-checked, pairwise hard conflicts refuse the merge,
+    and a dual-origin federation certificate rebinds the tower tip without
+    re-dispatching effects.
+
+    Quorum mode (``quorum=True``) closes the dual-origin all-agree cliff:
+    ≥3 distinct finality origins are clustered by hard-compatibility
+    (root_layer / done_when); a strict-majority cluster seals the
+    federation tip while Byzantine minorities that hard-conflict are
+    excluded and bound into the certificate digest.
+    """
+    if not TOTAL_SPINE_FEDERATION_IMPL:
         raise StageRefused(
-            "total_spine_federation_single_origin",
-            f"federation requires ≥{TOTAL_SPINE_FEDERATION_MIN_ORIGINS} "
-            f"distinct finality digests (got {len(unique)})",
+            "total_spine_federation_disabled",
+            "TOTAL_SPINE_FEDERATION_IMPL is False",
+        )
+    if quorum and not TOTAL_SPINE_QUORUM_IMPL:
+        raise StageRefused(
+            "total_spine_quorum_disabled",
+            "TOTAL_SPINE_QUORUM_IMPL is False",
         )
 
-    conflicts: list[dict[str, Any]] = []
-    for i in range(len(unique)):
-        for j in range(i + 1, len(unique)):
+    unique = _load_total_spine_federation_origins(origins)
+    min_origins = (
+        TOTAL_SPINE_QUORUM_MIN_ORIGINS
+        if quorum
+        else TOTAL_SPINE_FEDERATION_MIN_ORIGINS
+    )
+    if len(unique) < min_origins:
+        verdict = (
+            "total_spine_quorum_insufficient_origins"
+            if quorum
+            else "total_spine_federation_single_origin"
+        )
+        raise StageRefused(
+            verdict,
+            f"{'quorum federation' if quorum else 'federation'} requires "
+            f"≥{min_origins} distinct finality origins (got {len(unique)})",
+        )
+
+    byzantine_excluded: list[dict[str, Any]] = []
+    accepted: list[dict[str, Any]] = list(unique)
+    quorum_meta: dict[str, Any] | None = None
+
+    if quorum:
+        clusters = cluster_total_spine_finality_origins(
+            unique,
+            require_same_root=require_same_root,
+            require_same_done_when=require_same_done_when,
+        )
+        selection = select_total_spine_quorum_cluster(
+            clusters,
+            submitted_count=len(unique),
+            threshold=quorum_threshold,
+        )
+        top = selection["cluster"]
+        accepted = list(top.get("members") or [])
+        accepted_digests = {
+            str(c.get("finality_digest") or c.get("certificate_hash") or "")
+            for c in accepted
+        }
+        for idx, cert in enumerate(unique):
+            d = str(
+                cert.get("finality_digest") or cert.get("certificate_hash") or ""
+            )
+            if d in accepted_digests:
+                continue
+            reasons: list[str] = []
+            if not bool(cert.get("success")) or cert.get("irreversible") is not True:
+                reasons.append("origin_not_quorum_eligible")
+            else:
+                # Attribute pairwise conflict reasons against first accepted.
+                if accepted:
+                    verdict = classify_total_spine_federation_conflict(
+                        accepted[0],
+                        cert,
+                        require_same_root=require_same_root,
+                        require_same_done_when=require_same_done_when,
+                    )
+                    reasons = list(verdict.get("reasons") or ["hard_conflict"])
+                else:
+                    reasons = ["hard_conflict"]
+            byzantine_excluded.append(
+                {
+                    "origin_id": f"byzantine-{idx}",
+                    "finality_digest": d,
+                    "root_layer": str(cert.get("root_layer") or ""),
+                    "done_when": str(cert.get("done_when") or ""),
+                    "reasons": reasons,
+                }
+            )
+        quorum_meta = {
+            "quorum": True,
+            "quorum_met": True,
+            "quorum_threshold": int(selection["threshold"]),
+            "submitted_origin_count": int(selection["submitted_count"]),
+            "byzantine_excluded": byzantine_excluded,
+            "byzantine_excluded_count": len(byzantine_excluded),
+            "total_spine_quorum": True,
+        }
+    else:
+        conflicts: list[dict[str, Any]] = []
+        for i in range(len(unique)):
+            for j in range(i + 1, len(unique)):
+                verdict = classify_total_spine_federation_conflict(
+                    unique[i],
+                    unique[j],
+                    require_same_root=require_same_root,
+                    require_same_done_when=require_same_done_when,
+                )
+                if verdict.get("hard_conflict"):
+                    conflicts.append(verdict)
+        if conflicts:
+            raise StageRefused(
+                "total_spine_federation_hard_conflict",
+                f"hard conflict across origins: "
+                f"{conflicts[0].get('reasons')}",
+            )
+
+    # Intra-accepted pairwise integrity (defensive; clusters are key-based).
+    for i in range(len(accepted)):
+        for j in range(i + 1, len(accepted)):
             verdict = classify_total_spine_federation_conflict(
-                unique[i],
-                unique[j],
+                accepted[i],
+                accepted[j],
                 require_same_root=require_same_root,
                 require_same_done_when=require_same_done_when,
             )
             if verdict.get("hard_conflict"):
-                conflicts.append(verdict)
-    if conflicts:
-        raise StageRefused(
-            "total_spine_federation_hard_conflict",
-            f"hard conflict across origins: "
-            f"{conflicts[0].get('reasons')}",
-        )
+                raise StageRefused(
+                    "total_spine_federation_hard_conflict",
+                    f"hard conflict inside accepted set: "
+                    f"{verdict.get('reasons')}",
+                )
 
     origin_rows = [
         _origin_row_from_finality(cert, origin_id=f"origin-{i}")
-        for i, cert in enumerate(unique)
+        for i, cert in enumerate(accepted)
     ]
-    root_layer = str(unique[0].get("root_layer") or TOTAL_SPINE_DEFAULT_ROOT)
-    done_when = str(unique[0].get("done_when") or "")
-    # Prefer shared non-empty goal; else join distinct goals.
+    root_layer = str(accepted[0].get("root_layer") or TOTAL_SPINE_DEFAULT_ROOT)
+    done_when = str(accepted[0].get("done_when") or "")
     goals = sorted(
-        {str(c.get("goal") or "").strip() for c in unique if str(c.get("goal") or "").strip()}
+        {
+            str(c.get("goal") or "").strip()
+            for c in accepted
+            if str(c.get("goal") or "").strip()
+        }
     )
     goal = goals[0] if len(goals) == 1 else ("|".join(goals) if goals else "")
 
-    fed_body = {
+    fed_body: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "kind": TOTAL_SPINE_FEDERATION_KIND,
         "root_layer": root_layer,
@@ -5631,6 +5950,8 @@ def federate_total_spine(
         "success": True,
         "federated_at": utc_now_iso(),
     }
+    if quorum_meta is not None:
+        fed_body.update(quorum_meta)
 
     write_target = Path(out_root) if out_root is not None else None
     if write_target is not None:
@@ -5642,8 +5963,8 @@ def federate_total_spine(
 
     tip = str(
         prior_tip
-        or unique[0].get("bound_tip")
-        or unique[0].get("operational_tip")
+        or accepted[0].get("bound_tip")
+        or accepted[0].get("operational_tip")
         or ""
     )
     result = body if body is not None else {
@@ -5674,6 +5995,18 @@ def federate_total_spine(
             annotated["total_spine_digest"] = hops[0].get("digest")
             annotated[f"{root_layer}_digest"] = hops[0].get("digest")
     annotated["total_spine_federation_origins"] = origin_rows
+    if quorum_meta is not None:
+        annotated["total_spine_quorum_clusters"] = [
+            {
+                "key": c.get("key"),
+                "size": c.get("size"),
+            }
+            for c in cluster_total_spine_finality_origins(
+                unique,
+                require_same_root=require_same_root,
+                require_same_done_when=require_same_done_when,
+            )
+        ]
     annotated["used_skill_route_discovery"] = legacy_pipeline_was_used()
     return annotated
 
@@ -6003,6 +6336,8 @@ def _attach_total_spine_effects(
     resume_dir: Path | None = None,
     finality: bool = False,
     federation_peers: Sequence[Path | str | Mapping[str, Any]] | None = None,
+    federation_quorum: bool = False,
+    quorum_threshold: int | None = None,
 ) -> dict[str, Any]:
     """Optionally dispatch ledger effects, gate contracts, rebind hop digests.
 
@@ -6031,6 +6366,10 @@ def _attach_total_spine_effects(
     Multi-origin federation (``federation_peers``): after local finality is
     sealed, federate this origin with peer finality certificates into a
     dual-origin federation tip without re-dispatch.
+
+    N-of-M quorum (``federation_quorum=True``): with ≥2 peers (local+peers
+    ≥3 distinct finality digests), form a strict-majority federation tip and
+    exclude Byzantine minority hard-conflicts instead of refusing the merge.
     """
     goal_text = str(goal or "").strip()
     contract_text = str(done_when or "").strip()
@@ -6308,10 +6647,12 @@ def _attach_total_spine_effects(
         annotated["total_spine_continuity_impl"] = TOTAL_SPINE_CONTINUITY_IMPL
         annotated["total_spine_finality_impl"] = TOTAL_SPINE_FINALITY_IMPL
         annotated["total_spine_federation_impl"] = TOTAL_SPINE_FEDERATION_IMPL
+        annotated["total_spine_quorum_impl"] = TOTAL_SPINE_QUORUM_IMPL
         if goal_text and not annotated.get("total_spine_goal"):
             annotated["total_spine_goal"] = goal_text
         # Multi-origin federation still applies on short-circuit resume.
         peers_sc = list(federation_peers or [])
+        want_quorum_sc = bool(federation_quorum) and TOTAL_SPINE_QUORUM_IMPL
         if peers_sc and resume_finality is not None:
             fed_out_sc = None
             if out_root is not None:
@@ -6328,6 +6669,8 @@ def _attach_total_spine_effects(
                 out_root=fed_out_sc,
                 prior_tip=prior_sc,
                 body=annotated,
+                quorum=want_quorum_sc,
+                quorum_threshold=quorum_threshold,
             )
             # Preserve short-circuit markers after federation rebind.
             annotated["total_spine_finality"] = True
@@ -6338,6 +6681,7 @@ def _attach_total_spine_effects(
             annotated["total_spine_federation_requires_finality"] = True
         else:
             annotated.setdefault("total_spine_federation", False)
+            annotated.setdefault("total_spine_quorum", False)
         return annotated
 
     def _select_ids(round_index: int) -> tuple[list[str], str, bool, dict[str, Any] | None]:
@@ -7002,9 +7346,11 @@ def _attach_total_spine_effects(
     annotated["total_spine_continuity_impl"] = TOTAL_SPINE_CONTINUITY_IMPL
     annotated["total_spine_finality_impl"] = TOTAL_SPINE_FINALITY_IMPL
     annotated["total_spine_federation_impl"] = TOTAL_SPINE_FEDERATION_IMPL
+    annotated["total_spine_quorum_impl"] = TOTAL_SPINE_QUORUM_IMPL
 
     # Multi-origin federation: local finality + peer certificates → fed tip.
     peers = list(federation_peers or [])
+    want_quorum = bool(federation_quorum) and TOTAL_SPINE_QUORUM_IMPL
     if peers and annotated.get("total_spine_finality") is True:
         local_cert = (
             last_finality
@@ -7034,6 +7380,8 @@ def _attach_total_spine_effects(
                 out_root=fed_out,
                 prior_tip=prior,
                 body=annotated,
+                quorum=want_quorum,
+                quorum_threshold=quorum_threshold,
             )
         else:
             annotated["total_spine_federation"] = False
@@ -7043,6 +7391,7 @@ def _attach_total_spine_effects(
         annotated["total_spine_federation_requires_finality"] = True
     elif not peers:
         annotated.setdefault("total_spine_federation", False)
+        annotated.setdefault("total_spine_quorum", False)
 
     return annotated
 
@@ -7082,6 +7431,8 @@ def run_total_spine(
     resume_dir: Path | None = None,
     finality: bool = False,
     federation_peers: Sequence[Path | str | Mapping[str, Any]] | None = None,
+    federation_quorum: bool = False,
+    quorum_threshold: int | None = None,
 ) -> dict[str, Any]:
     """Public entry: absolute total spine from root into the operational nest.
 
@@ -7120,6 +7471,10 @@ def run_total_spine(
     Multi-origin federation: after local finality, ``federation_peers`` supplies
     independent peer finality certificates (paths or mappings) that are merged
     via :func:`federate_total_spine` into a dual-origin federation tip.
+
+    N-of-M quorum federation: ``federation_quorum=True`` clusters local+peer
+    finality certificates (≥3 distinct digests) by hard-compatibility and
+    seals a strict-majority tip while excluding Byzantine minority conflicts.
     """
     root = (
         str(root_layer or TOTAL_SPINE_DEFAULT_ROOT).strip().lower()
@@ -7190,6 +7545,8 @@ def run_total_spine(
             resume_dir=resume_dir,
             finality=finality,
             federation_peers=federation_peers,
+            federation_quorum=federation_quorum,
+            quorum_threshold=quorum_threshold,
         )
         return annotated
 
@@ -7253,6 +7610,8 @@ def run_total_spine(
         resume_dir=resume_dir,
         finality=finality,
         federation_peers=federation_peers,
+        federation_quorum=federation_quorum,
+        quorum_threshold=quorum_threshold,
     )
     if out_root is not None:
         receipt_dir = Path(out_root)
@@ -12105,6 +12464,516 @@ def builtin_total_spine_federation_proof() -> dict[str, Any]:
         shutil.rmtree(scratch, ignore_errors=True)
 
 
+def builtin_total_spine_quorum_proof() -> dict[str, Any]:
+    """Hermetic proof: N-of-M quorum federation of absolute-tower finality.
+
+    Closes the dual-origin all-agree cliff: three independent finality
+    certificates form a strict-majority quorum; a Byzantine minority that
+    hard-conflicts on done_when is excluded; below-threshold and non-quorum
+    dual-origin hard-conflict still refuse; live
+    ``run_total_spine(federation_quorum=True, federation_peers=...)``
+    rebinds the depth-28 tip without skill-route discovery.
+    """
+    scratch = Path(tempfile.mkdtemp(prefix="total-spine-quorum-proof-"))
+    try:
+        from blackhole_agent import upstream_loop_engine as le_facade
+        from blackhole_agent.capability_compounder import (
+            default_ledger_path,
+            load_ledger,
+        )
+
+        flags_ok = (
+            TOTAL_SPINE_QUORUM_IMPL is True
+            and TOTAL_SPINE_FEDERATION_IMPL is True
+            and TOTAL_SPINE_FINALITY_IMPL is True
+            and TOTAL_SPINE_CONTINUITY_IMPL is True
+            and TOTAL_SPINE_ADAPTIVE_IMPL is True
+            and TOTAL_SPINE_GOAL_IMPL is True
+            and TOTAL_SPINE_EFFECT_IMPL is True
+            and TOTAL_SPINE_IMPL is True
+            and TOTAL_SPINE_QUORUM_MIN_ORIGINS >= 3
+            and TOTAL_SPINE_FEDERATION_MIN_ORIGINS >= 2
+            and default_total_spine_quorum_threshold(3) == 2
+            and default_total_spine_quorum_threshold(4) == 3
+        )
+
+        missing_id = "capability.does-not-exist-for-quorum-proof"
+        good_id = "repo.import-health"
+        contract_pass = "min_proved:1; no_skill_route"
+        contract_byzantine = "min_proved:99; no_skill_route"
+
+        # Phase 1: live absolute tower seals finality for honest origin A.
+        partial = run_total_spine(
+            root_layer="quettacontinuum",
+            out_root=scratch / "origin-a-partial",
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=3,
+            max_successions=1,
+            max_epochs=1,
+            max_waves=1,
+            compress=True,
+            effects=True,
+            capabilities=[missing_id, good_id],
+            done_when=contract_pass,
+            adaptive=True,
+            adaptive_rounds=1,
+            continuity=True,
+            finality=True,
+            effect_timeout=90,
+            repo_path=REPO_ROOT,
+        )
+        partial_path = partial.get("total_spine_continuity_checkpoint_path")
+        origin_a = run_total_spine(
+            root_layer="quettacontinuum",
+            out_root=scratch / "origin-a",
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=3,
+            max_successions=1,
+            max_epochs=1,
+            max_waves=1,
+            compress=True,
+            effects=True,
+            capabilities=[missing_id, good_id],
+            done_when=contract_pass,
+            adaptive=True,
+            adaptive_rounds=1,
+            continuity=True,
+            finality=True,
+            resume_dir=partial_path,
+            effect_timeout=90,
+            repo_path=REPO_ROOT,
+        )
+        origin_a_path = origin_a.get("total_spine_finality_path")
+        origin_a_ok = (
+            bool(origin_a.get("ok"))
+            and origin_a.get("total_spine_finality") is True
+            and origin_a.get("total_spine_finality_irreversible") is True
+            and origin_a.get("total_spine_effects_ok") is True
+            and origin_a.get("total_spine_contract_met") is True
+            and int(origin_a.get("total_nest_depth") or 0) == 28
+            and isinstance(origin_a_path, str)
+            and Path(origin_a_path).is_file()
+            and not legacy_pipeline_was_used()
+        )
+
+        # Phase 2: honest peer B (same done_when, distinct digests/tips).
+        peer_b_body = {
+            "schema_version": SCHEMA_VERSION,
+            "kind": TOTAL_SPINE_FINALITY_KIND,
+            "root_layer": "quettacontinuum",
+            "goal": str(
+                (origin_a.get("total_spine_finality_certificate") or {}).get(
+                    "goal"
+                )
+                or ""
+            ),
+            "done_when": contract_pass,
+            "capabilities": [good_id],
+            "operational_tip": "b" * 64,
+            "bound_tip": "c" * 64,
+            "continuity_digest": "d" * 64,
+            "adaptive_round_count": 1,
+            "effects_ok": True,
+            "contract_met": True,
+            "recovered": True,
+            "irreversible": True,
+            "success": True,
+            "finalized_at": utc_now_iso(),
+        }
+        peer_b_cert = write_total_spine_finality_certificate(
+            scratch / "origin-b", peer_b_body
+        )
+        peer_b_path = peer_b_cert.get("finality_path")
+
+        # Phase 3: Byzantine peer C — hard-conflicts on done_when.
+        peer_c_body = dict(peer_b_body)
+        peer_c_body["done_when"] = contract_byzantine
+        peer_c_body["operational_tip"] = "e" * 64
+        peer_c_body["bound_tip"] = "f" * 64
+        peer_c_cert = write_total_spine_finality_certificate(
+            scratch / "origin-c", peer_c_body
+        )
+        peer_c_path = peer_c_cert.get("finality_path")
+        peers_ok = (
+            isinstance(peer_b_path, str)
+            and Path(peer_b_path).is_file()
+            and isinstance(peer_c_path, str)
+            and Path(peer_c_path).is_file()
+            and str(peer_b_cert.get("finality_digest") or "")
+            != str(origin_a.get("total_spine_finality_digest") or "")
+            and str(peer_c_cert.get("finality_digest") or "")
+            != str(peer_b_cert.get("finality_digest") or "")
+        )
+
+        # Dual-origin all-agree still refuses hard conflict (cliff baseline).
+        dual_refuse_ok = False
+        try:
+            federate_total_spine(
+                [str(origin_a_path), str(peer_c_path)],
+                out_root=scratch / "dual-conflict",
+            )
+        except StageRefused as exc:
+            dual_refuse_ok = (
+                str(exc.verdict) == "total_spine_federation_hard_conflict"
+            )
+        except Exception:  # noqa: BLE001
+            dual_refuse_ok = False
+
+        # Quorum offline: A+B majority excludes Byzantine C.
+        quorumed = federate_total_spine(
+            [str(origin_a_path), str(peer_b_path), str(peer_c_path)],
+            out_root=scratch / "quorum",
+            prior_tip=str(origin_a.get("total_spine_finality_bound_tip") or ""),
+            quorum=True,
+        )
+        quorum_path = quorumed.get("total_spine_federation_path")
+        excluded = quorumed.get("total_spine_quorum_byzantine_excluded") or []
+        quorum_offline_ok = (
+            bool(quorumed.get("ok"))
+            and quorumed.get("total_spine_quorum") is True
+            and quorumed.get("total_spine_quorum_met") is True
+            and quorumed.get("total_spine_federation") is True
+            and quorumed.get("total_spine_federation_conflict_free") is True
+            and int(quorumed.get("total_spine_federation_origin_count") or 0)
+            == 2
+            and int(quorumed.get("total_spine_quorum_threshold") or 0) == 2
+            and int(quorumed.get("total_spine_quorum_submitted_count") or 0)
+            == 3
+            and int(
+                quorumed.get("total_spine_quorum_byzantine_excluded_count") or 0
+            )
+            == 1
+            and len(excluded) == 1
+            and str(excluded[0].get("finality_digest") or "")
+            == str(peer_c_cert.get("finality_digest") or "")
+            and isinstance(quorum_path, str)
+            and Path(quorum_path).is_file()
+            and isinstance(quorumed.get("total_spine_federation_digest"), str)
+            and len(str(quorumed.get("total_spine_federation_digest"))) >= 32
+            and not legacy_pipeline_was_used()
+        )
+
+        # Load + verify quorum federation; tamper fails.
+        loaded_q = load_total_spine_federation_certificate(
+            quorum_path or (scratch / "quorum")
+        )
+        verify_ok = bool(
+            loaded_q.get("total_spine_federation_loaded")
+            and (loaded_q.get("federation_verify") or {}).get("ok")
+            and loaded_q.get("quorum") is True
+            and int(loaded_q.get("byzantine_excluded_count") or 0) == 1
+        )
+        tampered_path = scratch / "tampered-quorum.json"
+        tampered_body = dict(loaded_q)
+        for drop in (
+            "federation_verify",
+            "total_spine_federation_loaded",
+            "federation_path",
+        ):
+            tampered_body.pop(drop, None)
+        tampered_body["byzantine_excluded_count"] = 99
+        atomic_write_json(tampered_path, tampered_body)
+        tamper_ok = False
+        try:
+            load_total_spine_federation_certificate(tampered_path)
+        except StageRefused as exc:
+            tamper_ok = str(exc.verdict) == "total_spine_federation_tampered"
+        except Exception:  # noqa: BLE001
+            tamper_ok = False
+
+        # Below threshold: require all 3 with threshold=3 but only 2 agree.
+        below_ok = False
+        try:
+            federate_total_spine(
+                [str(origin_a_path), str(peer_b_path), str(peer_c_path)],
+                out_root=scratch / "below-threshold",
+                quorum=True,
+                quorum_threshold=3,
+            )
+        except StageRefused as exc:
+            below_ok = str(exc.verdict) == "total_spine_quorum_not_met"
+        except Exception:  # noqa: BLE001
+            below_ok = False
+
+        # Insufficient origins for quorum mode (only 2 distinct).
+        insufficient_ok = False
+        try:
+            federate_total_spine(
+                [str(origin_a_path), str(peer_b_path)],
+                out_root=scratch / "insufficient",
+                quorum=True,
+            )
+        except StageRefused as exc:
+            insufficient_ok = (
+                str(exc.verdict) == "total_spine_quorum_insufficient_origins"
+            )
+        except Exception:  # noqa: BLE001
+            insufficient_ok = False
+
+        # Tie: two clusters of size 2 with threshold 2 refuse.
+        tie_body_d = dict(peer_c_body)
+        tie_body_d["operational_tip"] = "1" * 64
+        tie_body_d["bound_tip"] = "2" * 64
+        tie_d = write_total_spine_finality_certificate(
+            scratch / "origin-d", tie_body_d
+        )
+        # A+B vs C+D both size 2.
+        # Use four origins: A,B honest; C,D byzantine same done_when.
+        # Actually C and D share byzantine done_when → cluster size 2 each.
+        # submitted=4 threshold default=3; neither meets 3 → not_met not tie.
+        # For tie need threshold=2 with 4 origins in two equal clusters.
+        tie_ok = False
+        try:
+            federate_total_spine(
+                [
+                    str(origin_a_path),
+                    str(peer_b_path),
+                    str(peer_c_path),
+                    str(tie_d.get("finality_path")),
+                ],
+                out_root=scratch / "tie",
+                quorum=True,
+                quorum_threshold=2,
+            )
+        except StageRefused as exc:
+            tie_ok = str(exc.verdict) == "total_spine_quorum_tie"
+        except Exception:  # noqa: BLE001
+            tie_ok = False
+
+        # Live run: resume A finality + peers B,C with federation_quorum.
+        live_q = run_total_spine(
+            root_layer="quettacontinuum",
+            out_root=scratch / "live-quorum",
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=3,
+            max_successions=1,
+            max_epochs=1,
+            max_waves=1,
+            compress=True,
+            effects=True,
+            capabilities=[missing_id, good_id],
+            done_when=contract_pass,
+            adaptive=True,
+            adaptive_rounds=1,
+            continuity=True,
+            finality=True,
+            resume_dir=origin_a_path,
+            federation_peers=[str(peer_b_path), str(peer_c_path)],
+            federation_quorum=True,
+            effect_timeout=90,
+            repo_path=REPO_ROOT,
+        )
+        live_q_ok = (
+            bool(live_q.get("ok"))
+            and live_q.get("total_spine") is True
+            and live_q.get("total_spine_finality") is True
+            and live_q.get("total_spine_finality_short_circuit") is True
+            and live_q.get("total_spine_federation") is True
+            and live_q.get("total_spine_quorum") is True
+            and live_q.get("total_spine_quorum_met") is True
+            and live_q.get("total_spine_federation_conflict_free") is True
+            and int(live_q.get("total_spine_federation_origin_count") or 0)
+            == 2
+            and int(
+                live_q.get("total_spine_quorum_byzantine_excluded_count") or 0
+            )
+            == 1
+            and int(live_q.get("total_nest_depth") or 0) == 28
+            and isinstance(live_q.get("total_spine_federation_digest"), str)
+            and len(str(live_q.get("total_spine_federation_digest"))) >= 32
+            and isinstance(live_q.get("total_spine_digest"), str)
+            and len(str(live_q.get("total_spine_digest"))) >= 32
+            and not legacy_pipeline_was_used()
+        )
+
+        # Quorum chain re-seal integrity.
+        fed_chain = live_q.get("total_spine_federation_chain") or {}
+        chain_integrity_ok = False
+        if isinstance(fed_chain, Mapping) and fed_chain:
+            re_seal = seal_total_spine_federation_chain(
+                prior_tip=str(fed_chain.get("prior_tip") or ""),
+                federation_digest=str(fed_chain.get("federation_digest") or ""),
+                origin_count=int(fed_chain.get("origin_count") or 0),
+                conflict_free=bool(fed_chain.get("conflict_free")),
+                quorum=True,
+                quorum_threshold=int(fed_chain.get("quorum_threshold") or 0),
+                byzantine_excluded_count=int(
+                    fed_chain.get("byzantine_excluded_count") or 0
+                ),
+                quorum_met=bool(fed_chain.get("quorum_met")),
+            )
+            chain_integrity_ok = (
+                re_seal.get("digest") == fed_chain.get("digest")
+                and re_seal.get("digest")
+                == live_q.get("total_spine_federation_tip")
+            )
+
+        # Differential: quorum tip moves beyond local finality; digest commits
+        # to exclusions (offline quorum digest matches live).
+        differential_ok = (
+            origin_a_ok
+            and quorum_offline_ok
+            and live_q_ok
+            and str(origin_a.get("total_spine_digest") or "")
+            != str(live_q.get("total_spine_digest") or "")
+            and str(live_q.get("total_spine_federation_digest") or "")
+            == str(quorumed.get("total_spine_federation_digest") or "")
+        )
+
+        # cluster helper surface.
+        clusters = cluster_total_spine_finality_origins(
+            [
+                load_total_spine_finality_certificate(str(origin_a_path)),
+                peer_b_cert,
+                peer_c_cert,
+            ]
+        )
+        cluster_ok = (
+            len(clusters) == 2
+            and int(clusters[0].get("size") or 0) == 2
+            and int(clusters[1].get("size") or 0) == 1
+        )
+
+        facade_path = Path(le_facade.__file__).resolve()
+        facade_text = facade_path.read_text(encoding="utf-8")
+        source_ok = (
+            "TOTAL_SPINE_QUORUM_IMPL" in facade_text
+            and "builtin_total_spine_quorum_proof" in facade_text
+            and "cluster_total_spine_finality_origins" in facade_text
+            and callable(
+                getattr(le_facade, "builtin_total_spine_quorum_proof", None)
+            )
+            and callable(getattr(le_facade, "federate_total_spine", None))
+            and getattr(le_facade, "TOTAL_SPINE_QUORUM_IMPL", False) is True
+        )
+
+        engine_path = Path(__file__).resolve()
+        engine_text = engine_path.read_text(encoding="utf-8")
+        engine_source_ok = (
+            "def builtin_total_spine_quorum_proof" in engine_text
+            and "def cluster_total_spine_finality_origins" in engine_text
+            and "def select_total_spine_quorum_cluster" in engine_text
+            and "TOTAL_SPINE_QUORUM_IMPL" in engine_text
+            and "federation_quorum" in engine_text
+            and "total_spine_quorum_not_met" in engine_text
+            and "total_spine_quorum_tie" in engine_text
+            and "byzantine_excluded" in engine_text
+        )
+
+        ledger_path = default_ledger_path(REPO_ROOT)
+        ledger_ok = False
+        try:
+            ledger = load_ledger(ledger_path)
+            entry = ledger.capabilities.get(
+                "capability.upstream-total-spine-quorum"
+            )
+            tags_blob = " ".join(entry.tags).lower() if entry else ""
+            delta_blob = (entry.capability_delta or "").lower() if entry else ""
+            name_blob = (entry.name or "").lower() if entry else ""
+            ledger_ok = (
+                entry is not None
+                and "upstream_control_engine" in (entry.entry or "")
+                and "builtin_total_spine_quorum_proof" in (entry.entry or "")
+                and (
+                    "quorum" in tags_blob
+                    or "quorum" in name_blob
+                    or "quorum" in delta_blob
+                )
+                and ("total" in tags_blob or "total" in name_blob)
+                and (
+                    "byzantine" in delta_blob
+                    or "majority" in delta_blob
+                    or "n-of-m" in delta_blob
+                    or "n_of_m" in delta_blob
+                )
+                and (
+                    "federation_quorum" in delta_blob
+                    or "quorum=true" in delta_blob
+                    or "federate_total_spine" in delta_blob
+                )
+            )
+        except Exception:  # noqa: BLE001
+            ledger_ok = False
+
+        ok = all(
+            [
+                flags_ok,
+                origin_a_ok,
+                peers_ok,
+                dual_refuse_ok,
+                quorum_offline_ok,
+                verify_ok,
+                tamper_ok,
+                below_ok,
+                insufficient_ok,
+                tie_ok,
+                live_q_ok,
+                chain_integrity_ok,
+                differential_ok,
+                cluster_ok,
+                source_ok,
+                engine_source_ok,
+                ledger_ok,
+                not legacy_pipeline_was_used(),
+            ]
+        )
+        return {
+            "ok": ok,
+            "action": "total_spine_quorum_proof",
+            "flags_ok": flags_ok,
+            "origin_a_ok": origin_a_ok,
+            "origin_a_path": origin_a_path,
+            "origin_a_digest": origin_a.get("total_spine_finality_digest"),
+            "peers_ok": peers_ok,
+            "peer_b_path": peer_b_path,
+            "peer_c_path": peer_c_path,
+            "dual_refuse_ok": dual_refuse_ok,
+            "quorum_offline_ok": quorum_offline_ok,
+            "quorum_path": quorum_path,
+            "quorum_digest": quorumed.get("total_spine_federation_digest"),
+            "quorum_tip": quorumed.get("total_spine_federation_tip"),
+            "quorum_origin_count": quorumed.get(
+                "total_spine_federation_origin_count"
+            ),
+            "byzantine_excluded_count": quorumed.get(
+                "total_spine_quorum_byzantine_excluded_count"
+            ),
+            "verify_ok": verify_ok,
+            "tamper_ok": tamper_ok,
+            "below_ok": below_ok,
+            "insufficient_ok": insufficient_ok,
+            "tie_ok": tie_ok,
+            "live_q_ok": live_q_ok,
+            "live_q_digest": live_q.get("total_spine_federation_digest"),
+            "live_q_tip": live_q.get("total_spine_digest"),
+            "live_short_circuit": live_q.get(
+                "total_spine_finality_short_circuit"
+            ),
+            "chain_integrity_ok": chain_integrity_ok,
+            "differential_ok": differential_ok,
+            "cluster_ok": cluster_ok,
+            "source_ok": source_ok,
+            "engine_source_ok": engine_source_ok,
+            "ledger_capability_ok": ledger_ok,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "control_engine": True,
+            "total_spine": True,
+            "total_spine_effects": True,
+            "total_spine_adaptive": True,
+            "total_spine_continuity": True,
+            "total_spine_finality": True,
+            "total_spine_federation": True,
+            "total_spine_quorum": True,
+            "total_spine_compressed": True,
+            "done_when_met": ok,
+        }
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
 def builtin_control_nest_proof() -> dict[str, Any]:
     """Hermetic proof: multi-depth nest owns program→…→fleet→campaign spine."""
     scratch = Path(tempfile.mkdtemp(prefix="control-nest-proof-"))
@@ -13558,6 +14427,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "certificates federate into a dual-origin sealed tip"
         ),
     )
+    sub.add_parser(
+        "quorum-proof",
+        help=(
+            "Total spine quorum proof: N-of-M majority federation "
+            "excludes Byzantine minority finality and rebinds the tip"
+        ),
+    )
     sub.add_parser("list", help="List control modes and dialects")
     sub.add_parser("nest-path", help="Print canonical operational nest path")
     sub.add_parser(
@@ -13686,6 +14562,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "federation-proof":
         result = builtin_total_spine_federation_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "quorum-proof":
+        result = builtin_total_spine_quorum_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2
