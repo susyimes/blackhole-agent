@@ -34,6 +34,10 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     TOTAL_SPINE_DEFAULT_ROOT,
     TOTAL_SPINE_DEFAULT_ROOTS,
     TOTAL_SPINE_EFFECT_IMPL,
+    TOTAL_SPINE_FEDERATION_FILENAME,
+    TOTAL_SPINE_FEDERATION_IMPL,
+    TOTAL_SPINE_FEDERATION_KIND,
+    TOTAL_SPINE_FEDERATION_MIN_ORIGINS,
     TOTAL_SPINE_FINALITY_FILENAME,
     TOTAL_SPINE_FINALITY_IMPL,
     TOTAL_SPINE_FINALITY_KIND,
@@ -62,6 +66,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     annotate_total_spine,
     annotate_total_spine_contract,
     annotate_total_spine_effects,
+    annotate_total_spine_federation,
     annotate_total_spine_finality,
     build_live_domain_hooks,
     builtin_civilization_spine_proof,
@@ -73,21 +78,26 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     builtin_total_spine_adaptive_proof,
     builtin_total_spine_continuity_proof,
     builtin_total_spine_effect_proof,
+    builtin_total_spine_federation_proof,
     builtin_total_spine_finality_proof,
     builtin_total_spine_goal_proof,
     builtin_total_spine_proof,
+    classify_total_spine_federation_conflict,
     compose_loop_of_loop,
     compose_pipeline_of_pipeline,
     continuity_checkpoint_path,
     default_extract_dispatched,
     dispatch_total_spine_effects,
     evaluate_total_spine_contract,
+    federate_total_spine,
+    federation_certificate_path,
     finality_certificate_path,
     get_loop_dialect,
     governance_nest_depth,
     governance_nest_path,
     list_loop_dialects,
     load_total_spine_continuity_checkpoint,
+    load_total_spine_federation_certificate,
     load_total_spine_finality_certificate,
     make_governance_institution_child_runner,
     make_governance_league_child_runner,
@@ -118,6 +128,8 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     seal_total_spine_continuity_checkpoint,
     seal_total_spine_contract,
     seal_total_spine_effect_chain,
+    seal_total_spine_federation_certificate,
+    seal_total_spine_federation_chain,
     seal_total_spine_finality_certificate,
     seal_total_spine_finality_chain,
     seal_total_spine_hop_chain,
@@ -128,8 +140,10 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     total_nest_path,
     verify_loop_receipt,
     verify_total_spine_continuity_checkpoint,
+    verify_total_spine_federation_certificate,
     verify_total_spine_finality_certificate,
     write_total_spine_continuity_checkpoint,
+    write_total_spine_federation_certificate,
     write_total_spine_finality_certificate,
 )
 
@@ -213,6 +227,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "re-dispatch on finalized absolute-tower resume"
         ),
     )
+    sub.add_parser(
+        "federation-proof",
+        help=(
+            "Total spine federation: multi-origin finality certificates "
+            "federate into a dual-origin sealed absolute-tower tip"
+        ),
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
     if args.cmd == "list":
         print(json.dumps({"dialects": list_loop_dialects()}, indent=2))
@@ -259,6 +280,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "finality-proof":
         result = builtin_total_spine_finality_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "federation-proof":
+        result = builtin_total_spine_federation_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2

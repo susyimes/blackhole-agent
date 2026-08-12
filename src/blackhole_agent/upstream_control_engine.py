@@ -66,6 +66,12 @@ Composition:
   a tamper-evident finality certificate into the depth-28 tip;
   ``resume_dir`` on a finalized run short-circuits without re-dispatching
   effects so completed absolute-tower outcomes stay irreversible
+* total-spine **multi-origin federation** — closes the solo-origin
+  finality cliff: ``federate_total_spine(origins=[...])`` (and optional
+  ``run_total_spine(federation_peers=...)`` after finality) verifies ≥2
+  independent absolute-tower finality certificates, refuses single-origin
+  and hard conflicts, seals a dual-origin federation certificate, and
+  rebinds the depth-28 tip without re-dispatching effects
 
 No skill-route discovery.
 """
@@ -4300,6 +4306,11 @@ TOTAL_SPINE_CONTINUITY_FILENAME: str = "total-spine-continuity.json"
 TOTAL_SPINE_FINALITY_IMPL = True
 TOTAL_SPINE_FINALITY_KIND: str = "total_spine_finality"
 TOTAL_SPINE_FINALITY_FILENAME: str = "total-spine-finality.json"
+# Multi-origin federation: dual independent finality certificates → tip.
+TOTAL_SPINE_FEDERATION_IMPL = True
+TOTAL_SPINE_FEDERATION_KIND: str = "total_spine_federation"
+TOTAL_SPINE_FEDERATION_FILENAME: str = "total-spine-federation.json"
+TOTAL_SPINE_FEDERATION_MIN_ORIGINS: int = 2
 # Constitution-layer goals accepted by run_constitution (not free-text).
 TOTAL_SPINE_CONSTITUTION_GOALS: frozenset[str] = frozenset(
     {
@@ -5147,6 +5158,526 @@ def annotate_total_spine_finality(
     return body
 
 
+# ---------------------------------------------------------------------------
+# Total-spine multi-origin federation (closes the solo-origin finality cliff)
+# ---------------------------------------------------------------------------
+
+
+def _federation_certificate_material(body: Mapping[str, Any]) -> dict[str, Any]:
+    """Canonical fields that bind a total-spine federation certificate digest."""
+    origins = body.get("origins") or []
+    origin_rows: list[dict[str, Any]] = []
+    for row in origins:
+        if not isinstance(row, Mapping):
+            continue
+        origin_rows.append(
+            {
+                "origin_id": str(row.get("origin_id") or ""),
+                "finality_digest": str(row.get("finality_digest") or ""),
+                "root_layer": str(row.get("root_layer") or ""),
+                "goal": str(row.get("goal") or ""),
+                "done_when": str(row.get("done_when") or ""),
+                "operational_tip": str(row.get("operational_tip") or ""),
+                "bound_tip": str(row.get("bound_tip") or ""),
+                "capabilities": list(row.get("capabilities") or []),
+                "success": bool(row.get("success")),
+                "irreversible": bool(row.get("irreversible", True)),
+            }
+        )
+    # Deterministic order: sort by finality_digest then origin_id.
+    origin_rows.sort(
+        key=lambda r: (r["finality_digest"], r["origin_id"])
+    )
+    return {
+        "schema_version": int(body.get("schema_version") or SCHEMA_VERSION),
+        "kind": str(body.get("kind") or TOTAL_SPINE_FEDERATION_KIND),
+        "root_layer": str(body.get("root_layer") or ""),
+        "goal": str(body.get("goal") or ""),
+        "done_when": str(body.get("done_when") or ""),
+        "origin_count": int(body.get("origin_count") or len(origin_rows)),
+        "origins": origin_rows,
+        "origin_digests": [
+            r["finality_digest"] for r in origin_rows if r["finality_digest"]
+        ],
+        "conflict_free": bool(body.get("conflict_free", True)),
+        "irreversible": True,
+        "success": bool(body.get("success", True)),
+    }
+
+
+def seal_total_spine_federation_certificate(
+    body: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Seal multi-origin absolute-tower finality into a federation certificate."""
+    material = _federation_certificate_material(body)
+    digest = _sha256_json(material)
+    sealed = dict(material)
+    sealed["federation_digest"] = digest
+    sealed["certificate_hash"] = digest
+    sealed["total_spine_federation"] = True
+    sealed["total_spine_federation_impl"] = TOTAL_SPINE_FEDERATION_IMPL
+    sealed["federated_at"] = str(body.get("federated_at") or utc_now_iso())
+    sealed["used_skill_route_discovery"] = legacy_pipeline_was_used()
+    return sealed
+
+
+def federation_certificate_path(root: Path) -> Path:
+    """Resolve ``total-spine-federation.json`` under a federation/out root."""
+    path = Path(root)
+    if path.is_file():
+        if path.name == TOTAL_SPINE_FEDERATION_FILENAME or path.suffix == ".json":
+            try:
+                probe = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                probe = None
+            if isinstance(probe, Mapping) and (
+                str(probe.get("kind") or "") == TOTAL_SPINE_FEDERATION_KIND
+                or path.name == TOTAL_SPINE_FEDERATION_FILENAME
+            ):
+                return path
+        parent = path.parent
+        sibling = parent / TOTAL_SPINE_FEDERATION_FILENAME
+        if sibling.is_file():
+            return sibling
+        nested = parent / "federation" / TOTAL_SPINE_FEDERATION_FILENAME
+        if nested.is_file():
+            return nested
+        grand = parent.parent / "federation" / TOTAL_SPINE_FEDERATION_FILENAME
+        if grand.is_file():
+            return grand
+        return parent / "federation" / TOTAL_SPINE_FEDERATION_FILENAME
+    named = path / TOTAL_SPINE_FEDERATION_FILENAME
+    if named.is_file():
+        return named
+    nested = path / "federation" / TOTAL_SPINE_FEDERATION_FILENAME
+    if nested.is_file():
+        return nested
+    return path / "federation" / TOTAL_SPINE_FEDERATION_FILENAME
+
+
+def write_total_spine_federation_certificate(
+    out_root: Path,
+    body: Mapping[str, Any],
+    *,
+    allow_idempotent: bool = True,
+) -> dict[str, Any]:
+    """Seal and atomically write a federation certificate under ``out_root``.
+
+    Idempotent on identical digests; divergent reseal raises
+    ``total_spine_federation_supersession_refused``.
+    """
+    sealed = seal_total_spine_federation_certificate(body)
+    path = federation_certificate_path(Path(out_root))
+    if path.is_file():
+        try:
+            existing = load_total_spine_federation_certificate(path)
+        except StageRefused:
+            existing = None
+        if existing is not None:
+            existing_digest = str(
+                existing.get("federation_digest")
+                or existing.get("certificate_hash")
+                or ""
+            )
+            new_digest = str(
+                sealed.get("federation_digest")
+                or sealed.get("certificate_hash")
+                or ""
+            )
+            if (
+                existing_digest
+                and existing_digest == new_digest
+                and allow_idempotent
+            ):
+                existing["federation_path"] = str(path)
+                existing["total_spine_federation_idempotent"] = True
+                return existing
+            raise StageRefused(
+                "total_spine_federation_supersession_refused",
+                f"irreversible federation already sealed at {path} "
+                f"(existing={existing_digest!r} attempted={new_digest!r})",
+            )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(path, sealed)
+    sealed["federation_path"] = str(path)
+    sealed["total_spine_federation_idempotent"] = False
+    return sealed
+
+
+def verify_total_spine_federation_certificate(
+    certificate: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Recompute federation digest; fail closed on tamper or schema drift."""
+    claimed = str(
+        certificate.get("federation_digest")
+        or certificate.get("certificate_hash")
+        or ""
+    )
+    material = _federation_certificate_material(certificate)
+    expected = _sha256_json(material)
+    origin_count = int(certificate.get("origin_count") or 0)
+    origins = certificate.get("origins") or []
+    ok = (
+        bool(claimed)
+        and claimed == expected
+        and str(certificate.get("kind") or "") == TOTAL_SPINE_FEDERATION_KIND
+        and int(certificate.get("schema_version") or 0) == SCHEMA_VERSION
+        and certificate.get("irreversible") is True
+        and bool(certificate.get("success"))
+        and certificate.get("conflict_free") is True
+        and origin_count >= TOTAL_SPINE_FEDERATION_MIN_ORIGINS
+        and isinstance(origins, list)
+        and len(origins) >= TOTAL_SPINE_FEDERATION_MIN_ORIGINS
+        and TOTAL_SPINE_FEDERATION_IMPL is True
+    )
+    return {
+        "ok": ok,
+        "action": "verify_total_spine_federation",
+        "claimed_digest": claimed,
+        "expected_digest": expected,
+        "kind_ok": str(certificate.get("kind") or "")
+        == TOTAL_SPINE_FEDERATION_KIND,
+        "schema_ok": int(certificate.get("schema_version") or 0)
+        == SCHEMA_VERSION,
+        "origin_count_ok": origin_count >= TOTAL_SPINE_FEDERATION_MIN_ORIGINS,
+        "conflict_free_ok": certificate.get("conflict_free") is True,
+        "irreversible_ok": certificate.get("irreversible") is True,
+        "total_spine_federation": True,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def load_total_spine_federation_certificate(
+    path: Path | str,
+) -> dict[str, Any]:
+    """Load and integrity-check a sealed federation certificate."""
+    file_path = federation_certificate_path(Path(path))
+    if not file_path.is_file():
+        raise StageRefused(
+            "total_spine_federation_missing",
+            f"federation certificate not found at {file_path}",
+        )
+    raw_path = durable_read_path(file_path)
+    try:
+        payload = json.loads(raw_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise StageRefused(
+            "total_spine_federation_unreadable",
+            f"federation certificate unreadable at {file_path}: {exc}",
+        ) from exc
+    if not isinstance(payload, Mapping):
+        raise StageRefused(
+            "total_spine_federation_invalid",
+            "federation certificate root must be a JSON object",
+        )
+    verify = verify_total_spine_federation_certificate(payload)
+    if not verify.get("ok"):
+        raise StageRefused(
+            "total_spine_federation_tampered",
+            f"federation certificate digest mismatch at {file_path} "
+            f"(claimed={verify.get('claimed_digest')!r} "
+            f"expected={verify.get('expected_digest')!r})",
+        )
+    body = dict(payload)
+    body["federation_path"] = str(file_path)
+    body["federation_verify"] = verify
+    body["total_spine_federation_loaded"] = True
+    return body
+
+
+def seal_total_spine_federation_chain(
+    *,
+    prior_tip: str,
+    federation_digest: str,
+    origin_count: int,
+    conflict_free: bool,
+) -> dict[str, Any]:
+    """Seal federation hop into the absolute-tower tip."""
+    tip = str(prior_tip or "").strip() or ("0" * 64)
+    fd = str(federation_digest or "").strip() or ("0" * 64)
+    material = (
+        f"federation|{int(origin_count)}|{int(bool(conflict_free))}|"
+        f"{fd}|{tip}"
+    ).encode("utf-8")
+    digest = _sha256_bytes(material)
+    return {
+        "origin_count": int(origin_count),
+        "conflict_free": bool(conflict_free),
+        "federation_digest": fd,
+        "prior_tip": tip,
+        "digest": digest,
+        "total_spine_federation": True,
+        "irreversible": True,
+    }
+
+
+def annotate_total_spine_federation(
+    body: dict[str, Any],
+    *,
+    certificate: Mapping[str, Any],
+    prior_tip: str,
+) -> dict[str, Any]:
+    """Stamp multi-origin federation onto a total-spine result and rebind tip."""
+    fed_digest = str(
+        certificate.get("federation_digest")
+        or certificate.get("certificate_hash")
+        or ""
+    )
+    origin_count = int(certificate.get("origin_count") or 0)
+    conflict_free = bool(certificate.get("conflict_free", True))
+    chain = seal_total_spine_federation_chain(
+        prior_tip=prior_tip,
+        federation_digest=fed_digest,
+        origin_count=origin_count,
+        conflict_free=conflict_free,
+    )
+    fed_tip = str(chain.get("digest") or prior_tip)
+    bound = _sha256_bytes(f"{prior_tip}|{fed_tip}".encode("utf-8"))
+    body["total_spine_federation"] = True
+    body["total_spine_federation_impl"] = TOTAL_SPINE_FEDERATION_IMPL
+    body["total_spine_federation_conflict_free"] = conflict_free
+    body["total_spine_federation_origin_count"] = origin_count
+    body["total_spine_federation_certificate"] = dict(certificate)
+    body["total_spine_federation_digest"] = fed_digest
+    body["total_spine_federation_chain"] = chain
+    body["total_spine_federation_tip"] = fed_tip
+    body["total_spine_federation_bound_tip"] = bound
+    body["total_spine_digest_pre_federation"] = prior_tip
+    if certificate.get("federation_path"):
+        body["total_spine_federation_path"] = certificate.get("federation_path")
+    body["total_spine_digest"] = bound
+    body["ok"] = True
+    body["verdict"] = "total_spine_federation_ok"
+    return body
+
+
+def classify_total_spine_federation_conflict(
+    left: Mapping[str, Any],
+    right: Mapping[str, Any],
+    *,
+    require_same_root: bool = True,
+    require_same_done_when: bool = True,
+) -> dict[str, Any]:
+    """Detect hard conflicts between two independent finality certificates.
+
+    Hard conflicts refuse federation:
+    * missing/invalid success or irreversible flags
+    * duplicate finality digests (not independent origins)
+    * divergent root_layer when ``require_same_root``
+    * divergent done_when when ``require_same_done_when``
+    Soft differences (goal text, operational tips, capability sets) are
+    allowed so independent absolute-tower runs can federate.
+    """
+    reasons: list[str] = []
+    left_digest = str(
+        left.get("finality_digest") or left.get("certificate_hash") or ""
+    )
+    right_digest = str(
+        right.get("finality_digest") or right.get("certificate_hash") or ""
+    )
+    if not left_digest or not right_digest:
+        reasons.append("missing_finality_digest")
+    if left_digest and right_digest and left_digest == right_digest:
+        reasons.append("duplicate_finality_digest")
+    if not bool(left.get("success")) or not bool(right.get("success")):
+        reasons.append("origin_not_successful")
+    if left.get("irreversible") is not True or right.get("irreversible") is not True:
+        reasons.append("origin_not_irreversible")
+    left_root = str(left.get("root_layer") or "").strip().lower()
+    right_root = str(right.get("root_layer") or "").strip().lower()
+    if require_same_root and left_root != right_root:
+        reasons.append("root_layer_mismatch")
+    left_dw = str(left.get("done_when") or "").strip()
+    right_dw = str(right.get("done_when") or "").strip()
+    if require_same_done_when and left_dw != right_dw:
+        reasons.append("done_when_mismatch")
+    hard = len(reasons) > 0
+    return {
+        "hard_conflict": hard,
+        "reasons": reasons,
+        "left_digest": left_digest,
+        "right_digest": right_digest,
+        "left_root": left_root,
+        "right_root": right_root,
+        "total_spine_federation": True,
+    }
+
+
+def _origin_row_from_finality(
+    certificate: Mapping[str, Any],
+    *,
+    origin_id: str,
+) -> dict[str, Any]:
+    """Project a verified finality certificate into a federation origin row."""
+    return {
+        "origin_id": origin_id,
+        "finality_digest": str(
+            certificate.get("finality_digest")
+            or certificate.get("certificate_hash")
+            or ""
+        ),
+        "root_layer": str(certificate.get("root_layer") or ""),
+        "goal": str(certificate.get("goal") or ""),
+        "done_when": str(certificate.get("done_when") or ""),
+        "operational_tip": str(certificate.get("operational_tip") or ""),
+        "bound_tip": str(certificate.get("bound_tip") or ""),
+        "capabilities": list(certificate.get("capabilities") or []),
+        "success": bool(certificate.get("success")),
+        "irreversible": bool(certificate.get("irreversible", True)),
+        "finality_path": str(certificate.get("finality_path") or ""),
+    }
+
+
+def federate_total_spine(
+    origins: Sequence[Path | str | Mapping[str, Any]],
+    *,
+    out_root: Path | None = None,
+    require_same_root: bool = True,
+    require_same_done_when: bool = True,
+    prior_tip: str | None = None,
+    body: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Federate ≥2 independent absolute-tower finality certificates.
+
+    Closes the solo-origin finality cliff: each origin is integrity-checked,
+    pairwise hard conflicts refuse the merge, and a dual-origin federation
+    certificate rebinds the tower tip without re-dispatching effects.
+    """
+    if not TOTAL_SPINE_FEDERATION_IMPL:
+        raise StageRefused(
+            "total_spine_federation_disabled",
+            "TOTAL_SPINE_FEDERATION_IMPL is False",
+        )
+    loaded: list[dict[str, Any]] = []
+    for idx, origin in enumerate(origins):
+        if isinstance(origin, Mapping):
+            # Already-loaded certificate mapping (must still verify).
+            verify = verify_total_spine_finality_certificate(origin)
+            if not verify.get("ok"):
+                raise StageRefused(
+                    "total_spine_federation_origin_invalid",
+                    f"origin[{idx}] finality verify failed",
+                )
+            row = dict(origin)
+            row["finality_verify"] = verify
+            loaded.append(row)
+        else:
+            loaded.append(load_total_spine_finality_certificate(origin))
+
+    if len(loaded) < TOTAL_SPINE_FEDERATION_MIN_ORIGINS:
+        raise StageRefused(
+            "total_spine_federation_single_origin",
+            f"federation requires ≥{TOTAL_SPINE_FEDERATION_MIN_ORIGINS} "
+            f"independent finality origins (got {len(loaded)})",
+        )
+
+    # Deduplicate by finality digest after load (duplicate paths → single origin).
+    unique: list[dict[str, Any]] = []
+    seen_digests: set[str] = set()
+    for cert in loaded:
+        d = str(cert.get("finality_digest") or cert.get("certificate_hash") or "")
+        if d and d in seen_digests:
+            continue
+        if d:
+            seen_digests.add(d)
+        unique.append(cert)
+    if len(unique) < TOTAL_SPINE_FEDERATION_MIN_ORIGINS:
+        raise StageRefused(
+            "total_spine_federation_single_origin",
+            f"federation requires ≥{TOTAL_SPINE_FEDERATION_MIN_ORIGINS} "
+            f"distinct finality digests (got {len(unique)})",
+        )
+
+    conflicts: list[dict[str, Any]] = []
+    for i in range(len(unique)):
+        for j in range(i + 1, len(unique)):
+            verdict = classify_total_spine_federation_conflict(
+                unique[i],
+                unique[j],
+                require_same_root=require_same_root,
+                require_same_done_when=require_same_done_when,
+            )
+            if verdict.get("hard_conflict"):
+                conflicts.append(verdict)
+    if conflicts:
+        raise StageRefused(
+            "total_spine_federation_hard_conflict",
+            f"hard conflict across origins: "
+            f"{conflicts[0].get('reasons')}",
+        )
+
+    origin_rows = [
+        _origin_row_from_finality(cert, origin_id=f"origin-{i}")
+        for i, cert in enumerate(unique)
+    ]
+    root_layer = str(unique[0].get("root_layer") or TOTAL_SPINE_DEFAULT_ROOT)
+    done_when = str(unique[0].get("done_when") or "")
+    # Prefer shared non-empty goal; else join distinct goals.
+    goals = sorted(
+        {str(c.get("goal") or "").strip() for c in unique if str(c.get("goal") or "").strip()}
+    )
+    goal = goals[0] if len(goals) == 1 else ("|".join(goals) if goals else "")
+
+    fed_body = {
+        "schema_version": SCHEMA_VERSION,
+        "kind": TOTAL_SPINE_FEDERATION_KIND,
+        "root_layer": root_layer,
+        "goal": goal,
+        "done_when": done_when,
+        "origin_count": len(origin_rows),
+        "origins": origin_rows,
+        "conflict_free": True,
+        "irreversible": True,
+        "success": True,
+        "federated_at": utc_now_iso(),
+    }
+
+    write_target = Path(out_root) if out_root is not None else None
+    if write_target is not None:
+        certificate = write_total_spine_federation_certificate(
+            write_target, fed_body
+        )
+    else:
+        certificate = seal_total_spine_federation_certificate(fed_body)
+
+    tip = str(
+        prior_tip
+        or unique[0].get("bound_tip")
+        or unique[0].get("operational_tip")
+        or ""
+    )
+    result = body if body is not None else {
+        "ok": True,
+        "action": "federate_total_spine",
+        "total_spine": True,
+        "total_spine_root": root_layer,
+        "total_nest_depth": total_nest_depth(root_layer),
+    }
+    annotated = annotate_total_spine_federation(
+        result,
+        certificate=certificate,
+        prior_tip=tip,
+    )
+    # When compressed tower context is present, rebind hop chain from fed tip.
+    if annotated.get("total_spine_compressed") and root_layer:
+        live_result = {
+            "institution_digest": annotated.get("institution_digest") or tip,
+            "ok": True,
+        }
+        fed_bound = str(annotated.get("total_spine_federation_bound_tip") or tip)
+        hops = seal_total_spine_hop_chain(
+            root_layer, live_result, tip=fed_bound
+        )
+        annotated["total_spine_hop_chain"] = hops
+        annotated["total_spine_hop_count"] = len(hops)
+        if hops:
+            annotated["total_spine_digest"] = hops[0].get("digest")
+            annotated[f"{root_layer}_digest"] = hops[0].get("digest")
+    annotated["total_spine_federation_origins"] = origin_rows
+    annotated["used_skill_route_discovery"] = legacy_pipeline_was_used()
+    return annotated
+
+
 def seal_total_spine_contract(
     contract: Mapping[str, Any],
     *,
@@ -5471,6 +6002,7 @@ def _attach_total_spine_effects(
     continuity: bool = False,
     resume_dir: Path | None = None,
     finality: bool = False,
+    federation_peers: Sequence[Path | str | Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Optionally dispatch ledger effects, gate contracts, rebind hop digests.
 
@@ -5495,6 +6027,10 @@ def _attach_total_spine_effects(
     Irreversible finality (``finality=True``): when a round succeeds, seal a
     tamper-evident finality certificate into the tip; resume of a finalized
     run short-circuits without re-dispatching effects.
+
+    Multi-origin federation (``federation_peers``): after local finality is
+    sealed, federate this origin with peer finality certificates into a
+    dual-origin federation tip without re-dispatch.
     """
     goal_text = str(goal or "").strip()
     contract_text = str(done_when or "").strip()
@@ -5771,8 +6307,37 @@ def _attach_total_spine_effects(
         annotated["total_spine_adaptive_impl"] = TOTAL_SPINE_ADAPTIVE_IMPL
         annotated["total_spine_continuity_impl"] = TOTAL_SPINE_CONTINUITY_IMPL
         annotated["total_spine_finality_impl"] = TOTAL_SPINE_FINALITY_IMPL
+        annotated["total_spine_federation_impl"] = TOTAL_SPINE_FEDERATION_IMPL
         if goal_text and not annotated.get("total_spine_goal"):
             annotated["total_spine_goal"] = goal_text
+        # Multi-origin federation still applies on short-circuit resume.
+        peers_sc = list(federation_peers or [])
+        if peers_sc and resume_finality is not None:
+            fed_out_sc = None
+            if out_root is not None:
+                fed_out_sc = Path(out_root)
+            elif resume_dir is not None:
+                fed_out_sc = Path(resume_dir)
+            prior_sc = str(
+                annotated.get("total_spine_finality_bound_tip")
+                or annotated.get("total_spine_digest")
+                or bound_tip
+            )
+            annotated = federate_total_spine(
+                [resume_finality, *peers_sc],
+                out_root=fed_out_sc,
+                prior_tip=prior_sc,
+                body=annotated,
+            )
+            # Preserve short-circuit markers after federation rebind.
+            annotated["total_spine_finality"] = True
+            annotated["total_spine_finality_short_circuit"] = True
+            annotated["total_spine_finality_irreversible"] = True
+        elif peers_sc:
+            annotated["total_spine_federation"] = False
+            annotated["total_spine_federation_requires_finality"] = True
+        else:
+            annotated.setdefault("total_spine_federation", False)
         return annotated
 
     def _select_ids(round_index: int) -> tuple[list[str], str, bool, dict[str, Any] | None]:
@@ -6436,6 +7001,49 @@ def _attach_total_spine_effects(
     annotated["total_spine_adaptive_impl"] = TOTAL_SPINE_ADAPTIVE_IMPL
     annotated["total_spine_continuity_impl"] = TOTAL_SPINE_CONTINUITY_IMPL
     annotated["total_spine_finality_impl"] = TOTAL_SPINE_FINALITY_IMPL
+    annotated["total_spine_federation_impl"] = TOTAL_SPINE_FEDERATION_IMPL
+
+    # Multi-origin federation: local finality + peer certificates → fed tip.
+    peers = list(federation_peers or [])
+    if peers and annotated.get("total_spine_finality") is True:
+        local_cert = (
+            last_finality
+            or annotated.get("total_spine_finality_certificate")
+            or resume_finality
+        )
+        if local_cert is None and annotated.get("total_spine_finality_path"):
+            try:
+                local_cert = load_total_spine_finality_certificate(
+                    str(annotated.get("total_spine_finality_path"))
+                )
+            except StageRefused:
+                local_cert = None
+        if local_cert is not None:
+            fed_out = None
+            if out_root is not None:
+                fed_out = Path(out_root)
+            elif resume_dir is not None:
+                fed_out = Path(resume_dir)
+            prior = str(
+                annotated.get("total_spine_finality_bound_tip")
+                or annotated.get("total_spine_digest")
+                or ""
+            )
+            annotated = federate_total_spine(
+                [local_cert, *peers],
+                out_root=fed_out,
+                prior_tip=prior,
+                body=annotated,
+            )
+        else:
+            annotated["total_spine_federation"] = False
+            annotated["total_spine_federation_missing_local"] = True
+    elif peers:
+        annotated["total_spine_federation"] = False
+        annotated["total_spine_federation_requires_finality"] = True
+    elif not peers:
+        annotated.setdefault("total_spine_federation", False)
+
     return annotated
 
 
@@ -6473,6 +7081,7 @@ def run_total_spine(
     continuity: bool = False,
     resume_dir: Path | None = None,
     finality: bool = False,
+    federation_peers: Sequence[Path | str | Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Public entry: absolute total spine from root into the operational nest.
 
@@ -6507,6 +7116,10 @@ def run_total_spine(
     Irreversible finality: ``finality=True`` seals a tamper-evident finality
     certificate when done_when is met; resume of a finalized run short-circuits
     without re-dispatching effects so absolute-tower success stays irreversible.
+
+    Multi-origin federation: after local finality, ``federation_peers`` supplies
+    independent peer finality certificates (paths or mappings) that are merged
+    via :func:`federate_total_spine` into a dual-origin federation tip.
     """
     root = (
         str(root_layer or TOTAL_SPINE_DEFAULT_ROOT).strip().lower()
@@ -6576,6 +7189,7 @@ def run_total_spine(
             continuity=continuity,
             resume_dir=resume_dir,
             finality=finality,
+            federation_peers=federation_peers,
         )
         return annotated
 
@@ -6638,6 +7252,7 @@ def run_total_spine(
         continuity=continuity,
         resume_dir=resume_dir,
         finality=finality,
+        federation_peers=federation_peers,
     )
     if out_root is not None:
         receipt_dir = Path(out_root)
@@ -6685,6 +7300,21 @@ def run_total_spine(
             ),
             "total_spine_continuity_digest": annotated.get(
                 "total_spine_continuity_digest"
+            ),
+            "total_spine_finality": bool(
+                annotated.get("total_spine_finality")
+            ),
+            "total_spine_finality_digest": annotated.get(
+                "total_spine_finality_digest"
+            ),
+            "total_spine_federation": bool(
+                annotated.get("total_spine_federation")
+            ),
+            "total_spine_federation_digest": annotated.get(
+                "total_spine_federation_digest"
+            ),
+            "total_spine_federation_origin_count": annotated.get(
+                "total_spine_federation_origin_count"
             ),
             "used_skill_route_discovery": legacy_pipeline_was_used(),
         }
@@ -11050,6 +11680,431 @@ def builtin_total_spine_finality_proof() -> dict[str, Any]:
         shutil.rmtree(scratch, ignore_errors=True)
 
 
+def builtin_total_spine_federation_proof() -> dict[str, Any]:
+    """Hermetic proof: multi-origin federation of absolute-tower finality.
+
+    Closes the solo-origin finality cliff: two independent irreversible
+    finality certificates federate into a dual-origin sealed tip; single
+    origin, hard conflicts, and tamper fail closed; live
+    ``run_total_spine(federation_peers=...)`` rebinds the depth-28 tip
+    without skill-route discovery.
+    """
+    scratch = Path(tempfile.mkdtemp(prefix="total-spine-federation-proof-"))
+    try:
+        from blackhole_agent import upstream_loop_engine as le_facade
+        from blackhole_agent.capability_compounder import (
+            default_ledger_path,
+            load_ledger,
+        )
+
+        flags_ok = (
+            TOTAL_SPINE_FEDERATION_IMPL is True
+            and TOTAL_SPINE_FINALITY_IMPL is True
+            and TOTAL_SPINE_CONTINUITY_IMPL is True
+            and TOTAL_SPINE_ADAPTIVE_IMPL is True
+            and TOTAL_SPINE_GOAL_IMPL is True
+            and TOTAL_SPINE_EFFECT_IMPL is True
+            and TOTAL_SPINE_IMPL is True
+            and TOTAL_SPINE_FEDERATION_KIND == "total_spine_federation"
+            and bool(TOTAL_SPINE_FEDERATION_FILENAME)
+            and TOTAL_SPINE_FEDERATION_MIN_ORIGINS >= 2
+        )
+
+        missing_id = "capability.does-not-exist-for-federation-proof"
+        good_id = "repo.import-health"
+        contract_pass = "min_proved:1; no_skill_route"
+
+        # Phase 1: live absolute tower recovers + seals finality (origin A).
+        partial = run_total_spine(
+            root_layer="quettacontinuum",
+            out_root=scratch / "origin-a-partial",
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=3,
+            max_successions=1,
+            max_epochs=1,
+            max_waves=1,
+            compress=True,
+            effects=True,
+            capabilities=[missing_id, good_id],
+            done_when=contract_pass,
+            adaptive=True,
+            adaptive_rounds=1,
+            continuity=True,
+            finality=True,
+            effect_timeout=90,
+            repo_path=REPO_ROOT,
+        )
+        partial_path = partial.get("total_spine_continuity_checkpoint_path")
+        origin_a = run_total_spine(
+            root_layer="quettacontinuum",
+            out_root=scratch / "origin-a",
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=3,
+            max_successions=1,
+            max_epochs=1,
+            max_waves=1,
+            compress=True,
+            effects=True,
+            capabilities=[missing_id, good_id],
+            done_when=contract_pass,
+            adaptive=True,
+            adaptive_rounds=1,
+            continuity=True,
+            finality=True,
+            resume_dir=partial_path,
+            effect_timeout=90,
+            repo_path=REPO_ROOT,
+        )
+        origin_a_path = origin_a.get("total_spine_finality_path")
+        origin_a_ok = (
+            bool(origin_a.get("ok"))
+            and origin_a.get("total_spine_finality") is True
+            and origin_a.get("total_spine_finality_irreversible") is True
+            and origin_a.get("total_spine_effects_ok") is True
+            and origin_a.get("total_spine_contract_met") is True
+            and int(origin_a.get("total_nest_depth") or 0) == 28
+            and isinstance(origin_a_path, str)
+            and Path(origin_a_path).is_file()
+            and not legacy_pipeline_was_used()
+        )
+
+        # Phase 2: independent peer finality (origin B) with distinct tips.
+        peer_body = {
+            "schema_version": SCHEMA_VERSION,
+            "kind": TOTAL_SPINE_FINALITY_KIND,
+            "root_layer": "quettacontinuum",
+            "goal": str(
+                (origin_a.get("total_spine_finality_certificate") or {}).get(
+                    "goal"
+                )
+                or ""
+            ),
+            "done_when": contract_pass,
+            "capabilities": [good_id],
+            "operational_tip": "b" * 64,
+            "bound_tip": "c" * 64,
+            "continuity_digest": "d" * 64,
+            "adaptive_round_count": 1,
+            "effects_ok": True,
+            "contract_met": True,
+            "recovered": True,
+            "irreversible": True,
+            "success": True,
+            "finalized_at": utc_now_iso(),
+        }
+        peer_cert = write_total_spine_finality_certificate(
+            scratch / "origin-b", peer_body
+        )
+        peer_path = peer_cert.get("finality_path")
+        peer_ok = (
+            isinstance(peer_path, str)
+            and Path(peer_path).is_file()
+            and str(peer_cert.get("finality_digest") or "")
+            != str(origin_a.get("total_spine_finality_digest") or "")
+            and len(str(peer_cert.get("finality_digest") or "")) >= 32
+        )
+
+        # Phase 3: federate A + B offline via federate_total_spine.
+        federated = federate_total_spine(
+            [str(origin_a_path), str(peer_path)],
+            out_root=scratch / "federated",
+            prior_tip=str(origin_a.get("total_spine_finality_bound_tip") or ""),
+        )
+        fed_path = federated.get("total_spine_federation_path")
+        federate_ok = (
+            bool(federated.get("ok"))
+            and federated.get("total_spine_federation") is True
+            and federated.get("total_spine_federation_conflict_free") is True
+            and int(federated.get("total_spine_federation_origin_count") or 0)
+            >= 2
+            and isinstance(fed_path, str)
+            and Path(fed_path).is_file()
+            and isinstance(federated.get("total_spine_federation_digest"), str)
+            and len(str(federated.get("total_spine_federation_digest"))) >= 32
+            and isinstance(federated.get("total_spine_federation_tip"), str)
+            and len(str(federated.get("total_spine_federation_tip"))) >= 32
+            and not legacy_pipeline_was_used()
+        )
+
+        # Load + verify federation; tamper fails.
+        loaded_fed = load_total_spine_federation_certificate(
+            fed_path or (scratch / "federated")
+        )
+        verify_ok = bool(
+            loaded_fed.get("total_spine_federation_loaded")
+            and (loaded_fed.get("federation_verify") or {}).get("ok")
+        )
+        tampered_path = scratch / "tampered-federation.json"
+        tampered_body = dict(loaded_fed)
+        tampered_body.pop("federation_verify", None)
+        tampered_body.pop("total_spine_federation_loaded", None)
+        tampered_body.pop("federation_path", None)
+        # Mutate origin count without updating digest.
+        tampered_body["origin_count"] = 99
+        atomic_write_json(tampered_path, tampered_body)
+        tamper_ok = False
+        try:
+            load_total_spine_federation_certificate(tampered_path)
+        except StageRefused as exc:
+            tamper_ok = str(exc.verdict) == "total_spine_federation_tampered"
+        except Exception:  # noqa: BLE001
+            tamper_ok = False
+
+        # Phase 4: single-origin refuses.
+        single_ok = False
+        try:
+            federate_total_spine(
+                [str(origin_a_path)],
+                out_root=scratch / "single",
+            )
+        except StageRefused as exc:
+            single_ok = str(exc.verdict) == "total_spine_federation_single_origin"
+        except Exception:  # noqa: BLE001
+            single_ok = False
+
+        # Phase 5: hard conflict (divergent done_when) refuses.
+        conflict_body = dict(peer_body)
+        conflict_body["done_when"] = "min_proved:99; no_skill_route"
+        conflict_body["operational_tip"] = "e" * 64
+        conflict_body["bound_tip"] = "f" * 64
+        conflict_cert = write_total_spine_finality_certificate(
+            scratch / "origin-conflict", conflict_body
+        )
+        conflict_ok = False
+        try:
+            federate_total_spine(
+                [str(origin_a_path), str(conflict_cert.get("finality_path"))],
+                out_root=scratch / "conflict",
+            )
+        except StageRefused as exc:
+            conflict_ok = (
+                str(exc.verdict) == "total_spine_federation_hard_conflict"
+            )
+        except Exception:  # noqa: BLE001
+            conflict_ok = False
+
+        # Duplicate digest (same cert twice) collapses to single-origin refuse.
+        duplicate_ok = False
+        try:
+            federate_total_spine(
+                [str(origin_a_path), str(origin_a_path)],
+                out_root=scratch / "duplicate",
+            )
+        except StageRefused as exc:
+            duplicate_ok = (
+                str(exc.verdict) == "total_spine_federation_single_origin"
+            )
+        except Exception:  # noqa: BLE001
+            duplicate_ok = False
+
+        # Phase 6: live run_total_spine with federation_peers short-circuits
+        # from origin A finality and federates with peer B.
+        live_fed = run_total_spine(
+            root_layer="quettacontinuum",
+            out_root=scratch / "live-fed",
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=3,
+            max_successions=1,
+            max_epochs=1,
+            max_waves=1,
+            compress=True,
+            effects=True,
+            capabilities=[missing_id, good_id],
+            done_when=contract_pass,
+            adaptive=True,
+            adaptive_rounds=1,
+            continuity=True,
+            finality=True,
+            resume_dir=origin_a_path,
+            federation_peers=[str(peer_path)],
+            effect_timeout=90,
+            repo_path=REPO_ROOT,
+        )
+        live_fed_ok = (
+            bool(live_fed.get("ok"))
+            and live_fed.get("total_spine") is True
+            and live_fed.get("total_spine_finality") is True
+            and live_fed.get("total_spine_finality_short_circuit") is True
+            and live_fed.get("total_spine_federation") is True
+            and live_fed.get("total_spine_federation_conflict_free") is True
+            and int(live_fed.get("total_spine_federation_origin_count") or 0)
+            >= 2
+            and int(live_fed.get("total_nest_depth") or 0) == 28
+            and isinstance(live_fed.get("total_spine_federation_digest"), str)
+            and len(str(live_fed.get("total_spine_federation_digest"))) >= 32
+            and isinstance(live_fed.get("total_spine_digest"), str)
+            and len(str(live_fed.get("total_spine_digest"))) >= 32
+            and not legacy_pipeline_was_used()
+        )
+
+        # Federation chain re-seal integrity.
+        fed_chain = live_fed.get("total_spine_federation_chain") or {}
+        chain_integrity_ok = False
+        if isinstance(fed_chain, Mapping) and fed_chain:
+            re_seal = seal_total_spine_federation_chain(
+                prior_tip=str(fed_chain.get("prior_tip") or ""),
+                federation_digest=str(fed_chain.get("federation_digest") or ""),
+                origin_count=int(fed_chain.get("origin_count") or 0),
+                conflict_free=bool(fed_chain.get("conflict_free")),
+            )
+            chain_integrity_ok = (
+                re_seal.get("digest") == fed_chain.get("digest")
+                and re_seal.get("digest")
+                == live_fed.get("total_spine_federation_tip")
+            )
+
+        # Differential: federated tip moves beyond local finality tip.
+        differential_ok = (
+            origin_a_ok
+            and federate_ok
+            and live_fed_ok
+            and str(origin_a.get("total_spine_digest") or "")
+            != str(live_fed.get("total_spine_digest") or "")
+            and str(live_fed.get("total_spine_federation_digest") or "")
+            == str(federated.get("total_spine_federation_digest") or "")
+        )
+
+        # classify helper: soft goal difference is not hard conflict.
+        soft = classify_total_spine_federation_conflict(
+            load_total_spine_finality_certificate(str(origin_a_path)),
+            peer_cert,
+        )
+        soft_ok = soft.get("hard_conflict") is False
+
+        facade_path = Path(le_facade.__file__).resolve()
+        facade_text = facade_path.read_text(encoding="utf-8")
+        source_ok = (
+            "TOTAL_SPINE_FEDERATION_IMPL" in facade_text
+            and "builtin_total_spine_federation_proof" in facade_text
+            and "federate_total_spine" in facade_text
+            and "load_total_spine_federation_certificate" in facade_text
+            and callable(
+                getattr(le_facade, "builtin_total_spine_federation_proof", None)
+            )
+            and callable(getattr(le_facade, "federate_total_spine", None))
+            and getattr(le_facade, "TOTAL_SPINE_FEDERATION_IMPL", False) is True
+        )
+
+        engine_path = Path(__file__).resolve()
+        engine_text = engine_path.read_text(encoding="utf-8")
+        engine_source_ok = (
+            "def builtin_total_spine_federation_proof" in engine_text
+            and "def federate_total_spine" in engine_text
+            and "def seal_total_spine_federation_certificate" in engine_text
+            and "def load_total_spine_federation_certificate" in engine_text
+            and "TOTAL_SPINE_FEDERATION_IMPL" in engine_text
+            and "federation_peers" in engine_text
+            and "total_spine_federation_hard_conflict" in engine_text
+        )
+
+        ledger_path = default_ledger_path(REPO_ROOT)
+        ledger_ok = False
+        try:
+            ledger = load_ledger(ledger_path)
+            entry = ledger.capabilities.get(
+                "capability.upstream-total-spine-federation"
+            )
+            tags_blob = " ".join(entry.tags).lower() if entry else ""
+            delta_blob = (entry.capability_delta or "").lower() if entry else ""
+            name_blob = (entry.name or "").lower() if entry else ""
+            ledger_ok = (
+                entry is not None
+                and "upstream_control_engine" in (entry.entry or "")
+                and "builtin_total_spine_federation_proof" in (entry.entry or "")
+                and (
+                    "federation" in tags_blob
+                    or "federation" in name_blob
+                    or "federation" in delta_blob
+                )
+                and ("total" in tags_blob or "total" in name_blob)
+                and (
+                    "multi-origin" in delta_blob
+                    or "multi_origin" in delta_blob
+                    or "dual-origin" in delta_blob
+                    or "federate" in delta_blob
+                )
+                and (
+                    "federate_total_spine" in delta_blob
+                    or "federation_peers" in delta_blob
+                    or "run_total_spine" in delta_blob
+                )
+            )
+        except Exception:  # noqa: BLE001
+            ledger_ok = False
+
+        ok = all(
+            [
+                flags_ok,
+                origin_a_ok,
+                peer_ok,
+                federate_ok,
+                verify_ok,
+                tamper_ok,
+                single_ok,
+                conflict_ok,
+                duplicate_ok,
+                live_fed_ok,
+                chain_integrity_ok,
+                differential_ok,
+                soft_ok,
+                source_ok,
+                engine_source_ok,
+                ledger_ok,
+                not legacy_pipeline_was_used(),
+            ]
+        )
+        return {
+            "ok": ok,
+            "action": "total_spine_federation_proof",
+            "flags_ok": flags_ok,
+            "origin_a_ok": origin_a_ok,
+            "origin_a_path": origin_a_path,
+            "origin_a_digest": origin_a.get("total_spine_finality_digest"),
+            "peer_ok": peer_ok,
+            "peer_path": peer_path,
+            "peer_digest": peer_cert.get("finality_digest"),
+            "federate_ok": federate_ok,
+            "federation_path": fed_path,
+            "federation_digest": federated.get("total_spine_federation_digest"),
+            "federation_tip": federated.get("total_spine_federation_tip"),
+            "federation_origin_count": federated.get(
+                "total_spine_federation_origin_count"
+            ),
+            "verify_ok": verify_ok,
+            "tamper_ok": tamper_ok,
+            "single_ok": single_ok,
+            "conflict_ok": conflict_ok,
+            "duplicate_ok": duplicate_ok,
+            "live_fed_ok": live_fed_ok,
+            "live_fed_digest": live_fed.get("total_spine_federation_digest"),
+            "live_fed_tip": live_fed.get("total_spine_digest"),
+            "live_short_circuit": live_fed.get(
+                "total_spine_finality_short_circuit"
+            ),
+            "chain_integrity_ok": chain_integrity_ok,
+            "differential_ok": differential_ok,
+            "soft_ok": soft_ok,
+            "source_ok": source_ok,
+            "engine_source_ok": engine_source_ok,
+            "ledger_capability_ok": ledger_ok,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "control_engine": True,
+            "total_spine": True,
+            "total_spine_effects": True,
+            "total_spine_adaptive": True,
+            "total_spine_continuity": True,
+            "total_spine_finality": True,
+            "total_spine_federation": True,
+            "total_spine_compressed": True,
+            "done_when_met": ok,
+        }
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
 def builtin_control_nest_proof() -> dict[str, Any]:
     """Hermetic proof: multi-depth nest owns program→…→fleet→campaign spine."""
     scratch = Path(tempfile.mkdtemp(prefix="control-nest-proof-"))
@@ -12496,6 +13551,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "short-circuit re-dispatch on finalized absolute-tower resume"
         ),
     )
+    sub.add_parser(
+        "federation-proof",
+        help=(
+            "Total spine federation proof: multi-origin finality "
+            "certificates federate into a dual-origin sealed tip"
+        ),
+    )
     sub.add_parser("list", help="List control modes and dialects")
     sub.add_parser("nest-path", help="Print canonical operational nest path")
     sub.add_parser(
@@ -12620,6 +13682,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "finality-proof":
         result = builtin_total_spine_finality_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "federation-proof":
+        result = builtin_total_spine_federation_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2
