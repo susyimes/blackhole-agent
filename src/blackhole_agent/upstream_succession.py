@@ -64,9 +64,12 @@ SCHEMA_VERSION = 1
 LOOP_ENGINE = True
 LOOP_DIALECT = "succession"
 
-# Multi-mode control engine owns loop control flow.
+# Multi-mode control engine + multi-depth nest membership.
 CONTROL_ENGINE = True
 CONTROL_ENGINE_MODE = "loop"
+CONTROL_NEST = True
+CONTROL_NEST_CHILD = "epoch"
+CONTROL_NEST_CHILD_MODE = "loop"
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS_ROOT = REPO_ROOT / "artifacts" / "upstream-succession"

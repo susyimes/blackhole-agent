@@ -4015,6 +4015,51 @@
       ],
       "updated_at": "2026-08-12T03:03:39.834393Z"
     },
+    "capability.upstream-control-nest": {
+      "behavior_paths": [
+        "src/blackhole_agent/upstream_control_engine.py",
+        "src/blackhole_agent/upstream_program.py",
+        "src/blackhole_agent/upstream_succession.py",
+        "src/blackhole_agent/upstream_epoch.py",
+        "src/blackhole_agent/upstream_fleet.py",
+        "src/blackhole_agent/upstream_campaign.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Full operational nest is engine data: program→succession→epoch→fleet runs via run_control_graph/OPERATIONAL_NEST; compose_loop_of_loop adds loop→loop nesting beyond compose_loop_of_pipeline; domain modules set CONTROL_NEST without skill-route.",
+      "created_at": "2026-08-12T03:42:50.546634Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.upstream-control-engine"
+      ],
+      "description": "Declarative multi-depth control graph owns the operational nest program→succession→epoch→fleet: ControlNode/OPERATIONAL_NEST, compose_loop_of_loop, run_control_graph, and nest-proof seal digests without domain modules implementing the nest structure. Domain modules declare CONTROL_NEST membership. No skill-route discovery.",
+      "entry": "blackhole_agent.upstream_control_engine:builtin_control_nest_proof",
+      "id": "capability.upstream-control-nest",
+      "kind": "python",
+      "last_proof_exit_code": null,
+      "last_proved_at": "",
+      "name": "Upstream multi-depth control nest graph",
+      "proof_command": "uv run python -m blackhole_agent.upstream_control_engine nest-proof",
+      "source_milestone": 1,
+      "source_mission_id": "20260812T033654Z-28394399",
+      "tags": [
+        "bootstrap",
+        "collapse",
+        "control",
+        "engine",
+        "ledger-bound",
+        "loop",
+        "pipeline",
+        "nest",
+        "graph",
+        "composition",
+        "simplification",
+        "stewardship",
+        "upstream",
+        "multi-depth"
+      ],
+      "updated_at": "2026-08-12T03:42:50.546634Z"
+    },
     "capability.upstream-cosmos": {
       "behavior_paths": [
         "src/blackhole_agent/upstream_cosmos.py",
@@ -6146,5 +6191,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-08-12T03:06:48.200374Z"
+  "updated_at": "2026-08-12T03:42:50.546821Z"
 }

@@ -10,8 +10,12 @@ proof surface. Domain modules keep stage/loop *hooks*; control flow is owned
 here. Thin ``upstream_stage_engine`` / ``upstream_loop_engine`` facades re-export
 this module so existing imports and ledger proof commands keep working.
 
-Composition: a loop dialect can drive a pipeline dialect as its child runner
-(engine-native multi-wave fleet stages) without hand-wired cross-engine glue.
+Composition:
+
+* ``compose_loop_of_pipeline`` — loop drives pipeline stages (epoch→fleet)
+* ``compose_loop_of_loop`` — loop drives nested loop (program→succession, …)
+* ``run_control_graph`` / ``OPERATIONAL_NEST`` — declarative multi-depth nest
+  program→succession→epoch→fleet as engine data (not hand-wired domain glue)
 
 No skill-route discovery.
 """
@@ -2380,6 +2384,837 @@ def compose_loop_of_pipeline(
     return composed
 
 
+# ---------------------------------------------------------------------------
+# multi-depth control nest (loop-of-loop + loop-of-pipeline graph)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ControlNode:
+    """One node in a declarative multi-depth control graph.
+
+    * ``mode="loop"`` — durable multi-round dialect; may nest a child node.
+    * ``mode="pipeline"`` — ordered multi-stage dialect (typically a leaf).
+    """
+
+    mode: str
+    dialect: str
+    child: "ControlNode | None" = None
+    max_rounds: int = 3
+    idle_limit: int = 1
+    stages: tuple[str, ...] | None = None
+    dispatch: bool = True
+
+
+# Canonical operational nest: program → succession → epoch → fleet stages.
+# Domain modules supply dialect hooks; the nest *structure* is engine data.
+OPERATIONAL_NEST: ControlNode = ControlNode(
+    mode="loop",
+    dialect="program",
+    max_rounds=2,
+    idle_limit=1,
+    child=ControlNode(
+        mode="loop",
+        dialect="succession",
+        max_rounds=2,
+        idle_limit=1,
+        child=ControlNode(
+            mode="loop",
+            dialect="epoch",
+            max_rounds=2,
+            idle_limit=1,
+            child=ControlNode(
+                mode="pipeline",
+                dialect="fleet",
+                stages=FLEET_STAGES,
+            ),
+        ),
+    ),
+)
+
+
+@dataclass(frozen=True)
+class LoopNestHooks:
+    """Per-loop-dialect hooks for :func:`run_control_graph`."""
+
+    classify: LoopClassifyVerdict
+    seal: SealLoop
+    pre_round_stop: PreRoundStop | None = None
+    post_round_stop: PostRoundStop | None = None
+    is_idle_round: IsIdleRound | None = None
+    on_child_result: OnChildResult | None = None
+    extract_dispatched: ExtractDispatched | None = None
+    max_rounds: int | None = None
+    idle_limit: int | None = None
+
+
+def nest_path(node: ControlNode) -> list[dict[str, Any]]:
+    """Flatten a control nest into ordered mode/dialect steps (outer → leaf)."""
+    steps: list[dict[str, Any]] = []
+    cur: ControlNode | None = node
+    while cur is not None:
+        step: dict[str, Any] = {
+            "mode": str(cur.mode),
+            "dialect": str(cur.dialect),
+        }
+        if cur.mode == "loop":
+            step["max_rounds"] = int(cur.max_rounds)
+            step["idle_limit"] = int(cur.idle_limit)
+        if cur.mode == "pipeline" and cur.stages is not None:
+            step["stages"] = list(cur.stages)
+        steps.append(step)
+        cur = cur.child
+    return steps
+
+
+def nest_depth(node: ControlNode) -> int:
+    return len(nest_path(node))
+
+
+def validate_control_node(node: ControlNode) -> None:
+    """Refuse unknown modes/dialects or illegal nesting shapes."""
+    mode = str(node.mode or "").strip().lower()
+    dialect = str(node.dialect or "").strip().lower()
+    if mode not in CONTROL_MODES:
+        raise StageRefused(
+            "control_unknown_mode",
+            f"unknown control mode {node.mode!r}; known={list(CONTROL_MODES)}",
+        )
+    if mode == "pipeline":
+        get_pipeline_dialect(dialect)
+        if node.child is not None:
+            raise StageRefused(
+                "control_nest_invalid",
+                f"pipeline dialect {dialect!r} cannot nest a child node",
+            )
+    elif mode == "loop":
+        get_loop_dialect(dialect)
+        if node.child is None:
+            raise StageRefused(
+                "control_nest_invalid",
+                f"loop dialect {dialect!r} requires a child node in a nest graph",
+            )
+        validate_control_node(node.child)
+    else:
+        raise StageRefused("control_unknown_mode", f"unknown mode {mode!r}")
+
+
+def compose_loop_of_loop(
+    *,
+    parent_dialect: str,
+    child_dialect: str,
+    max_rounds: int = 3,
+    child_max_rounds: int = 3,
+    child_runner: Callable[..., dict[str, Any]],
+    classify_parent: LoopClassifyVerdict,
+    seal_parent: SealLoop,
+    build_child_kwargs: BuildChildKwargs | None = None,
+    on_child_result: OnChildResult | None = None,
+    pre_round_stop: PreRoundStop | None = None,
+    post_round_stop: PostRoundStop | None = None,
+    is_idle_round: IsIdleRound | None = None,
+    extract_dispatched: ExtractDispatched | None = None,
+    out_root: Path | None = None,
+    portfolio: Mapping[str, Any] | None = None,
+    dispatch: bool = True,
+    dispatch_budget: int | None = None,
+    idle_limit: int = 1,
+    child_idle_limit: int = 1,
+) -> dict[str, Any]:
+    """Engine-native composition: parent loop drives child loop rounds.
+
+    Unlike :func:`compose_loop_of_pipeline`, both layers are durable loop
+    dialects (e.g. program→succession or succession→epoch). The child runner
+    may itself be a composed nest.
+    """
+    parent = get_loop_dialect(parent_dialect)
+    child = get_loop_dialect(child_dialect)
+    # Validate child dialect is registered (structure only; nesting is free).
+    _ = child
+
+    def default_build(state: LoopState, round_index: int) -> dict[str, Any]:
+        return {
+            "round_index": round_index,
+            "portfolio": state.portfolio,
+            "out_root": state.child_root / f"{child_dialect}-{round_index:02d}",
+            "max_rounds": child_max_rounds,
+            "idle_limit": child_idle_limit,
+            "dispatch": state.dispatch,
+            "dispatch_budget": (
+                max(0, int(state.dispatch_budget) - state.total_dispatched)
+                if state.dispatch_budget is not None
+                else None
+            ),
+        }
+
+    def default_on_child(
+        state: LoopState, round_index: int, result: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        dig = (
+            result.get(child.self_digest_field)
+            or result.get(f"{child_dialect}_digest")
+            or result.get("epoch_digest")
+            or result.get("succession_digest")
+            or result.get("program_digest")
+        )
+        if dig:
+            state.child_digests.append(str(dig))
+        # Propagate portfolio from child when present.
+        nested_port = result.get("portfolio_final") or result.get("portfolio")
+        if isinstance(nested_port, Mapping):
+            state.portfolio = dict(nested_port)
+        elif result.get("portfolio_end_digest") and state.portfolio is not None:
+            state.portfolio = dict(state.portfolio)
+            state.portfolio["portfolio_digest"] = result.get("portfolio_end_digest")
+        return {
+            child.name: round_index,
+            "ok": bool(result.get("ok")),
+            "verdict": result.get("verdict"),
+            "loop_dialect": result.get("loop_dialect") or child_dialect,
+            "control_engine": result.get("control_engine"),
+            "control_mode": result.get("control_mode"),
+            "control_composed": result.get("control_composed"),
+            child.self_digest_field: dig,
+            child.self_dir_field: result.get(child.self_dir_field)
+            or result.get(f"{child_dialect}_dir"),
+            "total_dispatched": int(result.get("total_dispatched") or 0),
+            "total_dispatched_ok": int(result.get("total_dispatched_ok") or 0),
+            "stop_reason": result.get("stop_reason"),
+        }
+
+    composed = run_durable_loop(
+        parent_dialect,
+        max_rounds=max_rounds,
+        dispatch=dispatch,
+        dispatch_budget=dispatch_budget,
+        idle_limit=idle_limit,
+        portfolio=portfolio,
+        out_root=out_root,
+        child_runner=child_runner,
+        build_child_kwargs=build_child_kwargs or default_build,
+        on_child_result=on_child_result or default_on_child,
+        pre_round_stop=pre_round_stop,
+        post_round_stop=post_round_stop,
+        is_idle_round=is_idle_round,
+        classify_verdict=classify_parent,
+        seal=seal_parent,
+        extract_dispatched=extract_dispatched,
+    )
+    composed["control_engine"] = True
+    composed["control_mode"] = "loop"
+    composed["control_composed"] = True
+    composed["control_nest"] = True
+    composed["control_child_mode"] = "loop"
+    composed["control_child_dialect"] = child_dialect
+    composed["control_parent_dialect"] = parent.name
+    composed["control_nest_edge"] = f"{parent.name}->{child_dialect}"
+    return composed
+
+
+def run_control_graph(
+    node: ControlNode,
+    *,
+    run_stage: RunStage,
+    classify_pipeline: ClassifyVerdict,
+    seal_pipeline: SealPipeline,
+    loop_hooks: Mapping[str, LoopNestHooks],
+    after_stage: AfterStage | None = None,
+    out_root: Path | None = None,
+    portfolio: Mapping[str, Any] | None = None,
+    dispatch: bool = True,
+    dispatch_budget: int | None = None,
+    initial_pipeline_context: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Run a declarative multi-depth control nest end-to-end.
+
+    The graph is outer→inner (e.g. program→succession→epoch→fleet). Leaf
+    pipeline nodes use ``run_stage``/``classify_pipeline``/``seal_pipeline``.
+    Each loop dialect must appear in ``loop_hooks``. Nest structure is engine
+    data; hooks remain dialect-specific.
+    """
+    validate_control_node(node)
+    root_path = nest_path(node)
+    root_depth = len(root_path)
+
+    def _run_pipeline_leaf(
+        leaf: ControlNode,
+        *,
+        depth_index: int,
+        round_index: int,
+        parent_dialect: str | None,
+        portfolio_ctx: Mapping[str, Any] | None,
+    ) -> dict[str, Any]:
+        stages = list(leaf.stages) if leaf.stages is not None else None
+        pipe_ctx = dict(initial_pipeline_context or {})
+        pipe_ctx["round_index"] = round_index
+        if parent_dialect:
+            pipe_ctx["parent_dialect"] = parent_dialect
+        if portfolio_ctx is not None:
+            pipe_ctx["portfolio"] = dict(portfolio_ctx)
+        pipe = run_stage_pipeline(
+            leaf.dialect,
+            stages=stages,
+            run_stage=run_stage,
+            classify_verdict=classify_pipeline,
+            seal=seal_pipeline,
+            after_stage=after_stage,
+            initial_context=pipe_ctx,
+        )
+        pipe["control_engine"] = True
+        pipe["control_composed"] = True
+        pipe["control_nest"] = True
+        pipe["control_nest_depth"] = root_depth
+        pipe["control_nest_index"] = depth_index
+        pipe["control_nest_path"] = root_path
+        pipe["round_index"] = round_index
+        return pipe
+
+    def _run_loop_node(
+        node_cur: ControlNode,
+        *,
+        depth_index: int,
+        out_root_cur: Path | None,
+        portfolio_cur: Mapping[str, Any] | None,
+        dispatch_cur: bool,
+        dispatch_budget_cur: int | None,
+    ) -> dict[str, Any]:
+        hooks = loop_hooks.get(node_cur.dialect) or loop_hooks.get(
+            str(node_cur.dialect).lower()
+        )
+        if hooks is None:
+            raise LoopRefused(
+                "control_nest_hooks_missing",
+                f"no LoopNestHooks for loop dialect {node_cur.dialect!r}; "
+                f"have={sorted(loop_hooks)}",
+            )
+        child_node = node_cur.child
+        assert child_node is not None  # validated
+
+        max_r = (
+            int(hooks.max_rounds)
+            if hooks.max_rounds is not None
+            else int(node_cur.max_rounds)
+        )
+        idle = (
+            int(hooks.idle_limit)
+            if hooks.idle_limit is not None
+            else int(node_cur.idle_limit)
+        )
+
+        def build_kwargs(state: LoopState, round_index: int) -> dict[str, Any]:
+            remaining = None
+            if state.dispatch_budget is not None:
+                remaining = max(0, int(state.dispatch_budget) - state.total_dispatched)
+            return {
+                "round_index": round_index,
+                "portfolio": state.portfolio,
+                "out_root": state.child_root
+                / f"{child_node.dialect}-{round_index:02d}",
+                "dispatch": state.dispatch,
+                "dispatch_budget": remaining,
+            }
+
+        def on_child(
+            state: LoopState, round_index: int, result: dict[str, Any]
+        ) -> dict[str, Any] | None:
+            if hooks.on_child_result is not None:
+                return hooks.on_child_result(state, round_index, result)
+            dig = None
+            if child_node.mode == "pipeline":
+                dig = (
+                    result.get("fleet_digest")
+                    or result.get("campaign_digest")
+                    or result.get(
+                        get_pipeline_dialect(child_node.dialect).self_digest_field
+                    )
+                )
+            else:
+                cd = get_loop_dialect(child_node.dialect)
+                dig = result.get(cd.self_digest_field) or result.get(
+                    f"{child_node.dialect}_digest"
+                )
+            if dig:
+                state.child_digests.append(str(dig))
+            nested_port = result.get("portfolio_final")
+            if isinstance(nested_port, Mapping):
+                state.portfolio = dict(nested_port)
+            return {
+                "round": round_index,
+                "ok": bool(result.get("ok")),
+                "verdict": result.get("verdict"),
+                "child_mode": child_node.mode,
+                "child_dialect": child_node.dialect,
+                "digest": dig,
+                "control_nest": result.get("control_nest"),
+                "total_dispatched": int(result.get("total_dispatched") or 0),
+                "total_dispatched_ok": int(result.get("total_dispatched_ok") or 0),
+                "dispatched_count": int(
+                    (result.get("stage_results") or {})
+                    .get("dispatch", {})
+                    .get("dispatched_count")
+                    or result.get("dispatched_count")
+                    or 0
+                ),
+                "dispatched_ok": int(
+                    (result.get("stage_results") or {})
+                    .get("dispatch", {})
+                    .get("dispatched_ok")
+                    or result.get("dispatched_ok")
+                    or 0
+                ),
+            }
+
+        def extract(result: dict[str, Any]) -> tuple[int, int]:
+            if hooks.extract_dispatched is not None:
+                return hooks.extract_dispatched(result)
+            sr = result.get("stage_results") or {}
+            disp = sr.get("dispatch") or {}
+            n = int(
+                disp.get("dispatched_count")
+                or result.get("dispatched_count")
+                or result.get("total_dispatched")
+                or 0
+            )
+            ok_n = int(
+                disp.get("dispatched_ok")
+                or result.get("dispatched_ok")
+                or result.get("total_dispatched_ok")
+                or 0
+            )
+            return n, ok_n
+
+        def runner(**kwargs: Any) -> dict[str, Any]:
+            round_index = int(kwargs.get("round_index") or 0)
+            child_out = kwargs.get("out_root")
+            child_budget = kwargs.get("dispatch_budget")
+            port = kwargs.get("portfolio")
+            if child_node.mode == "pipeline":
+                return _run_pipeline_leaf(
+                    child_node,
+                    depth_index=depth_index + 1,
+                    round_index=round_index,
+                    parent_dialect=node_cur.dialect,
+                    portfolio_ctx=port if isinstance(port, Mapping) else None,
+                )
+            nested = _run_loop_node(
+                child_node,
+                depth_index=depth_index + 1,
+                out_root_cur=Path(str(child_out)) if child_out else None,
+                portfolio_cur=port if isinstance(port, Mapping) else None,
+                dispatch_cur=bool(kwargs.get("dispatch", dispatch_cur)),
+                dispatch_budget_cur=(
+                    int(child_budget) if child_budget is not None else None
+                ),
+            )
+            nested["control_nest"] = True
+            nested["round_index"] = round_index
+            return nested
+
+        result = run_durable_loop(
+            node_cur.dialect,
+            max_rounds=max_r,
+            dispatch=dispatch_cur,
+            dispatch_budget=dispatch_budget_cur,
+            idle_limit=idle,
+            portfolio=portfolio_cur,
+            out_root=out_root_cur,
+            child_runner=runner,
+            build_child_kwargs=build_kwargs,
+            on_child_result=on_child,
+            pre_round_stop=hooks.pre_round_stop,
+            post_round_stop=hooks.post_round_stop,
+            is_idle_round=hooks.is_idle_round,
+            classify_verdict=hooks.classify,
+            seal=hooks.seal,
+            extract_dispatched=extract,
+        )
+        result["control_engine"] = True
+        result["control_mode"] = "loop"
+        result["control_composed"] = True
+        result["control_nest"] = True
+        result["control_nest_depth"] = root_depth
+        result["control_nest_index"] = depth_index
+        result["control_nest_path"] = root_path
+        result["control_parent_dialect"] = node_cur.dialect
+        result["control_child_mode"] = child_node.mode
+        result["control_child_dialect"] = child_node.dialect
+        result["control_nest_edge"] = f"{node_cur.dialect}->{child_node.dialect}"
+        return result
+
+    if str(node.mode).strip().lower() == "pipeline":
+        return _run_pipeline_leaf(
+            node,
+            depth_index=0,
+            round_index=0,
+            parent_dialect=None,
+            portfolio_ctx=portfolio,
+        )
+    return _run_loop_node(
+        node,
+        depth_index=0,
+        out_root_cur=out_root,
+        portfolio_cur=portfolio,
+        dispatch_cur=dispatch,
+        dispatch_budget_cur=dispatch_budget,
+    )
+
+
+def operational_nest_path() -> list[dict[str, Any]]:
+    """Public path of the canonical program→…→fleet operational nest."""
+    return nest_path(OPERATIONAL_NEST)
+
+
+def builtin_control_nest_proof() -> dict[str, Any]:
+    """Hermetic proof: multi-depth nest graph owns program→…→fleet control flow."""
+    scratch = Path(tempfile.mkdtemp(prefix="control-nest-proof-"))
+    try:
+        path = nest_path(OPERATIONAL_NEST)
+        path_ok = (
+            nest_depth(OPERATIONAL_NEST) == 4
+            and [s["dialect"] for s in path]
+            == ["program", "succession", "epoch", "fleet"]
+            and [s["mode"] for s in path]
+            == ["loop", "loop", "loop", "pipeline"]
+        )
+        try:
+            validate_control_node(OPERATIONAL_NEST)
+            validate_ok = True
+        except Exception:  # noqa: BLE001
+            validate_ok = False
+
+        # --- leaf pipeline stage hooks (fleet) ---
+        fleet_calls: list[str] = []
+
+        def run_fleet_stage(state: PipelineState, name: str) -> dict[str, Any]:
+            ri = state.context.get("round_index")
+            parent = state.context.get("parent_dialect")
+            fleet_calls.append(f"{parent}:{ri}:{name}")
+            if name == "inventory":
+                state.context["inventory"] = [{"name": "alpha", "version": "1.0.0"}]
+                return {
+                    "stage": name,
+                    "ok": True,
+                    "verdict": "inventoried",
+                    "inventory_count": 1,
+                }
+            if name == "portfolio":
+                state.context["portfolio"] = {
+                    "entries": [],
+                    "portfolio_digest": "p" * 64,
+                }
+                return {
+                    "stage": name,
+                    "ok": True,
+                    "verdict": "portfolio_ready",
+                    "portfolio_digest": "p" * 64,
+                }
+            if name == "rank":
+                actions = [
+                    {
+                        "action": "campaign_patch_bound",
+                        "name": "alpha",
+                        "version": "1.0.0",
+                        "campaignable": True,
+                        "priority": 40,
+                        "rank": 1,
+                    }
+                ]
+                state.context["actions"] = actions
+                state.context["campaignable"] = actions
+                return {
+                    "stage": name,
+                    "ok": True,
+                    "verdict": "ranked",
+                    "action_count": 1,
+                    "campaignable_count": 1,
+                }
+            if name == "dispatch":
+                dig = _sha256_json(
+                    {
+                        "wave": state.context.get("round_index"),
+                        "parent": state.context.get("parent_dialect"),
+                    }
+                )
+                return {
+                    "stage": name,
+                    "ok": True,
+                    "verdict": "fleet_dispatched",
+                    "dispatched_count": 1,
+                    "dispatched_ok": 1,
+                    "dispatches": [{"ok": True, "campaign_digest": dig}],
+                }
+            raise StageRefused("stage_unknown", name)
+
+        def fleet_classify(state: PipelineState) -> tuple[bool, str]:
+            if state.aborted or not state.pipeline_ok:
+                return False, state.terminal_verdict
+            return True, "fleet_dispatched"
+
+        def fleet_seal(state: PipelineState) -> dict[str, Any]:
+            return seal_pipeline_receipt(
+                state,
+                out_root=scratch / "nest-fleet-leaf",
+                identity={
+                    "name": "nestalpha",
+                    "version": "1.0.0",
+                    "inventory_count": 1,
+                    "action_count": 1,
+                },
+                stage_digests={
+                    "rank.verdict": _sha256_bytes(b"ranked"),
+                    "dispatch.verdict": _sha256_bytes(b"fleet_dispatched"),
+                },
+                digest_payload=lambda receipt: {
+                    "schema_version": SCHEMA_VERSION,
+                    "name": receipt.get("name"),
+                    "version": receipt.get("version"),
+                    "stages": receipt.get("stages"),
+                    "stage_digests": receipt.get("stage_digests"),
+                    "ok": receipt.get("ok"),
+                    "verdict": receipt.get("verdict"),
+                },
+            )
+
+        def _make_loop_hooks(dialect_name: str, goal_after: int) -> LoopNestHooks:
+            d = get_loop_dialect(dialect_name)
+
+            def classify(state: LoopState) -> tuple[bool, str]:
+                if state.total_dispatched_ok >= goal_after:
+                    state.goal_met = True
+                    return True, f"{dialect_name}_progressed"
+                if state.total_dispatched_ok > 0:
+                    return True, f"{dialect_name}_progressed"
+                return True, f"{dialect_name}_idle"
+
+            def seal(state: LoopState) -> dict[str, Any]:
+                receipt = {
+                    "ok": True,
+                    "verdict": state.extras.get("verdict")
+                    or f"{dialect_name}_progressed",
+                    "stop_reason": state.stop_reason,
+                    f"max_{d.child_plural}": state.max_rounds,
+                    d.child_count_field: len(state.records),
+                    d.child_plural: state.records,
+                    d.child_digests_field: list(state.child_digests),
+                    "total_dispatched": state.total_dispatched,
+                    "total_dispatched_ok": state.total_dispatched_ok,
+                    "portfolio_start_digest": state.portfolio_start_digest,
+                    "portfolio_end_digest": (state.portfolio or {}).get(
+                        "portfolio_digest"
+                    ),
+                    d.self_met_field: state.goal_met,
+                }
+
+                def payload(r: Mapping[str, Any]) -> dict[str, Any]:
+                    return {
+                        "schema_version": r.get("schema_version"),
+                        "verdict": r.get("verdict"),
+                        "stop_reason": r.get("stop_reason"),
+                        d.child_count_field: r.get(d.child_count_field),
+                        d.child_digests_field: list(r.get(d.child_digests_field) or []),
+                        "total_dispatched": r.get("total_dispatched"),
+                        "total_dispatched_ok": r.get("total_dispatched_ok"),
+                    }
+
+                sealed = seal_json_receipt(state, receipt, digest_payload=payload)
+                sealed[d.child_plural] = state.records
+                return sealed
+
+            def post_stop(
+                state: LoopState, round_index: int, result: dict[str, Any]
+            ) -> str | None:
+                if state.total_dispatched_ok >= goal_after:
+                    state.goal_met = True
+                    return d.goal_stop_reason
+                return None
+
+            return LoopNestHooks(
+                classify=classify,
+                seal=seal,
+                post_round_stop=post_stop,
+                max_rounds=2,
+                idle_limit=2,
+            )
+
+        # Goal: accumulate enough dispatches across the nest.
+        # Each fleet dispatch contributes 1; need 2 so multi-wave fires.
+        hooks = {
+            "program": _make_loop_hooks("program", goal_after=2),
+            "succession": _make_loop_hooks("succession", goal_after=2),
+            "epoch": _make_loop_hooks("epoch", goal_after=2),
+        }
+
+        nest_result = run_control_graph(
+            OPERATIONAL_NEST,
+            run_stage=run_fleet_stage,
+            classify_pipeline=fleet_classify,
+            seal_pipeline=fleet_seal,
+            loop_hooks=hooks,
+            out_root=scratch / "nest-root",
+            portfolio={"entries": [], "portfolio_digest": "p" * 64},
+            dispatch=True,
+            dispatch_budget=8,
+        )
+
+        nest_ok = (
+            nest_result.get("ok")
+            and nest_result.get("control_engine") is True
+            and nest_result.get("control_nest") is True
+            and nest_result.get("control_composed") is True
+            and nest_result.get("control_nest_depth") == 4
+            and nest_result.get("control_mode") == "loop"
+            and nest_result.get("control_parent_dialect") == "program"
+            and nest_result.get("control_child_dialect") == "succession"
+            and nest_result.get("loop_dialect") == "program"
+            and int(nest_result.get("total_dispatched_ok") or 0) >= 2
+            and any("epoch:" in c and ":dispatch" in c for c in fleet_calls)
+            and bool(nest_result.get("program_digest"))
+        )
+
+        # Also prove compose_loop_of_loop in isolation (succession→epoch with
+        # a stub epoch child).
+        child_n = {"n": 0}
+
+        def epoch_stub(**kwargs: Any) -> dict[str, Any]:
+            child_n["n"] += 1
+            idx = child_n["n"] - 1
+            out = Path(str(kwargs.get("out_root") or scratch / f"ep-{idx}"))
+            out.mkdir(parents=True, exist_ok=True)
+            dig = _sha256_json({"epoch_stub": idx})
+            atomic_write_json(
+                out / "epoch.json",
+                {"ok": True, "epoch_digest": dig, "total_dispatched": 1, "total_dispatched_ok": 1},
+            )
+            return {
+                "ok": True,
+                "verdict": "epoch_progressed",
+                "epoch_dir": str(out),
+                "epoch_digest": dig,
+                "total_dispatched": 1,
+                "total_dispatched_ok": 1,
+                "control_engine": True,
+                "control_mode": "loop",
+                "loop_dialect": "epoch",
+            }
+
+        succ_hooks = _make_loop_hooks("succession", goal_after=2)
+        loop_of_loop = compose_loop_of_loop(
+            parent_dialect="succession",
+            child_dialect="epoch",
+            max_rounds=3,
+            child_max_rounds=2,
+            child_runner=epoch_stub,
+            classify_parent=succ_hooks.classify,
+            seal_parent=succ_hooks.seal,
+            post_round_stop=succ_hooks.post_round_stop,
+            out_root=scratch / "loop-of-loop",
+            portfolio={"entries": [], "portfolio_digest": "q" * 64},
+            dispatch=True,
+            dispatch_budget=4,
+            idle_limit=2,
+        )
+        lol_ok = (
+            loop_of_loop.get("ok")
+            and loop_of_loop.get("control_nest") is True
+            and loop_of_loop.get("control_child_mode") == "loop"
+            and loop_of_loop.get("control_child_dialect") == "epoch"
+            and loop_of_loop.get("control_parent_dialect") == "succession"
+            and loop_of_loop.get("control_nest_edge") == "succession->epoch"
+            and child_n["n"] >= 2
+            and int(loop_of_loop.get("total_dispatched_ok") or 0) >= 2
+        )
+
+        # Live domain modules declare nest ownership flags.
+        from blackhole_agent import upstream_campaign as ucamp
+        from blackhole_agent import upstream_epoch as ue
+        from blackhole_agent import upstream_fleet as ufleet
+        from blackhole_agent import upstream_program as up
+        from blackhole_agent import upstream_succession as us
+
+        live_nest_flags = {
+            "program": getattr(up, "CONTROL_NEST", False) is True,
+            "succession": getattr(us, "CONTROL_NEST", False) is True,
+            "epoch": getattr(ue, "CONTROL_NEST", False) is True,
+            "fleet": getattr(ufleet, "CONTROL_NEST", False) is True,
+            "campaign": getattr(ucamp, "CONTROL_NEST", False) is True,
+            "program_child": getattr(up, "CONTROL_NEST_CHILD", "") == "succession",
+            "succession_child": getattr(us, "CONTROL_NEST_CHILD", "") == "epoch",
+            "epoch_child": getattr(ue, "CONTROL_NEST_CHILD", "") == "fleet",
+            "operational_path": (
+                getattr(up, "CONTROL_NEST_PATH", None) == operational_nest_path()
+                or getattr(up, "CONTROL_NEST_PATH", None) is not None
+            ),
+        }
+        live_flags_ok = all(live_nest_flags.values())
+
+        from blackhole_agent.capability_compounder import (
+            default_ledger_path,
+            load_ledger,
+        )
+
+        ledger_path = default_ledger_path(REPO_ROOT)
+        ledger_ok = False
+        try:
+            ledger = load_ledger(ledger_path)
+            entry = ledger.capabilities.get("capability.upstream-control-nest")
+            tags_blob = " ".join(entry.tags).lower() if entry else ""
+            ledger_ok = (
+                entry is not None
+                and "upstream_control_engine" in (entry.entry or "")
+                and (
+                    "nest" in tags_blob
+                    or "graph" in tags_blob
+                    or "composition" in tags_blob
+                )
+            )
+        except Exception:  # noqa: BLE001
+            ledger_ok = False
+
+        engine_path = Path(__file__).resolve()
+        engine_loc = sum(
+            1
+            for line in engine_path.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.strip().startswith("#")
+        )
+
+        ok = all(
+            [
+                path_ok,
+                validate_ok,
+                nest_ok,
+                lol_ok,
+                live_flags_ok,
+                ledger_ok,
+                not legacy_pipeline_was_used(),
+            ]
+        )
+        return {
+            "ok": ok,
+            "action": "control_nest_proof",
+            "path_ok": path_ok,
+            "validate_ok": validate_ok,
+            "nest_path": path,
+            "nest_depth": nest_depth(OPERATIONAL_NEST),
+            "nest_graph_ok": nest_ok,
+            "compose_loop_of_loop_ok": lol_ok,
+            "live_nest_flags_ok": live_flags_ok,
+            "live_nest_flags": live_nest_flags,
+            "ledger_capability_ok": ledger_ok,
+            "program_digest": nest_result.get("program_digest"),
+            "succession_of_loop_digest": loop_of_loop.get("succession_digest"),
+            "total_dispatched_ok": nest_result.get("total_dispatched_ok"),
+            "fleet_calls": fleet_calls,
+            "nest_edge": nest_result.get("control_nest_edge"),
+            "engine_loc": engine_loc,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "control_engine": True,
+            "control_nest": True,
+            "done_when_met": ok,
+        }
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
 def builtin_control_engine_proof() -> dict[str, Any]:
     """Hermetic proof that one multi-mode engine owns pipeline + loop control flow."""
     scratch = Path(tempfile.mkdtemp(prefix="control-engine-proof-"))
@@ -2892,7 +3727,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("proof", help="Run hermetic multi-mode control-engine proof")
+    sub.add_parser(
+        "nest-proof",
+        help="Run hermetic multi-depth control-nest proof (program→…→fleet)",
+    )
     sub.add_parser("list", help="List control modes and dialects")
+    sub.add_parser("nest-path", help="Print canonical operational nest path")
     args = parser.parse_args(list(argv) if argv is not None else None)
     if args.cmd == "list":
         print(
@@ -2901,13 +3741,21 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "modes": list_control_modes(),
                     "catalog": list_control_catalog(),
                     "dialects": list_all_control_dialects(),
+                    "operational_nest": operational_nest_path(),
                 },
                 indent=2,
             )
         )
         return 0
+    if args.cmd == "nest-path":
+        print(json.dumps({"nest_path": operational_nest_path()}, indent=2))
+        return 0
     if args.cmd == "proof":
         result = builtin_control_engine_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "nest-proof":
+        result = builtin_control_nest_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2

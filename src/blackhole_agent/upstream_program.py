@@ -77,6 +77,21 @@ LOOP_DIALECT = "program"
 CONTROL_ENGINE = True
 CONTROL_ENGINE_MODE = "loop"
 
+# Multi-depth control nest: program is the outer node of OPERATIONAL_NEST.
+CONTROL_NEST = True
+CONTROL_NEST_CHILD = "succession"
+CONTROL_NEST_CHILD_MODE = "loop"
+CONTROL_NEST_PATH = [
+    {"mode": "loop", "dialect": "program", "max_rounds": 2, "idle_limit": 1},
+    {"mode": "loop", "dialect": "succession", "max_rounds": 2, "idle_limit": 1},
+    {"mode": "loop", "dialect": "epoch", "max_rounds": 2, "idle_limit": 1},
+    {
+        "mode": "pipeline",
+        "dialect": "fleet",
+        "stages": ["inventory", "portfolio", "rank", "dispatch"],
+    },
+]
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS_ROOT = REPO_ROOT / "artifacts" / "upstream-program"
 

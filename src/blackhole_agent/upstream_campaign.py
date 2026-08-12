@@ -76,6 +76,12 @@ STAGE_ENGINE_DIALECT = "campaign"
 CONTROL_ENGINE = True
 CONTROL_ENGINE_MODE = "pipeline"
 
+# Campaign participates in the control nest as a pipeline dialect (fleet
+# dispatches campaigns; campaign itself is not a nest parent).
+CONTROL_NEST = True
+CONTROL_NEST_CHILD = ""
+CONTROL_NEST_CHILD_MODE = ""
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS_ROOT = REPO_ROOT / "artifacts" / "upstream-campaign"
 

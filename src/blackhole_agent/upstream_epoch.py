@@ -63,6 +63,11 @@ LOOP_DIALECT = "epoch"
 CONTROL_ENGINE = True
 CONTROL_ENGINE_MODE = "loop"
 
+# Multi-depth control nest: epoch drives fleet pipeline waves.
+CONTROL_NEST = True
+CONTROL_NEST_CHILD = "fleet"
+CONTROL_NEST_CHILD_MODE = "pipeline"
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS_ROOT = REPO_ROOT / "artifacts" / "upstream-epoch"
 
