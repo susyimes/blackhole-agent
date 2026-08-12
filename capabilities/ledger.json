@@ -29,7 +29,7 @@
         "ablation",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.952047Z"
+      "updated_at": "2026-08-12T07:53:09.331662Z"
     },
     "capability.absorbed-mistune-markdown": {
       "behavior_paths": [
@@ -176,7 +176,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.953970Z"
+      "updated_at": "2026-08-12T07:53:09.333700Z"
     },
     "capability.adaptive-grow": {
       "behavior_paths": [
@@ -208,7 +208,7 @@
         "growth",
         "adaptive"
       ],
-      "updated_at": "2026-08-12T05:59:54.950286Z"
+      "updated_at": "2026-08-12T07:53:09.329837Z"
     },
     "capability.adversarial-contract": {
       "behavior_paths": [
@@ -241,7 +241,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.952366Z"
+      "updated_at": "2026-08-12T07:53:09.331988Z"
     },
     "capability.application-plane": {
       "behavior_paths": [
@@ -276,7 +276,7 @@
         "outcome",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.954455Z"
+      "updated_at": "2026-08-12T07:53:09.334203Z"
     },
     "capability.assurance-plane": {
       "behavior_paths": [
@@ -313,7 +313,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.952527Z"
+      "updated_at": "2026-08-12T07:53:09.332148Z"
     },
     "capability.auto-kernel-routing": {
       "behavior_paths": [
@@ -377,7 +377,7 @@
         "autonomic",
         "novelty"
       ],
-      "updated_at": "2026-08-12T05:59:54.950932Z"
+      "updated_at": "2026-08-12T07:53:09.330527Z"
     },
     "capability.composed-core-health": {
       "behavior_paths": [
@@ -2118,7 +2118,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.953172Z"
+      "updated_at": "2026-08-12T07:53:09.332819Z"
     },
     "capability.contract-plane": {
       "behavior_paths": [
@@ -2153,7 +2153,7 @@
         "evidence",
         "growth"
       ],
-      "updated_at": "2026-08-12T05:59:54.951888Z"
+      "updated_at": "2026-08-12T07:53:09.331501Z"
     },
     "capability.distill-ledger": {
       "behavior_paths": [
@@ -2183,7 +2183,7 @@
         "growth",
         "distill"
       ],
-      "updated_at": "2026-08-12T05:59:54.950765Z"
+      "updated_at": "2026-08-12T07:53:09.330366Z"
     },
     "capability.execution-plane": {
       "behavior_paths": [
@@ -2236,7 +2236,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.953812Z"
+      "updated_at": "2026-08-12T07:53:09.333534Z"
     },
     "capability.federation-plane": {
       "behavior_paths": [
@@ -2281,7 +2281,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.953334Z"
+      "updated_at": "2026-08-12T07:53:09.333028Z"
     },
     "capability.finality-plane": {
       "behavior_paths": [
@@ -2330,7 +2330,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.953654Z"
+      "updated_at": "2026-08-12T07:53:09.333367Z"
     },
     "capability.fragility-audit": {
       "behavior_paths": [
@@ -2366,7 +2366,7 @@
         "recovery",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.954767Z"
+      "updated_at": "2026-08-12T07:53:09.334543Z"
     },
     "capability.frontier-novelty": {
       "behavior_paths": [
@@ -2396,7 +2396,7 @@
         "growth",
         "novelty"
       ],
-      "updated_at": "2026-08-12T05:59:54.950605Z"
+      "updated_at": "2026-08-12T07:53:09.330180Z"
     },
     "capability.github-live-actuation": {
       "behavior_paths": [
@@ -2455,7 +2455,7 @@
         "mission",
         "planner"
       ],
-      "updated_at": "2026-08-12T05:59:54.951092Z"
+      "updated_at": "2026-08-12T07:53:09.330686Z"
     },
     "capability.goal-stack-health": {
       "behavior_paths": [
@@ -2492,7 +2492,7 @@
         "composition",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.955613Z"
+      "updated_at": "2026-08-12T07:53:09.335385Z"
     },
     "capability.goal-watchdog": {
       "behavior_paths": [
@@ -2526,7 +2526,7 @@
         "application",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.955085Z"
+      "updated_at": "2026-08-12T07:53:09.334901Z"
     },
     "capability.grounded-growth-loop": {
       "behavior_paths": [
@@ -2614,7 +2614,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-08-12T05:59:54.950124Z"
+      "updated_at": "2026-08-12T07:53:09.329667Z"
     },
     "capability.growth-proof-audit-gate": {
       "behavior_paths": [
@@ -2674,7 +2674,7 @@
         "integrity",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.954922Z"
+      "updated_at": "2026-08-12T07:53:09.334736Z"
     },
     "capability.ledger-integrity": {
       "behavior_paths": [
@@ -2702,7 +2702,7 @@
         "compounder",
         "integrity"
       ],
-      "updated_at": "2026-08-12T05:59:54.950446Z"
+      "updated_at": "2026-08-12T07:53:09.330015Z"
     },
     "capability.ledger-inventory": {
       "behavior_paths": [
@@ -2728,7 +2728,7 @@
         "bootstrap",
         "compounder"
       ],
-      "updated_at": "2026-08-12T05:59:54.949620Z"
+      "updated_at": "2026-08-12T07:53:09.329135Z"
     },
     "capability.ledger-proof-reaudit": {
       "behavior_paths": [
@@ -2798,7 +2798,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.952846Z"
+      "updated_at": "2026-08-12T07:53:09.332482Z"
     },
     "capability.mcp-live-execution": {
       "behavior_paths": [
@@ -2944,7 +2944,7 @@
         "growth",
         "second-wave"
       ],
-      "updated_at": "2026-08-12T05:59:54.951570Z"
+      "updated_at": "2026-08-12T07:53:09.331161Z"
     },
     "capability.multi-kernel-harness-routing": {
       "behavior_paths": [
@@ -3003,7 +3003,7 @@
         "contract",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.951728Z"
+      "updated_at": "2026-08-12T07:53:09.331322Z"
     },
     "capability.plane-engine": {
       "behavior_paths": [
@@ -3100,7 +3100,7 @@
         "synthesis",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.955394Z"
+      "updated_at": "2026-08-12T07:53:09.335222Z"
     },
     "capability.program-run": {
       "behavior_paths": [
@@ -3130,7 +3130,7 @@
         "mission",
         "program"
       ],
-      "updated_at": "2026-08-12T05:59:54.951251Z"
+      "updated_at": "2026-08-12T07:53:09.330843Z"
     },
     "capability.quorum-plane": {
       "behavior_paths": [
@@ -3177,7 +3177,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.953495Z"
+      "updated_at": "2026-08-12T07:53:09.333193Z"
     },
     "capability.reconciliation-plane": {
       "behavior_paths": [
@@ -3220,7 +3220,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.953010Z"
+      "updated_at": "2026-08-12T07:53:09.332650Z"
     },
     "capability.recovery-loop": {
       "behavior_paths": [
@@ -3256,7 +3256,7 @@
         "self-healing",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.954612Z"
+      "updated_at": "2026-08-12T07:53:09.334376Z"
     },
     "capability.repair-plane": {
       "behavior_paths": [
@@ -3291,7 +3291,7 @@
         "fitness",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.954138Z"
+      "updated_at": "2026-08-12T07:53:09.333869Z"
     },
     "capability.runtime-conformance": {
       "behavior_paths": [
@@ -3350,7 +3350,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-08-12T05:59:54.949960Z"
+      "updated_at": "2026-08-12T07:53:09.329487Z"
     },
     "capability.second-wave-absorb": {
       "behavior_paths": [
@@ -3384,7 +3384,7 @@
         "second-wave",
         "domain"
       ],
-      "updated_at": "2026-08-12T05:59:54.951409Z"
+      "updated_at": "2026-08-12T07:53:09.331001Z"
     },
     "capability.sovereignty-plane": {
       "behavior_paths": [
@@ -3423,7 +3423,7 @@
         "certificate",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.952687Z"
+      "updated_at": "2026-08-12T07:53:09.332307Z"
     },
     "capability.synthesis-plane": {
       "behavior_paths": [
@@ -3456,7 +3456,7 @@
         "goal-directed",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.955240Z"
+      "updated_at": "2026-08-12T07:53:09.335061Z"
     },
     "capability.synthesized-scan-verdict-label": {
       "behavior_paths": [
@@ -3583,7 +3583,7 @@
         "transfer",
         "package"
       ],
-      "updated_at": "2026-08-12T05:59:54.952205Z"
+      "updated_at": "2026-08-12T07:53:09.331827Z"
     },
     "capability.upstream-admission": {
       "behavior_paths": [
@@ -3615,7 +3615,7 @@
         "discovery",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.956234Z"
+      "updated_at": "2026-08-12T07:53:09.336019Z"
     },
     "capability.upstream-campaign": {
       "behavior_paths": [
@@ -3657,7 +3657,7 @@
         "impact",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.956391Z"
+      "updated_at": "2026-08-12T07:53:09.336177Z"
     },
     "capability.upstream-civilization": {
       "behavior_paths": [
@@ -3713,6 +3713,68 @@
         "constitution"
       ],
       "updated_at": "2026-08-09T20:39:07.986Z"
+    },
+    "capability.upstream-civilization-spine": {
+      "behavior_paths": [
+        "src/blackhole_agent/upstream_control_engine.py",
+        "src/blackhole_agent/upstream_loop_engine.py",
+        "src/blackhole_agent/upstream_stewardship_facade.py",
+        "src/blackhole_agent/upstream_civilization.py",
+        "src/blackhole_agent/upstream_domain.py",
+        "src/blackhole_agent/upstream_commonwealth.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Civilization spine closes the mock-leaf cliff above confederation: STEWARDSHIP_SPINE_DEFAULT_ROOTS expands to the full CIVILIZATION_STACK (omniverse..institution) so commonwealth/domain/realm/empire/civilization default-cascade into the operational nest; run_stewardship_spine(root=civilization) and default run_domain/run_commonwealth/run_civilization seal depth-9..13 continuous paths program->campaign via builtin_civilization_spine_proof without skill-route.",
+      "created_at": "2026-08-12T07:15:08.247114Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.upstream-constitution-engine",
+        "capability.upstream-control-engine",
+        "capability.upstream-control-graph",
+        "capability.upstream-governance-spine",
+        "capability.upstream-stewardship-spine",
+        "capability.upstream-stewardship-facade"
+      ],
+      "description": "Closes the multi-child mock-leaf cliff for the full civilization stewardship tower above confederation. Every CIVILIZATION_STACK layer (omniverse, multiverse, cosmos, civilization, empire, realm, domain, commonwealth, confederation, league, institution) defaults to recursive make_stewardship_child_runner cascade so civilization->empire->realm->domain->commonwealth->confederation->league->institution->program->succession->epoch->fleet->campaign is one continuous engine-owned nest (depth 13). Continuum SI layers remain opt-in. Opt out with governance_spine=False. Public builtin_civilization_spine_proof / civilization-proof CLI seals defaults without skill-route discovery.",
+      "entry": "blackhole_agent.upstream_control_engine:builtin_civilization_spine_proof",
+      "id": "capability.upstream-civilization-spine",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-12T07:15:08.247114Z",
+      "name": "Upstream civilization spine (tower defaults + operational cascade)",
+      "proof_command": "uv run python -m blackhole_agent.upstream_control_engine civilization-proof",
+      "source_milestone": 1,
+      "source_mission_id": "20260812T070910Z-5758e748",
+      "tags": [
+        "bootstrap",
+        "bridge",
+        "cascade",
+        "civilization",
+        "collapse",
+        "composition",
+        "constitution",
+        "commonwealth",
+        "control",
+        "default",
+        "domain",
+        "empire",
+        "engine",
+        "governance",
+        "graph",
+        "ledger-bound",
+        "live",
+        "multi-depth",
+        "nest",
+        "operational-spine",
+        "outer",
+        "realm",
+        "spine",
+        "stewardship",
+        "tower",
+        "upstream"
+      ],
+      "updated_at": "2026-08-12T07:15:08.247114Z"
     },
     "capability.upstream-commonwealth": {
       "behavior_paths": [
@@ -3936,6 +3998,68 @@
         "constitution"
       ],
       "updated_at": "2026-08-09T23:14:38.376479Z"
+    },
+    "capability.upstream-continuum-spine": {
+      "behavior_paths": [
+        "src/blackhole_agent/upstream_control_engine.py",
+        "src/blackhole_agent/upstream_loop_engine.py",
+        "src/blackhole_agent/upstream_stewardship_facade.py",
+        "src/blackhole_agent/upstream_continuum.py",
+        "src/blackhole_agent/upstream_hypercontinuum.py",
+        "src/blackhole_agent/upstream_quettacontinuum.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Continuum spine closes the mock-leaf cliff above civilization: STEWARDSHIP_SPINE_DEFAULT_ROOTS expands to the full STEWARDSHIP_STACK (quettacontinuum..institution) so continuum SI layers default-cascade into the operational nest; run_stewardship_spine(root=continuum) and default run_continuum/run_hypercontinuum seal depth-17..28 continuous paths program->campaign via builtin_continuum_spine_proof without skill-route.",
+      "created_at": "2026-08-12T07:50:00.000000Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.upstream-constitution-engine",
+        "capability.upstream-control-engine",
+        "capability.upstream-control-graph",
+        "capability.upstream-governance-spine",
+        "capability.upstream-stewardship-spine",
+        "capability.upstream-civilization-spine",
+        "capability.upstream-stewardship-facade"
+      ],
+      "description": "Closes the multi-child mock-leaf cliff for the full continuum SI tower above civilization. Every CONTINUUM_STACK layer (quettacontinuum..continuum) defaults to recursive make_stewardship_child_runner cascade so quettacontinuum->…->continuum->omniverse->…->institution->program->succession->epoch->fleet->campaign is one continuous engine-owned nest (depth 17..28). Opt out with governance_spine=False. Public builtin_continuum_spine_proof / continuum-proof CLI seals defaults without skill-route discovery.",
+      "entry": "blackhole_agent.upstream_control_engine:builtin_continuum_spine_proof",
+      "id": "capability.upstream-continuum-spine",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-12T07:50:00.000000Z",
+      "name": "Upstream continuum spine (SI tower defaults + operational cascade)",
+      "proof_command": "uv run python -m blackhole_agent.upstream_control_engine continuum-proof",
+      "source_milestone": 1,
+      "source_mission_id": "20260812T074652Z-ce36aa47",
+      "tags": [
+        "bootstrap",
+        "bridge",
+        "cascade",
+        "civilization",
+        "collapse",
+        "composition",
+        "constitution",
+        "continuum",
+        "control",
+        "default",
+        "engine",
+        "governance",
+        "graph",
+        "ledger-bound",
+        "live",
+        "multi-depth",
+        "nest",
+        "operational-spine",
+        "outer",
+        "si",
+        "spine",
+        "stewardship",
+        "tower",
+        "upstream",
+        "quetta"
+      ],
+      "updated_at": "2026-08-12T07:50:00.000000Z"
     },
     "capability.upstream-contribution": {
       "behavior_paths": [
@@ -4247,7 +4371,7 @@
         "security",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.955925Z"
+      "updated_at": "2026-08-12T07:53:09.335701Z"
     },
     "capability.upstream-domain": {
       "behavior_paths": [
@@ -4399,7 +4523,7 @@
         "orchestration",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.956867Z"
+      "updated_at": "2026-08-12T07:53:09.336660Z"
     },
     "capability.upstream-exacontinuum": {
       "behavior_paths": [
@@ -4514,7 +4638,7 @@
         "orchestration",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.956708Z"
+      "updated_at": "2026-08-12T07:53:09.336500Z"
     },
     "capability.upstream-frontier": {
       "behavior_paths": [
@@ -4547,7 +4671,7 @@
         "security",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.956078Z"
+      "updated_at": "2026-08-12T07:53:09.335860Z"
     },
     "capability.upstream-gigacontinuum": {
       "behavior_paths": [
@@ -4772,7 +4896,7 @@
         "portfolio",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.956549Z"
+      "updated_at": "2026-08-12T07:53:09.336335Z"
     },
     "capability.upstream-institution": {
       "behavior_paths": [
@@ -5231,7 +5355,7 @@
         "orchestration",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.957191Z"
+      "updated_at": "2026-08-12T07:53:09.336982Z"
     },
     "capability.upstream-publication": {
       "behavior_paths": [
@@ -5440,7 +5564,7 @@
         "ablation",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.955769Z"
+      "updated_at": "2026-08-12T07:53:09.335544Z"
     },
     "capability.upstream-ronnacontinuum": {
       "behavior_paths": [
@@ -5705,7 +5829,7 @@
         "orchestration",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.957030Z"
+      "updated_at": "2026-08-12T07:53:09.336821Z"
     },
     "capability.upstream-teracontinuum": {
       "behavior_paths": [
@@ -6042,7 +6166,7 @@
         "outcome",
         "evidence"
       ],
-      "updated_at": "2026-08-12T05:59:54.954299Z"
+      "updated_at": "2026-08-12T07:53:09.334039Z"
     },
     "domain.ci-security": {
       "behavior_paths": [
@@ -6348,7 +6472,7 @@
         "bootstrap",
         "evolution-route"
       ],
-      "updated_at": "2026-08-12T05:59:54.949793Z"
+      "updated_at": "2026-08-12T07:53:09.329317Z"
     },
     "repo.import-health": {
       "behavior_paths": [
@@ -6372,7 +6496,7 @@
         "bootstrap",
         "health"
       ],
-      "updated_at": "2026-08-12T05:59:54.947734Z"
+      "updated_at": "2026-08-12T07:53:09.327928Z"
     },
     "unbound.milestone-gate": {
       "behavior_paths": [
@@ -6397,71 +6521,9 @@
         "bootstrap",
         "unbound"
       ],
-      "updated_at": "2026-08-12T05:59:54.949427Z"
-    },
-    "capability.upstream-civilization-spine": {
-      "behavior_paths": [
-        "src/blackhole_agent/upstream_control_engine.py",
-        "src/blackhole_agent/upstream_loop_engine.py",
-        "src/blackhole_agent/upstream_stewardship_facade.py",
-        "src/blackhole_agent/upstream_civilization.py",
-        "src/blackhole_agent/upstream_domain.py",
-        "src/blackhole_agent/upstream_commonwealth.py",
-        "capabilities/ledger.json"
-      ],
-      "capability_delta": "Civilization spine closes the mock-leaf cliff above confederation: STEWARDSHIP_SPINE_DEFAULT_ROOTS expands to the full CIVILIZATION_STACK (omniverse..institution) so commonwealth/domain/realm/empire/civilization default-cascade into the operational nest; run_stewardship_spine(root=civilization) and default run_domain/run_commonwealth/run_civilization seal depth-9..13 continuous paths program->campaign via builtin_civilization_spine_proof without skill-route.",
-      "created_at": "2026-08-12T07:15:08.247114Z",
-      "dependencies": [
-        "repo.import-health",
-        "capability.ledger-inventory",
-        "capability.upstream-constitution-engine",
-        "capability.upstream-control-engine",
-        "capability.upstream-control-graph",
-        "capability.upstream-governance-spine",
-        "capability.upstream-stewardship-spine",
-        "capability.upstream-stewardship-facade"
-      ],
-      "description": "Closes the multi-child mock-leaf cliff for the full civilization stewardship tower above confederation. Every CIVILIZATION_STACK layer (omniverse, multiverse, cosmos, civilization, empire, realm, domain, commonwealth, confederation, league, institution) defaults to recursive make_stewardship_child_runner cascade so civilization->empire->realm->domain->commonwealth->confederation->league->institution->program->succession->epoch->fleet->campaign is one continuous engine-owned nest (depth 13). Continuum SI layers remain opt-in. Opt out with governance_spine=False. Public builtin_civilization_spine_proof / civilization-proof CLI seals defaults without skill-route discovery.",
-      "entry": "blackhole_agent.upstream_control_engine:builtin_civilization_spine_proof",
-      "id": "capability.upstream-civilization-spine",
-      "kind": "python",
-      "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-12T07:15:08.247114Z",
-      "name": "Upstream civilization spine (tower defaults + operational cascade)",
-      "proof_command": "uv run python -m blackhole_agent.upstream_control_engine civilization-proof",
-      "source_milestone": 1,
-      "source_mission_id": "20260812T070910Z-5758e748",
-      "tags": [
-        "bootstrap",
-        "bridge",
-        "cascade",
-        "civilization",
-        "collapse",
-        "composition",
-        "constitution",
-        "commonwealth",
-        "control",
-        "default",
-        "domain",
-        "empire",
-        "engine",
-        "governance",
-        "graph",
-        "ledger-bound",
-        "live",
-        "multi-depth",
-        "nest",
-        "operational-spine",
-        "outer",
-        "realm",
-        "spine",
-        "stewardship",
-        "tower",
-        "upstream"
-      ],
-      "updated_at": "2026-08-12T07:15:08.247114Z"
+      "updated_at": "2026-08-12T07:53:09.328935Z"
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-08-12T07:15:08.247114Z"
+  "updated_at": "2026-08-12T07:53:09.337336Z"
 }

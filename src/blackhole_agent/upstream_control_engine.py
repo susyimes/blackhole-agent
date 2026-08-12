@@ -4209,21 +4209,38 @@ def run_outer_governance_spine(
 # ---------------------------------------------------------------------------
 
 # Layers that default-on cascade into the operational control graph.
-# Full civilization tower (omniverse..institution) is default-on so the
-# mock-leaf cliff stays closed above confederation. Continuum SI layers
-# (quettacontinuum..continuum) remain opt-in via governance_spine=True.
+# Full stewardship stack (quettacontinuum..institution) is default-on so the
+# mock-leaf cliff stays closed for continuum SI layers and the civilization
+# tower. Opt out with governance_spine=False.
+def _stewardship_spine_default_roots() -> frozenset[str]:
+    from blackhole_agent import upstream_constitution_engine as _ce
+
+    return frozenset(_ce.list_stewardship_layers())
+
+
 def _civilization_spine_default_roots() -> frozenset[str]:
     from blackhole_agent import upstream_constitution_engine as _ce
 
     return frozenset(_ce.list_civilization_layers())
 
 
+def _continuum_spine_default_roots() -> frozenset[str]:
+    from blackhole_agent import upstream_constitution_engine as _ce
+
+    return frozenset(_ce.list_continuum_layers())
+
+
 STEWARDSHIP_SPINE_DEFAULT_ROOTS: frozenset[str] = (
+    _stewardship_spine_default_roots()
+)
+# Civilization spine = civilization-tower subset of stewardship defaults.
+CIVILIZATION_SPINE_DEFAULT_ROOTS: frozenset[str] = (
     _civilization_spine_default_roots()
 )
-# Alias: civilization spine = stewardship defaults over the civilization tower.
-CIVILIZATION_SPINE_DEFAULT_ROOTS: frozenset[str] = STEWARDSHIP_SPINE_DEFAULT_ROOTS
 CIVILIZATION_SPINE_IMPL = True
+# Continuum spine = SI continuum-tower subset of stewardship defaults.
+CONTINUUM_SPINE_DEFAULT_ROOTS: frozenset[str] = _continuum_spine_default_roots()
+CONTINUUM_SPINE_IMPL = True
 
 
 def stewardship_constitution_chain(root_layer: str) -> list[str]:
@@ -4320,12 +4337,26 @@ def annotate_stewardship_spine(
     body["control_engine"] = True
     body["control_operational_spine"] = True
     body["control_graph"] = True
-    # Civilization-tower roots (above confederation, within CIVILIZATION_STACK)
-    # also seal civilization_spine ownership.
-    if root in STEWARDSHIP_SPINE_DEFAULT_ROOTS and root not in {
+    # Civilization-tower roots (omniverse..confederation within CIVILIZATION_STACK)
+    # seal civilization_spine ownership.
+    if root in CIVILIZATION_SPINE_DEFAULT_ROOTS and root not in {
         "institution",
         "league",
     }:
+        body["civilization_spine"] = True
+        body["civilization_spine_live"] = bool(live)
+        body["civilization_spine_root"] = root
+        body["civilization_nest_path"] = path
+        body["civilization_nest_depth"] = len(path)
+    # Continuum SI roots (quettacontinuum..continuum) seal continuum_spine;
+    # path is the full cascade through civilization into the operational nest.
+    if root in CONTINUUM_SPINE_DEFAULT_ROOTS:
+        body["continuum_spine"] = True
+        body["continuum_spine_live"] = bool(live)
+        body["continuum_spine_root"] = root
+        body["continuum_nest_path"] = path
+        body["continuum_nest_depth"] = len(path)
+        # Continuum roots always sit above the civilization tower.
         body["civilization_spine"] = True
         body["civilization_spine_live"] = bool(live)
         body["civilization_spine_root"] = root
@@ -5673,12 +5704,12 @@ def builtin_civilization_spine_proof() -> dict[str, Any]:
 
         civ_layers = ce.list_civilization_layers()
         defaults_ok = (
-            STEWARDSHIP_SPINE_DEFAULT_ROOTS == frozenset(civ_layers)
+            frozenset(civ_layers).issubset(STEWARDSHIP_SPINE_DEFAULT_ROOTS)
+            and CIVILIZATION_SPINE_DEFAULT_ROOTS == frozenset(civ_layers)
             and "commonwealth" in STEWARDSHIP_SPINE_DEFAULT_ROOTS
             and "domain" in STEWARDSHIP_SPINE_DEFAULT_ROOTS
             and "civilization" in STEWARDSHIP_SPINE_DEFAULT_ROOTS
             and "omniverse" in STEWARDSHIP_SPINE_DEFAULT_ROOTS
-            and "quettacontinuum" not in STEWARDSHIP_SPINE_DEFAULT_ROOTS
             and CIVILIZATION_SPINE_IMPL is True
         )
 
@@ -6206,6 +6237,675 @@ def builtin_civilization_spine_proof() -> dict[str, Any]:
             "civilization_spine": True,
             "civilization_spine_live": True,
             "civilization_spine_default": True,
+            "done_when_met": ok,
+        }
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def builtin_continuum_spine_proof() -> dict[str, Any]:
+    """Hermetic proof: full continuum SI tower defaults into operational nest.
+
+    Closes the mock-leaf cliff above civilization: continuum→…→omniverse→…
+    →campaign is continuous and default-on for every CONTINUUM_STACK layer
+    (quettacontinuum..continuum). Opt out with governance_spine=False.
+    """
+    scratch = Path(tempfile.mkdtemp(prefix="continuum-spine-proof-"))
+    try:
+        from blackhole_agent import upstream_continuum as ucont
+        from blackhole_agent import upstream_hypercontinuum as uhyper
+        from blackhole_agent import upstream_loop_engine as le_facade
+        from blackhole_agent.capability_compounder import (
+            default_ledger_path,
+            load_ledger,
+        )
+        from blackhole_agent import upstream_constitution_engine as ce
+
+        cont_layers = ce.list_continuum_layers()
+        stew_layers = ce.list_stewardship_layers()
+        civ_layers = ce.list_civilization_layers()
+        defaults_ok = (
+            STEWARDSHIP_SPINE_DEFAULT_ROOTS == frozenset(stew_layers)
+            and CONTINUUM_SPINE_DEFAULT_ROOTS == frozenset(cont_layers)
+            and CIVILIZATION_SPINE_DEFAULT_ROOTS == frozenset(civ_layers)
+            and frozenset(cont_layers).issubset(STEWARDSHIP_SPINE_DEFAULT_ROOTS)
+            and "continuum" in STEWARDSHIP_SPINE_DEFAULT_ROOTS
+            and "hypercontinuum" in STEWARDSHIP_SPINE_DEFAULT_ROOTS
+            and "quettacontinuum" in STEWARDSHIP_SPINE_DEFAULT_ROOTS
+            and "omniverse" in STEWARDSHIP_SPINE_DEFAULT_ROOTS
+            and CONTINUUM_SPINE_IMPL is True
+            and CIVILIZATION_SPINE_IMPL is True
+        )
+
+        expected_paths = {
+            "continuum": [
+                "continuum",
+                "omniverse",
+                "multiverse",
+                "cosmos",
+                "civilization",
+                "empire",
+                "realm",
+                "domain",
+                "commonwealth",
+                "confederation",
+                "league",
+                "institution",
+                "program",
+                "succession",
+                "epoch",
+                "fleet",
+                "campaign",
+            ],
+            "hypercontinuum": [
+                "hypercontinuum",
+                "continuum",
+                "omniverse",
+                "multiverse",
+                "cosmos",
+                "civilization",
+                "empire",
+                "realm",
+                "domain",
+                "commonwealth",
+                "confederation",
+                "league",
+                "institution",
+                "program",
+                "succession",
+                "epoch",
+                "fleet",
+                "campaign",
+            ],
+            "quettacontinuum": [
+                "quettacontinuum",
+                "ronnacontinuum",
+                "yottacontinuum",
+                "zettacontinuum",
+                "exacontinuum",
+                "petacontinuum",
+                "teracontinuum",
+                "gigacontinuum",
+                "megacontinuum",
+                "ultracontinuum",
+                "hypercontinuum",
+                "continuum",
+                "omniverse",
+                "multiverse",
+                "cosmos",
+                "civilization",
+                "empire",
+                "realm",
+                "domain",
+                "commonwealth",
+                "confederation",
+                "league",
+                "institution",
+                "program",
+                "succession",
+                "epoch",
+                "fleet",
+                "campaign",
+            ],
+        }
+        path_flags: dict[str, bool] = {}
+        for root, expected in expected_paths.items():
+            got = [s.get("dialect") for s in stewardship_nest_path(root)]
+            path_flags[root] = (
+                got == expected
+                and stewardship_nest_depth(root) == len(expected)
+            )
+        paths_ok = all(path_flags.values())
+
+        # Live public entry at continuum root (depth 17).
+        spine = run_stewardship_spine(
+            root_layer="continuum",
+            out_root=scratch / "cont-spine",
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=3,
+            max_successions=1,
+            max_epochs=1,
+            max_waves=1,
+        )
+        child_path = spine.get("governance_child_control_path") or spine.get(
+            "stewardship_child_control_path"
+        ) or []
+        child_dialects = [
+            s.get("dialect") for s in child_path if isinstance(s, Mapping)
+        ]
+        spine_ok = (
+            bool(spine.get("ok"))
+            and spine.get("stewardship_spine") is True
+            and spine.get("continuum_spine") is True
+            and spine.get("continuum_spine_root") == "continuum"
+            and spine.get("civilization_spine") is True
+            and spine.get("stewardship_root") == "continuum"
+            and spine.get("governance_spine") is True
+            and spine.get("control_operational_spine") is True
+            and int(spine.get("stewardship_nest_depth") or 0) == 17
+            and int(spine.get("continuum_nest_depth") or 0) == 17
+            and int(spine.get("total_dispatched_ok") or 0) >= 1
+            and bool(spine.get("continuum_digest"))
+            and [
+                s.get("dialect")
+                for s in (spine.get("stewardship_nest_path") or [])
+            ]
+            == expected_paths["continuum"]
+            and child_dialects
+            == ["program", "succession", "epoch", "fleet", "campaign"]
+            and not legacy_pipeline_was_used()
+        )
+
+        # Default continuum attach (omit governance_spine kwarg).
+        default_cont = ucont.run_continuum(
+            charter=[
+                {
+                    "omniverse_id": "dc-ov",
+                    "priority": 1,
+                    "max_rounds": 2,
+                    "charter": [
+                        {
+                            "multiverse_id": "dc-mv",
+                            "priority": 1,
+                            "max_rounds": 2,
+                            "charter": [
+                                {
+                                    "cosmos_id": "dc-co",
+                                    "priority": 1,
+                                    "max_rounds": 2,
+                                    "charter": [
+                                        {
+                                            "civilization_id": "dc-civ",
+                                            "priority": 1,
+                                            "max_rounds": 2,
+                                            "charter": [
+                                                {
+                                                    "empire_id": "dc-e",
+                                                    "priority": 1,
+                                                    "max_rounds": 2,
+                                                    "charter": [
+                                                        {
+                                                            "realm_id": "dc-r",
+                                                            "priority": 1,
+                                                            "max_rounds": 2,
+                                                            "charter": [
+                                                                {
+                                                                    "domain_id": "dc-d",
+                                                                    "priority": 1,
+                                                                    "max_rounds": 2,
+                                                                    "charter": [
+                                                                        {
+                                                                            "commonwealth_id": "dc-cw",
+                                                                            "priority": 1,
+                                                                            "max_rounds": 2,
+                                                                            "charter": [
+                                                                                {
+                                                                                    "confederation_id": "dc-cf",
+                                                                                    "priority": 1,
+                                                                                    "max_rounds": 2,
+                                                                                    "charter": [
+                                                                                        {
+                                                                                            "league_id": "dc-l",
+                                                                                            "priority": 1,
+                                                                                            "max_rounds": 2,
+                                                                                            "charter": [
+                                                                                                {
+                                                                                                    "institution_id": "dc-i",
+                                                                                                    "priority": 1,
+                                                                                                    "max_rounds": 2,
+                                                                                                    "charter": [
+                                                                                                        {
+                                                                                                            "program_id": "dc-p",
+                                                                                                            "priority": 1,
+                                                                                                            "inventory_keys": [
+                                                                                                                (
+                                                                                                                    "dcp1",
+                                                                                                                    "1.0.0",
+                                                                                                                    "dcp1-1",
+                                                                                                                )
+                                                                                                            ],
+                                                                                                            "charter": [
+                                                                                                                {
+                                                                                                                    "inventory_keys": [
+                                                                                                                        [
+                                                                                                                            "dcp1",
+                                                                                                                            "1.0.0",
+                                                                                                                            "dcp1-1",
+                                                                                                                        ]
+                                                                                                                    ]
+                                                                                                                }
+                                                                                                            ],
+                                                                                                        }
+                                                                                                    ],
+                                                                                                }
+                                                                                            ],
+                                                                                        }
+                                                                                    ],
+                                                                                }
+                                                                            ],
+                                                                        }
+                                                                    ],
+                                                                }
+                                                            ],
+                                                        }
+                                                    ],
+                                                }
+                                            ],
+                                        }
+                                    ],
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=3,
+            out_root=scratch / "default-cont",
+            continuum_id="default-cont",
+        )
+        default_cont_ok = (
+            bool(default_cont.get("ok"))
+            and default_cont.get("stewardship_spine") is True
+            and default_cont.get("continuum_spine") is True
+            and default_cont.get("continuum_spine_default") is True
+            and default_cont.get("civilization_spine") is True
+            and default_cont.get("stewardship_spine_default") is True
+            and default_cont.get("stewardship_root") == "continuum"
+            and int(default_cont.get("stewardship_nest_depth") or 0) == 17
+            and int(default_cont.get("total_dispatched_ok") or 0) >= 1
+            and bool(default_cont.get("continuum_digest"))
+            and [
+                s.get("dialect")
+                for s in (
+                    default_cont.get("governance_child_control_path") or []
+                )
+            ]
+            == ["program", "succession", "epoch", "fleet", "campaign"]
+        )
+
+        # Default hypercontinuum attach (depth 18).
+        default_hyper = uhyper.run_hypercontinuum(
+            charter=[
+                {
+                    "continuum_id": "dh-c",
+                    "priority": 1,
+                    "max_rounds": 2,
+                    "charter": [
+                        {
+                            "omniverse_id": "dh-ov",
+                            "priority": 1,
+                            "max_rounds": 2,
+                            "charter": [
+                                {
+                                    "multiverse_id": "dh-mv",
+                                    "priority": 1,
+                                    "max_rounds": 2,
+                                    "charter": [
+                                        {
+                                            "cosmos_id": "dh-co",
+                                            "priority": 1,
+                                            "max_rounds": 2,
+                                            "charter": [
+                                                {
+                                                    "civilization_id": "dh-civ",
+                                                    "priority": 1,
+                                                    "max_rounds": 2,
+                                                    "charter": [
+                                                        {
+                                                            "empire_id": "dh-e",
+                                                            "priority": 1,
+                                                            "max_rounds": 2,
+                                                            "charter": [
+                                                                {
+                                                                    "realm_id": "dh-r",
+                                                                    "priority": 1,
+                                                                    "max_rounds": 2,
+                                                                    "charter": [
+                                                                        {
+                                                                            "domain_id": "dh-d",
+                                                                            "priority": 1,
+                                                                            "max_rounds": 2,
+                                                                            "charter": [
+                                                                                {
+                                                                                    "commonwealth_id": "dh-cw",
+                                                                                    "priority": 1,
+                                                                                    "max_rounds": 2,
+                                                                                    "charter": [
+                                                                                        {
+                                                                                            "confederation_id": "dh-cf",
+                                                                                            "priority": 1,
+                                                                                            "max_rounds": 2,
+                                                                                            "charter": [
+                                                                                                {
+                                                                                                    "league_id": "dh-l",
+                                                                                                    "priority": 1,
+                                                                                                    "max_rounds": 2,
+                                                                                                    "charter": [
+                                                                                                        {
+                                                                                                            "institution_id": "dh-i",
+                                                                                                            "priority": 1,
+                                                                                                            "max_rounds": 2,
+                                                                                                            "charter": [
+                                                                                                                {
+                                                                                                                    "program_id": "dh-p",
+                                                                                                                    "priority": 1,
+                                                                                                                    "inventory_keys": [
+                                                                                                                        (
+                                                                                                                            "dhp1",
+                                                                                                                            "1.0.0",
+                                                                                                                            "dhp1-1",
+                                                                                                                        )
+                                                                                                                    ],
+                                                                                                                    "charter": [
+                                                                                                                        {
+                                                                                                                            "inventory_keys": [
+                                                                                                                                [
+                                                                                                                                    "dhp1",
+                                                                                                                                    "1.0.0",
+                                                                                                                                    "dhp1-1",
+                                                                                                                                ]
+                                                                                                                            ]
+                                                                                                                        }
+                                                                                                                    ],
+                                                                                                                }
+                                                                                                            ],
+                                                                                                        }
+                                                                                                    ],
+                                                                                                }
+                                                                                            ],
+                                                                                        }
+                                                                                    ],
+                                                                                }
+                                                                            ],
+                                                                        }
+                                                                    ],
+                                                                }
+                                                            ],
+                                                        }
+                                                    ],
+                                                }
+                                            ],
+                                        }
+                                    ],
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=3,
+            out_root=scratch / "default-hyper",
+            hypercontinuum_id="default-hyper",
+        )
+        default_hyper_ok = (
+            bool(default_hyper.get("ok"))
+            and default_hyper.get("stewardship_spine") is True
+            and default_hyper.get("continuum_spine") is True
+            and default_hyper.get("continuum_spine_default") is True
+            and default_hyper.get("stewardship_root") == "hypercontinuum"
+            and int(default_hyper.get("stewardship_nest_depth") or 0) == 18
+            and int(default_hyper.get("total_dispatched_ok") or 0) >= 1
+            and bool(default_hyper.get("hypercontinuum_digest"))
+        )
+
+        # Opt-out: continuum governance_spine=False keeps mock leaves
+        # (no operational nest seals even with a deep nested charter).
+        opt_out = ucont.run_continuum(
+            governance_spine=False,
+            charter=[
+                {
+                    "omniverse_id": "fo-ov",
+                    "priority": 1,
+                    "max_rounds": 2,
+                    "charter": [
+                        {
+                            "multiverse_id": "fo-mv",
+                            "priority": 1,
+                            "max_rounds": 2,
+                            "charter": [
+                                {
+                                    "cosmos_id": "fo-co",
+                                    "priority": 1,
+                                    "max_rounds": 2,
+                                    "charter": [
+                                        {
+                                            "civilization_id": "fo-civ",
+                                            "priority": 1,
+                                            "max_rounds": 2,
+                                            "charter": [
+                                                {
+                                                    "empire_id": "fo-e",
+                                                    "priority": 1,
+                                                    "max_rounds": 2,
+                                                    "charter": [
+                                                        {
+                                                            "realm_id": "fo-r",
+                                                            "priority": 1,
+                                                            "max_rounds": 2,
+                                                            "charter": [
+                                                                {
+                                                                    "domain_id": "fo-d",
+                                                                    "priority": 1,
+                                                                    "max_rounds": 2,
+                                                                    "charter": [
+                                                                        {
+                                                                            "commonwealth_id": "fo-cw",
+                                                                            "priority": 1,
+                                                                            "max_rounds": 2,
+                                                                            "charter": [
+                                                                                {
+                                                                                    "confederation_id": "fo-cf",
+                                                                                    "priority": 1,
+                                                                                    "max_rounds": 2,
+                                                                                    "charter": [
+                                                                                        {
+                                                                                            "league_id": "fo-l",
+                                                                                            "priority": 1,
+                                                                                            "max_rounds": 2,
+                                                                                            "charter": [
+                                                                                                {
+                                                                                                    "institution_id": "fo-i",
+                                                                                                    "priority": 1,
+                                                                                                    "max_rounds": 2,
+                                                                                                    "charter": [
+                                                                                                        {
+                                                                                                            "program_id": "fo-p",
+                                                                                                            "priority": 1,
+                                                                                                            "inventory_keys": [
+                                                                                                                (
+                                                                                                                    "fo1",
+                                                                                                                    "1.0.0",
+                                                                                                                    "fo1-1",
+                                                                                                                )
+                                                                                                            ],
+                                                                                                            "charter": [
+                                                                                                                {
+                                                                                                                    "inventory_keys": [
+                                                                                                                        [
+                                                                                                                            "fo1",
+                                                                                                                            "1.0.0",
+                                                                                                                            "fo1-1",
+                                                                                                                        ]
+                                                                                                                    ]
+                                                                                                                }
+                                                                                                            ],
+                                                                                                        }
+                                                                                                    ],
+                                                                                                }
+                                                                                            ],
+                                                                                        }
+                                                                                    ],
+                                                                                }
+                                                                            ],
+                                                                        }
+                                                                    ],
+                                                                }
+                                                            ],
+                                                        }
+                                                    ],
+                                                }
+                                            ],
+                                        }
+                                    ],
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=3,
+            out_root=scratch / "opt-out-cont",
+            continuum_id="fast-cont",
+        )
+        opt_out_ok = (
+            bool(opt_out.get("ok"))
+            and opt_out.get("stewardship_spine") is not True
+            and opt_out.get("continuum_spine") is not True
+            and opt_out.get("governance_spine") is not True
+            and int(opt_out.get("total_dispatched_ok") or 0) >= 1
+            and bool(opt_out.get("continuum_digest"))
+        )
+
+        flags_ok = (
+            getattr(ucont, "STEWARDSHIP_SPINE", False) is True
+            and getattr(ucont, "STEWARDSHIP_SPINE_DEFAULT", False) is True
+            and getattr(ucont, "CONTINUUM_SPINE", False) is True
+            and getattr(ucont, "CONTINUUM_SPINE_DEFAULT", False) is True
+            and getattr(ucont, "CONTINUUM_SPINE_ROOT", None) == "continuum"
+            and getattr(uhyper, "CONTINUUM_SPINE", False) is True
+            and getattr(uhyper, "CONTINUUM_SPINE_DEFAULT", False) is True
+            and getattr(uhyper, "CONTINUUM_SPINE_ROOT", None)
+            == "hypercontinuum"
+            and callable(getattr(le_facade, "run_stewardship_spine", None))
+            and callable(
+                getattr(le_facade, "builtin_continuum_spine_proof", None)
+            )
+            and getattr(le_facade, "CONTINUUM_SPINE_IMPL", False) is True
+        )
+
+        facade_path = (
+            Path(ucont.__file__).resolve().parent
+            / "upstream_stewardship_facade.py"
+        )
+        facade_text = facade_path.read_text(encoding="utf-8")
+        source_ok = (
+            "list_continuum_layers" in facade_text
+            or "list_stewardship_layers" in facade_text
+        ) and (
+            "CONTINUUM_SPINE" in facade_text
+            and "continuum_spine_default" in facade_text
+            and "_STEWARDSHIP_SPINE_DEFAULT_ROOTS" in facade_text
+        )
+
+        engine_path = Path(__file__).resolve()
+        engine_text = engine_path.read_text(encoding="utf-8")
+        engine_source_ok = (
+            "def builtin_continuum_spine_proof" in engine_text
+            and "CONTINUUM_SPINE_DEFAULT_ROOTS" in engine_text
+            and "CONTINUUM_SPINE_IMPL" in engine_text
+            and "list_continuum_layers" in engine_text
+        )
+
+        ledger_path = default_ledger_path(REPO_ROOT)
+        ledger_ok = False
+        try:
+            ledger = load_ledger(ledger_path)
+            entry = ledger.capabilities.get(
+                "capability.upstream-continuum-spine"
+            )
+            tags_blob = " ".join(entry.tags).lower() if entry else ""
+            delta_blob = (entry.capability_delta or "").lower() if entry else ""
+            name_blob = (entry.name or "").lower() if entry else ""
+            ledger_ok = (
+                entry is not None
+                and "upstream_control_engine" in (entry.entry or "")
+                and "builtin_continuum_spine_proof" in (entry.entry or "")
+                and (
+                    "continuum" in tags_blob
+                    or "continuum" in name_blob
+                    or "continuum" in delta_blob
+                )
+                and (
+                    "default" in delta_blob
+                    or "default" in tags_blob
+                )
+                and (
+                    "quetta" in delta_blob
+                    or "si" in delta_blob
+                    or "tower" in delta_blob
+                    or "full" in delta_blob
+                )
+                and (
+                    "run_stewardship_spine" in delta_blob
+                    or "cascade" in delta_blob
+                    or "continuous" in delta_blob
+                )
+                and ("campaign" in delta_blob or "operational" in delta_blob)
+            )
+        except Exception:  # noqa: BLE001
+            ledger_ok = False
+
+        ok = all(
+            [
+                defaults_ok,
+                paths_ok,
+                spine_ok,
+                default_cont_ok,
+                default_hyper_ok,
+                opt_out_ok,
+                flags_ok,
+                source_ok,
+                engine_source_ok,
+                ledger_ok,
+                not legacy_pipeline_was_used(),
+            ]
+        )
+        return {
+            "ok": ok,
+            "action": "continuum_spine_proof",
+            "defaults_ok": defaults_ok,
+            "default_roots": sorted(STEWARDSHIP_SPINE_DEFAULT_ROOTS),
+            "continuum_default_roots": sorted(CONTINUUM_SPINE_DEFAULT_ROOTS),
+            "paths_ok": paths_ok,
+            "path_flags": path_flags,
+            "continuum_nest_path": expected_paths["continuum"],
+            "continuum_nest_depth": stewardship_nest_depth("continuum"),
+            "quetta_nest_depth": stewardship_nest_depth("quettacontinuum"),
+            "spine_ok": spine_ok,
+            "spine_dispatched_ok": spine.get("total_dispatched_ok"),
+            "spine_continuum_digest": spine.get("continuum_digest"),
+            "spine_child_path": child_path,
+            "default_cont_ok": default_cont_ok,
+            "default_cont_dispatched_ok": default_cont.get(
+                "total_dispatched_ok"
+            ),
+            "default_hyper_ok": default_hyper_ok,
+            "default_hyper_dispatched_ok": default_hyper.get(
+                "total_dispatched_ok"
+            ),
+            "default_hyper_digest": default_hyper.get("hypercontinuum_digest"),
+            "opt_out_ok": opt_out_ok,
+            "flags_ok": flags_ok,
+            "source_ok": source_ok,
+            "engine_source_ok": engine_source_ok,
+            "ledger_capability_ok": ledger_ok,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "control_engine": True,
+            "control_graph": True,
+            "control_operational_spine": True,
+            "governance_spine": True,
+            "stewardship_spine": True,
+            "civilization_spine": True,
+            "continuum_spine": True,
+            "continuum_spine_live": True,
+            "continuum_spine_default": True,
             "done_when_met": ok,
         }
     finally:
@@ -7607,6 +8307,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             "operational nest"
         ),
     )
+    sub.add_parser(
+        "continuum-proof",
+        help=(
+            "Continuum spine proof: full continuum SI tower "
+            "(quettacontinuum→…→continuum→omniverse→…→campaign) defaults "
+            "into operational nest"
+        ),
+    )
     sub.add_parser("list", help="List control modes and dialects")
     sub.add_parser("nest-path", help="Print canonical operational nest path")
     sub.add_parser(
@@ -7683,6 +8391,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "civilization-proof":
         result = builtin_civilization_spine_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "continuum-proof":
+        result = builtin_continuum_spine_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2
