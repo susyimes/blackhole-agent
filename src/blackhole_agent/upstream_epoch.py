@@ -59,6 +59,10 @@ SCHEMA_VERSION = 1
 LOOP_ENGINE = True
 LOOP_DIALECT = "epoch"
 
+# Multi-mode control engine owns loop control flow.
+CONTROL_ENGINE = True
+CONTROL_ENGINE_MODE = "loop"
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS_ROOT = REPO_ROOT / "artifacts" / "upstream-epoch"
 

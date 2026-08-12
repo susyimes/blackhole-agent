@@ -1,0 +1,2917 @@
+"""Multi-mode durable control-flow engine for operational stewardship.
+
+Unifies the two previously parallel control-flow engines:
+
+* **pipeline mode** — ordered multi-stage dialects (campaign, fleet)
+* **loop mode** — multi-round durable dialects (program, succession, epoch)
+
+One dialect catalog, one shared digest/seal infrastructure, and one invocable
+proof surface. Domain modules keep stage/loop *hooks*; control flow is owned
+here. Thin ``upstream_stage_engine`` / ``upstream_loop_engine`` facades re-export
+this module so existing imports and ledger proof commands keep working.
+
+Composition: a loop dialect can drive a pipeline dialect as its child runner
+(engine-native multi-wave fleet stages) without hand-wired cross-engine glue.
+
+No skill-route discovery.
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import shutil
+import sys
+import tempfile
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Callable, Mapping, MutableMapping, Sequence
+
+from blackhole_agent.capability_compounder import (
+    atomic_write_json,
+    legacy_pipeline_was_used,
+    utc_now_iso,
+)
+from blackhole_agent.durable_state import durable_read_path
+
+SCHEMA_VERSION = 1
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+class StageRefused(Exception):
+    """A verdict-bearing refusal from the generic stage engine."""
+
+    def __init__(self, verdict: str, detail: str):
+        super().__init__(f"{verdict}: {detail}")
+        self.verdict = verdict
+        self.detail = detail
+
+
+@dataclass(frozen=True)
+class PipelineDialect:
+    """Nouns and seal vocabulary for one multi-stage durable pipeline."""
+
+    name: str  # self noun: campaign (future: fleet-dispatch, …)
+    valid_stages: frozenset[str]
+    default_stages: tuple[str, ...]
+    artifacts_relative: str = ""
+    receipt_filename: str = "receipt.json"
+    digest_field: str = ""
+    dir_field: str = ""
+    # Stages that abort the pipeline when their result ok is false.
+    abort_on_fail: frozenset[str] = frozenset()
+    # Map stage name → terminal fail verdict (default f"{stage}_failed").
+    fail_verdicts: Mapping[str, str] = field(default_factory=dict)
+
+    @property
+    def artifacts_root(self) -> Path:
+        rel = self.artifacts_relative or f"artifacts/upstream-{self.name}"
+        return REPO_ROOT / rel
+
+    @property
+    def receipt_name(self) -> str:
+        return self.receipt_filename or "receipt.json"
+
+    @property
+    def self_digest_field(self) -> str:
+        return self.digest_field or f"{self.name}_digest"
+
+    @property
+    def self_dir_field(self) -> str:
+        return self.dir_field or f"{self.name}_dir"
+
+    def fail_verdict_for(self, stage: str) -> str:
+        return str(self.fail_verdicts.get(stage) or f"{stage}_failed")
+
+    def aborts_on_fail(self, stage: str) -> bool:
+        # Default: every stage aborts on fail unless dialect sets abort_on_fail
+        # to a non-empty set (then only those stages abort).
+        if not self.abort_on_fail:
+            return True
+        return stage in self.abort_on_fail
+
+
+# Registered operational pipelines (campaign + fleet prove multi-dialect).
+CAMPAIGN_STAGES: tuple[str, ...] = (
+    "discovery",
+    "admit",
+    "repair",
+    "contribution",
+    "publication",
+    "impact",
+)
+
+FLEET_STAGES: tuple[str, ...] = (
+    "inventory",
+    "portfolio",
+    "rank",
+    "dispatch",
+)
+
+PIPELINE_STACK: tuple[PipelineDialect, ...] = (
+    PipelineDialect(
+        name="campaign",
+        valid_stages=frozenset(CAMPAIGN_STAGES),
+        default_stages=("repair", "contribution", "publication"),
+        artifacts_relative="artifacts/upstream-campaign",
+        digest_field="campaign_digest",
+        dir_field="campaign_dir",
+        # Campaign historically aborts hard on discovery/admit/repair/
+        # contribution failure; publication/impact mark ok=False but still
+        # seal (no early return). Represent that with abort_on_fail.
+        abort_on_fail=frozenset(
+            {"discovery", "admit", "repair", "contribution"}
+        ),
+        fail_verdicts={
+            "discovery": "discovery_failed",
+            "admit": "admit_failed",
+            "repair": "repair_failed",
+            "contribution": "contribution_failed",
+            "publication": "publication_failed",
+            "impact": "impact_failed",
+        },
+    ),
+    PipelineDialect(
+        name="fleet",
+        valid_stages=frozenset(FLEET_STAGES),
+        default_stages=("inventory", "portfolio", "rank"),
+        artifacts_relative="artifacts/upstream-fleet",
+        receipt_filename="plan.json",
+        digest_field="fleet_digest",
+        dir_field="plan_dir",
+        # Inventory/portfolio hard-fail historically raise FleetRefused before
+        # seal (domain runners re-raise). Dispatch soft-fails and still seals.
+        abort_on_fail=frozenset({"inventory", "portfolio"}),
+        fail_verdicts={
+            "inventory": "fleet_empty",
+            "portfolio": "portfolio_failed",
+            "rank": "rank_failed",
+            "dispatch": "dispatch_failed",
+        },
+    ),
+)
+
+PIPELINE_DIALECTS: dict[str, PipelineDialect] = {d.name: d for d in PIPELINE_STACK}
+
+
+def get_pipeline_dialect(name: str) -> PipelineDialect:
+    key = str(name or "").strip().lower()
+    if key not in PIPELINE_DIALECTS:
+        raise StageRefused(
+            "pipeline_unknown_dialect",
+            f"unknown pipeline dialect {name!r}; known={sorted(PIPELINE_DIALECTS)}",
+        )
+    return PIPELINE_DIALECTS[key]
+
+
+def list_pipeline_dialects() -> list[str]:
+    return [d.name for d in PIPELINE_STACK]
+
+
+def _sha256_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _sha256_json(payload: Any) -> str:
+    canonical = json.dumps(
+        payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    )
+    return _sha256_bytes(canonical.encode("utf-8"))
+
+
+def normalize_stages(
+    dialect: PipelineDialect | str,
+    stages: Sequence[str] | None,
+) -> list[str]:
+    """Validate and de-duplicate stage list; empty → dialect defaults."""
+    d = get_pipeline_dialect(dialect) if isinstance(dialect, str) else dialect
+    if not stages:
+        stage_list = list(d.default_stages)
+    else:
+        stage_list = list(dict.fromkeys(str(s).strip() for s in stages if str(s).strip()))
+    if not stage_list:
+        raise StageRefused("stages_empty", "no stages requested")
+    unknown = [s for s in stage_list if s not in d.valid_stages]
+    if unknown:
+        raise StageRefused("stages_unknown", f"unknown stages: {unknown}")
+    return stage_list
+
+
+@dataclass
+class PipelineState:
+    """Mutable multi-stage state threaded through hooks."""
+
+    dialect: PipelineDialect
+    stages: list[str]
+    stage_results: dict[str, Any] = field(default_factory=dict)
+    context: dict[str, Any] = field(default_factory=dict)
+    pipeline_ok: bool = True
+    terminal_verdict: str = "pipeline_complete"
+    aborted: bool = False
+    abort_stage: str | None = None
+
+    @property
+    def completed_stages(self) -> list[str]:
+        return [s for s in self.stages if s in self.stage_results]
+
+
+# Hook types -----------------------------------------------------------------
+
+RunStage = Callable[["PipelineState", str], dict[str, Any]]
+# May mutate state.context. Returns stage result dict with at least ok/verdict.
+ShouldAbort = Callable[["PipelineState", str, Mapping[str, Any]], bool]
+# Override abort decision; default uses dialect.abort_on_fail + result.ok.
+AfterStage = Callable[["PipelineState", str, Mapping[str, Any]], None]
+# Post-stage context mutation (manifest reload, bundle lists, …).
+ClassifyVerdict = Callable[["PipelineState"], tuple[bool, str]]
+SealPipeline = Callable[["PipelineState"], dict[str, Any]]
+
+
+def run_stage_pipeline(
+    dialect: PipelineDialect | str,
+    stages: Sequence[str] | None = None,
+    *,
+    run_stage: RunStage,
+    classify_verdict: ClassifyVerdict,
+    seal: SealPipeline,
+    should_abort: ShouldAbort | None = None,
+    after_stage: AfterStage | None = None,
+    initial_context: Mapping[str, Any] | None = None,
+    initial_verdict: str = "pipeline_complete",
+    wrap_refuse: Callable[[BaseException], BaseException] | None = None,
+) -> dict[str, Any]:
+    """Run an ordered multi-stage durable pipeline and return the seal result.
+
+    Control flow (shared by campaign and future operational pipelines):
+
+    1. normalize stages against dialect
+    2. for each stage in order:
+       a. run_stage(state, name) → result
+       b. record stage_results[name]
+       c. after_stage hook (context mutation)
+       d. if not ok and should_abort → mark failed, seal early
+    3. classify_verdict + seal
+    """
+    d = get_pipeline_dialect(dialect) if isinstance(dialect, str) else dialect
+    stage_list = normalize_stages(d, stages)
+
+    state = PipelineState(
+        dialect=d,
+        stages=stage_list,
+        context=dict(initial_context or {}),
+        terminal_verdict=str(initial_verdict or "pipeline_complete"),
+    )
+
+    for stage_name in stage_list:
+        try:
+            result = run_stage(state, stage_name)
+        except Exception as exc:  # noqa: BLE001 — optional refuse mapping
+            if wrap_refuse is not None:
+                raise wrap_refuse(exc) from exc
+            raise
+        if not isinstance(result, Mapping):
+            raise StageRefused(
+                "stage_result_invalid",
+                f"stage {stage_name!r} returned non-mapping result",
+            )
+        stage_body = dict(result)
+        stage_body.setdefault("stage", stage_name)
+        state.stage_results[stage_name] = stage_body
+
+        if after_stage is not None:
+            after_stage(state, stage_name, stage_body)
+
+        ok = bool(stage_body.get("ok"))
+        abort = False
+        if should_abort is not None:
+            abort = bool(should_abort(state, stage_name, stage_body))
+        elif not ok and d.aborts_on_fail(stage_name):
+            abort = True
+
+        if abort and not ok:
+            state.pipeline_ok = False
+            state.aborted = True
+            state.abort_stage = stage_name
+            state.terminal_verdict = d.fail_verdict_for(stage_name)
+            # Contribution has a historical special-case: only abort when
+            # contribution_failed AND no submittable leftovers. Dialects that
+            # need richer abort rules use should_abort.
+            sealed = seal(state)
+            return _annotate_result(sealed, state)
+
+        if not ok:
+            # Soft failure (publication/impact): mark pipeline not-ok but continue.
+            state.pipeline_ok = False
+            state.terminal_verdict = d.fail_verdict_for(stage_name)
+
+    ok, verdict = classify_verdict(state)
+    state.pipeline_ok = bool(ok)
+    state.terminal_verdict = str(verdict)
+    sealed = seal(state)
+    return _annotate_result(sealed, state)
+
+
+def _annotate_result(result: Mapping[str, Any], state: PipelineState) -> dict[str, Any]:
+    body = dict(result)
+    body.setdefault("ok", state.pipeline_ok)
+    body.setdefault("verdict", state.terminal_verdict)
+    body.setdefault("stage_results", dict(state.stage_results))
+    body.setdefault("stages", list(state.stages))
+    body.setdefault("used_skill_route_discovery", legacy_pipeline_was_used())
+    body.setdefault("stage_engine", True)
+    body.setdefault("pipeline_dialect", state.dialect.name)
+    body.setdefault("control_engine", True)
+    body.setdefault("control_mode", "pipeline")
+    body.setdefault("control_dialect", state.dialect.name)
+    body.setdefault("aborted", state.aborted)
+    if state.abort_stage:
+        body.setdefault("abort_stage", state.abort_stage)
+    return body
+
+
+def collect_stage_digests(stage_results: Mapping[str, Any]) -> dict[str, str]:
+    """Collect campaign-compatible stage artifact digests for seal chains.
+
+    Shared so campaign sealing and engine-native proofs stay digest-aligned.
+    """
+    stage_digests: dict[str, str] = {}
+    if "discovery" in stage_results:
+        d = stage_results["discovery"]
+        if d.get("report_sha256"):
+            stage_digests["discovery.report"] = str(d["report_sha256"])
+        stage_digests["discovery.verdict"] = _sha256_bytes(
+            str(d.get("verdict") or "").encode("utf-8")
+        )
+    if "admit" in stage_results:
+        a = stage_results["admit"]
+        if a.get("receipt_sha256"):
+            stage_digests["admit.receipt"] = str(a["receipt_sha256"])
+        if a.get("admission_digest"):
+            stage_digests["admit.admission_digest"] = str(a["admission_digest"])
+        stage_digests["admit.verdict"] = _sha256_bytes(
+            str(a.get("verdict") or "").encode("utf-8")
+        )
+    if "repair" in stage_results:
+        r = stage_results["repair"]
+        if r.get("report_sha256"):
+            stage_digests["repair.report"] = str(r["report_sha256"])
+        elif r.get("report_digest"):
+            stage_digests["repair.report_digest"] = str(r["report_digest"])
+    if "contribution" in stage_results:
+        for item in stage_results["contribution"].get("defects") or []:
+            if item.get("bundle_sha256"):
+                stage_digests[f"contribution.{item['defect_id']}.bundle"] = str(
+                    item["bundle_sha256"]
+                )
+            stage_digests[f"contribution.{item['defect_id']}.verdict"] = _sha256_bytes(
+                str(item.get("verdict") or "").encode("utf-8")
+            )
+    if "publication" in stage_results:
+        for i, p in enumerate(stage_results["publication"].get("publications") or []):
+            key = Path(str(p.get("bundle_dir") or i)).name
+            if p.get("receipt_sha256"):
+                stage_digests[f"publication.{key}.receipt"] = str(p["receipt_sha256"])
+            stage_digests[f"publication.{key}.verdict"] = _sha256_bytes(
+                str(p.get("verdict") or "").encode("utf-8")
+            )
+    if "impact" in stage_results:
+        impact = stage_results["impact"]
+        stage_digests["impact.verdict"] = _sha256_bytes(
+            str(impact.get("verdict") or "").encode("utf-8")
+        )
+        for i, a in enumerate(impact.get("assessments") or []):
+            key = str(a.get("defect_id") or Path(str(a.get("receipt_dir") or i)).name)
+            if a.get("impact_digest"):
+                stage_digests[f"impact.{key}.digest"] = str(a["impact_digest"])
+            if a.get("certificate_sha256"):
+                stage_digests[f"impact.{key}.certificate"] = str(a["certificate_sha256"])
+            stage_digests[f"impact.{key}.outcome"] = _sha256_bytes(
+                str(a.get("outcome") or a.get("verdict") or "").encode("utf-8")
+            )
+    return stage_digests
+
+
+def seal_pipeline_receipt(
+    state: PipelineState,
+    *,
+    out_root: Path | None,
+    identity: Mapping[str, Any],
+    digest_payload: Callable[[Mapping[str, Any]], Mapping[str, Any]] | None = None,
+    extra_fields: Mapping[str, Any] | None = None,
+    summary_lines: Sequence[str] | None = None,
+    stage_digests: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    """Write a digest-chained pipeline receipt under a stamped directory.
+
+    ``identity`` must include at least name/version for directory naming;
+    campaign also passes target, defect_ids, publish_requested, ecosystem.
+    """
+    d = state.dialect
+    root = Path(out_root) if out_root is not None else d.artifacts_root
+    stamp = utc_now_iso().replace(":", "").replace("-", "")
+    name = f"{identity.get('name')}-{identity.get('version')}"
+    pipeline_dir = root / name / stamp
+    pipeline_dir.mkdir(parents=True, exist_ok=True)
+
+    digests = (
+        dict(stage_digests)
+        if stage_digests is not None
+        else collect_stage_digests(state.stage_results)
+    )
+
+    receipt: dict[str, Any] = {
+        "schema_version": SCHEMA_VERSION,
+        "created_at": utc_now_iso(),
+        "stages": list(state.stages),
+        "stage_results": dict(state.stage_results),
+        "stage_digests": digests,
+        "ok": state.pipeline_ok,
+        "verdict": state.terminal_verdict,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+        "stage_engine": True,
+        "pipeline_dialect": d.name,
+        "control_engine": True,
+        "control_mode": "pipeline",
+        "control_dialect": d.name,
+    }
+    for key, value in identity.items():
+        receipt[key] = value
+    if extra_fields:
+        receipt.update(dict(extra_fields))
+
+    if digest_payload is not None:
+        chain = _sha256_json(digest_payload(receipt))
+    else:
+        chain = _sha256_json(
+            {
+                "schema_version": SCHEMA_VERSION,
+                "name": receipt.get("name"),
+                "version": receipt.get("version"),
+                "defect_ids": receipt.get("defect_ids"),
+                "stages": receipt.get("stages"),
+                "stage_digests": digests,
+                "ok": receipt.get("ok"),
+                "verdict": receipt.get("verdict"),
+            }
+        )
+    receipt[d.self_digest_field] = chain
+    atomic_write_json(pipeline_dir / d.receipt_name, receipt)
+
+    if summary_lines is None:
+        lines = [
+            f"# Pipeline {d.name} {name}",
+            f"verdict: {state.terminal_verdict}",
+            f"ok: {state.pipeline_ok}",
+            f"stages: {', '.join(state.stages)}",
+            "",
+        ]
+        for stage_name in state.stages:
+            sr = state.stage_results.get(stage_name) or {}
+            lines.append(
+                f"## {stage_name}: {sr.get('verdict')} (ok={sr.get('ok')})"
+            )
+        summary_lines = lines
+    (pipeline_dir / "summary.md").write_text(
+        "\n".join(summary_lines) + "\n", encoding="utf-8"
+    )
+
+    return {
+        "ok": state.pipeline_ok,
+        "verdict": state.terminal_verdict,
+        d.self_dir_field: str(pipeline_dir),
+        d.self_digest_field: chain,
+        "stage_results": dict(state.stage_results),
+        "stages": list(state.stages),
+        "name": receipt.get("name"),
+        "version": receipt.get("version"),
+        "defect_ids": list(receipt.get("defect_ids") or []),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+        "stage_engine": True,
+        "pipeline_dialect": d.name,
+        "control_engine": True,
+        "control_mode": "pipeline",
+        "control_dialect": d.name,
+        "receipt": receipt,
+    }
+
+
+def verify_pipeline_digest(
+    pipeline_dir: Path,
+    *,
+    dialect: PipelineDialect | str = "campaign",
+    digest_payload: Callable[[Mapping[str, Any]], Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Re-check only the chain digest field (artifact re-hash is dialect-side)."""
+    d = get_pipeline_dialect(dialect) if isinstance(dialect, str) else dialect
+    receipt_path = durable_read_path(Path(pipeline_dir) / d.receipt_name)
+    if not receipt_path.is_file():
+        return {"ok": False, "error": f"missing receipt: {receipt_path}"}
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    stage_digests = dict(receipt.get("stage_digests") or {})
+    if digest_payload is not None:
+        expected = _sha256_json(digest_payload(receipt))
+    else:
+        expected = _sha256_json(
+            {
+                "schema_version": receipt.get("schema_version", SCHEMA_VERSION),
+                "name": receipt.get("name"),
+                "version": receipt.get("version"),
+                "defect_ids": receipt.get("defect_ids"),
+                "stages": receipt.get("stages"),
+                "stage_digests": stage_digests,
+                "ok": receipt.get("ok"),
+                "verdict": receipt.get("verdict"),
+            }
+        )
+    actual = receipt.get(d.self_digest_field)
+    mismatched: list[str] = []
+    problems: list[str] = []
+    if expected != actual:
+        mismatched.append(d.self_digest_field)
+        problems.append(f"{d.name} chain digest mismatch")
+    return {
+        "ok": not problems and not mismatched,
+        "problems": problems,
+        "mismatched": mismatched,
+        d.self_digest_field: actual,
+        "verdict": receipt.get("verdict"),
+        "stage_engine": receipt.get("stage_engine"),
+        "pipeline_dialect": receipt.get("pipeline_dialect"),
+    }
+
+
+# ---------------------------------------------------------------------------
+# hermetic proof
+
+
+def builtin_stage_engine_proof() -> dict[str, Any]:
+    """Hermetic proof that the stage engine owns multi-dialect pipeline control flow.
+
+    Proves:
+    - multi-dialect registration (campaign + fleet)
+    - engine-native multi-stage run with abort-on-fail and soft-fail
+    - engine-native fleet dialect seal + abort
+    - digest seal + tamper detection
+    - live ``upstream_campaign.run_campaign`` and ``upstream_fleet.plan_fleet``
+      set stage_engine ownership
+    - live campaign + fleet builtin proofs stay green
+    - ledger binding for capability.upstream-stage-engine
+    - no skill-route discovery
+    """
+    scratch = Path(tempfile.mkdtemp(prefix="stage-engine-proof-"))
+    try:
+        dialects = list_pipeline_dialects()
+        dialects_ok = (
+            dialects == ["campaign", "fleet"]
+            and "campaign" in PIPELINE_DIALECTS
+            and "fleet" in PIPELINE_DIALECTS
+        )
+        campaign_d = get_pipeline_dialect("campaign")
+        fleet_d = get_pipeline_dialect("fleet")
+        known_stages_ok = (
+            set(CAMPAIGN_STAGES) == set(campaign_d.valid_stages)
+            and set(FLEET_STAGES) == set(fleet_d.valid_stages)
+        )
+
+        # --- engine-native pipeline (no campaign domain deps) ---
+        calls: list[str] = []
+
+        def run_stage(state: PipelineState, name: str) -> dict[str, Any]:
+            calls.append(name)
+            ctx = state.context
+            if name == "discovery":
+                return {
+                    "stage": "discovery",
+                    "ok": True,
+                    "verdict": "scanned",
+                    "report_sha256": "d" * 64,
+                    "finding_count": 1,
+                }
+            if name == "admit":
+                ctx["admitted"] = True
+                return {
+                    "stage": "admit",
+                    "ok": True,
+                    "verdict": "admitted",
+                    "admission_digest": "a" * 64,
+                    "admitted_count": 1,
+                }
+            if name == "repair":
+                # Fail hard to prove abort short-circuit.
+                if ctx.get("force_repair_fail"):
+                    return {
+                        "stage": "repair",
+                        "ok": False,
+                        "verdict": "repair_failed",
+                    }
+                return {
+                    "stage": "repair",
+                    "ok": True,
+                    "verdict": "repaired",
+                    "report_digest": "r" * 64,
+                }
+            if name == "contribution":
+                return {
+                    "stage": "contribution",
+                    "ok": True,
+                    "verdict": "submittable_ready",
+                    "defects": [
+                        {
+                            "defect_id": "d1",
+                            "ok": True,
+                            "submittable": True,
+                            "verdict": "ready",
+                            "bundle_sha256": "b" * 64,
+                        }
+                    ],
+                    "submittable_count": 1,
+                }
+            if name == "publication":
+                if ctx.get("soft_pub_fail"):
+                    return {
+                        "stage": "publication",
+                        "ok": False,
+                        "verdict": "publication_failed",
+                        "publications": [],
+                        "published_count": 0,
+                    }
+                return {
+                    "stage": "publication",
+                    "ok": True,
+                    "verdict": "published",
+                    "publications": [
+                        {
+                            "bundle_dir": "/tmp/bundle-d1",
+                            "ok": True,
+                            "published": True,
+                            "verdict": "published",
+                            "receipt_sha256": "p" * 64,
+                        }
+                    ],
+                    "published_count": 1,
+                }
+            if name == "impact":
+                return {
+                    "stage": "impact",
+                    "ok": True,
+                    "verdict": "impact_open",
+                    "assessments": [
+                        {
+                            "defect_id": "d1",
+                            "ok": True,
+                            "outcome": "impact_open",
+                            "impact_digest": "i" * 64,
+                            "certificate_sha256": "c" * 64,
+                        }
+                    ],
+                    "assessed_count": 1,
+                }
+            raise StageRefused("stage_unknown", name)
+
+        def after_stage(state: PipelineState, name: str, result: Mapping[str, Any]) -> None:
+            if name == "contribution":
+                state.context["submittable"] = int(result.get("submittable_count") or 0)
+
+        def classify(state: PipelineState) -> tuple[bool, str]:
+            if not state.pipeline_ok:
+                return False, state.terminal_verdict
+            # Prefer outermost stage verdict when present.
+            for name in reversed(state.stages):
+                sr = state.stage_results.get(name) or {}
+                if sr.get("verdict"):
+                    return True, str(sr["verdict"])
+            return True, "pipeline_complete"
+
+        def seal(state: PipelineState) -> dict[str, Any]:
+            return seal_pipeline_receipt(
+                state,
+                out_root=scratch / "engine-native",
+                identity={
+                    "name": "engineprobe",
+                    "version": "1.0.0",
+                    "defect_ids": ["d1"],
+                    "publish_requested": True,
+                    "target": str(scratch / "target"),
+                },
+            )
+
+        full = run_stage_pipeline(
+            "campaign",
+            stages=CAMPAIGN_STAGES,
+            run_stage=run_stage,
+            after_stage=after_stage,
+            classify_verdict=classify,
+            seal=seal,
+            initial_context={},
+            initial_verdict="campaign_complete",
+        )
+        full_ok = (
+            full.get("ok")
+            and full.get("stage_engine") is True
+            and full.get("pipeline_dialect") == "campaign"
+            and full.get("verdict") == "impact_open"
+            and calls == list(CAMPAIGN_STAGES)
+            and "impact" in full.get("stage_results", {})
+        )
+        full_dir = Path(full["campaign_dir"])
+        verified = verify_pipeline_digest(full_dir, dialect="campaign")
+        seal_ok = bool(verified.get("ok"))
+
+        # Tamper
+        rp = full_dir / "receipt.json"
+        body = json.loads(rp.read_text(encoding="utf-8"))
+        body["campaign_digest"] = "0" * 64
+        rp.write_text(json.dumps(body, indent=2), encoding="utf-8")
+        tampered = verify_pipeline_digest(full_dir, dialect="campaign")
+        tamper_ok = (not tampered.get("ok")) and "campaign_digest" in (
+            tampered.get("mismatched") or []
+        )
+
+        # Hard abort: repair fails → contribution must not run.
+        calls.clear()
+        aborted = run_stage_pipeline(
+            "campaign",
+            stages=("repair", "contribution", "publication"),
+            run_stage=run_stage,
+            after_stage=after_stage,
+            classify_verdict=classify,
+            seal=seal,
+            initial_context={"force_repair_fail": True},
+        )
+        abort_ok = (
+            not aborted.get("ok")
+            and aborted.get("verdict") == "repair_failed"
+            and aborted.get("aborted") is True
+            and aborted.get("abort_stage") == "repair"
+            and calls == ["repair"]
+            and "contribution" not in aborted.get("stage_results", {})
+            and aborted.get("stage_engine") is True
+        )
+
+        # Soft fail: publication fails but still seals (does not abort mid-run
+        # in the same hard way — actually publication is NOT in abort_on_fail,
+        # so pipeline continues; with only publication as last stage, ok=False).
+        calls.clear()
+        soft = run_stage_pipeline(
+            "campaign",
+            stages=("contribution", "publication"),
+            run_stage=run_stage,
+            after_stage=after_stage,
+            classify_verdict=classify,
+            seal=seal,
+            initial_context={"soft_pub_fail": True},
+        )
+        soft_ok = (
+            not soft.get("ok")
+            and soft.get("verdict") == "publication_failed"
+            and calls == ["contribution", "publication"]
+            and soft.get("aborted") is False
+        )
+
+        # Unknown stages refused (both dialects).
+        unknown_refused = False
+        try:
+            normalize_stages("campaign", ("repair", "not_a_stage"))
+        except StageRefused as exc:
+            unknown_refused = exc.verdict == "stages_unknown"
+        fleet_unknown_refused = False
+        try:
+            normalize_stages("fleet", ("inventory", "not_a_stage"))
+        except StageRefused as exc:
+            fleet_unknown_refused = exc.verdict == "stages_unknown"
+
+        # --- engine-native fleet dialect (no fleet domain deps) ---
+        fleet_calls: list[str] = []
+
+        def run_fleet_stage(state: PipelineState, name: str) -> dict[str, Any]:
+            fleet_calls.append(name)
+            ctx = state.context
+            if name == "inventory":
+                if ctx.get("force_empty"):
+                    return {
+                        "stage": "inventory",
+                        "ok": False,
+                        "verdict": "fleet_empty",
+                        "inventory_count": 0,
+                    }
+                ctx["inventory"] = [{"name": "alpha", "version": "1.0.0"}]
+                return {
+                    "stage": "inventory",
+                    "ok": True,
+                    "verdict": "inventoried",
+                    "inventory_count": 1,
+                }
+            if name == "portfolio":
+                ctx["portfolio"] = {"entries": [], "portfolio_digest": "p" * 64}
+                ctx["portfolio_source"] = "injected"
+                return {
+                    "stage": "portfolio",
+                    "ok": True,
+                    "verdict": "portfolio_ready",
+                    "portfolio_source": "injected",
+                    "portfolio_digest": "p" * 64,
+                }
+            if name == "rank":
+                actions = [
+                    {
+                        "action": "campaign_patch_bound",
+                        "name": "alpha",
+                        "version": "1.0.0",
+                        "campaignable": True,
+                        "priority": 40,
+                        "rank": 1,
+                    }
+                ]
+                ctx["actions"] = actions
+                ctx["campaignable"] = [a for a in actions if a.get("campaignable")]
+                return {
+                    "stage": "rank",
+                    "ok": True,
+                    "verdict": "ranked",
+                    "action_count": len(actions),
+                    "campaignable_count": 1,
+                    "top_action": actions[0],
+                }
+            if name == "dispatch":
+                if ctx.get("force_dispatch_fail"):
+                    return {
+                        "stage": "dispatch",
+                        "ok": False,
+                        "verdict": "dispatch_failed",
+                        "dispatched_count": 1,
+                        "dispatched_ok": 0,
+                        "dispatches": [{"ok": False, "verdict": "dispatch_error"}],
+                    }
+                dig = "d" * 64
+                return {
+                    "stage": "dispatch",
+                    "ok": True,
+                    "verdict": "fleet_dispatched",
+                    "dispatched_count": 1,
+                    "dispatched_ok": 1,
+                    "dispatches": [
+                        {
+                            "ok": True,
+                            "verdict": "dispatched_proof",
+                            "campaign_digest": dig,
+                        }
+                    ],
+                    "dispatch_digests": {"alpha-1.0.0-campaign_patch_bound": dig},
+                }
+            raise StageRefused("stage_unknown", name)
+
+        def fleet_classify(state: PipelineState) -> tuple[bool, str]:
+            if state.aborted or not state.pipeline_ok:
+                return False, state.terminal_verdict
+            if "dispatch" in state.stage_results:
+                disp = state.stage_results["dispatch"]
+                if disp.get("ok") and int(disp.get("dispatched_ok") or 0) > 0:
+                    return True, "fleet_dispatched"
+            campaignable = state.context.get("campaignable") or []
+            if campaignable:
+                return True, "fleet_ranked"
+            actions = state.context.get("actions") or []
+            if actions:
+                return True, "fleet_monitor_only"
+            return True, "fleet_idle"
+
+        def fleet_seal(state: PipelineState) -> dict[str, Any]:
+            return seal_pipeline_receipt(
+                state,
+                out_root=scratch / "fleet-engine-native",
+                identity={
+                    "name": "fleetprobe",
+                    "version": "1.0.0",
+                    "inventory_count": len(state.context.get("inventory") or []),
+                    "action_count": len(state.context.get("actions") or []),
+                },
+                stage_digests={
+                    "inventory.verdict": _sha256_bytes(
+                        str(
+                            (state.stage_results.get("inventory") or {}).get("verdict")
+                            or ""
+                        ).encode("utf-8")
+                    ),
+                    "rank.verdict": _sha256_bytes(
+                        str(
+                            (state.stage_results.get("rank") or {}).get("verdict") or ""
+                        ).encode("utf-8")
+                    ),
+                },
+                digest_payload=lambda receipt: {
+                    "schema_version": SCHEMA_VERSION,
+                    "name": receipt.get("name"),
+                    "version": receipt.get("version"),
+                    "stages": receipt.get("stages"),
+                    "stage_digests": receipt.get("stage_digests"),
+                    "ok": receipt.get("ok"),
+                    "verdict": receipt.get("verdict"),
+                },
+            )
+
+        fleet_full = run_stage_pipeline(
+            "fleet",
+            stages=FLEET_STAGES,
+            run_stage=run_fleet_stage,
+            classify_verdict=fleet_classify,
+            seal=fleet_seal,
+            initial_context={},
+            initial_verdict="fleet_ranked",
+        )
+        fleet_native_ok = (
+            fleet_full.get("ok")
+            and fleet_full.get("stage_engine") is True
+            and fleet_full.get("pipeline_dialect") == "fleet"
+            and fleet_full.get("verdict") == "fleet_dispatched"
+            and fleet_calls == list(FLEET_STAGES)
+            and bool(fleet_full.get("fleet_digest") or fleet_full.get("plan_dir"))
+        )
+        fleet_dir = Path(fleet_full.get("plan_dir") or "")
+        fleet_verified = verify_pipeline_digest(
+            fleet_dir,
+            dialect="fleet",
+            digest_payload=lambda receipt: {
+                "schema_version": SCHEMA_VERSION,
+                "name": receipt.get("name"),
+                "version": receipt.get("version"),
+                "stages": receipt.get("stages"),
+                "stage_digests": receipt.get("stage_digests"),
+                "ok": receipt.get("ok"),
+                "verdict": receipt.get("verdict"),
+            },
+        )
+        fleet_seal_ok = bool(fleet_verified.get("ok"))
+
+        # Fleet hard abort: empty inventory stops before rank/dispatch.
+        fleet_calls.clear()
+        fleet_aborted = run_stage_pipeline(
+            "fleet",
+            stages=FLEET_STAGES,
+            run_stage=run_fleet_stage,
+            classify_verdict=fleet_classify,
+            seal=fleet_seal,
+            initial_context={"force_empty": True},
+        )
+        fleet_abort_ok = (
+            not fleet_aborted.get("ok")
+            and fleet_aborted.get("verdict") == "fleet_empty"
+            and fleet_aborted.get("aborted") is True
+            and fleet_aborted.get("abort_stage") == "inventory"
+            and fleet_calls == ["inventory"]
+            and "rank" not in fleet_aborted.get("stage_results", {})
+            and fleet_aborted.get("stage_engine") is True
+            and fleet_aborted.get("pipeline_dialect") == "fleet"
+        )
+
+        # Fleet soft fail: dispatch fails but still seals after rank.
+        fleet_calls.clear()
+        fleet_soft = run_stage_pipeline(
+            "fleet",
+            stages=FLEET_STAGES,
+            run_stage=run_fleet_stage,
+            classify_verdict=fleet_classify,
+            seal=fleet_seal,
+            initial_context={"force_dispatch_fail": True},
+        )
+        fleet_soft_ok = (
+            not fleet_soft.get("ok")
+            and fleet_soft.get("verdict") == "dispatch_failed"
+            and fleet_calls == list(FLEET_STAGES)
+            and fleet_soft.get("aborted") is False
+            and fleet_soft.get("pipeline_dialect") == "fleet"
+        )
+
+        # Live campaign module ownership.
+        from blackhole_agent import upstream_campaign as ucamp
+        from blackhole_agent import upstream_fleet as ufleet
+
+        campaign_uses_engine = getattr(ucamp, "STAGE_ENGINE", False) is True
+        campaign_dialect = getattr(ucamp, "STAGE_ENGINE_DIALECT", "") == "campaign"
+        fleet_uses_engine = getattr(ufleet, "STAGE_ENGINE", False) is True
+        fleet_dialect = getattr(ufleet, "STAGE_ENGINE_DIALECT", "") == "fleet"
+
+        # Re-prove live campaign + fleet (must stay green after multi-dialect).
+        live_proof = ucamp.builtin_upstream_campaign_proof()
+        live_proof_ok = bool(live_proof.get("ok"))
+        live_fleet_proof = ufleet.builtin_upstream_fleet_proof()
+        live_fleet_proof_ok = bool(live_fleet_proof.get("ok"))
+
+        # Spot-check live run_campaign advertises stage_engine ownership.
+        # Reuse a minimal hermetic contribution→publication dry path via proof
+        # target when available; fall back to flag check alone if fixtures fail.
+        live_flag = False
+        live_digest_present = False
+        live_exc = ""
+        try:
+            from blackhole_agent import upstream_contribution as uc
+            from blackhole_agent import upstream_publication as upub
+
+            target = uc._proof_target(scratch / "live-stew-unique")
+            repo_url = "https://github.com/proof/contribprobe"
+            head_url = uc.github_archive_url(repo_url, "HEAD")
+            tag_archive = uc._proof_archive(uc._PROOF_INIT_BUGGY)
+
+            def fetcher(url: str) -> bytes:
+                if url == head_url:
+                    return uc._proof_archive(
+                        uc._PROOF_INIT_BUGGY, top=f"{uc._PROOF_PKG}-HEAD"
+                    )
+                return tag_archive
+
+            _upstream, fork = upub._proof_remotes(
+                scratch / "live-remotes", upub._PROOF_SOURCE_V1
+            )
+            gh = upub._FakeGh(fork)
+
+            def publisher(bundle_dir: Path, **kwargs: Any) -> dict[str, Any]:
+                pub_bundle = upub._proof_write_bundle(
+                    scratch / "live-pub-bundle" / Path(bundle_dir).name,
+                    patch=upub._PROOF_PATCH,
+                    test_text=upub._PROOF_TEST,
+                    repro_text=upub._PROOF_REPRO,
+                )
+                return upub.publish_contribution(
+                    pub_bundle,
+                    publish=False,
+                    gh=gh,
+                    verifier=upub._proof_verifier,
+                    manifest={"contribution": {"tests_subdir": "tests"}},
+                    out_root=kwargs.get("out_root") or (scratch / "live-pub"),
+                )
+
+            live = ucamp.run_campaign(
+                target,
+                stages=("contribution", "publication"),
+                publish=False,
+                fetcher=fetcher,
+                publisher=publisher,
+                contribution_out_root=scratch / "live-contrib",
+                publication_out_root=scratch / "live-pub",
+                out_root=scratch / "live-campaigns",
+            )
+            live_flag = (
+                live.get("stage_engine") is True
+                and live.get("pipeline_dialect") == "campaign"
+            )
+            live_digest_present = bool(live.get("campaign_digest"))
+        except Exception as exc:  # noqa: BLE001
+            live_flag = False
+            live_digest_present = False
+            live_exc = f"{type(exc).__name__}: {exc}"[:300]
+
+        # Spot-check live plan_fleet advertises stage_engine + fleet dialect.
+        live_fleet_flag = False
+        live_fleet_digest = False
+        live_fleet_exc = ""
+        try:
+            stew = scratch / "live-fleet-stew"
+            stew.mkdir(parents=True, exist_ok=True)
+            ufleet._proof_target(
+                stew,
+                name="livealpha",
+                version="1.0.0",
+                defects=[
+                    {
+                        "id": "live-dos",
+                        "title": "live dos",
+                        "kind": "complexity",
+                        "patch": "patches/live-dos.patch",
+                        "repro": "repros/live_dos.py",
+                    }
+                ],
+            )
+            live_fleet = ufleet.plan_fleet(
+                stewardship_root=stew,
+                portfolio=ufleet._proof_portfolio(
+                    [
+                        {
+                            "name": "livealpha",
+                            "version": "1.0.0",
+                            "defect_id": "live-dos",
+                            "outcome": "impact_closed_unmerged",
+                            "impact_digest": "f" * 64,
+                            "ok": True,
+                        }
+                    ]
+                ),
+                dispatch=False,
+                out_root=scratch / "live-fleet-plans",
+            )
+            live_fleet_flag = (
+                live_fleet.get("stage_engine") is True
+                and live_fleet.get("pipeline_dialect") == "fleet"
+            )
+            live_fleet_digest = bool(live_fleet.get("fleet_digest"))
+        except Exception as exc:  # noqa: BLE001
+            live_fleet_flag = False
+            live_fleet_digest = False
+            live_fleet_exc = f"{type(exc).__name__}: {exc}"[:300]
+
+        multi_dialect_owned = (
+            campaign_uses_engine
+            and campaign_dialect
+            and fleet_uses_engine
+            and fleet_dialect
+            and live_flag
+            and live_fleet_flag
+        )
+
+        # Ledger binding.
+        from blackhole_agent.capability_compounder import (
+            default_ledger_path,
+            load_ledger,
+        )
+
+        ledger_path = default_ledger_path(REPO_ROOT)
+        ledger_ok = False
+        try:
+            ledger = load_ledger(ledger_path)
+            entry = ledger.capabilities.get("capability.upstream-stage-engine")
+            tags_blob = " ".join(entry.tags).lower() if entry else ""
+            delta_blob = (entry.capability_delta or "").lower() if entry else ""
+            ledger_ok = (
+                entry is not None
+                and "upstream_stage_engine" in (entry.entry or "")
+                and "stage" in tags_blob
+                and ("fleet" in tags_blob or "fleet" in delta_blob or "multi" in delta_blob)
+            )
+        except Exception:  # noqa: BLE001
+            ledger_ok = False
+
+        # LOC evidence: engine is the shared orchestration core.
+        engine_path = Path(__file__).resolve()
+        engine_loc = sum(
+            1
+            for line in engine_path.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.strip().startswith("#")
+        )
+        campaign_path = (
+            REPO_ROOT / "src" / "blackhole_agent" / "upstream_campaign.py"
+        )
+        campaign_loc = 0
+        if campaign_path.is_file():
+            campaign_loc = sum(
+                1
+                for line in campaign_path.read_text(encoding="utf-8").splitlines()
+                if line.strip() and not line.strip().startswith("#")
+            )
+        fleet_path = REPO_ROOT / "src" / "blackhole_agent" / "upstream_fleet.py"
+        fleet_loc = 0
+        if fleet_path.is_file():
+            fleet_loc = sum(
+                1
+                for line in fleet_path.read_text(encoding="utf-8").splitlines()
+                if line.strip() and not line.strip().startswith("#")
+            )
+
+        ok = all(
+            [
+                dialects_ok,
+                known_stages_ok,
+                full_ok,
+                seal_ok,
+                tamper_ok,
+                abort_ok,
+                soft_ok,
+                unknown_refused,
+                fleet_unknown_refused,
+                fleet_native_ok,
+                fleet_seal_ok,
+                fleet_abort_ok,
+                fleet_soft_ok,
+                campaign_uses_engine,
+                campaign_dialect,
+                fleet_uses_engine,
+                fleet_dialect,
+                live_flag,
+                live_digest_present,
+                live_proof_ok,
+                live_fleet_flag,
+                live_fleet_digest,
+                live_fleet_proof_ok,
+                multi_dialect_owned,
+                ledger_ok,
+                not legacy_pipeline_was_used(),
+            ]
+        )
+        return {
+            "ok": ok,
+            "action": "stage_engine_proof",
+            "dialect_count": len(dialects),
+            "dialects": dialects,
+            "dialects_ok": dialects_ok,
+            "known_stages_ok": known_stages_ok,
+            "engine_native_ok": full_ok,
+            "seal_verified": seal_ok,
+            "tamper_detected": tamper_ok,
+            "hard_abort_ok": abort_ok,
+            "soft_fail_ok": soft_ok,
+            "unknown_stages_refused": unknown_refused and fleet_unknown_refused,
+            "fleet_engine_native_ok": fleet_native_ok,
+            "fleet_seal_verified": fleet_seal_ok,
+            "fleet_hard_abort_ok": fleet_abort_ok,
+            "fleet_soft_fail_ok": fleet_soft_ok,
+            "campaign_stage_engine": campaign_uses_engine,
+            "campaign_stage_engine_dialect": campaign_dialect,
+            "fleet_stage_engine": fleet_uses_engine,
+            "fleet_stage_engine_dialect": fleet_dialect,
+            "multi_dialect_owned": multi_dialect_owned,
+            "live_campaign_flag": live_flag,
+            "live_campaign_digest": live_digest_present,
+            "live_campaign_proof_ok": live_proof_ok,
+            "live_fleet_flag": live_fleet_flag,
+            "live_fleet_digest": live_fleet_digest,
+            "live_fleet_proof_ok": live_fleet_proof_ok,
+            "live_exc": live_exc,
+            "live_fleet_exc": live_fleet_exc,
+            "ledger_capability_ok": ledger_ok,
+            "engine_loc": engine_loc,
+            "campaign_loc": campaign_loc,
+            "fleet_loc": fleet_loc,
+            "engine_native_digest": full.get("campaign_digest"),
+            "fleet_engine_native_digest": fleet_full.get("fleet_digest"),
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "done_when_met": ok,
+        }
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+
+
+# ===== LOOP MODE (multi-round durable dialects) =====
+
+class LoopRefused(Exception):
+    """A verdict-bearing refusal from the generic loop engine."""
+
+    def __init__(self, verdict: str, detail: str):
+        super().__init__(f"{verdict}: {detail}")
+        self.verdict = verdict
+        self.detail = detail
+
+
+@dataclass(frozen=True)
+class LoopDialect:
+    """Nouns and stop-reason vocabulary for one multi-round durable loop."""
+
+    name: str  # self noun: program | succession | epoch
+    child: str  # child noun: succession | epoch | wave
+    child_plural: str
+    max_stop_reason: str
+    goal_stop_reason: str
+    idle_stop_reason: str
+    rank_only_stop_reason: str = "rank_only"
+    budget_stop_reason: str = "dispatch_budget"
+    artifacts_relative: str = ""
+    receipt_filename: str = ""
+    digest_field: str = ""
+    dir_field: str = ""
+    count_field: str = ""
+    digests_field: str = ""
+    met_field: str = ""
+    records_field: str = ""
+
+    @property
+    def artifacts_root(self) -> Path:
+        rel = self.artifacts_relative or f"artifacts/upstream-{self.name}"
+        return REPO_ROOT / rel
+
+    @property
+    def receipt_name(self) -> str:
+        return self.receipt_filename or f"{self.name}.json"
+
+    @property
+    def self_digest_field(self) -> str:
+        return self.digest_field or f"{self.name}_digest"
+
+    @property
+    def self_dir_field(self) -> str:
+        return self.dir_field or f"{self.name}_dir"
+
+    @property
+    def child_count_field(self) -> str:
+        return self.count_field or f"{self.child}_count"
+
+    @property
+    def child_digests_field(self) -> str:
+        return self.digests_field or f"{self.child}_digests"
+
+    @property
+    def self_met_field(self) -> str:
+        return self.met_field or f"{self.name}_met"
+
+    @property
+    def child_records_field(self) -> str:
+        return self.records_field or self.child_plural
+
+
+# Registered leaf multi-round dialects (outer → inner).
+LOOP_STACK: tuple[LoopDialect, ...] = (
+    LoopDialect(
+        name="program",
+        child="succession",
+        child_plural="successions",
+        max_stop_reason="max_successions",
+        goal_stop_reason="program_met",
+        idle_stop_reason="program_idle",
+        artifacts_relative="artifacts/upstream-program",
+        met_field="program_met",
+    ),
+    LoopDialect(
+        name="succession",
+        child="epoch",
+        child_plural="epochs",
+        max_stop_reason="max_epochs",
+        goal_stop_reason="mandate_met",
+        idle_stop_reason="succession_idle",
+        artifacts_relative="artifacts/upstream-succession",
+        met_field="mandate_met",
+    ),
+    LoopDialect(
+        name="epoch",
+        child="wave",
+        child_plural="waves",
+        max_stop_reason="max_waves",
+        goal_stop_reason="epoch_idle",  # epoch "goal" is often idle/no-work
+        idle_stop_reason="epoch_idle",
+        artifacts_relative="artifacts/upstream-epoch",
+        met_field="epoch_idle",
+        digests_field="wave_digests",
+    ),
+)
+
+LOOP_DIALECTS: dict[str, LoopDialect] = {d.name: d for d in LOOP_STACK}
+
+
+def get_loop_dialect(name: str) -> LoopDialect:
+    key = str(name or "").strip().lower()
+    if key not in LOOP_DIALECTS:
+        raise LoopRefused(
+            "loop_unknown_dialect",
+            f"unknown loop dialect {name!r}; known={sorted(LOOP_DIALECTS)}",
+        )
+    return LOOP_DIALECTS[key]
+
+
+def list_loop_dialects() -> list[str]:
+    return [d.name for d in LOOP_STACK]
+
+
+
+
+@dataclass
+class LoopState:
+    """Mutable round-loop state threaded through hooks."""
+
+    dialect: LoopDialect
+    portfolio: dict[str, Any] | None
+    portfolio_source: str
+    portfolio_start_digest: str | None
+    loop_dir: Path
+    child_root: Path
+    max_rounds: int
+    dispatch: bool
+    dispatch_budget: int | None
+    idle_limit: int
+    total_dispatched: int = 0
+    total_dispatched_ok: int = 0
+    idle_streak: int = 0
+    stop_reason: str = ""
+    goal_met: bool = False
+    records: list[dict[str, Any]] = field(default_factory=list)
+    child_digests: list[str] = field(default_factory=list)
+    extras: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def round_index(self) -> int:
+        return len(self.records)
+
+
+# Hook types -----------------------------------------------------------------
+
+BuildChildKwargs = Callable[[LoopState, int], dict[str, Any]]
+OnChildResult = Callable[[LoopState, int, dict[str, Any]], dict[str, Any] | None]
+# Returns optional record dict (appended). May mutate state.portfolio etc.
+PreRoundStop = Callable[[LoopState, int], str | None]
+PostRoundStop = Callable[[LoopState, int, dict[str, Any]], str | None]
+IsIdleRound = Callable[[LoopState, int, dict[str, Any]], bool]
+LoopClassifyVerdict = Callable[[LoopState], tuple[bool, str]]
+SealLoop = Callable[[LoopState], dict[str, Any]]
+ExtractDispatched = Callable[[dict[str, Any]], tuple[int, int]]
+ExtractChildDigest = Callable[[dict[str, Any]], str | None]
+ExtractPortfolio = Callable[[LoopState, dict[str, Any]], dict[str, Any] | None]
+
+
+def resolve_portfolio(
+    *,
+    portfolio: Mapping[str, Any] | None = None,
+    portfolio_dir: Path | None = None,
+    recompute_digest: Callable[[MutableMapping[str, Any]], str] | None = None,
+) -> tuple[dict[str, Any] | None, str, str | None]:
+    """Resolve starting portfolio from inject / dir / none."""
+    current: dict[str, Any] | None = None
+    source = "none"
+    if portfolio is not None:
+        current = dict(portfolio)
+        source = "injected"
+    elif portfolio_dir is not None:
+        path = durable_read_path(Path(portfolio_dir) / "portfolio.json")
+        if not path.is_file():
+            raise LoopRefused(
+                "portfolio_missing", f"no portfolio.json under {portfolio_dir}"
+            )
+        current = json.loads(path.read_text(encoding="utf-8"))
+        source = "dir"
+    start_digest = current.get("portfolio_digest") if current else None
+    if current and not start_digest and recompute_digest is not None:
+        start_digest = recompute_digest(current)
+        current["portfolio_digest"] = start_digest
+    elif current:
+        start_digest = current.get("portfolio_digest")
+    return current, source, start_digest
+
+
+def open_loop_dir(
+    dialect: LoopDialect,
+    *,
+    out_root: Path | None = None,
+    child_out_root: Path | None = None,
+    child_subdir: str | None = None,
+    nest_stamp: bool = True,
+) -> tuple[Path, Path]:
+    """Create a stamped loop directory and child-output root.
+
+    Default matches succession/epoch legacy contract: ``out_root / <stamp>``
+    (or ``artifacts_root / <stamp>``). Pass ``nest_stamp=False`` to use
+    ``out_root`` itself as the loop directory (program-style).
+    """
+    stamp = utc_now_iso().replace(":", "").replace("-", "")
+    if out_root is not None and not nest_stamp:
+        loop_dir = Path(out_root)
+    else:
+        parent = Path(out_root) if out_root is not None else dialect.artifacts_root
+        loop_dir = parent / stamp
+    loop_dir.mkdir(parents=True, exist_ok=True)
+    child_root = (
+        Path(child_out_root)
+        if child_out_root is not None
+        else (loop_dir / (child_subdir or dialect.child_plural))
+    )
+    return loop_dir, child_root
+
+
+def default_extract_dispatched(result: Mapping[str, Any]) -> tuple[int, int]:
+    n = int(
+        result.get("total_dispatched")
+        if result.get("total_dispatched") is not None
+        else result.get("dispatched_count")
+        or 0
+    )
+    ok = int(
+        result.get("total_dispatched_ok")
+        if result.get("total_dispatched_ok") is not None
+        else result.get("dispatched_ok")
+        or 0
+    )
+    return n, ok
+
+
+def run_durable_loop(
+    dialect: LoopDialect | str,
+    *,
+    max_rounds: int,
+    dispatch: bool = True,
+    dispatch_budget: int | None = None,
+    idle_limit: int = 1,
+    portfolio: Mapping[str, Any] | None = None,
+    portfolio_dir: Path | None = None,
+    out_root: Path | None = None,
+    child_out_root: Path | None = None,
+    child_runner: Callable[..., dict[str, Any]],
+    build_child_kwargs: BuildChildKwargs,
+    on_child_result: OnChildResult,
+    pre_round_stop: PreRoundStop | None = None,
+    post_round_stop: PostRoundStop | None = None,
+    is_idle_round: IsIdleRound | None = None,
+    classify_verdict: LoopClassifyVerdict,
+    seal: SealLoop,
+    extract_dispatched: ExtractDispatched | None = None,
+    refuse_on_first: Sequence[type[BaseException]] = (),
+    recompute_digest: Callable[[MutableMapping[str, Any]], str] | None = None,
+    prior_total_dispatched: int = 0,
+    prior_total_dispatched_ok: int = 0,
+    initial_extras: Mapping[str, Any] | None = None,
+    wrap_refuse: Callable[[BaseException], BaseException] | None = None,
+    nest_stamp: bool = True,
+) -> dict[str, Any]:
+    """Run a multi-round durable loop and return the dialect seal result.
+
+    Control flow (shared by program / succession / epoch):
+
+    1. resolve portfolio
+    2. open loop dir
+    3. for round in 0..max_rounds-1:
+       a. pre_round_stop → break (goal already met, budget, …)
+       b. remaining budget → break if exhausted
+       c. child_runner(**build_child_kwargs)
+       d. accumulate dispatch counts
+       e. on_child_result → optional record
+       f. post_round_stop → break
+       g. idle streak → break
+       h. budget exhausted → break
+    4. classify_verdict + seal
+    """
+    d = get_loop_dialect(dialect) if isinstance(dialect, str) else dialect
+    if max_rounds < 1:
+        raise LoopRefused(f"{d.name}_invalid", f"max_rounds must be >= 1 for {d.name}")
+
+    current, source, start_digest = resolve_portfolio(
+        portfolio=portfolio,
+        portfolio_dir=portfolio_dir,
+        recompute_digest=recompute_digest,
+    )
+    loop_dir, child_root = open_loop_dir(
+        d,
+        out_root=out_root,
+        child_out_root=child_out_root,
+        nest_stamp=nest_stamp,
+    )
+
+    state = LoopState(
+        dialect=d,
+        portfolio=current,
+        portfolio_source=source,
+        portfolio_start_digest=start_digest,
+        loop_dir=loop_dir,
+        child_root=child_root,
+        max_rounds=max_rounds,
+        dispatch=bool(dispatch),
+        dispatch_budget=dispatch_budget,
+        idle_limit=max(1, int(idle_limit)),
+        total_dispatched=int(prior_total_dispatched),
+        total_dispatched_ok=int(prior_total_dispatched_ok),
+        stop_reason=d.max_stop_reason,
+        extras=dict(initial_extras or {}),
+    )
+    extract = extract_dispatched or default_extract_dispatched
+    refuse_types = tuple(refuse_on_first)
+
+    for round_index in range(max_rounds):
+        if pre_round_stop is not None:
+            reason = pre_round_stop(state, round_index)
+            if reason:
+                state.stop_reason = str(reason)
+                break
+
+        remaining_budget = None
+        if state.dispatch_budget is not None:
+            remaining_budget = max(
+                0, int(state.dispatch_budget) - state.total_dispatched
+            )
+            if state.dispatch and remaining_budget <= 0:
+                state.stop_reason = d.budget_stop_reason
+                break
+
+        kwargs = build_child_kwargs(state, round_index)
+        if remaining_budget is not None and "dispatch_budget" in kwargs:
+            # Caller may already have set it; keep their value if smaller.
+            try:
+                kwargs["dispatch_budget"] = min(
+                    int(kwargs["dispatch_budget"])
+                    if kwargs["dispatch_budget"] is not None
+                    else remaining_budget,
+                    remaining_budget,
+                )
+            except (TypeError, ValueError):
+                kwargs["dispatch_budget"] = remaining_budget
+
+        try:
+            child_result = child_runner(**kwargs)
+        except Exception as exc:  # noqa: BLE001 — dialect refuse mapping
+            if refuse_types and isinstance(exc, refuse_types):
+                if round_index == 0 and not state.extras.get("resumed"):
+                    if wrap_refuse is not None:
+                        raise wrap_refuse(exc) from exc
+                    raise
+                verdict = getattr(exc, "verdict", type(exc).__name__)
+                state.stop_reason = f"{d.child}_refused:{verdict}"
+                break
+            raise
+
+        dispatched_n, dispatched_ok = extract(child_result)
+        state.total_dispatched += dispatched_n
+        state.total_dispatched_ok += dispatched_ok
+
+        record = on_child_result(state, round_index, child_result)
+        if record is not None:
+            state.records.append(dict(record))
+
+        if post_round_stop is not None:
+            reason = post_round_stop(state, round_index, child_result)
+            if reason:
+                state.stop_reason = str(reason)
+                break
+
+        idle = False
+        if is_idle_round is not None:
+            idle = bool(is_idle_round(state, round_index, child_result))
+        else:
+            idle = dispatched_n == 0
+
+        if idle:
+            state.idle_streak += 1
+            if state.idle_streak >= state.idle_limit:
+                if not state.dispatch:
+                    state.stop_reason = d.rank_only_stop_reason
+                else:
+                    state.stop_reason = d.idle_stop_reason
+                break
+        else:
+            state.idle_streak = 0
+
+        if (
+            state.dispatch_budget is not None
+            and state.total_dispatched >= int(state.dispatch_budget)
+        ):
+            state.stop_reason = d.budget_stop_reason
+            break
+    else:
+        state.stop_reason = d.max_stop_reason
+
+    ok, verdict = classify_verdict(state)
+    state.extras["ok"] = ok
+    state.extras["verdict"] = verdict
+    result = seal(state)
+    # Ensure common fields always present for cross-dialect callers.
+    result.setdefault("ok", ok)
+    result.setdefault("verdict", verdict)
+    result.setdefault("stop_reason", state.stop_reason)
+    result.setdefault("total_dispatched", state.total_dispatched)
+    result.setdefault("total_dispatched_ok", state.total_dispatched_ok)
+    result.setdefault(d.self_dir_field, str(state.loop_dir))
+    result.setdefault(d.child_count_field, len(state.records))
+    result.setdefault(d.child_digests_field, list(state.child_digests))
+    result.setdefault("portfolio_start_digest", state.portfolio_start_digest)
+    result.setdefault(
+        "portfolio_end_digest",
+        (state.portfolio or {}).get("portfolio_digest") if state.portfolio else None,
+    )
+    result.setdefault("portfolio_source", state.portfolio_source)
+    result.setdefault("used_skill_route_discovery", legacy_pipeline_was_used())
+    result.setdefault("loop_engine", True)
+    result.setdefault("loop_dialect", d.name)
+    result.setdefault("control_engine", True)
+    result.setdefault("control_mode", "loop")
+    result.setdefault("control_dialect", d.name)
+    return result
+
+
+def seal_json_receipt(
+    state: LoopState,
+    receipt: Mapping[str, Any],
+    *,
+    digest_payload: Callable[[Mapping[str, Any]], Mapping[str, Any]],
+    summary_fields: Sequence[str] | None = None,
+) -> dict[str, Any]:
+    """Write receipt + summary under state.loop_dir; set digest field."""
+    body = dict(receipt)
+    body.setdefault("schema_version", SCHEMA_VERSION)
+    body.setdefault("created_at", utc_now_iso())
+    body.setdefault("used_skill_route_discovery", legacy_pipeline_was_used())
+    digest = _sha256_json(digest_payload(body))
+    body[state.dialect.self_digest_field] = digest
+    atomic_write_json(state.loop_dir / state.dialect.receipt_name, body)
+    summary: dict[str, Any] = {
+        "verdict": body.get("verdict"),
+        "ok": body.get("ok"),
+        "stop_reason": body.get("stop_reason"),
+        state.dialect.self_digest_field: digest,
+        state.dialect.child_count_field: body.get(state.dialect.child_count_field),
+        "total_dispatched": body.get("total_dispatched"),
+        "total_dispatched_ok": body.get("total_dispatched_ok"),
+    }
+    if summary_fields:
+        for key in summary_fields:
+            if key in body:
+                summary[key] = body[key]
+    atomic_write_json(state.loop_dir / "summary.json", summary)
+    return {
+        "ok": bool(body.get("ok")),
+        "verdict": body.get("verdict"),
+        "stop_reason": body.get("stop_reason"),
+        state.dialect.self_dir_field: str(state.loop_dir),
+        state.dialect.self_digest_field: digest,
+        state.dialect.child_count_field: len(state.records),
+        state.dialect.child_digests_field: list(state.child_digests),
+        "total_dispatched": state.total_dispatched,
+        "total_dispatched_ok": state.total_dispatched_ok,
+        "portfolio_start_digest": state.portfolio_start_digest,
+        "portfolio_end_digest": (
+            (state.portfolio or {}).get("portfolio_digest") if state.portfolio else None
+        ),
+        "portfolio_source": state.portfolio_source,
+        "used_skill_route_discovery": body.get("used_skill_route_discovery"),
+        "loop_engine": True,
+        "loop_dialect": state.dialect.name,
+        "control_engine": True,
+        "control_mode": "loop",
+        "control_dialect": state.dialect.name,
+        "receipt": body,
+    }
+
+
+def verify_loop_receipt(
+    dialect: LoopDialect | str,
+    loop_dir: Path,
+    *,
+    digest_payload: Callable[[Mapping[str, Any]], Mapping[str, Any]],
+    nested_verify: Callable[[Path], Mapping[str, Any]] | None = None,
+    nested_dir_field: str | None = None,
+) -> dict[str, Any]:
+    """Re-check a sealed loop receipt for digest integrity."""
+    d = get_loop_dialect(dialect) if isinstance(dialect, str) else dialect
+    path = durable_read_path(Path(loop_dir) / d.receipt_name)
+    if not path.is_file():
+        return {"ok": False, "verdict": "receipt_missing", "detail": str(path)}
+    try:
+        receipt = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return {"ok": False, "verdict": "receipt_unreadable", "detail": str(exc)}
+
+    expected = _sha256_json(digest_payload(receipt))
+    recorded = str(receipt.get(d.self_digest_field) or "")
+    mismatched: list[str] = []
+    if not recorded or recorded != expected:
+        mismatched.append(d.self_digest_field)
+
+    records = list(receipt.get(d.child_records_field) or [])
+    listed = list(receipt.get(d.child_digests_field) or [])
+    # Epoch uses fleet_digest per wave; succession uses epoch_digest per epoch.
+    # Only length-check listed digests when both present.
+    if listed and len(listed) != len(
+        [r for r in records if r.get(f"{d.child}_digest") or r.get("fleet_digest")]
+    ):
+        # soft: dialects may filter empty digests differently
+        pass
+
+    nested_failures: list[str] = []
+    if nested_verify is not None:
+        field_name = nested_dir_field or f"{d.child}_dir"
+        for rec in records:
+            nd = rec.get(field_name) or rec.get("plan_dir")
+            if not nd:
+                continue
+            np = Path(str(nd))
+            # Only verify when a receipt-like file exists under the nested dir.
+            if any(np.joinpath(name).is_file() for name in (
+                f"{d.child}.json",
+                "epoch.json",
+                "succession.json",
+                "plan.json",
+                "program.json",
+            )):
+                nested = nested_verify(np)
+                if not nested.get("ok"):
+                    nested_failures.append(str(nd))
+
+    ok = not mismatched and not nested_failures
+    return {
+        "ok": ok,
+        "verdict": f"{d.name}_sealed" if ok else f"{d.name}_tampered",
+        d.self_digest_field: recorded,
+        "expected_digest": expected,
+        "mismatched": mismatched,
+        "nested_failures": nested_failures,
+        d.child_count_field: len(records),
+        "loop_engine": True,
+        "control_engine": True,
+        "control_mode": "loop",
+    }
+
+
+# ---------------------------------------------------------------------------
+# builtin proof: engine registers 3 dialects + drives succession via adapter
+
+
+def builtin_loop_engine_proof() -> dict[str, Any]:
+    """Hermetic proof that the multi-round loop engine owns the leaf dialects.
+
+    Closes:
+    - 3 dialects registered as data (program, succession, epoch)
+    - program + succession + epoch runs go through run_durable_loop
+      (LOOP_ENGINE=True and loop_engine flag on live results)
+    - existing program / succession / epoch hermetic proofs still green
+    - nested composition: program → succession → epoch all engine-owned
+    - no skill-route discovery
+    """
+    from blackhole_agent import upstream_epoch as ue
+    from blackhole_agent import upstream_program as up
+    from blackhole_agent import upstream_succession as us
+    from blackhole_agent import upstream_fleet as uf
+
+    dialects = list_loop_dialects()
+    dialects_ok = dialects == ["program", "succession", "epoch"]
+
+    # Engine-native mini loop (no fleet): proves control flow hermetically.
+    scratch = Path(tempfile.mkdtemp(prefix="loop-engine-proof-"))
+    try:
+        dialect = get_loop_dialect("succession")
+        child_calls = {"n": 0}
+
+        def child_runner(**kwargs: Any) -> dict[str, Any]:
+            child_calls["n"] += 1
+            idx = int(kwargs.get("round_index") or child_calls["n"] - 1)
+            port = dict(kwargs.get("portfolio") or {"entries": [], "portfolio_digest": ""})
+            entries = list(port.get("entries") or [])
+            entries.append(
+                {
+                    "name": "demo",
+                    "version": "1.0.0",
+                    "defect_id": f"d{idx}",
+                    "outcome": "impact_merged",
+                    "impact_digest": _sha256_json({"i": idx}),
+                    "ok": True,
+                }
+            )
+            port["entries"] = entries
+            port["portfolio_digest"] = _sha256_json(
+                [{"d": e.get("defect_id"), "o": e.get("outcome")} for e in entries]
+            )
+            out = Path(str(kwargs.get("out_root") or scratch / f"child-{idx}"))
+            out.mkdir(parents=True, exist_ok=True)
+            atomic_write_json(
+                out / "epoch.json",
+                {
+                    "ok": True,
+                    "epoch_digest": _sha256_json({"i": idx}),
+                    "portfolio_final": port,
+                    "total_dispatched": 1,
+                    "total_dispatched_ok": 1,
+                },
+            )
+            return {
+                "ok": True,
+                "verdict": "epoch_progressed",
+                "stop_reason": "max_waves",
+                "epoch_dir": str(out),
+                "epoch_digest": _sha256_json({"i": idx}),
+                "total_dispatched": 1,
+                "total_dispatched_ok": 1,
+                "wave_count": 1,
+            }
+
+        def build_kwargs(state: LoopState, round_index: int) -> dict[str, Any]:
+            return {
+                "portfolio": state.portfolio,
+                "out_root": state.child_root / f"epoch-{round_index:02d}",
+                "round_index": round_index,
+            }
+
+        def on_result(
+            state: LoopState, round_index: int, result: dict[str, Any]
+        ) -> dict[str, Any]:
+            ed = result.get("epoch_dir")
+            if ed and (Path(str(ed)) / "epoch.json").is_file():
+                receipt = json.loads(
+                    (Path(str(ed)) / "epoch.json").read_text(encoding="utf-8")
+                )
+                if isinstance(receipt.get("portfolio_final"), Mapping):
+                    state.portfolio = dict(receipt["portfolio_final"])
+            if result.get("epoch_digest"):
+                state.child_digests.append(str(result["epoch_digest"]))
+            return {
+                "epoch": round_index,
+                "ok": True,
+                "epoch_digest": result.get("epoch_digest"),
+                "epoch_dir": result.get("epoch_dir"),
+                "total_dispatched": result.get("total_dispatched"),
+                "total_dispatched_ok": result.get("total_dispatched_ok"),
+            }
+
+        def pre_stop(state: LoopState, round_index: int) -> str | None:
+            entries = list((state.portfolio or {}).get("entries") or [])
+            if len(entries) >= 2:
+                state.goal_met = True
+                return dialect.goal_stop_reason
+            return None
+
+        def post_stop(
+            state: LoopState, round_index: int, result: dict[str, Any]
+        ) -> str | None:
+            entries = list((state.portfolio or {}).get("entries") or [])
+            if len(entries) >= 2:
+                state.goal_met = True
+                return dialect.goal_stop_reason
+            return None
+
+        def classify(state: LoopState) -> tuple[bool, str]:
+            if state.goal_met:
+                return True, "succession_mandate_met"
+            if state.total_dispatched_ok > 0:
+                return True, "succession_progressed"
+            return True, "succession_completed"
+
+        def seal(state: LoopState) -> dict[str, Any]:
+            receipt = {
+                "ok": state.extras.get("ok"),
+                "verdict": state.extras.get("verdict"),
+                "stop_reason": state.stop_reason,
+                "max_epochs": state.max_rounds,
+                "dispatch_budget": state.dispatch_budget,
+                "portfolio_start_digest": state.portfolio_start_digest,
+                "portfolio_end_digest": (
+                    (state.portfolio or {}).get("portfolio_digest")
+                    if state.portfolio
+                    else None
+                ),
+                "epoch_count": len(state.records),
+                "epochs": state.records,
+                "epoch_digests": list(state.child_digests),
+                "total_dispatched": state.total_dispatched,
+                "total_dispatched_ok": state.total_dispatched_ok,
+                "mandate_met": state.goal_met,
+                "coverage_end": {
+                    "required": 2,
+                    "covered": len(list((state.portfolio or {}).get("entries") or [])),
+                    "met": state.goal_met,
+                },
+            }
+
+            def payload(r: Mapping[str, Any]) -> dict[str, Any]:
+                return {
+                    "schema_version": r.get("schema_version"),
+                    "verdict": r.get("verdict"),
+                    "stop_reason": r.get("stop_reason"),
+                    "max_epochs": r.get("max_epochs"),
+                    "dispatch_budget": r.get("dispatch_budget"),
+                    "portfolio_start_digest": r.get("portfolio_start_digest"),
+                    "portfolio_end_digest": r.get("portfolio_end_digest"),
+                    "epoch_count": r.get("epoch_count"),
+                    "epoch_digests": list(r.get("epoch_digests") or []),
+                    "total_dispatched": r.get("total_dispatched"),
+                    "total_dispatched_ok": r.get("total_dispatched_ok"),
+                    "mandate_met": r.get("mandate_met"),
+                    "coverage_end": r.get("coverage_end"),
+                }
+
+            sealed = seal_json_receipt(state, receipt, digest_payload=payload)
+            sealed["mandate_met"] = state.goal_met
+            sealed["coverage_end"] = receipt["coverage_end"]
+            sealed["epochs"] = state.records
+            return sealed
+
+        engine_native = run_durable_loop(
+            dialect,
+            max_rounds=4,
+            dispatch=True,
+            dispatch_budget=4,
+            idle_limit=2,
+            portfolio={"entries": [], "portfolio_digest": _sha256_json([])},
+            out_root=scratch / "engine-native",
+            child_runner=child_runner,
+            build_child_kwargs=build_kwargs,
+            on_child_result=on_result,
+            pre_round_stop=pre_stop,
+            post_round_stop=post_stop,
+            classify_verdict=classify,
+            seal=seal,
+        )
+        engine_native_ok = (
+            engine_native.get("ok")
+            and engine_native.get("loop_engine") is True
+            and engine_native.get("loop_dialect") == "succession"
+            and engine_native.get("mandate_met") is True
+            and int(engine_native.get("epoch_count") or 0) >= 2
+            and child_calls["n"] >= 2
+        )
+        verified = verify_loop_receipt(
+            dialect,
+            Path(engine_native["succession_dir"]),
+            digest_payload=lambda r: {
+                "schema_version": r.get("schema_version"),
+                "verdict": r.get("verdict"),
+                "stop_reason": r.get("stop_reason"),
+                "max_epochs": r.get("max_epochs"),
+                "dispatch_budget": r.get("dispatch_budget"),
+                "portfolio_start_digest": r.get("portfolio_start_digest"),
+                "portfolio_end_digest": r.get("portfolio_end_digest"),
+                "epoch_count": r.get("epoch_count"),
+                "epoch_digests": list(r.get("epoch_digests") or []),
+                "total_dispatched": r.get("total_dispatched"),
+                "total_dispatched_ok": r.get("total_dispatched_ok"),
+                "mandate_met": r.get("mandate_met"),
+                "coverage_end": r.get("coverage_end"),
+            },
+        )
+        seal_ok = bool(verified.get("ok"))
+
+        # Tamper
+        sp = Path(engine_native["succession_dir"]) / "succession.json"
+        body = json.loads(sp.read_text(encoding="utf-8"))
+        body["succession_digest"] = "0" * 64
+        sp.write_text(json.dumps(body, indent=2), encoding="utf-8")
+        tampered = verify_loop_receipt(
+            dialect,
+            Path(engine_native["succession_dir"]),
+            digest_payload=lambda r: {
+                "schema_version": r.get("schema_version"),
+                "verdict": r.get("verdict"),
+                "stop_reason": r.get("stop_reason"),
+                "max_epochs": r.get("max_epochs"),
+                "dispatch_budget": r.get("dispatch_budget"),
+                "portfolio_start_digest": r.get("portfolio_start_digest"),
+                "portfolio_end_digest": r.get("portfolio_end_digest"),
+                "epoch_count": r.get("epoch_count"),
+                "epoch_digests": list(r.get("epoch_digests") or []),
+                "total_dispatched": r.get("total_dispatched"),
+                "total_dispatched_ok": r.get("total_dispatched_ok"),
+                "mandate_met": r.get("mandate_met"),
+                "coverage_end": r.get("coverage_end"),
+            },
+        )
+        tamper_ok = (not tampered.get("ok")) and "succession_digest" in (
+            tampered.get("mismatched") or []
+        )
+
+        # Live dialect modules flag engine ownership.
+        succession_uses_engine = getattr(us, "LOOP_ENGINE", False) is True
+        epoch_uses_engine = getattr(ue, "LOOP_ENGINE", False) is True
+        program_uses_engine = getattr(up, "LOOP_ENGINE", False) is True
+        program_nested = getattr(up, "LOOP_ENGINE_NESTED", False) is True
+
+        # Re-prove live modules (they must stay green after migration).
+        succ_proof = us.builtin_upstream_succession_proof()
+        epoch_proof = ue.builtin_upstream_epoch_proof()
+        program_proof = up.builtin_upstream_program_proof()
+        live_proofs_ok = (
+            bool(succ_proof.get("ok"))
+            and bool(epoch_proof.get("ok"))
+            and bool(program_proof.get("ok"))
+        )
+
+        # Spot-check live succession + program advertise loop_engine ownership.
+        stew = scratch / "stew"
+        stew.mkdir()
+        uf._proof_target(
+            stew,
+            name="alpha",
+            version="1.0.0",
+            defects=[
+                {
+                    "id": "a1",
+                    "title": "a1",
+                    "kind": "complexity",
+                    "patch": "patches/a1.patch",
+                    "repro": "repros/a1.py",
+                }
+            ],
+        )
+        live = us.run_succession(
+            stewardship_root=stew,
+            portfolio=None,
+            max_epochs=2,
+            max_waves_per_epoch=1,
+            per_wave_dispatch_limit=1,
+            dispatch_budget=1,
+            dispatch=True,
+            campaign_runner=us._proof_campaign_runner(scratch / "live"),
+            mandate_goal="none",
+            out_root=scratch / "live-succ",
+        )
+        live_flag = live.get("loop_engine") is True and live.get("loop_dialect") == "succession"
+
+        live_prog = up.run_program(
+            stewardship_root=stew,
+            portfolio=None,
+            max_successions=1,
+            max_epochs_per_succession=1,
+            max_waves_per_epoch=1,
+            per_wave_dispatch_limit=1,
+            dispatch_budget=1,
+            dispatch=True,
+            campaign_runner=us._proof_campaign_runner(scratch / "live-prog"),
+            program_goal="none",
+            mandate_goal="none",
+            out_root=scratch / "live-prog",
+        )
+        live_program_flag = (
+            live_prog.get("loop_engine") is True
+            and live_prog.get("loop_dialect") == "program"
+        )
+
+        # LOC evidence: prior tower was three large modules; engine is the shared core.
+        engine_path = Path(__file__).resolve()
+        engine_loc = sum(
+            1
+            for line in engine_path.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.strip().startswith("#")
+        )
+        tower_paths = [
+            REPO_ROOT / "src" / "blackhole_agent" / f"upstream_{n}.py"
+            for n in ("program", "succession", "epoch")
+        ]
+        tower_loc = 0
+        for p in tower_paths:
+            if p.is_file():
+                tower_loc += sum(
+                    1
+                    for line in p.read_text(encoding="utf-8").splitlines()
+                    if line.strip() and not line.strip().startswith("#")
+                )
+        # Historical pre-collapse sizes (committed baselines from this mission).
+        tower_loc_before = 1085 + 1224 + 1732  # epoch + succession + program
+
+        # Ledger binding for this capability (registered by the owning mission).
+        from blackhole_agent.capability_compounder import (
+            default_ledger_path,
+            load_ledger,
+        )
+
+        ledger_path = default_ledger_path(REPO_ROOT)
+        ledger_ok = False
+        try:
+            ledger = load_ledger(ledger_path)
+            entry = ledger.capabilities.get("capability.upstream-loop-engine")
+            ledger_ok = (
+                entry is not None
+                and "upstream_loop_engine" in (entry.entry or "")
+                and "loop" in " ".join(entry.tags).lower()
+            )
+        except Exception:  # noqa: BLE001
+            ledger_ok = False
+
+        # Full-stack ownership: program + succession + epoch control flow.
+        full_stack_owned = (
+            program_uses_engine and succession_uses_engine and epoch_uses_engine
+        )
+
+        # done_when: engine owns program+succession+epoch control flow;
+        # dialect modules keep only hooks (expand/ROI/resume/coverage).
+        ok = all(
+            [
+                dialects_ok,
+                engine_native_ok,
+                seal_ok,
+                tamper_ok,
+                succession_uses_engine,
+                epoch_uses_engine,
+                program_uses_engine,
+                full_stack_owned,
+                live_flag,
+                live_program_flag,
+                live_proofs_ok,
+                ledger_ok,
+                not legacy_pipeline_was_used(),
+            ]
+        )
+        return {
+            "ok": ok,
+            "action": "loop_engine_proof",
+            "dialect_count": len(dialects),
+            "dialects": dialects,
+            "dialects_ok": dialects_ok,
+            "engine_native_ok": engine_native_ok,
+            "seal_verified": seal_ok,
+            "tamper_detected": tamper_ok,
+            "succession_loop_engine": succession_uses_engine,
+            "epoch_loop_engine": epoch_uses_engine,
+            "program_loop_engine": program_uses_engine,
+            "program_loop_engine_nested": program_nested,
+            "full_stack_owned": full_stack_owned,
+            "live_succession_flag": live_flag,
+            "live_program_flag": live_program_flag,
+            "succession_proof_ok": bool(succ_proof.get("ok")),
+            "epoch_proof_ok": bool(epoch_proof.get("ok")),
+            "program_proof_ok": bool(program_proof.get("ok")),
+            "live_proofs_ok": live_proofs_ok,
+            "ledger_capability_ok": ledger_ok,
+            "engine_loc": engine_loc,
+            "tower_loc_after": tower_loc,
+            "tower_loc_before": tower_loc_before,
+            "engine_native_digest": engine_native.get("succession_digest"),
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "done_when_met": ok,
+        }
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+# ---------------------------------------------------------------------------
+# unified multi-mode control catalog
+# ---------------------------------------------------------------------------
+
+CONTROL_MODES: tuple[str, ...] = ("pipeline", "loop")
+
+CONTROL_CATALOG: dict[str, tuple[str, ...]] = {
+    "pipeline": tuple(d.name for d in PIPELINE_STACK),
+    "loop": tuple(d.name for d in LOOP_STACK),
+}
+
+
+def list_control_modes() -> list[str]:
+    return list(CONTROL_MODES)
+
+
+def list_control_catalog() -> dict[str, list[str]]:
+    return {mode: list(names) for mode, names in CONTROL_CATALOG.items()}
+
+
+def list_all_control_dialects() -> list[dict[str, str]]:
+    out: list[dict[str, str]] = []
+    for mode, names in CONTROL_CATALOG.items():
+        for name in names:
+            out.append({"mode": mode, "dialect": name})
+    return out
+
+
+def get_control_dialect(mode: str, name: str) -> "PipelineDialect | LoopDialect":
+    key = str(mode or "").strip().lower()
+    if key == "pipeline":
+        return get_pipeline_dialect(name)
+    if key == "loop":
+        return get_loop_dialect(name)
+    raise StageRefused(
+        "control_unknown_mode",
+        f"unknown control mode {mode!r}; known={list(CONTROL_MODES)}",
+    )
+
+
+def run_control(
+    mode: str,
+    dialect: str,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Dispatch to pipeline or loop runner by mode."""
+    key = str(mode or "").strip().lower()
+    if key == "pipeline":
+        return run_stage_pipeline(dialect, **kwargs)
+    if key == "loop":
+        return run_durable_loop(dialect, **kwargs)
+    raise StageRefused(
+        "control_unknown_mode",
+        f"unknown control mode {mode!r}; known={list(CONTROL_MODES)}",
+    )
+
+
+def compose_loop_of_pipeline(
+    *,
+    loop_dialect: str = "epoch",
+    pipeline_dialect: str = "fleet",
+    max_rounds: int = 3,
+    pipeline_stages: Sequence[str] | None = None,
+    run_stage: "RunStage",
+    classify_pipeline: "ClassifyVerdict",
+    seal_pipeline: "SealPipeline",
+    after_stage: "AfterStage | None" = None,
+    classify_loop: "LoopClassifyVerdict",
+    seal_loop: "SealLoop",
+    on_pipeline_result: (
+        "Callable[[LoopState, int, dict[str, Any]], dict[str, Any] | None] | None"
+    ) = None,
+    pre_round_stop: "PreRoundStop | None" = None,
+    post_round_stop: "PostRoundStop | None" = None,
+    is_idle_round: "IsIdleRound | None" = None,
+    out_root: Path | None = None,
+    portfolio: Mapping[str, Any] | None = None,
+    dispatch: bool = True,
+    dispatch_budget: int | None = None,
+    idle_limit: int = 1,
+    initial_pipeline_context: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Engine-native composition: loop mode drives pipeline mode as each child."""
+    stages = list(pipeline_stages) if pipeline_stages is not None else None
+    base_ctx = dict(initial_pipeline_context or {})
+
+    def child_runner(**kwargs: Any) -> dict[str, Any]:
+        round_index = int(kwargs.get("round_index") or 0)
+        ctx = dict(base_ctx)
+        ctx["round_index"] = round_index
+        if kwargs.get("portfolio") is not None:
+            ctx["portfolio"] = dict(kwargs["portfolio"])
+        pipe = run_stage_pipeline(
+            pipeline_dialect,
+            stages=stages,
+            run_stage=run_stage,
+            classify_verdict=classify_pipeline,
+            seal=seal_pipeline,
+            after_stage=after_stage,
+            initial_context=ctx,
+        )
+        pipe.setdefault("control_composed", True)
+        pipe.setdefault("control_parent_loop", loop_dialect)
+        pipe.setdefault("round_index", round_index)
+        return pipe
+
+    def build_child_kwargs(state: LoopState, round_index: int) -> dict[str, Any]:
+        return {
+            "round_index": round_index,
+            "portfolio": state.portfolio,
+            "out_root": state.child_root / f"wave-{round_index:02d}",
+        }
+
+    def on_child(
+        state: LoopState, round_index: int, result: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        if on_pipeline_result is not None:
+            return on_pipeline_result(state, round_index, result)
+        dig = (
+            result.get("fleet_digest")
+            or result.get("campaign_digest")
+            or result.get(get_pipeline_dialect(pipeline_dialect).self_digest_field)
+        )
+        if dig:
+            state.child_digests.append(str(dig))
+        return {
+            "wave": round_index,
+            "ok": bool(result.get("ok")),
+            "verdict": result.get("verdict"),
+            "pipeline_dialect": result.get("pipeline_dialect"),
+            "control_engine": result.get("control_engine"),
+            "control_mode": result.get("control_mode"),
+            "fleet_digest": dig,
+            "plan_dir": result.get("plan_dir") or result.get("campaign_dir"),
+            "dispatched_count": int(
+                (result.get("stage_results") or {}).get("dispatch", {}).get(
+                    "dispatched_count"
+                )
+                or result.get("dispatched_count")
+                or 0
+            ),
+            "dispatched_ok": int(
+                (result.get("stage_results") or {}).get("dispatch", {}).get(
+                    "dispatched_ok"
+                )
+                or result.get("dispatched_ok")
+                or 0
+            ),
+        }
+
+    def extract_dispatched(result: dict[str, Any]) -> tuple[int, int]:
+        sr = result.get("stage_results") or {}
+        disp = sr.get("dispatch") or {}
+        n = int(disp.get("dispatched_count") or result.get("dispatched_count") or 0)
+        ok_n = int(disp.get("dispatched_ok") or result.get("dispatched_ok") or 0)
+        return n, ok_n
+
+    composed = run_durable_loop(
+        loop_dialect,
+        max_rounds=max_rounds,
+        dispatch=dispatch,
+        dispatch_budget=dispatch_budget,
+        idle_limit=idle_limit,
+        portfolio=portfolio,
+        out_root=out_root,
+        child_runner=child_runner,
+        build_child_kwargs=build_child_kwargs,
+        on_child_result=on_child,
+        pre_round_stop=pre_round_stop,
+        post_round_stop=post_round_stop,
+        is_idle_round=is_idle_round,
+        classify_verdict=classify_loop,
+        seal=seal_loop,
+        extract_dispatched=extract_dispatched,
+    )
+    composed["control_engine"] = True
+    composed["control_mode"] = "loop"
+    composed["control_composed"] = True
+    composed["control_child_mode"] = "pipeline"
+    composed["control_child_dialect"] = pipeline_dialect
+    composed["control_parent_dialect"] = loop_dialect
+    return composed
+
+
+def builtin_control_engine_proof() -> dict[str, Any]:
+    """Hermetic proof that one multi-mode engine owns pipeline + loop control flow."""
+    scratch = Path(tempfile.mkdtemp(prefix="control-engine-proof-"))
+    try:
+        catalog = list_control_catalog()
+        catalog_ok = (
+            catalog.get("pipeline") == ["campaign", "fleet"]
+            and catalog.get("loop") == ["program", "succession", "epoch"]
+            and list_control_modes() == ["pipeline", "loop"]
+            and len(list_all_control_dialects()) == 5
+        )
+
+        calls: list[str] = []
+
+        def run_stage(state: PipelineState, name: str) -> dict[str, Any]:
+            calls.append(name)
+            if name == "repair":
+                return {
+                    "stage": name,
+                    "ok": True,
+                    "verdict": "repair_green",
+                    "report_sha256": "a" * 64,
+                }
+            if name == "contribution":
+                return {
+                    "stage": name,
+                    "ok": True,
+                    "verdict": "contribution_ready",
+                    "defects": [
+                        {
+                            "defect_id": "d1",
+                            "ok": True,
+                            "verdict": "submittable",
+                            "bundle_sha256": "b" * 64,
+                        }
+                    ],
+                }
+            if name == "publication":
+                return {
+                    "stage": name,
+                    "ok": True,
+                    "verdict": "publication_dry_run",
+                    "publications": [
+                        {
+                            "bundle_dir": "bundle-d1",
+                            "ok": True,
+                            "verdict": "dry_run",
+                            "receipt_sha256": "c" * 64,
+                        }
+                    ],
+                }
+            return {"stage": name, "ok": True, "verdict": f"{name}_ok"}
+
+        def classify_p(state: PipelineState) -> tuple[bool, str]:
+            if state.aborted or not state.pipeline_ok:
+                return False, state.terminal_verdict
+            return True, "campaign_complete"
+
+        def seal_p(state: PipelineState) -> dict[str, Any]:
+            return seal_pipeline_receipt(
+                state,
+                out_root=scratch / "pipe",
+                identity={"name": "ctrlprobe", "version": "1.0.0", "defect_ids": ["d1"]},
+            )
+
+        pipe = run_control(
+            "pipeline",
+            "campaign",
+            stages=("repair", "contribution", "publication"),
+            run_stage=run_stage,
+            classify_verdict=classify_p,
+            seal=seal_p,
+        )
+        pipe_ok = (
+            pipe.get("ok")
+            and pipe.get("control_engine") is True
+            and pipe.get("control_mode") == "pipeline"
+            and pipe.get("control_dialect") == "campaign"
+            and pipe.get("stage_engine") is True
+            and calls == ["repair", "contribution", "publication"]
+        )
+
+        child_n = {"n": 0}
+
+        def child_runner(**kwargs: Any) -> dict[str, Any]:
+            child_n["n"] += 1
+            idx = child_n["n"] - 1
+            out = Path(str(kwargs.get("out_root") or scratch / f"child-{idx}"))
+            out.mkdir(parents=True, exist_ok=True)
+            dig = _sha256_json({"i": idx})
+            atomic_write_json(
+                out / "epoch.json",
+                {
+                    "ok": True,
+                    "epoch_digest": dig,
+                    "total_dispatched": 1,
+                    "total_dispatched_ok": 1,
+                },
+            )
+            return {
+                "ok": True,
+                "verdict": "epoch_progressed",
+                "epoch_dir": str(out),
+                "epoch_digest": dig,
+                "total_dispatched": 1,
+                "total_dispatched_ok": 1,
+            }
+
+        def build_kwargs(state: LoopState, round_index: int) -> dict[str, Any]:
+            return {
+                "out_root": state.child_root / f"epoch-{round_index:02d}",
+                "round_index": round_index,
+            }
+
+        def on_result(
+            state: LoopState, round_index: int, result: dict[str, Any]
+        ) -> dict[str, Any]:
+            if result.get("epoch_digest"):
+                state.child_digests.append(str(result["epoch_digest"]))
+            if round_index >= 1:
+                state.goal_met = True
+            return {
+                "epoch": round_index,
+                "ok": True,
+                "epoch_digest": result.get("epoch_digest"),
+                "epoch_dir": result.get("epoch_dir"),
+            }
+
+        def classify_l(state: LoopState) -> tuple[bool, str]:
+            if state.goal_met:
+                return True, "succession_mandate_met"
+            return True, "succession_progressed"
+
+        def seal_l(state: LoopState) -> dict[str, Any]:
+            receipt = {
+                "ok": state.extras.get("ok"),
+                "verdict": state.extras.get("verdict"),
+                "stop_reason": state.stop_reason,
+                "max_epochs": state.max_rounds,
+                "epoch_count": len(state.records),
+                "epochs": state.records,
+                "epoch_digests": list(state.child_digests),
+                "total_dispatched": state.total_dispatched,
+                "total_dispatched_ok": state.total_dispatched_ok,
+                "mandate_met": state.goal_met,
+                "portfolio_start_digest": state.portfolio_start_digest,
+                "portfolio_end_digest": None,
+                "coverage_end": {"met": state.goal_met},
+                "dispatch_budget": state.dispatch_budget,
+            }
+
+            def payload(r: Mapping[str, Any]) -> dict[str, Any]:
+                return {
+                    "schema_version": r.get("schema_version"),
+                    "verdict": r.get("verdict"),
+                    "stop_reason": r.get("stop_reason"),
+                    "max_epochs": r.get("max_epochs"),
+                    "dispatch_budget": r.get("dispatch_budget"),
+                    "portfolio_start_digest": r.get("portfolio_start_digest"),
+                    "portfolio_end_digest": r.get("portfolio_end_digest"),
+                    "epoch_count": r.get("epoch_count"),
+                    "epoch_digests": list(r.get("epoch_digests") or []),
+                    "total_dispatched": r.get("total_dispatched"),
+                    "total_dispatched_ok": r.get("total_dispatched_ok"),
+                    "mandate_met": r.get("mandate_met"),
+                    "coverage_end": r.get("coverage_end"),
+                }
+
+            sealed = seal_json_receipt(state, receipt, digest_payload=payload)
+            sealed["mandate_met"] = state.goal_met
+            return sealed
+
+        def post_stop(
+            state: LoopState, round_index: int, result: dict[str, Any]
+        ) -> str | None:
+            if state.goal_met:
+                return "mandate_met"
+            return None
+
+        loop_res = run_control(
+            "loop",
+            "succession",
+            max_rounds=3,
+            dispatch=True,
+            dispatch_budget=4,
+            idle_limit=2,
+            portfolio={"entries": [], "portfolio_digest": _sha256_json([])},
+            out_root=scratch / "loop-native",
+            child_runner=child_runner,
+            build_child_kwargs=build_kwargs,
+            on_child_result=on_result,
+            post_round_stop=post_stop,
+            classify_verdict=classify_l,
+            seal=seal_l,
+        )
+        loop_ok = (
+            loop_res.get("ok")
+            and loop_res.get("control_engine") is True
+            and loop_res.get("control_mode") == "loop"
+            and loop_res.get("control_dialect") == "succession"
+            and loop_res.get("loop_engine") is True
+            and child_n["n"] >= 2
+        )
+
+        fleet_calls: list[str] = []
+
+        def run_fleet_stage(state: PipelineState, name: str) -> dict[str, Any]:
+            fleet_calls.append(f"{state.context.get('round_index')}:{name}")
+            if name == "inventory":
+                state.context["inventory"] = [{"name": "alpha", "version": "1.0.0"}]
+                return {
+                    "stage": name,
+                    "ok": True,
+                    "verdict": "inventoried",
+                    "inventory_count": 1,
+                }
+            if name == "portfolio":
+                state.context["portfolio"] = {
+                    "entries": [],
+                    "portfolio_digest": "p" * 64,
+                }
+                return {
+                    "stage": name,
+                    "ok": True,
+                    "verdict": "portfolio_ready",
+                    "portfolio_digest": "p" * 64,
+                }
+            if name == "rank":
+                actions = [
+                    {
+                        "action": "campaign_patch_bound",
+                        "name": "alpha",
+                        "version": "1.0.0",
+                        "campaignable": True,
+                        "priority": 40,
+                        "rank": 1,
+                    }
+                ]
+                state.context["actions"] = actions
+                state.context["campaignable"] = actions
+                return {
+                    "stage": name,
+                    "ok": True,
+                    "verdict": "ranked",
+                    "action_count": 1,
+                    "campaignable_count": 1,
+                }
+            if name == "dispatch":
+                dig = _sha256_json({"wave": state.context.get("round_index")})
+                return {
+                    "stage": name,
+                    "ok": True,
+                    "verdict": "fleet_dispatched",
+                    "dispatched_count": 1,
+                    "dispatched_ok": 1,
+                    "dispatches": [{"ok": True, "campaign_digest": dig}],
+                }
+            raise StageRefused("stage_unknown", name)
+
+        def fleet_classify(state: PipelineState) -> tuple[bool, str]:
+            if state.aborted or not state.pipeline_ok:
+                return False, state.terminal_verdict
+            return True, "fleet_dispatched"
+
+        def fleet_seal(state: PipelineState) -> dict[str, Any]:
+            return seal_pipeline_receipt(
+                state,
+                out_root=scratch / "compose-fleet",
+                identity={
+                    "name": "composealpha",
+                    "version": "1.0.0",
+                    "inventory_count": 1,
+                    "action_count": 1,
+                },
+                stage_digests={
+                    "rank.verdict": _sha256_bytes(b"ranked"),
+                    "dispatch.verdict": _sha256_bytes(b"fleet_dispatched"),
+                },
+                digest_payload=lambda receipt: {
+                    "schema_version": SCHEMA_VERSION,
+                    "name": receipt.get("name"),
+                    "version": receipt.get("version"),
+                    "stages": receipt.get("stages"),
+                    "stage_digests": receipt.get("stage_digests"),
+                    "ok": receipt.get("ok"),
+                    "verdict": receipt.get("verdict"),
+                },
+            )
+
+        def compose_classify(state: LoopState) -> tuple[bool, str]:
+            if state.total_dispatched_ok >= 2:
+                state.goal_met = True
+                return True, "epoch_progressed"
+            if state.total_dispatched_ok > 0:
+                return True, "epoch_progressed"
+            return True, "epoch_idle"
+
+        def compose_seal(state: LoopState) -> dict[str, Any]:
+            receipt = {
+                "ok": True,
+                "verdict": state.extras.get("verdict") or "epoch_progressed",
+                "stop_reason": state.stop_reason,
+                "max_waves": state.max_rounds,
+                "wave_count": len(state.records),
+                "waves": state.records,
+                "wave_digests": list(state.child_digests),
+                "total_dispatched": state.total_dispatched,
+                "total_dispatched_ok": state.total_dispatched_ok,
+                "portfolio_start_digest": state.portfolio_start_digest,
+                "portfolio_end_digest": None,
+            }
+
+            def payload(r: Mapping[str, Any]) -> dict[str, Any]:
+                return {
+                    "schema_version": r.get("schema_version"),
+                    "verdict": r.get("verdict"),
+                    "stop_reason": r.get("stop_reason"),
+                    "max_waves": r.get("max_waves"),
+                    "wave_count": r.get("wave_count"),
+                    "wave_digests": list(r.get("wave_digests") or []),
+                    "total_dispatched": r.get("total_dispatched"),
+                    "total_dispatched_ok": r.get("total_dispatched_ok"),
+                }
+
+            sealed = seal_json_receipt(state, receipt, digest_payload=payload)
+            sealed["waves"] = state.records
+            return sealed
+
+        def compose_post(
+            state: LoopState, round_index: int, result: dict[str, Any]
+        ) -> str | None:
+            if state.total_dispatched_ok >= 2:
+                state.goal_met = True
+                return "max_waves"
+            return None
+
+        composed = compose_loop_of_pipeline(
+            loop_dialect="epoch",
+            pipeline_dialect="fleet",
+            max_rounds=3,
+            pipeline_stages=list(FLEET_STAGES),
+            run_stage=run_fleet_stage,
+            classify_pipeline=fleet_classify,
+            seal_pipeline=fleet_seal,
+            classify_loop=compose_classify,
+            seal_loop=compose_seal,
+            post_round_stop=compose_post,
+            out_root=scratch / "compose",
+            portfolio={"entries": [], "portfolio_digest": "p" * 64},
+            dispatch=True,
+            dispatch_budget=4,
+            idle_limit=2,
+        )
+        compose_ok = (
+            composed.get("ok")
+            and composed.get("control_engine") is True
+            and composed.get("control_composed") is True
+            and composed.get("control_child_mode") == "pipeline"
+            and composed.get("control_child_dialect") == "fleet"
+            and composed.get("control_parent_dialect") == "epoch"
+            and composed.get("loop_engine") is True
+            and int(composed.get("total_dispatched_ok") or 0) >= 2
+            and any(":dispatch" in c for c in fleet_calls)
+            and any(c.startswith("0:") for c in fleet_calls)
+            and any(c.startswith("1:") for c in fleet_calls)
+        )
+
+        from blackhole_agent import upstream_campaign as ucamp
+        from blackhole_agent import upstream_fleet as ufleet
+        from blackhole_agent import upstream_epoch as ue
+        from blackhole_agent import upstream_program as up
+        from blackhole_agent import upstream_succession as us
+
+        live_flags_ok = all(
+            [
+                getattr(ucamp, "STAGE_ENGINE", False) is True,
+                getattr(ufleet, "STAGE_ENGINE", False) is True,
+                getattr(ue, "LOOP_ENGINE", False) is True,
+                getattr(us, "LOOP_ENGINE", False) is True,
+                getattr(up, "LOOP_ENGINE", False) is True,
+                getattr(ucamp, "CONTROL_ENGINE", False) is True,
+                getattr(ufleet, "CONTROL_ENGINE", False) is True,
+                getattr(ue, "CONTROL_ENGINE", False) is True,
+                getattr(us, "CONTROL_ENGINE", False) is True,
+                getattr(up, "CONTROL_ENGINE", False) is True,
+            ]
+        )
+
+        from blackhole_agent import upstream_control_engine as ce_impl
+        from blackhole_agent import upstream_stage_engine as se_facade
+        from blackhole_agent import upstream_loop_engine as le_facade
+
+        # Compare against the package-qualified module (not __main__ when
+        # invoked via ``python -m ...``).
+        facade_checks = {
+            "pipe_is": se_facade.run_stage_pipeline is ce_impl.run_stage_pipeline,
+            "loop_is": le_facade.run_durable_loop is ce_impl.run_durable_loop,
+            "pipe_list": se_facade.list_pipeline_dialects() == ["campaign", "fleet"],
+            "loop_list": le_facade.list_loop_dialects() == ["program", "succession", "epoch"],
+            "se_flag": getattr(se_facade, "CONTROL_ENGINE_IMPL", False) is True,
+            "le_flag": getattr(le_facade, "CONTROL_ENGINE_IMPL", False) is True,
+            "same_impl": ce_impl.compose_loop_of_pipeline is compose_loop_of_pipeline
+            or ce_impl.__file__ == __file__,
+        }
+        facade_ok = all(
+            [
+                facade_checks["pipe_is"],
+                facade_checks["loop_is"],
+                facade_checks["pipe_list"],
+                facade_checks["loop_list"],
+                facade_checks["se_flag"],
+                facade_checks["le_flag"],
+            ]
+        )
+
+        from blackhole_agent.capability_compounder import (
+            default_ledger_path,
+            load_ledger,
+        )
+
+        ledger_path = default_ledger_path(REPO_ROOT)
+        ledger_ok = False
+        try:
+            ledger = load_ledger(ledger_path)
+            entry = ledger.capabilities.get("capability.upstream-control-engine")
+            tags_blob = " ".join(entry.tags).lower() if entry else ""
+            ledger_ok = (
+                entry is not None
+                and "upstream_control_engine" in (entry.entry or "")
+                and "control" in tags_blob
+                and (
+                    "pipeline" in tags_blob
+                    or "multi-mode" in tags_blob
+                    or "loop" in tags_blob
+                )
+            )
+        except Exception:  # noqa: BLE001
+            ledger_ok = False
+
+        engine_path = Path(__file__).resolve()
+        engine_loc = sum(
+            1
+            for line in engine_path.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.strip().startswith("#")
+        )
+        stage_facade_loc = sum(
+            1
+            for line in (
+                REPO_ROOT / "src" / "blackhole_agent" / "upstream_stage_engine.py"
+            )
+            .read_text(encoding="utf-8")
+            .splitlines()
+            if line.strip() and not line.strip().startswith("#")
+        )
+        loop_facade_loc = sum(
+            1
+            for line in (
+                REPO_ROOT / "src" / "blackhole_agent" / "upstream_loop_engine.py"
+            )
+            .read_text(encoding="utf-8")
+            .splitlines()
+            if line.strip() and not line.strip().startswith("#")
+        )
+        facades_thin = stage_facade_loc < 100 and loop_facade_loc < 100
+
+        ok = all(
+            [
+                catalog_ok,
+                pipe_ok,
+                loop_ok,
+                compose_ok,
+                live_flags_ok,
+                facade_ok,
+                facades_thin,
+                ledger_ok,
+                not legacy_pipeline_was_used(),
+            ]
+        )
+        return {
+            "ok": ok,
+            "action": "control_engine_proof",
+            "catalog_ok": catalog_ok,
+            "catalog": catalog,
+            "dialect_count": len(list_all_control_dialects()),
+            "pipeline_control_ok": pipe_ok,
+            "loop_control_ok": loop_ok,
+            "compose_loop_of_pipeline_ok": compose_ok,
+            "live_control_flags_ok": live_flags_ok,
+            "facade_reexport_ok": facade_ok,
+            "facade_checks": facade_checks,
+            "facades_thin": facades_thin,
+            "stage_facade_loc": stage_facade_loc,
+            "loop_facade_loc": loop_facade_loc,
+            "engine_loc": engine_loc,
+            "ledger_capability_ok": ledger_ok,
+            "pipeline_digest": pipe.get("campaign_digest"),
+            "loop_digest": loop_res.get("succession_digest"),
+            "compose_digest": composed.get("epoch_digest"),
+            "compose_dispatched_ok": composed.get("total_dispatched_ok"),
+            "fleet_calls": fleet_calls,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "control_engine": True,
+            "done_when_met": ok,
+        }
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    sub = parser.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("proof", help="Run hermetic multi-mode control-engine proof")
+    sub.add_parser("list", help="List control modes and dialects")
+    args = parser.parse_args(list(argv) if argv is not None else None)
+    if args.cmd == "list":
+        print(
+            json.dumps(
+                {
+                    "modes": list_control_modes(),
+                    "catalog": list_control_catalog(),
+                    "dialects": list_all_control_dialects(),
+                },
+                indent=2,
+            )
+        )
+        return 0
+    if args.cmd == "proof":
+        result = builtin_control_engine_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

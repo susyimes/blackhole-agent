@@ -68,6 +68,10 @@ SCHEMA_VERSION = 1
 STAGE_ENGINE = True
 STAGE_ENGINE_DIALECT = "fleet"
 
+# Multi-mode control engine owns pipeline control flow.
+CONTROL_ENGINE = True
+CONTROL_ENGINE_MODE = "pipeline"
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS_ROOT = REPO_ROOT / "artifacts" / "upstream-fleet"
 STEWARDSHIP_ROOT = REPO_ROOT / "stewardship"
