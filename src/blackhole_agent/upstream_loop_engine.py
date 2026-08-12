@@ -13,6 +13,7 @@ from typing import Sequence
 from blackhole_agent.upstream_control_engine import (  # noqa: F401
     LOOP_DIALECTS,
     LOOP_STACK,
+    OPERATIONAL_NEST,
     REPO_ROOT,
     SCHEMA_VERSION,
     BuildChildKwargs,
@@ -28,13 +29,18 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     PostRoundStop,
     PreRoundStop,
     SealLoop,
+    annotate_control_nest,
     builtin_loop_engine_proof,
+    compose_loop_of_loop,
     default_extract_dispatched,
     get_loop_dialect,
     list_loop_dialects,
+    nest_path,
     open_loop_dir,
+    operational_nest_path,
     resolve_portfolio,
     run_durable_loop,
+    run_nested_control,
     seal_json_receipt,
     verify_loop_receipt,
 )
@@ -44,6 +50,7 @@ ClassifyVerdict = LoopClassifyVerdict
 
 CONTROL_ENGINE_IMPL = True
 CONTROL_ENGINE_MODE = "loop"
+CONTROL_NEST_IMPL = True
 
 
 def main(argv: Sequence[str] | None = None) -> int:

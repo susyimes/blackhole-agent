@@ -79,6 +79,7 @@ CONTROL_ENGINE_MODE = "pipeline"
 # Campaign participates in the control nest as a pipeline dialect (fleet
 # dispatches campaigns; campaign itself is not a nest parent).
 CONTROL_NEST = True
+CONTROL_NEST_LIVE = True
 CONTROL_NEST_CHILD = ""
 CONTROL_NEST_CHILD_MODE = ""
 

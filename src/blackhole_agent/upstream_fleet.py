@@ -73,7 +73,9 @@ CONTROL_ENGINE = True
 CONTROL_ENGINE_MODE = "pipeline"
 
 # Leaf of the multi-depth operational nest (program→…→fleet).
+# Driven as nest child by epoch via run_nested_control (epoch→fleet).
 CONTROL_NEST = True
+CONTROL_NEST_LIVE = True
 CONTROL_NEST_CHILD = ""
 CONTROL_NEST_CHILD_MODE = ""
 

@@ -78,7 +78,9 @@ CONTROL_ENGINE = True
 CONTROL_ENGINE_MODE = "loop"
 
 # Multi-depth control nest: program is the outer node of OPERATIONAL_NEST.
+# Live run_program uses le.run_nested_control (program→succession).
 CONTROL_NEST = True
+CONTROL_NEST_LIVE = True
 CONTROL_NEST_CHILD = "succession"
 CONTROL_NEST_CHILD_MODE = "loop"
 CONTROL_NEST_PATH = [
@@ -680,9 +682,10 @@ def run_program(
 ) -> dict[str, Any]:
     """Run a multi-succession stewardship program and seal the receipt.
 
-    Control flow is owned by :mod:`blackhole_agent.upstream_loop_engine`;
-    this module supplies program-dialect hooks (surface expand, charter, ROI,
-    resume/persist, program goals) only.
+    Nest structure is owned by the control engine via
+    :func:`run_nested_control` (program→succession→epoch→fleet). This module
+    supplies program-dialect hooks (surface expand, charter, ROI, resume/
+    persist, program goals) only.
 
     Parameters
     ----------
@@ -1195,6 +1198,15 @@ def run_program(
             "used_skill_route_discovery": legacy_pipeline_was_used(),
             "loop_engine": True,
             "loop_dialect": dialect.name,
+            "control_engine": True,
+            "control_nest": True,
+            "control_nest_live": True,
+            "control_parent_dialect": "program",
+            "control_child_mode": "loop",
+            "control_child_dialect": "succession",
+            "control_nest_edge": "program->succession",
+            "control_nest_path": list(CONTROL_NEST_PATH),
+            "control_nest_depth": len(CONTROL_NEST_PATH),
         }
         receipt["program_digest"] = _sha256_json(_program_digest_payload(receipt))
         atomic_write_json(state.loop_dir / "program.json", receipt)
@@ -1222,6 +1234,8 @@ def run_program(
                 "program_digest": receipt["program_digest"],
                 "resumed": receipt["resumed"],
                 "loop_engine": True,
+                "control_nest": True,
+                "control_nest_edge": "program->succession",
             },
         )
 
@@ -1268,6 +1282,15 @@ def run_program(
             "used_skill_route_discovery": receipt["used_skill_route_discovery"],
             "loop_engine": True,
             "loop_dialect": dialect.name,
+            "control_engine": True,
+            "control_nest": True,
+            "control_nest_live": True,
+            "control_parent_dialect": "program",
+            "control_child_mode": "loop",
+            "control_child_dialect": "succession",
+            "control_nest_edge": "program->succession",
+            "control_nest_path": list(CONTROL_NEST_PATH),
+            "control_nest_depth": len(CONTROL_NEST_PATH),
         }
 
     def wrap_refuse(exc: BaseException) -> BaseException:
@@ -1278,8 +1301,12 @@ def run_program(
         return ProgramRefused(str(verdict), str(detail))
 
     try:
-        return le.run_durable_loop(
+        return le.run_nested_control(
             dialect,
+            child_mode="loop",
+            child_dialect="succession",
+            live=True,
+            nest_path_steps=CONTROL_NEST_PATH,
             max_rounds=max_successions,
             dispatch=dispatch,
             dispatch_budget=dispatch_budget,

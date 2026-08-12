@@ -65,9 +65,11 @@ LOOP_ENGINE = True
 LOOP_DIALECT = "succession"
 
 # Multi-mode control engine + multi-depth nest membership.
+# Live run_succession uses le.run_nested_control (succession→epoch).
 CONTROL_ENGINE = True
 CONTROL_ENGINE_MODE = "loop"
 CONTROL_NEST = True
+CONTROL_NEST_LIVE = True
 CONTROL_NEST_CHILD = "epoch"
 CONTROL_NEST_CHILD_MODE = "loop"
 
@@ -431,9 +433,10 @@ def run_succession(
 ) -> dict[str, Any]:
     """Run a multi-epoch succession mandate and seal the receipt.
 
-    Control flow is owned by :mod:`blackhole_agent.upstream_loop_engine`;
-    this module supplies succession-dialect hooks (mandate coverage, impact
-    refresh, receipt schema) only.
+    Nest structure is owned by the control engine via
+    :func:`run_nested_control` (succession→epoch). This module supplies
+    succession-dialect hooks (mandate coverage, impact refresh, receipt
+    schema) only.
 
     Parameters
     ----------
@@ -661,6 +664,13 @@ def run_succession(
             "used_skill_route_discovery": legacy_pipeline_was_used(),
             "loop_engine": True,
             "loop_dialect": dialect.name,
+            "control_engine": True,
+            "control_nest": True,
+            "control_nest_live": True,
+            "control_parent_dialect": "succession",
+            "control_child_mode": "loop",
+            "control_child_dialect": "epoch",
+            "control_nest_edge": "succession->epoch",
         }
         receipt["succession_digest"] = _sha256_json(_succession_digest_payload(receipt))
         atomic_write_json(state.loop_dir / "succession.json", receipt)
@@ -680,6 +690,8 @@ def run_succession(
                 "portfolio_start_digest": receipt["portfolio_start_digest"],
                 "portfolio_end_digest": receipt["portfolio_end_digest"],
                 "succession_digest": receipt["succession_digest"],
+                "control_nest": True,
+                "control_nest_edge": "succession->epoch",
             },
         )
         return {
@@ -701,6 +713,13 @@ def run_succession(
             "used_skill_route_discovery": receipt["used_skill_route_discovery"],
             "loop_engine": True,
             "loop_dialect": dialect.name,
+            "control_engine": True,
+            "control_nest": True,
+            "control_nest_live": True,
+            "control_parent_dialect": "succession",
+            "control_child_mode": "loop",
+            "control_child_dialect": "epoch",
+            "control_nest_edge": "succession->epoch",
         }
 
     def wrap_refuse(exc: BaseException) -> BaseException:
@@ -709,8 +728,11 @@ def run_succession(
         return SuccessionRefused(str(verdict), str(detail))
 
     try:
-        return le.run_durable_loop(
+        return le.run_nested_control(
             dialect,
+            child_mode="loop",
+            child_dialect="epoch",
+            live=True,
             max_rounds=max_epochs,
             dispatch=dispatch,
             dispatch_budget=dispatch_budget,

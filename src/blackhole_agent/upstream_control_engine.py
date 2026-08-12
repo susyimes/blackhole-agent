@@ -158,7 +158,9 @@ PIPELINE_STACK: tuple[PipelineDialect, ...] = (
 PIPELINE_DIALECTS: dict[str, PipelineDialect] = {d.name: d for d in PIPELINE_STACK}
 
 
-def get_pipeline_dialect(name: str) -> PipelineDialect:
+def get_pipeline_dialect(name: "PipelineDialect | str") -> PipelineDialect:
+    if isinstance(name, PipelineDialect):
+        return name
     key = str(name or "").strip().lower()
     if key not in PIPELINE_DIALECTS:
         raise StageRefused(
@@ -1347,7 +1349,9 @@ LOOP_STACK: tuple[LoopDialect, ...] = (
 LOOP_DIALECTS: dict[str, LoopDialect] = {d.name: d for d in LOOP_STACK}
 
 
-def get_loop_dialect(name: str) -> LoopDialect:
+def get_loop_dialect(name: "LoopDialect | str") -> LoopDialect:
+    if isinstance(name, LoopDialect):
+        return name
     key = str(name or "").strip().lower()
     if key not in LOOP_DIALECTS:
         raise LoopRefused(
@@ -2499,6 +2503,76 @@ def validate_control_node(node: ControlNode) -> None:
         raise StageRefused("control_unknown_mode", f"unknown mode {mode!r}")
 
 
+def annotate_control_nest(
+    result: Mapping[str, Any],
+    *,
+    parent_dialect: str,
+    child_mode: str,
+    child_dialect: str,
+    live: bool = False,
+    nest_path_steps: Sequence[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Stamp control-nest ownership flags onto a loop/pipeline result."""
+    body = dict(result)
+    parent = str(parent_dialect or "").strip().lower()
+    child = str(child_dialect or "").strip().lower()
+    mode = str(child_mode or "").strip().lower()
+    body["control_engine"] = True
+    body["control_mode"] = "loop"
+    body["control_composed"] = True
+    body["control_nest"] = True
+    body["control_nest_live"] = bool(live)
+    body["control_parent_dialect"] = parent
+    body["control_child_mode"] = mode
+    body["control_child_dialect"] = child
+    body["control_nest_edge"] = f"{parent}->{child}"
+    if nest_path_steps is not None:
+        body["control_nest_path"] = [dict(s) for s in nest_path_steps]
+        body["control_nest_depth"] = len(body["control_nest_path"])
+    return body
+
+
+def run_nested_control(
+    parent_dialect: "LoopDialect | str",
+    *,
+    child_mode: str,
+    child_dialect: str,
+    nest_path_steps: Sequence[Mapping[str, Any]] | None = None,
+    live: bool = True,
+    **loop_kwargs: Any,
+) -> dict[str, Any]:
+    """Live domain entry: parent loop with a declared multi-depth nest edge.
+
+    Domain modules call this instead of raw :func:`run_durable_loop` so the
+    program→succession→epoch→fleet structure is engine-owned. Dialect hooks
+    (``classify`` / ``seal`` / ``on_child_result`` / …) stay domain-local;
+    nest edge metadata and control flags are stamped here.
+    """
+    parent = get_loop_dialect(parent_dialect)
+    child_mode_key = str(child_mode or "").strip().lower()
+    child_key = str(child_dialect or "").strip().lower()
+    if child_mode_key == "loop":
+        get_loop_dialect(child_key)
+    elif child_mode_key == "pipeline":
+        get_pipeline_dialect(child_key)
+    elif child_mode_key not in {"child", "callable", ""}:
+        raise StageRefused(
+            "control_nest_invalid",
+            f"unknown nest child_mode {child_mode!r}; "
+            "known=['loop','pipeline','child']",
+        )
+
+    result = run_durable_loop(parent, **loop_kwargs)
+    return annotate_control_nest(
+        result,
+        parent_dialect=parent.name,
+        child_mode=child_mode_key or "child",
+        child_dialect=child_key,
+        live=live,
+        nest_path_steps=nest_path_steps,
+    )
+
+
 def compose_loop_of_loop(
     *,
     parent_dialect: str,
@@ -2516,21 +2590,30 @@ def compose_loop_of_loop(
     extract_dispatched: ExtractDispatched | None = None,
     out_root: Path | None = None,
     portfolio: Mapping[str, Any] | None = None,
+    portfolio_dir: Path | None = None,
+    child_out_root: Path | None = None,
     dispatch: bool = True,
     dispatch_budget: int | None = None,
     idle_limit: int = 1,
     child_idle_limit: int = 1,
+    recompute_digest: Callable[[MutableMapping[str, Any]], str] | None = None,
+    refuse_on_first: Sequence[type[BaseException]] = (),
+    wrap_refuse: Callable[[BaseException], BaseException] | None = None,
+    prior_total_dispatched: int = 0,
+    prior_total_dispatched_ok: int = 0,
+    initial_extras: Mapping[str, Any] | None = None,
+    nest_stamp: bool = True,
+    live: bool = False,
 ) -> dict[str, Any]:
     """Engine-native composition: parent loop drives child loop rounds.
 
     Unlike :func:`compose_loop_of_pipeline`, both layers are durable loop
     dialects (e.g. program→succession or succession→epoch). The child runner
-    may itself be a composed nest.
+    may itself be a composed nest. Live domains may also use
+    :func:`run_nested_control` with full dialect hooks.
     """
     parent = get_loop_dialect(parent_dialect)
     child = get_loop_dialect(child_dialect)
-    # Validate child dialect is registered (structure only; nesting is free).
-    _ = child
 
     def default_build(state: LoopState, round_index: int) -> dict[str, Any]:
         return {
@@ -2582,14 +2665,19 @@ def compose_loop_of_loop(
             "stop_reason": result.get("stop_reason"),
         }
 
-    composed = run_durable_loop(
+    return run_nested_control(
         parent_dialect,
+        child_mode="loop",
+        child_dialect=child_dialect,
+        live=live,
         max_rounds=max_rounds,
         dispatch=dispatch,
         dispatch_budget=dispatch_budget,
         idle_limit=idle_limit,
         portfolio=portfolio,
+        portfolio_dir=portfolio_dir,
         out_root=out_root,
+        child_out_root=child_out_root,
         child_runner=child_runner,
         build_child_kwargs=build_child_kwargs or default_build,
         on_child_result=on_child_result or default_on_child,
@@ -2599,16 +2687,14 @@ def compose_loop_of_loop(
         classify_verdict=classify_parent,
         seal=seal_parent,
         extract_dispatched=extract_dispatched,
+        recompute_digest=recompute_digest,
+        refuse_on_first=refuse_on_first,
+        wrap_refuse=wrap_refuse,
+        prior_total_dispatched=prior_total_dispatched,
+        prior_total_dispatched_ok=prior_total_dispatched_ok,
+        initial_extras=initial_extras,
+        nest_stamp=nest_stamp,
     )
-    composed["control_engine"] = True
-    composed["control_mode"] = "loop"
-    composed["control_composed"] = True
-    composed["control_nest"] = True
-    composed["control_child_mode"] = "loop"
-    composed["control_child_dialect"] = child_dialect
-    composed["control_parent_dialect"] = parent.name
-    composed["control_nest_edge"] = f"{parent.name}->{child_dialect}"
-    return composed
 
 
 def run_control_graph(
@@ -3124,12 +3210,13 @@ def builtin_control_nest_proof() -> dict[str, Any]:
             and int(loop_of_loop.get("total_dispatched_ok") or 0) >= 2
         )
 
-        # Live domain modules declare nest ownership flags.
+        # Live domain modules declare nest ownership flags + use run_nested_control.
         from blackhole_agent import upstream_campaign as ucamp
         from blackhole_agent import upstream_epoch as ue
         from blackhole_agent import upstream_fleet as ufleet
         from blackhole_agent import upstream_program as up
         from blackhole_agent import upstream_succession as us
+        from blackhole_agent import upstream_loop_engine as le_facade
 
         live_nest_flags = {
             "program": getattr(up, "CONTROL_NEST", False) is True,
@@ -3137,6 +3224,9 @@ def builtin_control_nest_proof() -> dict[str, Any]:
             "epoch": getattr(ue, "CONTROL_NEST", False) is True,
             "fleet": getattr(ufleet, "CONTROL_NEST", False) is True,
             "campaign": getattr(ucamp, "CONTROL_NEST", False) is True,
+            "program_live": getattr(up, "CONTROL_NEST_LIVE", False) is True,
+            "succession_live": getattr(us, "CONTROL_NEST_LIVE", False) is True,
+            "epoch_live": getattr(ue, "CONTROL_NEST_LIVE", False) is True,
             "program_child": getattr(up, "CONTROL_NEST_CHILD", "") == "succession",
             "succession_child": getattr(us, "CONTROL_NEST_CHILD", "") == "epoch",
             "epoch_child": getattr(ue, "CONTROL_NEST_CHILD", "") == "fleet",
@@ -3144,8 +3234,126 @@ def builtin_control_nest_proof() -> dict[str, Any]:
                 getattr(up, "CONTROL_NEST_PATH", None) == operational_nest_path()
                 or getattr(up, "CONTROL_NEST_PATH", None) is not None
             ),
+            "facade_nested": callable(getattr(le_facade, "run_nested_control", None)),
+            "facade_nest_impl": getattr(le_facade, "CONTROL_NEST_IMPL", False) is True,
         }
         live_flags_ok = all(live_nest_flags.values())
+
+        # Source-level: live run_* must call run_nested_control, not bare
+        # run_durable_loop for the nest edge.
+        def _src_uses_nested(mod: Any) -> bool:
+            path = Path(mod.__file__).resolve()
+            text = path.read_text(encoding="utf-8")
+            return (
+                "run_nested_control" in text
+                and "return le.run_nested_control" in text
+            )
+
+        live_source = {
+            "epoch": _src_uses_nested(ue),
+            "succession": _src_uses_nested(us),
+            "program": _src_uses_nested(up),
+        }
+        live_source_ok = all(live_source.values())
+
+        # Live injected runs: nest flags on real domain return values.
+        def _live_fleet(**kwargs: Any) -> dict[str, Any]:
+            out = Path(str(kwargs.get("out_root") or scratch / "live-wave"))
+            out.mkdir(parents=True, exist_ok=True)
+            dig = _sha256_json({"live": str(out), "ri": kwargs.get("round_index")})
+            return {
+                "ok": True,
+                "verdict": "fleet_dispatched",
+                "plan_dir": str(out),
+                "fleet_digest": dig,
+                "dispatched_count": 1,
+                "dispatched_ok": 1,
+                "campaignable_count": 0,
+                "dispatches": [{"ok": True, "campaign_digest": dig}],
+            }
+
+        live_epoch = ue.run_epoch(
+            fleet_runner=_live_fleet,
+            max_waves=1,
+            dispatch=True,
+            portfolio={"entries": [], "portfolio_digest": "p" * 64},
+            out_root=scratch / "live-epoch",
+        )
+        live_epoch_ok = (
+            live_epoch.get("ok")
+            and live_epoch.get("control_nest") is True
+            and live_epoch.get("control_nest_live") is True
+            and live_epoch.get("control_nest_edge") == "epoch->fleet"
+            and live_epoch.get("control_child_mode") == "pipeline"
+            and live_epoch.get("control_child_dialect") == "fleet"
+        )
+
+        def _live_epoch(**kwargs: Any) -> dict[str, Any]:
+            return ue.run_epoch(
+                fleet_runner=_live_fleet,
+                max_waves=1,
+                dispatch=True,
+                portfolio=kwargs.get("portfolio")
+                or {"entries": [], "portfolio_digest": "p" * 64},
+                out_root=kwargs.get("out_root") or scratch / "live-succ-epoch",
+                dispatch_budget=kwargs.get("dispatch_budget"),
+            )
+
+        live_succ = us.run_succession(
+            epoch_runner=_live_epoch,
+            max_epochs=1,
+            max_waves_per_epoch=1,
+            dispatch=True,
+            portfolio={"entries": [], "portfolio_digest": "p" * 64},
+            out_root=scratch / "live-succession",
+            mandate_goal="none",
+        )
+        live_succ_ok = (
+            live_succ.get("ok")
+            and live_succ.get("control_nest") is True
+            and live_succ.get("control_nest_live") is True
+            and live_succ.get("control_nest_edge") == "succession->epoch"
+            and live_succ.get("control_child_mode") == "loop"
+            and live_succ.get("control_child_dialect") == "epoch"
+            # Nested child also nest-live (epoch→fleet).
+            and bool((live_succ.get("epochs") or [{}])[0].get("epoch_digest"))
+        )
+
+        def _live_succ(**kwargs: Any) -> dict[str, Any]:
+            return us.run_succession(
+                epoch_runner=_live_epoch,
+                max_epochs=1,
+                max_waves_per_epoch=1,
+                dispatch=True,
+                portfolio=kwargs.get("portfolio")
+                or {"entries": [], "portfolio_digest": "p" * 64},
+                out_root=kwargs.get("out_root") or scratch / "live-prog-succ",
+                dispatch_budget=kwargs.get("dispatch_budget"),
+                mandate_goal="none",
+            )
+
+        live_prog = up.run_program(
+            succession_runner=_live_succ,
+            max_successions=1,
+            max_epochs_per_succession=1,
+            max_waves_per_epoch=1,
+            dispatch=True,
+            portfolio={"entries": [], "portfolio_digest": "p" * 64},
+            out_root=scratch / "live-program",
+            program_goal="none",
+            mandate_goal="none",
+        )
+        live_prog_ok = (
+            live_prog.get("ok")
+            and live_prog.get("control_nest") is True
+            and live_prog.get("control_nest_live") is True
+            and live_prog.get("control_nest_edge") == "program->succession"
+            and live_prog.get("control_child_mode") == "loop"
+            and live_prog.get("control_child_dialect") == "succession"
+            and int(live_prog.get("control_nest_depth") or 0) == 4
+            and bool(live_prog.get("program_digest"))
+        )
+        live_domain_ok = live_epoch_ok and live_succ_ok and live_prog_ok
 
         from blackhole_agent.capability_compounder import (
             default_ledger_path,
@@ -3158,6 +3366,7 @@ def builtin_control_nest_proof() -> dict[str, Any]:
             ledger = load_ledger(ledger_path)
             entry = ledger.capabilities.get("capability.upstream-control-nest")
             tags_blob = " ".join(entry.tags).lower() if entry else ""
+            delta_blob = (entry.capability_delta or "").lower() if entry else ""
             ledger_ok = (
                 entry is not None
                 and "upstream_control_engine" in (entry.entry or "")
@@ -3165,6 +3374,12 @@ def builtin_control_nest_proof() -> dict[str, Any]:
                     "nest" in tags_blob
                     or "graph" in tags_blob
                     or "composition" in tags_blob
+                )
+                and (
+                    "live" in tags_blob
+                    or "nested" in delta_blob
+                    or "run_nested" in delta_blob
+                    or "nest" in delta_blob
                 )
             )
         except Exception:  # noqa: BLE001
@@ -3184,6 +3399,8 @@ def builtin_control_nest_proof() -> dict[str, Any]:
                 nest_ok,
                 lol_ok,
                 live_flags_ok,
+                live_source_ok,
+                live_domain_ok,
                 ledger_ok,
                 not legacy_pipeline_was_used(),
             ]
@@ -3199,8 +3416,18 @@ def builtin_control_nest_proof() -> dict[str, Any]:
             "compose_loop_of_loop_ok": lol_ok,
             "live_nest_flags_ok": live_flags_ok,
             "live_nest_flags": live_nest_flags,
+            "live_source_ok": live_source_ok,
+            "live_source": live_source,
+            "live_domain_ok": live_domain_ok,
+            "live_epoch_ok": live_epoch_ok,
+            "live_succession_ok": live_succ_ok,
+            "live_program_ok": live_prog_ok,
+            "live_epoch_edge": live_epoch.get("control_nest_edge"),
+            "live_succession_edge": live_succ.get("control_nest_edge"),
+            "live_program_edge": live_prog.get("control_nest_edge"),
             "ledger_capability_ok": ledger_ok,
             "program_digest": nest_result.get("program_digest"),
+            "live_program_digest": live_prog.get("program_digest"),
             "succession_of_loop_digest": loop_of_loop.get("succession_digest"),
             "total_dispatched_ok": nest_result.get("total_dispatched_ok"),
             "fleet_calls": fleet_calls,

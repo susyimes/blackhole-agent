@@ -4025,14 +4025,14 @@
         "src/blackhole_agent/upstream_campaign.py",
         "capabilities/ledger.json"
       ],
-      "capability_delta": "Full operational nest is engine data: program→succession→epoch→fleet runs via run_control_graph/OPERATIONAL_NEST; compose_loop_of_loop adds loop→loop nesting beyond compose_loop_of_pipeline; domain modules set CONTROL_NEST without skill-route.",
+      "capability_delta": "Live operational nest is engine-owned: run_program/run_succession/run_epoch call run_nested_control for program→succession→epoch→fleet edges with control_nest_live seals; OPERATIONAL_NEST/run_control_graph and compose_loop_of_loop remain hermetic graph composition; domain modules keep hooks only without skill-route.",
       "created_at": "2026-08-12T03:42:50.546634Z",
       "dependencies": [
         "repo.import-health",
         "capability.ledger-inventory",
         "capability.upstream-control-engine"
       ],
-      "description": "Declarative multi-depth control graph owns the operational nest program→succession→epoch→fleet: ControlNode/OPERATIONAL_NEST, compose_loop_of_loop, run_control_graph, and nest-proof seal digests without domain modules implementing the nest structure. Domain modules declare CONTROL_NEST membership. No skill-route discovery.",
+      "description": "Declarative multi-depth control graph owns the operational nest program→succession→epoch→fleet: ControlNode/OPERATIONAL_NEST, compose_loop_of_loop, run_control_graph, and run_nested_control. Live domain run_program/run_succession/run_epoch call run_nested_control so nest edges are engine-owned; dialect hooks stay domain-local. No skill-route discovery.",
       "entry": "blackhole_agent.upstream_control_engine:builtin_control_nest_proof",
       "id": "capability.upstream-control-nest",
       "kind": "python",
@@ -4040,25 +4040,27 @@
       "last_proved_at": "",
       "name": "Upstream multi-depth control nest graph",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine nest-proof",
-      "source_milestone": 1,
+      "source_milestone": 2,
       "source_mission_id": "20260812T033654Z-28394399",
       "tags": [
         "bootstrap",
         "collapse",
+        "composition",
         "control",
         "engine",
-        "ledger-bound",
-        "loop",
-        "pipeline",
-        "nest",
         "graph",
-        "composition",
+        "ledger-bound",
+        "live",
+        "loop",
+        "multi-depth",
+        "nest",
+        "nested-control",
+        "pipeline",
         "simplification",
         "stewardship",
-        "upstream",
-        "multi-depth"
+        "upstream"
       ],
-      "updated_at": "2026-08-12T03:42:50.546634Z"
+      "updated_at": "2026-08-12T03:47:52.255834Z"
     },
     "capability.upstream-cosmos": {
       "behavior_paths": [
@@ -6191,5 +6193,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-08-12T03:42:50.546821Z"
+  "updated_at": "2026-08-12T03:47:52.256086Z"
 }

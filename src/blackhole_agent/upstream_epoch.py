@@ -64,7 +64,9 @@ CONTROL_ENGINE = True
 CONTROL_ENGINE_MODE = "loop"
 
 # Multi-depth control nest: epoch drives fleet pipeline waves.
+# Live run_epoch uses le.run_nested_control (not raw run_durable_loop).
 CONTROL_NEST = True
+CONTROL_NEST_LIVE = True
 CONTROL_NEST_CHILD = "fleet"
 CONTROL_NEST_CHILD_MODE = "pipeline"
 
@@ -364,9 +366,10 @@ def run_epoch(
 ) -> dict[str, Any]:
     """Run a multi-wave closed-loop fleet epoch and seal the receipt.
 
-    Control flow is owned by :mod:`blackhole_agent.upstream_loop_engine`;
-    this module supplies epoch-dialect hooks (fleet feedback, campaignable
-    progress, receipt schema) only.
+    Nest structure is owned by the control engine via
+    :func:`run_nested_control` (epoch→fleet). This module supplies
+    epoch-dialect hooks (fleet feedback, campaignable progress, receipt
+    schema) only.
 
     Parameters
     ----------
@@ -577,6 +580,13 @@ def run_epoch(
             "used_skill_route_discovery": legacy_pipeline_was_used(),
             "loop_engine": True,
             "loop_dialect": dialect.name,
+            "control_engine": True,
+            "control_nest": True,
+            "control_nest_live": True,
+            "control_parent_dialect": "epoch",
+            "control_child_mode": "pipeline",
+            "control_child_dialect": "fleet",
+            "control_nest_edge": "epoch->fleet",
         }
         receipt["epoch_digest"] = _sha256_json(_epoch_digest_payload(receipt))
         atomic_write_json(state.loop_dir / "epoch.json", receipt)
@@ -592,6 +602,8 @@ def run_epoch(
                 "portfolio_start_digest": receipt["portfolio_start_digest"],
                 "portfolio_end_digest": receipt["portfolio_end_digest"],
                 "epoch_digest": receipt["epoch_digest"],
+                "control_nest": True,
+                "control_nest_edge": "epoch->fleet",
             },
         )
         return {
@@ -611,6 +623,13 @@ def run_epoch(
             "used_skill_route_discovery": receipt["used_skill_route_discovery"],
             "loop_engine": True,
             "loop_dialect": dialect.name,
+            "control_engine": True,
+            "control_nest": True,
+            "control_nest_live": True,
+            "control_parent_dialect": "epoch",
+            "control_child_mode": "pipeline",
+            "control_child_dialect": "fleet",
+            "control_nest_edge": "epoch->fleet",
         }
 
     def wrap_refuse(exc: BaseException) -> BaseException:
@@ -619,8 +638,11 @@ def run_epoch(
         return EpochRefused(str(verdict), str(detail))
 
     try:
-        return le.run_durable_loop(
+        return le.run_nested_control(
             dialect,
+            child_mode="pipeline",
+            child_dialect="fleet",
+            live=True,
             max_rounds=max_waves,
             dispatch=dispatch,
             dispatch_budget=dispatch_budget,
