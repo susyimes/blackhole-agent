@@ -86,6 +86,13 @@ Composition:
   hash-chained world-state root, seals a re-verifiable execution
   certificate, refuses supersession, short-circuits on re-execute,
   and rebinds the depth-28 tip without re-dispatch or skill-route
+* total-spine **post-execution actuation** — closes the inert state-root
+  cliff: after world-state execution seals a tip-bound state root,
+  ``actuate_total_spine(...)`` (and ``run_total_spine(actuation=True)``)
+  dispatches ordered multi-action ledger effects bound to that root,
+  seals a re-verifiable actuation certificate with a hash-chained
+  action log, refuses supersession / wrong-root binding, short-circuits
+  on re-actuate, and rebinds the depth-28 tip without skill-route
 
 No skill-route discovery.
 """
@@ -4332,6 +4339,25 @@ TOTAL_SPINE_QUORUM_MIN_ORIGINS: int = 3
 TOTAL_SPINE_EXECUTION_IMPL = True
 TOTAL_SPINE_EXECUTION_KIND: str = "total_spine_execution"
 TOTAL_SPINE_EXECUTION_FILENAME: str = "total-spine-execution.json"
+# Post-execution actuation: ordered multi-action effects bound to state roots.
+# Implementation lives in upstream_total_spine_actuation; re-exported here.
+from blackhole_agent.upstream_total_spine_actuation import (  # noqa: E402
+    TOTAL_SPINE_ACTUATION_FILENAME,
+    TOTAL_SPINE_ACTUATION_IMPL,
+    TOTAL_SPINE_ACTUATION_KIND,
+    TOTAL_SPINE_ACTUATION_MIN_ACTIONS,
+    actuate_total_spine,
+    actuation_certificate_path,
+    annotate_total_spine_actuation,
+    build_total_spine_action_log,
+    builtin_total_spine_actuation_proof,
+    compute_total_spine_action_root,
+    load_total_spine_actuation_certificate,
+    seal_total_spine_actuation_certificate,
+    seal_total_spine_actuation_chain,
+    verify_total_spine_actuation_certificate,
+    write_total_spine_actuation_certificate,
+)
 # Constitution-layer goals accepted by run_constitution (not free-text).
 TOTAL_SPINE_CONSTITUTION_GOALS: frozenset[str] = frozenset(
     {
@@ -7009,6 +7035,7 @@ def _attach_total_spine_effects(
     federation_quorum: bool = False,
     quorum_threshold: int | None = None,
     execution: bool = False,
+    actuation: bool = False,
 ) -> dict[str, Any]:
     """Optionally dispatch ledger effects, gate contracts, rebind hop digests.
 
@@ -7046,6 +7073,11 @@ def _attach_total_spine_effects(
     federation/quorum), apply a deterministic world-state transition, seal an
     irreversible execution certificate with a state root, and rebind the tip.
     Resume of an already-executed run short-circuits without re-dispatch.
+
+    Post-execution actuation (``actuation=True``): after world-state execution
+    seals a state root, bind ordered multi-action ledger effects to that root,
+    seal an irreversible actuation certificate, and rebind the tip. Resume of
+    an already-actuated run short-circuits without re-dispatch.
     """
     goal_text = str(goal or "").strip()
     contract_text = str(done_when or "").strip()
@@ -7067,8 +7099,16 @@ def _attach_total_spine_effects(
     resume_checkpoint: dict[str, Any] | None = None
     resume_finality: dict[str, Any] | None = None
     resume_execution: dict[str, Any] | None = None
+    resume_actuation: dict[str, Any] | None = None
     if resume_dir is not None:
-        # Prefer execution short-circuit, then finality, when sealed.
+        # Prefer actuation short-circuit, then execution, then finality.
+        try:
+            resume_actuation = load_total_spine_actuation_certificate(resume_dir)
+        except Exception as exc:  # noqa: BLE001 — actuation StageRefused is modular
+            verdict = getattr(exc, "verdict", "")
+            if str(verdict) == "total_spine_actuation_tampered":
+                raise
+            resume_actuation = None
         try:
             resume_execution = load_total_spine_execution_certificate(resume_dir)
         except StageRefused as exc:
@@ -7092,15 +7132,23 @@ def _attach_total_spine_effects(
             resumed = True
             continuity = True
         except StageRefused:
-            # Finality/execution-only resume is allowed without a continuity file.
+            # Finality/execution/actuation-only resume is allowed without continuity.
             # Path resolution may point continuity_checkpoint_path at a sibling
             # execution/finality JSON; those are not continuity tamper events.
-            if resume_finality is None and resume_execution is None:
+            if (
+                resume_finality is None
+                and resume_execution is None
+                and resume_actuation is None
+            ):
                 raise
             resumed = True
         # Prefer checkpoint mission config when caller left fields empty.
         config_src: Mapping[str, Any] = (
-            resume_checkpoint or resume_finality or resume_execution or {}
+            resume_checkpoint
+            or resume_actuation
+            or resume_finality
+            or resume_execution
+            or {}
         )
         if not goal_text:
             goal_text = str(config_src.get("goal") or "").strip()
@@ -7110,9 +7158,11 @@ def _attach_total_spine_effects(
             (resume_checkpoint or {}).get("explicit_capabilities")
             or (resume_finality or {}).get("capabilities")
             or (resume_execution or {}).get("capabilities")
+            or (resume_actuation or {}).get("capabilities")
         ):
             capabilities = list(
                 (resume_checkpoint or {}).get("capabilities")
+                or (resume_actuation or {}).get("capabilities")
                 or (resume_finality or {}).get("capabilities")
                 or (resume_execution or {}).get("capabilities")
                 or []
@@ -7123,7 +7173,9 @@ def _attach_total_spine_effects(
                 (resume_checkpoint or {}).get("want_effects")
             ) or bool((resume_checkpoint or {}).get("effects")) or bool(
                 (resume_finality or {}).get("capabilities")
-            ) or bool((resume_execution or {}).get("capabilities"))
+            ) or bool((resume_execution or {}).get("capabilities")) or bool(
+                (resume_actuation or {}).get("capabilities")
+            )
         if max_effect_steps is None and (resume_checkpoint or {}).get(
             "max_effect_steps"
         ) is not None:
@@ -7140,16 +7192,21 @@ def _attach_total_spine_effects(
                 grow_budget = int(resume_checkpoint["grow_budget"])  # type: ignore[index]
             except (TypeError, ValueError):
                 pass
-        # Finality resume implies finality mode; execution resume implies both.
+        # Finality resume implies finality mode; execution/actuation cascade.
         if resume_finality is not None:
             finality = True
         if resume_execution is not None:
             finality = True
             execution = True
+        if resume_actuation is not None:
+            finality = True
+            execution = True
+            actuation = True
 
     continuity_on = bool(continuity) or resumed or resume_dir is not None
     finality_on = bool(finality) or resume_finality is not None
     execution_on = bool(execution) or resume_execution is not None
+    actuation_on = bool(actuation) or resume_actuation is not None
     # Finality needs a durable write root for the certificate.
     if finality_on and not continuity_on and (out_root is not None or resume_dir is not None):
         # Keep continuity optional; finality can seal alone under out_root.
@@ -7256,6 +7313,130 @@ def _attach_total_spine_effects(
             resume_checkpoint.get("checkpoint_path")
         )
 
+    # --- Irreversible actuation short-circuit (no effect re-dispatch) ---
+    if resume_actuation is not None:
+        short_circuited = True
+        recovered = recovered or bool(resume_actuation.get("recovered"))
+        act_caps = list(resume_actuation.get("capabilities") or [])
+        act_prior = str(resume_actuation.get("prior_tip") or bound_tip)
+        bound_tip = act_prior
+        annotated["ok"] = True
+        annotated["verdict"] = "total_spine_actuation_short_circuit"
+        annotated["total_spine_effects"] = bool(act_caps) or want_effects
+        annotated["total_spine_effects_ok"] = bool(
+            resume_actuation.get("effects_ok", True)
+        )
+        annotated["total_spine_effect_capabilities"] = act_caps
+        annotated["total_spine_effect_count"] = len(act_caps)
+        annotated["total_spine_effects_ok_count"] = len(act_caps)
+        annotated["total_spine_effects_failed_count"] = 0
+        annotated["total_spine_goal"] = (
+            goal_text or str(resume_actuation.get("goal") or "")
+        )
+        if contract_text or resume_actuation.get("done_when"):
+            annotated["total_spine_contract"] = True
+            annotated["total_spine_contract_met"] = resume_actuation.get(
+                "contract_met"
+            )
+            annotated["total_spine_contract_ok"] = (
+                resume_actuation.get("contract_met") is True
+                or resume_actuation.get("contract_met") is None
+            )
+            annotated["total_spine_done_when"] = (
+                contract_text
+                or str(resume_actuation.get("done_when") or "")
+            )
+        annotated["total_spine_adaptive"] = prior_round_count > 0 or bool(
+            adaptive_rounds_log
+        )
+        if adaptive_rounds_log:
+            annotated["total_spine_adaptive_rounds"] = adaptive_rounds_log
+            annotated["total_spine_adaptive_round_count"] = len(
+                adaptive_rounds_log
+            )
+            annotated["total_spine_adaptive_recovered"] = recovered
+            annotated["total_spine_adaptive_excluded"] = sorted(exclude)
+        annotated["total_spine_continuity"] = resume_checkpoint is not None
+        if resume_checkpoint is not None:
+            annotated["total_spine_continuity_status"] = resume_checkpoint.get(
+                "status"
+            )
+            annotated["total_spine_continuity_recovered"] = recovered
+            annotated["total_spine_continuity_digest"] = resume_checkpoint.get(
+                "checkpoint_digest"
+            )
+        if resume_finality is not None:
+            annotated = annotate_total_spine_finality(
+                annotated,
+                certificate=resume_finality,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_finality_bound_tip") or bound_tip
+            )
+        else:
+            annotated["total_spine_finality"] = True
+            annotated["total_spine_finality_irreversible"] = True
+            annotated["total_spine_finality_short_circuit"] = True
+        if resume_execution is not None:
+            annotated = annotate_total_spine_execution(
+                annotated,
+                certificate=resume_execution,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_execution_bound_tip") or bound_tip
+            )
+        else:
+            # Actuation cert already binds the execution state root.
+            annotated["total_spine_execution"] = True
+            annotated["total_spine_execution_irreversible"] = True
+            annotated["total_spine_execution_short_circuit"] = True
+            annotated["total_spine_state_applied"] = True
+            annotated["total_spine_state_root"] = resume_actuation.get(
+                "bound_state_root"
+            )
+            annotated["state_root"] = resume_actuation.get("bound_state_root")
+            annotated["state_applied"] = True
+        annotated = annotate_total_spine_actuation(
+            annotated,
+            certificate=resume_actuation,
+            prior_tip=bound_tip,
+            short_circuit=True,
+        )
+        bound_tip = str(
+            annotated.get("total_spine_actuation_bound_tip") or bound_tip
+        )
+        if compressed:
+            hops = seal_total_spine_hop_chain(
+                root, live_result, tip=bound_tip
+            )
+            annotated["total_spine_hop_chain"] = hops
+            annotated["total_spine_hop_count"] = len(hops)
+            if hops:
+                annotated["total_spine_digest"] = hops[0].get("digest")
+                annotated[f"{root}_digest"] = hops[0].get("digest")
+        else:
+            annotated["total_spine_digest"] = bound_tip
+            annotated[f"{root}_digest"] = bound_tip
+        annotated["total_spine_actuation_short_circuit"] = True
+        annotated["total_spine_constitution_depth"] = chain_len
+        annotated["total_spine_goal_impl"] = TOTAL_SPINE_GOAL_IMPL
+        annotated["total_spine_adaptive_impl"] = TOTAL_SPINE_ADAPTIVE_IMPL
+        annotated["total_spine_continuity_impl"] = TOTAL_SPINE_CONTINUITY_IMPL
+        annotated["total_spine_finality_impl"] = TOTAL_SPINE_FINALITY_IMPL
+        annotated["total_spine_federation_impl"] = TOTAL_SPINE_FEDERATION_IMPL
+        annotated["total_spine_quorum_impl"] = TOTAL_SPINE_QUORUM_IMPL
+        annotated["total_spine_execution_impl"] = TOTAL_SPINE_EXECUTION_IMPL
+        annotated["total_spine_actuation_impl"] = TOTAL_SPINE_ACTUATION_IMPL
+        if goal_text and not annotated.get("total_spine_goal"):
+            annotated["total_spine_goal"] = goal_text
+        annotated.setdefault("total_spine_federation", False)
+        annotated.setdefault("total_spine_quorum", False)
+        return annotated
+
     # --- Irreversible execution short-circuit (no effect re-dispatch) ---
     if resume_execution is not None:
         short_circuited = True
@@ -7357,6 +7538,39 @@ def _attach_total_spine_effects(
             annotated["total_spine_goal"] = goal_text
         annotated.setdefault("total_spine_federation", False)
         annotated.setdefault("total_spine_quorum", False)
+        # Optional post-execution actuation on execution short-circuit.
+        if actuation_on and TOTAL_SPINE_ACTUATION_IMPL:
+            act_out_sc = None
+            if out_root is not None:
+                act_out_sc = Path(out_root)
+            elif resume_dir is not None:
+                act_out_sc = Path(resume_dir)
+            prior_act = str(
+                annotated.get("total_spine_execution_bound_tip")
+                or annotated.get("total_spine_digest")
+                or bound_tip
+            )
+            source_act: Any = (
+                annotated.get("total_spine_execution_certificate")
+                or resume_execution
+            )
+            annotated = actuate_total_spine(
+                source_act,
+                out_root=act_out_sc,
+                prior_tip=prior_act,
+                body=annotated,
+                capabilities=capabilities
+                or list(resume_execution.get("capabilities") or []),
+                repo_path=repo_path or REPO_ROOT,
+                effect_timeout=effect_timeout,
+                dispatch=True,
+            )
+            annotated["total_spine_execution"] = True
+            annotated["total_spine_execution_short_circuit"] = True
+            annotated["total_spine_execution_irreversible"] = True
+        else:
+            annotated.setdefault("total_spine_actuation", False)
+            annotated["total_spine_actuation_impl"] = TOTAL_SPINE_ACTUATION_IMPL
         return annotated
 
     # --- Irreversible finality short-circuit (no effect re-dispatch) ---
@@ -7517,6 +7731,43 @@ def _attach_total_spine_effects(
         else:
             annotated.setdefault("total_spine_execution", False)
             annotated["total_spine_execution_impl"] = TOTAL_SPINE_EXECUTION_IMPL
+        # Post-execution actuation on finality short-circuit path.
+        if actuation_on and TOTAL_SPINE_ACTUATION_IMPL:
+            if annotated.get("total_spine_execution") is True:
+                act_out_sc = None
+                if out_root is not None:
+                    act_out_sc = Path(out_root)
+                elif resume_dir is not None:
+                    act_out_sc = Path(resume_dir)
+                prior_act = str(
+                    annotated.get("total_spine_execution_bound_tip")
+                    or annotated.get("total_spine_digest")
+                    or bound_tip
+                )
+                source_act_sc: Any = (
+                    annotated.get("total_spine_execution_certificate")
+                    or annotated
+                )
+                annotated = actuate_total_spine(
+                    source_act_sc,
+                    out_root=act_out_sc,
+                    prior_tip=prior_act,
+                    body=annotated,
+                    capabilities=capabilities
+                    or list(resume_finality.get("capabilities") or []),
+                    repo_path=repo_path or REPO_ROOT,
+                    effect_timeout=effect_timeout,
+                    dispatch=True,
+                )
+                annotated["total_spine_finality"] = True
+                annotated["total_spine_finality_short_circuit"] = True
+                annotated["total_spine_finality_irreversible"] = True
+            else:
+                annotated["total_spine_actuation"] = False
+                annotated["total_spine_actuation_requires_execution"] = True
+        else:
+            annotated.setdefault("total_spine_actuation", False)
+            annotated["total_spine_actuation_impl"] = TOTAL_SPINE_ACTUATION_IMPL
         return annotated
 
     def _select_ids(round_index: int) -> tuple[list[str], str, bool, dict[str, Any] | None]:
@@ -8275,6 +8526,43 @@ def _attach_total_spine_effects(
         annotated["total_spine_execution_impl"] = TOTAL_SPINE_EXECUTION_IMPL
 
     annotated["total_spine_execution_impl"] = TOTAL_SPINE_EXECUTION_IMPL
+
+    # Post-execution actuation: execution state root → multi-action tip.
+    if actuation_on and TOTAL_SPINE_ACTUATION_IMPL:
+        if annotated.get("total_spine_execution") is True:
+            act_out = None
+            if out_root is not None:
+                act_out = Path(out_root)
+            elif resume_dir is not None:
+                act_out = Path(resume_dir)
+            prior_act = str(
+                annotated.get("total_spine_execution_bound_tip")
+                or annotated.get("total_spine_digest")
+                or ""
+            )
+            source_act_n: Any = (
+                annotated.get("total_spine_execution_certificate")
+                or annotated
+            )
+            annotated = actuate_total_spine(
+                source_act_n,
+                out_root=act_out,
+                prior_tip=prior_act,
+                body=annotated,
+                capabilities=capabilities
+                or list(annotated.get("total_spine_effect_capabilities") or []),
+                repo_path=repo_path or REPO_ROOT,
+                effect_timeout=effect_timeout,
+                dispatch=True,
+            )
+        else:
+            annotated["total_spine_actuation"] = False
+            annotated["total_spine_actuation_requires_execution"] = True
+    elif not actuation_on:
+        annotated.setdefault("total_spine_actuation", False)
+        annotated["total_spine_actuation_impl"] = TOTAL_SPINE_ACTUATION_IMPL
+
+    annotated["total_spine_actuation_impl"] = TOTAL_SPINE_ACTUATION_IMPL
     return annotated
 
 
@@ -8316,6 +8604,7 @@ def run_total_spine(
     federation_quorum: bool = False,
     quorum_threshold: int | None = None,
     execution: bool = False,
+    actuation: bool = False,
 ) -> dict[str, Any]:
     """Public entry: absolute total spine from root into the operational nest.
 
@@ -8364,6 +8653,12 @@ def run_total_spine(
     re-verifiable execution certificate with a state root, refuses supersession,
     and short-circuits on re-execute so absolute-tower consensus becomes
     executed world-state rather than certificates alone.
+
+    Post-execution actuation: ``actuation=True`` binds ordered multi-action
+    ledger effects to the execution state root, seals a re-verifiable actuation
+    certificate with a hash-chained action log, refuses supersession / wrong-root
+    binding, and short-circuits on re-actuate so absolute-tower world-state is
+    no longer inert.
     """
     root = (
         str(root_layer or TOTAL_SPINE_DEFAULT_ROOT).strip().lower()
@@ -8437,6 +8732,7 @@ def run_total_spine(
             federation_quorum=federation_quorum,
             quorum_threshold=quorum_threshold,
             execution=execution,
+            actuation=actuation,
         )
         return annotated
 
@@ -8503,6 +8799,7 @@ def run_total_spine(
         federation_quorum=federation_quorum,
         quorum_threshold=quorum_threshold,
         execution=execution,
+        actuation=actuation,
     )
     if out_root is not None:
         receipt_dir = Path(out_root)
@@ -15887,6 +16184,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "seal into irreversible execution certificates on the tip"
         ),
     )
+    sub.add_parser(
+        "actuation-proof",
+        help=(
+            "Total spine actuation proof: post-execution multi-action "
+            "effects seal into irreversible actuation certificates on the tip"
+        ),
+    )
     sub.add_parser("list", help="List control modes and dialects")
     sub.add_parser("nest-path", help="Print canonical operational nest path")
     sub.add_parser(
@@ -16023,6 +16327,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "execution-proof":
         result = builtin_total_spine_execution_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "actuation-proof":
+        result = builtin_total_spine_actuation_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2
