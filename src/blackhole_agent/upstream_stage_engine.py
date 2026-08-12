@@ -1,8 +1,12 @@
 """Generic multi-stage durable pipeline engine for operational stewardship.
 
-Collapses the campaign plane's hand-wired stage if-chain
-(discovery → admit → repair → contribution → publication → impact) into one
-noun-parameterized control-flow engine:
+Collapses hand-wired multi-stage control flow into one noun-parameterized
+engine. Registered dialects today:
+
+* **campaign** — discovery → admit → repair → contribution → publication → impact
+* **fleet** — inventory → portfolio → rank → dispatch
+
+Control flow (shared):
 
 1. validate ordered stage list against a pipeline dialect
 2. run each selected stage through an injected runner
@@ -10,8 +14,8 @@ noun-parameterized control-flow engine:
 4. let dialect hooks mutate shared pipeline context between stages
 5. classify terminal verdict + seal a digest-chained pipeline receipt
 
-Stage *domain logic* stays in ``upstream_campaign`` / plane modules. This
-engine owns *orchestration control flow* the same way
+Stage *domain logic* stays in ``upstream_campaign`` / ``upstream_fleet`` /
+plane modules. This engine owns *orchestration control flow* the same way
 ``upstream_loop_engine`` owns multi-round loops and
 ``upstream_constitution_engine`` owns multi-child constitutions.
 
@@ -95,7 +99,7 @@ class PipelineDialect:
         return stage in self.abort_on_fail
 
 
-# Registered operational pipelines (campaign is the primary dialect).
+# Registered operational pipelines (campaign + fleet prove multi-dialect).
 CAMPAIGN_STAGES: tuple[str, ...] = (
     "discovery",
     "admit",
@@ -103,6 +107,13 @@ CAMPAIGN_STAGES: tuple[str, ...] = (
     "contribution",
     "publication",
     "impact",
+)
+
+FLEET_STAGES: tuple[str, ...] = (
+    "inventory",
+    "portfolio",
+    "rank",
+    "dispatch",
 )
 
 PIPELINE_STACK: tuple[PipelineDialect, ...] = (
@@ -126,6 +137,24 @@ PIPELINE_STACK: tuple[PipelineDialect, ...] = (
             "contribution": "contribution_failed",
             "publication": "publication_failed",
             "impact": "impact_failed",
+        },
+    ),
+    PipelineDialect(
+        name="fleet",
+        valid_stages=frozenset(FLEET_STAGES),
+        default_stages=("inventory", "portfolio", "rank"),
+        artifacts_relative="artifacts/upstream-fleet",
+        receipt_filename="plan.json",
+        digest_field="fleet_digest",
+        dir_field="plan_dir",
+        # Inventory/portfolio hard-fail historically raise FleetRefused before
+        # seal (domain runners re-raise). Dispatch soft-fails and still seals.
+        abort_on_fail=frozenset({"inventory", "portfolio"}),
+        fail_verdicts={
+            "inventory": "fleet_empty",
+            "portfolio": "portfolio_failed",
+            "rank": "rank_failed",
+            "dispatch": "dispatch_failed",
         },
     ),
 )
@@ -515,23 +544,33 @@ def verify_pipeline_digest(
 
 
 def builtin_stage_engine_proof() -> dict[str, Any]:
-    """Hermetic proof that the stage engine owns campaign pipeline control flow.
+    """Hermetic proof that the stage engine owns multi-dialect pipeline control flow.
 
     Proves:
-    - pipeline dialect registration
+    - multi-dialect registration (campaign + fleet)
     - engine-native multi-stage run with abort-on-fail and soft-fail
+    - engine-native fleet dialect seal + abort
     - digest seal + tamper detection
-    - live ``upstream_campaign.run_campaign`` sets stage_engine ownership
-    - live campaign builtin proof stays green
+    - live ``upstream_campaign.run_campaign`` and ``upstream_fleet.plan_fleet``
+      set stage_engine ownership
+    - live campaign + fleet builtin proofs stay green
     - ledger binding for capability.upstream-stage-engine
     - no skill-route discovery
     """
     scratch = Path(tempfile.mkdtemp(prefix="stage-engine-proof-"))
     try:
         dialects = list_pipeline_dialects()
-        dialects_ok = dialects == ["campaign"] and "campaign" in PIPELINE_DIALECTS
+        dialects_ok = (
+            dialects == ["campaign", "fleet"]
+            and "campaign" in PIPELINE_DIALECTS
+            and "fleet" in PIPELINE_DIALECTS
+        )
         campaign_d = get_pipeline_dialect("campaign")
-        known_stages_ok = set(CAMPAIGN_STAGES) == set(campaign_d.valid_stages)
+        fleet_d = get_pipeline_dialect("fleet")
+        known_stages_ok = (
+            set(CAMPAIGN_STAGES) == set(campaign_d.valid_stages)
+            and set(FLEET_STAGES) == set(fleet_d.valid_stages)
+        )
 
         # --- engine-native pipeline (no campaign domain deps) ---
         calls: list[str] = []
@@ -728,22 +767,233 @@ def builtin_stage_engine_proof() -> dict[str, Any]:
             and soft.get("aborted") is False
         )
 
-        # Unknown stages refused.
+        # Unknown stages refused (both dialects).
         unknown_refused = False
         try:
             normalize_stages("campaign", ("repair", "not_a_stage"))
         except StageRefused as exc:
             unknown_refused = exc.verdict == "stages_unknown"
+        fleet_unknown_refused = False
+        try:
+            normalize_stages("fleet", ("inventory", "not_a_stage"))
+        except StageRefused as exc:
+            fleet_unknown_refused = exc.verdict == "stages_unknown"
+
+        # --- engine-native fleet dialect (no fleet domain deps) ---
+        fleet_calls: list[str] = []
+
+        def run_fleet_stage(state: PipelineState, name: str) -> dict[str, Any]:
+            fleet_calls.append(name)
+            ctx = state.context
+            if name == "inventory":
+                if ctx.get("force_empty"):
+                    return {
+                        "stage": "inventory",
+                        "ok": False,
+                        "verdict": "fleet_empty",
+                        "inventory_count": 0,
+                    }
+                ctx["inventory"] = [{"name": "alpha", "version": "1.0.0"}]
+                return {
+                    "stage": "inventory",
+                    "ok": True,
+                    "verdict": "inventoried",
+                    "inventory_count": 1,
+                }
+            if name == "portfolio":
+                ctx["portfolio"] = {"entries": [], "portfolio_digest": "p" * 64}
+                ctx["portfolio_source"] = "injected"
+                return {
+                    "stage": "portfolio",
+                    "ok": True,
+                    "verdict": "portfolio_ready",
+                    "portfolio_source": "injected",
+                    "portfolio_digest": "p" * 64,
+                }
+            if name == "rank":
+                actions = [
+                    {
+                        "action": "campaign_patch_bound",
+                        "name": "alpha",
+                        "version": "1.0.0",
+                        "campaignable": True,
+                        "priority": 40,
+                        "rank": 1,
+                    }
+                ]
+                ctx["actions"] = actions
+                ctx["campaignable"] = [a for a in actions if a.get("campaignable")]
+                return {
+                    "stage": "rank",
+                    "ok": True,
+                    "verdict": "ranked",
+                    "action_count": len(actions),
+                    "campaignable_count": 1,
+                    "top_action": actions[0],
+                }
+            if name == "dispatch":
+                if ctx.get("force_dispatch_fail"):
+                    return {
+                        "stage": "dispatch",
+                        "ok": False,
+                        "verdict": "dispatch_failed",
+                        "dispatched_count": 1,
+                        "dispatched_ok": 0,
+                        "dispatches": [{"ok": False, "verdict": "dispatch_error"}],
+                    }
+                dig = "d" * 64
+                return {
+                    "stage": "dispatch",
+                    "ok": True,
+                    "verdict": "fleet_dispatched",
+                    "dispatched_count": 1,
+                    "dispatched_ok": 1,
+                    "dispatches": [
+                        {
+                            "ok": True,
+                            "verdict": "dispatched_proof",
+                            "campaign_digest": dig,
+                        }
+                    ],
+                    "dispatch_digests": {"alpha-1.0.0-campaign_patch_bound": dig},
+                }
+            raise StageRefused("stage_unknown", name)
+
+        def fleet_classify(state: PipelineState) -> tuple[bool, str]:
+            if state.aborted or not state.pipeline_ok:
+                return False, state.terminal_verdict
+            if "dispatch" in state.stage_results:
+                disp = state.stage_results["dispatch"]
+                if disp.get("ok") and int(disp.get("dispatched_ok") or 0) > 0:
+                    return True, "fleet_dispatched"
+            campaignable = state.context.get("campaignable") or []
+            if campaignable:
+                return True, "fleet_ranked"
+            actions = state.context.get("actions") or []
+            if actions:
+                return True, "fleet_monitor_only"
+            return True, "fleet_idle"
+
+        def fleet_seal(state: PipelineState) -> dict[str, Any]:
+            return seal_pipeline_receipt(
+                state,
+                out_root=scratch / "fleet-engine-native",
+                identity={
+                    "name": "fleetprobe",
+                    "version": "1.0.0",
+                    "inventory_count": len(state.context.get("inventory") or []),
+                    "action_count": len(state.context.get("actions") or []),
+                },
+                stage_digests={
+                    "inventory.verdict": _sha256_bytes(
+                        str(
+                            (state.stage_results.get("inventory") or {}).get("verdict")
+                            or ""
+                        ).encode("utf-8")
+                    ),
+                    "rank.verdict": _sha256_bytes(
+                        str(
+                            (state.stage_results.get("rank") or {}).get("verdict") or ""
+                        ).encode("utf-8")
+                    ),
+                },
+                digest_payload=lambda receipt: {
+                    "schema_version": SCHEMA_VERSION,
+                    "name": receipt.get("name"),
+                    "version": receipt.get("version"),
+                    "stages": receipt.get("stages"),
+                    "stage_digests": receipt.get("stage_digests"),
+                    "ok": receipt.get("ok"),
+                    "verdict": receipt.get("verdict"),
+                },
+            )
+
+        fleet_full = run_stage_pipeline(
+            "fleet",
+            stages=FLEET_STAGES,
+            run_stage=run_fleet_stage,
+            classify_verdict=fleet_classify,
+            seal=fleet_seal,
+            initial_context={},
+            initial_verdict="fleet_ranked",
+        )
+        fleet_native_ok = (
+            fleet_full.get("ok")
+            and fleet_full.get("stage_engine") is True
+            and fleet_full.get("pipeline_dialect") == "fleet"
+            and fleet_full.get("verdict") == "fleet_dispatched"
+            and fleet_calls == list(FLEET_STAGES)
+            and bool(fleet_full.get("fleet_digest") or fleet_full.get("plan_dir"))
+        )
+        fleet_dir = Path(fleet_full.get("plan_dir") or "")
+        fleet_verified = verify_pipeline_digest(
+            fleet_dir,
+            dialect="fleet",
+            digest_payload=lambda receipt: {
+                "schema_version": SCHEMA_VERSION,
+                "name": receipt.get("name"),
+                "version": receipt.get("version"),
+                "stages": receipt.get("stages"),
+                "stage_digests": receipt.get("stage_digests"),
+                "ok": receipt.get("ok"),
+                "verdict": receipt.get("verdict"),
+            },
+        )
+        fleet_seal_ok = bool(fleet_verified.get("ok"))
+
+        # Fleet hard abort: empty inventory stops before rank/dispatch.
+        fleet_calls.clear()
+        fleet_aborted = run_stage_pipeline(
+            "fleet",
+            stages=FLEET_STAGES,
+            run_stage=run_fleet_stage,
+            classify_verdict=fleet_classify,
+            seal=fleet_seal,
+            initial_context={"force_empty": True},
+        )
+        fleet_abort_ok = (
+            not fleet_aborted.get("ok")
+            and fleet_aborted.get("verdict") == "fleet_empty"
+            and fleet_aborted.get("aborted") is True
+            and fleet_aborted.get("abort_stage") == "inventory"
+            and fleet_calls == ["inventory"]
+            and "rank" not in fleet_aborted.get("stage_results", {})
+            and fleet_aborted.get("stage_engine") is True
+            and fleet_aborted.get("pipeline_dialect") == "fleet"
+        )
+
+        # Fleet soft fail: dispatch fails but still seals after rank.
+        fleet_calls.clear()
+        fleet_soft = run_stage_pipeline(
+            "fleet",
+            stages=FLEET_STAGES,
+            run_stage=run_fleet_stage,
+            classify_verdict=fleet_classify,
+            seal=fleet_seal,
+            initial_context={"force_dispatch_fail": True},
+        )
+        fleet_soft_ok = (
+            not fleet_soft.get("ok")
+            and fleet_soft.get("verdict") == "dispatch_failed"
+            and fleet_calls == list(FLEET_STAGES)
+            and fleet_soft.get("aborted") is False
+            and fleet_soft.get("pipeline_dialect") == "fleet"
+        )
 
         # Live campaign module ownership.
         from blackhole_agent import upstream_campaign as ucamp
+        from blackhole_agent import upstream_fleet as ufleet
 
         campaign_uses_engine = getattr(ucamp, "STAGE_ENGINE", False) is True
         campaign_dialect = getattr(ucamp, "STAGE_ENGINE_DIALECT", "") == "campaign"
+        fleet_uses_engine = getattr(ufleet, "STAGE_ENGINE", False) is True
+        fleet_dialect = getattr(ufleet, "STAGE_ENGINE_DIALECT", "") == "fleet"
 
-        # Re-prove live campaign (must stay green after migration).
+        # Re-prove live campaign + fleet (must stay green after multi-dialect).
         live_proof = ucamp.builtin_upstream_campaign_proof()
         live_proof_ok = bool(live_proof.get("ok"))
+        live_fleet_proof = ufleet.builtin_upstream_fleet_proof()
+        live_fleet_proof_ok = bool(live_fleet_proof.get("ok"))
 
         # Spot-check live run_campaign advertises stage_engine ownership.
         # Reuse a minimal hermetic contribution→publication dry path via proof
@@ -808,6 +1058,63 @@ def builtin_stage_engine_proof() -> dict[str, Any]:
             live_digest_present = False
             live_exc = f"{type(exc).__name__}: {exc}"[:300]
 
+        # Spot-check live plan_fleet advertises stage_engine + fleet dialect.
+        live_fleet_flag = False
+        live_fleet_digest = False
+        live_fleet_exc = ""
+        try:
+            stew = scratch / "live-fleet-stew"
+            stew.mkdir(parents=True, exist_ok=True)
+            ufleet._proof_target(
+                stew,
+                name="livealpha",
+                version="1.0.0",
+                defects=[
+                    {
+                        "id": "live-dos",
+                        "title": "live dos",
+                        "kind": "complexity",
+                        "patch": "patches/live-dos.patch",
+                        "repro": "repros/live_dos.py",
+                    }
+                ],
+            )
+            live_fleet = ufleet.plan_fleet(
+                stewardship_root=stew,
+                portfolio=ufleet._proof_portfolio(
+                    [
+                        {
+                            "name": "livealpha",
+                            "version": "1.0.0",
+                            "defect_id": "live-dos",
+                            "outcome": "impact_closed_unmerged",
+                            "impact_digest": "f" * 64,
+                            "ok": True,
+                        }
+                    ]
+                ),
+                dispatch=False,
+                out_root=scratch / "live-fleet-plans",
+            )
+            live_fleet_flag = (
+                live_fleet.get("stage_engine") is True
+                and live_fleet.get("pipeline_dialect") == "fleet"
+            )
+            live_fleet_digest = bool(live_fleet.get("fleet_digest"))
+        except Exception as exc:  # noqa: BLE001
+            live_fleet_flag = False
+            live_fleet_digest = False
+            live_fleet_exc = f"{type(exc).__name__}: {exc}"[:300]
+
+        multi_dialect_owned = (
+            campaign_uses_engine
+            and campaign_dialect
+            and fleet_uses_engine
+            and fleet_dialect
+            and live_flag
+            and live_fleet_flag
+        )
+
         # Ledger binding.
         from blackhole_agent.capability_compounder import (
             default_ledger_path,
@@ -819,10 +1126,13 @@ def builtin_stage_engine_proof() -> dict[str, Any]:
         try:
             ledger = load_ledger(ledger_path)
             entry = ledger.capabilities.get("capability.upstream-stage-engine")
+            tags_blob = " ".join(entry.tags).lower() if entry else ""
+            delta_blob = (entry.capability_delta or "").lower() if entry else ""
             ledger_ok = (
                 entry is not None
                 and "upstream_stage_engine" in (entry.entry or "")
-                and "stage" in " ".join(entry.tags).lower()
+                and "stage" in tags_blob
+                and ("fleet" in tags_blob or "fleet" in delta_blob or "multi" in delta_blob)
             )
         except Exception:  # noqa: BLE001
             ledger_ok = False
@@ -844,6 +1154,14 @@ def builtin_stage_engine_proof() -> dict[str, Any]:
                 for line in campaign_path.read_text(encoding="utf-8").splitlines()
                 if line.strip() and not line.strip().startswith("#")
             )
+        fleet_path = REPO_ROOT / "src" / "blackhole_agent" / "upstream_fleet.py"
+        fleet_loc = 0
+        if fleet_path.is_file():
+            fleet_loc = sum(
+                1
+                for line in fleet_path.read_text(encoding="utf-8").splitlines()
+                if line.strip() and not line.strip().startswith("#")
+            )
 
         ok = all(
             [
@@ -855,11 +1173,22 @@ def builtin_stage_engine_proof() -> dict[str, Any]:
                 abort_ok,
                 soft_ok,
                 unknown_refused,
+                fleet_unknown_refused,
+                fleet_native_ok,
+                fleet_seal_ok,
+                fleet_abort_ok,
+                fleet_soft_ok,
                 campaign_uses_engine,
                 campaign_dialect,
+                fleet_uses_engine,
+                fleet_dialect,
                 live_flag,
                 live_digest_present,
                 live_proof_ok,
+                live_fleet_flag,
+                live_fleet_digest,
+                live_fleet_proof_ok,
+                multi_dialect_owned,
                 ledger_ok,
                 not legacy_pipeline_was_used(),
             ]
@@ -876,17 +1205,30 @@ def builtin_stage_engine_proof() -> dict[str, Any]:
             "tamper_detected": tamper_ok,
             "hard_abort_ok": abort_ok,
             "soft_fail_ok": soft_ok,
-            "unknown_stages_refused": unknown_refused,
+            "unknown_stages_refused": unknown_refused and fleet_unknown_refused,
+            "fleet_engine_native_ok": fleet_native_ok,
+            "fleet_seal_verified": fleet_seal_ok,
+            "fleet_hard_abort_ok": fleet_abort_ok,
+            "fleet_soft_fail_ok": fleet_soft_ok,
             "campaign_stage_engine": campaign_uses_engine,
             "campaign_stage_engine_dialect": campaign_dialect,
+            "fleet_stage_engine": fleet_uses_engine,
+            "fleet_stage_engine_dialect": fleet_dialect,
+            "multi_dialect_owned": multi_dialect_owned,
             "live_campaign_flag": live_flag,
             "live_campaign_digest": live_digest_present,
             "live_campaign_proof_ok": live_proof_ok,
+            "live_fleet_flag": live_fleet_flag,
+            "live_fleet_digest": live_fleet_digest,
+            "live_fleet_proof_ok": live_fleet_proof_ok,
             "live_exc": live_exc,
+            "live_fleet_exc": live_fleet_exc,
             "ledger_capability_ok": ledger_ok,
             "engine_loc": engine_loc,
             "campaign_loc": campaign_loc,
+            "fleet_loc": fleet_loc,
             "engine_native_digest": full.get("campaign_digest"),
+            "fleet_engine_native_digest": fleet_full.get("fleet_digest"),
             "used_skill_route_discovery": legacy_pipeline_was_used(),
             "done_when_met": ok,
         }

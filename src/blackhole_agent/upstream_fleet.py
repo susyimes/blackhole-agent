@@ -1,11 +1,17 @@
 """Upstream fleet plane: impact-driven multi-target stewardship direction.
 
+Control flow is owned by :mod:`blackhole_agent.upstream_stage_engine`
+(``STAGE_ENGINE=True``, dialect ``fleet``). This module keeps stage domain
+runners (inventory / portfolio / rank / dispatch) and fleet-specific seal
+hooks; the ordered short-circuit pipeline, abort policy, and engine
+annotations are shared with campaign.
+
 The campaign plane (``upstream_campaign``) orchestrates a full loop for *one*
 stewardship target. The impact plane (``upstream_impact``) measures post-
 publication outcomes and can roll them into a portfolio. Neither decides what
 to do *next* across the whole stewardship fleet.
 
-The fleet plane closes that gap:
+The fleet plane closes that gap via engine-owned stages:
 
 1. **inventory** — scan stewardship targets for defect readiness
    (patch-bound, pending-patch, empty, published-already);
@@ -48,6 +54,7 @@ from typing import Any, Callable, Mapping, Sequence
 from blackhole_agent import upstream_campaign as ucamp
 from blackhole_agent import upstream_impact as ui
 from blackhole_agent import upstream_repair as ur
+from blackhole_agent import upstream_stage_engine as se
 from blackhole_agent.capability_compounder import (
     atomic_write_json,
     legacy_pipeline_was_used,
@@ -57,9 +64,16 @@ from blackhole_agent.durable_state import durable_read_path
 
 SCHEMA_VERSION = 1
 
+# Owned by the multi-stage durable pipeline engine (not a hand-wired stage chain).
+STAGE_ENGINE = True
+STAGE_ENGINE_DIALECT = "fleet"
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS_ROOT = REPO_ROOT / "artifacts" / "upstream-fleet"
 STEWARDSHIP_ROOT = REPO_ROOT / "stewardship"
+
+# Keep stage vocabulary aligned with the engine dialect registration.
+assert frozenset(se.FLEET_STAGES) == se.get_pipeline_dialect("fleet").valid_stages
 
 # Lower rank_score = higher urgency. Terminal "done_*" / "follow_*" sit at the bottom.
 ACTION_PRIORITY: dict[str, int] = {
@@ -435,8 +449,12 @@ def plan_fleet(
     dispatch_limit: int = 1,
     campaign_runner: Callable[..., dict[str, Any]] | None = None,
     out_root: Path | None = None,
+    stages: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """Build (and optionally dispatch) a sealed fleet plan.
+
+    Control flow is owned by :mod:`upstream_stage_engine` (``STAGE_ENGINE``).
+    Stage domain runners remain fleet-local hooks.
 
     Parameters
     ----------
@@ -447,56 +465,324 @@ def plan_fleet(
     dispatch:
         When True, run up to ``dispatch_limit`` campaignable actions through
         ``campaign_runner`` (default: ``upstream_campaign.run_campaign``).
+        Also appends the ``dispatch`` stage when ``stages`` is omitted.
+    stages:
+        Optional explicit stage list (subset of inventory/portfolio/rank/dispatch).
+        Default is inventory→portfolio→rank, plus dispatch when ``dispatch=True``.
     """
-    inventory = inventory_targets(stewardship_root)
-    if not inventory and portfolio is None and portfolio_dir is None and not assess_portfolio:
-        raise FleetRefused("fleet_empty", "no stewardship targets and no portfolio supplied")
+    has_portfolio_input = (
+        portfolio is not None or portfolio_dir is not None or bool(assess_portfolio)
+    )
+    if stages is None:
+        stage_list: list[str] = ["inventory", "portfolio", "rank"]
+        if dispatch:
+            stage_list.append("dispatch")
+    else:
+        try:
+            stage_list = se.normalize_stages("fleet", stages)
+        except se.StageRefused as exc:
+            raise FleetRefused(exc.verdict, exc.detail) from exc
 
-    resolved_portfolio: dict[str, Any] | None = None
-    portfolio_source = "none"
-    if portfolio is not None:
-        resolved_portfolio = dict(portfolio)
-        portfolio_source = "injected"
-    elif portfolio_dir is not None:
-        path = durable_read_path(Path(portfolio_dir) / "portfolio.json")
-        if not path.is_file():
-            raise FleetRefused("portfolio_missing", f"no portfolio.json under {portfolio_dir}")
-        resolved_portfolio = json.loads(path.read_text(encoding="utf-8"))
-        portfolio_source = "dir"
-        checked = ui.verify_impact_portfolio(Path(portfolio_dir))
-        if not checked.get("ok"):
-            raise FleetRefused(
-                "portfolio_unsealed",
-                f"portfolio seal failed: {checked.get('mismatched')}",
-            )
-    elif assess_portfolio:
-        runner = portfolio_runner or ui.assess_impact_portfolio
-        result = runner(
-            publication_root=publication_root,
-            gh=gh,
-            absorption_checker=absorption_checker,
-        )
-        # Prefer the sealed on-disk portfolio when present.
-        pdir = result.get("portfolio_dir")
-        if pdir and (Path(pdir) / "portfolio.json").is_file():
-            resolved_portfolio = json.loads(
-                (Path(pdir) / "portfolio.json").read_text(encoding="utf-8")
-            )
-            portfolio_source = "assessed"
-        else:
-            resolved_portfolio = {
-                "schema_version": SCHEMA_VERSION,
-                "entries": result.get("entries") or [],
-                "counts": result.get("counts") or {},
-                "assessed_count": result.get("assessed_count"),
-                "ok_count": result.get("ok_count"),
-                "portfolio_digest": result.get("portfolio_digest"),
+    ctx: dict[str, Any] = {
+        "stewardship_root": stewardship_root,
+        "portfolio_in": dict(portfolio) if portfolio is not None else None,
+        "portfolio_dir": Path(portfolio_dir) if portfolio_dir is not None else None,
+        "publication_root": publication_root,
+        "portfolio_runner": portfolio_runner,
+        "gh": gh,
+        "absorption_checker": absorption_checker,
+        "assess_portfolio": bool(assess_portfolio),
+        "has_portfolio_input": has_portfolio_input,
+        "dispatch_enabled": bool(dispatch),
+        "dispatch_limit": max(0, int(dispatch_limit)),
+        "campaign_runner": campaign_runner,
+        "out_root": out_root,
+        "inventory": [],
+        "resolved_portfolio": None,
+        "portfolio_source": "none",
+        "actions": [],
+        "campaignable": [],
+        "dispatches": [],
+        "dispatch_digests": {},
+    }
+
+    def run_stage(state: se.PipelineState, name: str) -> dict[str, Any]:
+        c = state.context
+        if name == "inventory":
+            inventory = inventory_targets(c.get("stewardship_root"))
+            c["inventory"] = inventory
+            if not inventory and not c.get("has_portfolio_input"):
+                # Preserve historical refuse-before-seal semantics.
+                raise FleetRefused(
+                    "fleet_empty",
+                    "no stewardship targets and no portfolio supplied",
+                )
+            return {
+                "stage": "inventory",
+                "ok": True,
+                "verdict": "inventoried",
+                "inventory_count": len(inventory),
             }
-            portfolio_source = "assessed_inline"
+        if name == "portfolio":
+            resolved_portfolio: dict[str, Any] | None = None
+            portfolio_source = "none"
+            portfolio_in = c.get("portfolio_in")
+            portfolio_dir_in = c.get("portfolio_dir")
+            if portfolio_in is not None:
+                resolved_portfolio = dict(portfolio_in)
+                portfolio_source = "injected"
+            elif portfolio_dir_in is not None:
+                path = durable_read_path(Path(portfolio_dir_in) / "portfolio.json")
+                if not path.is_file():
+                    raise FleetRefused(
+                        "portfolio_missing",
+                        f"no portfolio.json under {portfolio_dir_in}",
+                    )
+                resolved_portfolio = json.loads(path.read_text(encoding="utf-8"))
+                portfolio_source = "dir"
+                checked = ui.verify_impact_portfolio(Path(portfolio_dir_in))
+                if not checked.get("ok"):
+                    raise FleetRefused(
+                        "portfolio_unsealed",
+                        f"portfolio seal failed: {checked.get('mismatched')}",
+                    )
+            elif c.get("assess_portfolio"):
+                runner = c.get("portfolio_runner") or ui.assess_impact_portfolio
+                result = runner(
+                    publication_root=c.get("publication_root"),
+                    gh=c.get("gh"),
+                    absorption_checker=c.get("absorption_checker"),
+                )
+                pdir = result.get("portfolio_dir")
+                if pdir and (Path(pdir) / "portfolio.json").is_file():
+                    resolved_portfolio = json.loads(
+                        (Path(pdir) / "portfolio.json").read_text(encoding="utf-8")
+                    )
+                    portfolio_source = "assessed"
+                else:
+                    resolved_portfolio = {
+                        "schema_version": SCHEMA_VERSION,
+                        "entries": result.get("entries") or [],
+                        "counts": result.get("counts") or {},
+                        "assessed_count": result.get("assessed_count"),
+                        "ok_count": result.get("ok_count"),
+                        "portfolio_digest": result.get("portfolio_digest"),
+                    }
+                    portfolio_source = "assessed_inline"
+            c["resolved_portfolio"] = resolved_portfolio
+            c["portfolio_source"] = portfolio_source
+            portfolio_digest = None
+            if resolved_portfolio is not None:
+                portfolio_digest = resolved_portfolio.get("portfolio_digest") or _sha256_json(
+                    {
+                        "entries": [
+                            {
+                                "name": e.get("name"),
+                                "version": e.get("version"),
+                                "defect_id": e.get("defect_id"),
+                                "outcome": e.get("outcome"),
+                                "impact_digest": e.get("impact_digest"),
+                            }
+                            for e in (resolved_portfolio.get("entries") or [])
+                        ],
+                        "counts": resolved_portfolio.get("counts") or {},
+                    }
+                )
+            c["portfolio_digest"] = portfolio_digest
+            return {
+                "stage": "portfolio",
+                "ok": True,
+                "verdict": "portfolio_ready" if resolved_portfolio is not None else "portfolio_none",
+                "portfolio_source": portfolio_source,
+                "portfolio_digest": portfolio_digest,
+            }
+        if name == "rank":
+            inventory = list(c.get("inventory") or [])
+            resolved_portfolio = c.get("resolved_portfolio")
+            actions = rank_fleet_actions(inventory, resolved_portfolio)
+            campaignable = [a for a in actions if a.get("campaignable")]
+            c["actions"] = actions
+            c["campaignable"] = campaignable
+            return {
+                "stage": "rank",
+                "ok": True,
+                "verdict": "ranked",
+                "action_count": len(actions),
+                "campaignable_count": len(campaignable),
+                "top_action": actions[0] if actions else None,
+                "action_counts": _action_counts(actions),
+            }
+        if name == "dispatch":
+            campaignable = list(c.get("campaignable") or [])
+            dispatches: list[dict[str, Any]] = []
+            dispatch_digests: dict[str, str] = {}
+            if campaignable:
+                runner = c.get("campaign_runner") or (
+                    lambda target_dir, **kwargs: ucamp.run_campaign(
+                        Path(target_dir), **kwargs
+                    )
+                )
+                limit = max(0, int(c.get("dispatch_limit") or 0))
+                for action in campaignable[:limit]:
+                    target_dir = action.get("target_dir")
+                    if not target_dir:
+                        dispatches.append({
+                            "action": action.get("action"),
+                            "name": action.get("name"),
+                            "version": action.get("version"),
+                            "defect_id": action.get("defect_id"),
+                            "ok": False,
+                            "verdict": "no_target_dir",
+                            "detail": "action has no resolvable target_dir",
+                        })
+                        continue
+                    camp_stages = tuple(
+                        action.get("suggested_stages")
+                        or ("repair", "contribution", "publication")
+                    )
+                    defect_ids = (
+                        [action["defect_id"]] if action.get("defect_id") else None
+                    )
+                    try:
+                        result = runner(
+                            target_dir,
+                            defect_ids=defect_ids,
+                            stages=camp_stages,
+                            publish=False,
+                        )
+                    except Exception as exc:  # noqa: BLE001 — dispatch isolation
+                        dispatches.append({
+                            "action": action.get("action"),
+                            "name": action.get("name"),
+                            "version": action.get("version"),
+                            "defect_id": action.get("defect_id"),
+                            "target_dir": target_dir,
+                            "ok": False,
+                            "verdict": "dispatch_error",
+                            "detail": f"{type(exc).__name__}: {exc}"[:400],
+                        })
+                        continue
+                    entry: dict[str, Any] = {
+                        "action": action.get("action"),
+                        "name": action.get("name"),
+                        "version": action.get("version"),
+                        "defect_id": action.get("defect_id"),
+                        "target_dir": target_dir,
+                        "stages": list(camp_stages),
+                        "ok": bool(result.get("ok")),
+                        "verdict": result.get("verdict"),
+                        "campaign_dir": result.get("campaign_dir"),
+                        "campaign_digest": result.get("campaign_digest"),
+                    }
+                    if result.get("campaign_dir") and result.get("campaign_digest"):
+                        key = (
+                            f"{action.get('name')}-{action.get('version')}-"
+                            f"{action.get('defect_id') or action.get('action')}"
+                        )
+                        dispatch_digests[key] = str(result["campaign_digest"])
+                        entry["dispatch_key"] = key
+                    dispatches.append(entry)
+            c["dispatches"] = dispatches
+            c["dispatch_digests"] = dispatch_digests
+            dispatched_ok = sum(1 for d in dispatches if d.get("ok"))
+            ok = True
+            verdict = "fleet_dispatched" if dispatched_ok else (
+                "dispatch_failed" if dispatches else "nothing_to_dispatch"
+            )
+            if dispatches and dispatched_ok == 0:
+                ok = False
+                verdict = "dispatch_failed"
+            return {
+                "stage": "dispatch",
+                "ok": ok,
+                "verdict": verdict,
+                "dispatches": dispatches,
+                "dispatched_count": len(dispatches),
+                "dispatched_ok": dispatched_ok,
+                "dispatch_digests": dispatch_digests,
+            }
+        raise FleetRefused("stages_unknown", f"unknown stage {name!r}")
 
-    actions = rank_fleet_actions(inventory, resolved_portfolio)
-    campaignable = [a for a in actions if a.get("campaignable")]
+    def classify(state: se.PipelineState) -> tuple[bool, str]:
+        if state.aborted:
+            return False, state.terminal_verdict
+        if not state.pipeline_ok:
+            return False, state.terminal_verdict
+        c = state.context
+        dispatches = list(c.get("dispatches") or [])
+        campaignable = list(c.get("campaignable") or [])
+        actions = list(c.get("actions") or [])
+        dispatched_ok = sum(1 for d in dispatches if d.get("ok"))
+        if "dispatch" in state.stage_results:
+            if campaignable and dispatched_ok == 0 and dispatches:
+                return False, "dispatch_failed"
+            if dispatched_ok:
+                return True, "fleet_dispatched"
+        if campaignable:
+            return True, "fleet_ranked"
+        if actions:
+            return True, "fleet_monitor_only"
+        return True, "fleet_idle"
 
+    def seal(state: se.PipelineState) -> dict[str, Any]:
+        c = state.context
+        if state.aborted:
+            ok = False
+            verdict = state.terminal_verdict
+        else:
+            ok, verdict = classify(state)
+            state.pipeline_ok = ok
+            state.terminal_verdict = verdict
+        return _seal_fleet_plan(
+            inventory=list(c.get("inventory") or []),
+            resolved_portfolio=c.get("resolved_portfolio"),
+            portfolio_source=str(c.get("portfolio_source") or "none"),
+            portfolio_digest=c.get("portfolio_digest"),
+            actions=list(c.get("actions") or []),
+            campaignable=list(c.get("campaignable") or []),
+            dispatches=list(c.get("dispatches") or []),
+            dispatch_digests=dict(c.get("dispatch_digests") or {}),
+            ok=ok,
+            verdict=verdict,
+            out_root=c.get("out_root"),
+            stages=state.stages,
+            stage_results=state.stage_results,
+        )
+
+    def wrap_refuse(exc: BaseException) -> BaseException:
+        if isinstance(exc, se.StageRefused):
+            return FleetRefused(exc.verdict, exc.detail)
+        return exc
+
+    return se.run_stage_pipeline(
+        "fleet",
+        stages=stage_list,
+        run_stage=run_stage,
+        classify_verdict=classify,
+        seal=seal,
+        initial_context=ctx,
+        initial_verdict="fleet_ranked",
+        wrap_refuse=wrap_refuse,
+    )
+
+
+def _seal_fleet_plan(
+    *,
+    inventory: Sequence[Mapping[str, Any]],
+    resolved_portfolio: Mapping[str, Any] | None,
+    portfolio_source: str,
+    portfolio_digest: str | None,
+    actions: Sequence[Mapping[str, Any]],
+    campaignable: Sequence[Mapping[str, Any]],
+    dispatches: Sequence[Mapping[str, Any]],
+    dispatch_digests: Mapping[str, str],
+    ok: bool,
+    verdict: str,
+    out_root: Path | None,
+    stages: Sequence[str],
+    stage_results: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Write the historical fleet plan.json seal (digest-compatible)."""
     root = Path(out_root) if out_root else ARTIFACTS_ROOT
     stamp = utc_now_iso().replace(":", "").replace("-", "")
     plan_dir = root / stamp
@@ -504,128 +790,40 @@ def plan_fleet(
 
     inventory_digest = _sha256_json(_inventory_digest_payload(inventory))
     actions_digest = _sha256_json(_actions_digest_payload(actions))
-    portfolio_digest = None
-    if resolved_portfolio is not None:
-        portfolio_digest = resolved_portfolio.get("portfolio_digest") or _sha256_json(
-            {
-                "entries": [
-                    {
-                        "name": e.get("name"),
-                        "version": e.get("version"),
-                        "defect_id": e.get("defect_id"),
-                        "outcome": e.get("outcome"),
-                        "impact_digest": e.get("impact_digest"),
-                    }
-                    for e in (resolved_portfolio.get("entries") or [])
-                ],
-                "counts": resolved_portfolio.get("counts") or {},
-            }
-        )
-
-    dispatches: list[dict[str, Any]] = []
-    dispatch_digests: dict[str, str] = {}
-    if dispatch and campaignable:
-        runner = campaign_runner or (
-            lambda target_dir, **kwargs: ucamp.run_campaign(Path(target_dir), **kwargs)
-        )
-        limit = max(0, int(dispatch_limit))
-        for action in campaignable[:limit]:
-            target_dir = action.get("target_dir")
-            if not target_dir:
-                dispatches.append({
-                    "action": action.get("action"),
-                    "name": action.get("name"),
-                    "version": action.get("version"),
-                    "defect_id": action.get("defect_id"),
-                    "ok": False,
-                    "verdict": "no_target_dir",
-                    "detail": "action has no resolvable target_dir",
-                })
-                continue
-            stages = tuple(action.get("suggested_stages") or ("repair", "contribution", "publication"))
-            defect_ids = [action["defect_id"]] if action.get("defect_id") else None
-            try:
-                result = runner(
-                    target_dir,
-                    defect_ids=defect_ids,
-                    stages=stages,
-                    publish=False,
-                )
-            except Exception as exc:  # noqa: BLE001 — dispatch isolation
-                dispatches.append({
-                    "action": action.get("action"),
-                    "name": action.get("name"),
-                    "version": action.get("version"),
-                    "defect_id": action.get("defect_id"),
-                    "target_dir": target_dir,
-                    "ok": False,
-                    "verdict": "dispatch_error",
-                    "detail": f"{type(exc).__name__}: {exc}"[:400],
-                })
-                continue
-            entry: dict[str, Any] = {
-                "action": action.get("action"),
-                "name": action.get("name"),
-                "version": action.get("version"),
-                "defect_id": action.get("defect_id"),
-                "target_dir": target_dir,
-                "stages": list(stages),
-                "ok": bool(result.get("ok")),
-                "verdict": result.get("verdict"),
-                "campaign_dir": result.get("campaign_dir"),
-                "campaign_digest": result.get("campaign_digest"),
-            }
-            campaign_dir = result.get("campaign_dir")
-            if campaign_dir and result.get("campaign_digest"):
-                key = f"{action.get('name')}-{action.get('version')}-{action.get('defect_id') or action.get('action')}"
-                dispatch_digests[key] = str(result["campaign_digest"])
-                entry["dispatch_key"] = key
-            dispatches.append(entry)
-
     dispatched_ok = sum(1 for d in dispatches if d.get("ok"))
-    if dispatch and campaignable and dispatched_ok == 0 and dispatches:
-        verdict = "dispatch_failed"
-        ok = False
-    elif dispatch and dispatched_ok:
-        verdict = "fleet_dispatched"
-        ok = True
-    elif campaignable:
-        verdict = "fleet_ranked"
-        ok = True
-    elif actions:
-        verdict = "fleet_monitor_only"
-        ok = True
-    else:
-        verdict = "fleet_idle"
-        ok = True
 
     plan: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "created_at": utc_now_iso(),
         "ok": ok,
         "verdict": verdict,
-        "inventory": inventory,
+        "inventory": list(inventory),
         "inventory_digest": inventory_digest,
         "inventory_count": len(inventory),
         "portfolio_source": portfolio_source,
         "portfolio_digest": portfolio_digest,
-        "portfolio_counts": (resolved_portfolio or {}).get("counts") if resolved_portfolio else {},
-        "actions": actions,
+        "portfolio_counts": (
+            (resolved_portfolio or {}).get("counts") if resolved_portfolio else {}
+        ),
+        "actions": list(actions),
         "actions_digest": actions_digest,
         "action_count": len(actions),
         "action_counts": _action_counts(actions),
         "campaignable_count": len(campaignable),
         "top_action": actions[0] if actions else None,
-        "dispatches": dispatches,
+        "dispatches": list(dispatches),
         "dispatched_count": len(dispatches),
         "dispatched_ok": dispatched_ok,
-        "dispatch_digests": dispatch_digests,
+        "dispatch_digests": dict(dispatch_digests),
+        "stages": list(stages),
+        "stage_results": dict(stage_results),
         "used_skill_route_discovery": legacy_pipeline_was_used(),
+        "stage_engine": True,
+        "pipeline_dialect": STAGE_ENGINE_DIALECT,
     }
     plan["fleet_digest"] = _sha256_json(_plan_digest_payload(plan))
     atomic_write_json(plan_dir / "plan.json", plan)
 
-    # Optional companion for human inspection (not part of the seal).
     atomic_write_json(
         plan_dir / "summary.json",
         {
@@ -638,6 +836,8 @@ def plan_fleet(
             "top_action": plan["top_action"],
             "dispatched_ok": plan["dispatched_ok"],
             "fleet_digest": plan["fleet_digest"],
+            "stage_engine": True,
+            "pipeline_dialect": STAGE_ENGINE_DIALECT,
         },
     )
 
@@ -651,12 +851,16 @@ def plan_fleet(
         "action_counts": plan["action_counts"],
         "campaignable_count": plan["campaignable_count"],
         "top_action": plan["top_action"],
-        "dispatches": dispatches,
+        "dispatches": list(dispatches),
         "dispatched_count": plan["dispatched_count"],
         "dispatched_ok": plan["dispatched_ok"],
         "portfolio_source": portfolio_source,
         "portfolio_digest": portfolio_digest,
+        "stages": list(stages),
+        "stage_results": dict(stage_results),
         "used_skill_route_discovery": plan["used_skill_route_discovery"],
+        "stage_engine": True,
+        "pipeline_dialect": STAGE_ENGINE_DIALECT,
     }
 
 
@@ -1089,6 +1293,15 @@ def builtin_upstream_fleet_proof() -> dict[str, Any]:
             < ACTION_PRIORITY["discover_empty"]
         )
 
+        stage_engine_owned = (
+            STAGE_ENGINE is True
+            and STAGE_ENGINE_DIALECT == "fleet"
+            and ranked.get("stage_engine") is True
+            and ranked.get("pipeline_dialect") == "fleet"
+            and dispatched.get("stage_engine") is True
+            and dispatched.get("pipeline_dialect") == "fleet"
+        )
+
         ok = all([
             rank_ok,
             counts_ok,
@@ -1101,6 +1314,7 @@ def builtin_upstream_fleet_proof() -> dict[str, Any]:
             monitor_ok,
             assessed_ok,
             priority_ok,
+            stage_engine_owned,
         ])
         return {
             "ok": ok,
@@ -1112,6 +1326,9 @@ def builtin_upstream_fleet_proof() -> dict[str, Any]:
             "empty_refused": empty_refused,
             "monitor_only": monitor_ok,
             "portfolio_assessed_path": assessed_ok,
+            "stage_engine_owned": stage_engine_owned,
+            "stage_engine": True,
+            "pipeline_dialect": STAGE_ENGINE_DIALECT,
             "fleet_digest": ranked.get("fleet_digest"),
             "dispatch_fleet_digest": dispatched.get("fleet_digest"),
             "action_counts": counts,
