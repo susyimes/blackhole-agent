@@ -12,3 +12,7 @@ __pycache__/
 # regenerable campaign work trees (extracted sdists); sealed reports stay tracked
 artifacts/upstream-repair/*/work/
 
+# live total-spine / governance nest receipts (proof & mission noise)
+artifacts/upstream-campaign/
+artifacts/upstream-fleet/
+

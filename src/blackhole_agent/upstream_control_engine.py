@@ -4957,17 +4957,52 @@ def finality_certificate_path(root: Path) -> Path:
 def write_total_spine_finality_certificate(
     out_root: Path,
     body: Mapping[str, Any],
+    *,
+    allow_idempotent: bool = True,
 ) -> dict[str, Any]:
-    """Seal and atomically write a finality certificate under ``out_root``."""
+    """Seal and atomically write a finality certificate under ``out_root``.
+
+    Irreversible supersession: if a valid certificate already exists at the
+    target path, identical digests are returned idempotently; a different
+    sealed claim raises :class:`StageRefused` with
+    ``total_spine_finality_supersession_refused`` so completed absolute-tower
+    outcomes cannot be rewritten.
+    """
     sealed = seal_total_spine_finality_certificate(body)
     path = finality_certificate_path(Path(out_root))
     # Prefer nested finality/ when path does not yet exist as a file.
     if not path.is_file() and path.name == TOTAL_SPINE_FINALITY_FILENAME:
         # finality_certificate_path may return preferred write location.
         pass
+    if path.is_file():
+        try:
+            existing = load_total_spine_finality_certificate(path)
+        except StageRefused:
+            existing = None
+        if existing is not None:
+            existing_digest = str(
+                existing.get("finality_digest")
+                or existing.get("certificate_hash")
+                or ""
+            )
+            new_digest = str(
+                sealed.get("finality_digest")
+                or sealed.get("certificate_hash")
+                or ""
+            )
+            if existing_digest and existing_digest == new_digest and allow_idempotent:
+                existing["finality_path"] = str(path)
+                existing["total_spine_finality_idempotent"] = True
+                return existing
+            raise StageRefused(
+                "total_spine_finality_supersession_refused",
+                f"irreversible finality already sealed at {path} "
+                f"(existing={existing_digest!r} attempted={new_digest!r})",
+            )
     path.parent.mkdir(parents=True, exist_ok=True)
     atomic_write_json(path, sealed)
     sealed["finality_path"] = str(path)
+    sealed["total_spine_finality_idempotent"] = False
     return sealed
 
 
@@ -6283,42 +6318,89 @@ def _attach_total_spine_effects(
                 "success": True,
                 "finalized_at": utc_now_iso(),
             }
-            last_finality = write_total_spine_finality_certificate(
-                write_root, fin_body
-            )
-            annotated = annotate_total_spine_finality(
-                annotated,
-                certificate=last_finality,
-                prior_tip=bound_tip,
-                short_circuit=False,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_finality_bound_tip") or bound_tip
-            )
-            if compressed:
-                hops = seal_total_spine_hop_chain(
-                    root, live_result, tip=bound_tip
+            try:
+                last_finality = write_total_spine_finality_certificate(
+                    write_root, fin_body
                 )
-                annotated["total_spine_hop_chain"] = hops
-                annotated["total_spine_hop_count"] = len(hops)
-                if hops:
-                    annotated["total_spine_digest"] = hops[0].get("digest")
-                    annotated[f"{root}_digest"] = hops[0].get("digest")
-            else:
-                annotated["total_spine_digest"] = bound_tip
-                annotated[f"{root}_digest"] = bound_tip
-            if annotated.get("verdict") in {
-                "total_spine_effects_failed",
-                "total_spine_contract_failed",
-                "total_spine_goal_plan_empty",
-                "total_spine_adaptive_ok",
-                "total_spine_continuity_ok",
-            } or annotated.get("ok"):
-                annotated["verdict"] = (
-                    "total_spine_finality_ok"
-                    if not resumed
-                    else "total_spine_finality_ok_resumed"
+            except StageRefused as exc:
+                if str(exc.verdict) == "total_spine_finality_supersession_refused":
+                    # Existing irreversible seal wins: short-circuit annotate
+                    # from the sealed certificate rather than rewriting it.
+                    try:
+                        last_finality = load_total_spine_finality_certificate(
+                            write_root
+                        )
+                    except StageRefused:
+                        raise exc from None
+                    annotated["total_spine_finality_supersession_refused"] = True
+                    annotated = annotate_total_spine_finality(
+                        annotated,
+                        certificate=last_finality,
+                        prior_tip=bound_tip,
+                        short_circuit=True,
+                    )
+                    bound_tip = str(
+                        annotated.get("total_spine_finality_bound_tip")
+                        or bound_tip
+                    )
+                    if compressed:
+                        hops = seal_total_spine_hop_chain(
+                            root, live_result, tip=bound_tip
+                        )
+                        annotated["total_spine_hop_chain"] = hops
+                        annotated["total_spine_hop_count"] = len(hops)
+                        if hops:
+                            annotated["total_spine_digest"] = hops[0].get(
+                                "digest"
+                            )
+                            annotated[f"{root}_digest"] = hops[0].get("digest")
+                    else:
+                        annotated["total_spine_digest"] = bound_tip
+                        annotated[f"{root}_digest"] = bound_tip
+                    annotated["ok"] = True
+                    annotated["verdict"] = (
+                        "total_spine_finality_supersession_refused"
+                    )
+                    # Skip normal first-seal path below.
+                    last_finality = None
+                else:
+                    raise
+            if last_finality is not None:
+                annotated = annotate_total_spine_finality(
+                    annotated,
+                    certificate=last_finality,
+                    prior_tip=bound_tip,
+                    short_circuit=False,
                 )
+                bound_tip = str(
+                    annotated.get("total_spine_finality_bound_tip") or bound_tip
+                )
+                if compressed:
+                    hops = seal_total_spine_hop_chain(
+                        root, live_result, tip=bound_tip
+                    )
+                    annotated["total_spine_hop_chain"] = hops
+                    annotated["total_spine_hop_count"] = len(hops)
+                    if hops:
+                        annotated["total_spine_digest"] = hops[0].get("digest")
+                        annotated[f"{root}_digest"] = hops[0].get("digest")
+                else:
+                    annotated["total_spine_digest"] = bound_tip
+                    annotated[f"{root}_digest"] = bound_tip
+                if annotated.get("verdict") in {
+                    "total_spine_effects_failed",
+                    "total_spine_contract_failed",
+                    "total_spine_goal_plan_empty",
+                    "total_spine_adaptive_ok",
+                    "total_spine_continuity_ok",
+                } or annotated.get("ok"):
+                    annotated["verdict"] = (
+                        "total_spine_finality_ok"
+                        if not resumed
+                        else "total_spine_finality_ok_resumed"
+                    )
+                if last_finality.get("total_spine_finality_idempotent"):
+                    annotated["total_spine_finality_idempotent"] = True
         elif not success_now:
             annotated["total_spine_finality"] = False
             annotated["total_spine_finality_impl"] = TOTAL_SPINE_FINALITY_IMPL
@@ -10748,6 +10830,75 @@ def builtin_total_spine_finality_proof() -> dict[str, Any]:
             and not legacy_pipeline_was_used()
         )
 
+        # Phase 4: supersession refused — cannot rewrite sealed finality claims.
+        supersession_ok = False
+        idempotent_ok = False
+        try:
+            # Identical body reseal is idempotent.
+            same = write_total_spine_finality_certificate(
+                scratch / "finalized",
+                {
+                    "schema_version": SCHEMA_VERSION,
+                    "kind": TOTAL_SPINE_FINALITY_KIND,
+                    "root_layer": "quettacontinuum",
+                    "goal": str(loaded.get("goal") or ""),
+                    "done_when": str(loaded.get("done_when") or ""),
+                    "capabilities": list(loaded.get("capabilities") or []),
+                    "operational_tip": str(loaded.get("operational_tip") or ""),
+                    "bound_tip": str(loaded.get("bound_tip") or ""),
+                    "continuity_digest": str(
+                        loaded.get("continuity_digest") or ""
+                    ),
+                    "adaptive_round_count": int(
+                        loaded.get("adaptive_round_count") or 0
+                    ),
+                    "effects_ok": bool(loaded.get("effects_ok")),
+                    "contract_met": loaded.get("contract_met"),
+                    "recovered": bool(loaded.get("recovered")),
+                    "irreversible": True,
+                    "success": True,
+                },
+            )
+            idempotent_ok = (
+                same.get("total_spine_finality_idempotent") is True
+                and str(same.get("finality_digest") or "")
+                == str(loaded.get("finality_digest") or "")
+            )
+            # Divergent claim must refuse.
+            write_total_spine_finality_certificate(
+                scratch / "finalized",
+                {
+                    "schema_version": SCHEMA_VERSION,
+                    "kind": TOTAL_SPINE_FINALITY_KIND,
+                    "root_layer": "quettacontinuum",
+                    "goal": "forged-supersession-goal",
+                    "done_when": str(loaded.get("done_when") or ""),
+                    "capabilities": ["capability.forged-supersession"],
+                    "operational_tip": str(loaded.get("operational_tip") or ""),
+                    "bound_tip": str(loaded.get("bound_tip") or ""),
+                    "continuity_digest": str(
+                        loaded.get("continuity_digest") or ""
+                    ),
+                    "adaptive_round_count": int(
+                        loaded.get("adaptive_round_count") or 0
+                    ),
+                    "effects_ok": True,
+                    "contract_met": True,
+                    "recovered": False,
+                    "irreversible": True,
+                    "success": True,
+                },
+            )
+            supersession_ok = False
+        except StageRefused as exc:
+            supersession_ok = (
+                idempotent_ok
+                and str(exc.verdict)
+                == "total_spine_finality_supersession_refused"
+            )
+        except Exception:  # noqa: BLE001
+            supersession_ok = False
+
         # Differential: partial fail tip != finalized tip; short uses finality.
         differential_ok = (
             partial_ok
@@ -10848,6 +10999,7 @@ def builtin_total_spine_finality_proof() -> dict[str, Any]:
                 verify_ok,
                 tamper_ok,
                 short_ok,
+                supersession_ok,
                 differential_ok,
                 chain_integrity_ok,
                 source_ok,
@@ -10877,6 +11029,8 @@ def builtin_total_spine_finality_proof() -> dict[str, Any]:
             "short_finality_digest": shorted.get(
                 "total_spine_finality_digest"
             ),
+            "supersession_ok": supersession_ok,
+            "idempotent_ok": idempotent_ok,
             "differential_ok": differential_ok,
             "chain_integrity_ok": chain_integrity_ok,
             "source_ok": source_ok,
