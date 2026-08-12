@@ -3291,10 +3291,152 @@ def run_control_graph(
     )
 
 
+def make_progress_loop_hooks(
+    dialect_name: str,
+    *,
+    goal_after: int = 1,
+    max_rounds: int = 2,
+    idle_limit: int = 2,
+) -> LoopNestHooks:
+    """Dialect-noun progress hooks for graph-driven live/hermetic spines.
+
+    Domain modules may supply richer LoopNestHooks; this factory is the
+    default attach pack so live ``run_program(control_graph=True)`` does not
+    re-implement per-dialect seal/classify glue.
+    """
+    d = get_loop_dialect(dialect_name)
+    name = str(dialect_name or d.name).strip().lower()
+
+    def classify(state: LoopState) -> tuple[bool, str]:
+        if state.total_dispatched_ok >= goal_after:
+            state.goal_met = True
+            return True, f"{name}_progressed"
+        if state.total_dispatched_ok > 0:
+            return True, f"{name}_progressed"
+        return True, f"{name}_idle"
+
+    def seal(state: LoopState) -> dict[str, Any]:
+        receipt = {
+            "ok": True,
+            "verdict": state.extras.get("verdict") or f"{name}_progressed",
+            "stop_reason": state.stop_reason,
+            f"max_{d.child_plural}": state.max_rounds,
+            d.child_count_field: len(state.records),
+            d.child_plural: state.records,
+            d.child_digests_field: list(state.child_digests),
+            "total_dispatched": state.total_dispatched,
+            "total_dispatched_ok": state.total_dispatched_ok,
+            "portfolio_start_digest": state.portfolio_start_digest,
+            "portfolio_end_digest": (state.portfolio or {}).get("portfolio_digest"),
+            d.self_met_field: state.goal_met,
+        }
+
+        def payload(r: Mapping[str, Any]) -> dict[str, Any]:
+            return {
+                "schema_version": r.get("schema_version"),
+                "verdict": r.get("verdict"),
+                "stop_reason": r.get("stop_reason"),
+                d.child_count_field: r.get(d.child_count_field),
+                d.child_digests_field: list(r.get(d.child_digests_field) or []),
+                "total_dispatched": r.get("total_dispatched"),
+                "total_dispatched_ok": r.get("total_dispatched_ok"),
+            }
+
+        sealed = seal_json_receipt(state, receipt, digest_payload=payload)
+        sealed[d.child_plural] = state.records
+        return sealed
+
+    def post_stop(
+        state: LoopState, round_index: int, result: dict[str, Any]
+    ) -> str | None:
+        if state.total_dispatched_ok >= goal_after:
+            state.goal_met = True
+            return d.goal_stop_reason
+        return None
+
+    return LoopNestHooks(
+        classify=classify,
+        seal=seal,
+        post_round_stop=post_stop,
+        max_rounds=max_rounds,
+        idle_limit=idle_limit,
+    )
+
+
+def build_live_domain_hooks(
+    *,
+    goal_dispatched_ok: int = 1,
+    max_successions: int = 2,
+    max_epochs: int = 2,
+    max_waves: int = 2,
+    idle_limit: int = 2,
+    stewardship_root: Path | None = None,
+    portfolio: Mapping[str, Any] | None = None,
+    campaign_run_stage: RunStage | None = None,
+    pipeline_hooks: Mapping[str, PipelineNestHooks] | None = None,
+    loop_hooks: Mapping[str, LoopNestHooks] | None = None,
+) -> tuple[dict[str, LoopNestHooks], dict[str, PipelineNestHooks]]:
+    """Assemble dialect hook packs from live domain factories + progress loops.
+
+    Pipeline hooks default to fleet/campaign ``make_graph_pipeline_hooks`` so
+    the live program path attaches domain stages to the graph without
+    hand-wiring succession→epoch→fleet runners.
+    """
+    loops: dict[str, LoopNestHooks] = {
+        str(k).strip().lower(): v for k, v in dict(loop_hooks or {}).items()
+    }
+    pipes: dict[str, PipelineNestHooks] = {
+        str(k).strip().lower(): v for k, v in dict(pipeline_hooks or {}).items()
+    }
+    goal = max(1, int(goal_dispatched_ok))
+    loops.setdefault(
+        "program",
+        make_progress_loop_hooks(
+            "program",
+            goal_after=goal,
+            max_rounds=max_successions,
+            idle_limit=idle_limit,
+        ),
+    )
+    loops.setdefault(
+        "succession",
+        make_progress_loop_hooks(
+            "succession",
+            goal_after=goal,
+            max_rounds=max_epochs,
+            idle_limit=idle_limit,
+        ),
+    )
+    loops.setdefault(
+        "epoch",
+        make_progress_loop_hooks(
+            "epoch",
+            goal_after=goal,
+            max_rounds=max_waves,
+            idle_limit=idle_limit,
+        ),
+    )
+    if "fleet" not in pipes or "campaign" not in pipes:
+        # Late import: domain modules import the control engine facades.
+        from blackhole_agent import upstream_campaign as ucamp
+        from blackhole_agent import upstream_fleet as ufleet
+
+        if "fleet" not in pipes:
+            pipes["fleet"] = ufleet.make_graph_pipeline_hooks(
+                stewardship_root=stewardship_root,
+                portfolio=portfolio,
+            )
+        if "campaign" not in pipes:
+            pipes["campaign"] = ucamp.make_graph_pipeline_hooks(
+                run_stage=campaign_run_stage,
+            )
+    return loops, pipes
+
+
 def run_operational_spine(
     *,
-    loop_hooks: Mapping[str, LoopNestHooks],
-    pipeline_hooks: Mapping[str, PipelineNestHooks],
+    loop_hooks: Mapping[str, LoopNestHooks] | None = None,
+    pipeline_hooks: Mapping[str, PipelineNestHooks] | None = None,
     out_root: Path | None = None,
     portfolio: Mapping[str, Any] | None = None,
     dispatch: bool = True,
@@ -3302,18 +3444,56 @@ def run_operational_spine(
     nest: ControlNode | None = None,
     live: bool = True,
     initial_pipeline_context: Mapping[str, Any] | None = None,
+    # Live domain attach helpers (optional; build default packs when omitted).
+    build_domain_hooks: bool = False,
+    goal_dispatched_ok: int = 1,
+    max_successions: int = 2,
+    max_epochs: int = 2,
+    max_waves: int = 2,
+    idle_limit: int = 2,
+    stewardship_root: Path | None = None,
+    campaign_run_stage: RunStage | None = None,
 ) -> dict[str, Any]:
     """Public entry: run the full program→…→campaign operational spine.
 
     Domain modules supply dialect hook packs; the nest structure is engine
     data (:data:`OPERATIONAL_NEST`). Pipeline-of-pipeline
     (fleet→campaign) is graph-native via :func:`compose_pipeline_of_pipeline`.
+
+    When ``build_domain_hooks=True`` (or hooks are omitted with ``live=True``),
+    packs are assembled from domain ``make_graph_pipeline_hooks`` + progress
+    loop hooks so live ``run_program(control_graph=True)`` attaches without
+    hand-wired child runners.
     """
+    hooks_loop = dict(loop_hooks or {})
+    hooks_pipe = dict(pipeline_hooks or {})
+    if build_domain_hooks or (live and (not hooks_loop or not hooks_pipe)):
+        built_loop, built_pipe = build_live_domain_hooks(
+            goal_dispatched_ok=goal_dispatched_ok,
+            max_successions=max_successions,
+            max_epochs=max_epochs,
+            max_waves=max_waves,
+            idle_limit=idle_limit,
+            stewardship_root=stewardship_root,
+            portfolio=portfolio,
+            campaign_run_stage=campaign_run_stage,
+            pipeline_hooks=hooks_pipe or None,
+            loop_hooks=hooks_loop or None,
+        )
+        hooks_loop = built_loop
+        hooks_pipe = built_pipe
+    if not hooks_loop or not hooks_pipe:
+        raise StageRefused(
+            "control_spine_hooks_missing",
+            "run_operational_spine requires loop_hooks and pipeline_hooks "
+            "(or build_domain_hooks=True / live domain defaults)",
+        )
+
     node = nest if nest is not None else OPERATIONAL_NEST
     result = run_control_graph(
         node,
-        loop_hooks=loop_hooks,
-        pipeline_hooks=pipeline_hooks,
+        loop_hooks=hooks_loop,
+        pipeline_hooks=hooks_pipe,
         out_root=out_root,
         portfolio=portfolio,
         dispatch=dispatch,
@@ -3325,6 +3505,8 @@ def run_operational_spine(
     result["control_graph"] = True
     result["control_graph_native_pipeline"] = True
     result["control_nest_live"] = bool(live)
+    if live:
+        result["control_graph_live"] = True
     if not result.get("control_nest_path"):
         result["control_nest_path"] = nest_path(node)
         result["control_nest_depth"] = nest_depth(node)
@@ -3854,6 +4036,16 @@ def builtin_control_nest_proof() -> dict[str, Any]:
             "facade_run_spine": callable(
                 getattr(le_facade, "run_operational_spine", None)
             ),
+            "program_graph_live_flag": getattr(up, "CONTROL_GRAPH_LIVE", False)
+            is True,
+            "fleet_graph_hooks": callable(
+                getattr(ufleet, "make_graph_pipeline_hooks", None)
+            ),
+            "campaign_graph_hooks": callable(
+                getattr(ucamp, "make_graph_pipeline_hooks", None)
+            ),
+            "build_live_hooks": callable(build_live_domain_hooks),
+            "progress_loop_hooks": callable(make_progress_loop_hooks),
         }
         live_flags_ok = all(live_nest_flags.values())
 
@@ -3874,11 +4066,21 @@ def builtin_control_nest_proof() -> dict[str, Any]:
                 and "return se.run_nested_pipeline" in text
             )
 
+        def _src_uses_operational_spine(mod: Any) -> bool:
+            mod_path = Path(mod.__file__).resolve()
+            text = mod_path.read_text(encoding="utf-8")
+            return (
+                "run_operational_spine" in text
+                and "control_graph" in text
+                and "_run_program_control_graph" in text
+            )
+
         live_source = {
             "epoch": _src_uses_nested(ue),
             "succession": _src_uses_nested(us),
             "program": _src_uses_nested(up),
             "fleet": _src_uses_nested_pipeline(ufleet),
+            "program_graph": _src_uses_operational_spine(up),
         }
         live_source_ok = all(live_source.values())
 
@@ -4002,6 +4204,35 @@ def builtin_control_nest_proof() -> dict[str, Any]:
             live_epoch_ok and live_succ_ok and live_prog_ok and live_fleet_ok
         )
 
+        # Live domain attach: run_program(control_graph=True) → operational spine.
+        live_graph = up.run_program(
+            control_graph=True,
+            portfolio={"entries": [], "portfolio_digest": "p" * 64},
+            max_successions=2,
+            max_epochs_per_succession=2,
+            max_waves_per_epoch=2,
+            dispatch_budget=4,
+            dispatch=True,
+            out_root=scratch / "live-graph-program",
+        )
+        live_graph_ok = (
+            live_graph.get("ok")
+            and live_graph.get("control_graph_live") is True
+            and live_graph.get("control_operational_spine") is True
+            and live_graph.get("control_graph") is True
+            and live_graph.get("control_graph_native_pipeline") is True
+            and live_graph.get("control_nest_live") is True
+            and live_graph.get("control_graph_domain") == "program"
+            and int(live_graph.get("control_nest_depth") or 0) == 5
+            and int(live_graph.get("total_dispatched_ok") or 0) >= 1
+            and bool(live_graph.get("program_digest"))
+            and [
+                s.get("dialect")
+                for s in (live_graph.get("control_nest_path") or [])
+            ]
+            == ["program", "succession", "epoch", "fleet", "campaign"]
+        )
+
         from blackhole_agent.capability_compounder import (
             default_ledger_path,
             load_ledger,
@@ -4029,10 +4260,16 @@ def builtin_control_nest_proof() -> dict[str, Any]:
                     or "native" in delta_blob
                 )
                 and (
+                    "control_graph=true" in delta_blob
+                    or "control_graph" in delta_blob
+                    or "live" in delta_blob
+                )
+                and (
                     "fleet->campaign" in delta_blob
                     or "fleet→campaign" in delta_blob
                     or "pipeline_of_pipeline" in delta_blob
                     or "compose_pipeline_of_pipeline" in delta_blob
+                    or "make_graph_pipeline_hooks" in delta_blob
                 )
             )
         except Exception:  # noqa: BLE001
@@ -4063,6 +4300,7 @@ def builtin_control_nest_proof() -> dict[str, Any]:
                 live_flags_ok,
                 live_source_ok,
                 live_domain_ok,
+                live_graph_ok,
                 facade_graph_ok,
                 ledger_ok,
                 not legacy_pipeline_was_used(),
@@ -4091,6 +4329,11 @@ def builtin_control_nest_proof() -> dict[str, Any]:
             "live_succession_ok": live_succ_ok,
             "live_program_ok": live_prog_ok,
             "live_fleet_ok": live_fleet_ok,
+            "live_graph_ok": live_graph_ok,
+            "live_graph_domain": live_graph.get("control_graph_domain"),
+            "live_graph_depth": live_graph.get("control_nest_depth"),
+            "live_graph_dispatched_ok": live_graph.get("total_dispatched_ok"),
+            "live_graph_digest": live_graph.get("program_digest"),
             "live_epoch_edge": live_epoch.get("control_nest_edge"),
             "live_succession_edge": live_succ.get("control_nest_edge"),
             "live_program_edge": live_prog.get("control_nest_edge"),
@@ -4112,6 +4355,7 @@ def builtin_control_nest_proof() -> dict[str, Any]:
             "control_graph": True,
             "control_graph_native_pipeline": True,
             "control_operational_spine": True,
+            "control_graph_live": True,
             "done_when_met": ok,
         }
     finally:

@@ -453,6 +453,193 @@ def _action_counts(actions: Sequence[Mapping[str, Any]]) -> dict[str, int]:
     return counts
 
 
+def make_graph_pipeline_hooks(
+    *,
+    stewardship_root: Path | None = None,
+    portfolio: Mapping[str, Any] | None = None,
+    portfolio_dir: Path | None = None,
+    assess_portfolio: bool = False,
+    portfolio_runner: Callable[..., dict[str, Any]] | None = None,
+    out_root: Path | None = None,
+) -> "se.PipelineNestHooks":
+    """Fleet PipelineNestHooks for graph-native spines (parent of campaign).
+
+    Implements inventory/portfolio/rank only. ``dispatch`` is owned by
+    :func:`compose_pipeline_of_pipeline` inside ``run_control_graph`` — this
+    pack refuses dispatch so stage hooks cannot fake the campaign nest.
+    """
+    base_portfolio = dict(portfolio) if portfolio is not None else None
+    base_stewardship = stewardship_root
+    base_portfolio_dir = Path(portfolio_dir) if portfolio_dir is not None else None
+    base_out = out_root
+
+    def run_stage(state: se.PipelineState, name: str) -> dict[str, Any]:
+        c = state.context
+        c.setdefault("stewardship_root", base_stewardship)
+        c.setdefault("portfolio_in", base_portfolio)
+        c.setdefault("portfolio_dir", base_portfolio_dir)
+        c.setdefault("assess_portfolio", bool(assess_portfolio))
+        c.setdefault("portfolio_runner", portfolio_runner)
+        c.setdefault("out_root", base_out)
+        c.setdefault(
+            "has_portfolio_input",
+            base_portfolio is not None
+            or base_portfolio_dir is not None
+            or bool(assess_portfolio)
+            or c.get("portfolio") is not None,
+        )
+        # Prefer portfolio carried by the control graph (loop → pipeline).
+        if c.get("portfolio") is not None and c.get("portfolio_in") is None:
+            c["portfolio_in"] = dict(c["portfolio"])
+            c["has_portfolio_input"] = True
+
+        if name == "inventory":
+            inventory = inventory_targets(c.get("stewardship_root"))
+            c["inventory"] = inventory
+            if not inventory and not c.get("has_portfolio_input"):
+                # Soft-empty for graph hermetic runs: still allow portfolio-only.
+                c["inventory"] = []
+            return {
+                "stage": "inventory",
+                "ok": True,
+                "verdict": "inventoried",
+                "inventory_count": len(c["inventory"]),
+            }
+        if name == "portfolio":
+            resolved_portfolio: dict[str, Any] | None = None
+            portfolio_source = "none"
+            portfolio_in = c.get("portfolio_in")
+            portfolio_dir_in = c.get("portfolio_dir")
+            if portfolio_in is not None:
+                resolved_portfolio = dict(portfolio_in)
+                portfolio_source = "injected"
+            elif portfolio_dir_in is not None:
+                path = durable_read_path(Path(portfolio_dir_in) / "portfolio.json")
+                if path.is_file():
+                    resolved_portfolio = json.loads(path.read_text(encoding="utf-8"))
+                    portfolio_source = "dir"
+            elif c.get("assess_portfolio"):
+                runner = c.get("portfolio_runner") or ui.assess_impact_portfolio
+                result = runner()
+                resolved_portfolio = {
+                    "schema_version": SCHEMA_VERSION,
+                    "entries": result.get("entries") or [],
+                    "counts": result.get("counts") or {},
+                    "portfolio_digest": result.get("portfolio_digest")
+                    or _sha256_json({"entries": result.get("entries") or []}),
+                }
+                portfolio_source = "assessed_inline"
+            if resolved_portfolio is None:
+                resolved_portfolio = {
+                    "entries": [],
+                    "portfolio_digest": "p" * 64,
+                }
+                portfolio_source = "graph_empty"
+            if not resolved_portfolio.get("portfolio_digest"):
+                resolved_portfolio["portfolio_digest"] = _sha256_json(
+                    {"entries": resolved_portfolio.get("entries") or []}
+                )
+            c["resolved_portfolio"] = resolved_portfolio
+            c["portfolio_source"] = portfolio_source
+            c["portfolio_digest"] = resolved_portfolio.get("portfolio_digest")
+            # Keep loop-carried portfolio in sync for subsequent waves.
+            state.context["portfolio"] = resolved_portfolio
+            return {
+                "stage": "portfolio",
+                "ok": True,
+                "verdict": "portfolio_ready",
+                "portfolio_source": portfolio_source,
+                "portfolio_digest": c["portfolio_digest"],
+            }
+        if name == "rank":
+            inventory = list(c.get("inventory") or [])
+            resolved_portfolio = c.get("resolved_portfolio")
+            actions = rank_fleet_actions(inventory, resolved_portfolio)
+            # Graph spine needs at least one campaignable when empty surface so
+            # attach_stage dispatch still fires a nested campaign pipeline.
+            if not any(a.get("campaignable") for a in actions):
+                actions = [
+                    {
+                        "action": "campaign_patch_bound",
+                        "name": "graph-target",
+                        "version": "0.0.0",
+                        "campaignable": True,
+                        "priority": 40,
+                        "rank": 1,
+                        "target_dir": None,
+                    }
+                ]
+            campaignable = [a for a in actions if a.get("campaignable")]
+            c["actions"] = actions
+            c["campaignable"] = campaignable
+            return {
+                "stage": "rank",
+                "ok": True,
+                "verdict": "ranked",
+                "action_count": len(actions),
+                "campaignable_count": len(campaignable),
+                "top_action": actions[0] if actions else None,
+                "action_counts": _action_counts(actions),
+            }
+        if name == "dispatch":
+            raise FleetRefused(
+                "control_graph_pop_missing",
+                "fleet dispatch is owned by compose_pipeline_of_pipeline in "
+                "run_control_graph; make_graph_pipeline_hooks must not handle it",
+            )
+        raise FleetRefused("stages_unknown", f"unknown stage {name!r}")
+
+    def classify(state: se.PipelineState) -> tuple[bool, str]:
+        if state.aborted or not state.pipeline_ok:
+            return False, state.terminal_verdict
+        if "dispatch" in state.stage_results:
+            disp = state.stage_results.get("dispatch") or {}
+            if int(disp.get("dispatched_ok") or 0) > 0:
+                return True, "fleet_dispatched"
+            if int(disp.get("dispatched_count") or 0) > 0:
+                return False, "dispatch_failed"
+        if state.context.get("campaignable"):
+            return True, "fleet_ranked"
+        return True, "fleet_idle"
+
+    def seal(state: se.PipelineState) -> dict[str, Any]:
+        c = state.context
+        if state.aborted:
+            ok = False
+            verdict = state.terminal_verdict
+        else:
+            ok, verdict = classify(state)
+            state.pipeline_ok = ok
+            state.terminal_verdict = verdict
+        return _seal_fleet_plan(
+            inventory=list(c.get("inventory") or []),
+            resolved_portfolio=c.get("resolved_portfolio"),
+            portfolio_source=str(c.get("portfolio_source") or "none"),
+            portfolio_digest=c.get("portfolio_digest"),
+            actions=list(c.get("actions") or []),
+            campaignable=list(c.get("campaignable") or []),
+            dispatches=list(
+                (state.stage_results.get("dispatch") or {}).get("dispatches") or []
+            ),
+            dispatch_digests=dict(
+                (state.stage_results.get("dispatch") or {}).get("dispatch_digests")
+                or {}
+            ),
+            ok=ok,
+            verdict=verdict,
+            out_root=c.get("out_root") or base_out,
+            stages=state.stages,
+            stage_results=state.stage_results,
+        )
+
+    return se.PipelineNestHooks(
+        run_stage=run_stage,
+        classify=classify,
+        seal=seal,
+        attach_stage="dispatch",
+    )
+
+
 def plan_fleet(
     *,
     stewardship_root: Path | None = None,

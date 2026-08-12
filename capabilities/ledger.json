@@ -4018,13 +4018,14 @@
     "capability.upstream-control-graph": {
       "behavior_paths": [
         "src/blackhole_agent/upstream_control_engine.py",
-        "src/blackhole_agent/upstream_loop_engine.py",
-        "src/blackhole_agent/upstream_stage_engine.py",
         "src/blackhole_agent/upstream_program.py",
         "src/blackhole_agent/upstream_fleet.py",
+        "src/blackhole_agent/upstream_campaign.py",
+        "src/blackhole_agent/upstream_loop_engine.py",
+        "src/blackhole_agent/upstream_stage_engine.py",
         "capabilities/ledger.json"
       ],
-      "capability_delta": "Graph-native operational spine: run_operational_spine executes OPERATIONAL_NEST depth 5; run_control_graph natively runs compose_pipeline_of_pipeline for fleet->campaign (PipelineNestHooks); fleet stage hooks no longer fabricate campaign; campaign stages actually execute under the graph without skill-route.",
+      "capability_delta": "Live domain attach to graph-native operational spine: run_program(control_graph=True) calls run_operational_spine with build_live_domain_hooks; fleet/campaign expose make_graph_pipeline_hooks (fleet never handles dispatch; campaign stages run under compose_pipeline_of_pipeline); CONTROL_GRAPH_LIVE seals control_graph_live without skill-route.",
       "created_at": "2026-08-12T05:07:17.021650Z",
       "dependencies": [
         "repo.import-health",
@@ -4033,7 +4034,7 @@
         "capability.upstream-control-nest",
         "capability.upstream-control-spine"
       ],
-      "description": "run_control_graph natively owns pipeline-of-pipeline (fleet->campaign) via compose_pipeline_of_pipeline; run_operational_spine is the public depth-5 entry; PipelineNestHooks separate fleet/campaign stage packs so domain hooks cannot fake the child nest. Domains keep dialect hooks; nest structure and pop edges are engine data. No skill-route discovery.",
+      "description": "run_control_graph natively owns pipeline-of-pipeline (fleet->campaign); run_operational_spine is the public depth-5 entry; live run_program(control_graph=True) attaches domain make_graph_pipeline_hooks packs so program->campaign is one graph without hand-wired child runners. No skill-route discovery.",
       "entry": "blackhole_agent.upstream_control_engine:builtin_control_graph_proof",
       "id": "capability.upstream-control-graph",
       "kind": "python",
@@ -4041,7 +4042,7 @@
       "last_proved_at": "2026-08-12T05:07:17.021650Z",
       "name": "Upstream graph-native operational control spine",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine graph-proof",
-      "source_milestone": 1,
+      "source_milestone": 2,
       "source_mission_id": "20260812T045849Z-dc159e40",
       "tags": [
         "bootstrap",
@@ -4060,9 +4061,10 @@
         "pipeline-of-pipeline",
         "spine",
         "stewardship",
-        "upstream"
+        "upstream",
+        "control_graph"
       ],
-      "updated_at": "2026-08-12T05:07:17.021667Z"
+      "updated_at": "2026-08-12T05:13:55.751169Z"
     },
     "capability.upstream-control-nest": {
       "behavior_paths": [
@@ -6288,5 +6290,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-08-12T05:07:17.021848Z"
+  "updated_at": "2026-08-12T05:13:55.751355Z"
 }

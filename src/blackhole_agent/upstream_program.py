@@ -78,11 +78,13 @@ CONTROL_ENGINE = True
 CONTROL_ENGINE_MODE = "loop"
 
 # Multi-depth control nest: program is the outer node of OPERATIONAL_NEST.
-# Live run_program uses le.run_nested_control (program→succession).
-# Graph-native spine (run_operational_spine) owns fleet→campaign composition.
+# Live run_program uses le.run_nested_control (program→succession) by default.
+# Graph-native path: run_program(control_graph=True) → run_operational_spine
+# with domain make_graph_pipeline_hooks (no hand-wired child runners).
 CONTROL_NEST = True
 CONTROL_NEST_LIVE = True
 CONTROL_GRAPH = True
+CONTROL_GRAPH_LIVE = True
 CONTROL_NEST_CHILD = "succession"
 CONTROL_NEST_CHILD_MODE = "loop"
 CONTROL_NEST_PATH = [
@@ -657,6 +659,109 @@ def verify_program_receipt(program_dir: Path) -> dict[str, Any]:
 # run program
 
 
+def _run_program_control_graph(
+    *,
+    stewardship_root: Path | None,
+    portfolio: Mapping[str, Any] | None,
+    portfolio_dir: Path | None,
+    max_successions: int,
+    max_epochs_per_succession: int,
+    max_waves_per_epoch: int,
+    dispatch_budget: int | None,
+    idle_succession_limit: int,
+    dispatch: bool,
+    out_root: Path | None,
+    program_id: str | None,
+    campaign_run_stage: Callable[..., dict[str, Any]] | None,
+) -> dict[str, Any]:
+    """Live domain attach: run_program → run_operational_spine (full nest)."""
+    port: dict[str, Any] | None = dict(portfolio) if portfolio is not None else None
+    if port is None and portfolio_dir is not None:
+        path = durable_read_path(Path(portfolio_dir) / "portfolio.json")
+        if path.is_file():
+            port = json.loads(path.read_text(encoding="utf-8"))
+    if port is None:
+        port = {"entries": [], "portfolio_digest": "p" * 64}
+
+    program_dir = Path(out_root) if out_root is not None else (
+        ARTIFACTS_ROOT / f"graph-{utc_now_iso().replace(':', '').replace('.', '-')}"
+    )
+    program_dir.mkdir(parents=True, exist_ok=True)
+
+    goal = 1
+    if dispatch_budget is not None:
+        goal = max(1, min(int(dispatch_budget), 2))
+
+    try:
+        result = le.run_operational_spine(
+            out_root=program_dir,
+            portfolio=port,
+            dispatch=dispatch,
+            dispatch_budget=dispatch_budget,
+            live=True,
+            build_domain_hooks=True,
+            goal_dispatched_ok=goal,
+            max_successions=max_successions,
+            max_epochs=max_epochs_per_succession,
+            max_waves=max_waves_per_epoch,
+            idle_limit=max(1, int(idle_succession_limit)),
+            stewardship_root=stewardship_root,
+            campaign_run_stage=campaign_run_stage,
+            initial_pipeline_context={
+                "stewardship_root": stewardship_root,
+                "portfolio": port,
+            },
+        )
+    except (le.LoopRefused, le.StageRefused) as exc:
+        raise ProgramRefused(
+            getattr(exc, "verdict", "refused"),
+            getattr(exc, "detail", str(exc)),
+        ) from exc
+
+    result["control_graph_live"] = True
+    result["control_graph_domain"] = "program"
+    result["control_operational_spine"] = True
+    result["control_graph"] = True
+    result["control_graph_native_pipeline"] = True
+    result["loop_engine"] = True
+    result["loop_dialect"] = "program"
+    result["program_id"] = program_id or result.get("program_id") or "graph-program"
+    result.setdefault("program_dir", str(program_dir))
+    # Align field names with nested-control program receipts for callers.
+    if result.get("program_digest") is None and result.get("succession_digest"):
+        result["program_digest"] = result.get("succession_digest")
+    dig = result.get("program_digest")
+    if not dig:
+        dig = _sha256_json(
+            {
+                "ok": result.get("ok"),
+                "verdict": result.get("verdict"),
+                "total_dispatched_ok": result.get("total_dispatched_ok"),
+                "control_nest_path": result.get("control_nest_path"),
+            }
+        )
+        result["program_digest"] = dig
+    atomic_write_json(
+        program_dir / "program_graph.json",
+        {
+            "ok": result.get("ok"),
+            "verdict": result.get("verdict"),
+            "program_digest": result.get("program_digest"),
+            "program_id": result.get("program_id"),
+            "control_graph_live": True,
+            "control_operational_spine": True,
+            "control_graph_native_pipeline": True,
+            "control_nest_depth": result.get("control_nest_depth"),
+            "control_nest_path": result.get("control_nest_path"),
+            "total_dispatched": result.get("total_dispatched"),
+            "total_dispatched_ok": result.get("total_dispatched_ok"),
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        },
+    )
+    result["used_skill_route_discovery"] = legacy_pipeline_was_used()
+    return result
+
+
 def run_program(
     *,
     stewardship_root: Path | None = None,
@@ -686,13 +791,20 @@ def run_program(
     resume_dir: Path | None = None,
     out_root: Path | None = None,
     succession_out_root: Path | None = None,
+    control_graph: bool = False,
+    campaign_run_stage: Callable[..., dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Run a multi-succession stewardship program and seal the receipt.
 
-    Nest structure is owned by the control engine via
-    :func:`run_nested_control` (program→succession→epoch→fleet). This module
-    supplies program-dialect hooks (surface expand, charter, ROI, resume/
-    persist, program goals) only.
+    Nest structure is owned by the control engine. Default path uses
+    :func:`run_nested_control` (program→succession) with domain child runners.
+    When ``control_graph=True``, the program attaches to
+    :func:`run_operational_spine` so program→…→campaign is one graph-native
+    execution with domain ``make_graph_pipeline_hooks`` packs (no hand-wired
+    succession→epoch→fleet runner chain).
+
+    This module supplies program-dialect hooks (surface expand, charter, ROI,
+    resume/persist, program goals) on the nested-control path.
 
     Parameters
     ----------
@@ -738,6 +850,25 @@ def run_program(
         raise ProgramRefused(
             "program_invalid",
             f"unknown program_goal: {program_goal}",
+        )
+
+    # Graph-native live attach: whole OPERATIONAL_NEST via run_operational_spine.
+    # Domain modules supply pipeline hook packs; loop packs are progress defaults
+    # (surface-expand/ROI charter remain on the nested-control path).
+    if control_graph:
+        return _run_program_control_graph(
+            stewardship_root=stewardship_root,
+            portfolio=portfolio,
+            portfolio_dir=portfolio_dir,
+            max_successions=max_successions,
+            max_epochs_per_succession=max_epochs_per_succession,
+            max_waves_per_epoch=max_waves_per_epoch,
+            dispatch_budget=dispatch_budget,
+            idle_succession_limit=idle_succession_limit,
+            dispatch=dispatch,
+            out_root=out_root,
+            program_id=program_id,
+            campaign_run_stage=campaign_run_stage,
         )
 
     dialect = le.get_loop_dialect("program")

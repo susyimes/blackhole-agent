@@ -1,0 +1,57 @@
+{
+  "campaign_digest": "1ec097687d75312e10ea0cba15dc8cb35849af92b10f10524d324a72385c6338",
+  "control_dialect": "campaign",
+  "control_engine": true,
+  "control_mode": "pipeline",
+  "created_at": "2026-08-12T05:13:59.998134Z",
+  "name": "graph-campaign",
+  "ok": true,
+  "pipeline_dialect": "campaign",
+  "schema_version": 1,
+  "stage_digests": {
+    "publication.verdict": "49e93f2a766f51563165ca34012b33ff2bfc56628de45dab053c5606aba1fcb3",
+    "repair.verdict": "233d7ca89c3d72fca172f6ba9ba68996eee67dbb386a80d96085f4390d4096f6"
+  },
+  "stage_engine": true,
+  "stage_results": {
+    "contribution": {
+      "defects": [
+        {
+          "bundle_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "defect_id": "graph-d1",
+          "ok": true,
+          "verdict": "submittable"
+        }
+      ],
+      "ok": true,
+      "stage": "contribution",
+      "verdict": "contribution_ready"
+    },
+    "publication": {
+      "ok": true,
+      "publications": [
+        {
+          "bundle_dir": "bundle-graph-d1",
+          "ok": true,
+          "verdict": "dry_run"
+        }
+      ],
+      "stage": "publication",
+      "verdict": "publication_dry_run"
+    },
+    "repair": {
+      "ok": true,
+      "report_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "stage": "repair",
+      "verdict": "repair_green"
+    }
+  },
+  "stages": [
+    "repair",
+    "contribution",
+    "publication"
+  ],
+  "used_skill_route_discovery": false,
+  "verdict": "publication_dry_run",
+  "version": "0.0.0"
+}

@@ -608,6 +608,103 @@ def _stage_impact(
 # campaign orchestration
 
 
+def make_graph_pipeline_hooks(
+    *,
+    run_stage: Callable[..., dict[str, Any]] | None = None,
+    out_root: Path | None = None,
+) -> "se.PipelineNestHooks":
+    """Campaign PipelineNestHooks for graph-native fleet-campaign spines.
+
+    Default stage pack is hermetic-green (repair/contribution/publication) so
+    live run_program(control_graph=True) can attach without a real target
+    directory. Inject run_stage for domain-specific stage bodies.
+    """
+    base_out = out_root
+    injected = run_stage
+
+    def _default_stage(state: se.PipelineState, name: str) -> dict[str, Any]:
+        if name == "repair":
+            return {
+                "stage": name,
+                "ok": True,
+                "verdict": "repair_green",
+                "report_sha256": "a" * 64,
+            }
+        if name == "contribution":
+            return {
+                "stage": name,
+                "ok": True,
+                "verdict": "contribution_ready",
+                "defects": [
+                    {
+                        "defect_id": "graph-d1",
+                        "ok": True,
+                        "verdict": "submittable",
+                        "bundle_sha256": "b" * 64,
+                    }
+                ],
+            }
+        if name == "publication":
+            return {
+                "stage": name,
+                "ok": True,
+                "verdict": "publication_dry_run",
+                "publications": [
+                    {
+                        "bundle_dir": "bundle-graph-d1",
+                        "ok": True,
+                        "verdict": "dry_run",
+                    }
+                ],
+            }
+        raise CampaignRefused("stages_unknown", f"unknown stage {name!r}")
+
+    def stage_fn(state: se.PipelineState, name: str) -> dict[str, Any]:
+        if injected is not None:
+            return injected(state, name)
+        return _default_stage(state, name)
+
+    def classify(state: se.PipelineState) -> tuple[bool, str]:
+        if state.aborted or not state.pipeline_ok:
+            return False, state.terminal_verdict
+        return True, "publication_dry_run"
+
+    def seal(state: se.PipelineState) -> dict[str, Any]:
+        root = base_out
+        if root is None:
+            root = Path(
+                str(
+                    state.context.get("out_root")
+                    or REPO_ROOT / "artifacts" / "upstream-campaign" / "graph-leaf"
+                )
+            )
+        return se.seal_pipeline_receipt(
+            state,
+            out_root=Path(root),
+            identity={
+                "name": str(state.context.get("name") or "graph-campaign"),
+                "version": str(state.context.get("version") or "0.0.0"),
+            },
+            stage_digests={
+                "repair.verdict": _sha256_bytes(b"repair_green"),
+                "publication.verdict": _sha256_bytes(b"publication_dry_run"),
+            },
+            digest_payload=lambda receipt: {
+                "schema_version": SCHEMA_VERSION,
+                "name": receipt.get("name"),
+                "stages": receipt.get("stages"),
+                "ok": receipt.get("ok"),
+                "verdict": receipt.get("verdict"),
+            },
+        )
+
+    return se.PipelineNestHooks(
+        run_stage=stage_fn,
+        classify=classify,
+        seal=seal,
+    )
+
+
 def run_campaign(
     target_dir: Path,
     *,
