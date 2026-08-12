@@ -53,6 +53,10 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     TOTAL_SPINE_SETTLEMENT_IMPL,
     TOTAL_SPINE_SETTLEMENT_KIND,
     TOTAL_SPINE_SETTLEMENT_MIN_OBSERVATIONS,
+    TOTAL_SPINE_CLEARING_FILENAME,
+    TOTAL_SPINE_CLEARING_IMPL,
+    TOTAL_SPINE_CLEARING_KIND,
+    TOTAL_SPINE_CLEARING_MIN_SETTLEMENTS,
     TOTAL_SPINE_EXECUTION_FILENAME,
     TOTAL_SPINE_EXECUTION_IMPL,
     TOTAL_SPINE_EXECUTION_KIND,
@@ -81,6 +85,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     annotate_total_spine_effects,
     annotate_total_spine_actuation,
     annotate_total_spine_settlement,
+    annotate_total_spine_clearing,
     annotate_total_spine_execution,
     annotate_total_spine_federation,
     annotate_total_spine_finality,
@@ -98,6 +103,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     actuation_certificate_path,
     builtin_total_spine_actuation_proof,
     builtin_total_spine_settlement_proof,
+    builtin_total_spine_clearing_proof,
     builtin_total_spine_execution_proof,
     builtin_total_spine_federation_proof,
     builtin_total_spine_finality_proof,
@@ -115,6 +121,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     evaluate_total_spine_contract,
     compute_total_spine_action_root,
     compute_total_spine_settlement_root,
+    compute_total_spine_clearing_root,
     execute_total_spine,
     execution_certificate_path,
     federate_total_spine,
@@ -126,6 +133,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     list_loop_dialects,
     load_total_spine_actuation_certificate,
     load_total_spine_settlement_certificate,
+    load_total_spine_clearing_certificate,
     load_total_spine_continuity_checkpoint,
     load_total_spine_execution_certificate,
     load_total_spine_federation_certificate,
@@ -155,6 +163,9 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     run_total_spine,
     settle_total_spine,
     settlement_certificate_path,
+    clear_total_spine,
+    clearing_certificate_path,
+    net_total_spine_settlements,
     observe_total_spine_actions,
     seal_json_receipt,
     seal_total_spine_adaptive_chain,
@@ -166,6 +177,8 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     seal_total_spine_actuation_chain,
     seal_total_spine_settlement_certificate,
     seal_total_spine_settlement_chain,
+    seal_total_spine_clearing_certificate,
+    seal_total_spine_clearing_chain,
     seal_total_spine_execution_certificate,
     seal_total_spine_execution_chain,
     seal_total_spine_federation_certificate,
@@ -182,12 +195,14 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     verify_loop_receipt,
     verify_total_spine_actuation_certificate,
     verify_total_spine_settlement_certificate,
+    verify_total_spine_clearing_certificate,
     verify_total_spine_continuity_checkpoint,
     verify_total_spine_execution_certificate,
     verify_total_spine_federation_certificate,
     verify_total_spine_finality_certificate,
     write_total_spine_actuation_certificate,
     write_total_spine_settlement_certificate,
+    write_total_spine_clearing_certificate,
     write_total_spine_continuity_checkpoint,
     write_total_spine_execution_certificate,
     write_total_spine_federation_certificate,
@@ -309,6 +324,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "done_when into irreversible settlement receipts on the tip"
         ),
     )
+    sub.add_parser(
+        "clearing-proof",
+        help=(
+            "Total spine clearing: post-settlement netting discharges "
+            "matching observation books into irreversible clearing receipts"
+        ),
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
     if args.cmd == "list":
         print(json.dumps({"dialects": list_loop_dialects()}, indent=2))
@@ -375,6 +397,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "settlement-proof":
         result = builtin_total_spine_settlement_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "clearing-proof":
+        result = builtin_total_spine_clearing_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2

@@ -265,6 +265,12 @@ def seal_total_spine_settlement_certificate(
     sealed["total_spine_settlement_impl"] = TOTAL_SPINE_SETTLEMENT_IMPL
     sealed["settled_at"] = str(body.get("settled_at") or utc_now_iso())
     sealed["used_skill_route_discovery"] = legacy_pipeline_was_used()
+    # Carry the actuation action log so post-settlement clearing can
+    # independently confirm without a separate in-memory actuation handle.
+    # Not part of the digest material.
+    actions = body.get("actions")
+    if isinstance(actions, list) and actions:
+        sealed["actions"] = [dict(row) if isinstance(row, Mapping) else row for row in actions]
     return sealed
 
 
@@ -1015,6 +1021,7 @@ def settle_total_spine(
         "bound_state_root": state_root,
         "bound_action_root": action_root,
         "actuation_digest": actuation_digest,
+        "actions": list(resolved.get("actions") or []),
         "execution_digest": execution_digest,
         "prior_tip": tip,
         "parent_observation_root": str(
@@ -1091,6 +1098,12 @@ def settle_total_spine(
     annotated["total_spine_settlement_bound_state_root"] = state_root
     annotated["total_spine_settlement_bound_action_root"] = action_root
     annotated["total_spine_settlement_actuation_digest"] = actuation_digest
+    if (
+        str(resolved.get("kind") or "") == TOTAL_SPINE_ACTUATION_KIND
+        or resolved.get("actions")
+        or resolved.get("tip_action_root")
+    ):
+        annotated.setdefault("total_spine_actuation_certificate", dict(resolved))
     annotated["used_skill_route_discovery"] = legacy_pipeline_was_used()
     return annotated
 
