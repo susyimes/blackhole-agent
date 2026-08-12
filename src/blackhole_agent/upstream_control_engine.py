@@ -79,6 +79,13 @@ Composition:
   seals a strict-majority quorum federation tip, excludes a Byzantine
   minority that hard-conflicts, and refuses below-threshold or tied
   majorities — without re-dispatch or skill-route
+* total-spine **post-quorum execution** — closes the certificate-only
+  cliff: after finality / federation / N-of-M quorum seals irreversible
+  consensus, ``execute_total_spine(...)`` (and
+  ``run_total_spine(execution=True)``) projects a deterministic
+  hash-chained world-state root, seals a re-verifiable execution
+  certificate, refuses supersession, short-circuits on re-execute,
+  and rebinds the depth-28 tip without re-dispatch or skill-route
 
 No skill-route discovery.
 """
@@ -4321,6 +4328,10 @@ TOTAL_SPINE_FEDERATION_MIN_ORIGINS: int = 2
 # N-of-M quorum federation: strict-majority over ≥3 finality origins.
 TOTAL_SPINE_QUORUM_IMPL = True
 TOTAL_SPINE_QUORUM_MIN_ORIGINS: int = 3
+# Post-quorum execution: deterministic world-state roots after consensus.
+TOTAL_SPINE_EXECUTION_IMPL = True
+TOTAL_SPINE_EXECUTION_KIND: str = "total_spine_execution"
+TOTAL_SPINE_EXECUTION_FILENAME: str = "total-spine-execution.json"
 # Constitution-layer goals accepted by run_constitution (not free-text).
 TOTAL_SPINE_CONSTITUTION_GOALS: frozenset[str] = frozenset(
     {
@@ -6011,6 +6022,665 @@ def federate_total_spine(
     return annotated
 
 
+# ---------------------------------------------------------------------------
+# Total-spine post-quorum execution (closes the certificate-only cliff)
+# ---------------------------------------------------------------------------
+
+
+def _execution_certificate_material(body: Mapping[str, Any]) -> dict[str, Any]:
+    """Canonical fields that bind a total-spine execution certificate digest."""
+    return {
+        "schema_version": int(body.get("schema_version") or SCHEMA_VERSION),
+        "kind": str(body.get("kind") or TOTAL_SPINE_EXECUTION_KIND),
+        "root_layer": str(body.get("root_layer") or ""),
+        "goal": str(body.get("goal") or ""),
+        "done_when": str(body.get("done_when") or ""),
+        "source_kind": str(body.get("source_kind") or ""),
+        "source_digest": str(body.get("source_digest") or ""),
+        "prior_tip": str(body.get("prior_tip") or ""),
+        "parent_state_root": str(body.get("parent_state_root") or ""),
+        "state_height": int(body.get("state_height") or 0),
+        "state_root": str(body.get("state_root") or ""),
+        "capabilities": list(body.get("capabilities") or []),
+        "effects_ok": bool(body.get("effects_ok", True)),
+        "contract_met": body.get("contract_met"),
+        "origin_count": int(body.get("origin_count") or 0),
+        "quorum_met": bool(body.get("quorum_met", False)),
+        "post_finality": True,
+        "deterministic": True,
+        "irreversible": True,
+        "success": bool(body.get("success", True)),
+    }
+
+
+def compute_total_spine_state_root(body: Mapping[str, Any]) -> str:
+    """Deterministic world-state root from consensus projection fields.
+
+    Excludes wall-clock and certificate envelope fields so recompute from the
+    same source digest + height + parent root yields an identical tip.
+    """
+    projection = {
+        "goal": str(body.get("goal") or ""),
+        "done_when": str(body.get("done_when") or ""),
+        "effects_ok": bool(body.get("effects_ok", True)),
+        "contract_met": body.get("contract_met"),
+        "origin_count": int(body.get("origin_count") or 0),
+        "quorum_met": bool(body.get("quorum_met", False)),
+        "capabilities": list(body.get("capabilities") or []),
+    }
+    material = {
+        "root_layer": str(body.get("root_layer") or ""),
+        "source_kind": str(body.get("source_kind") or ""),
+        "source_digest": str(body.get("source_digest") or ""),
+        "prior_tip": str(body.get("prior_tip") or ""),
+        "parent_state_root": str(body.get("parent_state_root") or ""),
+        "state_height": int(body.get("state_height") or 0),
+        "projection": projection,
+    }
+    return _sha256_json(material)
+
+
+def seal_total_spine_execution_certificate(
+    body: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Seal post-consensus world-state into a tamper-evident execution cert."""
+    sealed_body = dict(body)
+    if not str(sealed_body.get("state_root") or "").strip():
+        sealed_body["state_root"] = compute_total_spine_state_root(sealed_body)
+    material = _execution_certificate_material(sealed_body)
+    # Material must include the computed state_root.
+    material["state_root"] = str(sealed_body.get("state_root") or "")
+    digest = _sha256_json(material)
+    sealed = dict(material)
+    sealed["execution_digest"] = digest
+    sealed["certificate_hash"] = digest
+    sealed["total_spine_execution"] = True
+    sealed["total_spine_execution_impl"] = TOTAL_SPINE_EXECUTION_IMPL
+    sealed["executed_at"] = str(body.get("executed_at") or utc_now_iso())
+    sealed["used_skill_route_discovery"] = legacy_pipeline_was_used()
+    return sealed
+
+
+def execution_certificate_path(root: Path) -> Path:
+    """Resolve ``total-spine-execution.json`` under an execution/out root."""
+    path = Path(root)
+    if path.is_file():
+        if path.name == TOTAL_SPINE_EXECUTION_FILENAME or path.suffix == ".json":
+            try:
+                probe = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                probe = None
+            if isinstance(probe, Mapping) and (
+                str(probe.get("kind") or "") == TOTAL_SPINE_EXECUTION_KIND
+                or path.name == TOTAL_SPINE_EXECUTION_FILENAME
+            ):
+                return path
+        parent = path.parent
+        sibling = parent / TOTAL_SPINE_EXECUTION_FILENAME
+        if sibling.is_file():
+            return sibling
+        nested = parent / "execution" / TOTAL_SPINE_EXECUTION_FILENAME
+        if nested.is_file():
+            return nested
+        grand = parent.parent / "execution" / TOTAL_SPINE_EXECUTION_FILENAME
+        if grand.is_file():
+            return grand
+        grand_sib = parent.parent / TOTAL_SPINE_EXECUTION_FILENAME
+        if grand_sib.is_file():
+            return grand_sib
+        return parent / "execution" / TOTAL_SPINE_EXECUTION_FILENAME
+    named = path / TOTAL_SPINE_EXECUTION_FILENAME
+    if named.is_file():
+        return named
+    nested = path / "execution" / TOTAL_SPINE_EXECUTION_FILENAME
+    if nested.is_file():
+        return nested
+    return path / "execution" / TOTAL_SPINE_EXECUTION_FILENAME
+
+
+def write_total_spine_execution_certificate(
+    out_root: Path,
+    body: Mapping[str, Any],
+    *,
+    allow_idempotent: bool = True,
+) -> dict[str, Any]:
+    """Seal and atomically write an execution certificate under ``out_root``.
+
+    Irreversible supersession: identical digests return idempotently;
+    divergent reseal raises ``total_spine_execution_supersession_refused``.
+    """
+    sealed = seal_total_spine_execution_certificate(body)
+    path = execution_certificate_path(Path(out_root))
+    if path.is_file():
+        try:
+            existing = load_total_spine_execution_certificate(path)
+        except StageRefused:
+            existing = None
+        if existing is not None:
+            existing_digest = str(
+                existing.get("execution_digest")
+                or existing.get("certificate_hash")
+                or ""
+            )
+            new_digest = str(
+                sealed.get("execution_digest")
+                or sealed.get("certificate_hash")
+                or ""
+            )
+            if (
+                existing_digest
+                and existing_digest == new_digest
+                and allow_idempotent
+            ):
+                existing["execution_path"] = str(path)
+                existing["total_spine_execution_idempotent"] = True
+                return existing
+            raise StageRefused(
+                "total_spine_execution_supersession_refused",
+                f"irreversible execution already sealed at {path} "
+                f"(existing={existing_digest!r} attempted={new_digest!r})",
+            )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(path, sealed)
+    sealed["execution_path"] = str(path)
+    sealed["total_spine_execution_idempotent"] = False
+    return sealed
+
+
+def verify_total_spine_execution_certificate(
+    certificate: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Recompute execution digest and state root; fail closed on tamper."""
+    claimed = str(
+        certificate.get("execution_digest")
+        or certificate.get("certificate_hash")
+        or ""
+    )
+    material = _execution_certificate_material(certificate)
+    expected = _sha256_json(material)
+    recomputed_root = compute_total_spine_state_root(certificate)
+    claimed_root = str(certificate.get("state_root") or "")
+    height = int(certificate.get("state_height") or 0)
+    parent = str(certificate.get("parent_state_root") or "")
+    parent_ok = (height == 1 and not parent) or (height > 1 and bool(parent))
+    ok = (
+        bool(claimed)
+        and claimed == expected
+        and str(certificate.get("kind") or "") == TOTAL_SPINE_EXECUTION_KIND
+        and int(certificate.get("schema_version") or 0) == SCHEMA_VERSION
+        and certificate.get("irreversible") is True
+        and certificate.get("post_finality") is True
+        and certificate.get("deterministic") is True
+        and bool(certificate.get("success"))
+        and height >= 1
+        and bool(claimed_root)
+        and claimed_root == recomputed_root
+        and parent_ok
+        and bool(str(certificate.get("source_digest") or "").strip())
+        and TOTAL_SPINE_EXECUTION_IMPL is True
+    )
+    return {
+        "ok": ok,
+        "action": "verify_total_spine_execution",
+        "claimed_digest": claimed,
+        "expected_digest": expected,
+        "state_root_ok": claimed_root == recomputed_root and bool(claimed_root),
+        "recomputed_state_root": recomputed_root,
+        "parent_ok": parent_ok,
+        "kind_ok": str(certificate.get("kind") or "")
+        == TOTAL_SPINE_EXECUTION_KIND,
+        "schema_ok": int(certificate.get("schema_version") or 0)
+        == SCHEMA_VERSION,
+        "irreversible_ok": certificate.get("irreversible") is True,
+        "total_spine_execution": True,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def load_total_spine_execution_certificate(
+    path: Path | str,
+) -> dict[str, Any]:
+    """Load and integrity-check a sealed execution certificate."""
+    file_path = execution_certificate_path(Path(path))
+    if not file_path.is_file():
+        raise StageRefused(
+            "total_spine_execution_missing",
+            f"execution certificate not found at {file_path}",
+        )
+    raw_path = durable_read_path(file_path)
+    try:
+        payload = json.loads(raw_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise StageRefused(
+            "total_spine_execution_unreadable",
+            f"execution certificate unreadable at {file_path}: {exc}",
+        ) from exc
+    if not isinstance(payload, Mapping):
+        raise StageRefused(
+            "total_spine_execution_invalid",
+            "execution certificate root must be a JSON object",
+        )
+    verify = verify_total_spine_execution_certificate(payload)
+    if not verify.get("ok"):
+        raise StageRefused(
+            "total_spine_execution_tampered",
+            f"execution certificate digest mismatch at {file_path} "
+            f"(claimed={verify.get('claimed_digest')!r} "
+            f"expected={verify.get('expected_digest')!r})",
+        )
+    body = dict(payload)
+    body["execution_path"] = str(file_path)
+    body["execution_verify"] = verify
+    body["total_spine_execution_loaded"] = True
+    return body
+
+
+def seal_total_spine_execution_chain(
+    *,
+    prior_tip: str,
+    execution_digest: str,
+    state_root: str,
+    state_height: int,
+    source_kind: str,
+    short_circuit: bool = False,
+) -> dict[str, Any]:
+    """Seal execution hop into the absolute-tower tip."""
+    tip = str(prior_tip or "").strip() or ("0" * 64)
+    ed = str(execution_digest or "").strip() or ("0" * 64)
+    sr = str(state_root or "").strip() or ("0" * 64)
+    material = (
+        f"execution|{int(bool(short_circuit))}|{int(state_height)}|"
+        f"{str(source_kind or '')}|{sr}|{ed}|{tip}"
+    ).encode("utf-8")
+    digest = _sha256_bytes(material)
+    return {
+        "short_circuit": bool(short_circuit),
+        "state_height": int(state_height),
+        "state_root": sr,
+        "source_kind": str(source_kind or ""),
+        "execution_digest": ed,
+        "prior_tip": tip,
+        "digest": digest,
+        "total_spine_execution": True,
+        "irreversible": True,
+        "post_finality": True,
+        "deterministic": True,
+    }
+
+
+def annotate_total_spine_execution(
+    body: dict[str, Any],
+    *,
+    certificate: Mapping[str, Any],
+    prior_tip: str,
+    short_circuit: bool = False,
+) -> dict[str, Any]:
+    """Stamp post-consensus execution onto a total-spine result and rebind tip."""
+    exec_digest = str(
+        certificate.get("execution_digest")
+        or certificate.get("certificate_hash")
+        or ""
+    )
+    state_root = str(certificate.get("state_root") or "")
+    state_height = int(certificate.get("state_height") or 0)
+    source_kind = str(certificate.get("source_kind") or "")
+    chain = seal_total_spine_execution_chain(
+        prior_tip=prior_tip,
+        execution_digest=exec_digest,
+        state_root=state_root,
+        state_height=state_height,
+        source_kind=source_kind,
+        short_circuit=short_circuit,
+    )
+    exec_tip = str(chain.get("digest") or prior_tip)
+    bound = _sha256_bytes(f"{prior_tip}|{exec_tip}".encode("utf-8"))
+    body["total_spine_execution"] = True
+    body["total_spine_execution_impl"] = TOTAL_SPINE_EXECUTION_IMPL
+    body["total_spine_execution_short_circuit"] = bool(short_circuit)
+    body["total_spine_execution_irreversible"] = True
+    body["total_spine_execution_post_finality"] = True
+    body["total_spine_execution_deterministic"] = True
+    body["total_spine_execution_certificate"] = dict(certificate)
+    body["total_spine_execution_digest"] = exec_digest
+    body["total_spine_execution_chain"] = chain
+    body["total_spine_execution_tip"] = exec_tip
+    body["total_spine_execution_bound_tip"] = bound
+    body["total_spine_digest_pre_execution"] = prior_tip
+    body["total_spine_state_root"] = state_root
+    body["total_spine_state_height"] = state_height
+    body["total_spine_state_applied"] = True
+    body["total_spine_state_applied_ok"] = True
+    body["total_spine_state_root_valid"] = bool(state_root)
+    body["state_root"] = state_root
+    body["state_height"] = state_height
+    body["state_applied"] = True
+    if certificate.get("execution_path"):
+        body["total_spine_execution_path"] = certificate.get("execution_path")
+    body["total_spine_digest"] = bound
+    body["verdict"] = (
+        "total_spine_execution_ok_short_circuit"
+        if short_circuit
+        else "total_spine_execution_ok"
+    )
+    body["ok"] = True
+    return body
+
+
+def _resolve_execution_source(
+    source: Path | str | Mapping[str, Any] | None,
+    body: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """Resolve federation/finality/execution source for world-state apply."""
+    if isinstance(source, Mapping):
+        kind = str(source.get("kind") or "")
+        if kind == TOTAL_SPINE_EXECUTION_KIND or source.get(
+            "total_spine_execution"
+        ):
+            return dict(source)
+        if kind == TOTAL_SPINE_FEDERATION_KIND or source.get(
+            "total_spine_federation"
+        ):
+            return dict(source)
+        if kind == TOTAL_SPINE_FINALITY_KIND or source.get(
+            "total_spine_finality"
+        ):
+            return dict(source)
+        # Spine body carrying nested certificates.
+        cert = (
+            source.get("total_spine_federation_certificate")
+            or source.get("total_spine_finality_certificate")
+            or source.get("total_spine_execution_certificate")
+        )
+        if isinstance(cert, Mapping):
+            return dict(cert)
+        return dict(source)
+
+    if source is not None:
+        path = Path(source)
+        # Prefer execution, then federation, then finality at path.
+        try:
+            return load_total_spine_execution_certificate(path)
+        except StageRefused as exc:
+            if str(exc.verdict) == "total_spine_execution_tampered":
+                raise
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            return load_total_spine_federation_certificate(path)
+        except StageRefused as exc:
+            if str(exc.verdict) == "total_spine_federation_tampered":
+                raise
+        except Exception:  # noqa: BLE001
+            pass
+        return load_total_spine_finality_certificate(path)
+
+    if body is not None:
+        cert = (
+            body.get("total_spine_federation_certificate")
+            or body.get("total_spine_finality_certificate")
+            or body.get("total_spine_execution_certificate")
+        )
+        if isinstance(cert, Mapping):
+            return dict(cert)
+        if body.get("total_spine_federation") or body.get("total_spine_finality"):
+            return dict(body)
+    raise StageRefused(
+        "total_spine_execution_source_missing",
+        "execution requires a finality, federation, or spine source",
+    )
+
+
+def _source_kind_and_digest(
+    source: Mapping[str, Any],
+) -> tuple[str, str]:
+    """Classify consensus source and extract its digest."""
+    kind = str(source.get("kind") or "")
+    if (
+        kind == TOTAL_SPINE_FEDERATION_KIND
+        or source.get("total_spine_federation")
+        or source.get("quorum") is True
+    ):
+        digest = str(
+            source.get("federation_digest")
+            or source.get("certificate_hash")
+            or source.get("total_spine_federation_digest")
+            or ""
+        )
+        if source.get("quorum") is True or source.get("total_spine_quorum"):
+            return "quorum", digest
+        return "federation", digest
+    if kind == TOTAL_SPINE_FINALITY_KIND or source.get("total_spine_finality"):
+        digest = str(
+            source.get("finality_digest")
+            or source.get("certificate_hash")
+            or source.get("total_spine_finality_digest")
+            or ""
+        )
+        return "finality", digest
+    if kind == TOTAL_SPINE_EXECUTION_KIND or source.get("total_spine_execution"):
+        digest = str(
+            source.get("execution_digest")
+            or source.get("certificate_hash")
+            or source.get("source_digest")
+            or ""
+        )
+        return str(source.get("source_kind") or "execution"), digest
+    digest = str(
+        source.get("federation_digest")
+        or source.get("finality_digest")
+        or source.get("certificate_hash")
+        or source.get("total_spine_digest")
+        or ""
+    )
+    return "finality", digest
+
+
+def execute_total_spine(
+    source: Path | str | Mapping[str, Any] | None = None,
+    *,
+    out_root: Path | None = None,
+    prior_tip: str | None = None,
+    body: dict[str, Any] | None = None,
+    parent_state_root: str = "",
+    state_height: int | None = None,
+    short_circuit: bool = False,
+) -> dict[str, Any]:
+    """Apply post-consensus world-state on the absolute total spine.
+
+    Closes the certificate-only cliff: after local finality, dual-origin
+    federation, or N-of-M quorum federation seals irreversible consensus,
+    project a deterministic hash-chained state root, seal a re-verifiable
+    execution certificate, and rebind the depth-28 tip without re-dispatch.
+    """
+    if not TOTAL_SPINE_EXECUTION_IMPL:
+        raise StageRefused(
+            "total_spine_execution_disabled",
+            "TOTAL_SPINE_EXECUTION_IMPL is False",
+        )
+
+    resolved = _resolve_execution_source(source, body)
+    # Already-executed certificate: annotate / short-circuit only.
+    if (
+        str(resolved.get("kind") or "") == TOTAL_SPINE_EXECUTION_KIND
+        or resolved.get("total_spine_execution_loaded")
+    ) and resolved.get("state_root"):
+        tip = str(
+            prior_tip
+            or resolved.get("prior_tip")
+            or (body or {}).get("total_spine_digest")
+            or ""
+        )
+        result = body if body is not None else {
+            "ok": True,
+            "action": "execute_total_spine",
+            "total_spine": True,
+        }
+        return annotate_total_spine_execution(
+            result,
+            certificate=resolved,
+            prior_tip=tip,
+            short_circuit=True,
+        )
+
+    source_kind, source_digest = _source_kind_and_digest(resolved)
+    if not source_digest:
+        raise StageRefused(
+            "total_spine_execution_source_digest_missing",
+            "execution source lacks a consensus digest",
+        )
+    if not bool(resolved.get("success", True)):
+        raise StageRefused(
+            "total_spine_execution_source_not_success",
+            "execution refuses non-success consensus source",
+        )
+    if resolved.get("irreversible") is False:
+        raise StageRefused(
+            "total_spine_execution_source_not_irreversible",
+            "execution requires irreversible consensus source",
+        )
+
+    root_layer = str(
+        resolved.get("root_layer")
+        or (body or {}).get("total_spine_root")
+        or TOTAL_SPINE_DEFAULT_ROOT
+    )
+    goal = str(resolved.get("goal") or (body or {}).get("total_spine_goal") or "")
+    done_when = str(
+        resolved.get("done_when")
+        or (body or {}).get("total_spine_done_when")
+        or ""
+    )
+    caps = list(
+        resolved.get("capabilities")
+        or (body or {}).get("total_spine_effect_capabilities")
+        or []
+    )
+    # Federation origins may each carry capabilities; union them.
+    if not caps and isinstance(resolved.get("origins"), list):
+        seen: list[str] = []
+        for row in resolved.get("origins") or []:
+            if not isinstance(row, Mapping):
+                continue
+            for cap in row.get("capabilities") or []:
+                c = str(cap).strip()
+                if c and c not in seen:
+                    seen.append(c)
+        caps = seen
+
+    origin_count = int(
+        resolved.get("origin_count")
+        or len(resolved.get("origins") or [])
+        or (1 if source_kind == "finality" else 0)
+    )
+    quorum_met = bool(
+        resolved.get("quorum_met")
+        or resolved.get("total_spine_quorum_met")
+        or (source_kind == "quorum")
+    )
+    effects_ok = bool(
+        resolved.get("effects_ok", True)
+        if "effects_ok" in resolved
+        else (body or {}).get("total_spine_effects_ok", True)
+    )
+    contract_met = resolved.get("contract_met")
+    if contract_met is None and body is not None:
+        contract_met = body.get("total_spine_contract_met")
+
+    height = int(state_height) if state_height is not None else 1
+    parent = str(parent_state_root or "").strip()
+    if height < 1:
+        raise StageRefused(
+            "total_spine_execution_invalid_height",
+            f"state_height must be >= 1 (got {height})",
+        )
+    if height == 1 and parent:
+        # Height-1 genesis must not carry a parent root.
+        parent = ""
+    if height > 1 and not parent:
+        raise StageRefused(
+            "total_spine_execution_parent_required",
+            f"state_height={height} requires parent_state_root",
+        )
+
+    tip = str(
+        prior_tip
+        or (body or {}).get("total_spine_federation_bound_tip")
+        or (body or {}).get("total_spine_finality_bound_tip")
+        or (body or {}).get("total_spine_digest")
+        or resolved.get("bound_tip")
+        or resolved.get("operational_tip")
+        or ""
+    )
+
+    exec_body: dict[str, Any] = {
+        "schema_version": SCHEMA_VERSION,
+        "kind": TOTAL_SPINE_EXECUTION_KIND,
+        "root_layer": root_layer,
+        "goal": goal,
+        "done_when": done_when,
+        "source_kind": source_kind,
+        "source_digest": source_digest,
+        "prior_tip": tip,
+        "parent_state_root": parent,
+        "state_height": height,
+        "capabilities": caps,
+        "effects_ok": effects_ok,
+        "contract_met": contract_met,
+        "origin_count": origin_count,
+        "quorum_met": quorum_met,
+        "post_finality": True,
+        "deterministic": True,
+        "irreversible": True,
+        "success": True,
+        "executed_at": utc_now_iso(),
+    }
+    exec_body["state_root"] = compute_total_spine_state_root(exec_body)
+
+    write_target = Path(out_root) if out_root is not None else None
+    if write_target is not None:
+        certificate = write_total_spine_execution_certificate(
+            write_target, exec_body
+        )
+    else:
+        certificate = seal_total_spine_execution_certificate(exec_body)
+
+    result = body if body is not None else {
+        "ok": True,
+        "action": "execute_total_spine",
+        "total_spine": True,
+        "total_spine_root": root_layer,
+        "total_nest_depth": total_nest_depth(root_layer),
+    }
+    annotated = annotate_total_spine_execution(
+        result,
+        certificate=certificate,
+        prior_tip=tip,
+        short_circuit=short_circuit,
+    )
+    # Rebind compressed hop chain from execution-bound tip when present.
+    if annotated.get("total_spine_compressed") and root_layer:
+        live_result = {
+            "institution_digest": annotated.get("institution_digest") or tip,
+            "ok": True,
+        }
+        exec_bound = str(
+            annotated.get("total_spine_execution_bound_tip") or tip
+        )
+        hops = seal_total_spine_hop_chain(
+            root_layer, live_result, tip=exec_bound
+        )
+        annotated["total_spine_hop_chain"] = hops
+        annotated["total_spine_hop_count"] = len(hops)
+        if hops:
+            annotated["total_spine_digest"] = hops[0].get("digest")
+            annotated[f"{root_layer}_digest"] = hops[0].get("digest")
+    annotated["total_spine_execution_source_kind"] = source_kind
+    annotated["total_spine_execution_source_digest"] = source_digest
+    annotated["used_skill_route_discovery"] = legacy_pipeline_was_used()
+    return annotated
+
+
+
 def seal_total_spine_contract(
     contract: Mapping[str, Any],
     *,
@@ -6338,6 +7008,7 @@ def _attach_total_spine_effects(
     federation_peers: Sequence[Path | str | Mapping[str, Any]] | None = None,
     federation_quorum: bool = False,
     quorum_threshold: int | None = None,
+    execution: bool = False,
 ) -> dict[str, Any]:
     """Optionally dispatch ledger effects, gate contracts, rebind hop digests.
 
@@ -6370,6 +7041,11 @@ def _attach_total_spine_effects(
     N-of-M quorum (``federation_quorum=True``): with ≥2 peers (local+peers
     ≥3 distinct finality digests), form a strict-majority federation tip and
     exclude Byzantine minority hard-conflicts instead of refusing the merge.
+
+    Post-quorum execution (``execution=True``): after finality (and optional
+    federation/quorum), apply a deterministic world-state transition, seal an
+    irreversible execution certificate with a state root, and rebind the tip.
+    Resume of an already-executed run short-circuits without re-dispatch.
     """
     goal_text = str(goal or "").strip()
     contract_text = str(done_when or "").strip()
@@ -6390,8 +7066,17 @@ def _attach_total_spine_effects(
     prior_round_count = 0
     resume_checkpoint: dict[str, Any] | None = None
     resume_finality: dict[str, Any] | None = None
+    resume_execution: dict[str, Any] | None = None
     if resume_dir is not None:
-        # Prefer finality short-circuit when a sealed certificate exists.
+        # Prefer execution short-circuit, then finality, when sealed.
+        try:
+            resume_execution = load_total_spine_execution_certificate(resume_dir)
+        except StageRefused as exc:
+            if str(exc.verdict) == "total_spine_execution_tampered":
+                raise
+            resume_execution = None
+        except Exception:  # noqa: BLE001
+            resume_execution = None
         try:
             resume_finality = load_total_spine_finality_certificate(resume_dir)
         except StageRefused as exc:
@@ -6407,12 +7092,16 @@ def _attach_total_spine_effects(
             resumed = True
             continuity = True
         except StageRefused:
-            # Finality-only resume is allowed without a continuity file.
-            if resume_finality is None:
+            # Finality/execution-only resume is allowed without a continuity file.
+            # Path resolution may point continuity_checkpoint_path at a sibling
+            # execution/finality JSON; those are not continuity tamper events.
+            if resume_finality is None and resume_execution is None:
                 raise
             resumed = True
         # Prefer checkpoint mission config when caller left fields empty.
-        config_src: Mapping[str, Any] = resume_checkpoint or resume_finality or {}
+        config_src: Mapping[str, Any] = (
+            resume_checkpoint or resume_finality or resume_execution or {}
+        )
         if not goal_text:
             goal_text = str(config_src.get("goal") or "").strip()
         if not contract_text:
@@ -6420,10 +7109,12 @@ def _attach_total_spine_effects(
         if not explicit_caps and (
             (resume_checkpoint or {}).get("explicit_capabilities")
             or (resume_finality or {}).get("capabilities")
+            or (resume_execution or {}).get("capabilities")
         ):
             capabilities = list(
                 (resume_checkpoint or {}).get("capabilities")
                 or (resume_finality or {}).get("capabilities")
+                or (resume_execution or {}).get("capabilities")
                 or []
             )
             explicit_caps = bool(capabilities)
@@ -6432,7 +7123,7 @@ def _attach_total_spine_effects(
                 (resume_checkpoint or {}).get("want_effects")
             ) or bool((resume_checkpoint or {}).get("effects")) or bool(
                 (resume_finality or {}).get("capabilities")
-            )
+            ) or bool((resume_execution or {}).get("capabilities"))
         if max_effect_steps is None and (resume_checkpoint or {}).get(
             "max_effect_steps"
         ) is not None:
@@ -6449,12 +7140,16 @@ def _attach_total_spine_effects(
                 grow_budget = int(resume_checkpoint["grow_budget"])  # type: ignore[index]
             except (TypeError, ValueError):
                 pass
-        # Finality resume implies finality mode.
+        # Finality resume implies finality mode; execution resume implies both.
         if resume_finality is not None:
             finality = True
+        if resume_execution is not None:
+            finality = True
+            execution = True
 
     continuity_on = bool(continuity) or resumed or resume_dir is not None
     finality_on = bool(finality) or resume_finality is not None
+    execution_on = bool(execution) or resume_execution is not None
     # Finality needs a durable write root for the certificate.
     if finality_on and not continuity_on and (out_root is not None or resume_dir is not None):
         # Keep continuity optional; finality can seal alone under out_root.
@@ -6488,13 +7183,20 @@ def _attach_total_spine_effects(
     )
     grow_limit = max(0, grow_limit)
 
-    if not want_effects and not contract_text and not resumed and not finality_on:
+    if (
+        not want_effects
+        and not contract_text
+        and not resumed
+        and not finality_on
+        and not execution_on
+    ):
         annotated["total_spine_effects"] = False
         annotated["total_spine_goal_planned"] = False
         annotated["total_spine_contract"] = False
         annotated["total_spine_adaptive"] = False
         annotated["total_spine_continuity"] = False
         annotated["total_spine_finality"] = False
+        annotated["total_spine_execution"] = False
         return annotated
 
     repo = Path(repo_path) if repo_path is not None else REPO_ROOT
@@ -6553,6 +7255,109 @@ def _attach_total_spine_effects(
         annotated["total_spine_continuity_checkpoint_path"] = (
             resume_checkpoint.get("checkpoint_path")
         )
+
+    # --- Irreversible execution short-circuit (no effect re-dispatch) ---
+    if resume_execution is not None:
+        short_circuited = True
+        recovered = recovered or bool(resume_execution.get("recovered"))
+        exec_caps = list(resume_execution.get("capabilities") or [])
+        exec_prior = str(resume_execution.get("prior_tip") or bound_tip)
+        bound_tip = exec_prior
+        annotated["ok"] = True
+        annotated["verdict"] = "total_spine_execution_short_circuit"
+        annotated["total_spine_effects"] = bool(exec_caps) or want_effects
+        annotated["total_spine_effects_ok"] = bool(
+            resume_execution.get("effects_ok", True)
+        )
+        annotated["total_spine_effect_capabilities"] = exec_caps
+        annotated["total_spine_effect_count"] = len(exec_caps)
+        annotated["total_spine_effects_ok_count"] = len(exec_caps)
+        annotated["total_spine_effects_failed_count"] = 0
+        annotated["total_spine_goal"] = (
+            goal_text or str(resume_execution.get("goal") or "")
+        )
+        if contract_text or resume_execution.get("done_when"):
+            annotated["total_spine_contract"] = True
+            annotated["total_spine_contract_met"] = resume_execution.get(
+                "contract_met"
+            )
+            annotated["total_spine_contract_ok"] = (
+                resume_execution.get("contract_met") is True
+                or resume_execution.get("contract_met") is None
+            )
+            annotated["total_spine_done_when"] = (
+                contract_text
+                or str(resume_execution.get("done_when") or "")
+            )
+        annotated["total_spine_adaptive"] = prior_round_count > 0 or bool(
+            adaptive_rounds_log
+        )
+        if adaptive_rounds_log:
+            annotated["total_spine_adaptive_rounds"] = adaptive_rounds_log
+            annotated["total_spine_adaptive_round_count"] = len(
+                adaptive_rounds_log
+            )
+            annotated["total_spine_adaptive_recovered"] = recovered
+            annotated["total_spine_adaptive_excluded"] = sorted(exclude)
+        annotated["total_spine_continuity"] = resume_checkpoint is not None
+        if resume_checkpoint is not None:
+            annotated["total_spine_continuity_status"] = resume_checkpoint.get(
+                "status"
+            )
+            annotated["total_spine_continuity_recovered"] = recovered
+            annotated["total_spine_continuity_digest"] = resume_checkpoint.get(
+                "checkpoint_digest"
+            )
+        # Mark finality if companion cert exists or source was post-finality.
+        if resume_finality is not None:
+            annotated = annotate_total_spine_finality(
+                annotated,
+                certificate=resume_finality,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_finality_bound_tip") or bound_tip
+            )
+        else:
+            annotated["total_spine_finality"] = True
+            annotated["total_spine_finality_irreversible"] = True
+            annotated["total_spine_finality_short_circuit"] = True
+        annotated = annotate_total_spine_execution(
+            annotated,
+            certificate=resume_execution,
+            prior_tip=bound_tip,
+            short_circuit=True,
+        )
+        bound_tip = str(
+            annotated.get("total_spine_execution_bound_tip") or bound_tip
+        )
+        if compressed:
+            hops = seal_total_spine_hop_chain(
+                root, live_result, tip=bound_tip
+            )
+            annotated["total_spine_hop_chain"] = hops
+            annotated["total_spine_hop_count"] = len(hops)
+            if hops:
+                annotated["total_spine_digest"] = hops[0].get("digest")
+                annotated[f"{root}_digest"] = hops[0].get("digest")
+        else:
+            annotated["total_spine_digest"] = bound_tip
+            annotated[f"{root}_digest"] = bound_tip
+        annotated["total_spine_execution_short_circuit"] = True
+        annotated["total_spine_constitution_depth"] = chain_len
+        annotated["total_spine_goal_impl"] = TOTAL_SPINE_GOAL_IMPL
+        annotated["total_spine_adaptive_impl"] = TOTAL_SPINE_ADAPTIVE_IMPL
+        annotated["total_spine_continuity_impl"] = TOTAL_SPINE_CONTINUITY_IMPL
+        annotated["total_spine_finality_impl"] = TOTAL_SPINE_FINALITY_IMPL
+        annotated["total_spine_federation_impl"] = TOTAL_SPINE_FEDERATION_IMPL
+        annotated["total_spine_quorum_impl"] = TOTAL_SPINE_QUORUM_IMPL
+        annotated["total_spine_execution_impl"] = TOTAL_SPINE_EXECUTION_IMPL
+        if goal_text and not annotated.get("total_spine_goal"):
+            annotated["total_spine_goal"] = goal_text
+        annotated.setdefault("total_spine_federation", False)
+        annotated.setdefault("total_spine_quorum", False)
+        return annotated
 
     # --- Irreversible finality short-circuit (no effect re-dispatch) ---
     if resume_finality is not None:
@@ -6682,6 +7487,36 @@ def _attach_total_spine_effects(
         else:
             annotated.setdefault("total_spine_federation", False)
             annotated.setdefault("total_spine_quorum", False)
+        # Post-consensus execution on finality short-circuit path.
+        if execution_on and TOTAL_SPINE_EXECUTION_IMPL:
+            exec_out_sc = None
+            if out_root is not None:
+                exec_out_sc = Path(out_root)
+            elif resume_dir is not None:
+                exec_out_sc = Path(resume_dir)
+            prior_exec = str(
+                annotated.get("total_spine_federation_bound_tip")
+                or annotated.get("total_spine_finality_bound_tip")
+                or annotated.get("total_spine_digest")
+                or bound_tip
+            )
+            source_sc: Any = (
+                annotated.get("total_spine_federation_certificate")
+                or resume_finality
+                or annotated.get("total_spine_finality_certificate")
+            )
+            annotated = execute_total_spine(
+                source_sc,
+                out_root=exec_out_sc,
+                prior_tip=prior_exec,
+                body=annotated,
+            )
+            annotated["total_spine_finality"] = True
+            annotated["total_spine_finality_short_circuit"] = True
+            annotated["total_spine_finality_irreversible"] = True
+        else:
+            annotated.setdefault("total_spine_execution", False)
+            annotated["total_spine_execution_impl"] = TOTAL_SPINE_EXECUTION_IMPL
         return annotated
 
     def _select_ids(round_index: int) -> tuple[list[str], str, bool, dict[str, Any] | None]:
@@ -7347,6 +8182,7 @@ def _attach_total_spine_effects(
     annotated["total_spine_finality_impl"] = TOTAL_SPINE_FINALITY_IMPL
     annotated["total_spine_federation_impl"] = TOTAL_SPINE_FEDERATION_IMPL
     annotated["total_spine_quorum_impl"] = TOTAL_SPINE_QUORUM_IMPL
+    annotated["total_spine_execution_impl"] = TOTAL_SPINE_EXECUTION_IMPL
 
     # Multi-origin federation: local finality + peer certificates → fed tip.
     peers = list(federation_peers or [])
@@ -7393,6 +8229,52 @@ def _attach_total_spine_effects(
         annotated.setdefault("total_spine_federation", False)
         annotated.setdefault("total_spine_quorum", False)
 
+    # Post-consensus execution: finality (and optional federation/quorum) → state root.
+    if execution_on and TOTAL_SPINE_EXECUTION_IMPL:
+        if annotated.get("total_spine_finality") is True or annotated.get(
+            "total_spine_federation"
+        ):
+            exec_out = None
+            if out_root is not None:
+                exec_out = Path(out_root)
+            elif resume_dir is not None:
+                exec_out = Path(resume_dir)
+            prior_exec = str(
+                annotated.get("total_spine_federation_bound_tip")
+                or annotated.get("total_spine_finality_bound_tip")
+                or annotated.get("total_spine_digest")
+                or ""
+            )
+            source_n: Any = (
+                annotated.get("total_spine_federation_certificate")
+                or last_finality
+                or annotated.get("total_spine_finality_certificate")
+            )
+            if source_n is None and annotated.get("total_spine_finality_path"):
+                try:
+                    source_n = load_total_spine_finality_certificate(
+                        str(annotated.get("total_spine_finality_path"))
+                    )
+                except StageRefused:
+                    source_n = None
+            if source_n is not None:
+                annotated = execute_total_spine(
+                    source_n,
+                    out_root=exec_out,
+                    prior_tip=prior_exec,
+                    body=annotated,
+                )
+            else:
+                annotated["total_spine_execution"] = False
+                annotated["total_spine_execution_missing_source"] = True
+        else:
+            annotated["total_spine_execution"] = False
+            annotated["total_spine_execution_requires_finality"] = True
+    elif not execution_on:
+        annotated.setdefault("total_spine_execution", False)
+        annotated["total_spine_execution_impl"] = TOTAL_SPINE_EXECUTION_IMPL
+
+    annotated["total_spine_execution_impl"] = TOTAL_SPINE_EXECUTION_IMPL
     return annotated
 
 
@@ -7433,6 +8315,7 @@ def run_total_spine(
     federation_peers: Sequence[Path | str | Mapping[str, Any]] | None = None,
     federation_quorum: bool = False,
     quorum_threshold: int | None = None,
+    execution: bool = False,
 ) -> dict[str, Any]:
     """Public entry: absolute total spine from root into the operational nest.
 
@@ -7475,6 +8358,12 @@ def run_total_spine(
     N-of-M quorum federation: ``federation_quorum=True`` clusters local+peer
     finality certificates (≥3 distinct digests) by hard-compatibility and
     seals a strict-majority tip while excluding Byzantine minority conflicts.
+
+    Post-quorum execution: ``execution=True`` applies a deterministic world-state
+    transition after finality (and optional federation/quorum), seals a
+    re-verifiable execution certificate with a state root, refuses supersession,
+    and short-circuits on re-execute so absolute-tower consensus becomes
+    executed world-state rather than certificates alone.
     """
     root = (
         str(root_layer or TOTAL_SPINE_DEFAULT_ROOT).strip().lower()
@@ -7547,6 +8436,7 @@ def run_total_spine(
             federation_peers=federation_peers,
             federation_quorum=federation_quorum,
             quorum_threshold=quorum_threshold,
+            execution=execution,
         )
         return annotated
 
@@ -7612,6 +8502,7 @@ def run_total_spine(
         federation_peers=federation_peers,
         federation_quorum=federation_quorum,
         quorum_threshold=quorum_threshold,
+        execution=execution,
     )
     if out_root is not None:
         receipt_dir = Path(out_root)
@@ -12974,6 +13865,561 @@ def builtin_total_spine_quorum_proof() -> dict[str, Any]:
         shutil.rmtree(scratch, ignore_errors=True)
 
 
+
+def builtin_total_spine_execution_proof() -> dict[str, Any]:
+    """Hermetic proof: post-quorum world-state execution on absolute tower.
+
+    Closes the certificate-only cliff: after N-of-M quorum federation seals
+    irreversible consensus, ``execute_total_spine`` / ``run_total_spine(
+    execution=True)`` projects deterministic hash-chained state roots, seals
+    re-verifiable execution certificates, refuses supersession, short-circuits
+    on re-execute, chains multi-height state, and rebinds the depth-28 tip
+    without skill-route discovery.
+    """
+    scratch = Path(tempfile.mkdtemp(prefix="total-spine-execution-proof-"))
+    try:
+        from blackhole_agent import upstream_loop_engine as le_facade
+        from blackhole_agent.capability_compounder import (
+            default_ledger_path,
+            load_ledger,
+        )
+
+        flags_ok = (
+            TOTAL_SPINE_EXECUTION_IMPL is True
+            and TOTAL_SPINE_QUORUM_IMPL is True
+            and TOTAL_SPINE_FEDERATION_IMPL is True
+            and TOTAL_SPINE_FINALITY_IMPL is True
+            and TOTAL_SPINE_CONTINUITY_IMPL is True
+            and TOTAL_SPINE_ADAPTIVE_IMPL is True
+            and TOTAL_SPINE_GOAL_IMPL is True
+            and TOTAL_SPINE_EFFECT_IMPL is True
+            and TOTAL_SPINE_IMPL is True
+            and TOTAL_SPINE_EXECUTION_KIND == "total_spine_execution"
+            and bool(TOTAL_SPINE_EXECUTION_FILENAME)
+        )
+
+        missing_id = "capability.does-not-exist-for-execution-proof"
+        good_id = "repo.import-health"
+        contract_pass = "min_proved:1; no_skill_route"
+        contract_byzantine = "min_proved:99; no_skill_route"
+
+        # Phase 1: live absolute tower seals finality for honest origin A.
+        partial = run_total_spine(
+            root_layer="quettacontinuum",
+            out_root=scratch / "origin-a-partial",
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=3,
+            max_successions=1,
+            max_epochs=1,
+            max_waves=1,
+            compress=True,
+            effects=True,
+            capabilities=[missing_id, good_id],
+            done_when=contract_pass,
+            adaptive=True,
+            adaptive_rounds=1,
+            continuity=True,
+            finality=True,
+            effect_timeout=90,
+            repo_path=REPO_ROOT,
+        )
+        partial_path = partial.get("total_spine_continuity_checkpoint_path")
+        origin_a = run_total_spine(
+            root_layer="quettacontinuum",
+            out_root=scratch / "origin-a",
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=3,
+            max_successions=1,
+            max_epochs=1,
+            max_waves=1,
+            compress=True,
+            effects=True,
+            capabilities=[missing_id, good_id],
+            done_when=contract_pass,
+            adaptive=True,
+            adaptive_rounds=1,
+            continuity=True,
+            finality=True,
+            resume_dir=partial_path,
+            effect_timeout=90,
+            repo_path=REPO_ROOT,
+        )
+        origin_a_path = origin_a.get("total_spine_finality_path")
+        origin_a_ok = (
+            bool(origin_a.get("ok"))
+            and origin_a.get("total_spine_finality") is True
+            and origin_a.get("total_spine_finality_irreversible") is True
+            and origin_a.get("total_spine_effects_ok") is True
+            and origin_a.get("total_spine_contract_met") is True
+            and int(origin_a.get("total_nest_depth") or 0) == 28
+            and isinstance(origin_a_path, str)
+            and Path(origin_a_path).is_file()
+            and not legacy_pipeline_was_used()
+        )
+
+        # Phase 2: honest peer B + Byzantine peer C (hard-conflicts done_when).
+        peer_b_body = {
+            "schema_version": SCHEMA_VERSION,
+            "kind": TOTAL_SPINE_FINALITY_KIND,
+            "root_layer": "quettacontinuum",
+            "goal": str(
+                (origin_a.get("total_spine_finality_certificate") or {}).get(
+                    "goal"
+                )
+                or ""
+            ),
+            "done_when": contract_pass,
+            "capabilities": [good_id],
+            "operational_tip": "b" * 64,
+            "bound_tip": "c" * 64,
+            "continuity_digest": "d" * 64,
+            "adaptive_round_count": 1,
+            "effects_ok": True,
+            "contract_met": True,
+            "recovered": True,
+            "irreversible": True,
+            "success": True,
+            "finalized_at": utc_now_iso(),
+        }
+        peer_b_cert = write_total_spine_finality_certificate(
+            scratch / "origin-b", peer_b_body
+        )
+        peer_b_path = peer_b_cert.get("finality_path")
+        peer_c_body = dict(peer_b_body)
+        peer_c_body["done_when"] = contract_byzantine
+        peer_c_body["operational_tip"] = "e" * 64
+        peer_c_body["bound_tip"] = "f" * 64
+        peer_c_cert = write_total_spine_finality_certificate(
+            scratch / "origin-c", peer_c_body
+        )
+        peer_c_path = peer_c_cert.get("finality_path")
+        peers_ok = (
+            isinstance(peer_b_path, str)
+            and Path(peer_b_path).is_file()
+            and isinstance(peer_c_path, str)
+            and Path(peer_c_path).is_file()
+        )
+
+        # Phase 3: offline quorum then execute world-state height 1.
+        quorumed = federate_total_spine(
+            [str(origin_a_path), str(peer_b_path), str(peer_c_path)],
+            out_root=scratch / "quorum",
+            prior_tip=str(origin_a.get("total_spine_finality_bound_tip") or ""),
+            quorum=True,
+        )
+        quorum_path = quorumed.get("total_spine_federation_path")
+        executed = execute_total_spine(
+            quorumed.get("total_spine_federation_certificate") or quorum_path,
+            out_root=scratch / "exec-h1",
+            prior_tip=str(
+                quorumed.get("total_spine_federation_bound_tip")
+                or quorumed.get("total_spine_digest")
+                or ""
+            ),
+            body={
+                "ok": True,
+                "total_spine": True,
+                "total_spine_root": "quettacontinuum",
+                "total_spine_compressed": True,
+                "total_nest_depth": 28,
+                "total_spine_federation": True,
+                "total_spine_quorum": True,
+                "total_spine_quorum_met": True,
+                "total_spine_federation_certificate": quorumed.get(
+                    "total_spine_federation_certificate"
+                ),
+                "total_spine_federation_bound_tip": quorumed.get(
+                    "total_spine_federation_bound_tip"
+                ),
+                "total_spine_digest": quorumed.get("total_spine_digest"),
+                "institution_digest": origin_a.get("institution_digest"),
+            },
+            state_height=1,
+        )
+        exec_path = executed.get("total_spine_execution_path")
+        state_root_1 = str(executed.get("total_spine_state_root") or "")
+        offline_exec_ok = (
+            bool(executed.get("ok"))
+            and executed.get("total_spine_execution") is True
+            and executed.get("total_spine_state_applied") is True
+            and executed.get("total_spine_execution_deterministic") is True
+            and executed.get("total_spine_execution_post_finality") is True
+            and executed.get("total_spine_execution_irreversible") is True
+            and int(executed.get("total_spine_state_height") or 0) == 1
+            and len(state_root_1) >= 32
+            and str(executed.get("total_spine_execution_source_kind") or "")
+            == "quorum"
+            and isinstance(exec_path, str)
+            and Path(exec_path).is_file()
+            and isinstance(executed.get("total_spine_execution_digest"), str)
+            and len(str(executed.get("total_spine_execution_digest"))) >= 32
+            and str(executed.get("total_spine_digest") or "")
+            != str(quorumed.get("total_spine_digest") or "")
+            and not legacy_pipeline_was_used()
+        )
+
+        # Load + verify; tamper fails.
+        loaded = load_total_spine_execution_certificate(exec_path or scratch)
+        verify_ok = bool(
+            loaded.get("total_spine_execution_loaded")
+            and (loaded.get("execution_verify") or {}).get("ok")
+            and (loaded.get("execution_verify") or {}).get("state_root_ok")
+        )
+        tampered_path = scratch / "tampered-execution.json"
+        tampered_body = dict(loaded)
+        for drop in (
+            "execution_verify",
+            "total_spine_execution_loaded",
+            "execution_path",
+        ):
+            tampered_body.pop(drop, None)
+        tampered_body["state_height"] = 99
+        atomic_write_json(tampered_path, tampered_body)
+        tamper_ok = False
+        try:
+            load_total_spine_execution_certificate(tampered_path)
+        except StageRefused as exc:
+            tamper_ok = str(exc.verdict) == "total_spine_execution_tampered"
+        except Exception:  # noqa: BLE001
+            tamper_ok = False
+
+        # Supersession refused on divergent reseal.
+        supersession_ok = False
+        try:
+            write_total_spine_execution_certificate(
+                scratch / "exec-h1",
+                {
+                    **{
+                        k: v
+                        for k, v in loaded.items()
+                        if k
+                        not in {
+                            "execution_verify",
+                            "total_spine_execution_loaded",
+                            "execution_path",
+                            "execution_digest",
+                            "certificate_hash",
+                            "executed_at",
+                            "total_spine_execution",
+                            "total_spine_execution_impl",
+                            "used_skill_route_discovery",
+                        }
+                    },
+                    "goal": "forged-supersession-goal",
+                    "state_root": "",  # force recompute
+                },
+            )
+        except StageRefused as exc:
+            supersession_ok = (
+                str(exc.verdict) == "total_spine_execution_supersession_refused"
+            )
+        except Exception:  # noqa: BLE001
+            supersession_ok = False
+
+        # Multi-height chain: height 2 parented on height 1 state root.
+        executed_h2 = execute_total_spine(
+            quorumed.get("total_spine_federation_certificate") or quorum_path,
+            out_root=scratch / "exec-h2",
+            prior_tip=str(executed.get("total_spine_execution_bound_tip") or ""),
+            parent_state_root=state_root_1,
+            state_height=2,
+            body={
+                "ok": True,
+                "total_spine": True,
+                "total_spine_root": "quettacontinuum",
+                "total_spine_compressed": True,
+                "total_nest_depth": 28,
+                "total_spine_federation_certificate": quorumed.get(
+                    "total_spine_federation_certificate"
+                ),
+            },
+        )
+        state_root_2 = str(executed_h2.get("total_spine_state_root") or "")
+        multi_height_ok = (
+            bool(executed_h2.get("ok"))
+            and int(executed_h2.get("total_spine_state_height") or 0) == 2
+            and state_root_2
+            and state_root_2 != state_root_1
+            and str(
+                (
+                    executed_h2.get("total_spine_execution_certificate") or {}
+                ).get("parent_state_root")
+                or ""
+            )
+            == state_root_1
+        )
+
+        # Determinism: recompute state root from certificate material.
+        recomputed = compute_total_spine_state_root(loaded)
+        determinism_ok = recomputed == state_root_1 and bool(recomputed)
+
+        # Live run: resume finality + quorum peers + execution=True.
+        live_exec = run_total_spine(
+            root_layer="quettacontinuum",
+            out_root=scratch / "live-exec",
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=3,
+            max_successions=1,
+            max_epochs=1,
+            max_waves=1,
+            compress=True,
+            effects=True,
+            capabilities=[missing_id, good_id],
+            done_when=contract_pass,
+            adaptive=True,
+            adaptive_rounds=1,
+            continuity=True,
+            finality=True,
+            resume_dir=origin_a_path,
+            federation_peers=[str(peer_b_path), str(peer_c_path)],
+            federation_quorum=True,
+            execution=True,
+            effect_timeout=90,
+            repo_path=REPO_ROOT,
+        )
+        live_exec_path = live_exec.get("total_spine_execution_path")
+        live_ok = (
+            bool(live_exec.get("ok"))
+            and live_exec.get("total_spine") is True
+            and live_exec.get("total_spine_finality") is True
+            and live_exec.get("total_spine_finality_short_circuit") is True
+            and live_exec.get("total_spine_federation") is True
+            and live_exec.get("total_spine_quorum") is True
+            and live_exec.get("total_spine_quorum_met") is True
+            and live_exec.get("total_spine_execution") is True
+            and live_exec.get("total_spine_state_applied") is True
+            and int(live_exec.get("total_spine_state_height") or 0) >= 1
+            and isinstance(live_exec.get("total_spine_state_root"), str)
+            and len(str(live_exec.get("total_spine_state_root"))) >= 32
+            and int(live_exec.get("total_nest_depth") or 0) == 28
+            and isinstance(live_exec_path, str)
+            and Path(live_exec_path).is_file()
+            and not legacy_pipeline_was_used()
+        )
+
+        # Short-circuit re-execute: resume execution cert, no re-dispatch.
+        shorted = run_total_spine(
+            root_layer="quettacontinuum",
+            out_root=scratch / "short-exec",
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=3,
+            max_successions=1,
+            max_epochs=1,
+            max_waves=1,
+            compress=True,
+            effects=True,
+            capabilities=[missing_id, good_id],
+            done_when=contract_pass,
+            adaptive=True,
+            adaptive_rounds=1,
+            continuity=True,
+            finality=True,
+            execution=True,
+            resume_dir=live_exec_path or (scratch / "live-exec"),
+            effect_timeout=90,
+            repo_path=REPO_ROOT,
+        )
+        short_ok = (
+            bool(shorted.get("ok"))
+            and shorted.get("total_spine_execution") is True
+            and shorted.get("total_spine_execution_short_circuit") is True
+            and shorted.get("total_spine_state_applied") is True
+            and str(shorted.get("total_spine_state_root") or "")
+            == str(live_exec.get("total_spine_state_root") or "")
+            and int(shorted.get("total_nest_depth") or 0) == 28
+            and not legacy_pipeline_was_used()
+        )
+
+        # Execution chain re-seal integrity.
+        exec_chain = live_exec.get("total_spine_execution_chain") or {}
+        chain_integrity_ok = False
+        if isinstance(exec_chain, Mapping) and exec_chain:
+            re_seal = seal_total_spine_execution_chain(
+                prior_tip=str(exec_chain.get("prior_tip") or ""),
+                execution_digest=str(exec_chain.get("execution_digest") or ""),
+                state_root=str(exec_chain.get("state_root") or ""),
+                state_height=int(exec_chain.get("state_height") or 0),
+                source_kind=str(exec_chain.get("source_kind") or ""),
+                short_circuit=bool(exec_chain.get("short_circuit")),
+            )
+            chain_integrity_ok = (
+                re_seal.get("digest") == exec_chain.get("digest")
+                and re_seal.get("digest")
+                == live_exec.get("total_spine_execution_tip")
+            )
+
+        # Differential: execution tip moves beyond quorum tip.
+        differential_ok = (
+            offline_exec_ok
+            and live_ok
+            and str(quorumed.get("total_spine_digest") or "")
+            != str(executed.get("total_spine_digest") or "")
+            and str(origin_a.get("total_spine_digest") or "")
+            != str(live_exec.get("total_spine_digest") or "")
+        )
+
+        # Finality-only execution (no federation) still works.
+        fin_only = execute_total_spine(
+            origin_a_path,
+            out_root=scratch / "exec-finality-only",
+            prior_tip=str(origin_a.get("total_spine_finality_bound_tip") or ""),
+        )
+        finality_only_ok = (
+            bool(fin_only.get("ok"))
+            and fin_only.get("total_spine_execution") is True
+            and str(fin_only.get("total_spine_execution_source_kind") or "")
+            == "finality"
+            and int(fin_only.get("total_spine_state_height") or 0) == 1
+        )
+
+        facade_path = Path(le_facade.__file__).resolve()
+        facade_text = facade_path.read_text(encoding="utf-8")
+        source_ok = (
+            "TOTAL_SPINE_EXECUTION_IMPL" in facade_text
+            and "builtin_total_spine_execution_proof" in facade_text
+            and "execute_total_spine" in facade_text
+            and callable(
+                getattr(le_facade, "builtin_total_spine_execution_proof", None)
+            )
+            and callable(getattr(le_facade, "execute_total_spine", None))
+            and getattr(le_facade, "TOTAL_SPINE_EXECUTION_IMPL", False) is True
+        )
+
+        engine_path = Path(__file__).resolve()
+        engine_text = engine_path.read_text(encoding="utf-8")
+        engine_source_ok = (
+            "def builtin_total_spine_execution_proof" in engine_text
+            and "def execute_total_spine" in engine_text
+            and "def compute_total_spine_state_root" in engine_text
+            and "TOTAL_SPINE_EXECUTION_IMPL" in engine_text
+            and "execution=True" in engine_text
+            or "execution: bool = False" in engine_text
+        )
+        engine_source_ok = (
+            "def builtin_total_spine_execution_proof" in engine_text
+            and "def execute_total_spine" in engine_text
+            and "def compute_total_spine_state_root" in engine_text
+            and "TOTAL_SPINE_EXECUTION_IMPL" in engine_text
+            and (
+                "execution=True" in engine_text
+                or "execution: bool = False" in engine_text
+            )
+            and "total_spine_execution_supersession_refused" in engine_text
+            and "total_spine_execution_tampered" in engine_text
+        )
+
+        ledger_path = default_ledger_path(REPO_ROOT)
+        ledger_ok = False
+        try:
+            ledger = load_ledger(ledger_path)
+            entry = ledger.capabilities.get(
+                "capability.upstream-total-spine-execution"
+            )
+            tags_blob = " ".join(entry.tags).lower() if entry else ""
+            delta_blob = (
+                (entry.capability_delta or "").lower() if entry else ""
+            )
+            name_blob = (entry.name or "").lower() if entry else ""
+            ledger_ok = (
+                entry is not None
+                and "upstream_control_engine" in (entry.entry or "")
+                and "builtin_total_spine_execution_proof" in (entry.entry or "")
+                and (
+                    "execution" in tags_blob
+                    or "execution" in name_blob
+                    or "execution" in delta_blob
+                )
+                and ("total" in tags_blob or "total" in name_blob)
+                and (
+                    "state_root" in delta_blob
+                    or "world-state" in delta_blob
+                    or "world state" in delta_blob
+                    or "post-quorum" in delta_blob
+                    or "post_quorum" in delta_blob
+                )
+                and (
+                    "execute_total_spine" in delta_blob
+                    or "execution=true" in delta_blob
+                    or "execution=True" in (entry.capability_delta or "")
+                )
+            )
+        except Exception:  # noqa: BLE001
+            ledger_ok = False
+
+        ok = all(
+            [
+                flags_ok,
+                origin_a_ok,
+                peers_ok,
+                offline_exec_ok,
+                verify_ok,
+                tamper_ok,
+                supersession_ok,
+                multi_height_ok,
+                determinism_ok,
+                live_ok,
+                short_ok,
+                chain_integrity_ok,
+                differential_ok,
+                finality_only_ok,
+                source_ok,
+                engine_source_ok,
+                ledger_ok,
+                not legacy_pipeline_was_used(),
+            ]
+        )
+        return {
+            "ok": ok,
+            "action": "total_spine_execution_proof",
+            "flags_ok": flags_ok,
+            "origin_a_ok": origin_a_ok,
+            "origin_a_path": origin_a_path,
+            "peers_ok": peers_ok,
+            "offline_exec_ok": offline_exec_ok,
+            "execution_path": exec_path,
+            "state_root": state_root_1,
+            "state_height": executed.get("total_spine_state_height"),
+            "source_kind": executed.get("total_spine_execution_source_kind"),
+            "execution_digest": executed.get("total_spine_execution_digest"),
+            "verify_ok": verify_ok,
+            "tamper_ok": tamper_ok,
+            "supersession_ok": supersession_ok,
+            "multi_height_ok": multi_height_ok,
+            "state_root_h2": state_root_2,
+            "determinism_ok": determinism_ok,
+            "live_ok": live_ok,
+            "live_execution_path": live_exec_path,
+            "live_state_root": live_exec.get("total_spine_state_root"),
+            "live_digest": live_exec.get("total_spine_digest"),
+            "short_ok": short_ok,
+            "chain_integrity_ok": chain_integrity_ok,
+            "differential_ok": differential_ok,
+            "finality_only_ok": finality_only_ok,
+            "source_ok": source_ok,
+            "engine_source_ok": engine_source_ok,
+            "ledger_capability_ok": ledger_ok,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "control_engine": True,
+            "total_spine": True,
+            "total_spine_effects": True,
+            "total_spine_adaptive": True,
+            "total_spine_continuity": True,
+            "total_spine_finality": True,
+            "total_spine_federation": True,
+            "total_spine_quorum": True,
+            "total_spine_execution": True,
+            "total_spine_compressed": True,
+            "done_when_met": ok,
+        }
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+
 def builtin_control_nest_proof() -> dict[str, Any]:
     """Hermetic proof: multi-depth nest owns program→…→fleet→campaign spine."""
     scratch = Path(tempfile.mkdtemp(prefix="control-nest-proof-"))
@@ -14434,6 +15880,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "excludes Byzantine minority finality and rebinds the tip"
         ),
     )
+    sub.add_parser(
+        "execution-proof",
+        help=(
+            "Total spine execution proof: post-quorum world-state roots "
+            "seal into irreversible execution certificates on the tip"
+        ),
+    )
     sub.add_parser("list", help="List control modes and dialects")
     sub.add_parser("nest-path", help="Print canonical operational nest path")
     sub.add_parser(
@@ -14566,6 +16019,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "quorum-proof":
         result = builtin_total_spine_quorum_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "execution-proof":
+        result = builtin_total_spine_execution_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2

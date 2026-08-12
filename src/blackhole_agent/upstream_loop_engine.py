@@ -45,6 +45,9 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     TOTAL_SPINE_IMPL,
     TOTAL_SPINE_QUORUM_IMPL,
     TOTAL_SPINE_QUORUM_MIN_ORIGINS,
+    TOTAL_SPINE_EXECUTION_FILENAME,
+    TOTAL_SPINE_EXECUTION_IMPL,
+    TOTAL_SPINE_EXECUTION_KIND,
     BuildChildKwargs,
     ExtractChildDigest,
     ExtractDispatched,
@@ -68,6 +71,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     annotate_total_spine,
     annotate_total_spine_contract,
     annotate_total_spine_effects,
+    annotate_total_spine_execution,
     annotate_total_spine_federation,
     annotate_total_spine_finality,
     build_live_domain_hooks,
@@ -80,6 +84,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     builtin_total_spine_adaptive_proof,
     builtin_total_spine_continuity_proof,
     builtin_total_spine_effect_proof,
+    builtin_total_spine_execution_proof,
     builtin_total_spine_federation_proof,
     builtin_total_spine_finality_proof,
     builtin_total_spine_goal_proof,
@@ -94,6 +99,8 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     default_extract_dispatched,
     dispatch_total_spine_effects,
     evaluate_total_spine_contract,
+    execute_total_spine,
+    execution_certificate_path,
     federate_total_spine,
     federation_certificate_path,
     finality_certificate_path,
@@ -102,6 +109,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     governance_nest_path,
     list_loop_dialects,
     load_total_spine_continuity_checkpoint,
+    load_total_spine_execution_certificate,
     load_total_spine_federation_certificate,
     load_total_spine_finality_certificate,
     make_governance_institution_child_runner,
@@ -133,6 +141,8 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     seal_total_spine_continuity_checkpoint,
     seal_total_spine_contract,
     seal_total_spine_effect_chain,
+    seal_total_spine_execution_certificate,
+    seal_total_spine_execution_chain,
     seal_total_spine_federation_certificate,
     seal_total_spine_federation_chain,
     seal_total_spine_finality_certificate,
@@ -146,9 +156,11 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     total_nest_path,
     verify_loop_receipt,
     verify_total_spine_continuity_checkpoint,
+    verify_total_spine_execution_certificate,
     verify_total_spine_federation_certificate,
     verify_total_spine_finality_certificate,
     write_total_spine_continuity_checkpoint,
+    write_total_spine_execution_certificate,
     write_total_spine_federation_certificate,
     write_total_spine_finality_certificate,
 )
@@ -247,6 +259,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "Byzantine minority finality and rebinds the absolute-tower tip"
         ),
     )
+    sub.add_parser(
+        "execution-proof",
+        help=(
+            "Total spine execution: post-quorum world-state roots seal "
+            "into irreversible execution certificates on the absolute tip"
+        ),
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
     if args.cmd == "list":
         print(json.dumps({"dialects": list_loop_dialects()}, indent=2))
@@ -301,6 +320,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "quorum-proof":
         result = builtin_total_spine_quorum_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "execution-proof":
+        result = builtin_total_spine_execution_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2
