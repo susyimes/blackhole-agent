@@ -11,6 +11,7 @@ import json
 from typing import Sequence
 
 from blackhole_agent.upstream_control_engine import (  # noqa: F401
+    GOVERNANCE_NEST_PATH,
     LOOP_DIALECTS,
     LOOP_STACK,
     OPERATIONAL_NEST,
@@ -33,14 +34,19 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     SealLoop,
     StageRefused,
     annotate_control_nest,
+    annotate_governance_spine,
     build_live_domain_hooks,
     builtin_control_nest_proof,
+    builtin_governance_spine_proof,
     builtin_loop_engine_proof,
     compose_loop_of_loop,
     compose_pipeline_of_pipeline,
     default_extract_dispatched,
     get_loop_dialect,
+    governance_nest_depth,
+    governance_nest_path,
     list_loop_dialects,
+    make_operational_program_child_runner,
     make_progress_loop_hooks,
     nest_path,
     open_loop_dir,
@@ -48,6 +54,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     resolve_portfolio,
     run_control_graph,
     run_durable_loop,
+    run_governance_spine,
     run_nested_control,
     run_nested_pipeline,
     run_operational_spine,
@@ -62,6 +69,7 @@ CONTROL_ENGINE_IMPL = True
 CONTROL_ENGINE_MODE = "loop"
 CONTROL_NEST_IMPL = True
 CONTROL_GRAPH_IMPL = True
+GOVERNANCE_SPINE_IMPL = True
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -69,12 +77,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("proof", help="Run hermetic multi-round loop-engine proof")
     sub.add_parser("list", help="List registered loop dialects")
+    sub.add_parser(
+        "governance-proof",
+        help="Governance spine: institution + operational nest proof",
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
     if args.cmd == "list":
         print(json.dumps({"dialects": list_loop_dialects()}, indent=2))
         return 0
     if args.cmd == "proof":
         result = builtin_loop_engine_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "governance-proof":
+        result = builtin_governance_spine_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2

@@ -493,7 +493,12 @@ def _resolve_child_runner(
     layer: ce.ConstitutionLayer,
     kwargs: dict[str, Any],
 ) -> Callable[..., dict[str, Any]]:
-    """Pick injected child runner from legacy kwargs, else hermetic fast leaf."""
+    """Pick injected child runner from legacy kwargs, else hermetic fast leaf.
+
+    When ``governance_spine=True`` on the institution (program child) layer,
+    program children execute via the operational control graph
+    (:func:`make_operational_program_child_runner`) instead of the mock leaf.
+    """
     aliases = (
         f"{layer.child}_runner",
         "child_runner",
@@ -524,6 +529,25 @@ def _resolve_child_runner(
     for key in aliases:
         if kwargs.get(key) is not None:
             return kwargs[key]
+    # Governance bridge: institution→program attaches operational spine.
+    if (
+        kwargs.get("governance_spine")
+        and layer.child == "program"
+        and layer.name == "institution"
+    ):
+        from blackhole_agent.upstream_control_engine import (
+            make_operational_program_child_runner,
+        )
+
+        return make_operational_program_child_runner(
+            max_successions=int(kwargs.get("max_successions") or 2),
+            max_epochs=int(kwargs.get("max_epochs") or 2),
+            max_waves=int(kwargs.get("max_waves") or 2),
+            idle_limit=int(kwargs.get("idle_limit") or 1),
+            goal_dispatched_ok=int(kwargs.get("goal_dispatched_ok") or 1),
+            campaign_run_stage=kwargs.get("campaign_run_stage"),
+            stewardship_root=kwargs.get("stewardship_root"),
+        )
     return ce._fast_child_runner(layer)
 
 
@@ -1325,7 +1349,56 @@ def export_layer_api(module_globals: dict[str, Any], layer_name: str) -> None:
     def run_fn(**kwargs: Any) -> dict[str, Any]:
         try:
             mapped = _map_run_kwargs(layer, kwargs)
-            return ce.run_constitution(layer, **mapped)
+            result = ce.run_constitution(layer, **mapped)
+            # Stamp governance ownership when institution attaches operational
+            # program children (governance_spine=True or explicit program_runner
+            # that already sealed governance_spine_child).
+            if kwargs.get("governance_spine") and layer.name == "institution":
+                from blackhole_agent.upstream_control_engine import (
+                    annotate_governance_spine,
+                )
+
+                child_path = None
+                for states in (
+                    result.get("child_states"),
+                    result.get("program_states"),
+                    result.get("programs"),
+                ):
+                    if child_path is not None:
+                        break
+                    for st in list(states or []):
+                        if not isinstance(st, Mapping):
+                            continue
+                        pdir = (
+                            st.get("last_program_dir")
+                            or st.get("program_dir")
+                            or st.get("out_root")
+                        )
+                        if not pdir:
+                            continue
+                        gpath = Path(str(pdir)) / "governance_child.json"
+                        if not gpath.is_file():
+                            continue
+                        try:
+                            blob = json.loads(
+                                gpath.read_text(encoding="utf-8")
+                            )
+                        except (OSError, json.JSONDecodeError):
+                            continue
+                        cpath = blob.get("control_nest_path")
+                        if cpath:
+                            child_path = [
+                                dict(s)
+                                for s in cpath
+                                if isinstance(s, Mapping)
+                            ]
+                            break
+                result = annotate_governance_spine(
+                    result, live=True, child_control_path=child_path
+                )
+                result["governance_edge"] = "institution->program"
+                result["governance_operational_edge"] = "program->campaign"
+            return result
         except ce.ConstitutionRefused as exc:
             # Preserve layer-scoped exception type (InstitutionRefused, etc.).
             raise _LayerRefused(exc.verdict, exc.detail) from exc
@@ -1409,6 +1482,13 @@ def export_layer_api(module_globals: dict[str, Any], layer_name: str) -> None:
     g["TERMINAL_SUCCESS_OUTCOMES"] = ce.TERMINAL_SUCCESS_OUTCOMES
     g[refused_name] = _LayerRefused
     g["ConstitutionRefused"] = ce.ConstitutionRefused
+    # Institution is the constitution→operational bridge point: program children
+    # can attach to run_operational_spine via governance_spine=True.
+    if layer.name == "institution" and layer.child == "program":
+        g["GOVERNANCE_SPINE"] = True
+        g["GOVERNANCE_SPINE_LIVE"] = True
+        g["GOVERNANCE_NEST_CHILD"] = "program"
+        g["GOVERNANCE_NEST_EDGE"] = "institution->program"
 
     g[f"normalize_{layer.name}_charter"] = normalize_charter
     g[f"admit_{layer.child}_slot"] = admit_child_slot

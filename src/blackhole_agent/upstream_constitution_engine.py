@@ -46,8 +46,11 @@ def _pluralize(noun: str) -> str:
 # Full multi-child durable stewardship stack as data (parent -> child).
 # Outer-first: SI continuum tower, then civilization tower down to program.
 # New layers are one row here — not another ~2800-line rename module.
-# Bottom child "program" is a leaf under institution (program plane is
-# multi-succession, a different dialect outside this multi-child engine).
+# Bottom child "program" under institution is the operational-control leaf:
+# hermetic proofs use a fast mock; live governance attaches program via
+# control-engine run_operational_spine (see run_governance_spine /
+# governance_spine=True on run_institution) so institution→…→campaign is one
+# continuous engine-owned path.
 STEWARDSHIP_STACK: tuple[tuple[str, str], ...] = (
     # SI continuum tower (outer)
     ("quettacontinuum", "ronnacontinuum"),

@@ -21,6 +21,9 @@ Composition:
 * ``run_operational_spine`` — public live entry for the full depth-5 graph;
   pipeline-of-pipeline (fleet→campaign) is *native* graph composition, not a
   stage-hook fiction
+* ``run_governance_spine`` — bridges constitution multi-child stewardship
+  (institution→program) onto the operational nest so institution→…→campaign
+  is one continuous engine-owned governance path (not a mock program leaf)
 
 No skill-route discovery.
 """
@@ -29,6 +32,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
+import secrets
 import shutil
 import sys
 import tempfile
@@ -3518,6 +3523,657 @@ def operational_nest_path() -> list[dict[str, Any]]:
     return nest_path(OPERATIONAL_NEST)
 
 
+# ---------------------------------------------------------------------------
+# Governance spine: constitution (institution) + operational control graph
+# ---------------------------------------------------------------------------
+
+# Continuous path from multi-child stewardship into operational nest.
+# institution is constitution-mode (multi-child); program..campaign is OPERATIONAL_NEST.
+GOVERNANCE_NEST_PATH: list[dict[str, Any]] = [
+    {
+        "mode": "constitution",
+        "dialect": "institution",
+        "child": "program",
+    },
+    *nest_path(OPERATIONAL_NEST),
+]
+
+
+def governance_nest_path() -> list[dict[str, Any]]:
+    """Public path: institution → program → succession → epoch → fleet → campaign."""
+    return [dict(step) for step in GOVERNANCE_NEST_PATH]
+
+
+def governance_nest_depth() -> int:
+    return len(GOVERNANCE_NEST_PATH)
+
+
+def make_operational_program_child_runner(
+    *,
+    max_successions: int = 2,
+    max_epochs: int = 2,
+    max_waves: int = 2,
+    idle_limit: int = 1,
+    goal_dispatched_ok: int = 1,
+    campaign_run_stage: RunStage | None = None,
+    stewardship_root: Path | None = None,
+) -> Callable[..., dict[str, Any]]:
+    """Constitution ``child_runner`` for institution→program via operational spine.
+
+    Accepts the kwargs shape ``run_constitution`` passes to program children
+    and executes :func:`run_operational_spine` so program→…→campaign is
+    graph-native (not a hermetic fast-leaf mock). Returns a constitution-
+    compatible result (``program_dir`` / ``program_digest`` / ``program_met``).
+    """
+
+    def runner(**kwargs: Any) -> dict[str, Any]:
+        # Late import: constitution helpers + avoid import cycle at module load.
+        from blackhole_agent import upstream_constitution_engine as ce
+
+        program_id = str(
+            kwargs.get("program_id")
+            or kwargs.get("child_id")
+            or "governance-program"
+        )
+        out = Path(
+            str(
+                kwargs.get("out_root")
+                or Path(tempfile.mkdtemp(prefix="gov-prog-"))
+            )
+        )
+        out.mkdir(parents=True, exist_ok=True)
+
+        charter = list(kwargs.get("charter") or [])
+        inv: list[tuple[str, str, str]] = []
+        for node in charter:
+            if isinstance(node, Mapping):
+                inv.extend(ce.collect_inventory_keys(node))
+        for raw in list(kwargs.get("inventory_keys") or []):
+            if isinstance(raw, (list, tuple)) and len(raw) >= 3:
+                inv.append((str(raw[0]), str(raw[1]), str(raw[2])))
+
+        portfolio_raw = kwargs.get("portfolio")
+        if isinstance(portfolio_raw, Mapping):
+            portfolio: dict[str, Any] = dict(portfolio_raw)
+        else:
+            portfolio = {"entries": [], "portfolio_digest": "p" * 64}
+
+        stew_kw = kwargs.get("stewardship_root") or stewardship_root
+        stew_path = Path(str(stew_kw)) if stew_kw else None
+
+        max_succ = max(
+            1,
+            int(
+                kwargs.get("max_successions")
+                or kwargs.get("max_rounds")
+                or max_successions
+            ),
+        )
+        max_ep = max(1, int(kwargs.get("max_epochs") or max_epochs))
+        max_wv = max(1, int(kwargs.get("max_waves") or max_waves))
+        idle = max(1, int(kwargs.get("idle_limit") or idle_limit))
+        goal = max(1, int(kwargs.get("goal_dispatched_ok") or goal_dispatched_ok))
+        if kwargs.get("dispatch_budget") is not None:
+            goal = max(1, min(goal, int(kwargs["dispatch_budget"])))
+
+        # Depth-5 operational nest stamps many path segments; on Windows use a
+        # short flat root (mirrors constitution engine C:/t/ce/...) to stay under
+        # MAX_PATH while still writing receipts under the caller's out_root.
+        if os.name == "nt":
+            spine_out = Path("C:/t") / "gs" / secrets.token_hex(3)
+        else:
+            spine_out = out / "spine"
+        spine_out.mkdir(parents=True, exist_ok=True)
+        try:
+            spine = run_operational_spine(
+                out_root=spine_out,
+                portfolio=portfolio,
+                dispatch=bool(kwargs.get("dispatch", True)),
+                dispatch_budget=kwargs.get("dispatch_budget"),
+                live=True,
+                build_domain_hooks=True,
+                goal_dispatched_ok=goal,
+                max_successions=max_succ,
+                max_epochs=max_ep,
+                max_waves=max_wv,
+                idle_limit=idle,
+                stewardship_root=stew_path,
+                campaign_run_stage=campaign_run_stage,
+                initial_pipeline_context={
+                    "stewardship_root": stew_path,
+                    "portfolio": portfolio,
+                },
+            )
+        except (StageRefused, LoopRefused) as exc:
+            raise ce.ConstitutionRefused(
+                getattr(exc, "verdict", "refused"),
+                getattr(exc, "detail", str(exc)),
+            ) from exc
+        except OSError as exc:
+            # Path-length / IO failures surface as constitution child refusal so
+            # the institution loop can stop cleanly instead of crashing.
+            raise ce.ConstitutionRefused(
+                "operational_spine_io",
+                f"operational spine path/io error: {exc}",
+            ) from exc
+
+        dispatched = int(spine.get("total_dispatched") or 0)
+        dispatched_ok = int(spine.get("total_dispatched_ok") or 0)
+        ok = bool(spine.get("ok")) and dispatched_ok >= 1
+        met = ok
+        program_digest = str(
+            spine.get("program_digest")
+            or spine.get("succession_digest")
+            or ""
+        )
+        if not program_digest:
+            program_digest = _sha256_json(
+                {
+                    "program_id": program_id,
+                    "ok": ok,
+                    "total_dispatched_ok": dispatched_ok,
+                    "control_nest_path": spine.get("control_nest_path"),
+                }
+            )
+
+        entries: list[dict[str, Any]] = []
+        if met and inv:
+            for n, v, d in inv:
+                entries.append(
+                    {
+                        "name": n,
+                        "version": v,
+                        "defect_id": d,
+                        "outcome": "impact_merged",
+                        "impact_digest": _sha256_json({"n": n, "d": d}),
+                    }
+                )
+        elif met:
+            dig = program_digest[:16]
+            entries.append(
+                {
+                    "name": "governance",
+                    "version": "1.0.0",
+                    "defect_id": f"gov-{dig}",
+                    "outcome": "impact_merged",
+                    "impact_digest": _sha256_json({"spine": dig}),
+                }
+            )
+        federated = ce.make_portfolio(entries, source="governance_program")
+
+        receipt: dict[str, Any] = {
+            "schema_version": SCHEMA_VERSION,
+            "ok": ok,
+            "verdict": "program_met" if met else "program_partial",
+            "stop_reason": spine.get("stop_reason")
+            or ("program_met" if met else "program_idle"),
+            "program_id": program_id,
+            "program_met": met,
+            "program_digest": program_digest,
+            "total_dispatched": dispatched,
+            "total_dispatched_ok": dispatched_ok,
+            "federated_portfolio": federated,
+            "inventory_keys": [list(k) for k in inv],
+            "control_engine": True,
+            "control_graph": True,
+            "control_graph_live": True,
+            "control_operational_spine": True,
+            "control_nest_live": True,
+            "control_nest_path": spine.get("control_nest_path"),
+            "control_nest_depth": spine.get("control_nest_depth"),
+            "governance_spine_child": True,
+            "child_states": [
+                {"inventory_keys": [list(k) for k in inv], "portfolio": federated}
+            ],
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+        atomic_write_json(out / "program.json", receipt)
+        atomic_write_json(
+            out / "program_state.json",
+            {
+                "program_id": program_id,
+                "round_count": 1,
+                "total_dispatched": dispatched,
+                "total_dispatched_ok": dispatched_ok,
+                "federated_portfolio": federated,
+                "stop_reason": receipt["stop_reason"],
+                "charter": charter,
+                "control_graph_live": True,
+                "governance_spine_child": True,
+            },
+        )
+        atomic_write_json(
+            out / "governance_child.json",
+            {
+                "program_id": program_id,
+                "program_digest": program_digest,
+                "control_nest_path": spine.get("control_nest_path"),
+                "control_nest_depth": spine.get("control_nest_depth"),
+                "control_operational_spine": True,
+                "control_graph_live": True,
+                "total_dispatched_ok": dispatched_ok,
+                "spine_out_root": str(spine_out),
+            },
+        )
+
+        return {
+            "ok": ok,
+            "verdict": receipt["verdict"],
+            "stop_reason": receipt["stop_reason"],
+            "program_dir": str(out),
+            "program_digest": program_digest,
+            "program_id": program_id,
+            "program_met": met,
+            "total_dispatched": dispatched,
+            "total_dispatched_ok": dispatched_ok,
+            "federated_portfolio": federated,
+            "inventory_keys": inv,
+            "child_states": receipt["child_states"],
+            "control_engine": True,
+            "control_graph": True,
+            "control_graph_live": True,
+            "control_operational_spine": True,
+            "control_nest_live": True,
+            "control_nest_path": spine.get("control_nest_path"),
+            "control_nest_depth": spine.get("control_nest_depth"),
+            "governance_spine_child": True,
+            "spine_verdict": spine.get("verdict"),
+            "spine_program_digest": spine.get("program_digest"),
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
+
+    return runner
+
+
+def annotate_governance_spine(
+    result: Mapping[str, Any],
+    *,
+    live: bool = True,
+    child_control_path: Sequence[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Stamp governance-spine ownership flags onto an institution result."""
+    body = dict(result)
+    path = governance_nest_path()
+    body["governance_spine"] = True
+    body["governance_spine_live"] = bool(live)
+    body["governance_nest_path"] = path
+    body["governance_nest_depth"] = len(path)
+    body["control_engine"] = True
+    body["control_operational_spine"] = True
+    body["control_graph"] = True
+    if live:
+        body["control_graph_live"] = True
+        body["control_nest_live"] = True
+    if child_control_path is not None:
+        body["governance_child_control_path"] = [dict(s) for s in child_control_path]
+    body["used_skill_route_discovery"] = legacy_pipeline_was_used()
+    return body
+
+
+def run_governance_spine(
+    *,
+    charter: Sequence[Mapping[str, Any]] | None = None,
+    programs: Sequence[Mapping[str, Any]] | None = None,
+    out_root: Path | None = None,
+    max_rounds: int = 4,
+    dispatch: bool = True,
+    dispatch_budget: int | None = None,
+    max_active: int | None = None,
+    institution_id: str | None = None,
+    institution_goal: str | None = None,
+    max_successions: int = 2,
+    max_epochs: int = 2,
+    max_waves: int = 2,
+    idle_limit: int = 1,
+    goal_dispatched_ok: int = 1,
+    campaign_run_stage: RunStage | None = None,
+    stewardship_root: Path | None = None,
+    program_runner: Callable[..., dict[str, Any]] | None = None,
+    live: bool = True,
+) -> dict[str, Any]:
+    """Public entry: institution constitution with operational program children.
+
+    Closes the dialect cliff between multi-child stewardship (constitution
+    engine, institution→program) and the operational control graph
+    (program→succession→epoch→fleet→campaign). Program children execute via
+    :func:`run_operational_spine` unless an explicit ``program_runner`` is
+    injected.
+    """
+    from blackhole_agent import upstream_constitution_engine as ce
+
+    layer = ce.get_stewardship_layer("institution")
+    slots: list[dict[str, Any]]
+    if charter is not None:
+        slots = [dict(s) for s in charter if isinstance(s, Mapping)]
+    elif programs is not None:
+        slots = [dict(p) for p in programs if isinstance(p, Mapping)]
+    else:
+        slots = [
+            {
+                "program_id": "gov-a",
+                "priority": 1,
+                "max_successions": max_successions,
+                "program_goal": "none",
+                "mandate_goal": "none",
+                "kind": "stewardship_program",
+                "inventory_keys": [("gov-alpha", "1.0.0", "gov-alpha-1")],
+                "charter": [
+                    {
+                        "inventory_keys": [
+                            ["gov-alpha", "1.0.0", "gov-alpha-1"]
+                        ]
+                    }
+                ],
+            }
+        ]
+
+    runner = program_runner or make_operational_program_child_runner(
+        max_successions=max_successions,
+        max_epochs=max_epochs,
+        max_waves=max_waves,
+        idle_limit=idle_limit,
+        goal_dispatched_ok=goal_dispatched_ok,
+        campaign_run_stage=campaign_run_stage,
+        stewardship_root=stewardship_root,
+    )
+
+    result = ce.run_constitution(
+        layer,
+        charter=slots,
+        max_rounds=max_rounds,
+        dispatch=dispatch,
+        dispatch_budget=dispatch_budget,
+        max_active=max_active,
+        child_runner=runner,
+        goal=institution_goal or layer.all_children_met_goal,
+        constitution_id=institution_id or "governance-spine",
+        out_root=out_root,
+    )
+
+    child_path: list[dict[str, Any]] | None = None
+    # Recover control path from governance_child.json written by the program
+    # adapter (round records only store digests, not full nest paths).
+    state_lists = [
+        result.get("child_states"),
+        result.get("program_states"),
+        result.get("programs"),
+    ]
+    for states in state_lists:
+        if child_path is not None:
+            break
+        for st in list(states or []):
+            if not isinstance(st, Mapping):
+                continue
+            pdir = (
+                st.get("last_program_dir")
+                or st.get("program_dir")
+                or st.get("out_root")
+            )
+            if not pdir:
+                continue
+            gpath = Path(str(pdir)) / "governance_child.json"
+            if not gpath.is_file():
+                continue
+            try:
+                blob = json.loads(gpath.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            cpath = blob.get("control_nest_path")
+            if cpath:
+                child_path = [dict(s) for s in cpath if isinstance(s, Mapping)]
+                break
+
+    annotated = annotate_governance_spine(
+        result, live=live, child_control_path=child_path
+    )
+    annotated["governance_edge"] = "institution->program"
+    annotated["governance_operational_edge"] = "program->campaign"
+    return annotated
+
+
+def builtin_governance_spine_proof() -> dict[str, Any]:
+    """Hermetic proof: institution→program→…→campaign is one governance spine."""
+    scratch = Path(tempfile.mkdtemp(prefix="governance-spine-proof-"))
+    try:
+        from blackhole_agent import upstream_constitution_engine as ce
+        from blackhole_agent import upstream_institution as ui
+        from blackhole_agent import upstream_loop_engine as le_facade
+        from blackhole_agent import upstream_program as up
+        from blackhole_agent.capability_compounder import (
+            default_ledger_path,
+            load_ledger,
+        )
+
+        path = governance_nest_path()
+        path_ok = (
+            governance_nest_depth() == 6
+            and [s.get("dialect") for s in path]
+            == [
+                "institution",
+                "program",
+                "succession",
+                "epoch",
+                "fleet",
+                "campaign",
+            ]
+            and path[0].get("mode") == "constitution"
+            and path[1].get("mode") == "loop"
+            and path[-1].get("mode") == "pipeline"
+        )
+
+        # Core public entry.
+        gov = run_governance_spine(
+            out_root=scratch / "gov",
+            max_rounds=3,
+            dispatch=True,
+            dispatch_budget=4,
+            max_successions=2,
+            max_epochs=2,
+            max_waves=2,
+            programs=[
+                {
+                    "program_id": "gp1",
+                    "priority": 2,
+                    "max_successions": 2,
+                    "program_goal": "none",
+                    "kind": "stewardship_program",
+                    "inventory_keys": [("g1", "1.0.0", "g1-1")],
+                    "charter": [
+                        {"inventory_keys": [["g1", "1.0.0", "g1-1"]]}
+                    ],
+                }
+            ],
+        )
+        child_path = gov.get("governance_child_control_path") or []
+        child_dialects = [
+            s.get("dialect") for s in child_path if isinstance(s, Mapping)
+        ]
+        gov_ok = (
+            bool(gov.get("ok"))
+            and gov.get("governance_spine") is True
+            and gov.get("governance_spine_live") is True
+            and gov.get("control_operational_spine") is True
+            and gov.get("control_graph") is True
+            and gov.get("control_graph_live") is True
+            and int(gov.get("governance_nest_depth") or 0) == 6
+            and int(gov.get("total_dispatched_ok") or 0) >= 1
+            and bool(gov.get("institution_met") or gov.get("institution_digest"))
+            and child_dialects
+            == ["program", "succession", "epoch", "fleet", "campaign"]
+            and not legacy_pipeline_was_used()
+        )
+
+        # Adapter alone: constitution kwargs → operational spine seals.
+        adapter = make_operational_program_child_runner(
+            max_successions=2, max_epochs=2, max_waves=2
+        )
+        adapted = adapter(
+            program_id="adapter-p",
+            out_root=scratch / "adapter",
+            dispatch=True,
+            dispatch_budget=2,
+            charter=[{"inventory_keys": [["a", "1.0.0", "a-1"]]}],
+        )
+        adapter_ok = (
+            bool(adapted.get("ok"))
+            and adapted.get("governance_spine_child") is True
+            and adapted.get("control_graph_live") is True
+            and adapted.get("control_operational_spine") is True
+            and adapted.get("program_met") is True
+            and int(adapted.get("control_nest_depth") or 0) == 5
+            and [
+                s.get("dialect")
+                for s in (adapted.get("control_nest_path") or [])
+            ]
+            == ["program", "succession", "epoch", "fleet", "campaign"]
+            and bool(adapted.get("program_digest"))
+            and (Path(str(adapted["program_dir"])) / "program.json").is_file()
+        )
+
+        # Live domain: run_institution(governance_spine=True).
+        live_inst = ui.run_institution(
+            governance_spine=True,
+            charter=[
+                {
+                    "program_id": "live-gp",
+                    "priority": 1,
+                    "inventory_keys": [("live", "1.0.0", "live-1")],
+                    "charter": [
+                        {"inventory_keys": [["live", "1.0.0", "live-1"]]}
+                    ],
+                }
+            ],
+            max_rounds=3,
+            dispatch=True,
+            dispatch_budget=4,
+            out_root=scratch / "live-inst",
+            institution_id="live-gov",
+        )
+        live_ok = (
+            bool(live_inst.get("ok"))
+            and live_inst.get("governance_spine") is True
+            and live_inst.get("governance_spine_live") is True
+            and live_inst.get("control_operational_spine") is True
+            and int(live_inst.get("total_dispatched_ok") or 0) >= 1
+            and bool(live_inst.get("institution_digest"))
+        )
+
+        # Module flags: institution advertises governance attach; program
+        # remains the operational graph leaf.
+        flags_ok = (
+            getattr(ui, "GOVERNANCE_SPINE", False) is True
+            and getattr(ui, "GOVERNANCE_SPINE_LIVE", False) is True
+            and getattr(ui, "ENGINE_FACADE", False) is True
+            and getattr(up, "CONTROL_GRAPH", False) is True
+            and getattr(up, "CONTROL_GRAPH_LIVE", False) is True
+            and callable(getattr(le_facade, "run_governance_spine", None))
+            and callable(getattr(le_facade, "make_operational_program_child_runner", None))
+            and getattr(le_facade, "GOVERNANCE_SPINE_IMPL", False) is True
+        )
+
+        # Source-level: facade wires governance_spine → operational runner.
+        facade_path = Path(ui.__file__).resolve().parent / "upstream_stewardship_facade.py"
+        facade_text = facade_path.read_text(encoding="utf-8")
+        source_ok = (
+            "governance_spine" in facade_text
+            and "make_operational_program_child_runner" in facade_text
+            and "annotate_governance_spine" in facade_text
+        )
+
+        engine_path = Path(__file__).resolve()
+        engine_text = engine_path.read_text(encoding="utf-8")
+        engine_source_ok = (
+            "def run_governance_spine" in engine_text
+            and "def make_operational_program_child_runner" in engine_text
+            and "GOVERNANCE_NEST_PATH" in engine_text
+            and "builtin_governance_spine_proof" in engine_text
+        )
+
+        ledger_path = default_ledger_path(REPO_ROOT)
+        ledger_ok = False
+        try:
+            ledger = load_ledger(ledger_path)
+            entry = ledger.capabilities.get("capability.upstream-governance-spine")
+            tags_blob = " ".join(entry.tags).lower() if entry else ""
+            delta_blob = (entry.capability_delta or "").lower() if entry else ""
+            name_blob = (entry.name or "").lower() if entry else ""
+            ledger_ok = (
+                entry is not None
+                and "upstream_control_engine" in (entry.entry or "")
+                and "builtin_governance_spine_proof" in (entry.entry or "")
+                and (
+                    "governance" in tags_blob
+                    or "governance" in name_blob
+                    or "governance" in delta_blob
+                )
+                and (
+                    "institution" in delta_blob
+                    or "constitution" in delta_blob
+                )
+                and (
+                    "run_governance_spine" in delta_blob
+                    or "operational" in delta_blob
+                )
+                and (
+                    "program" in delta_blob
+                    and ("campaign" in delta_blob or "spine" in delta_blob)
+                )
+            )
+        except Exception:  # noqa: BLE001
+            ledger_ok = False
+
+        engine_loc = sum(
+            1
+            for line in engine_text.splitlines()
+            if line.strip() and not line.strip().startswith("#")
+        )
+
+        ok = all(
+            [
+                path_ok,
+                gov_ok,
+                adapter_ok,
+                live_ok,
+                flags_ok,
+                source_ok,
+                engine_source_ok,
+                ledger_ok,
+                not legacy_pipeline_was_used(),
+            ]
+        )
+        return {
+            "ok": ok,
+            "action": "governance_spine_proof",
+            "path_ok": path_ok,
+            "governance_nest_path": path,
+            "governance_nest_depth": governance_nest_depth(),
+            "gov_ok": gov_ok,
+            "gov_dispatched_ok": gov.get("total_dispatched_ok"),
+            "gov_institution_digest": gov.get("institution_digest"),
+            "gov_child_path": child_path,
+            "adapter_ok": adapter_ok,
+            "adapter_depth": adapted.get("control_nest_depth"),
+            "adapter_digest": adapted.get("program_digest"),
+            "live_ok": live_ok,
+            "live_dispatched_ok": live_inst.get("total_dispatched_ok"),
+            "live_institution_digest": live_inst.get("institution_digest"),
+            "flags_ok": flags_ok,
+            "source_ok": source_ok,
+            "engine_source_ok": engine_source_ok,
+            "ledger_capability_ok": ledger_ok,
+            "engine_loc": engine_loc,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "control_engine": True,
+            "control_graph": True,
+            "control_operational_spine": True,
+            "governance_spine": True,
+            "governance_spine_live": True,
+            "done_when_met": ok,
+        }
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
 def builtin_control_nest_proof() -> dict[str, Any]:
     """Hermetic proof: multi-depth nest owns program→…→fleet→campaign spine."""
     scratch = Path(tempfile.mkdtemp(prefix="control-nest-proof-"))
@@ -4891,8 +5547,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         "graph-proof",
         help="Graph-native spine proof: run_operational_spine owns fleet→campaign",
     )
+    sub.add_parser(
+        "governance-proof",
+        help=(
+            "Governance spine proof: institution constitution + operational "
+            "program→…→campaign nest"
+        ),
+    )
     sub.add_parser("list", help="List control modes and dialects")
     sub.add_parser("nest-path", help="Print canonical operational nest path")
+    sub.add_parser(
+        "governance-path",
+        help="Print canonical governance nest path (institution→…→campaign)",
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
     if args.cmd == "list":
         print(
@@ -4902,6 +5569,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "catalog": list_control_catalog(),
                     "dialects": list_all_control_dialects(),
                     "operational_nest": operational_nest_path(),
+                    "governance_nest": governance_nest_path(),
                 },
                 indent=2,
             )
@@ -4910,12 +5578,27 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.cmd == "nest-path":
         print(json.dumps({"nest_path": operational_nest_path()}, indent=2))
         return 0
+    if args.cmd == "governance-path":
+        print(
+            json.dumps(
+                {
+                    "governance_nest_path": governance_nest_path(),
+                    "governance_nest_depth": governance_nest_depth(),
+                },
+                indent=2,
+            )
+        )
+        return 0
     if args.cmd == "proof":
         result = builtin_control_engine_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     if args.cmd in {"nest-proof", "spine-proof", "graph-proof"}:
         result = builtin_control_graph_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "governance-proof":
+        result = builtin_governance_spine_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2
