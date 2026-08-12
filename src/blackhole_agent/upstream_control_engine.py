@@ -40,6 +40,11 @@ Composition:
   time/disk via nested receipts; compressed mode seals an O(depth) hop
   digest chain over the constitution path and live-dispatches the
   operational nest once, so depth-28 total spine stays invocable
+* total-spine **effects** — optional ledger capability dispatch at the
+  tower terminal: after the live operational nest, ``run_total_spine``
+  invokes proved ledger capabilities, seals an effect hop chain, and
+  binds the effect tip into the total-spine digest so quetta→campaign
+  produces real invocable outcomes (not mock fleet digests only)
 
 No skill-route discovery.
 """
@@ -4253,6 +4258,12 @@ TOTAL_SPINE_IMPL = True
 # Auto-compress when constitution chain length exceeds this (recursive
 # domain cascades above confederation blow time and nested-receipt disk).
 TOTAL_SPINE_COMPRESS_THRESHOLD: int = 4
+# Terminal ledger-capability effects on the absolute tower (opt-in).
+TOTAL_SPINE_EFFECT_IMPL = True
+TOTAL_SPINE_DEFAULT_EFFECT_CAPABILITIES: tuple[str, ...] = (
+    "repo.import-health",
+    "capability.ledger-inventory",
+)
 
 
 def stewardship_constitution_chain(root_layer: str) -> list[str]:
@@ -4435,29 +4446,206 @@ def _operational_tip_digest(result: Mapping[str, Any]) -> str:
 def seal_total_spine_hop_chain(
     root_layer: str,
     operational_result: Mapping[str, Any],
+    *,
+    tip: str | None = None,
 ) -> list[dict[str, Any]]:
     """O(depth) hop digests for compressed total spine.
 
     Each constitution hop binds ``sha256(layer|child_tip)`` from institution
     upward to root without embedding nested child receipts (the recursive
     domain cascade's exponential artifact cost).
+
+    When ``tip`` is provided (e.g. operational tip bound to effect tip), it
+    replaces the digest derived from ``operational_result``.
     """
     chain = stewardship_constitution_chain(root_layer)
-    tip = _operational_tip_digest(operational_result)
+    if tip is not None and str(tip).strip():
+        child_tip = str(tip).strip()
+    else:
+        child_tip = _operational_tip_digest(operational_result)
     hops_rev: list[dict[str, Any]] = []
     for name in reversed(chain):
-        material = f"{name}|{tip}".encode("utf-8")
+        material = f"{name}|{child_tip}".encode("utf-8")
         digest = _sha256_bytes(material)
         hops_rev.append(
             {
                 "layer": name,
-                "child_tip": tip,
+                "child_tip": child_tip,
+                "digest": digest,
+            }
+        )
+        child_tip = digest
+    hops_rev.reverse()
+    return hops_rev
+
+
+def seal_total_spine_effect_chain(
+    effects: Sequence[Mapping[str, Any]],
+    *,
+    operational_tip: str,
+) -> list[dict[str, Any]]:
+    """O(n) effect hop digests bound to the operational tip.
+
+    Each effect hop is ``sha256(capability_id|ok|exit_code|summary_digest|prior)``
+    folded from the operational tip so the absolute tower digest changes when
+    any ledger effect outcome changes.
+    """
+    tip = str(operational_tip or "").strip() or ("0" * 64)
+    hops: list[dict[str, Any]] = []
+    for raw in effects:
+        if not isinstance(raw, Mapping):
+            continue
+        cap_id = str(raw.get("capability_id") or "")
+        ok_flag = "1" if raw.get("ok") else "0"
+        exit_code = int(raw.get("exit_code") if raw.get("exit_code") is not None else 1)
+        summary = str(raw.get("summary") or "")
+        summary_digest = _sha256_bytes(summary.encode("utf-8"))
+        material = (
+            f"{cap_id}|{ok_flag}|{exit_code}|{summary_digest}|{tip}".encode("utf-8")
+        )
+        digest = _sha256_bytes(material)
+        hops.append(
+            {
+                "capability_id": cap_id,
+                "ok": bool(raw.get("ok")),
+                "exit_code": exit_code,
+                "summary_digest": summary_digest,
+                "prior_tip": tip,
                 "digest": digest,
             }
         )
         tip = digest
-    hops_rev.reverse()
-    return hops_rev
+    return hops
+
+
+def dispatch_total_spine_effects(
+    capability_ids: Sequence[str],
+    *,
+    cwd: Path | None = None,
+    out_root: Path | None = None,
+    timeout: int = 60,
+    ledger_path: Path | None = None,
+) -> dict[str, Any]:
+    """Invoke ledger capabilities as total-spine terminal effects.
+
+    Returns a sealed effect pack: per-capability run records, effect hop chain,
+    and aggregate ok when every requested id ran successfully.
+    """
+    from blackhole_agent.capability_compounder import (
+        default_ledger_path,
+        load_ledger,
+        run_capability,
+    )
+
+    root = Path(cwd) if cwd is not None else REPO_ROOT
+    root = root.resolve()
+    path = Path(ledger_path) if ledger_path is not None else default_ledger_path(root)
+    ledger = load_ledger(path)
+    ids = [str(c).strip() for c in capability_ids if str(c).strip()]
+    effects: list[dict[str, Any]] = []
+    for cap_id in ids:
+        cap = ledger.capabilities.get(cap_id)
+        if cap is None:
+            effects.append(
+                {
+                    "capability_id": cap_id,
+                    "ok": False,
+                    "exit_code": 127,
+                    "kind": "missing",
+                    "summary": f"capability not in ledger: {cap_id}",
+                    "stdout": "",
+                    "stderr": f"missing:{cap_id}",
+                }
+            )
+            continue
+        try:
+            result = run_capability(cap, cwd=root, timeout=max(5, int(timeout)))
+            effects.append(
+                {
+                    "capability_id": cap_id,
+                    "ok": bool(result.ok),
+                    "exit_code": int(result.exit_code),
+                    "kind": str(result.kind or cap.kind),
+                    "summary": str(result.summary or "")[:500],
+                    "stdout": (result.stdout or "")[:2000],
+                    "stderr": (result.stderr or "")[:500],
+                }
+            )
+        except Exception as exc:  # noqa: BLE001 — isolate effect failures
+            effects.append(
+                {
+                    "capability_id": cap_id,
+                    "ok": False,
+                    "exit_code": 1,
+                    "kind": "error",
+                    "summary": f"effect_error:{type(exc).__name__}:{exc}"[:500],
+                    "stdout": "",
+                    "stderr": str(exc)[:500],
+                }
+            )
+
+    ok_count = sum(1 for e in effects if e.get("ok"))
+    pack: dict[str, Any] = {
+        "ok": bool(effects) and ok_count == len(effects),
+        "action": "total_spine_effects",
+        "total_spine_effects": True,
+        "total_spine_effect_impl": TOTAL_SPINE_EFFECT_IMPL,
+        "capability_ids": ids,
+        "effects": effects,
+        "effect_count": len(effects),
+        "effects_ok_count": ok_count,
+        "effects_failed_count": len(effects) - ok_count,
+        "ledger_path": str(path),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    if out_root is not None:
+        effect_dir = Path(out_root)
+        effect_dir.mkdir(parents=True, exist_ok=True)
+        atomic_write_json(effect_dir / "total-spine-effects.json", pack)
+        pack["total_spine_effects_receipt_dir"] = str(effect_dir)
+    return pack
+
+
+def annotate_total_spine_effects(
+    body: MutableMapping[str, Any],
+    *,
+    effect_pack: Mapping[str, Any],
+    operational_tip: str,
+) -> dict[str, Any]:
+    """Stamp ledger effect chain onto a total-spine result and rebind digests."""
+    effects = list(effect_pack.get("effects") or [])
+    chain = seal_total_spine_effect_chain(effects, operational_tip=operational_tip)
+    effect_tip = chain[-1]["digest"] if chain else operational_tip
+    prior_digest = str(body.get("total_spine_digest") or operational_tip)
+    bound = _sha256_bytes(f"{prior_digest}|{effect_tip}".encode("utf-8"))
+
+    body["total_spine_effects"] = True
+    body["total_spine_effect_impl"] = TOTAL_SPINE_EFFECT_IMPL
+    body["total_spine_effect_capabilities"] = list(
+        effect_pack.get("capability_ids") or []
+    )
+    body["total_spine_effect_records"] = effects
+    body["total_spine_effect_chain"] = chain
+    body["total_spine_effect_count"] = int(effect_pack.get("effect_count") or len(effects))
+    body["total_spine_effects_ok_count"] = int(effect_pack.get("effects_ok_count") or 0)
+    body["total_spine_effects_failed_count"] = int(
+        effect_pack.get("effects_failed_count") or 0
+    )
+    body["total_spine_effect_tip"] = effect_tip
+    body["total_spine_operational_tip"] = operational_tip
+    body["total_spine_digest_pre_effects"] = prior_digest
+    body["total_spine_digest"] = bound
+    body["total_spine_effects_ok"] = bool(effect_pack.get("ok"))
+    if effect_pack.get("total_spine_effects_receipt_dir"):
+        body["total_spine_effects_receipt_dir"] = effect_pack[
+            "total_spine_effects_receipt_dir"
+        ]
+    # Absolute tower is only fully ok when operational nest and effects pass.
+    if body.get("ok") and not effect_pack.get("ok"):
+        body["ok"] = False
+        body["verdict"] = body.get("verdict") or "total_spine_effects_failed"
+    body["used_skill_route_discovery"] = legacy_pipeline_was_used()
+    return dict(body)
 
 
 def annotate_total_spine(
@@ -4502,6 +4690,83 @@ def annotate_total_spine(
     return body
 
 
+def _attach_total_spine_effects(
+    annotated: dict[str, Any],
+    *,
+    root: str,
+    live_result: Mapping[str, Any],
+    compressed: bool,
+    effects: bool,
+    capabilities: Sequence[str] | None,
+    effect_timeout: int,
+    repo_path: Path | None,
+    out_root: Path | None,
+    chain_len: int,
+) -> dict[str, Any]:
+    """Optionally dispatch ledger effects and rebind hop digests."""
+    want_effects = bool(effects) or (
+        capabilities is not None and len(list(capabilities)) > 0
+    )
+    if not want_effects:
+        annotated["total_spine_effects"] = False
+        return annotated
+
+    ids: list[str]
+    if capabilities is not None and len(list(capabilities)) > 0:
+        ids = [str(c).strip() for c in capabilities if str(c).strip()]
+    else:
+        ids = list(TOTAL_SPINE_DEFAULT_EFFECT_CAPABILITIES)
+
+    effect_out = None
+    if out_root is not None:
+        effect_out = Path(out_root) / "effects"
+    pack = dispatch_total_spine_effects(
+        ids,
+        cwd=repo_path or REPO_ROOT,
+        out_root=effect_out,
+        timeout=effect_timeout,
+    )
+    operational_tip = _operational_tip_digest(live_result)
+    # Bind effects into the constitution hop base tip so deep digests move.
+    effect_chain = seal_total_spine_effect_chain(
+        pack.get("effects") or [],
+        operational_tip=operational_tip,
+    )
+    effect_tip = (
+        effect_chain[-1]["digest"] if effect_chain else operational_tip
+    )
+    bound_tip = _sha256_bytes(
+        f"{operational_tip}|{effect_tip}".encode("utf-8")
+    )
+    if compressed:
+        hops = seal_total_spine_hop_chain(root, live_result, tip=bound_tip)
+        annotated["total_spine_hop_chain"] = hops
+        annotated["total_spine_hop_count"] = len(hops)
+        if hops:
+            annotated["total_spine_digest"] = hops[0].get("digest")
+            annotated[f"{root}_digest"] = hops[0].get("digest")
+    else:
+        annotated["total_spine_digest"] = bound_tip
+        annotated[f"{root}_digest"] = bound_tip
+
+    annotated = annotate_total_spine_effects(
+        annotated,
+        effect_pack=pack,
+        operational_tip=operational_tip,
+    )
+    # annotate_total_spine_effects rebinds digest to prior|effect_tip; for
+    # compressed mode keep the constitution-root hop as the public digest and
+    # store the effect-bound tip separately (already on hop child tips).
+    if compressed and annotated.get("total_spine_hop_chain"):
+        hops = annotated["total_spine_hop_chain"]
+        if hops:
+            annotated["total_spine_digest"] = hops[0].get("digest")
+            annotated[f"{root}_digest"] = hops[0].get("digest")
+    annotated["total_spine_effect_bound_tip"] = bound_tip
+    annotated["total_spine_constitution_depth"] = chain_len
+    return annotated
+
+
 def run_total_spine(
     *,
     root_layer: str = TOTAL_SPINE_DEFAULT_ROOT,
@@ -4523,6 +4788,10 @@ def run_total_spine(
     child_runner: Callable[..., dict[str, Any]] | None = None,
     live: bool = True,
     compress: bool | None = None,
+    effects: bool = False,
+    capabilities: Sequence[str] | None = None,
+    effect_timeout: int = 60,
+    repo_path: Path | None = None,
 ) -> dict[str, Any]:
     """Public entry: absolute total spine from root into the operational nest.
 
@@ -4535,6 +4804,10 @@ def run_total_spine(
 
     Set ``compress=False`` to force the recursive :func:`run_stewardship_spine`
     cascade (useful for shallow roots / differential checks).
+
+    When ``effects=True`` or ``capabilities`` is non-empty, ledger capabilities
+    are dispatched after the live nest and sealed into the total-spine tip so
+    the absolute tower produces real invocable outcomes.
     """
     root = (
         str(root_layer or TOTAL_SPINE_DEFAULT_ROOT).strip().lower()
@@ -4570,7 +4843,7 @@ def run_total_spine(
             result.get("governance_child_control_path")
             or result.get("stewardship_child_control_path")
         )
-        return annotate_total_spine(
+        annotated = annotate_total_spine(
             result,
             root_layer=root,
             live=live,
@@ -4579,6 +4852,19 @@ def run_total_spine(
             if isinstance(child_path, Sequence)
             else None,
         )
+        annotated = _attach_total_spine_effects(
+            annotated,
+            root=root,
+            live_result=result,
+            compressed=False,
+            effects=effects,
+            capabilities=capabilities,
+            effect_timeout=effect_timeout,
+            repo_path=repo_path,
+            out_root=out_root,
+            chain_len=len(chain),
+        )
+        return annotated
 
     # Compressed: live operational/governance nest once + O(depth) hop seals.
     live_root = out_root / "live-governance" if out_root is not None else None
@@ -4618,6 +4904,18 @@ def run_total_spine(
     annotated["total_spine_compress_threshold"] = TOTAL_SPINE_COMPRESS_THRESHOLD
     annotated["total_spine_constitution_depth"] = len(chain)
     annotated["stewardship_root"] = root
+    annotated = _attach_total_spine_effects(
+        annotated,
+        root=root,
+        live_result=live_result,
+        compressed=True,
+        effects=effects,
+        capabilities=capabilities,
+        effect_timeout=effect_timeout,
+        repo_path=repo_path,
+        out_root=out_root,
+        chain_len=len(chain),
+    )
     if out_root is not None:
         receipt_dir = Path(out_root)
         receipt_dir.mkdir(parents=True, exist_ok=True)
@@ -4631,6 +4929,11 @@ def run_total_spine(
             "total_spine_hop_count": annotated.get("total_spine_hop_count"),
             "total_dispatched_ok": annotated.get("total_dispatched_ok"),
             "institution_digest": annotated.get("institution_digest"),
+            "total_spine_effects": bool(annotated.get("total_spine_effects")),
+            "total_spine_effects_ok_count": annotated.get(
+                "total_spine_effects_ok_count"
+            ),
+            "total_spine_effect_tip": annotated.get("total_spine_effect_tip"),
             "used_skill_route_discovery": legacy_pipeline_was_used(),
         }
         atomic_write_json(receipt_dir / "total-spine-receipt.json", receipt)
@@ -7467,6 +7770,267 @@ def builtin_total_spine_proof() -> dict[str, Any]:
         shutil.rmtree(scratch, ignore_errors=True)
 
 
+def builtin_total_spine_effect_proof() -> dict[str, Any]:
+    """Hermetic proof: absolute total spine dispatches ledger capability effects.
+
+    Closes the mock-effect cliff at the tower terminal: compressed
+    ``run_total_spine(effects=True)`` live-runs the operational nest, invokes
+    default ledger capabilities, seals an effect hop chain bound into the
+    constitution tip, and fails when a capability is missing — without
+    skill-route discovery.
+    """
+    scratch = Path(tempfile.mkdtemp(prefix="total-spine-effect-proof-"))
+    try:
+        from blackhole_agent import upstream_loop_engine as le_facade
+        from blackhole_agent.capability_compounder import (
+            default_ledger_path,
+            load_ledger,
+        )
+
+        flags_ok = (
+            TOTAL_SPINE_EFFECT_IMPL is True
+            and TOTAL_SPINE_IMPL is True
+            and len(TOTAL_SPINE_DEFAULT_EFFECT_CAPABILITIES) >= 2
+            and "repo.import-health" in TOTAL_SPINE_DEFAULT_EFFECT_CAPABILITIES
+            and "capability.ledger-inventory"
+            in TOTAL_SPINE_DEFAULT_EFFECT_CAPABILITIES
+        )
+
+        # Live compressed absolute tower with default ledger effects.
+        spine = run_total_spine(
+            root_layer="quettacontinuum",
+            out_root=scratch / "effects-spine",
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=3,
+            max_successions=1,
+            max_epochs=1,
+            max_waves=1,
+            compress=True,
+            effects=True,
+            effect_timeout=90,
+            repo_path=REPO_ROOT,
+        )
+        effect_records = spine.get("total_spine_effect_records") or []
+        effect_ids = [
+            e.get("capability_id")
+            for e in effect_records
+            if isinstance(e, Mapping)
+        ]
+        effect_chain = spine.get("total_spine_effect_chain") or []
+        hops = spine.get("total_spine_hop_chain") or []
+
+        # Effect hop integrity: each hop binds id|ok|exit|summary|prior.
+        effect_integrity_ok = True
+        if not effect_chain:
+            effect_integrity_ok = False
+        else:
+            tip = str(spine.get("total_spine_operational_tip") or "")
+            for hop in effect_chain:
+                if not isinstance(hop, Mapping):
+                    effect_integrity_ok = False
+                    break
+                cap_id = str(hop.get("capability_id") or "")
+                ok_flag = "1" if hop.get("ok") else "0"
+                exit_code = int(hop.get("exit_code") if hop.get("exit_code") is not None else 1)
+                summary_digest = str(hop.get("summary_digest") or "")
+                prior = str(hop.get("prior_tip") or "")
+                if prior != tip:
+                    effect_integrity_ok = False
+                    break
+                expect = _sha256_bytes(
+                    f"{cap_id}|{ok_flag}|{exit_code}|{summary_digest}|{prior}".encode(
+                        "utf-8"
+                    )
+                )
+                if hop.get("digest") != expect:
+                    effect_integrity_ok = False
+                    break
+                tip = str(hop.get("digest") or "")
+            effect_integrity_ok = (
+                effect_integrity_ok
+                and tip == str(spine.get("total_spine_effect_tip") or "")
+            )
+
+        # Hop base tip must bind operational|effect tips (not bare operational).
+        bound_tip = spine.get("total_spine_effect_bound_tip")
+        op_tip = spine.get("total_spine_operational_tip")
+        effect_tip = spine.get("total_spine_effect_tip")
+        bound_ok = (
+            isinstance(bound_tip, str)
+            and len(bound_tip) >= 32
+            and isinstance(op_tip, str)
+            and isinstance(effect_tip, str)
+            and bound_tip
+            == _sha256_bytes(f"{op_tip}|{effect_tip}".encode("utf-8"))
+            and hops
+            and hops[-1].get("child_tip") == bound_tip
+        )
+
+        # Differential: no-effects spine digest differs from effects spine.
+        bare = run_total_spine(
+            root_layer="quettacontinuum",
+            out_root=scratch / "bare-spine",
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=2,
+            max_successions=1,
+            max_epochs=1,
+            max_waves=1,
+            compress=True,
+            effects=False,
+        )
+        differential_ok = (
+            bool(bare.get("ok"))
+            and bare.get("total_spine_effects") is not True
+            and bare.get("total_spine_digest") != spine.get("total_spine_digest")
+            and isinstance(spine.get("total_spine_digest"), str)
+            and len(str(spine.get("total_spine_digest"))) >= 32
+        )
+
+        # Missing capability fails the effect pack without raising.
+        missing = run_total_spine(
+            root_layer="institution",
+            out_root=scratch / "missing",
+            max_rounds=1,
+            dispatch=True,
+            dispatch_budget=1,
+            max_successions=1,
+            max_epochs=1,
+            max_waves=1,
+            compress=False,
+            capabilities=["capability.does-not-exist-for-effect-proof"],
+            effect_timeout=30,
+            repo_path=REPO_ROOT,
+        )
+        missing_ok = (
+            missing.get("total_spine_effects") is True
+            and missing.get("total_spine_effects_ok") is False
+            and missing.get("ok") is False
+            and int(missing.get("total_spine_effects_failed_count") or 0) >= 1
+        )
+
+        spine_ok = (
+            bool(spine.get("ok"))
+            and spine.get("total_spine") is True
+            and spine.get("total_spine_compressed") is True
+            and spine.get("total_spine_effects") is True
+            and spine.get("total_spine_effects_ok") is True
+            and spine.get("total_spine_root") == "quettacontinuum"
+            and int(spine.get("total_nest_depth") or 0) == 28
+            and int(spine.get("total_dispatched_ok") or 0) >= 1
+            and int(spine.get("total_spine_effect_count") or 0)
+            == len(TOTAL_SPINE_DEFAULT_EFFECT_CAPABILITIES)
+            and int(spine.get("total_spine_effects_ok_count") or 0)
+            == len(TOTAL_SPINE_DEFAULT_EFFECT_CAPABILITIES)
+            and effect_ids == list(TOTAL_SPINE_DEFAULT_EFFECT_CAPABILITIES)
+            and all(
+                isinstance(e, Mapping) and e.get("ok") for e in effect_records
+            )
+            and not legacy_pipeline_was_used()
+        )
+
+        facade_path = Path(le_facade.__file__).resolve()
+        facade_text = facade_path.read_text(encoding="utf-8")
+        source_ok = (
+            "TOTAL_SPINE_EFFECT_IMPL" in facade_text
+            and "builtin_total_spine_effect_proof" in facade_text
+            and "dispatch_total_spine_effects" in facade_text
+            and callable(
+                getattr(le_facade, "builtin_total_spine_effect_proof", None)
+            )
+            and callable(getattr(le_facade, "dispatch_total_spine_effects", None))
+            and getattr(le_facade, "TOTAL_SPINE_EFFECT_IMPL", False) is True
+        )
+
+        engine_path = Path(__file__).resolve()
+        engine_text = engine_path.read_text(encoding="utf-8")
+        engine_source_ok = (
+            "def builtin_total_spine_effect_proof" in engine_text
+            and "def dispatch_total_spine_effects" in engine_text
+            and "def seal_total_spine_effect_chain" in engine_text
+            and "TOTAL_SPINE_EFFECT_IMPL" in engine_text
+            and "total_spine_effect_bound_tip" in engine_text
+        )
+
+        ledger_path = default_ledger_path(REPO_ROOT)
+        ledger_ok = False
+        try:
+            ledger = load_ledger(ledger_path)
+            entry = ledger.capabilities.get(
+                "capability.upstream-total-spine-effects"
+            )
+            tags_blob = " ".join(entry.tags).lower() if entry else ""
+            delta_blob = (entry.capability_delta or "").lower() if entry else ""
+            name_blob = (entry.name or "").lower() if entry else ""
+            ledger_ok = (
+                entry is not None
+                and "upstream_control_engine" in (entry.entry or "")
+                and "builtin_total_spine_effect_proof" in (entry.entry or "")
+                and (
+                    "effect" in tags_blob
+                    or "effect" in name_blob
+                    or "effect" in delta_blob
+                )
+                and ("total" in tags_blob or "total" in name_blob)
+                and (
+                    "ledger" in delta_blob
+                    or "capability" in delta_blob
+                    or "dispatch" in delta_blob
+                )
+                and (
+                    "run_total_spine" in delta_blob
+                    or "effects" in delta_blob
+                )
+            )
+        except Exception:  # noqa: BLE001
+            ledger_ok = False
+
+        ok = all(
+            [
+                flags_ok,
+                spine_ok,
+                effect_integrity_ok,
+                bound_ok,
+                differential_ok,
+                missing_ok,
+                source_ok,
+                engine_source_ok,
+                ledger_ok,
+                not legacy_pipeline_was_used(),
+            ]
+        )
+        return {
+            "ok": ok,
+            "action": "total_spine_effect_proof",
+            "flags_ok": flags_ok,
+            "spine_ok": spine_ok,
+            "spine_dispatched_ok": spine.get("total_dispatched_ok"),
+            "spine_total_digest": spine.get("total_spine_digest"),
+            "effect_count": spine.get("total_spine_effect_count"),
+            "effects_ok_count": spine.get("total_spine_effects_ok_count"),
+            "effect_ids": effect_ids,
+            "effect_tip": spine.get("total_spine_effect_tip"),
+            "effect_bound_tip": spine.get("total_spine_effect_bound_tip"),
+            "effect_integrity_ok": effect_integrity_ok,
+            "bound_ok": bound_ok,
+            "differential_ok": differential_ok,
+            "bare_digest": bare.get("total_spine_digest"),
+            "missing_ok": missing_ok,
+            "source_ok": source_ok,
+            "engine_source_ok": engine_source_ok,
+            "ledger_capability_ok": ledger_ok,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "control_engine": True,
+            "total_spine": True,
+            "total_spine_effects": True,
+            "total_spine_compressed": True,
+            "done_when_met": ok,
+        }
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
 def builtin_control_nest_proof() -> dict[str, Any]:
     """Hermetic proof: multi-depth nest owns program→…→fleet→campaign spine."""
     scratch = Path(tempfile.mkdtemp(prefix="control-nest-proof-"))
@@ -8878,6 +9442,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "live operational nest"
         ),
     )
+    sub.add_parser(
+        "effect-proof",
+        help=(
+            "Total spine effects proof: absolute tower dispatches ledger "
+            "capabilities and seals effect digests into the hop tip"
+        ),
+    )
     sub.add_parser("list", help="List control modes and dialects")
     sub.add_parser("nest-path", help="Print canonical operational nest path")
     sub.add_parser(
@@ -8982,6 +9553,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "total-proof":
         result = builtin_total_spine_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "effect-proof":
+        result = builtin_total_spine_effect_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2
