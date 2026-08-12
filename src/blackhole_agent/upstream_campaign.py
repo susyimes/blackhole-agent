@@ -78,8 +78,10 @@ CONTROL_ENGINE_MODE = "pipeline"
 
 # Campaign is the terminal pipeline leaf of OPERATIONAL_NEST
 # (program→succession→epoch→fleet→campaign). Fleet owns the nest edge.
+# Graph-native spine runs campaign as PipelineNestHooks under fleet dispatch.
 CONTROL_NEST = True
 CONTROL_NEST_LIVE = True
+CONTROL_GRAPH = True
 CONTROL_NEST_CHILD = ""
 CONTROL_NEST_CHILD_MODE = ""
 CONTROL_NEST_PARENT = "fleet"

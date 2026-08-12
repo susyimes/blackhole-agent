@@ -22,12 +22,14 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     AfterStage,
     ClassifyVerdict,
     PipelineDialect,
+    PipelineNestHooks,
     PipelineState,
     RunStage,
     SealPipeline,
     ShouldAbort,
     StageRefused,
     annotate_control_nest,
+    builtin_control_nest_proof,
     builtin_stage_engine_proof,
     collect_stage_digests,
     compose_pipeline_of_pipeline,
@@ -36,7 +38,9 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     nest_path,
     normalize_stages,
     operational_nest_path,
+    run_control_graph,
     run_nested_pipeline,
+    run_operational_spine,
     run_stage_pipeline,
     seal_pipeline_receipt,
     verify_pipeline_digest,
@@ -45,6 +49,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
 CONTROL_ENGINE_IMPL = True
 CONTROL_ENGINE_MODE = "pipeline"
 CONTROL_NEST_IMPL = True
+CONTROL_GRAPH_IMPL = True
 
 
 def main(argv: Sequence[str] | None = None) -> int:

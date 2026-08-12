@@ -18,6 +18,9 @@ Composition:
   (fleet→campaign) as an engine-owned nest edge
 * ``run_control_graph`` / ``OPERATIONAL_NEST`` — declarative multi-depth nest
   program→succession→epoch→fleet→campaign as engine data (not hand-wired glue)
+* ``run_operational_spine`` — public live entry for the full depth-5 graph;
+  pipeline-of-pipeline (fleet→campaign) is *native* graph composition, not a
+  stage-hook fiction
 
 No skill-route discovery.
 """
@@ -2466,6 +2469,23 @@ class LoopNestHooks:
     idle_limit: int | None = None
 
 
+@dataclass(frozen=True)
+class PipelineNestHooks:
+    """Per-pipeline-dialect hooks for :func:`run_control_graph`.
+
+    When a pipeline node nests another pipeline (fleet→campaign), the engine
+    runs :func:`compose_pipeline_of_pipeline` using the parent dialect's
+    ``attach_stage`` (default ``dispatch``) and the child dialect's stage
+    hooks. Stage hooks must *not* fake the child nest — the graph owns it.
+    """
+
+    run_stage: RunStage
+    classify: ClassifyVerdict
+    seal: SealPipeline
+    after_stage: AfterStage | None = None
+    attach_stage: str = "dispatch"
+
+
 def nest_path(node: ControlNode) -> list[dict[str, Any]]:
     """Flatten a control nest into ordered mode/dialect steps (outer → leaf)."""
     steps: list[dict[str, Any]] = []
@@ -2901,27 +2921,90 @@ def compose_loop_of_loop(
 def run_control_graph(
     node: ControlNode,
     *,
-    run_stage: RunStage,
-    classify_pipeline: ClassifyVerdict,
-    seal_pipeline: SealPipeline,
     loop_hooks: Mapping[str, LoopNestHooks],
+    pipeline_hooks: Mapping[str, PipelineNestHooks] | None = None,
+    run_stage: RunStage | None = None,
+    classify_pipeline: ClassifyVerdict | None = None,
+    seal_pipeline: SealPipeline | None = None,
     after_stage: AfterStage | None = None,
     out_root: Path | None = None,
     portfolio: Mapping[str, Any] | None = None,
     dispatch: bool = True,
     dispatch_budget: int | None = None,
     initial_pipeline_context: Mapping[str, Any] | None = None,
+    live: bool = False,
 ) -> dict[str, Any]:
     """Run a declarative multi-depth control nest end-to-end.
 
-    The graph is outer→inner (e.g. program→succession→epoch→fleet). Leaf
-    pipeline nodes use ``run_stage``/``classify_pipeline``/``seal_pipeline``.
-    Each loop dialect must appear in ``loop_hooks``. Nest structure is engine
-    data; hooks remain dialect-specific.
+    The graph is outer→inner (e.g. program→succession→epoch→fleet→campaign).
+    Each loop dialect must appear in ``loop_hooks``. Pipeline dialects use
+    ``pipeline_hooks`` (preferred) or the single-leaf fallbacks
+    ``run_stage`` / ``classify_pipeline`` / ``seal_pipeline``.
+
+    When a pipeline node nests another pipeline child (fleet→campaign), the
+    engine *natively* runs :func:`compose_pipeline_of_pipeline` — stage hooks
+    must not fabricate the child nest. Nest structure is engine data; hooks
+    remain dialect-specific.
     """
     validate_control_node(node)
     root_path = nest_path(node)
     root_depth = len(root_path)
+    pipe_hooks: dict[str, PipelineNestHooks] = {
+        str(k).strip().lower(): v for k, v in dict(pipeline_hooks or {}).items()
+    }
+
+    # Backward-compatible single-hook surface → shared PipelineNestHooks.
+    if run_stage is not None and classify_pipeline is not None and seal_pipeline is not None:
+        fallback = PipelineNestHooks(
+            run_stage=run_stage,
+            classify=classify_pipeline,
+            seal=seal_pipeline,
+            after_stage=after_stage,
+        )
+        for step in root_path:
+            if step.get("mode") == "pipeline":
+                key = str(step.get("dialect") or "").strip().lower()
+                pipe_hooks.setdefault(key, fallback)
+
+    def _pipeline_hooks_for(dialect: str) -> PipelineNestHooks:
+        key = str(dialect or "").strip().lower()
+        hooks = pipe_hooks.get(key)
+        if hooks is None:
+            raise StageRefused(
+                "control_nest_hooks_missing",
+                f"no PipelineNestHooks for pipeline dialect {dialect!r}; "
+                f"have={sorted(pipe_hooks)}",
+            )
+        return hooks
+
+    def _stamp_pipeline(
+        pipe: dict[str, Any],
+        *,
+        leaf: ControlNode,
+        depth_index: int,
+        round_index: int,
+        native_pop: bool,
+    ) -> dict[str, Any]:
+        pipe["control_engine"] = True
+        pipe["control_composed"] = True
+        pipe["control_nest"] = True
+        pipe["control_nest_depth"] = root_depth
+        pipe["control_nest_index"] = depth_index
+        pipe["control_nest_path"] = root_path
+        pipe["control_graph"] = True
+        pipe["control_graph_native_pipeline"] = bool(native_pop)
+        pipe["round_index"] = round_index
+        if leaf.child is not None:
+            pipe = annotate_control_nest(
+                pipe,
+                parent_dialect=leaf.dialect,
+                parent_mode="pipeline",
+                child_mode=str(leaf.child.mode),
+                child_dialect=str(leaf.child.dialect),
+                live=live,
+                nest_path_steps=root_path,
+            )
+        return pipe
 
     def _run_pipeline_leaf(
         leaf: ControlNode,
@@ -2931,6 +3014,7 @@ def run_control_graph(
         parent_dialect: str | None,
         portfolio_ctx: Mapping[str, Any] | None,
     ) -> dict[str, Any]:
+        parent_hooks = _pipeline_hooks_for(leaf.dialect)
         stages = list(leaf.stages) if leaf.stages is not None else None
         pipe_ctx = dict(initial_pipeline_context or {})
         pipe_ctx["round_index"] = round_index
@@ -2938,40 +3022,75 @@ def run_control_graph(
             pipe_ctx["parent_dialect"] = parent_dialect
         if portfolio_ctx is not None:
             pipe_ctx["portfolio"] = dict(portfolio_ctx)
-        # Pipeline-of-pipeline: expose nested child dialect to stage hooks
-        # (e.g. fleet dispatch → campaign) via context.
-        if leaf.child is not None:
-            pipe_ctx["control_nest_child_mode"] = leaf.child.mode
-            pipe_ctx["control_nest_child_dialect"] = leaf.child.dialect
-            if leaf.child.stages is not None:
-                pipe_ctx["control_nest_child_stages"] = list(leaf.child.stages)
+
+        child = leaf.child
+        child_mode = (
+            str(child.mode).strip().lower() if child is not None else ""
+        )
+        # Native pipeline-of-pipeline: engine owns fleet→campaign (etc.).
+        if child is not None and child_mode == "pipeline":
+            child_hooks = _pipeline_hooks_for(child.dialect)
+            child_stages = (
+                list(child.stages) if child.stages is not None else None
+            )
+            attach = str(parent_hooks.attach_stage or "dispatch")
+            parent_stages = list(stages) if stages is not None else None
+            # Ensure attach_stage is on the parent stage list.
+            if parent_stages is not None and attach not in parent_stages:
+                parent_stages = list(parent_stages) + [attach]
+            pipe_ctx["control_nest_child_mode"] = child.mode
+            pipe_ctx["control_nest_child_dialect"] = child.dialect
+            if child_stages is not None:
+                pipe_ctx["control_nest_child_stages"] = list(child_stages)
+            pipe = compose_pipeline_of_pipeline(
+                parent_dialect=leaf.dialect,
+                child_dialect=child.dialect,
+                attach_stage=attach,
+                parent_stages=parent_stages,
+                child_stages=child_stages,
+                run_parent_stage=parent_hooks.run_stage,
+                run_child_stage=child_hooks.run_stage,
+                classify_parent=parent_hooks.classify,
+                seal_parent=parent_hooks.seal,
+                classify_child=child_hooks.classify,
+                seal_child=child_hooks.seal,
+                after_parent_stage=parent_hooks.after_stage,
+                after_child_stage=child_hooks.after_stage,
+                initial_parent_context=pipe_ctx,
+                nest_stamp=True,
+                live=live,
+                nest_path_steps=root_path,
+            )
+            return _stamp_pipeline(
+                pipe,
+                leaf=leaf,
+                depth_index=depth_index,
+                round_index=round_index,
+                native_pop=True,
+            )
+
+        # Leaf pipeline (no nested pipeline child).
+        if child is not None:
+            pipe_ctx["control_nest_child_mode"] = child.mode
+            pipe_ctx["control_nest_child_dialect"] = child.dialect
+            if child.stages is not None:
+                pipe_ctx["control_nest_child_stages"] = list(child.stages)
         pipe = run_stage_pipeline(
             leaf.dialect,
             stages=stages,
-            run_stage=run_stage,
-            classify_verdict=classify_pipeline,
-            seal=seal_pipeline,
-            after_stage=after_stage,
+            run_stage=parent_hooks.run_stage,
+            classify_verdict=parent_hooks.classify,
+            seal=parent_hooks.seal,
+            after_stage=parent_hooks.after_stage,
             initial_context=pipe_ctx,
         )
-        pipe["control_engine"] = True
-        pipe["control_composed"] = True
-        pipe["control_nest"] = True
-        pipe["control_nest_depth"] = root_depth
-        pipe["control_nest_index"] = depth_index
-        pipe["control_nest_path"] = root_path
-        pipe["round_index"] = round_index
-        if leaf.child is not None:
-            pipe = annotate_control_nest(
-                pipe,
-                parent_dialect=leaf.dialect,
-                parent_mode="pipeline",
-                child_mode=str(leaf.child.mode),
-                child_dialect=str(leaf.child.dialect),
-                live=False,
-                nest_path_steps=root_path,
-            )
-        return pipe
+        return _stamp_pipeline(
+            pipe,
+            leaf=leaf,
+            depth_index=depth_index,
+            round_index=round_index,
+            native_pop=False,
+        )
 
     def _run_loop_node(
         node_cur: ControlNode,
@@ -3050,6 +3169,12 @@ def run_control_graph(
                 "child_dialect": child_node.dialect,
                 "digest": dig,
                 "control_nest": result.get("control_nest"),
+                "control_graph_native_pipeline": result.get(
+                    "control_graph_native_pipeline"
+                ),
+                "nested_pipeline_count": int(
+                    result.get("nested_pipeline_count") or 0
+                ),
                 "total_dispatched": int(result.get("total_dispatched") or 0),
                 "total_dispatched_ok": int(result.get("total_dispatched_ok") or 0),
                 "dispatched_count": int(
@@ -3111,6 +3236,7 @@ def run_control_graph(
                 ),
             )
             nested["control_nest"] = True
+            nested["control_graph"] = True
             nested["round_index"] = round_index
             return nested
 
@@ -3136,6 +3262,7 @@ def run_control_graph(
         result["control_mode"] = "loop"
         result["control_composed"] = True
         result["control_nest"] = True
+        result["control_graph"] = True
         result["control_nest_depth"] = root_depth
         result["control_nest_index"] = depth_index
         result["control_nest_path"] = root_path
@@ -3143,6 +3270,7 @@ def run_control_graph(
         result["control_child_mode"] = child_node.mode
         result["control_child_dialect"] = child_node.dialect
         result["control_nest_edge"] = f"{node_cur.dialect}->{child_node.dialect}"
+        result["control_nest_live"] = bool(live)
         return result
 
     if str(node.mode).strip().lower() == "pipeline":
@@ -3161,6 +3289,46 @@ def run_control_graph(
         dispatch_cur=dispatch,
         dispatch_budget_cur=dispatch_budget,
     )
+
+
+def run_operational_spine(
+    *,
+    loop_hooks: Mapping[str, LoopNestHooks],
+    pipeline_hooks: Mapping[str, PipelineNestHooks],
+    out_root: Path | None = None,
+    portfolio: Mapping[str, Any] | None = None,
+    dispatch: bool = True,
+    dispatch_budget: int | None = None,
+    nest: ControlNode | None = None,
+    live: bool = True,
+    initial_pipeline_context: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Public entry: run the full program→…→campaign operational spine.
+
+    Domain modules supply dialect hook packs; the nest structure is engine
+    data (:data:`OPERATIONAL_NEST`). Pipeline-of-pipeline
+    (fleet→campaign) is graph-native via :func:`compose_pipeline_of_pipeline`.
+    """
+    node = nest if nest is not None else OPERATIONAL_NEST
+    result = run_control_graph(
+        node,
+        loop_hooks=loop_hooks,
+        pipeline_hooks=pipeline_hooks,
+        out_root=out_root,
+        portfolio=portfolio,
+        dispatch=dispatch,
+        dispatch_budget=dispatch_budget,
+        initial_pipeline_context=initial_pipeline_context,
+        live=live,
+    )
+    result["control_operational_spine"] = True
+    result["control_graph"] = True
+    result["control_graph_native_pipeline"] = True
+    result["control_nest_live"] = bool(live)
+    if not result.get("control_nest_path"):
+        result["control_nest_path"] = nest_path(node)
+        result["control_nest_depth"] = nest_depth(node)
+    return result
 
 
 def operational_nest_path() -> list[dict[str, Any]]:
@@ -3186,8 +3354,10 @@ def builtin_control_nest_proof() -> dict[str, Any]:
         except Exception:  # noqa: BLE001
             validate_ok = False
 
-        # --- leaf pipeline stage hooks (fleet) ---
+        # --- pipeline stage hooks (fleet parent + campaign child) ---
+        # Fleet hooks must NOT fabricate campaign; graph owns pipeline-of-pipeline.
         fleet_calls: list[str] = []
+        campaign_calls: list[str] = []
 
         def run_fleet_stage(state: PipelineState, name: str) -> dict[str, Any]:
             ri = state.context.get("round_index")
@@ -3232,36 +3402,14 @@ def builtin_control_nest_proof() -> dict[str, Any]:
                     "action_count": 1,
                     "campaignable_count": 1,
                 }
+            # dispatch is engine-owned via compose_pipeline_of_pipeline; if the
+            # graph still invokes this hook for dispatch, that is a regression.
             if name == "dispatch":
-                dig = _sha256_json(
-                    {
-                        "wave": state.context.get("round_index"),
-                        "parent": state.context.get("parent_dialect"),
-                        "child": state.context.get("control_nest_child_dialect")
-                        or "campaign",
-                    }
+                raise StageRefused(
+                    "control_graph_pop_missing",
+                    "fleet dispatch must be owned by compose_pipeline_of_pipeline "
+                    "inside run_control_graph, not by the fleet stage hook",
                 )
-                fleet_calls.append(
-                    f"nested:{state.context.get('control_nest_child_dialect') or 'campaign'}"
-                )
-                return {
-                    "stage": name,
-                    "ok": True,
-                    "verdict": "fleet_dispatched",
-                    "dispatched_count": 1,
-                    "dispatched_ok": 1,
-                    "dispatches": [
-                        {
-                            "ok": True,
-                            "campaign_digest": dig,
-                            "control_nest_child": True,
-                            "control_child_dialect": state.context.get(
-                                "control_nest_child_dialect"
-                            )
-                            or "campaign",
-                        }
-                    ],
-                }
             raise StageRefused("stage_unknown", name)
 
         def fleet_classify(state: PipelineState) -> tuple[bool, str]:
@@ -3293,6 +3441,81 @@ def builtin_control_nest_proof() -> dict[str, Any]:
                     "verdict": receipt.get("verdict"),
                 },
             )
+
+        def run_camp_stage(state: PipelineState, name: str) -> dict[str, Any]:
+            campaign_calls.append(name)
+            if name == "repair":
+                return {
+                    "stage": name,
+                    "ok": True,
+                    "verdict": "repair_green",
+                    "report_sha256": "a" * 64,
+                }
+            if name == "contribution":
+                return {
+                    "stage": name,
+                    "ok": True,
+                    "verdict": "contribution_ready",
+                    "defects": [
+                        {
+                            "defect_id": "d1",
+                            "ok": True,
+                            "verdict": "submittable",
+                            "bundle_sha256": "b" * 64,
+                        }
+                    ],
+                }
+            if name == "publication":
+                return {
+                    "stage": name,
+                    "ok": True,
+                    "verdict": "publication_dry_run",
+                    "publications": [
+                        {
+                            "bundle_dir": "bundle-d1",
+                            "ok": True,
+                            "verdict": "dry_run",
+                        }
+                    ],
+                }
+            raise StageRefused("stage_unknown", name)
+
+        def camp_classify(state: PipelineState) -> tuple[bool, str]:
+            if state.aborted or not state.pipeline_ok:
+                return False, state.terminal_verdict
+            return True, "publication_dry_run"
+
+        def camp_seal(state: PipelineState) -> dict[str, Any]:
+            return seal_pipeline_receipt(
+                state,
+                out_root=scratch / "nest-campaign-leaf",
+                identity={"name": "camp-alpha", "version": "1.0.0"},
+                stage_digests={
+                    "repair.verdict": _sha256_bytes(b"repair_green"),
+                    "publication.verdict": _sha256_bytes(b"publication_dry_run"),
+                },
+                digest_payload=lambda receipt: {
+                    "schema_version": SCHEMA_VERSION,
+                    "name": receipt.get("name"),
+                    "stages": receipt.get("stages"),
+                    "ok": receipt.get("ok"),
+                    "verdict": receipt.get("verdict"),
+                },
+            )
+
+        pipe_hooks = {
+            "fleet": PipelineNestHooks(
+                run_stage=run_fleet_stage,
+                classify=fleet_classify,
+                seal=fleet_seal,
+                attach_stage="dispatch",
+            ),
+            "campaign": PipelineNestHooks(
+                run_stage=run_camp_stage,
+                classify=camp_classify,
+                seal=camp_seal,
+            ),
+        }
 
         def _make_loop_hooks(dialect_name: str, goal_after: int) -> LoopNestHooks:
             d = get_loop_dialect(dialect_name)
@@ -3363,16 +3586,24 @@ def builtin_control_nest_proof() -> dict[str, Any]:
             "epoch": _make_loop_hooks("epoch", goal_after=2),
         }
 
-        nest_result = run_control_graph(
-            OPERATIONAL_NEST,
-            run_stage=run_fleet_stage,
-            classify_pipeline=fleet_classify,
-            seal_pipeline=fleet_seal,
+        # Public spine entry: native graph owns fleet→campaign.
+        nest_result = run_operational_spine(
             loop_hooks=hooks,
+            pipeline_hooks=pipe_hooks,
             out_root=scratch / "nest-root",
             portfolio={"entries": [], "portfolio_digest": "p" * 64},
             dispatch=True,
             dispatch_budget=8,
+            live=False,
+        )
+
+        # Campaign stages must actually run (engine-native pop, not fleet fiction).
+        campaign_ok = (
+            campaign_calls.count("repair") >= 2
+            and campaign_calls.count("contribution") >= 2
+            and campaign_calls.count("publication") >= 2
+            and not any(c.endswith(":dispatch") for c in fleet_calls)
+            and any(":inventory" in c for c in fleet_calls)
         )
 
         nest_ok = (
@@ -3380,14 +3611,16 @@ def builtin_control_nest_proof() -> dict[str, Any]:
             and nest_result.get("control_engine") is True
             and nest_result.get("control_nest") is True
             and nest_result.get("control_composed") is True
+            and nest_result.get("control_graph") is True
+            and nest_result.get("control_operational_spine") is True
+            and nest_result.get("control_graph_native_pipeline") is True
             and nest_result.get("control_nest_depth") == 5
             and nest_result.get("control_mode") == "loop"
             and nest_result.get("control_parent_dialect") == "program"
             and nest_result.get("control_child_dialect") == "succession"
             and nest_result.get("loop_dialect") == "program"
             and int(nest_result.get("total_dispatched_ok") or 0) >= 2
-            and any("epoch:" in c and ":dispatch" in c for c in fleet_calls)
-            and any(c.startswith("nested:campaign") for c in fleet_calls)
+            and campaign_ok
             and bool(nest_result.get("program_digest"))
         )
 
@@ -3607,6 +3840,20 @@ def builtin_control_nest_proof() -> dict[str, Any]:
                 getattr(se_facade, "run_nested_pipeline", None)
             ),
             "facade_nest_impl": getattr(le_facade, "CONTROL_NEST_IMPL", False) is True,
+            "program_graph": getattr(up, "CONTROL_GRAPH", False) is True,
+            "succession_graph": getattr(us, "CONTROL_GRAPH", False) is True,
+            "epoch_graph": getattr(ue, "CONTROL_GRAPH", False) is True,
+            "fleet_graph": getattr(ufleet, "CONTROL_GRAPH", False) is True,
+            "campaign_graph": getattr(ucamp, "CONTROL_GRAPH", False) is True,
+            "fleet_graph_native": getattr(
+                ufleet, "CONTROL_GRAPH_NATIVE_PIPELINE", False
+            )
+            is True,
+            "facade_graph_impl": getattr(le_facade, "CONTROL_GRAPH_IMPL", False)
+            is True,
+            "facade_run_spine": callable(
+                getattr(le_facade, "run_operational_spine", None)
+            ),
         }
         live_flags_ok = all(live_nest_flags.values())
 
@@ -3764,28 +4011,40 @@ def builtin_control_nest_proof() -> dict[str, Any]:
         ledger_ok = False
         try:
             ledger = load_ledger(ledger_path)
-            entry = ledger.capabilities.get("capability.upstream-control-spine")
+            entry = ledger.capabilities.get("capability.upstream-control-graph")
             tags_blob = " ".join(entry.tags).lower() if entry else ""
             delta_blob = (entry.capability_delta or "").lower() if entry else ""
             name_blob = (entry.name or "").lower() if entry else ""
             ledger_ok = (
                 entry is not None
                 and "upstream_control_engine" in (entry.entry or "")
+                and "builtin_control_graph_proof" in (entry.entry or "")
                 and (
-                    "spine" in tags_blob
-                    or "spine" in name_blob
-                    or "spine" in delta_blob
+                    "graph" in tags_blob
+                    or "graph" in name_blob
+                    or "graph" in delta_blob
                 )
                 and (
-                    "campaign" in delta_blob
-                    or "fleet->campaign" in delta_blob
+                    "run_operational_spine" in delta_blob
+                    or "native" in delta_blob
+                )
+                and (
+                    "fleet->campaign" in delta_blob
                     or "fleet→campaign" in delta_blob
                     or "pipeline_of_pipeline" in delta_blob
-                    or "run_nested_pipeline" in delta_blob
+                    or "compose_pipeline_of_pipeline" in delta_blob
                 )
             )
         except Exception:  # noqa: BLE001
             ledger_ok = False
+
+        # Facades re-export graph ownership surface.
+        facade_graph_ok = (
+            callable(getattr(le_facade, "run_operational_spine", None))
+            and callable(getattr(le_facade, "run_control_graph", None))
+            and getattr(le_facade, "CONTROL_GRAPH_IMPL", False) is True
+            and getattr(se_facade, "CONTROL_GRAPH_IMPL", False) is True
+        )
 
         engine_path = Path(__file__).resolve()
         engine_loc = sum(
@@ -3804,13 +4063,14 @@ def builtin_control_nest_proof() -> dict[str, Any]:
                 live_flags_ok,
                 live_source_ok,
                 live_domain_ok,
+                facade_graph_ok,
                 ledger_ok,
                 not legacy_pipeline_was_used(),
             ]
         )
         return {
             "ok": ok,
-            "action": "control_nest_proof",
+            "action": "control_graph_proof",
             "path_ok": path_ok,
             "validate_ok": validate_ok,
             "nest_path": path,
@@ -3820,6 +4080,8 @@ def builtin_control_nest_proof() -> dict[str, Any]:
             "compose_pipeline_of_pipeline_ok": pop_ok,
             "pipeline_of_pipeline_edge": pop.get("control_nest_edge"),
             "campaign_calls": camp_calls,
+            "spine_campaign_calls": list(campaign_calls),
+            "spine_campaign_ok": campaign_ok,
             "live_nest_flags_ok": live_flags_ok,
             "live_nest_flags": live_nest_flags,
             "live_source_ok": live_source_ok,
@@ -3833,6 +4095,7 @@ def builtin_control_nest_proof() -> dict[str, Any]:
             "live_succession_edge": live_succ.get("control_nest_edge"),
             "live_program_edge": live_prog.get("control_nest_edge"),
             "live_fleet_edge": live_fleet.get("control_nest_edge"),
+            "facade_graph_ok": facade_graph_ok,
             "ledger_capability_ok": ledger_ok,
             "program_digest": nest_result.get("program_digest"),
             "live_program_digest": live_prog.get("program_digest"),
@@ -3846,6 +4109,9 @@ def builtin_control_nest_proof() -> dict[str, Any]:
             "control_engine": True,
             "control_nest": True,
             "control_spine": True,
+            "control_graph": True,
+            "control_graph_native_pipeline": True,
+            "control_operational_spine": True,
             "done_when_met": ok,
         }
     finally:
@@ -4360,6 +4626,11 @@ def builtin_control_engine_proof() -> dict[str, Any]:
         shutil.rmtree(scratch, ignore_errors=True)
 
 
+def builtin_control_graph_proof() -> dict[str, Any]:
+    """Alias: graph-native operational spine proof (native fleet→campaign)."""
+    return builtin_control_nest_proof()
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -4371,6 +4642,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     sub.add_parser(
         "spine-proof",
         help="Alias of nest-proof: full operational spine incl. fleet→campaign",
+    )
+    sub.add_parser(
+        "graph-proof",
+        help="Graph-native spine proof: run_operational_spine owns fleet→campaign",
     )
     sub.add_parser("list", help="List control modes and dialects")
     sub.add_parser("nest-path", help="Print canonical operational nest path")
@@ -4395,8 +4670,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = builtin_control_engine_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
-    if args.cmd in {"nest-proof", "spine-proof"}:
-        result = builtin_control_nest_proof()
+    if args.cmd in {"nest-proof", "spine-proof", "graph-proof"}:
+        result = builtin_control_graph_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2

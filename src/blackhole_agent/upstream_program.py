@@ -79,8 +79,10 @@ CONTROL_ENGINE_MODE = "loop"
 
 # Multi-depth control nest: program is the outer node of OPERATIONAL_NEST.
 # Live run_program uses le.run_nested_control (program→succession).
+# Graph-native spine (run_operational_spine) owns fleet→campaign composition.
 CONTROL_NEST = True
 CONTROL_NEST_LIVE = True
+CONTROL_GRAPH = True
 CONTROL_NEST_CHILD = "succession"
 CONTROL_NEST_CHILD_MODE = "loop"
 CONTROL_NEST_PATH = [

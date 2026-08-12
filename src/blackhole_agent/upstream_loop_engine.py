@@ -23,13 +23,16 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     IsIdleRound,
     LoopClassifyVerdict,
     LoopDialect,
+    LoopNestHooks,
     LoopRefused,
     LoopState,
     OnChildResult,
+    PipelineNestHooks,
     PostRoundStop,
     PreRoundStop,
     SealLoop,
     annotate_control_nest,
+    builtin_control_nest_proof,
     builtin_loop_engine_proof,
     compose_loop_of_loop,
     compose_pipeline_of_pipeline,
@@ -40,9 +43,11 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     open_loop_dir,
     operational_nest_path,
     resolve_portfolio,
+    run_control_graph,
     run_durable_loop,
     run_nested_control,
     run_nested_pipeline,
+    run_operational_spine,
     seal_json_receipt,
     verify_loop_receipt,
 )
@@ -53,6 +58,7 @@ ClassifyVerdict = LoopClassifyVerdict
 CONTROL_ENGINE_IMPL = True
 CONTROL_ENGINE_MODE = "loop"
 CONTROL_NEST_IMPL = True
+CONTROL_GRAPH_IMPL = True
 
 
 def main(argv: Sequence[str] | None = None) -> int:

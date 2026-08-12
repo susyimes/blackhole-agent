@@ -75,8 +75,13 @@ CONTROL_ENGINE_MODE = "pipeline"
 # Pipeline node of the multi-depth operational nest (program→…→fleet→campaign).
 # Driven as nest child by epoch via run_nested_control (epoch→fleet).
 # Live run_fleet uses se.run_nested_pipeline for the fleet→campaign edge.
+# Graph-native spine (run_operational_spine) owns fleet→campaign via
+# compose_pipeline_of_pipeline inside run_control_graph — stage hooks do not
+# fabricate the campaign nest.
 CONTROL_NEST = True
 CONTROL_NEST_LIVE = True
+CONTROL_GRAPH = True
+CONTROL_GRAPH_NATIVE_PIPELINE = True
 CONTROL_NEST_CHILD = "campaign"
 CONTROL_NEST_CHILD_MODE = "pipeline"
 CONTROL_NEST_PATH = se.operational_nest_path()

@@ -67,6 +67,7 @@ CONTROL_ENGINE_MODE = "loop"
 # Live run_epoch uses le.run_nested_control (not raw run_durable_loop).
 CONTROL_NEST = True
 CONTROL_NEST_LIVE = True
+CONTROL_GRAPH = True
 CONTROL_NEST_CHILD = "fleet"
 CONTROL_NEST_CHILD_MODE = "pipeline"
 
