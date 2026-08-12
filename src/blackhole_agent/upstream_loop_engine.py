@@ -24,9 +24,11 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     STEWARDSHIP_SPINE_DEFAULT_ROOTS,
     TOTAL_SPINE_COMPRESS_THRESHOLD,
     TOTAL_SPINE_DEFAULT_EFFECT_CAPABILITIES,
+    TOTAL_SPINE_DEFAULT_GOAL_MAX_STEPS,
     TOTAL_SPINE_DEFAULT_ROOT,
     TOTAL_SPINE_DEFAULT_ROOTS,
     TOTAL_SPINE_EFFECT_IMPL,
+    TOTAL_SPINE_GOAL_IMPL,
     TOTAL_SPINE_IMPL,
     BuildChildKwargs,
     ExtractChildDigest,
@@ -49,6 +51,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     annotate_outer_governance_spine,
     annotate_stewardship_spine,
     annotate_total_spine,
+    annotate_total_spine_contract,
     annotate_total_spine_effects,
     build_live_domain_hooks,
     builtin_civilization_spine_proof,
@@ -58,11 +61,13 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     builtin_loop_engine_proof,
     builtin_stewardship_spine_proof,
     builtin_total_spine_effect_proof,
+    builtin_total_spine_goal_proof,
     builtin_total_spine_proof,
     compose_loop_of_loop,
     compose_pipeline_of_pipeline,
     default_extract_dispatched,
     dispatch_total_spine_effects,
+    evaluate_total_spine_contract,
     get_loop_dialect,
     governance_nest_depth,
     governance_nest_path,
@@ -77,7 +82,9 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     operational_nest_path,
     outer_governance_nest_depth,
     outer_governance_nest_path,
+    plan_total_spine_goal_effects,
     recover_governance_child_path,
+    resolve_total_spine_goals,
     resolve_portfolio,
     run_control_graph,
     run_durable_loop,
@@ -89,6 +96,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     run_stewardship_spine,
     run_total_spine,
     seal_json_receipt,
+    seal_total_spine_contract,
     seal_total_spine_effect_chain,
     seal_total_spine_hop_chain,
     stewardship_constitution_chain,
@@ -151,6 +159,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "capabilities with sealed effect digests"
         ),
     )
+    sub.add_parser(
+        "goal-proof",
+        help=(
+            "Total spine goal: free-text goal plans effects and "
+            "done_when contracts gate the absolute tower tip"
+        ),
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
     if args.cmd == "list":
         print(json.dumps({"dialects": list_loop_dialects()}, indent=2))
@@ -181,6 +196,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "effect-proof":
         result = builtin_total_spine_effect_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "goal-proof":
+        result = builtin_total_spine_goal_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2

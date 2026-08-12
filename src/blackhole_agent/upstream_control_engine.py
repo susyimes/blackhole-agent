@@ -45,6 +45,11 @@ Composition:
   invokes proved ledger capabilities, seals an effect hop chain, and
   binds the effect tip into the total-spine digest so quetta→campaign
   produces real invocable outcomes (not mock fleet digests only)
+* total-spine **goal effects + contracts** — closes the hand-picked
+  effect cliff: free-text ``goal`` plans the effect program via the
+  ledger goal-plan surface; optional ``done_when`` evaluates a
+  machine-checkable outcome contract against spine+effect evidence and
+  rebinds the tip so the absolute tower is goal-conditioned end-to-end
 
 No skill-route discovery.
 """
@@ -4264,6 +4269,39 @@ TOTAL_SPINE_DEFAULT_EFFECT_CAPABILITIES: tuple[str, ...] = (
     "repo.import-health",
     "capability.ledger-inventory",
 )
+# Goal-conditioned effect planning + outcome-contract gate (opt-in).
+TOTAL_SPINE_GOAL_IMPL = True
+TOTAL_SPINE_DEFAULT_GOAL_MAX_STEPS: int = 3
+# Constitution-layer goals accepted by run_constitution (not free-text).
+TOTAL_SPINE_CONSTITUTION_GOALS: frozenset[str] = frozenset(
+    {
+        "all_children_met",
+        "terminal_coverage",
+        "none",
+    }
+)
+
+
+def resolve_total_spine_goals(
+    goal: str | None,
+) -> tuple[str | None, str | None]:
+    """Split free-text mission goals from constitution-layer goals.
+
+    Returns ``(institution_goal, effect_goal)``. Free-text mission goals drive
+    effect planning; only known constitution tokens are forwarded into
+    institution_goal (unknown free-text would refuse run_constitution).
+    """
+    text = str(goal or "").strip()
+    if not text:
+        return None, None
+    if text in TOTAL_SPINE_CONSTITUTION_GOALS:
+        return text, None
+    # Layer-specific all_*_met tokens (e.g. all_programs_met) are constitution goals.
+    if text == "all_children_met" or (
+        text.startswith("all_") and text.endswith("_met")
+    ):
+        return text, None
+    return None, text
 
 
 def stewardship_constitution_chain(root_layer: str) -> list[str]:
@@ -4518,6 +4556,126 @@ def seal_total_spine_effect_chain(
     return hops
 
 
+def plan_total_spine_goal_effects(
+    goal: str,
+    *,
+    max_steps: int | None = None,
+    cwd: Path | None = None,
+    ledger_path: Path | None = None,
+) -> dict[str, Any]:
+    """Plan ledger capability ids for total-spine effects from a free-text goal.
+
+    Uses the compounder goal-plan surface (keyword/tag/id scoring over the
+    live ledger) so the absolute tower is not limited to hand-picked effect
+    lists. Prefer proved primitives and keep the program short so depth-28
+    spines stay invocable.
+    """
+    from blackhole_agent.capability_compounder import (
+        default_ledger_path,
+        load_ledger,
+        plan_capability_program,
+    )
+
+    root = Path(cwd) if cwd is not None else REPO_ROOT
+    root = root.resolve()
+    path = Path(ledger_path) if ledger_path is not None else default_ledger_path(root)
+    ledger = load_ledger(path)
+    limit = (
+        int(max_steps)
+        if max_steps is not None
+        else TOTAL_SPINE_DEFAULT_GOAL_MAX_STEPS
+    )
+    plan = plan_capability_program(
+        ledger,
+        goal,
+        max_steps=max(1, limit),
+        prefer_primitives=True,
+    )
+    steps = [str(s).strip() for s in (plan.get("steps") or []) if str(s).strip()]
+    return {
+        "ok": bool(plan.get("ok")) and bool(steps),
+        "action": "total_spine_goal_plan",
+        "total_spine_goal_impl": TOTAL_SPINE_GOAL_IMPL,
+        "goal": plan.get("goal") or str(goal or "").strip(),
+        "steps": steps,
+        "step_count": len(steps),
+        "scores": dict(plan.get("scores") or {}),
+        "max_steps": max(1, limit),
+        "ledger_path": str(path),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def seal_total_spine_contract(
+    contract: Mapping[str, Any],
+    *,
+    prior_tip: str,
+) -> dict[str, Any]:
+    """Seal a machine-checkable done_when verdict into a hop digest.
+
+    Material: ``met|machine|passed|failed|raw_digest|prior_tip`` so contract
+    outcomes move the absolute-tower tip when predicates change.
+    """
+    met = contract.get("met")
+    if met is True:
+        met_flag = "1"
+    elif met is False:
+        met_flag = "0"
+    else:
+        met_flag = "x"
+    machine = "1" if contract.get("machine_checkable") else "0"
+    passed = int(contract.get("passed_count") or 0)
+    failed = int(contract.get("failed_count") or 0)
+    raw = ""
+    parse = contract.get("parse")
+    if isinstance(parse, Mapping):
+        raw = str(parse.get("raw") or "")
+    if not raw:
+        raw = str(contract.get("raw") or contract.get("done_when") or "")
+    raw_digest = _sha256_bytes(raw.encode("utf-8"))
+    tip = str(prior_tip or "").strip() or ("0" * 64)
+    material = (
+        f"{met_flag}|{machine}|{passed}|{failed}|{raw_digest}|{tip}".encode("utf-8")
+    )
+    digest = _sha256_bytes(material)
+    return {
+        "met": met,
+        "machine_checkable": bool(contract.get("machine_checkable")),
+        "passed_count": passed,
+        "failed_count": failed,
+        "raw_digest": raw_digest,
+        "prior_tip": tip,
+        "digest": digest,
+    }
+
+
+def evaluate_total_spine_contract(
+    done_when: str,
+    *,
+    context: Mapping[str, Any] | None = None,
+    cwd: Path | None = None,
+    timeout: int = 60,
+) -> dict[str, Any]:
+    """Evaluate a free-text/structured done_when against spine+ledger evidence."""
+    from blackhole_agent.capability_compounder import evaluate_outcome_contract
+
+    root = Path(cwd) if cwd is not None else REPO_ROOT
+    root = root.resolve()
+    result = evaluate_outcome_contract(
+        root,
+        str(done_when or ""),
+        context=context,
+        timeout=max(5, int(timeout)),
+        run_programs=False,
+    )
+    result["total_spine_contract"] = True
+    result["total_spine_goal_impl"] = TOTAL_SPINE_GOAL_IMPL
+    result["used_skill_route_discovery"] = bool(
+        result.get("used_skill_route_discovery")
+    ) or legacy_pipeline_was_used()
+    return result
+
+
 def dispatch_total_spine_effects(
     capability_ids: Sequence[str],
     *,
@@ -4648,6 +4806,50 @@ def annotate_total_spine_effects(
     return dict(body)
 
 
+def annotate_total_spine_contract(
+    body: MutableMapping[str, Any],
+    *,
+    contract: Mapping[str, Any],
+    prior_tip: str,
+    done_when: str,
+) -> dict[str, Any]:
+    """Stamp outcome-contract gate onto a total-spine result and rebind tip."""
+    seal = seal_total_spine_contract(contract, prior_tip=prior_tip)
+    body["total_spine_contract"] = True
+    body["total_spine_goal_impl"] = TOTAL_SPINE_GOAL_IMPL
+    body["total_spine_done_when"] = str(done_when or "")
+    body["total_spine_contract_met"] = contract.get("met")
+    body["total_spine_contract_machine_checkable"] = bool(
+        contract.get("machine_checkable")
+    )
+    body["total_spine_contract_ok"] = bool(contract.get("ok"))
+    body["total_spine_contract_passed_count"] = int(
+        contract.get("passed_count") or 0
+    )
+    body["total_spine_contract_failed_count"] = int(
+        contract.get("failed_count") or 0
+    )
+    body["total_spine_contract_results"] = list(contract.get("results") or [])
+    body["total_spine_contract_failed"] = list(contract.get("failed") or [])
+    body["total_spine_contract_seal"] = seal
+    body["total_spine_contract_tip"] = seal.get("digest")
+    body["total_spine_digest_pre_contract"] = prior_tip
+    # Gate: machine-checkable contract that is not met fails the tower.
+    met = contract.get("met")
+    if contract.get("machine_checkable") and met is False:
+        body["ok"] = False
+        body["verdict"] = body.get("verdict") or "total_spine_contract_failed"
+        body["total_spine_contract_gated"] = True
+    elif contract.get("machine_checkable") and met is True:
+        body["total_spine_contract_gated"] = True
+    else:
+        body["total_spine_contract_gated"] = False
+    body["used_skill_route_discovery"] = legacy_pipeline_was_used() or bool(
+        contract.get("used_skill_route_discovery")
+    )
+    return dict(body)
+
+
 def annotate_total_spine(
     result: Mapping[str, Any],
     *,
@@ -4702,68 +4904,199 @@ def _attach_total_spine_effects(
     repo_path: Path | None,
     out_root: Path | None,
     chain_len: int,
+    goal: str | None = None,
+    max_effect_steps: int | None = None,
+    done_when: str | None = None,
 ) -> dict[str, Any]:
-    """Optionally dispatch ledger effects and rebind hop digests."""
-    want_effects = bool(effects) or (
+    """Optionally dispatch ledger effects, gate contracts, rebind hop digests.
+
+    Effect id selection order:
+    1. explicit ``capabilities`` list
+    2. free-text ``goal`` via :func:`plan_total_spine_goal_effects`
+    3. :data:`TOTAL_SPINE_DEFAULT_EFFECT_CAPABILITIES` when ``effects=True``
+
+    When ``done_when`` is set, evaluate a machine-checkable outcome contract
+    after effects (or after the operational tip alone) and rebind the tower
+    digest so contract verdicts are hop-visible.
+    """
+    goal_text = str(goal or "").strip()
+    contract_text = str(done_when or "").strip()
+    explicit_caps = (
         capabilities is not None and len(list(capabilities)) > 0
     )
-    if not want_effects:
+    want_effects = bool(effects) or explicit_caps or (
+        bool(goal_text) and bool(effects)
+    )
+    # Goal-only with effects=True (above) covers goal-conditioned mode.
+    # Also auto-enable effects when a non-empty goal is provided alongside
+    # an explicit done_when so goal→effects→contract is one path.
+    if not want_effects and goal_text and contract_text:
+        want_effects = True
+    if not want_effects and not contract_text:
         annotated["total_spine_effects"] = False
+        annotated["total_spine_goal_planned"] = False
+        annotated["total_spine_contract"] = False
         return annotated
 
-    ids: list[str]
-    if capabilities is not None and len(list(capabilities)) > 0:
-        ids = [str(c).strip() for c in capabilities if str(c).strip()]
-    else:
-        ids = list(TOTAL_SPINE_DEFAULT_EFFECT_CAPABILITIES)
-
-    effect_out = None
-    if out_root is not None:
-        effect_out = Path(out_root) / "effects"
-    pack = dispatch_total_spine_effects(
-        ids,
-        cwd=repo_path or REPO_ROOT,
-        out_root=effect_out,
-        timeout=effect_timeout,
-    )
+    repo = Path(repo_path) if repo_path is not None else REPO_ROOT
+    repo = repo.resolve()
     operational_tip = _operational_tip_digest(live_result)
-    # Bind effects into the constitution hop base tip so deep digests move.
-    effect_chain = seal_total_spine_effect_chain(
-        pack.get("effects") or [],
-        operational_tip=operational_tip,
-    )
-    effect_tip = (
-        effect_chain[-1]["digest"] if effect_chain else operational_tip
-    )
-    bound_tip = _sha256_bytes(
-        f"{operational_tip}|{effect_tip}".encode("utf-8")
-    )
-    if compressed:
-        hops = seal_total_spine_hop_chain(root, live_result, tip=bound_tip)
-        annotated["total_spine_hop_chain"] = hops
-        annotated["total_spine_hop_count"] = len(hops)
-        if hops:
-            annotated["total_spine_digest"] = hops[0].get("digest")
-            annotated[f"{root}_digest"] = hops[0].get("digest")
-    else:
-        annotated["total_spine_digest"] = bound_tip
-        annotated[f"{root}_digest"] = bound_tip
+    bound_tip = operational_tip
+    goal_plan: dict[str, Any] | None = None
 
-    annotated = annotate_total_spine_effects(
-        annotated,
-        effect_pack=pack,
-        operational_tip=operational_tip,
-    )
-    # annotate_total_spine_effects rebinds digest to prior|effect_tip; for
-    # compressed mode keep the constitution-root hop as the public digest and
-    # store the effect-bound tip separately (already on hop child tips).
-    if compressed and annotated.get("total_spine_hop_chain"):
-        hops = annotated["total_spine_hop_chain"]
-        if hops:
-            annotated["total_spine_digest"] = hops[0].get("digest")
-            annotated[f"{root}_digest"] = hops[0].get("digest")
-    annotated["total_spine_effect_bound_tip"] = bound_tip
+    if want_effects:
+        ids: list[str]
+        if explicit_caps:
+            ids = [str(c).strip() for c in capabilities if str(c).strip()]
+            annotated["total_spine_goal_planned"] = False
+            annotated["total_spine_effect_source"] = "explicit"
+        elif goal_text:
+            goal_plan = plan_total_spine_goal_effects(
+                goal_text,
+                max_steps=max_effect_steps,
+                cwd=repo,
+            )
+            ids = list(goal_plan.get("steps") or [])
+            annotated["total_spine_goal_planned"] = True
+            annotated["total_spine_goal_plan"] = goal_plan
+            annotated["total_spine_effect_source"] = "goal"
+            annotated["total_spine_goal"] = goal_plan.get("goal") or goal_text
+            if not ids:
+                # Honest failure: goal planner returned nothing.
+                annotated["total_spine_effects"] = True
+                annotated["total_spine_effects_ok"] = False
+                annotated["ok"] = False
+                annotated["verdict"] = (
+                    annotated.get("verdict") or "total_spine_goal_plan_empty"
+                )
+                annotated["total_spine_constitution_depth"] = chain_len
+                return annotated
+        else:
+            ids = list(TOTAL_SPINE_DEFAULT_EFFECT_CAPABILITIES)
+            annotated["total_spine_goal_planned"] = False
+            annotated["total_spine_effect_source"] = "default"
+
+        effect_out = None
+        if out_root is not None:
+            effect_out = Path(out_root) / "effects"
+        pack = dispatch_total_spine_effects(
+            ids,
+            cwd=repo,
+            out_root=effect_out,
+            timeout=effect_timeout,
+        )
+        effect_chain = seal_total_spine_effect_chain(
+            pack.get("effects") or [],
+            operational_tip=operational_tip,
+        )
+        effect_tip = (
+            effect_chain[-1]["digest"] if effect_chain else operational_tip
+        )
+        bound_tip = _sha256_bytes(
+            f"{operational_tip}|{effect_tip}".encode("utf-8")
+        )
+        if compressed:
+            hops = seal_total_spine_hop_chain(root, live_result, tip=bound_tip)
+            annotated["total_spine_hop_chain"] = hops
+            annotated["total_spine_hop_count"] = len(hops)
+            if hops:
+                annotated["total_spine_digest"] = hops[0].get("digest")
+                annotated[f"{root}_digest"] = hops[0].get("digest")
+        else:
+            annotated["total_spine_digest"] = bound_tip
+            annotated[f"{root}_digest"] = bound_tip
+
+        annotated = annotate_total_spine_effects(
+            annotated,
+            effect_pack=pack,
+            operational_tip=operational_tip,
+        )
+        if compressed and annotated.get("total_spine_hop_chain"):
+            hops = annotated["total_spine_hop_chain"]
+            if hops:
+                annotated["total_spine_digest"] = hops[0].get("digest")
+                annotated[f"{root}_digest"] = hops[0].get("digest")
+        annotated["total_spine_effect_bound_tip"] = bound_tip
+    else:
+        annotated["total_spine_effects"] = False
+        annotated["total_spine_goal_planned"] = False
+
+    # Contract gate (optional): bind done_when into the tip after effects.
+    if contract_text:
+        prior = str(
+            annotated.get("total_spine_effect_bound_tip")
+            or annotated.get("total_spine_digest")
+            or bound_tip
+            or operational_tip
+        )
+        context: dict[str, Any] = {
+            "total_spine": annotated,
+            "total_spine_effects": annotated.get("total_spine_effects"),
+            "total_spine_effects_ok": annotated.get("total_spine_effects_ok"),
+            "total_spine_effect_count": annotated.get(
+                "total_spine_effect_count"
+            ),
+            "total_dispatched_ok": annotated.get("total_dispatched_ok"),
+            "total_spine_goal": annotated.get("total_spine_goal") or goal_text,
+            "effects_applied_ok": bool(
+                annotated.get("total_spine_effects_ok")
+            ),
+            "program": {
+                "ok": bool(annotated.get("total_spine_effects_ok")),
+                "passed_count": int(
+                    annotated.get("total_spine_effects_ok_count") or 0
+                ),
+                "steps": list(
+                    annotated.get("total_spine_effect_capabilities") or []
+                ),
+            },
+        }
+        contract = evaluate_total_spine_contract(
+            contract_text,
+            context=context,
+            cwd=repo,
+            timeout=effect_timeout,
+        )
+        seal = seal_total_spine_contract(contract, prior_tip=prior)
+        contract_tip = str(seal.get("digest") or prior)
+        bound_tip = _sha256_bytes(
+            f"{prior}|{contract_tip}".encode("utf-8")
+        )
+        annotated = annotate_total_spine_contract(
+            annotated,
+            contract=contract,
+            prior_tip=prior,
+            done_when=contract_text,
+        )
+        annotated["total_spine_contract_bound_tip"] = bound_tip
+        if compressed:
+            hops = seal_total_spine_hop_chain(root, live_result, tip=bound_tip)
+            annotated["total_spine_hop_chain"] = hops
+            annotated["total_spine_hop_count"] = len(hops)
+            if hops:
+                annotated["total_spine_digest"] = hops[0].get("digest")
+                annotated[f"{root}_digest"] = hops[0].get("digest")
+        else:
+            annotated["total_spine_digest"] = bound_tip
+            annotated[f"{root}_digest"] = bound_tip
+        if out_root is not None:
+            contract_dir = Path(out_root) / "contract"
+            contract_dir.mkdir(parents=True, exist_ok=True)
+            atomic_write_json(
+                contract_dir / "total-spine-contract.json",
+                {
+                    "done_when": contract_text,
+                    "contract": contract,
+                    "seal": seal,
+                    "bound_tip": bound_tip,
+                },
+            )
+            annotated["total_spine_contract_receipt_dir"] = str(contract_dir)
+
     annotated["total_spine_constitution_depth"] = chain_len
+    if goal_text and not annotated.get("total_spine_goal"):
+        annotated["total_spine_goal"] = goal_text
+    annotated["total_spine_goal_impl"] = TOTAL_SPINE_GOAL_IMPL
     return annotated
 
 
@@ -4792,6 +5125,8 @@ def run_total_spine(
     capabilities: Sequence[str] | None = None,
     effect_timeout: int = 60,
     repo_path: Path | None = None,
+    max_effect_steps: int | None = None,
+    done_when: str | None = None,
 ) -> dict[str, Any]:
     """Public entry: absolute total spine from root into the operational nest.
 
@@ -4808,6 +5143,11 @@ def run_total_spine(
     When ``effects=True`` or ``capabilities`` is non-empty, ledger capabilities
     are dispatched after the live nest and sealed into the total-spine tip so
     the absolute tower produces real invocable outcomes.
+
+    Goal-conditioned mode: with ``effects=True`` and a free-text ``goal`` (and
+    no explicit ``capabilities``), effect ids are planned via
+    :func:`plan_total_spine_goal_effects`. Optional ``done_when`` evaluates a
+    machine-checkable outcome contract and rebinds the tower tip.
     """
     root = (
         str(root_layer or TOTAL_SPINE_DEFAULT_ROOT).strip().lower()
@@ -4817,6 +5157,10 @@ def run_total_spine(
     chain = stewardship_constitution_chain(root)
     if compress is None:
         compress = len(chain) > TOTAL_SPINE_COMPRESS_THRESHOLD
+
+    institution_goal, effect_goal = resolve_total_spine_goals(goal)
+    # Free-text goals plan effects; constitution tokens do not auto-plan unless
+    # effects=True with no explicit capabilities (falls back to defaults).
 
     if not compress:
         result = run_stewardship_spine(
@@ -4828,7 +5172,7 @@ def run_total_spine(
             dispatch_budget=dispatch_budget,
             max_active=max_active,
             constitution_id=constitution_id,
-            goal=goal,
+            goal=institution_goal,
             max_successions=max_successions,
             max_epochs=max_epochs,
             max_waves=max_waves,
@@ -4863,6 +5207,9 @@ def run_total_spine(
             repo_path=repo_path,
             out_root=out_root,
             chain_len=len(chain),
+            goal=effect_goal,
+            max_effect_steps=max_effect_steps,
+            done_when=done_when,
         )
         return annotated
 
@@ -4876,7 +5223,7 @@ def run_total_spine(
         dispatch_budget=dispatch_budget,
         max_active=max_active,
         institution_id=constitution_id or f"total-spine-{root}",
-        institution_goal=goal,
+        institution_goal=institution_goal,
         max_successions=max_successions,
         max_epochs=max_epochs,
         max_waves=max_waves,
@@ -4915,6 +5262,9 @@ def run_total_spine(
         repo_path=repo_path,
         out_root=out_root,
         chain_len=len(chain),
+        goal=effect_goal,
+        max_effect_steps=max_effect_steps,
+        done_when=done_when,
     )
     if out_root is not None:
         receipt_dir = Path(out_root)
@@ -4934,6 +5284,14 @@ def run_total_spine(
                 "total_spine_effects_ok_count"
             ),
             "total_spine_effect_tip": annotated.get("total_spine_effect_tip"),
+            "total_spine_goal_planned": bool(
+                annotated.get("total_spine_goal_planned")
+            ),
+            "total_spine_goal": annotated.get("total_spine_goal"),
+            "total_spine_contract": bool(annotated.get("total_spine_contract")),
+            "total_spine_contract_met": annotated.get(
+                "total_spine_contract_met"
+            ),
             "used_skill_route_discovery": legacy_pipeline_was_used(),
         }
         atomic_write_json(receipt_dir / "total-spine-receipt.json", receipt)
@@ -8031,6 +8389,296 @@ def builtin_total_spine_effect_proof() -> dict[str, Any]:
         shutil.rmtree(scratch, ignore_errors=True)
 
 
+def builtin_total_spine_goal_proof() -> dict[str, Any]:
+    """Hermetic proof: goal-conditioned total spine plans effects + contracts.
+
+    Closes the hand-picked effect cliff: free-text goals plan ledger effect
+    programs, depth-28 compressed spines dispatch them with sealed digests,
+    and machine-checkable done_when contracts gate the tower tip — without
+    skill-route discovery.
+    """
+    scratch = Path(tempfile.mkdtemp(prefix="total-spine-goal-proof-"))
+    try:
+        from blackhole_agent import upstream_loop_engine as le_facade
+        from blackhole_agent.capability_compounder import (
+            default_ledger_path,
+            load_ledger,
+        )
+
+        flags_ok = (
+            TOTAL_SPINE_GOAL_IMPL is True
+            and TOTAL_SPINE_EFFECT_IMPL is True
+            and TOTAL_SPINE_IMPL is True
+            and TOTAL_SPINE_DEFAULT_GOAL_MAX_STEPS >= 2
+        )
+
+        # Planner: health goal yields a non-empty primitive program.
+        plan = plan_total_spine_goal_effects(
+            "health inventory integrity",
+            max_steps=3,
+            cwd=REPO_ROOT,
+        )
+        plan_steps = list(plan.get("steps") or [])
+        plan_ok = (
+            bool(plan.get("ok"))
+            and len(plan_steps) >= 2
+            and (
+                "repo.import-health" in plan_steps
+                or "capability.ledger-inventory" in plan_steps
+            )
+            and not plan.get("used_skill_route_discovery")
+        )
+
+        # Live absolute tower with goal-planned effects + passing contract.
+        goal_a = "health inventory integrity"
+        contract_pass = "min_proved:1; no_skill_route"
+        spine = run_total_spine(
+            root_layer="quettacontinuum",
+            out_root=scratch / "goal-spine",
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=3,
+            max_successions=1,
+            max_epochs=1,
+            max_waves=1,
+            compress=True,
+            effects=True,
+            goal=goal_a,
+            max_effect_steps=2,
+            done_when=contract_pass,
+            effect_timeout=90,
+            repo_path=REPO_ROOT,
+        )
+        effect_ids = list(spine.get("total_spine_effect_capabilities") or [])
+        hops = spine.get("total_spine_hop_chain") or []
+        spine_ok = (
+            bool(spine.get("ok"))
+            and spine.get("total_spine") is True
+            and spine.get("total_spine_compressed") is True
+            and spine.get("total_spine_effects") is True
+            and spine.get("total_spine_effects_ok") is True
+            and spine.get("total_spine_goal_planned") is True
+            and spine.get("total_spine_effect_source") == "goal"
+            and spine.get("total_spine_contract") is True
+            and spine.get("total_spine_contract_met") is True
+            and spine.get("total_spine_contract_machine_checkable") is True
+            and spine.get("total_spine_contract_gated") is True
+            and int(spine.get("total_nest_depth") or 0) == 28
+            and int(spine.get("total_dispatched_ok") or 0) >= 1
+            and len(effect_ids) >= 1
+            and isinstance(spine.get("total_spine_digest"), str)
+            and len(str(spine.get("total_spine_digest"))) >= 32
+            and isinstance(spine.get("total_spine_contract_bound_tip"), str)
+            and len(hops) >= 20
+            and not legacy_pipeline_was_used()
+        )
+
+        # Contract seal integrity: digest binds met|machine|counts|raw|prior.
+        seal = spine.get("total_spine_contract_seal") or {}
+        contract_integrity_ok = False
+        if isinstance(seal, Mapping) and seal.get("digest"):
+            re_seal = seal_total_spine_contract(
+                {
+                    "met": spine.get("total_spine_contract_met"),
+                    "machine_checkable": spine.get(
+                        "total_spine_contract_machine_checkable"
+                    ),
+                    "passed_count": spine.get(
+                        "total_spine_contract_passed_count"
+                    ),
+                    "failed_count": spine.get(
+                        "total_spine_contract_failed_count"
+                    ),
+                    "parse": {"raw": contract_pass},
+                    "done_when": contract_pass,
+                },
+                prior_tip=str(spine.get("total_spine_digest_pre_contract") or ""),
+            )
+            contract_integrity_ok = re_seal.get("digest") == seal.get("digest")
+
+        # Failing contract gates the tower (ok=False).
+        fail_spine = run_total_spine(
+            root_layer="institution",
+            out_root=scratch / "fail-contract",
+            max_rounds=1,
+            dispatch=True,
+            dispatch_budget=1,
+            max_successions=1,
+            max_epochs=1,
+            max_waves=1,
+            compress=False,
+            effects=True,
+            goal="health inventory",
+            max_effect_steps=2,
+            done_when="min_proved:999999",
+            effect_timeout=60,
+            repo_path=REPO_ROOT,
+        )
+        fail_ok = (
+            fail_spine.get("total_spine_contract") is True
+            and fail_spine.get("total_spine_contract_met") is False
+            and fail_spine.get("ok") is False
+            and fail_spine.get("total_spine_goal_planned") is True
+        )
+
+        # Differential: goal+contract tip differs from default effects-only tip.
+        bare = run_total_spine(
+            root_layer="quettacontinuum",
+            out_root=scratch / "bare-defaults",
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=2,
+            max_successions=1,
+            max_epochs=1,
+            max_waves=1,
+            compress=True,
+            effects=True,
+            effect_timeout=90,
+            repo_path=REPO_ROOT,
+        )
+        differential_ok = (
+            bool(bare.get("ok"))
+            and bare.get("total_spine_goal_planned") is not True
+            and bare.get("total_spine_effect_source") == "default"
+            and bare.get("total_spine_contract") is not True
+            and isinstance(spine.get("total_spine_digest"), str)
+            and spine.get("total_spine_digest") != bare.get("total_spine_digest")
+        )
+        # Contract presence alone moves digest vs effects-only.
+        effects_only = run_total_spine(
+            root_layer="quettacontinuum",
+            out_root=scratch / "effects-only",
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=2,
+            max_successions=1,
+            max_epochs=1,
+            max_waves=1,
+            compress=True,
+            effects=True,
+            goal=goal_a,
+            max_effect_steps=2,
+            effect_timeout=90,
+            repo_path=REPO_ROOT,
+        )
+        contract_moves_ok = (
+            bool(effects_only.get("ok"))
+            and effects_only.get("total_spine_contract") is not True
+            and effects_only.get("total_spine_digest")
+            != spine.get("total_spine_digest")
+        )
+
+        facade_path = Path(le_facade.__file__).resolve()
+        facade_text = facade_path.read_text(encoding="utf-8")
+        source_ok = (
+            "TOTAL_SPINE_GOAL_IMPL" in facade_text
+            and "builtin_total_spine_goal_proof" in facade_text
+            and "plan_total_spine_goal_effects" in facade_text
+            and callable(
+                getattr(le_facade, "builtin_total_spine_goal_proof", None)
+            )
+            and callable(
+                getattr(le_facade, "plan_total_spine_goal_effects", None)
+            )
+            and getattr(le_facade, "TOTAL_SPINE_GOAL_IMPL", False) is True
+        )
+
+        engine_path = Path(__file__).resolve()
+        engine_text = engine_path.read_text(encoding="utf-8")
+        engine_source_ok = (
+            "def builtin_total_spine_goal_proof" in engine_text
+            and "def plan_total_spine_goal_effects" in engine_text
+            and "def seal_total_spine_contract" in engine_text
+            and "def evaluate_total_spine_contract" in engine_text
+            and "TOTAL_SPINE_GOAL_IMPL" in engine_text
+            and "total_spine_contract_bound_tip" in engine_text
+            and "total_spine_goal_planned" in engine_text
+        )
+
+        ledger_path = default_ledger_path(REPO_ROOT)
+        ledger_ok = False
+        try:
+            ledger = load_ledger(ledger_path)
+            entry = ledger.capabilities.get(
+                "capability.upstream-total-spine-goal"
+            )
+            tags_blob = " ".join(entry.tags).lower() if entry else ""
+            delta_blob = (entry.capability_delta or "").lower() if entry else ""
+            name_blob = (entry.name or "").lower() if entry else ""
+            ledger_ok = (
+                entry is not None
+                and "upstream_control_engine" in (entry.entry or "")
+                and "builtin_total_spine_goal_proof" in (entry.entry or "")
+                and (
+                    "goal" in tags_blob
+                    or "goal" in name_blob
+                    or "goal" in delta_blob
+                )
+                and ("total" in tags_blob or "total" in name_blob)
+                and (
+                    "contract" in delta_blob
+                    or "done_when" in delta_blob
+                    or "plan" in delta_blob
+                )
+                and (
+                    "run_total_spine" in delta_blob
+                    or "effects" in delta_blob
+                    or "goal" in delta_blob
+                )
+            )
+        except Exception:  # noqa: BLE001
+            ledger_ok = False
+
+        ok = all(
+            [
+                flags_ok,
+                plan_ok,
+                spine_ok,
+                contract_integrity_ok,
+                fail_ok,
+                differential_ok,
+                contract_moves_ok,
+                source_ok,
+                engine_source_ok,
+                ledger_ok,
+                not legacy_pipeline_was_used(),
+            ]
+        )
+        return {
+            "ok": ok,
+            "action": "total_spine_goal_proof",
+            "flags_ok": flags_ok,
+            "plan_ok": plan_ok,
+            "plan_steps": plan_steps,
+            "spine_ok": spine_ok,
+            "spine_dispatched_ok": spine.get("total_dispatched_ok"),
+            "spine_total_digest": spine.get("total_spine_digest"),
+            "effect_ids": effect_ids,
+            "effect_source": spine.get("total_spine_effect_source"),
+            "goal_planned": spine.get("total_spine_goal_planned"),
+            "contract_met": spine.get("total_spine_contract_met"),
+            "contract_integrity_ok": contract_integrity_ok,
+            "fail_ok": fail_ok,
+            "differential_ok": differential_ok,
+            "contract_moves_ok": contract_moves_ok,
+            "bare_digest": bare.get("total_spine_digest"),
+            "effects_only_digest": effects_only.get("total_spine_digest"),
+            "source_ok": source_ok,
+            "engine_source_ok": engine_source_ok,
+            "ledger_capability_ok": ledger_ok,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "control_engine": True,
+            "total_spine": True,
+            "total_spine_effects": True,
+            "total_spine_goal": True,
+            "total_spine_contract": True,
+            "total_spine_compressed": True,
+            "done_when_met": ok,
+        }
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
 def builtin_control_nest_proof() -> dict[str, Any]:
     """Hermetic proof: multi-depth nest owns program→…→fleet→campaign spine."""
     scratch = Path(tempfile.mkdtemp(prefix="control-nest-proof-"))
@@ -9449,6 +10097,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "capabilities and seals effect digests into the hop tip"
         ),
     )
+    sub.add_parser(
+        "goal-proof",
+        help=(
+            "Total spine goal proof: free-text goal plans effects; "
+            "done_when contracts gate the absolute tower tip"
+        ),
+    )
     sub.add_parser("list", help="List control modes and dialects")
     sub.add_parser("nest-path", help="Print canonical operational nest path")
     sub.add_parser(
@@ -9557,6 +10212,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "effect-proof":
         result = builtin_total_spine_effect_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "goal-proof":
+        result = builtin_total_spine_goal_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2
