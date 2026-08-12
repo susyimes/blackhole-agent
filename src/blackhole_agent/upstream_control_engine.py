@@ -27,6 +27,10 @@ Composition:
 * ``run_outer_governance_spine`` — outer constitution (league→institution)
   dispatches governance-backed institutions so the mock-leaf cliff stays
   closed above institution (depth-7 nest)
+* ``run_stewardship_spine`` — recursive multi-child cascade above league:
+  confederation→league→institution→program→…→campaign (depth-8+) so the
+  mock-leaf cliff stays closed for the full institutional tower, not only
+  the league edge
 
 No skill-route discovery.
 """
@@ -3880,16 +3884,22 @@ def recover_governance_child_path(
                 "program_dir",
                 "last_institution_dir",
                 "institution_dir",
+                "last_league_dir",
+                "league_dir",
+                "last_confederation_dir",
+                "confederation_dir",
                 "out_root",
             ):
                 found = _from_dir(st.get(key))
                 if found:
                     return found
-            # Nested program states under institution (or deeper outer layers).
+            # Nested child states under institution / league / confederation.
             for nest_key in (
                 "child_states",
                 "program_states",
                 "institution_states",
+                "league_states",
+                "confederation_states",
                 "yottacontinuum_states",
             ):
                 found = _walk_states(st.get(nest_key), depth=depth + 1)
@@ -3903,18 +3913,24 @@ def recover_governance_child_path(
         "programs",
         "institutions",
         "institution_states",
+        "leagues",
+        "league_states",
+        "confederations",
+        "confederation_states",
     ):
         found = _walk_states(result.get(key))
         if found:
             return found
-    # Round records may carry program_dir directly.
-    for key in ("programs", "institutions", "rounds"):
+    # Round records may carry program_dir / institution_dir / league_dir.
+    for key in ("programs", "institutions", "leagues", "rounds"):
         for rec in list(result.get(key) or []):
             if not isinstance(rec, Mapping):
                 continue
             found = _from_dir(
                 rec.get("program_dir")
                 or rec.get("institution_dir")
+                or rec.get("league_dir")
+                or rec.get("confederation_dir")
                 or rec.get("out_root")
             )
             if found:
@@ -4115,6 +4131,442 @@ def run_outer_governance_spine(
         child_control_path=child_path,
     )
     return annotated
+
+
+# ---------------------------------------------------------------------------
+# Stewardship spine: recursive constitution cascade → operational nest
+# ---------------------------------------------------------------------------
+
+# Layers that default-on cascade into the operational control graph.
+# Higher continuum/civilization layers opt in via governance_spine=True.
+STEWARDSHIP_SPINE_DEFAULT_ROOTS: frozenset[str] = frozenset(
+    {"institution", "league", "confederation"}
+)
+
+
+def stewardship_constitution_chain(root_layer: str) -> list[str]:
+    """Constitution layer names from ``root_layer`` down to institution.
+
+    Walks STEWARDSHIP_STACK child edges until ``program`` (stopping at
+    institution). Raises StageRefused when the root cannot reach institution.
+    """
+    from blackhole_agent import upstream_constitution_engine as ce
+
+    root = str(root_layer or "confederation").strip().lower()
+    layer = ce.get_stewardship_layer(root)
+    chain: list[str] = []
+    seen: set[str] = set()
+    current = layer.name
+    while current not in seen:
+        seen.add(current)
+        cur = ce.get_stewardship_layer(current)
+        chain.append(cur.name)
+        if cur.child == "program":
+            break
+        if cur.child not in ce.STEWARDSHIP_LAYERS:
+            break
+        current = cur.child
+    if not chain or chain[-1] != "institution":
+        raise StageRefused(
+            "stewardship_spine_invalid",
+            f"root {root!r} does not reach institution "
+            f"(chain={chain})",
+        )
+    return chain
+
+
+def stewardship_nest_path(root_layer: str = "confederation") -> list[dict[str, Any]]:
+    """Full path: constitution cascade from root → institution → operational nest.
+
+    Example root=confederation (depth 8)::
+
+        confederation → league → institution → program → succession →
+        epoch → fleet → campaign
+    """
+    from blackhole_agent import upstream_constitution_engine as ce
+
+    chain = stewardship_constitution_chain(root_layer)
+    path: list[dict[str, Any]] = []
+    for name in chain:
+        layer = ce.get_stewardship_layer(name)
+        path.append(
+            {
+                "mode": "constitution",
+                "dialect": name,
+                "child": layer.child,
+            }
+        )
+    path.extend(nest_path(OPERATIONAL_NEST))
+    return path
+
+
+def stewardship_nest_depth(root_layer: str = "confederation") -> int:
+    return len(stewardship_nest_path(root_layer))
+
+
+def annotate_stewardship_spine(
+    result: Mapping[str, Any],
+    *,
+    root_layer: str = "confederation",
+    live: bool = True,
+    child_control_path: Sequence[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Stamp continuous stewardship-spine ownership (confederation…→campaign)."""
+    body = dict(result)
+    root = str(root_layer or "confederation").strip().lower() or "confederation"
+    path = stewardship_nest_path(root)
+    body["stewardship_spine"] = True
+    body["stewardship_spine_live"] = bool(live)
+    body["stewardship_root"] = root
+    body["stewardship_nest_path"] = path
+    body["stewardship_nest_depth"] = len(path)
+    # Continuous with governance spine seals (superset path).
+    body["governance_spine"] = True
+    body["governance_spine_live"] = bool(live)
+    body["governance_nest_path"] = path
+    body["governance_nest_depth"] = len(path)
+    if root != "institution":
+        body["governance_outer"] = True
+        body["governance_outer_dialect"] = root
+    if root == "confederation":
+        body["governance_edge"] = "confederation->league"
+    elif root == "league":
+        body["governance_edge"] = "league->institution"
+    else:
+        body["governance_edge"] = f"{root}->…"
+    body["governance_operational_edge"] = "program->campaign"
+    body["control_engine"] = True
+    body["control_operational_spine"] = True
+    body["control_graph"] = True
+    if live:
+        body["control_graph_live"] = True
+        body["control_nest_live"] = True
+    if child_control_path is not None:
+        body["governance_child_control_path"] = [
+            dict(s) for s in child_control_path
+        ]
+        body["stewardship_child_control_path"] = [
+            dict(s) for s in child_control_path
+        ]
+    body["used_skill_route_discovery"] = legacy_pipeline_was_used()
+    return body
+
+
+def make_governance_league_child_runner(
+    *,
+    max_rounds: int = 3,
+    max_successions: int = 2,
+    max_epochs: int = 2,
+    max_waves: int = 2,
+    idle_limit: int = 1,
+    goal_dispatched_ok: int = 1,
+    campaign_run_stage: RunStage | None = None,
+    stewardship_root: Path | None = None,
+) -> Callable[..., dict[str, Any]]:
+    """Constitution child_runner for confederation→league via outer governance.
+
+    Each league child runs with default governance-backed institutions so
+    confederation does not fall back to mock league/institution/program leaves.
+    """
+
+    def runner(**kwargs: Any) -> dict[str, Any]:
+        from blackhole_agent import upstream_league as ul
+
+        league_id = str(
+            kwargs.get("league_id") or kwargs.get("child_id") or "gov-league"
+        )
+        out = kwargs.get("out_root")
+        result = ul.run_league(
+            charter=list(kwargs.get("charter") or []),
+            max_rounds=int(kwargs.get("max_rounds") or max_rounds),
+            dispatch_budget=kwargs.get("dispatch_budget"),
+            dispatch=bool(kwargs.get("dispatch", True)),
+            league_id=league_id,
+            league_goal=str(
+                kwargs.get("league_goal") or "all_institutions_met"
+            ),
+            out_root=out,
+            resume_dir=kwargs.get("resume_dir"),
+            governance_spine=True,
+            max_successions=int(
+                kwargs.get("max_successions") or max_successions
+            ),
+            max_epochs=int(kwargs.get("max_epochs") or max_epochs),
+            max_waves=int(kwargs.get("max_waves") or max_waves),
+            idle_limit=int(kwargs.get("idle_limit") or idle_limit),
+            goal_dispatched_ok=int(
+                kwargs.get("goal_dispatched_ok") or goal_dispatched_ok
+            ),
+            campaign_run_stage=campaign_run_stage
+            or kwargs.get("campaign_run_stage"),
+            stewardship_root=stewardship_root
+            or kwargs.get("stewardship_root"),
+        )
+        result.setdefault("league_id", league_id)
+        result["governance_outer_child"] = True
+        result["stewardship_spine_child"] = True
+        return result
+
+    return runner
+
+
+def make_stewardship_child_runner(
+    parent_layer: str,
+    *,
+    max_rounds: int = 3,
+    max_successions: int = 2,
+    max_epochs: int = 2,
+    max_waves: int = 2,
+    idle_limit: int = 1,
+    goal_dispatched_ok: int = 1,
+    campaign_run_stage: RunStage | None = None,
+    stewardship_root: Path | None = None,
+) -> Callable[..., dict[str, Any]]:
+    """Recursive constitution child_runner that cascades into the operational nest.
+
+    * institution → operational program spine
+    * league → governance institutions
+    * confederation → governance leagues
+    * any higher STEWARDSHIP layer → child domain ``run_*`` with
+      ``governance_spine=True`` so the cascade continues
+    """
+    from blackhole_agent import upstream_constitution_engine as ce
+
+    parent = ce.get_stewardship_layer(parent_layer)
+    spine_kw: dict[str, Any] = {
+        "max_successions": max_successions,
+        "max_epochs": max_epochs,
+        "max_waves": max_waves,
+        "idle_limit": idle_limit,
+        "goal_dispatched_ok": goal_dispatched_ok,
+        "campaign_run_stage": campaign_run_stage,
+        "stewardship_root": stewardship_root,
+    }
+
+    if parent.name == "institution" and parent.child == "program":
+        return make_operational_program_child_runner(**spine_kw)
+    if parent.child == "institution":
+        return make_governance_institution_child_runner(
+            max_rounds=max_rounds, **spine_kw
+        )
+    if parent.child == "league":
+        return make_governance_league_child_runner(
+            max_rounds=max_rounds, **spine_kw
+        )
+
+    # Higher tower: invoke child domain runner with governance cascade ON.
+    child_name = parent.child
+    child_layer = ce.get_stewardship_layer(child_name)
+
+    def runner(**kwargs: Any) -> dict[str, Any]:
+        import importlib
+
+        mod = importlib.import_module(f"blackhole_agent.upstream_{child_name}")
+        run_fn = getattr(mod, f"run_{child_name}")
+        child_id = str(
+            kwargs.get(child_layer.self_id_field)
+            or kwargs.get("child_id")
+            or f"gov-{child_name}"
+        )
+        call_kw: dict[str, Any] = {
+            "charter": list(kwargs.get("charter") or []),
+            "max_rounds": int(kwargs.get("max_rounds") or max_rounds),
+            "dispatch": bool(kwargs.get("dispatch", True)),
+            "dispatch_budget": kwargs.get("dispatch_budget"),
+            child_layer.self_id_field: child_id,
+            "out_root": kwargs.get("out_root"),
+            "resume_dir": kwargs.get("resume_dir"),
+            "governance_spine": True,
+            "max_successions": int(
+                kwargs.get("max_successions") or max_successions
+            ),
+            "max_epochs": int(kwargs.get("max_epochs") or max_epochs),
+            "max_waves": int(kwargs.get("max_waves") or max_waves),
+            "idle_limit": int(kwargs.get("idle_limit") or idle_limit),
+            "goal_dispatched_ok": int(
+                kwargs.get("goal_dispatched_ok") or goal_dispatched_ok
+            ),
+        }
+        goal = kwargs.get(child_layer.self_goal_field) or kwargs.get("goal")
+        if goal is not None:
+            call_kw[child_layer.self_goal_field] = goal
+        crs = campaign_run_stage or kwargs.get("campaign_run_stage")
+        if crs is not None:
+            call_kw["campaign_run_stage"] = crs
+        stew = stewardship_root or kwargs.get("stewardship_root")
+        if stew is not None:
+            call_kw["stewardship_root"] = stew
+        result = run_fn(**call_kw)
+        result.setdefault(child_layer.self_id_field, child_id)
+        result["governance_outer_child"] = True
+        result["stewardship_spine_child"] = True
+        return result
+
+    return runner
+
+
+def _default_stewardship_charter(root_layer: str) -> list[dict[str, Any]]:
+    """Minimal nested charter from root down to a program inventory leaf."""
+    from blackhole_agent import upstream_constitution_engine as ce
+
+    program_slot: dict[str, Any] = {
+        "program_id": "sp1",
+        "priority": 1,
+        "program_goal": "none",
+        "kind": "stewardship_program",
+        "inventory_keys": [("s1", "1.0.0", "s1-1")],
+        "charter": [{"inventory_keys": [["s1", "1.0.0", "s1-1"]]}],
+    }
+    root = str(root_layer or "confederation").strip().lower()
+    if root == "institution":
+        return [program_slot]
+
+    # chain = [root, …, league, institution]; wrap program upward for each
+    # child-of-root layer so root's charter holds one fully nested slot.
+    chain = stewardship_constitution_chain(root)
+    nested: dict[str, Any] = program_slot
+    for name in reversed(chain[1:]):  # institution → … → root's child
+        layer = ce.get_stewardship_layer(name)
+        if name == "institution":
+            nested = {
+                "institution_id": "si1",
+                "priority": 1,
+                "max_rounds": 3,
+                "kind": "stewardship_institution",
+                "charter": [program_slot],
+            }
+        elif name == "league":
+            nested = {
+                "league_id": "sl1",
+                "priority": 1,
+                "max_rounds": 3,
+                "kind": "stewardship_league",
+                "charter": [nested],
+            }
+        else:
+            nested = {
+                layer.self_id_field: f"s-{name[:8]}",
+                "priority": 1,
+                "max_rounds": 3,
+                "kind": f"stewardship_{name}",
+                "charter": [nested],
+            }
+    return [nested]
+
+
+def run_stewardship_spine(
+    *,
+    root_layer: str = "confederation",
+    charter: Sequence[Mapping[str, Any]] | None = None,
+    out_root: Path | None = None,
+    max_rounds: int = 4,
+    dispatch: bool = True,
+    dispatch_budget: int | None = None,
+    max_active: int | None = None,
+    constitution_id: str | None = None,
+    goal: str | None = None,
+    max_successions: int = 2,
+    max_epochs: int = 2,
+    max_waves: int = 2,
+    idle_limit: int = 1,
+    goal_dispatched_ok: int = 1,
+    campaign_run_stage: RunStage | None = None,
+    stewardship_root: Path | None = None,
+    child_runner: Callable[..., dict[str, Any]] | None = None,
+    live: bool = True,
+) -> dict[str, Any]:
+    """Public entry: multi-child cascade from root into the operational nest.
+
+    * root=institution → :func:`run_governance_spine`
+    * root=league → :func:`run_outer_governance_spine`
+    * root=confederation (default) → confederation dispatches governance
+      leagues so confederation→league→institution→program→…→campaign is one
+      continuous engine-owned path (depth 8)
+    """
+    from blackhole_agent import upstream_constitution_engine as ce
+
+    root = str(root_layer or "confederation").strip().lower() or "confederation"
+    if root == "institution":
+        return run_governance_spine(
+            charter=charter,
+            out_root=out_root,
+            max_rounds=max_rounds,
+            dispatch=dispatch,
+            dispatch_budget=dispatch_budget,
+            max_active=max_active,
+            institution_id=constitution_id,
+            institution_goal=goal,
+            max_successions=max_successions,
+            max_epochs=max_epochs,
+            max_waves=max_waves,
+            idle_limit=idle_limit,
+            goal_dispatched_ok=goal_dispatched_ok,
+            campaign_run_stage=campaign_run_stage,
+            stewardship_root=stewardship_root,
+            live=live,
+        )
+    if root == "league":
+        return run_outer_governance_spine(
+            outer_layer="league",
+            charter=charter,
+            out_root=out_root,
+            max_rounds=max_rounds,
+            dispatch=dispatch,
+            dispatch_budget=dispatch_budget,
+            max_active=max_active,
+            constitution_id=constitution_id,
+            goal=goal,
+            max_successions=max_successions,
+            max_epochs=max_epochs,
+            max_waves=max_waves,
+            idle_limit=idle_limit,
+            goal_dispatched_ok=goal_dispatched_ok,
+            campaign_run_stage=campaign_run_stage,
+            stewardship_root=stewardship_root,
+            live=live,
+        )
+
+    layer = ce.get_stewardship_layer(root)
+    # Validate chain reaches institution (raises if not).
+    stewardship_constitution_chain(root)
+
+    if charter is not None:
+        slots = [dict(s) for s in charter if isinstance(s, Mapping)]
+    else:
+        slots = _default_stewardship_charter(root)
+
+    runner = child_runner or make_stewardship_child_runner(
+        root,
+        max_rounds=max(2, max_rounds - 1),
+        max_successions=max_successions,
+        max_epochs=max_epochs,
+        max_waves=max_waves,
+        idle_limit=idle_limit,
+        goal_dispatched_ok=goal_dispatched_ok,
+        campaign_run_stage=campaign_run_stage,
+        stewardship_root=stewardship_root,
+    )
+
+    result = ce.run_constitution(
+        layer,
+        charter=slots,
+        max_rounds=max_rounds,
+        dispatch=dispatch,
+        dispatch_budget=dispatch_budget,
+        max_active=max_active,
+        child_runner=runner,
+        goal=goal or layer.all_children_met_goal,
+        constitution_id=constitution_id or f"stewardship-spine-{root}",
+        out_root=out_root,
+    )
+
+    child_path = recover_governance_child_path(result)
+    return annotate_stewardship_spine(
+        result,
+        root_layer=root,
+        live=live,
+        child_control_path=child_path,
+    )
 
 
 def run_governance_spine(
@@ -4665,6 +5117,442 @@ def builtin_governance_spine_proof() -> dict[str, Any]:
             "governance_spine_live": True,
             "governance_spine_default": True,
             "governance_outer": True,
+            "done_when_met": ok,
+        }
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+
+def builtin_stewardship_spine_proof() -> dict[str, Any]:
+    """Hermetic proof: confederation→…→campaign is one stewardship spine.
+
+    Also proves league/confederation default attach and opt-out.
+    """
+    scratch = Path(tempfile.mkdtemp(prefix="stewardship-spine-proof-"))
+    try:
+        from blackhole_agent import upstream_confederation as uc
+        from blackhole_agent import upstream_institution as ui
+        from blackhole_agent import upstream_league as ul
+        from blackhole_agent import upstream_loop_engine as le_facade
+        from blackhole_agent.capability_compounder import (
+            default_ledger_path,
+            load_ledger,
+        )
+
+        path = stewardship_nest_path("confederation")
+        path_ok = (
+            stewardship_nest_depth("confederation") == 8
+            and [s.get("dialect") for s in path]
+            == [
+                "confederation",
+                "league",
+                "institution",
+                "program",
+                "succession",
+                "epoch",
+                "fleet",
+                "campaign",
+            ]
+            and path[0].get("mode") == "constitution"
+            and path[3].get("mode") == "loop"
+            and path[-1].get("mode") == "pipeline"
+        )
+        league_path = stewardship_nest_path("league")
+        league_path_ok = (
+            stewardship_nest_depth("league") == 7
+            and [s.get("dialect") for s in league_path]
+            == [
+                "league",
+                "institution",
+                "program",
+                "succession",
+                "epoch",
+                "fleet",
+                "campaign",
+            ]
+        )
+        chain_ok = stewardship_constitution_chain("confederation") == [
+            "confederation",
+            "league",
+            "institution",
+        ]
+
+        # Core public entry: confederation → operational.
+        spine = run_stewardship_spine(
+            root_layer="confederation",
+            out_root=scratch / "spine",
+            max_rounds=3,
+            dispatch=True,
+            dispatch_budget=4,
+            max_successions=2,
+            max_epochs=2,
+            max_waves=2,
+        )
+        child_path = spine.get("governance_child_control_path") or spine.get(
+            "stewardship_child_control_path"
+        ) or []
+        child_dialects = [
+            s.get("dialect") for s in child_path if isinstance(s, Mapping)
+        ]
+        spine_ok = (
+            bool(spine.get("ok"))
+            and spine.get("stewardship_spine") is True
+            and spine.get("stewardship_spine_live") is True
+            and spine.get("stewardship_root") == "confederation"
+            and spine.get("governance_spine") is True
+            and spine.get("governance_outer") is True
+            and spine.get("control_operational_spine") is True
+            and spine.get("control_graph") is True
+            and int(spine.get("stewardship_nest_depth") or 0) == 8
+            and int(spine.get("total_dispatched_ok") or 0) >= 1
+            and bool(
+                spine.get("confederation_met") or spine.get("confederation_digest")
+            )
+            and [
+                s.get("dialect")
+                for s in (spine.get("stewardship_nest_path") or [])
+            ]
+            == [
+                "confederation",
+                "league",
+                "institution",
+                "program",
+                "succession",
+                "epoch",
+                "fleet",
+                "campaign",
+            ]
+            and child_dialects
+            == ["program", "succession", "epoch", "fleet", "campaign"]
+            and not legacy_pipeline_was_used()
+        )
+
+        # League adapter / outer runner still works via stewardship entry.
+        league_spine = run_stewardship_spine(
+            root_layer="league",
+            out_root=scratch / "league-spine",
+            max_rounds=3,
+            dispatch=True,
+            dispatch_budget=4,
+        )
+        league_spine_ok = (
+            bool(league_spine.get("ok"))
+            and league_spine.get("governance_outer") is True
+            and int(league_spine.get("governance_nest_depth") or 0) == 7
+            and int(league_spine.get("total_dispatched_ok") or 0) >= 1
+        )
+
+        # League child runner alone.
+        league_runner = make_governance_league_child_runner(
+            max_successions=2, max_epochs=2, max_waves=2
+        )
+        league_adapted = league_runner(
+            league_id="adapter-l",
+            out_root=scratch / "adapter-league",
+            dispatch=True,
+            dispatch_budget=4,
+            charter=[
+                {
+                    "institution_id": "ai1",
+                    "priority": 1,
+                    "max_rounds": 3,
+                    "charter": [
+                        {
+                            "program_id": "ap1",
+                            "priority": 1,
+                            "inventory_keys": [("a1", "1.0.0", "a1-1")],
+                            "charter": [
+                                {
+                                    "inventory_keys": [
+                                        ["a1", "1.0.0", "a1-1"]
+                                    ]
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+        )
+        league_adapter_ok = (
+            bool(league_adapted.get("ok"))
+            and league_adapted.get("stewardship_spine_child") is True
+            and league_adapted.get("governance_spine") is True
+            and int(league_adapted.get("total_dispatched_ok") or 0) >= 1
+            and bool(league_adapted.get("league_digest"))
+        )
+
+        # Default league attach: omit governance_spine + institution_runner.
+        default_league = ul.run_league(
+            charter=[
+                {
+                    "institution_id": "dl1",
+                    "priority": 1,
+                    "max_rounds": 3,
+                    "charter": [
+                        {
+                            "program_id": "dp1",
+                            "priority": 1,
+                            "inventory_keys": [("d1", "1.0.0", "d1-1")],
+                            "charter": [
+                                {
+                                    "inventory_keys": [
+                                        ["d1", "1.0.0", "d1-1"]
+                                    ]
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+            max_rounds=3,
+            dispatch=True,
+            dispatch_budget=4,
+            out_root=scratch / "default-league",
+            league_id="default-outer",
+        )
+        default_league_ok = (
+            bool(default_league.get("ok"))
+            and default_league.get("governance_spine") is True
+            and default_league.get("governance_outer") is True
+            and default_league.get("governance_spine_default") is True
+            and int(default_league.get("total_dispatched_ok") or 0) >= 1
+            and [
+                s.get("dialect")
+                for s in (
+                    default_league.get("governance_child_control_path") or []
+                )
+            ]
+            == ["program", "succession", "epoch", "fleet", "campaign"]
+        )
+
+        # Default confederation attach.
+        default_conf = uc.run_confederation(
+            charter=[
+                {
+                    "league_id": "dcl1",
+                    "priority": 1,
+                    "max_rounds": 3,
+                    "charter": [
+                        {
+                            "institution_id": "dci1",
+                            "priority": 1,
+                            "max_rounds": 3,
+                            "charter": [
+                                {
+                                    "program_id": "dcp1",
+                                    "priority": 1,
+                                    "inventory_keys": [
+                                        ("dc1", "1.0.0", "dc1-1")
+                                    ],
+                                    "charter": [
+                                        {
+                                            "inventory_keys": [
+                                                ["dc1", "1.0.0", "dc1-1"]
+                                            ]
+                                        }
+                                    ],
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+            max_rounds=3,
+            dispatch=True,
+            dispatch_budget=4,
+            out_root=scratch / "default-conf",
+            confederation_id="default-stewardship",
+        )
+        default_conf_ok = (
+            bool(default_conf.get("ok"))
+            and default_conf.get("stewardship_spine") is True
+            and default_conf.get("stewardship_spine_default") is True
+            and default_conf.get("governance_spine") is True
+            and default_conf.get("stewardship_root") == "confederation"
+            and int(default_conf.get("stewardship_nest_depth") or 0) == 8
+            and int(default_conf.get("total_dispatched_ok") or 0) >= 1
+            and bool(default_conf.get("confederation_digest"))
+        )
+
+        # Opt-out: confederation governance_spine=False keeps mock leaves.
+        opt_out = uc.run_confederation(
+            governance_spine=False,
+            charter=[
+                {
+                    "league_id": "fo1",
+                    "priority": 1,
+                    "max_rounds": 2,
+                    "charter": [
+                        {
+                            "institution_id": "foi1",
+                            "priority": 1,
+                            "max_rounds": 2,
+                            "charter": [
+                                {
+                                    "program_id": "fop1",
+                                    "priority": 1,
+                                    "inventory_keys": [
+                                        ("fo1", "1.0.0", "fo1-1")
+                                    ],
+                                    "charter": [
+                                        {
+                                            "inventory_keys": [
+                                                ["fo1", "1.0.0", "fo1-1"]
+                                            ]
+                                        }
+                                    ],
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+            max_rounds=3,
+            dispatch=True,
+            dispatch_budget=4,
+            out_root=scratch / "opt-out-conf",
+            confederation_id="fast-conf",
+        )
+        opt_out_ok = (
+            bool(opt_out.get("ok"))
+            and opt_out.get("stewardship_spine") is not True
+            and opt_out.get("governance_spine") is not True
+            and int(opt_out.get("total_dispatched_ok") or 0) >= 1
+            and bool(opt_out.get("confederation_digest"))
+        )
+
+        # Module flags.
+        flags_ok = (
+            getattr(ui, "GOVERNANCE_SPINE_DEFAULT", False) is True
+            and getattr(ul, "GOVERNANCE_OUTER", False) is True
+            and getattr(ul, "GOVERNANCE_SPINE_DEFAULT", False) is True
+            and getattr(uc, "STEWARDSHIP_SPINE", False) is True
+            and getattr(uc, "STEWARDSHIP_SPINE_DEFAULT", False) is True
+            and getattr(uc, "GOVERNANCE_SPINE_DEFAULT", False) is True
+            and callable(getattr(le_facade, "run_stewardship_spine", None))
+            and callable(
+                getattr(le_facade, "make_governance_league_child_runner", None)
+            )
+            and callable(
+                getattr(le_facade, "make_stewardship_child_runner", None)
+            )
+            and getattr(le_facade, "STEWARDSHIP_SPINE_IMPL", False) is True
+        )
+
+        facade_path = (
+            Path(ui.__file__).resolve().parent / "upstream_stewardship_facade.py"
+        )
+        facade_text = facade_path.read_text(encoding="utf-8")
+        source_ok = (
+            "layer_wants_governance_spine" in facade_text
+            and "make_stewardship_child_runner" in facade_text
+            and "annotate_stewardship_spine" in facade_text
+            and "STEWARDSHIP_SPINE_DEFAULT" in facade_text
+            and "_STEWARDSHIP_SPINE_DEFAULT_ROOTS" in facade_text
+        )
+
+        engine_path = Path(__file__).resolve()
+        engine_text = engine_path.read_text(encoding="utf-8")
+        engine_source_ok = (
+            "def run_stewardship_spine" in engine_text
+            and "def make_governance_league_child_runner" in engine_text
+            and "def make_stewardship_child_runner" in engine_text
+            and "def stewardship_nest_path" in engine_text
+            and "builtin_stewardship_spine_proof" in engine_text
+        )
+
+        ledger_path = default_ledger_path(REPO_ROOT)
+        ledger_ok = False
+        try:
+            ledger = load_ledger(ledger_path)
+            entry = ledger.capabilities.get(
+                "capability.upstream-stewardship-spine"
+            )
+            tags_blob = " ".join(entry.tags).lower() if entry else ""
+            delta_blob = (entry.capability_delta or "").lower() if entry else ""
+            name_blob = (entry.name or "").lower() if entry else ""
+            ledger_ok = (
+                entry is not None
+                and "upstream_control_engine" in (entry.entry or "")
+                and "builtin_stewardship_spine_proof" in (entry.entry or "")
+                and (
+                    "stewardship" in tags_blob
+                    or "stewardship" in name_blob
+                    or "stewardship" in delta_blob
+                )
+                and (
+                    "confederation" in delta_blob
+                    or "confederation" in tags_blob
+                )
+                and (
+                    "run_stewardship_spine" in delta_blob
+                    or "cascade" in delta_blob
+                    or "continuous" in delta_blob
+                )
+                and ("campaign" in delta_blob or "operational" in delta_blob)
+                and (
+                    "default" in delta_blob
+                    or "league" in delta_blob
+                )
+            )
+        except Exception:  # noqa: BLE001
+            ledger_ok = False
+
+        ok = all(
+            [
+                path_ok,
+                league_path_ok,
+                chain_ok,
+                spine_ok,
+                league_spine_ok,
+                league_adapter_ok,
+                default_league_ok,
+                default_conf_ok,
+                opt_out_ok,
+                flags_ok,
+                source_ok,
+                engine_source_ok,
+                ledger_ok,
+                not legacy_pipeline_was_used(),
+            ]
+        )
+        return {
+            "ok": ok,
+            "action": "stewardship_spine_proof",
+            "path_ok": path_ok,
+            "league_path_ok": league_path_ok,
+            "chain_ok": chain_ok,
+            "stewardship_nest_path": path,
+            "stewardship_nest_depth": stewardship_nest_depth("confederation"),
+            "spine_ok": spine_ok,
+            "spine_dispatched_ok": spine.get("total_dispatched_ok"),
+            "spine_confederation_digest": spine.get("confederation_digest"),
+            "spine_child_path": child_path,
+            "league_spine_ok": league_spine_ok,
+            "league_adapter_ok": league_adapter_ok,
+            "default_league_ok": default_league_ok,
+            "default_league_dispatched_ok": default_league.get(
+                "total_dispatched_ok"
+            ),
+            "default_conf_ok": default_conf_ok,
+            "default_conf_dispatched_ok": default_conf.get(
+                "total_dispatched_ok"
+            ),
+            "default_conf_digest": default_conf.get("confederation_digest"),
+            "opt_out_ok": opt_out_ok,
+            "flags_ok": flags_ok,
+            "source_ok": source_ok,
+            "engine_source_ok": engine_source_ok,
+            "ledger_capability_ok": ledger_ok,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "control_engine": True,
+            "control_graph": True,
+            "control_operational_spine": True,
+            "governance_spine": True,
+            "stewardship_spine": True,
+            "stewardship_spine_live": True,
+            "stewardship_spine_default": True,
             "done_when_met": ok,
         }
     finally:
@@ -6051,11 +6939,25 @@ def main(argv: Sequence[str] | None = None) -> int:
             "program→…→campaign nest"
         ),
     )
+    sub.add_parser(
+        "stewardship-proof",
+        help=(
+            "Stewardship spine proof: confederation→league→institution→"
+            "program→…→campaign continuous cascade"
+        ),
+    )
     sub.add_parser("list", help="List control modes and dialects")
     sub.add_parser("nest-path", help="Print canonical operational nest path")
     sub.add_parser(
         "governance-path",
         help="Print canonical governance nest path (institution→…→campaign)",
+    )
+    sub.add_parser(
+        "stewardship-path",
+        help=(
+            "Print stewardship nest path "
+            "(confederation→…→campaign by default)"
+        ),
     )
     args = parser.parse_args(list(argv) if argv is not None else None)
     if args.cmd == "list":
@@ -6067,6 +6969,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "dialects": list_all_control_dialects(),
                     "operational_nest": operational_nest_path(),
                     "governance_nest": governance_nest_path(),
+                    "stewardship_nest": stewardship_nest_path("confederation"),
                 },
                 indent=2,
             )
@@ -6086,6 +6989,21 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         )
         return 0
+    if args.cmd == "stewardship-path":
+        print(
+            json.dumps(
+                {
+                    "stewardship_nest_path": stewardship_nest_path(
+                        "confederation"
+                    ),
+                    "stewardship_nest_depth": stewardship_nest_depth(
+                        "confederation"
+                    ),
+                },
+                indent=2,
+            )
+        )
+        return 0
     if args.cmd == "proof":
         result = builtin_control_engine_proof()
         print(json.dumps(result, indent=2, default=str))
@@ -6096,6 +7014,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "governance-proof":
         result = builtin_governance_spine_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "stewardship-proof":
+        result = builtin_stewardship_spine_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2

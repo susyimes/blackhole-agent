@@ -489,6 +489,13 @@ def _admit_program_slot(*, institution_dir: Path, slot: Mapping[str, Any]) -> di
     }
 
 
+# Layers that default-on cascade into the operational control graph.
+# Higher continuum/civilization layers opt in with governance_spine=True.
+_STEWARDSHIP_SPINE_DEFAULT_ROOTS = frozenset(
+    {"institution", "league", "confederation"}
+)
+
+
 def institution_wants_governance_spine(kwargs: Mapping[str, Any]) -> bool:
     """Whether institution program children should attach the operational spine.
 
@@ -497,12 +504,27 @@ def institution_wants_governance_spine(kwargs: Mapping[str, Any]) -> bool:
     Explicit ``program_runner`` / ``child_runner`` still wins in
     :func:`_resolve_child_runner` before this default applies.
     """
+    return layer_wants_governance_spine(
+        ce.get_stewardship_layer("institution"), kwargs
+    )
+
+
+def layer_wants_governance_spine(
+    layer: ce.ConstitutionLayer,
+    kwargs: Mapping[str, Any],
+) -> bool:
+    """Whether a multi-child layer should cascade into the operational spine.
+
+    Default ON for institution, league, and confederation (closes mock-leaf
+    cliffs through the institutional tower). Higher layers require explicit
+    ``governance_spine=True``. Opt out with ``governance_spine=False`` or
+    ``hermetic_fast`` / ``use_fast_child``.
+    """
     if kwargs.get("hermetic_fast") or kwargs.get("use_fast_child"):
         return False
     if "governance_spine" in kwargs:
         return bool(kwargs.get("governance_spine"))
-    # Default ON: live institution owns program→…→campaign via control graph.
-    return True
+    return layer.name in _STEWARDSHIP_SPINE_DEFAULT_ROOTS
 
 
 def _resolve_child_runner(
@@ -513,9 +535,9 @@ def _resolve_child_runner(
 
     Institution (program child) defaults to the operational control graph via
     :func:`make_operational_program_child_runner` (opt out with
-    ``governance_spine=False``). Outer layers may inject
-    ``institution_runner`` from :func:`make_governance_institution_child_runner`
-    so league→institution also rides the governance spine.
+    ``governance_spine=False``). League defaults to governance institutions;
+    confederation defaults to governance leagues so
+    confederation→league→institution→program→…→campaign is continuous.
     """
     aliases = (
         f"{layer.child}_runner",
@@ -547,26 +569,24 @@ def _resolve_child_runner(
     for key in aliases:
         if kwargs.get(key) is not None:
             return kwargs[key]
-    # Governance bridge (default ON): institution→program → operational spine.
-    if (
-        layer.child == "program"
-        and layer.name == "institution"
-        and institution_wants_governance_spine(kwargs)
-    ):
-        from blackhole_agent.upstream_control_engine import (
-            make_operational_program_child_runner,
-        )
+    if not layer_wants_governance_spine(layer, kwargs):
+        return ce._fast_child_runner(layer)
 
-        return make_operational_program_child_runner(
-            max_successions=int(kwargs.get("max_successions") or 2),
-            max_epochs=int(kwargs.get("max_epochs") or 2),
-            max_waves=int(kwargs.get("max_waves") or 2),
-            idle_limit=int(kwargs.get("idle_limit") or 1),
-            goal_dispatched_ok=int(kwargs.get("goal_dispatched_ok") or 1),
-            campaign_run_stage=kwargs.get("campaign_run_stage"),
-            stewardship_root=kwargs.get("stewardship_root"),
-        )
-    return ce._fast_child_runner(layer)
+    from blackhole_agent.upstream_control_engine import (
+        make_stewardship_child_runner,
+    )
+
+    return make_stewardship_child_runner(
+        layer.name,
+        max_rounds=int(kwargs.get("max_rounds") or 3),
+        max_successions=int(kwargs.get("max_successions") or 2),
+        max_epochs=int(kwargs.get("max_epochs") or 2),
+        max_waves=int(kwargs.get("max_waves") or 2),
+        idle_limit=int(kwargs.get("idle_limit") or 1),
+        goal_dispatched_ok=int(kwargs.get("goal_dispatched_ok") or 1),
+        campaign_run_stage=kwargs.get("campaign_run_stage"),
+        stewardship_root=kwargs.get("stewardship_root"),
+    )
 
 
 def _map_run_kwargs(layer: ce.ConstitutionLayer, kwargs: dict[str, Any]) -> dict[str, Any]:
@@ -1368,113 +1388,85 @@ def export_layer_api(module_globals: dict[str, Any], layer_name: str) -> None:
         try:
             mapped = _map_run_kwargs(layer, kwargs)
             result = ce.run_constitution(layer, **mapped)
-            # Stamp governance ownership when institution attaches operational
-            # program children (default ON; opt out with governance_spine=False).
-            if (
-                layer.name == "institution"
-                and institution_wants_governance_spine(kwargs)
-            ):
+            # Stamp governance / stewardship ownership when this layer cascades
+            # into the operational nest (default ON for institution/league/
+            # confederation; opt out with governance_spine=False).
+            if layer_wants_governance_spine(layer, kwargs):
                 from blackhole_agent.upstream_control_engine import (
                     annotate_governance_spine,
-                )
-
-                child_path = None
-                for states in (
-                    result.get("child_states"),
-                    result.get("program_states"),
-                    result.get("programs"),
-                ):
-                    if child_path is not None:
-                        break
-                    for st in list(states or []):
-                        if not isinstance(st, Mapping):
-                            continue
-                        pdir = (
-                            st.get("last_program_dir")
-                            or st.get("program_dir")
-                            or st.get("out_root")
-                        )
-                        if not pdir:
-                            continue
-                        gpath = Path(str(pdir)) / "governance_child.json"
-                        if not gpath.is_file():
-                            continue
-                        try:
-                            blob = json.loads(
-                                gpath.read_text(encoding="utf-8")
-                            )
-                        except (OSError, json.JSONDecodeError):
-                            continue
-                        cpath = blob.get("control_nest_path")
-                        if cpath:
-                            child_path = [
-                                dict(s)
-                                for s in cpath
-                                if isinstance(s, Mapping)
-                            ]
-                            break
-                result = annotate_governance_spine(
-                    result, live=True, child_control_path=child_path
-                )
-                result["governance_edge"] = "institution->program"
-                result["governance_operational_edge"] = "program->campaign"
-                result["governance_spine_default"] = (
-                    "governance_spine" not in kwargs
-                )
-            # Outer constitution layers that injected a governance institution
-            # runner get nested-spine seals when children wrote governance
-            # receipts (detect via institution_dir / last_institution_dir).
-            if (
-                layer.child == "institution"
-                and kwargs.get("governance_spine") is not False
-                and (
-                    kwargs.get("governance_spine")
-                    or kwargs.get("institution_runner") is not None
-                    or kwargs.get(f"{layer.child}_runner") is not None
-                )
-            ):
-                from blackhole_agent.upstream_control_engine import (
                     annotate_outer_governance_spine,
+                    annotate_stewardship_spine,
                     recover_governance_child_path,
                 )
 
                 child_path = recover_governance_child_path(result)
-                # Prefer nested institution last dirs for path recovery.
-                if not child_path:
-                    for st in list(result.get("child_states") or []):
-                        if not isinstance(st, Mapping):
-                            continue
-                        idir = (
-                            st.get("last_institution_dir")
-                            or st.get("institution_dir")
-                        )
-                        if not idir:
-                            continue
-                        # Walk program children under institution receipt.
-                        ipath = Path(str(idir))
-                        for gpath in ipath.rglob("governance_child.json"):
-                            try:
-                                blob = json.loads(
-                                    gpath.read_text(encoding="utf-8")
-                                )
-                            except (OSError, json.JSONDecodeError):
-                                continue
-                            cpath = blob.get("control_nest_path")
-                            if cpath:
-                                child_path = [
-                                    dict(s)
-                                    for s in cpath
-                                    if isinstance(s, Mapping)
-                                ]
+                default_flag = "governance_spine" not in kwargs
+                if layer.name == "institution":
+                    if not child_path:
+                        for states in (
+                            result.get("child_states"),
+                            result.get("program_states"),
+                            result.get("programs"),
+                        ):
+                            if child_path is not None:
                                 break
-                        if child_path:
-                            break
-                result = annotate_outer_governance_spine(
-                    result,
-                    outer_dialect=layer.name,
-                    live=True,
-                    child_control_path=child_path,
-                )
+                            for st in list(states or []):
+                                if not isinstance(st, Mapping):
+                                    continue
+                                pdir = (
+                                    st.get("last_program_dir")
+                                    or st.get("program_dir")
+                                    or st.get("out_root")
+                                )
+                                if not pdir:
+                                    continue
+                                gpath = (
+                                    Path(str(pdir)) / "governance_child.json"
+                                )
+                                if not gpath.is_file():
+                                    continue
+                                try:
+                                    blob = json.loads(
+                                        gpath.read_text(encoding="utf-8")
+                                    )
+                                except (OSError, json.JSONDecodeError):
+                                    continue
+                                cpath = blob.get("control_nest_path")
+                                if cpath:
+                                    child_path = [
+                                        dict(s)
+                                        for s in cpath
+                                        if isinstance(s, Mapping)
+                                    ]
+                                    break
+                    result = annotate_governance_spine(
+                        result, live=True, child_control_path=child_path
+                    )
+                    result["governance_edge"] = "institution->program"
+                    result["governance_operational_edge"] = "program->campaign"
+                    result["governance_spine_default"] = default_flag
+                elif layer.child == "institution":
+                    # league (and any direct institution parent)
+                    result = annotate_outer_governance_spine(
+                        result,
+                        outer_dialect=layer.name,
+                        live=True,
+                        child_control_path=child_path,
+                    )
+                    result["governance_spine_default"] = default_flag
+                    if layer.name == "league":
+                        result["stewardship_spine"] = True
+                        result["stewardship_root"] = "league"
+                else:
+                    # confederation and higher tower layers
+                    result = annotate_stewardship_spine(
+                        result,
+                        root_layer=layer.name,
+                        live=True,
+                        child_control_path=child_path,
+                    )
+                    result["governance_spine_default"] = default_flag
+                    result["stewardship_spine_default"] = default_flag
             return result
         except ce.ConstitutionRefused as exc:
             # Preserve layer-scoped exception type (InstitutionRefused, etc.).
@@ -1567,11 +1559,22 @@ def export_layer_api(module_globals: dict[str, Any], layer_name: str) -> None:
         g["GOVERNANCE_SPINE_DEFAULT"] = True
         g["GOVERNANCE_NEST_CHILD"] = "program"
         g["GOVERNANCE_NEST_EDGE"] = "institution->program"
-    # League (and other institution parents) can nest governance-backed
-    # institutions; flag advertises the outer attach surface.
+    # League defaults to governance-backed institutions (outer nest).
     if layer.child == "institution":
         g["GOVERNANCE_OUTER"] = True
         g["GOVERNANCE_OUTER_CHILD"] = "institution"
+        g["GOVERNANCE_SPINE"] = True
+        g["GOVERNANCE_SPINE_DEFAULT"] = True
+        g["STEWARDSHIP_SPINE"] = True
+    # Confederation (and league) default cascade into operational nest.
+    if layer.name == "confederation" and layer.child == "league":
+        g["GOVERNANCE_OUTER"] = True
+        g["GOVERNANCE_SPINE"] = True
+        g["GOVERNANCE_SPINE_DEFAULT"] = True
+        g["STEWARDSHIP_SPINE"] = True
+        g["STEWARDSHIP_SPINE_DEFAULT"] = True
+        g["STEWARDSHIP_SPINE_ROOT"] = "confederation"
+        g["STEWARDSHIP_NEST_EDGE"] = "confederation->league"
 
     g[f"normalize_{layer.name}_charter"] = normalize_charter
     g[f"admit_{layer.child}_slot"] = admit_child_slot

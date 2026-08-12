@@ -17,6 +17,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     OPERATIONAL_NEST,
     REPO_ROOT,
     SCHEMA_VERSION,
+    STEWARDSHIP_SPINE_DEFAULT_ROOTS,
     BuildChildKwargs,
     ExtractChildDigest,
     ExtractDispatched,
@@ -36,10 +37,12 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     annotate_control_nest,
     annotate_governance_spine,
     annotate_outer_governance_spine,
+    annotate_stewardship_spine,
     build_live_domain_hooks,
     builtin_control_nest_proof,
     builtin_governance_spine_proof,
     builtin_loop_engine_proof,
+    builtin_stewardship_spine_proof,
     compose_loop_of_loop,
     compose_pipeline_of_pipeline,
     default_extract_dispatched,
@@ -48,8 +51,10 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     governance_nest_path,
     list_loop_dialects,
     make_governance_institution_child_runner,
+    make_governance_league_child_runner,
     make_operational_program_child_runner,
     make_progress_loop_hooks,
+    make_stewardship_child_runner,
     nest_path,
     open_loop_dir,
     operational_nest_path,
@@ -64,7 +69,11 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     run_nested_pipeline,
     run_operational_spine,
     run_outer_governance_spine,
+    run_stewardship_spine,
     seal_json_receipt,
+    stewardship_constitution_chain,
+    stewardship_nest_depth,
+    stewardship_nest_path,
     verify_loop_receipt,
 )
 
@@ -76,6 +85,7 @@ CONTROL_ENGINE_MODE = "loop"
 CONTROL_NEST_IMPL = True
 CONTROL_GRAPH_IMPL = True
 GOVERNANCE_SPINE_IMPL = True
+STEWARDSHIP_SPINE_IMPL = True
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -87,6 +97,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         "governance-proof",
         help="Governance spine: institution + operational nest proof",
     )
+    sub.add_parser(
+        "stewardship-proof",
+        help="Stewardship spine: confederation→…→campaign cascade proof",
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
     if args.cmd == "list":
         print(json.dumps({"dialects": list_loop_dialects()}, indent=2))
@@ -97,6 +111,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "governance-proof":
         result = builtin_governance_spine_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "stewardship-proof":
+        result = builtin_stewardship_spine_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2

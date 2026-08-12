@@ -5608,6 +5608,63 @@
       ],
       "updated_at": "2026-08-11T16:03:16.443480Z"
     },
+    "capability.upstream-stewardship-spine": {
+      "behavior_paths": [
+        "src/blackhole_agent/upstream_control_engine.py",
+        "src/blackhole_agent/upstream_loop_engine.py",
+        "src/blackhole_agent/upstream_stewardship_facade.py",
+        "src/blackhole_agent/upstream_confederation.py",
+        "src/blackhole_agent/upstream_league.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Stewardship spine closes the mock-leaf cliff above league: run_stewardship_spine / make_stewardship_child_runner / make_governance_league_child_runner cascade confederation→league→institution into the operational nest (depth-8 stewardship_nest_path); league and confederation default ON (opt-out governance_spine=False) so confederation→…→campaign is continuous without skill-route.",
+      "created_at": "2026-08-12T06:38:15.599747Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.upstream-constitution-engine",
+        "capability.upstream-control-engine",
+        "capability.upstream-control-graph",
+        "capability.upstream-governance-spine",
+        "capability.upstream-stewardship-facade"
+      ],
+      "description": "Closes the multi-child mock-leaf cliff above league: confederation defaults to governance-backed leagues so confederation→league→institution→program→succession→epoch→fleet→campaign is one continuous engine-owned nest (depth 8). League also defaults to outer governance. Public run_stewardship_spine / make_stewardship_child_runner / make_governance_league_child_runner cascade constitution layers into the operational control graph without skill-route discovery.",
+      "entry": "blackhole_agent.upstream_control_engine:builtin_stewardship_spine_proof",
+      "id": "capability.upstream-stewardship-spine",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-12T06:38:15.599747Z",
+      "name": "Upstream stewardship spine (confederation cascade + operational control)",
+      "proof_command": "uv run python -m blackhole_agent.upstream_control_engine stewardship-proof",
+      "source_milestone": 1,
+      "source_mission_id": "20260812T063002Z-838746e5",
+      "tags": [
+        "bootstrap",
+        "bridge",
+        "cascade",
+        "collapse",
+        "composition",
+        "constitution",
+        "confederation",
+        "control",
+        "default",
+        "engine",
+        "governance",
+        "graph",
+        "institution",
+        "league",
+        "ledger-bound",
+        "live",
+        "multi-depth",
+        "nest",
+        "operational-spine",
+        "outer",
+        "spine",
+        "stewardship",
+        "upstream"
+      ],
+      "updated_at": "2026-08-12T06:38:15.599747Z"
+    },
     "capability.upstream-succession": {
       "behavior_paths": [
         "src/blackhole_agent/upstream_succession.py",
