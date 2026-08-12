@@ -50,6 +50,12 @@ Composition:
   ledger goal-plan surface; optional ``done_when`` evaluates a
   machine-checkable outcome contract against spine+effect evidence and
   rebinds the tip so the absolute tower is goal-conditioned end-to-end
+* total-spine **adaptive closed loop** — closes the open-loop cliff:
+  when effects fail or a machine-checkable ``done_when`` is unmet,
+  ``run_total_spine(adaptive=True)`` drops failed effect ids, optionally
+  grows the ledger, replans from the goal, redispatches, re-evaluates
+  the contract, and seals multi-round adaptive digests into the
+  depth-28 tip so the absolute tower can recover toward done_when
 
 No skill-route discovery.
 """
@@ -4272,6 +4278,10 @@ TOTAL_SPINE_DEFAULT_EFFECT_CAPABILITIES: tuple[str, ...] = (
 # Goal-conditioned effect planning + outcome-contract gate (opt-in).
 TOTAL_SPINE_GOAL_IMPL = True
 TOTAL_SPINE_DEFAULT_GOAL_MAX_STEPS: int = 3
+# Adaptive closed loop: replan/redispatch after failed effects/contracts.
+TOTAL_SPINE_ADAPTIVE_IMPL = True
+TOTAL_SPINE_DEFAULT_ADAPTIVE_ROUNDS: int = 2
+TOTAL_SPINE_DEFAULT_GROW_BUDGET: int = 0
 # Constitution-layer goals accepted by run_constitution (not free-text).
 TOTAL_SPINE_CONSTITUTION_GOALS: frozenset[str] = frozenset(
     {
@@ -4562,6 +4572,7 @@ def plan_total_spine_goal_effects(
     max_steps: int | None = None,
     cwd: Path | None = None,
     ledger_path: Path | None = None,
+    exclude: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """Plan ledger capability ids for total-spine effects from a free-text goal.
 
@@ -4569,6 +4580,9 @@ def plan_total_spine_goal_effects(
     live ledger) so the absolute tower is not limited to hand-picked effect
     lists. Prefer proved primitives and keep the program short so depth-28
     spines stay invocable.
+
+    ``exclude`` drops failed capability ids from adaptive replan rounds so the
+    closed loop does not redispatch the same broken effect set.
     """
     from blackhole_agent.capability_compounder import (
         default_ledger_path,
@@ -4585,13 +4599,29 @@ def plan_total_spine_goal_effects(
         if max_steps is not None
         else TOTAL_SPINE_DEFAULT_GOAL_MAX_STEPS
     )
+    blocked = {str(x).strip() for x in (exclude or []) if str(x).strip()}
     plan = plan_capability_program(
         ledger,
         goal,
-        max_steps=max(1, limit),
+        max_steps=max(1, limit) + len(blocked),
         prefer_primitives=True,
     )
-    steps = [str(s).strip() for s in (plan.get("steps") or []) if str(s).strip()]
+    raw_steps = [
+        str(s).strip() for s in (plan.get("steps") or []) if str(s).strip()
+    ]
+    steps = [s for s in raw_steps if s not in blocked][: max(1, limit)]
+    # Adaptive replan: if exclusion emptied the primary plan, pull next-best
+    # scored candidates from the planner scores map.
+    if not steps and isinstance(plan.get("scores"), Mapping) and blocked:
+        ranked = sorted(
+            (
+                (str(cid), float(score))
+                for cid, score in plan.get("scores", {}).items()
+                if str(cid) not in blocked and str(cid) in ledger.capabilities
+            ),
+            key=lambda item: (-item[1], item[0]),
+        )
+        steps = [cid for cid, _ in ranked[: max(1, limit)]]
     return {
         "ok": bool(plan.get("ok")) and bool(steps),
         "action": "total_spine_goal_plan",
@@ -4600,10 +4630,55 @@ def plan_total_spine_goal_effects(
         "steps": steps,
         "step_count": len(steps),
         "scores": dict(plan.get("scores") or {}),
+        "excluded": sorted(blocked),
         "max_steps": max(1, limit),
         "ledger_path": str(path),
         "used_skill_route_discovery": legacy_pipeline_was_used(),
     }
+
+
+def seal_total_spine_adaptive_chain(
+    rounds: Sequence[Mapping[str, Any]],
+    *,
+    prior_tip: str,
+) -> list[dict[str, Any]]:
+    """Seal multi-round adaptive recovery into an O(rounds) hop chain.
+
+    Material per round: ``index|effects_ok|contract_met|effect_tip|prior`` so
+    open-loop vs recovered tips differ when recovery changes outcomes.
+    """
+    tip = str(prior_tip or "").strip() or ("0" * 64)
+    hops: list[dict[str, Any]] = []
+    for idx, round_body in enumerate(rounds):
+        effects_ok = "1" if round_body.get("effects_ok") else "0"
+        if round_body.get("contract_met") is True:
+            contract_flag = "1"
+        elif round_body.get("contract_met") is False:
+            contract_flag = "0"
+        else:
+            contract_flag = "x"
+        effect_tip = str(round_body.get("effect_tip") or tip)
+        material = (
+            f"{idx}|{effects_ok}|{contract_flag}|{effect_tip}|{tip}".encode(
+                "utf-8"
+            )
+        )
+        digest = _sha256_bytes(material)
+        hops.append(
+            {
+                "round_index": idx,
+                "effects_ok": bool(round_body.get("effects_ok")),
+                "contract_met": round_body.get("contract_met"),
+                "effect_tip": effect_tip,
+                "capability_ids": list(round_body.get("capability_ids") or []),
+                "prior_tip": tip,
+                "digest": digest,
+                "grew": bool(round_body.get("grew")),
+                "recovered": bool(round_body.get("recovered")),
+            }
+        )
+        tip = digest
+    return hops
 
 
 def seal_total_spine_contract(
@@ -4892,6 +4967,22 @@ def annotate_total_spine(
     return body
 
 
+def _total_spine_round_succeeded(
+    *,
+    want_effects: bool,
+    effects_ok: bool | None,
+    contract_text: str,
+    contract_met: Any,
+    contract_machine: bool,
+) -> bool:
+    """Whether one plan→effects→contract round closed successfully."""
+    if want_effects and effects_ok is not True:
+        return False
+    if contract_text and contract_machine and contract_met is not True:
+        return False
+    return True
+
+
 def _attach_total_spine_effects(
     annotated: dict[str, Any],
     *,
@@ -4907,6 +4998,10 @@ def _attach_total_spine_effects(
     goal: str | None = None,
     max_effect_steps: int | None = None,
     done_when: str | None = None,
+    adaptive: bool = False,
+    adaptive_rounds: int | None = None,
+    grow: bool = False,
+    grow_budget: int | None = None,
 ) -> dict[str, Any]:
     """Optionally dispatch ledger effects, gate contracts, rebind hop digests.
 
@@ -4918,6 +5013,11 @@ def _attach_total_spine_effects(
     When ``done_when`` is set, evaluate a machine-checkable outcome contract
     after effects (or after the operational tip alone) and rebind the tower
     digest so contract verdicts are hop-visible.
+
+    Adaptive closed loop (``adaptive=True`` or ``adaptive_rounds>1``): on
+    failed effects or unmet machine-checkable contracts, exclude failed
+    capability ids, optionally grow the ledger, replan/redispatch, and seal
+    multi-round adaptive digests into the absolute-tower tip.
     """
     goal_text = str(goal or "").strip()
     contract_text = str(done_when or "").strip()
@@ -4932,143 +5032,380 @@ def _attach_total_spine_effects(
     # an explicit done_when so goal→effects→contract is one path.
     if not want_effects and goal_text and contract_text:
         want_effects = True
+    max_rounds = (
+        int(adaptive_rounds)
+        if adaptive_rounds is not None
+        else (
+            TOTAL_SPINE_DEFAULT_ADAPTIVE_ROUNDS
+            if adaptive
+            else 1
+        )
+    )
+    max_rounds = max(1, max_rounds)
+    if adaptive and max_rounds < 2:
+        max_rounds = TOTAL_SPINE_DEFAULT_ADAPTIVE_ROUNDS
+    adaptive_on = bool(adaptive) or max_rounds > 1
+    grow_on = bool(grow) and adaptive_on
+    grow_limit = (
+        int(grow_budget)
+        if grow_budget is not None
+        else TOTAL_SPINE_DEFAULT_GROW_BUDGET
+    )
+    grow_limit = max(0, grow_limit)
+
     if not want_effects and not contract_text:
         annotated["total_spine_effects"] = False
         annotated["total_spine_goal_planned"] = False
         annotated["total_spine_contract"] = False
+        annotated["total_spine_adaptive"] = False
         return annotated
 
     repo = Path(repo_path) if repo_path is not None else REPO_ROOT
     repo = repo.resolve()
     operational_tip = _operational_tip_digest(live_result)
     bound_tip = operational_tip
-    goal_plan: dict[str, Any] | None = None
+    exclude: set[str] = set()
+    adaptive_rounds_log: list[dict[str, Any]] = []
+    last_pack: dict[str, Any] | None = None
+    last_contract: dict[str, Any] | None = None
+    last_seal: dict[str, Any] | None = None
+    last_goal_plan: dict[str, Any] | None = None
+    effect_source = "default"
+    goal_planned = False
+    recovered = False
+    grew_any = False
+    growth_records: list[dict[str, Any]] = []
 
-    if want_effects:
-        ids: list[str]
-        if explicit_caps:
-            ids = [str(c).strip() for c in capabilities if str(c).strip()]
-            annotated["total_spine_goal_planned"] = False
-            annotated["total_spine_effect_source"] = "explicit"
-        elif goal_text:
-            goal_plan = plan_total_spine_goal_effects(
+    def _select_ids(round_index: int) -> tuple[list[str], str, bool, dict[str, Any] | None]:
+        if explicit_caps and round_index == 0:
+            ids0 = [str(c).strip() for c in capabilities if str(c).strip()]
+            return ids0, "explicit", False, None
+        if explicit_caps and round_index > 0:
+            # Adaptive recovery for explicit lists: survivors after exclude,
+            # or goal replan when a free-text goal is also present.
+            survivors = [
+                str(c).strip()
+                for c in capabilities
+                if str(c).strip() and str(c).strip() not in exclude
+            ]
+            if survivors:
+                return survivors, "explicit_survivors", False, None
+            if goal_text:
+                plan = plan_total_spine_goal_effects(
+                    goal_text,
+                    max_steps=max_effect_steps,
+                    cwd=repo,
+                    exclude=sorted(exclude),
+                )
+                return (
+                    list(plan.get("steps") or []),
+                    "goal_replan",
+                    True,
+                    plan,
+                )
+            return [], "explicit_exhausted", False, None
+        if goal_text:
+            plan = plan_total_spine_goal_effects(
                 goal_text,
                 max_steps=max_effect_steps,
                 cwd=repo,
+                exclude=sorted(exclude) if exclude else None,
             )
-            ids = list(goal_plan.get("steps") or [])
-            annotated["total_spine_goal_planned"] = True
-            annotated["total_spine_goal_plan"] = goal_plan
-            annotated["total_spine_effect_source"] = "goal"
-            annotated["total_spine_goal"] = goal_plan.get("goal") or goal_text
+            return (
+                list(plan.get("steps") or []),
+                "goal" if round_index == 0 else "goal_replan",
+                True,
+                plan,
+            )
+        ids_default = [
+            c
+            for c in TOTAL_SPINE_DEFAULT_EFFECT_CAPABILITIES
+            if c not in exclude
+        ]
+        return ids_default, "default", False, None
+
+    for round_index in range(max_rounds):
+        round_grew = False
+        growth_pack: dict[str, Any] | None = None
+        ids: list[str] = []
+        plan_meta: dict[str, Any] | None = None
+        source = "default"
+        planned = False
+
+        if want_effects:
+            ids, source, planned, plan_meta = _select_ids(round_index)
+            if planned and plan_meta is not None:
+                last_goal_plan = plan_meta
+                goal_planned = True
+            effect_source = source
+
+            # Empty plan on adaptive path: optional grow then replan once.
+            if not ids and grow_on and grow_limit > 0:
+                from blackhole_agent.capability_compounder import (
+                    run_adaptive_growth,
+                )
+
+                growth_pack = run_adaptive_growth(
+                    repo,
+                    budget=grow_limit,
+                    timeout=max(30, effect_timeout),
+                    novel_only=True,
+                )
+                growth_records.append(growth_pack)
+                round_grew = bool(growth_pack.get("grew"))
+                grew_any = grew_any or round_grew
+                ids, source, planned, plan_meta = _select_ids(round_index)
+                if planned and plan_meta is not None:
+                    last_goal_plan = plan_meta
+                    goal_planned = True
+                effect_source = source
+
             if not ids:
-                # Honest failure: goal planner returned nothing.
                 annotated["total_spine_effects"] = True
                 annotated["total_spine_effects_ok"] = False
                 annotated["ok"] = False
                 annotated["verdict"] = (
                     annotated.get("verdict") or "total_spine_goal_plan_empty"
                 )
-                annotated["total_spine_constitution_depth"] = chain_len
-                return annotated
+                adaptive_rounds_log.append(
+                    {
+                        "round_index": round_index,
+                        "capability_ids": [],
+                        "effects_ok": False,
+                        "contract_met": None,
+                        "effect_tip": bound_tip,
+                        "grew": round_grew,
+                        "recovered": False,
+                        "source": source,
+                        "verdict": "empty_plan",
+                    }
+                )
+                if not adaptive_on or round_index + 1 >= max_rounds:
+                    break
+                continue
+
+            effect_out = None
+            if out_root is not None:
+                effect_out = Path(out_root) / "effects" / f"round-{round_index}"
+            pack = dispatch_total_spine_effects(
+                ids,
+                cwd=repo,
+                out_root=effect_out,
+                timeout=effect_timeout,
+            )
+            last_pack = pack
+            effect_chain = seal_total_spine_effect_chain(
+                pack.get("effects") or [],
+                operational_tip=operational_tip,
+            )
+            effect_tip = (
+                effect_chain[-1]["digest"] if effect_chain else operational_tip
+            )
+            bound_tip = _sha256_bytes(
+                f"{operational_tip}|{effect_tip}".encode("utf-8")
+            )
+            annotated = annotate_total_spine_effects(
+                annotated,
+                effect_pack=pack,
+                operational_tip=operational_tip,
+            )
+            annotated["total_spine_effect_bound_tip"] = bound_tip
+            annotated["total_spine_effect_source"] = source
+            annotated["total_spine_goal_planned"] = goal_planned
+            if last_goal_plan is not None:
+                annotated["total_spine_goal_plan"] = last_goal_plan
+                annotated["total_spine_goal"] = (
+                    last_goal_plan.get("goal") or goal_text
+                )
+            effects_ok = bool(pack.get("ok"))
+            failed_ids = [
+                str(e.get("capability_id") or "")
+                for e in (pack.get("effects") or [])
+                if isinstance(e, Mapping) and not e.get("ok")
+            ]
+            failed_ids = [f for f in failed_ids if f]
         else:
-            ids = list(TOTAL_SPINE_DEFAULT_EFFECT_CAPABILITIES)
+            effects_ok = True
+            failed_ids = []
+            effect_tip = operational_tip
+            annotated["total_spine_effects"] = False
             annotated["total_spine_goal_planned"] = False
-            annotated["total_spine_effect_source"] = "default"
 
-        effect_out = None
-        if out_root is not None:
-            effect_out = Path(out_root) / "effects"
-        pack = dispatch_total_spine_effects(
-            ids,
-            cwd=repo,
-            out_root=effect_out,
-            timeout=effect_timeout,
-        )
-        effect_chain = seal_total_spine_effect_chain(
-            pack.get("effects") or [],
-            operational_tip=operational_tip,
-        )
-        effect_tip = (
-            effect_chain[-1]["digest"] if effect_chain else operational_tip
-        )
-        bound_tip = _sha256_bytes(
-            f"{operational_tip}|{effect_tip}".encode("utf-8")
-        )
-        if compressed:
-            hops = seal_total_spine_hop_chain(root, live_result, tip=bound_tip)
-            annotated["total_spine_hop_chain"] = hops
-            annotated["total_spine_hop_count"] = len(hops)
-            if hops:
-                annotated["total_spine_digest"] = hops[0].get("digest")
-                annotated[f"{root}_digest"] = hops[0].get("digest")
-        else:
-            annotated["total_spine_digest"] = bound_tip
-            annotated[f"{root}_digest"] = bound_tip
+        contract_met: Any = None
+        contract_machine = False
+        if contract_text:
+            prior = str(
+                annotated.get("total_spine_effect_bound_tip")
+                or annotated.get("total_spine_digest")
+                or bound_tip
+                or operational_tip
+            )
+            context: dict[str, Any] = {
+                "total_spine": annotated,
+                "total_spine_effects": annotated.get("total_spine_effects"),
+                "total_spine_effects_ok": annotated.get(
+                    "total_spine_effects_ok"
+                ),
+                "total_spine_effect_count": annotated.get(
+                    "total_spine_effect_count"
+                ),
+                "total_dispatched_ok": annotated.get("total_dispatched_ok"),
+                "total_spine_goal": annotated.get("total_spine_goal")
+                or goal_text,
+                "effects_applied_ok": bool(
+                    annotated.get("total_spine_effects_ok")
+                ),
+                "adaptive_round": round_index,
+                "program": {
+                    "ok": bool(annotated.get("total_spine_effects_ok")),
+                    "passed_count": int(
+                        annotated.get("total_spine_effects_ok_count") or 0
+                    ),
+                    "steps": list(
+                        annotated.get("total_spine_effect_capabilities") or []
+                    ),
+                },
+            }
+            contract = evaluate_total_spine_contract(
+                contract_text,
+                context=context,
+                cwd=repo,
+                timeout=effect_timeout,
+            )
+            last_contract = contract
+            seal = seal_total_spine_contract(contract, prior_tip=prior)
+            last_seal = seal
+            contract_tip = str(seal.get("digest") or prior)
+            bound_tip = _sha256_bytes(
+                f"{prior}|{contract_tip}".encode("utf-8")
+            )
+            annotated = annotate_total_spine_contract(
+                annotated,
+                contract=contract,
+                prior_tip=prior,
+                done_when=contract_text,
+            )
+            annotated["total_spine_contract_bound_tip"] = bound_tip
+            contract_met = contract.get("met")
+            contract_machine = bool(contract.get("machine_checkable"))
 
-        annotated = annotate_total_spine_effects(
-            annotated,
-            effect_pack=pack,
-            operational_tip=operational_tip,
+        success = _total_spine_round_succeeded(
+            want_effects=want_effects,
+            effects_ok=effects_ok if want_effects else True,
+            contract_text=contract_text,
+            contract_met=contract_met,
+            contract_machine=contract_machine,
         )
-        if compressed and annotated.get("total_spine_hop_chain"):
-            hops = annotated["total_spine_hop_chain"]
-            if hops:
-                annotated["total_spine_digest"] = hops[0].get("digest")
-                annotated[f"{root}_digest"] = hops[0].get("digest")
-        annotated["total_spine_effect_bound_tip"] = bound_tip
+        if success and round_index > 0:
+            recovered = True
+
+        adaptive_rounds_log.append(
+            {
+                "round_index": round_index,
+                "capability_ids": list(ids) if want_effects else [],
+                "effects_ok": effects_ok if want_effects else None,
+                "contract_met": contract_met,
+                "effect_tip": str(
+                    annotated.get("total_spine_effect_tip")
+                    or bound_tip
+                    or operational_tip
+                ),
+                "bound_tip": bound_tip,
+                "grew": round_grew,
+                "recovered": success and round_index > 0,
+                "source": effect_source,
+                "failed_ids": list(failed_ids),
+                "success": success,
+            }
+        )
+
+        if success:
+            # Restore ok when adaptive recovery cleared a prior failure.
+            if annotated.get("verdict") in {
+                "total_spine_effects_failed",
+                "total_spine_contract_failed",
+                "total_spine_goal_plan_empty",
+            }:
+                annotated["verdict"] = "total_spine_adaptive_ok"
+            if want_effects and last_pack and last_pack.get("ok"):
+                annotated["ok"] = True
+            if (
+                contract_text
+                and contract_machine
+                and contract_met is True
+                and (not want_effects or effects_ok)
+            ):
+                annotated["ok"] = True
+            break
+
+        # Prepare next adaptive round.
+        if not adaptive_on or round_index + 1 >= max_rounds:
+            break
+        for failed in failed_ids:
+            exclude.add(failed)
+        # If the whole pack failed only due to missing caps, survivors may
+        # already be enough; also grow when requested and nothing left.
+        if grow_on and grow_limit > 0 and (
+            not want_effects
+            or not any(
+                str(c).strip() not in exclude
+                for c in (
+                    list(capabilities or [])
+                    if explicit_caps
+                    else list(
+                        (last_goal_plan or {}).get("steps")
+                        or TOTAL_SPINE_DEFAULT_EFFECT_CAPABILITIES
+                    )
+                )
+            )
+        ):
+            from blackhole_agent.capability_compounder import (
+                run_adaptive_growth,
+            )
+
+            growth_pack = run_adaptive_growth(
+                repo,
+                budget=grow_limit,
+                timeout=max(30, effect_timeout),
+                novel_only=True,
+            )
+            growth_records.append(growth_pack)
+            grew_any = grew_any or bool(growth_pack.get("grew"))
+
+    # Rebind hop digests to final bound tip.
+    if compressed:
+        hops = seal_total_spine_hop_chain(root, live_result, tip=bound_tip)
+        annotated["total_spine_hop_chain"] = hops
+        annotated["total_spine_hop_count"] = len(hops)
+        if hops:
+            annotated["total_spine_digest"] = hops[0].get("digest")
+            annotated[f"{root}_digest"] = hops[0].get("digest")
     else:
-        annotated["total_spine_effects"] = False
-        annotated["total_spine_goal_planned"] = False
+        annotated["total_spine_digest"] = bound_tip
+        annotated[f"{root}_digest"] = bound_tip
 
-    # Contract gate (optional): bind done_when into the tip after effects.
-    if contract_text:
-        prior = str(
-            annotated.get("total_spine_effect_bound_tip")
-            or annotated.get("total_spine_digest")
-            or bound_tip
-            or operational_tip
+    if adaptive_on or len(adaptive_rounds_log) > 1:
+        chain = seal_total_spine_adaptive_chain(
+            adaptive_rounds_log,
+            prior_tip=operational_tip,
         )
-        context: dict[str, Any] = {
-            "total_spine": annotated,
-            "total_spine_effects": annotated.get("total_spine_effects"),
-            "total_spine_effects_ok": annotated.get("total_spine_effects_ok"),
-            "total_spine_effect_count": annotated.get(
-                "total_spine_effect_count"
-            ),
-            "total_dispatched_ok": annotated.get("total_dispatched_ok"),
-            "total_spine_goal": annotated.get("total_spine_goal") or goal_text,
-            "effects_applied_ok": bool(
-                annotated.get("total_spine_effects_ok")
-            ),
-            "program": {
-                "ok": bool(annotated.get("total_spine_effects_ok")),
-                "passed_count": int(
-                    annotated.get("total_spine_effects_ok_count") or 0
-                ),
-                "steps": list(
-                    annotated.get("total_spine_effect_capabilities") or []
-                ),
-            },
-        }
-        contract = evaluate_total_spine_contract(
-            contract_text,
-            context=context,
-            cwd=repo,
-            timeout=effect_timeout,
+        adaptive_tip = chain[-1]["digest"] if chain else bound_tip
+        final_bound = _sha256_bytes(
+            f"{bound_tip}|{adaptive_tip}".encode("utf-8")
         )
-        seal = seal_total_spine_contract(contract, prior_tip=prior)
-        contract_tip = str(seal.get("digest") or prior)
-        bound_tip = _sha256_bytes(
-            f"{prior}|{contract_tip}".encode("utf-8")
-        )
-        annotated = annotate_total_spine_contract(
-            annotated,
-            contract=contract,
-            prior_tip=prior,
-            done_when=contract_text,
-        )
-        annotated["total_spine_contract_bound_tip"] = bound_tip
+        annotated["total_spine_adaptive"] = True
+        annotated["total_spine_adaptive_impl"] = TOTAL_SPINE_ADAPTIVE_IMPL
+        annotated["total_spine_adaptive_rounds"] = adaptive_rounds_log
+        annotated["total_spine_adaptive_round_count"] = len(adaptive_rounds_log)
+        annotated["total_spine_adaptive_chain"] = chain
+        annotated["total_spine_adaptive_tip"] = adaptive_tip
+        annotated["total_spine_adaptive_bound_tip"] = final_bound
+        annotated["total_spine_adaptive_recovered"] = recovered
+        annotated["total_spine_adaptive_grew"] = grew_any
+        annotated["total_spine_adaptive_excluded"] = sorted(exclude)
+        annotated["total_spine_adaptive_growth"] = growth_records
+        annotated["total_spine_digest_pre_adaptive"] = bound_tip
+        bound_tip = final_bound
         if compressed:
             hops = seal_total_spine_hop_chain(root, live_result, tip=bound_tip)
             annotated["total_spine_hop_chain"] = hops
@@ -5080,23 +5417,43 @@ def _attach_total_spine_effects(
             annotated["total_spine_digest"] = bound_tip
             annotated[f"{root}_digest"] = bound_tip
         if out_root is not None:
-            contract_dir = Path(out_root) / "contract"
-            contract_dir.mkdir(parents=True, exist_ok=True)
+            adapt_dir = Path(out_root) / "adaptive"
+            adapt_dir.mkdir(parents=True, exist_ok=True)
             atomic_write_json(
-                contract_dir / "total-spine-contract.json",
+                adapt_dir / "total-spine-adaptive.json",
                 {
-                    "done_when": contract_text,
-                    "contract": contract,
-                    "seal": seal,
+                    "rounds": adaptive_rounds_log,
+                    "chain": chain,
+                    "excluded": sorted(exclude),
+                    "recovered": recovered,
+                    "grew": grew_any,
                     "bound_tip": bound_tip,
                 },
             )
-            annotated["total_spine_contract_receipt_dir"] = str(contract_dir)
+            annotated["total_spine_adaptive_receipt_dir"] = str(adapt_dir)
+    else:
+        annotated["total_spine_adaptive"] = False
+
+    if contract_text and last_contract is not None and out_root is not None:
+        contract_dir = Path(out_root) / "contract"
+        contract_dir.mkdir(parents=True, exist_ok=True)
+        atomic_write_json(
+            contract_dir / "total-spine-contract.json",
+            {
+                "done_when": contract_text,
+                "contract": last_contract,
+                "seal": last_seal,
+                "bound_tip": annotated.get("total_spine_contract_bound_tip"),
+                "adaptive_round_count": len(adaptive_rounds_log),
+            },
+        )
+        annotated["total_spine_contract_receipt_dir"] = str(contract_dir)
 
     annotated["total_spine_constitution_depth"] = chain_len
     if goal_text and not annotated.get("total_spine_goal"):
         annotated["total_spine_goal"] = goal_text
     annotated["total_spine_goal_impl"] = TOTAL_SPINE_GOAL_IMPL
+    annotated["total_spine_adaptive_impl"] = TOTAL_SPINE_ADAPTIVE_IMPL
     return annotated
 
 
@@ -5127,6 +5484,10 @@ def run_total_spine(
     repo_path: Path | None = None,
     max_effect_steps: int | None = None,
     done_when: str | None = None,
+    adaptive: bool = False,
+    adaptive_rounds: int | None = None,
+    grow: bool = False,
+    grow_budget: int | None = None,
 ) -> dict[str, Any]:
     """Public entry: absolute total spine from root into the operational nest.
 
@@ -5148,6 +5509,11 @@ def run_total_spine(
     no explicit ``capabilities``), effect ids are planned via
     :func:`plan_total_spine_goal_effects`. Optional ``done_when`` evaluates a
     machine-checkable outcome contract and rebinds the tower tip.
+
+    Adaptive closed loop: ``adaptive=True`` (or ``adaptive_rounds>1``) recovers
+    from failed effects / unmet contracts by excluding failed capability ids,
+    optionally growing the ledger (``grow=True``), replanning, redisatching,
+    and sealing multi-round adaptive digests into the tip.
     """
     root = (
         str(root_layer or TOTAL_SPINE_DEFAULT_ROOT).strip().lower()
@@ -5210,6 +5576,10 @@ def run_total_spine(
             goal=effect_goal,
             max_effect_steps=max_effect_steps,
             done_when=done_when,
+            adaptive=adaptive,
+            adaptive_rounds=adaptive_rounds,
+            grow=grow,
+            grow_budget=grow_budget,
         )
         return annotated
 
@@ -5265,6 +5635,10 @@ def run_total_spine(
         goal=effect_goal,
         max_effect_steps=max_effect_steps,
         done_when=done_when,
+        adaptive=adaptive,
+        adaptive_rounds=adaptive_rounds,
+        grow=grow,
+        grow_budget=grow_budget,
     )
     if out_root is not None:
         receipt_dir = Path(out_root)
@@ -5291,6 +5665,15 @@ def run_total_spine(
             "total_spine_contract": bool(annotated.get("total_spine_contract")),
             "total_spine_contract_met": annotated.get(
                 "total_spine_contract_met"
+            ),
+            "total_spine_adaptive": bool(
+                annotated.get("total_spine_adaptive")
+            ),
+            "total_spine_adaptive_round_count": annotated.get(
+                "total_spine_adaptive_round_count"
+            ),
+            "total_spine_adaptive_recovered": annotated.get(
+                "total_spine_adaptive_recovered"
             ),
             "used_skill_route_discovery": legacy_pipeline_was_used(),
         }
@@ -8679,6 +9062,283 @@ def builtin_total_spine_goal_proof() -> dict[str, Any]:
         shutil.rmtree(scratch, ignore_errors=True)
 
 
+def builtin_total_spine_adaptive_proof() -> dict[str, Any]:
+    """Hermetic proof: adaptive closed loop recovers absolute tower tip.
+
+    Closes the open-loop cliff: when first-round effects fail (missing cap),
+    ``run_total_spine(adaptive=True)`` excludes failures, redispatches
+    survivors, re-evaluates done_when, and seals multi-round adaptive digests
+    so depth-28 quetta→campaign can recover without skill-route discovery.
+    """
+    scratch = Path(tempfile.mkdtemp(prefix="total-spine-adaptive-proof-"))
+    try:
+        from blackhole_agent import upstream_loop_engine as le_facade
+        from blackhole_agent.capability_compounder import (
+            default_ledger_path,
+            load_ledger,
+        )
+
+        flags_ok = (
+            TOTAL_SPINE_ADAPTIVE_IMPL is True
+            and TOTAL_SPINE_GOAL_IMPL is True
+            and TOTAL_SPINE_EFFECT_IMPL is True
+            and TOTAL_SPINE_IMPL is True
+            and TOTAL_SPINE_DEFAULT_ADAPTIVE_ROUNDS >= 2
+        )
+
+        missing_id = "capability.does-not-exist-for-adaptive-proof"
+        good_id = "repo.import-health"
+        contract_pass = "min_proved:1; no_skill_route"
+
+        # Open-loop (adaptive off): mixed caps fail and stay failed.
+        open_loop = run_total_spine(
+            root_layer="institution",
+            out_root=scratch / "open-loop",
+            max_rounds=1,
+            dispatch=True,
+            dispatch_budget=1,
+            max_successions=1,
+            max_epochs=1,
+            max_waves=1,
+            compress=False,
+            effects=True,
+            capabilities=[missing_id, good_id],
+            done_when=contract_pass,
+            adaptive=False,
+            effect_timeout=60,
+            repo_path=REPO_ROOT,
+        )
+        open_loop_ok = (
+            open_loop.get("total_spine_adaptive") is not True
+            and open_loop.get("total_spine_effects") is True
+            and open_loop.get("total_spine_effects_ok") is False
+            and open_loop.get("ok") is False
+            and int(open_loop.get("total_spine_effects_failed_count") or 0) >= 1
+        )
+
+        # Adaptive closed loop: drop missing cap, redispatch survivor, recover.
+        adaptive = run_total_spine(
+            root_layer="quettacontinuum",
+            out_root=scratch / "adaptive-spine",
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=3,
+            max_successions=1,
+            max_epochs=1,
+            max_waves=1,
+            compress=True,
+            effects=True,
+            capabilities=[missing_id, good_id],
+            done_when=contract_pass,
+            adaptive=True,
+            adaptive_rounds=2,
+            effect_timeout=90,
+            repo_path=REPO_ROOT,
+        )
+        rounds = adaptive.get("total_spine_adaptive_rounds") or []
+        chain = adaptive.get("total_spine_adaptive_chain") or []
+        excluded = set(adaptive.get("total_spine_adaptive_excluded") or [])
+        final_ids = list(adaptive.get("total_spine_effect_capabilities") or [])
+        adaptive_ok = (
+            bool(adaptive.get("ok"))
+            and adaptive.get("total_spine") is True
+            and adaptive.get("total_spine_compressed") is True
+            and adaptive.get("total_spine_adaptive") is True
+            and adaptive.get("total_spine_adaptive_recovered") is True
+            and adaptive.get("total_spine_effects") is True
+            and adaptive.get("total_spine_effects_ok") is True
+            and adaptive.get("total_spine_contract") is True
+            and adaptive.get("total_spine_contract_met") is True
+            and int(adaptive.get("total_nest_depth") or 0) == 28
+            and int(adaptive.get("total_spine_adaptive_round_count") or 0) >= 2
+            and len(rounds) >= 2
+            and rounds[0].get("success") is False
+            and rounds[-1].get("success") is True
+            and missing_id in excluded
+            and good_id in final_ids
+            and missing_id not in final_ids
+            and isinstance(adaptive.get("total_spine_adaptive_tip"), str)
+            and len(str(adaptive.get("total_spine_adaptive_tip"))) >= 32
+            and isinstance(adaptive.get("total_spine_digest"), str)
+            and len(str(adaptive.get("total_spine_digest"))) >= 32
+            and len(chain) >= 2
+            and not legacy_pipeline_was_used()
+        )
+
+        # Adaptive chain integrity: recompute digests from round material.
+        chain_integrity_ok = False
+        if chain and rounds:
+            re_chain = seal_total_spine_adaptive_chain(
+                rounds,
+                prior_tip=str(
+                    adaptive.get("total_spine_operational_tip")
+                    or ("0" * 64)
+                ),
+            )
+            # operational tip may be rebound; compare structure + final tip
+            # using the sealed chain's own prior of hop 0.
+            if chain and re_chain:
+                # Re-seal using the same prior the production path used.
+                prior0 = str(chain[0].get("prior_tip") or "")
+                re_chain = seal_total_spine_adaptive_chain(
+                    rounds, prior_tip=prior0
+                )
+                chain_integrity_ok = (
+                    len(re_chain) == len(chain)
+                    and re_chain[-1].get("digest")
+                    == chain[-1].get("digest")
+                    and re_chain[-1].get("digest")
+                    == adaptive.get("total_spine_adaptive_tip")
+                )
+
+        # Differential: adaptive recovered tip differs from open-loop fail tip.
+        differential_ok = (
+            open_loop_ok
+            and adaptive_ok
+            and adaptive.get("total_spine_digest")
+            != open_loop.get("total_spine_digest")
+        )
+
+        # Goal-path adaptive first-round success still seals adaptive=True.
+        goal_adaptive = run_total_spine(
+            root_layer="institution",
+            out_root=scratch / "goal-adaptive-ok",
+            max_rounds=1,
+            dispatch=True,
+            dispatch_budget=1,
+            max_successions=1,
+            max_epochs=1,
+            max_waves=1,
+            compress=False,
+            effects=True,
+            goal="health inventory integrity",
+            max_effect_steps=2,
+            done_when=contract_pass,
+            adaptive=True,
+            adaptive_rounds=2,
+            effect_timeout=90,
+            repo_path=REPO_ROOT,
+        )
+        goal_adaptive_ok = (
+            bool(goal_adaptive.get("ok"))
+            and goal_adaptive.get("total_spine_adaptive") is True
+            and goal_adaptive.get("total_spine_goal_planned") is True
+            and goal_adaptive.get("total_spine_contract_met") is True
+            and int(goal_adaptive.get("total_spine_adaptive_round_count") or 0)
+            >= 1
+            and goal_adaptive.get("total_spine_adaptive_recovered") is not True
+        )
+
+        facade_path = Path(le_facade.__file__).resolve()
+        facade_text = facade_path.read_text(encoding="utf-8")
+        source_ok = (
+            "TOTAL_SPINE_ADAPTIVE_IMPL" in facade_text
+            and "builtin_total_spine_adaptive_proof" in facade_text
+            and "seal_total_spine_adaptive_chain" in facade_text
+            and callable(
+                getattr(le_facade, "builtin_total_spine_adaptive_proof", None)
+            )
+            and callable(
+                getattr(le_facade, "seal_total_spine_adaptive_chain", None)
+            )
+            and getattr(le_facade, "TOTAL_SPINE_ADAPTIVE_IMPL", False) is True
+        )
+
+        engine_path = Path(__file__).resolve()
+        engine_text = engine_path.read_text(encoding="utf-8")
+        engine_source_ok = (
+            "def builtin_total_spine_adaptive_proof" in engine_text
+            and "def seal_total_spine_adaptive_chain" in engine_text
+            and "TOTAL_SPINE_ADAPTIVE_IMPL" in engine_text
+            and "total_spine_adaptive_recovered" in engine_text
+            and "adaptive_rounds" in engine_text
+        )
+
+        ledger_path = default_ledger_path(REPO_ROOT)
+        ledger_ok = False
+        try:
+            ledger = load_ledger(ledger_path)
+            entry = ledger.capabilities.get(
+                "capability.upstream-total-spine-adaptive"
+            )
+            tags_blob = " ".join(entry.tags).lower() if entry else ""
+            delta_blob = (entry.capability_delta or "").lower() if entry else ""
+            name_blob = (entry.name or "").lower() if entry else ""
+            ledger_ok = (
+                entry is not None
+                and "upstream_control_engine" in (entry.entry or "")
+                and "builtin_total_spine_adaptive_proof" in (entry.entry or "")
+                and (
+                    "adaptive" in tags_blob
+                    or "adaptive" in name_blob
+                    or "adaptive" in delta_blob
+                )
+                and ("total" in tags_blob or "total" in name_blob)
+                and (
+                    "recover" in delta_blob
+                    or "replan" in delta_blob
+                    or "closed" in delta_blob
+                    or "open-loop" in delta_blob
+                    or "open loop" in delta_blob
+                )
+                and (
+                    "run_total_spine" in delta_blob
+                    or "adaptive" in delta_blob
+                )
+            )
+        except Exception:  # noqa: BLE001
+            ledger_ok = False
+
+        ok = all(
+            [
+                flags_ok,
+                open_loop_ok,
+                adaptive_ok,
+                chain_integrity_ok,
+                differential_ok,
+                goal_adaptive_ok,
+                source_ok,
+                engine_source_ok,
+                ledger_ok,
+                not legacy_pipeline_was_used(),
+            ]
+        )
+        return {
+            "ok": ok,
+            "action": "total_spine_adaptive_proof",
+            "flags_ok": flags_ok,
+            "open_loop_ok": open_loop_ok,
+            "adaptive_ok": adaptive_ok,
+            "adaptive_round_count": adaptive.get(
+                "total_spine_adaptive_round_count"
+            ),
+            "adaptive_recovered": adaptive.get(
+                "total_spine_adaptive_recovered"
+            ),
+            "adaptive_excluded": sorted(excluded),
+            "adaptive_final_ids": final_ids,
+            "adaptive_tip": adaptive.get("total_spine_adaptive_tip"),
+            "adaptive_digest": adaptive.get("total_spine_digest"),
+            "chain_integrity_ok": chain_integrity_ok,
+            "differential_ok": differential_ok,
+            "open_loop_digest": open_loop.get("total_spine_digest"),
+            "goal_adaptive_ok": goal_adaptive_ok,
+            "source_ok": source_ok,
+            "engine_source_ok": engine_source_ok,
+            "ledger_capability_ok": ledger_ok,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "control_engine": True,
+            "total_spine": True,
+            "total_spine_effects": True,
+            "total_spine_goal": True,
+            "total_spine_adaptive": True,
+            "total_spine_compressed": True,
+            "done_when_met": ok,
+        }
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
 def builtin_control_nest_proof() -> dict[str, Any]:
     """Hermetic proof: multi-depth nest owns program→…→fleet→campaign spine."""
     scratch = Path(tempfile.mkdtemp(prefix="control-nest-proof-"))
@@ -10104,6 +10764,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "done_when contracts gate the absolute tower tip"
         ),
     )
+    sub.add_parser(
+        "adaptive-proof",
+        help=(
+            "Total spine adaptive proof: closed loop recovers from "
+            "failed effects via replan/redispatch and seals multi-round digests"
+        ),
+    )
     sub.add_parser("list", help="List control modes and dialects")
     sub.add_parser("nest-path", help="Print canonical operational nest path")
     sub.add_parser(
@@ -10216,6 +10883,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "goal-proof":
         result = builtin_total_spine_goal_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "adaptive-proof":
+        result = builtin_total_spine_adaptive_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2

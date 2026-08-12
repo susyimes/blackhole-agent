@@ -22,9 +22,12 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     REPO_ROOT,
     SCHEMA_VERSION,
     STEWARDSHIP_SPINE_DEFAULT_ROOTS,
+    TOTAL_SPINE_ADAPTIVE_IMPL,
     TOTAL_SPINE_COMPRESS_THRESHOLD,
+    TOTAL_SPINE_DEFAULT_ADAPTIVE_ROUNDS,
     TOTAL_SPINE_DEFAULT_EFFECT_CAPABILITIES,
     TOTAL_SPINE_DEFAULT_GOAL_MAX_STEPS,
+    TOTAL_SPINE_DEFAULT_GROW_BUDGET,
     TOTAL_SPINE_DEFAULT_ROOT,
     TOTAL_SPINE_DEFAULT_ROOTS,
     TOTAL_SPINE_EFFECT_IMPL,
@@ -60,6 +63,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     builtin_governance_spine_proof,
     builtin_loop_engine_proof,
     builtin_stewardship_spine_proof,
+    builtin_total_spine_adaptive_proof,
     builtin_total_spine_effect_proof,
     builtin_total_spine_goal_proof,
     builtin_total_spine_proof,
@@ -96,6 +100,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     run_stewardship_spine,
     run_total_spine,
     seal_json_receipt,
+    seal_total_spine_adaptive_chain,
     seal_total_spine_contract,
     seal_total_spine_effect_chain,
     seal_total_spine_hop_chain,
@@ -166,6 +171,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "done_when contracts gate the absolute tower tip"
         ),
     )
+    sub.add_parser(
+        "adaptive-proof",
+        help=(
+            "Total spine adaptive: closed-loop recovery from failed "
+            "effects with multi-round sealed digests"
+        ),
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
     if args.cmd == "list":
         print(json.dumps({"dialects": list_loop_dialects()}, indent=2))
@@ -200,6 +212,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "goal-proof":
         result = builtin_total_spine_goal_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "adaptive-proof":
+        result = builtin_total_spine_adaptive_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2
