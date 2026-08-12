@@ -1,109 +1,109 @@
 {
-  "chain_digest": "3eddfdc5b32cf27c6d2d1440573679d7da5125a9e9095ef9f40a789e61dc7d0b",
-  "driver_runtime": "python",
-  "finding_count": 5,
+  "chain_digest": "5bcb30967a8a6131e5770998dd94d715c8455c575793dc73798d91dbbf1e6b57",
+  "driver_runtime": "node",
+  "finding_count": 4,
   "findings": [
     {
-      "exponent": 2.003,
+      "exponent": 0.0,
       "flagged": false,
       "generator": "nested_link",
       "kind": "complexity",
-      "minimized_n": 2875,
-      "pristine_repro_exit": 1,
-      "repro": "repros\\nested_link.py",
-      "repro_sha256": "a1f10a7578f5216fba4aaa873e90a6e7fcaf4a035f1433fbff495676a15736e8",
       "times": [
         [
           1000,
-          0.1043
+          0.0029
         ],
         [
           2000,
-          0.4012
+          0.0041
         ],
         [
           4000,
-          1.6084
-        ]
-      ]
-    },
-    {
-      "exponent": 2.001,
-      "flagged": true,
-      "generator": "nested_image",
-      "kind": "complexity",
-      "minimized_n": 2250,
-      "pristine_repro_exit": 1,
-      "repro": "repros\\nested_image.py",
-      "repro_sha256": "5b98a94752cb33ffc0c3a4bfa16d7c37c0a1f52173d8e0dc6230b0fd8b1fffe1",
-      "times": [
-        [
-          1000,
-          0.1541
-        ],
-        [
-          2000,
-          0.5982
-        ],
-        [
-          4000,
-          2.3936
-        ]
-      ]
-    },
-    {
-      "exponent": 1.446,
-      "flagged": false,
-      "generator": "nested_emphasis",
-      "kind": "complexity",
-      "times": [
-        [
-          1000,
-          0.0114
-        ],
-        [
-          2000,
-          0.0241
-        ],
-        [
-          4000,
-          0.0546
+          0.0054
         ],
         [
           8000,
-          0.1285
+          0.0068
         ],
         [
           16000,
-          0.35
+          0.011
         ]
       ]
     },
     {
-      "exponent": 1.582,
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "nested_image",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0047
+        ],
+        [
+          2000,
+          0.0051
+        ],
+        [
+          4000,
+          0.008
+        ],
+        [
+          8000,
+          0.0109
+        ],
+        [
+          16000,
+          0.0157
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": true,
+      "generator": "nested_emphasis",
+      "kind": "crash",
+      "minimized_n": 2250,
+      "pristine_repro_exit": 1,
+      "repro": "repros\\nested_emphasis.cjs",
+      "repro_sha256": "bba1b9dab18f324d3f4516c7258007d03c9c89c7e235039fe917c0d0bf010d75",
+      "times": [
+        [
+          1000,
+          0.0196
+        ],
+        [
+          2000,
+          0.0627
+        ]
+      ]
+    },
+    {
+      "exponent": 1.663,
       "flagged": false,
       "generator": "unclosed_emphasis",
       "kind": "complexity",
       "times": [
         [
           1000,
-          0.0046
+          0.0055
         ],
         [
           2000,
-          0.0095
+          0.0085
         ],
         [
           4000,
-          0.0228
+          0.015
         ],
         [
           8000,
-          0.0674
+          0.0401
         ],
         [
           16000,
-          0.2018
+          0.127
         ]
       ]
     },
@@ -115,23 +115,23 @@
       "times": [
         [
           1000,
-          0.0003
+          0.002
         ],
         [
           2000,
-          0.0003
+          0.002
         ],
         [
           4000,
-          0.0006
+          0.0021
         ],
         [
           8000,
-          0.0009
+          0.002
         ],
         [
           16000,
-          0.0017
+          0.002
         ]
       ]
     },
@@ -143,127 +143,139 @@
       "times": [
         [
           1000,
-          0.0002
+          0.0019
         ],
         [
           2000,
-          0.0003
+          0.0019
         ],
         [
           4000,
-          0.0004
+          0.002
         ],
         [
           8000,
-          0.0007
+          0.0019
         ],
         [
           16000,
-          0.0012
+          0.0019
         ]
       ]
     },
     {
-      "exponent": 2.124,
+      "exponent": 2.295,
       "flagged": true,
       "generator": "footnote_refs",
       "kind": "complexity",
-      "minimized_n": 2125,
+      "minimized_n": 16000,
       "pristine_repro_exit": 1,
-      "repro": "repros\\footnote_refs.py",
-      "repro_sha256": "d4eb0fc8d6eb01577950090f56d452d388fe5e471d1a2504c461796cc12934ca",
+      "repro": "repros\\footnote_refs.cjs",
+      "repro_sha256": "1339d9e2880f0a9332a8fe16181dde17f6fdfaac732a762e5cb816c21b04b58b",
       "times": [
         [
           1000,
-          0.1549
+          0.0107
         ],
         [
           2000,
-          0.6753
+          0.0218
         ],
         [
           4000,
-          2.6992
-        ]
-      ]
-    },
-    {
-      "exponent": 1.884,
-      "flagged": true,
-      "generator": "footnote_defs",
-      "kind": "complexity",
-      "minimized_n": 2125,
-      "pristine_repro_exit": 1,
-      "repro": "repros\\footnote_defs.py",
-      "repro_sha256": "8997b7e5ad1deb8e426a18ab13c02d69d4599c366d096b4b8955af58fc61ecf1",
-      "times": [
-        [
-          1000,
-          0.2157
-        ],
-        [
-          2000,
-          0.7428
-        ],
-        [
-          4000,
-          2.742
-        ]
-      ]
-    },
-    {
-      "exponent": 1.95,
-      "flagged": true,
-      "generator": "inline_links",
-      "kind": "complexity",
-      "minimized_n": 4000,
-      "pristine_repro_exit": 1,
-      "repro": "repros\\inline_links.py",
-      "repro_sha256": "165fb21b2033214dc4c9ea42419119a0080728f440e2c24108962634e5fee244",
-      "times": [
-        [
-          1000,
-          0.0581
-        ],
-        [
-          2000,
-          0.2243
-        ],
-        [
-          4000,
-          0.8048
+          0.0601
         ],
         [
           8000,
-          2.7058
-        ]
-      ]
-    },
-    {
-      "exponent": 0.0,
-      "flagged": false,
-      "generator": "unclosed_spoiler",
-      "kind": "complexity",
-      "times": [
-        [
-          1000,
-          0.0005
-        ],
-        [
-          2000,
-          0.001
-        ],
-        [
-          4000,
-          0.0017
-        ],
-        [
-          8000,
-          0.0034
+          0.2073
         ],
         [
           16000,
-          0.0064
+          1.0172
+        ]
+      ]
+    },
+    {
+      "exponent": 2.526,
+      "flagged": true,
+      "generator": "footnote_defs",
+      "kind": "complexity",
+      "minimized_n": 3500,
+      "pristine_repro_exit": 1,
+      "repro": "repros\\footnote_defs.cjs",
+      "repro_sha256": "36c435854d9152ef9813a7d320d06c72802be4646d60819552d397c2c1a961dc",
+      "times": [
+        [
+          1000,
+          0.0337
+        ],
+        [
+          2000,
+          0.194
+        ],
+        [
+          4000,
+          1.0262
+        ],
+        [
+          8000,
+          5.0407
+        ]
+      ]
+    },
+    {
+      "exponent": 0.786,
+      "flagged": false,
+      "generator": "inline_links",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0066
+        ],
+        [
+          2000,
+          0.0086
+        ],
+        [
+          4000,
+          0.0139
+        ],
+        [
+          8000,
+          0.0227
+        ],
+        [
+          16000,
+          0.0392
+        ]
+      ]
+    },
+    {
+      "exponent": 1.975,
+      "flagged": true,
+      "generator": "unclosed_spoiler",
+      "kind": "complexity",
+      "minimized_n": 5000,
+      "pristine_repro_exit": 1,
+      "repro": "repros\\unclosed_spoiler.cjs",
+      "repro_sha256": "af6f778d382f6f3dda7d8334bd04222e5c5632d3ec7178d0b604b15750103f52",
+      "times": [
+        [
+          1000,
+          0.0373
+        ],
+        [
+          2000,
+          0.1335
+        ],
+        [
+          4000,
+          0.505
+        ],
+        [
+          8000,
+          1.985
         ]
       ]
     },
@@ -275,51 +287,51 @@
       "times": [
         [
           1000,
-          0.0005
+          0.0018
         ],
         [
           2000,
-          0.0009
+          0.002
         ],
         [
           4000,
-          0.0017
+          0.002
         ],
         [
           8000,
-          0.0033
+          0.0024
         ],
         [
           16000,
-          0.0065
+          0.0027
         ]
       ]
     },
     {
-      "exponent": 1.029,
+      "exponent": 0.756,
       "flagged": false,
       "generator": "table_row",
       "kind": "complexity",
       "times": [
         [
           1000,
-          0.0208
+          0.0065
         ],
         [
           2000,
-          0.0406
+          0.0093
         ],
         [
           4000,
-          0.0804
+          0.0128
         ],
         [
           8000,
-          0.1601
+          0.0213
         ],
         [
           16000,
-          0.3268
+          0.036
         ]
       ]
     },
@@ -331,23 +343,23 @@
       "times": [
         [
           1000,
-          0.0002
+          0.0021
         ],
         [
           2000,
-          0.0003
+          0.002
         ],
         [
           4000,
-          0.0005
+          0.0019
         ],
         [
           8000,
-          0.0009
+          0.002
         ],
         [
           16000,
-          0.0016
+          0.0041
         ]
       ]
     },
@@ -359,11 +371,11 @@
       "times": [
         [
           1000,
-          0.0006
+          0.002
         ],
         [
           2000,
-          0.0012
+          0.002
         ],
         [
           4000,
@@ -371,20 +383,20 @@
         ],
         [
           8000,
-          0.0045
+          0.0027
         ],
         [
           16000,
-          0.0099
+          0.0035
         ]
       ]
     }
   ],
-  "scanned_at": "2026-08-12T04:25:13.794871Z",
+  "scanned_at": "2026-08-12T04:26:02.481637Z",
   "schema_version": 1,
-  "sdist_sha256": "3589362618f743188b4d955b874402bc814f4f83f544dc207719f4baa7d9c45f",
+  "sdist_sha256": "edcb08b6a56e5bfa9a1177a29943f19587771297e123694134d166546e1201b6",
   "target": {
-    "name": "markdown",
-    "version": "3.10.3"
+    "name": "marked",
+    "version": "18.0.7"
   }
 }

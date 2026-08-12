@@ -14,8 +14,10 @@ Composition:
 
 * ``compose_loop_of_pipeline`` — loop drives pipeline stages (epoch→fleet)
 * ``compose_loop_of_loop`` — loop drives nested loop (program→succession, …)
+* ``compose_pipeline_of_pipeline`` — pipeline dispatches nested pipeline
+  (fleet→campaign) as an engine-owned nest edge
 * ``run_control_graph`` / ``OPERATIONAL_NEST`` — declarative multi-depth nest
-  program→succession→epoch→fleet as engine data (not hand-wired domain glue)
+  program→succession→epoch→fleet→campaign as engine data (not hand-wired glue)
 
 No skill-route discovery.
 """
@@ -2410,7 +2412,14 @@ class ControlNode:
     dispatch: bool = True
 
 
-# Canonical operational nest: program → succession → epoch → fleet stages.
+# Default campaign stages attached under fleet dispatch in the spine.
+CAMPAIGN_NEST_STAGES: tuple[str, ...] = (
+    "repair",
+    "contribution",
+    "publication",
+)
+
+# Canonical operational nest: program → succession → epoch → fleet → campaign.
 # Domain modules supply dialect hooks; the nest *structure* is engine data.
 OPERATIONAL_NEST: ControlNode = ControlNode(
     mode="loop",
@@ -2431,6 +2440,11 @@ OPERATIONAL_NEST: ControlNode = ControlNode(
                 mode="pipeline",
                 dialect="fleet",
                 stages=FLEET_STAGES,
+                child=ControlNode(
+                    mode="pipeline",
+                    dialect="campaign",
+                    stages=CAMPAIGN_NEST_STAGES,
+                ),
             ),
         ),
     ),
@@ -2487,10 +2501,14 @@ def validate_control_node(node: ControlNode) -> None:
     if mode == "pipeline":
         get_pipeline_dialect(dialect)
         if node.child is not None:
-            raise StageRefused(
-                "control_nest_invalid",
-                f"pipeline dialect {dialect!r} cannot nest a child node",
-            )
+            child_mode = str(node.child.mode or "").strip().lower()
+            if child_mode != "pipeline":
+                raise StageRefused(
+                    "control_nest_invalid",
+                    f"pipeline dialect {dialect!r} may only nest a pipeline "
+                    f"child (got mode={node.child.mode!r})",
+                )
+            validate_control_node(node.child)
     elif mode == "loop":
         get_loop_dialect(dialect)
         if node.child is None:
@@ -2511,18 +2529,21 @@ def annotate_control_nest(
     child_dialect: str,
     live: bool = False,
     nest_path_steps: Sequence[Mapping[str, Any]] | None = None,
+    parent_mode: str = "loop",
 ) -> dict[str, Any]:
     """Stamp control-nest ownership flags onto a loop/pipeline result."""
     body = dict(result)
     parent = str(parent_dialect or "").strip().lower()
     child = str(child_dialect or "").strip().lower()
     mode = str(child_mode or "").strip().lower()
+    pmode = str(parent_mode or "loop").strip().lower() or "loop"
     body["control_engine"] = True
-    body["control_mode"] = "loop"
+    body["control_mode"] = pmode
     body["control_composed"] = True
     body["control_nest"] = True
     body["control_nest_live"] = bool(live)
     body["control_parent_dialect"] = parent
+    body["control_parent_mode"] = pmode
     body["control_child_mode"] = mode
     body["control_child_dialect"] = child
     body["control_nest_edge"] = f"{parent}->{child}"
@@ -2544,8 +2565,8 @@ def run_nested_control(
     """Live domain entry: parent loop with a declared multi-depth nest edge.
 
     Domain modules call this instead of raw :func:`run_durable_loop` so the
-    program→succession→epoch→fleet structure is engine-owned. Dialect hooks
-    (``classify`` / ``seal`` / ``on_child_result`` / …) stay domain-local;
+    program→succession→epoch→fleet→campaign structure is engine-owned. Dialect
+    hooks (``classify`` / ``seal`` / ``on_child_result`` / …) stay domain-local;
     nest edge metadata and control flags are stamped here.
     """
     parent = get_loop_dialect(parent_dialect)
@@ -2566,11 +2587,191 @@ def run_nested_control(
     return annotate_control_nest(
         result,
         parent_dialect=parent.name,
+        parent_mode="loop",
         child_mode=child_mode_key or "child",
         child_dialect=child_key,
         live=live,
         nest_path_steps=nest_path_steps,
     )
+
+
+def run_nested_pipeline(
+    parent_dialect: "PipelineDialect | str",
+    *,
+    child_mode: str = "pipeline",
+    child_dialect: str = "campaign",
+    nest_path_steps: Sequence[Mapping[str, Any]] | None = None,
+    live: bool = True,
+    **pipeline_kwargs: Any,
+) -> dict[str, Any]:
+    """Live domain entry: parent pipeline with a declared nest edge.
+
+    Domain modules (e.g. fleet) call this instead of raw
+    :func:`run_stage_pipeline` so fleet→campaign is engine-owned. Stage hooks
+    stay domain-local; nest edge metadata is stamped here.
+    """
+    parent = get_pipeline_dialect(parent_dialect)
+    child_mode_key = str(child_mode or "pipeline").strip().lower()
+    child_key = str(child_dialect or "").strip().lower()
+    if child_mode_key == "pipeline":
+        get_pipeline_dialect(child_key)
+    elif child_mode_key == "loop":
+        get_loop_dialect(child_key)
+    elif child_mode_key not in {"child", "callable", ""}:
+        raise StageRefused(
+            "control_nest_invalid",
+            f"unknown nest child_mode {child_mode!r}; "
+            "known=['pipeline','loop','child']",
+        )
+
+    result = run_stage_pipeline(parent, **pipeline_kwargs)
+    return annotate_control_nest(
+        result,
+        parent_dialect=parent.name,
+        parent_mode="pipeline",
+        child_mode=child_mode_key or "pipeline",
+        child_dialect=child_key,
+        live=live,
+        nest_path_steps=nest_path_steps,
+    )
+
+
+def compose_pipeline_of_pipeline(
+    *,
+    parent_dialect: str = "fleet",
+    child_dialect: str = "campaign",
+    attach_stage: str = "dispatch",
+    parent_stages: Sequence[str] | None = None,
+    child_stages: Sequence[str] | None = None,
+    run_parent_stage: RunStage,
+    run_child_stage: RunStage,
+    classify_parent: ClassifyVerdict,
+    seal_parent: SealPipeline,
+    classify_child: ClassifyVerdict,
+    seal_child: SealPipeline,
+    after_parent_stage: AfterStage | None = None,
+    after_child_stage: AfterStage | None = None,
+    initial_parent_context: Mapping[str, Any] | None = None,
+    initial_child_context: Mapping[str, Any] | None = None,
+    nest_stamp: bool = True,
+    live: bool = False,
+    nest_path_steps: Sequence[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Engine-native composition: parent pipeline dispatches nested pipeline.
+
+    At ``attach_stage`` (default ``dispatch``) the engine runs the child
+    pipeline dialect once and records it as a nested nest edge
+    (e.g. fleet→campaign). Other parent stages use ``run_parent_stage``.
+    """
+    parent = get_pipeline_dialect(parent_dialect)
+    child = get_pipeline_dialect(child_dialect)
+    p_stages = (
+        list(parent_stages)
+        if parent_stages is not None
+        else list(parent.default_stages)
+    )
+    if attach_stage not in p_stages:
+        p_stages = list(p_stages) + [attach_stage]
+    c_stages = (
+        list(child_stages)
+        if child_stages is not None
+        else list(CAMPAIGN_NEST_STAGES)
+    )
+    base_child_ctx = dict(initial_child_context or {})
+    nested_children: list[dict[str, Any]] = []
+
+    def run_stage(state: PipelineState, name: str) -> dict[str, Any]:
+        if name != attach_stage:
+            return run_parent_stage(state, name)
+        child_ctx = dict(base_child_ctx)
+        child_ctx["parent_dialect"] = parent.name
+        child_ctx["attach_stage"] = attach_stage
+        child_ctx["round_index"] = state.context.get("round_index")
+        if state.context.get("portfolio") is not None:
+            child_ctx.setdefault("portfolio", state.context.get("portfolio"))
+        nested = run_stage_pipeline(
+            child,
+            stages=c_stages,
+            run_stage=run_child_stage,
+            classify_verdict=classify_child,
+            seal=seal_child,
+            after_stage=after_child_stage,
+            initial_context=child_ctx,
+        )
+        nested_children.append(nested)
+        dig = (
+            nested.get(child.self_digest_field)
+            or nested.get("campaign_digest")
+            or nested.get("fleet_digest")
+        )
+        ok = bool(nested.get("ok"))
+        return {
+            "stage": attach_stage,
+            "ok": ok,
+            "verdict": (
+                f"{parent.name}_dispatched" if ok else "dispatch_failed"
+            ),
+            "dispatched_count": 1,
+            "dispatched_ok": 1 if ok else 0,
+            "dispatches": [
+                {
+                    "ok": ok,
+                    "verdict": nested.get("verdict"),
+                    child.self_digest_field: dig,
+                    "campaign_digest": dig,
+                    "control_nest_child": True,
+                    "control_child_dialect": child.name,
+                }
+            ],
+            "nested_pipeline": {
+                "dialect": child.name,
+                "ok": ok,
+                "verdict": nested.get("verdict"),
+                child.self_digest_field: dig,
+            },
+            child.self_digest_field: dig,
+        }
+
+    result = run_stage_pipeline(
+        parent,
+        stages=p_stages,
+        run_stage=run_stage,
+        classify_verdict=classify_parent,
+        seal=seal_parent,
+        after_stage=after_parent_stage,
+        initial_context=dict(initial_parent_context or {}),
+    )
+    result["nested_pipeline_count"] = len(nested_children)
+    result["nested_pipeline_dialect"] = child.name
+    if nested_children:
+        result["nested_pipeline_ok"] = all(
+            bool(c.get("ok")) for c in nested_children
+        )
+    if nest_stamp:
+        path = nest_path_steps
+        if path is None:
+            path = [
+                {
+                    "mode": "pipeline",
+                    "dialect": parent.name,
+                    "stages": p_stages,
+                },
+                {
+                    "mode": "pipeline",
+                    "dialect": child.name,
+                    "stages": c_stages,
+                },
+            ]
+        result = annotate_control_nest(
+            result,
+            parent_dialect=parent.name,
+            parent_mode="pipeline",
+            child_mode="pipeline",
+            child_dialect=child.name,
+            live=live,
+            nest_path_steps=path,
+        )
+    return result
 
 
 def compose_loop_of_loop(
@@ -2737,6 +2938,13 @@ def run_control_graph(
             pipe_ctx["parent_dialect"] = parent_dialect
         if portfolio_ctx is not None:
             pipe_ctx["portfolio"] = dict(portfolio_ctx)
+        # Pipeline-of-pipeline: expose nested child dialect to stage hooks
+        # (e.g. fleet dispatch → campaign) via context.
+        if leaf.child is not None:
+            pipe_ctx["control_nest_child_mode"] = leaf.child.mode
+            pipe_ctx["control_nest_child_dialect"] = leaf.child.dialect
+            if leaf.child.stages is not None:
+                pipe_ctx["control_nest_child_stages"] = list(leaf.child.stages)
         pipe = run_stage_pipeline(
             leaf.dialect,
             stages=stages,
@@ -2753,6 +2961,16 @@ def run_control_graph(
         pipe["control_nest_index"] = depth_index
         pipe["control_nest_path"] = root_path
         pipe["round_index"] = round_index
+        if leaf.child is not None:
+            pipe = annotate_control_nest(
+                pipe,
+                parent_dialect=leaf.dialect,
+                parent_mode="pipeline",
+                child_mode=str(leaf.child.mode),
+                child_dialect=str(leaf.child.dialect),
+                live=False,
+                nest_path_steps=root_path,
+            )
         return pipe
 
     def _run_loop_node(
@@ -2946,21 +3164,21 @@ def run_control_graph(
 
 
 def operational_nest_path() -> list[dict[str, Any]]:
-    """Public path of the canonical program→…→fleet operational nest."""
+    """Public path of the canonical program→…→campaign operational nest."""
     return nest_path(OPERATIONAL_NEST)
 
 
 def builtin_control_nest_proof() -> dict[str, Any]:
-    """Hermetic proof: multi-depth nest graph owns program→…→fleet control flow."""
+    """Hermetic proof: multi-depth nest owns program→…→fleet→campaign spine."""
     scratch = Path(tempfile.mkdtemp(prefix="control-nest-proof-"))
     try:
         path = nest_path(OPERATIONAL_NEST)
         path_ok = (
-            nest_depth(OPERATIONAL_NEST) == 4
+            nest_depth(OPERATIONAL_NEST) == 5
             and [s["dialect"] for s in path]
-            == ["program", "succession", "epoch", "fleet"]
+            == ["program", "succession", "epoch", "fleet", "campaign"]
             and [s["mode"] for s in path]
-            == ["loop", "loop", "loop", "pipeline"]
+            == ["loop", "loop", "loop", "pipeline", "pipeline"]
         )
         try:
             validate_control_node(OPERATIONAL_NEST)
@@ -3019,7 +3237,12 @@ def builtin_control_nest_proof() -> dict[str, Any]:
                     {
                         "wave": state.context.get("round_index"),
                         "parent": state.context.get("parent_dialect"),
+                        "child": state.context.get("control_nest_child_dialect")
+                        or "campaign",
                     }
+                )
+                fleet_calls.append(
+                    f"nested:{state.context.get('control_nest_child_dialect') or 'campaign'}"
                 )
                 return {
                     "stage": name,
@@ -3027,7 +3250,17 @@ def builtin_control_nest_proof() -> dict[str, Any]:
                     "verdict": "fleet_dispatched",
                     "dispatched_count": 1,
                     "dispatched_ok": 1,
-                    "dispatches": [{"ok": True, "campaign_digest": dig}],
+                    "dispatches": [
+                        {
+                            "ok": True,
+                            "campaign_digest": dig,
+                            "control_nest_child": True,
+                            "control_child_dialect": state.context.get(
+                                "control_nest_child_dialect"
+                            )
+                            or "campaign",
+                        }
+                    ],
                 }
             raise StageRefused("stage_unknown", name)
 
@@ -3147,13 +3380,14 @@ def builtin_control_nest_proof() -> dict[str, Any]:
             and nest_result.get("control_engine") is True
             and nest_result.get("control_nest") is True
             and nest_result.get("control_composed") is True
-            and nest_result.get("control_nest_depth") == 4
+            and nest_result.get("control_nest_depth") == 5
             and nest_result.get("control_mode") == "loop"
             and nest_result.get("control_parent_dialect") == "program"
             and nest_result.get("control_child_dialect") == "succession"
             and nest_result.get("loop_dialect") == "program"
             and int(nest_result.get("total_dispatched_ok") or 0) >= 2
             and any("epoch:" in c and ":dispatch" in c for c in fleet_calls)
+            and any(c.startswith("nested:campaign") for c in fleet_calls)
             and bool(nest_result.get("program_digest"))
         )
 
@@ -3210,13 +3444,140 @@ def builtin_control_nest_proof() -> dict[str, Any]:
             and int(loop_of_loop.get("total_dispatched_ok") or 0) >= 2
         )
 
-        # Live domain modules declare nest ownership flags + use run_nested_control.
+        # Pipeline-of-pipeline: fleet→campaign composition.
+        camp_calls: list[str] = []
+
+        def run_parent_only(state: PipelineState, name: str) -> dict[str, Any]:
+            if name == "inventory":
+                return {
+                    "stage": name,
+                    "ok": True,
+                    "verdict": "inventoried",
+                    "inventory_count": 1,
+                }
+            if name == "portfolio":
+                return {
+                    "stage": name,
+                    "ok": True,
+                    "verdict": "portfolio_ready",
+                    "portfolio_digest": "p" * 64,
+                }
+            if name == "rank":
+                return {
+                    "stage": name,
+                    "ok": True,
+                    "verdict": "ranked",
+                    "action_count": 1,
+                    "campaignable_count": 1,
+                }
+            raise StageRefused("stage_unknown", name)
+
+        def run_camp_stage(state: PipelineState, name: str) -> dict[str, Any]:
+            camp_calls.append(name)
+            if name == "repair":
+                return {
+                    "stage": name,
+                    "ok": True,
+                    "verdict": "repair_green",
+                    "report_sha256": "a" * 64,
+                }
+            if name == "contribution":
+                return {
+                    "stage": name,
+                    "ok": True,
+                    "verdict": "contribution_ready",
+                    "defects": [{"defect_id": "d1", "ok": True}],
+                }
+            if name == "publication":
+                return {
+                    "stage": name,
+                    "ok": True,
+                    "verdict": "publication_dry_run",
+                    "publications": [{"ok": True}],
+                }
+            raise StageRefused("stage_unknown", name)
+
+        def camp_classify(state: PipelineState) -> tuple[bool, str]:
+            if state.aborted or not state.pipeline_ok:
+                return False, state.terminal_verdict
+            return True, "publication_dry_run"
+
+        def camp_seal(state: PipelineState) -> dict[str, Any]:
+            return seal_pipeline_receipt(
+                state,
+                out_root=scratch / "pop-campaign",
+                identity={"name": "camp-alpha", "version": "1.0.0"},
+                stage_digests={
+                    "repair.verdict": _sha256_bytes(b"repair_green"),
+                    "publication.verdict": _sha256_bytes(b"publication_dry_run"),
+                },
+                digest_payload=lambda receipt: {
+                    "schema_version": SCHEMA_VERSION,
+                    "name": receipt.get("name"),
+                    "stages": receipt.get("stages"),
+                    "ok": receipt.get("ok"),
+                    "verdict": receipt.get("verdict"),
+                },
+            )
+
+        def fleet_pop_classify(state: PipelineState) -> tuple[bool, str]:
+            if state.aborted or not state.pipeline_ok:
+                return False, state.terminal_verdict
+            return True, "fleet_dispatched"
+
+        def fleet_pop_seal(state: PipelineState) -> dict[str, Any]:
+            return seal_pipeline_receipt(
+                state,
+                out_root=scratch / "pop-fleet",
+                identity={"name": "fleet-pop", "version": "1.0.0"},
+                stage_digests={
+                    "dispatch.verdict": _sha256_bytes(b"fleet_dispatched"),
+                },
+                digest_payload=lambda receipt: {
+                    "schema_version": SCHEMA_VERSION,
+                    "name": receipt.get("name"),
+                    "stages": receipt.get("stages"),
+                    "ok": receipt.get("ok"),
+                    "verdict": receipt.get("verdict"),
+                },
+            )
+
+        pop = compose_pipeline_of_pipeline(
+            parent_dialect="fleet",
+            child_dialect="campaign",
+            attach_stage="dispatch",
+            parent_stages=["inventory", "portfolio", "rank", "dispatch"],
+            child_stages=list(CAMPAIGN_NEST_STAGES),
+            run_parent_stage=run_parent_only,
+            run_child_stage=run_camp_stage,
+            classify_parent=fleet_pop_classify,
+            seal_parent=fleet_pop_seal,
+            classify_child=camp_classify,
+            seal_child=camp_seal,
+            initial_parent_context={"round_index": 0},
+            live=False,
+        )
+        pop_ok = (
+            pop.get("ok")
+            and pop.get("control_nest") is True
+            and pop.get("control_mode") == "pipeline"
+            and pop.get("control_parent_dialect") == "fleet"
+            and pop.get("control_child_dialect") == "campaign"
+            and pop.get("control_nest_edge") == "fleet->campaign"
+            and pop.get("control_child_mode") == "pipeline"
+            and int(pop.get("nested_pipeline_count") or 0) >= 1
+            and camp_calls == ["repair", "contribution", "publication"]
+            and bool(pop.get("fleet_digest") or pop.get("plan_dir"))
+        )
+
+        # Live domain modules declare nest ownership flags + use nest runners.
         from blackhole_agent import upstream_campaign as ucamp
         from blackhole_agent import upstream_epoch as ue
         from blackhole_agent import upstream_fleet as ufleet
         from blackhole_agent import upstream_program as up
         from blackhole_agent import upstream_succession as us
         from blackhole_agent import upstream_loop_engine as le_facade
+        from blackhole_agent import upstream_stage_engine as se_facade
 
         live_nest_flags = {
             "program": getattr(up, "CONTROL_NEST", False) is True,
@@ -3227,32 +3588,50 @@ def builtin_control_nest_proof() -> dict[str, Any]:
             "program_live": getattr(up, "CONTROL_NEST_LIVE", False) is True,
             "succession_live": getattr(us, "CONTROL_NEST_LIVE", False) is True,
             "epoch_live": getattr(ue, "CONTROL_NEST_LIVE", False) is True,
+            "fleet_live": getattr(ufleet, "CONTROL_NEST_LIVE", False) is True,
             "program_child": getattr(up, "CONTROL_NEST_CHILD", "") == "succession",
             "succession_child": getattr(us, "CONTROL_NEST_CHILD", "") == "epoch",
             "epoch_child": getattr(ue, "CONTROL_NEST_CHILD", "") == "fleet",
+            "fleet_child": getattr(ufleet, "CONTROL_NEST_CHILD", "") == "campaign",
+            "fleet_child_mode": getattr(ufleet, "CONTROL_NEST_CHILD_MODE", "")
+            == "pipeline",
             "operational_path": (
                 getattr(up, "CONTROL_NEST_PATH", None) == operational_nest_path()
-                or getattr(up, "CONTROL_NEST_PATH", None) is not None
+                or (
+                    isinstance(getattr(up, "CONTROL_NEST_PATH", None), list)
+                    and len(getattr(up, "CONTROL_NEST_PATH", []) or []) == 5
+                )
             ),
             "facade_nested": callable(getattr(le_facade, "run_nested_control", None)),
+            "facade_nested_pipe": callable(
+                getattr(se_facade, "run_nested_pipeline", None)
+            ),
             "facade_nest_impl": getattr(le_facade, "CONTROL_NEST_IMPL", False) is True,
         }
         live_flags_ok = all(live_nest_flags.values())
 
-        # Source-level: live run_* must call run_nested_control, not bare
-        # run_durable_loop for the nest edge.
+        # Source-level: live run_* must call nest entrypoints, not bare runners.
         def _src_uses_nested(mod: Any) -> bool:
-            path = Path(mod.__file__).resolve()
-            text = path.read_text(encoding="utf-8")
+            mod_path = Path(mod.__file__).resolve()
+            text = mod_path.read_text(encoding="utf-8")
             return (
                 "run_nested_control" in text
                 and "return le.run_nested_control" in text
+            )
+
+        def _src_uses_nested_pipeline(mod: Any) -> bool:
+            mod_path = Path(mod.__file__).resolve()
+            text = mod_path.read_text(encoding="utf-8")
+            return (
+                "run_nested_pipeline" in text
+                and "return se.run_nested_pipeline" in text
             )
 
         live_source = {
             "epoch": _src_uses_nested(ue),
             "succession": _src_uses_nested(us),
             "program": _src_uses_nested(up),
+            "fleet": _src_uses_nested_pipeline(ufleet),
         }
         live_source_ok = all(live_source.values())
 
@@ -3350,10 +3729,31 @@ def builtin_control_nest_proof() -> dict[str, Any]:
             and live_prog.get("control_nest_edge") == "program->succession"
             and live_prog.get("control_child_mode") == "loop"
             and live_prog.get("control_child_dialect") == "succession"
-            and int(live_prog.get("control_nest_depth") or 0) == 4
+            and int(live_prog.get("control_nest_depth") or 0) == 5
             and bool(live_prog.get("program_digest"))
         )
-        live_domain_ok = live_epoch_ok and live_succ_ok and live_prog_ok
+
+        # Live fleet→campaign nest edge via run_nested_pipeline.
+        live_fleet = ufleet.plan_fleet(
+            portfolio={"entries": [], "portfolio_digest": "p" * 64},
+            dispatch=False,
+            out_root=scratch / "live-fleet",
+            stages=["inventory", "portfolio", "rank"],
+            stewardship_root=scratch / "empty-stewardship",
+        )
+        live_fleet_ok = (
+            live_fleet.get("control_nest") is True
+            and live_fleet.get("control_nest_live") is True
+            and live_fleet.get("control_nest_edge") == "fleet->campaign"
+            and live_fleet.get("control_mode") == "pipeline"
+            and live_fleet.get("control_parent_dialect") == "fleet"
+            and live_fleet.get("control_child_dialect") == "campaign"
+            and live_fleet.get("control_child_mode") == "pipeline"
+            and int(live_fleet.get("control_nest_depth") or 0) == 5
+        )
+        live_domain_ok = (
+            live_epoch_ok and live_succ_ok and live_prog_ok and live_fleet_ok
+        )
 
         from blackhole_agent.capability_compounder import (
             default_ledger_path,
@@ -3364,22 +3764,24 @@ def builtin_control_nest_proof() -> dict[str, Any]:
         ledger_ok = False
         try:
             ledger = load_ledger(ledger_path)
-            entry = ledger.capabilities.get("capability.upstream-control-nest")
+            entry = ledger.capabilities.get("capability.upstream-control-spine")
             tags_blob = " ".join(entry.tags).lower() if entry else ""
             delta_blob = (entry.capability_delta or "").lower() if entry else ""
+            name_blob = (entry.name or "").lower() if entry else ""
             ledger_ok = (
                 entry is not None
                 and "upstream_control_engine" in (entry.entry or "")
                 and (
-                    "nest" in tags_blob
-                    or "graph" in tags_blob
-                    or "composition" in tags_blob
+                    "spine" in tags_blob
+                    or "spine" in name_blob
+                    or "spine" in delta_blob
                 )
                 and (
-                    "live" in tags_blob
-                    or "nested" in delta_blob
-                    or "run_nested" in delta_blob
-                    or "nest" in delta_blob
+                    "campaign" in delta_blob
+                    or "fleet->campaign" in delta_blob
+                    or "fleet→campaign" in delta_blob
+                    or "pipeline_of_pipeline" in delta_blob
+                    or "run_nested_pipeline" in delta_blob
                 )
             )
         except Exception:  # noqa: BLE001
@@ -3398,6 +3800,7 @@ def builtin_control_nest_proof() -> dict[str, Any]:
                 validate_ok,
                 nest_ok,
                 lol_ok,
+                pop_ok,
                 live_flags_ok,
                 live_source_ok,
                 live_domain_ok,
@@ -3414,6 +3817,9 @@ def builtin_control_nest_proof() -> dict[str, Any]:
             "nest_depth": nest_depth(OPERATIONAL_NEST),
             "nest_graph_ok": nest_ok,
             "compose_loop_of_loop_ok": lol_ok,
+            "compose_pipeline_of_pipeline_ok": pop_ok,
+            "pipeline_of_pipeline_edge": pop.get("control_nest_edge"),
+            "campaign_calls": camp_calls,
             "live_nest_flags_ok": live_flags_ok,
             "live_nest_flags": live_nest_flags,
             "live_source_ok": live_source_ok,
@@ -3422,12 +3828,15 @@ def builtin_control_nest_proof() -> dict[str, Any]:
             "live_epoch_ok": live_epoch_ok,
             "live_succession_ok": live_succ_ok,
             "live_program_ok": live_prog_ok,
+            "live_fleet_ok": live_fleet_ok,
             "live_epoch_edge": live_epoch.get("control_nest_edge"),
             "live_succession_edge": live_succ.get("control_nest_edge"),
             "live_program_edge": live_prog.get("control_nest_edge"),
+            "live_fleet_edge": live_fleet.get("control_nest_edge"),
             "ledger_capability_ok": ledger_ok,
             "program_digest": nest_result.get("program_digest"),
             "live_program_digest": live_prog.get("program_digest"),
+            "live_fleet_digest": live_fleet.get("fleet_digest"),
             "succession_of_loop_digest": loop_of_loop.get("succession_digest"),
             "total_dispatched_ok": nest_result.get("total_dispatched_ok"),
             "fleet_calls": fleet_calls,
@@ -3436,6 +3845,7 @@ def builtin_control_nest_proof() -> dict[str, Any]:
             "used_skill_route_discovery": legacy_pipeline_was_used(),
             "control_engine": True,
             "control_nest": True,
+            "control_spine": True,
             "done_when_met": ok,
         }
     finally:
@@ -3956,7 +4366,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     sub.add_parser("proof", help="Run hermetic multi-mode control-engine proof")
     sub.add_parser(
         "nest-proof",
-        help="Run hermetic multi-depth control-nest proof (program→…→fleet)",
+        help="Run hermetic multi-depth control-nest proof (program→…→campaign)",
+    )
+    sub.add_parser(
+        "spine-proof",
+        help="Alias of nest-proof: full operational spine incl. fleet→campaign",
     )
     sub.add_parser("list", help="List control modes and dialects")
     sub.add_parser("nest-path", help="Print canonical operational nest path")
@@ -3981,7 +4395,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = builtin_control_engine_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
-    if args.cmd == "nest-proof":
+    if args.cmd in {"nest-proof", "spine-proof"}:
         result = builtin_control_nest_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1

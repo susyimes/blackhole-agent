@@ -92,6 +92,11 @@ CONTROL_NEST_PATH = [
         "dialect": "fleet",
         "stages": ["inventory", "portfolio", "rank", "dispatch"],
     },
+    {
+        "mode": "pipeline",
+        "dialect": "campaign",
+        "stages": ["repair", "contribution", "publication"],
+    },
 ]
 
 REPO_ROOT = Path(__file__).resolve().parents[2]

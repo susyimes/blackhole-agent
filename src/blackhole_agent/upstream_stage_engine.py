@@ -11,8 +11,10 @@ import json
 from typing import Sequence
 
 from blackhole_agent.upstream_control_engine import (  # noqa: F401
+    CAMPAIGN_NEST_STAGES,
     CAMPAIGN_STAGES,
     FLEET_STAGES,
+    OPERATIONAL_NEST,
     PIPELINE_DIALECTS,
     PIPELINE_STACK,
     REPO_ROOT,
@@ -25,11 +27,16 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     SealPipeline,
     ShouldAbort,
     StageRefused,
+    annotate_control_nest,
     builtin_stage_engine_proof,
     collect_stage_digests,
+    compose_pipeline_of_pipeline,
     get_pipeline_dialect,
     list_pipeline_dialects,
+    nest_path,
     normalize_stages,
+    operational_nest_path,
+    run_nested_pipeline,
     run_stage_pipeline,
     seal_pipeline_receipt,
     verify_pipeline_digest,
@@ -37,6 +44,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
 
 CONTROL_ENGINE_IMPL = True
 CONTROL_ENGINE_MODE = "pipeline"
+CONTROL_NEST_IMPL = True
 
 
 def main(argv: Sequence[str] | None = None) -> int:

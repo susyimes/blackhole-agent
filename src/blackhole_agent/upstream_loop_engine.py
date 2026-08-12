@@ -32,6 +32,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     annotate_control_nest,
     builtin_loop_engine_proof,
     compose_loop_of_loop,
+    compose_pipeline_of_pipeline,
     default_extract_dispatched,
     get_loop_dialect,
     list_loop_dialects,
@@ -41,6 +42,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     resolve_portfolio,
     run_durable_loop,
     run_nested_control,
+    run_nested_pipeline,
     seal_json_receipt,
     verify_loop_receipt,
 )

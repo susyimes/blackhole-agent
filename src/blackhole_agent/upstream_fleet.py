@@ -72,12 +72,14 @@ STAGE_ENGINE_DIALECT = "fleet"
 CONTROL_ENGINE = True
 CONTROL_ENGINE_MODE = "pipeline"
 
-# Leaf of the multi-depth operational nest (program→…→fleet).
+# Pipeline node of the multi-depth operational nest (program→…→fleet→campaign).
 # Driven as nest child by epoch via run_nested_control (epoch→fleet).
+# Live run_fleet uses se.run_nested_pipeline for the fleet→campaign edge.
 CONTROL_NEST = True
 CONTROL_NEST_LIVE = True
-CONTROL_NEST_CHILD = ""
-CONTROL_NEST_CHILD_MODE = ""
+CONTROL_NEST_CHILD = "campaign"
+CONTROL_NEST_CHILD_MODE = "pipeline"
+CONTROL_NEST_PATH = se.operational_nest_path()
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS_ROOT = REPO_ROOT / "artifacts" / "upstream-fleet"
@@ -765,8 +767,24 @@ def plan_fleet(
             return FleetRefused(exc.verdict, exc.detail)
         return exc
 
-    return se.run_stage_pipeline(
+    nest_path_steps = None
+    try:
+        nest_path_steps = se.operational_nest_path()
+    except Exception:  # noqa: BLE001
+        nest_path_steps = [
+            {"mode": "pipeline", "dialect": "fleet", "stages": list(stage_list)},
+            {
+                "mode": "pipeline",
+                "dialect": "campaign",
+                "stages": ["repair", "contribution", "publication"],
+            },
+        ]
+    return se.run_nested_pipeline(
         "fleet",
+        child_mode="pipeline",
+        child_dialect="campaign",
+        nest_path_steps=nest_path_steps,
+        live=True,
         stages=stage_list,
         run_stage=run_stage,
         classify_verdict=classify,
