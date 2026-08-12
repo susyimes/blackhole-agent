@@ -61,6 +61,11 @@ Composition:
   completed adaptive rounds, tips, goal/done_when, and effect config so
   ``run_total_spine(resume_dir=...)`` rehydrates mid-recovery after a
   process boundary and continues toward done_when without skill-route
+* total-spine **irreversible finality** — closes the mutable-success
+  cliff: when done_when is met, ``run_total_spine(finality=True)`` seals
+  a tamper-evident finality certificate into the depth-28 tip;
+  ``resume_dir`` on a finalized run short-circuits without re-dispatching
+  effects so completed absolute-tower outcomes stay irreversible
 
 No skill-route discovery.
 """
@@ -4291,6 +4296,10 @@ TOTAL_SPINE_DEFAULT_GROW_BUDGET: int = 0
 TOTAL_SPINE_CONTINUITY_IMPL = True
 TOTAL_SPINE_CONTINUITY_KIND: str = "total_spine_continuity"
 TOTAL_SPINE_CONTINUITY_FILENAME: str = "total-spine-continuity.json"
+# Irreversible finality: sealed certificates short-circuit re-dispatch.
+TOTAL_SPINE_FINALITY_IMPL = True
+TOTAL_SPINE_FINALITY_KIND: str = "total_spine_finality"
+TOTAL_SPINE_FINALITY_FILENAME: str = "total-spine-finality.json"
 # Constitution-layer goals accepted by run_constitution (not free-text).
 TOTAL_SPINE_CONSTITUTION_GOALS: frozenset[str] = frozenset(
     {
@@ -4861,6 +4870,248 @@ def seal_total_spine_continuity_chain(
     }
 
 
+def _finality_certificate_material(body: Mapping[str, Any]) -> dict[str, Any]:
+    """Canonical fields that bind a total-spine finality certificate digest."""
+    return {
+        "schema_version": int(body.get("schema_version") or SCHEMA_VERSION),
+        "kind": str(body.get("kind") or TOTAL_SPINE_FINALITY_KIND),
+        "root_layer": str(body.get("root_layer") or ""),
+        "goal": str(body.get("goal") or ""),
+        "done_when": str(body.get("done_when") or ""),
+        "capabilities": list(body.get("capabilities") or []),
+        "operational_tip": str(body.get("operational_tip") or ""),
+        "bound_tip": str(body.get("bound_tip") or ""),
+        "continuity_digest": str(body.get("continuity_digest") or ""),
+        "adaptive_round_count": int(body.get("adaptive_round_count") or 0),
+        "effects_ok": bool(body.get("effects_ok")),
+        "contract_met": body.get("contract_met"),
+        "recovered": bool(body.get("recovered")),
+        "irreversible": True,
+        "success": bool(body.get("success")),
+    }
+
+
+def seal_total_spine_finality_certificate(
+    body: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Seal irreversible success into a tamper-evident finality certificate.
+
+    Digest material commits to goal/done_when, successful effect ids, tips,
+    and continuity digest so a later resume can short-circuit without
+    re-dispatching effects on the absolute tower.
+    """
+    material = _finality_certificate_material(body)
+    digest = _sha256_json(material)
+    sealed = dict(material)
+    sealed["finality_digest"] = digest
+    sealed["certificate_hash"] = digest
+    sealed["total_spine_finality"] = True
+    sealed["total_spine_finality_impl"] = TOTAL_SPINE_FINALITY_IMPL
+    sealed["finalized_at"] = str(body.get("finalized_at") or utc_now_iso())
+    sealed["used_skill_route_discovery"] = legacy_pipeline_was_used()
+    return sealed
+
+
+def finality_certificate_path(root: Path) -> Path:
+    """Resolve ``total-spine-finality.json`` under a finality/out root."""
+    path = Path(root)
+    if path.is_file():
+        # Explicit certificate file (canonical name or alternate proof path).
+        if path.name == TOTAL_SPINE_FINALITY_FILENAME or path.suffix == ".json":
+            # Prefer the file itself when it is already a JSON certificate.
+            # Callers that pass a continuity file still resolve nearby finality.
+            try:
+                probe = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                probe = None
+            if isinstance(probe, Mapping) and (
+                str(probe.get("kind") or "") == TOTAL_SPINE_FINALITY_KIND
+                or path.name == TOTAL_SPINE_FINALITY_FILENAME
+            ):
+                return path
+        # Allow resume_dir pointing at continuity file: look beside it / parent.
+        parent = path.parent
+        sibling = parent / TOTAL_SPINE_FINALITY_FILENAME
+        if sibling.is_file():
+            return sibling
+        nested = parent / "finality" / TOTAL_SPINE_FINALITY_FILENAME
+        if nested.is_file():
+            return nested
+        # Continuity path is often .../continuity/total-spine-continuity.json
+        grand = parent.parent / "finality" / TOTAL_SPINE_FINALITY_FILENAME
+        if grand.is_file():
+            return grand
+        grand_sib = parent.parent / TOTAL_SPINE_FINALITY_FILENAME
+        if grand_sib.is_file():
+            return grand_sib
+        return parent / "finality" / TOTAL_SPINE_FINALITY_FILENAME
+    named = path / TOTAL_SPINE_FINALITY_FILENAME
+    if named.is_file():
+        return named
+    nested = path / "finality" / TOTAL_SPINE_FINALITY_FILENAME
+    if nested.is_file():
+        return nested
+    return path / "finality" / TOTAL_SPINE_FINALITY_FILENAME
+
+
+def write_total_spine_finality_certificate(
+    out_root: Path,
+    body: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Seal and atomically write a finality certificate under ``out_root``."""
+    sealed = seal_total_spine_finality_certificate(body)
+    path = finality_certificate_path(Path(out_root))
+    # Prefer nested finality/ when path does not yet exist as a file.
+    if not path.is_file() and path.name == TOTAL_SPINE_FINALITY_FILENAME:
+        # finality_certificate_path may return preferred write location.
+        pass
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(path, sealed)
+    sealed["finality_path"] = str(path)
+    return sealed
+
+
+def verify_total_spine_finality_certificate(
+    certificate: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Recompute finality digest; fail closed on tamper or schema drift."""
+    claimed = str(
+        certificate.get("finality_digest")
+        or certificate.get("certificate_hash")
+        or ""
+    )
+    material = _finality_certificate_material(certificate)
+    expected = _sha256_json(material)
+    ok = (
+        bool(claimed)
+        and claimed == expected
+        and str(certificate.get("kind") or "") == TOTAL_SPINE_FINALITY_KIND
+        and int(certificate.get("schema_version") or 0) == SCHEMA_VERSION
+        and certificate.get("irreversible") is True
+        and bool(certificate.get("success"))
+        and TOTAL_SPINE_FINALITY_IMPL is True
+    )
+    return {
+        "ok": ok,
+        "action": "verify_total_spine_finality",
+        "claimed_digest": claimed,
+        "expected_digest": expected,
+        "kind_ok": str(certificate.get("kind") or "") == TOTAL_SPINE_FINALITY_KIND,
+        "schema_ok": int(certificate.get("schema_version") or 0) == SCHEMA_VERSION,
+        "irreversible_ok": certificate.get("irreversible") is True,
+        "total_spine_finality": True,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def load_total_spine_finality_certificate(
+    path: Path | str,
+) -> dict[str, Any]:
+    """Load and integrity-check a sealed finality certificate.
+
+    Raises :class:`StageRefused` when the file is missing, unreadable, or
+    tampered (digest mismatch).
+    """
+    file_path = finality_certificate_path(Path(path))
+    if not file_path.is_file():
+        raise StageRefused(
+            "total_spine_finality_missing",
+            f"finality certificate not found at {file_path}",
+        )
+    raw_path = durable_read_path(file_path)
+    try:
+        payload = json.loads(raw_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise StageRefused(
+            "total_spine_finality_unreadable",
+            f"finality certificate unreadable at {file_path}: {exc}",
+        ) from exc
+    if not isinstance(payload, Mapping):
+        raise StageRefused(
+            "total_spine_finality_invalid",
+            "finality certificate root must be a JSON object",
+        )
+    verify = verify_total_spine_finality_certificate(payload)
+    if not verify.get("ok"):
+        raise StageRefused(
+            "total_spine_finality_tampered",
+            f"finality certificate digest mismatch at {file_path} "
+            f"(claimed={verify.get('claimed_digest')!r} "
+            f"expected={verify.get('expected_digest')!r})",
+        )
+    body = dict(payload)
+    body["finality_path"] = str(file_path)
+    body["finality_verify"] = verify
+    body["total_spine_finality_loaded"] = True
+    return body
+
+
+def seal_total_spine_finality_chain(
+    *,
+    prior_tip: str,
+    finality_digest: str,
+    short_circuit: bool,
+    recovered: bool,
+    adaptive_round_count: int,
+) -> dict[str, Any]:
+    """Seal finality hop into the absolute-tower tip."""
+    tip = str(prior_tip or "").strip() or ("0" * 64)
+    fd = str(finality_digest or "").strip() or ("0" * 64)
+    material = (
+        f"finality|{int(bool(short_circuit))}|{int(bool(recovered))}|"
+        f"{int(adaptive_round_count)}|{fd}|{tip}"
+    ).encode("utf-8")
+    digest = _sha256_bytes(material)
+    return {
+        "short_circuit": bool(short_circuit),
+        "recovered": bool(recovered),
+        "adaptive_round_count": int(adaptive_round_count),
+        "finality_digest": fd,
+        "prior_tip": tip,
+        "digest": digest,
+        "total_spine_finality": True,
+        "irreversible": True,
+    }
+
+
+def annotate_total_spine_finality(
+    body: dict[str, Any],
+    *,
+    certificate: Mapping[str, Any],
+    prior_tip: str,
+    short_circuit: bool = False,
+) -> dict[str, Any]:
+    """Stamp irreversible finality onto a total-spine result and rebind tip."""
+    fin_digest = str(
+        certificate.get("finality_digest")
+        or certificate.get("certificate_hash")
+        or ""
+    )
+    chain = seal_total_spine_finality_chain(
+        prior_tip=prior_tip,
+        finality_digest=fin_digest,
+        short_circuit=short_circuit,
+        recovered=bool(certificate.get("recovered")),
+        adaptive_round_count=int(certificate.get("adaptive_round_count") or 0),
+    )
+    fin_tip = str(chain.get("digest") or prior_tip)
+    bound = _sha256_bytes(f"{prior_tip}|{fin_tip}".encode("utf-8"))
+    body["total_spine_finality"] = True
+    body["total_spine_finality_impl"] = TOTAL_SPINE_FINALITY_IMPL
+    body["total_spine_finality_short_circuit"] = bool(short_circuit)
+    body["total_spine_finality_irreversible"] = True
+    body["total_spine_finality_certificate"] = dict(certificate)
+    body["total_spine_finality_digest"] = fin_digest
+    body["total_spine_finality_chain"] = chain
+    body["total_spine_finality_tip"] = fin_tip
+    body["total_spine_finality_bound_tip"] = bound
+    body["total_spine_digest_pre_finality"] = prior_tip
+    if certificate.get("finality_path"):
+        body["total_spine_finality_path"] = certificate.get("finality_path")
+    body["total_spine_digest"] = bound
+    return body
+
+
 def seal_total_spine_contract(
     contract: Mapping[str, Any],
     *,
@@ -5184,6 +5435,7 @@ def _attach_total_spine_effects(
     grow_budget: int | None = None,
     continuity: bool = False,
     resume_dir: Path | None = None,
+    finality: bool = False,
 ) -> dict[str, Any]:
     """Optionally dispatch ledger effects, gate contracts, rebind hop digests.
 
@@ -5204,6 +5456,10 @@ def _attach_total_spine_effects(
     Durable adaptive continuity (``continuity=True`` or ``resume_dir``):
     seal mid-recovery checkpoints so a later process can rehydrate exclude
     set + completed rounds and continue toward done_when.
+
+    Irreversible finality (``finality=True``): when a round succeeds, seal a
+    tamper-evident finality certificate into the tip; resume of a finalized
+    run short-circuits without re-dispatching effects.
     """
     goal_text = str(goal or "").strip()
     contract_text = str(done_when or "").strip()
@@ -5223,36 +5479,76 @@ def _attach_total_spine_effects(
     resumed = False
     prior_round_count = 0
     resume_checkpoint: dict[str, Any] | None = None
+    resume_finality: dict[str, Any] | None = None
     if resume_dir is not None:
-        resume_checkpoint = load_total_spine_continuity_checkpoint(resume_dir)
-        resumed = True
-        continuity = True
+        # Prefer finality short-circuit when a sealed certificate exists.
+        try:
+            resume_finality = load_total_spine_finality_certificate(resume_dir)
+        except StageRefused as exc:
+            if str(exc.verdict) == "total_spine_finality_tampered":
+                raise
+            resume_finality = None
+        except Exception:  # noqa: BLE001
+            resume_finality = None
+        try:
+            resume_checkpoint = load_total_spine_continuity_checkpoint(
+                resume_dir
+            )
+            resumed = True
+            continuity = True
+        except StageRefused:
+            # Finality-only resume is allowed without a continuity file.
+            if resume_finality is None:
+                raise
+            resumed = True
         # Prefer checkpoint mission config when caller left fields empty.
+        config_src: Mapping[str, Any] = resume_checkpoint or resume_finality or {}
         if not goal_text:
-            goal_text = str(resume_checkpoint.get("goal") or "").strip()
+            goal_text = str(config_src.get("goal") or "").strip()
         if not contract_text:
-            contract_text = str(resume_checkpoint.get("done_when") or "").strip()
-        if not explicit_caps and resume_checkpoint.get("explicit_capabilities"):
-            capabilities = list(resume_checkpoint.get("capabilities") or [])
+            contract_text = str(config_src.get("done_when") or "").strip()
+        if not explicit_caps and (
+            (resume_checkpoint or {}).get("explicit_capabilities")
+            or (resume_finality or {}).get("capabilities")
+        ):
+            capabilities = list(
+                (resume_checkpoint or {}).get("capabilities")
+                or (resume_finality or {}).get("capabilities")
+                or []
+            )
             explicit_caps = bool(capabilities)
         if not want_effects:
-            want_effects = bool(resume_checkpoint.get("want_effects")) or bool(
-                resume_checkpoint.get("effects")
+            want_effects = bool(
+                (resume_checkpoint or {}).get("want_effects")
+            ) or bool((resume_checkpoint or {}).get("effects")) or bool(
+                (resume_finality or {}).get("capabilities")
             )
-        if max_effect_steps is None and resume_checkpoint.get("max_effect_steps") is not None:
+        if max_effect_steps is None and (resume_checkpoint or {}).get(
+            "max_effect_steps"
+        ) is not None:
             try:
-                max_effect_steps = int(resume_checkpoint["max_effect_steps"])
+                max_effect_steps = int(resume_checkpoint["max_effect_steps"])  # type: ignore[index]
             except (TypeError, ValueError):
                 pass
-        if not grow and resume_checkpoint.get("grow"):
+        if not grow and (resume_checkpoint or {}).get("grow"):
             grow = True
-        if grow_budget is None and resume_checkpoint.get("grow_budget") is not None:
+        if grow_budget is None and (resume_checkpoint or {}).get(
+            "grow_budget"
+        ) is not None:
             try:
-                grow_budget = int(resume_checkpoint["grow_budget"])
+                grow_budget = int(resume_checkpoint["grow_budget"])  # type: ignore[index]
             except (TypeError, ValueError):
                 pass
+        # Finality resume implies finality mode.
+        if resume_finality is not None:
+            finality = True
 
     continuity_on = bool(continuity) or resumed or resume_dir is not None
+    finality_on = bool(finality) or resume_finality is not None
+    # Finality needs a durable write root for the certificate.
+    if finality_on and not continuity_on and (out_root is not None or resume_dir is not None):
+        # Keep continuity optional; finality can seal alone under out_root.
+        pass
 
     max_rounds = (
         int(adaptive_rounds)
@@ -5282,12 +5578,13 @@ def _attach_total_spine_effects(
     )
     grow_limit = max(0, grow_limit)
 
-    if not want_effects and not contract_text and not resumed:
+    if not want_effects and not contract_text and not resumed and not finality_on:
         annotated["total_spine_effects"] = False
         annotated["total_spine_goal_planned"] = False
         annotated["total_spine_contract"] = False
         annotated["total_spine_adaptive"] = False
         annotated["total_spine_continuity"] = False
+        annotated["total_spine_finality"] = False
         return annotated
 
     repo = Path(repo_path) if repo_path is not None else REPO_ROOT
@@ -5306,6 +5603,8 @@ def _attach_total_spine_effects(
     grew_any = False
     growth_records: list[dict[str, Any]] = []
     last_checkpoint: dict[str, Any] | None = None
+    last_finality: dict[str, Any] | None = None
+    short_circuited = False
 
     if resume_checkpoint is not None:
         prior_rounds = list(resume_checkpoint.get("rounds") or [])
@@ -5344,6 +5643,102 @@ def _attach_total_spine_effects(
         annotated["total_spine_continuity_checkpoint_path"] = (
             resume_checkpoint.get("checkpoint_path")
         )
+
+    # --- Irreversible finality short-circuit (no effect re-dispatch) ---
+    if resume_finality is not None:
+        short_circuited = True
+        recovered = recovered or bool(resume_finality.get("recovered"))
+        fin_caps = list(resume_finality.get("capabilities") or [])
+        fin_bound = str(resume_finality.get("bound_tip") or bound_tip)
+        bound_tip = fin_bound
+        annotated["ok"] = True
+        annotated["verdict"] = "total_spine_finality_short_circuit"
+        annotated["total_spine_effects"] = bool(fin_caps) or want_effects
+        annotated["total_spine_effects_ok"] = bool(
+            resume_finality.get("effects_ok", True)
+        )
+        annotated["total_spine_effect_capabilities"] = fin_caps
+        annotated["total_spine_effect_count"] = len(fin_caps)
+        annotated["total_spine_effects_ok_count"] = len(fin_caps)
+        annotated["total_spine_effects_failed_count"] = 0
+        annotated["total_spine_goal"] = (
+            goal_text or str(resume_finality.get("goal") or "")
+        )
+        if contract_text or resume_finality.get("done_when"):
+            annotated["total_spine_contract"] = True
+            annotated["total_spine_contract_met"] = resume_finality.get(
+                "contract_met"
+            )
+            annotated["total_spine_contract_ok"] = (
+                resume_finality.get("contract_met") is True
+                or resume_finality.get("contract_met") is None
+            )
+            annotated["total_spine_done_when"] = (
+                contract_text
+                or str(resume_finality.get("done_when") or "")
+            )
+        annotated["total_spine_adaptive"] = prior_round_count > 0 or bool(
+            adaptive_rounds_log
+        )
+        if adaptive_rounds_log:
+            annotated["total_spine_adaptive_rounds"] = adaptive_rounds_log
+            annotated["total_spine_adaptive_round_count"] = len(
+                adaptive_rounds_log
+            )
+            annotated["total_spine_adaptive_recovered"] = recovered
+            annotated["total_spine_adaptive_excluded"] = sorted(exclude)
+        annotated["total_spine_continuity"] = resume_checkpoint is not None
+        if resume_checkpoint is not None:
+            annotated["total_spine_continuity_status"] = resume_checkpoint.get(
+                "status"
+            )
+            annotated["total_spine_continuity_recovered"] = recovered
+            annotated["total_spine_continuity_digest"] = resume_checkpoint.get(
+                "checkpoint_digest"
+            )
+        # Rebind hop digests to finality-bound tip before annotate.
+        if compressed:
+            hops = seal_total_spine_hop_chain(
+                root, live_result, tip=bound_tip
+            )
+            annotated["total_spine_hop_chain"] = hops
+            annotated["total_spine_hop_count"] = len(hops)
+            if hops:
+                annotated["total_spine_digest"] = hops[0].get("digest")
+                annotated[f"{root}_digest"] = hops[0].get("digest")
+        else:
+            annotated["total_spine_digest"] = bound_tip
+            annotated[f"{root}_digest"] = bound_tip
+        annotated = annotate_total_spine_finality(
+            annotated,
+            certificate=resume_finality,
+            prior_tip=bound_tip,
+            short_circuit=True,
+        )
+        bound_tip = str(
+            annotated.get("total_spine_finality_bound_tip") or bound_tip
+        )
+        if compressed:
+            hops = seal_total_spine_hop_chain(
+                root, live_result, tip=bound_tip
+            )
+            annotated["total_spine_hop_chain"] = hops
+            annotated["total_spine_hop_count"] = len(hops)
+            if hops:
+                annotated["total_spine_digest"] = hops[0].get("digest")
+                annotated[f"{root}_digest"] = hops[0].get("digest")
+        else:
+            annotated["total_spine_digest"] = bound_tip
+            annotated[f"{root}_digest"] = bound_tip
+        annotated["total_spine_finality_short_circuit"] = True
+        annotated["total_spine_constitution_depth"] = chain_len
+        annotated["total_spine_goal_impl"] = TOTAL_SPINE_GOAL_IMPL
+        annotated["total_spine_adaptive_impl"] = TOTAL_SPINE_ADAPTIVE_IMPL
+        annotated["total_spine_continuity_impl"] = TOTAL_SPINE_CONTINUITY_IMPL
+        annotated["total_spine_finality_impl"] = TOTAL_SPINE_FINALITY_IMPL
+        if goal_text and not annotated.get("total_spine_goal"):
+            annotated["total_spine_goal"] = goal_text
+        return annotated
 
     def _select_ids(round_index: int) -> tuple[list[str], str, bool, dict[str, Any] | None]:
         # Global index includes prior resumed rounds so first live round after
@@ -5836,6 +6231,105 @@ def _attach_total_spine_effects(
     else:
         annotated["total_spine_continuity"] = False
 
+    # Irreversible finality seal when a round closed successfully.
+    if finality_on and not short_circuited:
+        success_now = bool(annotated.get("ok")) and (
+            not contract_text
+            or not bool(annotated.get("total_spine_contract"))
+            or annotated.get("total_spine_contract_met") is True
+            or annotated.get("total_spine_contract_met") is None
+        )
+        # Require machine-checkable contract met when done_when is present.
+        if contract_text and annotated.get("total_spine_contract"):
+            success_now = (
+                bool(annotated.get("ok"))
+                and annotated.get("total_spine_contract_met") is True
+            )
+        if want_effects:
+            success_now = success_now and bool(
+                annotated.get("total_spine_effects_ok")
+            )
+        write_root: Path | None = None
+        if out_root is not None:
+            write_root = Path(out_root)
+        elif resume_dir is not None:
+            write_root = Path(resume_dir)
+        if success_now and write_root is not None:
+            ck_digest = str(
+                (last_checkpoint or {}).get("checkpoint_digest")
+                or (resume_checkpoint or {}).get("checkpoint_digest")
+                or annotated.get("total_spine_continuity_digest")
+                or ""
+            )
+            fin_body = {
+                "schema_version": SCHEMA_VERSION,
+                "kind": TOTAL_SPINE_FINALITY_KIND,
+                "root_layer": root,
+                "goal": goal_text,
+                "done_when": contract_text,
+                "capabilities": list(
+                    annotated.get("total_spine_effect_capabilities") or []
+                ),
+                "operational_tip": operational_tip,
+                "bound_tip": bound_tip,
+                "continuity_digest": ck_digest,
+                "adaptive_round_count": len(adaptive_rounds_log),
+                "effects_ok": bool(annotated.get("total_spine_effects_ok"))
+                if want_effects
+                else True,
+                "contract_met": annotated.get("total_spine_contract_met"),
+                "recovered": recovered,
+                "irreversible": True,
+                "success": True,
+                "finalized_at": utc_now_iso(),
+            }
+            last_finality = write_total_spine_finality_certificate(
+                write_root, fin_body
+            )
+            annotated = annotate_total_spine_finality(
+                annotated,
+                certificate=last_finality,
+                prior_tip=bound_tip,
+                short_circuit=False,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_finality_bound_tip") or bound_tip
+            )
+            if compressed:
+                hops = seal_total_spine_hop_chain(
+                    root, live_result, tip=bound_tip
+                )
+                annotated["total_spine_hop_chain"] = hops
+                annotated["total_spine_hop_count"] = len(hops)
+                if hops:
+                    annotated["total_spine_digest"] = hops[0].get("digest")
+                    annotated[f"{root}_digest"] = hops[0].get("digest")
+            else:
+                annotated["total_spine_digest"] = bound_tip
+                annotated[f"{root}_digest"] = bound_tip
+            if annotated.get("verdict") in {
+                "total_spine_effects_failed",
+                "total_spine_contract_failed",
+                "total_spine_goal_plan_empty",
+                "total_spine_adaptive_ok",
+                "total_spine_continuity_ok",
+            } or annotated.get("ok"):
+                annotated["verdict"] = (
+                    "total_spine_finality_ok"
+                    if not resumed
+                    else "total_spine_finality_ok_resumed"
+                )
+        elif not success_now:
+            annotated["total_spine_finality"] = False
+            annotated["total_spine_finality_impl"] = TOTAL_SPINE_FINALITY_IMPL
+        else:
+            # Success but no durable write root — still mark intent.
+            annotated["total_spine_finality"] = False
+            annotated["total_spine_finality_impl"] = TOTAL_SPINE_FINALITY_IMPL
+            annotated["total_spine_finality_missing_out_root"] = True
+    elif not finality_on:
+        annotated["total_spine_finality"] = False
+
     if contract_text and last_contract is not None and out_root is not None:
         contract_dir = Path(out_root) / "contract"
         contract_dir.mkdir(parents=True, exist_ok=True)
@@ -5848,6 +6342,7 @@ def _attach_total_spine_effects(
                 "bound_tip": annotated.get("total_spine_contract_bound_tip"),
                 "adaptive_round_count": len(adaptive_rounds_log),
                 "continuity_resumed": resumed,
+                "finality": bool(annotated.get("total_spine_finality")),
             },
         )
         annotated["total_spine_contract_receipt_dir"] = str(contract_dir)
@@ -5858,6 +6353,7 @@ def _attach_total_spine_effects(
     annotated["total_spine_goal_impl"] = TOTAL_SPINE_GOAL_IMPL
     annotated["total_spine_adaptive_impl"] = TOTAL_SPINE_ADAPTIVE_IMPL
     annotated["total_spine_continuity_impl"] = TOTAL_SPINE_CONTINUITY_IMPL
+    annotated["total_spine_finality_impl"] = TOTAL_SPINE_FINALITY_IMPL
     return annotated
 
 
@@ -5894,6 +6390,7 @@ def run_total_spine(
     grow_budget: int | None = None,
     continuity: bool = False,
     resume_dir: Path | None = None,
+    finality: bool = False,
 ) -> dict[str, Any]:
     """Public entry: absolute total spine from root into the operational nest.
 
@@ -5924,6 +6421,10 @@ def run_total_spine(
     Durable adaptive continuity: ``continuity=True`` writes sealed mid-recovery
     checkpoints; ``resume_dir`` rehydrates exclude set + completed rounds after
     a process boundary and continues toward done_when.
+
+    Irreversible finality: ``finality=True`` seals a tamper-evident finality
+    certificate when done_when is met; resume of a finalized run short-circuits
+    without re-dispatching effects so absolute-tower success stays irreversible.
     """
     root = (
         str(root_layer or TOTAL_SPINE_DEFAULT_ROOT).strip().lower()
@@ -5992,6 +6493,7 @@ def run_total_spine(
             grow_budget=grow_budget,
             continuity=continuity,
             resume_dir=resume_dir,
+            finality=finality,
         )
         return annotated
 
@@ -6053,6 +6555,7 @@ def run_total_spine(
         grow_budget=grow_budget,
         continuity=continuity,
         resume_dir=resume_dir,
+        finality=finality,
     )
     if out_root is not None:
         receipt_dir = Path(out_root)
@@ -10058,6 +10561,341 @@ def builtin_total_spine_continuity_proof() -> dict[str, Any]:
         shutil.rmtree(scratch, ignore_errors=True)
 
 
+def builtin_total_spine_finality_proof() -> dict[str, Any]:
+    """Hermetic proof: irreversible finality short-circuits absolute tower tip.
+
+    Closes the mutable-success cliff: a successful adaptive recovery with
+    ``finality=True`` seals a tamper-evident finality certificate; a second
+    process resumes via ``resume_dir`` and short-circuits without re-dispatching
+    effects, rebinding the depth-28 quetta→campaign tip without skill-route.
+    """
+    scratch = Path(tempfile.mkdtemp(prefix="total-spine-finality-proof-"))
+    try:
+        from blackhole_agent import upstream_loop_engine as le_facade
+        from blackhole_agent.capability_compounder import (
+            default_ledger_path,
+            load_ledger,
+        )
+
+        flags_ok = (
+            TOTAL_SPINE_FINALITY_IMPL is True
+            and TOTAL_SPINE_CONTINUITY_IMPL is True
+            and TOTAL_SPINE_ADAPTIVE_IMPL is True
+            and TOTAL_SPINE_GOAL_IMPL is True
+            and TOTAL_SPINE_EFFECT_IMPL is True
+            and TOTAL_SPINE_IMPL is True
+            and TOTAL_SPINE_FINALITY_KIND == "total_spine_finality"
+            and bool(TOTAL_SPINE_FINALITY_FILENAME)
+        )
+
+        missing_id = "capability.does-not-exist-for-finality-proof"
+        good_id = "repo.import-health"
+        contract_pass = "min_proved:1; no_skill_route"
+
+        # Phase 1: partial adaptive (1 round) seals incomplete continuity.
+        partial = run_total_spine(
+            root_layer="quettacontinuum",
+            out_root=scratch / "partial",
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=3,
+            max_successions=1,
+            max_epochs=1,
+            max_waves=1,
+            compress=True,
+            effects=True,
+            capabilities=[missing_id, good_id],
+            done_when=contract_pass,
+            adaptive=True,
+            adaptive_rounds=1,
+            continuity=True,
+            finality=True,
+            effect_timeout=90,
+            repo_path=REPO_ROOT,
+        )
+        partial_path = partial.get("total_spine_continuity_checkpoint_path")
+        partial_ok = (
+            partial.get("total_spine_continuity") is True
+            and partial.get("total_spine_finality") is not True
+            and partial.get("total_spine_effects_ok") is False
+            and partial.get("ok") is False
+            and str(partial.get("total_spine_continuity_status") or "")
+            == "incomplete"
+            and isinstance(partial_path, str)
+            and Path(partial_path).is_file()
+            and int(partial.get("total_nest_depth") or 0) == 28
+            and not legacy_pipeline_was_used()
+        )
+
+        # Phase 2: resume + recover + seal finality on success.
+        finalized = run_total_spine(
+            root_layer="quettacontinuum",
+            out_root=scratch / "finalized",
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=3,
+            max_successions=1,
+            max_epochs=1,
+            max_waves=1,
+            compress=True,
+            effects=True,
+            capabilities=[missing_id, good_id],
+            done_when=contract_pass,
+            adaptive=True,
+            adaptive_rounds=1,
+            continuity=True,
+            finality=True,
+            resume_dir=partial_path,
+            effect_timeout=90,
+            repo_path=REPO_ROOT,
+        )
+        fin_path = finalized.get("total_spine_finality_path")
+        final_ids = list(
+            finalized.get("total_spine_effect_capabilities") or []
+        )
+        finalize_ok = (
+            bool(finalized.get("ok"))
+            and finalized.get("total_spine") is True
+            and finalized.get("total_spine_compressed") is True
+            and finalized.get("total_spine_finality") is True
+            and finalized.get("total_spine_finality_irreversible") is True
+            and finalized.get("total_spine_finality_short_circuit") is not True
+            and finalized.get("total_spine_effects_ok") is True
+            and finalized.get("total_spine_contract_met") is True
+            and finalized.get("total_spine_continuity_recovered") is True
+            and int(finalized.get("total_nest_depth") or 0) == 28
+            and good_id in final_ids
+            and missing_id not in final_ids
+            and isinstance(fin_path, str)
+            and Path(fin_path).is_file()
+            and isinstance(finalized.get("total_spine_finality_digest"), str)
+            and len(str(finalized.get("total_spine_finality_digest"))) >= 32
+            and isinstance(finalized.get("total_spine_digest"), str)
+            and len(str(finalized.get("total_spine_digest"))) >= 32
+            and not legacy_pipeline_was_used()
+        )
+
+        # Finality integrity: load + verify; tamper fails.
+        loaded = load_total_spine_finality_certificate(fin_path or scratch)
+        verify_ok = bool(
+            loaded.get("total_spine_finality_loaded")
+            and (loaded.get("finality_verify") or {}).get("ok")
+        )
+        tampered_path = scratch / "tampered-finality.json"
+        tampered_body = dict(loaded)
+        tampered_body.pop("finality_verify", None)
+        tampered_body.pop("total_spine_finality_loaded", None)
+        # Mutate capabilities without updating digest.
+        caps = list(tampered_body.get("capabilities") or [])
+        caps.append("capability.forged-finality")
+        tampered_body["capabilities"] = caps
+        atomic_write_json(tampered_path, tampered_body)
+        tamper_ok = False
+        try:
+            load_total_spine_finality_certificate(tampered_path)
+        except StageRefused as exc:
+            tamper_ok = str(exc.verdict) == "total_spine_finality_tampered"
+        except Exception:  # noqa: BLE001
+            tamper_ok = False
+
+        # Phase 3: resume finalized run — short-circuit, no re-dispatch.
+        # Count effect receipt dirs before short-circuit resume.
+        effect_parent = scratch / "short" / "effects"
+        shorted = run_total_spine(
+            root_layer="quettacontinuum",
+            out_root=scratch / "short",
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=3,
+            max_successions=1,
+            max_epochs=1,
+            max_waves=1,
+            compress=True,
+            effects=True,
+            capabilities=[missing_id, good_id],
+            done_when=contract_pass,
+            adaptive=True,
+            adaptive_rounds=2,
+            continuity=True,
+            finality=True,
+            resume_dir=fin_path or (scratch / "finalized"),
+            effect_timeout=90,
+            repo_path=REPO_ROOT,
+        )
+        # Short-circuit must not create new effect round receipts.
+        short_effect_dirs = (
+            list(effect_parent.glob("round-*")) if effect_parent.is_dir() else []
+        )
+        short_ok = (
+            bool(shorted.get("ok"))
+            and shorted.get("total_spine") is True
+            and shorted.get("total_spine_finality") is True
+            and shorted.get("total_spine_finality_short_circuit") is True
+            and shorted.get("total_spine_finality_irreversible") is True
+            and shorted.get("total_spine_effects_ok") is True
+            and int(shorted.get("total_nest_depth") or 0) == 28
+            and good_id
+            in list(shorted.get("total_spine_effect_capabilities") or [])
+            and missing_id
+            not in list(shorted.get("total_spine_effect_capabilities") or [])
+            and len(short_effect_dirs) == 0
+            and str(shorted.get("total_spine_finality_digest") or "")
+            == str(finalized.get("total_spine_finality_digest") or "")
+            and isinstance(shorted.get("total_spine_finality_tip"), str)
+            and len(str(shorted.get("total_spine_finality_tip"))) >= 32
+            and isinstance(shorted.get("total_spine_digest"), str)
+            and len(str(shorted.get("total_spine_digest"))) >= 32
+            and not legacy_pipeline_was_used()
+        )
+
+        # Differential: partial fail tip != finalized tip; short uses finality.
+        differential_ok = (
+            partial_ok
+            and finalize_ok
+            and short_ok
+            and partial.get("total_spine_digest")
+            != finalized.get("total_spine_digest")
+            and finalized.get("total_spine_finality_digest")
+            == shorted.get("total_spine_finality_digest")
+        )
+
+        # Finality chain re-seal integrity on short-circuit result.
+        fin_chain = shorted.get("total_spine_finality_chain") or {}
+        chain_integrity_ok = False
+        if isinstance(fin_chain, Mapping) and fin_chain:
+            re_seal = seal_total_spine_finality_chain(
+                prior_tip=str(fin_chain.get("prior_tip") or ""),
+                finality_digest=str(fin_chain.get("finality_digest") or ""),
+                short_circuit=bool(fin_chain.get("short_circuit")),
+                recovered=bool(fin_chain.get("recovered")),
+                adaptive_round_count=int(
+                    fin_chain.get("adaptive_round_count") or 0
+                ),
+            )
+            chain_integrity_ok = (
+                re_seal.get("digest") == fin_chain.get("digest")
+                and re_seal.get("digest")
+                == shorted.get("total_spine_finality_tip")
+            )
+
+        facade_path = Path(le_facade.__file__).resolve()
+        facade_text = facade_path.read_text(encoding="utf-8")
+        source_ok = (
+            "TOTAL_SPINE_FINALITY_IMPL" in facade_text
+            and "builtin_total_spine_finality_proof" in facade_text
+            and "load_total_spine_finality_certificate" in facade_text
+            and callable(
+                getattr(le_facade, "builtin_total_spine_finality_proof", None)
+            )
+            and callable(
+                getattr(
+                    le_facade, "load_total_spine_finality_certificate", None
+                )
+            )
+            and getattr(le_facade, "TOTAL_SPINE_FINALITY_IMPL", False) is True
+        )
+
+        engine_path = Path(__file__).resolve()
+        engine_text = engine_path.read_text(encoding="utf-8")
+        engine_source_ok = (
+            "def builtin_total_spine_finality_proof" in engine_text
+            and "def seal_total_spine_finality_certificate" in engine_text
+            and "def load_total_spine_finality_certificate" in engine_text
+            and "TOTAL_SPINE_FINALITY_IMPL" in engine_text
+            and "total_spine_finality_short_circuit" in engine_text
+            and "finality" in engine_text
+        )
+
+        ledger_path = default_ledger_path(REPO_ROOT)
+        ledger_ok = False
+        try:
+            ledger = load_ledger(ledger_path)
+            entry = ledger.capabilities.get(
+                "capability.upstream-total-spine-finality"
+            )
+            tags_blob = " ".join(entry.tags).lower() if entry else ""
+            delta_blob = (entry.capability_delta or "").lower() if entry else ""
+            name_blob = (entry.name or "").lower() if entry else ""
+            ledger_ok = (
+                entry is not None
+                and "upstream_control_engine" in (entry.entry or "")
+                and "builtin_total_spine_finality_proof" in (entry.entry or "")
+                and (
+                    "finality" in tags_blob
+                    or "finality" in name_blob
+                    or "finality" in delta_blob
+                )
+                and ("total" in tags_blob or "total" in name_blob)
+                and (
+                    "irreversib" in delta_blob
+                    or "short-circuit" in delta_blob
+                    or "short_circuit" in delta_blob
+                    or "certificate" in delta_blob
+                )
+                and (
+                    "run_total_spine" in delta_blob
+                    or "finality" in delta_blob
+                )
+            )
+        except Exception:  # noqa: BLE001
+            ledger_ok = False
+
+        ok = all(
+            [
+                flags_ok,
+                partial_ok,
+                finalize_ok,
+                verify_ok,
+                tamper_ok,
+                short_ok,
+                differential_ok,
+                chain_integrity_ok,
+                source_ok,
+                engine_source_ok,
+                ledger_ok,
+                not legacy_pipeline_was_used(),
+            ]
+        )
+        return {
+            "ok": ok,
+            "action": "total_spine_finality_proof",
+            "flags_ok": flags_ok,
+            "partial_ok": partial_ok,
+            "partial_status": partial.get("total_spine_continuity_status"),
+            "partial_digest": partial.get("total_spine_digest"),
+            "finalize_ok": finalize_ok,
+            "finalize_path": fin_path,
+            "finalize_digest": finalized.get("total_spine_finality_digest"),
+            "finalize_tip": finalized.get("total_spine_finality_tip"),
+            "finalize_ids": final_ids,
+            "verify_ok": verify_ok,
+            "tamper_ok": tamper_ok,
+            "short_ok": short_ok,
+            "short_circuit": shorted.get("total_spine_finality_short_circuit"),
+            "short_effect_dirs": len(short_effect_dirs),
+            "short_digest": shorted.get("total_spine_digest"),
+            "short_finality_digest": shorted.get(
+                "total_spine_finality_digest"
+            ),
+            "differential_ok": differential_ok,
+            "chain_integrity_ok": chain_integrity_ok,
+            "source_ok": source_ok,
+            "engine_source_ok": engine_source_ok,
+            "ledger_capability_ok": ledger_ok,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "control_engine": True,
+            "total_spine": True,
+            "total_spine_effects": True,
+            "total_spine_adaptive": True,
+            "total_spine_continuity": True,
+            "total_spine_finality": True,
+            "total_spine_compressed": True,
+            "done_when_met": ok,
+        }
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
 def builtin_control_nest_proof() -> dict[str, Any]:
     """Hermetic proof: multi-depth nest owns program→…→fleet→campaign spine."""
     scratch = Path(tempfile.mkdtemp(prefix="control-nest-proof-"))
@@ -11497,6 +12335,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "resume mid-recovery across process boundaries"
         ),
     )
+    sub.add_parser(
+        "finality-proof",
+        help=(
+            "Total spine finality proof: irreversible certificates "
+            "short-circuit re-dispatch on finalized absolute-tower resume"
+        ),
+    )
     sub.add_parser("list", help="List control modes and dialects")
     sub.add_parser("nest-path", help="Print canonical operational nest path")
     sub.add_parser(
@@ -11617,6 +12462,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "continuity-proof":
         result = builtin_total_spine_continuity_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "finality-proof":
+        result = builtin_total_spine_finality_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2

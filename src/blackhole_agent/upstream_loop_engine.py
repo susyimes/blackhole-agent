@@ -34,6 +34,9 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     TOTAL_SPINE_DEFAULT_ROOT,
     TOTAL_SPINE_DEFAULT_ROOTS,
     TOTAL_SPINE_EFFECT_IMPL,
+    TOTAL_SPINE_FINALITY_FILENAME,
+    TOTAL_SPINE_FINALITY_IMPL,
+    TOTAL_SPINE_FINALITY_KIND,
     TOTAL_SPINE_GOAL_IMPL,
     TOTAL_SPINE_IMPL,
     BuildChildKwargs,
@@ -59,6 +62,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     annotate_total_spine,
     annotate_total_spine_contract,
     annotate_total_spine_effects,
+    annotate_total_spine_finality,
     build_live_domain_hooks,
     builtin_civilization_spine_proof,
     builtin_continuum_spine_proof,
@@ -69,6 +73,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     builtin_total_spine_adaptive_proof,
     builtin_total_spine_continuity_proof,
     builtin_total_spine_effect_proof,
+    builtin_total_spine_finality_proof,
     builtin_total_spine_goal_proof,
     builtin_total_spine_proof,
     compose_loop_of_loop,
@@ -77,11 +82,13 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     default_extract_dispatched,
     dispatch_total_spine_effects,
     evaluate_total_spine_contract,
+    finality_certificate_path,
     get_loop_dialect,
     governance_nest_depth,
     governance_nest_path,
     list_loop_dialects,
     load_total_spine_continuity_checkpoint,
+    load_total_spine_finality_certificate,
     make_governance_institution_child_runner,
     make_governance_league_child_runner,
     make_operational_program_child_runner,
@@ -111,6 +118,8 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     seal_total_spine_continuity_checkpoint,
     seal_total_spine_contract,
     seal_total_spine_effect_chain,
+    seal_total_spine_finality_certificate,
+    seal_total_spine_finality_chain,
     seal_total_spine_hop_chain,
     stewardship_constitution_chain,
     stewardship_nest_depth,
@@ -119,7 +128,9 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     total_nest_path,
     verify_loop_receipt,
     verify_total_spine_continuity_checkpoint,
+    verify_total_spine_finality_certificate,
     write_total_spine_continuity_checkpoint,
+    write_total_spine_finality_certificate,
 )
 
 # Historical name before control-engine merge.
@@ -195,6 +206,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "mid-recovery across process boundaries"
         ),
     )
+    sub.add_parser(
+        "finality-proof",
+        help=(
+            "Total spine finality: irreversible certificates short-circuit "
+            "re-dispatch on finalized absolute-tower resume"
+        ),
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
     if args.cmd == "list":
         print(json.dumps({"dialects": list_loop_dialects()}, indent=2))
@@ -237,6 +255,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "continuity-proof":
         result = builtin_total_spine_continuity_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "finality-proof":
+        result = builtin_total_spine_finality_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2
