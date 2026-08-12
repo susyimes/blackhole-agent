@@ -24,6 +24,9 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     STEWARDSHIP_SPINE_DEFAULT_ROOTS,
     TOTAL_SPINE_ADAPTIVE_IMPL,
     TOTAL_SPINE_COMPRESS_THRESHOLD,
+    TOTAL_SPINE_CONTINUITY_FILENAME,
+    TOTAL_SPINE_CONTINUITY_IMPL,
+    TOTAL_SPINE_CONTINUITY_KIND,
     TOTAL_SPINE_DEFAULT_ADAPTIVE_ROUNDS,
     TOTAL_SPINE_DEFAULT_EFFECT_CAPABILITIES,
     TOTAL_SPINE_DEFAULT_GOAL_MAX_STEPS,
@@ -64,11 +67,13 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     builtin_loop_engine_proof,
     builtin_stewardship_spine_proof,
     builtin_total_spine_adaptive_proof,
+    builtin_total_spine_continuity_proof,
     builtin_total_spine_effect_proof,
     builtin_total_spine_goal_proof,
     builtin_total_spine_proof,
     compose_loop_of_loop,
     compose_pipeline_of_pipeline,
+    continuity_checkpoint_path,
     default_extract_dispatched,
     dispatch_total_spine_effects,
     evaluate_total_spine_contract,
@@ -76,6 +81,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     governance_nest_depth,
     governance_nest_path,
     list_loop_dialects,
+    load_total_spine_continuity_checkpoint,
     make_governance_institution_child_runner,
     make_governance_league_child_runner,
     make_operational_program_child_runner,
@@ -101,6 +107,8 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     run_total_spine,
     seal_json_receipt,
     seal_total_spine_adaptive_chain,
+    seal_total_spine_continuity_chain,
+    seal_total_spine_continuity_checkpoint,
     seal_total_spine_contract,
     seal_total_spine_effect_chain,
     seal_total_spine_hop_chain,
@@ -110,6 +118,8 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     total_nest_depth,
     total_nest_path,
     verify_loop_receipt,
+    verify_total_spine_continuity_checkpoint,
+    write_total_spine_continuity_checkpoint,
 )
 
 # Historical name before control-engine merge.
@@ -178,6 +188,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "effects with multi-round sealed digests"
         ),
     )
+    sub.add_parser(
+        "continuity-proof",
+        help=(
+            "Total spine continuity: sealed adaptive checkpoints resume "
+            "mid-recovery across process boundaries"
+        ),
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
     if args.cmd == "list":
         print(json.dumps({"dialects": list_loop_dialects()}, indent=2))
@@ -216,6 +233,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "adaptive-proof":
         result = builtin_total_spine_adaptive_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "continuity-proof":
+        result = builtin_total_spine_continuity_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2

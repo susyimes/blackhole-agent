@@ -56,6 +56,11 @@ Composition:
   grows the ledger, replans from the goal, redispatches, re-evaluates
   the contract, and seals multi-round adaptive digests into the
   depth-28 tip so the absolute tower can recover toward done_when
+* total-spine **durable adaptive continuity** — closes the ephemeral
+  process cliff: sealed continuity checkpoints capture exclude set,
+  completed adaptive rounds, tips, goal/done_when, and effect config so
+  ``run_total_spine(resume_dir=...)`` rehydrates mid-recovery after a
+  process boundary and continues toward done_when without skill-route
 
 No skill-route discovery.
 """
@@ -4282,6 +4287,10 @@ TOTAL_SPINE_DEFAULT_GOAL_MAX_STEPS: int = 3
 TOTAL_SPINE_ADAPTIVE_IMPL = True
 TOTAL_SPINE_DEFAULT_ADAPTIVE_ROUNDS: int = 2
 TOTAL_SPINE_DEFAULT_GROW_BUDGET: int = 0
+# Durable adaptive continuity: sealed checkpoints resume across process death.
+TOTAL_SPINE_CONTINUITY_IMPL = True
+TOTAL_SPINE_CONTINUITY_KIND: str = "total_spine_continuity"
+TOTAL_SPINE_CONTINUITY_FILENAME: str = "total-spine-continuity.json"
 # Constitution-layer goals accepted by run_constitution (not free-text).
 TOTAL_SPINE_CONSTITUTION_GOALS: frozenset[str] = frozenset(
     {
@@ -4681,6 +4690,177 @@ def seal_total_spine_adaptive_chain(
     return hops
 
 
+def _continuity_checkpoint_material(body: Mapping[str, Any]) -> dict[str, Any]:
+    """Canonical fields that bind a continuity checkpoint digest."""
+    return {
+        "schema_version": int(body.get("schema_version") or SCHEMA_VERSION),
+        "kind": str(body.get("kind") or TOTAL_SPINE_CONTINUITY_KIND),
+        "root_layer": str(body.get("root_layer") or ""),
+        "goal": str(body.get("goal") or ""),
+        "done_when": str(body.get("done_when") or ""),
+        "capabilities": list(body.get("capabilities") or []),
+        "explicit_capabilities": bool(body.get("explicit_capabilities")),
+        "effects": bool(body.get("effects")),
+        "max_effect_steps": body.get("max_effect_steps"),
+        "excluded": sorted(str(x) for x in (body.get("excluded") or [])),
+        "rounds": list(body.get("rounds") or []),
+        "operational_tip": str(body.get("operational_tip") or ""),
+        "bound_tip": str(body.get("bound_tip") or ""),
+        "next_round_index": int(body.get("next_round_index") or 0),
+        "want_effects": bool(body.get("want_effects")),
+        "grow": bool(body.get("grow")),
+        "grow_budget": int(body.get("grow_budget") or 0),
+        "status": str(body.get("status") or "incomplete"),
+        "recovered": bool(body.get("recovered")),
+        "success": bool(body.get("success")),
+    }
+
+
+def seal_total_spine_continuity_checkpoint(
+    body: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Seal adaptive recovery state into a tamper-evident continuity checkpoint.
+
+    Digest material is the canonical continuity payload (exclude set, completed
+    rounds, tips, goal/done_when, effect config). Process death mid-recovery
+    can rehydrate from the sealed file and continue toward done_when.
+    """
+    material = _continuity_checkpoint_material(body)
+    digest = _sha256_json(material)
+    sealed = dict(material)
+    sealed["checkpoint_digest"] = digest
+    sealed["total_spine_continuity"] = True
+    sealed["total_spine_continuity_impl"] = TOTAL_SPINE_CONTINUITY_IMPL
+    sealed["created_at"] = str(body.get("created_at") or utc_now_iso())
+    sealed["used_skill_route_discovery"] = legacy_pipeline_was_used()
+    return sealed
+
+
+def continuity_checkpoint_path(root: Path) -> Path:
+    """Resolve ``total-spine-continuity.json`` under a continuity/out root."""
+    path = Path(root)
+    if path.is_file():
+        return path
+    named = path / TOTAL_SPINE_CONTINUITY_FILENAME
+    if named.is_file():
+        return named
+    nested = path / "continuity" / TOTAL_SPINE_CONTINUITY_FILENAME
+    if nested.is_file():
+        return nested
+    # Preferred write location when directory does not yet contain a file.
+    return path / "continuity" / TOTAL_SPINE_CONTINUITY_FILENAME
+
+
+def write_total_spine_continuity_checkpoint(
+    out_root: Path,
+    body: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Seal and atomically write a continuity checkpoint under ``out_root``."""
+    sealed = seal_total_spine_continuity_checkpoint(body)
+    path = continuity_checkpoint_path(Path(out_root))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(path, sealed)
+    sealed["checkpoint_path"] = str(path)
+    return sealed
+
+
+def verify_total_spine_continuity_checkpoint(
+    checkpoint: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Recompute continuity digest; fail closed on tamper or schema drift."""
+    claimed = str(checkpoint.get("checkpoint_digest") or "")
+    material = _continuity_checkpoint_material(checkpoint)
+    expected = _sha256_json(material)
+    ok = (
+        bool(claimed)
+        and claimed == expected
+        and str(checkpoint.get("kind") or "") == TOTAL_SPINE_CONTINUITY_KIND
+        and int(checkpoint.get("schema_version") or 0) == SCHEMA_VERSION
+        and TOTAL_SPINE_CONTINUITY_IMPL is True
+    )
+    return {
+        "ok": ok,
+        "action": "verify_total_spine_continuity",
+        "claimed_digest": claimed,
+        "expected_digest": expected,
+        "kind_ok": str(checkpoint.get("kind") or "") == TOTAL_SPINE_CONTINUITY_KIND,
+        "schema_ok": int(checkpoint.get("schema_version") or 0) == SCHEMA_VERSION,
+        "total_spine_continuity": True,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def load_total_spine_continuity_checkpoint(
+    path: Path | str,
+) -> dict[str, Any]:
+    """Load and integrity-check a sealed continuity checkpoint.
+
+    Raises :class:`StageRefused` when the file is missing, unreadable, or
+    tampered (digest mismatch).
+    """
+    file_path = continuity_checkpoint_path(Path(path))
+    if not file_path.is_file():
+        raise StageRefused(
+            "total_spine_continuity_missing",
+            f"continuity checkpoint not found at {file_path}",
+        )
+    raw_path = durable_read_path(file_path)
+    try:
+        payload = json.loads(raw_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise StageRefused(
+            "total_spine_continuity_unreadable",
+            f"continuity checkpoint unreadable at {file_path}: {exc}",
+        ) from exc
+    if not isinstance(payload, Mapping):
+        raise StageRefused(
+            "total_spine_continuity_invalid",
+            "continuity checkpoint root must be a JSON object",
+        )
+    verify = verify_total_spine_continuity_checkpoint(payload)
+    if not verify.get("ok"):
+        raise StageRefused(
+            "total_spine_continuity_tampered",
+            f"continuity checkpoint digest mismatch at {file_path} "
+            f"(claimed={verify.get('claimed_digest')!r} "
+            f"expected={verify.get('expected_digest')!r})",
+        )
+    body = dict(payload)
+    body["checkpoint_path"] = str(file_path)
+    body["continuity_verify"] = verify
+    body["total_spine_continuity_loaded"] = True
+    return body
+
+
+def seal_total_spine_continuity_chain(
+    *,
+    prior_tip: str,
+    checkpoint_digest: str,
+    resumed: bool,
+    recovered: bool,
+    prior_round_count: int,
+    total_round_count: int,
+) -> dict[str, Any]:
+    """Seal resume/continuity hop into the absolute-tower tip."""
+    tip = str(prior_tip or "").strip() or ("0" * 64)
+    ck = str(checkpoint_digest or "").strip() or ("0" * 64)
+    material = (
+        f"continuity|{int(bool(resumed))}|{int(bool(recovered))}|"
+        f"{int(prior_round_count)}|{int(total_round_count)}|{ck}|{tip}"
+    ).encode("utf-8")
+    digest = _sha256_bytes(material)
+    return {
+        "resumed": bool(resumed),
+        "recovered": bool(recovered),
+        "prior_round_count": int(prior_round_count),
+        "total_round_count": int(total_round_count),
+        "checkpoint_digest": ck,
+        "prior_tip": tip,
+        "digest": digest,
+        "total_spine_continuity": True,
+    }
+
+
 def seal_total_spine_contract(
     contract: Mapping[str, Any],
     *,
@@ -5002,6 +5182,8 @@ def _attach_total_spine_effects(
     adaptive_rounds: int | None = None,
     grow: bool = False,
     grow_budget: int | None = None,
+    continuity: bool = False,
+    resume_dir: Path | None = None,
 ) -> dict[str, Any]:
     """Optionally dispatch ledger effects, gate contracts, rebind hop digests.
 
@@ -5018,6 +5200,10 @@ def _attach_total_spine_effects(
     failed effects or unmet machine-checkable contracts, exclude failed
     capability ids, optionally grow the ledger, replan/redispatch, and seal
     multi-round adaptive digests into the absolute-tower tip.
+
+    Durable adaptive continuity (``continuity=True`` or ``resume_dir``):
+    seal mid-recovery checkpoints so a later process can rehydrate exclude
+    set + completed rounds and continue toward done_when.
     """
     goal_text = str(goal or "").strip()
     contract_text = str(done_when or "").strip()
@@ -5032,19 +5218,62 @@ def _attach_total_spine_effects(
     # an explicit done_when so goal→effects→contract is one path.
     if not want_effects and goal_text and contract_text:
         want_effects = True
+
+    # Durable continuity rehydrate (process death mid-recovery).
+    resumed = False
+    prior_round_count = 0
+    resume_checkpoint: dict[str, Any] | None = None
+    if resume_dir is not None:
+        resume_checkpoint = load_total_spine_continuity_checkpoint(resume_dir)
+        resumed = True
+        continuity = True
+        # Prefer checkpoint mission config when caller left fields empty.
+        if not goal_text:
+            goal_text = str(resume_checkpoint.get("goal") or "").strip()
+        if not contract_text:
+            contract_text = str(resume_checkpoint.get("done_when") or "").strip()
+        if not explicit_caps and resume_checkpoint.get("explicit_capabilities"):
+            capabilities = list(resume_checkpoint.get("capabilities") or [])
+            explicit_caps = bool(capabilities)
+        if not want_effects:
+            want_effects = bool(resume_checkpoint.get("want_effects")) or bool(
+                resume_checkpoint.get("effects")
+            )
+        if max_effect_steps is None and resume_checkpoint.get("max_effect_steps") is not None:
+            try:
+                max_effect_steps = int(resume_checkpoint["max_effect_steps"])
+            except (TypeError, ValueError):
+                pass
+        if not grow and resume_checkpoint.get("grow"):
+            grow = True
+        if grow_budget is None and resume_checkpoint.get("grow_budget") is not None:
+            try:
+                grow_budget = int(resume_checkpoint["grow_budget"])
+            except (TypeError, ValueError):
+                pass
+
+    continuity_on = bool(continuity) or resumed or resume_dir is not None
+
     max_rounds = (
         int(adaptive_rounds)
         if adaptive_rounds is not None
         else (
             TOTAL_SPINE_DEFAULT_ADAPTIVE_ROUNDS
-            if adaptive
+            if adaptive or continuity_on
             else 1
         )
     )
     max_rounds = max(1, max_rounds)
-    if adaptive and max_rounds < 2:
+    # Respect explicit adaptive_rounds=1 for continuity partial checkpoints;
+    # only default-bump when the caller did not set a round budget.
+    if (
+        adaptive
+        and adaptive_rounds is None
+        and max_rounds < 2
+        and not resumed
+    ):
         max_rounds = TOTAL_SPINE_DEFAULT_ADAPTIVE_ROUNDS
-    adaptive_on = bool(adaptive) or max_rounds > 1
+    adaptive_on = bool(adaptive) or max_rounds > 1 or continuity_on or resumed
     grow_on = bool(grow) and adaptive_on
     grow_limit = (
         int(grow_budget)
@@ -5053,11 +5282,12 @@ def _attach_total_spine_effects(
     )
     grow_limit = max(0, grow_limit)
 
-    if not want_effects and not contract_text:
+    if not want_effects and not contract_text and not resumed:
         annotated["total_spine_effects"] = False
         annotated["total_spine_goal_planned"] = False
         annotated["total_spine_contract"] = False
         annotated["total_spine_adaptive"] = False
+        annotated["total_spine_continuity"] = False
         return annotated
 
     repo = Path(repo_path) if repo_path is not None else REPO_ROOT
@@ -5075,12 +5305,54 @@ def _attach_total_spine_effects(
     recovered = False
     grew_any = False
     growth_records: list[dict[str, Any]] = []
+    last_checkpoint: dict[str, Any] | None = None
+
+    if resume_checkpoint is not None:
+        prior_rounds = list(resume_checkpoint.get("rounds") or [])
+        prior_round_count = len(prior_rounds)
+        adaptive_rounds_log.extend(
+            dict(r) for r in prior_rounds if isinstance(r, Mapping)
+        )
+        exclude = {
+            str(x).strip()
+            for x in (resume_checkpoint.get("excluded") or [])
+            if str(x).strip()
+        }
+        # Partial runs that exhaust adaptive budget break before the
+        # next-round exclude prep; rehydrate failed_ids from prior rounds.
+        for prior in adaptive_rounds_log:
+            for failed in prior.get("failed_ids") or []:
+                fid = str(failed).strip()
+                if fid:
+                    exclude.add(fid)
+        # Prefer checkpoint operational tip only as chain prior; live tip still
+        # drives this process's effect seals for hop integrity.
+        ck_bound = str(resume_checkpoint.get("bound_tip") or "").strip()
+        if ck_bound:
+            bound_tip = ck_bound
+        # If prior rounds already closed success, mark recovered when we only
+        # rehydrate a complete checkpoint.
+        if resume_checkpoint.get("success") and resume_checkpoint.get(
+            "recovered"
+        ):
+            recovered = True
+        annotated["total_spine_continuity_resumed"] = True
+        annotated["total_spine_continuity_prior_rounds"] = prior_round_count
+        annotated["total_spine_continuity_prior_digest"] = (
+            resume_checkpoint.get("checkpoint_digest")
+        )
+        annotated["total_spine_continuity_checkpoint_path"] = (
+            resume_checkpoint.get("checkpoint_path")
+        )
 
     def _select_ids(round_index: int) -> tuple[list[str], str, bool, dict[str, Any] | None]:
-        if explicit_caps and round_index == 0:
+        # Global index includes prior resumed rounds so first live round after
+        # resume is treated as adaptive recovery (survivors / replan).
+        global_index = prior_round_count + round_index
+        if explicit_caps and global_index == 0:
             ids0 = [str(c).strip() for c in capabilities if str(c).strip()]
             return ids0, "explicit", False, None
-        if explicit_caps and round_index > 0:
+        if explicit_caps and global_index > 0:
             # Adaptive recovery for explicit lists: survivors after exclude,
             # or goal replan when a free-text goal is also present.
             survivors = [
@@ -5113,7 +5385,7 @@ def _attach_total_spine_effects(
             )
             return (
                 list(plan.get("steps") or []),
-                "goal" if round_index == 0 else "goal_replan",
+                "goal" if global_index == 0 else "goal_replan",
                 True,
                 plan,
             )
@@ -5124,7 +5396,51 @@ def _attach_total_spine_effects(
         ]
         return ids_default, "default", False, None
 
+    def _write_continuity(
+        *,
+        status: str,
+        success: bool,
+    ) -> dict[str, Any] | None:
+        if not continuity_on:
+            return None
+        if out_root is None and resume_dir is None:
+            return None
+        write_root = Path(out_root) if out_root is not None else Path(resume_dir)  # type: ignore[arg-type]
+        body = {
+            "schema_version": SCHEMA_VERSION,
+            "kind": TOTAL_SPINE_CONTINUITY_KIND,
+            "root_layer": root,
+            "goal": goal_text,
+            "done_when": contract_text,
+            "capabilities": (
+                [str(c).strip() for c in (capabilities or []) if str(c).strip()]
+                if explicit_caps
+                else list(
+                    annotated.get("total_spine_effect_capabilities")
+                    or TOTAL_SPINE_DEFAULT_EFFECT_CAPABILITIES
+                )
+            ),
+            "explicit_capabilities": explicit_caps,
+            "effects": want_effects,
+            "max_effect_steps": max_effect_steps,
+            "excluded": sorted(exclude),
+            "rounds": adaptive_rounds_log,
+            "operational_tip": operational_tip,
+            "bound_tip": bound_tip,
+            "next_round_index": len(adaptive_rounds_log),
+            "want_effects": want_effects,
+            "grow": grow_on,
+            "grow_budget": grow_limit,
+            "status": status,
+            "recovered": recovered,
+            "success": success,
+            "created_at": utc_now_iso(),
+        }
+        sealed = write_total_spine_continuity_checkpoint(write_root, body)
+        return sealed
+
     for round_index in range(max_rounds):
+        global_round_index = prior_round_count + round_index
         round_grew = False
         growth_pack: dict[str, Any] | None = None
         ids: list[str] = []
@@ -5169,7 +5485,7 @@ def _attach_total_spine_effects(
                 )
                 adaptive_rounds_log.append(
                     {
-                        "round_index": round_index,
+                        "round_index": global_round_index,
                         "capability_ids": [],
                         "effects_ok": False,
                         "contract_met": None,
@@ -5178,7 +5494,12 @@ def _attach_total_spine_effects(
                         "recovered": False,
                         "source": source,
                         "verdict": "empty_plan",
+                        "success": False,
+                        "failed_ids": [],
                     }
+                )
+                last_checkpoint = _write_continuity(
+                    status="incomplete", success=False
                 )
                 if not adaptive_on or round_index + 1 >= max_rounds:
                     break
@@ -5186,7 +5507,9 @@ def _attach_total_spine_effects(
 
             effect_out = None
             if out_root is not None:
-                effect_out = Path(out_root) / "effects" / f"round-{round_index}"
+                effect_out = (
+                    Path(out_root) / "effects" / f"round-{global_round_index}"
+                )
             pack = dispatch_total_spine_effects(
                 ids,
                 cwd=repo,
@@ -5255,7 +5578,7 @@ def _attach_total_spine_effects(
                 "effects_applied_ok": bool(
                     annotated.get("total_spine_effects_ok")
                 ),
-                "adaptive_round": round_index,
+                "adaptive_round": global_round_index,
                 "program": {
                     "ok": bool(annotated.get("total_spine_effects_ok")),
                     "passed_count": int(
@@ -5296,12 +5619,19 @@ def _attach_total_spine_effects(
             contract_met=contract_met,
             contract_machine=contract_machine,
         )
-        if success and round_index > 0:
-            recovered = True
+        # Recovery: any success after prior failed rounds (this process or
+        # rehydrated prior rounds) counts as recovered.
+        if success and (global_round_index > 0 or prior_round_count > 0):
+            # Only mark recovered when there was a prior unsuccessful round.
+            prior_failed = any(
+                not bool(r.get("success")) for r in adaptive_rounds_log
+            )
+            if prior_failed or global_round_index > 0:
+                recovered = True
 
         adaptive_rounds_log.append(
             {
-                "round_index": round_index,
+                "round_index": global_round_index,
                 "capability_ids": list(ids) if want_effects else [],
                 "effects_ok": effects_ok if want_effects else None,
                 "contract_met": contract_met,
@@ -5312,11 +5642,16 @@ def _attach_total_spine_effects(
                 ),
                 "bound_tip": bound_tip,
                 "grew": round_grew,
-                "recovered": success and round_index > 0,
+                "recovered": success and global_round_index > 0,
                 "source": effect_source,
                 "failed_ids": list(failed_ids),
                 "success": success,
             }
+        )
+
+        last_checkpoint = _write_continuity(
+            status="complete" if success else "incomplete",
+            success=success,
         )
 
         if success:
@@ -5326,7 +5661,11 @@ def _attach_total_spine_effects(
                 "total_spine_contract_failed",
                 "total_spine_goal_plan_empty",
             }:
-                annotated["verdict"] = "total_spine_adaptive_ok"
+                annotated["verdict"] = (
+                    "total_spine_continuity_ok"
+                    if resumed
+                    else "total_spine_adaptive_ok"
+                )
             if want_effects and last_pack and last_pack.get("ok"):
                 annotated["ok"] = True
             if (
@@ -5428,11 +5767,74 @@ def _attach_total_spine_effects(
                     "recovered": recovered,
                     "grew": grew_any,
                     "bound_tip": bound_tip,
+                    "resumed": resumed,
+                    "prior_round_count": prior_round_count,
                 },
             )
             annotated["total_spine_adaptive_receipt_dir"] = str(adapt_dir)
     else:
         annotated["total_spine_adaptive"] = False
+
+    # Final continuity seal: bind resume hop into absolute tip when active.
+    if continuity_on:
+        if last_checkpoint is None:
+            last_checkpoint = _write_continuity(
+                status=(
+                    "complete"
+                    if annotated.get("ok")
+                    else "incomplete"
+                ),
+                success=bool(annotated.get("ok")),
+            )
+        ck_digest = str(
+            (last_checkpoint or {}).get("checkpoint_digest")
+            or (resume_checkpoint or {}).get("checkpoint_digest")
+            or ""
+        )
+        cont_seal = seal_total_spine_continuity_chain(
+            prior_tip=bound_tip,
+            checkpoint_digest=ck_digest,
+            resumed=resumed,
+            recovered=recovered,
+            prior_round_count=prior_round_count,
+            total_round_count=len(adaptive_rounds_log),
+        )
+        cont_tip = str(cont_seal.get("digest") or bound_tip)
+        cont_bound = _sha256_bytes(
+            f"{bound_tip}|{cont_tip}".encode("utf-8")
+        )
+        annotated["total_spine_continuity"] = True
+        annotated["total_spine_continuity_impl"] = TOTAL_SPINE_CONTINUITY_IMPL
+        annotated["total_spine_continuity_resumed"] = resumed
+        annotated["total_spine_continuity_recovered"] = recovered
+        annotated["total_spine_continuity_prior_rounds"] = prior_round_count
+        annotated["total_spine_continuity_chain"] = cont_seal
+        annotated["total_spine_continuity_tip"] = cont_tip
+        annotated["total_spine_continuity_bound_tip"] = cont_bound
+        annotated["total_spine_continuity_checkpoint"] = last_checkpoint
+        if last_checkpoint is not None:
+            annotated["total_spine_continuity_checkpoint_path"] = last_checkpoint.get(
+                "checkpoint_path"
+            )
+            annotated["total_spine_continuity_status"] = last_checkpoint.get(
+                "status"
+            )
+            annotated["total_spine_continuity_digest"] = last_checkpoint.get(
+                "checkpoint_digest"
+            )
+        bound_tip = cont_bound
+        if compressed:
+            hops = seal_total_spine_hop_chain(root, live_result, tip=bound_tip)
+            annotated["total_spine_hop_chain"] = hops
+            annotated["total_spine_hop_count"] = len(hops)
+            if hops:
+                annotated["total_spine_digest"] = hops[0].get("digest")
+                annotated[f"{root}_digest"] = hops[0].get("digest")
+        else:
+            annotated["total_spine_digest"] = bound_tip
+            annotated[f"{root}_digest"] = bound_tip
+    else:
+        annotated["total_spine_continuity"] = False
 
     if contract_text and last_contract is not None and out_root is not None:
         contract_dir = Path(out_root) / "contract"
@@ -5445,6 +5847,7 @@ def _attach_total_spine_effects(
                 "seal": last_seal,
                 "bound_tip": annotated.get("total_spine_contract_bound_tip"),
                 "adaptive_round_count": len(adaptive_rounds_log),
+                "continuity_resumed": resumed,
             },
         )
         annotated["total_spine_contract_receipt_dir"] = str(contract_dir)
@@ -5454,6 +5857,7 @@ def _attach_total_spine_effects(
         annotated["total_spine_goal"] = goal_text
     annotated["total_spine_goal_impl"] = TOTAL_SPINE_GOAL_IMPL
     annotated["total_spine_adaptive_impl"] = TOTAL_SPINE_ADAPTIVE_IMPL
+    annotated["total_spine_continuity_impl"] = TOTAL_SPINE_CONTINUITY_IMPL
     return annotated
 
 
@@ -5488,6 +5892,8 @@ def run_total_spine(
     adaptive_rounds: int | None = None,
     grow: bool = False,
     grow_budget: int | None = None,
+    continuity: bool = False,
+    resume_dir: Path | None = None,
 ) -> dict[str, Any]:
     """Public entry: absolute total spine from root into the operational nest.
 
@@ -5514,6 +5920,10 @@ def run_total_spine(
     from failed effects / unmet contracts by excluding failed capability ids,
     optionally growing the ledger (``grow=True``), replanning, redisatching,
     and sealing multi-round adaptive digests into the tip.
+
+    Durable adaptive continuity: ``continuity=True`` writes sealed mid-recovery
+    checkpoints; ``resume_dir`` rehydrates exclude set + completed rounds after
+    a process boundary and continues toward done_when.
     """
     root = (
         str(root_layer or TOTAL_SPINE_DEFAULT_ROOT).strip().lower()
@@ -5580,6 +5990,8 @@ def run_total_spine(
             adaptive_rounds=adaptive_rounds,
             grow=grow,
             grow_budget=grow_budget,
+            continuity=continuity,
+            resume_dir=resume_dir,
         )
         return annotated
 
@@ -5639,6 +6051,8 @@ def run_total_spine(
         adaptive_rounds=adaptive_rounds,
         grow=grow,
         grow_budget=grow_budget,
+        continuity=continuity,
+        resume_dir=resume_dir,
     )
     if out_root is not None:
         receipt_dir = Path(out_root)
@@ -5674,6 +6088,18 @@ def run_total_spine(
             ),
             "total_spine_adaptive_recovered": annotated.get(
                 "total_spine_adaptive_recovered"
+            ),
+            "total_spine_continuity": bool(
+                annotated.get("total_spine_continuity")
+            ),
+            "total_spine_continuity_resumed": annotated.get(
+                "total_spine_continuity_resumed"
+            ),
+            "total_spine_continuity_recovered": annotated.get(
+                "total_spine_continuity_recovered"
+            ),
+            "total_spine_continuity_digest": annotated.get(
+                "total_spine_continuity_digest"
             ),
             "used_skill_route_discovery": legacy_pipeline_was_used(),
         }
@@ -9339,6 +9765,299 @@ def builtin_total_spine_adaptive_proof() -> dict[str, Any]:
         shutil.rmtree(scratch, ignore_errors=True)
 
 
+def builtin_total_spine_continuity_proof() -> dict[str, Any]:
+    """Hermetic proof: durable adaptive continuity resumes absolute tower tip.
+
+    Closes the ephemeral-process cliff: a partial adaptive recovery seals a
+    tamper-evident continuity checkpoint; a second process rehydrates exclude
+    set + completed rounds via ``resume_dir`` and recovers toward done_when on
+    the depth-28 quetta→campaign tip without skill-route discovery.
+    """
+    scratch = Path(tempfile.mkdtemp(prefix="total-spine-continuity-proof-"))
+    try:
+        from blackhole_agent import upstream_loop_engine as le_facade
+        from blackhole_agent.capability_compounder import (
+            default_ledger_path,
+            load_ledger,
+        )
+
+        flags_ok = (
+            TOTAL_SPINE_CONTINUITY_IMPL is True
+            and TOTAL_SPINE_ADAPTIVE_IMPL is True
+            and TOTAL_SPINE_GOAL_IMPL is True
+            and TOTAL_SPINE_EFFECT_IMPL is True
+            and TOTAL_SPINE_IMPL is True
+            and TOTAL_SPINE_CONTINUITY_KIND == "total_spine_continuity"
+            and bool(TOTAL_SPINE_CONTINUITY_FILENAME)
+        )
+
+        missing_id = "capability.does-not-exist-for-continuity-proof"
+        good_id = "repo.import-health"
+        contract_pass = "min_proved:1; no_skill_route"
+
+        # Phase 1: partial adaptive (1 round) seals incomplete continuity.
+        partial = run_total_spine(
+            root_layer="quettacontinuum",
+            out_root=scratch / "partial",
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=3,
+            max_successions=1,
+            max_epochs=1,
+            max_waves=1,
+            compress=True,
+            effects=True,
+            capabilities=[missing_id, good_id],
+            done_when=contract_pass,
+            adaptive=True,
+            adaptive_rounds=1,
+            continuity=True,
+            effect_timeout=90,
+            repo_path=REPO_ROOT,
+        )
+        partial_path = partial.get("total_spine_continuity_checkpoint_path")
+        failed_ids_partial = {
+            str(x)
+            for r in (partial.get("total_spine_adaptive_rounds") or [])
+            for x in (r.get("failed_ids") or [])
+        }
+        # After a failed single round that exhausts adaptive budget, failed
+        # ids live on the round log (exclude prep runs only when more rounds).
+        partial_ok = (
+            partial.get("total_spine_continuity") is True
+            and partial.get("total_spine_continuity_resumed") is not True
+            and partial.get("total_spine_effects") is True
+            and partial.get("total_spine_effects_ok") is False
+            and partial.get("ok") is False
+            and str(partial.get("total_spine_continuity_status") or "")
+            == "incomplete"
+            and isinstance(partial_path, str)
+            and Path(partial_path).is_file()
+            and int(partial.get("total_spine_adaptive_round_count") or 0) == 1
+            and missing_id in failed_ids_partial
+            and int(partial.get("total_nest_depth") or 0) == 28
+            and not legacy_pipeline_was_used()
+        )
+
+        # Checkpoint integrity: load + verify succeeds; tamper fails.
+        loaded = load_total_spine_continuity_checkpoint(partial_path)
+        verify_ok = bool(
+            loaded.get("total_spine_continuity_loaded")
+            and (loaded.get("continuity_verify") or {}).get("ok")
+        )
+        tampered_path = scratch / "tampered-continuity.json"
+        tampered_body = dict(loaded)
+        tampered_body.pop("continuity_verify", None)
+        tampered_body.pop("total_spine_continuity_loaded", None)
+        # Mutate exclude set without updating digest.
+        excluded = list(tampered_body.get("excluded") or [])
+        excluded.append("capability.forged-exclude")
+        tampered_body["excluded"] = excluded
+        atomic_write_json(tampered_path, tampered_body)
+        tamper_ok = False
+        try:
+            load_total_spine_continuity_checkpoint(tampered_path)
+        except StageRefused as exc:
+            tamper_ok = str(exc.verdict) == "total_spine_continuity_tampered"
+        except Exception:  # noqa: BLE001
+            tamper_ok = False
+
+        # Phase 2: resume from sealed checkpoint — recover survivors.
+        resumed = run_total_spine(
+            root_layer="quettacontinuum",
+            out_root=scratch / "resumed",
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=3,
+            max_successions=1,
+            max_epochs=1,
+            max_waves=1,
+            compress=True,
+            effects=True,
+            capabilities=[missing_id, good_id],
+            done_when=contract_pass,
+            adaptive=True,
+            adaptive_rounds=1,
+            continuity=True,
+            resume_dir=partial_path,
+            effect_timeout=90,
+            repo_path=REPO_ROOT,
+        )
+        final_ids = list(resumed.get("total_spine_effect_capabilities") or [])
+        rounds = resumed.get("total_spine_adaptive_rounds") or []
+        resume_ok = (
+            bool(resumed.get("ok"))
+            and resumed.get("total_spine") is True
+            and resumed.get("total_spine_compressed") is True
+            and resumed.get("total_spine_continuity") is True
+            and resumed.get("total_spine_continuity_resumed") is True
+            and resumed.get("total_spine_continuity_recovered") is True
+            and resumed.get("total_spine_adaptive") is True
+            and resumed.get("total_spine_adaptive_recovered") is True
+            and resumed.get("total_spine_effects") is True
+            and resumed.get("total_spine_effects_ok") is True
+            and resumed.get("total_spine_contract") is True
+            and resumed.get("total_spine_contract_met") is True
+            and int(resumed.get("total_nest_depth") or 0) == 28
+            and int(resumed.get("total_spine_continuity_prior_rounds") or 0)
+            >= 1
+            and int(resumed.get("total_spine_adaptive_round_count") or 0) >= 2
+            and len(rounds) >= 2
+            and rounds[0].get("success") is False
+            and rounds[-1].get("success") is True
+            and good_id in final_ids
+            and missing_id not in final_ids
+            and isinstance(resumed.get("total_spine_continuity_tip"), str)
+            and len(str(resumed.get("total_spine_continuity_tip"))) >= 32
+            and isinstance(resumed.get("total_spine_digest"), str)
+            and len(str(resumed.get("total_spine_digest"))) >= 32
+            and str(resumed.get("total_spine_continuity_status") or "")
+            == "complete"
+            and not legacy_pipeline_was_used()
+        )
+
+        # Differential: partial fail tip differs from resumed recovered tip.
+        differential_ok = (
+            partial_ok
+            and resume_ok
+            and partial.get("total_spine_digest")
+            != resumed.get("total_spine_digest")
+        )
+
+        # Continuity chain re-seal integrity on resumed result.
+        cont_chain = resumed.get("total_spine_continuity_chain") or {}
+        chain_integrity_ok = False
+        if isinstance(cont_chain, Mapping) and cont_chain:
+            re_seal = seal_total_spine_continuity_chain(
+                prior_tip=str(cont_chain.get("prior_tip") or ""),
+                checkpoint_digest=str(cont_chain.get("checkpoint_digest") or ""),
+                resumed=bool(cont_chain.get("resumed")),
+                recovered=bool(cont_chain.get("recovered")),
+                prior_round_count=int(cont_chain.get("prior_round_count") or 0),
+                total_round_count=int(cont_chain.get("total_round_count") or 0),
+            )
+            chain_integrity_ok = (
+                re_seal.get("digest") == cont_chain.get("digest")
+                and re_seal.get("digest")
+                == resumed.get("total_spine_continuity_tip")
+            )
+
+        facade_path = Path(le_facade.__file__).resolve()
+        facade_text = facade_path.read_text(encoding="utf-8")
+        source_ok = (
+            "TOTAL_SPINE_CONTINUITY_IMPL" in facade_text
+            and "builtin_total_spine_continuity_proof" in facade_text
+            and "load_total_spine_continuity_checkpoint" in facade_text
+            and callable(
+                getattr(le_facade, "builtin_total_spine_continuity_proof", None)
+            )
+            and callable(
+                getattr(
+                    le_facade, "load_total_spine_continuity_checkpoint", None
+                )
+            )
+            and getattr(le_facade, "TOTAL_SPINE_CONTINUITY_IMPL", False) is True
+        )
+
+        engine_path = Path(__file__).resolve()
+        engine_text = engine_path.read_text(encoding="utf-8")
+        engine_source_ok = (
+            "def builtin_total_spine_continuity_proof" in engine_text
+            and "def seal_total_spine_continuity_checkpoint" in engine_text
+            and "def load_total_spine_continuity_checkpoint" in engine_text
+            and "TOTAL_SPINE_CONTINUITY_IMPL" in engine_text
+            and "total_spine_continuity_resumed" in engine_text
+            and "resume_dir" in engine_text
+        )
+
+        ledger_path = default_ledger_path(REPO_ROOT)
+        ledger_ok = False
+        try:
+            ledger = load_ledger(ledger_path)
+            entry = ledger.capabilities.get(
+                "capability.upstream-total-spine-continuity"
+            )
+            tags_blob = " ".join(entry.tags).lower() if entry else ""
+            delta_blob = (entry.capability_delta or "").lower() if entry else ""
+            name_blob = (entry.name or "").lower() if entry else ""
+            ledger_ok = (
+                entry is not None
+                and "upstream_control_engine" in (entry.entry or "")
+                and "builtin_total_spine_continuity_proof" in (entry.entry or "")
+                and (
+                    "continuity" in tags_blob
+                    or "continuity" in name_blob
+                    or "continuity" in delta_blob
+                )
+                and ("total" in tags_blob or "total" in name_blob)
+                and (
+                    "resume" in delta_blob
+                    or "checkpoint" in delta_blob
+                    or "rehydrat" in delta_blob
+                    or "process" in delta_blob
+                )
+                and (
+                    "run_total_spine" in delta_blob
+                    or "continuity" in delta_blob
+                )
+            )
+        except Exception:  # noqa: BLE001
+            ledger_ok = False
+
+        ok = all(
+            [
+                flags_ok,
+                partial_ok,
+                verify_ok,
+                tamper_ok,
+                resume_ok,
+                differential_ok,
+                chain_integrity_ok,
+                source_ok,
+                engine_source_ok,
+                ledger_ok,
+                not legacy_pipeline_was_used(),
+            ]
+        )
+        return {
+            "ok": ok,
+            "action": "total_spine_continuity_proof",
+            "flags_ok": flags_ok,
+            "partial_ok": partial_ok,
+            "partial_status": partial.get("total_spine_continuity_status"),
+            "partial_digest": partial.get("total_spine_digest"),
+            "partial_checkpoint": partial_path,
+            "verify_ok": verify_ok,
+            "tamper_ok": tamper_ok,
+            "resume_ok": resume_ok,
+            "resume_recovered": resumed.get("total_spine_continuity_recovered"),
+            "resume_prior_rounds": resumed.get(
+                "total_spine_continuity_prior_rounds"
+            ),
+            "resume_round_count": resumed.get(
+                "total_spine_adaptive_round_count"
+            ),
+            "resume_final_ids": final_ids,
+            "resume_tip": resumed.get("total_spine_continuity_tip"),
+            "resume_digest": resumed.get("total_spine_digest"),
+            "differential_ok": differential_ok,
+            "chain_integrity_ok": chain_integrity_ok,
+            "source_ok": source_ok,
+            "engine_source_ok": engine_source_ok,
+            "ledger_capability_ok": ledger_ok,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "control_engine": True,
+            "total_spine": True,
+            "total_spine_effects": True,
+            "total_spine_adaptive": True,
+            "total_spine_continuity": True,
+            "total_spine_compressed": True,
+            "done_when_met": ok,
+        }
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
 def builtin_control_nest_proof() -> dict[str, Any]:
     """Hermetic proof: multi-depth nest owns program→…→fleet→campaign spine."""
     scratch = Path(tempfile.mkdtemp(prefix="control-nest-proof-"))
@@ -10771,6 +11490,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "failed effects via replan/redispatch and seals multi-round digests"
         ),
     )
+    sub.add_parser(
+        "continuity-proof",
+        help=(
+            "Total spine continuity proof: sealed adaptive checkpoints "
+            "resume mid-recovery across process boundaries"
+        ),
+    )
     sub.add_parser("list", help="List control modes and dialects")
     sub.add_parser("nest-path", help="Print canonical operational nest path")
     sub.add_parser(
@@ -10887,6 +11613,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "adaptive-proof":
         result = builtin_total_spine_adaptive_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "continuity-proof":
+        result = builtin_total_spine_continuity_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2
