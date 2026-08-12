@@ -490,10 +490,10 @@ def _admit_program_slot(*, institution_dir: Path, slot: Mapping[str, Any]) -> di
 
 
 # Layers that default-on cascade into the operational control graph.
-# Higher continuum/civilization layers opt in with governance_spine=True.
-_STEWARDSHIP_SPINE_DEFAULT_ROOTS = frozenset(
-    {"institution", "league", "confederation"}
-)
+# Full civilization tower (omniverse..institution via CIVILIZATION_STACK)
+# closes the mock-leaf cliff above confederation. Continuum SI layers
+# (quettacontinuum..continuum) stay opt-in with governance_spine=True.
+_STEWARDSHIP_SPINE_DEFAULT_ROOTS = frozenset(ce.list_civilization_layers())
 
 
 def institution_wants_governance_spine(kwargs: Mapping[str, Any]) -> bool:
@@ -515,10 +515,11 @@ def layer_wants_governance_spine(
 ) -> bool:
     """Whether a multi-child layer should cascade into the operational spine.
 
-    Default ON for institution, league, and confederation (closes mock-leaf
-    cliffs through the institutional tower). Higher layers require explicit
-    ``governance_spine=True``. Opt out with ``governance_spine=False`` or
-    ``hermetic_fast`` / ``use_fast_child``.
+    Default ON for every civilization-tower layer (omniverse..institution
+    via :data:`_STEWARDSHIP_SPINE_DEFAULT_ROOTS`), so commonwealth→domain→
+    …→confederation→…→campaign is continuous without opt-in. Continuum SI
+    layers still require explicit ``governance_spine=True``. Opt out with
+    ``governance_spine=False`` or ``hermetic_fast`` / ``use_fast_child``.
     """
     if kwargs.get("hermetic_fast") or kwargs.get("use_fast_child"):
         return False
@@ -536,8 +537,10 @@ def _resolve_child_runner(
     Institution (program child) defaults to the operational control graph via
     :func:`make_operational_program_child_runner` (opt out with
     ``governance_spine=False``). League defaults to governance institutions;
-    confederation defaults to governance leagues so
-    confederation→league→institution→program→…→campaign is continuous.
+    confederation and every higher civilization-tower layer default to a
+    recursive :func:`make_stewardship_child_runner` cascade so
+    civilization→…→confederation→league→institution→program→…→campaign
+    is continuous without opt-in.
     """
     aliases = (
         f"{layer.child}_runner",
@@ -1389,8 +1392,8 @@ def export_layer_api(module_globals: dict[str, Any], layer_name: str) -> None:
             mapped = _map_run_kwargs(layer, kwargs)
             result = ce.run_constitution(layer, **mapped)
             # Stamp governance / stewardship ownership when this layer cascades
-            # into the operational nest (default ON for institution/league/
-            # confederation; opt out with governance_spine=False).
+            # into the operational nest (default ON for full civilization tower;
+            # opt out with governance_spine=False).
             if layer_wants_governance_spine(layer, kwargs):
                 from blackhole_agent.upstream_control_engine import (
                     annotate_governance_spine,
@@ -1454,11 +1457,11 @@ def export_layer_api(module_globals: dict[str, Any], layer_name: str) -> None:
                         child_control_path=child_path,
                     )
                     result["governance_spine_default"] = default_flag
-                    if layer.name == "league":
-                        result["stewardship_spine"] = True
-                        result["stewardship_root"] = "league"
+                    result["stewardship_spine"] = True
+                    result["stewardship_spine_default"] = default_flag
+                    result["stewardship_root"] = layer.name
                 else:
-                    # confederation and higher tower layers
+                    # confederation and higher civilization/continuum layers
                     result = annotate_stewardship_spine(
                         result,
                         root_layer=layer.name,
@@ -1467,6 +1470,10 @@ def export_layer_api(module_globals: dict[str, Any], layer_name: str) -> None:
                     )
                     result["governance_spine_default"] = default_flag
                     result["stewardship_spine_default"] = default_flag
+                    if layer.name in _STEWARDSHIP_SPINE_DEFAULT_ROOTS:
+                        result["civilization_spine"] = True
+                        result["civilization_spine_default"] = default_flag
+                        result["civilization_spine_root"] = layer.name
             return result
         except ce.ConstitutionRefused as exc:
             # Preserve layer-scoped exception type (InstitutionRefused, etc.).
@@ -1566,15 +1573,34 @@ def export_layer_api(module_globals: dict[str, Any], layer_name: str) -> None:
         g["GOVERNANCE_SPINE"] = True
         g["GOVERNANCE_SPINE_DEFAULT"] = True
         g["STEWARDSHIP_SPINE"] = True
-    # Confederation (and league) default cascade into operational nest.
-    if layer.name == "confederation" and layer.child == "league":
+        g["STEWARDSHIP_SPINE_DEFAULT"] = True
+        g["STEWARDSHIP_SPINE_ROOT"] = layer.name
+    # Full civilization tower above league (confederation..omniverse) defaults
+    # into the operational nest via recursive stewardship cascade.
+    if (
+        layer.name in _STEWARDSHIP_SPINE_DEFAULT_ROOTS
+        and layer.name not in {"institution", "league"}
+    ):
         g["GOVERNANCE_OUTER"] = True
         g["GOVERNANCE_SPINE"] = True
         g["GOVERNANCE_SPINE_DEFAULT"] = True
         g["STEWARDSHIP_SPINE"] = True
         g["STEWARDSHIP_SPINE_DEFAULT"] = True
-        g["STEWARDSHIP_SPINE_ROOT"] = "confederation"
-        g["STEWARDSHIP_NEST_EDGE"] = "confederation->league"
+        g["CIVILIZATION_SPINE"] = True
+        g["CIVILIZATION_SPINE_DEFAULT"] = True
+        g["STEWARDSHIP_SPINE_ROOT"] = layer.name
+        g["STEWARDSHIP_NEST_EDGE"] = f"{layer.name}->{layer.child}"
+        if layer.name in {
+            "civilization",
+            "cosmos",
+            "multiverse",
+            "omniverse",
+            "empire",
+            "realm",
+            "domain",
+            "commonwealth",
+        }:
+            g["CIVILIZATION_SPINE_ROOT"] = layer.name
 
     g[f"normalize_{layer.name}_charter"] = normalize_charter
     g[f"admit_{layer.child}_slot"] = admit_child_slot

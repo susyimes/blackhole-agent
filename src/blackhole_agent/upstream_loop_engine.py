@@ -11,6 +11,8 @@ import json
 from typing import Sequence
 
 from blackhole_agent.upstream_control_engine import (  # noqa: F401
+    CIVILIZATION_SPINE_DEFAULT_ROOTS,
+    CIVILIZATION_SPINE_IMPL,
     GOVERNANCE_NEST_PATH,
     LOOP_DIALECTS,
     LOOP_STACK,
@@ -39,6 +41,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     annotate_outer_governance_spine,
     annotate_stewardship_spine,
     build_live_domain_hooks,
+    builtin_civilization_spine_proof,
     builtin_control_nest_proof,
     builtin_governance_spine_proof,
     builtin_loop_engine_proof,
@@ -101,6 +104,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         "stewardship-proof",
         help="Stewardship spine: confederation→…→campaign cascade proof",
     )
+    sub.add_parser(
+        "civilization-proof",
+        help=(
+            "Civilization spine: full civilization tower defaults into "
+            "operational nest"
+        ),
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
     if args.cmd == "list":
         print(json.dumps({"dialects": list_loop_dialects()}, indent=2))
@@ -115,6 +125,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "stewardship-proof":
         result = builtin_stewardship_spine_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "civilization-proof":
+        result = builtin_civilization_spine_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2

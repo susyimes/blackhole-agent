@@ -1,0 +1,718 @@
+{
+  "action_count": 27,
+  "action_counts": {
+    "campaign_patch_bound": 27
+  },
+  "actions": [
+    {
+      "action": "campaign_patch_bound",
+      "campaignable": true,
+      "defect_id": "footnote-scaling-quadratic",
+      "name": "markdown",
+      "outcome": null,
+      "priority": 40,
+      "rank": 1,
+      "reason": "patch-bound defect with no successful merge/release",
+      "source": "inventory",
+      "suggested_stages": [
+        "repair",
+        "contribution",
+        "publication"
+      ],
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\markdown-3.10.3",
+      "version": "3.10.3"
+    },
+    {
+      "action": "campaign_patch_bound",
+      "campaignable": true,
+      "defect_id": "inline-element-rescan-quadratic",
+      "name": "markdown",
+      "outcome": null,
+      "priority": 40,
+      "rank": 2,
+      "reason": "patch-bound defect with no successful merge/release",
+      "source": "inventory",
+      "suggested_stages": [
+        "repair",
+        "contribution",
+        "publication"
+      ],
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\markdown-3.10.3",
+      "version": "3.10.3"
+    },
+    {
+      "action": "campaign_patch_bound",
+      "campaignable": true,
+      "defect_id": "nested-bracket-scan-quadratic",
+      "name": "markdown",
+      "outcome": null,
+      "priority": 40,
+      "rank": 3,
+      "reason": "patch-bound defect with no successful merge/release",
+      "source": "inventory",
+      "suggested_stages": [
+        "repair",
+        "contribution",
+        "publication"
+      ],
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\markdown-3.10.3",
+      "version": "3.10.3"
+    },
+    {
+      "action": "campaign_patch_bound",
+      "campaignable": true,
+      "defect_id": "ref-def-block-rescan-quadratic",
+      "name": "markdown",
+      "outcome": null,
+      "priority": 40,
+      "rank": 4,
+      "reason": "patch-bound defect with no successful merge/release",
+      "source": "inventory",
+      "suggested_stages": [
+        "repair",
+        "contribution",
+        "publication"
+      ],
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\markdown-3.10.3",
+      "version": "3.10.3"
+    },
+    {
+      "action": "campaign_patch_bound",
+      "campaignable": true,
+      "defect_id": "footnote-defs-masking-quadratic",
+      "name": "marked",
+      "outcome": null,
+      "priority": 40,
+      "rank": 5,
+      "reason": "patch-bound defect with no successful merge/release",
+      "source": "inventory",
+      "suggested_stages": [
+        "repair",
+        "contribution",
+        "publication"
+      ],
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\marked-18.0.7",
+      "version": "18.0.7"
+    },
+    {
+      "action": "campaign_patch_bound",
+      "campaignable": true,
+      "defect_id": "admonition-class-xss",
+      "name": "mistune",
+      "outcome": null,
+      "priority": 40,
+      "rank": 6,
+      "reason": "patch-bound defect with no successful merge/release",
+      "source": "inventory",
+      "suggested_stages": [
+        "repair",
+        "contribution",
+        "publication"
+      ],
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\mistune-3.2.0",
+      "version": "3.2.0"
+    },
+    {
+      "action": "campaign_patch_bound",
+      "campaignable": true,
+      "defect_id": "block-error-xss",
+      "name": "mistune",
+      "outcome": null,
+      "priority": 40,
+      "rank": 7,
+      "reason": "patch-bound defect with no successful merge/release",
+      "source": "inventory",
+      "suggested_stages": [
+        "repair",
+        "contribution",
+        "publication"
+      ],
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\mistune-3.2.0",
+      "version": "3.2.0"
+    },
+    {
+      "action": "campaign_patch_bound",
+      "campaignable": true,
+      "defect_id": "figure-attrs-xss",
+      "name": "mistune",
+      "outcome": null,
+      "priority": 40,
+      "rank": 8,
+      "reason": "patch-bound defect with no successful merge/release",
+      "source": "inventory",
+      "suggested_stages": [
+        "repair",
+        "contribution",
+        "publication"
+      ],
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\mistune-3.2.0",
+      "version": "3.2.0"
+    },
+    {
+      "action": "campaign_patch_bound",
+      "campaignable": true,
+      "defect_id": "heading-id-xss",
+      "name": "mistune",
+      "outcome": null,
+      "priority": 40,
+      "rank": 9,
+      "reason": "patch-bound defect with no successful merge/release",
+      "source": "inventory",
+      "suggested_stages": [
+        "repair",
+        "contribution",
+        "publication"
+      ],
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\mistune-3.2.0",
+      "version": "3.2.0"
+    },
+    {
+      "action": "campaign_patch_bound",
+      "campaignable": true,
+      "defect_id": "image-alt-double-encoding",
+      "name": "mistune",
+      "outcome": null,
+      "priority": 40,
+      "rank": 10,
+      "reason": "patch-bound defect with no successful merge/release",
+      "source": "inventory",
+      "suggested_stages": [
+        "repair",
+        "contribution",
+        "publication"
+      ],
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\mistune-3.2.0",
+      "version": "3.2.0"
+    },
+    {
+      "action": "campaign_patch_bound",
+      "campaignable": true,
+      "defect_id": "image-width-validation",
+      "name": "mistune",
+      "outcome": null,
+      "priority": 40,
+      "rank": 11,
+      "reason": "patch-bound defect with no successful merge/release",
+      "source": "inventory",
+      "suggested_stages": [
+        "repair",
+        "contribution",
+        "publication"
+      ],
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\mistune-3.2.0",
+      "version": "3.2.0"
+    },
+    {
+      "action": "campaign_patch_bound",
+      "campaignable": true,
+      "defect_id": "link-title-redos",
+      "name": "mistune",
+      "outcome": null,
+      "priority": 40,
+      "rank": 12,
+      "reason": "patch-bound defect with no successful merge/release",
+      "source": "inventory",
+      "suggested_stages": [
+        "repair",
+        "contribution",
+        "publication"
+      ],
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\mistune-3.2.0",
+      "version": "3.2.0"
+    },
+    {
+      "action": "campaign_patch_bound",
+      "campaignable": true,
+      "defect_id": "math-xss",
+      "name": "mistune",
+      "outcome": null,
+      "priority": 40,
+      "rank": 13,
+      "reason": "patch-bound defect with no successful merge/release",
+      "source": "inventory",
+      "suggested_stages": [
+        "repair",
+        "contribution",
+        "publication"
+      ],
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\mistune-3.2.0",
+      "version": "3.2.0"
+    },
+    {
+      "action": "campaign_patch_bound",
+      "campaignable": true,
+      "defect_id": "nested-bracket-scan-quadratic",
+      "name": "mistune",
+      "outcome": null,
+      "priority": 40,
+      "rank": 14,
+      "reason": "patch-bound defect with no successful merge/release",
+      "source": "inventory",
+      "suggested_stages": [
+        "repair",
+        "contribution",
+        "publication"
+      ],
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\mistune-3.2.0",
+      "version": "3.2.0"
+    },
+    {
+      "action": "campaign_patch_bound",
+      "campaignable": true,
+      "defect_id": "ref-link-blank-scan-quadratic",
+      "name": "mistune",
+      "outcome": null,
+      "priority": 40,
+      "rank": 15,
+      "reason": "patch-bound defect with no successful merge/release",
+      "source": "inventory",
+      "suggested_stages": [
+        "repair",
+        "contribution",
+        "publication"
+      ],
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\mistune-3.2.0",
+      "version": "3.2.0"
+    },
+    {
+      "action": "campaign_patch_bound",
+      "campaignable": true,
+      "defect_id": "toc-link-xss",
+      "name": "mistune",
+      "outcome": null,
+      "priority": 40,
+      "rank": 16,
+      "reason": "patch-bound defect with no successful merge/release",
+      "source": "inventory",
+      "suggested_stages": [
+        "repair",
+        "contribution",
+        "publication"
+      ],
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\mistune-3.2.0",
+      "version": "3.2.0"
+    },
+    {
+      "action": "campaign_patch_bound",
+      "campaignable": true,
+      "defect_id": "image-figwidth-validation",
+      "name": "mistune",
+      "outcome": null,
+      "priority": 40,
+      "rank": 17,
+      "reason": "patch-bound defect with no successful merge/release",
+      "source": "inventory",
+      "suggested_stages": [
+        "repair",
+        "contribution",
+        "publication"
+      ],
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\mistune-3.2.1",
+      "version": "3.2.1"
+    },
+    {
+      "action": "campaign_patch_bound",
+      "campaignable": true,
+      "defect_id": "image-unsafe-url",
+      "name": "mistune",
+      "outcome": null,
+      "priority": 40,
+      "rank": 18,
+      "reason": "patch-bound defect with no successful merge/release",
+      "source": "inventory",
+      "suggested_stages": [
+        "repair",
+        "contribution",
+        "publication"
+      ],
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\mistune-3.2.1",
+      "version": "3.2.1"
+    },
+    {
+      "action": "campaign_patch_bound",
+      "campaignable": true,
+      "defect_id": "include-directive-hardening",
+      "name": "mistune",
+      "outcome": null,
+      "priority": 40,
+      "rank": 19,
+      "reason": "patch-bound defect with no successful merge/release",
+      "source": "inventory",
+      "suggested_stages": [
+        "repair",
+        "contribution",
+        "publication"
+      ],
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\mistune-3.2.1",
+      "version": "3.2.1"
+    },
+    {
+      "action": "campaign_patch_bound",
+      "campaignable": true,
+      "defect_id": "math-currency-crossline",
+      "name": "mistune",
+      "outcome": null,
+      "priority": 40,
+      "rank": 20,
+      "reason": "patch-bound defect with no successful merge/release",
+      "source": "inventory",
+      "suggested_stages": [
+        "repair",
+        "contribution",
+        "publication"
+      ],
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\mistune-3.2.1",
+      "version": "3.2.1"
+    },
+    {
+      "action": "campaign_patch_bound",
+      "campaignable": true,
+      "defect_id": "nested-bracket-scan-quadratic",
+      "name": "mistune",
+      "outcome": null,
+      "priority": 40,
+      "rank": 21,
+      "reason": "patch-bound defect with no successful merge/release",
+      "source": "inventory",
+      "suggested_stages": [
+        "repair",
+        "contribution",
+        "publication"
+      ],
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\mistune-3.2.1",
+      "version": "3.2.1"
+    },
+    {
+      "action": "campaign_patch_bound",
+      "campaignable": true,
+      "defect_id": "ref-link-blank-scan-quadratic",
+      "name": "mistune",
+      "outcome": null,
+      "priority": 40,
+      "rank": 22,
+      "reason": "patch-bound defect with no successful merge/release",
+      "source": "inventory",
+      "suggested_stages": [
+        "repair",
+        "contribution",
+        "publication"
+      ],
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\mistune-3.2.1",
+      "version": "3.2.1"
+    },
+    {
+      "action": "campaign_patch_bound",
+      "campaignable": true,
+      "defect_id": "rst-blockquote-nested-list",
+      "name": "mistune",
+      "outcome": null,
+      "priority": 40,
+      "rank": 23,
+      "reason": "patch-bound defect with no successful merge/release",
+      "source": "inventory",
+      "suggested_stages": [
+        "repair",
+        "contribution",
+        "publication"
+      ],
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\mistune-3.2.1",
+      "version": "3.2.1"
+    },
+    {
+      "action": "campaign_patch_bound",
+      "campaignable": true,
+      "defect_id": "safe-url-percent-encoded",
+      "name": "mistune",
+      "outcome": null,
+      "priority": 40,
+      "rank": 24,
+      "reason": "patch-bound defect with no successful merge/release",
+      "source": "inventory",
+      "suggested_stages": [
+        "repair",
+        "contribution",
+        "publication"
+      ],
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\mistune-3.2.1",
+      "version": "3.2.1"
+    },
+    {
+      "action": "campaign_patch_bound",
+      "campaignable": true,
+      "defect_id": "toc-heading-id-collision",
+      "name": "mistune",
+      "outcome": null,
+      "priority": 40,
+      "rank": 25,
+      "reason": "patch-bound defect with no successful merge/release",
+      "source": "inventory",
+      "suggested_stages": [
+        "repair",
+        "contribution",
+        "publication"
+      ],
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\mistune-3.2.1",
+      "version": "3.2.1"
+    },
+    {
+      "action": "campaign_patch_bound",
+      "campaignable": true,
+      "defect_id": "footnote-defs-membership-quadratic",
+      "name": "mistune",
+      "outcome": null,
+      "priority": 40,
+      "rank": 26,
+      "reason": "patch-bound defect with no successful merge/release",
+      "source": "inventory",
+      "suggested_stages": [
+        "repair",
+        "contribution",
+        "publication"
+      ],
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\mistune-3.3.4",
+      "version": "3.3.4"
+    },
+    {
+      "action": "campaign_patch_bound",
+      "campaignable": true,
+      "defect_id": "long-decimal-int-valueerror",
+      "name": "tomli",
+      "outcome": null,
+      "priority": 40,
+      "rank": 27,
+      "reason": "patch-bound defect with no successful merge/release",
+      "source": "inventory",
+      "suggested_stages": [
+        "repair",
+        "contribution",
+        "publication"
+      ],
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\tomli-2.4.1",
+      "version": "2.4.1"
+    }
+  ],
+  "actions_digest": "2a4a8d03e3704a8f896593813020f303ee4e7a0faa87272d3dfef8342b4a2917",
+  "campaignable_count": 27,
+  "created_at": "2026-08-12T07:15:34.479966Z",
+  "dispatch_digests": {},
+  "dispatched_count": 1,
+  "dispatched_ok": 1,
+  "dispatches": [
+    {
+      "campaign_digest": "1ec097687d75312e10ea0cba15dc8cb35849af92b10f10524d324a72385c6338",
+      "control_child_dialect": "campaign",
+      "control_nest_child": true,
+      "ok": true,
+      "verdict": "publication_dry_run"
+    }
+  ],
+  "fleet_digest": "abc2a5f160ff6ec1851a3ff89448f80ec0529dfd030abc6bc1063234988cdb5a",
+  "inventory": [
+    {
+      "defect_count": 4,
+      "empty": false,
+      "name": "markdown",
+      "patch_bound_ids": [
+        "nested-bracket-scan-quadratic",
+        "inline-element-rescan-quadratic",
+        "ref-def-block-rescan-quadratic",
+        "footnote-scaling-quadratic"
+      ],
+      "pending_patch_ids": [],
+      "runtime": "python",
+      "slug": "markdown-3.10.3",
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\markdown-3.10.3",
+      "upstream_repo": "https://github.com/Python-Markdown/markdown",
+      "version": "3.10.3"
+    },
+    {
+      "defect_count": 1,
+      "empty": false,
+      "name": "marked",
+      "patch_bound_ids": [
+        "footnote-defs-masking-quadratic"
+      ],
+      "pending_patch_ids": [],
+      "runtime": "node",
+      "slug": "marked-18.0.7",
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\marked-18.0.7",
+      "upstream_repo": "https://github.com/markedjs/marked",
+      "version": "18.0.7"
+    },
+    {
+      "defect_count": 11,
+      "empty": false,
+      "name": "mistune",
+      "patch_bound_ids": [
+        "math-xss",
+        "heading-id-xss",
+        "toc-link-xss",
+        "block-error-xss",
+        "image-alt-double-encoding",
+        "admonition-class-xss",
+        "figure-attrs-xss",
+        "image-width-validation",
+        "link-title-redos",
+        "ref-link-blank-scan-quadratic",
+        "nested-bracket-scan-quadratic"
+      ],
+      "pending_patch_ids": [],
+      "runtime": "python",
+      "slug": "mistune-3.2.0",
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\mistune-3.2.0",
+      "upstream_repo": "https://github.com/lepture/mistune",
+      "version": "3.2.0"
+    },
+    {
+      "defect_count": 9,
+      "empty": false,
+      "name": "mistune",
+      "patch_bound_ids": [
+        "toc-heading-id-collision",
+        "image-unsafe-url",
+        "image-figwidth-validation",
+        "safe-url-percent-encoded",
+        "math-currency-crossline",
+        "include-directive-hardening",
+        "rst-blockquote-nested-list",
+        "ref-link-blank-scan-quadratic",
+        "nested-bracket-scan-quadratic"
+      ],
+      "pending_patch_ids": [],
+      "runtime": "python",
+      "slug": "mistune-3.2.1",
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\mistune-3.2.1",
+      "upstream_repo": "https://github.com/lepture/mistune",
+      "version": "3.2.1"
+    },
+    {
+      "defect_count": 1,
+      "empty": false,
+      "name": "mistune",
+      "patch_bound_ids": [
+        "footnote-defs-membership-quadratic"
+      ],
+      "pending_patch_ids": [],
+      "runtime": "python",
+      "slug": "mistune-3.3.4",
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\mistune-3.3.4",
+      "upstream_repo": "https://github.com/lepture/mistune",
+      "version": "3.3.4"
+    },
+    {
+      "defect_count": 1,
+      "empty": false,
+      "name": "tomli",
+      "patch_bound_ids": [
+        "long-decimal-int-valueerror"
+      ],
+      "pending_patch_ids": [],
+      "runtime": "python",
+      "slug": "tomli-2.4.1",
+      "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\tomli-2.4.1",
+      "upstream_repo": "https://github.com/hukkin/tomli",
+      "version": "2.4.1"
+    }
+  ],
+  "inventory_count": 6,
+  "inventory_digest": "3c595e110cc56f7e4ade75bdb54e88b16632ae6ab8e20d439753cf785f332247",
+  "ok": true,
+  "pipeline_dialect": "fleet",
+  "portfolio_counts": null,
+  "portfolio_digest": "pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp",
+  "portfolio_source": "injected",
+  "schema_version": 1,
+  "stage_engine": true,
+  "stage_results": {
+    "dispatch": {
+      "campaign_digest": "1ec097687d75312e10ea0cba15dc8cb35849af92b10f10524d324a72385c6338",
+      "dispatched_count": 1,
+      "dispatched_ok": 1,
+      "dispatches": [
+        {
+          "campaign_digest": "1ec097687d75312e10ea0cba15dc8cb35849af92b10f10524d324a72385c6338",
+          "control_child_dialect": "campaign",
+          "control_nest_child": true,
+          "ok": true,
+          "verdict": "publication_dry_run"
+        }
+      ],
+      "nested_pipeline": {
+        "campaign_digest": "1ec097687d75312e10ea0cba15dc8cb35849af92b10f10524d324a72385c6338",
+        "dialect": "campaign",
+        "ok": true,
+        "verdict": "publication_dry_run"
+      },
+      "ok": true,
+      "stage": "dispatch",
+      "verdict": "fleet_dispatched"
+    },
+    "inventory": {
+      "inventory_count": 6,
+      "ok": true,
+      "stage": "inventory",
+      "verdict": "inventoried"
+    },
+    "portfolio": {
+      "ok": true,
+      "portfolio_digest": "pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp",
+      "portfolio_source": "injected",
+      "stage": "portfolio",
+      "verdict": "portfolio_ready"
+    },
+    "rank": {
+      "action_count": 27,
+      "action_counts": {
+        "campaign_patch_bound": 27
+      },
+      "campaignable_count": 27,
+      "ok": true,
+      "stage": "rank",
+      "top_action": {
+        "action": "campaign_patch_bound",
+        "campaignable": true,
+        "defect_id": "footnote-scaling-quadratic",
+        "name": "markdown",
+        "outcome": null,
+        "priority": 40,
+        "rank": 1,
+        "reason": "patch-bound defect with no successful merge/release",
+        "source": "inventory",
+        "suggested_stages": [
+          "repair",
+          "contribution",
+          "publication"
+        ],
+        "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\markdown-3.10.3",
+        "version": "3.10.3"
+      },
+      "verdict": "ranked"
+    }
+  },
+  "stages": [
+    "inventory",
+    "portfolio",
+    "rank",
+    "dispatch"
+  ],
+  "top_action": {
+    "action": "campaign_patch_bound",
+    "campaignable": true,
+    "defect_id": "footnote-scaling-quadratic",
+    "name": "markdown",
+    "outcome": null,
+    "priority": 40,
+    "rank": 1,
+    "reason": "patch-bound defect with no successful merge/release",
+    "source": "inventory",
+    "suggested_stages": [
+      "repair",
+      "contribution",
+      "publication"
+    ],
+    "target_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260812T070910Z-5758e748\\stewardship\\markdown-3.10.3",
+    "version": "3.10.3"
+  },
+  "used_skill_route_discovery": false,
+  "verdict": "fleet_dispatched"
+}

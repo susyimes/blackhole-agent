@@ -31,6 +31,10 @@ Composition:
   confederation→league→institution→program→…→campaign (depth-8+) so the
   mock-leaf cliff stays closed for the full institutional tower, not only
   the league edge
+* civilization tower defaults — all CIVILIZATION_STACK layers
+  (omniverse→…→commonwealth→confederation→…→institution) default-on into
+  the operational nest so civilization→…→campaign is continuous without
+  requiring ``governance_spine=True``; continuum SI layers stay opt-in
 
 No skill-route discovery.
 """
@@ -3841,7 +3845,9 @@ def recover_governance_child_path(
 
     Program adapters write flat short dirs on Windows (outside the parent
     constitution tree), so recovery walks nested ``child_states`` for
-    ``last_program_dir`` pointers rather than only rglob under institution_dir.
+    ``last_program_dir`` / ``last_*_dir`` pointers rather than only rglob under
+    institution_dir. Depth limit covers the full civilization tower
+    (civilization→…→institution→program).
     """
 
     def _read_path(gpath: Path) -> list[dict[str, Any]] | None:
@@ -3873,41 +3879,74 @@ def recover_governance_child_path(
                 pass
         return None
 
+    def _dir_keys(st: Mapping[str, Any]) -> list[str]:
+        # Prefer program/institution pointers first, then any last_*_dir / *_dir.
+        preferred = (
+            "last_program_dir",
+            "program_dir",
+            "last_institution_dir",
+            "institution_dir",
+            "last_league_dir",
+            "league_dir",
+            "last_confederation_dir",
+            "confederation_dir",
+            "out_root",
+        )
+        keys = [k for k in preferred if k in st]
+        for k in st:
+            if k in keys:
+                continue
+            if k.endswith("_dir") or k.endswith("_root"):
+                keys.append(k)
+        return keys
+
+    def _nest_keys(st: Mapping[str, Any]) -> list[str]:
+        preferred = (
+            "child_states",
+            "program_states",
+            "institution_states",
+            "league_states",
+            "confederation_states",
+            "commonwealth_states",
+            "domain_states",
+            "realm_states",
+            "empire_states",
+            "civilization_states",
+            "yottacontinuum_states",
+        )
+        keys = [k for k in preferred if k in st]
+        for k in st:
+            if k in keys:
+                continue
+            if k.endswith("_states") or k in {
+                "programs",
+                "institutions",
+                "leagues",
+                "confederations",
+                "children",
+            }:
+                keys.append(k)
+        return keys
+
     def _walk_states(states: Any, *, depth: int = 0) -> list[dict[str, Any]] | None:
-        if depth > 6 or not states:
+        # Full civilization tower is 8 constitution edges above program; allow
+        # headroom for continuum nesting too.
+        if depth > 24 or not states:
             return None
         for st in list(states or []):
             if not isinstance(st, Mapping):
                 continue
-            for key in (
-                "last_program_dir",
-                "program_dir",
-                "last_institution_dir",
-                "institution_dir",
-                "last_league_dir",
-                "league_dir",
-                "last_confederation_dir",
-                "confederation_dir",
-                "out_root",
-            ):
+            for key in _dir_keys(st):
                 found = _from_dir(st.get(key))
                 if found:
                     return found
-            # Nested child states under institution / league / confederation.
-            for nest_key in (
-                "child_states",
-                "program_states",
-                "institution_states",
-                "league_states",
-                "confederation_states",
-                "yottacontinuum_states",
-            ):
+            for nest_key in _nest_keys(st):
                 found = _walk_states(st.get(nest_key), depth=depth + 1)
                 if found:
                     return found
         return None
 
-    for key in (
+    top_keys = (
         "child_states",
         "program_states",
         "programs",
@@ -3917,24 +3956,56 @@ def recover_governance_child_path(
         "league_states",
         "confederations",
         "confederation_states",
-    ):
+        "commonwealth_states",
+        "domain_states",
+        "realm_states",
+        "empire_states",
+        "civilization_states",
+        "empire_digests",
+    )
+    for key in top_keys:
         found = _walk_states(result.get(key))
         if found:
             return found
+    # Also walk any top-level *_states list on deep tower results.
+    for key, value in result.items():
+        if key in top_keys:
+            continue
+        if key.endswith("_states") or key in {
+            "programs",
+            "institutions",
+            "leagues",
+            "confederations",
+            "children",
+        }:
+            found = _walk_states(value)
+            if found:
+                return found
     # Round records may carry program_dir / institution_dir / league_dir.
-    for key in ("programs", "institutions", "leagues", "rounds"):
+    for key in ("programs", "institutions", "leagues", "rounds", "child_states"):
         for rec in list(result.get(key) or []):
             if not isinstance(rec, Mapping):
                 continue
-            found = _from_dir(
-                rec.get("program_dir")
-                or rec.get("institution_dir")
-                or rec.get("league_dir")
-                or rec.get("confederation_dir")
-                or rec.get("out_root")
-            )
-            if found:
-                return found
+            for dkey in _dir_keys(rec):
+                found = _from_dir(rec.get(dkey))
+                if found:
+                    return found
+    # Last resort: constitution out_root / self dir fields on the result.
+    for key in (
+        "civilization_dir",
+        "empire_dir",
+        "realm_dir",
+        "domain_dir",
+        "commonwealth_dir",
+        "confederation_dir",
+        "league_dir",
+        "institution_dir",
+        "out_root",
+        "constitution_dir",
+    ):
+        found = _from_dir(result.get(key))
+        if found:
+            return found
     return None
 
 
@@ -4138,10 +4209,21 @@ def run_outer_governance_spine(
 # ---------------------------------------------------------------------------
 
 # Layers that default-on cascade into the operational control graph.
-# Higher continuum/civilization layers opt in via governance_spine=True.
-STEWARDSHIP_SPINE_DEFAULT_ROOTS: frozenset[str] = frozenset(
-    {"institution", "league", "confederation"}
+# Full civilization tower (omniverse..institution) is default-on so the
+# mock-leaf cliff stays closed above confederation. Continuum SI layers
+# (quettacontinuum..continuum) remain opt-in via governance_spine=True.
+def _civilization_spine_default_roots() -> frozenset[str]:
+    from blackhole_agent import upstream_constitution_engine as _ce
+
+    return frozenset(_ce.list_civilization_layers())
+
+
+STEWARDSHIP_SPINE_DEFAULT_ROOTS: frozenset[str] = (
+    _civilization_spine_default_roots()
 )
+# Alias: civilization spine = stewardship defaults over the civilization tower.
+CIVILIZATION_SPINE_DEFAULT_ROOTS: frozenset[str] = STEWARDSHIP_SPINE_DEFAULT_ROOTS
+CIVILIZATION_SPINE_IMPL = True
 
 
 def stewardship_constitution_chain(root_layer: str) -> list[str]:
@@ -4238,6 +4320,17 @@ def annotate_stewardship_spine(
     body["control_engine"] = True
     body["control_operational_spine"] = True
     body["control_graph"] = True
+    # Civilization-tower roots (above confederation, within CIVILIZATION_STACK)
+    # also seal civilization_spine ownership.
+    if root in STEWARDSHIP_SPINE_DEFAULT_ROOTS and root not in {
+        "institution",
+        "league",
+    }:
+        body["civilization_spine"] = True
+        body["civilization_spine_live"] = bool(live)
+        body["civilization_spine_root"] = root
+        body["civilization_nest_path"] = path
+        body["civilization_nest_depth"] = len(path)
     if live:
         body["control_graph_live"] = True
         body["control_nest_live"] = True
@@ -5553,6 +5646,566 @@ def builtin_stewardship_spine_proof() -> dict[str, Any]:
             "stewardship_spine": True,
             "stewardship_spine_live": True,
             "stewardship_spine_default": True,
+            "done_when_met": ok,
+        }
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def builtin_civilization_spine_proof() -> dict[str, Any]:
+    """Hermetic proof: full civilization tower defaults into operational nest.
+
+    Closes the mock-leaf cliff above confederation: commonwealth→domain→
+    realm→empire→civilization (and cosmos/multiverse/omniverse) default-on
+    cascade so civilization→…→campaign is one continuous engine-owned path.
+    """
+    scratch = Path(tempfile.mkdtemp(prefix="civilization-spine-proof-"))
+    try:
+        from blackhole_agent import upstream_civilization as uciv
+        from blackhole_agent import upstream_commonwealth as ucw
+        from blackhole_agent import upstream_domain as ud
+        from blackhole_agent import upstream_loop_engine as le_facade
+        from blackhole_agent.capability_compounder import (
+            default_ledger_path,
+            load_ledger,
+        )
+        from blackhole_agent import upstream_constitution_engine as ce
+
+        civ_layers = ce.list_civilization_layers()
+        defaults_ok = (
+            STEWARDSHIP_SPINE_DEFAULT_ROOTS == frozenset(civ_layers)
+            and "commonwealth" in STEWARDSHIP_SPINE_DEFAULT_ROOTS
+            and "domain" in STEWARDSHIP_SPINE_DEFAULT_ROOTS
+            and "civilization" in STEWARDSHIP_SPINE_DEFAULT_ROOTS
+            and "omniverse" in STEWARDSHIP_SPINE_DEFAULT_ROOTS
+            and "quettacontinuum" not in STEWARDSHIP_SPINE_DEFAULT_ROOTS
+            and CIVILIZATION_SPINE_IMPL is True
+        )
+
+        expected_paths = {
+            "commonwealth": [
+                "commonwealth",
+                "confederation",
+                "league",
+                "institution",
+                "program",
+                "succession",
+                "epoch",
+                "fleet",
+                "campaign",
+            ],
+            "domain": [
+                "domain",
+                "commonwealth",
+                "confederation",
+                "league",
+                "institution",
+                "program",
+                "succession",
+                "epoch",
+                "fleet",
+                "campaign",
+            ],
+            "civilization": [
+                "civilization",
+                "empire",
+                "realm",
+                "domain",
+                "commonwealth",
+                "confederation",
+                "league",
+                "institution",
+                "program",
+                "succession",
+                "epoch",
+                "fleet",
+                "campaign",
+            ],
+        }
+        path_flags: dict[str, bool] = {}
+        for root, expected in expected_paths.items():
+            got = [s.get("dialect") for s in stewardship_nest_path(root)]
+            path_flags[root] = (
+                got == expected
+                and stewardship_nest_depth(root) == len(expected)
+            )
+        paths_ok = all(path_flags.values())
+
+        # Live public entry at civilization root (depth 13).
+        spine = run_stewardship_spine(
+            root_layer="civilization",
+            out_root=scratch / "civ-spine",
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=3,
+            max_successions=1,
+            max_epochs=1,
+            max_waves=1,
+        )
+        child_path = spine.get("governance_child_control_path") or spine.get(
+            "stewardship_child_control_path"
+        ) or []
+        child_dialects = [
+            s.get("dialect") for s in child_path if isinstance(s, Mapping)
+        ]
+        spine_ok = (
+            bool(spine.get("ok"))
+            and spine.get("stewardship_spine") is True
+            and spine.get("civilization_spine") is True
+            and spine.get("civilization_spine_root") == "civilization"
+            and spine.get("stewardship_root") == "civilization"
+            and spine.get("governance_spine") is True
+            and spine.get("control_operational_spine") is True
+            and int(spine.get("stewardship_nest_depth") or 0) == 13
+            and int(spine.get("total_dispatched_ok") or 0) >= 1
+            and bool(spine.get("civilization_digest"))
+            and [
+                s.get("dialect")
+                for s in (spine.get("stewardship_nest_path") or [])
+            ]
+            == expected_paths["civilization"]
+            and child_dialects
+            == ["program", "succession", "epoch", "fleet", "campaign"]
+            and not legacy_pipeline_was_used()
+        )
+
+        # Default domain attach (omit governance_spine kwarg).
+        default_domain = ud.run_domain(
+            charter=[
+                {
+                    "commonwealth_id": "dd-cw",
+                    "priority": 1,
+                    "max_rounds": 2,
+                    "charter": [
+                        {
+                            "confederation_id": "dd-cf",
+                            "priority": 1,
+                            "max_rounds": 2,
+                            "charter": [
+                                {
+                                    "league_id": "dd-l",
+                                    "priority": 1,
+                                    "max_rounds": 2,
+                                    "charter": [
+                                        {
+                                            "institution_id": "dd-i",
+                                            "priority": 1,
+                                            "max_rounds": 2,
+                                            "charter": [
+                                                {
+                                                    "program_id": "dd-p",
+                                                    "priority": 1,
+                                                    "inventory_keys": [
+                                                        (
+                                                            "dd1",
+                                                            "1.0.0",
+                                                            "dd1-1",
+                                                        )
+                                                    ],
+                                                    "charter": [
+                                                        {
+                                                            "inventory_keys": [
+                                                                [
+                                                                    "dd1",
+                                                                    "1.0.0",
+                                                                    "dd1-1",
+                                                                ]
+                                                            ]
+                                                        }
+                                                    ],
+                                                }
+                                            ],
+                                        }
+                                    ],
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=3,
+            out_root=scratch / "default-domain",
+            domain_id="default-civ-domain",
+        )
+        default_domain_ok = (
+            bool(default_domain.get("ok"))
+            and default_domain.get("stewardship_spine") is True
+            and default_domain.get("civilization_spine") is True
+            and default_domain.get("stewardship_spine_default") is True
+            and default_domain.get("civilization_spine_default") is True
+            and default_domain.get("governance_spine") is True
+            and default_domain.get("stewardship_root") == "domain"
+            and int(default_domain.get("stewardship_nest_depth") or 0) == 10
+            and int(default_domain.get("total_dispatched_ok") or 0) >= 1
+            and [
+                s.get("dialect")
+                for s in (
+                    default_domain.get("governance_child_control_path") or []
+                )
+            ]
+            == ["program", "succession", "epoch", "fleet", "campaign"]
+            and bool(default_domain.get("domain_digest"))
+        )
+
+        # Default commonwealth attach.
+        default_cw = ucw.run_commonwealth(
+            charter=[
+                {
+                    "confederation_id": "cw-cf",
+                    "priority": 1,
+                    "max_rounds": 2,
+                    "charter": [
+                        {
+                            "league_id": "cw-l",
+                            "priority": 1,
+                            "max_rounds": 2,
+                            "charter": [
+                                {
+                                    "institution_id": "cw-i",
+                                    "priority": 1,
+                                    "max_rounds": 2,
+                                    "charter": [
+                                        {
+                                            "program_id": "cw-p",
+                                            "priority": 1,
+                                            "inventory_keys": [
+                                                ("cw1", "1.0.0", "cw1-1")
+                                            ],
+                                            "charter": [
+                                                {
+                                                    "inventory_keys": [
+                                                        [
+                                                            "cw1",
+                                                            "1.0.0",
+                                                            "cw1-1",
+                                                        ]
+                                                    ]
+                                                }
+                                            ],
+                                        }
+                                    ],
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=3,
+            out_root=scratch / "default-cw",
+            commonwealth_id="default-civ-cw",
+        )
+        default_cw_ok = (
+            bool(default_cw.get("ok"))
+            and default_cw.get("stewardship_spine") is True
+            and default_cw.get("civilization_spine") is True
+            and default_cw.get("stewardship_spine_default") is True
+            and int(default_cw.get("stewardship_nest_depth") or 0) == 9
+            and int(default_cw.get("total_dispatched_ok") or 0) >= 1
+            and bool(default_cw.get("commonwealth_digest"))
+        )
+
+        # Default civilization attach (omit governance_spine).
+        default_civ = uciv.run_civilization(
+            charter=[
+                {
+                    "empire_id": "dc-e",
+                    "priority": 1,
+                    "max_rounds": 2,
+                    "charter": [
+                        {
+                            "realm_id": "dc-r",
+                            "priority": 1,
+                            "max_rounds": 2,
+                            "charter": [
+                                {
+                                    "domain_id": "dc-d",
+                                    "priority": 1,
+                                    "max_rounds": 2,
+                                    "charter": [
+                                        {
+                                            "commonwealth_id": "dc-cw",
+                                            "priority": 1,
+                                            "max_rounds": 2,
+                                            "charter": [
+                                                {
+                                                    "confederation_id": "dc-cf",
+                                                    "priority": 1,
+                                                    "max_rounds": 2,
+                                                    "charter": [
+                                                        {
+                                                            "league_id": "dc-l",
+                                                            "priority": 1,
+                                                            "max_rounds": 2,
+                                                            "charter": [
+                                                                {
+                                                                    "institution_id": "dc-i",
+                                                                    "priority": 1,
+                                                                    "max_rounds": 2,
+                                                                    "charter": [
+                                                                        {
+                                                                            "program_id": "dc-p",
+                                                                            "priority": 1,
+                                                                            "inventory_keys": [
+                                                                                (
+                                                                                    "dc1",
+                                                                                    "1.0.0",
+                                                                                    "dc1-1",
+                                                                                )
+                                                                            ],
+                                                                            "charter": [
+                                                                                {
+                                                                                    "inventory_keys": [
+                                                                                        [
+                                                                                            "dc1",
+                                                                                            "1.0.0",
+                                                                                            "dc1-1",
+                                                                                        ]
+                                                                                    ]
+                                                                                }
+                                                                            ],
+                                                                        }
+                                                                    ],
+                                                                }
+                                                            ],
+                                                        }
+                                                    ],
+                                                }
+                                            ],
+                                        }
+                                    ],
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=3,
+            out_root=scratch / "default-civ",
+            civilization_id="default-civ",
+        )
+        default_civ_ok = (
+            bool(default_civ.get("ok"))
+            and default_civ.get("stewardship_spine") is True
+            and default_civ.get("civilization_spine") is True
+            and default_civ.get("stewardship_spine_default") is True
+            and default_civ.get("civilization_spine_default") is True
+            and default_civ.get("stewardship_root") == "civilization"
+            and int(default_civ.get("stewardship_nest_depth") or 0) == 13
+            and int(default_civ.get("total_dispatched_ok") or 0) >= 1
+            and bool(default_civ.get("civilization_digest"))
+            and [
+                s.get("dialect")
+                for s in (
+                    default_civ.get("governance_child_control_path") or []
+                )
+            ]
+            == ["program", "succession", "epoch", "fleet", "campaign"]
+        )
+
+        # Opt-out: domain governance_spine=False keeps mock leaves.
+        opt_out = ud.run_domain(
+            governance_spine=False,
+            charter=[
+                {
+                    "commonwealth_id": "fo-cw",
+                    "priority": 1,
+                    "max_rounds": 2,
+                    "charter": [
+                        {
+                            "confederation_id": "fo-cf",
+                            "priority": 1,
+                            "max_rounds": 2,
+                            "charter": [
+                                {
+                                    "league_id": "fo-l",
+                                    "priority": 1,
+                                    "max_rounds": 2,
+                                    "charter": [
+                                        {
+                                            "institution_id": "fo-i",
+                                            "priority": 1,
+                                            "max_rounds": 2,
+                                            "charter": [
+                                                {
+                                                    "program_id": "fo-p",
+                                                    "priority": 1,
+                                                    "inventory_keys": [
+                                                        (
+                                                            "fo1",
+                                                            "1.0.0",
+                                                            "fo1-1",
+                                                        )
+                                                    ],
+                                                    "charter": [
+                                                        {
+                                                            "inventory_keys": [
+                                                                [
+                                                                    "fo1",
+                                                                    "1.0.0",
+                                                                    "fo1-1",
+                                                                ]
+                                                            ]
+                                                        }
+                                                    ],
+                                                }
+                                            ],
+                                        }
+                                    ],
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+            max_rounds=2,
+            dispatch=True,
+            dispatch_budget=3,
+            out_root=scratch / "opt-out-domain",
+            domain_id="fast-domain",
+        )
+        opt_out_ok = (
+            bool(opt_out.get("ok"))
+            and opt_out.get("stewardship_spine") is not True
+            and opt_out.get("civilization_spine") is not True
+            and opt_out.get("governance_spine") is not True
+            and int(opt_out.get("total_dispatched_ok") or 0) >= 1
+            and bool(opt_out.get("domain_digest"))
+        )
+
+        flags_ok = (
+            getattr(ucw, "STEWARDSHIP_SPINE", False) is True
+            and getattr(ucw, "STEWARDSHIP_SPINE_DEFAULT", False) is True
+            and getattr(ucw, "CIVILIZATION_SPINE", False) is True
+            and getattr(ucw, "CIVILIZATION_SPINE_DEFAULT", False) is True
+            and getattr(ud, "STEWARDSHIP_SPINE_DEFAULT", False) is True
+            and getattr(ud, "CIVILIZATION_SPINE", False) is True
+            and getattr(uciv, "STEWARDSHIP_SPINE_DEFAULT", False) is True
+            and getattr(uciv, "CIVILIZATION_SPINE_DEFAULT", False) is True
+            and getattr(uciv, "CIVILIZATION_SPINE_ROOT", None) == "civilization"
+            and callable(getattr(le_facade, "run_stewardship_spine", None))
+            and callable(
+                getattr(le_facade, "builtin_civilization_spine_proof", None)
+            )
+            and getattr(le_facade, "CIVILIZATION_SPINE_IMPL", False) is True
+        )
+
+        facade_path = (
+            Path(ucw.__file__).resolve().parent
+            / "upstream_stewardship_facade.py"
+        )
+        facade_text = facade_path.read_text(encoding="utf-8")
+        source_ok = (
+            "list_civilization_layers" in facade_text
+            and "CIVILIZATION_SPINE" in facade_text
+            and "civilization_spine_default" in facade_text
+            and "_STEWARDSHIP_SPINE_DEFAULT_ROOTS" in facade_text
+        )
+
+        engine_path = Path(__file__).resolve()
+        engine_text = engine_path.read_text(encoding="utf-8")
+        engine_source_ok = (
+            "def builtin_civilization_spine_proof" in engine_text
+            and "CIVILIZATION_SPINE_DEFAULT_ROOTS" in engine_text
+            and "CIVILIZATION_SPINE_IMPL" in engine_text
+            and "list_civilization_layers" in engine_text
+        )
+
+        ledger_path = default_ledger_path(REPO_ROOT)
+        ledger_ok = False
+        try:
+            ledger = load_ledger(ledger_path)
+            entry = ledger.capabilities.get(
+                "capability.upstream-civilization-spine"
+            )
+            tags_blob = " ".join(entry.tags).lower() if entry else ""
+            delta_blob = (entry.capability_delta or "").lower() if entry else ""
+            name_blob = (entry.name or "").lower() if entry else ""
+            ledger_ok = (
+                entry is not None
+                and "upstream_control_engine" in (entry.entry or "")
+                and "builtin_civilization_spine_proof" in (entry.entry or "")
+                and (
+                    "civilization" in tags_blob
+                    or "civilization" in name_blob
+                    or "civilization" in delta_blob
+                )
+                and (
+                    "default" in delta_blob
+                    or "default" in tags_blob
+                )
+                and (
+                    "commonwealth" in delta_blob
+                    or "domain" in delta_blob
+                    or "tower" in delta_blob
+                )
+                and (
+                    "run_stewardship_spine" in delta_blob
+                    or "cascade" in delta_blob
+                    or "continuous" in delta_blob
+                )
+                and ("campaign" in delta_blob or "operational" in delta_blob)
+            )
+        except Exception:  # noqa: BLE001
+            ledger_ok = False
+
+        ok = all(
+            [
+                defaults_ok,
+                paths_ok,
+                spine_ok,
+                default_domain_ok,
+                default_cw_ok,
+                default_civ_ok,
+                opt_out_ok,
+                flags_ok,
+                source_ok,
+                engine_source_ok,
+                ledger_ok,
+                not legacy_pipeline_was_used(),
+            ]
+        )
+        return {
+            "ok": ok,
+            "action": "civilization_spine_proof",
+            "defaults_ok": defaults_ok,
+            "default_roots": sorted(STEWARDSHIP_SPINE_DEFAULT_ROOTS),
+            "paths_ok": paths_ok,
+            "path_flags": path_flags,
+            "civilization_nest_path": expected_paths["civilization"],
+            "civilization_nest_depth": stewardship_nest_depth("civilization"),
+            "spine_ok": spine_ok,
+            "spine_dispatched_ok": spine.get("total_dispatched_ok"),
+            "spine_civilization_digest": spine.get("civilization_digest"),
+            "spine_child_path": child_path,
+            "default_domain_ok": default_domain_ok,
+            "default_domain_dispatched_ok": default_domain.get(
+                "total_dispatched_ok"
+            ),
+            "default_cw_ok": default_cw_ok,
+            "default_cw_dispatched_ok": default_cw.get("total_dispatched_ok"),
+            "default_civ_ok": default_civ_ok,
+            "default_civ_dispatched_ok": default_civ.get("total_dispatched_ok"),
+            "default_civ_digest": default_civ.get("civilization_digest"),
+            "opt_out_ok": opt_out_ok,
+            "flags_ok": flags_ok,
+            "source_ok": source_ok,
+            "engine_source_ok": engine_source_ok,
+            "ledger_capability_ok": ledger_ok,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "control_engine": True,
+            "control_graph": True,
+            "control_operational_spine": True,
+            "governance_spine": True,
+            "stewardship_spine": True,
+            "civilization_spine": True,
+            "civilization_spine_live": True,
+            "civilization_spine_default": True,
             "done_when_met": ok,
         }
     finally:
@@ -6946,6 +7599,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             "program→…→campaign continuous cascade"
         ),
     )
+    sub.add_parser(
+        "civilization-proof",
+        help=(
+            "Civilization spine proof: full civilization tower "
+            "(commonwealth→…→civilization/omniverse) defaults into "
+            "operational nest"
+        ),
+    )
     sub.add_parser("list", help="List control modes and dialects")
     sub.add_parser("nest-path", help="Print canonical operational nest path")
     sub.add_parser(
@@ -7018,6 +7679,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "stewardship-proof":
         result = builtin_stewardship_spine_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "civilization-proof":
+        result = builtin_civilization_spine_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2
