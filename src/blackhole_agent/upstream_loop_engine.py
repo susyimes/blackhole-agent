@@ -101,6 +101,10 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     TOTAL_SPINE_RECOVERY_IMPL,
     TOTAL_SPINE_RECOVERY_KIND,
     TOTAL_SPINE_RECOVERY_MIN_RECOVERIES,
+    TOTAL_SPINE_RESOLUTION_FILENAME,
+    TOTAL_SPINE_RESOLUTION_IMPL,
+    TOTAL_SPINE_RESOLUTION_KIND,
+    TOTAL_SPINE_RESOLUTION_MIN_RESOLUTIONS,
     TOTAL_SPINE_EXECUTION_FILENAME,
     TOTAL_SPINE_EXECUTION_IMPL,
     TOTAL_SPINE_EXECUTION_KIND,
@@ -141,6 +145,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     annotate_total_spine_risk,
     annotate_total_spine_stress,
     annotate_total_spine_recovery,
+    annotate_total_spine_resolution,
     annotate_total_spine_execution,
     annotate_total_spine_federation,
     annotate_total_spine_finality,
@@ -170,6 +175,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     builtin_total_spine_risk_proof,
     builtin_total_spine_stress_proof,
     builtin_total_spine_recovery_proof,
+    builtin_total_spine_resolution_proof,
     builtin_total_spine_execution_proof,
     builtin_total_spine_federation_proof,
     builtin_total_spine_finality_proof,
@@ -199,6 +205,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     compute_total_spine_risk_root,
     compute_total_spine_stress_root,
     compute_total_spine_recovery_root,
+    compute_total_spine_resolution_root,
     execute_total_spine,
     execution_certificate_path,
     federate_total_spine,
@@ -222,6 +229,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     load_total_spine_risk_certificate,
     load_total_spine_stress_certificate,
     load_total_spine_recovery_certificate,
+    load_total_spine_resolution_certificate,
     load_total_spine_continuity_checkpoint,
     load_total_spine_execution_certificate,
     load_total_spine_federation_certificate,
@@ -275,6 +283,9 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     stress_certificate_path,
     recovery_total_spine,
     recovery_certificate_path,
+    resolution_total_spine,
+    resolution_certificate_path,
+    book_total_spine_recoveries,
     book_total_spine_stresses,
     book_total_spine_risks,
     book_total_spine_capitals,
@@ -322,6 +333,8 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     seal_total_spine_stress_chain,
     seal_total_spine_recovery_certificate,
     seal_total_spine_recovery_chain,
+    seal_total_spine_resolution_certificate,
+    seal_total_spine_resolution_chain,
     seal_total_spine_execution_certificate,
     seal_total_spine_execution_chain,
     seal_total_spine_federation_certificate,
@@ -350,6 +363,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     verify_total_spine_risk_certificate,
     verify_total_spine_stress_certificate,
     verify_total_spine_recovery_certificate,
+    verify_total_spine_resolution_certificate,
     verify_total_spine_continuity_checkpoint,
     verify_total_spine_execution_certificate,
     verify_total_spine_federation_certificate,
@@ -368,6 +382,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     write_total_spine_risk_certificate,
     write_total_spine_stress_certificate,
     write_total_spine_recovery_certificate,
+    write_total_spine_resolution_certificate,
     write_total_spine_continuity_checkpoint,
     write_total_spine_execution_certificate,
     write_total_spine_federation_certificate,
@@ -573,6 +588,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "stress books into irreversible recovery receipts"
         ),
     )
+    sub.add_parser(
+        "resolution-proof",
+        help=(
+            "Total spine resolution: post-recovery atomic RvS seals matching "
+            "recovery books into irreversible resolution receipts"
+        ),
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
     if args.cmd == "list":
         print(json.dumps({"dialects": list_loop_dialects()}, indent=2))
@@ -687,6 +709,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "recovery-proof":
         result = builtin_total_spine_recovery_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "resolution-proof":
+        result = builtin_total_spine_resolution_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2

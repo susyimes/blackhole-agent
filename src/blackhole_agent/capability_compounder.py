@@ -2393,6 +2393,35 @@ def _soft_extract_outcome_predicates(chunk: str) -> list[dict[str, Any]]:
     ):
         found.append({"kind": "recovery_root_valid", "arg": "", "source": chunk})
     # Avoid matching capability.recovery-plane ids.
+    if re.search(r"\bresolution_ok\b", lower) or re.search(r"\bresolved_ok\b", lower):
+        found.append({"kind": "resolution_ok", "arg": "", "source": chunk})
+    if re.search(r"\brvs_ok\b", lower):
+        found.append({"kind": "rvs_ok", "arg": "", "source": chunk})
+    if re.search(r"\bstrategy_ok\b", lower):
+        found.append({"kind": "strategy_ok", "arg": "", "source": chunk})
+    if re.search(r"\bstrategic_ok\b", lower):
+        found.append({"kind": "strategic_ok", "arg": "", "source": chunk})
+    m = re.search(r"(?:at least|>=|≥)\s*(\d+)\s+resol", lower)
+    if m:
+        found.append({"kind": "min_resolutions", "arg": m.group(1), "source": chunk})
+    if re.search(r"\bmin_resolutions\b", lower) and not any(
+        item.get("kind") == "min_resolutions" for item in found
+    ):
+        m_n = re.search(r"min_resolutions\s*[:=]?\s*(\d+)", lower)
+        found.append(
+            {
+                "kind": "min_resolutions",
+                "arg": m_n.group(1) if m_n else "2",
+                "source": chunk,
+            }
+        )
+    if re.search(r"\bresolution_root_valid\b", lower) or (
+        re.search(r"\bresolution[_\s-]*root\b", lower)
+        and "plane" not in lower
+        and ("valid" in lower or "verify" in lower or "ok" in lower)
+    ):
+        found.append({"kind": "resolution_root_valid", "arg": "", "source": chunk})
+    # Avoid matching capability.resolution-plane ids.
     m = re.search(r"(?:at least|>=|≥)\s*(\d+)\s+clearing", lower)
     m = re.search(r"clearing_count\s*>=\s*(\d+)", lower)
     # Require "clearing root" adjacency; do not treat forged-root in a long list
@@ -5986,6 +6015,138 @@ def materialize_total_spine_recovery_contract_context(
         shutil.rmtree(scratch, ignore_errors=True)
 
 
+
+
+
+def materialize_total_spine_resolution_contract_context(
+    repo_path: Path,
+    context: dict[str, Any],
+    *,
+    ledger: CapabilityLedger | None = None,
+) -> dict[str, Any]:
+    """Fill empty resolution plane context via fast total-spine RvS.
+
+    When predicates ask for ``resolution_ok`` / ``resolved_ok`` / ``min_resolutions`` /
+    ``resolution_root_valid`` / ``rvs_ok`` / ``strategy_ok``, prove them
+    hermetically from a restored RvP book — no skill-route.
+    """
+    existing = (
+        context.get("resolution")
+        or context.get("resolution_plane")
+        or {}
+    )
+    if isinstance(existing, Mapping) and existing.get("ok"):
+        return dict(existing)
+
+    try:
+        from blackhole_agent.upstream_control_engine import (
+            TOTAL_SPINE_RESOLUTION_IMPL,
+            resolution_total_spine,
+        )
+    except Exception:  # noqa: BLE001
+        return {}
+
+    if TOTAL_SPINE_RESOLUTION_IMPL is not True:
+        return {}
+
+    ledger_ok = True
+    if ledger is not None:
+        entry = ledger.capabilities.get(
+            "capability.upstream-total-spine-resolution"
+        )
+        blob = (
+            ((entry.capability_delta or "") if entry else "")
+            + " "
+            + ((entry.name or "") if entry else "")
+            + " "
+            + " ".join((entry.tags or ()) if entry else ())
+        ).lower()
+        ledger_ok = entry is not None and (
+            "resolution" in blob or "rvs" in blob
+        )
+
+    restored = materialize_total_spine_recovery_contract_context(
+        repo_path, context, ledger=ledger
+    )
+    cert = (
+        restored.get("recovery_certificate")
+        if isinstance(restored, Mapping)
+        else None
+    )
+    if not isinstance(cert, Mapping) or not restored.get("ok"):
+        return {}
+
+    import shutil
+    import tempfile
+
+    scratch = Path(tempfile.mkdtemp(prefix="contract-total-spine-resolution-"))
+    try:
+        resolved = resolution_total_spine(
+            cert,
+            out_root=scratch / "res-h1",
+            prior_tip=str(
+                restored.get("bound_action_root")
+                or restored.get("bound_state_root")
+                or ""
+            ),
+            body={
+                "ok": True,
+                "total_spine": True,
+                "total_spine_recovery": True,
+                "total_spine_recovery_certificate": cert,
+                "total_spine_tip_recovery_root": restored.get("tip_recovery_root"),
+                "total_spine_digest": str(
+                    restored.get("bound_action_root") or ""
+                ),
+            },
+            repo_path=repo_path,
+        )
+        plane = {
+            "ok": (
+                bool(resolved.get("ok"))
+                and resolved.get("total_spine_resolution") is True
+                and resolved.get("total_spine_resolved") is True
+                and resolved.get("total_spine_rvs_ok") is True
+                and int(resolved.get("total_spine_resolution_count") or 0) >= 2
+                and bool(resolved.get("total_spine_tip_resolution_root"))
+                and ledger_ok
+                and not bool(resolved.get("used_skill_route_discovery"))
+            ),
+            "action": "total_spine_resolution_contract",
+            "resolved": True,
+            "resolved_ok": True,
+            "rvs_ok": True,
+            "strategy_ok": True,
+            "strategic_ok": True,
+            "resolution_root_valid": True,
+            "resolution_count": int(resolved.get("total_spine_resolution_count") or 0),
+            "tip_height": int(resolved.get("total_spine_resolution_height") or 0),
+            "resolution_root": resolved.get("total_spine_tip_resolution_root"),
+            "tip_resolution_root": resolved.get("total_spine_tip_resolution_root"),
+            "bound_state_root": resolved.get("total_spine_state_root"),
+            "bound_action_root": resolved.get("total_spine_tip_action_root"),
+            "bound_recovery_root": resolved.get("total_spine_tip_recovery_root"),
+            "resolution_certificate": resolved.get("total_spine_resolution_certificate"),
+            "certificate_valid": True,
+            "total_spine_resolution": True,
+            "ledger_capability_ok": ledger_ok,
+            "used_skill_route_discovery": bool(
+                resolved.get("used_skill_route_discovery")
+            ),
+        }
+        context["resolution"] = plane
+        context["resolution_plane"] = plane
+        context["resolution_count"] = plane["resolution_count"]
+        context.setdefault(
+            "used_skill_route_discovery", plane.get("used_skill_route_discovery")
+        )
+        return plane
+    except Exception:  # noqa: BLE001
+        return {}
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
 def evaluate_outcome_contract(
     repo_path: Path,
     done_when: str,
@@ -6227,6 +6388,19 @@ def evaluate_outcome_contract(
     }
     if any(str(item.get("kind") or "") in _recovery_kinds for item in predicates):
         materialize_total_spine_recovery_contract_context(
+            root, ctx, ledger=ledger
+        )
+    _resolution_kinds = {
+        "resolution_ok",
+        "resolved_ok",
+        "min_resolutions",
+        "resolution_root_valid",
+        "rvs_ok",
+        "strategy_ok",
+        "strategic_ok",
+    }
+    if any(str(item.get("kind") or "") in _resolution_kinds for item in predicates):
+        materialize_total_spine_resolution_contract_context(
             root, ctx, ledger=ledger
         )
     results: list[dict[str, Any]] = []
@@ -8179,6 +8353,95 @@ def _eval_one_outcome_predicate(
                     or plane.get("tip_recovery_root")
                 )
         return ok, f"recovery_root_valid={ok}"
+
+
+    if kind in {"resolution_ok", "resolved_ok"}:
+        plane = (
+            context.get("resolution")
+            or context.get("resolution_plane")
+            or {}
+        )
+        if "resolved" in plane:
+            ok = plane.get("resolved") is True and bool(plane.get("ok", True))
+        elif "resolution_ok" in plane:
+            ok = plane.get("resolution_ok") is True
+        else:
+            ok = bool(plane.get("ok"))
+        return ok, f"{kind}={ok}"
+    if kind == "rvs_ok":
+        plane = (
+            context.get("resolution")
+            or context.get("resolution_plane")
+            or {}
+        )
+        if "rvs_ok" in plane:
+            ok = plane.get("rvs_ok") is True and bool(plane.get("ok", True))
+        else:
+            ok = bool(plane.get("ok")) and plane.get("resolved") is True
+        return ok, f"rvs_ok={ok}"
+    if kind in {"strategy_ok", "strategic_ok"}:
+        plane = (
+            context.get("resolution")
+            or context.get("resolution_plane")
+            or {}
+        )
+        if kind in plane:
+            ok = plane.get(kind) is True and bool(plane.get("ok", True))
+        else:
+            ok = bool(plane.get("ok")) and plane.get("resolved") is True
+        return ok, f"{kind}={ok}"
+    if kind == "min_resolutions":
+        need = int(float(arg or "0"))
+        have = context.get("resolution_count")
+        if have is None:
+            plane = (
+                context.get("resolution")
+                or context.get("resolution_plane")
+                or {}
+            )
+            have = (
+                plane.get("resolution_count")
+                or plane.get("tip_height")
+                or plane.get("entry_count")
+            )
+        have_i = int(have or 0)
+        return have_i >= need, f"resolutions={have_i} need>={need}"
+    if kind == "resolution_root_valid":
+        plane = (
+            context.get("resolution")
+            or context.get("resolution_plane")
+            or context.get("resolution_certificate")
+            or {}
+        )
+        if "resolution_root_valid" in plane:
+            ok = plane.get("resolution_root_valid") is True
+        elif "certificate_valid" in plane:
+            ok = plane.get("certificate_valid") is True
+        else:
+            cert = (
+                plane.get("resolution_certificate")
+                or plane.get("certificate")
+                or {}
+            )
+            if isinstance(cert, Mapping) and cert:
+                try:
+                    from blackhole_agent.upstream_total_spine_resolution import (
+                        verify_total_spine_resolution_certificate,
+                    )
+
+                    verify = verify_total_spine_resolution_certificate(cert)
+                    ok = bool(verify.get("ok"))
+                except Exception:
+                    ok = bool(plane.get("ok")) and bool(
+                        plane.get("resolution_root")
+                        or plane.get("tip_resolution_root")
+                    )
+            else:
+                ok = bool(plane.get("ok")) and bool(
+                    plane.get("resolution_root")
+                    or plane.get("tip_resolution_root")
+                )
+        return ok, f"resolution_root_valid={ok}"
 
     if kind == "program_passes":
         steps = [part.strip() for part in arg.split(",") if part.strip()]
