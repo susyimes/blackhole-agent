@@ -61,6 +61,10 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     TOTAL_SPINE_DELIVERY_IMPL,
     TOTAL_SPINE_DELIVERY_KIND,
     TOTAL_SPINE_DELIVERY_MIN_CLEARINGS,
+    TOTAL_SPINE_CUSTODY_FILENAME,
+    TOTAL_SPINE_CUSTODY_IMPL,
+    TOTAL_SPINE_CUSTODY_KIND,
+    TOTAL_SPINE_CUSTODY_MIN_DELIVERIES,
     TOTAL_SPINE_EXECUTION_FILENAME,
     TOTAL_SPINE_EXECUTION_IMPL,
     TOTAL_SPINE_EXECUTION_KIND,
@@ -91,6 +95,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     annotate_total_spine_settlement,
     annotate_total_spine_clearing,
     annotate_total_spine_delivery,
+    annotate_total_spine_custody,
     annotate_total_spine_execution,
     annotate_total_spine_federation,
     annotate_total_spine_finality,
@@ -110,6 +115,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     builtin_total_spine_settlement_proof,
     builtin_total_spine_clearing_proof,
     builtin_total_spine_delivery_proof,
+    builtin_total_spine_custody_proof,
     builtin_total_spine_execution_proof,
     builtin_total_spine_federation_proof,
     builtin_total_spine_finality_proof,
@@ -129,6 +135,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     compute_total_spine_settlement_root,
     compute_total_spine_clearing_root,
     compute_total_spine_delivery_root,
+    compute_total_spine_custody_root,
     execute_total_spine,
     execution_certificate_path,
     federate_total_spine,
@@ -142,6 +149,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     load_total_spine_settlement_certificate,
     load_total_spine_clearing_certificate,
     load_total_spine_delivery_certificate,
+    load_total_spine_custody_certificate,
     load_total_spine_continuity_checkpoint,
     load_total_spine_execution_certificate,
     load_total_spine_federation_certificate,
@@ -175,6 +183,9 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     clearing_certificate_path,
     deliver_total_spine,
     delivery_certificate_path,
+    custody_total_spine,
+    custody_certificate_path,
+    book_total_spine_deliveries,
     pair_total_spine_clearings,
     net_total_spine_settlements,
     observe_total_spine_actions,
@@ -192,6 +203,8 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     seal_total_spine_clearing_chain,
     seal_total_spine_delivery_certificate,
     seal_total_spine_delivery_chain,
+    seal_total_spine_custody_certificate,
+    seal_total_spine_custody_chain,
     seal_total_spine_execution_certificate,
     seal_total_spine_execution_chain,
     seal_total_spine_federation_certificate,
@@ -210,6 +223,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     verify_total_spine_settlement_certificate,
     verify_total_spine_clearing_certificate,
     verify_total_spine_delivery_certificate,
+    verify_total_spine_custody_certificate,
     verify_total_spine_continuity_checkpoint,
     verify_total_spine_execution_certificate,
     verify_total_spine_federation_certificate,
@@ -218,6 +232,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     write_total_spine_settlement_certificate,
     write_total_spine_clearing_certificate,
     write_total_spine_delivery_certificate,
+    write_total_spine_custody_certificate,
     write_total_spine_continuity_checkpoint,
     write_total_spine_execution_certificate,
     write_total_spine_federation_certificate,
@@ -353,6 +368,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "clearing books into irreversible delivery receipts"
         ),
     )
+    sub.add_parser(
+        "custody-proof",
+        help=(
+            "Total spine custody: post-delivery atomic CvT seals matching "
+            "delivery books into irreversible custody receipts"
+        ),
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
     if args.cmd == "list":
         print(json.dumps({"dialects": list_loop_dialects()}, indent=2))
@@ -427,6 +449,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "delivery-proof":
         result = builtin_total_spine_delivery_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "custody-proof":
+        result = builtin_total_spine_custody_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2

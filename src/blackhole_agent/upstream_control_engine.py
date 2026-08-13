@@ -119,6 +119,15 @@ Composition:
   one-sided / mismatched / failed / wrong-root / tampered deliveries,
   short-circuits on re-deliver, and rebinds the depth-28 tip without
   skill-route
+* total-spine **post-delivery custody-versus-title** — closes the
+  delivered-but-uncustodied cliff: after atomic DvP seals matching
+  delivery books, ``custody_total_spine(...)``
+  (and ``run_total_spine(custody=True)``) independently confirms a
+  second delivery, books each delivered pair into a custody register
+  and transfers beneficial title (CvT), seals a re-verifiable atomic
+  custody certificate, refuses split / one-sided / mismatched /
+  failed / wrong-root / tampered custodies, short-circuits on
+  re-custody, and rebinds the depth-28 tip without skill-route
 
 No skill-route discovery.
 """
@@ -4441,6 +4450,25 @@ from blackhole_agent.upstream_total_spine_delivery import (  # noqa: E402
     verify_total_spine_delivery_certificate,
     write_total_spine_delivery_certificate,
 )
+# Post-delivery custody-versus-title: atomic hold+own of delivered pairs.
+# Implementation lives in upstream_total_spine_custody; re-exported here.
+from blackhole_agent.upstream_total_spine_custody import (  # noqa: E402
+    TOTAL_SPINE_CUSTODY_FILENAME,
+    TOTAL_SPINE_CUSTODY_IMPL,
+    TOTAL_SPINE_CUSTODY_KIND,
+    TOTAL_SPINE_CUSTODY_MIN_DELIVERIES,
+    annotate_total_spine_custody,
+    book_total_spine_deliveries,
+    builtin_total_spine_custody_proof,
+    compute_total_spine_custody_root,
+    custody_certificate_path,
+    custody_total_spine,
+    load_total_spine_custody_certificate,
+    seal_total_spine_custody_certificate,
+    seal_total_spine_custody_chain,
+    verify_total_spine_custody_certificate,
+    write_total_spine_custody_certificate,
+)
 # Constitution-layer goals accepted by run_constitution (not free-text).
 TOTAL_SPINE_CONSTITUTION_GOALS: frozenset[str] = frozenset(
     {
@@ -7220,6 +7248,49 @@ def _maybe_deliver_total_spine(
     return annotated
 
 
+def _maybe_custody_total_spine(
+    annotated: dict[str, Any],
+    *,
+    custody_on: bool,
+    out_root: Path | None,
+    resume_dir: Path | None,
+    repo_path: Path | None,
+) -> dict[str, Any]:
+    """Optionally custody after delivery; refuse unless delivery is present."""
+    if custody_on and TOTAL_SPINE_CUSTODY_IMPL:
+        if annotated.get("total_spine_delivery") is True:
+            cst_out = None
+            if out_root is not None:
+                cst_out = Path(out_root)
+            elif resume_dir is not None:
+                cst_out = Path(resume_dir)
+            prior_cst = str(
+                annotated.get("total_spine_delivery_bound_tip")
+                or annotated.get("total_spine_digest")
+                or ""
+            )
+            source_cst: Any = (
+                annotated.get("total_spine_custody_certificate")
+                or annotated.get("total_spine_delivery_certificate")
+                or annotated
+            )
+            annotated = custody_total_spine(
+                source_cst,
+                out_root=cst_out,
+                prior_tip=prior_cst,
+                body=annotated,
+                repo_path=repo_path or REPO_ROOT,
+            )
+        else:
+            annotated["total_spine_custody"] = False
+            annotated["total_spine_custody_requires_delivery"] = True
+    elif not custody_on:
+        annotated.setdefault("total_spine_custody", False)
+        annotated["total_spine_custody_impl"] = TOTAL_SPINE_CUSTODY_IMPL
+    annotated["total_spine_custody_impl"] = TOTAL_SPINE_CUSTODY_IMPL
+    return annotated
+
+
 def _attach_total_spine_effects(
     annotated: dict[str, Any],
     *,
@@ -7250,6 +7321,7 @@ def _attach_total_spine_effects(
     settlement: bool = False,
     clearing: bool = False,
     delivery: bool = False,
+    custody: bool = False,
 ) -> dict[str, Any]:
     """Optionally dispatch ledger effects, gate contracts, rebind hop digests.
 
@@ -7309,7 +7381,16 @@ def _attach_total_spine_effects(
     obligation with a consideration (DvP), seal an irreversible delivery
     certificate, and rebind the tip. Implies clearing and the planes above.
     Resume of an already-delivered run short-circuits.
+
+    Post-delivery custody (``custody=True``): after DvP seals matching
+    delivery books, independently confirm a second delivery, book each
+    delivered pair into a custody register and transfer title (CvT), seal
+    an irreversible custody certificate, and rebind the tip. Implies
+    delivery and the planes above. Resume of an already-custodied run
+    short-circuits.
     """
+    if custody:
+        delivery = True
     if delivery:
         clearing = True
     if clearing:
@@ -7341,9 +7422,17 @@ def _attach_total_spine_effects(
     resume_settlement: dict[str, Any] | None = None
     resume_clearing: dict[str, Any] | None = None
     resume_delivery: dict[str, Any] | None = None
+    resume_custody: dict[str, Any] | None = None
     if resume_dir is not None:
-        # Prefer delivery short-circuit, then clearing, settlement, actuation,
-        # execution, finality.
+        # Prefer custody short-circuit, then delivery, clearing, settlement,
+        # actuation, execution, finality.
+        try:
+            resume_custody = load_total_spine_custody_certificate(resume_dir)
+        except Exception as exc:  # noqa: BLE001 — custody StageRefused is modular
+            verdict = getattr(exc, "verdict", "")
+            if str(verdict) == "total_spine_custody_tampered":
+                raise
+            resume_custody = None
         try:
             resume_delivery = load_total_spine_delivery_certificate(resume_dir)
         except Exception as exc:  # noqa: BLE001 — delivery StageRefused is modular
@@ -7407,12 +7496,14 @@ def _attach_total_spine_effects(
                 and resume_settlement is None
                 and resume_clearing is None
                 and resume_delivery is None
+                and resume_custody is None
             ):
                 raise
             resumed = True
         # Prefer checkpoint mission config when caller left fields empty.
         config_src: Mapping[str, Any] = (
             resume_checkpoint
+            or resume_custody
             or resume_delivery
             or resume_clearing
             or resume_settlement
@@ -7433,9 +7524,11 @@ def _attach_total_spine_effects(
             or (resume_settlement or {}).get("capabilities")
             or (resume_clearing or {}).get("capabilities")
             or (resume_delivery or {}).get("capabilities")
+            or (resume_custody or {}).get("capabilities")
         ):
             capabilities = list(
                 (resume_checkpoint or {}).get("capabilities")
+                or (resume_custody or {}).get("capabilities")
                 or (resume_delivery or {}).get("capabilities")
                 or (resume_clearing or {}).get("capabilities")
                 or (resume_settlement or {}).get("capabilities")
@@ -7454,7 +7547,8 @@ def _attach_total_spine_effects(
                 (resume_actuation or {}).get("capabilities")
             ) or bool((resume_settlement or {}).get("capabilities")) or bool(
                 (resume_clearing or {}).get("capabilities")
-            ) or bool((resume_delivery or {}).get("capabilities"))
+            ) or bool((resume_delivery or {}).get("capabilities")
+            ) or bool((resume_custody or {}).get("capabilities"))
         if max_effect_steps is None and (resume_checkpoint or {}).get(
             "max_effect_steps"
         ) is not None:
@@ -7499,6 +7593,14 @@ def _attach_total_spine_effects(
             settlement = True
             clearing = True
             delivery = True
+        if resume_custody is not None:
+            finality = True
+            execution = True
+            actuation = True
+            settlement = True
+            clearing = True
+            delivery = True
+            custody = True
 
     continuity_on = bool(continuity) or resumed or resume_dir is not None
     finality_on = bool(finality) or resume_finality is not None
@@ -7507,6 +7609,7 @@ def _attach_total_spine_effects(
     settlement_on = bool(settlement) or resume_settlement is not None
     clearing_on = bool(clearing) or resume_clearing is not None
     delivery_on = bool(delivery) or resume_delivery is not None
+    custody_on = bool(custody) or resume_custody is not None
     # Finality needs a durable write root for the certificate.
     if finality_on and not continuity_on and (out_root is not None or resume_dir is not None):
         # Keep continuity optional; finality can seal alone under out_root.
@@ -7612,6 +7715,229 @@ def _attach_total_spine_effects(
         annotated["total_spine_continuity_checkpoint_path"] = (
             resume_checkpoint.get("checkpoint_path")
         )
+
+    # --- Irreversible custody short-circuit (no effect re-dispatch) ---
+    if resume_custody is not None:
+        short_circuited = True
+        recovered = recovered or bool(resume_custody.get("recovered"))
+        cst_caps = list(resume_custody.get("capabilities") or [])
+        cst_prior = str(resume_custody.get("prior_tip") or bound_tip)
+        bound_tip = cst_prior
+        annotated["ok"] = True
+        annotated["verdict"] = "total_spine_custody_short_circuit"
+        annotated["total_spine_effects"] = bool(cst_caps) or want_effects
+        annotated["total_spine_effects_ok"] = bool(
+            resume_custody.get("effects_ok", True)
+        )
+        annotated["total_spine_effect_capabilities"] = cst_caps
+        annotated["total_spine_effect_count"] = len(cst_caps)
+        annotated["total_spine_effects_ok_count"] = len(cst_caps)
+        annotated["total_spine_effects_failed_count"] = 0
+        annotated["total_spine_goal"] = (
+            goal_text or str(resume_custody.get("goal") or "")
+        )
+        if contract_text or resume_custody.get("done_when"):
+            annotated["total_spine_contract"] = True
+            annotated["total_spine_contract_met"] = resume_custody.get(
+                "contract_met"
+            )
+            annotated["total_spine_contract_ok"] = (
+                resume_custody.get("contract_met") is True
+                or resume_custody.get("contract_met") is None
+            )
+            annotated["total_spine_done_when"] = (
+                contract_text
+                or str(resume_custody.get("done_when") or "")
+            )
+        annotated["total_spine_adaptive"] = prior_round_count > 0 or bool(
+            adaptive_rounds_log
+        )
+        if adaptive_rounds_log:
+            annotated["total_spine_adaptive_rounds"] = adaptive_rounds_log
+            annotated["total_spine_adaptive_round_count"] = len(
+                adaptive_rounds_log
+            )
+            annotated["total_spine_adaptive_recovered"] = recovered
+            annotated["total_spine_adaptive_excluded"] = sorted(exclude)
+        annotated["total_spine_continuity"] = resume_checkpoint is not None
+        if resume_checkpoint is not None:
+            annotated["total_spine_continuity_status"] = resume_checkpoint.get(
+                "status"
+            )
+            annotated["total_spine_continuity_recovered"] = recovered
+            annotated["total_spine_continuity_digest"] = resume_checkpoint.get(
+                "checkpoint_digest"
+            )
+        if resume_finality is not None:
+            annotated = annotate_total_spine_finality(
+                annotated,
+                certificate=resume_finality,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_finality_bound_tip") or bound_tip
+            )
+        else:
+            annotated["total_spine_finality"] = True
+            annotated["total_spine_finality_irreversible"] = True
+            annotated["total_spine_finality_short_circuit"] = True
+        if resume_execution is not None:
+            annotated = annotate_total_spine_execution(
+                annotated,
+                certificate=resume_execution,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_execution_bound_tip") or bound_tip
+            )
+        else:
+            annotated["total_spine_execution"] = True
+            annotated["total_spine_execution_irreversible"] = True
+            annotated["total_spine_execution_short_circuit"] = True
+            annotated["total_spine_state_applied"] = True
+            annotated["total_spine_state_root"] = resume_custody.get(
+                "bound_state_root"
+            )
+            annotated["state_root"] = resume_custody.get("bound_state_root")
+            annotated["state_applied"] = True
+        if resume_actuation is not None:
+            annotated = annotate_total_spine_actuation(
+                annotated,
+                certificate=resume_actuation,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_actuation_bound_tip") or bound_tip
+            )
+        else:
+            annotated["total_spine_actuation"] = True
+            annotated["total_spine_actuation_irreversible"] = True
+            annotated["total_spine_actuation_short_circuit"] = True
+            annotated["total_spine_effects_applied"] = True
+            annotated["total_spine_tip_action_root"] = resume_custody.get(
+                "bound_action_root"
+            )
+            annotated["action_root"] = resume_custody.get("bound_action_root")
+            annotated["tip_action_root"] = resume_custody.get(
+                "bound_action_root"
+            )
+        if resume_settlement is not None:
+            annotated = annotate_total_spine_settlement(
+                annotated,
+                certificate=resume_settlement,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_settlement_bound_tip") or bound_tip
+            )
+        else:
+            annotated["total_spine_settlement"] = True
+            annotated["total_spine_settlement_irreversible"] = True
+            annotated["total_spine_settlement_short_circuit"] = True
+            annotated["total_spine_settled"] = True
+            annotated["total_spine_tip_settlement_root"] = resume_custody.get(
+                "bound_settlement_root"
+            )
+            annotated["settlement_root"] = resume_custody.get(
+                "bound_settlement_root"
+            )
+            annotated["tip_settlement_root"] = resume_custody.get(
+                "bound_settlement_root"
+            )
+        if resume_clearing is not None:
+            annotated = annotate_total_spine_clearing(
+                annotated,
+                certificate=resume_clearing,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_clearing_bound_tip") or bound_tip
+            )
+        else:
+            annotated["total_spine_clearing"] = True
+            annotated["total_spine_clearing_irreversible"] = True
+            annotated["total_spine_clearing_short_circuit"] = True
+            annotated["total_spine_cleared"] = True
+            annotated["total_spine_discharged"] = True
+            annotated["total_spine_tip_clearing_root"] = resume_custody.get(
+                "bound_clearing_root"
+            )
+            annotated["clearing_root"] = resume_custody.get(
+                "bound_clearing_root"
+            )
+            annotated["tip_clearing_root"] = resume_custody.get(
+                "bound_clearing_root"
+            )
+        if resume_delivery is not None:
+            annotated = annotate_total_spine_delivery(
+                annotated,
+                certificate=resume_delivery,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_delivery_bound_tip") or bound_tip
+            )
+        else:
+            annotated["total_spine_delivery"] = True
+            annotated["total_spine_delivery_irreversible"] = True
+            annotated["total_spine_delivery_short_circuit"] = True
+            annotated["total_spine_delivered"] = True
+            annotated["total_spine_dvp_ok"] = True
+            annotated["total_spine_tip_delivery_root"] = resume_custody.get(
+                "bound_delivery_root"
+            )
+            annotated["delivery_root"] = resume_custody.get(
+                "bound_delivery_root"
+            )
+            annotated["tip_delivery_root"] = resume_custody.get(
+                "bound_delivery_root"
+            )
+        annotated = annotate_total_spine_custody(
+            annotated,
+            certificate=resume_custody,
+            prior_tip=bound_tip,
+            short_circuit=True,
+        )
+        bound_tip = str(
+            annotated.get("total_spine_custody_bound_tip") or bound_tip
+        )
+        if compressed:
+            hops = seal_total_spine_hop_chain(
+                root, live_result, tip=bound_tip
+            )
+            annotated["total_spine_hop_chain"] = hops
+            annotated["total_spine_hop_count"] = len(hops)
+            if hops:
+                annotated["total_spine_digest"] = hops[0].get("digest")
+                annotated[f"{root}_digest"] = hops[0].get("digest")
+        else:
+            annotated["total_spine_digest"] = bound_tip
+            annotated[f"{root}_digest"] = bound_tip
+        annotated["total_spine_custody_short_circuit"] = True
+        annotated["total_spine_constitution_depth"] = chain_len
+        annotated["total_spine_goal_impl"] = TOTAL_SPINE_GOAL_IMPL
+        annotated["total_spine_adaptive_impl"] = TOTAL_SPINE_ADAPTIVE_IMPL
+        annotated["total_spine_continuity_impl"] = TOTAL_SPINE_CONTINUITY_IMPL
+        annotated["total_spine_finality_impl"] = TOTAL_SPINE_FINALITY_IMPL
+        annotated["total_spine_federation_impl"] = TOTAL_SPINE_FEDERATION_IMPL
+        annotated["total_spine_quorum_impl"] = TOTAL_SPINE_QUORUM_IMPL
+        annotated["total_spine_execution_impl"] = TOTAL_SPINE_EXECUTION_IMPL
+        annotated["total_spine_actuation_impl"] = TOTAL_SPINE_ACTUATION_IMPL
+        annotated["total_spine_settlement_impl"] = TOTAL_SPINE_SETTLEMENT_IMPL
+        annotated["total_spine_clearing_impl"] = TOTAL_SPINE_CLEARING_IMPL
+        annotated["total_spine_delivery_impl"] = TOTAL_SPINE_DELIVERY_IMPL
+        annotated["total_spine_custody_impl"] = TOTAL_SPINE_CUSTODY_IMPL
+        if goal_text and not annotated.get("total_spine_goal"):
+            annotated["total_spine_goal"] = goal_text
+        annotated.setdefault("total_spine_federation", False)
+        annotated.setdefault("total_spine_quorum", False)
+        return annotated
 
     # --- Irreversible delivery short-circuit (no effect re-dispatch) ---
     if resume_delivery is not None:
@@ -7808,6 +8134,13 @@ def _attach_total_spine_effects(
             annotated["total_spine_goal"] = goal_text
         annotated.setdefault("total_spine_federation", False)
         annotated.setdefault("total_spine_quorum", False)
+        annotated = _maybe_custody_total_spine(
+            annotated,
+            custody_on=custody_on,
+            out_root=out_root,
+            resume_dir=resume_dir,
+            repo_path=repo_path,
+        )
         return annotated
 
     # --- Irreversible clearing short-circuit (no effect re-dispatch) ---
@@ -7986,6 +8319,13 @@ def _attach_total_spine_effects(
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
+        annotated = _maybe_custody_total_spine(
+            annotated,
+            custody_on=custody_on,
+            out_root=out_root,
+            resume_dir=resume_dir,
+            repo_path=repo_path,
+        )
         return annotated
 
     # --- Irreversible settlement short-circuit (no effect re-dispatch) ---
@@ -8146,6 +8486,13 @@ def _attach_total_spine_effects(
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
+        annotated = _maybe_custody_total_spine(
+            annotated,
+            custody_on=custody_on,
+            out_root=out_root,
+            resume_dir=resume_dir,
+            repo_path=repo_path,
+        )
         return annotated
 
     # --- Irreversible actuation short-circuit (no effect re-dispatch) ---
@@ -8287,6 +8634,13 @@ def _attach_total_spine_effects(
         annotated = _maybe_deliver_total_spine(
             annotated,
             delivery_on=delivery_on,
+            out_root=out_root,
+            resume_dir=resume_dir,
+            repo_path=repo_path,
+        )
+        annotated = _maybe_custody_total_spine(
+            annotated,
+            custody_on=custody_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
@@ -8444,6 +8798,13 @@ def _attach_total_spine_effects(
         annotated = _maybe_deliver_total_spine(
             annotated,
             delivery_on=delivery_on,
+            out_root=out_root,
+            resume_dir=resume_dir,
+            repo_path=repo_path,
+        )
+        annotated = _maybe_custody_total_spine(
+            annotated,
+            custody_on=custody_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
@@ -8662,6 +9023,13 @@ def _attach_total_spine_effects(
         annotated = _maybe_deliver_total_spine(
             annotated,
             delivery_on=delivery_on,
+            out_root=out_root,
+            resume_dir=resume_dir,
+            repo_path=repo_path,
+        )
+        annotated = _maybe_custody_total_spine(
+            annotated,
+            custody_on=custody_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
@@ -9482,6 +9850,13 @@ def _attach_total_spine_effects(
         resume_dir=resume_dir,
         repo_path=repo_path,
     )
+    annotated = _maybe_custody_total_spine(
+        annotated,
+        custody_on=custody_on,
+        out_root=out_root,
+        resume_dir=resume_dir,
+        repo_path=repo_path,
+    )
     return annotated
 
 
@@ -9527,6 +9902,7 @@ def run_total_spine(
     settlement: bool = False,
     clearing: bool = False,
     delivery: bool = False,
+    custody: bool = False,
 ) -> dict[str, Any]:
     """Public entry: absolute total spine from root into the operational nest.
 
@@ -9601,6 +9977,13 @@ def run_total_spine(
     certificate, refuses partial / one-sided / mismatched / wrong-root
     closures, and short-circuits on re-deliver so a cleared net is no longer
     undelivered.
+
+    Post-delivery custody: ``custody=True`` independently confirms a second
+    delivery of the same DvP book, books each delivered pair into a custody
+    register and transfers beneficial title (custody-versus-title), seals a
+    re-verifiable atomic custody certificate, refuses split / one-sided /
+    mismatched / wrong-root closures, and short-circuits on re-custody so a
+    delivered net is no longer uncustodied.
     """
     root = (
         str(root_layer or TOTAL_SPINE_DEFAULT_ROOT).strip().lower()
@@ -9678,6 +10061,7 @@ def run_total_spine(
             settlement=settlement,
             clearing=clearing,
             delivery=delivery,
+            custody=custody,
         )
         return annotated
 
@@ -9748,6 +10132,7 @@ def run_total_spine(
         settlement=settlement,
         clearing=clearing,
         delivery=delivery,
+        custody=custody,
     )
     if out_root is not None:
         receipt_dir = Path(out_root)
@@ -17160,6 +17545,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "matching clearing books into irreversible delivery receipts"
         ),
     )
+    sub.add_parser(
+        "custody-proof",
+        help=(
+            "Total spine custody proof: post-delivery atomic CvT seals "
+            "matching delivery books into irreversible custody receipts"
+        ),
+    )
     sub.add_parser("list", help="List control modes and dialects")
     sub.add_parser("nest-path", help="Print canonical operational nest path")
     sub.add_parser(
@@ -17312,6 +17704,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "delivery-proof":
         result = builtin_total_spine_delivery_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "custody-proof":
+        result = builtin_total_spine_custody_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2
