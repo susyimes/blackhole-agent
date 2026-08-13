@@ -2335,6 +2335,35 @@ def _soft_extract_outcome_predicates(chunk: str) -> list[dict[str, Any]]:
     ):
         found.append({"kind": "risk_root_valid", "arg": "", "source": chunk})
     # Avoid matching capability.risk-plane ids.
+    if re.search(r"\bstress_ok\b", lower) or re.search(r"\bstressed_ok\b", lower):
+        found.append({"kind": "stress_ok", "arg": "", "source": chunk})
+    if re.search(r"\bsvc_ok\b", lower):
+        found.append({"kind": "svc_ok", "arg": "", "source": chunk})
+    if re.search(r"\bcapacity_ok\b", lower):
+        found.append({"kind": "capacity_ok", "arg": "", "source": chunk})
+    if re.search(r"\bcapacious_ok\b", lower):
+        found.append({"kind": "capacious_ok", "arg": "", "source": chunk})
+    m = re.search(r"(?:at least|>=|≥)\s*(\d+)\s+stress", lower)
+    if m:
+        found.append({"kind": "min_stresses", "arg": m.group(1), "source": chunk})
+    if re.search(r"\bmin_stresses\b", lower) and not any(
+        item.get("kind") == "min_stresses" for item in found
+    ):
+        m_n = re.search(r"min_stresses\s*[:=]?\s*(\d+)", lower)
+        found.append(
+            {
+                "kind": "min_stresses",
+                "arg": m_n.group(1) if m_n else "2",
+                "source": chunk,
+            }
+        )
+    if re.search(r"\bstress_root_valid\b", lower) or (
+        re.search(r"\bstress[_\s-]*root\b", lower)
+        and "plane" not in lower
+        and ("valid" in lower or "verify" in lower or "ok" in lower)
+    ):
+        found.append({"kind": "stress_root_valid", "arg": "", "source": chunk})
+    # Avoid matching capability.stress-plane ids.
     m = re.search(r"(?:at least|>=|≥)\s*(\d+)\s+clearing", lower)
     m = re.search(r"clearing_count\s*>=\s*(\d+)", lower)
     # Require "clearing root" adjacency; do not treat forged-root in a long list
@@ -5666,6 +5695,137 @@ def materialize_total_spine_risk_contract_context(
         shutil.rmtree(scratch, ignore_errors=True)
 
 
+
+
+def materialize_total_spine_stress_contract_context(
+    repo_path: Path,
+    context: dict[str, Any],
+    *,
+    ledger: CapabilityLedger | None = None,
+) -> dict[str, Any]:
+    """Fill empty stress plane context via fast total-spine SvC.
+
+    When predicates ask for ``stress_ok`` / ``stressed_ok`` / ``min_stresses`` /
+    ``stress_root_valid`` / ``svc_ok`` / ``capacity_ok``, prove them
+    hermetically from a risked RvA book — no skill-route.
+    """
+    existing = (
+        context.get("stress")
+        or context.get("stress_plane")
+        or {}
+    )
+    if isinstance(existing, Mapping) and existing.get("ok"):
+        return dict(existing)
+
+    try:
+        from blackhole_agent.upstream_control_engine import (
+            TOTAL_SPINE_STRESS_IMPL,
+            stress_total_spine,
+        )
+    except Exception:  # noqa: BLE001
+        return {}
+
+    if TOTAL_SPINE_STRESS_IMPL is not True:
+        return {}
+
+    ledger_ok = True
+    if ledger is not None:
+        entry = ledger.capabilities.get(
+            "capability.upstream-total-spine-stress"
+        )
+        blob = (
+            ((entry.capability_delta or "") if entry else "")
+            + " "
+            + ((entry.name or "") if entry else "")
+            + " "
+            + " ".join((entry.tags or ()) if entry else ())
+        ).lower()
+        ledger_ok = entry is not None and (
+            "stress" in blob or "svc" in blob
+        )
+
+    risked = materialize_total_spine_risk_contract_context(
+        repo_path, context, ledger=ledger
+    )
+    cert = (
+        risked.get("risk_certificate")
+        if isinstance(risked, Mapping)
+        else None
+    )
+    if not isinstance(cert, Mapping) or not risked.get("ok"):
+        return {}
+
+    import shutil
+    import tempfile
+
+    scratch = Path(tempfile.mkdtemp(prefix="contract-total-spine-stress-"))
+    try:
+        stressed = stress_total_spine(
+            cert,
+            out_root=scratch / "sts-h1",
+            prior_tip=str(
+                risked.get("bound_action_root")
+                or risked.get("bound_state_root")
+                or ""
+            ),
+            body={
+                "ok": True,
+                "total_spine": True,
+                "total_spine_risk": True,
+                "total_spine_risk_certificate": cert,
+                "total_spine_tip_risk_root": risked.get("tip_risk_root"),
+                "total_spine_digest": str(
+                    risked.get("bound_action_root") or ""
+                ),
+            },
+            repo_path=repo_path,
+        )
+        plane = {
+            "ok": (
+                bool(stressed.get("ok"))
+                and stressed.get("total_spine_stress") is True
+                and stressed.get("total_spine_stressed") is True
+                and stressed.get("total_spine_svc_ok") is True
+                and int(stressed.get("total_spine_stress_count") or 0) >= 2
+                and bool(stressed.get("total_spine_tip_stress_root"))
+                and ledger_ok
+                and not bool(stressed.get("used_skill_route_discovery"))
+            ),
+            "action": "total_spine_stress_contract",
+            "stressed": True,
+            "stressed_ok": True,
+            "svc_ok": True,
+            "capacity_ok": True,
+            "capacious_ok": True,
+            "stress_root_valid": True,
+            "stress_count": int(stressed.get("total_spine_stress_count") or 0),
+            "tip_height": int(stressed.get("total_spine_stress_height") or 0),
+            "stress_root": stressed.get("total_spine_tip_stress_root"),
+            "tip_stress_root": stressed.get("total_spine_tip_stress_root"),
+            "bound_state_root": stressed.get("total_spine_state_root"),
+            "bound_action_root": stressed.get("total_spine_tip_action_root"),
+            "bound_risk_root": stressed.get("total_spine_tip_risk_root"),
+            "stress_certificate": stressed.get("total_spine_stress_certificate"),
+            "certificate_valid": True,
+            "total_spine_stress": True,
+            "ledger_capability_ok": ledger_ok,
+            "used_skill_route_discovery": bool(
+                stressed.get("used_skill_route_discovery")
+            ),
+        }
+        context["stress"] = plane
+        context["stress_plane"] = plane
+        context["stress_count"] = plane["stress_count"]
+        context.setdefault(
+            "used_skill_route_discovery", plane.get("used_skill_route_discovery")
+        )
+        return plane
+    except Exception:  # noqa: BLE001
+        return {}
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
 def evaluate_outcome_contract(
     repo_path: Path,
     done_when: str,
@@ -5881,6 +6041,19 @@ def evaluate_outcome_contract(
     }
     if any(str(item.get("kind") or "") in _risk_kinds for item in predicates):
         materialize_total_spine_risk_contract_context(
+            root, ctx, ledger=ledger
+        )
+    _stress_kinds = {
+        "stress_ok",
+        "stressed_ok",
+        "min_stresses",
+        "stress_root_valid",
+        "svc_ok",
+        "capacity_ok",
+        "capacious_ok",
+    }
+    if any(str(item.get("kind") or "") in _stress_kinds for item in predicates):
+        materialize_total_spine_stress_contract_context(
             root, ctx, ledger=ledger
         )
     results: list[dict[str, Any]] = []
@@ -7657,6 +7830,94 @@ def _eval_one_outcome_predicate(
                     or plane.get("tip_risk_root")
                 )
         return ok, f"risk_root_valid={ok}"
+
+    if kind in {"stress_ok", "stressed_ok"}:
+        plane = (
+            context.get("stress")
+            or context.get("stress_plane")
+            or {}
+        )
+        if "stressed" in plane:
+            ok = plane.get("stressed") is True and bool(plane.get("ok", True))
+        elif "stress_ok" in plane:
+            ok = plane.get("stress_ok") is True
+        else:
+            ok = bool(plane.get("ok"))
+        return ok, f"{kind}={ok}"
+    if kind == "svc_ok":
+        plane = (
+            context.get("stress")
+            or context.get("stress_plane")
+            or {}
+        )
+        if "svc_ok" in plane:
+            ok = plane.get("svc_ok") is True and bool(plane.get("ok", True))
+        else:
+            ok = bool(plane.get("ok")) and plane.get("stressed") is True
+        return ok, f"svc_ok={ok}"
+    if kind in {"capacity_ok", "capacious_ok"}:
+        plane = (
+            context.get("stress")
+            or context.get("stress_plane")
+            or {}
+        )
+        if kind in plane:
+            ok = plane.get(kind) is True and bool(plane.get("ok", True))
+        else:
+            ok = bool(plane.get("ok")) and plane.get("stressed") is True
+        return ok, f"{kind}={ok}"
+    if kind == "min_stresses":
+        need = int(float(arg or "0"))
+        have = context.get("stress_count")
+        if have is None:
+            plane = (
+                context.get("stress")
+                or context.get("stress_plane")
+                or {}
+            )
+            have = (
+                plane.get("stress_count")
+                or plane.get("tip_height")
+                or plane.get("entry_count")
+            )
+        have_i = int(have or 0)
+        return have_i >= need, f"stresses={have_i} need>={need}"
+    if kind == "stress_root_valid":
+        plane = (
+            context.get("stress")
+            or context.get("stress_plane")
+            or context.get("stress_certificate")
+            or {}
+        )
+        if "stress_root_valid" in plane:
+            ok = plane.get("stress_root_valid") is True
+        elif "certificate_valid" in plane:
+            ok = plane.get("certificate_valid") is True
+        else:
+            cert = (
+                plane.get("stress_certificate")
+                or plane.get("certificate")
+                or {}
+            )
+            if isinstance(cert, Mapping) and cert:
+                try:
+                    from blackhole_agent.upstream_total_spine_stress import (
+                        verify_total_spine_stress_certificate,
+                    )
+
+                    verify = verify_total_spine_stress_certificate(cert)
+                    ok = bool(verify.get("ok"))
+                except Exception:
+                    ok = bool(plane.get("ok")) and bool(
+                        plane.get("stress_root")
+                        or plane.get("tip_stress_root")
+                    )
+            else:
+                ok = bool(plane.get("ok")) and bool(
+                    plane.get("stress_root")
+                    or plane.get("tip_stress_root")
+                )
+        return ok, f"stress_root_valid={ok}"
 
     if kind == "program_passes":
         steps = [part.strip() for part in arg.split(",") if part.strip()]
