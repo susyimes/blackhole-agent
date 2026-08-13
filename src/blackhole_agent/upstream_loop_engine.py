@@ -69,6 +69,10 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     TOTAL_SPINE_MARGIN_IMPL,
     TOTAL_SPINE_MARGIN_KIND,
     TOTAL_SPINE_MARGIN_MIN_CUSTODIES,
+    TOTAL_SPINE_COLLATERAL_FILENAME,
+    TOTAL_SPINE_COLLATERAL_IMPL,
+    TOTAL_SPINE_COLLATERAL_KIND,
+    TOTAL_SPINE_COLLATERAL_MIN_COLLATERALS,
     TOTAL_SPINE_EXECUTION_FILENAME,
     TOTAL_SPINE_EXECUTION_IMPL,
     TOTAL_SPINE_EXECUTION_KIND,
@@ -101,6 +105,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     annotate_total_spine_delivery,
     annotate_total_spine_custody,
     annotate_total_spine_margin,
+    annotate_total_spine_collateral,
     annotate_total_spine_execution,
     annotate_total_spine_federation,
     annotate_total_spine_finality,
@@ -122,6 +127,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     builtin_total_spine_delivery_proof,
     builtin_total_spine_custody_proof,
     builtin_total_spine_margin_proof,
+    builtin_total_spine_collateral_proof,
     builtin_total_spine_execution_proof,
     builtin_total_spine_federation_proof,
     builtin_total_spine_finality_proof,
@@ -143,6 +149,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     compute_total_spine_delivery_root,
     compute_total_spine_custody_root,
     compute_total_spine_margin_root,
+    compute_total_spine_collateral_root,
     execute_total_spine,
     execution_certificate_path,
     federate_total_spine,
@@ -158,6 +165,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     load_total_spine_delivery_certificate,
     load_total_spine_custody_certificate,
     load_total_spine_margin_certificate,
+    load_total_spine_collateral_certificate,
     load_total_spine_continuity_checkpoint,
     load_total_spine_execution_certificate,
     load_total_spine_federation_certificate,
@@ -195,6 +203,9 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     custody_certificate_path,
     margin_total_spine,
     margin_certificate_path,
+    collateral_total_spine,
+    collateral_certificate_path,
+    book_total_spine_margins,
     book_total_spine_deliveries,
     book_total_spine_custodies,
     pair_total_spine_clearings,
@@ -218,6 +229,8 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     seal_total_spine_custody_chain,
     seal_total_spine_margin_certificate,
     seal_total_spine_margin_chain,
+    seal_total_spine_collateral_certificate,
+    seal_total_spine_collateral_chain,
     seal_total_spine_execution_certificate,
     seal_total_spine_execution_chain,
     seal_total_spine_federation_certificate,
@@ -238,6 +251,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     verify_total_spine_delivery_certificate,
     verify_total_spine_custody_certificate,
     verify_total_spine_margin_certificate,
+    verify_total_spine_collateral_certificate,
     verify_total_spine_continuity_checkpoint,
     verify_total_spine_execution_certificate,
     verify_total_spine_federation_certificate,
@@ -248,6 +262,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     write_total_spine_delivery_certificate,
     write_total_spine_custody_certificate,
     write_total_spine_margin_certificate,
+    write_total_spine_collateral_certificate,
     write_total_spine_continuity_checkpoint,
     write_total_spine_execution_certificate,
     write_total_spine_federation_certificate,
@@ -397,6 +412,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "custody books into irreversible margin receipts"
         ),
     )
+    sub.add_parser(
+        "collateral-proof",
+        help=(
+            "Total spine collateral: post-margin atomic CvO seals matching "
+            "margin books into irreversible collateral receipts"
+        ),
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
     if args.cmd == "list":
         print(json.dumps({"dialects": list_loop_dialects()}, indent=2))
@@ -479,6 +501,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "margin-proof":
         result = builtin_total_spine_margin_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "collateral-proof":
+        result = builtin_total_spine_collateral_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2
