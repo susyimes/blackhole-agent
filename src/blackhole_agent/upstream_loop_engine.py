@@ -89,6 +89,10 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     TOTAL_SPINE_SOLVENCY_IMPL,
     TOTAL_SPINE_SOLVENCY_KIND,
     TOTAL_SPINE_SOLVENCY_MIN_SOLVENCIES,
+    TOTAL_SPINE_RISK_FILENAME,
+    TOTAL_SPINE_RISK_IMPL,
+    TOTAL_SPINE_RISK_KIND,
+    TOTAL_SPINE_RISK_MIN_RISKS,
     TOTAL_SPINE_EXECUTION_FILENAME,
     TOTAL_SPINE_EXECUTION_IMPL,
     TOTAL_SPINE_EXECUTION_KIND,
@@ -126,6 +130,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     annotate_total_spine_funding,
     annotate_total_spine_capital,
     annotate_total_spine_solvency,
+    annotate_total_spine_risk,
     annotate_total_spine_execution,
     annotate_total_spine_federation,
     annotate_total_spine_finality,
@@ -152,6 +157,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     builtin_total_spine_funding_proof,
     builtin_total_spine_capital_proof,
     builtin_total_spine_solvency_proof,
+    builtin_total_spine_risk_proof,
     builtin_total_spine_execution_proof,
     builtin_total_spine_federation_proof,
     builtin_total_spine_finality_proof,
@@ -178,6 +184,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     compute_total_spine_funding_root,
     compute_total_spine_capital_root,
     compute_total_spine_solvency_root,
+    compute_total_spine_risk_root,
     execute_total_spine,
     execution_certificate_path,
     federate_total_spine,
@@ -198,6 +205,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     load_total_spine_funding_certificate,
     load_total_spine_capital_certificate,
     load_total_spine_solvency_certificate,
+    load_total_spine_risk_certificate,
     load_total_spine_continuity_checkpoint,
     load_total_spine_execution_certificate,
     load_total_spine_federation_certificate,
@@ -245,7 +253,10 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     capital_certificate_path,
     solvency_total_spine,
     solvency_certificate_path,
+    risk_total_spine,
+    risk_certificate_path,
     book_total_spine_capitals,
+    book_total_spine_solvencies,
     book_total_spine_fundings,
     book_total_spine_liquidities,
     book_total_spine_collaterals,
@@ -283,6 +294,8 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     seal_total_spine_capital_chain,
     seal_total_spine_solvency_certificate,
     seal_total_spine_solvency_chain,
+    seal_total_spine_risk_certificate,
+    seal_total_spine_risk_chain,
     seal_total_spine_execution_certificate,
     seal_total_spine_execution_chain,
     seal_total_spine_federation_certificate,
@@ -308,6 +321,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     verify_total_spine_funding_certificate,
     verify_total_spine_capital_certificate,
     verify_total_spine_solvency_certificate,
+    verify_total_spine_risk_certificate,
     verify_total_spine_continuity_checkpoint,
     verify_total_spine_execution_certificate,
     verify_total_spine_federation_certificate,
@@ -323,6 +337,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     write_total_spine_funding_certificate,
     write_total_spine_capital_certificate,
     write_total_spine_solvency_certificate,
+    write_total_spine_risk_certificate,
     write_total_spine_continuity_checkpoint,
     write_total_spine_execution_certificate,
     write_total_spine_federation_certificate,
@@ -507,6 +522,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "capital books into irreversible solvency receipts"
         ),
     )
+    sub.add_parser(
+        "risk-proof",
+        help=(
+            "Total spine risk: post-solvency atomic RvA seals matching "
+            "solvency books into irreversible risk receipts"
+        ),
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
     if args.cmd == "list":
         print(json.dumps({"dialects": list_loop_dialects()}, indent=2))
@@ -609,6 +631,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "solvency-proof":
         result = builtin_total_spine_solvency_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "risk-proof":
+        result = builtin_total_spine_risk_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2

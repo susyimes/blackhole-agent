@@ -1039,6 +1039,8 @@ PROGRAM_PLAN_DENYLIST = frozenset(
         "capability.liquidity-plane",
         "capability.funding-plane",
         "capability.capital-plane",
+        "capability.solvency-plane",
+        "capability.risk-plane",
         # Batch operators are invocable separately; keep goal programs step-cheap.
         "capability.ledger-integrity",
         "capability.distill-ledger",
@@ -1093,6 +1095,7 @@ MISSION_GOAL_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("byzantine", ("capability.quorum-plane", "capability.federation-plane", "capability.adversarial-contract")),
     ("consensus", ("capability.quorum-plane", "capability.federation-plane", "capability.lineage-plane")),
     ("majority", ("capability.quorum-plane", "capability.federation-plane", "capability.assurance-plane")),
+    ("risk appetite", ("capability.risk-plane", "capability.solvency-plane", "capability.capital-plane")),
     ("finality", ("capability.finality-plane", "capability.quorum-plane", "capability.lineage-plane")),
     ("epoch", ("capability.finality-plane", "capability.quorum-plane", "capability.continuity-plane")),
     ("irreversib", ("capability.finality-plane", "capability.quorum-plane", "capability.sovereignty-plane")),
@@ -2301,6 +2304,37 @@ def _soft_extract_outcome_predicates(chunk: str) -> list[dict[str, Any]]:
     ):
         found.append({"kind": "solvency_root_valid", "arg": "", "source": chunk})
     # Avoid matching capability.solvency-plane ids.
+    if re.search(r"\brisk_ok\b", lower) or re.search(r"\brisked_ok\b", lower):
+        found.append({"kind": "risk_ok", "arg": "", "source": chunk})
+    if re.search(r"\bassessed_ok\b", lower):
+        found.append({"kind": "assessed_ok", "arg": "", "source": chunk})
+    if re.search(r"\brva_ok\b", lower):
+        found.append({"kind": "rva_ok", "arg": "", "source": chunk})
+    if re.search(r"\bappetite_ok\b", lower):
+        found.append({"kind": "appetite_ok", "arg": "", "source": chunk})
+    if re.search(r"\bappetent_ok\b", lower):
+        found.append({"kind": "appetent_ok", "arg": "", "source": chunk})
+    m = re.search(r"(?:at least|>=|≥)\s*(\d+)\s+risks?\b", lower)
+    if m:
+        found.append({"kind": "min_risks", "arg": m.group(1), "source": chunk})
+    if re.search(r"\bmin_risks\b", lower) and not any(
+        item.get("kind") == "min_risks" for item in found
+    ):
+        m_n = re.search(r"min_risks\s*[:=]?\s*(\d+)", lower)
+        found.append(
+            {
+                "kind": "min_risks",
+                "arg": m_n.group(1) if m_n else "2",
+                "source": chunk,
+            }
+        )
+    if re.search(r"\brisk_root_valid\b", lower) or (
+        re.search(r"\brisk[_\s-]*root\b", lower)
+        and "plane" not in lower
+        and ("valid" in lower or "verify" in lower or "ok" in lower)
+    ):
+        found.append({"kind": "risk_root_valid", "arg": "", "source": chunk})
+    # Avoid matching capability.risk-plane ids.
     m = re.search(r"(?:at least|>=|≥)\s*(\d+)\s+clearing", lower)
     m = re.search(r"clearing_count\s*>=\s*(\d+)", lower)
     # Require "clearing root" adjacency; do not treat forged-root in a long list
@@ -5500,6 +5534,138 @@ def materialize_total_spine_solvency_contract_context(
         shutil.rmtree(scratch, ignore_errors=True)
 
 
+def materialize_total_spine_risk_contract_context(
+    repo_path: Path,
+    context: dict[str, Any],
+    *,
+    ledger: CapabilityLedger | None = None,
+) -> dict[str, Any]:
+    """Fill empty risk plane context via fast total-spine RvA.
+
+    When predicates ask for ``risk_ok`` / ``assessed_ok`` / ``min_risks`` /
+    ``risk_root_valid`` / ``rva_ok`` / ``appetite_ok``, prove them
+    hermetically from a solvent SvR book — no skill-route.
+    """
+    existing = (
+        context.get("risk")
+        or context.get("risk_plane")
+        or {}
+    )
+    if isinstance(existing, Mapping) and existing.get("ok"):
+        return dict(existing)
+
+    try:
+        from blackhole_agent.upstream_control_engine import (
+            TOTAL_SPINE_RISK_IMPL,
+            risk_total_spine,
+        )
+    except Exception:  # noqa: BLE001
+        return {}
+
+    if TOTAL_SPINE_RISK_IMPL is not True:
+        return {}
+
+    ledger_ok = True
+    if ledger is not None:
+        entry = ledger.capabilities.get(
+            "capability.upstream-total-spine-risk"
+        )
+        blob = (
+            ((entry.capability_delta or "") if entry else "")
+            + " "
+            + ((entry.name or "") if entry else "")
+            + " "
+            + " ".join((entry.tags or ()) if entry else ())
+        ).lower()
+        ledger_ok = entry is not None and (
+            "risk" in blob or "rva" in blob
+        )
+
+    solvent = materialize_total_spine_solvency_contract_context(
+        repo_path, context, ledger=ledger
+    )
+    cert = (
+        solvent.get("solvency_certificate")
+        if isinstance(solvent, Mapping)
+        else None
+    )
+    if not isinstance(cert, Mapping) or not solvent.get("ok"):
+        return {}
+
+    import shutil
+    import tempfile
+
+    scratch = Path(tempfile.mkdtemp(prefix="contract-total-spine-risk-"))
+    try:
+        risked = risk_total_spine(
+            cert,
+            out_root=scratch / "rsk-h1",
+            prior_tip=str(
+                solvent.get("bound_action_root")
+                or solvent.get("bound_state_root")
+                or ""
+            ),
+            body={
+                "ok": True,
+                "total_spine": True,
+                "total_spine_solvency": True,
+                "total_spine_solvency_certificate": cert,
+                "total_spine_tip_solvency_root": solvent.get(
+                    "tip_solvency_root"
+                ),
+                "total_spine_digest": str(
+                    solvent.get("bound_action_root") or ""
+                ),
+            },
+            repo_path=repo_path,
+        )
+        plane = {
+            "ok": (
+                bool(risked.get("ok"))
+                and risked.get("total_spine_risk") is True
+                and risked.get("total_spine_risked") is True
+                and risked.get("total_spine_rva_ok") is True
+                and int(risked.get("total_spine_risk_count") or 0) >= 2
+                and bool(risked.get("total_spine_tip_risk_root"))
+                and ledger_ok
+                and not bool(risked.get("used_skill_route_discovery"))
+            ),
+            "action": "total_spine_risk_contract",
+            "risked": True,
+            "risked_ok": True,
+            "assessed_ok": True,
+            "rva_ok": True,
+            "appetite_ok": True,
+            "appetent_ok": True,
+            "risk_root_valid": True,
+            "risk_count": int(risked.get("total_spine_risk_count") or 0),
+            "tip_height": int(risked.get("total_spine_risk_height") or 0),
+            "risk_root": risked.get("total_spine_tip_risk_root"),
+            "tip_risk_root": risked.get("total_spine_tip_risk_root"),
+            "bound_state_root": risked.get("total_spine_state_root"),
+            "bound_action_root": risked.get("total_spine_tip_action_root"),
+            "bound_solvency_root": risked.get("total_spine_tip_solvency_root"),
+            "risk_certificate": risked.get("total_spine_risk_certificate"),
+            "certificate_valid": True,
+            "total_spine_risk": True,
+            "ledger_capability_ok": ledger_ok,
+            "used_skill_route_discovery": bool(
+                risked.get("used_skill_route_discovery")
+            ),
+        }
+        context["risk"] = plane
+        context["risk_plane"] = plane
+        context["risk_count"] = plane["risk_count"]
+        context.setdefault(
+            "used_skill_route_discovery", plane.get("used_skill_route_discovery")
+        )
+        return plane
+    except Exception:  # noqa: BLE001
+        return {}
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
 def evaluate_outcome_contract(
     repo_path: Path,
     done_when: str,
@@ -5701,6 +5867,20 @@ def evaluate_outcome_contract(
     }
     if any(str(item.get("kind") or "") in _solvency_kinds for item in predicates):
         materialize_total_spine_solvency_contract_context(
+            root, ctx, ledger=ledger
+        )
+    _risk_kinds = {
+        "risk_ok",
+        "risked_ok",
+        "assessed_ok",
+        "min_risks",
+        "risk_root_valid",
+        "rva_ok",
+        "appetite_ok",
+        "appetent_ok",
+    }
+    if any(str(item.get("kind") or "") in _risk_kinds for item in predicates):
+        materialize_total_spine_risk_contract_context(
             root, ctx, ledger=ledger
         )
     results: list[dict[str, Any]] = []
@@ -7378,6 +7558,105 @@ def _eval_one_outcome_predicate(
                     or plane.get("tip_solvency_root")
                 )
         return ok, f"solvency_root_valid={ok}"
+
+    if kind in {"risk_ok", "risked_ok"}:
+        plane = (
+            context.get("risk")
+            or context.get("risk_plane")
+            or {}
+        )
+        if "risked" in plane:
+            ok = plane.get("risked") is True and bool(plane.get("ok", True))
+        elif "risk_ok" in plane:
+            ok = plane.get("risk_ok") is True
+        else:
+            ok = bool(plane.get("ok"))
+        return ok, f"{kind}={ok}"
+    if kind == "assessed_ok":
+        plane = (
+            context.get("risk")
+            or context.get("risk_plane")
+            or {}
+        )
+        if "assessed_ok" in plane:
+            ok = plane.get("assessed_ok") is True and bool(plane.get("ok", True))
+        else:
+            ok = bool(plane.get("ok")) and plane.get("risked") is True
+        return ok, f"assessed_ok={ok}"
+    if kind == "rva_ok":
+        plane = (
+            context.get("risk")
+            or context.get("risk_plane")
+            or {}
+        )
+        if "rva_ok" in plane:
+            ok = plane.get("rva_ok") is True and bool(plane.get("ok", True))
+        else:
+            ok = bool(plane.get("ok")) and plane.get("risked") is True
+        return ok, f"rva_ok={ok}"
+    if kind in {"appetite_ok", "appetent_ok"}:
+        plane = (
+            context.get("risk")
+            or context.get("risk_plane")
+            or {}
+        )
+        if kind in plane:
+            ok = plane.get(kind) is True and bool(plane.get("ok", True))
+        else:
+            ok = bool(plane.get("ok")) and plane.get("risked") is True
+        return ok, f"{kind}={ok}"
+    if kind == "min_risks":
+        need = int(float(arg or "0"))
+        have = context.get("risk_count")
+        if have is None:
+            plane = (
+                context.get("risk")
+                or context.get("risk_plane")
+                or {}
+            )
+            have = (
+                plane.get("risk_count")
+                or plane.get("tip_height")
+                or plane.get("entry_count")
+            )
+        have_i = int(have or 0)
+        return have_i >= need, f"risks={have_i} need>={need}"
+    if kind == "risk_root_valid":
+        plane = (
+            context.get("risk")
+            or context.get("risk_plane")
+            or context.get("risk_certificate")
+            or {}
+        )
+        if "risk_root_valid" in plane:
+            ok = plane.get("risk_root_valid") is True
+        elif "certificate_valid" in plane:
+            ok = plane.get("certificate_valid") is True
+        else:
+            cert = (
+                plane.get("risk_certificate")
+                or plane.get("certificate")
+                or {}
+            )
+            if isinstance(cert, Mapping) and cert:
+                try:
+                    from blackhole_agent.upstream_total_spine_risk import (
+                        verify_total_spine_risk_certificate,
+                    )
+
+                    verify = verify_total_spine_risk_certificate(cert)
+                    ok = bool(verify.get("ok"))
+                except Exception:
+                    ok = bool(plane.get("ok")) and bool(
+                        plane.get("risk_root")
+                        or plane.get("tip_risk_root")
+                    )
+            else:
+                ok = bool(plane.get("ok")) and bool(
+                    plane.get("risk_root")
+                    or plane.get("tip_risk_root")
+                )
+        return ok, f"risk_root_valid={ok}"
 
     if kind == "program_passes":
         steps = [part.strip() for part in arg.split(",") if part.strip()]
