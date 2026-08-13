@@ -73,6 +73,10 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     TOTAL_SPINE_COLLATERAL_IMPL,
     TOTAL_SPINE_COLLATERAL_KIND,
     TOTAL_SPINE_COLLATERAL_MIN_COLLATERALS,
+    TOTAL_SPINE_LIQUIDITY_FILENAME,
+    TOTAL_SPINE_LIQUIDITY_IMPL,
+    TOTAL_SPINE_LIQUIDITY_KIND,
+    TOTAL_SPINE_LIQUIDITY_MIN_LIQUIDITIES,
     TOTAL_SPINE_EXECUTION_FILENAME,
     TOTAL_SPINE_EXECUTION_IMPL,
     TOTAL_SPINE_EXECUTION_KIND,
@@ -106,6 +110,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     annotate_total_spine_custody,
     annotate_total_spine_margin,
     annotate_total_spine_collateral,
+    annotate_total_spine_liquidity,
     annotate_total_spine_execution,
     annotate_total_spine_federation,
     annotate_total_spine_finality,
@@ -128,6 +133,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     builtin_total_spine_custody_proof,
     builtin_total_spine_margin_proof,
     builtin_total_spine_collateral_proof,
+    builtin_total_spine_liquidity_proof,
     builtin_total_spine_execution_proof,
     builtin_total_spine_federation_proof,
     builtin_total_spine_finality_proof,
@@ -150,6 +156,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     compute_total_spine_custody_root,
     compute_total_spine_margin_root,
     compute_total_spine_collateral_root,
+    compute_total_spine_liquidity_root,
     execute_total_spine,
     execution_certificate_path,
     federate_total_spine,
@@ -166,6 +173,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     load_total_spine_custody_certificate,
     load_total_spine_margin_certificate,
     load_total_spine_collateral_certificate,
+    load_total_spine_liquidity_certificate,
     load_total_spine_continuity_checkpoint,
     load_total_spine_execution_certificate,
     load_total_spine_federation_certificate,
@@ -205,6 +213,9 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     margin_certificate_path,
     collateral_total_spine,
     collateral_certificate_path,
+    liquidity_total_spine,
+    liquidity_certificate_path,
+    book_total_spine_collaterals,
     book_total_spine_margins,
     book_total_spine_deliveries,
     book_total_spine_custodies,
@@ -231,6 +242,8 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     seal_total_spine_margin_chain,
     seal_total_spine_collateral_certificate,
     seal_total_spine_collateral_chain,
+    seal_total_spine_liquidity_certificate,
+    seal_total_spine_liquidity_chain,
     seal_total_spine_execution_certificate,
     seal_total_spine_execution_chain,
     seal_total_spine_federation_certificate,
@@ -252,6 +265,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     verify_total_spine_custody_certificate,
     verify_total_spine_margin_certificate,
     verify_total_spine_collateral_certificate,
+    verify_total_spine_liquidity_certificate,
     verify_total_spine_continuity_checkpoint,
     verify_total_spine_execution_certificate,
     verify_total_spine_federation_certificate,
@@ -263,6 +277,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     write_total_spine_custody_certificate,
     write_total_spine_margin_certificate,
     write_total_spine_collateral_certificate,
+    write_total_spine_liquidity_certificate,
     write_total_spine_continuity_checkpoint,
     write_total_spine_execution_certificate,
     write_total_spine_federation_certificate,
@@ -419,6 +434,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "margin books into irreversible collateral receipts"
         ),
     )
+    sub.add_parser(
+        "liquidity-proof",
+        help=(
+            "Total spine liquidity: post-collateral atomic LvC seals matching "
+            "collateral books into irreversible liquidity receipts"
+        ),
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
     if args.cmd == "list":
         print(json.dumps({"dialects": list_loop_dialects()}, indent=2))
@@ -505,6 +527,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "collateral-proof":
         result = builtin_total_spine_collateral_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "liquidity-proof":
+        result = builtin_total_spine_liquidity_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2

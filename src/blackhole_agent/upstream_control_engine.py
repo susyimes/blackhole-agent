@@ -146,6 +146,15 @@ Composition:
   collateral certificate, refuses split / one-sided / mismatched /
   failed / wrong-root / tampered collaterals, short-circuits on
   re-collateral, and rebinds the depth-28 tip without skill-route
+* total-spine **post-collateral liquidity-versus-coverage** — closes the
+  collateralized-but-unfunded cliff: after atomic CvO seals matching
+  collateral books, ``liquidity_total_spine(...)``
+  (and ``run_total_spine(liquidity=True)``) independently confirms a
+  second collateral, books each collateralized pair into a liquidity
+  register and pairs it with coverage (LvC), seals a re-verifiable
+  atomic liquidity certificate, refuses split / one-sided / mismatched /
+  failed / wrong-root / tampered liquidities, short-circuits on
+  re-fund, and rebinds the depth-28 tip without skill-route
 
 No skill-route discovery.
 """
@@ -4525,6 +4534,25 @@ from blackhole_agent.upstream_total_spine_collateral import (  # noqa: E402
     verify_total_spine_collateral_certificate,
     write_total_spine_collateral_certificate,
 )
+# Post-collateral liquidity-versus-coverage: atomic liquidity+coverage of collateralized pairs.
+# Implementation lives in upstream_total_spine_liquidity; re-exported here.
+from blackhole_agent.upstream_total_spine_liquidity import (  # noqa: E402
+    TOTAL_SPINE_LIQUIDITY_FILENAME,
+    TOTAL_SPINE_LIQUIDITY_IMPL,
+    TOTAL_SPINE_LIQUIDITY_KIND,
+    TOTAL_SPINE_LIQUIDITY_MIN_LIQUIDITIES,
+    annotate_total_spine_liquidity,
+    book_total_spine_collaterals,
+    builtin_total_spine_liquidity_proof,
+    compute_total_spine_liquidity_root,
+    liquidity_certificate_path,
+    liquidity_total_spine,
+    load_total_spine_liquidity_certificate,
+    seal_total_spine_liquidity_certificate,
+    seal_total_spine_liquidity_chain,
+    verify_total_spine_liquidity_certificate,
+    write_total_spine_liquidity_certificate,
+)
 # Constitution-layer goals accepted by run_constitution (not free-text).
 TOTAL_SPINE_CONSTITUTION_GOALS: frozenset[str] = frozenset(
     {
@@ -7432,6 +7460,48 @@ def _maybe_collateral_total_spine(
     return annotated
 
 
+def _maybe_liquidity_total_spine(
+    annotated: dict[str, Any],
+    *,
+    liquidity_on: bool,
+    out_root: Path | None,
+    resume_dir: Path | None,
+    repo_path: Path | None,
+) -> dict[str, Any]:
+    """Optionally fund after collateral; refuse unless collateral is present."""
+    if liquidity_on and TOTAL_SPINE_LIQUIDITY_IMPL:
+        if annotated.get("total_spine_collateral") is True:
+            liq_out = None
+            if out_root is not None:
+                liq_out = Path(out_root)
+            elif resume_dir is not None:
+                liq_out = Path(resume_dir)
+            prior_liq = str(
+                annotated.get("total_spine_collateral_bound_tip")
+                or annotated.get("total_spine_digest")
+                or ""
+            )
+            source_liq: Any = (
+                annotated.get("total_spine_liquidity_certificate")
+                or annotated
+            )
+            annotated = liquidity_total_spine(
+                source_liq,
+                out_root=liq_out,
+                prior_tip=prior_liq,
+                body=annotated,
+                repo_path=repo_path or REPO_ROOT,
+            )
+        else:
+            annotated["total_spine_liquidity"] = False
+            annotated["total_spine_liquidity_requires_collateral"] = True
+    elif not liquidity_on:
+        annotated.setdefault("total_spine_liquidity", False)
+        annotated["total_spine_liquidity_impl"] = TOTAL_SPINE_LIQUIDITY_IMPL
+    annotated["total_spine_liquidity_impl"] = TOTAL_SPINE_LIQUIDITY_IMPL
+    return annotated
+
+
 def _attach_total_spine_effects(
     annotated: dict[str, Any],
     *,
@@ -7465,6 +7535,7 @@ def _attach_total_spine_effects(
     custody: bool = False,
     margin: bool = False,
     collateral: bool = False,
+    liquidity: bool = False,
 ) -> dict[str, Any]:
     """Optionally dispatch ledger effects, gate contracts, rebind hop digests.
 
@@ -7545,7 +7616,16 @@ def _attach_total_spine_effects(
     (CvO), seal an irreversible collateral certificate, and rebind the tip.
     Implies margin and the planes above. Resume of an already-collateralized
     run short-circuits.
+
+    Post-collateral liquidity (``liquidity=True``): after CvO seals matching
+    collateral books, independently confirm a second collateral, book each
+    collateralized pair into a liquidity register and pair it with coverage
+    (LvC), seal an irreversible liquidity certificate, and rebind the tip.
+    Implies collateral and the planes above. Resume of an already-funded
+    run short-circuits.
     """
+    if liquidity:
+        collateral = True
     if collateral:
         margin = True
     if margin:
@@ -7586,9 +7666,19 @@ def _attach_total_spine_effects(
     resume_custody: dict[str, Any] | None = None
     resume_margin: dict[str, Any] | None = None
     resume_collateral: dict[str, Any] | None = None
+    resume_liquidity: dict[str, Any] | None = None
     if resume_dir is not None:
-        # Prefer collateral short-circuit, then margin, custody, delivery,
-        # clearing, settlement, actuation, execution, finality.
+        # Prefer liquidity short-circuit, then collateral, margin, custody,
+        # delivery, clearing, settlement, actuation, execution, finality.
+        try:
+            resume_liquidity = load_total_spine_liquidity_certificate(
+                resume_dir
+            )
+        except Exception as exc:  # noqa: BLE001 — liquidity StageRefused is modular
+            verdict = getattr(exc, "verdict", "")
+            if str(verdict) == "total_spine_liquidity_tampered":
+                raise
+            resume_liquidity = None
         try:
             resume_collateral = load_total_spine_collateral_certificate(
                 resume_dir
@@ -7678,12 +7768,14 @@ def _attach_total_spine_effects(
                 and resume_custody is None
                 and resume_margin is None
                 and resume_collateral is None
+                and resume_liquidity is None
             ):
                 raise
             resumed = True
         # Prefer checkpoint mission config when caller left fields empty.
         config_src: Mapping[str, Any] = (
             resume_checkpoint
+            or resume_liquidity
             or resume_collateral
             or resume_margin
             or resume_custody
@@ -7710,9 +7802,11 @@ def _attach_total_spine_effects(
             or (resume_custody or {}).get("capabilities")
             or (resume_margin or {}).get("capabilities")
             or (resume_collateral or {}).get("capabilities")
+            or (resume_liquidity or {}).get("capabilities")
         ):
             capabilities = list(
                 (resume_checkpoint or {}).get("capabilities")
+                or (resume_liquidity or {}).get("capabilities")
                 or (resume_collateral or {}).get("capabilities")
                 or (resume_margin or {}).get("capabilities")
                 or (resume_custody or {}).get("capabilities")
@@ -7737,7 +7831,8 @@ def _attach_total_spine_effects(
             ) or bool((resume_delivery or {}).get("capabilities")
             ) or bool((resume_custody or {}).get("capabilities")
             ) or bool((resume_margin or {}).get("capabilities")
-            ) or bool((resume_collateral or {}).get("capabilities"))
+            ) or bool((resume_collateral or {}).get("capabilities")
+            ) or bool((resume_liquidity or {}).get("capabilities"))
         if max_effect_steps is None and (resume_checkpoint or {}).get(
             "max_effect_steps"
         ) is not None:
@@ -7809,6 +7904,17 @@ def _attach_total_spine_effects(
             custody = True
             margin = True
             collateral = True
+        if resume_liquidity is not None:
+            finality = True
+            execution = True
+            actuation = True
+            settlement = True
+            clearing = True
+            delivery = True
+            custody = True
+            margin = True
+            collateral = True
+            liquidity = True
 
     continuity_on = bool(continuity) or resumed or resume_dir is not None
     finality_on = bool(finality) or resume_finality is not None
@@ -7820,6 +7926,7 @@ def _attach_total_spine_effects(
     custody_on = bool(custody) or resume_custody is not None
     margin_on = bool(margin) or resume_margin is not None
     collateral_on = bool(collateral) or resume_collateral is not None
+    liquidity_on = bool(liquidity) or resume_liquidity is not None
     # Finality needs a durable write root for the certificate.
     if finality_on and not continuity_on and (out_root is not None or resume_dir is not None):
         # Keep continuity optional; finality can seal alone under out_root.
@@ -7926,6 +8033,89 @@ def _attach_total_spine_effects(
             resume_checkpoint.get("checkpoint_path")
         )
 
+
+    # --- Irreversible liquidity short-circuit (no effect re-dispatch) ---
+    if resume_liquidity is not None:
+        short_circuited = True
+        recovered = recovered or bool(resume_liquidity.get("recovered"))
+        liq_caps = list(resume_liquidity.get("capabilities") or [])
+        liq_prior = str(resume_liquidity.get("prior_tip") or bound_tip)
+        bound_tip = liq_prior
+        annotated["ok"] = True
+        annotated["verdict"] = "total_spine_liquidity_short_circuit"
+        annotated["total_spine_effects"] = bool(liq_caps) or want_effects
+        annotated["total_spine_effects_ok"] = bool(
+            resume_liquidity.get("effects_ok", True)
+        )
+        annotated["total_spine_effect_capabilities"] = liq_caps
+        annotated["total_spine_effect_count"] = len(liq_caps)
+        annotated["total_spine_effects_ok_count"] = len(liq_caps)
+        annotated["total_spine_effects_failed_count"] = 0
+        annotated["total_spine_goal"] = (
+            goal_text or str(resume_liquidity.get("goal") or "")
+        )
+        if contract_text or resume_liquidity.get("done_when"):
+            annotated["total_spine_contract"] = True
+            annotated["total_spine_contract_met"] = resume_liquidity.get(
+                "contract_met"
+            )
+            annotated["total_spine_contract_ok"] = (
+                resume_liquidity.get("contract_met") is True
+                or resume_liquidity.get("contract_met") is None
+            )
+            annotated["total_spine_done_when"] = (
+                contract_text
+                or str(resume_liquidity.get("done_when") or "")
+            )
+        annotated["total_spine_finality"] = True
+        annotated["total_spine_execution"] = True
+        annotated["total_spine_actuation"] = True
+        annotated["total_spine_settlement"] = True
+        annotated["total_spine_clearing"] = True
+        annotated["total_spine_delivery"] = True
+        annotated["total_spine_custody"] = True
+        annotated["total_spine_margin"] = True
+        annotated["total_spine_collateral"] = True
+        if resume_collateral is not None:
+            annotated = annotate_total_spine_collateral(
+                annotated,
+                certificate=resume_collateral,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_collateral_bound_tip") or bound_tip
+            )
+        annotated = annotate_total_spine_liquidity(
+            annotated,
+            certificate=resume_liquidity,
+            prior_tip=bound_tip,
+            short_circuit=True,
+        )
+        bound_tip = str(
+            annotated.get("total_spine_liquidity_bound_tip") or bound_tip
+        )
+        if compressed:
+            hops = seal_total_spine_hop_chain(
+                root, live_result, tip=bound_tip
+            )
+            annotated["total_spine_hop_chain"] = hops
+            annotated["total_spine_hop_count"] = len(hops)
+            if hops:
+                annotated["total_spine_digest"] = hops[0].get("digest")
+                annotated[f"{root}_digest"] = hops[0].get("digest")
+        else:
+            annotated["total_spine_digest"] = bound_tip
+            annotated[f"{root}_digest"] = bound_tip
+        annotated["total_spine_liquidity_short_circuit"] = True
+        annotated["total_spine_constitution_depth"] = chain_len
+        annotated["total_spine_collateral_impl"] = TOTAL_SPINE_COLLATERAL_IMPL
+        annotated["total_spine_liquidity_impl"] = TOTAL_SPINE_LIQUIDITY_IMPL
+        if goal_text and not annotated.get("total_spine_goal"):
+            annotated["total_spine_goal"] = goal_text
+        annotated.setdefault("total_spine_federation", False)
+        annotated.setdefault("total_spine_quorum", False)
+        return annotated
 
     # --- Irreversible collateral short-circuit (no effect re-dispatch) ---
     if resume_collateral is not None:
@@ -8194,10 +8384,18 @@ def _attach_total_spine_effects(
         annotated["total_spine_custody_impl"] = TOTAL_SPINE_CUSTODY_IMPL
         annotated["total_spine_margin_impl"] = TOTAL_SPINE_MARGIN_IMPL
         annotated["total_spine_collateral_impl"] = TOTAL_SPINE_COLLATERAL_IMPL
+        annotated["total_spine_liquidity_impl"] = TOTAL_SPINE_LIQUIDITY_IMPL
         if goal_text and not annotated.get("total_spine_goal"):
             annotated["total_spine_goal"] = goal_text
         annotated.setdefault("total_spine_federation", False)
         annotated.setdefault("total_spine_quorum", False)
+        annotated = _maybe_liquidity_total_spine(
+            annotated,
+            liquidity_on=liquidity_on,
+            out_root=out_root,
+            resume_dir=resume_dir,
+            repo_path=repo_path,
+        )
         return annotated
 
     # --- Irreversible margin short-circuit (no effect re-dispatch) ---
@@ -8685,6 +8883,13 @@ def _attach_total_spine_effects(
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
+        annotated = _maybe_liquidity_total_spine(
+            annotated,
+            liquidity_on=liquidity_on,
+            out_root=out_root,
+            resume_dir=resume_dir,
+            repo_path=repo_path,
+        )
         return annotated
 
     # --- Irreversible delivery short-circuit (no effect re-dispatch) ---
@@ -8903,6 +9108,13 @@ def _attach_total_spine_effects(
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
+        annotated = _maybe_liquidity_total_spine(
+            annotated,
+            liquidity_on=liquidity_on,
+            out_root=out_root,
+            resume_dir=resume_dir,
+            repo_path=repo_path,
+        )
         return annotated
 
     # --- Irreversible clearing short-circuit (no effect re-dispatch) ---
@@ -9102,6 +9314,13 @@ def _attach_total_spine_effects(
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
+        annotated = _maybe_liquidity_total_spine(
+            annotated,
+            liquidity_on=liquidity_on,
+            out_root=out_root,
+            resume_dir=resume_dir,
+            repo_path=repo_path,
+        )
         return annotated
 
     # --- Irreversible settlement short-circuit (no effect re-dispatch) ---
@@ -9283,6 +9502,13 @@ def _attach_total_spine_effects(
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
+        annotated = _maybe_liquidity_total_spine(
+            annotated,
+            liquidity_on=liquidity_on,
+            out_root=out_root,
+            resume_dir=resume_dir,
+            repo_path=repo_path,
+        )
         return annotated
 
     # --- Irreversible actuation short-circuit (no effect re-dispatch) ---
@@ -9445,6 +9671,13 @@ def _attach_total_spine_effects(
         annotated = _maybe_collateral_total_spine(
             annotated,
             collateral_on=collateral_on,
+            out_root=out_root,
+            resume_dir=resume_dir,
+            repo_path=repo_path,
+        )
+        annotated = _maybe_liquidity_total_spine(
+            annotated,
+            liquidity_on=liquidity_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
@@ -9623,6 +9856,13 @@ def _attach_total_spine_effects(
         annotated = _maybe_collateral_total_spine(
             annotated,
             collateral_on=collateral_on,
+            out_root=out_root,
+            resume_dir=resume_dir,
+            repo_path=repo_path,
+        )
+        annotated = _maybe_liquidity_total_spine(
+            annotated,
+            liquidity_on=liquidity_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
@@ -9862,6 +10102,13 @@ def _attach_total_spine_effects(
         annotated = _maybe_collateral_total_spine(
             annotated,
             collateral_on=collateral_on,
+            out_root=out_root,
+            resume_dir=resume_dir,
+            repo_path=repo_path,
+        )
+        annotated = _maybe_liquidity_total_spine(
+            annotated,
+            liquidity_on=liquidity_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
@@ -10703,6 +10950,13 @@ def _attach_total_spine_effects(
         resume_dir=resume_dir,
         repo_path=repo_path,
     )
+    annotated = _maybe_liquidity_total_spine(
+        annotated,
+        liquidity_on=liquidity_on,
+        out_root=out_root,
+        resume_dir=resume_dir,
+        repo_path=repo_path,
+    )
     return annotated
 
 
@@ -10751,6 +11005,7 @@ def run_total_spine(
     custody: bool = False,
     margin: bool = False,
     collateral: bool = False,
+    liquidity: bool = False,
 ) -> dict[str, Any]:
     """Public entry: absolute total spine from root into the operational nest.
 
@@ -10846,6 +11101,14 @@ def run_total_spine(
     a re-verifiable atomic collateral certificate, refuses split / one-sided /
     mismatched / wrong-root closures, and short-circuits on re-collateral so a
     margined net is no longer uncollateralized.
+
+    Post-collateral liquidity: ``liquidity=True`` independently confirms a
+    second collateral of the same CvO book, books each collateralized pair
+    into a liquidity register and pairs it with coverage
+    (liquidity-versus-coverage), seals a re-verifiable atomic liquidity
+    certificate, refuses split / one-sided / mismatched / wrong-root
+    closures, and short-circuits on re-fund so a collateralized net is
+    no longer unfunded.
     """
     root = (
         str(root_layer or TOTAL_SPINE_DEFAULT_ROOT).strip().lower()
@@ -10926,6 +11189,7 @@ def run_total_spine(
             custody=custody,
             margin=margin,
             collateral=collateral,
+            liquidity=liquidity,
         )
         return annotated
 
@@ -10999,6 +11263,7 @@ def run_total_spine(
         custody=custody,
         margin=margin,
         collateral=collateral,
+        liquidity=liquidity,
     )
     if out_root is not None:
         receipt_dir = Path(out_root)
@@ -18432,6 +18697,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "matching margin books into irreversible collateral receipts"
         ),
     )
+    sub.add_parser(
+        "liquidity-proof",
+        help=(
+            "Total spine liquidity proof: post-collateral atomic LvC seals "
+            "matching collateral books into irreversible liquidity receipts"
+        ),
+    )
     sub.add_parser("list", help="List control modes and dialects")
     sub.add_parser("nest-path", help="Print canonical operational nest path")
     sub.add_parser(
@@ -18596,6 +18868,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "collateral-proof":
         result = builtin_total_spine_collateral_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "liquidity-proof":
+        result = builtin_total_spine_liquidity_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2
