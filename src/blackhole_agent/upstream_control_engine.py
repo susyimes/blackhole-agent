@@ -164,6 +164,15 @@ Composition:
   atomic funding certificate, refuses split / one-sided / mismatched /
   failed / wrong-root / tampered fundings, short-circuits on
   re-facilitate, and rebinds the depth-28 tip without skill-route
+* total-spine **post-funding capital-versus-adequacy** — closes the
+  facilitated-but-uncapitalized cliff: after atomic FvR seals matching
+  funding books, ``capital_total_spine(...)``
+  (and ``run_total_spine(capital=True)``) independently confirms a
+  second funding, books each facilitated pair into a capital register
+  and pairs it with adequacy (CvA), seals a re-verifiable
+  atomic capital certificate, refuses split / one-sided / mismatched /
+  failed / wrong-root / tampered capitals, short-circuits on
+  re-capitalize, and rebinds the depth-28 tip without skill-route
 
 No skill-route discovery.
 """
@@ -4581,6 +4590,25 @@ from blackhole_agent.upstream_total_spine_funding import (  # noqa: E402
     verify_total_spine_funding_certificate,
     write_total_spine_funding_certificate,
 )
+# Post-funding capital-versus-adequacy: atomic buffer+adequacy of facilitated pairs.
+# Implementation lives in upstream_total_spine_capital; re-exported here.
+from blackhole_agent.upstream_total_spine_capital import (  # noqa: E402
+    TOTAL_SPINE_CAPITAL_FILENAME,
+    TOTAL_SPINE_CAPITAL_IMPL,
+    TOTAL_SPINE_CAPITAL_KIND,
+    TOTAL_SPINE_CAPITAL_MIN_CAPITALS,
+    annotate_total_spine_capital,
+    book_total_spine_fundings,
+    builtin_total_spine_capital_proof,
+    capital_certificate_path,
+    capital_total_spine,
+    compute_total_spine_capital_root,
+    load_total_spine_capital_certificate,
+    seal_total_spine_capital_certificate,
+    seal_total_spine_capital_chain,
+    verify_total_spine_capital_certificate,
+    write_total_spine_capital_certificate,
+)
 # Constitution-layer goals accepted by run_constitution (not free-text).
 TOTAL_SPINE_CONSTITUTION_GOALS: frozenset[str] = frozenset(
     {
@@ -7488,6 +7516,48 @@ def _maybe_collateral_total_spine(
     return annotated
 
 
+def _maybe_capital_total_spine(
+    annotated: dict[str, Any],
+    *,
+    capital_on: bool,
+    out_root: Path | None,
+    resume_dir: Path | None,
+    repo_path: Path | None,
+) -> dict[str, Any]:
+    """Optionally capitalize after funding; refuse unless funding is present."""
+    if capital_on and TOTAL_SPINE_CAPITAL_IMPL:
+        if annotated.get("total_spine_funding") is True:
+            cap_out = None
+            if out_root is not None:
+                cap_out = Path(out_root)
+            elif resume_dir is not None:
+                cap_out = Path(resume_dir)
+            prior_cap = str(
+                annotated.get("total_spine_funding_bound_tip")
+                or annotated.get("total_spine_digest")
+                or ""
+            )
+            source_cap: Any = (
+                annotated.get("total_spine_capital_certificate")
+                or annotated
+            )
+            annotated = capital_total_spine(
+                source_cap,
+                out_root=cap_out,
+                prior_tip=prior_cap,
+                body=annotated,
+                repo_path=repo_path or REPO_ROOT,
+            )
+        else:
+            annotated["total_spine_capital"] = False
+            annotated["total_spine_capital_requires_funding"] = True
+    elif not capital_on:
+        annotated.setdefault("total_spine_capital", False)
+        annotated["total_spine_capital_impl"] = TOTAL_SPINE_CAPITAL_IMPL
+    annotated["total_spine_capital_impl"] = TOTAL_SPINE_CAPITAL_IMPL
+    return annotated
+
+
 def _maybe_funding_total_spine(
     annotated: dict[str, Any],
     *,
@@ -7495,6 +7565,7 @@ def _maybe_funding_total_spine(
     out_root: Path | None,
     resume_dir: Path | None,
     repo_path: Path | None,
+    capital_on: bool = False,
 ) -> dict[str, Any]:
     """Optionally facilitate after liquidity; refuse unless liquidity is present."""
     if funding_on and TOTAL_SPINE_FUNDING_IMPL:
@@ -7527,7 +7598,13 @@ def _maybe_funding_total_spine(
         annotated.setdefault("total_spine_funding", False)
         annotated["total_spine_funding_impl"] = TOTAL_SPINE_FUNDING_IMPL
     annotated["total_spine_funding_impl"] = TOTAL_SPINE_FUNDING_IMPL
-    return annotated
+    return _maybe_capital_total_spine(
+        annotated,
+        capital_on=capital_on,
+        out_root=out_root,
+        resume_dir=resume_dir,
+        repo_path=repo_path,
+    )
 
 
 def _maybe_liquidity_total_spine(
@@ -7538,6 +7615,7 @@ def _maybe_liquidity_total_spine(
     resume_dir: Path | None,
     repo_path: Path | None,
     funding_on: bool = False,
+    capital_on: bool = False,
 ) -> dict[str, Any]:
     """Optionally fund after collateral; refuse unless collateral is present."""
     if liquidity_on and TOTAL_SPINE_LIQUIDITY_IMPL:
@@ -7576,6 +7654,7 @@ def _maybe_liquidity_total_spine(
         out_root=out_root,
         resume_dir=resume_dir,
         repo_path=repo_path,
+        capital_on=capital_on,
     )
 
 
@@ -7614,6 +7693,7 @@ def _attach_total_spine_effects(
     collateral: bool = False,
     liquidity: bool = False,
     funding: bool = False,
+    capital: bool = False,
 ) -> dict[str, Any]:
     """Optionally dispatch ledger effects, gate contracts, rebind hop digests.
 
@@ -7708,7 +7788,16 @@ def _attach_total_spine_effects(
     (FvR), seal an irreversible funding certificate, and rebind the tip.
     Implies liquidity and the planes above. Resume of an already-facilitated
     run short-circuits.
+
+    Post-funding capital (``capital=True``): after FvR seals matching
+    funding books, independently confirm a second funding, book each
+    facilitated pair into a capital register and pair it with adequacy
+    (CvA), seal an irreversible capital certificate, and rebind the tip.
+    Implies funding and the planes above. Resume of an already-capitalized
+    run short-circuits.
     """
+    if capital:
+        funding = True
     if funding:
         liquidity = True
     if liquidity:
@@ -7755,9 +7844,20 @@ def _attach_total_spine_effects(
     resume_collateral: dict[str, Any] | None = None
     resume_liquidity: dict[str, Any] | None = None
     resume_funding: dict[str, Any] | None = None
+    resume_capital: dict[str, Any] | None = None
     if resume_dir is not None:
-        # Prefer funding short-circuit, then liquidity, collateral, margin,
-        # custody, delivery, clearing, settlement, actuation, execution, finality.
+        # Prefer capital short-circuit, then funding, liquidity, collateral,
+        # margin, custody, delivery, clearing, settlement, actuation, execution,
+        # finality.
+        try:
+            resume_capital = load_total_spine_capital_certificate(
+                resume_dir
+            )
+        except Exception as exc:  # noqa: BLE001 — capital StageRefused is modular
+            verdict = getattr(exc, "verdict", "")
+            if str(verdict) == "total_spine_capital_tampered":
+                raise
+            resume_capital = None
         try:
             resume_funding = load_total_spine_funding_certificate(
                 resume_dir
@@ -7867,12 +7967,14 @@ def _attach_total_spine_effects(
                 and resume_collateral is None
                 and resume_liquidity is None
                 and resume_funding is None
+                and resume_capital is None
             ):
                 raise
             resumed = True
         # Prefer checkpoint mission config when caller left fields empty.
         config_src: Mapping[str, Any] = (
             resume_checkpoint
+            or resume_capital
             or resume_funding
             or resume_liquidity
             or resume_collateral
@@ -7903,9 +8005,11 @@ def _attach_total_spine_effects(
             or (resume_collateral or {}).get("capabilities")
             or (resume_liquidity or {}).get("capabilities")
             or (resume_funding or {}).get("capabilities")
+            or (resume_capital or {}).get("capabilities")
         ):
             capabilities = list(
                 (resume_checkpoint or {}).get("capabilities")
+                or (resume_capital or {}).get("capabilities")
                 or (resume_funding or {}).get("capabilities")
                 or (resume_liquidity or {}).get("capabilities")
                 or (resume_collateral or {}).get("capabilities")
@@ -7934,7 +8038,8 @@ def _attach_total_spine_effects(
             ) or bool((resume_margin or {}).get("capabilities")
             ) or bool((resume_collateral or {}).get("capabilities")
             ) or bool((resume_liquidity or {}).get("capabilities")
-            ) or bool((resume_funding or {}).get("capabilities"))
+            ) or bool((resume_funding or {}).get("capabilities")
+            ) or bool((resume_capital or {}).get("capabilities"))
         if max_effect_steps is None and (resume_checkpoint or {}).get(
             "max_effect_steps"
         ) is not None:
@@ -8029,6 +8134,19 @@ def _attach_total_spine_effects(
             collateral = True
             liquidity = True
             funding = True
+        if resume_capital is not None:
+            finality = True
+            execution = True
+            actuation = True
+            settlement = True
+            clearing = True
+            delivery = True
+            custody = True
+            margin = True
+            collateral = True
+            liquidity = True
+            funding = True
+            capital = True
 
     continuity_on = bool(continuity) or resumed or resume_dir is not None
     finality_on = bool(finality) or resume_finality is not None
@@ -8042,6 +8160,7 @@ def _attach_total_spine_effects(
     collateral_on = bool(collateral) or resume_collateral is not None
     liquidity_on = bool(liquidity) or resume_liquidity is not None
     funding_on = bool(funding) or resume_funding is not None
+    capital_on = bool(capital) or resume_capital is not None
     # Finality needs a durable write root for the certificate.
     if finality_on and not continuity_on and (out_root is not None or resume_dir is not None):
         # Keep continuity optional; finality can seal alone under out_root.
@@ -8148,6 +8267,113 @@ def _attach_total_spine_effects(
             resume_checkpoint.get("checkpoint_path")
         )
 
+
+    # --- Irreversible capital short-circuit (no effect re-dispatch) ---
+    if resume_capital is not None:
+        short_circuited = True
+        recovered = recovered or bool(resume_capital.get("recovered"))
+        cap_caps = list(resume_capital.get("capabilities") or [])
+        cap_prior = str(resume_capital.get("prior_tip") or bound_tip)
+        bound_tip = cap_prior
+        annotated["ok"] = True
+        annotated["verdict"] = "total_spine_capital_short_circuit"
+        annotated["total_spine_effects"] = bool(cap_caps) or want_effects
+        annotated["total_spine_effects_ok"] = bool(
+            resume_capital.get("effects_ok", True)
+        )
+        annotated["total_spine_effect_capabilities"] = cap_caps
+        annotated["total_spine_effect_count"] = len(cap_caps)
+        annotated["total_spine_effects_ok_count"] = len(cap_caps)
+        annotated["total_spine_effects_failed_count"] = 0
+        annotated["total_spine_goal"] = (
+            goal_text or str(resume_capital.get("goal") or "")
+        )
+        if contract_text or resume_capital.get("done_when"):
+            annotated["total_spine_contract"] = True
+            annotated["total_spine_contract_met"] = resume_capital.get(
+                "contract_met"
+            )
+            annotated["total_spine_contract_ok"] = (
+                resume_capital.get("contract_met") is True
+                or resume_capital.get("contract_met") is None
+            )
+            annotated["total_spine_done_when"] = (
+                contract_text
+                or str(resume_capital.get("done_when") or "")
+            )
+        annotated["total_spine_finality"] = True
+        annotated["total_spine_execution"] = True
+        annotated["total_spine_actuation"] = True
+        annotated["total_spine_settlement"] = True
+        annotated["total_spine_clearing"] = True
+        annotated["total_spine_delivery"] = True
+        annotated["total_spine_custody"] = True
+        annotated["total_spine_margin"] = True
+        annotated["total_spine_collateral"] = True
+        annotated["total_spine_liquidity"] = True
+        annotated["total_spine_funding"] = True
+        if resume_collateral is not None:
+            annotated = annotate_total_spine_collateral(
+                annotated,
+                certificate=resume_collateral,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_collateral_bound_tip") or bound_tip
+            )
+        if resume_liquidity is not None:
+            annotated = annotate_total_spine_liquidity(
+                annotated,
+                certificate=resume_liquidity,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_liquidity_bound_tip") or bound_tip
+            )
+        if resume_funding is not None:
+            annotated = annotate_total_spine_funding(
+                annotated,
+                certificate=resume_funding,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_funding_bound_tip") or bound_tip
+            )
+        annotated = annotate_total_spine_capital(
+            annotated,
+            certificate=resume_capital,
+            prior_tip=bound_tip,
+            short_circuit=True,
+        )
+        bound_tip = str(
+            annotated.get("total_spine_capital_bound_tip") or bound_tip
+        )
+        if compressed:
+            hops = seal_total_spine_hop_chain(
+                root, live_result, tip=bound_tip
+            )
+            annotated["total_spine_hop_chain"] = hops
+            annotated["total_spine_hop_count"] = len(hops)
+            if hops:
+                annotated["total_spine_digest"] = hops[0].get("digest")
+                annotated[f"{root}_digest"] = hops[0].get("digest")
+        else:
+            annotated["total_spine_digest"] = bound_tip
+            annotated[f"{root}_digest"] = bound_tip
+        annotated["total_spine_capital_short_circuit"] = True
+        annotated["total_spine_constitution_depth"] = chain_len
+        annotated["total_spine_collateral_impl"] = TOTAL_SPINE_COLLATERAL_IMPL
+        annotated["total_spine_liquidity_impl"] = TOTAL_SPINE_LIQUIDITY_IMPL
+        annotated["total_spine_funding_impl"] = TOTAL_SPINE_FUNDING_IMPL
+        annotated["total_spine_capital_impl"] = TOTAL_SPINE_CAPITAL_IMPL
+        if goal_text and not annotated.get("total_spine_goal"):
+            annotated["total_spine_goal"] = goal_text
+        annotated.setdefault("total_spine_federation", False)
+        annotated.setdefault("total_spine_quorum", False)
+        return annotated
 
     # --- Irreversible funding short-circuit (no effect re-dispatch) ---
     if resume_funding is not None:
@@ -8332,6 +8558,7 @@ def _attach_total_spine_effects(
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
+            capital_on=capital_on,
         )
         return annotated
 
@@ -8614,6 +8841,7 @@ def _attach_total_spine_effects(
             resume_dir=resume_dir,
             repo_path=repo_path,
             funding_on=funding_on,
+            capital_on=capital_on,
         )
         return annotated
 
@@ -9109,6 +9337,7 @@ def _attach_total_spine_effects(
             resume_dir=resume_dir,
             repo_path=repo_path,
             funding_on=funding_on,
+            capital_on=capital_on,
         )
         return annotated
 
@@ -9335,6 +9564,7 @@ def _attach_total_spine_effects(
             resume_dir=resume_dir,
             repo_path=repo_path,
             funding_on=funding_on,
+            capital_on=capital_on,
         )
         return annotated
 
@@ -9542,6 +9772,7 @@ def _attach_total_spine_effects(
             resume_dir=resume_dir,
             repo_path=repo_path,
             funding_on=funding_on,
+            capital_on=capital_on,
         )
         return annotated
 
@@ -9731,6 +9962,7 @@ def _attach_total_spine_effects(
             resume_dir=resume_dir,
             repo_path=repo_path,
             funding_on=funding_on,
+            capital_on=capital_on,
         )
         return annotated
 
@@ -9905,6 +10137,7 @@ def _attach_total_spine_effects(
             resume_dir=resume_dir,
             repo_path=repo_path,
             funding_on=funding_on,
+            capital_on=capital_on,
         )
         return annotated
 
@@ -10091,6 +10324,7 @@ def _attach_total_spine_effects(
             resume_dir=resume_dir,
             repo_path=repo_path,
             funding_on=funding_on,
+            capital_on=capital_on,
         )
         return annotated
 
@@ -10338,6 +10572,7 @@ def _attach_total_spine_effects(
             resume_dir=resume_dir,
             repo_path=repo_path,
             funding_on=funding_on,
+            capital_on=capital_on,
         )
         return annotated
 
@@ -11183,6 +11418,7 @@ def _attach_total_spine_effects(
         resume_dir=resume_dir,
         repo_path=repo_path,
         funding_on=funding_on,
+        capital_on=capital_on,
     )
     return annotated
 
@@ -11234,6 +11470,7 @@ def run_total_spine(
     collateral: bool = False,
     liquidity: bool = False,
     funding: bool = False,
+    capital: bool = False,
 ) -> dict[str, Any]:
     """Public entry: absolute total spine from root into the operational nest.
 
@@ -11345,6 +11582,14 @@ def run_total_spine(
     certificate, refuses split / one-sided / mismatched / wrong-root
     closures, and short-circuits on re-facilitate so a liquid net is
     no longer unfacilitated.
+
+    Post-funding capital: ``capital=True`` independently confirms a
+    second funding of the same FvR book, books each facilitated pair
+    into a capital register and pairs it with adequacy
+    (capital-versus-adequacy), seals a re-verifiable atomic capital
+    certificate, refuses split / one-sided / mismatched / wrong-root
+    closures, and short-circuits on re-capitalize so a facilitated net
+    is no longer uncapitalized.
     """
     root = (
         str(root_layer or TOTAL_SPINE_DEFAULT_ROOT).strip().lower()
@@ -11427,6 +11672,7 @@ def run_total_spine(
             collateral=collateral,
             liquidity=liquidity,
             funding=funding,
+            capital=capital,
         )
         return annotated
 
@@ -11502,6 +11748,7 @@ def run_total_spine(
         collateral=collateral,
         liquidity=liquidity,
         funding=funding,
+        capital=capital,
     )
     if out_root is not None:
         receipt_dir = Path(out_root)
@@ -18949,6 +19196,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "matching liquidity books into irreversible funding receipts"
         ),
     )
+    sub.add_parser(
+        "capital-proof",
+        help=(
+            "Total spine capital proof: post-funding atomic CvA seals "
+            "matching funding books into irreversible capital receipts"
+        ),
+    )
     sub.add_parser("list", help="List control modes and dialects")
     sub.add_parser("nest-path", help="Print canonical operational nest path")
     sub.add_parser(
@@ -19121,6 +19375,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "funding-proof":
         result = builtin_total_spine_funding_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "capital-proof":
+        result = builtin_total_spine_capital_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2
