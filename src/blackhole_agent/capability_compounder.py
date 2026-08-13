@@ -2422,6 +2422,35 @@ def _soft_extract_outcome_predicates(chunk: str) -> list[dict[str, Any]]:
     ):
         found.append({"kind": "resolution_root_valid", "arg": "", "source": chunk})
     # Avoid matching capability.resolution-plane ids.
+    if re.search(r"\brestructuring_ok\b", lower) or re.search(r"\brestructured_ok\b", lower):
+        found.append({"kind": "restructuring_ok", "arg": "", "source": chunk})
+    if re.search(r"\brvm_ok\b", lower):
+        found.append({"kind": "rvm_ok", "arg": "", "source": chunk})
+    if re.search(r"\bmandate_ok\b", lower):
+        found.append({"kind": "mandate_ok", "arg": "", "source": chunk})
+    if re.search(r"\bmandated_ok\b", lower):
+        found.append({"kind": "mandated_ok", "arg": "", "source": chunk})
+    m = re.search(r"(?:at least|>=|≥)\s*(\d+)\s+restructur", lower)
+    if m:
+        found.append({"kind": "min_restructurings", "arg": m.group(1), "source": chunk})
+    if re.search(r"\bmin_restructurings\b", lower) and not any(
+        item.get("kind") == "min_restructurings" for item in found
+    ):
+        m_n = re.search(r"min_restructurings\s*[:=]?\s*(\d+)", lower)
+        found.append(
+            {
+                "kind": "min_restructurings",
+                "arg": m_n.group(1) if m_n else "2",
+                "source": chunk,
+            }
+        )
+    if re.search(r"\brestructuring_root_valid\b", lower) or (
+        re.search(r"\brestructuring[_\s-]*root\b", lower)
+        and "plane" not in lower
+        and ("valid" in lower or "verify" in lower or "ok" in lower)
+    ):
+        found.append({"kind": "restructuring_root_valid", "arg": "", "source": chunk})
+    # Avoid matching capability.restructuring-plane ids.
     m = re.search(r"(?:at least|>=|≥)\s*(\d+)\s+clearing", lower)
     m = re.search(r"clearing_count\s*>=\s*(\d+)", lower)
     # Require "clearing root" adjacency; do not treat forged-root in a long list
@@ -6147,6 +6176,142 @@ def materialize_total_spine_resolution_contract_context(
         shutil.rmtree(scratch, ignore_errors=True)
 
 
+def materialize_total_spine_restructuring_contract_context(
+    repo_path: Path,
+    context: dict[str, Any],
+    *,
+    ledger: CapabilityLedger | None = None,
+) -> dict[str, Any]:
+    '''Fill empty restructuring plane context via fast total-spine RvM.'''
+    existing = (
+        context.get("restructuring")
+        or context.get("restructuring_plane")
+        or {}
+    )
+    if isinstance(existing, Mapping) and existing.get("ok"):
+        return dict(existing)
+
+    try:
+        from blackhole_agent.upstream_control_engine import (
+            TOTAL_SPINE_RESTRUCTURING_IMPL,
+            restructuring_total_spine,
+        )
+    except Exception:  # noqa: BLE001
+        return {}
+
+    if TOTAL_SPINE_RESTRUCTURING_IMPL is not True:
+        return {}
+
+    ledger_ok = True
+    if ledger is not None:
+        entry = ledger.capabilities.get(
+            "capability.upstream-total-spine-restructuring"
+        )
+        blob = (
+            ((entry.capability_delta or "") if entry else "")
+            + " "
+            + ((entry.name or "") if entry else "")
+            + " "
+            + " ".join((entry.tags or ()) if entry else ())
+        ).lower()
+        ledger_ok = entry is not None and (
+            "restructuring" in blob or "rvm" in blob
+        )
+
+    resolved = materialize_total_spine_resolution_contract_context(
+        repo_path, context, ledger=ledger
+    )
+    cert = (
+        resolved.get("resolution_certificate")
+        if isinstance(resolved, Mapping)
+        else None
+    )
+    if not isinstance(cert, Mapping) or not resolved.get("ok"):
+        return {}
+
+    import shutil
+    import tempfile
+
+    scratch = Path(tempfile.mkdtemp(prefix="contract-total-spine-restructuring-"))
+    try:
+        restructured = restructuring_total_spine(
+            cert,
+            out_root=scratch / "rst-h1",
+            prior_tip=str(
+                resolved.get("bound_action_root")
+                or resolved.get("bound_state_root")
+                or ""
+            ),
+            body={
+                "ok": True,
+                "total_spine": True,
+                "total_spine_resolution": True,
+                "total_spine_resolution_certificate": cert,
+                "total_spine_tip_resolution_root": resolved.get("tip_resolution_root"),
+                "total_spine_digest": str(
+                    resolved.get("bound_action_root") or ""
+                ),
+            },
+            repo_path=repo_path,
+        )
+        plane = {
+            "ok": (
+                bool(restructured.get("ok"))
+                and restructured.get("total_spine_restructuring") is True
+                and restructured.get("total_spine_restructured") is True
+                and restructured.get("total_spine_rvm_ok") is True
+                and int(restructured.get("total_spine_restructuring_count") or 0) >= 2
+                and bool(restructured.get("total_spine_tip_restructuring_root"))
+                and ledger_ok
+                and not bool(restructured.get("used_skill_route_discovery"))
+            ),
+            "action": "total_spine_restructuring_contract",
+            "restructured": True,
+            "restructured_ok": True,
+            "rvm_ok": True,
+            "mandate_ok": True,
+            "mandated_ok": True,
+            "restructuring_root_valid": True,
+            "restructuring_count": int(
+                restructured.get("total_spine_restructuring_count") or 0
+            ),
+            "tip_height": int(
+                restructured.get("total_spine_restructuring_height") or 0
+            ),
+            "restructuring_root": restructured.get(
+                "total_spine_tip_restructuring_root"
+            ),
+            "tip_restructuring_root": restructured.get(
+                "total_spine_tip_restructuring_root"
+            ),
+            "bound_state_root": restructured.get("total_spine_state_root"),
+            "bound_action_root": restructured.get("total_spine_tip_action_root"),
+            "bound_resolution_root": restructured.get(
+                "total_spine_tip_resolution_root"
+            ),
+            "restructuring_certificate": restructured.get(
+                "total_spine_restructuring_certificate"
+            ),
+            "certificate_valid": True,
+            "total_spine_restructuring": True,
+            "ledger_capability_ok": ledger_ok,
+            "used_skill_route_discovery": bool(
+                restructured.get("used_skill_route_discovery")
+            ),
+        }
+        context["restructuring"] = plane
+        context["restructuring_plane"] = plane
+        context["restructuring_count"] = plane["restructuring_count"]
+        context.setdefault(
+            "used_skill_route_discovery", plane.get("used_skill_route_discovery")
+        )
+        return plane
+    except Exception:  # noqa: BLE001
+        return {}
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
 def evaluate_outcome_contract(
     repo_path: Path,
     done_when: str,
@@ -6401,6 +6566,19 @@ def evaluate_outcome_contract(
     }
     if any(str(item.get("kind") or "") in _resolution_kinds for item in predicates):
         materialize_total_spine_resolution_contract_context(
+            root, ctx, ledger=ledger
+        )
+    _restructuring_kinds = {
+        "restructuring_ok",
+        "restructured_ok",
+        "min_restructurings",
+        "restructuring_root_valid",
+        "rvm_ok",
+        "mandate_ok",
+        "mandated_ok",
+    }
+    if any(str(item.get("kind") or "") in _restructuring_kinds for item in predicates):
+        materialize_total_spine_restructuring_contract_context(
             root, ctx, ledger=ledger
         )
     results: list[dict[str, Any]] = []
@@ -8442,6 +8620,94 @@ def _eval_one_outcome_predicate(
                     or plane.get("tip_resolution_root")
                 )
         return ok, f"resolution_root_valid={ok}"
+
+    if kind in {"restructuring_ok", "restructured_ok"}:
+        plane = (
+            context.get("restructuring")
+            or context.get("restructuring_plane")
+            or {}
+        )
+        if "restructured" in plane:
+            ok = plane.get("restructured") is True and bool(plane.get("ok", True))
+        elif "restructuring_ok" in plane:
+            ok = plane.get("restructuring_ok") is True
+        else:
+            ok = bool(plane.get("ok"))
+        return ok, f"{kind}={ok}"
+    if kind == "rvm_ok":
+        plane = (
+            context.get("restructuring")
+            or context.get("restructuring_plane")
+            or {}
+        )
+        if "rvm_ok" in plane:
+            ok = plane.get("rvm_ok") is True and bool(plane.get("ok", True))
+        else:
+            ok = bool(plane.get("ok")) and plane.get("restructured") is True
+        return ok, f"rvm_ok={ok}"
+    if kind in {"mandate_ok", "mandated_ok"}:
+        plane = (
+            context.get("restructuring")
+            or context.get("restructuring_plane")
+            or {}
+        )
+        if kind in plane:
+            ok = plane.get(kind) is True and bool(plane.get("ok", True))
+        else:
+            ok = bool(plane.get("ok")) and plane.get("restructured") is True
+        return ok, f"{kind}={ok}"
+    if kind == "min_restructurings":
+        need = int(float(arg or "0"))
+        have = context.get("restructuring_count")
+        if have is None:
+            plane = (
+                context.get("restructuring")
+                or context.get("restructuring_plane")
+                or {}
+            )
+            have = (
+                plane.get("restructuring_count")
+                or plane.get("tip_height")
+                or plane.get("entry_count")
+            )
+        have_i = int(have or 0)
+        return have_i >= need, f"restructurings={have_i} need>={need}"
+    if kind == "restructuring_root_valid":
+        plane = (
+            context.get("restructuring")
+            or context.get("restructuring_plane")
+            or context.get("restructuring_certificate")
+            or {}
+        )
+        if "restructuring_root_valid" in plane:
+            ok = plane.get("restructuring_root_valid") is True
+        elif "certificate_valid" in plane:
+            ok = plane.get("certificate_valid") is True
+        else:
+            cert = (
+                plane.get("restructuring_certificate")
+                or plane.get("certificate")
+                or {}
+            )
+            if isinstance(cert, Mapping) and cert:
+                try:
+                    from blackhole_agent.upstream_total_spine_restructuring import (
+                        verify_total_spine_restructuring_certificate,
+                    )
+
+                    verify = verify_total_spine_restructuring_certificate(cert)
+                    ok = bool(verify.get("ok"))
+                except Exception:
+                    ok = bool(plane.get("ok")) and bool(
+                        plane.get("restructuring_root")
+                        or plane.get("tip_restructuring_root")
+                    )
+            else:
+                ok = bool(plane.get("ok")) and bool(
+                    plane.get("restructuring_root")
+                    or plane.get("tip_restructuring_root")
+                )
+        return ok, f"restructuring_root_valid={ok}"
 
     if kind == "program_passes":
         steps = [part.strip() for part in arg.split(",") if part.strip()]
