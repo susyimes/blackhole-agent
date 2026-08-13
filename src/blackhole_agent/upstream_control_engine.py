@@ -200,6 +200,15 @@ Composition:
   atomic stress certificate, refuses split / one-sided / mismatched /
   failed / wrong-root / tampered stresses, short-circuits on
   re-stress, and rebinds the depth-28 tip without skill-route
+* total-spine **post-stress recovery-versus-plan** — closes the
+  stressed-but-unrestored cliff: after atomic SvC seals matching
+  stress books, ``recovery_total_spine(...)``
+  (and ``run_total_spine(recovery=True)``) independently confirms a
+  second stress, books each stressed pair into a recovery
+  register and pairs it with a plan (RvP), seals a re-verifiable
+  atomic recovery certificate, refuses split / one-sided / mismatched /
+  failed / wrong-root / tampered recoveries, short-circuits on
+  re-recovery, and rebinds the depth-28 tip without skill-route
 
 No skill-route discovery.
 """
@@ -4694,6 +4703,25 @@ from blackhole_agent.upstream_total_spine_stress import (  # noqa: E402
     verify_total_spine_stress_certificate,
     write_total_spine_stress_certificate,
 )
+# Post-stress recovery-versus-plan: atomic restoration+plan of stressed pairs.
+# Implementation lives in upstream_total_spine_recovery; re-exported here.
+from blackhole_agent.upstream_total_spine_recovery import (  # noqa: E402
+    TOTAL_SPINE_RECOVERY_FILENAME,
+    TOTAL_SPINE_RECOVERY_IMPL,
+    TOTAL_SPINE_RECOVERY_KIND,
+    TOTAL_SPINE_RECOVERY_MIN_RECOVERIES,
+    annotate_total_spine_recovery,
+    book_total_spine_stresses,
+    builtin_total_spine_recovery_proof,
+    compute_total_spine_recovery_root,
+    load_total_spine_recovery_certificate,
+    recovery_certificate_path,
+    recovery_total_spine,
+    seal_total_spine_recovery_certificate,
+    seal_total_spine_recovery_chain,
+    verify_total_spine_recovery_certificate,
+    write_total_spine_recovery_certificate,
+)
 # Constitution-layer goals accepted by run_constitution (not free-text).
 TOTAL_SPINE_CONSTITUTION_GOALS: frozenset[str] = frozenset(
     {
@@ -7609,6 +7637,7 @@ def _maybe_stress_total_spine(
     out_root: Path | None,
     resume_dir: Path | None,
     repo_path: Path | None,
+    recovery_on: bool = False,
 ) -> dict[str, Any]:
     """Optionally stress-test after risk; refuse unless risk is present."""
     if stress_on and TOTAL_SPINE_STRESS_IMPL:
@@ -7641,6 +7670,55 @@ def _maybe_stress_total_spine(
         annotated.setdefault("total_spine_stress", False)
         annotated["total_spine_stress_impl"] = TOTAL_SPINE_STRESS_IMPL
     annotated["total_spine_stress_impl"] = TOTAL_SPINE_STRESS_IMPL
+    return _maybe_recovery_total_spine(
+        annotated,
+        recovery_on=recovery_on,
+        out_root=out_root,
+        resume_dir=resume_dir,
+        repo_path=repo_path,
+    )
+
+
+
+def _maybe_recovery_total_spine(
+    annotated: dict[str, Any],
+    *,
+    recovery_on: bool,
+    out_root: Path | None,
+    resume_dir: Path | None,
+    repo_path: Path | None,
+) -> dict[str, Any]:
+    """Optionally restore after stress; refuse unless stress is present."""
+    if recovery_on and TOTAL_SPINE_RECOVERY_IMPL:
+        if annotated.get("total_spine_stress") is True:
+            rec_out = None
+            if out_root is not None:
+                rec_out = Path(out_root)
+            elif resume_dir is not None:
+                rec_out = Path(resume_dir)
+            prior_rec = str(
+                annotated.get("total_spine_stress_bound_tip")
+                or annotated.get("total_spine_digest")
+                or ""
+            )
+            source_rec: Any = (
+                annotated.get("total_spine_recovery_certificate")
+                or annotated
+            )
+            annotated = recovery_total_spine(
+                source_rec,
+                out_root=rec_out,
+                prior_tip=prior_rec,
+                body=annotated,
+                repo_path=repo_path or REPO_ROOT,
+            )
+        else:
+            annotated["total_spine_recovery"] = False
+            annotated["total_spine_recovery_requires_stress"] = True
+    elif not recovery_on:
+        annotated.setdefault("total_spine_recovery", False)
+        annotated["total_spine_recovery_impl"] = TOTAL_SPINE_RECOVERY_IMPL
+    annotated["total_spine_recovery_impl"] = TOTAL_SPINE_RECOVERY_IMPL
     return annotated
 
 
@@ -7652,6 +7730,7 @@ def _maybe_risk_total_spine(
     resume_dir: Path | None,
     repo_path: Path | None,
     stress_on: bool = False,
+    recovery_on: bool = False,
 ) -> dict[str, Any]:
     """Optionally risk-assess after solvency; refuse unless solvency is present."""
     if risk_on and TOTAL_SPINE_RISK_IMPL:
@@ -7687,6 +7766,7 @@ def _maybe_risk_total_spine(
     return _maybe_stress_total_spine(
         annotated,
         stress_on=stress_on,
+        recovery_on=recovery_on,
         out_root=out_root,
         resume_dir=resume_dir,
         repo_path=repo_path,
@@ -7702,6 +7782,7 @@ def _maybe_solvency_total_spine(
     repo_path: Path | None,
     risk_on: bool = False,
     stress_on: bool = False,
+    recovery_on: bool = False,
 ) -> dict[str, Any]:
     """Optionally solventize after capital; refuse unless capital is present."""
     if solvency_on and TOTAL_SPINE_SOLVENCY_IMPL:
@@ -7738,6 +7819,7 @@ def _maybe_solvency_total_spine(
         annotated,
         risk_on=risk_on,
         stress_on=stress_on,
+        recovery_on=recovery_on,
         out_root=out_root,
         resume_dir=resume_dir,
         repo_path=repo_path,
@@ -7754,6 +7836,7 @@ def _maybe_capital_total_spine(
     solvency_on: bool = False,
     risk_on: bool = False,
     stress_on: bool = False,
+    recovery_on: bool = False,
 ) -> dict[str, Any]:
     """Optionally capitalize after funding; refuse unless funding is present."""
     if capital_on and TOTAL_SPINE_CAPITAL_IMPL:
@@ -7791,6 +7874,7 @@ def _maybe_capital_total_spine(
         solvency_on=solvency_on,
         risk_on=risk_on,
         stress_on=stress_on,
+        recovery_on=recovery_on,
         out_root=out_root,
         resume_dir=resume_dir,
         repo_path=repo_path,
@@ -7808,6 +7892,7 @@ def _maybe_funding_total_spine(
     solvency_on: bool = False,
     risk_on: bool = False,
     stress_on: bool = False,
+    recovery_on: bool = False,
 ) -> dict[str, Any]:
     """Optionally facilitate after liquidity; refuse unless liquidity is present."""
     if funding_on and TOTAL_SPINE_FUNDING_IMPL:
@@ -7849,6 +7934,7 @@ def _maybe_funding_total_spine(
         solvency_on=solvency_on,
         risk_on=risk_on,
         stress_on=stress_on,
+        recovery_on=recovery_on,
     )
 
 
@@ -7864,6 +7950,7 @@ def _maybe_liquidity_total_spine(
     solvency_on: bool = False,
     risk_on: bool = False,
     stress_on: bool = False,
+    recovery_on: bool = False,
 ) -> dict[str, Any]:
     """Optionally fund after collateral; refuse unless collateral is present."""
     if liquidity_on and TOTAL_SPINE_LIQUIDITY_IMPL:
@@ -7906,6 +7993,7 @@ def _maybe_liquidity_total_spine(
         solvency_on=solvency_on,
         risk_on=risk_on,
         stress_on=stress_on,
+        recovery_on=recovery_on,
     )
 
 
@@ -7948,6 +8036,7 @@ def _attach_total_spine_effects(
     solvency: bool = False,
     risk: bool = False,
     stress: bool = False,
+    recovery: bool = False,
 ) -> dict[str, Any]:
     """Optionally dispatch ledger effects, gate contracts, rebind hop digests.
 
@@ -8070,7 +8159,16 @@ def _attach_total_spine_effects(
     (SvC), seal an irreversible stress certificate, and rebind the tip.
     Implies risk and the planes above. Resume of an already-stressed
     run short-circuits.
+
+    Post-stress recovery (``recovery=True``): after SvC seals matching
+    stress books, independently confirm a second stress, book each
+    stressed pair into a recovery register and pair it with a plan
+    (RvP), seal an irreversible recovery certificate, and rebind the tip.
+    Implies stress and the planes above. Resume of an already-restored
+    run short-circuits.
     """
+    if recovery:
+        stress = True
     if stress:
         risk = True
     if risk:
@@ -8129,10 +8227,20 @@ def _attach_total_spine_effects(
     resume_solvency: dict[str, Any] | None = None
     resume_risk: dict[str, Any] | None = None
     resume_stress: dict[str, Any] | None = None
+    resume_recovery: dict[str, Any] | None = None
     if resume_dir is not None:
-        # Prefer stress short-circuit, then risk, solvency, capital, funding,
-        # liquidity, collateral, margin, custody, delivery, clearing,
+        # Prefer recovery short-circuit, then stress, risk, solvency, capital,
+        # funding, liquidity, collateral, margin, custody, delivery, clearing,
         # settlement, actuation, execution, finality.
+        try:
+            resume_recovery = load_total_spine_recovery_certificate(
+                resume_dir
+            )
+        except Exception as exc:  # noqa: BLE001 — recovery StageRefused is modular
+            verdict = getattr(exc, "verdict", "")
+            if str(verdict) == "total_spine_recovery_tampered":
+                raise
+            resume_recovery = None
         try:
             resume_stress = load_total_spine_stress_certificate(
                 resume_dir
@@ -8282,12 +8390,14 @@ def _attach_total_spine_effects(
                 and resume_solvency is None
                 and resume_risk is None
                 and resume_stress is None
+                and resume_recovery is None
             ):
                 raise
             resumed = True
         # Prefer checkpoint mission config when caller left fields empty.
         config_src: Mapping[str, Any] = (
             resume_checkpoint
+            or resume_recovery
             or resume_stress
             or resume_risk
             or resume_solvency
@@ -8457,6 +8567,23 @@ def _attach_total_spine_effects(
             collateral = True
             liquidity = True
             funding = True
+        if resume_recovery is not None:
+            finality = True
+            execution = True
+            actuation = True
+            settlement = True
+            clearing = True
+            delivery = True
+            custody = True
+            margin = True
+            collateral = True
+            liquidity = True
+            funding = True
+            capital = True
+            solvency = True
+            risk = True
+            stress = True
+            recovery = True
         if resume_stress is not None:
             finality = True
             execution = True
@@ -8530,8 +8657,9 @@ def _attach_total_spine_effects(
     funding_on = bool(funding) or resume_funding is not None
     capital_on = bool(capital) or resume_capital is not None
     solvency_on = bool(solvency) or resume_solvency is not None
-    risk_on = bool(risk) or resume_risk is not None or resume_stress is not None
-    stress_on = bool(stress) or resume_stress is not None
+    risk_on = bool(risk) or resume_risk is not None or resume_stress is not None or resume_recovery is not None
+    stress_on = bool(stress) or resume_stress is not None or resume_recovery is not None
+    recovery_on = bool(recovery) or resume_recovery is not None
     # Finality needs a durable write root for the certificate.
     if finality_on and not continuity_on and (out_root is not None or resume_dir is not None):
         # Keep continuity optional; finality can seal alone under out_root.
@@ -8639,6 +8767,141 @@ def _attach_total_spine_effects(
         )
 
 
+
+    # --- Irreversible recovery short-circuit (no effect re-dispatch) ---
+    if resume_recovery is not None:
+        short_circuited = True
+        recovered = recovered or bool(resume_recovery.get("recovered"))
+        rec_caps = list(resume_recovery.get("capabilities") or [])
+        rec_prior = str(resume_recovery.get("prior_tip") or bound_tip)
+        bound_tip = rec_prior
+        annotated["ok"] = True
+        annotated["verdict"] = "total_spine_recovery_short_circuit"
+        annotated["total_spine_effects"] = bool(rec_caps) or want_effects
+        annotated["total_spine_effects_ok"] = bool(
+            resume_recovery.get("effects_ok", True)
+        )
+        annotated["total_spine_effect_capabilities"] = rec_caps
+        annotated["total_spine_effect_count"] = len(rec_caps)
+        annotated["total_spine_effects_ok_count"] = len(rec_caps)
+        annotated["total_spine_effects_failed_count"] = 0
+        annotated["total_spine_goal"] = (
+            goal_text or str(resume_recovery.get("goal") or "")
+        )
+        if contract_text or resume_recovery.get("done_when"):
+            annotated["total_spine_contract"] = True
+            annotated["total_spine_contract_met"] = resume_recovery.get(
+                "contract_met"
+            )
+            annotated["total_spine_contract_ok"] = (
+                resume_recovery.get("contract_met") is True
+                or resume_recovery.get("contract_met") is None
+            )
+            annotated["total_spine_done_when"] = (
+                contract_text
+                or str(resume_recovery.get("done_when") or "")
+            )
+        annotated["total_spine_finality"] = True
+        annotated["total_spine_execution"] = True
+        annotated["total_spine_actuation"] = True
+        annotated["total_spine_settlement"] = True
+        annotated["total_spine_clearing"] = True
+        annotated["total_spine_delivery"] = True
+        annotated["total_spine_custody"] = True
+        annotated["total_spine_margin"] = True
+        annotated["total_spine_collateral"] = True
+        annotated["total_spine_liquidity"] = True
+        annotated["total_spine_funding"] = True
+        annotated["total_spine_capital"] = True
+        annotated["total_spine_solvency"] = True
+        annotated["total_spine_risk"] = True
+        annotated["total_spine_stress"] = True
+        if resume_funding is not None:
+            annotated = annotate_total_spine_funding(
+                annotated,
+                certificate=resume_funding,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_funding_bound_tip") or bound_tip
+            )
+        if resume_capital is not None:
+            annotated = annotate_total_spine_capital(
+                annotated,
+                certificate=resume_capital,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_capital_bound_tip") or bound_tip
+            )
+        if resume_solvency is not None:
+            annotated = annotate_total_spine_solvency(
+                annotated,
+                certificate=resume_solvency,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_solvency_bound_tip") or bound_tip
+            )
+        if resume_risk is not None:
+            annotated = annotate_total_spine_risk(
+                annotated,
+                certificate=resume_risk,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_risk_bound_tip") or bound_tip
+            )
+        if resume_stress is not None:
+            annotated = annotate_total_spine_stress(
+                annotated,
+                certificate=resume_stress,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_stress_bound_tip") or bound_tip
+            )
+        annotated = annotate_total_spine_recovery(
+            annotated,
+            certificate=resume_recovery,
+            prior_tip=bound_tip,
+            short_circuit=True,
+        )
+        bound_tip = str(
+            annotated.get("total_spine_recovery_bound_tip") or bound_tip
+        )
+        if compressed:
+            hops = seal_total_spine_hop_chain(
+                root, live_result, tip=bound_tip
+            )
+            annotated["total_spine_hop_chain"] = hops
+            annotated["total_spine_hop_count"] = len(hops)
+            if hops:
+                annotated["total_spine_digest"] = hops[0].get("digest")
+                annotated[f"{root}_digest"] = hops[0].get("digest")
+        else:
+            annotated["total_spine_digest"] = bound_tip
+            annotated[f"{root}_digest"] = bound_tip
+        annotated["total_spine_recovery_short_circuit"] = True
+        annotated["total_spine_constitution_depth"] = chain_len
+        annotated["total_spine_collateral_impl"] = TOTAL_SPINE_COLLATERAL_IMPL
+        annotated["total_spine_liquidity_impl"] = TOTAL_SPINE_LIQUIDITY_IMPL
+        annotated["total_spine_funding_impl"] = TOTAL_SPINE_FUNDING_IMPL
+        annotated["total_spine_capital_impl"] = TOTAL_SPINE_CAPITAL_IMPL
+        annotated["total_spine_solvency_impl"] = TOTAL_SPINE_SOLVENCY_IMPL
+        annotated["total_spine_risk_impl"] = TOTAL_SPINE_RISK_IMPL
+        annotated["total_spine_stress_impl"] = TOTAL_SPINE_STRESS_IMPL
+        annotated["total_spine_recovery_impl"] = TOTAL_SPINE_RECOVERY_IMPL
+        if goal_text and not annotated.get("total_spine_goal"):
+            annotated["total_spine_goal"] = goal_text
+        annotated.setdefault("total_spine_federation", False)
+        annotated.setdefault("total_spine_quorum", False)
+        return annotated
 
     # --- Irreversible stress short-circuit (no effect re-dispatch) ---
     if resume_stress is not None:
@@ -8757,6 +9020,7 @@ def _attach_total_spine_effects(
         annotated["total_spine_solvency_impl"] = TOTAL_SPINE_SOLVENCY_IMPL
         annotated["total_spine_risk_impl"] = TOTAL_SPINE_RISK_IMPL
         annotated["total_spine_stress_impl"] = TOTAL_SPINE_STRESS_IMPL
+        annotated["total_spine_recovery_impl"] = TOTAL_SPINE_RECOVERY_IMPL
         if goal_text and not annotated.get("total_spine_goal"):
             annotated["total_spine_goal"] = goal_text
         annotated.setdefault("total_spine_federation", False)
@@ -8976,6 +9240,7 @@ def _attach_total_spine_effects(
             annotated,
             risk_on=risk_on,
         stress_on=stress_on,
+        recovery_on=recovery_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
@@ -9093,6 +9358,7 @@ def _attach_total_spine_effects(
             solvency_on=solvency_on,
         risk_on=risk_on,
         stress_on=stress_on,
+        recovery_on=recovery_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
@@ -9286,6 +9552,7 @@ def _attach_total_spine_effects(
             solvency_on=solvency_on,
         risk_on=risk_on,
         stress_on=stress_on,
+        recovery_on=recovery_on,
         )
         return annotated
 
@@ -9572,6 +9839,7 @@ def _attach_total_spine_effects(
             solvency_on=solvency_on,
         risk_on=risk_on,
         stress_on=stress_on,
+        recovery_on=recovery_on,
         )
         return annotated
 
@@ -10071,6 +10339,7 @@ def _attach_total_spine_effects(
             solvency_on=solvency_on,
         risk_on=risk_on,
         stress_on=stress_on,
+        recovery_on=recovery_on,
         )
         return annotated
 
@@ -10301,6 +10570,7 @@ def _attach_total_spine_effects(
             solvency_on=solvency_on,
         risk_on=risk_on,
         stress_on=stress_on,
+        recovery_on=recovery_on,
         )
         return annotated
 
@@ -10512,6 +10782,7 @@ def _attach_total_spine_effects(
             solvency_on=solvency_on,
         risk_on=risk_on,
         stress_on=stress_on,
+        recovery_on=recovery_on,
         )
         return annotated
 
@@ -10705,6 +10976,7 @@ def _attach_total_spine_effects(
             solvency_on=solvency_on,
         risk_on=risk_on,
         stress_on=stress_on,
+        recovery_on=recovery_on,
         )
         return annotated
 
@@ -10883,6 +11155,7 @@ def _attach_total_spine_effects(
             solvency_on=solvency_on,
         risk_on=risk_on,
         stress_on=stress_on,
+        recovery_on=recovery_on,
         )
         return annotated
 
@@ -11073,6 +11346,7 @@ def _attach_total_spine_effects(
             solvency_on=solvency_on,
         risk_on=risk_on,
         stress_on=stress_on,
+        recovery_on=recovery_on,
         )
         return annotated
 
@@ -11324,6 +11598,7 @@ def _attach_total_spine_effects(
             solvency_on=solvency_on,
         risk_on=risk_on,
         stress_on=stress_on,
+        recovery_on=recovery_on,
         )
         return annotated
 
@@ -12173,6 +12448,7 @@ def _attach_total_spine_effects(
         solvency_on=solvency_on,
         risk_on=risk_on,
         stress_on=stress_on,
+        recovery_on=recovery_on,
     )
     return annotated
 
@@ -12228,6 +12504,7 @@ def run_total_spine(
     solvency: bool = False,
     risk: bool = False,
     stress: bool = False,
+    recovery: bool = False,
 ) -> dict[str, Any]:
     """Public entry: absolute total spine from root into the operational nest.
 
@@ -12371,6 +12648,14 @@ def run_total_spine(
     certificate, refuses split / one-sided / mismatched / wrong-root
     closures, and short-circuits on re-stress so a risked net
     is no longer unstressed.
+
+    Post-stress recovery: ``recovery=True`` independently confirms a
+    second stress of the same SvC book, books each stressed pair
+    into a recovery register and pairs it with a plan
+    (recovery-versus-plan), seals a re-verifiable atomic recovery
+    certificate, refuses split / one-sided / mismatched / wrong-root
+    closures, and short-circuits on re-recovery so a stressed net
+    is no longer unrestored.
     """
     root = (
         str(root_layer or TOTAL_SPINE_DEFAULT_ROOT).strip().lower()
@@ -12457,6 +12742,7 @@ def run_total_spine(
             solvency=solvency,
             risk=risk,
             stress=stress,
+            recovery=recovery,
         )
         return annotated
 
@@ -12536,6 +12822,7 @@ def run_total_spine(
         solvency=solvency,
         risk=risk,
         stress=stress,
+        recovery=recovery,
     )
     if out_root is not None:
         receipt_dir = Path(out_root)
@@ -20011,6 +20298,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "matching risk books into irreversible stress receipts"
         ),
     )
+    sub.add_parser(
+        "recovery-proof",
+        help=(
+            "Total spine recovery proof: post-stress atomic RvP seals "
+            "matching stress books into irreversible recovery receipts"
+        ),
+    )
     sub.add_parser("list", help="List control modes and dialects")
     sub.add_parser("nest-path", help="Print canonical operational nest path")
     sub.add_parser(
@@ -20199,6 +20493,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "stress-proof":
         result = builtin_total_spine_stress_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "recovery-proof":
+        result = builtin_total_spine_recovery_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2
