@@ -1,0 +1,42 @@
+{
+  "capability_id": "capability.absorbed-forage-lab",
+  "generated_at": "2026-08-14T19:55:53.972078Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-forage-lab"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "kind": "fixture",
+    "source": "tests/fixtures/external_packages/forage-lab"
+  },
+  "record_digest": "92e2ee2daf97d25fd13e2ec33676ff356a892969f9489226f83207e86c5f4550",
+  "report_digest": "cf573fccf0b2fd308988f7b801ae724cde2c1167692f2f3286e34e7749e38f34",
+  "schema_version": 1,
+  "slug": "forage-lab",
+  "task": {
+    "goal": [
+      "shout_output"
+    ],
+    "id": "absorbed-forage-lab",
+    "initial_state": {
+      "text": "Hello World"
+    },
+    "oracle": {
+      "shout_output": "HELLO WORLD!"
+    }
+  },
+  "vendored_tree_digest": "6d42b5ce2c00dd9cbfd3e57b64a2a83669f4b3374392a29474fe5f2957b54f89",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

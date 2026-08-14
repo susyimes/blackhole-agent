@@ -31,6 +31,64 @@
       ],
       "updated_at": "2026-08-14T19:04:37.149469Z"
     },
+    "capability.absorbed-forage-lab": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_absorption.py",
+        "capabilities/absorbed-steps.json",
+        "capabilities/absorbed/forage-lab/",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "External tool 'forage-lab' is now a first-class invocable capability providing ['shout_output']; goals needing it plan and execute through the application plane where they were honestly unplannable before absorption.",
+      "created_at": "2026-08-14T19:55:53.276637Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory"
+      ],
+      "description": "Absorbed from external tool 'forage-lab' (fixture origin tests/fixtures/external_packages/forage-lab): provides ['shout_output'] from ['text']. Vendored under capabilities/absorbed/forage-lab/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case, so a hand-edited record or tampered file fails.",
+      "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+      "id": "capability.absorbed-forage-lab",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-14T19:55:53.657945Z",
+      "name": "Absorbed external capability: forage-lab (uncooperative fixture package)",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('forage-lab'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "absorbed",
+        "external"
+      ],
+      "updated_at": "2026-08-14T19:55:53.657945Z"
+    },
+    "capability.absorbed-inflection": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_absorption.py",
+        "capabilities/absorbed-steps.json",
+        "capabilities/absorbed/inflection/",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "External tool 'inflection' is now a first-class invocable capability providing ['camelize_output']; goals needing it plan and execute through the application plane where they were honestly unplannable before absorption.",
+      "created_at": "2026-08-14T19:54:04.360477Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory"
+      ],
+      "description": "Absorbed from external tool 'inflection' (pypi-live origin ): provides ['camelize_output'] from ['string']. Vendored under capabilities/absorbed/inflection/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case, so a hand-edited record or tampered file fails.",
+      "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+      "id": "capability.absorbed-inflection",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-14T20:10:00.951553Z",
+      "name": "Absorbed external capability: inflection",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('inflection'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "absorbed",
+        "external"
+      ],
+      "updated_at": "2026-08-14T20:10:00.951553Z"
+    },
     "capability.absorbed-json-indenter": {
       "behavior_paths": [
         "src/blackhole_agent/capability_absorption.py",
@@ -59,6 +117,35 @@
         "external"
       ],
       "updated_at": "2026-08-14T18:58:03.822184Z"
+    },
+    "capability.absorbed-markdown-foraged": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_absorption.py",
+        "capabilities/absorbed-steps.json",
+        "capabilities/absorbed/markdown-foraged/",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "External tool 'markdown-foraged' is now a first-class invocable capability providing ['markdown_output']; goals needing it plan and execute through the application plane where they were honestly unplannable before absorption.",
+      "created_at": "2026-08-14T19:56:00.361831Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory"
+      ],
+      "description": "Absorbed from external tool 'markdown-foraged' (pypi-sdist origin stewardship/markdown-3.10.3/markdown-3.10.3.tar.gz): provides ['markdown_output'] from ['text']. Vendored under capabilities/absorbed/markdown-foraged/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case, so a hand-edited record or tampered file fails.",
+      "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+      "id": "capability.absorbed-markdown-foraged",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-14T19:56:00.955155Z",
+      "name": "Absorbed external capability: Python-Markdown renderer (stewardship sdist, inferred spec)",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('markdown-foraged'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "absorbed",
+        "external"
+      ],
+      "updated_at": "2026-08-14T19:56:00.955155Z"
     },
     "capability.absorbed-marked-renderer": {
       "behavior_paths": [
@@ -175,6 +262,35 @@
         "external"
       ],
       "updated_at": "2026-08-14T17:44:51.940075Z"
+    },
+    "capability.absorbed-tomli-foraged": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_absorption.py",
+        "capabilities/absorbed-steps.json",
+        "capabilities/absorbed/tomli-foraged/",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "External tool 'tomli-foraged' is now a first-class invocable capability providing ['loads_output']; goals needing it plan and execute through the application plane where they were honestly unplannable before absorption.",
+      "created_at": "2026-08-14T19:55:55.313101Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory"
+      ],
+      "description": "Absorbed from external tool 'tomli-foraged' (pypi-sdist origin stewardship/tomli-2.4.1/tomli-2.4.1.tar.gz): provides ['loads_output'] from ['s']. Vendored under capabilities/absorbed/tomli-foraged/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case, so a hand-edited record or tampered file fails.",
+      "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+      "id": "capability.absorbed-tomli-foraged",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-14T19:55:55.752064Z",
+      "name": "Absorbed external capability: tomli TOML parser (stewardship sdist, inferred spec)",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('tomli-foraged'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "absorbed",
+        "external"
+      ],
+      "updated_at": "2026-08-14T19:55:55.752064Z"
     },
     "capability.absorbed-tomli-parser": {
       "behavior_paths": [
@@ -2867,6 +2983,42 @@
         "evidence"
       ],
       "updated_at": "2026-08-14T19:04:37.151638Z"
+    },
+    "capability.foraging-plane": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_foraging.py",
+        "src/blackhole_agent/capability_acquisition.py",
+        "src/blackhole_agent/capability_absorption.py",
+        "tests/fixtures/external_packages/forage-lab/",
+        "tests/fixtures/external_packages/forage-empty/",
+        "capabilities/absorbed-steps.json",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "The last human-authored input to acquisition is gone: packages are foraged from a bare name — import root detected from the tree layout, entry callable selected by sandboxed introspection with held-out generalization, probes derived from a fixed task-independent vocabulary, and the result absorbed and proved through the existing planes. The live lane fetches a real PyPI sdist, verifies its sha256, and forages it through the identical inference path.",
+      "created_at": "2026-08-14T19:51:53.120240Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.application-plane",
+        "capability.absorption-plane",
+        "capability.acquisition-plane",
+        "capability.ablation-proof"
+      ],
+      "description": "Zero-spec autonomous acquisition: a request names only a package (local source or live PyPI registry entry); import root, import name, entry callable, state keys, and probe inputs are all machine-derived by sandboxed introspection and a fixed, task-independent probe vocabulary with split-honest held-out generalization. The inferred spec flows through the acquisition and absorption planes unchanged, ending as a proved, vendored, digest-sealed ledger capability. Packages with no viable candidate are refused before any ledger write.",
+      "entry": "blackhole_agent.capability_foraging:demo_foraging_plane",
+      "id": "capability.foraging-plane",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-14T19:52:07.284779Z",
+      "name": "Capability foraging plane",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_foraging import builtin_foraging_plane_proof; r=builtin_foraging_plane_proof(); assert r['ok'] and r.get('inference_ok') and r.get('winner_is_shout') and r.get('brittle_rejected') and r.get('empty_refused') and r.get('plane_ok') and r.get('verify_ok') and r.get('tampered_rejected')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "foraging",
+        "plane"
+      ],
+      "updated_at": "2026-08-14T19:52:07.284779Z"
     },
     "capability.fragility-audit": {
       "behavior_paths": [
@@ -8737,5 +8889,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-08-14T19:06:05.073926Z"
+  "updated_at": "2026-08-14T20:10:00.951579Z"
 }

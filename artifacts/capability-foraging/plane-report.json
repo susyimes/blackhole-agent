@@ -1,0 +1,127 @@
+{
+  "forages": {
+    "forage-lab": {
+      "acquisition": {
+        "derived_case_count": 4,
+        "ok": true,
+        "proof_exit_code": 0,
+        "stage": "proved"
+      },
+      "capability_id": "capability.absorbed-forage-lab",
+      "inference": {
+        "domain": "plain-text",
+        "import_name": "forage_lab",
+        "path_root": ".",
+        "probe_count": 4,
+        "provides": "shout_output",
+        "rejected": {
+          "brittle": "held-out probe failed in domain 'plain-text': adapter exited 1: ValueError: empty input refused"
+        },
+        "requires": [
+          "text"
+        ],
+        "winner": "shout"
+      },
+      "ok": true,
+      "slug": "forage-lab",
+      "stage": "proved"
+    },
+    "inflection": {
+      "acquisition": {
+        "derived_case_count": 4,
+        "ok": true,
+        "proof_exit_code": 0,
+        "stage": "proved"
+      },
+      "capability_id": "capability.absorbed-inflection",
+      "fetch": {
+        "sha256": "1a29730d366e996aaacffb2f1f1cb9593dc38e2ddd30c91250c6dde09ea9b417",
+        "url": "https://files.pythonhosted.org/packages/e1/7e/691d061b7329bc8d54edbf0ec22fbfb2afe61facb681f9aaa9bff7a27d04/inflection-0.5.1.tar.gz",
+        "version": "0.5.1"
+      },
+      "inference": {
+        "domain": "plain-text",
+        "import_name": "inflection",
+        "path_root": "inflection-0.5.1",
+        "probe_count": 4,
+        "provides": "camelize_output",
+        "rejected": {},
+        "requires": [
+          "string"
+        ],
+        "winner": "camelize"
+      },
+      "ok": true,
+      "slug": "inflection",
+      "stage": "proved"
+    },
+    "markdown-foraged": {
+      "acquisition": {
+        "derived_case_count": 4,
+        "ok": true,
+        "proof_exit_code": 0,
+        "stage": "proved"
+      },
+      "capability_id": "capability.absorbed-markdown-foraged",
+      "inference": {
+        "domain": "plain-text",
+        "import_name": "markdown",
+        "path_root": "markdown-3.10.3",
+        "probe_count": 4,
+        "provides": "markdown_output",
+        "rejected": {
+          "markdownFromFile": "signature is not a 1-2 arg JSON-scalar callable"
+        },
+        "requires": [
+          "text"
+        ],
+        "winner": "markdown"
+      },
+      "ok": true,
+      "slug": "markdown-foraged",
+      "stage": "proved"
+    },
+    "tomli-foraged": {
+      "acquisition": {
+        "derived_case_count": 4,
+        "ok": true,
+        "proof_exit_code": 0,
+        "stage": "proved"
+      },
+      "capability_id": "capability.absorbed-tomli-foraged",
+      "inference": {
+        "domain": "toml",
+        "import_name": "tomli",
+        "path_root": "tomli-2.4.1/src",
+        "probe_count": 4,
+        "provides": "loads_output",
+        "rejected": {
+          "load": "signature is not a 1-2 arg JSON-scalar callable"
+        },
+        "requires": [
+          "s"
+        ],
+        "winner": "loads"
+      },
+      "ok": true,
+      "slug": "tomli-foraged",
+      "stage": "proved"
+    }
+  },
+  "generated_at": "2026-08-14T19:56:05.732946Z",
+  "grade": {
+    "forage_count": 4,
+    "forages_ok": 4,
+    "ok": true
+  },
+  "kind": "capability_foraging_plane",
+  "live": true,
+  "report_digest": "f685b7c944f84cc8cff86a57a7a18f2ec74a5354927f48ee88a2dd54bef90431",
+  "schema_version": 1,
+  "slugs": [
+    "forage-lab",
+    "inflection",
+    "markdown-foraged",
+    "tomli-foraged"
+  ]
+}

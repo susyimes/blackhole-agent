@@ -1,0 +1,121 @@
+site_name: Python-Markdown
+site_url: https://Python-Markdown.github.io/
+repo_url: https://github.com/Python-Markdown/markdown
+site_author: "The Python-Markdown Project"
+copyright: "Copyright &copy; 2010-2023"
+
+use_directory_urls: true
+watch: [markdown, scripts]
+
+theme:
+  name: nature
+  icon: py.png
+  release: !!python/name:markdown.__version__
+  issue_tracker: https://github.com/Python-Markdown/markdown/issues
+
+extra_css:
+  - custom.css
+  - mkdocstrings.css
+
+nav:
+  - Python-Markdown: index.md
+  - Installation: install.md
+  - Library Reference: reference.md
+  - Command Line: cli.md
+  - Sanitization and Security: sanitization.md
+  - Extensions: extensions/index.md
+  - Officially Supported Extensions:
+      - Abbreviations: extensions/abbreviations.md
+      - Admonition: extensions/admonition.md
+      - Attribute Lists: extensions/attr_list.md
+      - CodeHilite: extensions/code_hilite.md
+      - Definition Lists: extensions/definition_lists.md
+      - Extra: extensions/extra.md
+      - Fenced Code Blocks: extensions/fenced_code_blocks.md
+      - Footnotes: extensions/footnotes.md
+      - Legacy Attributes: extensions/legacy_attrs.md
+      - Legacy Emphasis: extensions/legacy_em.md
+      - Meta-Data: extensions/meta_data.md
+      - New Line to Break: extensions/nl2br.md
+      - Markdown in HTML: extensions/md_in_html.md
+      - Sane Lists: extensions/sane_lists.md
+      - SmartyPants: extensions/smarty.md
+      - Table of Contents: extensions/toc.md
+      - Tables: extensions/tables.md
+      - WikiLinks: extensions/wikilinks.md
+  - Extension API: extensions/api.md
+  - Test Tools: test_tools.md
+  - API Reference: reference/
+  - Contributing to Python-Markdown: contributing.md
+  - Changelog: changelog.md
+  - Authors: authors.md
+
+not_in_nav: |
+  change_log/
+
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn
+
+markdown_extensions:
+  - extra
+  - admonition
+  - smarty
+  - codehilite
+  - toc:
+      permalink: true
+  - mdx_gh_links:
+      user: Python-Markdown
+      repo: markdown
+
+plugins:
+- search
+- gen-files:
+    scripts:
+    - scripts/gen_ref_nav.py
+- literate-nav:
+    nav_file: SUMMARY.md
+- section-index
+- mkdocstrings:
+    custom_templates: docs/templates
+    handlers:
+      python:
+        inventories:
+        - https://docs.python.org/3/objects.inv
+        options:
+          annotations_path: brief
+          docstring_options:
+            ignore_init_summary: true
+          docstring_style: google
+          docstring_section_style: list
+          extensions:
+          - scripts/griffe_extensions.py:DeprecatedExtension
+          - scripts/griffe_extensions.py:PriorityTableExtension:
+              paths:
+                - markdown.preprocessors.build_preprocessors
+                - markdown.blockprocessors.build_block_parser
+                - markdown.treeprocessors.build_treeprocessors
+                - markdown.inlinepatterns.build_inlinepatterns
+                - markdown.postprocessors.build_postprocessors
+          filters: ["!^_"]
+          group_by_category: false
+          heading_level: 1
+          inherited_members: true
+          members_order: source
+          merge_init_into_class: true
+          separate_signature: false
+          show_root_heading: true
+          show_object_full_path: true
+          show_signature_annotations: true
+          show_source: false
+          show_symbol_type_heading: true
+          show_symbol_type_toc: false
+          signature_crossrefs: false
+          summary: true
+          extra:
+            source:
+              repo: https://github.com/Python-Markdown/markdown
+              tag: !!python/name:markdown.__version__
+              title: "View source code on GitHub."

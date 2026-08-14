@@ -1,0 +1,58 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "camelize_output": "Hello World"
+      },
+      "input": {
+        "string": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "camelize_output": "Blackhole unbound"
+      },
+      "input": {
+        "string": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "camelize_output": "MiXeD CaSe"
+      },
+      "input": {
+        "string": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "camelize_output": ""
+      },
+      "input": {
+        "string": ""
+      }
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "inflection",
+  "origin": {
+    "kind": "pypi-live",
+    "name": "inflection",
+    "registry": "pypi",
+    "sha256": "1a29730d366e996aaacffb2f1f1cb9593dc38e2ddd30c91250c6dde09ea9b417",
+    "url": "https://files.pythonhosted.org/packages/e1/7e/691d061b7329bc8d54edbf0ec22fbfb2afe61facb681f9aaa9bff7a27d04/inflection-0.5.1.tar.gz",
+    "version": "0.5.1"
+  },
+  "provides": [
+    "camelize_output"
+  ],
+  "requires": [
+    "string"
+  ],
+  "schema_version": 1,
+  "slug": "inflection",
+  "version": "0.5.1"
+}

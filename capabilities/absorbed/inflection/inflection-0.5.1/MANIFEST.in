@@ -1,0 +1,3 @@
+include README.rst LICENSE test_inflection.py
+graft docs
+prune docs/_build

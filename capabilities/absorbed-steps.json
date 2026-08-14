@@ -1,8 +1,126 @@
 {
-  "absorbed_at": "2026-08-14T19:00:49.826892Z",
+  "absorbed_at": "2026-08-14T19:54:04.354483Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
+    {
+      "capability_id": "capability.absorbed-forage-lab",
+      "cases": [
+        {
+          "expect": {
+            "shout_output": "HELLO WORLD!"
+          },
+          "input": {
+            "text": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "shout_output": "BLACKHOLE UNBOUND!"
+          },
+          "input": {
+            "text": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "shout_output": "MIXED CASE!"
+          },
+          "input": {
+            "text": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "shout_output": "!"
+          },
+          "input": {
+            "text": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "forage-lab (uncooperative fixture package)",
+      "origin": {
+        "kind": "fixture",
+        "source": "tests/fixtures/external_packages/forage-lab"
+      },
+      "provides": [
+        "shout_output"
+      ],
+      "record_digest": "92e2ee2daf97d25fd13e2ec33676ff356a892969f9489226f83207e86c5f4550",
+      "requires": [
+        "text"
+      ],
+      "schema_version": 1,
+      "slug": "forage-lab",
+      "vendored_tree_digest": "6d42b5ce2c00dd9cbfd3e57b64a2a83669f4b3374392a29474fe5f2957b54f89",
+      "version": ""
+    },
+    {
+      "capability_id": "capability.absorbed-inflection",
+      "cases": [
+        {
+          "expect": {
+            "camelize_output": "Hello World"
+          },
+          "input": {
+            "string": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "camelize_output": "Blackhole unbound"
+          },
+          "input": {
+            "string": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "camelize_output": "MiXeD CaSe"
+          },
+          "input": {
+            "string": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "camelize_output": ""
+          },
+          "input": {
+            "string": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "inflection",
+      "origin": {
+        "kind": "pypi-live",
+        "name": "inflection",
+        "registry": "pypi",
+        "sha256": "1a29730d366e996aaacffb2f1f1cb9593dc38e2ddd30c91250c6dde09ea9b417",
+        "url": "https://files.pythonhosted.org/packages/e1/7e/691d061b7329bc8d54edbf0ec22fbfb2afe61facb681f9aaa9bff7a27d04/inflection-0.5.1.tar.gz",
+        "version": "0.5.1"
+      },
+      "provides": [
+        "camelize_output"
+      ],
+      "record_digest": "e36b6d7859dc47c5bcb500207903c443288cbed9fdcdc3fe80b640c9b9df0c6b",
+      "requires": [
+        "string"
+      ],
+      "schema_version": 1,
+      "slug": "inflection",
+      "vendored_tree_digest": "c54d0352e84f3c0cac49685137e00589abb8b025625918e821142cd435c18f3e",
+      "version": "0.5.1"
+    },
     {
       "capability_id": "capability.absorbed-json-indenter",
       "cases": [
@@ -43,6 +161,63 @@
       "slug": "json-indenter",
       "vendored_tree_digest": "a13d1ba5aee103f47734320ad4cd32537f0fafa212e4a68f6667d074726e58b4",
       "version": ""
+    },
+    {
+      "capability_id": "capability.absorbed-markdown-foraged",
+      "cases": [
+        {
+          "expect": {
+            "markdown_output": "<p>Hello World</p>"
+          },
+          "input": {
+            "text": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "markdown_output": "<p>blackhole unbound</p>"
+          },
+          "input": {
+            "text": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "markdown_output": "<p>MiXeD CaSe</p>"
+          },
+          "input": {
+            "text": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "markdown_output": ""
+          },
+          "input": {
+            "text": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "Python-Markdown renderer (stewardship sdist, inferred spec)",
+      "origin": {
+        "kind": "pypi-sdist",
+        "source": "stewardship/markdown-3.10.3/markdown-3.10.3.tar.gz"
+      },
+      "provides": [
+        "markdown_output"
+      ],
+      "record_digest": "58669054dd41ed1fdcf4d56e78796f35d81d7be15de60de63a21d8ff29debe23",
+      "requires": [
+        "text"
+      ],
+      "schema_version": 1,
+      "slug": "markdown-foraged",
+      "vendored_tree_digest": "e1445cce0aaa19171739546b7924605bafdc9eaa3f6708d97936242f1646ea39",
+      "version": "3.10.3"
     },
     {
       "capability_id": "capability.absorbed-marked-renderer",
@@ -243,6 +418,77 @@
       "version": "1.0.0"
     },
     {
+      "capability_id": "capability.absorbed-tomli-foraged",
+      "cases": [
+        {
+          "expect": {
+            "loads_output": {
+              "title": "blackhole"
+            }
+          },
+          "input": {
+            "s": "title = \"blackhole\"\n"
+          }
+        },
+        {
+          "expect": {
+            "loads_output": {
+              "tool": {
+                "unbound": {
+                  "enabled": true
+                }
+              }
+            }
+          },
+          "input": {
+            "s": "[tool.unbound]\nenabled = true\n"
+          }
+        },
+        {
+          "expect": {
+            "loads_output": {
+              "values": [
+                1,
+                2,
+                3
+              ]
+            }
+          },
+          "input": {
+            "s": "values = [1, 2, 3]\n"
+          }
+        },
+        {
+          "expect": {
+            "loads_output": {}
+          },
+          "input": {
+            "s": "# comment only\n"
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "tomli TOML parser (stewardship sdist, inferred spec)",
+      "origin": {
+        "kind": "pypi-sdist",
+        "source": "stewardship/tomli-2.4.1/tomli-2.4.1.tar.gz"
+      },
+      "provides": [
+        "loads_output"
+      ],
+      "record_digest": "8221d9cfeda857e351ee34227b51960e4fdb30692d54db36ffe0292b94fc1d98",
+      "requires": [
+        "s"
+      ],
+      "schema_version": 1,
+      "slug": "tomli-foraged",
+      "vendored_tree_digest": "f6b700e2f583c5317683e4b9c56ca143b6ea481840a11938cb3ab3a9c0583b32",
+      "version": "2.4.1"
+    },
+    {
       "capability_id": "capability.absorbed-tomli-parser",
       "cases": [
         {
@@ -306,5 +552,5 @@
       "version": "2.4.1"
     }
   ],
-  "steps_digest": "3ef7f1afaf28af6f96a2e8d29f436865e9312feb6fa776ca2847f8940e9f95c6"
+  "steps_digest": "16b112651ec8cff1381759ab8d30d8f32951894ef29b5e914bc85ed5ba369347"
 }

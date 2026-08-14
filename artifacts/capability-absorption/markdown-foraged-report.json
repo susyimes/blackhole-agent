@@ -1,0 +1,42 @@
+{
+  "capability_id": "capability.absorbed-markdown-foraged",
+  "generated_at": "2026-08-14T19:56:02.918107Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-markdown-foraged"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "kind": "pypi-sdist",
+    "source": "stewardship/markdown-3.10.3/markdown-3.10.3.tar.gz"
+  },
+  "record_digest": "58669054dd41ed1fdcf4d56e78796f35d81d7be15de60de63a21d8ff29debe23",
+  "report_digest": "2c0866e1b9abfade8e37ec6103d1eaa8c68a541654ae3515e7cabd79f45f2108",
+  "schema_version": 1,
+  "slug": "markdown-foraged",
+  "task": {
+    "goal": [
+      "markdown_output"
+    ],
+    "id": "absorbed-markdown-foraged",
+    "initial_state": {
+      "text": "Hello World"
+    },
+    "oracle": {
+      "markdown_output": "<p>Hello World</p>"
+    }
+  },
+  "vendored_tree_digest": "e1445cce0aaa19171739546b7924605bafdc9eaa3f6708d97936242f1646ea39",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "capability_id": "capability.absorbed-inflection",
+  "generated_at": "2026-08-14T20:10:01.339822Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-inflection"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "kind": "pypi-live",
+    "name": "inflection",
+    "registry": "pypi",
+    "sha256": "1a29730d366e996aaacffb2f1f1cb9593dc38e2ddd30c91250c6dde09ea9b417",
+    "url": "https://files.pythonhosted.org/packages/e1/7e/691d061b7329bc8d54edbf0ec22fbfb2afe61facb681f9aaa9bff7a27d04/inflection-0.5.1.tar.gz",
+    "version": "0.5.1"
+  },
+  "record_digest": "e36b6d7859dc47c5bcb500207903c443288cbed9fdcdc3fe80b640c9b9df0c6b",
+  "report_digest": "b7ddc6bd1b0c86ee03d6fe6e55559fc305cbffb9032226d19aba311608d9527b",
+  "schema_version": 1,
+  "slug": "inflection",
+  "task": {
+    "goal": [
+      "camelize_output"
+    ],
+    "id": "absorbed-inflection",
+    "initial_state": {
+      "string": "Hello World"
+    },
+    "oracle": {
+      "camelize_output": "Hello World"
+    }
+  },
+  "vendored_tree_digest": "c54d0352e84f3c0cac49685137e00589abb8b025625918e821142cd435c18f3e",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

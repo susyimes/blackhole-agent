@@ -1,0 +1,54 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "markdown_output": "<p>Hello World</p>"
+      },
+      "input": {
+        "text": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "markdown_output": "<p>blackhole unbound</p>"
+      },
+      "input": {
+        "text": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "markdown_output": "<p>MiXeD CaSe</p>"
+      },
+      "input": {
+        "text": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "markdown_output": ""
+      },
+      "input": {
+        "text": ""
+      }
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "Python-Markdown renderer (stewardship sdist, inferred spec)",
+  "origin": {
+    "kind": "pypi-sdist",
+    "source": "stewardship/markdown-3.10.3/markdown-3.10.3.tar.gz"
+  },
+  "provides": [
+    "markdown_output"
+  ],
+  "requires": [
+    "text"
+  ],
+  "schema_version": 1,
+  "slug": "markdown-foraged",
+  "version": "3.10.3"
+}

@@ -1,0 +1,54 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "shout_output": "HELLO WORLD!"
+      },
+      "input": {
+        "text": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "shout_output": "BLACKHOLE UNBOUND!"
+      },
+      "input": {
+        "text": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "shout_output": "MIXED CASE!"
+      },
+      "input": {
+        "text": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "shout_output": "!"
+      },
+      "input": {
+        "text": ""
+      }
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "forage-lab (uncooperative fixture package)",
+  "origin": {
+    "kind": "fixture",
+    "source": "tests/fixtures/external_packages/forage-lab"
+  },
+  "provides": [
+    "shout_output"
+  ],
+  "requires": [
+    "text"
+  ],
+  "schema_version": 1,
+  "slug": "forage-lab",
+  "version": ""
+}
