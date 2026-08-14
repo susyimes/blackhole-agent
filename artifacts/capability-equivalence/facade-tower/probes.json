@@ -1,0 +1,290 @@
+[
+ {
+  "kind": "api-surface",
+  "id": "facade-surfaces",
+  "modules": [
+   "blackhole_agent.upstream_civilization",
+   "blackhole_agent.upstream_commonwealth",
+   "blackhole_agent.upstream_confederation",
+   "blackhole_agent.upstream_continuum",
+   "blackhole_agent.upstream_cosmos",
+   "blackhole_agent.upstream_domain",
+   "blackhole_agent.upstream_empire",
+   "blackhole_agent.upstream_exacontinuum",
+   "blackhole_agent.upstream_gigacontinuum",
+   "blackhole_agent.upstream_hypercontinuum",
+   "blackhole_agent.upstream_institution",
+   "blackhole_agent.upstream_league",
+   "blackhole_agent.upstream_megacontinuum",
+   "blackhole_agent.upstream_multiverse",
+   "blackhole_agent.upstream_omniverse",
+   "blackhole_agent.upstream_petacontinuum",
+   "blackhole_agent.upstream_quettacontinuum",
+   "blackhole_agent.upstream_realm",
+   "blackhole_agent.upstream_ronnacontinuum",
+   "blackhole_agent.upstream_teracontinuum",
+   "blackhole_agent.upstream_ultracontinuum",
+   "blackhole_agent.upstream_yottacontinuum",
+   "blackhole_agent.upstream_zettacontinuum"
+  ]
+ },
+ {
+  "kind": "pytest",
+  "id": "facade-tests",
+  "paths": [
+   "tests/test_upstream_civilization.py",
+   "tests/test_upstream_commonwealth.py",
+   "tests/test_upstream_confederation.py",
+   "tests/test_upstream_continuum.py",
+   "tests/test_upstream_cosmos.py",
+   "tests/test_upstream_domain.py",
+   "tests/test_upstream_empire.py",
+   "tests/test_upstream_exacontinuum.py",
+   "tests/test_upstream_gigacontinuum.py",
+   "tests/test_upstream_hypercontinuum.py",
+   "tests/test_upstream_institution.py",
+   "tests/test_upstream_league.py",
+   "tests/test_upstream_megacontinuum.py",
+   "tests/test_upstream_multiverse.py",
+   "tests/test_upstream_omniverse.py",
+   "tests/test_upstream_petacontinuum.py",
+   "tests/test_upstream_quettacontinuum.py",
+   "tests/test_upstream_realm.py",
+   "tests/test_upstream_ronnacontinuum.py",
+   "tests/test_upstream_teracontinuum.py",
+   "tests/test_upstream_ultracontinuum.py",
+   "tests/test_upstream_yottacontinuum.py",
+   "tests/test_upstream_zettacontinuum.py"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-civilization",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_civilization",
+   "--proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-commonwealth",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_commonwealth",
+   "--proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-confederation",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_confederation",
+   "--proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-continuum",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_continuum",
+   "--proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-cosmos",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_cosmos",
+   "--proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-domain",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_domain",
+   "--proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-empire",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_empire",
+   "--proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-exacontinuum",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_exacontinuum",
+   "--proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-gigacontinuum",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_gigacontinuum",
+   "--proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-hypercontinuum",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_hypercontinuum",
+   "--proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-institution",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_institution",
+   "--proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-league",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_league",
+   "--proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-megacontinuum",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_megacontinuum",
+   "--proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-multiverse",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_multiverse",
+   "--proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-omniverse",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_omniverse",
+   "--proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-petacontinuum",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_petacontinuum",
+   "--proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-quettacontinuum",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_quettacontinuum",
+   "--proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-realm",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_realm",
+   "--proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-ronnacontinuum",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_ronnacontinuum",
+   "--proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-teracontinuum",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_teracontinuum",
+   "--proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-ultracontinuum",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_ultracontinuum",
+   "--proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-yottacontinuum",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_yottacontinuum",
+   "--proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-zettacontinuum",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_zettacontinuum",
+   "--proof"
+  ]
+ }
+]

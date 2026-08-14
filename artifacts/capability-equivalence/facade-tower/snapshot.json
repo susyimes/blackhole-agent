@@ -1,0 +1,448 @@
+{
+  "captured_at": "2026-08-14T21:44:02.311621Z",
+  "kind": "equivalence_snapshot",
+  "name": "facade-tower",
+  "probes": [
+    {
+      "id": "facade-surfaces",
+      "kind": "api-surface",
+      "modules": [
+        "blackhole_agent.upstream_civilization",
+        "blackhole_agent.upstream_commonwealth",
+        "blackhole_agent.upstream_confederation",
+        "blackhole_agent.upstream_continuum",
+        "blackhole_agent.upstream_cosmos",
+        "blackhole_agent.upstream_domain",
+        "blackhole_agent.upstream_empire",
+        "blackhole_agent.upstream_exacontinuum",
+        "blackhole_agent.upstream_gigacontinuum",
+        "blackhole_agent.upstream_hypercontinuum",
+        "blackhole_agent.upstream_institution",
+        "blackhole_agent.upstream_league",
+        "blackhole_agent.upstream_megacontinuum",
+        "blackhole_agent.upstream_multiverse",
+        "blackhole_agent.upstream_omniverse",
+        "blackhole_agent.upstream_petacontinuum",
+        "blackhole_agent.upstream_quettacontinuum",
+        "blackhole_agent.upstream_realm",
+        "blackhole_agent.upstream_ronnacontinuum",
+        "blackhole_agent.upstream_teracontinuum",
+        "blackhole_agent.upstream_ultracontinuum",
+        "blackhole_agent.upstream_yottacontinuum",
+        "blackhole_agent.upstream_zettacontinuum"
+      ]
+    },
+    {
+      "id": "facade-tests",
+      "kind": "pytest",
+      "paths": [
+        "tests/test_upstream_civilization.py",
+        "tests/test_upstream_commonwealth.py",
+        "tests/test_upstream_confederation.py",
+        "tests/test_upstream_continuum.py",
+        "tests/test_upstream_cosmos.py",
+        "tests/test_upstream_domain.py",
+        "tests/test_upstream_empire.py",
+        "tests/test_upstream_exacontinuum.py",
+        "tests/test_upstream_gigacontinuum.py",
+        "tests/test_upstream_hypercontinuum.py",
+        "tests/test_upstream_institution.py",
+        "tests/test_upstream_league.py",
+        "tests/test_upstream_megacontinuum.py",
+        "tests/test_upstream_multiverse.py",
+        "tests/test_upstream_omniverse.py",
+        "tests/test_upstream_petacontinuum.py",
+        "tests/test_upstream_quettacontinuum.py",
+        "tests/test_upstream_realm.py",
+        "tests/test_upstream_ronnacontinuum.py",
+        "tests/test_upstream_teracontinuum.py",
+        "tests/test_upstream_ultracontinuum.py",
+        "tests/test_upstream_yottacontinuum.py",
+        "tests/test_upstream_zettacontinuum.py"
+      ]
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_civilization",
+        "--proof"
+      ],
+      "id": "proof-civilization",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_commonwealth",
+        "--proof"
+      ],
+      "id": "proof-commonwealth",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_confederation",
+        "--proof"
+      ],
+      "id": "proof-confederation",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_continuum",
+        "--proof"
+      ],
+      "id": "proof-continuum",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_cosmos",
+        "--proof"
+      ],
+      "id": "proof-cosmos",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_domain",
+        "--proof"
+      ],
+      "id": "proof-domain",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_empire",
+        "--proof"
+      ],
+      "id": "proof-empire",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_exacontinuum",
+        "--proof"
+      ],
+      "id": "proof-exacontinuum",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_gigacontinuum",
+        "--proof"
+      ],
+      "id": "proof-gigacontinuum",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_hypercontinuum",
+        "--proof"
+      ],
+      "id": "proof-hypercontinuum",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_institution",
+        "--proof"
+      ],
+      "id": "proof-institution",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_league",
+        "--proof"
+      ],
+      "id": "proof-league",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_megacontinuum",
+        "--proof"
+      ],
+      "id": "proof-megacontinuum",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_multiverse",
+        "--proof"
+      ],
+      "id": "proof-multiverse",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_omniverse",
+        "--proof"
+      ],
+      "id": "proof-omniverse",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_petacontinuum",
+        "--proof"
+      ],
+      "id": "proof-petacontinuum",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_quettacontinuum",
+        "--proof"
+      ],
+      "id": "proof-quettacontinuum",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_realm",
+        "--proof"
+      ],
+      "id": "proof-realm",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_ronnacontinuum",
+        "--proof"
+      ],
+      "id": "proof-ronnacontinuum",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_teracontinuum",
+        "--proof"
+      ],
+      "id": "proof-teracontinuum",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_ultracontinuum",
+        "--proof"
+      ],
+      "id": "proof-ultracontinuum",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_yottacontinuum",
+        "--proof"
+      ],
+      "id": "proof-yottacontinuum",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_zettacontinuum",
+        "--proof"
+      ],
+      "id": "proof-zettacontinuum",
+      "kind": "command"
+    }
+  ],
+  "results": {
+    "facade-surfaces": {
+      "surfaces": {
+        "blackhole_agent.upstream_civilization": "374b1a2ecc49a74e61413818ea36e17fa0c9d0f598391023fd9e292520f4a643",
+        "blackhole_agent.upstream_commonwealth": "fdfcb67a08a94dacadd6236cd8d8cf231cde17b71f591858d53820b4ff7e5dd4",
+        "blackhole_agent.upstream_confederation": "7f3726c6ae58948f49152e419f53e5a0143b36abc82b5739e9ccbaa92670e88e",
+        "blackhole_agent.upstream_continuum": "a034f766d1697353e77c5c156b8ef7e165c20ea540ec882c42ea943eb9d3c770",
+        "blackhole_agent.upstream_cosmos": "57ce421629ba042e9d8cf1285023540bc41fc999271ee073ab9345b7503d3c0e",
+        "blackhole_agent.upstream_domain": "7e8a52155ac63995807226cbc99fc570b2f0d6681c54c349b768fc48d7ad8e99",
+        "blackhole_agent.upstream_empire": "4cb837e040c4a2ad03ec6159831fe794352a45c08346da17f937e13105df9873",
+        "blackhole_agent.upstream_exacontinuum": "3bc9f8b9903e17013f570a56f0fbec7df144c01ffe59f3b0a0609a54740c2a4c",
+        "blackhole_agent.upstream_gigacontinuum": "13a9e32dbef41a1d982a2502d4ee21281d83d884f215f10a0a09a93a35011d86",
+        "blackhole_agent.upstream_hypercontinuum": "4a7999a3296562c133e645200d4967d09b428703bca7cb1882a820713ec0fa9e",
+        "blackhole_agent.upstream_institution": "86cc03af93f742b803d8f67c90d96eb712bebf8763bca2b9a5b7709eb4d6a91e",
+        "blackhole_agent.upstream_league": "588de00cecbb8c855bf78455f61f81dd092e86521691bb7fb9acc20a65b57467",
+        "blackhole_agent.upstream_megacontinuum": "85f38ca45d62482d78b2e189de4f306fb0daf92c0920b5524e431eda44b4ba02",
+        "blackhole_agent.upstream_multiverse": "fdd00b8c9474ee268102b27c016f9e82a5a5f26de145d57bb2faed955bb61bba",
+        "blackhole_agent.upstream_omniverse": "50f096b68979765699323ba9b9d5cf96edee6eb45670fcca4a59a77a6bd1ac71",
+        "blackhole_agent.upstream_petacontinuum": "e5e36d06a37d6c0ab5a366db35cd512761a4caa7dec9cd49771e0a0c598859a4",
+        "blackhole_agent.upstream_quettacontinuum": "c7135627b6e6c29a1fba29fba8407afe7b10ace343d003cd94388a834ed43186",
+        "blackhole_agent.upstream_realm": "80c48b6e736f041483d7cced39e6105c4de563573e08568efefe10d9eda1abff",
+        "blackhole_agent.upstream_ronnacontinuum": "18d7fe0c2dda5e8a2dec14ccf7086781896565ec07ac4c0b32ee0f440c7713ac",
+        "blackhole_agent.upstream_teracontinuum": "d8c0a8ae78e0c2a1f0508cc252fadab8aa13871bd426eea4fed0ad6b67456b2c",
+        "blackhole_agent.upstream_ultracontinuum": "e6efaba1bcf9f86761bf1e0fde4900508865ec1bab6970d5864c4955201e4f73",
+        "blackhole_agent.upstream_yottacontinuum": "da93e57703bf4f234a03a9427e1aab897556db765a2ac23c007d34bade57102d",
+        "blackhole_agent.upstream_zettacontinuum": "542ba24af20a52d0e62f1ea520b7a751517cbb91b4354b33a1166b1673e09b84"
+      }
+    },
+    "facade-tests": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "skipped": 0,
+      "tests": 94
+    },
+    "proof-civilization": {
+      "exit_code": 0,
+      "stdout_digest": "67cbeb2234f6e8d60c7b296b0053d2450e39fac5e0be1e68d889ea68209a3891",
+      "stdout_form": "json"
+    },
+    "proof-commonwealth": {
+      "exit_code": 0,
+      "stdout_digest": "1de257e1365573c1476d975118f67ed8305d21ed9c50d5f4fdb6dc2fa0a9b1f9",
+      "stdout_form": "json"
+    },
+    "proof-confederation": {
+      "exit_code": 0,
+      "stdout_digest": "2cacf793ff6b95c7f6f51d34ca8fbc92fc2d3f1eb66c0907272c25d04b14d6c0",
+      "stdout_form": "json"
+    },
+    "proof-continuum": {
+      "exit_code": 0,
+      "stdout_digest": "63ae7eefbb0c0536be359fb3ba5c24644fe6f60806bbf1c7eedbc6edaf11f0b1",
+      "stdout_form": "json"
+    },
+    "proof-cosmos": {
+      "exit_code": 0,
+      "stdout_digest": "ef7bef3b7936ae9320a864c88d218efaadd386ed007bba546ea7b487fdbe056f",
+      "stdout_form": "json"
+    },
+    "proof-domain": {
+      "exit_code": 0,
+      "stdout_digest": "998c87d953e0af9ce86b89c9656ff0aed78e5d964be9b1782a9b3c9037fcf717",
+      "stdout_form": "json"
+    },
+    "proof-empire": {
+      "exit_code": 0,
+      "stdout_digest": "017468a24d9a1abb21174e5127f4cfbc6c980ecd195b8703759cd4b8fc3cf66f",
+      "stdout_form": "json"
+    },
+    "proof-exacontinuum": {
+      "exit_code": 0,
+      "stdout_digest": "b760265d58908c89edd7b3e9fd5ddebbbf13e05a6558925b195eccedbf41dcfb",
+      "stdout_form": "json"
+    },
+    "proof-gigacontinuum": {
+      "exit_code": 0,
+      "stdout_digest": "d95d2c8eefe66adcdb1f43c0f22c99775be631eccf86b073248c03d5a5a5c1a2",
+      "stdout_form": "json"
+    },
+    "proof-hypercontinuum": {
+      "exit_code": 0,
+      "stdout_digest": "2a73b420f0d0bc719265f003aeb745e15cd50b27b605e6b05f13235632972c71",
+      "stdout_form": "json"
+    },
+    "proof-institution": {
+      "exit_code": 0,
+      "stdout_digest": "eb841711f605fa77fcf9b245388c2827d83d9fc50db5bf722d4365a1d7410889",
+      "stdout_form": "json"
+    },
+    "proof-league": {
+      "exit_code": 0,
+      "stdout_digest": "2fb8819c254e258970c3a0714b7039989cb01e81e2b69156fabc8f157aa6a1df",
+      "stdout_form": "json"
+    },
+    "proof-megacontinuum": {
+      "exit_code": 0,
+      "stdout_digest": "dbe49ea157e51d2814577e6aa642c0109ab0d37a6a1fe5586fdad13f4dcdb7f8",
+      "stdout_form": "json"
+    },
+    "proof-multiverse": {
+      "exit_code": 0,
+      "stdout_digest": "00e6a30ff4cc3382d75825c2d393bc6c6ecd306d83840886a2a465d7d6fbe0d6",
+      "stdout_form": "json"
+    },
+    "proof-omniverse": {
+      "exit_code": 0,
+      "stdout_digest": "9f9ee62dda7deca8546f44e7530ab1f2c327060384274fae746b0c334bf5e38d",
+      "stdout_form": "json"
+    },
+    "proof-petacontinuum": {
+      "exit_code": 0,
+      "stdout_digest": "19ccd0a88d6f72e711084afcfc6ca64f1da75e7067e3c267387b2e50fe29d08f",
+      "stdout_form": "json"
+    },
+    "proof-quettacontinuum": {
+      "exit_code": 0,
+      "stdout_digest": "7db65a63e8bfeaa2cf848acfa3308df5d93dda5f6d0db4c69d57837e8f3b2160",
+      "stdout_form": "json"
+    },
+    "proof-realm": {
+      "exit_code": 0,
+      "stdout_digest": "d20c541ca7612abf6609c7cf9e47c9bc61736a29b697d71e79dd4c9031441abb",
+      "stdout_form": "json"
+    },
+    "proof-ronnacontinuum": {
+      "exit_code": 0,
+      "stdout_digest": "4c5f9e66c9e0ae5c1a3e1f5fdd7c28de8526f6955ca3b779e53fb8c305d39ca0",
+      "stdout_form": "json"
+    },
+    "proof-teracontinuum": {
+      "exit_code": 0,
+      "stdout_digest": "7f6bc90cb7d00f3ef994b39dc582b8568644f35167152d3d17282aa77d9f17c4",
+      "stdout_form": "json"
+    },
+    "proof-ultracontinuum": {
+      "exit_code": 0,
+      "stdout_digest": "afff8b09a24333124bc92f8351f13c7baa681317918985fd984575524756be93",
+      "stdout_form": "json"
+    },
+    "proof-yottacontinuum": {
+      "exit_code": 0,
+      "stdout_digest": "d8da2e2a8503e62d32923dd4c998cac1549d0151e69cef5229de023e1d222550",
+      "stdout_form": "json"
+    },
+    "proof-zettacontinuum": {
+      "exit_code": 0,
+      "stdout_digest": "358fb6fef3a0b1f8a0f839c9aedb18a66ef60246ce532e56be1c7bf0cc4669c9",
+      "stdout_form": "json"
+    }
+  },
+  "schema_version": 1,
+  "snapshot_digest": "87036eb74c1050d7a786aa142f4c9ae450a692917ab340b604c9f458ea041860"
+}

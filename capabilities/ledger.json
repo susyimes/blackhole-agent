@@ -2837,6 +2837,34 @@
       ],
       "updated_at": "2026-08-14T20:47:32.358276Z"
     },
+    "capability.equivalence-gate": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_equivalence.py",
+        "tests/test_capability_equivalence.py"
+      ],
+      "capability_delta": "Large-scale self-modification becomes falsifiable: capture a sealed behavior snapshot, rewrite or delete the machinery, and prove the observable behavior is unchanged — drifted probes and tampered snapshots fail by name.",
+      "created_at": "2026-08-14T21:52:31.241044Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory"
+      ],
+      "description": "Behavior-preservation is machine-checked: a snapshot binds pytest/command/api-surface probes to sealed results; verification re-runs every probe live and fails on system drift, snapshot tamper, or digest forgery. Simplification slices are certified by capture-before / verify-after instead of faith.",
+      "entry": "blackhole_agent.capability_equivalence:builtin_equivalence_proof",
+      "id": "capability.equivalence-gate",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-14T21:52:31.941648Z",
+      "name": "Capability equivalence gate",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_equivalence import builtin_equivalence_proof; r=builtin_equivalence_proof(); assert r['ok'] and all(r['checks'].values()) and not r['used_skill_route_discovery']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "equivalence",
+        "simplification",
+        "evidence"
+      ],
+      "updated_at": "2026-08-14T21:52:31.941648Z"
+    },
     "capability.execution-plane": {
       "behavior_paths": [
         "src/blackhole_agent/capability_compounder.py",
@@ -4349,7 +4377,7 @@
     },
     "capability.upstream-civilization": {
       "behavior_paths": [
-        "src/blackhole_agent/upstream_civilization.py",
+        "src/blackhole_agent/upstream_layer_registry.py",
         "src/blackhole_agent/upstream_empire.py",
         "src/blackhole_agent/upstream_realm.py"
       ],
@@ -4466,7 +4494,7 @@
     },
     "capability.upstream-commonwealth": {
       "behavior_paths": [
-        "src/blackhole_agent/upstream_commonwealth.py",
+        "src/blackhole_agent/upstream_layer_registry.py",
         "src/blackhole_agent/upstream_confederation.py",
         "src/blackhole_agent/upstream_league.py",
         "src/blackhole_agent/upstream_institution.py"
@@ -4523,7 +4551,7 @@
     },
     "capability.upstream-confederation": {
       "behavior_paths": [
-        "src/blackhole_agent/upstream_confederation.py",
+        "src/blackhole_agent/upstream_layer_registry.py",
         "src/blackhole_agent/upstream_league.py",
         "src/blackhole_agent/upstream_institution.py",
         "src/blackhole_agent/upstream_program.py"
@@ -4626,7 +4654,7 @@
     },
     "capability.upstream-continuum": {
       "behavior_paths": [
-        "src/blackhole_agent/upstream_continuum.py",
+        "src/blackhole_agent/upstream_layer_registry.py",
         "src/blackhole_agent/upstream_omniverse.py",
         "src/blackhole_agent/upstream_multiverse.py"
       ],
@@ -4973,7 +5001,7 @@
     },
     "capability.upstream-cosmos": {
       "behavior_paths": [
-        "src/blackhole_agent/upstream_cosmos.py",
+        "src/blackhole_agent/upstream_layer_registry.py",
         "src/blackhole_agent/upstream_civilization.py",
         "src/blackhole_agent/upstream_empire.py"
       ],
@@ -5063,7 +5091,7 @@
     },
     "capability.upstream-domain": {
       "behavior_paths": [
-        "src/blackhole_agent/upstream_domain.py",
+        "src/blackhole_agent/upstream_layer_registry.py",
         "src/blackhole_agent/upstream_commonwealth.py",
         "src/blackhole_agent/upstream_confederation.py",
         "src/blackhole_agent/upstream_league.py"
@@ -5117,7 +5145,7 @@
     },
     "capability.upstream-empire": {
       "behavior_paths": [
-        "src/blackhole_agent/upstream_empire.py",
+        "src/blackhole_agent/upstream_layer_registry.py",
         "src/blackhole_agent/upstream_realm.py",
         "src/blackhole_agent/upstream_domain.py"
       ],
@@ -5215,7 +5243,7 @@
     },
     "capability.upstream-exacontinuum": {
       "behavior_paths": [
-        "src/blackhole_agent/upstream_exacontinuum.py",
+        "src/blackhole_agent/upstream_layer_registry.py",
         "src/blackhole_agent/upstream_petacontinuum.py",
         "src/blackhole_agent/upstream_teracontinuum.py"
       ],
@@ -5363,7 +5391,7 @@
     },
     "capability.upstream-gigacontinuum": {
       "behavior_paths": [
-        "src/blackhole_agent/upstream_gigacontinuum.py",
+        "src/blackhole_agent/upstream_layer_registry.py",
         "src/blackhole_agent/upstream_megacontinuum.py",
         "src/blackhole_agent/upstream_ultracontinuum.py"
       ],
@@ -5489,7 +5517,7 @@
     },
     "capability.upstream-hypercontinuum": {
       "behavior_paths": [
-        "src/blackhole_agent/upstream_hypercontinuum.py",
+        "src/blackhole_agent/upstream_layer_registry.py",
         "src/blackhole_agent/upstream_continuum.py",
         "src/blackhole_agent/upstream_omniverse.py"
       ],
@@ -5588,7 +5616,7 @@
     },
     "capability.upstream-institution": {
       "behavior_paths": [
-        "src/blackhole_agent/upstream_institution.py",
+        "src/blackhole_agent/upstream_layer_registry.py",
         "src/blackhole_agent/upstream_program.py",
         "src/blackhole_agent/upstream_succession.py",
         "src/blackhole_agent/upstream_fleet.py"
@@ -5639,7 +5667,7 @@
     },
     "capability.upstream-league": {
       "behavior_paths": [
-        "src/blackhole_agent/upstream_league.py",
+        "src/blackhole_agent/upstream_layer_registry.py",
         "src/blackhole_agent/upstream_institution.py",
         "src/blackhole_agent/upstream_program.py",
         "src/blackhole_agent/upstream_succession.py"
@@ -5736,7 +5764,7 @@
     },
     "capability.upstream-megacontinuum": {
       "behavior_paths": [
-        "src/blackhole_agent/upstream_megacontinuum.py",
+        "src/blackhole_agent/upstream_layer_registry.py",
         "src/blackhole_agent/upstream_ultracontinuum.py",
         "src/blackhole_agent/upstream_hypercontinuum.py"
       ],
@@ -5806,7 +5834,7 @@
     },
     "capability.upstream-multiverse": {
       "behavior_paths": [
-        "src/blackhole_agent/upstream_multiverse.py",
+        "src/blackhole_agent/upstream_layer_registry.py",
         "src/blackhole_agent/upstream_cosmos.py",
         "src/blackhole_agent/upstream_civilization.py"
       ],
@@ -5865,7 +5893,7 @@
     },
     "capability.upstream-omniverse": {
       "behavior_paths": [
-        "src/blackhole_agent/upstream_omniverse.py",
+        "src/blackhole_agent/upstream_layer_registry.py",
         "src/blackhole_agent/upstream_multiverse.py",
         "src/blackhole_agent/upstream_cosmos.py"
       ],
@@ -5926,7 +5954,7 @@
     },
     "capability.upstream-petacontinuum": {
       "behavior_paths": [
-        "src/blackhole_agent/upstream_petacontinuum.py",
+        "src/blackhole_agent/upstream_layer_registry.py",
         "src/blackhole_agent/upstream_teracontinuum.py",
         "src/blackhole_agent/upstream_gigacontinuum.py"
       ],
@@ -6079,7 +6107,7 @@
     },
     "capability.upstream-quettacontinuum": {
       "behavior_paths": [
-        "src/blackhole_agent/upstream_quettacontinuum.py",
+        "src/blackhole_agent/upstream_layer_registry.py",
         "src/blackhole_agent/upstream_ronnacontinuum.py",
         "src/blackhole_agent/upstream_yottacontinuum.py"
       ],
@@ -6165,7 +6193,7 @@
     },
     "capability.upstream-realm": {
       "behavior_paths": [
-        "src/blackhole_agent/upstream_realm.py",
+        "src/blackhole_agent/upstream_layer_registry.py",
         "src/blackhole_agent/upstream_domain.py",
         "src/blackhole_agent/upstream_commonwealth.py"
       ],
@@ -6256,7 +6284,7 @@
     },
     "capability.upstream-ronnacontinuum": {
       "behavior_paths": [
-        "src/blackhole_agent/upstream_ronnacontinuum.py",
+        "src/blackhole_agent/upstream_layer_registry.py",
         "src/blackhole_agent/upstream_yottacontinuum.py",
         "src/blackhole_agent/upstream_zettacontinuum.py"
       ],
@@ -6521,7 +6549,7 @@
     },
     "capability.upstream-teracontinuum": {
       "behavior_paths": [
-        "src/blackhole_agent/upstream_teracontinuum.py",
+        "src/blackhole_agent/upstream_layer_registry.py",
         "src/blackhole_agent/upstream_gigacontinuum.py",
         "src/blackhole_agent/upstream_megacontinuum.py"
       ],
@@ -8271,7 +8299,7 @@
     },
     "capability.upstream-ultracontinuum": {
       "behavior_paths": [
-        "src/blackhole_agent/upstream_ultracontinuum.py",
+        "src/blackhole_agent/upstream_layer_registry.py",
         "src/blackhole_agent/upstream_hypercontinuum.py",
         "src/blackhole_agent/upstream_continuum.py"
       ],
@@ -8339,7 +8367,7 @@
     },
     "capability.upstream-yottacontinuum": {
       "behavior_paths": [
-        "src/blackhole_agent/upstream_yottacontinuum.py",
+        "src/blackhole_agent/upstream_layer_registry.py",
         "src/blackhole_agent/upstream_zettacontinuum.py",
         "src/blackhole_agent/upstream_exacontinuum.py"
       ],
@@ -8421,7 +8449,7 @@
     },
     "capability.upstream-zettacontinuum": {
       "behavior_paths": [
-        "src/blackhole_agent/upstream_zettacontinuum.py",
+        "src/blackhole_agent/upstream_layer_registry.py",
         "src/blackhole_agent/upstream_exacontinuum.py",
         "src/blackhole_agent/upstream_petacontinuum.py"
       ],
@@ -8889,5 +8917,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-08-14T21:02:42.190501Z"
+  "updated_at": "2026-08-14T21:52:31.941672Z"
 }

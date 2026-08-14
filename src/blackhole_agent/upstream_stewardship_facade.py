@@ -1,8 +1,10 @@
 """Stewardship tower facade: thin public APIs over the constitution engine.
 
 Collapses the multi-child copy-paste tower (quettacontinuum..institution) into
-one noun-parameterized export surface. Each ``upstream_<layer>.py`` module is a
-thin re-export of :func:`export_layer_api` — not another ~2500-line rename.
+one noun-parameterized export surface. The 23 ``upstream_<layer>`` modules are
+synthesized on demand by ``upstream_layer_registry`` (a meta-path finder
+installed from the package ``__init__``) running :func:`export_layer_api` —
+not another ~2500-line rename, and not even a 17-line physical file anymore.
 
 Preserves legacy public names (``run_*``, ``normalize_*_charter``,
 ``verify_*_receipt``, ``builtin_upstream_*_proof``, CLI ``--proof``) so ledger
@@ -1101,17 +1103,19 @@ def builtin_stewardship_facade_proof() -> dict[str, Any]:
     # Ledger registration + invocable entry binding.
     ledger = _ledger_facade_capability_ok()
 
-    # Measure current tower module sizes.
+    # Measure the current tower: facades are synthesized from the layer
+    # registry (no physical per-layer files remain); the registry module is
+    # the entire tower footprint.
+    from blackhole_agent.upstream_layer_registry import FACADE_LAYERS, _layer_for
+
     root = Path(__file__).resolve().parents[2]
-    loc_after = 0
-    facade_files = 0
-    for name in names:
-        path = root / "src" / "blackhole_agent" / f"upstream_{name}.py"
-        if path.is_file():
-            text = path.read_text(encoding="utf-8")
-            loc_after += text.count("\n") + 1
-            if "ENGINE_FACADE" in text and "export_layer_api" in text:
-                facade_files += 1
+    registry_path = root / "src" / "blackhole_agent" / "upstream_layer_registry.py"
+    loc_after = registry_path.read_text(encoding="utf-8").count("\n") + 1
+    facade_files = sum(
+        1
+        for name in names
+        if name in FACADE_LAYERS and _layer_for(f"blackhole_agent.upstream_{name}") == name
+    )
 
     all_ok = all(r["ok"] for r in results)
     loc_reduced = loc_after < (loc_before_claim // 10)  # at least 10x reduction
