@@ -12,6 +12,7 @@ import pytest
 
 from blackhole_agent.capability_equivalence import (
     _strip_volatile,
+    _surface_entry,
     builtin_equivalence_proof,
     capture_snapshot,
     load_snapshot,
@@ -175,6 +176,14 @@ def test_capture_requires_unique_probe_ids(scratch: Path) -> None:
 def test_verify_rejects_wrong_kind() -> None:
     verdict = verify_snapshot({"schema_version": 1, "kind": "other"}, cwd=Path("."))
     assert not verdict["ok"]
+
+
+def test_surface_signatures_strip_memory_addresses() -> None:
+    import dataclasses
+
+    entry = _surface_entry("field", dataclasses.field)
+    assert "0x" not in entry[2] or "0x…" in entry[2]
+    assert " at 0x…>" in entry[2]
 
 
 def test_builtin_equivalence_proof() -> None:

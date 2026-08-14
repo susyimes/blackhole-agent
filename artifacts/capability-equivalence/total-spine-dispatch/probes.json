@@ -1,0 +1,318 @@
+[
+ {
+  "kind": "api-surface",
+  "id": "engine-public-surface",
+  "modules": [
+   "blackhole_agent.upstream_control_engine"
+  ],
+  "include_private": false
+ },
+ {
+  "kind": "api-surface",
+  "id": "effect-module-surfaces",
+  "modules": [
+   "blackhole_agent.upstream_total_spine_actuation",
+   "blackhole_agent.upstream_total_spine_settlement",
+   "blackhole_agent.upstream_total_spine_clearing",
+   "blackhole_agent.upstream_total_spine_delivery",
+   "blackhole_agent.upstream_total_spine_custody",
+   "blackhole_agent.upstream_total_spine_margin",
+   "blackhole_agent.upstream_total_spine_collateral",
+   "blackhole_agent.upstream_total_spine_liquidity",
+   "blackhole_agent.upstream_total_spine_funding",
+   "blackhole_agent.upstream_total_spine_capital",
+   "blackhole_agent.upstream_total_spine_solvency",
+   "blackhole_agent.upstream_total_spine_risk",
+   "blackhole_agent.upstream_total_spine_stress",
+   "blackhole_agent.upstream_total_spine_recovery",
+   "blackhole_agent.upstream_total_spine_resolution",
+   "blackhole_agent.upstream_total_spine_restructuring",
+   "blackhole_agent.upstream_total_spine_emergence",
+   "blackhole_agent.upstream_total_spine_reorganization"
+  ]
+ },
+ {
+  "kind": "pytest",
+  "id": "loop-engine-tests",
+  "paths": [
+   "tests/test_upstream_loop_engine.py"
+  ]
+ },
+ {
+  "kind": "pytest",
+  "id": "plane-engine-tests",
+  "paths": [
+   "tests/test_plane_engine.py"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-total",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_control_engine",
+   "total-proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-actuation",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_control_engine",
+   "actuation-proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-adaptive",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_control_engine",
+   "adaptive-proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-capital",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_control_engine",
+   "capital-proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-clearing",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_control_engine",
+   "clearing-proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-collateral",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_control_engine",
+   "collateral-proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-continuity",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_control_engine",
+   "continuity-proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-custody",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_control_engine",
+   "custody-proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-delivery",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_control_engine",
+   "delivery-proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-effect",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_control_engine",
+   "effect-proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-emergence",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_control_engine",
+   "emergence-proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-execution",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_control_engine",
+   "execution-proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-federation",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_control_engine",
+   "federation-proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-finality",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_control_engine",
+   "finality-proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-funding",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_control_engine",
+   "funding-proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-goal",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_control_engine",
+   "goal-proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-liquidity",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_control_engine",
+   "liquidity-proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-margin",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_control_engine",
+   "margin-proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-quorum",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_control_engine",
+   "quorum-proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-recovery",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_control_engine",
+   "recovery-proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-reorganization",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_control_engine",
+   "reorganization-proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-resolution",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_control_engine",
+   "resolution-proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-restructuring",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_control_engine",
+   "restructuring-proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-risk",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_control_engine",
+   "risk-proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-settlement",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_control_engine",
+   "settlement-proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-solvency",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_control_engine",
+   "solvency-proof"
+  ]
+ },
+ {
+  "kind": "command",
+  "id": "proof-stress",
+  "argv": [
+   "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+   "-m",
+   "blackhole_agent.upstream_control_engine",
+   "stress-proof"
+  ]
+ }
+]

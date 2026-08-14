@@ -35,6 +35,7 @@ import importlib
 import importlib.util
 import inspect
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -71,7 +72,13 @@ def _digest(payload: Any) -> str:
 
 
 def _strip_volatile(value: Any) -> Any:
-    """Recursively drop volatile keys (timestamps, durations) from JSON data."""
+    """Recursively drop volatile keys and normalize volatile values in JSON data.
+
+    Keys holding timestamps or durations are dropped. String values pointing
+    into the machine's temp directory (proofs materialize receipts under
+    random per-run tempdirs) are rewritten with a ``<TMP>`` placeholder so
+    the digest is stable across runs on the same checkout.
+    """
 
     if isinstance(value, dict):
         out = {}
@@ -83,6 +90,14 @@ def _strip_volatile(value: Any) -> Any:
         return out
     if isinstance(value, list):
         return [_strip_volatile(item) for item in value]
+    if isinstance(value, str):
+        temp_root = tempfile.gettempdir()
+        if temp_root and temp_root in value:
+            # Proofs materialize receipts under one random tempdir per run;
+            # collapse the temp root *and* that per-run directory name.
+            return re.sub(
+                re.escape(temp_root) + r"[\\/][^\\/]+", "<TMP>", value
+            )
     return value
 
 
@@ -192,6 +207,9 @@ def _surface_entry(name: str, value: Any) -> list[Any]:
             signature = str(inspect.signature(value))
         except (TypeError, ValueError):
             signature = ""
+        # Sentinel defaults (dataclasses._MISSING_TYPE, …) repr with memory
+        # addresses; strip them so the surface is stable across processes.
+        signature = re.sub(r" at 0x[0-9A-Fa-f]+", " at 0x…", signature)
         return [name, "callable", signature]
     if value is None or isinstance(value, (str, int, float, bool)):
         return [name, "data", json.dumps(value, sort_keys=True)]
@@ -199,6 +217,7 @@ def _surface_entry(name: str, value: Any) -> list[Any]:
 
 
 def _run_api_surface_probe(probe: Mapping[str, Any]) -> dict[str, Any]:
+    include_private = bool(probe.get("include_private", True))
     surfaces: dict[str, Any] = {}
     for module_name in probe["modules"]:
         module = importlib.import_module(module_name)
@@ -206,6 +225,7 @@ def _run_api_surface_probe(probe: Mapping[str, Any]) -> dict[str, Any]:
             _surface_entry(name, value)
             for name, value in vars(module).items()
             if not (name.startswith("__") and name.endswith("__"))
+            and (include_private or not name.startswith("_"))
         )
         surfaces[module_name] = _digest(entries)
     return {"surfaces": surfaces}

@@ -7665,886 +7665,114 @@ def _total_spine_round_succeeded(
     return True
 
 
-def _maybe_settle_total_spine(
+# Post-execution effect chain (settlement..reorganization): each link books the
+# predecessor's sealed pairs into its own register, seals an irreversible
+# certificate, and rebinds the tip. The chain is data, not per-link copy-paste:
+# (effect, predecessor, runner verb, certificate source variant). Variants:
+#   "pred"      — source is the predecessor certificate or the body
+#   "self_pred" — source is own certificate (resume), else predecessor's, else body
+#   "self"      — source is own certificate (resume) or the body
+_TOTAL_SPINE_EFFECT_CHAIN: tuple[tuple[str, str, str, str], ...] = (
+    ("settlement", "actuation", "settle", "pred"),
+    ("clearing", "settlement", "clear", "self_pred"),
+    ("delivery", "clearing", "deliver", "self_pred"),
+    ("custody", "delivery", "custody", "self_pred"),
+    ("margin", "custody", "margin", "self_pred"),
+    ("collateral", "margin", "collateral", "self"),
+    ("liquidity", "collateral", "liquidity", "self"),
+    ("funding", "liquidity", "funding", "self"),
+    ("capital", "funding", "capital", "self"),
+    ("solvency", "capital", "solvency", "self"),
+    ("risk", "solvency", "risk", "self"),
+    ("stress", "risk", "stress", "self"),
+    ("recovery", "stress", "recovery", "self"),
+    ("resolution", "recovery", "resolution", "self"),
+    ("restructuring", "resolution", "restructuring", "self"),
+    ("emergence", "restructuring", "emerge", "self"),
+    ("reorganization", "emergence", "reorganize", "self"),
+)
+
+
+def _apply_total_spine_effect(
     annotated: dict[str, Any],
+    effect: str,
     *,
-    settlement_on: bool,
+    on: bool,
     out_root: Path | None,
     resume_dir: Path | None,
     repo_path: Path | None,
 ) -> dict[str, Any]:
-    """Optionally settle after actuation; refuse unless actuation is present."""
-    if settlement_on and TOTAL_SPINE_SETTLEMENT_IMPL:
-        if annotated.get("total_spine_actuation") is True:
-            set_out = None
+    """Apply one effect-chain link; refuse unless the predecessor is present."""
+    try:
+        effect, pred, verb, source_variant = next(
+            spec for spec in _TOTAL_SPINE_EFFECT_CHAIN if spec[0] == effect
+        )
+    except StopIteration:
+        raise KeyError(f"unknown total-spine effect: {effect!r}") from None
+    effect_key = f"total_spine_{effect}"
+    impl = globals()[f"TOTAL_SPINE_{effect.upper()}_IMPL"]
+    if on and impl:
+        if annotated.get(f"total_spine_{pred}") is True:
+            effect_out = None
             if out_root is not None:
-                set_out = Path(out_root)
+                effect_out = Path(out_root)
             elif resume_dir is not None:
-                set_out = Path(resume_dir)
-            prior_set = str(
-                annotated.get("total_spine_actuation_bound_tip")
+                effect_out = Path(resume_dir)
+            prior = str(
+                annotated.get(f"total_spine_{pred}_bound_tip")
                 or annotated.get("total_spine_digest")
                 or ""
             )
-            source_set: Any = (
-                annotated.get("total_spine_actuation_certificate")
-                or annotated
-            )
-            annotated = settle_total_spine(
-                source_set,
-                out_root=set_out,
-                prior_tip=prior_set,
+            if source_variant == "pred":
+                source: Any = annotated.get(f"total_spine_{pred}_certificate") or annotated
+            elif source_variant == "self_pred":
+                source = (
+                    annotated.get(f"{effect_key}_certificate")
+                    or annotated.get(f"total_spine_{pred}_certificate")
+                    or annotated
+                )
+            else:
+                source = annotated.get(f"{effect_key}_certificate") or annotated
+            runner = globals()[f"{verb}_total_spine"]
+            annotated = runner(
+                source,
+                out_root=effect_out,
+                prior_tip=prior,
                 body=annotated,
                 repo_path=repo_path or REPO_ROOT,
             )
         else:
-            annotated["total_spine_settlement"] = False
-            annotated["total_spine_settlement_requires_actuation"] = True
-    elif not settlement_on:
-        annotated.setdefault("total_spine_settlement", False)
-        annotated["total_spine_settlement_impl"] = TOTAL_SPINE_SETTLEMENT_IMPL
-    annotated["total_spine_settlement_impl"] = TOTAL_SPINE_SETTLEMENT_IMPL
+            annotated[effect_key] = False
+            annotated[f"{effect_key}_requires_{pred}"] = True
+    elif not on:
+        annotated.setdefault(effect_key, False)
+        annotated[f"{effect_key}_impl"] = impl
+    annotated[f"{effect_key}_impl"] = impl
     return annotated
 
 
-def _maybe_clear_total_spine(
+def _apply_total_spine_chain(
     annotated: dict[str, Any],
+    start: str,
+    flags: Mapping[str, bool],
     *,
-    clearing_on: bool,
     out_root: Path | None,
     resume_dir: Path | None,
     repo_path: Path | None,
 ) -> dict[str, Any]:
-    """Optionally clear after settlement; refuse unless settlement is present."""
-    if clearing_on and TOTAL_SPINE_CLEARING_IMPL:
-        if annotated.get("total_spine_settlement") is True:
-            clr_out = None
-            if out_root is not None:
-                clr_out = Path(out_root)
-            elif resume_dir is not None:
-                clr_out = Path(resume_dir)
-            prior_clr = str(
-                annotated.get("total_spine_settlement_bound_tip")
-                or annotated.get("total_spine_digest")
-                or ""
-            )
-            source_clr: Any = (
-                annotated.get("total_spine_clearing_certificate")
-                or annotated.get("total_spine_settlement_certificate")
-                or annotated
-            )
-            annotated = clear_total_spine(
-                source_clr,
-                out_root=clr_out,
-                prior_tip=prior_clr,
-                body=annotated,
-                repo_path=repo_path or REPO_ROOT,
-            )
-        else:
-            annotated["total_spine_clearing"] = False
-            annotated["total_spine_clearing_requires_settlement"] = True
-    elif not clearing_on:
-        annotated.setdefault("total_spine_clearing", False)
-        annotated["total_spine_clearing_impl"] = TOTAL_SPINE_CLEARING_IMPL
-    annotated["total_spine_clearing_impl"] = TOTAL_SPINE_CLEARING_IMPL
+    """Apply the effect chain from ``start`` to the chain tip."""
+
+    names = [spec[0] for spec in _TOTAL_SPINE_EFFECT_CHAIN]
+    for effect in names[names.index(start) :]:
+        annotated = _apply_total_spine_effect(
+            annotated,
+            effect,
+            on=bool(flags.get(f"{effect}_on", False)),
+            out_root=out_root,
+            resume_dir=resume_dir,
+            repo_path=repo_path,
+        )
     return annotated
-
-
-def _maybe_deliver_total_spine(
-    annotated: dict[str, Any],
-    *,
-    delivery_on: bool,
-    out_root: Path | None,
-    resume_dir: Path | None,
-    repo_path: Path | None,
-) -> dict[str, Any]:
-    """Optionally deliver after clearing; refuse unless clearing is present."""
-    if delivery_on and TOTAL_SPINE_DELIVERY_IMPL:
-        if annotated.get("total_spine_clearing") is True:
-            dlv_out = None
-            if out_root is not None:
-                dlv_out = Path(out_root)
-            elif resume_dir is not None:
-                dlv_out = Path(resume_dir)
-            prior_dlv = str(
-                annotated.get("total_spine_clearing_bound_tip")
-                or annotated.get("total_spine_digest")
-                or ""
-            )
-            source_dlv: Any = (
-                annotated.get("total_spine_delivery_certificate")
-                or annotated.get("total_spine_clearing_certificate")
-                or annotated
-            )
-            annotated = deliver_total_spine(
-                source_dlv,
-                out_root=dlv_out,
-                prior_tip=prior_dlv,
-                body=annotated,
-                repo_path=repo_path or REPO_ROOT,
-            )
-        else:
-            annotated["total_spine_delivery"] = False
-            annotated["total_spine_delivery_requires_clearing"] = True
-    elif not delivery_on:
-        annotated.setdefault("total_spine_delivery", False)
-        annotated["total_spine_delivery_impl"] = TOTAL_SPINE_DELIVERY_IMPL
-    annotated["total_spine_delivery_impl"] = TOTAL_SPINE_DELIVERY_IMPL
-    return annotated
-
-
-def _maybe_custody_total_spine(
-    annotated: dict[str, Any],
-    *,
-    custody_on: bool,
-    out_root: Path | None,
-    resume_dir: Path | None,
-    repo_path: Path | None,
-) -> dict[str, Any]:
-    """Optionally custody after delivery; refuse unless delivery is present."""
-    if custody_on and TOTAL_SPINE_CUSTODY_IMPL:
-        if annotated.get("total_spine_delivery") is True:
-            cst_out = None
-            if out_root is not None:
-                cst_out = Path(out_root)
-            elif resume_dir is not None:
-                cst_out = Path(resume_dir)
-            prior_cst = str(
-                annotated.get("total_spine_delivery_bound_tip")
-                or annotated.get("total_spine_digest")
-                or ""
-            )
-            source_cst: Any = (
-                annotated.get("total_spine_custody_certificate")
-                or annotated.get("total_spine_delivery_certificate")
-                or annotated
-            )
-            annotated = custody_total_spine(
-                source_cst,
-                out_root=cst_out,
-                prior_tip=prior_cst,
-                body=annotated,
-                repo_path=repo_path or REPO_ROOT,
-            )
-        else:
-            annotated["total_spine_custody"] = False
-            annotated["total_spine_custody_requires_delivery"] = True
-    elif not custody_on:
-        annotated.setdefault("total_spine_custody", False)
-        annotated["total_spine_custody_impl"] = TOTAL_SPINE_CUSTODY_IMPL
-    annotated["total_spine_custody_impl"] = TOTAL_SPINE_CUSTODY_IMPL
-    return annotated
-
-
-def _maybe_margin_total_spine(
-    annotated: dict[str, Any],
-    *,
-    margin_on: bool,
-    out_root: Path | None,
-    resume_dir: Path | None,
-    repo_path: Path | None,
-) -> dict[str, Any]:
-    """Optionally margin after custody; refuse unless custody is present."""
-    if margin_on and TOTAL_SPINE_MARGIN_IMPL:
-        if annotated.get("total_spine_custody") is True:
-            mgn_out = None
-            if out_root is not None:
-                mgn_out = Path(out_root)
-            elif resume_dir is not None:
-                mgn_out = Path(resume_dir)
-            prior_mgn = str(
-                annotated.get("total_spine_custody_bound_tip")
-                or annotated.get("total_spine_digest")
-                or ""
-            )
-            source_mgn: Any = (
-                annotated.get("total_spine_margin_certificate")
-                or annotated.get("total_spine_custody_certificate")
-                or annotated
-            )
-            annotated = margin_total_spine(
-                source_mgn,
-                out_root=mgn_out,
-                prior_tip=prior_mgn,
-                body=annotated,
-                repo_path=repo_path or REPO_ROOT,
-            )
-        else:
-            annotated["total_spine_margin"] = False
-            annotated["total_spine_margin_requires_custody"] = True
-    elif not margin_on:
-        annotated.setdefault("total_spine_margin", False)
-        annotated["total_spine_margin_impl"] = TOTAL_SPINE_MARGIN_IMPL
-    annotated["total_spine_margin_impl"] = TOTAL_SPINE_MARGIN_IMPL
-    return annotated
-
-
-def _maybe_collateral_total_spine(
-    annotated: dict[str, Any],
-    *,
-    collateral_on: bool,
-    out_root: Path | None,
-    resume_dir: Path | None,
-    repo_path: Path | None,
-) -> dict[str, Any]:
-    """Optionally collateralize after margin; refuse unless margin is present."""
-    if collateral_on and TOTAL_SPINE_COLLATERAL_IMPL:
-        if annotated.get("total_spine_margin") is True:
-            col_out = None
-            if out_root is not None:
-                col_out = Path(out_root)
-            elif resume_dir is not None:
-                col_out = Path(resume_dir)
-            prior_col = str(
-                annotated.get("total_spine_margin_bound_tip")
-                or annotated.get("total_spine_digest")
-                or ""
-            )
-            source_col: Any = (
-                annotated.get("total_spine_collateral_certificate")
-                or annotated
-            )
-            annotated = collateral_total_spine(
-                source_col,
-                out_root=col_out,
-                prior_tip=prior_col,
-                body=annotated,
-                repo_path=repo_path or REPO_ROOT,
-            )
-        else:
-            annotated["total_spine_collateral"] = False
-            annotated["total_spine_collateral_requires_margin"] = True
-    elif not collateral_on:
-        annotated.setdefault("total_spine_collateral", False)
-        annotated["total_spine_collateral_impl"] = TOTAL_SPINE_COLLATERAL_IMPL
-    annotated["total_spine_collateral_impl"] = TOTAL_SPINE_COLLATERAL_IMPL
-    return annotated
-
-
-
-def _maybe_stress_total_spine(
-    annotated: dict[str, Any],
-    *,
-    stress_on: bool,
-    out_root: Path | None,
-    resume_dir: Path | None,
-    repo_path: Path | None,
-    recovery_on: bool = False,
-    resolution_on: bool = False,
-    restructuring_on: bool = False,
-    emergence_on: bool = False,
-    reorganization_on: bool = False,
-) -> dict[str, Any]:
-    """Optionally stress-test after risk; refuse unless risk is present."""
-    if stress_on and TOTAL_SPINE_STRESS_IMPL:
-        if annotated.get("total_spine_risk") is True:
-            sts_out = None
-            if out_root is not None:
-                sts_out = Path(out_root)
-            elif resume_dir is not None:
-                sts_out = Path(resume_dir)
-            prior_sts = str(
-                annotated.get("total_spine_risk_bound_tip")
-                or annotated.get("total_spine_digest")
-                or ""
-            )
-            source_sts: Any = (
-                annotated.get("total_spine_stress_certificate")
-                or annotated
-            )
-            annotated = stress_total_spine(
-                source_sts,
-                out_root=sts_out,
-                prior_tip=prior_sts,
-                body=annotated,
-                repo_path=repo_path or REPO_ROOT,
-            )
-        else:
-            annotated["total_spine_stress"] = False
-            annotated["total_spine_stress_requires_risk"] = True
-    elif not stress_on:
-        annotated.setdefault("total_spine_stress", False)
-        annotated["total_spine_stress_impl"] = TOTAL_SPINE_STRESS_IMPL
-    annotated["total_spine_stress_impl"] = TOTAL_SPINE_STRESS_IMPL
-    return _maybe_recovery_total_spine(
-        annotated,
-        recovery_on=recovery_on,
-        resolution_on=resolution_on,
-        restructuring_on=restructuring_on,
-        emergence_on=emergence_on,
-        reorganization_on=reorganization_on,
-        out_root=out_root,
-        resume_dir=resume_dir,
-        repo_path=repo_path,
-    )
-
-
-
-def _maybe_recovery_total_spine(
-    annotated: dict[str, Any],
-    *,
-    recovery_on: bool,
-    resolution_on: bool = False,
-    restructuring_on: bool = False,
-    emergence_on: bool = False,
-    reorganization_on: bool = False,
-    out_root: Path | None,
-    resume_dir: Path | None,
-    repo_path: Path | None,
-) -> dict[str, Any]:
-    """Optionally restore after stress; refuse unless stress is present."""
-    if recovery_on and TOTAL_SPINE_RECOVERY_IMPL:
-        if annotated.get("total_spine_stress") is True:
-            rec_out = None
-            if out_root is not None:
-                rec_out = Path(out_root)
-            elif resume_dir is not None:
-                rec_out = Path(resume_dir)
-            prior_rec = str(
-                annotated.get("total_spine_stress_bound_tip")
-                or annotated.get("total_spine_digest")
-                or ""
-            )
-            source_rec: Any = (
-                annotated.get("total_spine_recovery_certificate")
-                or annotated
-            )
-            annotated = recovery_total_spine(
-                source_rec,
-                out_root=rec_out,
-                prior_tip=prior_rec,
-                body=annotated,
-                repo_path=repo_path or REPO_ROOT,
-            )
-        else:
-            annotated["total_spine_recovery"] = False
-            annotated["total_spine_recovery_requires_stress"] = True
-    elif not recovery_on:
-        annotated.setdefault("total_spine_recovery", False)
-        annotated["total_spine_recovery_impl"] = TOTAL_SPINE_RECOVERY_IMPL
-    annotated["total_spine_recovery_impl"] = TOTAL_SPINE_RECOVERY_IMPL
-    return _maybe_resolution_total_spine(
-        annotated,
-        resolution_on=resolution_on,
-        restructuring_on=restructuring_on,
-        emergence_on=emergence_on,
-        reorganization_on=reorganization_on,
-        out_root=out_root,
-        resume_dir=resume_dir,
-        repo_path=repo_path,
-    )
-
-
-
-def _maybe_resolution_total_spine(
-    annotated: dict[str, Any],
-    *,
-    resolution_on: bool,
-    restructuring_on: bool = False,
-    emergence_on: bool = False,
-    reorganization_on: bool = False,
-    out_root: Path | None,
-    resume_dir: Path | None,
-    repo_path: Path | None,
-) -> dict[str, Any]:
-    """Optionally resolve after recovery; refuse unless recovery is present."""
-    if resolution_on and TOTAL_SPINE_RESOLUTION_IMPL:
-        if annotated.get("total_spine_recovery") is True:
-            res_out = None
-            if out_root is not None:
-                res_out = Path(out_root)
-            elif resume_dir is not None:
-                res_out = Path(resume_dir)
-            prior_res = str(
-                annotated.get("total_spine_recovery_bound_tip")
-                or annotated.get("total_spine_digest")
-                or ""
-            )
-            source_res: Any = (
-                annotated.get("total_spine_resolution_certificate")
-                or annotated
-            )
-            annotated = resolution_total_spine(
-                source_res,
-                out_root=res_out,
-                prior_tip=prior_res,
-                body=annotated,
-                repo_path=repo_path or REPO_ROOT,
-            )
-        else:
-            annotated["total_spine_resolution"] = False
-            annotated["total_spine_resolution_requires_recovery"] = True
-    elif not resolution_on:
-        annotated.setdefault("total_spine_resolution", False)
-        annotated["total_spine_resolution_impl"] = TOTAL_SPINE_RESOLUTION_IMPL
-    annotated["total_spine_resolution_impl"] = TOTAL_SPINE_RESOLUTION_IMPL
-    return _maybe_restructuring_total_spine(
-        annotated,
-        restructuring_on=restructuring_on,
-        emergence_on=emergence_on,
-        reorganization_on=reorganization_on,
-        out_root=out_root,
-        resume_dir=resume_dir,
-        repo_path=repo_path,
-    )
-
-
-def _maybe_restructuring_total_spine(
-    annotated: dict[str, Any],
-    *,
-    restructuring_on: bool,
-    emergence_on: bool = False,
-    reorganization_on: bool = False,
-    out_root: Path | None,
-    resume_dir: Path | None,
-    repo_path: Path | None,
-) -> dict[str, Any]:
-    '''Optionally restructure after resolution; refuse unless resolution is present.'''
-    if restructuring_on and TOTAL_SPINE_RESTRUCTURING_IMPL:
-        if annotated.get("total_spine_resolution") is True:
-            rst_out = None
-            if out_root is not None:
-                rst_out = Path(out_root)
-            elif resume_dir is not None:
-                rst_out = Path(resume_dir)
-            prior_rst = str(
-                annotated.get("total_spine_resolution_bound_tip")
-                or annotated.get("total_spine_digest")
-                or ""
-            )
-            source_rst: Any = (
-                annotated.get("total_spine_restructuring_certificate")
-                or annotated
-            )
-            annotated = restructuring_total_spine(
-                source_rst,
-                out_root=rst_out,
-                prior_tip=prior_rst,
-                body=annotated,
-                repo_path=repo_path or REPO_ROOT,
-            )
-        else:
-            annotated["total_spine_restructuring"] = False
-            annotated["total_spine_restructuring_requires_resolution"] = True
-    elif not restructuring_on:
-        annotated.setdefault("total_spine_restructuring", False)
-        annotated["total_spine_restructuring_impl"] = TOTAL_SPINE_RESTRUCTURING_IMPL
-    annotated["total_spine_restructuring_impl"] = TOTAL_SPINE_RESTRUCTURING_IMPL
-    return _maybe_emergence_total_spine(
-        annotated,
-        emergence_on=emergence_on,
-        reorganization_on=reorganization_on,
-        out_root=out_root,
-        resume_dir=resume_dir,
-        repo_path=repo_path,
-    )
-
-
-
-def _maybe_emergence_total_spine(
-    annotated: dict[str, Any],
-    *,
-    emergence_on: bool,
-    out_root: Path | None,
-    resume_dir: Path | None,
-    repo_path: Path | None,
-    reorganization_on: bool = False,
-) -> dict[str, Any]:
-    """Optionally emerge after restructuring; refuse unless restructuring is present."""
-    if emergence_on and TOTAL_SPINE_EMERGENCE_IMPL:
-        if annotated.get("total_spine_restructuring") is True:
-            emg_out = None
-            if out_root is not None:
-                emg_out = Path(out_root)
-            elif resume_dir is not None:
-                emg_out = Path(resume_dir)
-            prior_emg = str(
-                annotated.get("total_spine_restructuring_bound_tip")
-                or annotated.get("total_spine_digest")
-                or ""
-            )
-            source_emg: Any = (
-                annotated.get("total_spine_emergence_certificate")
-                or annotated
-            )
-            annotated = emerge_total_spine(
-                source_emg,
-                out_root=emg_out,
-                prior_tip=prior_emg,
-                body=annotated,
-                repo_path=repo_path or REPO_ROOT,
-            )
-        else:
-            annotated["total_spine_emergence"] = False
-            annotated["total_spine_emergence_requires_restructuring"] = True
-    elif not emergence_on:
-        annotated.setdefault("total_spine_emergence", False)
-        annotated["total_spine_emergence_impl"] = TOTAL_SPINE_EMERGENCE_IMPL
-    annotated["total_spine_emergence_impl"] = TOTAL_SPINE_EMERGENCE_IMPL
-    return _maybe_reorganization_total_spine(
-        annotated,
-        reorganization_on=reorganization_on,
-        out_root=out_root,
-        resume_dir=resume_dir,
-        repo_path=repo_path,
-    )
-
-
-def _maybe_reorganization_total_spine(
-    annotated: dict[str, Any],
-    *,
-    reorganization_on: bool,
-    out_root: Path | None,
-    resume_dir: Path | None,
-    repo_path: Path | None,
-) -> dict[str, Any]:
-    """Optionally reorganize after emergence; refuse unless emergence is present."""
-    if reorganization_on and TOTAL_SPINE_REORGANIZATION_IMPL:
-        if annotated.get("total_spine_emergence") is True:
-            reorg_out = None
-            if out_root is not None:
-                reorg_out = Path(out_root)
-            elif resume_dir is not None:
-                reorg_out = Path(resume_dir)
-            prior_reorg = str(
-                annotated.get("total_spine_emergence_bound_tip")
-                or annotated.get("total_spine_digest")
-                or ""
-            )
-            source_reorg: Any = (
-                annotated.get("total_spine_reorganization_certificate")
-                or annotated
-            )
-            annotated = reorganize_total_spine(
-                source_reorg,
-                out_root=reorg_out,
-                prior_tip=prior_reorg,
-                body=annotated,
-                repo_path=repo_path or REPO_ROOT,
-            )
-        else:
-            annotated["total_spine_reorganization"] = False
-            annotated["total_spine_reorganization_requires_emergence"] = True
-    elif not reorganization_on:
-        annotated.setdefault("total_spine_reorganization", False)
-        annotated["total_spine_reorganization_impl"] = TOTAL_SPINE_REORGANIZATION_IMPL
-    annotated["total_spine_reorganization_impl"] = TOTAL_SPINE_REORGANIZATION_IMPL
-    return annotated
-
-
-def _maybe_risk_total_spine(
-    annotated: dict[str, Any],
-    *,
-    risk_on: bool,
-    out_root: Path | None,
-    resume_dir: Path | None,
-    repo_path: Path | None,
-    stress_on: bool = False,
-    recovery_on: bool = False,
-    resolution_on: bool = False,
-    restructuring_on: bool = False,
-    emergence_on: bool = False,
-    reorganization_on: bool = False,
-) -> dict[str, Any]:
-    """Optionally risk-assess after solvency; refuse unless solvency is present."""
-    if risk_on and TOTAL_SPINE_RISK_IMPL:
-        if annotated.get("total_spine_solvency") is True:
-            rsk_out = None
-            if out_root is not None:
-                rsk_out = Path(out_root)
-            elif resume_dir is not None:
-                rsk_out = Path(resume_dir)
-            prior_rsk = str(
-                annotated.get("total_spine_solvency_bound_tip")
-                or annotated.get("total_spine_digest")
-                or ""
-            )
-            source_rsk: Any = (
-                annotated.get("total_spine_risk_certificate")
-                or annotated
-            )
-            annotated = risk_total_spine(
-                source_rsk,
-                out_root=rsk_out,
-                prior_tip=prior_rsk,
-                body=annotated,
-                repo_path=repo_path or REPO_ROOT,
-            )
-        else:
-            annotated["total_spine_risk"] = False
-            annotated["total_spine_risk_requires_solvency"] = True
-    elif not risk_on:
-        annotated.setdefault("total_spine_risk", False)
-        annotated["total_spine_risk_impl"] = TOTAL_SPINE_RISK_IMPL
-    annotated["total_spine_risk_impl"] = TOTAL_SPINE_RISK_IMPL
-    return _maybe_stress_total_spine(
-        annotated,
-        stress_on=stress_on,
-        recovery_on=recovery_on,
-        resolution_on=resolution_on,
-        restructuring_on=restructuring_on,
-        emergence_on=emergence_on,
-        reorganization_on=reorganization_on,
-        out_root=out_root,
-        resume_dir=resume_dir,
-        repo_path=repo_path,
-    )
-
-
-def _maybe_solvency_total_spine(
-    annotated: dict[str, Any],
-    *,
-    solvency_on: bool,
-    out_root: Path | None,
-    resume_dir: Path | None,
-    repo_path: Path | None,
-    risk_on: bool = False,
-    stress_on: bool = False,
-    recovery_on: bool = False,
-    resolution_on: bool = False,
-    restructuring_on: bool = False,
-    emergence_on: bool = False,
-    reorganization_on: bool = False,
-) -> dict[str, Any]:
-    """Optionally solventize after capital; refuse unless capital is present."""
-    if solvency_on and TOTAL_SPINE_SOLVENCY_IMPL:
-        if annotated.get("total_spine_capital") is True:
-            sol_out = None
-            if out_root is not None:
-                sol_out = Path(out_root)
-            elif resume_dir is not None:
-                sol_out = Path(resume_dir)
-            prior_sol = str(
-                annotated.get("total_spine_capital_bound_tip")
-                or annotated.get("total_spine_digest")
-                or ""
-            )
-            source_sol: Any = (
-                annotated.get("total_spine_solvency_certificate")
-                or annotated
-            )
-            annotated = solvency_total_spine(
-                source_sol,
-                out_root=sol_out,
-                prior_tip=prior_sol,
-                body=annotated,
-                repo_path=repo_path or REPO_ROOT,
-            )
-        else:
-            annotated["total_spine_solvency"] = False
-            annotated["total_spine_solvency_requires_capital"] = True
-    elif not solvency_on:
-        annotated.setdefault("total_spine_solvency", False)
-        annotated["total_spine_solvency_impl"] = TOTAL_SPINE_SOLVENCY_IMPL
-    annotated["total_spine_solvency_impl"] = TOTAL_SPINE_SOLVENCY_IMPL
-    return _maybe_risk_total_spine(
-        annotated,
-        risk_on=risk_on,
-        stress_on=stress_on,
-        recovery_on=recovery_on,
-        resolution_on=resolution_on,
-        restructuring_on=restructuring_on,
-        emergence_on=emergence_on,
-        reorganization_on=reorganization_on,
-        out_root=out_root,
-        resume_dir=resume_dir,
-        repo_path=repo_path,
-    )
-
-
-def _maybe_capital_total_spine(
-    annotated: dict[str, Any],
-    *,
-    capital_on: bool,
-    out_root: Path | None,
-    resume_dir: Path | None,
-    repo_path: Path | None,
-    solvency_on: bool = False,
-    risk_on: bool = False,
-    stress_on: bool = False,
-    recovery_on: bool = False,
-    resolution_on: bool = False,
-    restructuring_on: bool = False,
-    emergence_on: bool = False,
-    reorganization_on: bool = False,
-) -> dict[str, Any]:
-    """Optionally capitalize after funding; refuse unless funding is present."""
-    if capital_on and TOTAL_SPINE_CAPITAL_IMPL:
-        if annotated.get("total_spine_funding") is True:
-            cap_out = None
-            if out_root is not None:
-                cap_out = Path(out_root)
-            elif resume_dir is not None:
-                cap_out = Path(resume_dir)
-            prior_cap = str(
-                annotated.get("total_spine_funding_bound_tip")
-                or annotated.get("total_spine_digest")
-                or ""
-            )
-            source_cap: Any = (
-                annotated.get("total_spine_capital_certificate")
-                or annotated
-            )
-            annotated = capital_total_spine(
-                source_cap,
-                out_root=cap_out,
-                prior_tip=prior_cap,
-                body=annotated,
-                repo_path=repo_path or REPO_ROOT,
-            )
-        else:
-            annotated["total_spine_capital"] = False
-            annotated["total_spine_capital_requires_funding"] = True
-    elif not capital_on:
-        annotated.setdefault("total_spine_capital", False)
-        annotated["total_spine_capital_impl"] = TOTAL_SPINE_CAPITAL_IMPL
-    annotated["total_spine_capital_impl"] = TOTAL_SPINE_CAPITAL_IMPL
-    return _maybe_solvency_total_spine(
-        annotated,
-        solvency_on=solvency_on,
-        risk_on=risk_on,
-        stress_on=stress_on,
-        recovery_on=recovery_on,
-        resolution_on=resolution_on,
-        restructuring_on=restructuring_on,
-        emergence_on=emergence_on,
-        reorganization_on=reorganization_on,
-        out_root=out_root,
-        resume_dir=resume_dir,
-        repo_path=repo_path,
-    )
-
-
-def _maybe_funding_total_spine(
-    annotated: dict[str, Any],
-    *,
-    funding_on: bool,
-    out_root: Path | None,
-    resume_dir: Path | None,
-    repo_path: Path | None,
-    capital_on: bool = False,
-    solvency_on: bool = False,
-    risk_on: bool = False,
-    stress_on: bool = False,
-    recovery_on: bool = False,
-    resolution_on: bool = False,
-    restructuring_on: bool = False,
-    emergence_on: bool = False,
-    reorganization_on: bool = False,
-) -> dict[str, Any]:
-    """Optionally facilitate after liquidity; refuse unless liquidity is present."""
-    if funding_on and TOTAL_SPINE_FUNDING_IMPL:
-        if annotated.get("total_spine_liquidity") is True:
-            fnd_out = None
-            if out_root is not None:
-                fnd_out = Path(out_root)
-            elif resume_dir is not None:
-                fnd_out = Path(resume_dir)
-            prior_fnd = str(
-                annotated.get("total_spine_liquidity_bound_tip")
-                or annotated.get("total_spine_digest")
-                or ""
-            )
-            source_fnd: Any = (
-                annotated.get("total_spine_funding_certificate")
-                or annotated
-            )
-            annotated = funding_total_spine(
-                source_fnd,
-                out_root=fnd_out,
-                prior_tip=prior_fnd,
-                body=annotated,
-                repo_path=repo_path or REPO_ROOT,
-            )
-        else:
-            annotated["total_spine_funding"] = False
-            annotated["total_spine_funding_requires_liquidity"] = True
-    elif not funding_on:
-        annotated.setdefault("total_spine_funding", False)
-        annotated["total_spine_funding_impl"] = TOTAL_SPINE_FUNDING_IMPL
-    annotated["total_spine_funding_impl"] = TOTAL_SPINE_FUNDING_IMPL
-    return _maybe_capital_total_spine(
-        annotated,
-        capital_on=capital_on,
-        out_root=out_root,
-        resume_dir=resume_dir,
-        repo_path=repo_path,
-        solvency_on=solvency_on,
-        risk_on=risk_on,
-        stress_on=stress_on,
-        recovery_on=recovery_on,
-        resolution_on=resolution_on,
-        restructuring_on=restructuring_on,
-        emergence_on=emergence_on,
-        reorganization_on=reorganization_on,
-    )
-
-
-def _maybe_liquidity_total_spine(
-    annotated: dict[str, Any],
-    *,
-    liquidity_on: bool,
-    out_root: Path | None,
-    resume_dir: Path | None,
-    repo_path: Path | None,
-    funding_on: bool = False,
-    capital_on: bool = False,
-    solvency_on: bool = False,
-    risk_on: bool = False,
-    stress_on: bool = False,
-    recovery_on: bool = False,
-    resolution_on: bool = False,
-    restructuring_on: bool = False,
-    emergence_on: bool = False,
-    reorganization_on: bool = False,
-) -> dict[str, Any]:
-    """Optionally fund after collateral; refuse unless collateral is present."""
-    if liquidity_on and TOTAL_SPINE_LIQUIDITY_IMPL:
-        if annotated.get("total_spine_collateral") is True:
-            liq_out = None
-            if out_root is not None:
-                liq_out = Path(out_root)
-            elif resume_dir is not None:
-                liq_out = Path(resume_dir)
-            prior_liq = str(
-                annotated.get("total_spine_collateral_bound_tip")
-                or annotated.get("total_spine_digest")
-                or ""
-            )
-            source_liq: Any = (
-                annotated.get("total_spine_liquidity_certificate")
-                or annotated
-            )
-            annotated = liquidity_total_spine(
-                source_liq,
-                out_root=liq_out,
-                prior_tip=prior_liq,
-                body=annotated,
-                repo_path=repo_path or REPO_ROOT,
-            )
-        else:
-            annotated["total_spine_liquidity"] = False
-            annotated["total_spine_liquidity_requires_collateral"] = True
-    elif not liquidity_on:
-        annotated.setdefault("total_spine_liquidity", False)
-        annotated["total_spine_liquidity_impl"] = TOTAL_SPINE_LIQUIDITY_IMPL
-    annotated["total_spine_liquidity_impl"] = TOTAL_SPINE_LIQUIDITY_IMPL
-    return _maybe_funding_total_spine(
-        annotated,
-        funding_on=funding_on,
-        out_root=out_root,
-        resume_dir=resume_dir,
-        repo_path=repo_path,
-        capital_on=capital_on,
-        solvency_on=solvency_on,
-        risk_on=risk_on,
-        stress_on=stress_on,
-        recovery_on=recovery_on,
-        resolution_on=resolution_on,
-        restructuring_on=restructuring_on,
-        emergence_on=emergence_on,
-        reorganization_on=reorganization_on,
-    )
 
 
 def _attach_total_spine_effects(
@@ -8629,125 +7857,13 @@ def _attach_total_spine_effects(
     irreversible execution certificate with a state root, and rebind the tip.
     Resume of an already-executed run short-circuits without re-dispatch.
 
-    Post-execution actuation (``actuation=True``): after world-state execution
-    seals a state root, bind ordered multi-action ledger effects to that root,
-    seal an irreversible actuation certificate, and rebind the tip. Resume of
-    an already-actuated run short-circuits without re-dispatch.
-
-    Post-actuation settlement (``settlement=True``): after actuation seals a
-    multi-action certificate, independently observe those effects, evaluate
-    the original done_when, seal an irreversible settlement receipt, and
-    rebind the tip. Resume of an already-settled run short-circuits.
-
-    Post-settlement clearing (``clearing=True``): after settlement seals a
-    unilateral observation receipt, independently confirm a second settlement,
-    net matching observation books, seal an irreversible clearing certificate,
-    and rebind the tip. Implies settlement/actuation/execution/finality.
-    Resume of an already-cleared run short-circuits.
-
-    Post-clearing delivery (``delivery=True``): after clearing discharges
-    matching books, independently confirm a second clearing, pair each netted
-    obligation with a consideration (DvP), seal an irreversible delivery
-    certificate, and rebind the tip. Implies clearing and the planes above.
-    Resume of an already-delivered run short-circuits.
-
-    Post-delivery custody (``custody=True``): after DvP seals matching
-    delivery books, independently confirm a second delivery, book each
-    delivered pair into a custody register and transfer title (CvT), seal
-    an irreversible custody certificate, and rebind the tip. Implies
-    delivery and the planes above. Resume of an already-custodied run
-    short-circuits.
-
-    Post-custody margin (``margin=True``): after CvT seals matching
-    custody books, independently confirm a second custody, book each
-    custodied pair into a margin register and pair it with exposure
-    (MvE), seal an irreversible margin certificate, and rebind the tip.
-    Implies custody and the planes above. Resume of an already-margined
-    run short-circuits.
-
-    Post-margin collateral (``collateral=True``): after MvE seals matching
-    margin books, independently confirm a second margin, book each
-    margined pair into a collateral register and pair it with obligation
-    (CvO), seal an irreversible collateral certificate, and rebind the tip.
-    Implies margin and the planes above. Resume of an already-collateralized
-    run short-circuits.
-
-    Post-collateral liquidity (``liquidity=True``): after CvO seals matching
-    collateral books, independently confirm a second collateral, book each
-    collateralized pair into a liquidity register and pair it with coverage
-    (LvC), seal an irreversible liquidity certificate, and rebind the tip.
-    Implies collateral and the planes above. Resume of an already-funded
-    run short-circuits.
-
-    Post-liquidity funding (``funding=True``): after LvC seals matching
-    liquidity books, independently confirm a second liquidity, book each
-    liquid pair into a funding register and pair it with requirement
-    (FvR), seal an irreversible funding certificate, and rebind the tip.
-    Implies liquidity and the planes above. Resume of an already-facilitated
-    run short-circuits.
-
-    Post-funding capital (``capital=True``): after FvR seals matching
-    funding books, independently confirm a second funding, book each
-    facilitated pair into a capital register and pair it with adequacy
-    (CvA), seal an irreversible capital certificate, and rebind the tip.
-    Implies funding and the planes above. Resume of an already-capitalized
-    run short-circuits.
-
-    Post-capital solvency (``solvency=True``): after CvA seals matching
-    capital books, independently confirm a second capital, book each
-    capitalized pair into a solvency register and pair it with requirement
-    (SvR), seal an irreversible solvency certificate, and rebind the tip.
-    Implies capital and the planes above. Resume of an already-solvent
-    run short-circuits.
-
-    Post-solvency risk (``risk=True``): after SvR seals matching
-    solvency books, independently confirm a second solvency, book each
-    solvent pair into a risk register and pair it with appetite
-    (RvA), seal an irreversible risk certificate, and rebind the tip.
-    Implies solvency and the planes above. Resume of an already-risked
-    run short-circuits.
-
-    Post-risk stress (``stress=True``): after RvA seals matching
-    risk books, independently confirm a second risk, book each
-    risked pair into a stress register and pair it with capacity
-    (SvC), seal an irreversible stress certificate, and rebind the tip.
-    Implies risk and the planes above. Resume of an already-stressed
-    run short-circuits.
-
-    Post-stress recovery (``recovery=True``): after SvC seals matching
-    stress books, independently confirm a second stress, book each
-    stressed pair into a recovery register and pair it with a plan
-    (RvP), seal an irreversible recovery certificate, and rebind the tip.
-    Implies stress and the planes above. Resume of an already-restored
-    run short-circuits.
-
-    Post-recovery resolution (``resolution=True``): after RvP seals matching
-    recovery books, independently confirm a second recovery, book each
-    restored pair into a resolution register and pair it with a strategy
-    (RvS), seal an irreversible resolution certificate, and rebind the tip.
-    Implies recovery and the planes above. Resume of an already-resolved
-    run short-circuits.
-
-    Post-resolution restructuring (``restructuring=True``): after RvS seals
-    matching resolution books, independently confirm a second resolution,
-    book each resolved pair into a restructuring register and pair it with
-    a mandate (RvM), seal an irreversible restructuring certificate, and
-    rebind the tip. Implies resolution and the planes above. Resume of an
-    already-restructured run short-circuits.
-
-    Post-restructuring emergence (``emergence=True``): after RvM seals
-    matching restructuring books, independently confirm a second restructuring,
-    book each mandated pair into an emergence register and pair it with
-    confirmation (EvC), seal an irreversible emergence certificate, and
-    rebind the tip. Implies restructuring and the planes above. Resume of an
-    already-emerged run short-circuits.
-
-    Post-emergence reorganization (``reorganization=True``): after EvC seals
-    matching emergence books, independently confirm a second emergence,
-    book each emerged pair into a reorganization register and pair it with
-    a charter (RvC), seal an irreversible reorganization certificate, and
-    rebind the tip. Implies emergence and the planes above. Resume of an
-    already-reorganized run short-circuits.
+    Post-execution effect chain (``actuation`` .. ``reorganization``): the
+    ordered links in :data:`_TOTAL_SPINE_EFFECT_CHAIN`. Actuation binds an
+    ordered multi-action log to the execution state root; every later link
+    independently confirms a second predecessor book, pairs it with its own
+    requirement (SvR, RvA, …), seals an irreversible certificate, and
+    rebinds the tip. Enabling a link implies every predecessor; resume of
+    an already-sealed link short-circuits without re-dispatch.
     """
     if reorganization:
         emergence = True
@@ -9801,9 +8917,10 @@ def _attach_total_spine_effects(
         annotated.setdefault("total_spine_federation", False)
         annotated.setdefault("total_spine_quorum", False)
         if reorganization_on:
-            return _maybe_reorganization_total_spine(
+            return _apply_total_spine_effect(
                 annotated,
-                reorganization_on=True,
+                "reorganization",
+                on=True,
                 out_root=out_root,
                 resume_dir=resume_dir,
                 repo_path=repo_path,
@@ -9968,13 +9085,13 @@ def _attach_total_spine_effects(
         annotated.setdefault("total_spine_federation", False)
         annotated.setdefault("total_spine_quorum", False)
         if emergence_on or reorganization_on:
-            return _maybe_emergence_total_spine(
+            return _apply_total_spine_chain(
                 annotated,
-                emergence_on=True if emergence_on or reorganization_on else False,
+                "emergence",
+                {"emergence_on": True, "reorganization_on": reorganization_on},
                 out_root=out_root,
                 resume_dir=resume_dir,
                 repo_path=repo_path,
-                reorganization_on=reorganization_on,
             )
         return annotated
 
@@ -10125,11 +9242,10 @@ def _attach_total_spine_effects(
         annotated.setdefault("total_spine_federation", False)
         annotated.setdefault("total_spine_quorum", False)
         if restructuring_on:
-            return _maybe_restructuring_total_spine(
+            return _apply_total_spine_chain(
                 annotated,
-                restructuring_on=True,
-                emergence_on=emergence_on,
-        reorganization_on=reorganization_on,
+                "restructuring",
+                {"restructuring_on": True, "emergence_on": emergence_on, "reorganization_on": reorganization_on},
                 out_root=out_root,
                 resume_dir=resume_dir,
                 repo_path=repo_path,
@@ -10604,15 +9720,10 @@ def _attach_total_spine_effects(
             annotated["total_spine_goal"] = goal_text
         annotated.setdefault("total_spine_federation", False)
         annotated.setdefault("total_spine_quorum", False)
-        annotated = _maybe_risk_total_spine(
+        annotated = _apply_total_spine_chain(
             annotated,
-            risk_on=risk_on,
-        stress_on=stress_on,
-        recovery_on=recovery_on,
-        resolution_on=resolution_on,
-        restructuring_on=restructuring_on,
-        emergence_on=emergence_on,
-        reorganization_on=reorganization_on,
+            "risk",
+            {"risk_on": risk_on, "stress_on": stress_on, "recovery_on": recovery_on, "resolution_on": resolution_on, "restructuring_on": restructuring_on, "emergence_on": emergence_on, "reorganization_on": reorganization_on},
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
@@ -10725,16 +9836,10 @@ def _attach_total_spine_effects(
             annotated["total_spine_goal"] = goal_text
         annotated.setdefault("total_spine_federation", False)
         annotated.setdefault("total_spine_quorum", False)
-        annotated = _maybe_solvency_total_spine(
+        annotated = _apply_total_spine_chain(
             annotated,
-            solvency_on=solvency_on,
-        risk_on=risk_on,
-        stress_on=stress_on,
-        recovery_on=recovery_on,
-        resolution_on=resolution_on,
-        restructuring_on=restructuring_on,
-        emergence_on=emergence_on,
-        reorganization_on=reorganization_on,
+            "solvency",
+            {"solvency_on": solvency_on, "risk_on": risk_on, "stress_on": stress_on, "recovery_on": recovery_on, "resolution_on": resolution_on, "restructuring_on": restructuring_on, "emergence_on": emergence_on, "reorganization_on": reorganization_on},
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
@@ -10918,21 +10023,13 @@ def _attach_total_spine_effects(
             annotated["total_spine_goal"] = goal_text
         annotated.setdefault("total_spine_federation", False)
         annotated.setdefault("total_spine_quorum", False)
-        annotated = _maybe_funding_total_spine(
+        annotated = _apply_total_spine_chain(
             annotated,
-            funding_on=funding_on,
+            "funding",
+            {"funding_on": funding_on, "capital_on": capital_on, "solvency_on": solvency_on, "risk_on": risk_on, "stress_on": stress_on, "recovery_on": recovery_on, "resolution_on": resolution_on, "restructuring_on": restructuring_on, "emergence_on": emergence_on, "reorganization_on": reorganization_on},
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
-            capital_on=capital_on,
-            solvency_on=solvency_on,
-        risk_on=risk_on,
-        stress_on=stress_on,
-        recovery_on=recovery_on,
-        resolution_on=resolution_on,
-        restructuring_on=restructuring_on,
-        emergence_on=emergence_on,
-        reorganization_on=reorganization_on,
         )
         return annotated
 
@@ -11208,22 +10305,13 @@ def _attach_total_spine_effects(
             annotated["total_spine_goal"] = goal_text
         annotated.setdefault("total_spine_federation", False)
         annotated.setdefault("total_spine_quorum", False)
-        annotated = _maybe_liquidity_total_spine(
+        annotated = _apply_total_spine_chain(
             annotated,
-            liquidity_on=liquidity_on,
+            "liquidity",
+            {"liquidity_on": liquidity_on, "funding_on": funding_on, "capital_on": capital_on, "solvency_on": solvency_on, "risk_on": risk_on, "stress_on": stress_on, "recovery_on": recovery_on, "resolution_on": resolution_on, "restructuring_on": restructuring_on, "emergence_on": emergence_on, "reorganization_on": reorganization_on},
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
-            funding_on=funding_on,
-            capital_on=capital_on,
-            solvency_on=solvency_on,
-        risk_on=risk_on,
-        stress_on=stress_on,
-        recovery_on=recovery_on,
-        resolution_on=resolution_on,
-        restructuring_on=restructuring_on,
-        emergence_on=emergence_on,
-        reorganization_on=reorganization_on,
         )
         return annotated
 
@@ -11698,36 +10786,29 @@ def _attach_total_spine_effects(
             annotated["total_spine_goal"] = goal_text
         annotated.setdefault("total_spine_federation", False)
         annotated.setdefault("total_spine_quorum", False)
-        annotated = _maybe_margin_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            margin_on=margin_on,
+            "margin",
+            on=margin_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_collateral_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            collateral_on=collateral_on,
+            "collateral",
+            on=collateral_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_liquidity_total_spine(
+        annotated = _apply_total_spine_chain(
             annotated,
-            liquidity_on=liquidity_on,
+            "liquidity",
+            {"liquidity_on": liquidity_on, "funding_on": funding_on, "capital_on": capital_on, "solvency_on": solvency_on, "risk_on": risk_on, "stress_on": stress_on, "recovery_on": recovery_on, "resolution_on": resolution_on, "restructuring_on": restructuring_on, "emergence_on": emergence_on, "reorganization_on": reorganization_on},
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
-            funding_on=funding_on,
-            capital_on=capital_on,
-            solvency_on=solvency_on,
-        risk_on=risk_on,
-        stress_on=stress_on,
-        recovery_on=recovery_on,
-        resolution_on=resolution_on,
-        restructuring_on=restructuring_on,
-        emergence_on=emergence_on,
-        reorganization_on=reorganization_on,
         )
         return annotated
 
@@ -11926,43 +11007,37 @@ def _attach_total_spine_effects(
             annotated["total_spine_goal"] = goal_text
         annotated.setdefault("total_spine_federation", False)
         annotated.setdefault("total_spine_quorum", False)
-        annotated = _maybe_custody_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            custody_on=custody_on,
+            "custody",
+            on=custody_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_margin_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            margin_on=margin_on,
+            "margin",
+            on=margin_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_collateral_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            collateral_on=collateral_on,
+            "collateral",
+            on=collateral_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_liquidity_total_spine(
+        annotated = _apply_total_spine_chain(
             annotated,
-            liquidity_on=liquidity_on,
+            "liquidity",
+            {"liquidity_on": liquidity_on, "funding_on": funding_on, "capital_on": capital_on, "solvency_on": solvency_on, "risk_on": risk_on, "stress_on": stress_on, "recovery_on": recovery_on, "resolution_on": resolution_on, "restructuring_on": restructuring_on, "emergence_on": emergence_on, "reorganization_on": reorganization_on},
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
-            funding_on=funding_on,
-            capital_on=capital_on,
-            solvency_on=solvency_on,
-        risk_on=risk_on,
-        stress_on=stress_on,
-        recovery_on=recovery_on,
-        resolution_on=resolution_on,
-        restructuring_on=restructuring_on,
-        emergence_on=emergence_on,
-        reorganization_on=reorganization_on,
         )
         return annotated
 
@@ -12135,50 +11210,45 @@ def _attach_total_spine_effects(
             annotated["total_spine_goal"] = goal_text
         annotated.setdefault("total_spine_federation", False)
         annotated.setdefault("total_spine_quorum", False)
-        annotated = _maybe_deliver_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            delivery_on=delivery_on,
+            "delivery",
+            on=delivery_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_custody_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            custody_on=custody_on,
+            "custody",
+            on=custody_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_margin_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            margin_on=margin_on,
+            "margin",
+            on=margin_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_collateral_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            collateral_on=collateral_on,
+            "collateral",
+            on=collateral_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_liquidity_total_spine(
+        annotated = _apply_total_spine_chain(
             annotated,
-            liquidity_on=liquidity_on,
+            "liquidity",
+            {"liquidity_on": liquidity_on, "funding_on": funding_on, "capital_on": capital_on, "solvency_on": solvency_on, "risk_on": risk_on, "stress_on": stress_on, "recovery_on": recovery_on, "resolution_on": resolution_on, "restructuring_on": restructuring_on, "emergence_on": emergence_on, "reorganization_on": reorganization_on},
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
-            funding_on=funding_on,
-            capital_on=capital_on,
-            solvency_on=solvency_on,
-        risk_on=risk_on,
-        stress_on=stress_on,
-        recovery_on=recovery_on,
-        resolution_on=resolution_on,
-        restructuring_on=restructuring_on,
-        emergence_on=emergence_on,
-        reorganization_on=reorganization_on,
         )
         return annotated
 
@@ -12326,57 +11396,53 @@ def _attach_total_spine_effects(
             annotated["total_spine_goal"] = goal_text
         annotated.setdefault("total_spine_federation", False)
         annotated.setdefault("total_spine_quorum", False)
-        annotated = _maybe_clear_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            clearing_on=clearing_on,
+            "clearing",
+            on=clearing_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_deliver_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            delivery_on=delivery_on,
+            "delivery",
+            on=delivery_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_custody_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            custody_on=custody_on,
+            "custody",
+            on=custody_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_margin_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            margin_on=margin_on,
+            "margin",
+            on=margin_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_collateral_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            collateral_on=collateral_on,
+            "collateral",
+            on=collateral_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_liquidity_total_spine(
+        annotated = _apply_total_spine_chain(
             annotated,
-            liquidity_on=liquidity_on,
+            "liquidity",
+            {"liquidity_on": liquidity_on, "funding_on": funding_on, "capital_on": capital_on, "solvency_on": solvency_on, "risk_on": risk_on, "stress_on": stress_on, "recovery_on": recovery_on, "resolution_on": resolution_on, "restructuring_on": restructuring_on, "emergence_on": emergence_on, "reorganization_on": reorganization_on},
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
-            funding_on=funding_on,
-            capital_on=capital_on,
-            solvency_on=solvency_on,
-        risk_on=risk_on,
-        stress_on=stress_on,
-        recovery_on=recovery_on,
-        resolution_on=resolution_on,
-        restructuring_on=restructuring_on,
-        emergence_on=emergence_on,
-        reorganization_on=reorganization_on,
         )
         return annotated
 
@@ -12502,64 +11568,61 @@ def _attach_total_spine_effects(
             annotated["total_spine_goal"] = goal_text
         annotated.setdefault("total_spine_federation", False)
         annotated.setdefault("total_spine_quorum", False)
-        annotated = _maybe_settle_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            settlement_on=settlement_on,
+            "settlement",
+            on=settlement_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_clear_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            clearing_on=clearing_on,
+            "clearing",
+            on=clearing_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_deliver_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            delivery_on=delivery_on,
+            "delivery",
+            on=delivery_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_custody_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            custody_on=custody_on,
+            "custody",
+            on=custody_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_margin_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            margin_on=margin_on,
+            "margin",
+            on=margin_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_collateral_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            collateral_on=collateral_on,
+            "collateral",
+            on=collateral_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_liquidity_total_spine(
+        annotated = _apply_total_spine_chain(
             annotated,
-            liquidity_on=liquidity_on,
+            "liquidity",
+            {"liquidity_on": liquidity_on, "funding_on": funding_on, "capital_on": capital_on, "solvency_on": solvency_on, "risk_on": risk_on, "stress_on": stress_on, "recovery_on": recovery_on, "resolution_on": resolution_on, "restructuring_on": restructuring_on, "emergence_on": emergence_on, "reorganization_on": reorganization_on},
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
-            funding_on=funding_on,
-            capital_on=capital_on,
-            solvency_on=solvency_on,
-        risk_on=risk_on,
-        stress_on=stress_on,
-        recovery_on=recovery_on,
-        resolution_on=resolution_on,
-        restructuring_on=restructuring_on,
-        emergence_on=emergence_on,
-        reorganization_on=reorganization_on,
         )
         return annotated
 
@@ -12697,64 +11760,61 @@ def _attach_total_spine_effects(
         else:
             annotated.setdefault("total_spine_actuation", False)
             annotated["total_spine_actuation_impl"] = TOTAL_SPINE_ACTUATION_IMPL
-        annotated = _maybe_settle_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            settlement_on=settlement_on,
+            "settlement",
+            on=settlement_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_clear_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            clearing_on=clearing_on,
+            "clearing",
+            on=clearing_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_deliver_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            delivery_on=delivery_on,
+            "delivery",
+            on=delivery_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_custody_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            custody_on=custody_on,
+            "custody",
+            on=custody_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_margin_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            margin_on=margin_on,
+            "margin",
+            on=margin_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_collateral_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            collateral_on=collateral_on,
+            "collateral",
+            on=collateral_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_liquidity_total_spine(
+        annotated = _apply_total_spine_chain(
             annotated,
-            liquidity_on=liquidity_on,
+            "liquidity",
+            {"liquidity_on": liquidity_on, "funding_on": funding_on, "capital_on": capital_on, "solvency_on": solvency_on, "risk_on": risk_on, "stress_on": stress_on, "recovery_on": recovery_on, "resolution_on": resolution_on, "restructuring_on": restructuring_on, "emergence_on": emergence_on, "reorganization_on": reorganization_on},
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
-            funding_on=funding_on,
-            capital_on=capital_on,
-            solvency_on=solvency_on,
-        risk_on=risk_on,
-        stress_on=stress_on,
-        recovery_on=recovery_on,
-        resolution_on=resolution_on,
-        restructuring_on=restructuring_on,
-        emergence_on=emergence_on,
-        reorganization_on=reorganization_on,
         )
         return annotated
 
@@ -12953,64 +12013,61 @@ def _attach_total_spine_effects(
         else:
             annotated.setdefault("total_spine_actuation", False)
             annotated["total_spine_actuation_impl"] = TOTAL_SPINE_ACTUATION_IMPL
-        annotated = _maybe_settle_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            settlement_on=settlement_on,
+            "settlement",
+            on=settlement_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_clear_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            clearing_on=clearing_on,
+            "clearing",
+            on=clearing_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_deliver_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            delivery_on=delivery_on,
+            "delivery",
+            on=delivery_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_custody_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            custody_on=custody_on,
+            "custody",
+            on=custody_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_margin_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            margin_on=margin_on,
+            "margin",
+            on=margin_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_collateral_total_spine(
+        annotated = _apply_total_spine_effect(
             annotated,
-            collateral_on=collateral_on,
+            "collateral",
+            on=collateral_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
         )
-        annotated = _maybe_liquidity_total_spine(
+        annotated = _apply_total_spine_chain(
             annotated,
-            liquidity_on=liquidity_on,
+            "liquidity",
+            {"liquidity_on": liquidity_on, "funding_on": funding_on, "capital_on": capital_on, "solvency_on": solvency_on, "risk_on": risk_on, "stress_on": stress_on, "recovery_on": recovery_on, "resolution_on": resolution_on, "restructuring_on": restructuring_on, "emergence_on": emergence_on, "reorganization_on": reorganization_on},
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
-            funding_on=funding_on,
-            capital_on=capital_on,
-            solvency_on=solvency_on,
-        risk_on=risk_on,
-        stress_on=stress_on,
-        recovery_on=recovery_on,
-        resolution_on=resolution_on,
-        restructuring_on=restructuring_on,
-        emergence_on=emergence_on,
-        reorganization_on=reorganization_on,
         )
         return annotated
 
@@ -13807,64 +12864,61 @@ def _attach_total_spine_effects(
         annotated["total_spine_actuation_impl"] = TOTAL_SPINE_ACTUATION_IMPL
 
     annotated["total_spine_actuation_impl"] = TOTAL_SPINE_ACTUATION_IMPL
-    annotated = _maybe_settle_total_spine(
+    annotated = _apply_total_spine_effect(
         annotated,
-        settlement_on=settlement_on,
+        "settlement",
+        on=settlement_on,
         out_root=out_root,
         resume_dir=resume_dir,
         repo_path=repo_path,
     )
-    annotated = _maybe_clear_total_spine(
+    annotated = _apply_total_spine_effect(
         annotated,
-        clearing_on=clearing_on,
+        "clearing",
+        on=clearing_on,
         out_root=out_root,
         resume_dir=resume_dir,
         repo_path=repo_path,
     )
-    annotated = _maybe_deliver_total_spine(
+    annotated = _apply_total_spine_effect(
         annotated,
-        delivery_on=delivery_on,
+        "delivery",
+        on=delivery_on,
         out_root=out_root,
         resume_dir=resume_dir,
         repo_path=repo_path,
     )
-    annotated = _maybe_custody_total_spine(
+    annotated = _apply_total_spine_effect(
         annotated,
-        custody_on=custody_on,
+        "custody",
+        on=custody_on,
         out_root=out_root,
         resume_dir=resume_dir,
         repo_path=repo_path,
     )
-    annotated = _maybe_margin_total_spine(
+    annotated = _apply_total_spine_effect(
         annotated,
-        margin_on=margin_on,
+        "margin",
+        on=margin_on,
         out_root=out_root,
         resume_dir=resume_dir,
         repo_path=repo_path,
     )
-    annotated = _maybe_collateral_total_spine(
+    annotated = _apply_total_spine_effect(
         annotated,
-        collateral_on=collateral_on,
+        "collateral",
+        on=collateral_on,
         out_root=out_root,
         resume_dir=resume_dir,
         repo_path=repo_path,
     )
-    annotated = _maybe_liquidity_total_spine(
+    annotated = _apply_total_spine_chain(
         annotated,
-        liquidity_on=liquidity_on,
+        "liquidity",
+        {"liquidity_on": liquidity_on, "funding_on": funding_on, "capital_on": capital_on, "solvency_on": solvency_on, "risk_on": risk_on, "stress_on": stress_on, "recovery_on": recovery_on, "resolution_on": resolution_on, "restructuring_on": restructuring_on, "emergence_on": emergence_on, "reorganization_on": reorganization_on},
         out_root=out_root,
         resume_dir=resume_dir,
         repo_path=repo_path,
-        funding_on=funding_on,
-        capital_on=capital_on,
-        solvency_on=solvency_on,
-        risk_on=risk_on,
-        stress_on=stress_on,
-        recovery_on=recovery_on,
-        resolution_on=resolution_on,
-        restructuring_on=restructuring_on,
-        emergence_on=emergence_on,
-        reorganization_on=reorganization_on,
     )
     return annotated
 
