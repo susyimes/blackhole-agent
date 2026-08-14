@@ -1,6 +1,6 @@
 {
   "capability_id": "capability.absorbed-python-markdown",
-  "generated_at": "2026-08-14T18:50:00.499228Z",
+  "generated_at": "2026-08-14T19:06:03.968983Z",
   "grade": {
     "ok": true,
     "verdict_count": 6,
@@ -14,8 +14,8 @@
     "kind": "pypi-sdist",
     "source": "stewardship/markdown-3.10.3/markdown-3.10.3.tar.gz"
   },
-  "record_digest": "d5b8ab42c14a3931671290130c4ebf69ba82ca35323e3133d1719a24acce3036",
-  "report_digest": "6e800a2cf6c2eefabcd539545ba55a7372120d1f25fd6628242c1bfacf9c0e1b",
+  "record_digest": "51aac41f460e0ae0d0a24badb0fe8c847d0aae64ca21d43c83874052f32b6382",
+  "report_digest": "9b6ee874cbf7e23425bd96d6e4825cb112543a88fa2d249336e85e12bf581c54",
   "schema_version": 1,
   "slug": "python-markdown",
   "task": {
@@ -30,7 +30,7 @@
       "rendered_markdown": "<h1>Blackhole</h1>"
     }
   },
-  "vendored_tree_digest": "93525cd82d21141dc3c1265f6ad52b6aef145f30940d27c74e87bf8a239b6336",
+  "vendored_tree_digest": "0800eb0afceaad5937b45e2e337974b36ff3b67e48906fd93f200dc509551e5d",
   "verdicts": {
     "ablation_unplannable": true,
     "forgery_rejected": true,

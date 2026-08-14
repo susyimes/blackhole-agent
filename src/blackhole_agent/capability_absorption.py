@@ -65,6 +65,7 @@ from blackhole_agent.capability_compounder import (
     save_ledger,
     utc_now_iso,
 )
+from blackhole_agent.durable_state import durable_read_path, durable_write_path
 
 SCHEMA_VERSION = 1
 
@@ -289,7 +290,7 @@ def record_digest(record: Mapping[str, Any]) -> str:
 
 
 def load_persisted_records(path: Path | None = None) -> list[dict[str, Any]]:
-    persist_path = path or PERSIST_PATH
+    persist_path = durable_read_path(path or PERSIST_PATH)
     if not persist_path.is_file():
         return []
     payload = json.loads(persist_path.read_text(encoding="utf-8"))
@@ -411,7 +412,7 @@ def prove_absorbed_capability(
             "tree_digest_match": False,
             "cases_pass": False,
         }
-    vendored_dir = (vendored_root or ABSORBED_ROOT) / slug
+    vendored_dir = durable_read_path((vendored_root or ABSORBED_ROOT) / slug)
     return _prove_record(record, vendored_dir)
 
 
@@ -454,7 +455,7 @@ def absorb_external_capability(
     if not preflight["ok"]:
         return {"ok": False, "stage": "preflight", "slug": slug, "preflight": preflight}
 
-    vendored_dir = repo_root / "capabilities" / "absorbed" / slug
+    vendored_dir = durable_write_path(repo_root / "capabilities" / "absorbed" / slug)
     if vendored_dir.exists():
         shutil.rmtree(vendored_dir)
     shutil.copytree(
@@ -555,7 +556,7 @@ def load_persisted_absorbed_steps(path: Path | None = None) -> dict[str, Applica
         command = [str(part) for part in record["command"]]
         requires = tuple(str(key) for key in record["requires"])
         provides = tuple(str(key) for key in record["provides"])
-        vendored_dir = ABSORBED_ROOT / slug
+        vendored_dir = durable_read_path(ABSORBED_ROOT / slug)
 
         def invoke(
             state: Mapping[str, Any],
@@ -667,7 +668,7 @@ def run_absorption_scenario(slug: str, output_dir: Path | None = None) -> dict[s
     # Tamper: corrupt a copy of the vendored tree; the proof must fail.
     with tempfile.TemporaryDirectory(prefix="blackhole-absorption-tamper-") as tmp:
         tampered_root = Path(tmp) / "absorbed"
-        shutil.copytree(ABSORBED_ROOT / slug, tampered_root / slug)
+        shutil.copytree(durable_read_path(ABSORBED_ROOT / slug), tampered_root / slug)
         victim = _first_vendored_file(tampered_root / slug)
         victim.write_bytes(victim.read_bytes() + b"\n# tampered\n")
         tamper_proof = prove_absorbed_capability(slug, vendored_root=tampered_root)

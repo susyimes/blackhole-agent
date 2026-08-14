@@ -11,6 +11,7 @@ from pathlib import Path
 
 CONFIG = {
   "callable_name": "loads",
+  "entry": "",
   "import_name": "tomli",
   "path_root": "tomli-2.4.1/src",
   "provides": "parsed_toml",

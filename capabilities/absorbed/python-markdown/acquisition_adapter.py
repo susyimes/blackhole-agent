@@ -11,6 +11,7 @@ from pathlib import Path
 
 CONFIG = {
   "callable_name": "markdown",
+  "entry": "",
   "import_name": "markdown",
   "path_root": "markdown-3.10.3",
   "provides": "rendered_markdown",

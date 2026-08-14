@@ -19,6 +19,7 @@ from blackhole_agent.capability_acquisition import (
     acquire_capability,
     builtin_acquisition_plane_proof,
     fixture_acquisition_spec,
+    fixture_node_acquisition_spec,
     stage_acquisition_source,
     stewardship_acquisition_specs,
     synthesize_acquisition,
@@ -206,11 +207,128 @@ def test_acquire_fixture_package_end_to_end() -> None:
 
 def test_stewardship_specs_synthesize(tmp_path: Path) -> None:
     specs = stewardship_acquisition_specs()
-    assert {spec.slug for spec in specs} == {"tomli-parser", "python-markdown"}
+    assert {spec.slug for spec in specs} == {"tomli-parser", "python-markdown", "marked-renderer"}
     for spec in specs:
         result = synthesize_acquisition(spec, tmp_path)
         assert result["ok"], result
         assert result["case_count"] >= 2
+
+
+def test_node_adapter_source_is_generic_and_deterministic() -> None:
+    spec = fixture_node_acquisition_spec()
+    first = synthesize_adapter_source(spec)
+    assert first == synthesize_adapter_source(spec)
+    assert "index.mjs" in first and "shouted_text" in first
+
+
+def test_node_synthesis_derives_cases_from_real_behavior(tmp_path: Path) -> None:
+    result = synthesize_acquisition(fixture_node_acquisition_spec(), tmp_path)
+    assert result["ok"], result
+    manifest = result["manifest"]
+    assert manifest["slug"] == "js-shouter"
+    assert manifest["command"][0] == "node"
+    first = manifest["cases"][0]
+    assert first["expect"]["shouted_text"] == "HELLO UNBOUND"
+    validated = load_manifest(Path(result["staged_dir"]))
+    cases = run_absorption_cases(Path(result["staged_dir"]), validated)
+    assert cases["ok"], cases
+
+
+def test_node_synthesis_refuses_missing_callable(tmp_path: Path) -> None:
+    spec = fixture_node_acquisition_spec()
+    result = synthesize_acquisition(
+        AcquisitionSpec(
+            slug=spec.slug,
+            name=spec.name,
+            source=spec.source,
+            import_name=spec.import_name,
+            callable_name="missing_function",
+            requires=spec.requires,
+            provides=spec.provides,
+            runtime="node",
+            entry=spec.entry,
+            probes=spec.probes,
+        ),
+        tmp_path,
+    )
+    assert not result["ok"]
+    assert result["stage"] == "probe"
+    assert not (tmp_path / spec.slug / "absorption.json").exists()
+
+
+def test_node_synthesis_refuses_failing_probe(tmp_path: Path) -> None:
+    spec = fixture_node_acquisition_spec()
+    result = synthesize_acquisition(
+        AcquisitionSpec(
+            slug=spec.slug,
+            name=spec.name,
+            source=spec.source,
+            import_name=spec.import_name,
+            callable_name=spec.callable_name,
+            requires=spec.requires,
+            provides=spec.provides,
+            runtime="node",
+            entry=spec.entry,
+            probes=({"quiet_text": 42}, *spec.probes),
+        ),
+        tmp_path,
+    )
+    assert not result["ok"]
+    assert result["stage"] == "probe"
+
+
+def test_node_synthesis_refuses_missing_entry(tmp_path: Path) -> None:
+    spec = fixture_node_acquisition_spec()
+    result = synthesize_acquisition(
+        AcquisitionSpec(
+            slug=spec.slug,
+            name=spec.name,
+            source=spec.source,
+            import_name=spec.import_name,
+            callable_name=spec.callable_name,
+            requires=spec.requires,
+            provides=spec.provides,
+            runtime="node",
+            entry="missing.mjs",
+            probes=spec.probes,
+        ),
+        tmp_path,
+    )
+    assert not result["ok"]
+    assert result["stage"] == "stage"
+
+
+def test_spec_validate_rejects_unknown_runtime() -> None:
+    spec = fixture_acquisition_spec()
+    with pytest.raises(ValueError, match="unsupported acquisition runtime"):
+        AcquisitionSpec(
+            slug=spec.slug,
+            name=spec.name,
+            source=spec.source,
+            import_name=spec.import_name,
+            callable_name=spec.callable_name,
+            requires=spec.requires,
+            provides=spec.provides,
+            runtime="ruby",
+            probes=spec.probes,
+        ).validate()
+
+
+def test_spec_validate_rejects_escaping_node_entry() -> None:
+    spec = fixture_node_acquisition_spec()
+    with pytest.raises(ValueError, match="entry must stay inside"):
+        AcquisitionSpec(
+            slug=spec.slug,
+            name=spec.name,
+            source=spec.source,
+            import_name=spec.import_name,
+            callable_name=spec.callable_name,
+            requires=spec.requires,
+            provides=spec.provides,
+            runtime="node",
+            entry="../escape.mjs",
+            probes=spec.probes,
+        ).validate()
 
 
 def test_builtin_acquisition_plane_proof() -> None:
@@ -220,6 +338,8 @@ def test_builtin_acquisition_plane_proof() -> None:
     assert result["bad_callable_refused"]
     assert result["failing_probe_refused"]
     assert result["tampered_case_rejected"]
+    assert result["node_synthesis_ok"]
+    assert result["node_bad_callable_refused"]
     assert result["plane_ok"]
     assert result["verify_ok"]
 

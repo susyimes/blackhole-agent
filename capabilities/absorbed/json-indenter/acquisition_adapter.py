@@ -11,6 +11,7 @@ from pathlib import Path
 
 CONFIG = {
   "callable_name": "indent",
+  "entry": "",
   "import_name": "json_indenter",
   "path_root": ".",
   "provides": "indented_json",

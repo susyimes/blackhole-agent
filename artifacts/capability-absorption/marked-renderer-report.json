@@ -1,0 +1,42 @@
+{
+  "capability_id": "capability.absorbed-marked-renderer",
+  "generated_at": "2026-08-14T19:06:05.518680Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-marked-renderer"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "kind": "npm-tarball",
+    "source": "stewardship/marked-18.0.7/marked-18.0.7.tgz"
+  },
+  "record_digest": "79a02cebee544efd11cebd1d6900a6e122406832f238f5a4a91f7d080e2073e4",
+  "report_digest": "637cd1e124eb68a859dbb6a29e3d6aeefca061873f5eeb9ddffbf7179cc491bb",
+  "schema_version": 1,
+  "slug": "marked-renderer",
+  "task": {
+    "goal": [
+      "marked_html"
+    ],
+    "id": "absorbed-marked-renderer",
+    "initial_state": {
+      "markdown_source": "# Blackhole\n"
+    },
+    "oracle": {
+      "marked_html": "<h1>Blackhole</h1>\n"
+    }
+  },
+  "vendored_tree_digest": "3125fa6f628517cc442567cd0b27f4a5c0a4c9b805cfac711ca4bba0cb86cb42",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

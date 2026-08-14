@@ -1,5 +1,5 @@
 {
-  "absorbed_at": "2026-08-14T18:37:28.663190Z",
+  "absorbed_at": "2026-08-14T19:00:49.826892Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
@@ -35,14 +35,63 @@
       "provides": [
         "indented_json"
       ],
-      "record_digest": "1319457846bd0fbd49b81255493eebc45cf4a745dc8deeaaea87b69199df1f06",
+      "record_digest": "c5fae18104bdfd0b8196ab8c99d38ffe305cc64b30d2cb7406e6e283f19874a2",
       "requires": [
         "raw_json"
       ],
       "schema_version": 1,
       "slug": "json-indenter",
-      "vendored_tree_digest": "1a16aefa981eebf400012ce8dd54c5423eb5d060199690632af6057a246bb235",
+      "vendored_tree_digest": "a13d1ba5aee103f47734320ad4cd32537f0fafa212e4a68f6667d074726e58b4",
       "version": ""
+    },
+    {
+      "capability_id": "capability.absorbed-marked-renderer",
+      "cases": [
+        {
+          "expect": {
+            "marked_html": "<h1>Blackhole</h1>\n"
+          },
+          "input": {
+            "markdown_source": "# Blackhole\n"
+          }
+        },
+        {
+          "expect": {
+            "marked_html": "<p><strong>unbound</strong> growth</p>\n"
+          },
+          "input": {
+            "markdown_source": "**unbound** growth\n"
+          }
+        },
+        {
+          "expect": {
+            "marked_html": "<ul>\n<li>absorb</li>\n<li>prove</li>\n</ul>\n"
+          },
+          "input": {
+            "markdown_source": "- absorb\n- prove\n"
+          }
+        }
+      ],
+      "command": [
+        "node",
+        "acquisition_adapter.mjs"
+      ],
+      "name": "marked markdown parser (stewardship-staged npm tarball)",
+      "origin": {
+        "kind": "npm-tarball",
+        "source": "stewardship/marked-18.0.7/marked-18.0.7.tgz"
+      },
+      "provides": [
+        "marked_html"
+      ],
+      "record_digest": "79a02cebee544efd11cebd1d6900a6e122406832f238f5a4a91f7d080e2073e4",
+      "requires": [
+        "markdown_source"
+      ],
+      "schema_version": 1,
+      "slug": "marked-renderer",
+      "vendored_tree_digest": "3125fa6f628517cc442567cd0b27f4a5c0a4c9b805cfac711ca4bba0cb86cb42",
+      "version": "18.0.7"
     },
     {
       "capability_id": "capability.absorbed-mistune-markdown",
@@ -134,13 +183,13 @@
       "provides": [
         "rendered_markdown"
       ],
-      "record_digest": "d5b8ab42c14a3931671290130c4ebf69ba82ca35323e3133d1719a24acce3036",
+      "record_digest": "51aac41f460e0ae0d0a24badb0fe8c847d0aae64ca21d43c83874052f32b6382",
       "requires": [
         "markdown_source"
       ],
       "schema_version": 1,
       "slug": "python-markdown",
-      "vendored_tree_digest": "93525cd82d21141dc3c1265f6ad52b6aef145f30940d27c74e87bf8a239b6336",
+      "vendored_tree_digest": "0800eb0afceaad5937b45e2e337974b36ff3b67e48906fd93f200dc509551e5d",
       "version": "3.10.3"
     },
     {
@@ -247,15 +296,15 @@
       "provides": [
         "parsed_toml"
       ],
-      "record_digest": "110be91058717d110918b467779a867eff3af6c2b68bf9fc7217307bd424e21e",
+      "record_digest": "baf37f4ea7ea9343e4722dc0e57c87705f908b2864cbd6646103e7b84e7254dd",
       "requires": [
         "toml_source"
       ],
       "schema_version": 1,
       "slug": "tomli-parser",
-      "vendored_tree_digest": "20c9243a38a6a4982540ef2c4b3dd43e189854f172a62ab5c244234223138be0",
+      "vendored_tree_digest": "4761e4afd5f456a0c62da810e3590bf8cd3cb5cd756878909e086adfa737b878",
       "version": "2.4.1"
     }
   ],
-  "steps_digest": "f151e0c364d6ce78bde078316ad7672fc711aa0d019da41046f520c4a9ceed4f"
+  "steps_digest": "3ef7f1afaf28af6f96a2e8d29f436865e9312feb6fa776ca2847f8940e9f95c6"
 }

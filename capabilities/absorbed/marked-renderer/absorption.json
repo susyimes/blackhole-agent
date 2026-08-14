@@ -1,0 +1,46 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "marked_html": "<h1>Blackhole</h1>\n"
+      },
+      "input": {
+        "markdown_source": "# Blackhole\n"
+      }
+    },
+    {
+      "expect": {
+        "marked_html": "<p><strong>unbound</strong> growth</p>\n"
+      },
+      "input": {
+        "markdown_source": "**unbound** growth\n"
+      }
+    },
+    {
+      "expect": {
+        "marked_html": "<ul>\n<li>absorb</li>\n<li>prove</li>\n</ul>\n"
+      },
+      "input": {
+        "markdown_source": "- absorb\n- prove\n"
+      }
+    }
+  ],
+  "command": [
+    "node",
+    "acquisition_adapter.mjs"
+  ],
+  "name": "marked markdown parser (stewardship-staged npm tarball)",
+  "origin": {
+    "kind": "npm-tarball",
+    "source": "stewardship/marked-18.0.7/marked-18.0.7.tgz"
+  },
+  "provides": [
+    "marked_html"
+  ],
+  "requires": [
+    "markdown_source"
+  ],
+  "schema_version": 1,
+  "slug": "marked-renderer",
+  "version": "18.0.7"
+}

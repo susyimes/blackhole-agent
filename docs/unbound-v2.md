@@ -260,16 +260,21 @@ uv run blackhole-unbound capability integrity --limit 16
   misgrade falsification (`capability.utility-plane`).
 - `capability acquisition` closes the cooperation gap absorption could not
   cross: absorption required an external tool to *ship* an `absorption.json`
-  manifest. Acquisition takes an uncooperative third-party package (directory
-  or sdist tarball), stages it, synthesizes a generic state-threading adapter,
+  manifest. Acquisition takes an uncooperative third-party package (directory,
+  pypi sdist, or npm tarball), stages it, synthesizes a generic
+  state-threading adapter for the package's runtime (`python` or `node`),
   and **derives** the frozen case expectations by executing the real package —
   then hands the synthesized tree to the absorption plane's vendoring, digest
   sealing, and honesty scenario unchanged. Specs whose probes fail (missing
   callable, raising input) are refused before any ledger write. The
-  stewardship-staged sdists `tomli-2.4.1` and `markdown-3.10.3` are acquired
-  this way (`capability.absorbed-tomli-parser`,
-  `capability.absorbed-python-markdown`); sealed reports land under
+  stewardship-staged sdists `tomli-2.4.1` and `markdown-3.10.3` and the
+  ESM-only npm tarball `marked-18.0.7` are acquired this way
+  (`capability.absorbed-tomli-parser`, `capability.absorbed-python-markdown`,
+  `capability.absorbed-marked-renderer`); sealed reports land under
   `artifacts/capability-acquisition/` (`capability.acquisition-plane`).
+  Vendored tool trees and absorbed-step records are durable-state paths:
+  writes route through the durable overlay, so test sessions no longer skew
+  the tracked checkout.
 
 Promoted compositions are tagged `composed`/`promoted` and become ordinary
 ledger citizens that later turns can list, prove, run, and compose further.
