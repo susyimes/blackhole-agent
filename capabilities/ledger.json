@@ -17,7 +17,7 @@
       "id": "capability.ablation-proof",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:25:09.621626Z",
+      "last_proved_at": "2026-08-14T17:44:51.072396Z",
       "name": "Capability ablation proof",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_ablation_proof; r=builtin_ablation_proof(); assert r['ok'] and r.get('action')=='ablation_proof' and r.get('live_ledger_mutated') is False and r.get('passed_count',0) >= 3 and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -29,7 +29,7 @@
         "ablation",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:25:09.621626Z"
+      "updated_at": "2026-08-14T17:44:51.072396Z"
     },
     "capability.absorbed-mistune-markdown": {
       "behavior_paths": [
@@ -49,7 +49,7 @@
       "id": "capability.absorbed-mistune-markdown",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:25:10.101878Z",
+      "last_proved_at": "2026-08-14T17:44:51.611548Z",
       "name": "Absorbed external capability: mistune markdown renderer (github.com/lepture/mistune)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('mistune-markdown'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
       "source_milestone": null,
@@ -58,7 +58,7 @@
         "absorbed",
         "external"
       ],
-      "updated_at": "2026-08-14T17:25:10.101878Z"
+      "updated_at": "2026-08-14T17:44:51.611548Z"
     },
     "capability.absorbed-text-reverser": {
       "behavior_paths": [
@@ -78,7 +78,7 @@
       "id": "capability.absorbed-text-reverser",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:25:10.404090Z",
+      "last_proved_at": "2026-08-14T17:44:51.940075Z",
       "name": "Absorbed external capability: Text Reverser (external fixture tool)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('text-reverser'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
       "source_milestone": null,
@@ -87,7 +87,7 @@
         "absorbed",
         "external"
       ],
-      "updated_at": "2026-08-14T17:25:10.404090Z"
+      "updated_at": "2026-08-14T17:44:51.940075Z"
     },
     "capability.absorption-plane": {
       "behavior_paths": [
@@ -111,7 +111,7 @@
       "id": "capability.absorption-plane",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:25:12.542865Z",
+      "last_proved_at": "2026-08-14T17:44:54.279070Z",
       "name": "Capability absorption plane",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import builtin_absorption_plane_proof; r=builtin_absorption_plane_proof(); assert r['ok'] and r.get('unplannable_before') and r.get('grown_plan_solved') and r.get('ablation_unplannable') and r.get('tamper_rejected') and r.get('forgery_rejected') and r.get('verify_ok')\"",
       "source_milestone": null,
@@ -121,7 +121,7 @@
         "absorption",
         "external"
       ],
-      "updated_at": "2026-08-14T17:25:12.542865Z"
+      "updated_at": "2026-08-14T17:44:54.279070Z"
     },
     "capability.actuation-plane": {
       "behavior_paths": [
@@ -154,7 +154,7 @@
       "id": "capability.actuation-plane",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:10.643811Z",
+      "last_proved_at": "2026-08-14T17:45:54.283683Z",
       "name": "Actuation plane over world-state execution",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_actuation_plane; from pathlib import Path; import os; os.environ['BLACKHOLE_MISSION_GOAL']='actuation over world-state execution'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_ACTUATION_RUN_EXECUTION']='1'; os.environ['BLACKHOLE_EXECUTION_RUN_FINALITY']='1'; os.environ['BLACKHOLE_FINALITY_RUN_QUORUM']='1'; os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='0'; os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='0'; os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; os.environ['BLACKHOLE_FINALITY_EPOCH_COUNT']='2'; os.environ['BLACKHOLE_ACTUATION_MIN_ACTIONS']='2'; os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-actuation.json')); os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-actuation-quorum.json')); os.environ.setdefault('BLACKHOLE_FINALITY_BUNDLE_PATH', str(Path('artifacts')/'finality-bundles'/'proof-actuation-finality.json')); os.environ.setdefault('BLACKHOLE_EXECUTION_BUNDLE_PATH', str(Path('artifacts')/'execution-bundles'/'proof-actuation-execution.json')); os.environ.setdefault('BLACKHOLE_ACTUATION_BUNDLE_PATH', str(Path('artifacts')/'actuation-bundles'/'proof-actuation.json')); r=builtin_actuation_plane(); assert r['ok'] and r.get('action')=='actuation_plane' and r.get('effects_applied') is True and int(r.get('action_count') or 0) >= 2 and int(r.get('tip_height') or 0) >= 2 and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') and r.get('actuation_certificate',{}).get('valid') and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -176,7 +176,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:26:10.643811Z"
+      "updated_at": "2026-08-14T17:45:54.283683Z"
     },
     "capability.adaptive-grow": {
       "behavior_paths": [
@@ -197,7 +197,7 @@
       "id": "capability.adaptive-grow",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:25:27.836662Z",
+      "last_proved_at": "2026-08-14T17:45:10.550479Z",
       "name": "Adaptive multi-step capability growth",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_adaptive_grow; import os; os.environ.setdefault('BLACKHOLE_ADAPTIVE_GROW_BUDGET','2'); r=builtin_adaptive_grow(); assert r['ok'] and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -208,7 +208,7 @@
         "growth",
         "adaptive"
       ],
-      "updated_at": "2026-08-14T17:25:27.836662Z"
+      "updated_at": "2026-08-14T17:45:10.550479Z"
     },
     "capability.adversarial-contract": {
       "behavior_paths": [
@@ -228,7 +228,7 @@
       "id": "capability.adversarial-contract",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:25:30.965937Z",
+      "last_proved_at": "2026-08-14T17:45:13.820621Z",
       "name": "Adversarial outcome contract evaluator",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_adversarial_contract; r=builtin_adversarial_contract(); assert r['ok'] and r.get('action')=='adversarial_contract' and r.get('positive_ok') and r.get('negatives_ok') and r.get('negatives_passed',0) >= 2 and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -241,7 +241,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:25:30.965937Z"
+      "updated_at": "2026-08-14T17:45:13.820621Z"
     },
     "capability.application-plane": {
       "behavior_paths": [
@@ -262,7 +262,7 @@
       "id": "capability.application-plane",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:25:11.334188Z",
+      "last_proved_at": "2026-08-14T17:44:53.020901Z",
       "name": "Capability application plane",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_application import builtin_application_plane; r=builtin_application_plane(); assert r['ok'] and r.get('application',{}).get('application_score')==1.0 and r.get('application',{}).get('unsolvable_count')==0 and r.get('planner_honesty') and r.get('deterministic') and r.get('tamper_detected') and r.get('unsound_plan_detected') and r.get('misgrade_detected') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -276,7 +276,7 @@
         "outcome",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:25:11.334188Z"
+      "updated_at": "2026-08-14T17:44:53.020901Z"
     },
     "capability.assurance-plane": {
       "behavior_paths": [
@@ -299,7 +299,7 @@
       "id": "capability.assurance-plane",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:25:32.813198Z",
+      "last_proved_at": "2026-08-14T17:45:15.689921Z",
       "name": "Capability assurance plane",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_assurance_plane; r=builtin_assurance_plane(); assert r['ok'] and r.get('action')=='assurance_plane' and r.get('ablation',{}).get('ok') and r.get('transfer',{}).get('ok') and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -313,7 +313,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:25:32.813198Z"
+      "updated_at": "2026-08-14T17:45:15.689921Z"
     },
     "capability.auto-kernel-routing": {
       "behavior_paths": [
@@ -331,7 +331,7 @@
       "id": "capability.auto-kernel-routing",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:11.178553Z",
+      "last_proved_at": "2026-08-14T17:45:54.835835Z",
       "name": "Auto kernel routing for Unbound missions",
       "proof_command": "uv run python -c \"from blackhole_agent.unbound import builtin_auto_kernel_routing_proof as f; import sys; r=f(); print(r); sys.exit(0 if r.get('ok') else 1)\"",
       "source_milestone": null,
@@ -342,7 +342,7 @@
         "kernels",
         "auto-routing"
       ],
-      "updated_at": "2026-08-14T17:26:11.178553Z"
+      "updated_at": "2026-08-14T17:45:54.835835Z"
     },
     "capability.autonomic-cycle": {
       "behavior_paths": [
@@ -365,7 +365,7 @@
       "id": "capability.autonomic-cycle",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:22.095416Z",
+      "last_proved_at": "2026-08-14T17:46:05.526289Z",
       "name": "Autonomic novelty growth cycle",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_autonomic_cycle; import os; os.environ.setdefault('BLACKHOLE_AUTONOMIC_BUDGET','2'); os.environ.setdefault('BLACKHOLE_INTEGRITY_LIMIT','8'); r=builtin_autonomic_cycle(); assert r['ok'] and r.get('action')=='autonomic_cycle' and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -377,7 +377,7 @@
         "autonomic",
         "novelty"
       ],
-      "updated_at": "2026-08-14T17:26:22.095416Z"
+      "updated_at": "2026-08-14T17:46:05.526289Z"
     },
     "capability.composed-core-health": {
       "behavior_paths": [
@@ -396,7 +396,7 @@
       "id": "capability.composed-core-health",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:22.349104Z",
+      "last_proved_at": "2026-08-14T17:46:05.774490Z",
       "name": "Composed core health chain",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-core-health'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -406,7 +406,7 @@
         "promoted",
         "growth"
       ],
-      "updated_at": "2026-08-14T17:26:22.349104Z"
+      "updated_at": "2026-08-14T17:46:05.774490Z"
     },
     "capability.composed-domain-core": {
       "behavior_paths": [
@@ -425,7 +425,7 @@
       "id": "capability.composed-domain-core",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:22.983593Z",
+      "last_proved_at": "2026-08-14T17:46:06.461540Z",
       "name": "Composed domain core chain",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-domain-core'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -436,7 +436,7 @@
         "growth",
         "domain"
       ],
-      "updated_at": "2026-08-14T17:26:22.983593Z"
+      "updated_at": "2026-08-14T17:46:06.461540Z"
     },
     "capability.composed-domain-ops": {
       "behavior_paths": [
@@ -455,7 +455,7 @@
       "id": "capability.composed-domain-ops",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:23.998697Z",
+      "last_proved_at": "2026-08-14T17:46:07.533824Z",
       "name": "Composed domain ops chain",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-domain-ops'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -467,7 +467,7 @@
         "domain",
         "ops"
       ],
-      "updated_at": "2026-08-14T17:26:23.998697Z"
+      "updated_at": "2026-08-14T17:46:07.533824Z"
     },
     "capability.composed-dyn-ci-security-harness-activation": {
       "behavior_paths": [
@@ -485,7 +485,7 @@
       "id": "capability.composed-dyn-ci-security-harness-activation",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:24.167691Z",
+      "last_proved_at": "2026-08-14T17:46:07.711845Z",
       "name": "Dynamic domain composition (domain.ci-security + domain.harness-activation)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-dyn-ci-security-harness-activation'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -497,7 +497,7 @@
         "domain",
         "dynamic"
       ],
-      "updated_at": "2026-08-14T17:26:24.167691Z"
+      "updated_at": "2026-08-14T17:46:07.711845Z"
     },
     "capability.composed-dyn-ci-security-harness-activation-kerne": {
       "behavior_paths": [
@@ -516,7 +516,7 @@
       "id": "capability.composed-dyn-ci-security-harness-activation-kerne",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:24.523022Z",
+      "last_proved_at": "2026-08-14T17:46:08.079212Z",
       "name": "Dynamic domain composition (domain.ci-security + domain.harness-activation + domain.kernel-preflight)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-dyn-ci-security-harness-activation-kerne'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -528,7 +528,7 @@
         "domain",
         "dynamic"
       ],
-      "updated_at": "2026-08-14T17:26:24.523022Z"
+      "updated_at": "2026-08-14T17:46:08.079212Z"
     },
     "capability.composed-dyn-ci-security-kernel-preflight": {
       "behavior_paths": [
@@ -546,7 +546,7 @@
       "id": "capability.composed-dyn-ci-security-kernel-preflight",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:24.704099Z",
+      "last_proved_at": "2026-08-14T17:46:08.270038Z",
       "name": "Dynamic domain composition (domain.ci-security + domain.kernel-preflight)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-dyn-ci-security-kernel-preflight'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -558,7 +558,7 @@
         "domain",
         "dynamic"
       ],
-      "updated_at": "2026-08-14T17:26:24.704099Z"
+      "updated_at": "2026-08-14T17:46:08.270038Z"
     },
     "capability.composed-dyn-ci-security-persona": {
       "behavior_paths": [
@@ -576,7 +576,7 @@
       "id": "capability.composed-dyn-ci-security-persona",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:25.022312Z",
+      "last_proved_at": "2026-08-14T17:46:08.591823Z",
       "name": "Dynamic domain composition (domain.ci-security + domain.persona)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-dyn-ci-security-persona'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -588,7 +588,7 @@
         "domain",
         "dynamic"
       ],
-      "updated_at": "2026-08-14T17:26:25.022312Z"
+      "updated_at": "2026-08-14T17:46:08.591823Z"
     },
     "capability.composed-dyn-issue-triage-harness-activation-kern": {
       "behavior_paths": [
@@ -607,7 +607,7 @@
       "id": "capability.composed-dyn-issue-triage-harness-activation-kern",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:25.207922Z",
+      "last_proved_at": "2026-08-14T17:46:08.782830Z",
       "name": "Dynamic domain composition (domain.issue-triage + domain.harness-activation + domain.kernel-preflight)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-dyn-issue-triage-harness-activation-kern'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -619,7 +619,7 @@
         "domain",
         "dynamic"
       ],
-      "updated_at": "2026-08-14T17:26:25.207922Z"
+      "updated_at": "2026-08-14T17:46:08.782830Z"
     },
     "capability.composed-dyn-issue-triage-kernel-preflight": {
       "behavior_paths": [
@@ -637,7 +637,7 @@
       "id": "capability.composed-dyn-issue-triage-kernel-preflight",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:25.396798Z",
+      "last_proved_at": "2026-08-14T17:46:08.986576Z",
       "name": "Dynamic domain composition (domain.issue-triage + domain.kernel-preflight)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-dyn-issue-triage-kernel-preflight'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -649,7 +649,7 @@
         "domain",
         "dynamic"
       ],
-      "updated_at": "2026-08-14T17:26:25.396798Z"
+      "updated_at": "2026-08-14T17:46:08.986576Z"
     },
     "capability.composed-dyn-issue-triage-persona": {
       "behavior_paths": [
@@ -667,7 +667,7 @@
       "id": "capability.composed-dyn-issue-triage-persona",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:25.568405Z",
+      "last_proved_at": "2026-08-14T17:46:09.163361Z",
       "name": "Dynamic domain composition (domain.issue-triage + domain.persona)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-dyn-issue-triage-persona'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -679,7 +679,7 @@
         "domain",
         "dynamic"
       ],
-      "updated_at": "2026-08-14T17:26:25.568405Z"
+      "updated_at": "2026-08-14T17:46:09.163361Z"
     },
     "capability.composed-dyn-kernel-preflight-harness-activation": {
       "behavior_paths": [
@@ -697,7 +697,7 @@
       "id": "capability.composed-dyn-kernel-preflight-harness-activation",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:25.754851Z",
+      "last_proved_at": "2026-08-14T17:46:09.348442Z",
       "name": "Dynamic domain composition (domain.kernel-preflight + domain.harness-activation)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-dyn-kernel-preflight-harness-activation'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -709,7 +709,7 @@
         "domain",
         "dynamic"
       ],
-      "updated_at": "2026-08-14T17:26:25.754851Z"
+      "updated_at": "2026-08-14T17:46:09.348442Z"
     },
     "capability.composed-dyn-persona-harness-activation": {
       "behavior_paths": [
@@ -727,7 +727,7 @@
       "id": "capability.composed-dyn-persona-harness-activation",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:25.927217Z",
+      "last_proved_at": "2026-08-14T17:46:09.518739Z",
       "name": "Dynamic domain composition (domain.persona + domain.harness-activation)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-dyn-persona-harness-activation'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -739,7 +739,7 @@
         "domain",
         "dynamic"
       ],
-      "updated_at": "2026-08-14T17:26:25.927217Z"
+      "updated_at": "2026-08-14T17:46:09.518739Z"
     },
     "capability.composed-dyn-proposal-eval-harness-activation-ci": {
       "behavior_paths": [
@@ -758,7 +758,7 @@
       "id": "capability.composed-dyn-proposal-eval-harness-activation-ci",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:26.318992Z",
+      "last_proved_at": "2026-08-14T17:46:09.917842Z",
       "name": "Dynamic domain composition (domain.proposal-eval + domain.harness-activation + domain.ci-security)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-dyn-proposal-eval-harness-activation-ci'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -770,7 +770,7 @@
         "domain",
         "dynamic"
       ],
-      "updated_at": "2026-08-14T17:26:26.318992Z"
+      "updated_at": "2026-08-14T17:46:09.917842Z"
     },
     "capability.composed-dyn-proposal-eval-kernel-preflight-harne": {
       "behavior_paths": [
@@ -789,7 +789,7 @@
       "id": "capability.composed-dyn-proposal-eval-kernel-preflight-harne",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:26.698717Z",
+      "last_proved_at": "2026-08-14T17:46:10.339886Z",
       "name": "Dynamic domain composition (domain.proposal-eval + domain.kernel-preflight + domain.harness-activation)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-dyn-proposal-eval-kernel-preflight-harne'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -801,7 +801,7 @@
         "domain",
         "dynamic"
       ],
-      "updated_at": "2026-08-14T17:26:26.698717Z"
+      "updated_at": "2026-08-14T17:46:10.339886Z"
     },
     "capability.composed-dyn-proposal-eval-persona-harness-activa": {
       "behavior_paths": [
@@ -820,7 +820,7 @@
       "id": "capability.composed-dyn-proposal-eval-persona-harness-activa",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:27.080312Z",
+      "last_proved_at": "2026-08-14T17:46:10.747642Z",
       "name": "Dynamic domain composition (domain.proposal-eval + domain.persona + domain.harness-activation)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-dyn-proposal-eval-persona-harness-activa'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -832,7 +832,7 @@
         "domain",
         "dynamic"
       ],
-      "updated_at": "2026-08-14T17:26:27.080312Z"
+      "updated_at": "2026-08-14T17:46:10.747642Z"
     },
     "capability.composed-evolution-ready": {
       "behavior_paths": [
@@ -851,7 +851,7 @@
       "id": "capability.composed-evolution-ready",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:27.507479Z",
+      "last_proved_at": "2026-08-14T17:46:11.205506Z",
       "name": "Composed evolution-ready chain",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-evolution-ready'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -862,7 +862,7 @@
         "growth",
         "evolution-route"
       ],
-      "updated_at": "2026-08-14T17:26:27.507479Z"
+      "updated_at": "2026-08-14T17:46:11.205506Z"
     },
     "capability.composed-meta-core-health-domain-core-core-health": {
       "behavior_paths": [
@@ -880,7 +880,7 @@
       "id": "capability.composed-meta-core-health-domain-core-core-health",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:29.622559Z",
+      "last_proved_at": "2026-08-14T17:46:14.151048Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-core + capability.composed-stack-core-health-grounded-growth-loop)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-core-core-health'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -893,7 +893,7 @@
         "meta",
         "synthesized"
       ],
-      "updated_at": "2026-08-14T17:26:29.622559Z"
+      "updated_at": "2026-08-14T17:46:14.151048Z"
     },
     "capability.composed-meta-core-health-domain-core-domain-core": {
       "behavior_paths": [
@@ -911,7 +911,7 @@
       "id": "capability.composed-meta-core-health-domain-core-domain-core",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:30.324055Z",
+      "last_proved_at": "2026-08-14T17:46:14.904757Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-core + capability.composed-stack-domain-core-evolution-ready)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-core-domain-core'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -924,7 +924,7 @@
         "meta",
         "synthesized"
       ],
-      "updated_at": "2026-08-14T17:26:30.324055Z"
+      "updated_at": "2026-08-14T17:46:14.904757Z"
     },
     "capability.composed-meta-core-health-domain-core-domain-full": {
       "behavior_paths": [
@@ -942,7 +942,7 @@
       "id": "capability.composed-meta-core-health-domain-core-domain-full",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:31.286025Z",
+      "last_proved_at": "2026-08-14T17:46:15.939324Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-core + capability.composed-stack-domain-full)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-core-domain-full'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -957,7 +957,7 @@
         "redundant",
         "distilled"
       ],
-      "updated_at": "2026-08-14T17:26:31.286025Z"
+      "updated_at": "2026-08-14T17:46:15.939324Z"
     },
     "capability.composed-meta-core-health-domain-core-domain-ops-e": {
       "behavior_paths": [
@@ -975,7 +975,7 @@
       "id": "capability.composed-meta-core-health-domain-core-domain-ops-e",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:32.265727Z",
+      "last_proved_at": "2026-08-14T17:46:17.000638Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-core + capability.composed-stack-domain-ops-evolution-ready)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-core-domain-ops-e'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -990,7 +990,7 @@
         "redundant",
         "distilled"
       ],
-      "updated_at": "2026-08-14T17:26:32.265727Z"
+      "updated_at": "2026-08-14T17:46:17.000638Z"
     },
     "capability.composed-meta-core-health-domain-core-domain-ops-g": {
       "behavior_paths": [
@@ -1008,7 +1008,7 @@
       "id": "capability.composed-meta-core-health-domain-core-domain-ops-g",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:33.196052Z",
+      "last_proved_at": "2026-08-14T17:46:18.020548Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-core + capability.composed-stack-domain-ops-grounded-growth-loop)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-core-domain-ops-g'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1023,7 +1023,7 @@
         "redundant",
         "distilled"
       ],
-      "updated_at": "2026-08-14T17:26:33.196052Z"
+      "updated_at": "2026-08-14T17:46:18.020548Z"
     },
     "capability.composed-meta-core-health-domain-core-domain-ops-s": {
       "behavior_paths": [
@@ -1041,7 +1041,7 @@
       "id": "capability.composed-meta-core-health-domain-core-domain-ops-s",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:34.489240Z",
+      "last_proved_at": "2026-08-14T17:46:19.423490Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-core + capability.composed-stack-domain-ops-second-wave-identity)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-core-domain-ops-s'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1056,7 +1056,7 @@
         "redundant",
         "distilled"
       ],
-      "updated_at": "2026-08-14T17:26:34.489240Z"
+      "updated_at": "2026-08-14T17:46:19.423490Z"
     },
     "capability.composed-meta-core-health-domain-core-evolution-re": {
       "behavior_paths": [
@@ -1074,7 +1074,7 @@
       "id": "capability.composed-meta-core-health-domain-core-evolution-re",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:35.184125Z",
+      "last_proved_at": "2026-08-14T17:46:20.203189Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-core + capability.composed-stack-evolution-ready-second-wave-identity)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-core-evolution-re'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1087,7 +1087,7 @@
         "meta",
         "synthesized"
       ],
-      "updated_at": "2026-08-14T17:26:35.184125Z"
+      "updated_at": "2026-08-14T17:46:20.203189Z"
     },
     "capability.composed-meta-core-health-domain-core-meta-evoluti": {
       "behavior_paths": [
@@ -1105,7 +1105,7 @@
       "id": "capability.composed-meta-core-health-domain-core-meta-evoluti",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:35.878556Z",
+      "last_proved_at": "2026-08-14T17:46:20.934592Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-core + capability.composed-stack-meta-evolution)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-core-meta-evoluti'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1120,7 +1120,7 @@
         "redundant",
         "distilled"
       ],
-      "updated_at": "2026-08-14T17:26:35.878556Z"
+      "updated_at": "2026-08-14T17:46:20.934592Z"
     },
     "capability.composed-meta-core-health-domain-core-platform": {
       "behavior_paths": [
@@ -1138,7 +1138,7 @@
       "id": "capability.composed-meta-core-health-domain-core-platform",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:36.917015Z",
+      "last_proved_at": "2026-08-14T17:46:21.978485Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-core + capability.composed-stack-platform)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-core-platform'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1153,7 +1153,7 @@
         "redundant",
         "distilled"
       ],
-      "updated_at": "2026-08-14T17:26:36.917015Z"
+      "updated_at": "2026-08-14T17:46:21.978485Z"
     },
     "capability.composed-meta-core-health-domain-core-second-wave": {
       "behavior_paths": [
@@ -1171,7 +1171,7 @@
       "id": "capability.composed-meta-core-health-domain-core-second-wave",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:37.871303Z",
+      "last_proved_at": "2026-08-14T17:46:22.950654Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-core + capability.composed-stack-second-wave-identity-grounded-growth)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-core-second-wave'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1184,7 +1184,7 @@
         "meta",
         "synthesized"
       ],
-      "updated_at": "2026-08-14T17:26:37.871303Z"
+      "updated_at": "2026-08-14T17:46:22.950654Z"
     },
     "capability.composed-meta-core-health-domain-ops-core-health-g": {
       "behavior_paths": [
@@ -1202,7 +1202,7 @@
       "id": "capability.composed-meta-core-health-domain-ops-core-health-g",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:38.841904Z",
+      "last_proved_at": "2026-08-14T17:46:23.916894Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-ops + capability.composed-stack-core-health-grounded-growth-loop)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-ops-core-health-g'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1217,7 +1217,7 @@
         "redundant",
         "distilled"
       ],
-      "updated_at": "2026-08-14T17:26:38.841904Z"
+      "updated_at": "2026-08-14T17:46:23.916894Z"
     },
     "capability.composed-meta-core-health-domain-ops-core-health-s": {
       "behavior_paths": [
@@ -1235,7 +1235,7 @@
       "id": "capability.composed-meta-core-health-domain-ops-core-health-s",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:39.664339Z",
+      "last_proved_at": "2026-08-14T17:46:24.728209Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-ops + capability.composed-stack-core-health-second-wave-identity)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-ops-core-health-s'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1250,7 +1250,7 @@
         "redundant",
         "distilled"
       ],
-      "updated_at": "2026-08-14T17:26:39.664339Z"
+      "updated_at": "2026-08-14T17:46:24.728209Z"
     },
     "capability.composed-meta-core-health-domain-ops-domain-core-e": {
       "behavior_paths": [
@@ -1268,7 +1268,7 @@
       "id": "capability.composed-meta-core-health-domain-ops-domain-core-e",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:40.190921Z",
+      "last_proved_at": "2026-08-14T17:46:25.276610Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-ops + capability.composed-stack-domain-core-evolution-ready)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-ops-domain-core-e'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1283,7 +1283,7 @@
         "redundant",
         "distilled"
       ],
-      "updated_at": "2026-08-14T17:26:40.190921Z"
+      "updated_at": "2026-08-14T17:46:25.276610Z"
     },
     "capability.composed-meta-core-health-domain-ops-domain-core-g": {
       "behavior_paths": [
@@ -1301,7 +1301,7 @@
       "id": "capability.composed-meta-core-health-domain-ops-domain-core-g",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:41.123208Z",
+      "last_proved_at": "2026-08-14T17:46:26.267798Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-ops + capability.composed-stack-domain-core-grounded-growth-loop)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-ops-domain-core-g'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1314,7 +1314,7 @@
         "meta",
         "synthesized"
       ],
-      "updated_at": "2026-08-14T17:26:41.123208Z"
+      "updated_at": "2026-08-14T17:46:26.267798Z"
     },
     "capability.composed-meta-core-health-domain-ops-domain-core-s": {
       "behavior_paths": [
@@ -1332,7 +1332,7 @@
       "id": "capability.composed-meta-core-health-domain-ops-domain-core-s",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:41.879386Z",
+      "last_proved_at": "2026-08-14T17:46:27.038596Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-ops + capability.composed-stack-domain-core-second-wave-identity)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-ops-domain-core-s'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1345,7 +1345,7 @@
         "meta",
         "synthesized"
       ],
-      "updated_at": "2026-08-14T17:26:41.879386Z"
+      "updated_at": "2026-08-14T17:46:27.038596Z"
     },
     "capability.composed-meta-core-health-domain-ops-domain-full": {
       "behavior_paths": [
@@ -1363,7 +1363,7 @@
       "id": "capability.composed-meta-core-health-domain-ops-domain-full",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:42.406560Z",
+      "last_proved_at": "2026-08-14T17:46:27.563382Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-ops + capability.composed-stack-domain-full)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-ops-domain-full'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1378,7 +1378,7 @@
         "redundant",
         "distilled"
       ],
-      "updated_at": "2026-08-14T17:26:42.406560Z"
+      "updated_at": "2026-08-14T17:46:27.563382Z"
     },
     "capability.composed-meta-core-health-domain-ops-domain-ops-ev": {
       "behavior_paths": [
@@ -1396,7 +1396,7 @@
       "id": "capability.composed-meta-core-health-domain-ops-domain-ops-ev",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:42.931139Z",
+      "last_proved_at": "2026-08-14T17:46:28.128525Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-ops + capability.composed-stack-domain-ops-evolution-ready)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-ops-domain-ops-ev'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1411,7 +1411,7 @@
         "redundant",
         "distilled"
       ],
-      "updated_at": "2026-08-14T17:26:42.931139Z"
+      "updated_at": "2026-08-14T17:46:28.128525Z"
     },
     "capability.composed-meta-core-health-domain-ops-domain-ops-gr": {
       "behavior_paths": [
@@ -1429,7 +1429,7 @@
       "id": "capability.composed-meta-core-health-domain-ops-domain-ops-gr",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:43.441368Z",
+      "last_proved_at": "2026-08-14T17:46:28.675406Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-ops + capability.composed-stack-domain-ops-grounded-growth-loop)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-ops-domain-ops-gr'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1442,7 +1442,7 @@
         "meta",
         "synthesized"
       ],
-      "updated_at": "2026-08-14T17:26:43.441368Z"
+      "updated_at": "2026-08-14T17:46:28.675406Z"
     },
     "capability.composed-meta-core-health-domain-ops-domain-ops-se": {
       "behavior_paths": [
@@ -1460,7 +1460,7 @@
       "id": "capability.composed-meta-core-health-domain-ops-domain-ops-se",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:43.949654Z",
+      "last_proved_at": "2026-08-14T17:46:29.223529Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-ops + capability.composed-stack-domain-ops-second-wave-identity)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-ops-domain-ops-se'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1473,7 +1473,7 @@
         "meta",
         "synthesized"
       ],
-      "updated_at": "2026-08-14T17:26:43.949654Z"
+      "updated_at": "2026-08-14T17:46:29.223529Z"
     },
     "capability.composed-meta-core-health-domain-ops-evolution-rea": {
       "behavior_paths": [
@@ -1491,7 +1491,7 @@
       "id": "capability.composed-meta-core-health-domain-ops-evolution-rea",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:44.918562Z",
+      "last_proved_at": "2026-08-14T17:46:30.242998Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-ops + capability.composed-stack-evolution-ready-grounded-growth-loop)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-ops-evolution-rea'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1504,7 +1504,7 @@
         "meta",
         "synthesized"
       ],
-      "updated_at": "2026-08-14T17:26:44.918562Z"
+      "updated_at": "2026-08-14T17:46:30.242998Z"
     },
     "capability.composed-meta-core-health-domain-ops-meta-evolutio": {
       "behavior_paths": [
@@ -1522,7 +1522,7 @@
       "id": "capability.composed-meta-core-health-domain-ops-meta-evolutio",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:45.438625Z",
+      "last_proved_at": "2026-08-14T17:46:30.825253Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-ops + capability.composed-stack-meta-evolution)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-ops-meta-evolutio'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1535,7 +1535,7 @@
         "meta",
         "synthesized"
       ],
-      "updated_at": "2026-08-14T17:26:45.438625Z"
+      "updated_at": "2026-08-14T17:46:30.825253Z"
     },
     "capability.composed-meta-core-health-domain-ops-platform": {
       "behavior_paths": [
@@ -1553,7 +1553,7 @@
       "id": "capability.composed-meta-core-health-domain-ops-platform",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:45.985360Z",
+      "last_proved_at": "2026-08-14T17:46:31.400357Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-ops + capability.composed-stack-platform)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-ops-platform'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1568,7 +1568,7 @@
         "redundant",
         "distilled"
       ],
-      "updated_at": "2026-08-14T17:26:45.985360Z"
+      "updated_at": "2026-08-14T17:46:31.400357Z"
     },
     "capability.composed-meta-core-health-domain-ops-second-wave-i": {
       "behavior_paths": [
@@ -1586,7 +1586,7 @@
       "id": "capability.composed-meta-core-health-domain-ops-second-wave-i",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:46.501599Z",
+      "last_proved_at": "2026-08-14T17:46:31.912685Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-domain-ops + capability.composed-stack-second-wave-identity-grounded-growth)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-domain-ops-second-wave-i'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1599,7 +1599,7 @@
         "meta",
         "synthesized"
       ],
-      "updated_at": "2026-08-14T17:26:46.501599Z"
+      "updated_at": "2026-08-14T17:46:31.912685Z"
     },
     "capability.composed-meta-core-health-grounded-growth-loop-cor": {
       "behavior_paths": [
@@ -1617,7 +1617,7 @@
       "id": "capability.composed-meta-core-health-grounded-growth-loop-cor",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:47.008047Z",
+      "last_proved_at": "2026-08-14T17:46:32.422136Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-grounded-growth-loop + capability.composed-stack-core-health-second-wave-identity)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-grounded-growth-loop-cor'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1630,7 +1630,7 @@
         "meta",
         "synthesized"
       ],
-      "updated_at": "2026-08-14T17:26:47.008047Z"
+      "updated_at": "2026-08-14T17:46:32.422136Z"
     },
     "capability.composed-meta-core-health-grounded-growth-loop-dom": {
       "behavior_paths": [
@@ -1648,7 +1648,7 @@
       "id": "capability.composed-meta-core-health-grounded-growth-loop-dom",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:47.530913Z",
+      "last_proved_at": "2026-08-14T17:46:32.950018Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-grounded-growth-loop + capability.composed-stack-domain-core-evolution-ready)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-grounded-growth-loop-dom'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1661,7 +1661,7 @@
         "meta",
         "synthesized"
       ],
-      "updated_at": "2026-08-14T17:26:47.530913Z"
+      "updated_at": "2026-08-14T17:46:32.950018Z"
     },
     "capability.composed-meta-core-health-grounded-growth-loop-evo": {
       "behavior_paths": [
@@ -1679,7 +1679,7 @@
       "id": "capability.composed-meta-core-health-grounded-growth-loop-evo",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:48.054461Z",
+      "last_proved_at": "2026-08-14T17:46:33.484197Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-grounded-growth-loop + capability.composed-stack-evolution-ready-second-wave-identity)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-grounded-growth-loop-evo'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1692,7 +1692,7 @@
         "meta",
         "synthesized"
       ],
-      "updated_at": "2026-08-14T17:26:48.054461Z"
+      "updated_at": "2026-08-14T17:46:33.484197Z"
     },
     "capability.composed-meta-core-health-grounded-growth-loop-met": {
       "behavior_paths": [
@@ -1710,7 +1710,7 @@
       "id": "capability.composed-meta-core-health-grounded-growth-loop-met",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:48.567271Z",
+      "last_proved_at": "2026-08-14T17:46:34.014561Z",
       "name": "Meta-hierarchical stack (capability.composed-stack-core-health-grounded-growth-loop + capability.composed-stack-meta-evolution)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-core-health-grounded-growth-loop-met'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1723,7 +1723,7 @@
         "meta",
         "synthesized"
       ],
-      "updated_at": "2026-08-14T17:26:48.567271Z"
+      "updated_at": "2026-08-14T17:46:34.014561Z"
     },
     "capability.composed-meta-domain-full-evolution": {
       "behavior_paths": [
@@ -1741,7 +1741,7 @@
       "id": "capability.composed-meta-domain-full-evolution",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:49.093265Z",
+      "last_proved_at": "2026-08-14T17:46:34.555695Z",
       "name": "Meta-hierarchical domain-full × evolution stack",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-domain-full-evolution'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1755,7 +1755,7 @@
         "redundant",
         "distilled"
       ],
-      "updated_at": "2026-08-14T17:26:49.093265Z"
+      "updated_at": "2026-08-14T17:46:34.555695Z"
     },
     "capability.composed-meta-platform-domain-full": {
       "behavior_paths": [
@@ -1773,7 +1773,7 @@
       "id": "capability.composed-meta-platform-domain-full",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:49.695500Z",
+      "last_proved_at": "2026-08-14T17:46:35.129120Z",
       "name": "Meta-hierarchical platform × domain-full stack",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-platform-domain-full'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1787,7 +1787,7 @@
         "redundant",
         "distilled"
       ],
-      "updated_at": "2026-08-14T17:26:49.695500Z"
+      "updated_at": "2026-08-14T17:46:35.129120Z"
     },
     "capability.composed-meta-platform-evolution": {
       "behavior_paths": [
@@ -1805,7 +1805,7 @@
       "id": "capability.composed-meta-platform-evolution",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:50.527532Z",
+      "last_proved_at": "2026-08-14T17:46:35.695239Z",
       "name": "Meta-hierarchical platform × evolution stack",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-meta-platform-evolution'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1817,7 +1817,7 @@
         "hierarchical",
         "meta"
       ],
-      "updated_at": "2026-08-14T17:26:50.527532Z"
+      "updated_at": "2026-08-14T17:46:35.695239Z"
     },
     "capability.composed-second-wave-identity": {
       "behavior_paths": [
@@ -1836,7 +1836,7 @@
       "id": "capability.composed-second-wave-identity",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:33.531774Z",
+      "last_proved_at": "2026-08-14T17:46:18.384460Z",
       "name": "Composed second-wave identity chain",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-second-wave-identity'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1848,7 +1848,7 @@
         "domain",
         "second-wave"
       ],
-      "updated_at": "2026-08-14T17:26:33.531774Z"
+      "updated_at": "2026-08-14T17:46:18.384460Z"
     },
     "capability.composed-stack-core-health-domain-core": {
       "behavior_paths": [
@@ -1866,7 +1866,7 @@
       "id": "capability.composed-stack-core-health-domain-core",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:27.801657Z",
+      "last_proved_at": "2026-08-14T17:46:11.669300Z",
       "name": "Hierarchical stack (capability.composed-core-health + capability.composed-domain-core)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-core-health-domain-core'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1878,7 +1878,7 @@
         "hierarchical",
         "synthesized"
       ],
-      "updated_at": "2026-08-14T17:26:27.801657Z"
+      "updated_at": "2026-08-14T17:46:11.669300Z"
     },
     "capability.composed-stack-core-health-domain-ops": {
       "behavior_paths": [
@@ -1896,7 +1896,7 @@
       "id": "capability.composed-stack-core-health-domain-ops",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:38.316108Z",
+      "last_proved_at": "2026-08-14T17:46:23.396453Z",
       "name": "Hierarchical stack (capability.composed-core-health + capability.composed-domain-ops)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-core-health-domain-ops'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1908,7 +1908,7 @@
         "hierarchical",
         "synthesized"
       ],
-      "updated_at": "2026-08-14T17:26:38.316108Z"
+      "updated_at": "2026-08-14T17:46:23.396453Z"
     },
     "capability.composed-stack-core-health-grounded-growth-loop": {
       "behavior_paths": [
@@ -1926,7 +1926,7 @@
       "id": "capability.composed-stack-core-health-grounded-growth-loop",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:29.102035Z",
+      "last_proved_at": "2026-08-14T17:46:13.588687Z",
       "name": "Hierarchical stack (capability.composed-core-health + capability.grounded-growth-loop)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-core-health-grounded-growth-loop'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1938,7 +1938,7 @@
         "hierarchical",
         "synthesized"
       ],
-      "updated_at": "2026-08-14T17:26:29.102035Z"
+      "updated_at": "2026-08-14T17:46:13.588687Z"
     },
     "capability.composed-stack-core-health-second-wave-identity": {
       "behavior_paths": [
@@ -1956,7 +1956,7 @@
       "id": "capability.composed-stack-core-health-second-wave-identity",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:39.140600Z",
+      "last_proved_at": "2026-08-14T17:46:24.207877Z",
       "name": "Hierarchical stack (capability.composed-core-health + capability.composed-second-wave-identity)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-core-health-second-wave-identity'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1968,7 +1968,7 @@
         "hierarchical",
         "synthesized"
       ],
-      "updated_at": "2026-08-14T17:26:39.140600Z"
+      "updated_at": "2026-08-14T17:46:24.207877Z"
     },
     "capability.composed-stack-domain-core-evolution-ready": {
       "behavior_paths": [
@@ -1986,7 +1986,7 @@
       "id": "capability.composed-stack-domain-core-evolution-ready",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:29.924932Z",
+      "last_proved_at": "2026-08-14T17:46:14.486946Z",
       "name": "Hierarchical stack (capability.composed-domain-core + capability.composed-evolution-ready)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-domain-core-evolution-ready'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -1998,7 +1998,7 @@
         "hierarchical",
         "synthesized"
       ],
-      "updated_at": "2026-08-14T17:26:29.924932Z"
+      "updated_at": "2026-08-14T17:46:14.486946Z"
     },
     "capability.composed-stack-domain-core-grounded-growth-loop": {
       "behavior_paths": [
@@ -2016,7 +2016,7 @@
       "id": "capability.composed-stack-domain-core-grounded-growth-loop",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:40.606002Z",
+      "last_proved_at": "2026-08-14T17:46:25.709348Z",
       "name": "Hierarchical stack (capability.composed-domain-core + capability.grounded-growth-loop)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-domain-core-grounded-growth-loop'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -2028,7 +2028,7 @@
         "hierarchical",
         "synthesized"
       ],
-      "updated_at": "2026-08-14T17:26:40.606002Z"
+      "updated_at": "2026-08-14T17:46:25.709348Z"
     },
     "capability.composed-stack-domain-core-second-wave-identity": {
       "behavior_paths": [
@@ -2046,7 +2046,7 @@
       "id": "capability.composed-stack-domain-core-second-wave-identity",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:41.361714Z",
+      "last_proved_at": "2026-08-14T17:46:26.511294Z",
       "name": "Hierarchical stack (capability.composed-domain-core + capability.composed-second-wave-identity)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-domain-core-second-wave-identity'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -2058,7 +2058,7 @@
         "hierarchical",
         "synthesized"
       ],
-      "updated_at": "2026-08-14T17:26:41.361714Z"
+      "updated_at": "2026-08-14T17:46:26.511294Z"
     },
     "capability.composed-stack-domain-full": {
       "behavior_paths": [
@@ -2076,7 +2076,7 @@
       "id": "capability.composed-stack-domain-full",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:30.753551Z",
+      "last_proved_at": "2026-08-14T17:46:15.362494Z",
       "name": "Hierarchical domain full stack",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-domain-full'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -2088,7 +2088,7 @@
         "hierarchical",
         "domain"
       ],
-      "updated_at": "2026-08-14T17:26:30.753551Z"
+      "updated_at": "2026-08-14T17:46:15.362494Z"
     },
     "capability.composed-stack-domain-ops-evolution-ready": {
       "behavior_paths": [
@@ -2106,7 +2106,7 @@
       "id": "capability.composed-stack-domain-ops-evolution-ready",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:31.726535Z",
+      "last_proved_at": "2026-08-14T17:46:16.432592Z",
       "name": "Hierarchical stack (capability.composed-domain-ops + capability.composed-evolution-ready)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-domain-ops-evolution-ready'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -2118,7 +2118,7 @@
         "hierarchical",
         "synthesized"
       ],
-      "updated_at": "2026-08-14T17:26:31.726535Z"
+      "updated_at": "2026-08-14T17:46:16.432592Z"
     },
     "capability.composed-stack-domain-ops-grounded-growth-loop": {
       "behavior_paths": [
@@ -2136,7 +2136,7 @@
       "id": "capability.composed-stack-domain-ops-grounded-growth-loop",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:32.671237Z",
+      "last_proved_at": "2026-08-14T17:46:17.448875Z",
       "name": "Hierarchical stack (capability.composed-domain-ops + capability.grounded-growth-loop)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-domain-ops-grounded-growth-loop'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -2148,7 +2148,7 @@
         "hierarchical",
         "synthesized"
       ],
-      "updated_at": "2026-08-14T17:26:32.671237Z"
+      "updated_at": "2026-08-14T17:46:17.448875Z"
     },
     "capability.composed-stack-domain-ops-second-wave-identity": {
       "behavior_paths": [
@@ -2166,7 +2166,7 @@
       "id": "capability.composed-stack-domain-ops-second-wave-identity",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:33.949326Z",
+      "last_proved_at": "2026-08-14T17:46:18.853317Z",
       "name": "Hierarchical stack (capability.composed-domain-ops + capability.composed-second-wave-identity)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-domain-ops-second-wave-identity'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -2178,7 +2178,7 @@
         "hierarchical",
         "synthesized"
       ],
-      "updated_at": "2026-08-14T17:26:33.949326Z"
+      "updated_at": "2026-08-14T17:46:18.853317Z"
     },
     "capability.composed-stack-evolution-ready-grounded-growth-loop": {
       "behavior_paths": [
@@ -2196,7 +2196,7 @@
       "id": "capability.composed-stack-evolution-ready-grounded-growth-loop",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:44.391204Z",
+      "last_proved_at": "2026-08-14T17:46:29.675054Z",
       "name": "Hierarchical stack (capability.composed-evolution-ready + capability.grounded-growth-loop)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-evolution-ready-grounded-growth-loop'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -2208,7 +2208,7 @@
         "hierarchical",
         "synthesized"
       ],
-      "updated_at": "2026-08-14T17:26:44.391204Z"
+      "updated_at": "2026-08-14T17:46:29.675054Z"
     },
     "capability.composed-stack-evolution-ready-second-wave-identity": {
       "behavior_paths": [
@@ -2226,7 +2226,7 @@
       "id": "capability.composed-stack-evolution-ready-second-wave-identity",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:34.793777Z",
+      "last_proved_at": "2026-08-14T17:46:19.783083Z",
       "name": "Hierarchical stack (capability.composed-evolution-ready + capability.composed-second-wave-identity)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-evolution-ready-second-wave-identity'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -2238,7 +2238,7 @@
         "hierarchical",
         "synthesized"
       ],
-      "updated_at": "2026-08-14T17:26:34.793777Z"
+      "updated_at": "2026-08-14T17:46:19.783083Z"
     },
     "capability.composed-stack-meta-evolution": {
       "behavior_paths": [
@@ -2256,7 +2256,7 @@
       "id": "capability.composed-stack-meta-evolution",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:35.488523Z",
+      "last_proved_at": "2026-08-14T17:46:20.527500Z",
       "name": "Hierarchical meta evolution stack",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-meta-evolution'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -2268,7 +2268,7 @@
         "hierarchical",
         "evolution-route"
       ],
-      "updated_at": "2026-08-14T17:26:35.488523Z"
+      "updated_at": "2026-08-14T17:46:20.527500Z"
     },
     "capability.composed-stack-platform": {
       "behavior_paths": [
@@ -2287,7 +2287,7 @@
       "id": "capability.composed-stack-platform",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:36.353875Z",
+      "last_proved_at": "2026-08-14T17:46:21.409368Z",
       "name": "Hierarchical platform stack",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-platform'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -2299,7 +2299,7 @@
         "hierarchical",
         "platform"
       ],
-      "updated_at": "2026-08-14T17:26:36.353875Z"
+      "updated_at": "2026-08-14T17:46:21.409368Z"
     },
     "capability.composed-stack-second-wave-identity-grounded-growth": {
       "behavior_paths": [
@@ -2317,7 +2317,7 @@
       "id": "capability.composed-stack-second-wave-identity-grounded-growth",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:37.342984Z",
+      "last_proved_at": "2026-08-14T17:46:22.411156Z",
       "name": "Hierarchical stack (capability.composed-second-wave-identity + capability.grounded-growth-loop)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-stack-second-wave-identity-grounded-growth'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -2329,7 +2329,7 @@
         "hierarchical",
         "synthesized"
       ],
-      "updated_at": "2026-08-14T17:26:37.342984Z"
+      "updated_at": "2026-08-14T17:46:22.411156Z"
     },
     "capability.composed-super-46793b684d": {
       "behavior_paths": [
@@ -2347,7 +2347,7 @@
       "id": "capability.composed-super-46793b684d",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:51.305690Z",
+      "last_proved_at": "2026-08-14T17:46:36.408024Z",
       "name": "Superstack (capability.composed-meta-core-health-domain-core-core-health + capability.composed-meta-core-health-domain-core-evolution-re)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-super-46793b684d'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -2361,7 +2361,7 @@
         "superstack",
         "synthesized"
       ],
-      "updated_at": "2026-08-14T17:26:51.305690Z"
+      "updated_at": "2026-08-14T17:46:36.408024Z"
     },
     "capability.composed-super-551acabcb0": {
       "behavior_paths": [
@@ -2379,7 +2379,7 @@
       "id": "capability.composed-super-551acabcb0",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:52.008211Z",
+      "last_proved_at": "2026-08-14T17:46:37.124543Z",
       "name": "Superstack (capability.composed-meta-core-health-domain-core-domain-core + capability.composed-meta-core-health-domain-core-domain-ops-g)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-super-551acabcb0'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -2393,7 +2393,7 @@
         "superstack",
         "synthesized"
       ],
-      "updated_at": "2026-08-14T17:26:52.008211Z"
+      "updated_at": "2026-08-14T17:46:37.124543Z"
     },
     "capability.composed-super-b31746f232": {
       "behavior_paths": [
@@ -2411,7 +2411,7 @@
       "id": "capability.composed-super-b31746f232",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:52.678554Z",
+      "last_proved_at": "2026-08-14T17:46:37.852151Z",
       "name": "Superstack (capability.composed-meta-core-health-domain-core-core-health + capability.composed-meta-core-health-domain-core-domain-ops-s)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-super-b31746f232'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -2425,7 +2425,7 @@
         "superstack",
         "synthesized"
       ],
-      "updated_at": "2026-08-14T17:26:52.678554Z"
+      "updated_at": "2026-08-14T17:46:37.852151Z"
     },
     "capability.composed-super-core-health-domain-core-health-d": {
       "behavior_paths": [
@@ -2443,7 +2443,7 @@
       "id": "capability.composed-super-core-health-domain-core-health-d",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:53.383696Z",
+      "last_proved_at": "2026-08-14T17:46:38.572688Z",
       "name": "Superstack (capability.composed-meta-core-health-domain-core-core-health + capability.composed-meta-core-health-domain-core-domain-core)",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execute_composed_capability; import os; os.environ['BLACKHOLE_CAPABILITY_ID']='capability.composed-super-core-health-domain-core-health-d'; r=builtin_execute_composed_capability(); assert r['ok']\"",
       "source_milestone": null,
@@ -2459,7 +2459,7 @@
         "redundant",
         "distilled"
       ],
-      "updated_at": "2026-08-14T17:26:53.383696Z"
+      "updated_at": "2026-08-14T17:46:38.572688Z"
     },
     "capability.continuity-plane": {
       "behavior_paths": [
@@ -2487,7 +2487,7 @@
       "id": "capability.continuity-plane",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:25:51.055725Z",
+      "last_proved_at": "2026-08-14T17:45:33.640644Z",
       "name": "Cold-start continuity resurrection plane",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_continuity_plane; from pathlib import Path; import os; root=Path(__file__).resolve().parents[2] if '__file__' in dir() else Path('.').resolve(); os.environ['BLACKHOLE_MISSION_GOAL']='health inventory milestone'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;min_primitives:3;capability_exists:repo.import-health;capability_proved:repo.import-health;program_passes:repo.import-health;no_skill_route'; os.environ['BLACKHOLE_MISSION_GROW_BUDGET']='0'; os.environ['BLACKHOLE_MISSION_ABSORB']='0'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_CONTRACT_RUN_MISSION']='0'; os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='1'; os.environ['BLACKHOLE_RECONCILE_SYNTHETIC']='1'; os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-continuity.json')); os.environ.setdefault('BLACKHOLE_CONTINUITY_BUNDLE_PATH', str(Path('artifacts')/'continuity-bundles'/'proof-continuity.json')); r=builtin_continuity_plane(); assert r['ok'] and r.get('action')=='continuity_plane' and r.get('resurrected') is True and r.get('bundle',{}).get('ok') and r.get('rehydrate',{}).get('ok') and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') and r.get('drift',{}).get('drift') is False and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -2504,7 +2504,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:25:51.055725Z"
+      "updated_at": "2026-08-14T17:45:33.640644Z"
     },
     "capability.contract-plane": {
       "behavior_paths": [
@@ -2526,7 +2526,7 @@
       "id": "capability.contract-plane",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:25:29.599603Z",
+      "last_proved_at": "2026-08-14T17:45:12.371554Z",
       "name": "Evidence-bound mission contract plane",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_contract_plane; import os; os.environ['BLACKHOLE_MISSION_GOAL']='health inventory milestone'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;min_primitives:3;capability_exists:repo.import-health;capability_proved:repo.import-health;program_passes:repo.import-health;no_skill_route;mission_plane_ok'; os.environ['BLACKHOLE_MISSION_GROW_BUDGET']='0'; os.environ['BLACKHOLE_MISSION_ABSORB']='0'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_CONTRACT_RUN_MISSION']='1'; r=builtin_contract_plane(); assert r['ok'] and r.get('action')=='contract_plane' and r.get('machine_checkable') and r.get('met') is True and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -2539,7 +2539,7 @@
         "evidence",
         "growth"
       ],
-      "updated_at": "2026-08-14T17:25:29.599603Z"
+      "updated_at": "2026-08-14T17:45:12.371554Z"
     },
     "capability.distill-ledger": {
       "behavior_paths": [
@@ -2558,7 +2558,7 @@
       "id": "capability.distill-ledger",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:11.368910Z",
+      "last_proved_at": "2026-08-14T17:45:55.028115Z",
       "name": "Ledger distillation",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_distill_ledger; r=builtin_distill_ledger(); assert r['ok'] and r.get('redundant_count',0) >= 0 and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -2569,7 +2569,7 @@
         "growth",
         "distill"
       ],
-      "updated_at": "2026-08-14T17:26:11.368910Z"
+      "updated_at": "2026-08-14T17:45:55.028115Z"
     },
     "capability.execution-plane": {
       "behavior_paths": [
@@ -2601,7 +2601,7 @@
       "id": "capability.execution-plane",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:07.712323Z",
+      "last_proved_at": "2026-08-14T17:45:51.256728Z",
       "name": "World-state execution plane over epoch finality",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_execution_plane; from pathlib import Path; import os; os.environ['BLACKHOLE_MISSION_GOAL']='world-state execution over epoch finality'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_EXECUTION_RUN_FINALITY']='1'; os.environ['BLACKHOLE_FINALITY_RUN_QUORUM']='1'; os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='0'; os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='0'; os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; os.environ['BLACKHOLE_FINALITY_EPOCH_COUNT']='2'; os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-execution.json')); os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-execution-quorum.json')); os.environ.setdefault('BLACKHOLE_FINALITY_BUNDLE_PATH', str(Path('artifacts')/'finality-bundles'/'proof-execution-finality.json')); os.environ.setdefault('BLACKHOLE_EXECUTION_BUNDLE_PATH', str(Path('artifacts')/'execution-bundles'/'proof-execution.json')); r=builtin_execution_plane(); assert r['ok'] and r.get('action')=='execution_plane' and r.get('state_applied') is True and int(r.get('state_count') or 0) >= 2 and int(r.get('state_height') or 0) >= 2 and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') and r.get('execution_certificate',{}).get('valid') and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -2622,7 +2622,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:26:07.712323Z"
+      "updated_at": "2026-08-14T17:45:51.256728Z"
     },
     "capability.federation-plane": {
       "behavior_paths": [
@@ -2651,7 +2651,7 @@
       "id": "capability.federation-plane",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:25:57.428405Z",
+      "last_proved_at": "2026-08-14T17:45:40.257926Z",
       "name": "Multi-origin federated continuity plane",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_federation_plane; from pathlib import Path; import os; os.environ['BLACKHOLE_MISSION_GOAL']='federate multi-origin continuity'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_FEDERATION_RUN_CONTINUITY']='1'; os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='1'; os.environ['BLACKHOLE_RECONCILE_SYNTHETIC']='1'; os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-federation.json')); os.environ.setdefault('BLACKHOLE_CONTINUITY_BUNDLE_PATH', str(Path('artifacts')/'continuity-bundles'/'proof-federation-origin-a.json')); os.environ.setdefault('BLACKHOLE_FEDERATION_BUNDLE_PATH', str(Path('artifacts')/'federation-bundles'/'proof-federation.json')); r=builtin_federation_plane(); assert r['ok'] and r.get('action')=='federation_plane' and r.get('federated') is True and int(r.get('origin_count') or 0) >= 2 and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') and r.get('federation_certificate',{}).get('valid') and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -2667,7 +2667,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:25:57.428405Z"
+      "updated_at": "2026-08-14T17:45:40.257926Z"
     },
     "capability.finality-plane": {
       "behavior_paths": [
@@ -2698,7 +2698,7 @@
       "id": "capability.finality-plane",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:05.422877Z",
+      "last_proved_at": "2026-08-14T17:45:48.810023Z",
       "name": "Epoch finality plane over quorum consensus",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_finality_plane; from pathlib import Path; import os; os.environ['BLACKHOLE_MISSION_GOAL']='epoch finality over quorum consensus'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_FINALITY_RUN_QUORUM']='1'; os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='0'; os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='0'; os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; os.environ['BLACKHOLE_FINALITY_EPOCH_COUNT']='2'; os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-finality.json')); os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-finality-quorum.json')); os.environ.setdefault('BLACKHOLE_FINALITY_BUNDLE_PATH', str(Path('artifacts')/'finality-bundles'/'proof-finality.json')); r=builtin_finality_plane(); assert r['ok'] and r.get('action')=='finality_plane' and r.get('finalized') is True and int(r.get('epoch_count') or 0) >= 2 and int(r.get('tip_height') or 0) >= 2 and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') and r.get('finality_certificate',{}).get('valid') and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -2716,7 +2716,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:26:05.422877Z"
+      "updated_at": "2026-08-14T17:45:48.810023Z"
     },
     "capability.fragility-audit": {
       "behavior_paths": [
@@ -2738,7 +2738,7 @@
       "id": "capability.fragility-audit",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:53.619531Z",
+      "last_proved_at": "2026-08-14T17:46:38.828661Z",
       "name": "Goal fragility audit",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_fragility import builtin_fragility_audit; r=builtin_fragility_audit(); assert r['ok'] and r.get('fragility',{}).get('fragility_score')==0.1667 and r.get('fragility',{}).get('robust_goals')==['ledger-inventory-check'] and r.get('fragility',{}).get('max_redundancy_depth')==1 and r.get('depth_honest') and r.get('depth_forgery_detected') and r.get('fragility',{}).get('max_blast_radius')==2 and r.get('priority_correct') and r.get('deterministic') and r.get('matrix_forgery_detected') and r.get('misgrade_detected') and r.get('tamper_detected') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -2752,7 +2752,7 @@
         "recovery",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:26:53.619531Z"
+      "updated_at": "2026-08-14T17:46:38.828661Z"
     },
     "capability.frontier-novelty": {
       "behavior_paths": [
@@ -2771,7 +2771,7 @@
       "id": "capability.frontier-novelty",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:25:12.868214Z",
+      "last_proved_at": "2026-08-14T17:44:54.620223Z",
       "name": "Frontier novelty ranking",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_frontier_novelty; r=builtin_frontier_novelty(); assert r['ok'] and 'novel_ready_count' in r and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -2782,7 +2782,7 @@
         "growth",
         "novelty"
       ],
-      "updated_at": "2026-08-14T17:25:12.868214Z"
+      "updated_at": "2026-08-14T17:44:54.620223Z"
     },
     "capability.github-live-actuation": {
       "behavior_paths": [
@@ -2800,7 +2800,7 @@
       "id": "capability.github-live-actuation",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:54.262113Z",
+      "last_proved_at": "2026-08-14T17:46:39.504253Z",
       "name": "Live GitHub actuation: issue -> tested fix -> merged PR",
       "proof_command": "uv run python -c \"from blackhole_agent.github_live import builtin_github_live_actuation_proof as f; import sys; r=f(); print(r); sys.exit(0 if r.get('ok') else 1)\"",
       "source_milestone": 1,
@@ -2812,7 +2812,7 @@
         "actuation",
         "grounded"
       ],
-      "updated_at": "2026-08-14T17:26:54.262113Z"
+      "updated_at": "2026-08-14T17:46:39.504253Z"
     },
     "capability.goal-plan": {
       "behavior_paths": [
@@ -2830,7 +2830,7 @@
       "id": "capability.goal-plan",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:25:13.237397Z",
+      "last_proved_at": "2026-08-14T17:44:54.987516Z",
       "name": "Goal-conditioned capability program planner",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_goal_plan; import os; os.environ.setdefault('BLACKHOLE_MISSION_GOAL','health integrity'); r=builtin_goal_plan(); assert r['ok'] and r.get('step_count',0) >= 1 and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -2841,7 +2841,7 @@
         "mission",
         "planner"
       ],
-      "updated_at": "2026-08-14T17:25:13.237397Z"
+      "updated_at": "2026-08-14T17:44:54.987516Z"
     },
     "capability.goal-stack-health": {
       "behavior_paths": [
@@ -2865,7 +2865,7 @@
       "id": "capability.goal-stack-health",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:59.914790Z",
+      "last_proved_at": "2026-08-14T17:46:45.666225Z",
       "name": "Goal-stack composite health",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_stack import builtin_stack_health; r=builtin_stack_health(); assert r['ok'] and r.get('health',{}).get('healthy') and r.get('health',{}).get('green_count')==r.get('health',{}).get('plane_count')==5 and r.get('tamper_detected') and r.get('misgrade_detected') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -2878,7 +2878,7 @@
         "composition",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:26:59.914790Z"
+      "updated_at": "2026-08-14T17:46:45.666225Z"
     },
     "capability.goal-watchdog": {
       "behavior_paths": [
@@ -2899,7 +2899,7 @@
       "id": "capability.goal-watchdog",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:59.216408Z",
+      "last_proved_at": "2026-08-14T17:46:44.970558Z",
       "name": "Goal watchdog and milestone regression gate",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_watchdog import builtin_goal_watchdog; r=builtin_goal_watchdog(); assert r['ok'] and r.get('drifted_goals')==[] and r.get('drift_detected') and r.get('deterministic') and r.get('tamper_detected') and r.get('drift_hiding_detected') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -2912,7 +2912,7 @@
         "application",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:26:59.216408Z"
+      "updated_at": "2026-08-14T17:46:44.970558Z"
     },
     "capability.grounded-growth-loop": {
       "behavior_paths": [
@@ -2931,7 +2931,7 @@
       "id": "capability.grounded-growth-loop",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:28.669440Z",
+      "last_proved_at": "2026-08-14T17:46:13.092721Z",
       "name": "Grounded growth loop: live signal to implemented patch",
       "proof_command": "uv run python -c \"from blackhole_agent.grounded_growth import builtin_grounded_growth_loop_proof as f; import sys; r=f(); print(r); sys.exit(0 if r.get('ok') else 1)\"",
       "source_milestone": null,
@@ -2941,7 +2941,7 @@
         "composed",
         "loop"
       ],
-      "updated_at": "2026-08-14T17:26:28.669440Z"
+      "updated_at": "2026-08-14T17:46:13.092721Z"
     },
     "capability.grounded-scan": {
       "behavior_paths": [
@@ -2959,7 +2959,7 @@
       "id": "capability.grounded-scan",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:28.164703Z",
+      "last_proved_at": "2026-08-14T17:46:12.361502Z",
       "name": "Grounded live-trend growth scout",
       "proof_command": "uv run python -c \"from blackhole_agent.grounded_growth import builtin_grounded_scan_proof as f; import sys; r=f(); print(r); sys.exit(0 if r.get('ok') else 1)\"",
       "source_milestone": null,
@@ -2969,7 +2969,7 @@
         "external",
         "scout"
       ],
-      "updated_at": "2026-08-14T17:26:28.164703Z"
+      "updated_at": "2026-08-14T17:46:12.361502Z"
     },
     "capability.growth-loop": {
       "behavior_paths": [
@@ -2990,7 +2990,7 @@
       "id": "capability.growth-loop",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:25:20.010907Z",
+      "last_proved_at": "2026-08-14T17:45:01.809705Z",
       "name": "Capability compounder growth loop",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_growth_loop; r=builtin_growth_loop(); assert r['ok'] and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -3000,7 +3000,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-08-14T17:25:20.010907Z"
+      "updated_at": "2026-08-14T17:45:01.809705Z"
     },
     "capability.growth-proof-audit-gate": {
       "behavior_paths": [
@@ -3018,7 +3018,7 @@
       "id": "capability.growth-proof-audit-gate",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:27:01.345165Z",
+      "last_proved_at": "2026-08-14T17:46:47.083109Z",
       "name": "Growth proof-audit gate",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_growth_audit_gate; r=builtin_growth_audit_gate(); assert r['ok'], r\"",
       "source_milestone": null,
@@ -3029,7 +3029,7 @@
         "growth",
         "audit"
       ],
-      "updated_at": "2026-08-14T17:27:01.345165Z"
+      "updated_at": "2026-08-14T17:46:47.083109Z"
     },
     "capability.ledger-attestation": {
       "behavior_paths": [
@@ -3047,7 +3047,7 @@
       "id": "capability.ledger-attestation",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:27:01.503713Z",
+      "last_proved_at": "2026-08-14T17:46:47.248874Z",
       "name": "Ledger structural attestation",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_attestation import builtin_ledger_attestation; r=builtin_ledger_attestation(); assert r['ok'] and r.get('attestation',{}).get('ready') and r.get('deterministic') and r.get('unresolved_detected') and r.get('missing_field_detected') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -3060,7 +3060,7 @@
         "integrity",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:27:01.503713Z"
+      "updated_at": "2026-08-14T17:46:47.248874Z"
     },
     "capability.ledger-integrity": {
       "behavior_paths": [
@@ -3078,7 +3078,7 @@
       "id": "capability.ledger-integrity",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:14.733817Z",
+      "last_proved_at": "2026-08-14T17:45:58.432717Z",
       "name": "Capability ledger integrity prove",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_ledger_integrity; import os; os.environ.setdefault('BLACKHOLE_INTEGRITY_LIMIT','8'); r=builtin_ledger_integrity(); assert r['ok'] and r.get('score',0) >= 1.0 and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -3088,7 +3088,7 @@
         "compounder",
         "integrity"
       ],
-      "updated_at": "2026-08-14T17:26:14.733817Z"
+      "updated_at": "2026-08-14T17:45:58.432717Z"
     },
     "capability.ledger-inventory": {
       "behavior_paths": [
@@ -3105,7 +3105,7 @@
       "id": "capability.ledger-inventory",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:25:08.688170Z",
+      "last_proved_at": "2026-08-14T17:44:50.069098Z",
       "name": "Capability ledger inventory",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_ledger_inventory; r=builtin_ledger_inventory(); assert r['ok'] and r['count'] >= 2\"",
       "source_milestone": null,
@@ -3114,7 +3114,7 @@
         "bootstrap",
         "compounder"
       ],
-      "updated_at": "2026-08-14T17:25:08.688170Z"
+      "updated_at": "2026-08-14T17:44:50.069098Z"
     },
     "capability.ledger-proof-reaudit": {
       "behavior_paths": [
@@ -3133,7 +3133,7 @@
       "id": "capability.ledger-proof-reaudit",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:27:00.973938Z",
+      "last_proved_at": "2026-08-14T17:46:46.706143Z",
       "name": "Ledger proof re-audit",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_ledger_proof_reaudit; r=builtin_ledger_proof_reaudit(); assert r['ok'], r\"",
       "source_milestone": null,
@@ -3143,7 +3143,7 @@
         "verification",
         "audit"
       ],
-      "updated_at": "2026-08-14T17:27:00.973938Z"
+      "updated_at": "2026-08-14T17:46:46.706143Z"
     },
     "capability.lineage-plane": {
       "behavior_paths": [
@@ -3169,7 +3169,7 @@
       "id": "capability.lineage-plane",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:25:38.692892Z",
+      "last_proved_at": "2026-08-14T17:45:21.737746Z",
       "name": "Lineage continuity plane",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_lineage_plane; import os; os.environ['BLACKHOLE_MISSION_GOAL']='health inventory milestone'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;min_primitives:3;capability_exists:repo.import-health;capability_proved:repo.import-health;program_passes:repo.import-health;no_skill_route;mission_plane_ok'; os.environ['BLACKHOLE_MISSION_GROW_BUDGET']='0'; os.environ['BLACKHOLE_MISSION_ABSORB']='0'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_CONTRACT_RUN_MISSION']='1'; r=builtin_lineage_plane(); assert r['ok'] and r.get('action')=='lineage_plane' and r.get('chain',{}).get('valid') and r.get('drift',{}).get('drift') is False and r.get('adversarial',{}).get('ok') and int(r.get('lineage',{}).get('entry_count') or 0) >= 2 and r.get('sovereignty',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -3184,7 +3184,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:25:38.692892Z"
+      "updated_at": "2026-08-14T17:45:21.737746Z"
     },
     "capability.mcp-live-execution": {
       "behavior_paths": [
@@ -3202,7 +3202,7 @@
       "id": "capability.mcp-live-execution",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:53.936223Z",
+      "last_proved_at": "2026-08-14T17:46:39.168112Z",
       "name": "Live MCP server execution with sealed evidence",
       "proof_command": "uv run python -c \"from blackhole_agent.mcp_client import builtin_mcp_live_execution_proof as f; import sys; r=f(); print(r); sys.exit(0 if r.get('ok') else 1)\"",
       "source_milestone": 1,
@@ -3213,7 +3213,7 @@
         "actuation",
         "grounded"
       ],
-      "updated_at": "2026-08-14T17:26:53.936223Z"
+      "updated_at": "2026-08-14T17:46:39.168112Z"
     },
     "capability.mcp-live-external": {
       "behavior_paths": [
@@ -3229,7 +3229,7 @@
       "id": "capability.mcp-live-external",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:54.103621Z",
+      "last_proved_at": "2026-08-14T17:46:39.345583Z",
       "name": "Live execution against a real third-party MCP server",
       "proof_command": "uv run python -c \"from blackhole_agent.mcp_client import builtin_mcp_live_external_proof as f; import sys; r=f(); print(r); sys.exit(0 if r.get('ok') else 1)\"",
       "source_milestone": 2,
@@ -3241,7 +3241,7 @@
         "actuation",
         "grounded"
       ],
-      "updated_at": "2026-08-14T17:26:54.103621Z"
+      "updated_at": "2026-08-14T17:46:39.345583Z"
     },
     "capability.mcp-tool-import": {
       "behavior_paths": [
@@ -3257,7 +3257,7 @@
       "id": "capability.mcp-tool-import",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:28.297373Z",
+      "last_proved_at": "2026-08-14T17:46:12.565053Z",
       "name": "MCP tools/list import into routable descriptors",
       "proof_command": "uv run python -c \"from blackhole_agent.tool_routing import builtin_mcp_tool_import_proof as f; import sys; r=f(); print(r); sys.exit(0 if r.get('ok') else 1)\"",
       "source_milestone": null,
@@ -3267,7 +3267,7 @@
         "mcp",
         "tool-routing"
       ],
-      "updated_at": "2026-08-14T17:26:28.297373Z"
+      "updated_at": "2026-08-14T17:46:12.565053Z"
     },
     "capability.milestone-replay-verification": {
       "behavior_paths": [
@@ -3285,7 +3285,7 @@
       "id": "capability.milestone-replay-verification",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:27:00.607631Z",
+      "last_proved_at": "2026-08-14T17:46:46.355608Z",
       "name": "Milestone validation replay verification",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_milestone_replay_verification; r=builtin_milestone_replay_verification(); assert r['ok'], r\"",
       "source_milestone": null,
@@ -3295,7 +3295,7 @@
         "verification",
         "milestone"
       ],
-      "updated_at": "2026-08-14T17:27:00.607631Z"
+      "updated_at": "2026-08-14T17:46:46.355608Z"
     },
     "capability.mission-plane": {
       "behavior_paths": [
@@ -3318,7 +3318,7 @@
       "id": "capability.mission-plane",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:25:28.564790Z",
+      "last_proved_at": "2026-08-14T17:45:11.299109Z",
       "name": "Goal-conditioned mission capability plane",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_mission_plane; import os; os.environ['BLACKHOLE_MISSION_GOAL']='health inventory milestone'; os.environ['BLACKHOLE_MISSION_GROW_BUDGET']='0'; os.environ['BLACKHOLE_MISSION_ABSORB']='0'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; r=builtin_mission_plane(); assert r['ok'] and r.get('action')=='mission_plane' and r.get('program',{}).get('passed_count',0) >= 1 and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -3330,7 +3330,7 @@
         "growth",
         "second-wave"
       ],
-      "updated_at": "2026-08-14T17:25:28.564790Z"
+      "updated_at": "2026-08-14T17:45:11.299109Z"
     },
     "capability.multi-kernel-harness-routing": {
       "behavior_paths": [
@@ -3346,7 +3346,7 @@
       "id": "capability.multi-kernel-harness-routing",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:10.776611Z",
+      "last_proved_at": "2026-08-14T17:45:54.416695Z",
       "name": "Multi-kernel provider harness routing",
       "proof_command": "uv run python -c \"from blackhole_agent.tool_routing import builtin_multi_kernel_harness_proof as f; import sys; r=f(); print(r); sys.exit(0 if r.get('ok') else 1)\"",
       "source_milestone": null,
@@ -3357,7 +3357,7 @@
         "provider-harness",
         "kernels"
       ],
-      "updated_at": "2026-08-14T17:26:10.776611Z"
+      "updated_at": "2026-08-14T17:45:54.416695Z"
     },
     "capability.outcome-contract": {
       "behavior_paths": [
@@ -3377,7 +3377,7 @@
       "id": "capability.outcome-contract",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:25:13.049694Z",
+      "last_proved_at": "2026-08-14T17:44:54.807879Z",
       "name": "Machine-checkable outcome contract evaluator",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_outcome_contract; import os; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:3;capability_exists:repo.import-health;capability_proved:repo.import-health;no_skill_route'; os.environ['BLACKHOLE_CONTRACT_RUN_PROGRAMS']='0'; r=builtin_outcome_contract(); assert r['ok'] and r.get('action')=='evaluate_outcome_contract' and r.get('machine_checkable') and r.get('met') is True and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -3389,7 +3389,7 @@
         "contract",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:25:13.049694Z"
+      "updated_at": "2026-08-14T17:44:54.807879Z"
     },
     "capability.plane-engine": {
       "behavior_paths": [
@@ -3407,7 +3407,7 @@
       "id": "capability.plane-engine",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:27:01.672879Z",
+      "last_proved_at": "2026-08-14T17:46:47.426296Z",
       "name": "Generic data-driven plane engine",
       "proof_command": "uv run python -c \"from blackhole_agent.plane_engine import builtin_plane_engine; import sys; r = builtin_plane_engine(); print(r.get('ok'), r.get('layer_count')); sys.exit(0 if r.get('ok') else 1)\"",
       "source_milestone": null,
@@ -3420,7 +3420,7 @@
         "certificate",
         "adversarial"
       ],
-      "updated_at": "2026-08-14T17:27:01.672879Z"
+      "updated_at": "2026-08-14T17:46:47.426296Z"
     },
     "capability.plane-engine-full-stack": {
       "behavior_paths": [
@@ -3437,7 +3437,7 @@
       "id": "capability.plane-engine-full-stack",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:27:01.834423Z",
+      "last_proved_at": "2026-08-14T17:46:47.603467Z",
       "name": "Plane engine full-stack coverage",
       "proof_command": "uv run python -c \"from blackhole_agent.plane_engine import builtin_plane_engine_full_stack; import sys; r = builtin_plane_engine_full_stack(); print(r.get('ok'), r.get('layer_count')); sys.exit(0 if r.get('ok') else 1)\"",
       "source_milestone": null,
@@ -3450,7 +3450,7 @@
         "certificate",
         "adversarial"
       ],
-      "updated_at": "2026-08-14T17:27:01.834423Z"
+      "updated_at": "2026-08-14T17:46:47.603467Z"
     },
     "capability.portability-proof": {
       "behavior_paths": [
@@ -3472,7 +3472,7 @@
       "id": "capability.portability-proof",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:27:07.846326Z",
+      "last_proved_at": "2026-08-14T17:46:58.087686Z",
       "name": "Goal-stack portability proof",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_portability import builtin_portability_plane; r=builtin_portability_plane(); assert r['ok'] and r.get('portability',{}).get('pristine_ok') and r.get('portability',{}).get('cross_checkout_determinism') and r.get('portability',{}).get('corruption_detected') and r.get('portability',{}).get('application_score')==1.0 and r.get('portability',{}).get('synthesis_score')==1.0 and r.get('tamper_detected') and r.get('misgrade_detected') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -3486,7 +3486,7 @@
         "synthesis",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:27:07.846326Z"
+      "updated_at": "2026-08-14T17:46:58.087686Z"
     },
     "capability.program-run": {
       "behavior_paths": [
@@ -3505,7 +3505,7 @@
       "id": "capability.program-run",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:25:13.872431Z",
+      "last_proved_at": "2026-08-14T17:44:55.657394Z",
       "name": "Multi-step capability program runner",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_program_run; r=builtin_program_run(); assert r['ok'] and r.get('passed_count',0) >= 1 and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -3516,7 +3516,7 @@
         "mission",
         "program"
       ],
-      "updated_at": "2026-08-14T17:25:13.872431Z"
+      "updated_at": "2026-08-14T17:44:55.657394Z"
     },
     "capability.quorum-plane": {
       "behavior_paths": [
@@ -3546,7 +3546,7 @@
       "id": "capability.quorum-plane",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:03.820144Z",
+      "last_proved_at": "2026-08-14T17:45:47.172609Z",
       "name": "Byzantine-tolerant quorum consensus plane",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_quorum_plane; from pathlib import Path; import os; os.environ['BLACKHOLE_MISSION_GOAL']='quorum multi-origin consensus'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;capability_exists:repo.import-health;no_skill_route'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_QUORUM_RUN_CONTINUITY']='1'; os.environ['BLACKHOLE_CONTINUITY_RUN_RECON']='1'; os.environ['BLACKHOLE_RECONCILE_SYNTHETIC']='1'; os.environ['BLACKHOLE_QUORUM_INJECT_BYZANTINE']='1'; os.environ.setdefault('BLACKHOLE_LINEAGE_PATH', str(Path('artifacts')/'capability-lineage'/'proof-quorum.json')); os.environ.setdefault('BLACKHOLE_CONTINUITY_BUNDLE_PATH', str(Path('artifacts')/'continuity-bundles'/'proof-quorum-origin-a.json')); os.environ.setdefault('BLACKHOLE_QUORUM_BUNDLE_PATH', str(Path('artifacts')/'quorum-bundles'/'proof-quorum.json')); r=builtin_quorum_plane(); assert r['ok'] and r.get('action')=='quorum_plane' and r.get('quorum_met') is True and int(r.get('origin_count') or 0) >= 3 and int(r.get('byzantine_count') or 0) >= 1 and r.get('integrity',{}).get('ok') and r.get('rehydrate',{}).get('ok') and r.get('prove',{}).get('ok') and r.get('chain',{}).get('valid') and r.get('quorum_certificate',{}).get('valid') and r.get('adversarial',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -3563,7 +3563,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:26:03.820144Z"
+      "updated_at": "2026-08-14T17:45:47.172609Z"
     },
     "capability.reconciliation-plane": {
       "behavior_paths": [
@@ -3590,7 +3590,7 @@
       "id": "capability.reconciliation-plane",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:25:44.551956Z",
+      "last_proved_at": "2026-08-14T17:45:27.518443Z",
       "name": "Reconciliation self-healing continuity plane",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_reconciliation_plane; import os; os.environ['BLACKHOLE_MISSION_GOAL']='health inventory milestone'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;min_primitives:3;capability_exists:repo.import-health;capability_proved:repo.import-health;program_passes:repo.import-health;no_skill_route;mission_plane_ok'; os.environ['BLACKHOLE_MISSION_GROW_BUDGET']='0'; os.environ['BLACKHOLE_MISSION_ABSORB']='0'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_CONTRACT_RUN_MISSION']='1'; os.environ['BLACKHOLE_RECONCILE_SYNTHETIC']='1'; r=builtin_reconciliation_plane(); assert r['ok'] and r.get('action')=='reconciliation_plane' and r.get('heal',{}).get('healed') is True and r.get('chain',{}).get('valid') and r.get('drift',{}).get('drift') is False and r.get('adversarial',{}).get('ok') and int(r.get('heal',{}).get('heal_entry_count') or 0) >= 2 and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -3606,7 +3606,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:25:44.551956Z"
+      "updated_at": "2026-08-14T17:45:27.518443Z"
     },
     "capability.recovery-loop": {
       "behavior_paths": [
@@ -3628,7 +3628,7 @@
       "id": "capability.recovery-loop",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:58.751777Z",
+      "last_proved_at": "2026-08-14T17:46:44.489263Z",
       "name": "Capability recovery loop",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_recovery import builtin_recovery_loop; r=builtin_recovery_loop(); assert r['ok'] and r.get('healed') and r.get('transitive_healed') and r.get('honest_unsolved') and r.get('recovery',{}).get('recovered')==['routed-triage-record'] and r.get('recovery',{}).get('repaired_count')==2 and r.get('honest_failure',{}).get('honest_unsolved')==['scan-gated-activation','blocked-scan-honesty'] and r.get('redundancy_absorbed') and r.get('absorbed',{}).get('unrepairable_count')==1 and r.get('absorbed',{}).get('unsolved_count')==0 and r.get('deterministic') and r.get('tamper_detected') and r.get('fake_healing_detected') and r.get('misgrade_detected') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -3642,7 +3642,7 @@
         "self-healing",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:26:58.751777Z"
+      "updated_at": "2026-08-14T17:46:44.489263Z"
     },
     "capability.repair-plane": {
       "behavior_paths": [
@@ -3664,7 +3664,7 @@
       "id": "capability.repair-plane",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:55.190940Z",
+      "last_proved_at": "2026-08-14T17:46:40.459925Z",
       "name": "Autonomous capability repair plane",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_repair import builtin_repair_plane; r=builtin_repair_plane(); assert r['ok'] and r.get('action')=='repair_plane' and r.get('synthetic_repair',{}).get('verdict')=='repaired' and 'regenerate_proof_command' in r.get('synthetic_repair',{}).get('repair_actions',[]) and r.get('unrepairable_check',{}).get('honest') is True and r.get('unrepairable_check',{}).get('verdict')=='unrepairable' and r.get('contract',{}).get('met') is True and r.get('report_verify',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -3677,7 +3677,7 @@
         "fitness",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:26:55.190940Z"
+      "updated_at": "2026-08-14T17:46:40.459925Z"
     },
     "capability.runtime-conformance": {
       "behavior_paths": [
@@ -3697,7 +3697,7 @@
       "id": "capability.runtime-conformance",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:27:24.873174Z",
+      "last_proved_at": "2026-08-14T17:47:17.646484Z",
       "name": "Runtime conformance gate",
       "proof_command": "uv run python -c \"from blackhole_agent.runtime_conformance import builtin_runtime_conformance as p; import sys; r = p(); print(r.get('ok'), r.get('verdict_digest')); sys.exit(0 if r.get('ok') else 1)\"",
       "source_milestone": null,
@@ -3708,7 +3708,7 @@
         "conformance",
         "gate"
       ],
-      "updated_at": "2026-08-14T17:27:24.873174Z"
+      "updated_at": "2026-08-14T17:47:17.646484Z"
     },
     "capability.scout-gaps": {
       "behavior_paths": [
@@ -3726,7 +3726,7 @@
       "id": "capability.scout-gaps",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:25:12.705167Z",
+      "last_proved_at": "2026-08-14T17:44:54.446172Z",
       "name": "Capability growth gap scout",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_scout_gaps; r=builtin_scout_gaps(); assert r['ok'] and isinstance(r.get('opportunities'), list)\"",
       "source_milestone": null,
@@ -3736,7 +3736,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-08-14T17:25:12.705167Z"
+      "updated_at": "2026-08-14T17:44:54.446172Z"
     },
     "capability.second-wave-absorb": {
       "behavior_paths": [
@@ -3758,7 +3758,7 @@
       "id": "capability.second-wave-absorb",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:25:14.084881Z",
+      "last_proved_at": "2026-08-14T17:44:55.879033Z",
       "name": "Second-wave domain primitive absorption",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_second_wave_absorb; r=builtin_second_wave_absorb(); assert r['ok'] and r.get('action')=='second_wave_absorb' and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -3770,7 +3770,7 @@
         "second-wave",
         "domain"
       ],
-      "updated_at": "2026-08-14T17:25:14.084881Z"
+      "updated_at": "2026-08-14T17:44:55.879033Z"
     },
     "capability.sovereignty-plane": {
       "behavior_paths": [
@@ -3795,7 +3795,7 @@
       "id": "capability.sovereignty-plane",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:25:35.711868Z",
+      "last_proved_at": "2026-08-14T17:45:18.592370Z",
       "name": "Self-certifying sovereignty plane",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_sovereignty_plane; import os; os.environ['BLACKHOLE_MISSION_GOAL']='health inventory milestone'; os.environ['BLACKHOLE_DONE_WHEN']='min_capabilities:5;min_primitives:3;capability_exists:repo.import-health;capability_proved:repo.import-health;program_passes:repo.import-health;no_skill_route;mission_plane_ok'; os.environ['BLACKHOLE_MISSION_GROW_BUDGET']='0'; os.environ['BLACKHOLE_MISSION_ABSORB']='0'; os.environ['BLACKHOLE_PROGRAM_MAX_STEPS']='3'; os.environ['BLACKHOLE_CONTRACT_RUN_MISSION']='1'; r=builtin_sovereignty_plane(); assert r['ok'] and r.get('action')=='sovereignty_plane' and r.get('certificate',{}).get('ok') and r.get('verify',{}).get('valid') and r.get('assurance',{}).get('ok') and r.get('contract',{}).get('ok') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -3809,7 +3809,7 @@
         "certificate",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:25:35.711868Z"
+      "updated_at": "2026-08-14T17:45:18.592370Z"
     },
     "capability.synthesis-plane": {
       "behavior_paths": [
@@ -3829,7 +3829,7 @@
       "id": "capability.synthesis-plane",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:59.441103Z",
+      "last_proved_at": "2026-08-14T17:46:45.188441Z",
       "name": "Capability synthesis plane",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_synthesis import builtin_synthesis_plane; r=builtin_synthesis_plane(); assert r['ok'] and r.get('synthesis',{}).get('synthesis_score')==1.0 and r.get('deterministic') and r.get('tamper_detected') and r.get('forged_winner_detected') and r.get('misgrade_detected') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -3842,7 +3842,7 @@
         "goal-directed",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:26:59.441103Z"
+      "updated_at": "2026-08-14T17:46:45.188441Z"
     },
     "capability.synthesized-scan-verdict-label": {
       "behavior_paths": [
@@ -3863,7 +3863,7 @@
       "id": "capability.synthesized-scan-verdict-label",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:27:25.035238Z",
+      "last_proved_at": "2026-08-14T17:47:17.841866Z",
       "name": "Synthesized capability: scan-verdict-label",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_synthesis import prove_synthesized_step; r=prove_synthesized_step('scan-verdict-label'); assert r['ok'] and r.get('winner_matches_search') and r.get('cases_pass') and r.get('honestly_unplannable_without') and r.get('grown_plan_matched') and r.get('tamper_rejected') and r.get('decoy_rejected')\"",
       "source_milestone": null,
@@ -3874,7 +3874,7 @@
         "goal-directed",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:27:25.035238Z"
+      "updated_at": "2026-08-14T17:47:17.841866Z"
     },
     "capability.synthesized-triage-label-count-tag": {
       "behavior_paths": [
@@ -3895,7 +3895,7 @@
       "id": "capability.synthesized-triage-label-count-tag",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:27:25.199423Z",
+      "last_proved_at": "2026-08-14T17:47:18.020367Z",
       "name": "Synthesized capability: triage-label-count-tag",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_synthesis import prove_synthesized_step; r=prove_synthesized_step('triage-label-count-tag'); assert r['ok'] and r.get('winner_matches_search') and r.get('cases_pass') and r.get('honestly_unplannable_without') and r.get('grown_plan_matched') and r.get('tamper_rejected') and r.get('decoy_rejected')\"",
       "source_milestone": null,
@@ -3906,7 +3906,7 @@
         "goal-directed",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:27:25.199423Z"
+      "updated_at": "2026-08-14T17:47:18.020367Z"
     },
     "capability.synthesized-triage-record-key": {
       "behavior_paths": [
@@ -3927,7 +3927,7 @@
       "id": "capability.synthesized-triage-record-key",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:27:25.357046Z",
+      "last_proved_at": "2026-08-14T17:47:18.210437Z",
       "name": "Synthesized capability: triage-record-key",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_synthesis import prove_synthesized_step; r=prove_synthesized_step('triage-record-key'); assert r['ok'] and r.get('winner_matches_search') and r.get('cases_pass') and r.get('honestly_unplannable_without') and r.get('grown_plan_matched') and r.get('tamper_rejected') and r.get('decoy_rejected')\"",
       "source_milestone": null,
@@ -3938,7 +3938,7 @@
         "goal-directed",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:27:25.357046Z"
+      "updated_at": "2026-08-14T17:47:18.210437Z"
     },
     "capability.transfer-plane": {
       "behavior_paths": [
@@ -3957,7 +3957,7 @@
       "id": "capability.transfer-plane",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:25:30.387223Z",
+      "last_proved_at": "2026-08-14T17:45:13.217156Z",
       "name": "Portable capability transfer plane",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_transfer_plane; r=builtin_transfer_plane(); assert r['ok'] and r.get('action')=='transfer_plane' and r.get('member_count',0) >= 2 and r.get('proved_count',0) >= 2 and r.get('reexport_members_match') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -3969,7 +3969,7 @@
         "transfer",
         "package"
       ],
-      "updated_at": "2026-08-14T17:25:30.387223Z"
+      "updated_at": "2026-08-14T17:45:13.217156Z"
     },
     "capability.upstream-admission": {
       "behavior_paths": [
@@ -3988,7 +3988,7 @@
       "id": "capability.upstream-admission",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:00.348552Z",
+      "last_proved_at": "2026-08-14T17:47:55.339583Z",
       "name": "Upstream admission plane (discovery findings -> stewardship defects)",
       "proof_command": "uv run python -c \"from blackhole_agent.upstream_admission import builtin_upstream_admission_proof; r=builtin_upstream_admission_proof(); assert r['ok'] and r.get('admitted') and r.get('idempotent') and r.get('patch_bound') and r.get('receipt_verified') and r.get('tamper_detected') and r.get('unsealed_refused') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": 1,
@@ -4001,7 +4001,7 @@
         "discovery",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:28:00.348552Z"
+      "updated_at": "2026-08-14T17:47:55.339583Z"
     },
     "capability.upstream-campaign": {
       "behavior_paths": [
@@ -4028,7 +4028,7 @@
       "id": "capability.upstream-campaign",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:13.146490Z",
+      "last_proved_at": "2026-08-14T17:48:10.036801Z",
       "name": "Upstream campaign plane (full-loop stewardship orchestration)",
       "proof_command": "uv run python -c \"from blackhole_agent.upstream_campaign import builtin_upstream_campaign_proof; r=builtin_upstream_campaign_proof(); assert r['ok'] and r.get('campaign_published') and r.get('receipt_verified') and r.get('tamper_detected') and r.get('already_fixed_short_circuit') and r.get('repair_failure_aborts') and r.get('empty_defects_refused') and r.get('dry_run_gated') and r.get('full_loop_discovery_admit') and r.get('impact_stage_chained') and r.get('impact_nothing_to_assess') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": 1,
@@ -4043,7 +4043,7 @@
         "impact",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:28:13.146490Z"
+      "updated_at": "2026-08-14T17:48:10.036801Z"
     },
     "capability.upstream-civilization": {
       "behavior_paths": [
@@ -4076,7 +4076,7 @@
       "id": "capability.upstream-civilization",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:18.142168Z",
+      "last_proved_at": "2026-08-14T17:48:15.449951Z",
       "name": "Upstream civilization plane (multi-empire durable stewardship civilization)",
       "proof_command": "uv run python -m blackhole_agent.upstream_civilization --proof",
       "source_milestone": 1,
@@ -4098,7 +4098,7 @@
         "deferred-admission",
         "constitution"
       ],
-      "updated_at": "2026-08-14T17:28:18.142168Z"
+      "updated_at": "2026-08-14T17:48:15.449951Z"
     },
     "capability.upstream-civilization-spine": {
       "behavior_paths": [
@@ -4127,7 +4127,7 @@
       "id": "capability.upstream-civilization-spine",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:43.171754Z",
+      "last_proved_at": "2026-08-14T17:48:44.820035Z",
       "name": "Upstream civilization spine (tower defaults + operational cascade)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine civilization-proof",
       "source_milestone": 1,
@@ -4160,7 +4160,7 @@
         "tower",
         "upstream"
       ],
-      "updated_at": "2026-08-14T17:28:43.171754Z"
+      "updated_at": "2026-08-14T17:48:44.820035Z"
     },
     "capability.upstream-commonwealth": {
       "behavior_paths": [
@@ -4189,7 +4189,7 @@
       "id": "capability.upstream-commonwealth",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:16.687382Z",
+      "last_proved_at": "2026-08-14T17:48:13.931180Z",
       "name": "Upstream commonwealth plane (multi-confederation durable stewardship commonwealth)",
       "proof_command": "uv run python -c \"from blackhole_agent.upstream_commonwealth import builtin_upstream_commonwealth_proof; r=builtin_upstream_commonwealth_proof(); assert r['ok'] and r.get('commonwealth_met') and r.get('multi_confederation_progressed') and r.get('federation_coverage') and r.get('priority_scheduling') and r.get('deferred_admission') and r.get('seal_verified') and r.get('tamper_detected') and r.get('budget_stops') and r.get('premet_short_circuits') and r.get('rank_only') and r.get('empty_refused') and r.get('custom_stop') and r.get('durable_resume') and r.get('roi_scored') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": 1,
@@ -4217,7 +4217,7 @@
         "deferred-admission",
         "constitution"
       ],
-      "updated_at": "2026-08-14T17:28:16.687382Z"
+      "updated_at": "2026-08-14T17:48:13.931180Z"
     },
     "capability.upstream-confederation": {
       "behavior_paths": [
@@ -4245,7 +4245,7 @@
       "id": "capability.upstream-confederation",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:16.353887Z",
+      "last_proved_at": "2026-08-14T17:48:13.567181Z",
       "name": "Upstream confederation plane (multi-league durable stewardship confederation)",
       "proof_command": "uv run python -c \"from blackhole_agent.upstream_confederation import builtin_upstream_confederation_proof; r=builtin_upstream_confederation_proof(); assert r['ok'] and r.get('confederation_met') and r.get('multi_league_progressed') and r.get('federation_coverage') and r.get('priority_scheduling') and r.get('deferred_admission') and r.get('seal_verified') and r.get('tamper_detected') and r.get('budget_stops') and r.get('premet_short_circuits') and r.get('rank_only') and r.get('empty_refused') and r.get('custom_stop') and r.get('durable_resume') and r.get('roi_scored') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": 1,
@@ -4272,7 +4272,7 @@
         "deferred-admission",
         "constitution"
       ],
-      "updated_at": "2026-08-14T17:28:16.353887Z"
+      "updated_at": "2026-08-14T17:48:13.567181Z"
     },
     "capability.upstream-constitution-engine": {
       "behavior_paths": [
@@ -4292,7 +4292,7 @@
       "id": "capability.upstream-constitution-engine",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:25.428244Z",
+      "last_proved_at": "2026-08-14T17:48:24.837862Z",
       "name": "Upstream constitution engine (full stewardship stack + nested composition)",
       "proof_command": "uv run python -m blackhole_agent.upstream_constitution_engine --proof",
       "source_milestone": 2,
@@ -4320,7 +4320,7 @@
         "terminal-coverage",
         "upstream"
       ],
-      "updated_at": "2026-08-14T17:28:25.428244Z"
+      "updated_at": "2026-08-14T17:48:24.837862Z"
     },
     "capability.upstream-continuum": {
       "behavior_paths": [
@@ -4357,7 +4357,7 @@
       "id": "capability.upstream-continuum",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:19.593405Z",
+      "last_proved_at": "2026-08-14T17:48:17.082923Z",
       "name": "Upstream continuum plane (multi-omniverse durable stewardship continuum)",
       "proof_command": "uv run python -m blackhole_agent.upstream_continuum --proof",
       "source_milestone": 2,
@@ -4383,7 +4383,7 @@
         "deferred-admission",
         "constitution"
       ],
-      "updated_at": "2026-08-14T17:28:19.593405Z"
+      "updated_at": "2026-08-14T17:48:17.082923Z"
     },
     "capability.upstream-continuum-spine": {
       "behavior_paths": [
@@ -4413,7 +4413,7 @@
       "id": "capability.upstream-continuum-spine",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:50.602423Z",
+      "last_proved_at": "2026-08-14T17:48:52.641738Z",
       "name": "Upstream continuum spine (SI tower defaults + operational cascade)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine continuum-proof",
       "source_milestone": 1,
@@ -4445,7 +4445,7 @@
         "upstream",
         "quetta"
       ],
-      "updated_at": "2026-08-14T17:28:50.602423Z"
+      "updated_at": "2026-08-14T17:48:52.641738Z"
     },
     "capability.upstream-contribution": {
       "behavior_paths": [
@@ -4464,7 +4464,7 @@
       "id": "capability.upstream-contribution",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:05.795201Z",
+      "last_proved_at": "2026-08-14T17:48:01.741639Z",
       "name": "Upstream contribution plane (submission-ready bundles verified against the true upstream repo)",
       "proof_command": "uv run python -c \"from blackhole_agent.upstream_contribution import builtin_upstream_contribution_proof; r=builtin_upstream_contribution_proof(); assert r['ok'] and r.get('submittable_sealed') and r.get('seal_verified') and r.get('tamper_detected') and r.get('already_fixed_triaged') and r.get('breaking_patch_rejected') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": 2,
@@ -4476,7 +4476,7 @@
         "contribution",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:28:05.795201Z"
+      "updated_at": "2026-08-14T17:48:01.741639Z"
     },
     "capability.upstream-control-engine": {
       "behavior_paths": [
@@ -4503,7 +4503,7 @@
       "id": "capability.upstream-control-engine",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:35.074103Z",
+      "last_proved_at": "2026-08-14T17:48:35.819807Z",
       "name": "Upstream multi-mode durable control-flow engine",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine proof",
       "source_milestone": 1,
@@ -4523,7 +4523,7 @@
         "upstream",
         "composition"
       ],
-      "updated_at": "2026-08-14T17:28:35.074103Z"
+      "updated_at": "2026-08-14T17:48:35.819807Z"
     },
     "capability.upstream-control-graph": {
       "behavior_paths": [
@@ -4549,7 +4549,7 @@
       "id": "capability.upstream-control-graph",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:36.077043Z",
+      "last_proved_at": "2026-08-14T17:48:36.941426Z",
       "name": "Upstream graph-native operational control spine",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine graph-proof",
       "source_milestone": 2,
@@ -4574,7 +4574,7 @@
         "upstream",
         "control_graph"
       ],
-      "updated_at": "2026-08-14T17:28:36.077043Z"
+      "updated_at": "2026-08-14T17:48:36.941426Z"
     },
     "capability.upstream-control-nest": {
       "behavior_paths": [
@@ -4598,7 +4598,7 @@
       "id": "capability.upstream-control-nest",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:35.413833Z",
+      "last_proved_at": "2026-08-14T17:48:36.170489Z",
       "name": "Upstream multi-depth control nest graph",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine nest-proof",
       "source_milestone": 2,
@@ -4621,7 +4621,7 @@
         "stewardship",
         "upstream"
       ],
-      "updated_at": "2026-08-14T17:28:35.413833Z"
+      "updated_at": "2026-08-14T17:48:36.170489Z"
     },
     "capability.upstream-control-spine": {
       "behavior_paths": [
@@ -4645,7 +4645,7 @@
       "id": "capability.upstream-control-spine",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:35.749332Z",
+      "last_proved_at": "2026-08-14T17:48:36.532316Z",
       "name": "Upstream full operational control spine",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine spine-proof",
       "source_milestone": 1,
@@ -4667,7 +4667,7 @@
         "stewardship",
         "upstream"
       ],
-      "updated_at": "2026-08-14T17:28:35.749332Z"
+      "updated_at": "2026-08-14T17:48:36.532316Z"
     },
     "capability.upstream-cosmos": {
       "behavior_paths": [
@@ -4701,7 +4701,7 @@
       "id": "capability.upstream-cosmos",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:18.499762Z",
+      "last_proved_at": "2026-08-14T17:48:15.866677Z",
       "name": "Upstream cosmos plane (multi-civilization durable stewardship cosmos)",
       "proof_command": "uv run python -m blackhole_agent.upstream_cosmos --proof",
       "source_milestone": 1,
@@ -4724,7 +4724,7 @@
         "deferred-admission",
         "constitution"
       ],
-      "updated_at": "2026-08-14T17:28:18.499762Z"
+      "updated_at": "2026-08-14T17:48:15.866677Z"
     },
     "capability.upstream-discovery": {
       "behavior_paths": [
@@ -4743,7 +4743,7 @@
       "id": "capability.upstream-discovery",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:00.084036Z",
+      "last_proved_at": "2026-08-14T17:47:55.076987Z",
       "name": "Upstream discovery plane (autonomous defect discovery)",
       "proof_command": "uv run python -c \"from blackhole_agent.upstream_discovery import builtin_upstream_discovery_proof; r=builtin_upstream_discovery_proof(); assert r['ok'] and r.get('finding_count')>=1 and r.get('verified') and r.get('tamper_detected') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -4757,7 +4757,7 @@
         "security",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:28:00.084036Z"
+      "updated_at": "2026-08-14T17:47:55.076987Z"
     },
     "capability.upstream-domain": {
       "behavior_paths": [
@@ -4787,7 +4787,7 @@
       "id": "capability.upstream-domain",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:17.056635Z",
+      "last_proved_at": "2026-08-14T17:48:14.321366Z",
       "name": "Upstream domain plane (multi-commonwealth durable stewardship domain)",
       "proof_command": "uv run python -c \"from blackhole_agent.upstream_domain import builtin_upstream_domain_proof; r=builtin_upstream_domain_proof(); assert r['ok'] and r.get('domain_met') and r.get('multi_commonwealth_progressed') and r.get('federation_coverage') and r.get('priority_scheduling') and r.get('deferred_admission') and r.get('charter_expand') and r.get('charter_merge') and r.get('seal_verified') and r.get('tamper_detected') and r.get('budget_stops') and r.get('premet_short_circuits') and r.get('rank_only') and r.get('empty_refused') and r.get('custom_stop') and r.get('durable_resume') and r.get('roi_scored') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": 2,
@@ -4811,7 +4811,7 @@
         "deferred-admission",
         "constitution"
       ],
-      "updated_at": "2026-08-14T17:28:17.056635Z"
+      "updated_at": "2026-08-14T17:48:14.321366Z"
     },
     "capability.upstream-empire": {
       "behavior_paths": [
@@ -4843,7 +4843,7 @@
       "id": "capability.upstream-empire",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:17.775653Z",
+      "last_proved_at": "2026-08-14T17:48:15.055839Z",
       "name": "Upstream empire plane (multi-realm durable stewardship empire)",
       "proof_command": "uv run python -m blackhole_agent.upstream_empire --proof",
       "source_milestone": 1,
@@ -4869,7 +4869,7 @@
         "deferred-admission",
         "constitution"
       ],
-      "updated_at": "2026-08-14T17:28:17.775653Z"
+      "updated_at": "2026-08-14T17:48:15.055839Z"
     },
     "capability.upstream-epoch": {
       "behavior_paths": [
@@ -4892,7 +4892,7 @@
       "id": "capability.upstream-epoch",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:13.902564Z",
+      "last_proved_at": "2026-08-14T17:48:10.880573Z",
       "name": "Upstream epoch plane (multi-wave closed-loop fleet)",
       "proof_command": "uv run python -c \"from blackhole_agent.upstream_epoch import builtin_upstream_epoch_proof; r=builtin_upstream_epoch_proof(); assert r['ok'] and r.get('multi_wave_progressed') and r.get('feedback_retires_work') and r.get('seal_verified') and r.get('tamper_detected') and r.get('idle_short_circuits') and r.get('budget_stops') and r.get('rank_only') and r.get('terminal_feedback_idles') and r.get('empty_refused') and r.get('no_progress_stops') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -4909,7 +4909,7 @@
         "orchestration",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:28:13.902564Z"
+      "updated_at": "2026-08-14T17:48:10.880573Z"
     },
     "capability.upstream-exacontinuum": {
       "behavior_paths": [
@@ -4953,7 +4953,7 @@
       "id": "capability.upstream-exacontinuum",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:22.275560Z",
+      "last_proved_at": "2026-08-14T17:48:20.146170Z",
       "name": "Upstream exacontinuum plane (multi-petacontinuum durable stewardship exacontinuum)",
       "proof_command": "uv run python -m blackhole_agent.upstream_exacontinuum --proof",
       "source_milestone": 1,
@@ -4987,7 +4987,7 @@
         "constitution",
         "terminal-coverage"
       ],
-      "updated_at": "2026-08-14T17:28:22.275560Z"
+      "updated_at": "2026-08-14T17:48:20.146170Z"
     },
     "capability.upstream-fleet": {
       "behavior_paths": [
@@ -5009,7 +5009,7 @@
       "id": "capability.upstream-fleet",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:13.451123Z",
+      "last_proved_at": "2026-08-14T17:48:10.387096Z",
       "name": "Upstream fleet plane (impact-driven multi-target direction)",
       "proof_command": "uv run python -c \"from blackhole_agent.upstream_fleet import builtin_upstream_fleet_proof; r=builtin_upstream_fleet_proof(); assert r['ok'] and r.get('inventory_ranked') and r.get('rework_outranks') and r.get('plan_verified') and r.get('tamper_detected') and r.get('dispatch_chained') and r.get('empty_refused') and r.get('monitor_only') and r.get('portfolio_assessed_path') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": 1,
@@ -5024,7 +5024,7 @@
         "orchestration",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:28:13.451123Z"
+      "updated_at": "2026-08-14T17:48:10.387096Z"
     },
     "capability.upstream-frontier": {
       "behavior_paths": [
@@ -5043,7 +5043,7 @@
       "id": "capability.upstream-frontier",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:51.077445Z",
+      "last_proved_at": "2026-08-14T17:48:53.150553Z",
       "name": "Upstream frontier plane (latest-release onboarding)",
       "proof_command": "uv run python -c \"from blackhole_agent.upstream_frontier import builtin_upstream_frontier_proof; r=builtin_upstream_frontier_proof(); assert r['ok'] and r.get('pinned') and r.get('reused') and r.get('tamper_detected') and r.get('mismatch_rejected') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -5057,7 +5057,7 @@
         "security",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:28:51.077445Z"
+      "updated_at": "2026-08-14T17:48:53.150553Z"
     },
     "capability.upstream-gigacontinuum": {
       "behavior_paths": [
@@ -5098,7 +5098,7 @@
       "id": "capability.upstream-gigacontinuum",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:21.124577Z",
+      "last_proved_at": "2026-08-14T17:48:18.867307Z",
       "name": "Upstream gigacontinuum plane (multi-megacontinuum durable stewardship gigacontinuum)",
       "proof_command": "uv run python -m blackhole_agent.upstream_gigacontinuum --proof",
       "source_milestone": 1,
@@ -5129,7 +5129,7 @@
         "constitution",
         "terminal-coverage"
       ],
-      "updated_at": "2026-08-14T17:28:21.124577Z"
+      "updated_at": "2026-08-14T17:48:18.867307Z"
     },
     "capability.upstream-governance-spine": {
       "behavior_paths": [
@@ -5155,7 +5155,7 @@
       "id": "capability.upstream-governance-spine",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:41.824388Z",
+      "last_proved_at": "2026-08-14T17:48:43.111629Z",
       "name": "Upstream governance spine (constitution + operational control)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine governance-proof",
       "source_milestone": 2,
@@ -5183,7 +5183,7 @@
         "stewardship",
         "upstream"
       ],
-      "updated_at": "2026-08-14T17:28:41.824388Z"
+      "updated_at": "2026-08-14T17:48:43.111629Z"
     },
     "capability.upstream-hypercontinuum": {
       "behavior_paths": [
@@ -5221,7 +5221,7 @@
       "id": "capability.upstream-hypercontinuum",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:19.980582Z",
+      "last_proved_at": "2026-08-14T17:48:17.532482Z",
       "name": "Upstream hypercontinuum plane (multi-continuum durable stewardship hypercontinuum)",
       "proof_command": "uv run python -m blackhole_agent.upstream_hypercontinuum --proof",
       "source_milestone": 1,
@@ -5249,7 +5249,7 @@
         "constitution",
         "terminal-coverage"
       ],
-      "updated_at": "2026-08-14T17:28:19.980582Z"
+      "updated_at": "2026-08-14T17:48:17.532482Z"
     },
     "capability.upstream-impact": {
       "behavior_paths": [
@@ -5268,7 +5268,7 @@
       "id": "capability.upstream-impact",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:07.729596Z",
+      "last_proved_at": "2026-08-14T17:48:03.885721Z",
       "name": "Upstream impact plane (post-publication outcome closure)",
       "proof_command": "uv run python -c \"from blackhole_agent.upstream_impact import builtin_upstream_impact_proof; r=builtin_upstream_impact_proof(); assert r['ok'] and r.get('open_classified') and r.get('merged_classified') and r.get('closed_classified') and r.get('diverged_classified') and r.get('released_classified') and r.get('missing_classified') and r.get('certificate_verified') and r.get('tamper_detected') and r.get('unsealed_refused') and r.get('not_published_refused') and r.get('portfolio_assessed') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -5282,7 +5282,7 @@
         "portfolio",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:28:07.729596Z"
+      "updated_at": "2026-08-14T17:48:03.885721Z"
     },
     "capability.upstream-institution": {
       "behavior_paths": [
@@ -5308,7 +5308,7 @@
       "id": "capability.upstream-institution",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:15.684875Z",
+      "last_proved_at": "2026-08-14T17:48:12.766924Z",
       "name": "Upstream institution plane (multi-program durable stewardship constitution)",
       "proof_command": "uv run python -c \"from blackhole_agent.upstream_institution import builtin_upstream_institution_proof; r=builtin_upstream_institution_proof(); assert r['ok'] and r.get('institution_met') and r.get('multi_program_progressed') and r.get('federation_coverage') and r.get('priority_scheduling') and r.get('deferred_admission') and r.get('seal_verified') and r.get('tamper_detected') and r.get('budget_stops') and r.get('premet_short_circuits') and r.get('rank_only') and r.get('empty_refused') and r.get('custom_stop') and r.get('durable_resume') and r.get('roi_scored') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": 2,
@@ -5333,7 +5333,7 @@
         "deferred-admission",
         "constitution"
       ],
-      "updated_at": "2026-08-14T17:28:15.684875Z"
+      "updated_at": "2026-08-14T17:48:12.766924Z"
     },
     "capability.upstream-league": {
       "behavior_paths": [
@@ -5360,7 +5360,7 @@
       "id": "capability.upstream-league",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:16.021015Z",
+      "last_proved_at": "2026-08-14T17:48:13.109489Z",
       "name": "Upstream league plane (multi-institution durable stewardship federation)",
       "proof_command": "uv run python -c \"from blackhole_agent.upstream_league import builtin_upstream_league_proof; r=builtin_upstream_league_proof(); assert r['ok'] and r.get('league_met') and r.get('multi_institution_progressed') and r.get('federation_coverage') and r.get('priority_scheduling') and r.get('deferred_admission') and r.get('seal_verified') and r.get('tamper_detected') and r.get('budget_stops') and r.get('premet_short_circuits') and r.get('rank_only') and r.get('empty_refused') and r.get('custom_stop') and r.get('durable_resume') and r.get('roi_scored') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": 1,
@@ -5386,7 +5386,7 @@
         "deferred-admission",
         "constitution"
       ],
-      "updated_at": "2026-08-14T17:28:16.021015Z"
+      "updated_at": "2026-08-14T17:48:13.109489Z"
     },
     "capability.upstream-loop-engine": {
       "behavior_paths": [
@@ -5410,7 +5410,7 @@
       "id": "capability.upstream-loop-engine",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:34.834101Z",
+      "last_proved_at": "2026-08-14T17:48:35.561188Z",
       "name": "Upstream multi-round durable loop engine",
       "proof_command": "uv run python -m blackhole_agent.upstream_loop_engine proof",
       "source_milestone": 1,
@@ -5430,7 +5430,7 @@
         "succession",
         "upstream"
       ],
-      "updated_at": "2026-08-14T17:28:34.834101Z"
+      "updated_at": "2026-08-14T17:48:35.561188Z"
     },
     "capability.upstream-megacontinuum": {
       "behavior_paths": [
@@ -5470,7 +5470,7 @@
       "id": "capability.upstream-megacontinuum",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:20.743030Z",
+      "last_proved_at": "2026-08-14T17:48:18.462350Z",
       "name": "Upstream megacontinuum plane (multi-ultracontinuum durable stewardship megacontinuum)",
       "proof_command": "uv run python -m blackhole_agent.upstream_megacontinuum --proof",
       "source_milestone": 1,
@@ -5500,7 +5500,7 @@
         "constitution",
         "terminal-coverage"
       ],
-      "updated_at": "2026-08-14T17:28:20.743030Z"
+      "updated_at": "2026-08-14T17:48:18.462350Z"
     },
     "capability.upstream-multiverse": {
       "behavior_paths": [
@@ -5535,7 +5535,7 @@
       "id": "capability.upstream-multiverse",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:18.858876Z",
+      "last_proved_at": "2026-08-14T17:48:16.275452Z",
       "name": "Upstream multiverse plane (multi-cosmos durable stewardship multiverse)",
       "proof_command": "uv run python -m blackhole_agent.upstream_multiverse --proof",
       "source_milestone": 1,
@@ -5559,7 +5559,7 @@
         "deferred-admission",
         "constitution"
       ],
-      "updated_at": "2026-08-14T17:28:18.858876Z"
+      "updated_at": "2026-08-14T17:48:16.275452Z"
     },
     "capability.upstream-omniverse": {
       "behavior_paths": [
@@ -5595,7 +5595,7 @@
       "id": "capability.upstream-omniverse",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:19.209121Z",
+      "last_proved_at": "2026-08-14T17:48:16.670567Z",
       "name": "Upstream omniverse plane (multi-multiverse durable stewardship omniverse)",
       "proof_command": "uv run python -m blackhole_agent.upstream_omniverse --proof",
       "source_milestone": 1,
@@ -5620,7 +5620,7 @@
         "deferred-admission",
         "constitution"
       ],
-      "updated_at": "2026-08-14T17:28:19.209121Z"
+      "updated_at": "2026-08-14T17:48:16.670567Z"
     },
     "capability.upstream-petacontinuum": {
       "behavior_paths": [
@@ -5663,7 +5663,7 @@
       "id": "capability.upstream-petacontinuum",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:21.890523Z",
+      "last_proved_at": "2026-08-14T17:48:19.674740Z",
       "name": "Upstream petacontinuum plane (multi-teracontinuum durable stewardship petacontinuum)",
       "proof_command": "uv run python -m blackhole_agent.upstream_petacontinuum --proof",
       "source_milestone": 1,
@@ -5696,7 +5696,7 @@
         "constitution",
         "terminal-coverage"
       ],
-      "updated_at": "2026-08-14T17:28:21.890523Z"
+      "updated_at": "2026-08-14T17:48:19.674740Z"
     },
     "capability.upstream-program": {
       "behavior_paths": [
@@ -5721,7 +5721,7 @@
       "id": "capability.upstream-program",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:15.347131Z",
+      "last_proved_at": "2026-08-14T17:48:12.428835Z",
       "name": "Upstream program plane (multi-succession durable stewardship charter)",
       "proof_command": "uv run python -c \"from blackhole_agent.upstream_program import builtin_upstream_program_proof; r=builtin_upstream_program_proof(); assert r['ok'] and r.get('program_met') and r.get('surface_expand_reopens_mandate') and r.get('charter_surface_expand') and r.get('multi_succession_progressed') and r.get('seal_verified') and r.get('tamper_detected') and r.get('budget_stops') and r.get('premet_short_circuits') and r.get('rank_only') and r.get('empty_refused') and r.get('custom_stop') and r.get('durable_resume') and r.get('roi_scored') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -5741,7 +5741,7 @@
         "orchestration",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:28:15.347131Z"
+      "updated_at": "2026-08-14T17:48:12.428835Z"
     },
     "capability.upstream-publication": {
       "behavior_paths": [
@@ -5760,7 +5760,7 @@
       "id": "capability.upstream-publication",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:07.249031Z",
+      "last_proved_at": "2026-08-14T17:48:03.343502Z",
       "name": "Upstream publication plane (verified outward actuation of sealed contribution bundles)",
       "proof_command": "uv run python -c \"from blackhole_agent.upstream_publication import builtin_upstream_publication_proof; r=builtin_upstream_publication_proof(); assert r['ok'] and r.get('published') and r.get('receipt_verified') and r.get('tamper_detected') and r.get('idempotent_republish') and r.get('stale_bundle_refused') and r.get('divergence_refused') and r.get('merged_triaged') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": 1,
@@ -5773,7 +5773,7 @@
         "actuation",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:28:07.249031Z"
+      "updated_at": "2026-08-14T17:48:03.343502Z"
     },
     "capability.upstream-quettacontinuum": {
       "behavior_paths": [
@@ -5821,7 +5821,7 @@
       "id": "capability.upstream-quettacontinuum",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:23.826988Z",
+      "last_proved_at": "2026-08-14T17:48:22.177177Z",
       "name": "Upstream quettacontinuum plane (multi-ronnacontinuum durable stewardship quettacontinuum)",
       "proof_command": "uv run python -m blackhole_agent.upstream_quettacontinuum --proof",
       "source_milestone": 1,
@@ -5859,7 +5859,7 @@
         "terminal-coverage",
         "quettacontinuum"
       ],
-      "updated_at": "2026-08-14T17:28:23.826988Z"
+      "updated_at": "2026-08-14T17:48:22.177177Z"
     },
     "capability.upstream-realm": {
       "behavior_paths": [
@@ -5890,7 +5890,7 @@
       "id": "capability.upstream-realm",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:17.416818Z",
+      "last_proved_at": "2026-08-14T17:48:14.688759Z",
       "name": "Upstream realm plane (multi-domain durable stewardship realm)",
       "proof_command": "uv run python -m blackhole_agent.upstream_realm --proof",
       "source_milestone": 1,
@@ -5915,7 +5915,7 @@
         "deferred-admission",
         "constitution"
       ],
-      "updated_at": "2026-08-14T17:28:17.416818Z"
+      "updated_at": "2026-08-14T17:48:14.688759Z"
     },
     "capability.upstream-repair": {
       "behavior_paths": [
@@ -5935,7 +5935,7 @@
       "id": "capability.upstream-repair",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:27:43.718951Z",
+      "last_proved_at": "2026-08-14T17:47:37.254295Z",
       "name": "Upstream repair plane (real-release security stewardship)",
       "proof_command": "uv run python -c \"from blackhole_agent.upstream_repair import builtin_upstream_repair_proof; r=builtin_upstream_repair_proof(); assert r['ok'] and r.get('target_count')>=2 and r.get('repair_score')==1.0 and r.get('repaired_count')==r.get('defect_count') and r.get('verified') and r.get('tamper_detected') and r.get('suite_green') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -5950,7 +5950,7 @@
         "ablation",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:27:43.718951Z"
+      "updated_at": "2026-08-14T17:47:37.254295Z"
     },
     "capability.upstream-ronnacontinuum": {
       "behavior_paths": [
@@ -5997,7 +5997,7 @@
       "id": "capability.upstream-ronnacontinuum",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:23.432641Z",
+      "last_proved_at": "2026-08-14T17:48:21.695500Z",
       "name": "Upstream ronnacontinuum plane (multi-yottacontinuum durable stewardship ronnacontinuum)",
       "proof_command": "uv run python -m blackhole_agent.upstream_ronnacontinuum --proof",
       "source_milestone": 1,
@@ -6034,7 +6034,7 @@
         "constitution",
         "terminal-coverage"
       ],
-      "updated_at": "2026-08-14T17:28:23.432641Z"
+      "updated_at": "2026-08-14T17:48:21.695500Z"
     },
     "capability.upstream-stage-engine": {
       "behavior_paths": [
@@ -6056,7 +6056,7 @@
       "id": "capability.upstream-stage-engine",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:33.174856Z",
+      "last_proved_at": "2026-08-14T17:48:33.813244Z",
       "name": "Upstream multi-stage durable pipeline engine (campaign + fleet)",
       "proof_command": "uv run python -m blackhole_agent.upstream_stage_engine proof",
       "source_milestone": 1,
@@ -6077,7 +6077,7 @@
         "stewardship",
         "upstream"
       ],
-      "updated_at": "2026-08-14T17:28:33.174856Z"
+      "updated_at": "2026-08-14T17:48:33.813244Z"
     },
     "capability.upstream-stewardship-facade": {
       "behavior_paths": [
@@ -6099,7 +6099,7 @@
       "id": "capability.upstream-stewardship-facade",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:41.350551Z",
+      "last_proved_at": "2026-08-14T17:48:42.526320Z",
       "name": "Upstream stewardship facade collapse (23-layer engine thin APIs)",
       "proof_command": "uv run python -m blackhole_agent.upstream_stewardship_facade --proof",
       "source_milestone": 1,
@@ -6116,7 +6116,7 @@
         "stewardship-stack",
         "upstream"
       ],
-      "updated_at": "2026-08-14T17:28:41.350551Z"
+      "updated_at": "2026-08-14T17:48:42.526320Z"
     },
     "capability.upstream-stewardship-spine": {
       "behavior_paths": [
@@ -6143,7 +6143,7 @@
       "id": "capability.upstream-stewardship-spine",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:42.338474Z",
+      "last_proved_at": "2026-08-14T17:48:43.863943Z",
       "name": "Upstream stewardship spine (confederation cascade + operational control)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine stewardship-proof",
       "source_milestone": 1,
@@ -6173,7 +6173,7 @@
         "stewardship",
         "upstream"
       ],
-      "updated_at": "2026-08-14T17:28:42.338474Z"
+      "updated_at": "2026-08-14T17:48:43.863943Z"
     },
     "capability.upstream-succession": {
       "behavior_paths": [
@@ -6197,7 +6197,7 @@
       "id": "capability.upstream-succession",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:14.468973Z",
+      "last_proved_at": "2026-08-14T17:48:11.479458Z",
       "name": "Upstream succession plane (multi-epoch stewardship mandate)",
       "proof_command": "uv run python -c \"from blackhole_agent.upstream_succession import builtin_upstream_succession_proof; r=builtin_upstream_succession_proof(); assert r['ok'] and r.get('mandate_met') and r.get('refresh_promotes_terminals') and r.get('multi_epoch_progressed') and r.get('seal_verified') and r.get('tamper_detected') and r.get('budget_stops') and r.get('premet_short_circuits') and r.get('rank_only') and r.get('empty_refused') and r.get('custom_stop') and r.get('refresh_drives_rework') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -6215,7 +6215,7 @@
         "orchestration",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:28:14.468973Z"
+      "updated_at": "2026-08-14T17:48:11.479458Z"
     },
     "capability.upstream-teracontinuum": {
       "behavior_paths": [
@@ -6257,7 +6257,7 @@
       "id": "capability.upstream-teracontinuum",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:21.510382Z",
+      "last_proved_at": "2026-08-14T17:48:19.267511Z",
       "name": "Upstream teracontinuum plane (multi-gigacontinuum durable stewardship teracontinuum)",
       "proof_command": "uv run python -m blackhole_agent.upstream_teracontinuum --proof",
       "source_milestone": 1,
@@ -6289,7 +6289,7 @@
         "constitution",
         "terminal-coverage"
       ],
-      "updated_at": "2026-08-14T17:28:21.510382Z"
+      "updated_at": "2026-08-14T17:48:19.267511Z"
     },
     "capability.upstream-total-spine": {
       "behavior_paths": [
@@ -6315,8 +6315,8 @@
       "entry": "blackhole_agent.upstream_control_engine:builtin_total_spine_proof",
       "id": "capability.upstream-total-spine",
       "kind": "python",
-      "last_proof_exit_code": 1,
-      "last_proved_at": "2026-08-14T17:28:51.355841Z",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-14T17:48:53.445705Z",
       "name": "Upstream total spine (compressed campaign-bound quetta->campaign)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine total-proof",
       "source_milestone": 1,
@@ -6349,7 +6349,7 @@
         "total",
         "tower"
       ],
-      "updated_at": "2026-08-14T17:28:51.355841Z"
+      "updated_at": "2026-08-14T17:48:53.445705Z"
     },
     "capability.upstream-total-spine-actuation": {
       "behavior_paths": [
@@ -6379,7 +6379,7 @@
       "id": "capability.upstream-total-spine-actuation",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-12T15:16:38.386391Z",
+      "last_proved_at": "2026-08-14T17:49:03.413885Z",
       "name": "Upstream total spine actuation (post-execution multi-action on absolute tower)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine actuation-proof",
       "source_milestone": 1,
@@ -6403,7 +6403,7 @@
         "state-root",
         "total-spine"
       ],
-      "updated_at": "2026-08-12T15:16:38.386391Z"
+      "updated_at": "2026-08-14T17:49:03.413885Z"
     },
     "capability.upstream-total-spine-adaptive": {
       "behavior_paths": [
@@ -6428,8 +6428,8 @@
       "entry": "blackhole_agent.upstream_control_engine:builtin_total_spine_adaptive_proof",
       "id": "capability.upstream-total-spine-adaptive",
       "kind": "python",
-      "last_proof_exit_code": null,
-      "last_proved_at": "",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-14T17:48:57.242379Z",
       "name": "Upstream total spine adaptive (closed-loop recovery on absolute tower)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine adaptive-proof",
       "source_milestone": 1,
@@ -6459,7 +6459,7 @@
         "total",
         "tower"
       ],
-      "updated_at": "2026-08-12T10:28:22.621767Z"
+      "updated_at": "2026-08-14T17:48:57.242379Z"
     },
     "capability.upstream-total-spine-capital": {
       "behavior_paths": [
@@ -6498,7 +6498,7 @@
       "id": "capability.upstream-total-spine-capital",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-13T06:40:00.000000Z",
+      "last_proved_at": "2026-08-14T17:49:33.405300Z",
       "name": "Upstream total spine capital (post-funding atomic capital-versus-adequacy on absolute tower)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine capital-proof",
       "source_milestone": 1,
@@ -6522,7 +6522,7 @@
         "receipt",
         "total-spine"
       ],
-      "updated_at": "2026-08-13T06:40:00.000000Z"
+      "updated_at": "2026-08-14T17:49:33.405300Z"
     },
     "capability.upstream-total-spine-clearing": {
       "behavior_paths": [
@@ -6554,7 +6554,7 @@
       "id": "capability.upstream-total-spine-clearing",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-13T00:00:00.000000Z",
+      "last_proved_at": "2026-08-14T17:49:06.729214Z",
       "name": "Upstream total spine clearing (post-settlement multilateral netting + discharge on absolute tower)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine clearing-proof",
       "source_milestone": 1,
@@ -6581,7 +6581,7 @@
         "state-root",
         "total-spine"
       ],
-      "updated_at": "2026-08-13T00:00:00.000000Z"
+      "updated_at": "2026-08-14T17:49:06.729214Z"
     },
     "capability.upstream-total-spine-collateral": {
       "behavior_paths": [
@@ -6617,7 +6617,7 @@
       "id": "capability.upstream-total-spine-collateral",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-13T04:05:00.000000Z",
+      "last_proved_at": "2026-08-14T17:49:17.438276Z",
       "name": "Upstream total spine collateral (post-margin atomic collateral-versus-obligation on absolute tower)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine collateral-proof",
       "source_milestone": 1,
@@ -6649,7 +6649,7 @@
         "state-root",
         "total-spine"
       ],
-      "updated_at": "2026-08-13T04:05:00.000000Z"
+      "updated_at": "2026-08-14T17:49:17.438276Z"
     },
     "capability.upstream-total-spine-continuity": {
       "behavior_paths": [
@@ -6674,7 +6674,7 @@
       "id": "capability.upstream-total-spine-continuity",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-12T11:08:18.625330Z",
+      "last_proved_at": "2026-08-14T17:48:58.047548Z",
       "name": "Upstream total spine continuity (durable adaptive resume on absolute tower)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine continuity-proof",
       "source_milestone": 1,
@@ -6706,7 +6706,7 @@
         "total",
         "tower"
       ],
-      "updated_at": "2026-08-12T11:08:18.625343Z"
+      "updated_at": "2026-08-14T17:48:58.047548Z"
     },
     "capability.upstream-total-spine-custody": {
       "behavior_paths": [
@@ -6740,7 +6740,7 @@
       "id": "capability.upstream-total-spine-custody",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-13T00:00:00.000000Z",
+      "last_proved_at": "2026-08-14T17:49:11.192902Z",
       "name": "Upstream total spine custody (post-delivery atomic custody-versus-title on absolute tower)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine custody-proof",
       "source_milestone": 1,
@@ -6770,7 +6770,7 @@
         "title",
         "total-spine"
       ],
-      "updated_at": "2026-08-13T00:00:00.000000Z"
+      "updated_at": "2026-08-14T17:49:11.192902Z"
     },
     "capability.upstream-total-spine-delivery": {
       "behavior_paths": [
@@ -6803,7 +6803,7 @@
       "id": "capability.upstream-total-spine-delivery",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-13T00:00:00.000000Z",
+      "last_proved_at": "2026-08-14T17:49:08.765155Z",
       "name": "Upstream total spine delivery (post-clearing atomic delivery-versus-payment on absolute tower)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine delivery-proof",
       "source_milestone": 1,
@@ -6831,7 +6831,7 @@
         "state-root",
         "total-spine"
       ],
-      "updated_at": "2026-08-13T00:00:00.000000Z"
+      "updated_at": "2026-08-14T17:49:08.765155Z"
     },
     "capability.upstream-total-spine-effects": {
       "behavior_paths": [
@@ -6852,8 +6852,8 @@
       "entry": "blackhole_agent.upstream_control_engine:builtin_total_spine_effect_proof",
       "id": "capability.upstream-total-spine-effects",
       "kind": "python",
-      "last_proof_exit_code": null,
-      "last_proved_at": "",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-14T17:48:54.144617Z",
       "name": "Upstream total spine effects (ledger capability dispatch on absolute tower)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine effect-proof",
       "source_milestone": 1,
@@ -6879,7 +6879,7 @@
         "total",
         "tower"
       ],
-      "updated_at": "2026-08-12T09:12:35.765712Z"
+      "updated_at": "2026-08-14T17:48:54.144617Z"
     },
     "capability.upstream-total-spine-emergence": {
       "behavior_paths": [
@@ -6925,7 +6925,7 @@
       "id": "capability.upstream-total-spine-emergence",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T14:40:00.000000Z",
+      "last_proved_at": "2026-08-14T17:50:20.976804Z",
       "name": "Upstream total spine emergence (post-restructuring atomic emergence-versus-confirmation on absolute tower)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine emergence-proof",
       "source_milestone": 1,
@@ -6948,7 +6948,7 @@
         "restructuring",
         "total-spine"
       ],
-      "updated_at": "2026-08-14T14:40:00.000000Z"
+      "updated_at": "2026-08-14T17:50:20.976804Z"
     },
     "capability.upstream-total-spine-execution": {
       "behavior_paths": [
@@ -6981,7 +6981,7 @@
       "id": "capability.upstream-total-spine-execution",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-12T14:34:51.698283Z",
+      "last_proved_at": "2026-08-14T17:49:02.234260Z",
       "name": "Upstream total spine execution (post-quorum world-state on absolute tower)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine execution-proof",
       "source_milestone": 1,
@@ -7008,7 +7008,7 @@
         "tower",
         "world-state"
       ],
-      "updated_at": "2026-08-12T14:34:51.698283Z"
+      "updated_at": "2026-08-14T17:49:02.234260Z"
     },
     "capability.upstream-total-spine-federation": {
       "behavior_paths": [
@@ -7037,7 +7037,7 @@
       "id": "capability.upstream-total-spine-federation",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-12T13:10:59.312534Z",
+      "last_proved_at": "2026-08-14T17:48:59.820476Z",
       "name": "Upstream total spine federation (multi-origin finality seal on absolute tower)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine federation-proof",
       "source_milestone": 1,
@@ -7063,7 +7063,7 @@
         "total",
         "tower"
       ],
-      "updated_at": "2026-08-12T13:10:59.312534Z"
+      "updated_at": "2026-08-14T17:48:59.820476Z"
     },
     "capability.upstream-total-spine-finality": {
       "behavior_paths": [
@@ -7090,7 +7090,7 @@
       "id": "capability.upstream-total-spine-finality",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-12T12:33:49.321154Z",
+      "last_proved_at": "2026-08-14T17:48:58.915892Z",
       "name": "Upstream total spine finality (irreversible seal + short-circuit on absolute tower)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine finality-proof",
       "source_milestone": 1,
@@ -7123,7 +7123,7 @@
         "total",
         "tower"
       ],
-      "updated_at": "2026-08-12T12:33:49.321154Z"
+      "updated_at": "2026-08-14T17:48:58.915892Z"
     },
     "capability.upstream-total-spine-funding": {
       "behavior_paths": [
@@ -7161,7 +7161,7 @@
       "id": "capability.upstream-total-spine-funding",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-13T05:50:00.000000Z",
+      "last_proved_at": "2026-08-14T17:49:25.891943Z",
       "name": "Upstream total spine funding (post-liquidity atomic funding-versus-requirement on absolute tower)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine funding-proof",
       "source_milestone": 1,
@@ -7195,7 +7195,7 @@
         "state-root",
         "total-spine"
       ],
-      "updated_at": "2026-08-13T05:50:00.000000Z"
+      "updated_at": "2026-08-14T17:49:25.891943Z"
     },
     "capability.upstream-total-spine-goal": {
       "behavior_paths": [
@@ -7219,7 +7219,7 @@
       "id": "capability.upstream-total-spine-goal",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-12T09:51:28.162821Z",
+      "last_proved_at": "2026-08-14T17:48:55.846910Z",
       "name": "Upstream total spine goal (goal-planned effects + outcome contracts)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine goal-proof",
       "source_milestone": 1,
@@ -7246,7 +7246,7 @@
         "total",
         "tower"
       ],
-      "updated_at": "2026-08-12T09:51:28.162799Z"
+      "updated_at": "2026-08-14T17:48:55.846910Z"
     },
     "capability.upstream-total-spine-liquidity": {
       "behavior_paths": [
@@ -7283,7 +7283,7 @@
       "id": "capability.upstream-total-spine-liquidity",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-13T05:00:00.000000Z",
+      "last_proved_at": "2026-08-14T17:49:21.753032Z",
       "name": "Upstream total spine liquidity (post-collateral atomic liquidity-versus-coverage on absolute tower)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine liquidity-proof",
       "source_milestone": 1,
@@ -7316,7 +7316,7 @@
         "state-root",
         "total-spine"
       ],
-      "updated_at": "2026-08-13T05:00:00.000000Z"
+      "updated_at": "2026-08-14T17:49:21.753032Z"
     },
     "capability.upstream-total-spine-margin": {
       "behavior_paths": [
@@ -7351,7 +7351,7 @@
       "id": "capability.upstream-total-spine-margin",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-13T03:27:46.321330Z",
+      "last_proved_at": "2026-08-14T17:49:14.058111Z",
       "name": "Upstream total spine margin (post-custody atomic margin-versus-exposure on absolute tower)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine margin-proof",
       "source_milestone": 1,
@@ -7383,7 +7383,7 @@
         "state-root",
         "total-spine"
       ],
-      "updated_at": "2026-08-13T03:27:46.321350Z"
+      "updated_at": "2026-08-14T17:49:14.058111Z"
     },
     "capability.upstream-total-spine-quorum": {
       "behavior_paths": [
@@ -7414,7 +7414,7 @@
       "id": "capability.upstream-total-spine-quorum",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-12T13:51:38.767Z",
+      "last_proved_at": "2026-08-14T17:49:01.102024Z",
       "name": "Upstream total spine quorum (N-of-M majority federation on absolute tower)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine quorum-proof",
       "source_milestone": 1,
@@ -7443,7 +7443,7 @@
         "total",
         "tower"
       ],
-      "updated_at": "2026-08-12T13:51:38.767Z"
+      "updated_at": "2026-08-14T17:49:01.102024Z"
     },
     "capability.upstream-total-spine-recovery": {
       "behavior_paths": [
@@ -7486,7 +7486,7 @@
       "id": "capability.upstream-total-spine-recovery",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-13T09:40:00.000000Z",
+      "last_proved_at": "2026-08-14T17:49:56.869242Z",
       "name": "Upstream total spine recovery (post-stress atomic recovery-versus-plan on absolute tower)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine recovery-proof",
       "source_milestone": 1,
@@ -7509,7 +7509,7 @@
         "stress",
         "total-spine"
       ],
-      "updated_at": "2026-08-13T09:40:00.000000Z"
+      "updated_at": "2026-08-14T17:49:56.869242Z"
     },
     "capability.upstream-total-spine-reorganization": {
       "behavior_paths": [
@@ -7556,7 +7556,7 @@
       "id": "capability.upstream-total-spine-reorganization",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T15:30:00.000000Z",
+      "last_proved_at": "2026-08-14T17:50:30.755994Z",
       "name": "Upstream total spine reorganization (post-emergence atomic reorganization-versus-charter on absolute tower)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine reorganization-proof",
       "source_milestone": 1,
@@ -7579,7 +7579,7 @@
         "rvc",
         "total-spine"
       ],
-      "updated_at": "2026-08-14T15:30:00.000000Z"
+      "updated_at": "2026-08-14T17:50:30.755994Z"
     },
     "capability.upstream-total-spine-resolution": {
       "behavior_paths": [
@@ -7623,7 +7623,7 @@
       "id": "capability.upstream-total-spine-resolution",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-13T10:30:00.000000Z",
+      "last_proved_at": "2026-08-14T17:50:04.263249Z",
       "name": "Upstream total spine resolution (post-recovery atomic resolution-versus-strategy on absolute tower)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine resolution-proof",
       "source_milestone": 1,
@@ -7646,7 +7646,7 @@
         "strategy",
         "total-spine"
       ],
-      "updated_at": "2026-08-13T10:30:00.000000Z"
+      "updated_at": "2026-08-14T17:50:04.263249Z"
     },
     "capability.upstream-total-spine-restructuring": {
       "behavior_paths": [
@@ -7691,7 +7691,7 @@
       "id": "capability.upstream-total-spine-restructuring",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-13T11:20:00.000000Z",
+      "last_proved_at": "2026-08-14T17:50:12.299039Z",
       "name": "Upstream total spine restructuring (post-resolution atomic restructuring-versus-mandate on absolute tower)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine restructuring-proof",
       "source_milestone": 1,
@@ -7714,7 +7714,7 @@
         "rvm",
         "total-spine"
       ],
-      "updated_at": "2026-08-13T11:20:00.000000Z"
+      "updated_at": "2026-08-14T17:50:12.299039Z"
     },
     "capability.upstream-total-spine-risk": {
       "behavior_paths": [
@@ -7755,7 +7755,7 @@
       "id": "capability.upstream-total-spine-risk",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-13T08:20:00.000000Z",
+      "last_proved_at": "2026-08-14T17:49:43.380697Z",
       "name": "Upstream total spine risk (post-solvency atomic risk-versus-appetite on absolute tower)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine risk-proof",
       "source_milestone": 1,
@@ -7779,7 +7779,7 @@
         "solvency",
         "total-spine"
       ],
-      "updated_at": "2026-08-13T08:20:00.000000Z"
+      "updated_at": "2026-08-14T17:49:43.380697Z"
     },
     "capability.upstream-total-spine-settlement": {
       "behavior_paths": [
@@ -7810,7 +7810,7 @@
       "id": "capability.upstream-total-spine-settlement",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-12T16:05:00.000000Z",
+      "last_proved_at": "2026-08-14T17:49:04.907910Z",
       "name": "Upstream total spine settlement (post-actuation observation + done_when closure on absolute tower)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine settlement-proof",
       "source_milestone": 1,
@@ -7836,7 +7836,7 @@
         "state-root",
         "total-spine"
       ],
-      "updated_at": "2026-08-12T15:55:00.000000Z"
+      "updated_at": "2026-08-14T17:49:04.907910Z"
     },
     "capability.upstream-total-spine-solvency": {
       "behavior_paths": [
@@ -7876,7 +7876,7 @@
       "id": "capability.upstream-total-spine-solvency",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-13T07:20:00.000000Z",
+      "last_proved_at": "2026-08-14T17:49:38.083702Z",
       "name": "Upstream total spine solvency (post-capital atomic solvency-versus-requirement on absolute tower)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine solvency-proof",
       "source_milestone": 1,
@@ -7900,7 +7900,7 @@
         "svr",
         "total-spine"
       ],
-      "updated_at": "2026-08-13T07:20:00.000000Z"
+      "updated_at": "2026-08-14T17:49:38.083702Z"
     },
     "capability.upstream-total-spine-stress": {
       "behavior_paths": [
@@ -7942,7 +7942,7 @@
       "id": "capability.upstream-total-spine-stress",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-13T08:55:00.000000Z",
+      "last_proved_at": "2026-08-14T17:49:49.615594Z",
       "name": "Upstream total spine stress (post-risk atomic stress-versus-capacity on absolute tower)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine stress-proof",
       "source_milestone": 1,
@@ -7965,7 +7965,7 @@
         "svc",
         "total-spine"
       ],
-      "updated_at": "2026-08-13T08:55:00.000000Z"
+      "updated_at": "2026-08-14T17:49:49.615594Z"
     },
     "capability.upstream-ultracontinuum": {
       "behavior_paths": [
@@ -8004,7 +8004,7 @@
       "id": "capability.upstream-ultracontinuum",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:20.363624Z",
+      "last_proved_at": "2026-08-14T17:48:17.999768Z",
       "name": "Upstream ultracontinuum plane (multi-hypercontinuum durable stewardship ultracontinuum)",
       "proof_command": "uv run python -m blackhole_agent.upstream_ultracontinuum --proof",
       "source_milestone": 1,
@@ -8033,7 +8033,7 @@
         "constitution",
         "terminal-coverage"
       ],
-      "updated_at": "2026-08-14T17:28:20.363624Z"
+      "updated_at": "2026-08-14T17:48:17.999768Z"
     },
     "capability.upstream-yottacontinuum": {
       "behavior_paths": [
@@ -8079,7 +8079,7 @@
       "id": "capability.upstream-yottacontinuum",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:23.046165Z",
+      "last_proved_at": "2026-08-14T17:48:21.148371Z",
       "name": "Upstream yottacontinuum plane (multi-zettacontinuum durable stewardship yottacontinuum)",
       "proof_command": "uv run python -m blackhole_agent.upstream_yottacontinuum --proof",
       "source_milestone": 1,
@@ -8115,7 +8115,7 @@
         "constitution",
         "terminal-coverage"
       ],
-      "updated_at": "2026-08-14T17:28:23.046165Z"
+      "updated_at": "2026-08-14T17:48:21.148371Z"
     },
     "capability.upstream-zettacontinuum": {
       "behavior_paths": [
@@ -8160,7 +8160,7 @@
       "id": "capability.upstream-zettacontinuum",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:22.664008Z",
+      "last_proved_at": "2026-08-14T17:48:20.597380Z",
       "name": "Upstream zettacontinuum plane (multi-exacontinuum durable stewardship zettacontinuum)",
       "proof_command": "uv run python -m blackhole_agent.upstream_zettacontinuum --proof",
       "source_milestone": 1,
@@ -8195,7 +8195,7 @@
         "constitution",
         "terminal-coverage"
       ],
-      "updated_at": "2026-08-14T17:28:22.664008Z"
+      "updated_at": "2026-08-14T17:48:20.597380Z"
     },
     "capability.utility-plane": {
       "behavior_paths": [
@@ -8215,7 +8215,7 @@
       "id": "capability.utility-plane",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:25:10.854784Z",
+      "last_proved_at": "2026-08-14T17:44:52.492486Z",
       "name": "Capability utility plane",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_utility import builtin_utility_plane; r=builtin_utility_plane(); assert r['ok'] and r.get('utility',{}).get('utility_score')==1.0 and r.get('utility',{}).get('ablation_break_count')==r.get('utility',{}).get('ablation_count') and r.get('tamper_detected') and r.get('ablation_fabrication_detected') and r.get('misgrade_detected') and r.get('deterministic') and not r.get('used_skill_route_discovery')\"",
       "source_milestone": null,
@@ -8228,7 +8228,7 @@
         "outcome",
         "evidence"
       ],
-      "updated_at": "2026-08-14T17:25:10.854784Z"
+      "updated_at": "2026-08-14T17:44:52.492486Z"
     },
     "domain.ci-security": {
       "behavior_paths": [
@@ -8245,7 +8245,7 @@
       "id": "domain.ci-security",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:23.270334Z",
+      "last_proved_at": "2026-08-14T17:46:06.769390Z",
       "name": "CI security scan gate",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_ci_security_gate; r=builtin_ci_security_gate(); assert r['ok']\"",
       "source_milestone": null,
@@ -8255,7 +8255,7 @@
         "security",
         "absorbable"
       ],
-      "updated_at": "2026-08-14T17:26:23.270334Z"
+      "updated_at": "2026-08-14T17:46:06.769390Z"
     },
     "domain.harness-activation": {
       "behavior_paths": [
@@ -8272,7 +8272,7 @@
       "id": "domain.harness-activation",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:22.798787Z",
+      "last_proved_at": "2026-08-14T17:46:06.260454Z",
       "name": "Harness activation gate",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_harness_activation_gate; r=builtin_harness_activation_gate(); assert r['ok']\"",
       "source_milestone": null,
@@ -8282,7 +8282,7 @@
         "harness",
         "absorbable"
       ],
-      "updated_at": "2026-08-14T17:26:22.798787Z"
+      "updated_at": "2026-08-14T17:46:06.260454Z"
     },
     "domain.issue-triage": {
       "behavior_paths": [
@@ -8299,7 +8299,7 @@
       "id": "domain.issue-triage",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:23.128411Z",
+      "last_proved_at": "2026-08-14T17:46:06.621529Z",
       "name": "Issue triage lane smoke",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_issue_triage_smoke; r=builtin_issue_triage_smoke(); assert r['ok']\"",
       "source_milestone": null,
@@ -8309,7 +8309,7 @@
         "triage",
         "absorbable"
       ],
-      "updated_at": "2026-08-14T17:26:23.128411Z"
+      "updated_at": "2026-08-14T17:46:06.621529Z"
     },
     "domain.kernel-preflight": {
       "behavior_paths": [
@@ -8326,7 +8326,7 @@
       "id": "domain.kernel-preflight",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:24.333848Z",
+      "last_proved_at": "2026-08-14T17:46:07.882004Z",
       "name": "Kernel provider preflight",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_kernel_preflight; r=builtin_kernel_preflight(); assert r['ok']\"",
       "source_milestone": null,
@@ -8338,7 +8338,7 @@
         "absorbable",
         "second-wave"
       ],
-      "updated_at": "2026-08-14T17:26:24.333848Z"
+      "updated_at": "2026-08-14T17:46:07.882004Z"
     },
     "domain.local-memory": {
       "behavior_paths": [
@@ -8355,7 +8355,7 @@
       "id": "domain.local-memory",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:22.506060Z",
+      "last_proved_at": "2026-08-14T17:46:05.938842Z",
       "name": "Local memory privacy roundtrip",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_local_memory_roundtrip; r=builtin_local_memory_roundtrip(); assert r['ok']\"",
       "source_milestone": null,
@@ -8365,7 +8365,7 @@
         "memory",
         "absorbable"
       ],
-      "updated_at": "2026-08-14T17:26:22.506060Z"
+      "updated_at": "2026-08-14T17:46:05.938842Z"
     },
     "domain.persona": {
       "behavior_paths": [
@@ -8382,7 +8382,7 @@
       "id": "domain.persona",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:24.848489Z",
+      "last_proved_at": "2026-08-14T17:46:08.421548Z",
       "name": "Persona layer render",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_persona_render; r=builtin_persona_render(); assert r['ok']\"",
       "source_milestone": null,
@@ -8394,7 +8394,7 @@
         "absorbable",
         "second-wave"
       ],
-      "updated_at": "2026-08-14T17:26:24.848489Z"
+      "updated_at": "2026-08-14T17:46:08.421548Z"
     },
     "domain.proposal-eval": {
       "behavior_paths": [
@@ -8411,7 +8411,7 @@
       "id": "domain.proposal-eval",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:23.619529Z",
+      "last_proved_at": "2026-08-14T17:46:07.127794Z",
       "name": "Proposal eval replay smoke",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_proposal_eval_smoke; r=builtin_proposal_eval_smoke(); assert r['ok']\"",
       "source_milestone": null,
@@ -8421,7 +8421,7 @@
         "proposal",
         "absorbable"
       ],
-      "updated_at": "2026-08-14T17:26:23.619529Z"
+      "updated_at": "2026-08-14T17:46:07.127794Z"
     },
     "domain.proposal-synthesis": {
       "behavior_paths": [
@@ -8438,7 +8438,7 @@
       "id": "domain.proposal-synthesis",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:33.342900Z",
+      "last_proved_at": "2026-08-14T17:46:18.171463Z",
       "name": "Proposal synthesis evidence smoke",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_proposal_synthesis_smoke; r=builtin_proposal_synthesis_smoke(); assert r['ok']\"",
       "source_milestone": null,
@@ -8450,7 +8450,7 @@
         "absorbable",
         "second-wave"
       ],
-      "updated_at": "2026-08-14T17:26:33.342900Z"
+      "updated_at": "2026-08-14T17:46:18.171463Z"
     },
     "domain.supervisor-compound": {
       "behavior_paths": [
@@ -8468,7 +8468,7 @@
       "id": "domain.supervisor-compound",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:28:51.512140Z",
+      "last_proved_at": "2026-08-14T17:50:30.932377Z",
       "name": "Supervisor compound wake routing",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_supervisor_compound_wake; r=builtin_supervisor_compound_wake(); assert r['ok']\"",
       "source_milestone": null,
@@ -8479,7 +8479,7 @@
         "absorbable",
         "second-wave"
       ],
-      "updated_at": "2026-08-14T17:28:51.512140Z"
+      "updated_at": "2026-08-14T17:50:30.932377Z"
     },
     "domain.tool-routing": {
       "behavior_paths": [
@@ -8496,7 +8496,7 @@
       "id": "domain.tool-routing",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:22.653554Z",
+      "last_proved_at": "2026-08-14T17:46:06.106052Z",
       "name": "Tool routing preflight",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_tool_routing_preflight; r=builtin_tool_routing_preflight(); assert r['ok']\"",
       "source_milestone": null,
@@ -8506,7 +8506,7 @@
         "tools",
         "absorbable"
       ],
-      "updated_at": "2026-08-14T17:26:22.653554Z"
+      "updated_at": "2026-08-14T17:46:06.106052Z"
     },
     "evolution.compounder-redirect": {
       "behavior_paths": [
@@ -8525,7 +8525,7 @@
       "id": "evolution.compounder-redirect",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:26:27.250216Z",
+      "last_proved_at": "2026-08-14T17:46:10.936535Z",
       "name": "Evolution surface compounder redirect",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_evolution_route_redirect; r=builtin_evolution_route_redirect(); assert r['ok'] and r['pin_cascade_frozen']\"",
       "source_milestone": null,
@@ -8534,7 +8534,7 @@
         "bootstrap",
         "evolution-route"
       ],
-      "updated_at": "2026-08-14T17:26:27.250216Z"
+      "updated_at": "2026-08-14T17:46:10.936535Z"
     },
     "repo.import-health": {
       "behavior_paths": [
@@ -8549,7 +8549,7 @@
       "id": "repo.import-health",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:25:08.534990Z",
+      "last_proved_at": "2026-08-14T17:44:49.908886Z",
       "name": "Repository import health",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_repo_import_health; r=builtin_repo_import_health(); assert r['ok'] and not r['skill_route_symbols_in_compounder']\"",
       "source_milestone": null,
@@ -8558,7 +8558,7 @@
         "bootstrap",
         "health"
       ],
-      "updated_at": "2026-08-14T17:25:08.534990Z"
+      "updated_at": "2026-08-14T17:44:49.908886Z"
     },
     "unbound.milestone-gate": {
       "behavior_paths": [
@@ -8574,7 +8574,7 @@
       "id": "unbound.milestone-gate",
       "kind": "python",
       "last_proof_exit_code": 0,
-      "last_proved_at": "2026-08-14T17:25:08.902731Z",
+      "last_proved_at": "2026-08-14T17:44:50.304437Z",
       "name": "Unbound milestone gate smoke",
       "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_milestone_gate_smoke; r=builtin_milestone_gate_smoke(); assert r['ok']\"",
       "source_milestone": null,
@@ -8583,9 +8583,9 @@
         "bootstrap",
         "unbound"
       ],
-      "updated_at": "2026-08-14T17:25:08.902731Z"
+      "updated_at": "2026-08-14T17:44:50.304437Z"
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-08-14T17:28:51.512179Z"
+  "updated_at": "2026-08-14T17:50:30.932414Z"
 }

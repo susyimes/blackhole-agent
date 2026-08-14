@@ -92,7 +92,7 @@
     "verdict_digest": "94794cd9fd2a7b8c05aed2baa5fc226b5676b18518c835fb97d4640f1e5bb9f1"
   },
   "ok": true,
-  "reported_at": "2026-08-14T17:27:24Z",
+  "reported_at": "2026-08-14T17:47:17Z",
   "schema_version": 1,
   "suite": {
     "action": "runtime_conformance_suite",
@@ -190,12 +190,12 @@
             "ok": true
           },
           {
-            "detail": "39754ebf8ddef749f739c6280c70dcd2f93ea703",
+            "detail": "4f84a4ceaff17c1b06a064d3bc2705e9f43d20f2",
             "name": "commit recorded",
             "ok": true
           },
           {
-            "detail": "39754ebf8ddef749f739c6280c70dcd2f93ea703",
+            "detail": "4f84a4ceaff17c1b06a064d3bc2705e9f43d20f2",
             "name": "workspace head advanced",
             "ok": true
           },
@@ -205,7 +205,7 @@
             "ok": true
           },
           {
-            "detail": "39754ebf8ddef749f739c6280c70dcd2f93ea703",
+            "detail": "4f84a4ceaff17c1b06a064d3bc2705e9f43d20f2",
             "name": "last milestone head updated",
             "ok": true
           },
@@ -442,17 +442,17 @@
             "ok": true
           },
           {
-            "detail": "eb53742a6dd50e87337d414c9ab4ea3852b31be7",
+            "detail": "fc38936760609b02c4f0405d9b36383e8875e0a2",
             "name": "remote head verified after push",
             "ok": true
           },
           {
-            "detail": "eb53742a6dd50e87337d414c9ab4ea3852b31be7",
+            "detail": "fc38936760609b02c4f0405d9b36383e8875e0a2",
             "name": "bare remote carries lineage branch",
             "ok": true
           },
           {
-            "detail": "before=eb53742a6dd50e87337d414c9ab4ea3852b31be7 error=",
+            "detail": "before=fc38936760609b02c4f0405d9b36383e8875e0a2 error=",
             "name": "republication idempotent",
             "ok": true
           },

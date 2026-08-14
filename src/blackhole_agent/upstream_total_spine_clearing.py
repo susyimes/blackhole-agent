@@ -1648,15 +1648,16 @@ def builtin_total_spine_clearing_proof() -> dict[str, Any]:
             != str(offline_clr.get("total_spine_digest") or "")
         )
 
-        facade_path = Path(le_facade.__file__).resolve()
-        facade_text = facade_path.read_text(encoding="utf-8")
+        # Facade exposes this stage's surface (delegation identity;
+        # source-text greps predate the thin PEP 562 facade).
         source_ok = (
-            "TOTAL_SPINE_CLEARING_IMPL" in facade_text
-            and "builtin_total_spine_clearing_proof" in facade_text
-            and "clear_total_spine" in facade_text
+            getattr(le_facade, "TOTAL_SPINE_CLEARING_IMPL", None) is TOTAL_SPINE_CLEARING_IMPL
+            and getattr(le_facade, "builtin_total_spine_clearing_proof", None) is builtin_total_spine_clearing_proof
+            and getattr(le_facade, "clear_total_spine", None) is clear_total_spine
             and callable(
                 getattr(le_facade, "builtin_total_spine_clearing_proof", None)
-            )
+    
+        )
             and callable(getattr(le_facade, "clear_total_spine", None))
             and getattr(le_facade, "TOTAL_SPINE_CLEARING_IMPL", False) is True
         )

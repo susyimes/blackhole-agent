@@ -1222,15 +1222,16 @@ def builtin_total_spine_actuation_proof() -> dict[str, Any]:
             != str(offline_act.get("total_spine_digest") or "")
         )
 
-        facade_path = Path(le_facade.__file__).resolve()
-        facade_text = facade_path.read_text(encoding="utf-8")
+        # Facade exposes this stage's surface (delegation identity;
+        # source-text greps predate the thin PEP 562 facade).
         source_ok = (
-            "TOTAL_SPINE_ACTUATION_IMPL" in facade_text
-            and "builtin_total_spine_actuation_proof" in facade_text
-            and "actuate_total_spine" in facade_text
+            getattr(le_facade, "TOTAL_SPINE_ACTUATION_IMPL", None) is TOTAL_SPINE_ACTUATION_IMPL
+            and getattr(le_facade, "builtin_total_spine_actuation_proof", None) is builtin_total_spine_actuation_proof
+            and getattr(le_facade, "actuate_total_spine", None) is actuate_total_spine
             and callable(
                 getattr(le_facade, "builtin_total_spine_actuation_proof", None)
-            )
+    
+        )
             and callable(getattr(le_facade, "actuate_total_spine", None))
             and getattr(le_facade, "TOTAL_SPINE_ACTUATION_IMPL", False) is True
         )
