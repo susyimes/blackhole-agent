@@ -2975,6 +2975,21 @@ def compose_pipeline_of_pipeline(
         result["nested_pipeline_ok"] = all(
             bool(c.get("ok")) for c in nested_children
         )
+        result["nested_pipeline_children"] = nested_children
+        last_child = nested_children[-1]
+        camp = (
+            last_child.get("campaign_digest")
+            or last_child.get(child.self_digest_field)
+        )
+        if isinstance(camp, str) and len(camp) >= 16:
+            result["campaign_digest"] = camp
+            result["nested_pipeline"] = {
+                "dialect": child.name,
+                "ok": bool(last_child.get("ok")),
+                "verdict": last_child.get("verdict"),
+                "campaign_digest": camp,
+                child.self_digest_field: camp,
+            }
     if nest_stamp:
         path = nest_path_steps
         if path is None:
@@ -3376,6 +3391,7 @@ def run_control_graph(
                 "child_mode": child_node.mode,
                 "child_dialect": child_node.dialect,
                 "digest": dig,
+                "campaign_digest": result.get("campaign_digest"),
                 "control_nest": result.get("control_nest"),
                 "control_graph_native_pipeline": result.get(
                     "control_graph_native_pipeline"
@@ -3479,6 +3495,30 @@ def run_control_graph(
         result["control_child_dialect"] = child_node.dialect
         result["control_nest_edge"] = f"{node_cur.dialect}->{child_node.dialect}"
         result["control_nest_live"] = bool(live)
+        if not result.get("campaign_digest"):
+            def _find_camp(obj: Any, depth: int = 0) -> str | None:
+                if depth > 6:
+                    return None
+                if isinstance(obj, Mapping):
+                    val = obj.get("campaign_digest")
+                    if isinstance(val, str) and len(val) >= 16:
+                        return val
+                    for item in obj.values():
+                        found = _find_camp(item, depth + 1)
+                        if found:
+                            return found
+                elif isinstance(obj, Sequence) and not isinstance(
+                    obj, (str, bytes)
+                ):
+                    for item in obj:
+                        found = _find_camp(item, depth + 1)
+                        if found:
+                            return found
+                return None
+
+            found_camp = _find_camp(result)
+            if found_camp:
+                result["campaign_digest"] = found_camp
         return result
 
     if str(node.mode).strip().lower() == "pipeline":
@@ -3925,6 +3965,9 @@ def make_operational_program_child_runner(
             "control_nest_path": spine.get("control_nest_path"),
             "control_nest_depth": spine.get("control_nest_depth"),
             "governance_spine_child": True,
+            "campaign_digest": spine.get("campaign_digest")
+            or _campaign_tip_digest(spine),
+            "fleet_digest": spine.get("fleet_digest"),
             "child_states": [
                 {"inventory_keys": [list(k) for k in inv], "portfolio": federated}
             ],
@@ -3955,6 +3998,7 @@ def make_operational_program_child_runner(
                 "control_operational_spine": True,
                 "control_graph_live": True,
                 "total_dispatched_ok": dispatched_ok,
+                "campaign_digest": receipt.get("campaign_digest"),
                 "spine_out_root": str(spine_out),
             },
         )
@@ -3980,6 +4024,8 @@ def make_operational_program_child_runner(
             "control_nest_path": spine.get("control_nest_path"),
             "control_nest_depth": spine.get("control_nest_depth"),
             "governance_spine_child": True,
+            "campaign_digest": receipt.get("campaign_digest"),
+            "fleet_digest": spine.get("fleet_digest"),
             "spine_verdict": spine.get("verdict"),
             "spine_program_digest": spine.get("program_digest"),
             "used_skill_route_discovery": legacy_pipeline_was_used(),
@@ -4437,6 +4483,9 @@ CONTINUUM_SPINE_IMPL = True
 TOTAL_SPINE_DEFAULT_ROOT: str = "quettacontinuum"
 TOTAL_SPINE_DEFAULT_ROOTS: frozenset[str] = STEWARDSHIP_SPINE_DEFAULT_ROOTS
 TOTAL_SPINE_IMPL = True
+# Campaign-bound hop tip: compressed chains terminate at the live campaign
+# receipt digest instead of an institution/program fallback.
+TOTAL_SPINE_CAMPAIGN_BOUND = True
 # Auto-compress when constitution chain length exceeds this (recursive
 # domain cascades above confederation blow time and nested-receipt disk).
 TOTAL_SPINE_COMPRESS_THRESHOLD: int = 4
@@ -4957,15 +5006,129 @@ def total_nest_depth(root_layer: str = TOTAL_SPINE_DEFAULT_ROOT) -> int:
     return len(total_nest_path(root_layer))
 
 
+def _walk_campaign_digest(
+    obj: Any,
+    *,
+    depth: int = 0,
+    seen: set[int] | None = None,
+) -> str | None:
+    """Find a live campaign receipt digest in bounded operational evidence."""
+    if depth > 8:
+        return None
+    seen_ids = seen if seen is not None else set()
+    oid = id(obj)
+    if oid in seen_ids:
+        return None
+    seen_ids.add(oid)
+    if isinstance(obj, Mapping):
+        direct = obj.get("campaign_digest")
+        if isinstance(direct, str) and len(direct) >= 16:
+            return direct
+        nested = obj.get("nested_pipeline")
+        if isinstance(nested, Mapping):
+            found = _walk_campaign_digest(nested, depth=depth + 1, seen=seen_ids)
+            if found:
+                return found
+        for key in (
+            "dispatches",
+            "nested_pipeline_children",
+            "nested_children",
+            "child_states",
+            "programs",
+            "stage_results",
+        ):
+            found = _walk_campaign_digest(
+                obj.get(key), depth=depth + 1, seen=seen_ids
+            )
+            if found:
+                return found
+        for key in (
+            "governance_child_control_path",
+            "stewardship_child_control_path",
+            "control_nest_path",
+        ):
+            path = obj.get(key)
+            if isinstance(path, Sequence) and not isinstance(path, (str, bytes)):
+                for step in path:
+                    if not isinstance(step, Mapping):
+                        continue
+                    if str(step.get("dialect") or "") != "campaign":
+                        continue
+                    for digest_key in ("campaign_digest", "digest"):
+                        value = step.get(digest_key)
+                        if isinstance(value, str) and len(value) >= 16:
+                            return value
+        for key in ("operational_spine", "control_spine", "spine"):
+            found = _walk_campaign_digest(
+                obj.get(key), depth=depth + 1, seen=seen_ids
+            )
+            if found:
+                return found
+    elif isinstance(obj, Sequence) and not isinstance(obj, (str, bytes)):
+        for item in obj:
+            found = _walk_campaign_digest(item, depth=depth + 1, seen=seen_ids)
+            if found:
+                return found
+    return None
+
+
+def _campaign_digest_from_program_dir(path: Any) -> str | None:
+    """Recover campaign evidence persisted by the operational program child."""
+    if not path:
+        return None
+    root = Path(str(path))
+    for name in ("program.json", "governance_child.json"):
+        probe = root / name
+        if not probe.is_file():
+            continue
+        try:
+            blob = json.loads(probe.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(blob, Mapping):
+            continue
+        digest = blob.get("campaign_digest")
+        if isinstance(digest, str) and len(digest) >= 16:
+            return digest
+    return None
+
+
+def _campaign_tip_digest(result: Mapping[str, Any]) -> str | None:
+    """Extract the live campaign receipt digest from an operational result."""
+    found = _walk_campaign_digest(result)
+    if found:
+        return found
+    for program in result.get("programs") or []:
+        if isinstance(program, Mapping):
+            found = _campaign_digest_from_program_dir(program.get("program_dir"))
+            if found:
+                return found
+    for key in ("program_dir", "last_program_dir"):
+        found = _campaign_digest_from_program_dir(result.get(key))
+        if found:
+            return found
+    for state in result.get("child_states") or []:
+        if isinstance(state, Mapping):
+            found = _campaign_digest_from_program_dir(
+                state.get("program_dir") or state.get("last_program_dir")
+            )
+            if found:
+                return found
+    return None
+
+
 def _operational_tip_digest(result: Mapping[str, Any]) -> str:
-    """Stable tip digest from a live governance/operational spine result."""
+    """Prefer the live campaign receipt, then fall back through parent tips."""
+    campaign = _campaign_tip_digest(result)
+    if campaign:
+        return campaign
     for key in (
-        "institution_digest",
         "campaign_digest",
         "fleet_digest",
         "program_digest",
         "succession_digest",
         "epoch_digest",
+        "institution_digest",
     ):
         val = result.get(key)
         if isinstance(val, str) and len(val) >= 16:
@@ -7399,6 +7562,10 @@ def annotate_total_spine(
     body["total_spine_default_root"] = TOTAL_SPINE_DEFAULT_ROOT
     body["total_nest_path"] = path
     body["total_nest_depth"] = len(path)
+    campaign = _campaign_tip_digest(body) or _campaign_tip_digest(result)
+    if campaign:
+        body["campaign_digest"] = campaign
+        body["total_spine_campaign_digest"] = campaign
     if hop_chain is not None:
         hops = [dict(h) for h in hop_chain]
         body["total_spine_hop_chain"] = hops
@@ -7406,9 +7573,22 @@ def annotate_total_spine(
         if hops:
             body["total_spine_digest"] = hops[0].get("digest")
             body[f"{root}_digest"] = hops[0].get("digest")
+        body["total_spine_campaign_bound"] = bool(
+            campaign
+            and hops
+            and hops[-1].get("child_tip") == campaign
+            and TOTAL_SPINE_CAMPAIGN_BOUND
+        )
     elif body.get("total_spine_digest") is None:
         # Uncompressed path: derive a tip from the live result.
         body["total_spine_digest"] = _operational_tip_digest(body)
+        body["total_spine_campaign_bound"] = bool(
+            campaign and body["total_spine_digest"] == campaign
+        )
+    else:
+        body["total_spine_campaign_bound"] = bool(
+            campaign and body.get("total_spine_digest") == campaign
+        )
     body["used_skill_route_discovery"] = legacy_pipeline_was_used()
     return body
 
@@ -16087,6 +16267,7 @@ def builtin_total_spine_proof() -> dict[str, Any]:
             and CONTINUUM_SPINE_IMPL is True
             and CIVILIZATION_SPINE_IMPL is True
             and TOTAL_SPINE_COMPRESS_THRESHOLD >= 1
+            and TOTAL_SPINE_CAMPAIGN_BOUND is True
         )
 
         expected_quetta = [
@@ -16152,6 +16333,9 @@ def builtin_total_spine_proof() -> dict[str, Any]:
         child_dialects = [
             s.get("dialect") for s in child_path if isinstance(s, Mapping)
         ]
+        campaign_digest = spine.get("total_spine_campaign_digest") or spine.get(
+            "campaign_digest"
+        )
         spine_ok = (
             bool(spine.get("ok"))
             and spine.get("total_spine") is True
@@ -16189,6 +16373,14 @@ def builtin_total_spine_proof() -> dict[str, Any]:
                     break
                 tip = hop.get("digest")
             hop_integrity_ok = hop_integrity_ok and tip == hops[0].get("digest")
+
+        campaign_bound_ok = (
+            spine.get("total_spine_campaign_bound") is True
+            and isinstance(campaign_digest, str)
+            and len(campaign_digest) >= 16
+            and bool(hops)
+            and hops[-1].get("child_tip") == campaign_digest
+        )
 
         # Shallow uncompressed path still works (institution depth-6).
         shallow = run_total_spine(
@@ -16237,6 +16429,7 @@ def builtin_total_spine_proof() -> dict[str, Any]:
             )
             and callable(getattr(le_facade, "run_total_spine", None))
             and callable(getattr(le_facade, "total_nest_path", None))
+            and getattr(le_facade, "TOTAL_SPINE_CAMPAIGN_BOUND", False) is True
         )
 
         facade_path = Path(le_facade.__file__).resolve()
@@ -16255,6 +16448,7 @@ def builtin_total_spine_proof() -> dict[str, Any]:
             and "TOTAL_SPINE_IMPL" in engine_text
             and "seal_total_spine_hop_chain" in engine_text
             and "total_spine_compressed" in engine_text
+            and "total_spine_campaign_bound" in engine_text
         )
 
         ledger_path = default_ledger_path(REPO_ROOT)
@@ -16286,6 +16480,11 @@ def builtin_total_spine_proof() -> dict[str, Any]:
                 )
                 and ("campaign" in delta_blob or "operational" in delta_blob)
                 and (
+                    "campaign-bound" in delta_blob
+                    or "campaign bound" in delta_blob
+                    or "campaign_bound" in delta_blob
+                )
+                and (
                     "run_total_spine" in delta_blob
                     or "depth-28" in delta_blob
                     or "depth 28" in delta_blob
@@ -16300,6 +16499,7 @@ def builtin_total_spine_proof() -> dict[str, Any]:
                 path_ok,
                 spine_ok,
                 hop_integrity_ok,
+                campaign_bound_ok,
                 shallow_ok,
                 auto_ok,
                 differential_ok,
@@ -16325,6 +16525,8 @@ def builtin_total_spine_proof() -> dict[str, Any]:
             "spine_compressed": spine.get("total_spine_compressed"),
             "spine_hop_count": spine.get("total_spine_hop_count"),
             "hop_integrity_ok": hop_integrity_ok,
+            "campaign_bound_ok": campaign_bound_ok,
+            "campaign_digest": campaign_digest,
             "shallow_ok": shallow_ok,
             "shallow_dispatched_ok": shallow.get("total_dispatched_ok"),
             "auto_ok": auto_ok,
@@ -16344,6 +16546,7 @@ def builtin_total_spine_proof() -> dict[str, Any]:
             "total_spine": True,
             "total_spine_live": True,
             "total_spine_compressed": True,
+            "total_spine_campaign_bound": True,
             "done_when_met": ok,
         }
     finally:

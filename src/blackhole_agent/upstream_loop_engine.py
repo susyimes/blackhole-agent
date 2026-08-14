@@ -23,6 +23,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     SCHEMA_VERSION,
     STEWARDSHIP_SPINE_DEFAULT_ROOTS,
     TOTAL_SPINE_ADAPTIVE_IMPL,
+    TOTAL_SPINE_CAMPAIGN_BOUND,
     TOTAL_SPINE_COMPRESS_THRESHOLD,
     TOTAL_SPINE_CONTINUITY_FILENAME,
     TOTAL_SPINE_CONTINUITY_IMPL,
@@ -446,7 +447,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "total-proof",
         help=(
             "Total spine: absolute quettacontinuum→…→campaign via compressed "
-            "hop seals + live operational nest"
+            "hop seals + campaign-bound live operational nest"
         ),
     )
     sub.add_parser(

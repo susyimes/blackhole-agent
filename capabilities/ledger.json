@@ -5909,9 +5909,10 @@
       "behavior_paths": [
         "src/blackhole_agent/upstream_control_engine.py",
         "src/blackhole_agent/upstream_loop_engine.py",
+        "src/blackhole_agent/upstream_stewardship_facade.py",
         "capabilities/ledger.json"
       ],
-      "capability_delta": "Total spine makes the absolute tower invocable: run_total_spine(root=quettacontinuum) seals a compressed O(depth) hop digest chain over the full constitution path and live-dispatches the operational nest once so depth-28 quettacontinuum->...->campaign completes without recursive nested-receipt blowup; builtin_total_spine_proof / total-proof CLI gates hop integrity, shallow uncompressed path, and ledger binding without skill-route.",
+      "capability_delta": "Absolute total spine is invocable and campaign-bound: run_total_spine(root=quettacontinuum) seals a compressed O(depth) hop chain whose leaf tip is the live campaign receipt digest, then carries that bound tip through the full constitution path without recursive nested-receipt blowup; builtin_total_spine_proof / total-proof gates campaign binding, hop integrity, shallow uncompressed behavior, and ledger binding without skill-route.",
       "created_at": "2026-08-12T08:35:36.785576Z",
       "dependencies": [
         "repo.import-health",
@@ -5924,21 +5925,22 @@
         "capability.upstream-civilization-spine",
         "capability.upstream-continuum-spine"
       ],
-      "description": "Absolute full-tower total spine: default root quettacontinuum cascades through the entire STEWARDSHIP_STACK into the operational nest (depth 28). Compressed mode replaces pathological recursive multi-child domain cascades with sealed hop digests plus one live run_governance_spine, keeping deep SI roots operationally usable.",
+      "description": "Absolute full-tower total spine: default root quettacontinuum reaches the live campaign operational receipt at depth 28. Compressed mode seals that campaign digest as the leaf of the constitution hop chain, replacing pathological recursive multi-child cascades while keeping the complete SI-to-campaign path verifiable.",
       "entry": "blackhole_agent.upstream_control_engine:builtin_total_spine_proof",
       "id": "capability.upstream-total-spine",
       "kind": "python",
       "last_proof_exit_code": 0,
       "last_proved_at": "2026-08-12T08:35:58.061439Z",
-      "name": "Upstream total spine (compressed absolute tower quetta->campaign)",
+      "name": "Upstream total spine (compressed campaign-bound quetta->campaign)",
       "proof_command": "uv run python -m blackhole_agent.upstream_control_engine total-proof",
       "source_milestone": 1,
-      "source_mission_id": "20260812T082316Z-b0e8e3c1",
+      "source_mission_id": "20260813T161926Z-61dd6fdb",
       "tags": [
         "absolute",
         "bootstrap",
         "bridge",
         "cascade",
+        "campaign-bound",
         "civilization",
         "collapse",
         "composition",
