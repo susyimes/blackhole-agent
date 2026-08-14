@@ -14,6 +14,14 @@ The hermetic proof uses the in-repo reference server
 needed; the same code path works against any standards-compliant stdio MCP
 server command.
 
+The external third-party plane (official ``server-filesystem`` via npx) is
+two-tier: the live tier (``run_live_external_proof``) performs a fresh
+networked actuation and seals a durable trace with a ``latest-external.json``
+pointer, while the registered proof (``builtin_mcp_live_external_proof``) is
+hermetic — pure re-verification of the latest sealed trace (pointer binding,
+digest chain, recorded sentinel semantics) plus throwaway-directory tamper
+falsification, so it fits the integrity batch budget.
+
 Determinism/falsifiability contract: ``verify_execution_trace`` recomputes
 every digest from the recorded payloads, so a tampered trace fails
 verification. The builtin proof also proves the fail-closed path: an unknown
@@ -205,12 +213,16 @@ def run_live_execution(
     output_dir: Path | None = None,
     recorded_at: str | None = None,
     timeout_seconds: float = 30.0,
+    extra: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Run one live MCP session end-to-end and seal it as a digest-chained trace.
 
     Stages: spawn server -> initialize handshake -> live tools/list -> import
     through the routing layer (explicit mcp provider opt-in) -> require the
     target tool to route executable -> live tools/call -> seal trace.
+    ``extra`` is merged into the sealed trace body (digest-bound) so callers
+    can bind out-of-band facts — e.g. the external proof's sentinel string —
+    into the evidence.
     """
 
     command = [str(part) for part in (command or echo_server_command())]
@@ -259,6 +271,8 @@ def run_live_execution(
         "call": {"name": tool_name, "arguments": arguments, "result": call_result},
         "call_digest": _digest({"name": tool_name, "arguments": arguments, "result": call_result}),
     }
+    if extra:
+        trace_body.update(dict(extra))
     trace = {**trace_body, "trace_digest": _digest(trace_body)}
 
     out = Path(output_dir) if output_dir else Path(tempfile.mkdtemp(prefix="mcp-live-"))
@@ -318,20 +332,29 @@ def external_filesystem_server_command(allowed_dir: Path) -> list[str] | None:
     return [*base, "-y", "@modelcontextprotocol/server-filesystem", str(allowed_dir)]
 
 
-def builtin_mcp_live_external_proof() -> dict[str, Any]:
-    """Registered proof for ``capability.mcp-live-external``.
+EXTERNAL_LATEST_POINTER_NAME = "latest-external.json"
 
-    Runs the full live actuation path against a real external third-party MCP
-    server — the official ``@modelcontextprotocol/server-filesystem`` spawned
-    via npx: handshake against ``secure-filesystem-server``, live tools/list,
+
+def run_live_external_proof(
+    *,
+    trace_root: Path | None = None,
+    timeout_seconds: float = 180.0,
+) -> dict[str, Any]:
+    """Live-tier external proof: fresh actuation against a real third-party MCP server.
+
+    Spawns the official ``@modelcontextprotocol/server-filesystem`` via npx:
+    handshake against ``secure-filesystem-server``, live tools/list,
     policy-routed import, a real ``read_file`` call returning a sentinel file
-    the server read from disk, sealed + re-verified trace, tamper
-    falsification, and a fail-closed check that reading outside the allowed
-    directory is refused by the server.
+    the server read from disk, durable sealed trace + ``latest-external.json``
+    pointer under ``artifacts/mcp-live/``, tamper falsification, and a
+    fail-closed check that reading outside the allowed directory is refused by
+    the server. Needs network + npx; explicit evidence refresh, not the
+    registered proof.
     """
 
     import shutil
 
+    root = Path(trace_root) if trace_root else REPO_ROOT / DEFAULT_ARTIFACT_DIR
     with tempfile.TemporaryDirectory(prefix="mcp-external-proof-") as tmp:
         sandbox = Path(tmp) / "sandbox"
         sandbox.mkdir()
@@ -343,7 +366,8 @@ def builtin_mcp_live_external_proof() -> dict[str, Any]:
         if command is None:
             return {"ok": False, "error": "npx not available; cannot spawn external MCP server"}
 
-        out = Path(tmp) / "live"
+        stamp = utc_now_iso().replace(":", "").replace("-", "")
+        out = root / f"external-{stamp}"
         try:
             run = run_live_execution(
                 command=command,
@@ -351,10 +375,18 @@ def builtin_mcp_live_external_proof() -> dict[str, Any]:
                 tool_name="read_file",
                 arguments={"path": str(sentinel_path)},
                 output_dir=out,
-                timeout_seconds=180.0,
+                timeout_seconds=timeout_seconds,
+                extra={"sentinel": sentinel},
             )
         except McpProtocolError as error:
             return {"ok": False, "error": f"external session failed: {error}"}
+        pointer = {
+            "schema_version": SCHEMA_VERSION,
+            "trace_dir": str(out),
+            "trace_digest": run["trace_digest"],
+            "recorded_at": utc_now_iso(),
+        }
+        atomic_write_json(root / EXTERNAL_LATEST_POINTER_NAME, pointer)
         verify = verify_execution_trace(out)
 
         # Tamper falsification: edited recorded result must fail verification.
@@ -367,7 +399,7 @@ def builtin_mcp_live_external_proof() -> dict[str, Any]:
 
         # Fail-closed: the server must refuse paths outside its allowed root.
         outside_refused = False
-        with McpStdioSession(command, timeout_seconds=180.0) as session:
+        with McpStdioSession(command, timeout_seconds=timeout_seconds) as session:
             outside = session.call_tool("read_file", {"path": str(Path(tmp) / "outside.txt")})
             outside_refused = bool(outside.get("isError"))
 
@@ -384,13 +416,102 @@ def builtin_mcp_live_external_proof() -> dict[str, Any]:
     )
     return {
         "ok": bool(ok),
+        "proof_mode": "live",
         "trace_digest": run.get("trace_digest"),
+        "trace_dir": run.get("output_dir"),
         "server_info": server,
         "imported_tool_count": len(run.get("imported_tool_names") or []),
         "external_result_verified": sentinel in run.get("result_text", ""),
         "trace_verified": verify["ok"],
         "tamper_falsified": not tampered["ok"],
         "outside_allowed_dir_refused": outside_refused,
+    }
+
+
+def load_latest_external_trace(trace_root: Path | None = None) -> tuple[Path, dict[str, Any]] | None:
+    """Latest durable sealed external trace directory + pointer, or None."""
+
+    root = Path(trace_root) if trace_root else REPO_ROOT / DEFAULT_ARTIFACT_DIR
+    pointer_path = root / EXTERNAL_LATEST_POINTER_NAME
+    if not pointer_path.is_file():
+        return None
+    pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
+    trace_dir = Path(pointer["trace_dir"])
+    if not (trace_dir / "execution.json").is_file():
+        return None
+    return trace_dir, pointer
+
+
+def builtin_mcp_live_external_proof() -> dict[str, Any]:
+    """Registered proof for ``capability.mcp-live-external`` (hermetic).
+
+    Purely re-verifies the latest durable sealed external-session trace:
+    pointer binding, digest chain, and recorded semantics (server is
+    ``secure-filesystem-server``, fs read/write tools were imported, the
+    recorded sentinel is present in the recorded ``read_file`` result). The
+    verifier is falsified with a tampered copy in a throwaway directory, and a
+    forged trace must not bind to the pointer. No network, no npx, bounded
+    wall-clock. Refresh the underlying evidence with the explicit live tier
+    (``run_live_external_proof`` / CLI ``live-external-proof``).
+    """
+
+    import shutil
+
+    found = load_latest_external_trace()
+    if found is None:
+        return {
+            "ok": False,
+            "error": "no durable sealed external trace: run the live tier to seal one",
+            "proof_mode": "hermetic-sealed-verification",
+        }
+    trace_dir, pointer = found
+    trace = json.loads((trace_dir / "execution.json").read_text(encoding="utf-8"))
+
+    pointer_ok = pointer.get("trace_digest") == trace.get("trace_digest")
+    verify = verify_execution_trace(trace_dir)
+    server = (trace.get("handshake") or {}).get("serverInfo") or {}
+    imported = trace.get("imported_tool_names") or []
+    sentinel = trace.get("sentinel") or ""
+    call = trace.get("call") or {}
+    result_text = _extract_text(call.get("result") or {})
+    sentinel_verified = bool(sentinel) and sentinel in result_text
+
+    # Tamper falsification in a throwaway directory: an edited recorded
+    # result must fail verification, and the forged trace must not bind to
+    # the pointer.
+    with tempfile.TemporaryDirectory(prefix="mcp-external-tamper-") as tmp:
+        clone = Path(tmp) / "tampered"
+        clone.mkdir(parents=True, exist_ok=True)
+        forged = json.loads(json.dumps(trace))
+        forged["call"]["result"]["content"][0]["text"] = "forged"
+        atomic_write_json(clone / "execution.json", forged)
+        tampered = verify_execution_trace(clone)
+        forged_body = {key: value for key, value in forged.items() if key != "trace_digest"}
+        pointer_forgery_detected = _digest(forged_body) != pointer.get("trace_digest")
+
+    ok = (
+        pointer_ok
+        and verify["ok"]
+        and sentinel_verified
+        and not tampered["ok"]
+        and pointer_forgery_detected
+        and server.get("name") == "secure-filesystem-server"
+        and "fs:read_file" in imported
+        and "fs:write_file" in imported
+    )
+    return {
+        "ok": bool(ok),
+        "proof_mode": "hermetic-sealed-verification",
+        "trace_digest": trace.get("trace_digest"),
+        "trace_dir": str(trace_dir),
+        "recorded_at": trace.get("recorded_at"),
+        "server_info": server,
+        "imported_tool_count": len(imported),
+        "external_result_verified": sentinel_verified,
+        "pointer_binding_ok": pointer_ok,
+        "trace_verified": verify["ok"],
+        "tamper_falsified": not tampered["ok"],
+        "pointer_forgery_detected": pointer_forgery_detected,
     }
 
 

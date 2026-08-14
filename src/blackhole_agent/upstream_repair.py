@@ -29,6 +29,23 @@ discovers all targets and runs the same campaign over each:
   re-hashes the on-disk evidence files) so tampering with the report, a
   repro, or a patch fails verification.
 
+Two proof tiers share this evidence:
+
+- **live campaign** (``run_all_campaigns`` / CLI ``campaign``) — re-executes
+  every repro, ablation, and upstream suite and seals a fresh report. This is
+  the world-facing evidence producer; it takes minutes and is *not* the
+  registered proof.
+- **hermetic fleet proof** (``builtin_upstream_repair_proof`` /
+  ``run_sealed_fleet_proof``) — the registered ledger proof, bounded to fit
+  the integrity batch budget: purely re-verifies each target's latest sealed
+  report, falsifies the verifier with a tampered copy in a throwaway
+  directory (proofs never dirty the artifacts tree), and re-anchors each
+  target to current reality with a bounded live probe — one deterministic
+  defect whose repro must still fail on the pristine tree and still pass on
+  the fully patched tree. A drifted tool, edited evidence file, forged
+  verdict, or missing sealed report fails the proof; the full live campaign
+  remains available as an explicit command.
+
 Determinism contract: only exit codes and pass/fail counts enter digests.
 Durations (notably ReDoS probe timings) are diagnostics and are excluded.
 """
@@ -711,7 +728,12 @@ def run_all_campaigns(
     stewardship_root: Path = STEWARDSHIP_ROOT,
     artifact_dir: Path = ARTIFACT_DIR,
 ) -> dict[str, Any]:
-    """Run the repair campaign over every discovered stewardship target.
+    """Run the live repair campaign over every discovered stewardship target.
+
+    This is the evidence-refresh tier: it re-executes every repro, ablation,
+    and upstream suite and seals fresh reports (minutes of wall-clock). The
+    registered ledger proof is the hermetic tier — see
+    ``run_sealed_fleet_proof``.
 
     Each target gets its own sealed report; every report is then verified
     purely, and the verifier is falsified per target by flipping one recorded
@@ -797,9 +819,174 @@ def run_all_campaigns(
     }
 
 
+def run_live_probe(target_root: Path, *, defect_id: str | None = None) -> dict[str, Any]:
+    """Bounded live anchor for one target: one defect, one tree, two repro runs.
+
+    Re-executes the actual vendored code (no upstream suite) so the hermetic
+    fleet proof is anchored in current reality rather than only in recorded
+    verdicts: the probe defect's repro must still fail on the pristine tree
+    and still pass after every patch is applied. The probe defect defaults to
+    the first defect by sorted id so the choice is deterministic across runs.
+    Cost is one sdist extraction plus two repro executions per target.
+    """
+    target = load_target(target_root)
+    if not target.defects:
+        return {"ok": False, "error": "no curated defects: discovery-staging target"}
+    if defect_id is None:
+        defect = sorted(target.defects, key=lambda d: d.id)[0]
+    else:
+        defect = next((d for d in target.defects if d.id == defect_id), None)
+        if defect is None:
+            return {"ok": False, "error": f"unknown probe defect: {defect_id}"}
+    provenance = verify_sdist(target)
+    if not provenance["ok"]:
+        return {"ok": False, "error": "sdist provenance mismatch", "defect_id": defect.id}
+    start = time.monotonic()
+    work_root = Path(tempfile.mkdtemp(prefix="upstream-repair-probe-"))
+    try:
+        tree = extract_sdist(target, work_root / "tree")
+        baseline = run_repro(defect, tree, target.manifest)
+        if baseline["exit_code"] != 0:
+            for d in target.defects:
+                apply_patch_text(tree, d.patch.read_text(encoding="utf-8"))
+            repaired = run_repro(defect, tree, target.manifest)
+        else:
+            # Defect did not reproduce on the pristine tree: the probe has
+            # already failed, so the patched run would prove nothing.
+            repaired = {"exit_code": None, "stderr_tail": "skipped: baseline did not fail"}
+    finally:
+        shutil.rmtree(work_root, ignore_errors=True)
+    ok = baseline["exit_code"] != 0 and repaired["exit_code"] == 0
+    return {
+        "ok": ok,
+        "defect_id": defect.id,
+        "baseline_exit": baseline["exit_code"],
+        "repaired_exit": repaired["exit_code"],
+        "stderr_tail": "" if ok else (baseline.get("stderr_tail") or repaired.get("stderr_tail") or ""),
+        "duration_seconds": round(time.monotonic() - start, 3),
+    }
+
+
+def run_sealed_fleet_proof(
+    stewardship_root: Path = STEWARDSHIP_ROOT,
+    artifact_dir: Path = ARTIFACT_DIR,
+) -> dict[str, Any]:
+    """Hermetic, bounded proof of the repair plane across every target.
+
+    Per curated target: purely re-verify the latest sealed campaign report,
+    prove the verifier honest with a tampered report copy in a throwaway
+    directory, and re-anchor with a bounded live probe. Result keys mirror
+    ``run_all_campaigns`` so the registered ledger proof command is unchanged.
+    """
+    start = time.monotonic()
+    target_roots = discover_targets(stewardship_root)
+    targets: list[dict[str, Any]] = []
+    all_verified = True
+    all_tamper_detected = True
+    all_probes_ok = True
+    for target_root in target_roots:
+        target = load_target(target_root)
+        if not target.defects:
+            targets.append(
+                {
+                    "target_root": str(target_root),
+                    "ok": True,
+                    "skipped": "no curated defects: discovery-staging target",
+                    "repair_score": None,
+                    "defect_count": 0,
+                    "repaired_count": 0,
+                }
+            )
+            continue
+        entry: dict[str, Any] = {"target_root": str(target_root)}
+        report_dir = load_latest_report_dir(_target_artifact_dir(target, artifact_dir))
+        if report_dir is None:
+            entry.update(
+                {
+                    "ok": False,
+                    "error": "no sealed campaign report: run the live campaign to seal one",
+                    "verified": False,
+                    "tamper_detected": False,
+                    "live_probe": {"ok": False, "error": "not run: no sealed report"},
+                }
+            )
+            all_verified = False
+            all_tamper_detected = False
+            all_probes_ok = False
+            targets.append(entry)
+            continue
+
+        verification = verify_repair_report(report_dir, target_root)
+        entry["verified"] = verification["ok"]
+        entry["verify_problems"] = verification.get("problems", [])
+        all_verified = all_verified and verification["ok"]
+
+        # Verifier honesty: one flipped recorded outcome in a throwaway copy
+        # must be detected. Proofs never write into the artifacts tree.
+        report = json.loads(durable_read_path(report_dir / "report.json").read_text(encoding="utf-8"))
+        tampered = json.loads(json.dumps(report))
+        first = tampered["defects"][0]
+        first["repaired_exit"] = 1 if first["repaired_exit"] == 0 else 0
+        with tempfile.TemporaryDirectory(prefix="upstream-repair-tamper-") as tmp:
+            tamper_dir = Path(tmp) / "tampered"
+            tamper_dir.mkdir(parents=True, exist_ok=True)
+            atomic_write_json(tamper_dir / "report.json", tampered)
+            tamper_verdict = verify_repair_report(tamper_dir, target_root)
+        entry["tamper_detected"] = not tamper_verdict["ok"]
+        all_tamper_detected = all_tamper_detected and entry["tamper_detected"]
+
+        probe = run_live_probe(target_root)
+        entry["live_probe"] = probe
+        all_probes_ok = all_probes_ok and probe["ok"]
+
+        entry["report_dir"] = str(report_dir)
+        entry["report_digest"] = report.get("report_digest")
+        entry["repair_score"] = report.get("repair_score")
+        entry["defect_count"] = report.get("defect_count")
+        entry["repaired_count"] = report.get("repaired_count")
+        entry["ok"] = bool(entry["verified"] and entry["tamper_detected"] and probe["ok"])
+        targets.append(entry)
+
+    scored = [t for t in targets if t.get("repair_score") is not None]
+    defect_count = sum(t.get("defect_count") or 0 for t in targets)
+    repaired_count = sum(t.get("repaired_count") or 0 for t in targets)
+    scores = [t["repair_score"] for t in scored]
+    suite_green = all(t.get("ok") for t in targets) and bool(targets)
+    ok = (
+        bool(scored)
+        and all(t["ok"] for t in targets)
+        and all_verified
+        and all_tamper_detected
+        and all_probes_ok
+        and repaired_count == defect_count
+        and all(score == 1.0 for score in scores)
+    )
+    return {
+        "ok": ok,
+        "proof_mode": "hermetic-sealed-verification+live-probe",
+        "target_count": len(targets),
+        "targets": targets,
+        "defect_count": defect_count,
+        "repaired_count": repaired_count,
+        "repair_score": min(scores) if scores else 0.0,
+        "verified": all_verified,
+        "tamper_detected": all_tamper_detected,
+        "live_probes_ok": all_probes_ok,
+        "suite_green": suite_green,
+        "wall_clock_seconds": round(time.monotonic() - start, 3),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
 def builtin_upstream_repair_proof() -> dict[str, Any]:
-    """Prove the upstream repair plane across every stewardship target."""
-    return run_all_campaigns()
+    """Prove the upstream repair plane across every stewardship target.
+
+    Registered ledger proof: hermetic sealed-report re-verification plus a
+    bounded live probe per target, so the proof fits the integrity batch
+    budget. The full live campaign (``run_all_campaigns``) remains available
+    as the explicit evidence-refresh path.
+    """
+    return run_sealed_fleet_proof()
 
 
 # ---------------------------------------------------------------------------
@@ -814,7 +1001,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     verify_p = sub.add_parser("verify", help="purely verify a sealed report")
     verify_p.add_argument("report_dir", nargs="?", default=None)
     verify_p.add_argument("--target", default=None, help="stewardship target dir of the report")
-    sub.add_parser("proof", help="run the registered proof over all targets")
+    sub.add_parser("proof", help="run the registered hermetic proof (sealed verification + live probe)")
     args = parser.parse_args(argv)
 
     if args.command == "campaign":

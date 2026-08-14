@@ -20407,7 +20407,19 @@ FITNESS_AUTO: Any = object()
 
 Passing ``None`` explicitly disables fitness-aware ranking (pure novelty);
 omitting the argument auto-loads the sealed report when one exists.
+
+Reload-safety: the Unbound self-reload path can re-execute this module
+in-process (conformance suite, evolving-controller ticks), which replaces
+this global with a fresh ``object()`` while previously imported function
+objects keep the *old* sentinel as their captured default. An identity-only
+check then leaks the sentinel into ranking as a bogus map. Recognize the
+sentinel structurally — any bare ``object`` instance — so stale defaults are
+still honored after a reload.
 """
+
+
+def _is_fitness_auto(value: Any) -> bool:
+    return value is FITNESS_AUTO or type(value) is object
 
 
 def scout_capability_gaps(
@@ -20428,7 +20440,7 @@ def scout_capability_gaps(
     """
 
     root = (repo_path or Path(__file__).resolve().parents[2]).resolve()
-    if fitness_map is FITNESS_AUTO:
+    if _is_fitness_auto(fitness_map):
         fitness_map = None
         try:
             from blackhole_agent.capability_benchmark import load_latest_fitness_map
@@ -26267,6 +26279,176 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
             updated_at=utc_now_iso(),
         ),
         Capability(
+            id="capability.upstream-contribution",
+            name="Upstream contribution plane (submission-ready bundles verified against the true upstream repo)",
+            description=(
+                "Closes the stewardship loop back to the real upstream "
+                "project. For one stewarded, repaired defect the plane "
+                "fetches the true upstream repository archive at the pinned "
+                "release tag, re-confirms the synthesized repro on upstream "
+                "source, runs the project's own test suite as a pristine "
+                "baseline, triages upstream HEAD, rebases the sdist-layout "
+                "patch onto the repo layout and applies it, installs a "
+                "regression test, and requires the patched upstream suite "
+                "green. The bundle is digest-sealed and re-checkable with "
+                "verify; tampering is detected. No outward action: the "
+                "bundle is submission-ready evidence, not a submission."
+            ),
+            kind="python",
+            entry="blackhole_agent.upstream_contribution:builtin_upstream_contribution_proof",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.upstream_contribution import builtin_upstream_contribution_proof; '
+                "r=builtin_upstream_contribution_proof(); assert r['ok'] "
+                "and r.get('submittable_sealed') and r.get('seal_verified') "
+                "and r.get('tamper_detected') and r.get('already_fixed_triaged') "
+                "and r.get('breaking_patch_rejected') "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.upstream-repair",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/upstream_contribution.py",
+                "stewardship/tomli-2.4.1",
+            ),
+            capability_delta=(
+                "Stewarded repairs are no longer local-only claims: a "
+                "repaired defect becomes a submission-ready contribution "
+                "bundle verified against the true upstream repository - tag "
+                "reproduction, HEAD triage, repo-layout patch rebase, "
+                "upstream-suite gating with an installed regression test, "
+                "digest-sealed and tamper-evident, without skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "upstream",
+                "contribution",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.upstream-publication",
+            name="Upstream publication plane (verified outward actuation of sealed contribution bundles)",
+            description=(
+                "Closes the stewardship loop with real outward actuation. "
+                "For one sealed, submittable contribution bundle the plane "
+                "re-verifies the bundle seal, triages existing upstream PRs "
+                "for the publication branch (never a second PR), forks the "
+                "true upstream repo, applies the bundle patch at the "
+                "default-branch HEAD, installs the native regression test, "
+                "re-verifies the exact pushed tree, commits with an "
+                "automation-disclosure trailer, opens the pull request with "
+                "an evidence body carrying the sha256 payload digests, and "
+                "seals a digest-pinned receipt re-checkable offline and "
+                "online."
+            ),
+            kind="python",
+            entry="blackhole_agent.upstream_publication:builtin_upstream_publication_proof",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.upstream_publication import builtin_upstream_publication_proof; '
+                "r=builtin_upstream_publication_proof(); assert r['ok'] "
+                "and r.get('published') and r.get('receipt_verified') "
+                "and r.get('tamper_detected') and r.get('idempotent_republish') "
+                "and r.get('stale_bundle_refused') and r.get('divergence_refused') "
+                "and r.get('merged_triaged') "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.upstream-contribution",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/upstream_publication.py",
+                ".gitattributes",
+            ),
+            capability_delta=(
+                "Stewardship evidence is no longer local-only: a sealed "
+                "submittable bundle becomes a real upstream pull request "
+                "through verified outward actuation - fork, patch-at-HEAD "
+                "gating, exact-tree re-verification, disclosed automated "
+                "authorship, idempotent PR triage, and a digest-sealed "
+                "receipt verifiable online against the live PR."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "upstream",
+                "publication",
+                "actuation",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
+            id="capability.upstream-impact",
+            name="Upstream impact plane (post-publication outcome closure)",
+            description=(
+                "Closes the post-publication outcome loop over sealed "
+                "publication receipts. Re-verifies the publication seal, "
+                "queries live pull-request state through an injected gh "
+                "seam, and classifies durable outcomes: impact_open, "
+                "impact_open_diverged, impact_merged, impact_closed_unmerged, "
+                "impact_pr_missing, and impact_released (when an absorption "
+                "checker confirms a released version absorbed the repair). "
+                "Seals tamper-evident impact certificates under "
+                "artifacts/upstream-impact/ and a portfolio rollup over all "
+                "newest published receipts per (name, version, defect_id). "
+                "Unsealed or non-published receipts are refused. No "
+                "skill-route discovery is used."
+            ),
+            kind="python",
+            entry="blackhole_agent.upstream_impact:builtin_upstream_impact_proof",
+            proof_command=(
+                f'"{sys.executable}" -c '
+                '"from blackhole_agent.upstream_impact import builtin_upstream_impact_proof; '
+                "r=builtin_upstream_impact_proof(); assert r['ok'] "
+                "and r.get('open_classified') and r.get('merged_classified') "
+                "and r.get('closed_classified') and r.get('diverged_classified') "
+                "and r.get('released_classified') and r.get('missing_classified') "
+                "and r.get('certificate_verified') and r.get('tamper_detected') "
+                "and r.get('unsealed_refused') and r.get('not_published_refused') "
+                "and r.get('portfolio_assessed') "
+                "and not r.get('used_skill_route_discovery')\""
+            ),
+            dependencies=(
+                "repo.import-health",
+                "capability.ledger-inventory",
+                "capability.upstream-publication",
+            ),
+            behavior_paths=(
+                "src/blackhole_agent/upstream_impact.py",
+                "src/blackhole_agent/upstream_publication.py",
+            ),
+            capability_delta=(
+                "Published stewardship repairs are no longer fire-and-forget: "
+                "sealed publication receipts become live-tracked outcomes "
+                "(open/merged/closed/diverged/released/missing) with "
+                "tamper-evident impact certificates and a portfolio rollup "
+                "over the whole outward contribution surface, without "
+                "skill-route."
+            ),
+            tags=(
+                "bootstrap",
+                "compounder",
+                "upstream",
+                "impact",
+                "publication",
+                "portfolio",
+                "evidence",
+            ),
+            created_at=utc_now_iso(),
+            updated_at=utc_now_iso(),
+        ),
+        Capability(
             id="capability.upstream-campaign",
             name="Upstream campaign plane (full-loop stewardship orchestration)",
             description=(
@@ -26329,66 +26511,6 @@ def seed_bootstrap_capabilities(ledger: CapabilityLedger) -> CapabilityLedger:
                 "orchestration",
                 "full-loop",
                 "impact",
-                "evidence",
-            ),
-            created_at=utc_now_iso(),
-            updated_at=utc_now_iso(),
-        ),
-        Capability(
-            id="capability.upstream-impact",
-            name="Upstream impact plane (post-publication outcome closure)",
-            description=(
-                "Closes the post-publication outcome loop over sealed "
-                "publication receipts. Re-verifies the publication seal, "
-                "queries live pull-request state through an injected gh "
-                "seam, and classifies durable outcomes: impact_open, "
-                "impact_open_diverged, impact_merged, impact_closed_unmerged, "
-                "impact_pr_missing, and impact_released (when an absorption "
-                "checker confirms a released version absorbed the repair). "
-                "Seals tamper-evident impact certificates under "
-                "artifacts/upstream-impact/ and a portfolio rollup over all "
-                "newest published receipts per (name, version, defect_id). "
-                "Unsealed or non-published receipts are refused. No "
-                "skill-route discovery is used."
-            ),
-            kind="python",
-            entry="blackhole_agent.upstream_impact:builtin_upstream_impact_proof",
-            proof_command=(
-                f'"{sys.executable}" -c '
-                '"from blackhole_agent.upstream_impact import builtin_upstream_impact_proof; '
-                "r=builtin_upstream_impact_proof(); assert r['ok'] "
-                "and r.get('open_classified') and r.get('merged_classified') "
-                "and r.get('closed_classified') and r.get('diverged_classified') "
-                "and r.get('released_classified') and r.get('missing_classified') "
-                "and r.get('certificate_verified') and r.get('tamper_detected') "
-                "and r.get('unsealed_refused') and r.get('not_published_refused') "
-                "and r.get('portfolio_assessed') "
-                "and not r.get('used_skill_route_discovery')\""
-            ),
-            dependencies=(
-                "repo.import-health",
-                "capability.ledger-inventory",
-                "capability.upstream-publication",
-            ),
-            behavior_paths=(
-                "src/blackhole_agent/upstream_impact.py",
-                "src/blackhole_agent/upstream_publication.py",
-            ),
-            capability_delta=(
-                "Published stewardship repairs are no longer fire-and-forget: "
-                "sealed publication receipts become live-tracked outcomes "
-                "(open/merged/closed/diverged/released/missing) with "
-                "tamper-evident impact certificates and a portfolio rollup "
-                "over the whole outward contribution surface, without "
-                "skill-route."
-            ),
-            tags=(
-                "bootstrap",
-                "compounder",
-                "upstream",
-                "impact",
-                "publication",
-                "portfolio",
                 "evidence",
             ),
             created_at=utc_now_iso(),

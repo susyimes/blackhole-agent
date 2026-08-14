@@ -14759,6 +14759,26 @@ def run_governance_spine(
     return annotated
 
 
+def _facade_surface_ok(facade: Any, *names: str) -> bool:
+    """The loop facade exposes the named engine surface, identity-checked.
+
+    The spine proofs historically grepped the facade *source text* for these
+    names, which coupled the proofs to the facade being an explicit import
+    list. The facade is now a thin PEP 562 delegator, so the honest check is
+    delegation identity: each name must resolve on the facade to the engine
+    module's own object. The comparison target is the canonically-named
+    module instance — the one the facade imports — because under
+    ``python -m blackhole_agent.upstream_control_engine`` the executing
+    ``__main__`` instance is a distinct module object with distinct
+    identities.
+    """
+
+    engine = sys.modules.get("blackhole_agent.upstream_control_engine")
+    if engine is None:
+        engine = sys.modules.get(__name__)
+    return all(getattr(facade, name, None) is getattr(engine, name, None) for name in names)
+
+
 def builtin_governance_spine_proof() -> dict[str, Any]:
     """Hermetic proof: institution→program→…→campaign is one governance spine.
 
@@ -17084,12 +17104,10 @@ def builtin_total_spine_proof() -> dict[str, Any]:
             and getattr(le_facade, "TOTAL_SPINE_CAMPAIGN_BOUND", False) is True
         )
 
-        facade_path = Path(le_facade.__file__).resolve()
-        facade_text = facade_path.read_text(encoding="utf-8")
-        source_ok = (
-            "TOTAL_SPINE" in facade_text
-            and "builtin_total_spine_proof" in facade_text
-            and "run_total_spine" in facade_text
+        # Facade exposes the total-spine surface (delegation identity;
+        # source-text greps predate the thin PEP 562 facade).
+        source_ok = _facade_surface_ok(
+            le_facade, "TOTAL_SPINE_IMPL", "builtin_total_spine_proof", "run_total_spine"
         )
 
         engine_path = Path(__file__).resolve()
@@ -17365,17 +17383,10 @@ def builtin_total_spine_effect_proof() -> dict[str, Any]:
             and not legacy_pipeline_was_used()
         )
 
-        facade_path = Path(le_facade.__file__).resolve()
-        facade_text = facade_path.read_text(encoding="utf-8")
-        source_ok = (
-            "TOTAL_SPINE_EFFECT_IMPL" in facade_text
-            and "builtin_total_spine_effect_proof" in facade_text
-            and "dispatch_total_spine_effects" in facade_text
-            and callable(
-                getattr(le_facade, "builtin_total_spine_effect_proof", None)
-            )
-            and callable(getattr(le_facade, "dispatch_total_spine_effects", None))
-            and getattr(le_facade, "TOTAL_SPINE_EFFECT_IMPL", False) is True
+        # Facade exposes this stage's surface (delegation identity;
+        # source-text greps predate the thin PEP 562 facade).
+        source_ok = _facade_surface_ok(
+            le_facade, "TOTAL_SPINE_EFFECT_IMPL", "builtin_total_spine_effect_proof", "dispatch_total_spine_effects"
         )
 
         engine_path = Path(__file__).resolve()
@@ -17645,19 +17656,10 @@ def builtin_total_spine_goal_proof() -> dict[str, Any]:
             != spine.get("total_spine_digest")
         )
 
-        facade_path = Path(le_facade.__file__).resolve()
-        facade_text = facade_path.read_text(encoding="utf-8")
-        source_ok = (
-            "TOTAL_SPINE_GOAL_IMPL" in facade_text
-            and "builtin_total_spine_goal_proof" in facade_text
-            and "plan_total_spine_goal_effects" in facade_text
-            and callable(
-                getattr(le_facade, "builtin_total_spine_goal_proof", None)
-            )
-            and callable(
-                getattr(le_facade, "plan_total_spine_goal_effects", None)
-            )
-            and getattr(le_facade, "TOTAL_SPINE_GOAL_IMPL", False) is True
+        # Facade exposes this stage's surface (delegation identity;
+        # source-text greps predate the thin PEP 562 facade).
+        source_ok = _facade_surface_ok(
+            le_facade, "TOTAL_SPINE_GOAL_IMPL", "builtin_total_spine_goal_proof", "plan_total_spine_goal_effects"
         )
 
         engine_path = Path(__file__).resolve()
@@ -17923,19 +17925,10 @@ def builtin_total_spine_adaptive_proof() -> dict[str, Any]:
             and goal_adaptive.get("total_spine_adaptive_recovered") is not True
         )
 
-        facade_path = Path(le_facade.__file__).resolve()
-        facade_text = facade_path.read_text(encoding="utf-8")
-        source_ok = (
-            "TOTAL_SPINE_ADAPTIVE_IMPL" in facade_text
-            and "builtin_total_spine_adaptive_proof" in facade_text
-            and "seal_total_spine_adaptive_chain" in facade_text
-            and callable(
-                getattr(le_facade, "builtin_total_spine_adaptive_proof", None)
-            )
-            and callable(
-                getattr(le_facade, "seal_total_spine_adaptive_chain", None)
-            )
-            and getattr(le_facade, "TOTAL_SPINE_ADAPTIVE_IMPL", False) is True
+        # Facade exposes this stage's surface (delegation identity;
+        # source-text greps predate the thin PEP 562 facade).
+        source_ok = _facade_surface_ok(
+            le_facade, "TOTAL_SPINE_ADAPTIVE_IMPL", "builtin_total_spine_adaptive_proof", "seal_total_spine_adaptive_chain"
         )
 
         engine_path = Path(__file__).resolve()
@@ -18210,21 +18203,10 @@ def builtin_total_spine_continuity_proof() -> dict[str, Any]:
                 == resumed.get("total_spine_continuity_tip")
             )
 
-        facade_path = Path(le_facade.__file__).resolve()
-        facade_text = facade_path.read_text(encoding="utf-8")
-        source_ok = (
-            "TOTAL_SPINE_CONTINUITY_IMPL" in facade_text
-            and "builtin_total_spine_continuity_proof" in facade_text
-            and "load_total_spine_continuity_checkpoint" in facade_text
-            and callable(
-                getattr(le_facade, "builtin_total_spine_continuity_proof", None)
-            )
-            and callable(
-                getattr(
-                    le_facade, "load_total_spine_continuity_checkpoint", None
-                )
-            )
-            and getattr(le_facade, "TOTAL_SPINE_CONTINUITY_IMPL", False) is True
+        # Facade exposes this stage's surface (delegation identity;
+        # source-text greps predate the thin PEP 562 facade).
+        source_ok = _facade_surface_ok(
+            le_facade, "TOTAL_SPINE_CONTINUITY_IMPL", "builtin_total_spine_continuity_proof", "load_total_spine_continuity_checkpoint"
         )
 
         engine_path = Path(__file__).resolve()
@@ -18612,21 +18594,10 @@ def builtin_total_spine_finality_proof() -> dict[str, Any]:
                 == shorted.get("total_spine_finality_tip")
             )
 
-        facade_path = Path(le_facade.__file__).resolve()
-        facade_text = facade_path.read_text(encoding="utf-8")
-        source_ok = (
-            "TOTAL_SPINE_FINALITY_IMPL" in facade_text
-            and "builtin_total_spine_finality_proof" in facade_text
-            and "load_total_spine_finality_certificate" in facade_text
-            and callable(
-                getattr(le_facade, "builtin_total_spine_finality_proof", None)
-            )
-            and callable(
-                getattr(
-                    le_facade, "load_total_spine_finality_certificate", None
-                )
-            )
-            and getattr(le_facade, "TOTAL_SPINE_FINALITY_IMPL", False) is True
+        # Facade exposes this stage's surface (delegation identity;
+        # source-text greps predate the thin PEP 562 facade).
+        source_ok = _facade_surface_ok(
+            le_facade, "TOTAL_SPINE_FINALITY_IMPL", "builtin_total_spine_finality_proof", "load_total_spine_finality_certificate"
         )
 
         engine_path = Path(__file__).resolve()
@@ -19027,18 +18998,10 @@ def builtin_total_spine_federation_proof() -> dict[str, Any]:
         )
         soft_ok = soft.get("hard_conflict") is False
 
-        facade_path = Path(le_facade.__file__).resolve()
-        facade_text = facade_path.read_text(encoding="utf-8")
-        source_ok = (
-            "TOTAL_SPINE_FEDERATION_IMPL" in facade_text
-            and "builtin_total_spine_federation_proof" in facade_text
-            and "federate_total_spine" in facade_text
-            and "load_total_spine_federation_certificate" in facade_text
-            and callable(
-                getattr(le_facade, "builtin_total_spine_federation_proof", None)
-            )
-            and callable(getattr(le_facade, "federate_total_spine", None))
-            and getattr(le_facade, "TOTAL_SPINE_FEDERATION_IMPL", False) is True
+        # Facade exposes this stage's surface (delegation identity;
+        # source-text greps predate the thin PEP 562 facade).
+        source_ok = _facade_surface_ok(
+            le_facade, "TOTAL_SPINE_FEDERATION_IMPL", "builtin_total_spine_federation_proof", "federate_total_spine", "load_total_spine_federation_certificate"
         )
 
         engine_path = Path(__file__).resolve()
@@ -19531,17 +19494,10 @@ def builtin_total_spine_quorum_proof() -> dict[str, Any]:
             and int(clusters[1].get("size") or 0) == 1
         )
 
-        facade_path = Path(le_facade.__file__).resolve()
-        facade_text = facade_path.read_text(encoding="utf-8")
-        source_ok = (
-            "TOTAL_SPINE_QUORUM_IMPL" in facade_text
-            and "builtin_total_spine_quorum_proof" in facade_text
-            and "cluster_total_spine_finality_origins" in facade_text
-            and callable(
-                getattr(le_facade, "builtin_total_spine_quorum_proof", None)
-            )
-            and callable(getattr(le_facade, "federate_total_spine", None))
-            and getattr(le_facade, "TOTAL_SPINE_QUORUM_IMPL", False) is True
+        # Facade exposes this stage's surface (delegation identity;
+        # source-text greps predate the thin PEP 562 facade).
+        source_ok = _facade_surface_ok(
+            le_facade, "TOTAL_SPINE_QUORUM_IMPL", "builtin_total_spine_quorum_proof", "cluster_total_spine_finality_origins"
         )
 
         engine_path = Path(__file__).resolve()
@@ -20079,17 +20035,10 @@ def builtin_total_spine_execution_proof() -> dict[str, Any]:
             and int(fin_only.get("total_spine_state_height") or 0) == 1
         )
 
-        facade_path = Path(le_facade.__file__).resolve()
-        facade_text = facade_path.read_text(encoding="utf-8")
-        source_ok = (
-            "TOTAL_SPINE_EXECUTION_IMPL" in facade_text
-            and "builtin_total_spine_execution_proof" in facade_text
-            and "execute_total_spine" in facade_text
-            and callable(
-                getattr(le_facade, "builtin_total_spine_execution_proof", None)
-            )
-            and callable(getattr(le_facade, "execute_total_spine", None))
-            and getattr(le_facade, "TOTAL_SPINE_EXECUTION_IMPL", False) is True
+        # Facade exposes this stage's surface (delegation identity;
+        # source-text greps predate the thin PEP 562 facade).
+        source_ok = _facade_surface_ok(
+            le_facade, "TOTAL_SPINE_EXECUTION_IMPL", "builtin_total_spine_execution_proof", "execute_total_spine"
         )
 
         engine_path = Path(__file__).resolve()

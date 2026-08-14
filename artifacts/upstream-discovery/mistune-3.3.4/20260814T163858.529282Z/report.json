@@ -1,0 +1,406 @@
+{
+  "chain_digest": "a998243a7af6cdcbbcebc25bd51253049812edb1cd71bc3699f7f53aa5495c6b",
+  "driver_runtime": "python",
+  "finding_count": 0,
+  "findings": [
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "nested_link",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0028
+        ],
+        [
+          2000,
+          0.0046
+        ],
+        [
+          4000,
+          0.012
+        ],
+        [
+          8000,
+          0.0191
+        ],
+        [
+          16000,
+          0.0426
+        ]
+      ]
+    },
+    {
+      "exponent": 0.984,
+      "flagged": false,
+      "generator": "nested_image",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0042
+        ],
+        [
+          2000,
+          0.0091
+        ],
+        [
+          4000,
+          0.0181
+        ],
+        [
+          8000,
+          0.0368
+        ],
+        [
+          16000,
+          0.0727
+        ]
+      ]
+    },
+    {
+      "exponent": 1.193,
+      "flagged": false,
+      "generator": "nested_emphasis",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0081
+        ],
+        [
+          2000,
+          0.0174
+        ],
+        [
+          4000,
+          0.0358
+        ],
+        [
+          8000,
+          0.0783
+        ],
+        [
+          16000,
+          0.179
+        ]
+      ]
+    },
+    {
+      "exponent": 1.22,
+      "flagged": false,
+      "generator": "unclosed_emphasis",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0053
+        ],
+        [
+          2000,
+          0.0126
+        ],
+        [
+          4000,
+          0.0229
+        ],
+        [
+          8000,
+          0.0533
+        ],
+        [
+          16000,
+          0.101
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "link_suffixes",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0003
+        ],
+        [
+          2000,
+          0.0006
+        ],
+        [
+          4000,
+          0.0009
+        ],
+        [
+          8000,
+          0.0016
+        ],
+        [
+          16000,
+          0.003
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "backtick_runs",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0005
+        ],
+        [
+          2000,
+          0.0009
+        ],
+        [
+          4000,
+          0.0018
+        ],
+        [
+          8000,
+          0.0049
+        ],
+        [
+          16000,
+          0.0087
+        ]
+      ]
+    },
+    {
+      "exponent": 1.031,
+      "flagged": false,
+      "generator": "footnote_refs",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0134
+        ],
+        [
+          2000,
+          0.0258
+        ],
+        [
+          4000,
+          0.0528
+        ],
+        [
+          8000,
+          0.1042
+        ],
+        [
+          16000,
+          0.1844
+        ]
+      ]
+    },
+    {
+      "exponent": 1.687,
+      "flagged": false,
+      "generator": "footnote_defs",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0155
+        ],
+        [
+          2000,
+          0.0393
+        ],
+        [
+          4000,
+          0.0964
+        ],
+        [
+          8000,
+          0.2772
+        ],
+        [
+          16000,
+          0.8922
+        ]
+      ]
+    },
+    {
+      "exponent": 1.013,
+      "flagged": false,
+      "generator": "inline_links",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0126
+        ],
+        [
+          2000,
+          0.0235
+        ],
+        [
+          4000,
+          0.0475
+        ],
+        [
+          8000,
+          0.0914
+        ],
+        [
+          16000,
+          0.1763
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "unclosed_spoiler",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0005
+        ],
+        [
+          2000,
+          0.0011
+        ],
+        [
+          4000,
+          0.0018
+        ],
+        [
+          8000,
+          0.0038
+        ],
+        [
+          16000,
+          0.0071
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "adjacent_ruby",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0001
+        ],
+        [
+          2000,
+          0.0002
+        ],
+        [
+          4000,
+          0.0002
+        ],
+        [
+          8000,
+          0.0004
+        ],
+        [
+          16000,
+          0.0007
+        ]
+      ]
+    },
+    {
+      "exponent": 1.01,
+      "flagged": false,
+      "generator": "table_row",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0099
+        ],
+        [
+          2000,
+          0.0178
+        ],
+        [
+          4000,
+          0.0353
+        ],
+        [
+          8000,
+          0.0711
+        ],
+        [
+          16000,
+          0.136
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "digit_run",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0001
+        ],
+        [
+          2000,
+          0.0003
+        ],
+        [
+          4000,
+          0.0005
+        ],
+        [
+          8000,
+          0.0009
+        ],
+        [
+          16000,
+          0.0018
+        ]
+      ]
+    },
+    {
+      "exponent": 0.0,
+      "flagged": false,
+      "generator": "dotted_key",
+      "kind": "complexity",
+      "times": [
+        [
+          1000,
+          0.0001
+        ],
+        [
+          2000,
+          0.0001
+        ],
+        [
+          4000,
+          0.0003
+        ],
+        [
+          8000,
+          0.0005
+        ],
+        [
+          16000,
+          0.0011
+        ]
+      ]
+    }
+  ],
+  "scanned_at": "2026-08-14T16:39:09.196368Z",
+  "schema_version": 1,
+  "sdist_sha256": "58b5c96d6fcb61190dfe5fae498d2b2065f99cf61e9649418fd54cf1ada86dfe",
+  "target": {
+    "name": "mistune",
+    "version": "3.3.4"
+  }
+}

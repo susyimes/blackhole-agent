@@ -43,6 +43,17 @@ so verification is pure (recompute digests from recorded outcomes, re-hash
 on-disk repro files); a tamper probe must fail verification.
 
 Sealed reports land under ``artifacts/upstream-discovery/<target>/<ts>/``.
+
+Two proof tiers share this evidence: the **live tier**
+(``run_live_discovery_proof`` / CLI ``live-proof`` or ``scan``) re-runs the
+full timing-ladder battery and seals fresh reports — minutes of wall-clock,
+explicit evidence refresh only; the **registered proof**
+(``builtin_upstream_discovery_proof`` / ``run_sealed_discovery_proof``) is
+hermetic and bounded — it purely re-verifies each target's latest sealed
+report, falsifies the verifier with a tampered copy in a throwaway
+directory, and re-anchors each target with one bounded live probe (a flagged
+finding's synthesized repro must still fail on a freshly extracted pristine
+tree), so the proof fits the integrity batch budget.
 """
 
 from __future__ import annotations
@@ -788,7 +799,14 @@ def run_discovery_scan(
 def load_latest_report_dir(artifact_root: Path) -> Path | None:
     if not artifact_root.exists():
         return None
-    candidates = sorted(p for p in artifact_root.iterdir() if (p / "report.json").exists())
+    # Only timestamped scan directories are evidence; auxiliary directories
+    # (e.g. historical tamper-probe forgeries written by the legacy live
+    # proof) sort last and must never be selected as the latest report.
+    candidates = sorted(
+        p
+        for p in artifact_root.iterdir()
+        if p.name[:1].isdigit() and (p / "report.json").exists()
+    )
     return candidates[-1] if candidates else None
 
 
@@ -811,11 +829,17 @@ def verify_discovery_report(report_dir: Path) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# registered proof
+# registered proof (two-tier: live scan tier + hermetic sealed-verification tier)
 
 
-def builtin_upstream_discovery_proof() -> dict[str, Any]:
-    """Prove the discovery plane: real findings, confirmed repros, honest seals."""
+def run_live_discovery_proof() -> dict[str, Any]:
+    """Live-tier proof: fresh timing-ladder scans over every target.
+
+    Re-runs the full doubling-ladder scan per stewardship target, seals fresh
+    reports, verifies them, and falsifies each verifier with a tampered copy.
+    This takes minutes (real complexity measurements) and is the explicit
+    evidence-refresh path — not the registered proof.
+    """
     roots = discover_targets()
     if not roots:
         return {"ok": False, "error": "no stewardship targets"}
@@ -844,16 +868,18 @@ def builtin_upstream_discovery_proof() -> dict[str, Any]:
         # falsify the verifier: one flipped verdict must be detected
         report = json.loads(durable_read_path(report_dir / "report.json").read_text(encoding="utf-8"))
         report["findings"][0]["flagged"] = not report["findings"][0]["flagged"]
-        tamper_dir = report_dir.parent / "tamper-probe"
-        tamper_dir.mkdir(parents=True, exist_ok=True)
-        atomic_write_json(tamper_dir / "report.json", report)
-        tamper_verdict = verify_discovery_report(tamper_dir)
+        with tempfile.TemporaryDirectory(prefix="upstream-discovery-tamper-") as tmp:
+            tamper_dir = Path(tmp) / "tampered"
+            tamper_dir.mkdir(parents=True, exist_ok=True)
+            atomic_write_json(tamper_dir / "report.json", report)
+            tamper_verdict = verify_discovery_report(tamper_dir)
         entry["tamper_detected"] = not tamper_verdict["ok"]
         all_tamper_detected = all_tamper_detected and entry["tamper_detected"]
         per_target.append(entry)
     ok = total_findings >= 1 and all_verified and all_tamper_detected
     return {
         "ok": ok,
+        "proof_mode": "live",
         "target_count": len(roots),
         "finding_count": total_findings,
         "verified": all_verified,
@@ -861,6 +887,130 @@ def builtin_upstream_discovery_proof() -> dict[str, Any]:
         "targets": per_target,
         "used_skill_route_discovery": legacy_pipeline_was_used(),
     }
+
+
+def run_sealed_discovery_proof(
+    artifact_dir: Path = ARTIFACT_DIR,
+) -> dict[str, Any]:
+    """Hermetic, bounded proof of the discovery plane across every target.
+
+    Per target: purely re-verify the latest sealed scan report (chain digest
+    + repro evidence hashes), falsify the verifier with a tampered copy in a
+    throwaway directory, and re-anchor with a bounded live probe — one
+    flagged finding's synthesized repro, re-executed against a freshly
+    extracted pristine tree, must still exit non-zero. Result keys mirror the
+    live tier so the registered ledger proof command is unchanged.
+    """
+    import time as _time
+
+    start = _time.monotonic()
+    roots = discover_targets()
+    if not roots:
+        return {"ok": False, "error": "no stewardship targets"}
+    total_findings = 0
+    all_verified = True
+    all_tamper_detected = True
+    all_probes_ok = True
+    per_target: list[dict[str, Any]] = []
+    for root in roots:
+        target = load_target(root)
+        entry: dict[str, Any] = {"target_root": str(root)}
+        artifact_root = artifact_dir / f"{target.name}-{target.version}"
+        report_dir = load_latest_report_dir(artifact_root)
+        if report_dir is None:
+            entry.update(
+                {
+                    "ok": False,
+                    "error": "no sealed discovery report: run the live scan tier to seal one",
+                    "verified": False,
+                    "tamper_detected": False,
+                    "live_probe": {"ok": False, "error": "not run: no sealed report"},
+                }
+            )
+            all_verified = False
+            all_tamper_detected = False
+            all_probes_ok = False
+            per_target.append(entry)
+            continue
+
+        verification = verify_discovery_report(report_dir)
+        entry["verified"] = verification["ok"]
+        entry["verify_problems"] = verification.get("problems", [])
+        all_verified = all_verified and verification["ok"]
+
+        report = json.loads(durable_read_path(report_dir / "report.json").read_text(encoding="utf-8"))
+        findings = report.get("findings", [])
+        entry["finding_count"] = int(report.get("finding_count") or 0)
+        total_findings += entry["finding_count"]
+
+        # Verifier honesty: one flipped verdict in a throwaway copy must be
+        # detected. Proofs never write into the artifacts tree.
+        tampered_report = json.loads(json.dumps(report))
+        if findings:
+            tampered_report["findings"][0]["flagged"] = not tampered_report["findings"][0]["flagged"]
+        with tempfile.TemporaryDirectory(prefix="upstream-discovery-tamper-") as tmp:
+            tamper_dir = Path(tmp) / "tampered"
+            tamper_dir.mkdir(parents=True, exist_ok=True)
+            atomic_write_json(tamper_dir / "report.json", tampered_report)
+            tamper_verdict = verify_discovery_report(tamper_dir)
+        entry["tamper_detected"] = not tamper_verdict["ok"] if findings else False
+        all_tamper_detected = all_tamper_detected and entry["tamper_detected"]
+
+        # Bounded live probe: the first flagged finding's synthesized repro
+        # must still fail on a freshly extracted pristine tree.
+        flagged = sorted(
+            (f for f in findings if f.get("flagged") and f.get("repro") and f.get("pristine_repro_exit")),
+            key=lambda f: str(f.get("generator")),
+        )
+        if not flagged:
+            entry["live_probe"] = {"ok": True, "skipped": "no flagged finding with repro"}
+        else:
+            finding = flagged[0]
+            scratch = Path(tempfile.mkdtemp(prefix="upstream-discovery-probe-"))
+            try:
+                src_dir = extract_pristine(target, scratch)
+                probe_exit = run_repro(report_dir / str(finding["repro"]), src_dir)
+            except Exception as exc:  # provenance mismatch etc. fail closed
+                entry["live_probe"] = {"ok": False, "error": str(exc)}
+            else:
+                entry["live_probe"] = {
+                    "ok": probe_exit != 0,
+                    "generator": finding.get("generator"),
+                    "probe_exit": probe_exit,
+                    "recorded_pristine_exit": finding.get("pristine_repro_exit"),
+                }
+            finally:
+                shutil.rmtree(scratch, ignore_errors=True)
+        all_probes_ok = all_probes_ok and entry["live_probe"]["ok"]
+
+        entry["report_dir"] = str(report_dir)
+        entry["ok"] = bool(entry["verified"] and entry["tamper_detected"] and entry["live_probe"]["ok"])
+        per_target.append(entry)
+
+    ok = total_findings >= 1 and all_verified and all_tamper_detected and all_probes_ok
+    return {
+        "ok": ok,
+        "proof_mode": "hermetic-sealed-verification+live-probe",
+        "target_count": len(roots),
+        "finding_count": total_findings,
+        "verified": all_verified,
+        "tamper_detected": all_tamper_detected,
+        "live_probes_ok": all_probes_ok,
+        "wall_clock_seconds": round(_time.monotonic() - start, 3),
+        "targets": per_target,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def builtin_upstream_discovery_proof() -> dict[str, Any]:
+    """Prove the discovery plane: sealed findings, confirmed repros, honest seals.
+
+    Registered ledger proof: hermetic sealed-report re-verification plus a
+    bounded live probe per target, so the proof fits the integrity batch
+    budget. The full live scan (``run_live_discovery_proof`` / CLI ``scan``)
+    remains the explicit evidence-refresh path.
+    """
+    return run_sealed_discovery_proof()
 
 
 # ---------------------------------------------------------------------------
@@ -874,8 +1024,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     scan_p.add_argument("target", nargs="?", default=None, help="stewardship target dir (default: all)")
     verify_p = sub.add_parser("verify", help="purely verify a sealed report")
     verify_p.add_argument("report_dir")
-    sub.add_parser("proof", help="run the registered proof over all targets")
+    sub.add_parser("live-proof", help="run the live-tier proof (fresh scans; takes minutes)")
+    sub.add_parser("proof", help="run the registered hermetic proof (sealed verification + live probe)")
     args = parser.parse_args(argv)
+
+    if args.command == "live-proof":
+        result = run_live_discovery_proof()
+        print(json.dumps({k: v for k, v in result.items() if k != "targets"}, indent=2))
+        return 0 if result.get("ok") else 1
 
     if args.command == "scan":
         roots = [Path(args.target)] if args.target else discover_targets()

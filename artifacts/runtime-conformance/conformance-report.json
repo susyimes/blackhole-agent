@@ -2,7 +2,7 @@
   "action": "runtime_conformance_proof",
   "mutation_gate": {
     "action": "runtime_mutation_gate",
-    "controller": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260801T231153Z-77d32495\\src\\blackhole_agent\\unbound.py",
+    "controller": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260814T155534Z-3869c608\\src\\blackhole_agent\\unbound.py",
     "mutation_count": 7,
     "mutations": [
       {
@@ -92,11 +92,11 @@
     "verdict_digest": "94794cd9fd2a7b8c05aed2baa5fc226b5676b18518c835fb97d4640f1e5bb9f1"
   },
   "ok": true,
-  "reported_at": "2026-08-01T23:54:27Z",
+  "reported_at": "2026-08-14T17:27:24Z",
   "schema_version": 1,
   "suite": {
     "action": "runtime_conformance_suite",
-    "controller": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260801T231153Z-77d32495\\src\\blackhole_agent\\unbound.py",
+    "controller": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260814T155534Z-3869c608\\src\\blackhole_agent\\unbound.py",
     "ok": true,
     "scenario_count": 10,
     "scenarios": [
@@ -190,12 +190,12 @@
             "ok": true
           },
           {
-            "detail": "01d4f15aea7f73683dc6e4154213209f70463bf4",
+            "detail": "39754ebf8ddef749f739c6280c70dcd2f93ea703",
             "name": "commit recorded",
             "ok": true
           },
           {
-            "detail": "01d4f15aea7f73683dc6e4154213209f70463bf4",
+            "detail": "39754ebf8ddef749f739c6280c70dcd2f93ea703",
             "name": "workspace head advanced",
             "ok": true
           },
@@ -205,7 +205,7 @@
             "ok": true
           },
           {
-            "detail": "01d4f15aea7f73683dc6e4154213209f70463bf4",
+            "detail": "39754ebf8ddef749f739c6280c70dcd2f93ea703",
             "name": "last milestone head updated",
             "ok": true
           },
@@ -442,17 +442,17 @@
             "ok": true
           },
           {
-            "detail": "07ac94017532fba03579f7e225f2a1d176f0ab30",
+            "detail": "eb53742a6dd50e87337d414c9ab4ea3852b31be7",
             "name": "remote head verified after push",
             "ok": true
           },
           {
-            "detail": "07ac94017532fba03579f7e225f2a1d176f0ab30",
+            "detail": "eb53742a6dd50e87337d414c9ab4ea3852b31be7",
             "name": "bare remote carries lineage branch",
             "ok": true
           },
           {
-            "detail": "before=07ac94017532fba03579f7e225f2a1d176f0ab30 error=",
+            "detail": "before=eb53742a6dd50e87337d414c9ab4ea3852b31be7 error=",
             "name": "republication idempotent",
             "ok": true
           },

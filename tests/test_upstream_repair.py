@@ -155,13 +155,14 @@ def test_second_release_repaired_end_to_end() -> None:
     assert verdict["ok"], verdict
 
 
-@pytest.mark.slow
 def test_builtin_proof_green_across_targets() -> None:
     result = builtin_upstream_repair_proof()
     assert result["ok"], {k: v for k, v in result.items() if k != "targets"}
     assert result["target_count"] >= 2
     assert result["repaired_count"] == result["defect_count"]
     assert result["tamper_detected"] and result["verified"] and result["suite_green"]
+    assert result["live_probes_ok"]
+    assert result["wall_clock_seconds"] < 120  # integrity batch budget
     assert not result["used_skill_route_discovery"]
     assert run_all_campaigns.__module__ == "blackhole_agent.upstream_repair"
 

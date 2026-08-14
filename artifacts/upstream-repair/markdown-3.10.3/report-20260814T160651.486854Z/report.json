@@ -1,0 +1,119 @@
+{
+  "created_at": "2026-08-14T16:06:51.486836Z",
+  "defect_count": 4,
+  "defects": [
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "nested-bracket-scan-quadratic",
+      "kind": "complexity",
+      "patched_files": [
+        "markdown-3.10.3/markdown/inlinepatterns.py"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "Inline link/image parsing rescans the remaining text for the matching ']' once per '[' or '![' marker (quadratic DoS on n nested brackets)",
+      "upstream_ref": "discovered autonomously by capability.upstream-discovery (generators 'nested_link' and 'nested_image'); absent from the Python-Markdown changelog through 3.10.3"
+    },
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "inline-element-rescan-quadratic",
+      "kind": "complexity",
+      "patched_files": [
+        "markdown-3.10.3/markdown/treeprocessors.py"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "Inline tree processor rebuilds and rescans the whole text node after every accepted match (quadratic DoS on n valid inline elements in one paragraph)",
+      "upstream_ref": "discovered autonomously by capability.upstream-discovery (generator 'inline_links'); absent from the Python-Markdown changelog through 3.10.3"
+    },
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "ref-def-block-rescan-quadratic",
+      "kind": "complexity",
+      "patched_files": [
+        "markdown-3.10.3/markdown/blockprocessors.py"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "ReferenceProcessor re-searches a shrinking block once per reference definition (quadratic DoS on n reference definitions)",
+      "upstream_ref": "discovered autonomously by capability.upstream-discovery (generator 'footnote_refs'); absent from the Python-Markdown changelog through 3.10.3"
+    },
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "footnote-scaling-quadratic",
+      "kind": "complexity",
+      "patched_files": [
+        "markdown-3.10.3/markdown/extensions/footnotes.py"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "Footnote extension rescans a shrinking block per definition and rebuilds/scans definition/reference order lists per reference (quadratic DoS on n caret-footnote definitions with references)",
+      "upstream_ref": "discovered autonomously by capability.upstream-discovery (generator 'footnote_defs'); absent from the Python-Markdown changelog through 3.10.3"
+    }
+  ],
+  "evidence_files": {
+    "patches": {
+      "footnote-scaling-quadratic": "313b62c182d23ebc4ef38f82ef62ece0221a09793aa9a863a040937e1ad8f47b",
+      "inline-element-rescan-quadratic": "502c8bcd639adde5a7019a31b056a23f337ffc5a1ec713c66539db67444c8faf",
+      "nested-bracket-scan-quadratic": "bc530ab5249c1aaea3d495a30a63a34e9af4421327a1c8dcb6103ce6f2fd4d5f",
+      "ref-def-block-rescan-quadratic": "1c0e34a963b1d9ab44b4f5af366c4f1ae7779306643f777af91ddbe2d7c8aa38"
+    },
+    "repros": {
+      "footnote-scaling-quadratic": "713efa8501b346c2ec15e5bd73ab0541c1a22232425270a4b376b2b8afc9eafc",
+      "inline-element-rescan-quadratic": "a1c78faa64dbb96915fa4f4bb8fb02bd8672bdcd3a1823692a0c8a5ad99f6a3c",
+      "nested-bracket-scan-quadratic": "3273dd13ffcf98de2675df359010bd012d537ac11818c5d0d98be5e71404ccd5",
+      "ref-def-block-rescan-quadratic": "d4eb0fc8d6eb01577950090f56d452d388fe5e471d1a2504c461796cc12934ca"
+    },
+    "sdist": "3589362618f743188b4d955b874402bc814f4f83f544dc207719f4baa7d9c45f"
+  },
+  "ok": true,
+  "outcomes_digest": "c9c4575629fb65834bd6cf37dde2dd289b0fedd4897a1fec7a75950c40a19e41",
+  "provenance": {
+    "actual": "3589362618f743188b4d955b874402bc814f4f83f544dc207719f4baa7d9c45f",
+    "expected": "3589362618f743188b4d955b874402bc814f4f83f544dc207719f4baa7d9c45f",
+    "ok": true,
+    "path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260814T155534Z-3869c608\\stewardship\\markdown-3.10.3\\markdown-3.10.3.tar.gz"
+  },
+  "repair_score": 1.0,
+  "repaired_count": 4,
+  "report_digest": "994d7d5fbcc333bb150ddc303856434f7c4adc858d3d4b269507370cf2aeffd8",
+  "schema_version": 2,
+  "suite_digest": "406e03b6fbd076fd25298feb95ac1af1afc8cebc41a1a5ec96893c961039afda",
+  "suite_overlay": null,
+  "suites": {
+    "pristine": {
+      "duration_seconds": 2.141,
+      "exit_code": 0,
+      "passed": 1042,
+      "stderr_tail": "..........................................................................................................................................................................................\n----------------------------------------------------------------------\nRan 1042 tests in 1.346s\n\nOK (skipped=64)\n",
+      "summary": "OK (skipped=64)"
+    },
+    "repaired": {
+      "duration_seconds": 1.471,
+      "exit_code": 0,
+      "passed": 1042,
+      "stderr_tail": "..........................................................................................................................................................................................\n----------------------------------------------------------------------\nRan 1042 tests in 0.915s\n\nOK (skipped=64)\n",
+      "summary": "OK (skipped=64)"
+    }
+  },
+  "target": {
+    "fixed_in": null,
+    "name": "markdown",
+    "source_url": "https://files.pythonhosted.org/packages/29/6f/da4c6aea59b3001f2e8c0ec7497475aadaf3b021c10cab5b2858f0f32b26/markdown-3.10.3.tar.gz",
+    "upstream_changelog": "https://github.com/Python-Markdown/markdown/blob/master/docs/changelog.md",
+    "upstream_repo": "https://github.com/Python-Markdown/markdown",
+    "version": "3.10.3"
+  }
+}

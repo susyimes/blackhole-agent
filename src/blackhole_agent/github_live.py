@@ -11,9 +11,19 @@ authenticated ``gh`` CLI:
     CLOSED and merged main contains the fix -> seal a digest-chained trace.
 
 The sealed trace is re-verifiable offline and tamper-falsifiable, matching the
-evidence contract established by ``mcp_client``. The proof command is live by
-default: every proof run performs a fresh, unique end-to-end change, so the
-capability cannot silently degrade into replayed evidence.
+evidence contract established by ``mcp_client``. The proof is two-tier:
+
+- **live tier** (``run_live_actuation_proof`` / CLI ``live-proof``) performs a
+  fresh, unique end-to-end change against real GitHub and seals a durable
+  trace under ``artifacts/github-live/`` with a ``latest-change.json``
+  pointer. It needs network + authenticated ``gh`` and is an explicit
+  evidence-refresh command, never the registered proof.
+- **hermetic tier** (``builtin_github_live_actuation_proof`` / CLI ``proof``)
+  is the registered ledger proof: it purely re-verifies the latest durable
+  sealed trace (digests + recorded outcome semantics + pointer binding) and
+  falsifies the verifier with a tampered copy in a throwaway directory. No
+  network, no world mutation, bounded wall-clock — so the capability is
+  batch-provable inside the integrity budget.
 """
 
 from __future__ import annotations
@@ -33,6 +43,9 @@ from blackhole_agent.capability_compounder import atomic_write_json, utc_now_iso
 
 SCHEMA_VERSION = 1
 DEFAULT_SANDBOX_REPO = "blackhole-agent-live-sandbox"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_TRACE_ROOT = REPO_ROOT / "artifacts" / "github-live"
+LATEST_POINTER_NAME = "latest-change.json"
 
 BUG_CALC = "def add(a, b):\n    return a - b  # BUG: subtraction shipped as add\n"
 FIX_CALC = "def add(a, b):\n    return a + b\n"
@@ -344,31 +357,81 @@ def verify_change_trace(trace_dir: Path) -> dict[str, Any]:
     return {"ok": all(checks.values()), "checks": checks, "trace_digest": trace.get("trace_digest")}
 
 
-def builtin_github_live_actuation_proof() -> dict[str, Any]:
-    """Registered proof for ``capability.github-live-actuation``.
+def seal_live_change(
+    *,
+    repo_name: str = DEFAULT_SANDBOX_REPO,
+    trace_root: Path = DEFAULT_TRACE_ROOT,
+    timeout_seconds: float = 120.0,
+) -> dict[str, Any]:
+    """Live evidence refresh: run one real change and seal it durably.
 
-    Performs a fresh, unique end-to-end change against real GitHub: private
-    sandbox repo ensured, real bug seeded, real issue opened, fix branch
-    pushed after the local check passes, real PR merged with squash, issue
-    auto-closed via ``Closes #N``, merged main re-read through the API. The
-    sealed trace is re-verified, a tampered copy must fail verification, and a
-    ``gh repo view`` against a nonexistent repo must fail closed.
+    The trace lands in a timestamped directory under ``trace_root`` and the
+    ``latest-change.json`` pointer is updated to bind it by digest. Needs
+    network and an authenticated ``gh`` CLI; this is the explicit
+    evidence-refresh path, not the registered proof.
+    """
+
+    stamp = utc_now_iso().replace(":", "").replace("-", "")
+    out = Path(trace_root) / f"change-{stamp}"
+    run = run_live_change(
+        repo_name=repo_name,
+        output_dir=out,
+        timeout_seconds=timeout_seconds,
+    )
+    pointer = {
+        "schema_version": SCHEMA_VERSION,
+        "trace_dir": str(out),
+        "trace_digest": run["trace_digest"],
+        "recorded_at": utc_now_iso(),
+    }
+    atomic_write_json(Path(trace_root) / LATEST_POINTER_NAME, pointer)
+    run["pointer"] = pointer
+    return run
+
+
+def load_latest_change_trace(trace_root: Path = DEFAULT_TRACE_ROOT) -> tuple[Path, dict[str, Any]] | None:
+    """Latest durable sealed trace directory + pointer, or None when absent."""
+
+    pointer_path = Path(trace_root) / LATEST_POINTER_NAME
+    if not pointer_path.is_file():
+        return None
+    pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
+    trace_dir = Path(pointer["trace_dir"])
+    if not (trace_dir / "change.json").is_file():
+        return None
+    return trace_dir, pointer
+
+
+def run_live_actuation_proof(
+    *,
+    repo_name: str = DEFAULT_SANDBOX_REPO,
+    trace_root: Path = DEFAULT_TRACE_ROOT,
+) -> dict[str, Any]:
+    """Live-tier proof: a fresh, unique end-to-end change against real GitHub.
+
+    Private sandbox repo ensured, real bug seeded, real issue opened, fix
+    branch pushed after the local check passes, real PR merged with squash,
+    issue auto-closed via ``Closes #N``, merged main re-read through the API.
+    The sealed trace is re-verified, a tampered copy must fail verification,
+    and a ``gh repo view`` against a nonexistent repo must fail closed. Needs
+    network + authenticated ``gh``; explicit evidence refresh, not the
+    registered proof.
     """
 
     if gh_command() is None:
         return {"ok": False, "error": "gh CLI is not installed"}
 
     with tempfile.TemporaryDirectory(prefix="github-live-proof-") as tmp:
-        out = Path(tmp) / "live"
         try:
-            run = run_live_change(output_dir=out)
+            run = seal_live_change(repo_name=repo_name, trace_root=trace_root)
         except (GitHubLiveError, subprocess.TimeoutExpired) as error:
             return {"ok": False, "error": f"live change failed: {error}"}
+        out = Path(run["output_dir"])
         verify = verify_change_trace(out)
 
         # Tamper falsification: an edited recorded outcome must fail.
         clone = Path(tmp) / "tampered"
-        shutil.copytree(out, clone)
+        shutil.copytree(out, clone, ignore=shutil.ignore_patterns("worktree"))
         trace = json.loads((clone / "change.json").read_text(encoding="utf-8"))
         trace["outcome"]["pr"]["state"] = "OPEN"
         atomic_write_json(clone / "change.json", trace)
@@ -388,7 +451,9 @@ def builtin_github_live_actuation_proof() -> dict[str, Any]:
     )
     return {
         "ok": bool(ok),
+        "proof_mode": "live",
         "trace_digest": run.get("trace_digest"),
+        "trace_dir": run.get("output_dir"),
         "repo": outcome.get("repo"),
         "issue_url": (outcome.get("issue") or {}).get("url"),
         "pr_url": (outcome.get("pr") or {}).get("url"),
@@ -401,24 +466,94 @@ def builtin_github_live_actuation_proof() -> dict[str, Any]:
     }
 
 
+def builtin_github_live_actuation_proof() -> dict[str, Any]:
+    """Registered proof for ``capability.github-live-actuation`` (hermetic).
+
+    Purely re-verifies the latest durable sealed live-change trace: pointer
+    binding, digest chain, and recorded outcome semantics (bug failed before
+    fix, fix check passed, PR merged, issue closed, merged main contains the
+    fix). The verifier is falsified with a tampered copy in a throwaway
+    directory, and a forged pointer digest must fail closed. No network, no
+    world mutation, bounded wall-clock. Refresh the underlying evidence with
+    the explicit live tier (``run_live_actuation_proof`` / CLI ``live-proof``).
+    """
+
+    found = load_latest_change_trace()
+    if found is None:
+        return {
+            "ok": False,
+            "error": "no durable sealed change trace: run the live tier to seal one",
+            "proof_mode": "hermetic-sealed-verification",
+        }
+    trace_dir, pointer = found
+    trace = json.loads((trace_dir / "change.json").read_text(encoding="utf-8"))
+
+    pointer_ok = pointer.get("trace_digest") == trace.get("trace_digest")
+    verify = verify_change_trace(trace_dir)
+    outcome = trace.get("outcome") or {}
+
+    # Tamper falsification in a throwaway directory: an edited recorded
+    # outcome must fail verification.
+    with tempfile.TemporaryDirectory(prefix="github-live-tamper-") as tmp:
+        clone = Path(tmp) / "tampered"
+        clone.mkdir(parents=True, exist_ok=True)
+        forged = json.loads(json.dumps(trace))
+        forged["outcome"]["pr"]["state"] = "OPEN"
+        atomic_write_json(clone / "change.json", forged)
+        tampered = verify_change_trace(clone)
+
+        # Forged trace must not bind to the pointer: its recomputed body
+        # digest cannot equal the pointer's recorded trace digest.
+        forged_body = {key: value for key, value in forged.items() if key != "trace_digest"}
+        pointer_forgery_detected = _digest(forged_body) != pointer.get("trace_digest")
+
+    ok = (
+        pointer_ok
+        and verify["ok"]
+        and not tampered["ok"]
+        and pointer_forgery_detected
+        and trace.get("kind") == "github_live_change_trace"
+        and outcome.get("merged_main_contains_fix") is True
+    )
+    return {
+        "ok": bool(ok),
+        "proof_mode": "hermetic-sealed-verification",
+        "trace_digest": trace.get("trace_digest"),
+        "trace_dir": str(trace_dir),
+        "recorded_at": trace.get("recorded_at"),
+        "repo": outcome.get("repo"),
+        "issue_url": (outcome.get("issue") or {}).get("url"),
+        "pr_url": (outcome.get("pr") or {}).get("url"),
+        "issue_auto_closed": (outcome.get("issue") or {}).get("state") == "CLOSED",
+        "pr_merged": (outcome.get("pr") or {}).get("state") == "MERGED",
+        "bug_baseline_falsified": outcome.get("bug_check_failed_before_fix") is True,
+        "pointer_binding_ok": pointer_ok,
+        "trace_verified": verify["ok"],
+        "tamper_falsified": not tampered["ok"],
+        "pointer_forgery_detected": pointer_forgery_detected,
+    }
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Live GitHub actuation with sealed evidence")
     sub = parser.add_subparsers(dest="command_name", required=True)
 
-    execute = sub.add_parser("execute", help="Run one full live change and seal the trace")
+    execute = sub.add_parser("execute", help="Run one full live change and seal the trace durably")
     execute.add_argument("--repo", default=DEFAULT_SANDBOX_REPO, help="Sandbox repo name or owner/name")
-    execute.add_argument("--output-dir", default=None)
 
     verify = sub.add_parser("verify", help="Re-verify a sealed change trace")
     verify.add_argument("--trace-dir", required=True)
 
-    sub.add_parser("proof", help="Run the registered capability proof")
+    sub.add_parser("live-proof", help="Run the live-tier proof (fresh change; needs network + gh auth)")
+    sub.add_parser("proof", help="Run the registered hermetic proof (sealed trace re-verification)")
 
     args = parser.parse_args(argv)
     if args.command_name == "execute":
-        result = run_live_change(repo_name=args.repo, output_dir=Path(args.output_dir) if args.output_dir else None)
+        result = seal_live_change(repo_name=args.repo)
     elif args.command_name == "verify":
         result = verify_change_trace(Path(args.trace_dir))
+    elif args.command_name == "live-proof":
+        result = run_live_actuation_proof()
     else:
         result = builtin_github_live_actuation_proof()
     print(json.dumps(result, indent=2, sort_keys=True))

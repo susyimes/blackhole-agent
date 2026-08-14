@@ -1,0 +1,69 @@
+{
+  "kind": "github_live_change_trace",
+  "outcome": {
+    "bug_check_failed_before_fix": true,
+    "bug_reintroduced_on_main": true,
+    "fix_check": {
+      "ok": true,
+      "stdout": "check ok"
+    },
+    "issue": {
+      "number": 20,
+      "state": "CLOSED",
+      "url": "https://github.com/susyimes/blackhole-agent-live-sandbox/issues/20"
+    },
+    "merged_main_contains_fix": true,
+    "pr": {
+      "merged_at": "2026-08-14T16:26:08Z",
+      "number": 21,
+      "state": "MERGED",
+      "url": "https://github.com/susyimes/blackhole-agent-live-sandbox/pull/21"
+    },
+    "repo": "susyimes/blackhole-agent-live-sandbox",
+    "repo_created": false,
+    "seeded_bug_files": false,
+    "sentinel": "80d84d5a5600"
+  },
+  "outcome_digest": "c3cb5326d2a3b60537504bbabd01252a93f7280b93ff86cdf18c6ad8e5fdb119",
+  "recorded_at": "2026-08-14T16:26:12.458883Z",
+  "repo": "susyimes/blackhole-agent-live-sandbox",
+  "schema_version": 1,
+  "sentinel": "80d84d5a5600",
+  "stages": {
+    "auth": {
+      "login": "susyimes"
+    },
+    "bug_baseline": {
+      "ok": false,
+      "returncode": 1
+    },
+    "bug_reintroduced_on_main": true,
+    "fix_check": {
+      "ok": true,
+      "stdout": "check ok"
+    },
+    "issue": {
+      "number": 20,
+      "state": "CLOSED",
+      "url": "https://github.com/susyimes/blackhole-agent-live-sandbox/issues/20"
+    },
+    "merged_main_contains_fix": true,
+    "pr": {
+      "merged_at": "2026-08-14T16:26:08Z",
+      "number": 21,
+      "state": "MERGED",
+      "url": "https://github.com/susyimes/blackhole-agent-live-sandbox/pull/21"
+    },
+    "repo": {
+      "created": false,
+      "default_branch": "main",
+      "full_name": "susyimes/blackhole-agent-live-sandbox",
+      "private": true
+    },
+    "seed": {
+      "seeded": false
+    }
+  },
+  "stages_digest": "b6331e0ddb43a140f9622b551fbb92306a055cf38cf3454f935189e8dbbefb9a",
+  "trace_digest": "2ba1b5788cd8d5ac73952f5936b73af3feba06c078948d658d9d96a975c230cd"
+}

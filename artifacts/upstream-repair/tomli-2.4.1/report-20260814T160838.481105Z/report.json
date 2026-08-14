@@ -1,0 +1,74 @@
+{
+  "created_at": "2026-08-14T16:08:38.481091Z",
+  "defect_count": 1,
+  "defects": [
+    {
+      "ablation_exit": 1,
+      "ablation_reopens": true,
+      "baseline_exit": 1,
+      "id": "long-decimal-int-valueerror",
+      "kind": "crash",
+      "patched_files": [
+        "tomli-2.4.1/src/tomli/_parser.py"
+      ],
+      "repaired": true,
+      "repaired_exit": 0,
+      "reproduced_on_pristine": true,
+      "title": "Decimal integer literal with more digits than sys.get_int_max_str_digits() escapes loads() as uncaught ValueError instead of TOMLDecodeError",
+      "upstream_ref": "discovered autonomously by capability.upstream-discovery (digit_run generator, minimized n=4500) on the live frontier target tomli 2.4.1 (latest upstream release, onboarded by capability.upstream-frontier); tomli's _parser.py sanctions only RecursionError for pathological input - ValueError leaking from int() conversion is undocumented and unintended"
+    }
+  ],
+  "evidence_files": {
+    "patches": {
+      "long-decimal-int-valueerror": "92ead0d9c3114e988adc13766f0f4904dcf713e333a011681dac0ab02abe4eea"
+    },
+    "repros": {
+      "long-decimal-int-valueerror": "ad3ffac6e550595430d9007fdda9b7c402e98d16af174f805d1fef9e659083a0"
+    },
+    "sdist": "7c7e1a961a0b2f2472c1ac5b69affa0ae1132c39adcb67aba98568702b9cc23f"
+  },
+  "ok": true,
+  "outcomes_digest": "1b95d20ed4f68dd07cc4e4b2281b3a4f5c24828cc454afb6ca0b6e468ab91295",
+  "provenance": {
+    "actual": "7c7e1a961a0b2f2472c1ac5b69affa0ae1132c39adcb67aba98568702b9cc23f",
+    "expected": "7c7e1a961a0b2f2472c1ac5b69affa0ae1132c39adcb67aba98568702b9cc23f",
+    "ok": true,
+    "path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260814T155534Z-3869c608\\stewardship\\tomli-2.4.1\\tomli-2.4.1.tar.gz"
+  },
+  "repair_score": 1.0,
+  "repaired_count": 1,
+  "report_digest": "1853b04ed920a82f23a8fd9bb5963aec3f64f4b8c1d1f3e8fe9cb8225c8b80de",
+  "schema_version": 2,
+  "suite_digest": "626b07fa2ba5702bf6558f516441d947f02e442d87bbf48288bea0656e96c94b",
+  "suite_overlay": {
+    "actual": "47e26414d9df2ab4c4c9b14d8c01f77ed1fb51c40decdade9fb82b07d09b95e8",
+    "expected": "47e26414d9df2ab4c4c9b14d8c01f77ed1fb51c40decdade9fb82b07d09b95e8",
+    "ok": true,
+    "path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260814T155534Z-3869c608\\stewardship\\tomli-2.4.1\\suite",
+    "source_url": "https://github.com/hukkin/tomli/archive/refs/tags/2.4.1.tar.gz"
+  },
+  "suites": {
+    "pristine": {
+      "duration_seconds": 3.488,
+      "exit_code": 0,
+      "passed": 17,
+      "stderr_tail": "",
+      "summary": "17 passed, 744 subtests passed in 3.21s"
+    },
+    "repaired": {
+      "duration_seconds": 2.496,
+      "exit_code": 0,
+      "passed": 17,
+      "stderr_tail": "",
+      "summary": "17 passed, 744 subtests passed in 2.21s"
+    }
+  },
+  "target": {
+    "fixed_in": null,
+    "name": "tomli",
+    "source_url": "https://files.pythonhosted.org/packages/22/de/48c59722572767841493b26183a0d1cc411d54fd759c5607c4590b6563a6/tomli-2.4.1.tar.gz",
+    "upstream_changelog": null,
+    "upstream_repo": "https://github.com/hukkin/tomli",
+    "version": "2.4.1"
+  }
+}

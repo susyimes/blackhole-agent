@@ -1,0 +1,91 @@
+{
+  "entries": [
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "origin_count": 2,
+        "origin_heads": [
+          "ad1c910037400d3ff985d29f",
+          "48c35b2bab23eacd19b7ebb4"
+        ],
+        "origin_ids": [
+          "origin-a",
+          "origin-b"
+        ]
+      },
+      "detail": {
+        "origins": [
+          {
+            "bundle_hash": "670318bbc72345d8197927fc",
+            "certificate_count": 6,
+            "lineage_entry_count": 18,
+            "lineage_head_hash": "ad1c910037400d3ff985d29f",
+            "member_count": 3,
+            "origin_id": "origin-a",
+            "package_hash": "7878a785b9718369"
+          },
+          {
+            "bundle_hash": "83990bcafa96c6c6bb8dd946",
+            "certificate_count": 1,
+            "lineage_entry_count": 2,
+            "lineage_head_hash": "48c35b2bab23eacd19b7ebb4",
+            "member_count": 2,
+            "origin_id": "origin-b",
+            "package_hash": "8ece9182045d973a"
+          }
+        ]
+      },
+      "entry_hash": "2632746c18af5d5ddfb6fb5a",
+      "entry_kind": "federation_origin_manifest",
+      "goal": "federate multi-origin continuity",
+      "index": 0,
+      "issued_at": "2026-08-14T15:59:56.372458Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": ""
+    },
+    {
+      "certificate_hash": "",
+      "certificate_path": "",
+      "claims": {
+        "federated": true,
+        "origin_count": 2,
+        "package_hash": "7878a785b9718369"
+      },
+      "detail": {
+        "origin_bundle_hashes": [
+          "670318bbc72345d8197927fc",
+          "83990bcafa96c6c6bb8dd946"
+        ],
+        "origin_heads": [
+          "ad1c910037400d3ff985d29f",
+          "48c35b2bab23eacd19b7ebb4"
+        ]
+      },
+      "entry_hash": "0b782fb9445de291ff4c1e7c",
+      "entry_kind": "federation_seal",
+      "goal": "federate multi-origin continuity",
+      "index": 1,
+      "issued_at": "2026-08-14T15:59:56.372503Z",
+      "metrics": {
+        "count": null,
+        "primitive_count": null,
+        "proved_count": null,
+        "proved_ratio": null
+      },
+      "package_hash": "7878a785b9718369",
+      "parent_hash": "2632746c18af5d5ddfb6fb5a"
+    }
+  ],
+  "entry_count": 2,
+  "head_hash": "0b782fb9445de291ff4c1e7c",
+  "kind": "capability_lineage",
+  "schema_version": 1,
+  "updated_at": "2026-08-14T15:59:56.384134Z"
+}
