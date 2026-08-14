@@ -1,0 +1,63 @@
+{
+  "acquisitions": {
+    "python-markdown": {
+      "capability_id": "capability.absorbed-python-markdown",
+      "derived_case_count": 3,
+      "honesty": {
+        "ablation_unplannable": true,
+        "forgery_rejected": true,
+        "grade": {
+          "ok": true,
+          "verdict_count": 6,
+          "verdicts_passed": 6
+        },
+        "grown_plan_solved": true,
+        "live_proof_ok": true,
+        "ok": true,
+        "report_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260814T182347Z-ffc3f0bc\\artifacts\\capability-absorption",
+        "tamper_rejected": true,
+        "unplannable_before": true
+      },
+      "ok": true,
+      "proof_exit_code": 0,
+      "slug": "python-markdown",
+      "stage": "proved"
+    },
+    "tomli-parser": {
+      "capability_id": "capability.absorbed-tomli-parser",
+      "derived_case_count": 3,
+      "honesty": {
+        "ablation_unplannable": true,
+        "forgery_rejected": true,
+        "grade": {
+          "ok": true,
+          "verdict_count": 6,
+          "verdicts_passed": 6
+        },
+        "grown_plan_solved": true,
+        "live_proof_ok": true,
+        "ok": true,
+        "report_dir": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260814T182347Z-ffc3f0bc\\artifacts\\capability-absorption",
+        "tamper_rejected": true,
+        "unplannable_before": true
+      },
+      "ok": true,
+      "proof_exit_code": 0,
+      "slug": "tomli-parser",
+      "stage": "proved"
+    }
+  },
+  "generated_at": "2026-08-14T18:37:31.075536Z",
+  "grade": {
+    "acquisition_count": 2,
+    "acquisitions_ok": 2,
+    "ok": true
+  },
+  "kind": "capability_acquisition_plane",
+  "report_digest": "d126d29a33d0624ec5370ef5f1d44d19e184813943971f59dfa97bc49e3400ed",
+  "schema_version": 1,
+  "slugs": [
+    "python-markdown",
+    "tomli-parser"
+  ]
+}

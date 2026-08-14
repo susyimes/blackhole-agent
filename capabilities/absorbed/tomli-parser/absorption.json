@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "parsed_toml": {
+          "title": "blackhole"
+        }
+      },
+      "input": {
+        "toml_source": "title = \"blackhole\"\n"
+      }
+    },
+    {
+      "expect": {
+        "parsed_toml": {
+          "tool": {
+            "unbound": {
+              "enabled": true
+            }
+          }
+        }
+      },
+      "input": {
+        "toml_source": "[tool.unbound]\nenabled = true\n"
+      }
+    },
+    {
+      "expect": {
+        "parsed_toml": {
+          "values": [
+            1,
+            2,
+            3
+          ]
+        }
+      },
+      "input": {
+        "toml_source": "values = [1, 2, 3]\n"
+      }
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "tomli TOML parser (stewardship-staged pypi sdist)",
+  "origin": {
+    "kind": "pypi-sdist",
+    "source": "stewardship/tomli-2.4.1/tomli-2.4.1.tar.gz"
+  },
+  "provides": [
+    "parsed_toml"
+  ],
+  "requires": [
+    "toml_source"
+  ],
+  "schema_version": 1,
+  "slug": "tomli-parser",
+  "version": "2.4.1"
+}

@@ -1,0 +1,46 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "rendered_markdown": "<h1>Blackhole</h1>"
+      },
+      "input": {
+        "markdown_source": "# Blackhole\n"
+      }
+    },
+    {
+      "expect": {
+        "rendered_markdown": "<p><strong>unbound</strong> growth</p>"
+      },
+      "input": {
+        "markdown_source": "**unbound** growth\n"
+      }
+    },
+    {
+      "expect": {
+        "rendered_markdown": "<ol>\n<li>absorb</li>\n<li>prove</li>\n</ol>"
+      },
+      "input": {
+        "markdown_source": "1. absorb\n2. prove\n"
+      }
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "Python-Markdown renderer (stewardship-staged pypi sdist)",
+  "origin": {
+    "kind": "pypi-sdist",
+    "source": "stewardship/markdown-3.10.3/markdown-3.10.3.tar.gz"
+  },
+  "provides": [
+    "rendered_markdown"
+  ],
+  "requires": [
+    "markdown_source"
+  ],
+  "schema_version": 1,
+  "slug": "python-markdown",
+  "version": "3.10.3"
+}

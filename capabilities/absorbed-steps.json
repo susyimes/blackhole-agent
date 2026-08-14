@@ -1,8 +1,49 @@
 {
-  "absorbed_at": "2026-08-02T02:27:42.590695Z",
+  "absorbed_at": "2026-08-14T18:37:28.663190Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
+    {
+      "capability_id": "capability.absorbed-json-indenter",
+      "cases": [
+        {
+          "expect": {
+            "indented_json": "{\n  \"a\": 2,\n  \"b\": 1\n}"
+          },
+          "input": {
+            "raw_json": "{\"b\": 1, \"a\": 2}"
+          }
+        },
+        {
+          "expect": {
+            "indented_json": "{\n  \"z\": [\n    3,\n    1\n  ]\n}"
+          },
+          "input": {
+            "raw_json": "{\"z\": [3, 1]}"
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "JSON indenter (uncooperative fixture package)",
+      "origin": {
+        "kind": "fixture",
+        "source": "tests/fixtures/external_packages/json-indenter"
+      },
+      "provides": [
+        "indented_json"
+      ],
+      "record_digest": "1319457846bd0fbd49b81255493eebc45cf4a745dc8deeaaea87b69199df1f06",
+      "requires": [
+        "raw_json"
+      ],
+      "schema_version": 1,
+      "slug": "json-indenter",
+      "vendored_tree_digest": "1a16aefa981eebf400012ce8dd54c5423eb5d060199690632af6057a246bb235",
+      "version": ""
+    },
     {
       "capability_id": "capability.absorbed-mistune-markdown",
       "cases": [
@@ -54,6 +95,55 @@
       "version": "3.4.0"
     },
     {
+      "capability_id": "capability.absorbed-python-markdown",
+      "cases": [
+        {
+          "expect": {
+            "rendered_markdown": "<h1>Blackhole</h1>"
+          },
+          "input": {
+            "markdown_source": "# Blackhole\n"
+          }
+        },
+        {
+          "expect": {
+            "rendered_markdown": "<p><strong>unbound</strong> growth</p>"
+          },
+          "input": {
+            "markdown_source": "**unbound** growth\n"
+          }
+        },
+        {
+          "expect": {
+            "rendered_markdown": "<ol>\n<li>absorb</li>\n<li>prove</li>\n</ol>"
+          },
+          "input": {
+            "markdown_source": "1. absorb\n2. prove\n"
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "Python-Markdown renderer (stewardship-staged pypi sdist)",
+      "origin": {
+        "kind": "pypi-sdist",
+        "source": "stewardship/markdown-3.10.3/markdown-3.10.3.tar.gz"
+      },
+      "provides": [
+        "rendered_markdown"
+      ],
+      "record_digest": "d5b8ab42c14a3931671290130c4ebf69ba82ca35323e3133d1719a24acce3036",
+      "requires": [
+        "markdown_source"
+      ],
+      "schema_version": 1,
+      "slug": "python-markdown",
+      "vendored_tree_digest": "93525cd82d21141dc3c1265f6ad52b6aef145f30940d27c74e87bf8a239b6336",
+      "version": "3.10.3"
+    },
+    {
       "capability_id": "capability.absorbed-text-reverser",
       "cases": [
         {
@@ -102,7 +192,70 @@
       "slug": "text-reverser",
       "vendored_tree_digest": "1ea584313fc7fcf441305f5a62b1d42ff35d08fadf41019f93c45f50e0ce8593",
       "version": "1.0.0"
+    },
+    {
+      "capability_id": "capability.absorbed-tomli-parser",
+      "cases": [
+        {
+          "expect": {
+            "parsed_toml": {
+              "title": "blackhole"
+            }
+          },
+          "input": {
+            "toml_source": "title = \"blackhole\"\n"
+          }
+        },
+        {
+          "expect": {
+            "parsed_toml": {
+              "tool": {
+                "unbound": {
+                  "enabled": true
+                }
+              }
+            }
+          },
+          "input": {
+            "toml_source": "[tool.unbound]\nenabled = true\n"
+          }
+        },
+        {
+          "expect": {
+            "parsed_toml": {
+              "values": [
+                1,
+                2,
+                3
+              ]
+            }
+          },
+          "input": {
+            "toml_source": "values = [1, 2, 3]\n"
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "tomli TOML parser (stewardship-staged pypi sdist)",
+      "origin": {
+        "kind": "pypi-sdist",
+        "source": "stewardship/tomli-2.4.1/tomli-2.4.1.tar.gz"
+      },
+      "provides": [
+        "parsed_toml"
+      ],
+      "record_digest": "110be91058717d110918b467779a867eff3af6c2b68bf9fc7217307bd424e21e",
+      "requires": [
+        "toml_source"
+      ],
+      "schema_version": 1,
+      "slug": "tomli-parser",
+      "vendored_tree_digest": "20c9243a38a6a4982540ef2c4b3dd43e189854f172a62ab5c244234223138be0",
+      "version": "2.4.1"
     }
   ],
-  "steps_digest": "a3ff24fc26e59079c1ee2c5e0b79f971ea6708071526645dff2158026c4b89fc"
+  "steps_digest": "f151e0c364d6ce78bde078316ad7672fc711aa0d019da41046f520c4a9ceed4f"
 }

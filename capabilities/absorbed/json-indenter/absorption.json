@@ -1,0 +1,38 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "indented_json": "{\n  \"a\": 2,\n  \"b\": 1\n}"
+      },
+      "input": {
+        "raw_json": "{\"b\": 1, \"a\": 2}"
+      }
+    },
+    {
+      "expect": {
+        "indented_json": "{\n  \"z\": [\n    3,\n    1\n  ]\n}"
+      },
+      "input": {
+        "raw_json": "{\"z\": [3, 1]}"
+      }
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "JSON indenter (uncooperative fixture package)",
+  "origin": {
+    "kind": "fixture",
+    "source": "tests/fixtures/external_packages/json-indenter"
+  },
+  "provides": [
+    "indented_json"
+  ],
+  "requires": [
+    "raw_json"
+  ],
+  "schema_version": 1,
+  "slug": "json-indenter",
+  "version": ""
+}
