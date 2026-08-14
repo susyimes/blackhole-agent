@@ -110,6 +110,10 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     TOTAL_SPINE_RESTRUCTURING_IMPL,
     TOTAL_SPINE_RESTRUCTURING_KIND,
     TOTAL_SPINE_RESTRUCTURING_MIN_RESTRUCTURINGS,
+    TOTAL_SPINE_EMERGENCE_FILENAME,
+    TOTAL_SPINE_EMERGENCE_IMPL,
+    TOTAL_SPINE_EMERGENCE_KIND,
+    TOTAL_SPINE_EMERGENCE_MIN_EMERGENCES,
     TOTAL_SPINE_EXECUTION_FILENAME,
     TOTAL_SPINE_EXECUTION_IMPL,
     TOTAL_SPINE_EXECUTION_KIND,
@@ -152,6 +156,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     annotate_total_spine_recovery,
     annotate_total_spine_resolution,
     annotate_total_spine_restructuring,
+    annotate_total_spine_emergence,
     annotate_total_spine_execution,
     annotate_total_spine_federation,
     annotate_total_spine_finality,
@@ -183,6 +188,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     builtin_total_spine_recovery_proof,
     builtin_total_spine_resolution_proof,
     builtin_total_spine_restructuring_proof,
+    builtin_total_spine_emergence_proof,
     builtin_total_spine_execution_proof,
     builtin_total_spine_federation_proof,
     builtin_total_spine_finality_proof,
@@ -214,6 +220,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     compute_total_spine_recovery_root,
     compute_total_spine_resolution_root,
     compute_total_spine_restructuring_root,
+    compute_total_spine_emergence_root,
     execute_total_spine,
     execution_certificate_path,
     federate_total_spine,
@@ -239,6 +246,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     load_total_spine_recovery_certificate,
     load_total_spine_resolution_certificate,
     load_total_spine_restructuring_certificate,
+    load_total_spine_emergence_certificate,
     load_total_spine_continuity_checkpoint,
     load_total_spine_execution_certificate,
     load_total_spine_federation_certificate,
@@ -296,7 +304,10 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     resolution_certificate_path,
     restructuring_total_spine,
     restructuring_certificate_path,
+    emerge_total_spine,
+    emergence_certificate_path,
     book_total_spine_resolutions,
+    book_total_spine_restructurings,
     book_total_spine_recoveries,
     book_total_spine_stresses,
     book_total_spine_risks,
@@ -349,6 +360,8 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     seal_total_spine_resolution_chain,
     seal_total_spine_restructuring_certificate,
     seal_total_spine_restructuring_chain,
+    seal_total_spine_emergence_certificate,
+    seal_total_spine_emergence_chain,
     seal_total_spine_execution_certificate,
     seal_total_spine_execution_chain,
     seal_total_spine_federation_certificate,
@@ -379,6 +392,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     verify_total_spine_recovery_certificate,
     verify_total_spine_resolution_certificate,
     verify_total_spine_restructuring_certificate,
+    verify_total_spine_emergence_certificate,
     verify_total_spine_continuity_checkpoint,
     verify_total_spine_execution_certificate,
     verify_total_spine_federation_certificate,
@@ -399,6 +413,7 @@ from blackhole_agent.upstream_control_engine import (  # noqa: F401
     write_total_spine_recovery_certificate,
     write_total_spine_resolution_certificate,
     write_total_spine_restructuring_certificate,
+    write_total_spine_emergence_certificate,
     write_total_spine_continuity_checkpoint,
     write_total_spine_execution_certificate,
     write_total_spine_federation_certificate,
@@ -618,6 +633,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "resolution books into irreversible restructuring receipts"
         ),
     )
+    sub.add_parser(
+        "emergence-proof",
+        help=(
+            "Total spine emergence: post-restructuring atomic EvC seals matching "
+            "restructuring books into irreversible emergence receipts"
+        ),
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
     if args.cmd == "list":
         print(json.dumps({"dialects": list_loop_dialects()}, indent=2))
@@ -740,6 +762,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "restructuring-proof":
         result = builtin_total_spine_restructuring_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "emergence-proof":
+        result = builtin_total_spine_emergence_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2

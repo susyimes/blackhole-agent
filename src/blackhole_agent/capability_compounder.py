@@ -2451,6 +2451,35 @@ def _soft_extract_outcome_predicates(chunk: str) -> list[dict[str, Any]]:
     ):
         found.append({"kind": "restructuring_root_valid", "arg": "", "source": chunk})
     # Avoid matching capability.restructuring-plane ids.
+
+    if re.search(r"\bemergence_ok\b", lower) or re.search(r"\bemerged_ok\b", lower):
+        found.append({"kind": "emergence_ok", "arg": "", "source": chunk})
+    if re.search(r"\bevc_ok\b", lower):
+        found.append({"kind": "evc_ok", "arg": "", "source": chunk})
+    if re.search(r"\bconfirmation_ok\b", lower):
+        found.append({"kind": "confirmation_ok", "arg": "", "source": chunk})
+    if re.search(r"\bconfirmed_ok\b", lower):
+        found.append({"kind": "confirmed_ok", "arg": "", "source": chunk})
+    m = re.search(r"(?:at least|>=|≥)\s*(\d+)\s+emergenc", lower)
+    if m:
+        found.append({"kind": "min_emergences", "arg": m.group(1), "source": chunk})
+    if re.search(r"\bmin_emergences\b", lower) and not any(
+        item.get("kind") == "min_emergences" for item in found
+    ):
+        m_n = re.search(r"min_emergences\s*[:=]?\s*(\d+)", lower)
+        found.append(
+            {
+                "kind": "min_emergences",
+                "arg": m_n.group(1) if m_n else "2",
+                "source": chunk,
+            }
+        )
+    if re.search(r"\bemergence_root_valid\b", lower) or (
+        re.search(r"\bemergence[_\s-]*root\b", lower)
+        and "plane" not in lower
+        and ("valid" in lower or "verify" in lower or "ok" in lower)
+    ):
+        found.append({"kind": "emergence_root_valid", "arg": "", "source": chunk})
     m = re.search(r"(?:at least|>=|≥)\s*(\d+)\s+clearing", lower)
     m = re.search(r"clearing_count\s*>=\s*(\d+)", lower)
     # Require "clearing root" adjacency; do not treat forged-root in a long list
@@ -2482,6 +2511,8 @@ def _soft_extract_outcome_predicates(chunk: str) -> list[dict[str, Any]]:
 
     m = re.search(r"min[_\s-]?restructurings?\s*[:=]\s*(\d+)", lower)
     m = re.search(r"restructuring_count\s*>=\s*(\d+)", lower)
+    m = re.search(r"min[_\s-]?emergences?\s*[:=]\s*(\d+)", lower)
+    m = re.search(r"emergence_count\s*>=\s*(\d+)", lower)
     m = re.search(r"min[_\s-]?reorganizations?\s*[:=]\s*(\d+)", lower)
     m = re.search(r"reorganization_count\s*>=\s*(\d+)", lower)
     m = re.search(r"min[_\s-]?rehabilitations?\s*[:=]\s*(\d+)", lower)
@@ -6312,6 +6343,141 @@ def materialize_total_spine_restructuring_contract_context(
         shutil.rmtree(scratch, ignore_errors=True)
 
 
+
+def materialize_total_spine_emergence_contract_context(
+    repo_path: Path,
+    context: dict[str, Any],
+    *,
+    ledger: CapabilityLedger | None = None,
+) -> dict[str, Any]:
+    """Fill empty emergence plane context via fast total-spine EvC."""
+    existing = (
+        context.get("emergence")
+        or context.get("emergence_plane")
+        or {}
+    )
+    if isinstance(existing, Mapping) and existing.get("ok"):
+        return dict(existing)
+
+    try:
+        from blackhole_agent.upstream_control_engine import (
+            TOTAL_SPINE_EMERGENCE_IMPL,
+            emerge_total_spine,
+        )
+    except Exception:  # noqa: BLE001
+        return {}
+
+    if TOTAL_SPINE_EMERGENCE_IMPL is not True:
+        return {}
+
+    ledger_ok = True
+    if ledger is not None:
+        entry = ledger.capabilities.get(
+            "capability.upstream-total-spine-emergence"
+        )
+        blob = (
+            ((entry.capability_delta or "") if entry else "")
+            + " "
+            + ((entry.name or "") if entry else "")
+            + " "
+            + " ".join((entry.tags or ()) if entry else ())
+        ).lower()
+        ledger_ok = entry is not None and (
+            "emergence" in blob or "evc" in blob
+        )
+
+    restructured = materialize_total_spine_restructuring_contract_context(
+        repo_path, context, ledger=ledger
+    )
+    cert = (
+        restructured.get("restructuring_certificate")
+        if isinstance(restructured, Mapping)
+        else None
+    )
+    if not isinstance(cert, Mapping) or not restructured.get("ok"):
+        return {}
+
+    import shutil
+    import tempfile
+
+    scratch = Path(tempfile.mkdtemp(prefix="contract-total-spine-emergence-"))
+    try:
+        emerged = emerge_total_spine(
+            cert,
+            out_root=scratch / "emg-h1",
+            prior_tip=str(
+                restructured.get("bound_action_root")
+                or restructured.get("bound_state_root")
+                or ""
+            ),
+            body={
+                "ok": True,
+                "total_spine": True,
+                "total_spine_restructuring": True,
+                "total_spine_restructuring_certificate": cert,
+                "total_spine_tip_restructuring_root": restructured.get(
+                    "tip_restructuring_root"
+                ),
+                "total_spine_digest": str(
+                    restructured.get("bound_action_root") or ""
+                ),
+            },
+            repo_path=repo_path,
+        )
+        plane = {
+            "ok": (
+                bool(emerged.get("ok"))
+                and emerged.get("total_spine_emergence") is True
+                and emerged.get("total_spine_emerged") is True
+                and emerged.get("total_spine_evc_ok") is True
+                and int(emerged.get("total_spine_emergence_count") or 0) >= 2
+                and bool(emerged.get("total_spine_tip_emergence_root"))
+                and ledger_ok
+                and not bool(emerged.get("used_skill_route_discovery"))
+            ),
+            "action": "total_spine_emergence_contract",
+            "emerged": True,
+            "emerged_ok": True,
+            "evc_ok": True,
+            "confirmation_ok": True,
+            "confirmed_ok": True,
+            "emergence_root_valid": True,
+            "emergence_count": int(
+                emerged.get("total_spine_emergence_count") or 0
+            ),
+            "tip_height": int(
+                emerged.get("total_spine_emergence_height") or 0
+            ),
+            "emergence_root": emerged.get("total_spine_tip_emergence_root"),
+            "tip_emergence_root": emerged.get("total_spine_tip_emergence_root"),
+            "bound_state_root": emerged.get("total_spine_state_root"),
+            "bound_action_root": emerged.get("total_spine_tip_action_root"),
+            "bound_restructuring_root": emerged.get(
+                "total_spine_tip_restructuring_root"
+            ),
+            "emergence_certificate": emerged.get(
+                "total_spine_emergence_certificate"
+            ),
+            "certificate_valid": True,
+            "total_spine_emergence": True,
+            "ledger_capability_ok": ledger_ok,
+            "used_skill_route_discovery": bool(
+                emerged.get("used_skill_route_discovery")
+            ),
+        }
+        context["emergence"] = plane
+        context["emergence_plane"] = plane
+        context["emergence_count"] = plane["emergence_count"]
+        context.setdefault(
+            "used_skill_route_discovery", plane.get("used_skill_route_discovery")
+        )
+        return plane
+    except Exception:  # noqa: BLE001
+        return {}
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
 def evaluate_outcome_contract(
     repo_path: Path,
     done_when: str,
@@ -6579,6 +6745,19 @@ def evaluate_outcome_contract(
     }
     if any(str(item.get("kind") or "") in _restructuring_kinds for item in predicates):
         materialize_total_spine_restructuring_contract_context(
+            root, ctx, ledger=ledger
+        )
+    _emergence_kinds = {
+        "emergence_ok",
+        "emerged_ok",
+        "min_emergences",
+        "emergence_root_valid",
+        "evc_ok",
+        "confirmation_ok",
+        "confirmed_ok",
+    }
+    if any(str(item.get("kind") or "") in _emergence_kinds for item in predicates):
+        materialize_total_spine_emergence_contract_context(
             root, ctx, ledger=ledger
         )
     results: list[dict[str, Any]] = []
@@ -8708,6 +8887,95 @@ def _eval_one_outcome_predicate(
                     or plane.get("tip_restructuring_root")
                 )
         return ok, f"restructuring_root_valid={ok}"
+
+
+    if kind in {"emergence_ok", "emerged_ok"}:
+        plane = (
+            context.get("emergence")
+            or context.get("emergence_plane")
+            or {}
+        )
+        if "emerged" in plane:
+            ok = plane.get("emerged") is True and bool(plane.get("ok", True))
+        elif "emergence_ok" in plane:
+            ok = plane.get("emergence_ok") is True
+        else:
+            ok = bool(plane.get("ok"))
+        return ok, f"{kind}={ok}"
+    if kind == "evc_ok":
+        plane = (
+            context.get("emergence")
+            or context.get("emergence_plane")
+            or {}
+        )
+        if "evc_ok" in plane:
+            ok = plane.get("evc_ok") is True and bool(plane.get("ok", True))
+        else:
+            ok = bool(plane.get("ok")) and plane.get("emerged") is True
+        return ok, f"evc_ok={ok}"
+    if kind in {"confirmation_ok", "confirmed_ok"}:
+        plane = (
+            context.get("emergence")
+            or context.get("emergence_plane")
+            or {}
+        )
+        if kind in plane:
+            ok = plane.get(kind) is True and bool(plane.get("ok", True))
+        else:
+            ok = bool(plane.get("ok")) and plane.get("emerged") is True
+        return ok, f"{kind}={ok}"
+    if kind == "min_emergences":
+        need = int(float(arg or "0"))
+        have = context.get("emergence_count")
+        if have is None:
+            plane = (
+                context.get("emergence")
+                or context.get("emergence_plane")
+                or {}
+            )
+            have = (
+                plane.get("emergence_count")
+                or plane.get("tip_height")
+                or plane.get("entry_count")
+            )
+        have_i = int(have or 0)
+        return have_i >= need, f"emergences={have_i} need>={need}"
+    if kind == "emergence_root_valid":
+        plane = (
+            context.get("emergence")
+            or context.get("emergence_plane")
+            or context.get("emergence_certificate")
+            or {}
+        )
+        if "emergence_root_valid" in plane:
+            ok = plane.get("emergence_root_valid") is True
+        elif "certificate_valid" in plane:
+            ok = plane.get("certificate_valid") is True
+        else:
+            cert = (
+                plane.get("emergence_certificate")
+                or plane.get("certificate")
+                or {}
+            )
+            if isinstance(cert, Mapping) and cert:
+                try:
+                    from blackhole_agent.upstream_total_spine_emergence import (
+                        verify_total_spine_emergence_certificate,
+                    )
+
+                    verify = verify_total_spine_emergence_certificate(cert)
+                    ok = bool(verify.get("ok"))
+                except Exception:
+                    ok = bool(plane.get("ok")) and bool(
+                        plane.get("emergence_root")
+                        or plane.get("tip_emergence_root")
+                    )
+            else:
+                ok = bool(plane.get("ok")) and bool(
+                    plane.get("emergence_root")
+                    or plane.get("tip_emergence_root")
+                )
+        return ok, f"emergence_root_valid={ok}"
 
     if kind == "program_passes":
         steps = [part.strip() for part in arg.split(",") if part.strip()]
