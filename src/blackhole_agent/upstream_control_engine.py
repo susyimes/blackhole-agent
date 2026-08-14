@@ -236,6 +236,15 @@ Composition:
   atomic emergence certificate, refuses split / one-sided / mismatched /
   failed / wrong-root / tampered emergences, short-circuits on
   re-emergence, and rebinds the depth-28 tip without skill-route
+* total-spine **post-emergence reorganization-versus-charter** — closes the
+  emerged-but-unreorganized cliff: after atomic EvC seals matching
+  emergence books, ``reorganize_total_spine(...)``
+  (and ``run_total_spine(reorganization=True)``) independently confirms a
+  second emergence, books each emerged pair into a reorganization
+  register and pairs it with a charter (RvC), seals a re-verifiable
+  atomic reorganization certificate, refuses split / one-sided / mismatched /
+  failed / wrong-root / tampered reorganizations, short-circuits on
+  re-reorganization, and rebinds the depth-28 tip without skill-route
 
 No skill-route discovery.
 """
@@ -4855,6 +4864,25 @@ from blackhole_agent.upstream_total_spine_emergence import (  # noqa: E402
     verify_total_spine_emergence_certificate,
     write_total_spine_emergence_certificate,
 )
+# Post-emergence reorganization-versus-charter: atomic reorganization+charter of emerged pairs.
+# Implementation lives in upstream_total_spine_reorganization; re-exported here.
+from blackhole_agent.upstream_total_spine_reorganization import (  # noqa: E402
+    TOTAL_SPINE_REORGANIZATION_FILENAME,
+    TOTAL_SPINE_REORGANIZATION_IMPL,
+    TOTAL_SPINE_REORGANIZATION_KIND,
+    TOTAL_SPINE_REORGANIZATION_MIN_REORGANIZATIONS,
+    annotate_total_spine_reorganization,
+    book_total_spine_emergences,
+    builtin_total_spine_reorganization_proof,
+    compute_total_spine_reorganization_root,
+    reorganize_total_spine,
+    reorganization_certificate_path,
+    load_total_spine_reorganization_certificate,
+    seal_total_spine_reorganization_certificate,
+    seal_total_spine_reorganization_chain,
+    verify_total_spine_reorganization_certificate,
+    write_total_spine_reorganization_certificate,
+)
 # Constitution-layer goals accepted by run_constitution (not free-text).
 TOTAL_SPINE_CONSTITUTION_GOALS: frozenset[str] = frozenset(
     {
@@ -7905,6 +7933,7 @@ def _maybe_stress_total_spine(
     resolution_on: bool = False,
     restructuring_on: bool = False,
     emergence_on: bool = False,
+    reorganization_on: bool = False,
 ) -> dict[str, Any]:
     """Optionally stress-test after risk; refuse unless risk is present."""
     if stress_on and TOTAL_SPINE_STRESS_IMPL:
@@ -7943,6 +7972,7 @@ def _maybe_stress_total_spine(
         resolution_on=resolution_on,
         restructuring_on=restructuring_on,
         emergence_on=emergence_on,
+        reorganization_on=reorganization_on,
         out_root=out_root,
         resume_dir=resume_dir,
         repo_path=repo_path,
@@ -7957,6 +7987,7 @@ def _maybe_recovery_total_spine(
     resolution_on: bool = False,
     restructuring_on: bool = False,
     emergence_on: bool = False,
+    reorganization_on: bool = False,
     out_root: Path | None,
     resume_dir: Path | None,
     repo_path: Path | None,
@@ -7997,6 +8028,7 @@ def _maybe_recovery_total_spine(
         resolution_on=resolution_on,
         restructuring_on=restructuring_on,
         emergence_on=emergence_on,
+        reorganization_on=reorganization_on,
         out_root=out_root,
         resume_dir=resume_dir,
         repo_path=repo_path,
@@ -8010,6 +8042,7 @@ def _maybe_resolution_total_spine(
     resolution_on: bool,
     restructuring_on: bool = False,
     emergence_on: bool = False,
+    reorganization_on: bool = False,
     out_root: Path | None,
     resume_dir: Path | None,
     repo_path: Path | None,
@@ -8049,6 +8082,7 @@ def _maybe_resolution_total_spine(
         annotated,
         restructuring_on=restructuring_on,
         emergence_on=emergence_on,
+        reorganization_on=reorganization_on,
         out_root=out_root,
         resume_dir=resume_dir,
         repo_path=repo_path,
@@ -8060,6 +8094,7 @@ def _maybe_restructuring_total_spine(
     *,
     restructuring_on: bool,
     emergence_on: bool = False,
+    reorganization_on: bool = False,
     out_root: Path | None,
     resume_dir: Path | None,
     repo_path: Path | None,
@@ -8098,6 +8133,7 @@ def _maybe_restructuring_total_spine(
     return _maybe_emergence_total_spine(
         annotated,
         emergence_on=emergence_on,
+        reorganization_on=reorganization_on,
         out_root=out_root,
         resume_dir=resume_dir,
         repo_path=repo_path,
@@ -8112,6 +8148,7 @@ def _maybe_emergence_total_spine(
     out_root: Path | None,
     resume_dir: Path | None,
     repo_path: Path | None,
+    reorganization_on: bool = False,
 ) -> dict[str, Any]:
     """Optionally emerge after restructuring; refuse unless restructuring is present."""
     if emergence_on and TOTAL_SPINE_EMERGENCE_IMPL:
@@ -8144,6 +8181,54 @@ def _maybe_emergence_total_spine(
         annotated.setdefault("total_spine_emergence", False)
         annotated["total_spine_emergence_impl"] = TOTAL_SPINE_EMERGENCE_IMPL
     annotated["total_spine_emergence_impl"] = TOTAL_SPINE_EMERGENCE_IMPL
+    return _maybe_reorganization_total_spine(
+        annotated,
+        reorganization_on=reorganization_on,
+        out_root=out_root,
+        resume_dir=resume_dir,
+        repo_path=repo_path,
+    )
+
+
+def _maybe_reorganization_total_spine(
+    annotated: dict[str, Any],
+    *,
+    reorganization_on: bool,
+    out_root: Path | None,
+    resume_dir: Path | None,
+    repo_path: Path | None,
+) -> dict[str, Any]:
+    """Optionally reorganize after emergence; refuse unless emergence is present."""
+    if reorganization_on and TOTAL_SPINE_REORGANIZATION_IMPL:
+        if annotated.get("total_spine_emergence") is True:
+            reorg_out = None
+            if out_root is not None:
+                reorg_out = Path(out_root)
+            elif resume_dir is not None:
+                reorg_out = Path(resume_dir)
+            prior_reorg = str(
+                annotated.get("total_spine_emergence_bound_tip")
+                or annotated.get("total_spine_digest")
+                or ""
+            )
+            source_reorg: Any = (
+                annotated.get("total_spine_reorganization_certificate")
+                or annotated
+            )
+            annotated = reorganize_total_spine(
+                source_reorg,
+                out_root=reorg_out,
+                prior_tip=prior_reorg,
+                body=annotated,
+                repo_path=repo_path or REPO_ROOT,
+            )
+        else:
+            annotated["total_spine_reorganization"] = False
+            annotated["total_spine_reorganization_requires_emergence"] = True
+    elif not reorganization_on:
+        annotated.setdefault("total_spine_reorganization", False)
+        annotated["total_spine_reorganization_impl"] = TOTAL_SPINE_REORGANIZATION_IMPL
+    annotated["total_spine_reorganization_impl"] = TOTAL_SPINE_REORGANIZATION_IMPL
     return annotated
 
 
@@ -8159,6 +8244,7 @@ def _maybe_risk_total_spine(
     resolution_on: bool = False,
     restructuring_on: bool = False,
     emergence_on: bool = False,
+    reorganization_on: bool = False,
 ) -> dict[str, Any]:
     """Optionally risk-assess after solvency; refuse unless solvency is present."""
     if risk_on and TOTAL_SPINE_RISK_IMPL:
@@ -8198,6 +8284,7 @@ def _maybe_risk_total_spine(
         resolution_on=resolution_on,
         restructuring_on=restructuring_on,
         emergence_on=emergence_on,
+        reorganization_on=reorganization_on,
         out_root=out_root,
         resume_dir=resume_dir,
         repo_path=repo_path,
@@ -8217,6 +8304,7 @@ def _maybe_solvency_total_spine(
     resolution_on: bool = False,
     restructuring_on: bool = False,
     emergence_on: bool = False,
+    reorganization_on: bool = False,
 ) -> dict[str, Any]:
     """Optionally solventize after capital; refuse unless capital is present."""
     if solvency_on and TOTAL_SPINE_SOLVENCY_IMPL:
@@ -8257,6 +8345,7 @@ def _maybe_solvency_total_spine(
         resolution_on=resolution_on,
         restructuring_on=restructuring_on,
         emergence_on=emergence_on,
+        reorganization_on=reorganization_on,
         out_root=out_root,
         resume_dir=resume_dir,
         repo_path=repo_path,
@@ -8277,6 +8366,7 @@ def _maybe_capital_total_spine(
     resolution_on: bool = False,
     restructuring_on: bool = False,
     emergence_on: bool = False,
+    reorganization_on: bool = False,
 ) -> dict[str, Any]:
     """Optionally capitalize after funding; refuse unless funding is present."""
     if capital_on and TOTAL_SPINE_CAPITAL_IMPL:
@@ -8318,6 +8408,7 @@ def _maybe_capital_total_spine(
         resolution_on=resolution_on,
         restructuring_on=restructuring_on,
         emergence_on=emergence_on,
+        reorganization_on=reorganization_on,
         out_root=out_root,
         resume_dir=resume_dir,
         repo_path=repo_path,
@@ -8339,6 +8430,7 @@ def _maybe_funding_total_spine(
     resolution_on: bool = False,
     restructuring_on: bool = False,
     emergence_on: bool = False,
+    reorganization_on: bool = False,
 ) -> dict[str, Any]:
     """Optionally facilitate after liquidity; refuse unless liquidity is present."""
     if funding_on and TOTAL_SPINE_FUNDING_IMPL:
@@ -8384,6 +8476,7 @@ def _maybe_funding_total_spine(
         resolution_on=resolution_on,
         restructuring_on=restructuring_on,
         emergence_on=emergence_on,
+        reorganization_on=reorganization_on,
     )
 
 
@@ -8403,6 +8496,7 @@ def _maybe_liquidity_total_spine(
     resolution_on: bool = False,
     restructuring_on: bool = False,
     emergence_on: bool = False,
+    reorganization_on: bool = False,
 ) -> dict[str, Any]:
     """Optionally fund after collateral; refuse unless collateral is present."""
     if liquidity_on and TOTAL_SPINE_LIQUIDITY_IMPL:
@@ -8449,6 +8543,7 @@ def _maybe_liquidity_total_spine(
         resolution_on=resolution_on,
         restructuring_on=restructuring_on,
         emergence_on=emergence_on,
+        reorganization_on=reorganization_on,
     )
 
 
@@ -8495,6 +8590,7 @@ def _attach_total_spine_effects(
     resolution: bool = False,
     restructuring: bool = False,
     emergence: bool = False,
+    reorganization: bool = False,
 ) -> dict[str, Any]:
     """Optionally dispatch ledger effects, gate contracts, rebind hop digests.
 
@@ -8645,7 +8741,16 @@ def _attach_total_spine_effects(
     confirmation (EvC), seal an irreversible emergence certificate, and
     rebind the tip. Implies restructuring and the planes above. Resume of an
     already-emerged run short-circuits.
+
+    Post-emergence reorganization (``reorganization=True``): after EvC seals
+    matching emergence books, independently confirm a second emergence,
+    book each emerged pair into a reorganization register and pair it with
+    a charter (RvC), seal an irreversible reorganization certificate, and
+    rebind the tip. Implies emergence and the planes above. Resume of an
+    already-reorganized run short-circuits.
     """
+    if reorganization:
+        emergence = True
     if emergence:
         restructuring = True
     if restructuring:
@@ -8716,10 +8821,20 @@ def _attach_total_spine_effects(
     resume_resolution: dict[str, Any] | None = None
     resume_restructuring: dict[str, Any] | None = None
     resume_emergence: dict[str, Any] | None = None
+    resume_reorganization: dict[str, Any] | None = None
     if resume_dir is not None:
-        # Prefer emergence short-circuit, then restructuring, resolution, recovery, stress,
+        # Prefer reorganization short-circuit, then emergence, restructuring, resolution, recovery, stress,
         # risk, solvency, capital, funding, liquidity, collateral, margin,
         # custody, delivery, clearing, settlement, actuation, execution, finality.
+        try:
+            resume_reorganization = load_total_spine_reorganization_certificate(
+                resume_dir
+            )
+        except Exception as exc:  # noqa: BLE001 — reorganization StageRefused is modular
+            verdict = getattr(exc, "verdict", "")
+            if str(verdict) == "total_spine_reorganization_tampered":
+                raise
+            resume_reorganization = None
         try:
             resume_emergence = load_total_spine_emergence_certificate(
                 resume_dir
@@ -9215,12 +9330,13 @@ def _attach_total_spine_effects(
     funding_on = bool(funding) or resume_funding is not None
     capital_on = bool(capital) or resume_capital is not None
     solvency_on = bool(solvency) or resume_solvency is not None
-    risk_on = bool(risk) or resume_risk is not None or resume_stress is not None or resume_recovery is not None or resume_resolution is not None or resume_restructuring is not None or resume_emergence is not None
-    stress_on = bool(stress) or resume_stress is not None or resume_recovery is not None or resume_resolution is not None or resume_restructuring is not None or resume_emergence is not None
-    recovery_on = bool(recovery) or resume_recovery is not None or resume_resolution is not None or resume_restructuring is not None or resume_emergence is not None
-    resolution_on = bool(resolution) or resume_resolution is not None or resume_restructuring is not None or resume_emergence is not None
-    restructuring_on = bool(restructuring) or resume_restructuring is not None or resume_emergence is not None
-    emergence_on = bool(emergence) or resume_emergence is not None
+    risk_on = bool(risk) or resume_risk is not None or resume_stress is not None or resume_recovery is not None or resume_resolution is not None or resume_restructuring is not None or resume_emergence is not None or resume_reorganization is not None
+    stress_on = bool(stress) or resume_stress is not None or resume_recovery is not None or resume_resolution is not None or resume_restructuring is not None or resume_emergence is not None or resume_reorganization is not None
+    recovery_on = bool(recovery) or resume_recovery is not None or resume_resolution is not None or resume_restructuring is not None or resume_emergence is not None or resume_reorganization is not None
+    resolution_on = bool(resolution) or resume_resolution is not None or resume_restructuring is not None or resume_emergence is not None or resume_reorganization is not None
+    restructuring_on = bool(restructuring) or resume_restructuring is not None or resume_emergence is not None or resume_reorganization is not None
+    emergence_on = bool(emergence) or resume_emergence is not None or resume_reorganization is not None
+    reorganization_on = bool(reorganization) or resume_reorganization is not None
     # Finality needs a durable write root for the certificate.
     if finality_on and not continuity_on and (out_root is not None or resume_dir is not None):
         # Keep continuity optional; finality can seal alone under out_root.
@@ -9329,6 +9445,190 @@ def _attach_total_spine_effects(
 
 
 
+
+    # --- Irreversible reorganization short-circuit (no effect re-dispatch) ---
+    if resume_reorganization is not None:
+        short_circuited = True
+        recovered = recovered or bool(resume_reorganization.get("recovered"))
+        reorg_caps = list(resume_reorganization.get("capabilities") or [])
+        reorg_prior = str(resume_reorganization.get("prior_tip") or bound_tip)
+        bound_tip = reorg_prior
+        annotated["ok"] = True
+        annotated["verdict"] = "total_spine_reorganization_short_circuit"
+        annotated["total_spine_effects"] = bool(reorg_caps) or want_effects
+        annotated["total_spine_effects_ok"] = bool(
+            resume_reorganization.get("effects_ok", True)
+        )
+        annotated["total_spine_effect_capabilities"] = reorg_caps
+        annotated["total_spine_effect_count"] = len(reorg_caps)
+        annotated["total_spine_effects_ok_count"] = len(reorg_caps)
+        annotated["total_spine_effects_failed_count"] = 0
+        annotated["total_spine_goal"] = (
+            goal_text or str(resume_reorganization.get("goal") or "")
+        )
+        if contract_text or resume_reorganization.get("done_when"):
+            annotated["total_spine_contract"] = True
+            annotated["total_spine_contract_met"] = resume_reorganization.get(
+                "contract_met"
+            )
+            annotated["total_spine_contract_ok"] = (
+                resume_reorganization.get("contract_met") is True
+                or resume_reorganization.get("contract_met") is None
+            )
+            annotated["total_spine_done_when"] = (
+                contract_text
+                or str(resume_reorganization.get("done_when") or "")
+            )
+        annotated["total_spine_finality"] = True
+        annotated["total_spine_execution"] = True
+        annotated["total_spine_actuation"] = True
+        annotated["total_spine_settlement"] = True
+        annotated["total_spine_clearing"] = True
+        annotated["total_spine_delivery"] = True
+        annotated["total_spine_custody"] = True
+        annotated["total_spine_margin"] = True
+        annotated["total_spine_collateral"] = True
+        annotated["total_spine_liquidity"] = True
+        annotated["total_spine_funding"] = True
+        annotated["total_spine_capital"] = True
+        annotated["total_spine_solvency"] = True
+        annotated["total_spine_risk"] = True
+        annotated["total_spine_stress"] = True
+        annotated["total_spine_recovery"] = True
+        annotated["total_spine_resolution"] = True
+        annotated["total_spine_restructuring"] = True
+        annotated["total_spine_emergence"] = True
+        if resume_funding is not None:
+            annotated = annotate_total_spine_funding(
+                annotated,
+                certificate=resume_funding,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_funding_bound_tip") or bound_tip
+            )
+        if resume_capital is not None:
+            annotated = annotate_total_spine_capital(
+                annotated,
+                certificate=resume_capital,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_capital_bound_tip") or bound_tip
+            )
+        if resume_solvency is not None:
+            annotated = annotate_total_spine_solvency(
+                annotated,
+                certificate=resume_solvency,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_solvency_bound_tip") or bound_tip
+            )
+        if resume_risk is not None:
+            annotated = annotate_total_spine_risk(
+                annotated,
+                certificate=resume_risk,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_risk_bound_tip") or bound_tip
+            )
+        if resume_stress is not None:
+            annotated = annotate_total_spine_stress(
+                annotated,
+                certificate=resume_stress,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_stress_bound_tip") or bound_tip
+            )
+        if resume_recovery is not None:
+            annotated = annotate_total_spine_recovery(
+                annotated,
+                certificate=resume_recovery,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_recovery_bound_tip") or bound_tip
+            )
+        if resume_resolution is not None:
+            annotated = annotate_total_spine_resolution(
+                annotated,
+                certificate=resume_resolution,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_resolution_bound_tip") or bound_tip
+            )
+        if resume_restructuring is not None:
+            annotated = annotate_total_spine_restructuring(
+                annotated,
+                certificate=resume_restructuring,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_restructuring_bound_tip") or bound_tip
+            )
+        if resume_emergence is not None:
+            annotated = annotate_total_spine_emergence(
+                annotated,
+                certificate=resume_emergence,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get("total_spine_emergence_bound_tip") or bound_tip
+            )
+        annotated = annotate_total_spine_reorganization(
+            annotated,
+            certificate=resume_reorganization,
+            prior_tip=bound_tip,
+            short_circuit=True,
+        )
+        bound_tip = str(
+            annotated.get("total_spine_reorganization_bound_tip") or bound_tip
+        )
+        annotated["total_spine_emergence"] = True
+        if compressed:
+            hops = seal_total_spine_hop_chain(
+                root, live_result, tip=bound_tip
+            )
+            annotated["total_spine_hop_chain"] = hops
+            annotated["total_spine_hop_count"] = len(hops)
+            if hops:
+                annotated["total_spine_digest"] = hops[0].get("digest")
+                annotated[f"{root}_digest"] = hops[0].get("digest")
+        else:
+            annotated["total_spine_digest"] = bound_tip
+            annotated[f"{root}_digest"] = bound_tip
+        annotated["total_spine_reorganization_short_circuit"] = True
+        annotated["total_spine_constitution_depth"] = chain_len
+        annotated["total_spine_collateral_impl"] = TOTAL_SPINE_COLLATERAL_IMPL
+        annotated["total_spine_liquidity_impl"] = TOTAL_SPINE_LIQUIDITY_IMPL
+        annotated["total_spine_funding_impl"] = TOTAL_SPINE_FUNDING_IMPL
+        annotated["total_spine_capital_impl"] = TOTAL_SPINE_CAPITAL_IMPL
+        annotated["total_spine_solvency_impl"] = TOTAL_SPINE_SOLVENCY_IMPL
+        annotated["total_spine_risk_impl"] = TOTAL_SPINE_RISK_IMPL
+        annotated["total_spine_stress_impl"] = TOTAL_SPINE_STRESS_IMPL
+        annotated["total_spine_recovery_impl"] = TOTAL_SPINE_RECOVERY_IMPL
+        annotated["total_spine_resolution_impl"] = TOTAL_SPINE_RESOLUTION_IMPL
+        annotated["total_spine_restructuring_impl"] = TOTAL_SPINE_RESTRUCTURING_IMPL
+        annotated["total_spine_emergence_impl"] = TOTAL_SPINE_EMERGENCE_IMPL
+        annotated["total_spine_reorganization_impl"] = TOTAL_SPINE_REORGANIZATION_IMPL
+        if goal_text and not annotated.get("total_spine_goal"):
+            annotated["total_spine_goal"] = goal_text
+        annotated.setdefault("total_spine_federation", False)
+        annotated.setdefault("total_spine_quorum", False)
+        return annotated
 
     # --- Irreversible emergence short-circuit (no effect re-dispatch) ---
     if resume_emergence is not None:
@@ -9500,6 +9800,14 @@ def _attach_total_spine_effects(
             annotated["total_spine_goal"] = goal_text
         annotated.setdefault("total_spine_federation", False)
         annotated.setdefault("total_spine_quorum", False)
+        if reorganization_on:
+            return _maybe_reorganization_total_spine(
+                annotated,
+                reorganization_on=True,
+                out_root=out_root,
+                resume_dir=resume_dir,
+                repo_path=repo_path,
+            )
         return annotated
 
     # --- Irreversible restructuring short-circuit (no effect re-dispatch) ---
@@ -9659,13 +9967,14 @@ def _attach_total_spine_effects(
             annotated["total_spine_goal"] = goal_text
         annotated.setdefault("total_spine_federation", False)
         annotated.setdefault("total_spine_quorum", False)
-        if emergence_on:
+        if emergence_on or reorganization_on:
             return _maybe_emergence_total_spine(
                 annotated,
-                emergence_on=True,
+                emergence_on=True if emergence_on or reorganization_on else False,
                 out_root=out_root,
                 resume_dir=resume_dir,
                 repo_path=repo_path,
+                reorganization_on=reorganization_on,
             )
         return annotated
 
@@ -9820,6 +10129,7 @@ def _attach_total_spine_effects(
                 annotated,
                 restructuring_on=True,
                 emergence_on=emergence_on,
+        reorganization_on=reorganization_on,
                 out_root=out_root,
                 resume_dir=resume_dir,
                 repo_path=repo_path,
@@ -10302,6 +10612,7 @@ def _attach_total_spine_effects(
         resolution_on=resolution_on,
         restructuring_on=restructuring_on,
         emergence_on=emergence_on,
+        reorganization_on=reorganization_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
@@ -10423,6 +10734,7 @@ def _attach_total_spine_effects(
         resolution_on=resolution_on,
         restructuring_on=restructuring_on,
         emergence_on=emergence_on,
+        reorganization_on=reorganization_on,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
@@ -10620,6 +10932,7 @@ def _attach_total_spine_effects(
         resolution_on=resolution_on,
         restructuring_on=restructuring_on,
         emergence_on=emergence_on,
+        reorganization_on=reorganization_on,
         )
         return annotated
 
@@ -10910,6 +11223,7 @@ def _attach_total_spine_effects(
         resolution_on=resolution_on,
         restructuring_on=restructuring_on,
         emergence_on=emergence_on,
+        reorganization_on=reorganization_on,
         )
         return annotated
 
@@ -11413,6 +11727,7 @@ def _attach_total_spine_effects(
         resolution_on=resolution_on,
         restructuring_on=restructuring_on,
         emergence_on=emergence_on,
+        reorganization_on=reorganization_on,
         )
         return annotated
 
@@ -11647,6 +11962,7 @@ def _attach_total_spine_effects(
         resolution_on=resolution_on,
         restructuring_on=restructuring_on,
         emergence_on=emergence_on,
+        reorganization_on=reorganization_on,
         )
         return annotated
 
@@ -11862,6 +12178,7 @@ def _attach_total_spine_effects(
         resolution_on=resolution_on,
         restructuring_on=restructuring_on,
         emergence_on=emergence_on,
+        reorganization_on=reorganization_on,
         )
         return annotated
 
@@ -12059,6 +12376,7 @@ def _attach_total_spine_effects(
         resolution_on=resolution_on,
         restructuring_on=restructuring_on,
         emergence_on=emergence_on,
+        reorganization_on=reorganization_on,
         )
         return annotated
 
@@ -12241,6 +12559,7 @@ def _attach_total_spine_effects(
         resolution_on=resolution_on,
         restructuring_on=restructuring_on,
         emergence_on=emergence_on,
+        reorganization_on=reorganization_on,
         )
         return annotated
 
@@ -12435,6 +12754,7 @@ def _attach_total_spine_effects(
         resolution_on=resolution_on,
         restructuring_on=restructuring_on,
         emergence_on=emergence_on,
+        reorganization_on=reorganization_on,
         )
         return annotated
 
@@ -12690,6 +13010,7 @@ def _attach_total_spine_effects(
         resolution_on=resolution_on,
         restructuring_on=restructuring_on,
         emergence_on=emergence_on,
+        reorganization_on=reorganization_on,
         )
         return annotated
 
@@ -13543,6 +13864,7 @@ def _attach_total_spine_effects(
         resolution_on=resolution_on,
         restructuring_on=restructuring_on,
         emergence_on=emergence_on,
+        reorganization_on=reorganization_on,
     )
     return annotated
 
@@ -13602,6 +13924,7 @@ def run_total_spine(
     resolution: bool = False,
     restructuring: bool = False,
     emergence: bool = False,
+    reorganization: bool = False,
 ) -> dict[str, Any]:
     """Public entry: absolute total spine from root into the operational nest.
 
@@ -13777,6 +14100,14 @@ def run_total_spine(
     certificate, refuses split / one-sided / mismatched / wrong-root
     closures, and short-circuits on re-emergence so a mandated net
     is no longer unemerged.
+
+    Post-emergence reorganization: ``reorganization=True`` independently confirms a
+    second emergence of the same EvC book, books each emerged pair
+    into a reorganization register and pairs it with a charter
+    (reorganization-versus-charter), seals a re-verifiable atomic reorganization
+    certificate, refuses split / one-sided / mismatched / wrong-root
+    closures, and short-circuits on re-reorganization so an emerged net
+    is no longer unreorganized.
     """
     root = (
         str(root_layer or TOTAL_SPINE_DEFAULT_ROOT).strip().lower()
@@ -13867,6 +14198,7 @@ def run_total_spine(
             resolution=resolution,
             restructuring=restructuring,
             emergence=emergence,
+            reorganization=reorganization,
         )
         return annotated
 
@@ -13950,6 +14282,7 @@ def run_total_spine(
         resolution=resolution,
         restructuring=restructuring,
         emergence=emergence,
+        reorganization=reorganization,
     )
     if out_root is not None:
         receipt_dir = Path(out_root)
@@ -21476,6 +21809,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "matching restructuring books into irreversible emergence receipts"
         ),
     )
+    sub.add_parser(
+        "reorganization-proof",
+        help=(
+            "Total spine reorganization proof: post-emergence atomic RvC seals "
+            "matching emergence books into irreversible reorganization receipts"
+        ),
+    )
     sub.add_parser("list", help="List control modes and dialects")
     sub.add_parser("nest-path", help="Print canonical operational nest path")
     sub.add_parser(
@@ -21680,6 +22020,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if result.get("ok") else 1
     if args.cmd == "emergence-proof":
         result = builtin_total_spine_emergence_proof()
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result.get("ok") else 1
+    if args.cmd == "reorganization-proof":
+        result = builtin_total_spine_reorganization_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2
