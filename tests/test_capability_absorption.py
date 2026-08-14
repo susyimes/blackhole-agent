@@ -22,6 +22,7 @@ from blackhole_agent.capability_absorption import (
     load_persisted_records,
     prove_absorbed_capability,
     record_digest,
+    reseal_absorbed_records,
     run_absorption_cases,
     run_absorption_plane,
     run_absorption_scenario,
@@ -240,3 +241,94 @@ def test_upsert_replaces_by_slug(tmp_path: Path) -> None:
     records = load_persisted_records(persist)
     assert len(records) == 1
     assert records[0]["vendored_tree_digest"] == "digest-two"
+
+
+def test_sealed_tree_digests_are_checkout_reproducible() -> None:
+    """Every persisted seal must match the vendored tree on disk.
+
+    A seal that covers files git never tracks (packaging metadata, caches)
+    can never prove again from a clean checkout — this guard fails that
+    drift before a milestone does.
+    """
+
+    records = load_persisted_records()
+    assert records, "expected persisted absorbed records"
+    for record in records:
+        slug = record["slug"]
+        vendored_dir = ABSORBED_ROOT / slug
+        assert vendored_dir.is_dir(), f"missing vendored tree: {slug}"
+        skipped = [
+            path
+            for path in vendored_dir.rglob("*")
+            if any(part.endswith((".egg-info", ".dist-info")) for part in path.parts)
+        ]
+        assert not skipped, f"{slug} vendors packaging metadata: {skipped[:3]}"
+        assert tree_digest(vendored_dir) == record["vendored_tree_digest"], slug
+
+
+def test_tree_digest_skips_packaging_metadata(tmp_path: Path) -> None:
+    bare = tmp_path / "bare"
+    bare.mkdir()
+    (bare / "tool.py").write_text("print('ok')\n", encoding="utf-8")
+    packaged = tmp_path / "packaged"
+    shutil.copytree(bare, packaged)
+    egg_info = packaged / "pkg.egg-info"
+    egg_info.mkdir()
+    (egg_info / "PKG-INFO").write_text("Metadata-Version: 2.1\n", encoding="utf-8")
+    dist_info = packaged / "pkg.dist-info"
+    dist_info.mkdir()
+    (dist_info / "METADATA").write_text("Metadata-Version: 2.1\n", encoding="utf-8")
+    assert tree_digest(packaged) == tree_digest(bare)
+
+
+def _scratch_drifted_record(tmp_path: Path) -> tuple[Path, Path]:
+    """Scratch persist file + vendored tree with a stale (drifted) seal."""
+
+    absorb_external_capability(FIXTURE_TOOL)
+    record = next(item for item in load_persisted_records() if item["slug"] == "text-reverser")
+    vendored_root = tmp_path / "absorbed"
+    shutil.copytree(ABSORBED_ROOT / "text-reverser", vendored_root / "text-reverser")
+    drifted = dict(record)
+    drifted["vendored_tree_digest"] = "0" * 64
+    drifted["record_digest"] = record_digest(drifted)
+    persist = tmp_path / "absorbed-steps.json"
+    upsert_persisted_record(drifted, persist)
+    return persist, vendored_root
+
+
+def test_reseal_repairs_drifted_record(tmp_path: Path) -> None:
+    persist, vendored_root = _scratch_drifted_record(tmp_path)
+    receipt = reseal_absorbed_records(
+        persist_path=persist, vendored_root=vendored_root, output_dir=tmp_path / "artifacts"
+    )
+    assert receipt["ok"], receipt
+    assert [entry["slug"] for entry in receipt["resealed"]] == ["text-reverser"]
+    assert not receipt["refusals"]
+    proof = prove_absorbed_capability(
+        "text-reverser", persist_path=persist, vendored_root=vendored_root
+    )
+    assert proof["ok"], proof
+    # Idempotent: a second reseal finds nothing drifted.
+    again = reseal_absorbed_records(
+        persist_path=persist, vendored_root=vendored_root, output_dir=tmp_path / "artifacts"
+    )
+    assert again["ok"] and not again["resealed"] and again["unchanged"] == ["text-reverser"]
+
+
+def test_reseal_refuses_broken_behavior(tmp_path: Path) -> None:
+    persist, vendored_root = _scratch_drifted_record(tmp_path)
+    tool_file = vendored_root / "text-reverser" / "tool.py"
+    tool_file.write_text(
+        "import json, sys\n"
+        "state = json.load(sys.stdin)\n"
+        "json.dump({'reversed_text': 'broken'}, sys.stdout)\n",
+        encoding="utf-8",
+    )
+    receipt = reseal_absorbed_records(
+        persist_path=persist, vendored_root=vendored_root, output_dir=tmp_path / "artifacts"
+    )
+    assert not receipt["ok"]
+    assert [entry["slug"] for entry in receipt["refusals"]] == ["text-reverser"]
+    assert not receipt["resealed"]
+    record = load_persisted_records(persist)[0]
+    assert record["vendored_tree_digest"] == "0" * 64  # untouched

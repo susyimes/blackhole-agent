@@ -27,7 +27,13 @@ closes that gap — **absorption**:
 - a digest-sealed report under ``artifacts/capability-absorption/`` whose
   grade is a pure function of recorded verdicts; verification re-grades,
   re-checks every digest, and re-runs the live honesty checks, so a forged
-  verdict or tampered report fails verification.
+  verdict or tampered report fails verification;
+- the tree digest covers only version-controllable content: packaging
+  metadata (``*.egg-info``/``*.dist-info``) that ``.gitignore`` excludes is
+  skipped, so every seal is reproducible from a clean checkout; records
+  sealed before that invariant drifted beyond repair-by-checkout are
+  re-sealed by :func:`reseal_absorbed_records`, which re-executes the frozen
+  cases first and refuses any record whose behavior no longer passes.
 
 Determinism contract: tree digests, case execution order, and every verdict
 must be reproducible across runs on the same checkout. Durations and
@@ -59,6 +65,7 @@ from blackhole_agent.capability_compounder import (
     Capability,
     atomic_write_json,
     default_ledger_path,
+    legacy_pipeline_was_used,
     load_ledger,
     prove_capability,
     register_capability,
@@ -92,7 +99,15 @@ _TREE_SKIP_DIRS = {
     ".venv",
     "node_modules",
 }
+# Packaging-metadata directory suffixes. Sdists ship ``*.egg-info`` (and wheels
+# ``*.dist-info``) trees that ``.gitignore`` excludes from version control, so a
+# digest that covers them can never be reproduced from a clean checkout.
+_TREE_SKIP_SUFFIXES = (".egg-info", ".dist-info")
 CASE_TIMEOUT_SECONDS = 30
+
+
+def _tree_skip_part(part: str) -> bool:
+    return part in _TREE_SKIP_DIRS or part.endswith(_TREE_SKIP_SUFFIXES)
 
 
 # ---------------------------------------------------------------------------
@@ -111,14 +126,15 @@ def _digest(payload: Any) -> str:
 def tree_digest(root: Path) -> str:
     """Deterministic digest over a vendored tool tree.
 
-    Covers every file's relative path and content in sorted order; VCS and
-    interpreter-cache directories are excluded so a proof run never changes
-    the digest it checks.
+    Covers every file's relative path and content in sorted order; VCS,
+    interpreter-cache, and packaging-metadata directories are excluded so a
+    proof run never changes the digest it checks and the seal stays
+    reproducible from a clean checkout (git never tracks ``*.egg-info``).
     """
 
     entries: list[tuple[str, str]] = []
     for path in sorted(root.rglob("*")):
-        if any(part in _TREE_SKIP_DIRS for part in path.parts):
+        if any(_tree_skip_part(part) for part in path.parts):
             continue
         if not path.is_file():
             continue
@@ -426,6 +442,104 @@ def absorbed_proof_command(slug: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Repair: audited reseal of records whose seal is not checkout-reproducible.
+# ---------------------------------------------------------------------------
+
+
+def reseal_absorbed_records(
+    *,
+    persist_path: Path | None = None,
+    vendored_root: Path | None = None,
+    output_dir: Path | None = None,
+) -> dict[str, Any]:
+    """Re-seal absorbed records whose vendored tree drifted from the seal.
+
+    A seal is only meaningful when it is reproducible from the committed
+    checkout. Past planes digested packaging metadata (``*.egg-info``) that
+    git never tracks, so their records could never prove again. For every
+    drifted record this re-executes the frozen cases against the on-disk
+    vendored tree and — only when every case still passes — rewrites the
+    record with the checkout-reproducible tree digest. A record whose cases
+    fail is *refused*: drift plus broken behavior is tampering, not drift.
+    Every decision is sealed into a repair receipt under
+    ``artifacts/capability-absorption/``.
+    """
+
+    records = load_persisted_records(persist_path)
+    root = vendored_root or ABSORBED_ROOT
+    rewritten: list[dict[str, Any]] = []
+    refusals: list[dict[str, Any]] = []
+    unchanged: list[str] = []
+    updated_records: list[dict[str, Any]] = []
+    for record in records:
+        slug = str(record.get("slug") or "")
+        vendored_dir = durable_read_path(root / slug)
+        actual_tree = tree_digest(vendored_dir) if vendored_dir.is_dir() else ""
+        if actual_tree and actual_tree == str(record.get("vendored_tree_digest") or ""):
+            unchanged.append(slug)
+            updated_records.append(record)
+            continue
+        manifest = {
+            "command": record["command"],
+            "requires": record["requires"],
+            "provides": record["provides"],
+            "cases": record["cases"],
+        }
+        cases = run_absorption_cases(vendored_dir, manifest) if actual_tree else {
+            "ok": False,
+            "case_count": len(record["cases"]),
+            "cases_pass": False,
+            "case_results": [],
+        }
+        if not cases["ok"]:
+            refusals.append(
+                {
+                    "slug": slug,
+                    "reason": "frozen cases fail against the drifted tree"
+                    if actual_tree
+                    else "vendored tree is missing",
+                    "sealed_tree_digest": record.get("vendored_tree_digest"),
+                    "actual_tree_digest": actual_tree or None,
+                }
+            )
+            updated_records.append(record)
+            continue
+        resealed = dict(record)
+        resealed["vendored_tree_digest"] = actual_tree
+        resealed["record_digest"] = record_digest(resealed)
+        rewritten.append(
+            {
+                "slug": slug,
+                "previous_tree_digest": record.get("vendored_tree_digest"),
+                "resealed_tree_digest": actual_tree,
+                "case_count": cases["case_count"],
+            }
+        )
+        updated_records.append(resealed)
+
+    persisted = _write_persisted_records(updated_records, persist_path) if rewritten else False
+    receipt = {
+        "schema_version": SCHEMA_VERSION,
+        "kind": "absorption_reseal_receipt",
+        "resealed_at": utc_now_iso(),
+        "record_count": len(records),
+        "unchanged": sorted(unchanged),
+        "resealed": rewritten,
+        "refusals": refusals,
+        "persisted": persisted,
+        "ok": not refusals,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    receipt["receipt_digest"] = _digest(
+        {key: value for key, value in receipt.items() if key != "receipt_digest"}
+    )
+    target_dir = output_dir or DEFAULT_ARTIFACT_DIR
+    target_dir.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(target_dir / "latest-reseal.json", receipt)
+    return receipt
+
+
+# ---------------------------------------------------------------------------
 # Absorption: vendor, persist, register, prove.
 # ---------------------------------------------------------------------------
 
@@ -474,6 +588,8 @@ def absorb_external_capability(
             ".nox",
             ".venv",
             "node_modules",
+            "*.egg-info",
+            "*.dist-info",
         ),
     )
     vendored = run_absorption_cases(vendored_dir, manifest)
@@ -618,7 +734,7 @@ def scenario_report_name(slug: str) -> str:
 
 def _first_vendored_file(vendored_dir: Path) -> Path:
     for path in sorted(vendored_dir.rglob("*")):
-        if any(part in _TREE_SKIP_DIRS for part in path.parts):
+        if any(_tree_skip_part(part) for part in path.parts):
             continue
         if path.is_file():
             return path

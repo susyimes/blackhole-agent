@@ -1,5 +1,5 @@
 {
-  "absorbed_at": "2026-08-14T19:54:04.354483Z",
+  "absorbed_at": "2026-08-14T20:58:26.371932Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
@@ -51,13 +51,13 @@
       "provides": [
         "shout_output"
       ],
-      "record_digest": "92e2ee2daf97d25fd13e2ec33676ff356a892969f9489226f83207e86c5f4550",
+      "record_digest": "b509a73871f6a6c959bebd80a4af841c38068ec30a9a69358315f2267fe00c0f",
       "requires": [
         "text"
       ],
       "schema_version": 1,
       "slug": "forage-lab",
-      "vendored_tree_digest": "6d42b5ce2c00dd9cbfd3e57b64a2a83669f4b3374392a29474fe5f2957b54f89",
+      "vendored_tree_digest": "61b26d58485937277ec74f44ede0883d095293e7b103fe2d56adc8539730322a",
       "version": ""
     },
     {
@@ -112,13 +112,13 @@
       "provides": [
         "camelize_output"
       ],
-      "record_digest": "e36b6d7859dc47c5bcb500207903c443288cbed9fdcdc3fe80b640c9b9df0c6b",
+      "record_digest": "a8c95ca39e915732272c2c259677e110086ef6bdb87b43cbdaf69a906441a5cd",
       "requires": [
         "string"
       ],
       "schema_version": 1,
       "slug": "inflection",
-      "vendored_tree_digest": "c54d0352e84f3c0cac49685137e00589abb8b025625918e821142cd435c18f3e",
+      "vendored_tree_digest": "95dff536545a0d32375347377bb7ec9b7c0614d806baddb67ed1c4ead55701bb",
       "version": "0.5.1"
     },
     {
@@ -153,13 +153,13 @@
       "provides": [
         "indented_json"
       ],
-      "record_digest": "c5fae18104bdfd0b8196ab8c99d38ffe305cc64b30d2cb7406e6e283f19874a2",
+      "record_digest": "20c60356f8d857605457981692b74f398cc46d0d156e3f6a2006f468bb51bf2f",
       "requires": [
         "raw_json"
       ],
       "schema_version": 1,
       "slug": "json-indenter",
-      "vendored_tree_digest": "a13d1ba5aee103f47734320ad4cd32537f0fafa212e4a68f6667d074726e58b4",
+      "vendored_tree_digest": "1389efb860be96eff7b3333ed62e6c49c05b425b06ef032f7fc6ab8b8be6e580",
       "version": ""
     },
     {
@@ -210,13 +210,13 @@
       "provides": [
         "markdown_output"
       ],
-      "record_digest": "58669054dd41ed1fdcf4d56e78796f35d81d7be15de60de63a21d8ff29debe23",
+      "record_digest": "c7a7a7d3f8aa6d682e1bd5fa98b772d8f0f32190dccf1f4c17b63639ff253c45",
       "requires": [
         "text"
       ],
       "schema_version": 1,
       "slug": "markdown-foraged",
-      "vendored_tree_digest": "e1445cce0aaa19171739546b7924605bafdc9eaa3f6708d97936242f1646ea39",
+      "vendored_tree_digest": "80136ddf1b0fbe24c661ea78850171485adb1202696fcc79d7faad63df1fee2a",
       "version": "3.10.3"
     },
     {
@@ -259,13 +259,13 @@
       "provides": [
         "marked_html"
       ],
-      "record_digest": "79a02cebee544efd11cebd1d6900a6e122406832f238f5a4a91f7d080e2073e4",
+      "record_digest": "01d1f4f192741f6c46a19db0ac867a2af4a406e3adf9c150464f0bc18e47dd59",
       "requires": [
         "markdown_source"
       ],
       "schema_version": 1,
       "slug": "marked-renderer",
-      "vendored_tree_digest": "3125fa6f628517cc442567cd0b27f4a5c0a4c9b805cfac711ca4bba0cb86cb42",
+      "vendored_tree_digest": "0a4287a195aa31a20f9216ec400504fb620d5b0602ea7138b8e8e43c6fc8a94c",
       "version": "18.0.7"
     },
     {
@@ -358,13 +358,13 @@
       "provides": [
         "rendered_markdown"
       ],
-      "record_digest": "51aac41f460e0ae0d0a24badb0fe8c847d0aae64ca21d43c83874052f32b6382",
+      "record_digest": "7de58a621af634e1c691cb65b185b5052c4714130b4b5e65e6bffc03faa3200a",
       "requires": [
         "markdown_source"
       ],
       "schema_version": 1,
       "slug": "python-markdown",
-      "vendored_tree_digest": "0800eb0afceaad5937b45e2e337974b36ff3b67e48906fd93f200dc509551e5d",
+      "vendored_tree_digest": "886c7f1a77b17153d1033f79619d29bfb73e4e376cc913fbe729c9096c574826",
       "version": "3.10.3"
     },
     {
@@ -479,13 +479,13 @@
       "provides": [
         "loads_output"
       ],
-      "record_digest": "8221d9cfeda857e351ee34227b51960e4fdb30692d54db36ffe0292b94fc1d98",
+      "record_digest": "da9bdb6040542607128c813f4ea1b3e6f262eb8e318a80fcafe136011010a48a",
       "requires": [
         "s"
       ],
       "schema_version": 1,
       "slug": "tomli-foraged",
-      "vendored_tree_digest": "f6b700e2f583c5317683e4b9c56ca143b6ea481840a11938cb3ab3a9c0583b32",
+      "vendored_tree_digest": "13c8dcef7b29926954e832233925276426293dc951ee91cb89ba7fc3327d8cef",
       "version": "2.4.1"
     },
     {
@@ -542,15 +542,15 @@
       "provides": [
         "parsed_toml"
       ],
-      "record_digest": "baf37f4ea7ea9343e4722dc0e57c87705f908b2864cbd6646103e7b84e7254dd",
+      "record_digest": "c4756a2dd09dbe5086dc06e73671b371f37e24228ef75299bbea5e3d1716054a",
       "requires": [
         "toml_source"
       ],
       "schema_version": 1,
       "slug": "tomli-parser",
-      "vendored_tree_digest": "4761e4afd5f456a0c62da810e3590bf8cd3cb5cd756878909e086adfa737b878",
+      "vendored_tree_digest": "00242ab421a81ebd2bdf0badc14d844afb451041b6d9a788ea2e852273162a0a",
       "version": "2.4.1"
     }
   ],
-  "steps_digest": "16b112651ec8cff1381759ab8d30d8f32951894ef29b5e914bc85ed5ba369347"
+  "steps_digest": "4512dc51c979b2cbb4fd0b477c0ba8856aadff33a09ab087e7bc6a4006aab277"
 }

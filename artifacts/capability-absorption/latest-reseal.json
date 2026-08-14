@@ -1,0 +1,65 @@
+{
+  "kind": "absorption_reseal_receipt",
+  "ok": true,
+  "persisted": true,
+  "receipt_digest": "a34d3ef69f75849128cf3410b32cdbf1617cfa48389c10002828650853854ab3",
+  "record_count": 10,
+  "refusals": [],
+  "resealed": [
+    {
+      "case_count": 4,
+      "previous_tree_digest": "6d42b5ce2c00dd9cbfd3e57b64a2a83669f4b3374392a29474fe5f2957b54f89",
+      "resealed_tree_digest": "61b26d58485937277ec74f44ede0883d095293e7b103fe2d56adc8539730322a",
+      "slug": "forage-lab"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "c54d0352e84f3c0cac49685137e00589abb8b025625918e821142cd435c18f3e",
+      "resealed_tree_digest": "95dff536545a0d32375347377bb7ec9b7c0614d806baddb67ed1c4ead55701bb",
+      "slug": "inflection"
+    },
+    {
+      "case_count": 2,
+      "previous_tree_digest": "a13d1ba5aee103f47734320ad4cd32537f0fafa212e4a68f6667d074726e58b4",
+      "resealed_tree_digest": "1389efb860be96eff7b3333ed62e6c49c05b425b06ef032f7fc6ab8b8be6e580",
+      "slug": "json-indenter"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "e1445cce0aaa19171739546b7924605bafdc9eaa3f6708d97936242f1646ea39",
+      "resealed_tree_digest": "80136ddf1b0fbe24c661ea78850171485adb1202696fcc79d7faad63df1fee2a",
+      "slug": "markdown-foraged"
+    },
+    {
+      "case_count": 3,
+      "previous_tree_digest": "3125fa6f628517cc442567cd0b27f4a5c0a4c9b805cfac711ca4bba0cb86cb42",
+      "resealed_tree_digest": "0a4287a195aa31a20f9216ec400504fb620d5b0602ea7138b8e8e43c6fc8a94c",
+      "slug": "marked-renderer"
+    },
+    {
+      "case_count": 3,
+      "previous_tree_digest": "0800eb0afceaad5937b45e2e337974b36ff3b67e48906fd93f200dc509551e5d",
+      "resealed_tree_digest": "886c7f1a77b17153d1033f79619d29bfb73e4e376cc913fbe729c9096c574826",
+      "slug": "python-markdown"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "f6b700e2f583c5317683e4b9c56ca143b6ea481840a11938cb3ab3a9c0583b32",
+      "resealed_tree_digest": "13c8dcef7b29926954e832233925276426293dc951ee91cb89ba7fc3327d8cef",
+      "slug": "tomli-foraged"
+    },
+    {
+      "case_count": 3,
+      "previous_tree_digest": "4761e4afd5f456a0c62da810e3590bf8cd3cb5cd756878909e086adfa737b878",
+      "resealed_tree_digest": "00242ab421a81ebd2bdf0badc14d844afb451041b6d9a788ea2e852273162a0a",
+      "slug": "tomli-parser"
+    }
+  ],
+  "resealed_at": "2026-08-14T20:58:26.373776Z",
+  "schema_version": 1,
+  "unchanged": [
+    "mistune-markdown",
+    "text-reverser"
+  ],
+  "used_skill_route_discovery": false
+}
