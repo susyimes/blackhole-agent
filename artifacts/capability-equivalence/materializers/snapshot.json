@@ -1,0 +1,325 @@
+{
+  "captured_at": "2026-08-15T06:01:13.051697Z",
+  "kind": "equivalence_snapshot",
+  "name": "materializers",
+  "probes": [
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-c",
+        "import json, sys; from pathlib import Path; from blackhole_agent import capability_compounder as cc; f = getattr(cc, 'materialize_total_spine_' + sys.argv[1] + '_contract_context'); r = f(Path('.').resolve(), {}); print(json.dumps(r, sort_keys=True, default=str))",
+        "quorum"
+      ],
+      "id": "mat-quorum",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-c",
+        "import json, sys; from pathlib import Path; from blackhole_agent import capability_compounder as cc; f = getattr(cc, 'materialize_total_spine_' + sys.argv[1] + '_contract_context'); r = f(Path('.').resolve(), {}); print(json.dumps(r, sort_keys=True, default=str))",
+        "execution"
+      ],
+      "id": "mat-execution",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-c",
+        "import json, sys; from pathlib import Path; from blackhole_agent import capability_compounder as cc; f = getattr(cc, 'materialize_total_spine_' + sys.argv[1] + '_contract_context'); r = f(Path('.').resolve(), {}); print(json.dumps(r, sort_keys=True, default=str))",
+        "actuation"
+      ],
+      "id": "mat-actuation",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-c",
+        "import json, sys; from pathlib import Path; from blackhole_agent import capability_compounder as cc; f = getattr(cc, 'materialize_total_spine_' + sys.argv[1] + '_contract_context'); r = f(Path('.').resolve(), {}); print(json.dumps(r, sort_keys=True, default=str))",
+        "settlement"
+      ],
+      "id": "mat-settlement",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-c",
+        "import json, sys; from pathlib import Path; from blackhole_agent import capability_compounder as cc; f = getattr(cc, 'materialize_total_spine_' + sys.argv[1] + '_contract_context'); r = f(Path('.').resolve(), {}); print(json.dumps(r, sort_keys=True, default=str))",
+        "clearing"
+      ],
+      "id": "mat-clearing",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-c",
+        "import json, sys; from pathlib import Path; from blackhole_agent import capability_compounder as cc; f = getattr(cc, 'materialize_total_spine_' + sys.argv[1] + '_contract_context'); r = f(Path('.').resolve(), {}); print(json.dumps(r, sort_keys=True, default=str))",
+        "delivery"
+      ],
+      "id": "mat-delivery",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-c",
+        "import json, sys; from pathlib import Path; from blackhole_agent import capability_compounder as cc; f = getattr(cc, 'materialize_total_spine_' + sys.argv[1] + '_contract_context'); r = f(Path('.').resolve(), {}); print(json.dumps(r, sort_keys=True, default=str))",
+        "custody"
+      ],
+      "id": "mat-custody",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-c",
+        "import json, sys; from pathlib import Path; from blackhole_agent import capability_compounder as cc; f = getattr(cc, 'materialize_total_spine_' + sys.argv[1] + '_contract_context'); r = f(Path('.').resolve(), {}); print(json.dumps(r, sort_keys=True, default=str))",
+        "margin"
+      ],
+      "id": "mat-margin",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-c",
+        "import json, sys; from pathlib import Path; from blackhole_agent import capability_compounder as cc; f = getattr(cc, 'materialize_total_spine_' + sys.argv[1] + '_contract_context'); r = f(Path('.').resolve(), {}); print(json.dumps(r, sort_keys=True, default=str))",
+        "collateral"
+      ],
+      "id": "mat-collateral",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-c",
+        "import json, sys; from pathlib import Path; from blackhole_agent import capability_compounder as cc; f = getattr(cc, 'materialize_total_spine_' + sys.argv[1] + '_contract_context'); r = f(Path('.').resolve(), {}); print(json.dumps(r, sort_keys=True, default=str))",
+        "liquidity"
+      ],
+      "id": "mat-liquidity",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-c",
+        "import json, sys; from pathlib import Path; from blackhole_agent import capability_compounder as cc; f = getattr(cc, 'materialize_total_spine_' + sys.argv[1] + '_contract_context'); r = f(Path('.').resolve(), {}); print(json.dumps(r, sort_keys=True, default=str))",
+        "funding"
+      ],
+      "id": "mat-funding",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-c",
+        "import json, sys; from pathlib import Path; from blackhole_agent import capability_compounder as cc; f = getattr(cc, 'materialize_total_spine_' + sys.argv[1] + '_contract_context'); r = f(Path('.').resolve(), {}); print(json.dumps(r, sort_keys=True, default=str))",
+        "capital"
+      ],
+      "id": "mat-capital",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-c",
+        "import json, sys; from pathlib import Path; from blackhole_agent import capability_compounder as cc; f = getattr(cc, 'materialize_total_spine_' + sys.argv[1] + '_contract_context'); r = f(Path('.').resolve(), {}); print(json.dumps(r, sort_keys=True, default=str))",
+        "solvency"
+      ],
+      "id": "mat-solvency",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-c",
+        "import json, sys; from pathlib import Path; from blackhole_agent import capability_compounder as cc; f = getattr(cc, 'materialize_total_spine_' + sys.argv[1] + '_contract_context'); r = f(Path('.').resolve(), {}); print(json.dumps(r, sort_keys=True, default=str))",
+        "risk"
+      ],
+      "id": "mat-risk",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-c",
+        "import json, sys; from pathlib import Path; from blackhole_agent import capability_compounder as cc; f = getattr(cc, 'materialize_total_spine_' + sys.argv[1] + '_contract_context'); r = f(Path('.').resolve(), {}); print(json.dumps(r, sort_keys=True, default=str))",
+        "stress"
+      ],
+      "id": "mat-stress",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-c",
+        "import json, sys; from pathlib import Path; from blackhole_agent import capability_compounder as cc; f = getattr(cc, 'materialize_total_spine_' + sys.argv[1] + '_contract_context'); r = f(Path('.').resolve(), {}); print(json.dumps(r, sort_keys=True, default=str))",
+        "recovery"
+      ],
+      "id": "mat-recovery",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-c",
+        "import json, sys; from pathlib import Path; from blackhole_agent import capability_compounder as cc; f = getattr(cc, 'materialize_total_spine_' + sys.argv[1] + '_contract_context'); r = f(Path('.').resolve(), {}); print(json.dumps(r, sort_keys=True, default=str))",
+        "resolution"
+      ],
+      "id": "mat-resolution",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-c",
+        "import json, sys; from pathlib import Path; from blackhole_agent import capability_compounder as cc; f = getattr(cc, 'materialize_total_spine_' + sys.argv[1] + '_contract_context'); r = f(Path('.').resolve(), {}); print(json.dumps(r, sort_keys=True, default=str))",
+        "restructuring"
+      ],
+      "id": "mat-restructuring",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-c",
+        "import json, sys; from pathlib import Path; from blackhole_agent import capability_compounder as cc; f = getattr(cc, 'materialize_total_spine_' + sys.argv[1] + '_contract_context'); r = f(Path('.').resolve(), {}); print(json.dumps(r, sort_keys=True, default=str))",
+        "emergence"
+      ],
+      "id": "mat-emergence",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-c",
+        "import json, sys; from pathlib import Path; from blackhole_agent import capability_compounder as cc; f = getattr(cc, 'materialize_total_spine_' + sys.argv[1] + '_contract_context'); r = f(Path('.').resolve(), {}); print(json.dumps(r, sort_keys=True, default=str))",
+        "reorganization"
+      ],
+      "id": "mat-reorganization",
+      "kind": "command"
+    },
+    {
+      "id": "compounder-contract-tests",
+      "kind": "pytest",
+      "paths": [
+        "tests/test_capability_compounder.py::test_outcome_contract_parses_and_evaluates_machine_predicates"
+      ]
+    }
+  ],
+  "results": {
+    "compounder-contract-tests": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "skipped": 0,
+      "tests": 1
+    },
+    "mat-actuation": {
+      "exit_code": 0,
+      "stdout_digest": "70c25b46ab8ee93fc877f6bf033a23dac8a4e6f39bb421942a79af10dbdfcd9a",
+      "stdout_form": "json"
+    },
+    "mat-capital": {
+      "exit_code": 0,
+      "stdout_digest": "e3b7e824d1cb626eb0a447d86ca490b2abf0b455faa3be644a15ebfe23572532",
+      "stdout_form": "json"
+    },
+    "mat-clearing": {
+      "exit_code": 0,
+      "stdout_digest": "526ae97f5dc56923f780091711b0d87a163ee490025864bc4ba372a7d136f1cd",
+      "stdout_form": "json"
+    },
+    "mat-collateral": {
+      "exit_code": 0,
+      "stdout_digest": "878be77eeaef4b7ff91964e247aa9986d12ffdebe9fe359235dc8b0d775ff484",
+      "stdout_form": "json"
+    },
+    "mat-custody": {
+      "exit_code": 0,
+      "stdout_digest": "94bc94fa9c8b7355ce5a91caea6c5762bd5e5a314021fb86fb5e591714ec4516",
+      "stdout_form": "json"
+    },
+    "mat-delivery": {
+      "exit_code": 0,
+      "stdout_digest": "402611bddfa2ee0bfc32c3e0da0bd1a24e075baf9f747ab8f71a4b177282a1ee",
+      "stdout_form": "json"
+    },
+    "mat-emergence": {
+      "exit_code": 0,
+      "stdout_digest": "1150dd13b8a3e5ee07974c768e92874ea0b7b40b8cbe6c8c6e70bddf6ed1c5ae",
+      "stdout_form": "json"
+    },
+    "mat-execution": {
+      "exit_code": 0,
+      "stdout_digest": "26096ba5dbafa433da1b57b2e9d2ea0ee6934c6685b6f80a9856f88209a50746",
+      "stdout_form": "json"
+    },
+    "mat-funding": {
+      "exit_code": 0,
+      "stdout_digest": "ed9164debf27fdb23d8a8ee92cf4f1d08624fc17e4025d71f27904321a18e4a7",
+      "stdout_form": "json"
+    },
+    "mat-liquidity": {
+      "exit_code": 0,
+      "stdout_digest": "21dbcb50c71ead7ebdc086c618e1cc2b5ed18ef5ee1547419acf5a75747deccb",
+      "stdout_form": "json"
+    },
+    "mat-margin": {
+      "exit_code": 0,
+      "stdout_digest": "373fbde665b7bba5c28bc869b06f39c3f76c13707be66809689cc73d9ec46692",
+      "stdout_form": "json"
+    },
+    "mat-quorum": {
+      "exit_code": 0,
+      "stdout_digest": "1df2e9589bfa2e12defac152f18b4ad9ac9601f466e806475da40d740451d3b6",
+      "stdout_form": "json"
+    },
+    "mat-recovery": {
+      "exit_code": 0,
+      "stdout_digest": "bee2f453ed86f89f3deaced8be1e9e4423a398e65e17fd6f326f2fcf55705f73",
+      "stdout_form": "json"
+    },
+    "mat-reorganization": {
+      "exit_code": 0,
+      "stdout_digest": "ea4d612a3ace90afc7760451901b251aff46550c500fa6addd8372cbf862c596",
+      "stdout_form": "json"
+    },
+    "mat-resolution": {
+      "exit_code": 0,
+      "stdout_digest": "8f43887ecb8906e99e65c95635715645ad524774bce54c8de52b48672b3fb9bc",
+      "stdout_form": "json"
+    },
+    "mat-restructuring": {
+      "exit_code": 0,
+      "stdout_digest": "c54c807c49821bcb5b238114bb08234f97d99191ac18f976b1ebb7dc6c3a8497",
+      "stdout_form": "json"
+    },
+    "mat-risk": {
+      "exit_code": 0,
+      "stdout_digest": "95275318648343b1353d77db2b0c7784b4726034a97c82a4861dc8a140f7733f",
+      "stdout_form": "json"
+    },
+    "mat-settlement": {
+      "exit_code": 0,
+      "stdout_digest": "dfd50ca864e0a518d5869ea6bbbeabd2eb00b718dbd00b94688a6df33d6a1352",
+      "stdout_form": "json"
+    },
+    "mat-solvency": {
+      "exit_code": 0,
+      "stdout_digest": "b89a37892ef830410d9e1da5040f744b00a67158dc324df17b8ce2c409d6d855",
+      "stdout_form": "json"
+    },
+    "mat-stress": {
+      "exit_code": 0,
+      "stdout_digest": "dcf8d418bb535a7e8a27d5827166f6bb36b52b9f21dd50138dccf8117aec63c4",
+      "stdout_form": "json"
+    }
+  },
+  "schema_version": 1,
+  "snapshot_digest": "69d91a50f9e98e41235bd891fd8d5ad0ce69dd95fe5dc857b10d8c62490ac47e"
+}

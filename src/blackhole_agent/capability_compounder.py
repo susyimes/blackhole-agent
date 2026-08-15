@@ -2683,6 +2683,304 @@ def snapshot_outcome_metrics(
     }
 
 
+# ---------------------------------------------------------------------------
+# Contract-context materializers: pair-effect family (data-driven).
+#
+# Each materializer proves a plane's machine-checkable predicates hermetically
+# with a synthetic absolute-tower run and fills the empty context. The 15
+# pair-effect variants were generated copies differing only in nouns, field
+# maps, and the chain depth; they are now one generic runner over
+# _MAT_PAIR_CONFIG (fields/ok-terms extracted verbatim from the historical
+# bodies, including residue). No skill-route discovery.
+# ---------------------------------------------------------------------------
+
+
+def _mat_eval_value(role: list, result: Mapping[str, Any], ledger_ok: bool) -> Any:
+    kind = role[0]
+    if kind == "lit":
+        return role[1]
+    if kind == "int":
+        return int(result.get(role[1]) or int(role[2] or 0))
+    if kind == "bool":
+        return bool(result.get(role[1]) or (role[2] if len(role) > 2 and role[2] else False))
+    if kind == "get":
+        return result.get(role[1].strip("'\""))
+    if kind == "ledger":
+        return ledger_ok
+    raise ValueError(f"unknown materializer field role: {role!r}")
+
+
+def _mat_eval_ok(terms: list, result: Mapping[str, Any], ledger_ok: bool) -> bool:
+    for term in terms:
+        kind = term[0]
+        if kind == "bool":
+            if not bool(result.get(term[1])):
+                return False
+        elif kind == "is":
+            if not (result.get(term[1]) is term[2]):
+                return False
+        elif kind == "min":
+            if not (int(result.get(term[1]) or 0) >= int(term[2])):
+                return False
+        elif kind == "ledger":
+            if not ledger_ok:
+                return False
+        elif kind == "not_bool":
+            if bool(result.get(term[1])):
+                return False
+        else:
+            raise ValueError(f"unknown ok-term role: {term!r}")
+    return True
+
+
+def _materialize_pair_effect(
+    effect: str,
+    repo_path: Path,
+    context: MutableMapping[str, Any],
+    *,
+    ledger: CapabilityLedger | None = None,
+) -> dict[str, Any]:
+    """Fill empty plane context for one pair effect via a synthetic tower run."""
+
+    from blackhole_agent.upstream_total_spine_effects import (
+        PAIR_EFFECT_SPECS,
+        TOTAL_SPINE_CHAIN,
+    )
+
+    cfg = _MAT_PAIR_CONFIG[effect]
+    spec = PAIR_EFFECT_SPECS[effect]
+    existing = context.get(effect) or context.get(f"{effect}_plane") or {}
+    if isinstance(existing, Mapping) and existing.get("ok"):
+        return dict(existing)
+
+    try:
+        from blackhole_agent import upstream_control_engine as ce
+    except Exception:  # noqa: BLE001
+        return {}
+
+    if getattr(ce, f"TOTAL_SPINE_{spec.upper}_IMPL", None) is not True:
+        return {}
+
+    ledger_ok = True
+    if ledger is not None:
+        entry = ledger.capabilities.get(f"capability.upstream-total-spine-{effect}")
+        blob = (
+            ((entry.capability_delta or "") if entry else "")
+            + " "
+            + ((entry.name or "") if entry else "")
+            + " "
+            + " ".join((entry.tags or ()) if entry else ())
+        ).lower()
+        ledger_ok = entry is not None and any(
+            token in blob for token in cfg["ledger_tokens"]
+        )
+
+    import shutil
+    import tempfile
+
+    scratch = Path(tempfile.mkdtemp(prefix=f"contract-total-spine-{effect}-"))
+    try:
+        # All pair effects run the inline chain builder: the historical
+        # recursive tail (risk..reorganization) starved its confirm cascade
+        # (only the bare predecessor certificate reached it), so those
+        # materializers always returned {} — the inline chain rebuilds the
+        # full book and works at any depth.
+        result = _mat_inline_run(ce, spec, scratch, repo_path)
+        plane = {
+            "ok": _mat_eval_ok(cfg["ok_terms"], result, ledger_ok),
+        }
+        for key, role in cfg["fields"].items():
+            plane[key] = _mat_eval_value(role, result, ledger_ok)
+        context[effect] = plane
+        context[f"{effect}_plane"] = plane
+        context[f"{effect}_count"] = plane[f"{effect}_count"]
+        context.setdefault(
+            "used_skill_route_discovery", plane.get("used_skill_route_discovery")
+        )
+        return plane
+    except Exception:  # noqa: BLE001
+        return {}
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def _mat_inline_run(ce: Any, spec: Any, scratch: Path, repo_path: Path) -> Mapping[str, Any]:
+    """Finality → quorum → execution → actuation → settlement → pair chain."""
+
+    effect = spec.effect
+    paths: list[str] = []
+    for idx, done_when in enumerate(
+        (
+            f"contract-{effect}-pass",
+            f"contract-{effect}-pass",
+            f"contract-{effect}-byzantine",
+        )
+    ):
+        body = {
+            "schema_version": ce.SCHEMA_VERSION,
+            "kind": ce.TOTAL_SPINE_FINALITY_KIND,
+            "root_layer": "quettacontinuum",
+            "goal": f"outcome-contract total-spine {effect} materialize",
+            "done_when": done_when,
+            "capabilities": [
+                "repo.import-health",
+                "capability.ledger-inventory",
+            ],
+            "operational_tip": f"{idx:x}" * 64,
+            "bound_tip": f"{(idx + 3):x}" * 64,
+            "continuity_digest": f"{(idx + 6):x}" * 64,
+            "adaptive_round_count": 0,
+            "effects_ok": True,
+            "contract_met": True,
+            "recovered": False,
+            "irreversible": True,
+            "success": True,
+            "finalized_at": utc_now_iso(),
+        }
+        cert = ce.write_total_spine_finality_certificate(
+            scratch / f"origin-{idx}", body
+        )
+        paths.append(str(cert.get("finality_path") or ""))
+    quorumed = ce.federate_total_spine(
+        paths,
+        out_root=scratch / "quorum",
+        quorum=True,
+    )
+    executed = ce.execute_total_spine(
+        quorumed.get("total_spine_federation_certificate"),
+        out_root=scratch / "exec-h1",
+        prior_tip=str(
+            quorumed.get("total_spine_federation_bound_tip") or ""
+        ),
+        state_height=1,
+    )
+    actuated = ce.actuate_total_spine(
+        executed.get("total_spine_execution_certificate"),
+        out_root=scratch / "act-h1",
+        prior_tip=str(
+            executed.get("total_spine_execution_bound_tip") or ""
+        ),
+        capabilities=[
+            "repo.import-health",
+            "capability.ledger-inventory",
+        ],
+        repo_path=repo_path,
+        effect_timeout=60,
+        dispatch=True,
+    )
+    prev = ce.settle_total_spine(
+        actuated.get("total_spine_actuation_certificate"),
+        out_root=scratch / "set-h1",
+        prior_tip=str(
+            actuated.get("total_spine_actuation_bound_tip") or ""
+        ),
+        body=dict(actuated),
+        repo_path=repo_path,
+    )
+    from blackhole_agent.upstream_total_spine_effects import TOTAL_SPINE_CHAIN
+
+    act_cert = actuated.get("total_spine_actuation_certificate")
+    set_cert = settled_cert = prev.get("total_spine_settlement_certificate")
+    clr_cert = None
+    chain = list(TOTAL_SPINE_CHAIN)
+    for name in chain[chain.index("clearing") : chain.index(effect) + 1]:
+        runner = getattr(ce, f"{_MAT_CHAIN_VERBS[name]}_total_spine")
+        kwargs: dict[str, Any] = {"body": dict(prev)}
+        kwargs["actuation"] = act_cert
+        if chain.index(name) >= chain.index("delivery"):
+            kwargs["settlements"] = [set_cert or {}]
+        if chain.index(name) >= chain.index("custody"):
+            kwargs["clearings"] = [clr_cert or {}]
+        prev_cert = prev.get(f"total_spine_{_MAT_CHAIN_PREDS[name]}_certificate")
+        prev = runner(
+            prev_cert,
+            out_root=scratch / f"{_MAT_CHAIN_ABBRS[name]}-h1",
+            prior_tip=str(
+                prev.get(f"total_spine_{_MAT_CHAIN_PREDS[name]}_bound_tip") or ""
+            ),
+            repo_path=repo_path,
+            **kwargs,
+        )
+        if name == "clearing":
+            clr_cert = prev.get("total_spine_clearing_certificate")
+    return prev
+
+
+_MAT_CHAIN_VERBS = {
+    "clearing": "clear",
+    "delivery": "deliver",
+    "custody": "custody",
+    "margin": "margin",
+    "collateral": "collateral",
+    "liquidity": "liquidity",
+    "funding": "funding",
+    "capital": "capital",
+    "solvency": "solvency",
+    "risk": "risk",
+    "stress": "stress",
+    "recovery": "recovery",
+    "resolution": "resolution",
+    "restructuring": "restructuring",
+    "emergence": "emerge",
+    "reorganization": "reorganize",
+}
+_MAT_CHAIN_PREDS = {
+    "clearing": "settlement",
+    "delivery": "clearing",
+    "custody": "delivery",
+    "margin": "custody",
+    "collateral": "margin",
+    "liquidity": "collateral",
+    "funding": "liquidity",
+    "capital": "funding",
+    "solvency": "capital",
+    "risk": "solvency",
+    "stress": "risk",
+    "recovery": "stress",
+    "resolution": "recovery",
+    "restructuring": "resolution",
+    "emergence": "restructuring",
+    "reorganization": "emergence",
+}
+_MAT_CHAIN_ABBRS = {
+    "clearing": "clr",
+    "delivery": "dlv",
+    "custody": "cst",
+    "margin": "mgn",
+    "collateral": "col",
+    "liquidity": "liq",
+    "funding": "fnd",
+    "capital": "cap",
+    "solvency": "sol",
+    "risk": "rsk",
+    "stress": "sts",
+    "recovery": "rec",
+    "resolution": "res",
+    "restructuring": "rst",
+    "emergence": "emg",
+    "reorganization": "reo",
+}
+
+
+_MAT_PAIR_CONFIG: dict[str, dict[str, Any]] = {
+    "delivery": {'family': 'inline', 'abbr': 'dlv', 'ledger_tokens': ['delivery', 'dvp'], 'fields': {'action': ['lit', 'total_spine_delivery_contract'], 'delivered': ['lit', True], 'delivered_ok': ['lit', True], 'dvp_ok': ['lit', True], 'delivery_root_valid': ['lit', True], 'delivery_count': ['int', 'total_spine_delivery_count', '0'], 'tip_height': ['int', 'total_spine_delivery_height', '0'], 'delivery_root': ['get', "'total_spine_tip_delivery_root'"], 'tip_delivery_root': ['get', "'total_spine_tip_delivery_root'"], 'bound_state_root': ['get', "'total_spine_state_root'"], 'bound_action_root': ['get', "'total_spine_tip_action_root'"], 'bound_clearing_root': ['get', "'total_spine_tip_clearing_root'"], 'delivery_certificate': ['get', "'total_spine_delivery_certificate'"], 'certificate_valid': ['lit', True], 'total_spine_delivery': ['lit', True], 'ledger_capability_ok': ['ledger'], 'used_skill_route_discovery': ['bool', "'used_skill_route_discovery'"]}, 'ok_terms': [['bool', 'ok'], ['is', 'total_spine_delivery', True], ['is', 'total_spine_delivered', True], ['is', 'total_spine_dvp_ok', True], ['min', 'total_spine_delivery_count', 2], ['bool', 'total_spine_tip_delivery_root'], ['ledger'], ['not_bool', 'used_skill_route_discovery']]},
+    "custody": {'family': 'inline', 'abbr': 'cst', 'ledger_tokens': ['custody', 'cvt'], 'fields': {'action': ['lit', 'total_spine_custody_contract'], 'custodied': ['lit', True], 'custodied_ok': ['lit', True], 'cvt_ok': ['lit', True], 'title_ok': ['lit', True], 'titled_ok': ['lit', True], 'custody_root_valid': ['lit', True], 'custody_count': ['int', 'total_spine_custody_count', '0'], 'tip_height': ['int', 'total_spine_custody_height', '0'], 'custody_root': ['get', "'total_spine_tip_custody_root'"], 'tip_custody_root': ['get', "'total_spine_tip_custody_root'"], 'bound_state_root': ['get', "'total_spine_state_root'"], 'bound_action_root': ['get', "'total_spine_tip_action_root'"], 'bound_delivery_root': ['get', "'total_spine_tip_delivery_root'"], 'custody_certificate': ['get', "'total_spine_custody_certificate'"], 'certificate_valid': ['lit', True], 'total_spine_custody': ['lit', True], 'ledger_capability_ok': ['ledger'], 'used_skill_route_discovery': ['bool', "'used_skill_route_discovery'"]}, 'ok_terms': [['bool', 'ok'], ['is', 'total_spine_custody', True], ['is', 'total_spine_custodied', True], ['is', 'total_spine_cvt_ok', True], ['min', 'total_spine_custody_count', 2], ['bool', 'total_spine_tip_custody_root'], ['ledger'], ['not_bool', 'used_skill_route_discovery']]},
+    "margin": {'family': 'inline', 'abbr': 'mgn', 'ledger_tokens': ['margin', 'mve'], 'fields': {'action': ['lit', 'total_spine_margin_contract'], 'margined': ['lit', True], 'margined_ok': ['lit', True], 'mve_ok': ['lit', True], 'exposure_ok': ['lit', True], 'exposed_ok': ['lit', True], 'margin_root_valid': ['lit', True], 'margin_count': ['int', 'total_spine_margin_count', '0'], 'tip_height': ['int', 'total_spine_margin_height', '0'], 'margin_root': ['get', "'total_spine_tip_margin_root'"], 'tip_margin_root': ['get', "'total_spine_tip_margin_root'"], 'bound_state_root': ['get', "'total_spine_state_root'"], 'bound_action_root': ['get', "'total_spine_tip_action_root'"], 'bound_custody_root': ['get', "'total_spine_tip_custody_root'"], 'margin_certificate': ['get', "'total_spine_margin_certificate'"], 'certificate_valid': ['lit', True], 'total_spine_margin': ['lit', True], 'ledger_capability_ok': ['ledger'], 'used_skill_route_discovery': ['bool', "'used_skill_route_discovery'"]}, 'ok_terms': [['bool', 'ok'], ['is', 'total_spine_margin', True], ['is', 'total_spine_margined', True], ['is', 'total_spine_mve_ok', True], ['min', 'total_spine_margin_count', 2], ['bool', 'total_spine_tip_margin_root'], ['ledger'], ['not_bool', 'used_skill_route_discovery']]},
+    "collateral": {'family': 'inline', 'abbr': 'col', 'ledger_tokens': ['collateral', 'cvo'], 'fields': {'action': ['lit', 'total_spine_collateral_contract'], 'collateralized': ['lit', True], 'collateralized_ok': ['lit', True], 'cvo_ok': ['lit', True], 'obligation_ok': ['lit', True], 'obligated_ok': ['lit', True], 'collateral_root_valid': ['lit', True], 'collateral_count': ['int', 'total_spine_collateral_count', '0'], 'tip_height': ['int', 'total_spine_collateral_height', '0'], 'collateral_root': ['get', "'total_spine_tip_collateral_root'"], 'tip_collateral_root': ['get', "'total_spine_tip_collateral_root'"], 'bound_state_root': ['get', "'total_spine_state_root'"], 'bound_action_root': ['get', "'total_spine_tip_action_root'"], 'bound_margin_root': ['get', "'total_spine_tip_margin_root'"], 'collateral_certificate': ['get', "'total_spine_collateral_certificate'"], 'certificate_valid': ['lit', True], 'total_spine_collateral': ['lit', True], 'ledger_capability_ok': ['ledger'], 'used_skill_route_discovery': ['bool', "'used_skill_route_discovery'"]}, 'ok_terms': [['bool', 'ok'], ['is', 'total_spine_collateral', True], ['is', 'total_spine_collateralized', True], ['is', 'total_spine_cvo_ok', True], ['min', 'total_spine_collateral_count', 2], ['bool', 'total_spine_tip_collateral_root'], ['ledger'], ['not_bool', 'used_skill_route_discovery']]},
+    "liquidity": {'family': 'inline', 'abbr': 'liq', 'ledger_tokens': ['liquidity', 'lvc'], 'fields': {'action': ['lit', 'total_spine_liquidity_contract'], 'funded': ['lit', True], 'funded_ok': ['lit', True], 'liquid_ok': ['lit', True], 'lvc_ok': ['lit', True], 'coverage_ok': ['lit', True], 'covered_ok': ['lit', True], 'liquidity_root_valid': ['lit', True], 'liquidity_count': ['int', 'total_spine_liquidity_count', '0'], 'tip_height': ['int', 'total_spine_liquidity_height', '0'], 'liquidity_root': ['get', "'total_spine_tip_liquidity_root'"], 'tip_liquidity_root': ['get', "'total_spine_tip_liquidity_root'"], 'bound_state_root': ['get', "'total_spine_state_root'"], 'bound_action_root': ['get', "'total_spine_tip_action_root'"], 'bound_collateral_root': ['get', "'total_spine_tip_collateral_root'"], 'liquidity_certificate': ['get', "'total_spine_liquidity_certificate'"], 'certificate_valid': ['lit', True], 'total_spine_liquidity': ['lit', True], 'ledger_capability_ok': ['ledger'], 'used_skill_route_discovery': ['bool', "'used_skill_route_discovery'"]}, 'ok_terms': [['bool', 'ok'], ['is', 'total_spine_liquidity', True], ['is', 'total_spine_funded', True], ['is', 'total_spine_lvc_ok', True], ['min', 'total_spine_liquidity_count', 2], ['bool', 'total_spine_tip_liquidity_root'], ['ledger'], ['not_bool', 'used_skill_route_discovery']]},
+    "funding": {'family': 'inline', 'abbr': 'fnd', 'ledger_tokens': ['funding', 'fvr'], 'fields': {'action': ['lit', 'total_spine_funding_contract'], 'facilitated': ['lit', True], 'facilitated_ok': ['lit', True], 'facility_ok': ['lit', True], 'fvr_ok': ['lit', True], 'requirement_ok': ['lit', True], 'required_ok': ['lit', True], 'funding_root_valid': ['lit', True], 'funding_count': ['int', 'total_spine_funding_count', '0'], 'tip_height': ['int', 'total_spine_funding_height', '0'], 'funding_root': ['get', "'total_spine_tip_funding_root'"], 'tip_funding_root': ['get', "'total_spine_tip_funding_root'"], 'bound_state_root': ['get', "'total_spine_state_root'"], 'bound_action_root': ['get', "'total_spine_tip_action_root'"], 'bound_liquidity_root': ['get', "'total_spine_tip_liquidity_root'"], 'funding_certificate': ['get', "'total_spine_funding_certificate'"], 'certificate_valid': ['lit', True], 'total_spine_funding': ['lit', True], 'ledger_capability_ok': ['ledger'], 'used_skill_route_discovery': ['bool', "'used_skill_route_discovery'"]}, 'ok_terms': [['bool', 'ok'], ['is', 'total_spine_funding', True], ['is', 'total_spine_facilitated', True], ['is', 'total_spine_fvr_ok', True], ['min', 'total_spine_funding_count', 2], ['bool', 'total_spine_tip_funding_root'], ['ledger'], ['not_bool', 'used_skill_route_discovery']]},
+    "capital": {'family': 'inline', 'abbr': 'cap', 'ledger_tokens': ['capital', 'cva'], 'fields': {'action': ['lit', 'total_spine_capital_contract'], 'capitalized': ['lit', True], 'capitalized_ok': ['lit', True], 'buffer_ok': ['lit', True], 'cva_ok': ['lit', True], 'adequacy_ok': ['lit', True], 'adequate_ok': ['lit', True], 'capital_root_valid': ['lit', True], 'capital_count': ['int', 'total_spine_capital_count', '0'], 'tip_height': ['int', 'total_spine_capital_height', '0'], 'capital_root': ['get', "'total_spine_tip_capital_root'"], 'tip_capital_root': ['get', "'total_spine_tip_capital_root'"], 'bound_state_root': ['get', "'total_spine_state_root'"], 'bound_action_root': ['get', "'total_spine_tip_action_root'"], 'bound_funding_root': ['get', "'total_spine_tip_funding_root'"], 'capital_certificate': ['get', "'total_spine_capital_certificate'"], 'certificate_valid': ['lit', True], 'total_spine_capital': ['lit', True], 'ledger_capability_ok': ['ledger'], 'used_skill_route_discovery': ['bool', "'used_skill_route_discovery'"]}, 'ok_terms': [['bool', 'ok'], ['is', 'total_spine_capital', True], ['is', 'total_spine_capitalized', True], ['is', 'total_spine_cva_ok', True], ['min', 'total_spine_capital_count', 2], ['bool', 'total_spine_tip_capital_root'], ['ledger'], ['not_bool', 'used_skill_route_discovery']]},
+    "solvency": {'family': 'inline', 'abbr': 'sol', 'ledger_tokens': ['solvency', 'svr'], 'fields': {'action': ['lit', 'total_spine_solvency_contract'], 'solvent': ['lit', True], 'solvent_ok': ['lit', True], 'surplus_ok': ['lit', True], 'svr_ok': ['lit', True], 'solvency_requirement_ok': ['lit', True], 'required_ok': ['lit', True], 'solvency_root_valid': ['lit', True], 'solvency_count': ['int', 'total_spine_solvency_count', '0'], 'tip_height': ['int', 'total_spine_solvency_height', '0'], 'solvency_root': ['get', "'total_spine_tip_solvency_root'"], 'tip_solvency_root': ['get', "'total_spine_tip_solvency_root'"], 'bound_state_root': ['get', "'total_spine_state_root'"], 'bound_action_root': ['get', "'total_spine_tip_action_root'"], 'bound_capital_root': ['get', "'total_spine_tip_capital_root'"], 'solvency_certificate': ['get', "'total_spine_solvency_certificate'"], 'certificate_valid': ['lit', True], 'total_spine_solvency': ['lit', True], 'ledger_capability_ok': ['ledger'], 'used_skill_route_discovery': ['bool', "'used_skill_route_discovery'"]}, 'ok_terms': [['bool', 'ok'], ['is', 'total_spine_solvency', True], ['is', 'total_spine_solvent', True], ['is', 'total_spine_svr_ok', True], ['min', 'total_spine_solvency_count', 2], ['bool', 'total_spine_tip_solvency_root'], ['ledger'], ['not_bool', 'used_skill_route_discovery']]},
+    "risk": {'family': 'inline', 'abbr': 'rsk', 'ledger_tokens': ['risk', 'rva'], 'fields': {'action': ['lit', 'total_spine_risk_contract'], 'risked': ['lit', True], 'risked_ok': ['lit', True], 'assessed_ok': ['lit', True], 'rva_ok': ['lit', True], 'appetite_ok': ['lit', True], 'appetent_ok': ['lit', True], 'risk_root_valid': ['lit', True], 'risk_count': ['int', 'total_spine_risk_count', '0'], 'tip_height': ['int', 'total_spine_risk_height', '0'], 'risk_root': ['get', "'total_spine_tip_risk_root'"], 'tip_risk_root': ['get', "'total_spine_tip_risk_root'"], 'bound_state_root': ['get', "'total_spine_state_root'"], 'bound_action_root': ['get', "'total_spine_tip_action_root'"], 'bound_solvency_root': ['get', "'total_spine_tip_solvency_root'"], 'risk_certificate': ['get', "'total_spine_risk_certificate'"], 'certificate_valid': ['lit', True], 'total_spine_risk': ['lit', True], 'ledger_capability_ok': ['ledger'], 'used_skill_route_discovery': ['bool', "'used_skill_route_discovery'"]}, 'ok_terms': [['bool', 'ok'], ['is', 'total_spine_risk', True], ['is', 'total_spine_risked', True], ['is', 'total_spine_rva_ok', True], ['min', 'total_spine_risk_count', 2], ['bool', 'total_spine_tip_risk_root'], ['ledger'], ['not_bool', 'used_skill_route_discovery']]},
+    "stress": {'family': 'inline', 'abbr': 'sts', 'ledger_tokens': ['stress', 'svc'], 'fields': {'action': ['lit', 'total_spine_stress_contract'], 'stressed': ['lit', True], 'stressed_ok': ['lit', True], 'svc_ok': ['lit', True], 'capacity_ok': ['lit', True], 'capacious_ok': ['lit', True], 'stress_root_valid': ['lit', True], 'stress_count': ['int', 'total_spine_stress_count', '0'], 'tip_height': ['int', 'total_spine_stress_height', '0'], 'stress_root': ['get', "'total_spine_tip_stress_root'"], 'tip_stress_root': ['get', "'total_spine_tip_stress_root'"], 'bound_state_root': ['get', "'total_spine_state_root'"], 'bound_action_root': ['get', "'total_spine_tip_action_root'"], 'bound_risk_root': ['get', "'total_spine_tip_risk_root'"], 'stress_certificate': ['get', "'total_spine_stress_certificate'"], 'certificate_valid': ['lit', True], 'total_spine_stress': ['lit', True], 'ledger_capability_ok': ['ledger'], 'used_skill_route_discovery': ['bool', "'used_skill_route_discovery'"]}, 'ok_terms': [['bool', 'ok'], ['is', 'total_spine_stress', True], ['is', 'total_spine_stressed', True], ['is', 'total_spine_svc_ok', True], ['min', 'total_spine_stress_count', 2], ['bool', 'total_spine_tip_stress_root'], ['ledger'], ['not_bool', 'used_skill_route_discovery']]},
+    "recovery": {'family': 'inline', 'abbr': 'rec', 'ledger_tokens': ['recovery', 'rvp'], 'fields': {'action': ['lit', 'total_spine_recovery_contract'], 'restored': ['lit', True], 'restored_ok': ['lit', True], 'rvp_ok': ['lit', True], 'plan_ok': ['lit', True], 'planned_ok': ['lit', True], 'recovery_root_valid': ['lit', True], 'recovery_count': ['int', 'total_spine_recovery_count', '0'], 'tip_height': ['int', 'total_spine_recovery_height', '0'], 'recovery_root': ['get', "'total_spine_tip_recovery_root'"], 'tip_recovery_root': ['get', "'total_spine_tip_recovery_root'"], 'bound_state_root': ['get', "'total_spine_state_root'"], 'bound_action_root': ['get', "'total_spine_tip_action_root'"], 'bound_stress_root': ['get', "'total_spine_tip_stress_root'"], 'recovery_certificate': ['get', "'total_spine_recovery_certificate'"], 'certificate_valid': ['lit', True], 'total_spine_recovery': ['lit', True], 'ledger_capability_ok': ['ledger'], 'used_skill_route_discovery': ['bool', "'used_skill_route_discovery'"]}, 'ok_terms': [['bool', 'ok'], ['is', 'total_spine_recovery', True], ['is', 'total_spine_restored', True], ['is', 'total_spine_rvp_ok', True], ['min', 'total_spine_recovery_count', 2], ['bool', 'total_spine_tip_recovery_root'], ['ledger'], ['not_bool', 'used_skill_route_discovery']]},
+    "resolution": {'family': 'inline', 'abbr': 'res', 'ledger_tokens': ['resolution', 'rvs'], 'fields': {'action': ['lit', 'total_spine_resolution_contract'], 'resolved': ['lit', True], 'resolved_ok': ['lit', True], 'rvs_ok': ['lit', True], 'strategy_ok': ['lit', True], 'strategic_ok': ['lit', True], 'resolution_root_valid': ['lit', True], 'resolution_count': ['int', 'total_spine_resolution_count', '0'], 'tip_height': ['int', 'total_spine_resolution_height', '0'], 'resolution_root': ['get', "'total_spine_tip_resolution_root'"], 'tip_resolution_root': ['get', "'total_spine_tip_resolution_root'"], 'bound_state_root': ['get', "'total_spine_state_root'"], 'bound_action_root': ['get', "'total_spine_tip_action_root'"], 'bound_recovery_root': ['get', "'total_spine_tip_recovery_root'"], 'resolution_certificate': ['get', "'total_spine_resolution_certificate'"], 'certificate_valid': ['lit', True], 'total_spine_resolution': ['lit', True], 'ledger_capability_ok': ['ledger'], 'used_skill_route_discovery': ['bool', "'used_skill_route_discovery'"]}, 'ok_terms': [['bool', 'ok'], ['is', 'total_spine_resolution', True], ['is', 'total_spine_resolved', True], ['is', 'total_spine_rvs_ok', True], ['min', 'total_spine_resolution_count', 2], ['bool', 'total_spine_tip_resolution_root'], ['ledger'], ['not_bool', 'used_skill_route_discovery']]},
+    "restructuring": {'family': 'inline', 'abbr': 'rst', 'ledger_tokens': ['restructuring', 'rvm'], 'fields': {'action': ['lit', 'total_spine_restructuring_contract'], 'restructured': ['lit', True], 'restructured_ok': ['lit', True], 'rvm_ok': ['lit', True], 'mandate_ok': ['lit', True], 'mandated_ok': ['lit', True], 'restructuring_root_valid': ['lit', True], 'restructuring_count': ['int', 'total_spine_restructuring_count', '0'], 'tip_height': ['int', 'total_spine_restructuring_height', '0'], 'restructuring_root': ['get', "'total_spine_tip_restructuring_root'"], 'tip_restructuring_root': ['get', "'total_spine_tip_restructuring_root'"], 'bound_state_root': ['get', "'total_spine_state_root'"], 'bound_action_root': ['get', "'total_spine_tip_action_root'"], 'bound_resolution_root': ['get', "'total_spine_tip_resolution_root'"], 'restructuring_certificate': ['get', "'total_spine_restructuring_certificate'"], 'certificate_valid': ['lit', True], 'total_spine_restructuring': ['lit', True], 'ledger_capability_ok': ['ledger'], 'used_skill_route_discovery': ['bool', "'used_skill_route_discovery'"]}, 'ok_terms': [['bool', 'ok'], ['is', 'total_spine_restructuring', True], ['is', 'total_spine_restructured', True], ['is', 'total_spine_rvm_ok', True], ['min', 'total_spine_restructuring_count', 2], ['bool', 'total_spine_tip_restructuring_root'], ['ledger'], ['not_bool', 'used_skill_route_discovery']]},
+    "emergence": {'family': 'inline', 'abbr': 'emg', 'ledger_tokens': ['emergence', 'evc'], 'fields': {'action': ['lit', 'total_spine_emergence_contract'], 'emerged': ['lit', True], 'emerged_ok': ['lit', True], 'evc_ok': ['lit', True], 'confirmation_ok': ['lit', True], 'confirmed_ok': ['lit', True], 'emergence_root_valid': ['lit', True], 'emergence_count': ['int', 'total_spine_emergence_count', '0'], 'tip_height': ['int', 'total_spine_emergence_height', '0'], 'emergence_root': ['get', "'total_spine_tip_emergence_root'"], 'tip_emergence_root': ['get', "'total_spine_tip_emergence_root'"], 'bound_state_root': ['get', "'total_spine_state_root'"], 'bound_action_root': ['get', "'total_spine_tip_action_root'"], 'bound_restructuring_root': ['get', "'total_spine_tip_restructuring_root'"], 'emergence_certificate': ['get', "'total_spine_emergence_certificate'"], 'certificate_valid': ['lit', True], 'total_spine_emergence': ['lit', True], 'ledger_capability_ok': ['ledger'], 'used_skill_route_discovery': ['bool', "'used_skill_route_discovery'"]}, 'ok_terms': [['bool', 'ok'], ['is', 'total_spine_emergence', True], ['is', 'total_spine_emerged', True], ['is', 'total_spine_evc_ok', True], ['min', 'total_spine_emergence_count', 2], ['bool', 'total_spine_tip_emergence_root'], ['ledger'], ['not_bool', 'used_skill_route_discovery']]},
+    "reorganization": {'family': 'inline', 'abbr': 'reo', 'ledger_tokens': ['reorganization', 'rvc'], 'fields': {'action': ['lit', 'total_spine_reorganization_contract'], 'reorganized': ['lit', True], 'reorganized_ok': ['lit', True], 'rvc_ok': ['lit', True], 'charter_ok': ['lit', True], 'chartered_ok': ['lit', True], 'reorganization_root_valid': ['lit', True], 'reorganization_count': ['int', 'total_spine_reorganization_count', '0'], 'tip_height': ['int', 'total_spine_reorganization_height', '0'], 'reorganization_root': ['get', "'total_spine_tip_reorganization_root'"], 'tip_reorganization_root': ['get', "'total_spine_tip_reorganization_root'"], 'bound_state_root': ['get', "'total_spine_state_root'"], 'bound_action_root': ['get', "'total_spine_tip_action_root'"], 'bound_emergence_root': ['get', "'total_spine_tip_emergence_root'"], 'reorganization_certificate': ['get', "'total_spine_reorganization_certificate'"], 'certificate_valid': ['lit', True], 'total_spine_reorganization': ['lit', True], 'ledger_capability_ok': ['ledger'], 'used_skill_route_discovery': ['bool', "'used_skill_route_discovery'"]}, 'ok_terms': [['bool', 'ok'], ['is', 'total_spine_reorganization', True], ['is', 'total_spine_reorganized', True], ['is', 'total_spine_rvc_ok', True], ['min', 'total_spine_reorganization_count', 2], ['bool', 'total_spine_tip_reorganization_root'], ['ledger'], ['not_bool', 'used_skill_route_discovery']]},
+}
+
+
 def materialize_total_spine_quorum_contract_context(
     repo_path: Path,
     context: MutableMapping[str, Any],
@@ -3539,197 +3837,8 @@ def materialize_total_spine_delivery_contract_context(
     finality → quorum → execution → actuation → settlement → clearing →
     confirmation clearing → delivery — no skill-route.
     """
-    existing = (
-        context.get("delivery")
-        or context.get("delivery_plane")
-        or {}
-    )
-    if isinstance(existing, Mapping) and existing.get("ok"):
-        return dict(existing)
+    return _materialize_pair_effect("delivery", repo_path, context, ledger=ledger)
 
-    try:
-        from blackhole_agent.upstream_control_engine import (
-            SCHEMA_VERSION,
-            TOTAL_SPINE_DELIVERY_IMPL,
-            TOTAL_SPINE_FINALITY_KIND,
-            actuate_total_spine,
-            clear_total_spine,
-            deliver_total_spine,
-            execute_total_spine,
-            federate_total_spine,
-            settle_total_spine,
-            utc_now_iso,
-            write_total_spine_finality_certificate,
-        )
-    except Exception:  # noqa: BLE001
-        return {}
-
-    if TOTAL_SPINE_DELIVERY_IMPL is not True:
-        return {}
-
-    ledger_ok = True
-    if ledger is not None:
-        entry = ledger.capabilities.get(
-            "capability.upstream-total-spine-delivery"
-        )
-        blob = (
-            ((entry.capability_delta or "") if entry else "")
-            + " "
-            + ((entry.name or "") if entry else "")
-            + " "
-            + " ".join((entry.tags or ()) if entry else ())
-        ).lower()
-        ledger_ok = entry is not None and (
-            "delivery" in blob or "dvp" in blob
-        )
-
-    import shutil
-    import tempfile
-
-    scratch = Path(tempfile.mkdtemp(prefix="contract-total-spine-delivery-"))
-    try:
-        paths: list[str] = []
-        for idx, done_when in enumerate(
-            (
-                "contract-delivery-pass",
-                "contract-delivery-pass",
-                "contract-delivery-byzantine",
-            )
-        ):
-            body = {
-                "schema_version": SCHEMA_VERSION,
-                "kind": TOTAL_SPINE_FINALITY_KIND,
-                "root_layer": "quettacontinuum",
-                "goal": "outcome-contract total-spine delivery materialize",
-                "done_when": done_when,
-                "capabilities": [
-                    "repo.import-health",
-                    "capability.ledger-inventory",
-                ],
-                "operational_tip": f"{idx:x}" * 64,
-                "bound_tip": f"{(idx + 3):x}" * 64,
-                "continuity_digest": f"{(idx + 6):x}" * 64,
-                "adaptive_round_count": 0,
-                "effects_ok": True,
-                "contract_met": True,
-                "recovered": False,
-                "irreversible": True,
-                "success": True,
-                "finalized_at": utc_now_iso(),
-            }
-            cert = write_total_spine_finality_certificate(
-                scratch / f"origin-{idx}", body
-            )
-            paths.append(str(cert.get("finality_path") or ""))
-        quorumed = federate_total_spine(
-            paths,
-            out_root=scratch / "quorum",
-            quorum=True,
-        )
-        executed = execute_total_spine(
-            quorumed.get("total_spine_federation_certificate"),
-            out_root=scratch / "exec-h1",
-            prior_tip=str(
-                quorumed.get("total_spine_federation_bound_tip") or ""
-            ),
-            state_height=1,
-        )
-        actuated = actuate_total_spine(
-            executed.get("total_spine_execution_certificate"),
-            out_root=scratch / "act-h1",
-            prior_tip=str(
-                executed.get("total_spine_execution_bound_tip") or ""
-            ),
-            capabilities=[
-                "repo.import-health",
-                "capability.ledger-inventory",
-            ],
-            repo_path=repo_path,
-            effect_timeout=60,
-            dispatch=True,
-        )
-        settled = settle_total_spine(
-            actuated.get("total_spine_actuation_certificate"),
-            out_root=scratch / "set-h1",
-            prior_tip=str(
-                actuated.get("total_spine_actuation_bound_tip") or ""
-            ),
-            body=dict(actuated),
-            repo_path=repo_path,
-        )
-        cleared = clear_total_spine(
-            settled.get("total_spine_settlement_certificate"),
-            out_root=scratch / "clr-h1",
-            prior_tip=str(
-                settled.get("total_spine_settlement_bound_tip") or ""
-            ),
-            body=dict(settled),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            repo_path=repo_path,
-        )
-        delivered = deliver_total_spine(
-            cleared.get("total_spine_clearing_certificate"),
-            out_root=scratch / "dlv-h1",
-            prior_tip=str(
-                cleared.get("total_spine_clearing_bound_tip") or ""
-            ),
-            body=dict(cleared),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        plane = {
-            "ok": (
-                bool(delivered.get("ok"))
-                and delivered.get("total_spine_delivery") is True
-                and delivered.get("total_spine_delivered") is True
-                and delivered.get("total_spine_dvp_ok") is True
-                and int(delivered.get("total_spine_delivery_count") or 0) >= 2
-                and bool(delivered.get("total_spine_tip_delivery_root"))
-                and ledger_ok
-                and not bool(delivered.get("used_skill_route_discovery"))
-            ),
-            "action": "total_spine_delivery_contract",
-            "delivered": True,
-            "delivered_ok": True,
-            "dvp_ok": True,
-            "delivery_root_valid": True,
-            "delivery_count": int(
-                delivered.get("total_spine_delivery_count") or 0
-            ),
-            "tip_height": int(
-                delivered.get("total_spine_delivery_height") or 0
-            ),
-            "delivery_root": delivered.get("total_spine_tip_delivery_root"),
-            "tip_delivery_root": delivered.get("total_spine_tip_delivery_root"),
-            "bound_state_root": delivered.get("total_spine_state_root"),
-            "bound_action_root": delivered.get("total_spine_tip_action_root"),
-            "bound_clearing_root": delivered.get(
-                "total_spine_tip_clearing_root"
-            ),
-            "delivery_certificate": delivered.get(
-                "total_spine_delivery_certificate"
-            ),
-            "certificate_valid": True,
-            "total_spine_delivery": True,
-            "ledger_capability_ok": ledger_ok,
-            "used_skill_route_discovery": bool(
-                delivered.get("used_skill_route_discovery")
-            ),
-        }
-        context["delivery"] = plane
-        context["delivery_plane"] = plane
-        context["delivery_count"] = plane["delivery_count"]
-        context.setdefault(
-            "used_skill_route_discovery", plane.get("used_skill_route_discovery")
-        )
-        return plane
-    except Exception:  # noqa: BLE001
-        return {}
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
 
 
 def materialize_total_spine_custody_contract_context(
@@ -3747,216 +3856,8 @@ def materialize_total_spine_custody_contract_context(
     absolute-tower finality → quorum → execution → actuation → settlement
     → clearing → delivery → confirmation delivery → custody — no skill-route.
     """
-    existing = (
-        context.get("custody")
-        or context.get("custody_plane")
-        or {}
-    )
-    if isinstance(existing, Mapping) and existing.get("ok"):
-        return dict(existing)
+    return _materialize_pair_effect("custody", repo_path, context, ledger=ledger)
 
-    try:
-        from blackhole_agent.upstream_control_engine import (
-            SCHEMA_VERSION,
-            TOTAL_SPINE_CUSTODY_IMPL,
-            TOTAL_SPINE_FINALITY_KIND,
-            actuate_total_spine,
-            clear_total_spine,
-            custody_total_spine,
-            deliver_total_spine,
-            execute_total_spine,
-            federate_total_spine,
-            settle_total_spine,
-            utc_now_iso,
-            write_total_spine_finality_certificate,
-        )
-    except Exception:  # noqa: BLE001
-        return {}
-
-    if TOTAL_SPINE_CUSTODY_IMPL is not True:
-        return {}
-
-    ledger_ok = True
-    if ledger is not None:
-        entry = ledger.capabilities.get(
-            "capability.upstream-total-spine-custody"
-        )
-        blob = (
-            ((entry.capability_delta or "") if entry else "")
-            + " "
-            + ((entry.name or "") if entry else "")
-            + " "
-            + " ".join((entry.tags or ()) if entry else ())
-        ).lower()
-        ledger_ok = entry is not None and (
-            "custody" in blob or "cvt" in blob
-        )
-
-    import shutil
-    import tempfile
-
-    scratch = Path(tempfile.mkdtemp(prefix="contract-total-spine-custody-"))
-    try:
-        paths: list[str] = []
-        for idx, done_when in enumerate(
-            (
-                "contract-custody-pass",
-                "contract-custody-pass",
-                "contract-custody-byzantine",
-            )
-        ):
-            body = {
-                "schema_version": SCHEMA_VERSION,
-                "kind": TOTAL_SPINE_FINALITY_KIND,
-                "root_layer": "quettacontinuum",
-                "goal": "outcome-contract total-spine custody materialize",
-                "done_when": done_when,
-                "capabilities": [
-                    "repo.import-health",
-                    "capability.ledger-inventory",
-                ],
-                "operational_tip": f"{idx:x}" * 64,
-                "bound_tip": f"{(idx + 3):x}" * 64,
-                "continuity_digest": f"{(idx + 6):x}" * 64,
-                "adaptive_round_count": 0,
-                "effects_ok": True,
-                "contract_met": True,
-                "recovered": False,
-                "irreversible": True,
-                "success": True,
-                "finalized_at": utc_now_iso(),
-            }
-            cert = write_total_spine_finality_certificate(
-                scratch / f"origin-{idx}", body
-            )
-            paths.append(str(cert.get("finality_path") or ""))
-        quorumed = federate_total_spine(
-            paths,
-            out_root=scratch / "quorum",
-            quorum=True,
-        )
-        executed = execute_total_spine(
-            quorumed.get("total_spine_federation_certificate"),
-            out_root=scratch / "exec-h1",
-            prior_tip=str(
-                quorumed.get("total_spine_federation_bound_tip") or ""
-            ),
-            state_height=1,
-        )
-        actuated = actuate_total_spine(
-            executed.get("total_spine_execution_certificate"),
-            out_root=scratch / "act-h1",
-            prior_tip=str(
-                executed.get("total_spine_execution_bound_tip") or ""
-            ),
-            capabilities=[
-                "repo.import-health",
-                "capability.ledger-inventory",
-            ],
-            repo_path=repo_path,
-            effect_timeout=60,
-            dispatch=True,
-        )
-        settled = settle_total_spine(
-            actuated.get("total_spine_actuation_certificate"),
-            out_root=scratch / "set-h1",
-            prior_tip=str(
-                actuated.get("total_spine_actuation_bound_tip") or ""
-            ),
-            body=dict(actuated),
-            repo_path=repo_path,
-        )
-        cleared = clear_total_spine(
-            settled.get("total_spine_settlement_certificate"),
-            out_root=scratch / "clr-h1",
-            prior_tip=str(
-                settled.get("total_spine_settlement_bound_tip") or ""
-            ),
-            body=dict(settled),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            repo_path=repo_path,
-        )
-        delivered = deliver_total_spine(
-            cleared.get("total_spine_clearing_certificate"),
-            out_root=scratch / "dlv-h1",
-            prior_tip=str(
-                cleared.get("total_spine_clearing_bound_tip") or ""
-            ),
-            body=dict(cleared),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        custodied = custody_total_spine(
-            delivered.get("total_spine_delivery_certificate"),
-            out_root=scratch / "cst-h1",
-            prior_tip=str(
-                delivered.get("total_spine_delivery_bound_tip") or ""
-            ),
-            body=dict(delivered),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            clearings=[
-                cleared.get("total_spine_clearing_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        plane = {
-            "ok": (
-                bool(custodied.get("ok"))
-                and custodied.get("total_spine_custody") is True
-                and custodied.get("total_spine_custodied") is True
-                and custodied.get("total_spine_cvt_ok") is True
-                and int(custodied.get("total_spine_custody_count") or 0) >= 2
-                and bool(custodied.get("total_spine_tip_custody_root"))
-                and ledger_ok
-                and not bool(custodied.get("used_skill_route_discovery"))
-            ),
-            "action": "total_spine_custody_contract",
-            "custodied": True,
-            "custodied_ok": True,
-            "cvt_ok": True,
-            "title_ok": True,
-            "titled_ok": True,
-            "custody_root_valid": True,
-            "custody_count": int(
-                custodied.get("total_spine_custody_count") or 0
-            ),
-            "tip_height": int(
-                custodied.get("total_spine_custody_height") or 0
-            ),
-            "custody_root": custodied.get("total_spine_tip_custody_root"),
-            "tip_custody_root": custodied.get("total_spine_tip_custody_root"),
-            "bound_state_root": custodied.get("total_spine_state_root"),
-            "bound_action_root": custodied.get("total_spine_tip_action_root"),
-            "bound_delivery_root": custodied.get(
-                "total_spine_tip_delivery_root"
-            ),
-            "custody_certificate": custodied.get(
-                "total_spine_custody_certificate"
-            ),
-            "certificate_valid": True,
-            "total_spine_custody": True,
-            "ledger_capability_ok": ledger_ok,
-            "used_skill_route_discovery": bool(
-                custodied.get("used_skill_route_discovery")
-            ),
-        }
-        context["custody"] = plane
-        context["custody_plane"] = plane
-        context["custody_count"] = plane["custody_count"]
-        context.setdefault(
-            "used_skill_route_discovery", plane.get("used_skill_route_discovery")
-        )
-        return plane
-    except Exception:  # noqa: BLE001
-        return {}
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
 
 
 def materialize_total_spine_margin_contract_context(
@@ -3975,233 +3876,8 @@ def materialize_total_spine_margin_contract_context(
     → clearing → delivery → custody → confirmation custody → margin —
     no skill-route.
     """
-    existing = (
-        context.get("margin")
-        or context.get("margin_plane")
-        or {}
-    )
-    if isinstance(existing, Mapping) and existing.get("ok"):
-        return dict(existing)
+    return _materialize_pair_effect("margin", repo_path, context, ledger=ledger)
 
-    try:
-        from blackhole_agent.upstream_control_engine import (
-            SCHEMA_VERSION,
-            TOTAL_SPINE_MARGIN_IMPL,
-            TOTAL_SPINE_FINALITY_KIND,
-            actuate_total_spine,
-            clear_total_spine,
-            custody_total_spine,
-            deliver_total_spine,
-            execute_total_spine,
-            federate_total_spine,
-            margin_total_spine,
-            settle_total_spine,
-            utc_now_iso,
-            write_total_spine_finality_certificate,
-        )
-    except Exception:  # noqa: BLE001
-        return {}
-
-    if TOTAL_SPINE_MARGIN_IMPL is not True:
-        return {}
-
-    ledger_ok = True
-    if ledger is not None:
-        entry = ledger.capabilities.get(
-            "capability.upstream-total-spine-margin"
-        )
-        blob = (
-            ((entry.capability_delta or "") if entry else "")
-            + " "
-            + ((entry.name or "") if entry else "")
-            + " "
-            + " ".join((entry.tags or ()) if entry else ())
-        ).lower()
-        ledger_ok = entry is not None and (
-            "margin" in blob or "mve" in blob
-        )
-
-    import shutil
-    import tempfile
-
-    scratch = Path(tempfile.mkdtemp(prefix="contract-total-spine-margin-"))
-    try:
-        paths: list[str] = []
-        for idx, done_when in enumerate(
-            (
-                "contract-margin-pass",
-                "contract-margin-pass",
-                "contract-margin-byzantine",
-            )
-        ):
-            body = {
-                "schema_version": SCHEMA_VERSION,
-                "kind": TOTAL_SPINE_FINALITY_KIND,
-                "root_layer": "quettacontinuum",
-                "goal": "outcome-contract total-spine margin materialize",
-                "done_when": done_when,
-                "capabilities": [
-                    "repo.import-health",
-                    "capability.ledger-inventory",
-                ],
-                "operational_tip": f"{idx:x}" * 64,
-                "bound_tip": f"{(idx + 3):x}" * 64,
-                "continuity_digest": f"{(idx + 6):x}" * 64,
-                "adaptive_round_count": 0,
-                "effects_ok": True,
-                "contract_met": True,
-                "recovered": False,
-                "irreversible": True,
-                "success": True,
-                "finalized_at": utc_now_iso(),
-            }
-            cert = write_total_spine_finality_certificate(
-                scratch / f"origin-{idx}", body
-            )
-            paths.append(str(cert.get("finality_path") or ""))
-        quorumed = federate_total_spine(
-            paths,
-            out_root=scratch / "quorum",
-            quorum=True,
-        )
-        executed = execute_total_spine(
-            quorumed.get("total_spine_federation_certificate"),
-            out_root=scratch / "exec-h1",
-            prior_tip=str(
-                quorumed.get("total_spine_federation_bound_tip") or ""
-            ),
-            state_height=1,
-        )
-        actuated = actuate_total_spine(
-            executed.get("total_spine_execution_certificate"),
-            out_root=scratch / "act-h1",
-            prior_tip=str(
-                executed.get("total_spine_execution_bound_tip") or ""
-            ),
-            capabilities=[
-                "repo.import-health",
-                "capability.ledger-inventory",
-            ],
-            repo_path=repo_path,
-            effect_timeout=60,
-            dispatch=True,
-        )
-        settled = settle_total_spine(
-            actuated.get("total_spine_actuation_certificate"),
-            out_root=scratch / "set-h1",
-            prior_tip=str(
-                actuated.get("total_spine_actuation_bound_tip") or ""
-            ),
-            body=dict(actuated),
-            repo_path=repo_path,
-        )
-        cleared = clear_total_spine(
-            settled.get("total_spine_settlement_certificate"),
-            out_root=scratch / "clr-h1",
-            prior_tip=str(
-                settled.get("total_spine_settlement_bound_tip") or ""
-            ),
-            body=dict(settled),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            repo_path=repo_path,
-        )
-        delivered = deliver_total_spine(
-            cleared.get("total_spine_clearing_certificate"),
-            out_root=scratch / "dlv-h1",
-            prior_tip=str(
-                cleared.get("total_spine_clearing_bound_tip") or ""
-            ),
-            body=dict(cleared),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        custodied = custody_total_spine(
-            delivered.get("total_spine_delivery_certificate"),
-            out_root=scratch / "cst-h1",
-            prior_tip=str(
-                delivered.get("total_spine_delivery_bound_tip") or ""
-            ),
-            body=dict(delivered),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            clearings=[
-                cleared.get("total_spine_clearing_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        margined = margin_total_spine(
-            custodied.get("total_spine_custody_certificate"),
-            out_root=scratch / "mgn-h1",
-            prior_tip=str(
-                custodied.get("total_spine_custody_bound_tip") or ""
-            ),
-            body=dict(custodied),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            clearings=[
-                cleared.get("total_spine_clearing_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        plane = {
-            "ok": (
-                bool(margined.get("ok"))
-                and margined.get("total_spine_margin") is True
-                and margined.get("total_spine_margined") is True
-                and margined.get("total_spine_mve_ok") is True
-                and int(margined.get("total_spine_margin_count") or 0) >= 2
-                and bool(margined.get("total_spine_tip_margin_root"))
-                and ledger_ok
-                and not bool(margined.get("used_skill_route_discovery"))
-            ),
-            "action": "total_spine_margin_contract",
-            "margined": True,
-            "margined_ok": True,
-            "mve_ok": True,
-            "exposure_ok": True,
-            "exposed_ok": True,
-            "margin_root_valid": True,
-            "margin_count": int(
-                margined.get("total_spine_margin_count") or 0
-            ),
-            "tip_height": int(
-                margined.get("total_spine_margin_height") or 0
-            ),
-            "margin_root": margined.get("total_spine_tip_margin_root"),
-            "tip_margin_root": margined.get("total_spine_tip_margin_root"),
-            "bound_state_root": margined.get("total_spine_state_root"),
-            "bound_action_root": margined.get("total_spine_tip_action_root"),
-            "bound_custody_root": margined.get(
-                "total_spine_tip_custody_root"
-            ),
-            "margin_certificate": margined.get(
-                "total_spine_margin_certificate"
-            ),
-            "certificate_valid": True,
-            "total_spine_margin": True,
-            "ledger_capability_ok": ledger_ok,
-            "used_skill_route_discovery": bool(
-                margined.get("used_skill_route_discovery")
-            ),
-        }
-        context["margin"] = plane
-        context["margin_plane"] = plane
-        context["margin_count"] = plane["margin_count"]
-        context.setdefault(
-            "used_skill_route_discovery", plane.get("used_skill_route_discovery")
-        )
-        return plane
-    except Exception:  # noqa: BLE001
-        return {}
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
 
 
 def materialize_total_spine_collateral_contract_context(
@@ -4220,254 +3896,8 @@ def materialize_total_spine_collateral_contract_context(
     → clearing → delivery → custody → margin → confirmation margin →
     collateral — no skill-route.
     """
-    existing = (
-        context.get("collateral")
-        or context.get("collateral_plane")
-        or {}
-    )
-    if isinstance(existing, Mapping) and existing.get("ok"):
-        return dict(existing)
+    return _materialize_pair_effect("collateral", repo_path, context, ledger=ledger)
 
-    try:
-        from blackhole_agent.upstream_control_engine import (
-            SCHEMA_VERSION,
-            TOTAL_SPINE_COLLATERAL_IMPL,
-            TOTAL_SPINE_FINALITY_KIND,
-            actuate_total_spine,
-            clear_total_spine,
-            collateral_total_spine,
-            custody_total_spine,
-            deliver_total_spine,
-            execute_total_spine,
-            federate_total_spine,
-            margin_total_spine,
-            settle_total_spine,
-            utc_now_iso,
-            write_total_spine_finality_certificate,
-        )
-    except Exception:  # noqa: BLE001
-        return {}
-
-    if TOTAL_SPINE_COLLATERAL_IMPL is not True:
-        return {}
-
-    ledger_ok = True
-    if ledger is not None:
-        entry = ledger.capabilities.get(
-            "capability.upstream-total-spine-collateral"
-        )
-        blob = (
-            ((entry.capability_delta or "") if entry else "")
-            + " "
-            + ((entry.name or "") if entry else "")
-            + " "
-            + " ".join((entry.tags or ()) if entry else ())
-        ).lower()
-        ledger_ok = entry is not None and (
-            "collateral" in blob or "cvo" in blob
-        )
-
-    import shutil
-    import tempfile
-
-    scratch = Path(tempfile.mkdtemp(prefix="contract-total-spine-collateral-"))
-    try:
-        paths: list[str] = []
-        for idx, done_when in enumerate(
-            (
-                "contract-collateral-pass",
-                "contract-collateral-pass",
-                "contract-collateral-byzantine",
-            )
-        ):
-            body = {
-                "schema_version": SCHEMA_VERSION,
-                "kind": TOTAL_SPINE_FINALITY_KIND,
-                "root_layer": "quettacontinuum",
-                "goal": "outcome-contract total-spine collateral materialize",
-                "done_when": done_when,
-                "capabilities": [
-                    "repo.import-health",
-                    "capability.ledger-inventory",
-                ],
-                "operational_tip": f"{idx:x}" * 64,
-                "bound_tip": f"{(idx + 3):x}" * 64,
-                "continuity_digest": f"{(idx + 6):x}" * 64,
-                "adaptive_round_count": 0,
-                "effects_ok": True,
-                "contract_met": True,
-                "recovered": False,
-                "irreversible": True,
-                "success": True,
-                "finalized_at": utc_now_iso(),
-            }
-            cert = write_total_spine_finality_certificate(
-                scratch / f"origin-{idx}", body
-            )
-            paths.append(str(cert.get("finality_path") or ""))
-        quorumed = federate_total_spine(
-            paths,
-            out_root=scratch / "quorum",
-            quorum=True,
-        )
-        executed = execute_total_spine(
-            quorumed.get("total_spine_federation_certificate"),
-            out_root=scratch / "exec-h1",
-            prior_tip=str(
-                quorumed.get("total_spine_federation_bound_tip") or ""
-            ),
-            state_height=1,
-        )
-        actuated = actuate_total_spine(
-            executed.get("total_spine_execution_certificate"),
-            out_root=scratch / "act-h1",
-            prior_tip=str(
-                executed.get("total_spine_execution_bound_tip") or ""
-            ),
-            capabilities=[
-                "repo.import-health",
-                "capability.ledger-inventory",
-            ],
-            repo_path=repo_path,
-            effect_timeout=60,
-            dispatch=True,
-        )
-        settled = settle_total_spine(
-            actuated.get("total_spine_actuation_certificate"),
-            out_root=scratch / "set-h1",
-            prior_tip=str(
-                actuated.get("total_spine_actuation_bound_tip") or ""
-            ),
-            body=dict(actuated),
-            repo_path=repo_path,
-        )
-        cleared = clear_total_spine(
-            settled.get("total_spine_settlement_certificate"),
-            out_root=scratch / "clr-h1",
-            prior_tip=str(
-                settled.get("total_spine_settlement_bound_tip") or ""
-            ),
-            body=dict(settled),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            repo_path=repo_path,
-        )
-        delivered = deliver_total_spine(
-            cleared.get("total_spine_clearing_certificate"),
-            out_root=scratch / "dlv-h1",
-            prior_tip=str(
-                cleared.get("total_spine_clearing_bound_tip") or ""
-            ),
-            body=dict(cleared),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        custodied = custody_total_spine(
-            delivered.get("total_spine_delivery_certificate"),
-            out_root=scratch / "cst-h1",
-            prior_tip=str(
-                delivered.get("total_spine_delivery_bound_tip") or ""
-            ),
-            body=dict(delivered),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            clearings=[
-                cleared.get("total_spine_clearing_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        margined = margin_total_spine(
-            custodied.get("total_spine_custody_certificate"),
-            out_root=scratch / "mgn-h1",
-            prior_tip=str(
-                custodied.get("total_spine_custody_bound_tip") or ""
-            ),
-            body=dict(custodied),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            clearings=[
-                cleared.get("total_spine_clearing_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        collateralized = collateral_total_spine(
-            margined.get("total_spine_margin_certificate"),
-            out_root=scratch / "col-h1",
-            prior_tip=str(
-                margined.get("total_spine_margin_bound_tip") or ""
-            ),
-            body=dict(margined),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            clearings=[
-                cleared.get("total_spine_clearing_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        plane = {
-            "ok": (
-                bool(collateralized.get("ok"))
-                and collateralized.get("total_spine_collateral") is True
-                and collateralized.get("total_spine_collateralized") is True
-                and collateralized.get("total_spine_cvo_ok") is True
-                and int(collateralized.get("total_spine_collateral_count") or 0) >= 2
-                and bool(collateralized.get("total_spine_tip_collateral_root"))
-                and ledger_ok
-                and not bool(collateralized.get("used_skill_route_discovery"))
-            ),
-            "action": "total_spine_collateral_contract",
-            "collateralized": True,
-            "collateralized_ok": True,
-            "cvo_ok": True,
-            "obligation_ok": True,
-            "obligated_ok": True,
-            "collateral_root_valid": True,
-            "collateral_count": int(
-                collateralized.get("total_spine_collateral_count") or 0
-            ),
-            "tip_height": int(
-                collateralized.get("total_spine_collateral_height") or 0
-            ),
-            "collateral_root": collateralized.get("total_spine_tip_collateral_root"),
-            "tip_collateral_root": collateralized.get(
-                "total_spine_tip_collateral_root"
-            ),
-            "bound_state_root": collateralized.get("total_spine_state_root"),
-            "bound_action_root": collateralized.get(
-                "total_spine_tip_action_root"
-            ),
-            "bound_margin_root": collateralized.get(
-                "total_spine_tip_margin_root"
-            ),
-            "collateral_certificate": collateralized.get(
-                "total_spine_collateral_certificate"
-            ),
-            "certificate_valid": True,
-            "total_spine_collateral": True,
-            "ledger_capability_ok": ledger_ok,
-            "used_skill_route_discovery": bool(
-                collateralized.get("used_skill_route_discovery")
-            ),
-        }
-        context["collateral"] = plane
-        context["collateral_plane"] = plane
-        context["collateral_count"] = plane["collateral_count"]
-        context.setdefault(
-            "used_skill_route_discovery", plane.get("used_skill_route_discovery")
-        )
-        return plane
-    except Exception:  # noqa: BLE001
-        return {}
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
 
 
 def materialize_total_spine_liquidity_contract_context(
@@ -4486,272 +3916,8 @@ def materialize_total_spine_liquidity_contract_context(
     → clearing → delivery → custody → margin → collateral → confirmation
     collateral → liquidity — no skill-route.
     """
-    existing = (
-        context.get("liquidity")
-        or context.get("liquidity_plane")
-        or {}
-    )
-    if isinstance(existing, Mapping) and existing.get("ok"):
-        return dict(existing)
+    return _materialize_pair_effect("liquidity", repo_path, context, ledger=ledger)
 
-    try:
-        from blackhole_agent.upstream_control_engine import (
-            SCHEMA_VERSION,
-            TOTAL_SPINE_LIQUIDITY_IMPL,
-            TOTAL_SPINE_FINALITY_KIND,
-            actuate_total_spine,
-            clear_total_spine,
-            collateral_total_spine,
-            custody_total_spine,
-            deliver_total_spine,
-            execute_total_spine,
-            federate_total_spine,
-            liquidity_total_spine,
-            margin_total_spine,
-            settle_total_spine,
-            utc_now_iso,
-            write_total_spine_finality_certificate,
-        )
-    except Exception:  # noqa: BLE001
-        return {}
-
-    if TOTAL_SPINE_LIQUIDITY_IMPL is not True:
-        return {}
-
-    ledger_ok = True
-    if ledger is not None:
-        entry = ledger.capabilities.get(
-            "capability.upstream-total-spine-liquidity"
-        )
-        blob = (
-            ((entry.capability_delta or "") if entry else "")
-            + " "
-            + ((entry.name or "") if entry else "")
-            + " "
-            + " ".join((entry.tags or ()) if entry else ())
-        ).lower()
-        ledger_ok = entry is not None and (
-            "liquidity" in blob or "lvc" in blob
-        )
-
-    import shutil
-    import tempfile
-
-    scratch = Path(tempfile.mkdtemp(prefix="contract-total-spine-liquidity-"))
-    try:
-        paths: list[str] = []
-        for idx, done_when in enumerate(
-            (
-                "contract-liquidity-pass",
-                "contract-liquidity-pass",
-                "contract-liquidity-byzantine",
-            )
-        ):
-            body = {
-                "schema_version": SCHEMA_VERSION,
-                "kind": TOTAL_SPINE_FINALITY_KIND,
-                "root_layer": "quettacontinuum",
-                "goal": "outcome-contract total-spine liquidity materialize",
-                "done_when": done_when,
-                "capabilities": [
-                    "repo.import-health",
-                    "capability.ledger-inventory",
-                ],
-                "operational_tip": f"{idx:x}" * 64,
-                "bound_tip": f"{(idx + 3):x}" * 64,
-                "continuity_digest": f"{(idx + 6):x}" * 64,
-                "adaptive_round_count": 0,
-                "effects_ok": True,
-                "contract_met": True,
-                "recovered": False,
-                "irreversible": True,
-                "success": True,
-                "finalized_at": utc_now_iso(),
-            }
-            cert = write_total_spine_finality_certificate(
-                scratch / f"origin-{idx}", body
-            )
-            paths.append(str(cert.get("finality_path") or ""))
-        quorumed = federate_total_spine(
-            paths,
-            out_root=scratch / "quorum",
-            quorum=True,
-        )
-        executed = execute_total_spine(
-            quorumed.get("total_spine_federation_certificate"),
-            out_root=scratch / "exec-h1",
-            prior_tip=str(
-                quorumed.get("total_spine_federation_bound_tip") or ""
-            ),
-            state_height=1,
-        )
-        actuated = actuate_total_spine(
-            executed.get("total_spine_execution_certificate"),
-            out_root=scratch / "act-h1",
-            prior_tip=str(
-                executed.get("total_spine_execution_bound_tip") or ""
-            ),
-            capabilities=[
-                "repo.import-health",
-                "capability.ledger-inventory",
-            ],
-            repo_path=repo_path,
-            effect_timeout=60,
-            dispatch=True,
-        )
-        settled = settle_total_spine(
-            actuated.get("total_spine_actuation_certificate"),
-            out_root=scratch / "set-h1",
-            prior_tip=str(
-                actuated.get("total_spine_actuation_bound_tip") or ""
-            ),
-            body=dict(actuated),
-            repo_path=repo_path,
-        )
-        cleared = clear_total_spine(
-            settled.get("total_spine_settlement_certificate"),
-            out_root=scratch / "clr-h1",
-            prior_tip=str(
-                settled.get("total_spine_settlement_bound_tip") or ""
-            ),
-            body=dict(settled),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            repo_path=repo_path,
-        )
-        delivered = deliver_total_spine(
-            cleared.get("total_spine_clearing_certificate"),
-            out_root=scratch / "dlv-h1",
-            prior_tip=str(
-                cleared.get("total_spine_clearing_bound_tip") or ""
-            ),
-            body=dict(cleared),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        custodied = custody_total_spine(
-            delivered.get("total_spine_delivery_certificate"),
-            out_root=scratch / "cst-h1",
-            prior_tip=str(
-                delivered.get("total_spine_delivery_bound_tip") or ""
-            ),
-            body=dict(delivered),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            clearings=[
-                cleared.get("total_spine_clearing_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        margined = margin_total_spine(
-            custodied.get("total_spine_custody_certificate"),
-            out_root=scratch / "mgn-h1",
-            prior_tip=str(
-                custodied.get("total_spine_custody_bound_tip") or ""
-            ),
-            body=dict(custodied),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            clearings=[
-                cleared.get("total_spine_clearing_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        collateralized = collateral_total_spine(
-            margined.get("total_spine_margin_certificate"),
-            out_root=scratch / "col-h1",
-            prior_tip=str(
-                margined.get("total_spine_margin_bound_tip") or ""
-            ),
-            body=dict(margined),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            clearings=[
-                cleared.get("total_spine_clearing_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        funded = liquidity_total_spine(
-            collateralized.get("total_spine_collateral_certificate"),
-            out_root=scratch / "liq-h1",
-            prior_tip=str(
-                collateralized.get("total_spine_collateral_bound_tip") or ""
-            ),
-            body=dict(collateralized),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            clearings=[
-                cleared.get("total_spine_clearing_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        plane = {
-            "ok": (
-                bool(funded.get("ok"))
-                and funded.get("total_spine_liquidity") is True
-                and funded.get("total_spine_funded") is True
-                and funded.get("total_spine_lvc_ok") is True
-                and int(funded.get("total_spine_liquidity_count") or 0) >= 2
-                and bool(funded.get("total_spine_tip_liquidity_root"))
-                and ledger_ok
-                and not bool(funded.get("used_skill_route_discovery"))
-            ),
-            "action": "total_spine_liquidity_contract",
-            "funded": True,
-            "funded_ok": True,
-            "liquid_ok": True,
-            "lvc_ok": True,
-            "coverage_ok": True,
-            "covered_ok": True,
-            "liquidity_root_valid": True,
-            "liquidity_count": int(
-                funded.get("total_spine_liquidity_count") or 0
-            ),
-            "tip_height": int(
-                funded.get("total_spine_liquidity_height") or 0
-            ),
-            "liquidity_root": funded.get("total_spine_tip_liquidity_root"),
-            "tip_liquidity_root": funded.get(
-                "total_spine_tip_liquidity_root"
-            ),
-            "bound_state_root": funded.get("total_spine_state_root"),
-            "bound_action_root": funded.get(
-                "total_spine_tip_action_root"
-            ),
-            "bound_collateral_root": funded.get(
-                "total_spine_tip_collateral_root"
-            ),
-            "liquidity_certificate": funded.get(
-                "total_spine_liquidity_certificate"
-            ),
-            "certificate_valid": True,
-            "total_spine_liquidity": True,
-            "ledger_capability_ok": ledger_ok,
-            "used_skill_route_discovery": bool(
-                funded.get("used_skill_route_discovery")
-            ),
-        }
-        context["liquidity"] = plane
-        context["liquidity_plane"] = plane
-        context["liquidity_count"] = plane["liquidity_count"]
-        context.setdefault(
-            "used_skill_route_discovery", plane.get("used_skill_route_discovery")
-        )
-        return plane
-    except Exception:  # noqa: BLE001
-        return {}
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
 
 
 def materialize_total_spine_funding_contract_context(
@@ -4770,289 +3936,8 @@ def materialize_total_spine_funding_contract_context(
     → clearing → delivery → custody → margin → collateral → liquidity →
     confirmation liquidity → funding — no skill-route.
     """
-    existing = (
-        context.get("funding")
-        or context.get("funding_plane")
-        or {}
-    )
-    if isinstance(existing, Mapping) and existing.get("ok"):
-        return dict(existing)
+    return _materialize_pair_effect("funding", repo_path, context, ledger=ledger)
 
-    try:
-        from blackhole_agent.upstream_control_engine import (
-            SCHEMA_VERSION,
-            TOTAL_SPINE_FUNDING_IMPL,
-            TOTAL_SPINE_FINALITY_KIND,
-            actuate_total_spine,
-            clear_total_spine,
-            collateral_total_spine,
-            custody_total_spine,
-            deliver_total_spine,
-            execute_total_spine,
-            federate_total_spine,
-            funding_total_spine,
-            liquidity_total_spine,
-            margin_total_spine,
-            settle_total_spine,
-            utc_now_iso,
-            write_total_spine_finality_certificate,
-        )
-    except Exception:  # noqa: BLE001
-        return {}
-
-    if TOTAL_SPINE_FUNDING_IMPL is not True:
-        return {}
-
-    ledger_ok = True
-    if ledger is not None:
-        entry = ledger.capabilities.get(
-            "capability.upstream-total-spine-funding"
-        )
-        blob = (
-            ((entry.capability_delta or "") if entry else "")
-            + " "
-            + ((entry.name or "") if entry else "")
-            + " "
-            + " ".join((entry.tags or ()) if entry else ())
-        ).lower()
-        ledger_ok = entry is not None and (
-            "funding" in blob or "fvr" in blob
-        )
-
-    import shutil
-    import tempfile
-
-    scratch = Path(tempfile.mkdtemp(prefix="contract-total-spine-funding-"))
-    try:
-        paths: list[str] = []
-        for idx, done_when in enumerate(
-            (
-                "contract-funding-pass",
-                "contract-funding-pass",
-                "contract-funding-byzantine",
-            )
-        ):
-            body = {
-                "schema_version": SCHEMA_VERSION,
-                "kind": TOTAL_SPINE_FINALITY_KIND,
-                "root_layer": "quettacontinuum",
-                "goal": "outcome-contract total-spine funding materialize",
-                "done_when": done_when,
-                "capabilities": [
-                    "repo.import-health",
-                    "capability.ledger-inventory",
-                ],
-                "operational_tip": f"{idx:x}" * 64,
-                "bound_tip": f"{(idx + 3):x}" * 64,
-                "continuity_digest": f"{(idx + 6):x}" * 64,
-                "adaptive_round_count": 0,
-                "effects_ok": True,
-                "contract_met": True,
-                "recovered": False,
-                "irreversible": True,
-                "success": True,
-                "finalized_at": utc_now_iso(),
-            }
-            cert = write_total_spine_finality_certificate(
-                scratch / f"origin-{idx}", body
-            )
-            paths.append(str(cert.get("finality_path") or ""))
-        quorumed = federate_total_spine(
-            paths,
-            out_root=scratch / "quorum",
-            quorum=True,
-        )
-        executed = execute_total_spine(
-            quorumed.get("total_spine_federation_certificate"),
-            out_root=scratch / "exec-h1",
-            prior_tip=str(
-                quorumed.get("total_spine_federation_bound_tip") or ""
-            ),
-            state_height=1,
-        )
-        actuated = actuate_total_spine(
-            executed.get("total_spine_execution_certificate"),
-            out_root=scratch / "act-h1",
-            prior_tip=str(
-                executed.get("total_spine_execution_bound_tip") or ""
-            ),
-            capabilities=[
-                "repo.import-health",
-                "capability.ledger-inventory",
-            ],
-            repo_path=repo_path,
-            effect_timeout=60,
-            dispatch=True,
-        )
-        settled = settle_total_spine(
-            actuated.get("total_spine_actuation_certificate"),
-            out_root=scratch / "set-h1",
-            prior_tip=str(
-                actuated.get("total_spine_actuation_bound_tip") or ""
-            ),
-            body=dict(actuated),
-            repo_path=repo_path,
-        )
-        cleared = clear_total_spine(
-            settled.get("total_spine_settlement_certificate"),
-            out_root=scratch / "clr-h1",
-            prior_tip=str(
-                settled.get("total_spine_settlement_bound_tip") or ""
-            ),
-            body=dict(settled),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            repo_path=repo_path,
-        )
-        delivered = deliver_total_spine(
-            cleared.get("total_spine_clearing_certificate"),
-            out_root=scratch / "dlv-h1",
-            prior_tip=str(
-                cleared.get("total_spine_clearing_bound_tip") or ""
-            ),
-            body=dict(cleared),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        custodied = custody_total_spine(
-            delivered.get("total_spine_delivery_certificate"),
-            out_root=scratch / "cst-h1",
-            prior_tip=str(
-                delivered.get("total_spine_delivery_bound_tip") or ""
-            ),
-            body=dict(delivered),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            clearings=[
-                cleared.get("total_spine_clearing_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        margined = margin_total_spine(
-            custodied.get("total_spine_custody_certificate"),
-            out_root=scratch / "mgn-h1",
-            prior_tip=str(
-                custodied.get("total_spine_custody_bound_tip") or ""
-            ),
-            body=dict(custodied),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            clearings=[
-                cleared.get("total_spine_clearing_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        collateralized = collateral_total_spine(
-            margined.get("total_spine_margin_certificate"),
-            out_root=scratch / "col-h1",
-            prior_tip=str(
-                margined.get("total_spine_margin_bound_tip") or ""
-            ),
-            body=dict(margined),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            clearings=[
-                cleared.get("total_spine_clearing_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        liquid = liquidity_total_spine(
-            collateralized.get("total_spine_collateral_certificate"),
-            out_root=scratch / "liq-h1",
-            prior_tip=str(
-                collateralized.get("total_spine_collateral_bound_tip") or ""
-            ),
-            body=dict(collateralized),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            clearings=[
-                cleared.get("total_spine_clearing_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        facilitated = funding_total_spine(
-            liquid.get("total_spine_liquidity_certificate"),
-            out_root=scratch / "fnd-h1",
-            prior_tip=str(
-                liquid.get("total_spine_liquidity_bound_tip") or ""
-            ),
-            body=dict(liquid),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            clearings=[
-                cleared.get("total_spine_clearing_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        plane = {
-            "ok": (
-                bool(facilitated.get("ok"))
-                and facilitated.get("total_spine_funding") is True
-                and facilitated.get("total_spine_facilitated") is True
-                and facilitated.get("total_spine_fvr_ok") is True
-                and int(facilitated.get("total_spine_funding_count") or 0) >= 2
-                and bool(facilitated.get("total_spine_tip_funding_root"))
-                and ledger_ok
-                and not bool(facilitated.get("used_skill_route_discovery"))
-            ),
-            "action": "total_spine_funding_contract",
-            "facilitated": True,
-            "facilitated_ok": True,
-            "facility_ok": True,
-            "fvr_ok": True,
-            "requirement_ok": True,
-            "required_ok": True,
-            "funding_root_valid": True,
-            "funding_count": int(
-                facilitated.get("total_spine_funding_count") or 0
-            ),
-            "tip_height": int(
-                facilitated.get("total_spine_funding_height") or 0
-            ),
-            "funding_root": facilitated.get("total_spine_tip_funding_root"),
-            "tip_funding_root": facilitated.get(
-                "total_spine_tip_funding_root"
-            ),
-            "bound_state_root": facilitated.get("total_spine_state_root"),
-            "bound_action_root": facilitated.get(
-                "total_spine_tip_action_root"
-            ),
-            "bound_liquidity_root": facilitated.get(
-                "total_spine_tip_liquidity_root"
-            ),
-            "funding_certificate": facilitated.get(
-                "total_spine_funding_certificate"
-            ),
-            "certificate_valid": True,
-            "total_spine_funding": True,
-            "ledger_capability_ok": ledger_ok,
-            "used_skill_route_discovery": bool(
-                facilitated.get("used_skill_route_discovery")
-            ),
-        }
-        context["funding"] = plane
-        context["funding_plane"] = plane
-        context["funding_count"] = plane["funding_count"]
-        context.setdefault(
-            "used_skill_route_discovery", plane.get("used_skill_route_discovery")
-        )
-        return plane
-    except Exception:  # noqa: BLE001
-        return {}
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
 
 
 
@@ -5072,306 +3957,8 @@ def materialize_total_spine_capital_contract_context(
     → clearing → delivery → custody → margin → collateral → liquidity →
     funding → confirmation funding → capital — no skill-route.
     """
-    existing = (
-        context.get("capital")
-        or context.get("capital_plane")
-        or {}
-    )
-    if isinstance(existing, Mapping) and existing.get("ok"):
-        return dict(existing)
+    return _materialize_pair_effect("capital", repo_path, context, ledger=ledger)
 
-    try:
-        from blackhole_agent.upstream_control_engine import (
-            SCHEMA_VERSION,
-            TOTAL_SPINE_CAPITAL_IMPL,
-            TOTAL_SPINE_FINALITY_KIND,
-            actuate_total_spine,
-            capital_total_spine,
-            clear_total_spine,
-            collateral_total_spine,
-            custody_total_spine,
-            deliver_total_spine,
-            execute_total_spine,
-            federate_total_spine,
-            funding_total_spine,
-            liquidity_total_spine,
-            margin_total_spine,
-            settle_total_spine,
-            utc_now_iso,
-            write_total_spine_finality_certificate,
-        )
-    except Exception:  # noqa: BLE001
-        return {}
-
-    if TOTAL_SPINE_CAPITAL_IMPL is not True:
-        return {}
-
-    ledger_ok = True
-    if ledger is not None:
-        entry = ledger.capabilities.get(
-            "capability.upstream-total-spine-capital"
-        )
-        blob = (
-            ((entry.capability_delta or "") if entry else "")
-            + " "
-            + ((entry.name or "") if entry else "")
-            + " "
-            + " ".join((entry.tags or ()) if entry else ())
-        ).lower()
-        ledger_ok = entry is not None and (
-            "capital" in blob or "cva" in blob
-        )
-
-    import shutil
-    import tempfile
-
-    scratch = Path(tempfile.mkdtemp(prefix="contract-total-spine-capital-"))
-    try:
-        paths: list[str] = []
-        for idx, done_when in enumerate(
-            (
-                "contract-capital-pass",
-                "contract-capital-pass",
-                "contract-capital-byzantine",
-            )
-        ):
-            body = {
-                "schema_version": SCHEMA_VERSION,
-                "kind": TOTAL_SPINE_FINALITY_KIND,
-                "root_layer": "quettacontinuum",
-                "goal": "outcome-contract total-spine capital materialize",
-                "done_when": done_when,
-                "capabilities": [
-                    "repo.import-health",
-                    "capability.ledger-inventory",
-                ],
-                "operational_tip": f"{idx:x}" * 64,
-                "bound_tip": f"{(idx + 3):x}" * 64,
-                "continuity_digest": f"{(idx + 6):x}" * 64,
-                "adaptive_round_count": 0,
-                "effects_ok": True,
-                "contract_met": True,
-                "recovered": False,
-                "irreversible": True,
-                "success": True,
-                "finalized_at": utc_now_iso(),
-            }
-            cert = write_total_spine_finality_certificate(
-                scratch / f"origin-{idx}", body
-            )
-            paths.append(str(cert.get("finality_path") or ""))
-        quorumed = federate_total_spine(
-            paths,
-            out_root=scratch / "quorum",
-            quorum=True,
-        )
-        executed = execute_total_spine(
-            quorumed.get("total_spine_federation_certificate"),
-            out_root=scratch / "exec-h1",
-            prior_tip=str(
-                quorumed.get("total_spine_federation_bound_tip") or ""
-            ),
-            state_height=1,
-        )
-        actuated = actuate_total_spine(
-            executed.get("total_spine_execution_certificate"),
-            out_root=scratch / "act-h1",
-            prior_tip=str(
-                executed.get("total_spine_execution_bound_tip") or ""
-            ),
-            capabilities=[
-                "repo.import-health",
-                "capability.ledger-inventory",
-            ],
-            repo_path=repo_path,
-            effect_timeout=60,
-            dispatch=True,
-        )
-        settled = settle_total_spine(
-            actuated.get("total_spine_actuation_certificate"),
-            out_root=scratch / "set-h1",
-            prior_tip=str(
-                actuated.get("total_spine_actuation_bound_tip") or ""
-            ),
-            body=dict(actuated),
-            repo_path=repo_path,
-        )
-        cleared = clear_total_spine(
-            settled.get("total_spine_settlement_certificate"),
-            out_root=scratch / "clr-h1",
-            prior_tip=str(
-                settled.get("total_spine_settlement_bound_tip") or ""
-            ),
-            body=dict(settled),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            repo_path=repo_path,
-        )
-        delivered = deliver_total_spine(
-            cleared.get("total_spine_clearing_certificate"),
-            out_root=scratch / "dlv-h1",
-            prior_tip=str(
-                cleared.get("total_spine_clearing_bound_tip") or ""
-            ),
-            body=dict(cleared),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        custodied = custody_total_spine(
-            delivered.get("total_spine_delivery_certificate"),
-            out_root=scratch / "cst-h1",
-            prior_tip=str(
-                delivered.get("total_spine_delivery_bound_tip") or ""
-            ),
-            body=dict(delivered),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            clearings=[
-                cleared.get("total_spine_clearing_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        margined = margin_total_spine(
-            custodied.get("total_spine_custody_certificate"),
-            out_root=scratch / "mgn-h1",
-            prior_tip=str(
-                custodied.get("total_spine_custody_bound_tip") or ""
-            ),
-            body=dict(custodied),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            clearings=[
-                cleared.get("total_spine_clearing_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        collateralized = collateral_total_spine(
-            margined.get("total_spine_margin_certificate"),
-            out_root=scratch / "col-h1",
-            prior_tip=str(
-                margined.get("total_spine_margin_bound_tip") or ""
-            ),
-            body=dict(margined),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            clearings=[
-                cleared.get("total_spine_clearing_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        liquid = liquidity_total_spine(
-            collateralized.get("total_spine_collateral_certificate"),
-            out_root=scratch / "liq-h1",
-            prior_tip=str(
-                collateralized.get("total_spine_collateral_bound_tip") or ""
-            ),
-            body=dict(collateralized),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            clearings=[
-                cleared.get("total_spine_clearing_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        facilitated = funding_total_spine(
-            liquid.get("total_spine_liquidity_certificate"),
-            out_root=scratch / "fnd-h1",
-            prior_tip=str(
-                liquid.get("total_spine_liquidity_bound_tip") or ""
-            ),
-            body=dict(liquid),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            clearings=[
-                cleared.get("total_spine_clearing_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        capitalized = capital_total_spine(
-            facilitated.get("total_spine_funding_certificate"),
-            out_root=scratch / "cap-h1",
-            prior_tip=str(
-                facilitated.get("total_spine_funding_bound_tip") or ""
-            ),
-            body=dict(facilitated),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            clearings=[
-                cleared.get("total_spine_clearing_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        plane = {
-            "ok": (
-                bool(capitalized.get("ok"))
-                and capitalized.get("total_spine_capital") is True
-                and capitalized.get("total_spine_capitalized") is True
-                and capitalized.get("total_spine_cva_ok") is True
-                and int(capitalized.get("total_spine_capital_count") or 0) >= 2
-                and bool(capitalized.get("total_spine_tip_capital_root"))
-                and ledger_ok
-                and not bool(capitalized.get("used_skill_route_discovery"))
-            ),
-            "action": "total_spine_capital_contract",
-            "capitalized": True,
-            "capitalized_ok": True,
-            "buffer_ok": True,
-            "cva_ok": True,
-            "adequacy_ok": True,
-            "adequate_ok": True,
-            "capital_root_valid": True,
-            "capital_count": int(
-                capitalized.get("total_spine_capital_count") or 0
-            ),
-            "tip_height": int(
-                capitalized.get("total_spine_capital_height") or 0
-            ),
-            "capital_root": capitalized.get("total_spine_tip_capital_root"),
-            "tip_capital_root": capitalized.get(
-                "total_spine_tip_capital_root"
-            ),
-            "bound_state_root": capitalized.get("total_spine_state_root"),
-            "bound_action_root": capitalized.get(
-                "total_spine_tip_action_root"
-            ),
-            "bound_funding_root": capitalized.get(
-                "total_spine_tip_funding_root"
-            ),
-            "capital_certificate": capitalized.get(
-                "total_spine_capital_certificate"
-            ),
-            "certificate_valid": True,
-            "total_spine_capital": True,
-            "ledger_capability_ok": ledger_ok,
-            "used_skill_route_discovery": bool(
-                capitalized.get("used_skill_route_discovery")
-            ),
-        }
-        context["capital"] = plane
-        context["capital_plane"] = plane
-        context["capital_count"] = plane["capital_count"]
-        context.setdefault(
-            "used_skill_route_discovery", plane.get("used_skill_route_discovery")
-        )
-        return plane
-    except Exception:  # noqa: BLE001
-        return {}
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
 
 
 
@@ -5390,323 +3977,8 @@ def materialize_total_spine_solvency_contract_context(
     synthetic absolute-tower finality → … → capital → confirmation capital
     → solvency — no skill-route.
     """
-    existing = (
-        context.get("solvency")
-        or context.get("solvency_plane")
-        or {}
-    )
-    if isinstance(existing, Mapping) and existing.get("ok"):
-        return dict(existing)
+    return _materialize_pair_effect("solvency", repo_path, context, ledger=ledger)
 
-    try:
-        from blackhole_agent.upstream_control_engine import (
-            SCHEMA_VERSION,
-            TOTAL_SPINE_SOLVENCY_IMPL,
-            TOTAL_SPINE_FINALITY_KIND,
-            actuate_total_spine,
-            capital_total_spine,
-            clear_total_spine,
-            collateral_total_spine,
-            custody_total_spine,
-            deliver_total_spine,
-            execute_total_spine,
-            federate_total_spine,
-            funding_total_spine,
-            liquidity_total_spine,
-            margin_total_spine,
-            settle_total_spine,
-            solvency_total_spine,
-            utc_now_iso,
-            write_total_spine_finality_certificate,
-        )
-    except Exception:  # noqa: BLE001
-        return {}
-
-    if TOTAL_SPINE_SOLVENCY_IMPL is not True:
-        return {}
-
-    ledger_ok = True
-    if ledger is not None:
-        entry = ledger.capabilities.get(
-            "capability.upstream-total-spine-solvency"
-        )
-        blob = (
-            ((entry.capability_delta or "") if entry else "")
-            + " "
-            + ((entry.name or "") if entry else "")
-            + " "
-            + " ".join((entry.tags or ()) if entry else ())
-        ).lower()
-        ledger_ok = entry is not None and (
-            "solvency" in blob or "svr" in blob
-        )
-
-    import shutil
-    import tempfile
-
-    scratch = Path(tempfile.mkdtemp(prefix="contract-total-spine-solvency-"))
-    try:
-        paths: list[str] = []
-        for idx, done_when in enumerate(
-            (
-                "contract-solvency-pass",
-                "contract-solvency-pass",
-                "contract-solvency-byzantine",
-            )
-        ):
-            body = {
-                "schema_version": SCHEMA_VERSION,
-                "kind": TOTAL_SPINE_FINALITY_KIND,
-                "root_layer": "quettacontinuum",
-                "goal": "outcome-contract total-spine solvency materialize",
-                "done_when": done_when,
-                "capabilities": [
-                    "repo.import-health",
-                    "capability.ledger-inventory",
-                ],
-                "operational_tip": f"{idx:x}" * 64,
-                "bound_tip": f"{(idx + 3):x}" * 64,
-                "continuity_digest": f"{(idx + 6):x}" * 64,
-                "adaptive_round_count": 0,
-                "effects_ok": True,
-                "contract_met": True,
-                "recovered": False,
-                "irreversible": True,
-                "success": True,
-                "finalized_at": utc_now_iso(),
-            }
-            cert = write_total_spine_finality_certificate(
-                scratch / f"origin-{idx}", body
-            )
-            paths.append(str(cert.get("finality_path") or ""))
-        quorumed = federate_total_spine(
-            paths,
-            out_root=scratch / "quorum",
-            quorum=True,
-        )
-        executed = execute_total_spine(
-            quorumed.get("total_spine_federation_certificate"),
-            out_root=scratch / "exec-h1",
-            prior_tip=str(
-                quorumed.get("total_spine_federation_bound_tip") or ""
-            ),
-            state_height=1,
-        )
-        actuated = actuate_total_spine(
-            executed.get("total_spine_execution_certificate"),
-            out_root=scratch / "act-h1",
-            prior_tip=str(
-                executed.get("total_spine_execution_bound_tip") or ""
-            ),
-            capabilities=[
-                "repo.import-health",
-                "capability.ledger-inventory",
-            ],
-            repo_path=repo_path,
-            effect_timeout=60,
-            dispatch=True,
-        )
-        settled = settle_total_spine(
-            actuated.get("total_spine_actuation_certificate"),
-            out_root=scratch / "set-h1",
-            prior_tip=str(
-                actuated.get("total_spine_actuation_bound_tip") or ""
-            ),
-            body=dict(actuated),
-            repo_path=repo_path,
-        )
-        cleared = clear_total_spine(
-            settled.get("total_spine_settlement_certificate"),
-            out_root=scratch / "clr-h1",
-            prior_tip=str(
-                settled.get("total_spine_settlement_bound_tip") or ""
-            ),
-            body=dict(settled),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            repo_path=repo_path,
-        )
-        delivered = deliver_total_spine(
-            cleared.get("total_spine_clearing_certificate"),
-            out_root=scratch / "dlv-h1",
-            prior_tip=str(
-                cleared.get("total_spine_clearing_bound_tip") or ""
-            ),
-            body=dict(cleared),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        custodied = custody_total_spine(
-            delivered.get("total_spine_delivery_certificate"),
-            out_root=scratch / "cst-h1",
-            prior_tip=str(
-                delivered.get("total_spine_delivery_bound_tip") or ""
-            ),
-            body=dict(delivered),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            clearings=[
-                cleared.get("total_spine_clearing_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        margined = margin_total_spine(
-            custodied.get("total_spine_custody_certificate"),
-            out_root=scratch / "mgn-h1",
-            prior_tip=str(
-                custodied.get("total_spine_custody_bound_tip") or ""
-            ),
-            body=dict(custodied),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            clearings=[
-                cleared.get("total_spine_clearing_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        collateralized = collateral_total_spine(
-            margined.get("total_spine_margin_certificate"),
-            out_root=scratch / "col-h1",
-            prior_tip=str(
-                margined.get("total_spine_margin_bound_tip") or ""
-            ),
-            body=dict(margined),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            clearings=[
-                cleared.get("total_spine_clearing_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        liquid = liquidity_total_spine(
-            collateralized.get("total_spine_collateral_certificate"),
-            out_root=scratch / "liq-h1",
-            prior_tip=str(
-                collateralized.get("total_spine_collateral_bound_tip") or ""
-            ),
-            body=dict(collateralized),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            clearings=[
-                cleared.get("total_spine_clearing_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        facilitated = funding_total_spine(
-            liquid.get("total_spine_liquidity_certificate"),
-            out_root=scratch / "fnd-h1",
-            prior_tip=str(
-                liquid.get("total_spine_liquidity_bound_tip") or ""
-            ),
-            body=dict(liquid),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            clearings=[
-                cleared.get("total_spine_clearing_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        capitalized = capital_total_spine(
-            facilitated.get("total_spine_funding_certificate"),
-            out_root=scratch / "cap-h1",
-            prior_tip=str(
-                facilitated.get("total_spine_funding_bound_tip") or ""
-            ),
-            body=dict(facilitated),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            clearings=[
-                cleared.get("total_spine_clearing_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        solvent = solvency_total_spine(
-            capitalized.get("total_spine_capital_certificate"),
-            out_root=scratch / "sol-h1",
-            prior_tip=str(
-                capitalized.get("total_spine_capital_bound_tip") or ""
-            ),
-            body=dict(capitalized),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            settlements=[
-                settled.get("total_spine_settlement_certificate") or {}
-            ],
-            clearings=[
-                cleared.get("total_spine_clearing_certificate") or {}
-            ],
-            repo_path=repo_path,
-        )
-        plane = {
-            "ok": (
-                bool(solvent.get("ok"))
-                and solvent.get("total_spine_solvency") is True
-                and solvent.get("total_spine_solvent") is True
-                and solvent.get("total_spine_svr_ok") is True
-                and int(solvent.get("total_spine_solvency_count") or 0) >= 2
-                and bool(solvent.get("total_spine_tip_solvency_root"))
-                and ledger_ok
-                and not bool(solvent.get("used_skill_route_discovery"))
-            ),
-            "action": "total_spine_solvency_contract",
-            "solvent": True,
-            "solvent_ok": True,
-            "surplus_ok": True,
-            "svr_ok": True,
-            "solvency_requirement_ok": True,
-            "required_ok": True,
-            "solvency_root_valid": True,
-            "solvency_count": int(
-                solvent.get("total_spine_solvency_count") or 0
-            ),
-            "tip_height": int(
-                solvent.get("total_spine_solvency_height") or 0
-            ),
-            "solvency_root": solvent.get("total_spine_tip_solvency_root"),
-            "tip_solvency_root": solvent.get(
-                "total_spine_tip_solvency_root"
-            ),
-            "bound_state_root": solvent.get("total_spine_state_root"),
-            "bound_action_root": solvent.get(
-                "total_spine_tip_action_root"
-            ),
-            "bound_capital_root": solvent.get(
-                "total_spine_tip_capital_root"
-            ),
-            "solvency_certificate": solvent.get(
-                "total_spine_solvency_certificate"
-            ),
-            "certificate_valid": True,
-            "total_spine_solvency": True,
-            "ledger_capability_ok": ledger_ok,
-            "used_skill_route_discovery": bool(
-                solvent.get("used_skill_route_discovery")
-            ),
-        }
-        context["solvency"] = plane
-        context["solvency_plane"] = plane
-        context["solvency_count"] = plane["solvency_count"]
-        context.setdefault(
-            "used_skill_route_discovery", plane.get("used_skill_route_discovery")
-        )
-        return plane
-    except Exception:  # noqa: BLE001
-        return {}
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
 
 
 def materialize_total_spine_risk_contract_context(
@@ -5721,124 +3993,8 @@ def materialize_total_spine_risk_contract_context(
     ``risk_root_valid`` / ``rva_ok`` / ``appetite_ok``, prove them
     hermetically from a solvent SvR book — no skill-route.
     """
-    existing = (
-        context.get("risk")
-        or context.get("risk_plane")
-        or {}
-    )
-    if isinstance(existing, Mapping) and existing.get("ok"):
-        return dict(existing)
+    return _materialize_pair_effect("risk", repo_path, context, ledger=ledger)
 
-    try:
-        from blackhole_agent.upstream_control_engine import (
-            TOTAL_SPINE_RISK_IMPL,
-            risk_total_spine,
-        )
-    except Exception:  # noqa: BLE001
-        return {}
-
-    if TOTAL_SPINE_RISK_IMPL is not True:
-        return {}
-
-    ledger_ok = True
-    if ledger is not None:
-        entry = ledger.capabilities.get(
-            "capability.upstream-total-spine-risk"
-        )
-        blob = (
-            ((entry.capability_delta or "") if entry else "")
-            + " "
-            + ((entry.name or "") if entry else "")
-            + " "
-            + " ".join((entry.tags or ()) if entry else ())
-        ).lower()
-        ledger_ok = entry is not None and (
-            "risk" in blob or "rva" in blob
-        )
-
-    solvent = materialize_total_spine_solvency_contract_context(
-        repo_path, context, ledger=ledger
-    )
-    cert = (
-        solvent.get("solvency_certificate")
-        if isinstance(solvent, Mapping)
-        else None
-    )
-    if not isinstance(cert, Mapping) or not solvent.get("ok"):
-        return {}
-
-    import shutil
-    import tempfile
-
-    scratch = Path(tempfile.mkdtemp(prefix="contract-total-spine-risk-"))
-    try:
-        risked = risk_total_spine(
-            cert,
-            out_root=scratch / "rsk-h1",
-            prior_tip=str(
-                solvent.get("bound_action_root")
-                or solvent.get("bound_state_root")
-                or ""
-            ),
-            body={
-                "ok": True,
-                "total_spine": True,
-                "total_spine_solvency": True,
-                "total_spine_solvency_certificate": cert,
-                "total_spine_tip_solvency_root": solvent.get(
-                    "tip_solvency_root"
-                ),
-                "total_spine_digest": str(
-                    solvent.get("bound_action_root") or ""
-                ),
-            },
-            repo_path=repo_path,
-        )
-        plane = {
-            "ok": (
-                bool(risked.get("ok"))
-                and risked.get("total_spine_risk") is True
-                and risked.get("total_spine_risked") is True
-                and risked.get("total_spine_rva_ok") is True
-                and int(risked.get("total_spine_risk_count") or 0) >= 2
-                and bool(risked.get("total_spine_tip_risk_root"))
-                and ledger_ok
-                and not bool(risked.get("used_skill_route_discovery"))
-            ),
-            "action": "total_spine_risk_contract",
-            "risked": True,
-            "risked_ok": True,
-            "assessed_ok": True,
-            "rva_ok": True,
-            "appetite_ok": True,
-            "appetent_ok": True,
-            "risk_root_valid": True,
-            "risk_count": int(risked.get("total_spine_risk_count") or 0),
-            "tip_height": int(risked.get("total_spine_risk_height") or 0),
-            "risk_root": risked.get("total_spine_tip_risk_root"),
-            "tip_risk_root": risked.get("total_spine_tip_risk_root"),
-            "bound_state_root": risked.get("total_spine_state_root"),
-            "bound_action_root": risked.get("total_spine_tip_action_root"),
-            "bound_solvency_root": risked.get("total_spine_tip_solvency_root"),
-            "risk_certificate": risked.get("total_spine_risk_certificate"),
-            "certificate_valid": True,
-            "total_spine_risk": True,
-            "ledger_capability_ok": ledger_ok,
-            "used_skill_route_discovery": bool(
-                risked.get("used_skill_route_discovery")
-            ),
-        }
-        context["risk"] = plane
-        context["risk_plane"] = plane
-        context["risk_count"] = plane["risk_count"]
-        context.setdefault(
-            "used_skill_route_discovery", plane.get("used_skill_route_discovery")
-        )
-        return plane
-    except Exception:  # noqa: BLE001
-        return {}
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
 
 
 
@@ -5855,121 +4011,8 @@ def materialize_total_spine_stress_contract_context(
     ``stress_root_valid`` / ``svc_ok`` / ``capacity_ok``, prove them
     hermetically from a risked RvA book — no skill-route.
     """
-    existing = (
-        context.get("stress")
-        or context.get("stress_plane")
-        or {}
-    )
-    if isinstance(existing, Mapping) and existing.get("ok"):
-        return dict(existing)
+    return _materialize_pair_effect("stress", repo_path, context, ledger=ledger)
 
-    try:
-        from blackhole_agent.upstream_control_engine import (
-            TOTAL_SPINE_STRESS_IMPL,
-            stress_total_spine,
-        )
-    except Exception:  # noqa: BLE001
-        return {}
-
-    if TOTAL_SPINE_STRESS_IMPL is not True:
-        return {}
-
-    ledger_ok = True
-    if ledger is not None:
-        entry = ledger.capabilities.get(
-            "capability.upstream-total-spine-stress"
-        )
-        blob = (
-            ((entry.capability_delta or "") if entry else "")
-            + " "
-            + ((entry.name or "") if entry else "")
-            + " "
-            + " ".join((entry.tags or ()) if entry else ())
-        ).lower()
-        ledger_ok = entry is not None and (
-            "stress" in blob or "svc" in blob
-        )
-
-    risked = materialize_total_spine_risk_contract_context(
-        repo_path, context, ledger=ledger
-    )
-    cert = (
-        risked.get("risk_certificate")
-        if isinstance(risked, Mapping)
-        else None
-    )
-    if not isinstance(cert, Mapping) or not risked.get("ok"):
-        return {}
-
-    import shutil
-    import tempfile
-
-    scratch = Path(tempfile.mkdtemp(prefix="contract-total-spine-stress-"))
-    try:
-        stressed = stress_total_spine(
-            cert,
-            out_root=scratch / "sts-h1",
-            prior_tip=str(
-                risked.get("bound_action_root")
-                or risked.get("bound_state_root")
-                or ""
-            ),
-            body={
-                "ok": True,
-                "total_spine": True,
-                "total_spine_risk": True,
-                "total_spine_risk_certificate": cert,
-                "total_spine_tip_risk_root": risked.get("tip_risk_root"),
-                "total_spine_digest": str(
-                    risked.get("bound_action_root") or ""
-                ),
-            },
-            repo_path=repo_path,
-        )
-        plane = {
-            "ok": (
-                bool(stressed.get("ok"))
-                and stressed.get("total_spine_stress") is True
-                and stressed.get("total_spine_stressed") is True
-                and stressed.get("total_spine_svc_ok") is True
-                and int(stressed.get("total_spine_stress_count") or 0) >= 2
-                and bool(stressed.get("total_spine_tip_stress_root"))
-                and ledger_ok
-                and not bool(stressed.get("used_skill_route_discovery"))
-            ),
-            "action": "total_spine_stress_contract",
-            "stressed": True,
-            "stressed_ok": True,
-            "svc_ok": True,
-            "capacity_ok": True,
-            "capacious_ok": True,
-            "stress_root_valid": True,
-            "stress_count": int(stressed.get("total_spine_stress_count") or 0),
-            "tip_height": int(stressed.get("total_spine_stress_height") or 0),
-            "stress_root": stressed.get("total_spine_tip_stress_root"),
-            "tip_stress_root": stressed.get("total_spine_tip_stress_root"),
-            "bound_state_root": stressed.get("total_spine_state_root"),
-            "bound_action_root": stressed.get("total_spine_tip_action_root"),
-            "bound_risk_root": stressed.get("total_spine_tip_risk_root"),
-            "stress_certificate": stressed.get("total_spine_stress_certificate"),
-            "certificate_valid": True,
-            "total_spine_stress": True,
-            "ledger_capability_ok": ledger_ok,
-            "used_skill_route_discovery": bool(
-                stressed.get("used_skill_route_discovery")
-            ),
-        }
-        context["stress"] = plane
-        context["stress_plane"] = plane
-        context["stress_count"] = plane["stress_count"]
-        context.setdefault(
-            "used_skill_route_discovery", plane.get("used_skill_route_discovery")
-        )
-        return plane
-    except Exception:  # noqa: BLE001
-        return {}
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
 
 
 
@@ -5986,121 +4029,8 @@ def materialize_total_spine_recovery_contract_context(
     ``recovery_root_valid`` / ``rvp_ok`` / ``plan_ok``, prove them
     hermetically from a stressed SvC book — no skill-route.
     """
-    existing = (
-        context.get("recovery")
-        or context.get("recovery_plane")
-        or {}
-    )
-    if isinstance(existing, Mapping) and existing.get("ok"):
-        return dict(existing)
+    return _materialize_pair_effect("recovery", repo_path, context, ledger=ledger)
 
-    try:
-        from blackhole_agent.upstream_control_engine import (
-            TOTAL_SPINE_RECOVERY_IMPL,
-            recovery_total_spine,
-        )
-    except Exception:  # noqa: BLE001
-        return {}
-
-    if TOTAL_SPINE_RECOVERY_IMPL is not True:
-        return {}
-
-    ledger_ok = True
-    if ledger is not None:
-        entry = ledger.capabilities.get(
-            "capability.upstream-total-spine-recovery"
-        )
-        blob = (
-            ((entry.capability_delta or "") if entry else "")
-            + " "
-            + ((entry.name or "") if entry else "")
-            + " "
-            + " ".join((entry.tags or ()) if entry else ())
-        ).lower()
-        ledger_ok = entry is not None and (
-            "recovery" in blob or "rvp" in blob
-        )
-
-    stressed = materialize_total_spine_stress_contract_context(
-        repo_path, context, ledger=ledger
-    )
-    cert = (
-        stressed.get("stress_certificate")
-        if isinstance(stressed, Mapping)
-        else None
-    )
-    if not isinstance(cert, Mapping) or not stressed.get("ok"):
-        return {}
-
-    import shutil
-    import tempfile
-
-    scratch = Path(tempfile.mkdtemp(prefix="contract-total-spine-recovery-"))
-    try:
-        restored = recovery_total_spine(
-            cert,
-            out_root=scratch / "rec-h1",
-            prior_tip=str(
-                stressed.get("bound_action_root")
-                or stressed.get("bound_state_root")
-                or ""
-            ),
-            body={
-                "ok": True,
-                "total_spine": True,
-                "total_spine_stress": True,
-                "total_spine_stress_certificate": cert,
-                "total_spine_tip_stress_root": stressed.get("tip_stress_root"),
-                "total_spine_digest": str(
-                    stressed.get("bound_action_root") or ""
-                ),
-            },
-            repo_path=repo_path,
-        )
-        plane = {
-            "ok": (
-                bool(restored.get("ok"))
-                and restored.get("total_spine_recovery") is True
-                and restored.get("total_spine_restored") is True
-                and restored.get("total_spine_rvp_ok") is True
-                and int(restored.get("total_spine_recovery_count") or 0) >= 2
-                and bool(restored.get("total_spine_tip_recovery_root"))
-                and ledger_ok
-                and not bool(restored.get("used_skill_route_discovery"))
-            ),
-            "action": "total_spine_recovery_contract",
-            "restored": True,
-            "restored_ok": True,
-            "rvp_ok": True,
-            "plan_ok": True,
-            "planned_ok": True,
-            "recovery_root_valid": True,
-            "recovery_count": int(restored.get("total_spine_recovery_count") or 0),
-            "tip_height": int(restored.get("total_spine_recovery_height") or 0),
-            "recovery_root": restored.get("total_spine_tip_recovery_root"),
-            "tip_recovery_root": restored.get("total_spine_tip_recovery_root"),
-            "bound_state_root": restored.get("total_spine_state_root"),
-            "bound_action_root": restored.get("total_spine_tip_action_root"),
-            "bound_stress_root": restored.get("total_spine_tip_stress_root"),
-            "recovery_certificate": restored.get("total_spine_recovery_certificate"),
-            "certificate_valid": True,
-            "total_spine_recovery": True,
-            "ledger_capability_ok": ledger_ok,
-            "used_skill_route_discovery": bool(
-                restored.get("used_skill_route_discovery")
-            ),
-        }
-        context["recovery"] = plane
-        context["recovery_plane"] = plane
-        context["recovery_count"] = plane["recovery_count"]
-        context.setdefault(
-            "used_skill_route_discovery", plane.get("used_skill_route_discovery")
-        )
-        return plane
-    except Exception:  # noqa: BLE001
-        return {}
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
 
 
 
@@ -6118,121 +4048,8 @@ def materialize_total_spine_resolution_contract_context(
     ``resolution_root_valid`` / ``rvs_ok`` / ``strategy_ok``, prove them
     hermetically from a restored RvP book — no skill-route.
     """
-    existing = (
-        context.get("resolution")
-        or context.get("resolution_plane")
-        or {}
-    )
-    if isinstance(existing, Mapping) and existing.get("ok"):
-        return dict(existing)
+    return _materialize_pair_effect("resolution", repo_path, context, ledger=ledger)
 
-    try:
-        from blackhole_agent.upstream_control_engine import (
-            TOTAL_SPINE_RESOLUTION_IMPL,
-            resolution_total_spine,
-        )
-    except Exception:  # noqa: BLE001
-        return {}
-
-    if TOTAL_SPINE_RESOLUTION_IMPL is not True:
-        return {}
-
-    ledger_ok = True
-    if ledger is not None:
-        entry = ledger.capabilities.get(
-            "capability.upstream-total-spine-resolution"
-        )
-        blob = (
-            ((entry.capability_delta or "") if entry else "")
-            + " "
-            + ((entry.name or "") if entry else "")
-            + " "
-            + " ".join((entry.tags or ()) if entry else ())
-        ).lower()
-        ledger_ok = entry is not None and (
-            "resolution" in blob or "rvs" in blob
-        )
-
-    restored = materialize_total_spine_recovery_contract_context(
-        repo_path, context, ledger=ledger
-    )
-    cert = (
-        restored.get("recovery_certificate")
-        if isinstance(restored, Mapping)
-        else None
-    )
-    if not isinstance(cert, Mapping) or not restored.get("ok"):
-        return {}
-
-    import shutil
-    import tempfile
-
-    scratch = Path(tempfile.mkdtemp(prefix="contract-total-spine-resolution-"))
-    try:
-        resolved = resolution_total_spine(
-            cert,
-            out_root=scratch / "res-h1",
-            prior_tip=str(
-                restored.get("bound_action_root")
-                or restored.get("bound_state_root")
-                or ""
-            ),
-            body={
-                "ok": True,
-                "total_spine": True,
-                "total_spine_recovery": True,
-                "total_spine_recovery_certificate": cert,
-                "total_spine_tip_recovery_root": restored.get("tip_recovery_root"),
-                "total_spine_digest": str(
-                    restored.get("bound_action_root") or ""
-                ),
-            },
-            repo_path=repo_path,
-        )
-        plane = {
-            "ok": (
-                bool(resolved.get("ok"))
-                and resolved.get("total_spine_resolution") is True
-                and resolved.get("total_spine_resolved") is True
-                and resolved.get("total_spine_rvs_ok") is True
-                and int(resolved.get("total_spine_resolution_count") or 0) >= 2
-                and bool(resolved.get("total_spine_tip_resolution_root"))
-                and ledger_ok
-                and not bool(resolved.get("used_skill_route_discovery"))
-            ),
-            "action": "total_spine_resolution_contract",
-            "resolved": True,
-            "resolved_ok": True,
-            "rvs_ok": True,
-            "strategy_ok": True,
-            "strategic_ok": True,
-            "resolution_root_valid": True,
-            "resolution_count": int(resolved.get("total_spine_resolution_count") or 0),
-            "tip_height": int(resolved.get("total_spine_resolution_height") or 0),
-            "resolution_root": resolved.get("total_spine_tip_resolution_root"),
-            "tip_resolution_root": resolved.get("total_spine_tip_resolution_root"),
-            "bound_state_root": resolved.get("total_spine_state_root"),
-            "bound_action_root": resolved.get("total_spine_tip_action_root"),
-            "bound_recovery_root": resolved.get("total_spine_tip_recovery_root"),
-            "resolution_certificate": resolved.get("total_spine_resolution_certificate"),
-            "certificate_valid": True,
-            "total_spine_resolution": True,
-            "ledger_capability_ok": ledger_ok,
-            "used_skill_route_discovery": bool(
-                resolved.get("used_skill_route_discovery")
-            ),
-        }
-        context["resolution"] = plane
-        context["resolution_plane"] = plane
-        context["resolution_count"] = plane["resolution_count"]
-        context.setdefault(
-            "used_skill_route_discovery", plane.get("used_skill_route_discovery")
-        )
-        return plane
-    except Exception:  # noqa: BLE001
-        return {}
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
 
 
 def materialize_total_spine_restructuring_contract_context(
@@ -6242,133 +4059,8 @@ def materialize_total_spine_restructuring_contract_context(
     ledger: CapabilityLedger | None = None,
 ) -> dict[str, Any]:
     '''Fill empty restructuring plane context via fast total-spine RvM.'''
-    existing = (
-        context.get("restructuring")
-        or context.get("restructuring_plane")
-        or {}
-    )
-    if isinstance(existing, Mapping) and existing.get("ok"):
-        return dict(existing)
+    return _materialize_pair_effect("restructuring", repo_path, context, ledger=ledger)
 
-    try:
-        from blackhole_agent.upstream_control_engine import (
-            TOTAL_SPINE_RESTRUCTURING_IMPL,
-            restructuring_total_spine,
-        )
-    except Exception:  # noqa: BLE001
-        return {}
-
-    if TOTAL_SPINE_RESTRUCTURING_IMPL is not True:
-        return {}
-
-    ledger_ok = True
-    if ledger is not None:
-        entry = ledger.capabilities.get(
-            "capability.upstream-total-spine-restructuring"
-        )
-        blob = (
-            ((entry.capability_delta or "") if entry else "")
-            + " "
-            + ((entry.name or "") if entry else "")
-            + " "
-            + " ".join((entry.tags or ()) if entry else ())
-        ).lower()
-        ledger_ok = entry is not None and (
-            "restructuring" in blob or "rvm" in blob
-        )
-
-    resolved = materialize_total_spine_resolution_contract_context(
-        repo_path, context, ledger=ledger
-    )
-    cert = (
-        resolved.get("resolution_certificate")
-        if isinstance(resolved, Mapping)
-        else None
-    )
-    if not isinstance(cert, Mapping) or not resolved.get("ok"):
-        return {}
-
-    import shutil
-    import tempfile
-
-    scratch = Path(tempfile.mkdtemp(prefix="contract-total-spine-restructuring-"))
-    try:
-        restructured = restructuring_total_spine(
-            cert,
-            out_root=scratch / "rst-h1",
-            prior_tip=str(
-                resolved.get("bound_action_root")
-                or resolved.get("bound_state_root")
-                or ""
-            ),
-            body={
-                "ok": True,
-                "total_spine": True,
-                "total_spine_resolution": True,
-                "total_spine_resolution_certificate": cert,
-                "total_spine_tip_resolution_root": resolved.get("tip_resolution_root"),
-                "total_spine_digest": str(
-                    resolved.get("bound_action_root") or ""
-                ),
-            },
-            repo_path=repo_path,
-        )
-        plane = {
-            "ok": (
-                bool(restructured.get("ok"))
-                and restructured.get("total_spine_restructuring") is True
-                and restructured.get("total_spine_restructured") is True
-                and restructured.get("total_spine_rvm_ok") is True
-                and int(restructured.get("total_spine_restructuring_count") or 0) >= 2
-                and bool(restructured.get("total_spine_tip_restructuring_root"))
-                and ledger_ok
-                and not bool(restructured.get("used_skill_route_discovery"))
-            ),
-            "action": "total_spine_restructuring_contract",
-            "restructured": True,
-            "restructured_ok": True,
-            "rvm_ok": True,
-            "mandate_ok": True,
-            "mandated_ok": True,
-            "restructuring_root_valid": True,
-            "restructuring_count": int(
-                restructured.get("total_spine_restructuring_count") or 0
-            ),
-            "tip_height": int(
-                restructured.get("total_spine_restructuring_height") or 0
-            ),
-            "restructuring_root": restructured.get(
-                "total_spine_tip_restructuring_root"
-            ),
-            "tip_restructuring_root": restructured.get(
-                "total_spine_tip_restructuring_root"
-            ),
-            "bound_state_root": restructured.get("total_spine_state_root"),
-            "bound_action_root": restructured.get("total_spine_tip_action_root"),
-            "bound_resolution_root": restructured.get(
-                "total_spine_tip_resolution_root"
-            ),
-            "restructuring_certificate": restructured.get(
-                "total_spine_restructuring_certificate"
-            ),
-            "certificate_valid": True,
-            "total_spine_restructuring": True,
-            "ledger_capability_ok": ledger_ok,
-            "used_skill_route_discovery": bool(
-                restructured.get("used_skill_route_discovery")
-            ),
-        }
-        context["restructuring"] = plane
-        context["restructuring_plane"] = plane
-        context["restructuring_count"] = plane["restructuring_count"]
-        context.setdefault(
-            "used_skill_route_discovery", plane.get("used_skill_route_discovery")
-        )
-        return plane
-    except Exception:  # noqa: BLE001
-        return {}
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
 
 
 
@@ -6379,131 +4071,8 @@ def materialize_total_spine_emergence_contract_context(
     ledger: CapabilityLedger | None = None,
 ) -> dict[str, Any]:
     """Fill empty emergence plane context via fast total-spine EvC."""
-    existing = (
-        context.get("emergence")
-        or context.get("emergence_plane")
-        or {}
-    )
-    if isinstance(existing, Mapping) and existing.get("ok"):
-        return dict(existing)
+    return _materialize_pair_effect("emergence", repo_path, context, ledger=ledger)
 
-    try:
-        from blackhole_agent.upstream_control_engine import (
-            TOTAL_SPINE_EMERGENCE_IMPL,
-            emerge_total_spine,
-        )
-    except Exception:  # noqa: BLE001
-        return {}
-
-    if TOTAL_SPINE_EMERGENCE_IMPL is not True:
-        return {}
-
-    ledger_ok = True
-    if ledger is not None:
-        entry = ledger.capabilities.get(
-            "capability.upstream-total-spine-emergence"
-        )
-        blob = (
-            ((entry.capability_delta or "") if entry else "")
-            + " "
-            + ((entry.name or "") if entry else "")
-            + " "
-            + " ".join((entry.tags or ()) if entry else ())
-        ).lower()
-        ledger_ok = entry is not None and (
-            "emergence" in blob or "evc" in blob
-        )
-
-    restructured = materialize_total_spine_restructuring_contract_context(
-        repo_path, context, ledger=ledger
-    )
-    cert = (
-        restructured.get("restructuring_certificate")
-        if isinstance(restructured, Mapping)
-        else None
-    )
-    if not isinstance(cert, Mapping) or not restructured.get("ok"):
-        return {}
-
-    import shutil
-    import tempfile
-
-    scratch = Path(tempfile.mkdtemp(prefix="contract-total-spine-emergence-"))
-    try:
-        emerged = emerge_total_spine(
-            cert,
-            out_root=scratch / "emg-h1",
-            prior_tip=str(
-                restructured.get("bound_action_root")
-                or restructured.get("bound_state_root")
-                or ""
-            ),
-            body={
-                "ok": True,
-                "total_spine": True,
-                "total_spine_restructuring": True,
-                "total_spine_restructuring_certificate": cert,
-                "total_spine_tip_restructuring_root": restructured.get(
-                    "tip_restructuring_root"
-                ),
-                "total_spine_digest": str(
-                    restructured.get("bound_action_root") or ""
-                ),
-            },
-            repo_path=repo_path,
-        )
-        plane = {
-            "ok": (
-                bool(emerged.get("ok"))
-                and emerged.get("total_spine_emergence") is True
-                and emerged.get("total_spine_emerged") is True
-                and emerged.get("total_spine_evc_ok") is True
-                and int(emerged.get("total_spine_emergence_count") or 0) >= 2
-                and bool(emerged.get("total_spine_tip_emergence_root"))
-                and ledger_ok
-                and not bool(emerged.get("used_skill_route_discovery"))
-            ),
-            "action": "total_spine_emergence_contract",
-            "emerged": True,
-            "emerged_ok": True,
-            "evc_ok": True,
-            "confirmation_ok": True,
-            "confirmed_ok": True,
-            "emergence_root_valid": True,
-            "emergence_count": int(
-                emerged.get("total_spine_emergence_count") or 0
-            ),
-            "tip_height": int(
-                emerged.get("total_spine_emergence_height") or 0
-            ),
-            "emergence_root": emerged.get("total_spine_tip_emergence_root"),
-            "tip_emergence_root": emerged.get("total_spine_tip_emergence_root"),
-            "bound_state_root": emerged.get("total_spine_state_root"),
-            "bound_action_root": emerged.get("total_spine_tip_action_root"),
-            "bound_restructuring_root": emerged.get(
-                "total_spine_tip_restructuring_root"
-            ),
-            "emergence_certificate": emerged.get(
-                "total_spine_emergence_certificate"
-            ),
-            "certificate_valid": True,
-            "total_spine_emergence": True,
-            "ledger_capability_ok": ledger_ok,
-            "used_skill_route_discovery": bool(
-                emerged.get("used_skill_route_discovery")
-            ),
-        }
-        context["emergence"] = plane
-        context["emergence_plane"] = plane
-        context["emergence_count"] = plane["emergence_count"]
-        context.setdefault(
-            "used_skill_route_discovery", plane.get("used_skill_route_discovery")
-        )
-        return plane
-    except Exception:  # noqa: BLE001
-        return {}
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
 
 
 def materialize_total_spine_reorganization_contract_context(
@@ -6513,131 +4082,8 @@ def materialize_total_spine_reorganization_contract_context(
     ledger: CapabilityLedger | None = None,
 ) -> dict[str, Any]:
     """Fill empty reorganization plane context via fast total-spine RvC."""
-    existing = (
-        context.get("reorganization")
-        or context.get("reorganization_plane")
-        or {}
-    )
-    if isinstance(existing, Mapping) and existing.get("ok"):
-        return dict(existing)
+    return _materialize_pair_effect("reorganization", repo_path, context, ledger=ledger)
 
-    try:
-        from blackhole_agent.upstream_control_engine import (
-            TOTAL_SPINE_REORGANIZATION_IMPL,
-            reorganize_total_spine,
-        )
-    except Exception:  # noqa: BLE001
-        return {}
-
-    if TOTAL_SPINE_REORGANIZATION_IMPL is not True:
-        return {}
-
-    ledger_ok = True
-    if ledger is not None:
-        entry = ledger.capabilities.get(
-            "capability.upstream-total-spine-reorganization"
-        )
-        blob = (
-            ((entry.capability_delta or "") if entry else "")
-            + " "
-            + ((entry.name or "") if entry else "")
-            + " "
-            + " ".join((entry.tags or ()) if entry else ())
-        ).lower()
-        ledger_ok = entry is not None and (
-            "reorganization" in blob or "rvc" in blob
-        )
-
-    emerged = materialize_total_spine_emergence_contract_context(
-        repo_path, context, ledger=ledger
-    )
-    cert = (
-        emerged.get("emergence_certificate")
-        if isinstance(emerged, Mapping)
-        else None
-    )
-    if not isinstance(cert, Mapping) or not emerged.get("ok"):
-        return {}
-
-    import shutil
-    import tempfile
-
-    scratch = Path(tempfile.mkdtemp(prefix="contract-total-spine-reorganization-"))
-    try:
-        reorganized = reorganize_total_spine(
-            cert,
-            out_root=scratch / "reorg-h1",
-            prior_tip=str(
-                emerged.get("bound_action_root")
-                or emerged.get("bound_state_root")
-                or ""
-            ),
-            body={
-                "ok": True,
-                "total_spine": True,
-                "total_spine_emergence": True,
-                "total_spine_emergence_certificate": cert,
-                "total_spine_tip_emergence_root": emerged.get(
-                    "tip_emergence_root"
-                ),
-                "total_spine_digest": str(
-                    emerged.get("bound_action_root") or ""
-                ),
-            },
-            repo_path=repo_path,
-        )
-        plane = {
-            "ok": (
-                bool(reorganized.get("ok"))
-                and reorganized.get("total_spine_reorganization") is True
-                and reorganized.get("total_spine_reorganized") is True
-                and reorganized.get("total_spine_rvc_ok") is True
-                and int(reorganized.get("total_spine_reorganization_count") or 0) >= 2
-                and bool(reorganized.get("total_spine_tip_reorganization_root"))
-                and ledger_ok
-                and not bool(reorganized.get("used_skill_route_discovery"))
-            ),
-            "action": "total_spine_reorganization_contract",
-            "reorganized": True,
-            "reorganized_ok": True,
-            "rvc_ok": True,
-            "charter_ok": True,
-            "chartered_ok": True,
-            "reorganization_root_valid": True,
-            "reorganization_count": int(
-                reorganized.get("total_spine_reorganization_count") or 0
-            ),
-            "tip_height": int(
-                reorganized.get("total_spine_reorganization_height") or 0
-            ),
-            "reorganization_root": reorganized.get("total_spine_tip_reorganization_root"),
-            "tip_reorganization_root": reorganized.get("total_spine_tip_reorganization_root"),
-            "bound_state_root": reorganized.get("total_spine_state_root"),
-            "bound_action_root": reorganized.get("total_spine_tip_action_root"),
-            "bound_emergence_root": reorganized.get(
-                "total_spine_tip_emergence_root"
-            ),
-            "reorganization_certificate": reorganized.get(
-                "total_spine_reorganization_certificate"
-            ),
-            "certificate_valid": True,
-            "total_spine_reorganization": True,
-            "ledger_capability_ok": ledger_ok,
-            "used_skill_route_discovery": bool(
-                reorganized.get("used_skill_route_discovery")
-            ),
-        }
-        context["reorganization"] = plane
-        context["reorganization_plane"] = plane
-        context["reorganization_count"] = plane["reorganization_count"]
-        context.setdefault(
-            "used_skill_route_discovery", plane.get("used_skill_route_discovery")
-        )
-        return plane
-    except Exception:  # noqa: BLE001
-        return {}
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
 
 
 def evaluate_outcome_contract(
@@ -6688,253 +4134,35 @@ def evaluate_outcome_contract(
     ctx.setdefault("workspace_path", str(root))
     # Auto-materialize total-spine N-of-M quorum evidence for empty-context
     # machine checks (controller complete gates inject no plane context).
-    _quorum_kinds = {
-        "quorum_ok",
-        "quorum_met",
-        "min_quorum",
-        "byzantine_excluded",
-        "quorum_cert_valid",
-    }
-    if any(str(item.get("kind") or "") in _quorum_kinds for item in predicates):
-        materialize_total_spine_quorum_contract_context(root, ctx, ledger=ledger)
-    _execution_kinds = {
-        "execution_ok",
-        "state_applied_ok",
-        "min_state_height",
-        "state_root_valid",
-    }
-    if any(str(item.get("kind") or "") in _execution_kinds for item in predicates):
-        materialize_total_spine_execution_contract_context(
-            root, ctx, ledger=ledger
-        )
-    _actuation_kinds = {
-        "actuation_ok",
-        "effects_applied_ok",
-        "min_actions",
-        "action_root_valid",
-    }
-    if any(str(item.get("kind") or "") in _actuation_kinds for item in predicates):
-        materialize_total_spine_actuation_contract_context(
-            root, ctx, ledger=ledger
-        )
-    _settlement_kinds = {
-        "settlement_ok",
-        "settled_ok",
-        "min_settlements",
-        "settlement_root_valid",
-    }
-    if any(str(item.get("kind") or "") in _settlement_kinds for item in predicates):
-        materialize_total_spine_settlement_contract_context(
-            root, ctx, ledger=ledger
-        )
-    _clearing_kinds = {
-        "clearing_ok",
-        "cleared_ok",
-        "min_clearings",
-        "clearing_root_valid",
-    }
-    if any(str(item.get("kind") or "") in _clearing_kinds for item in predicates):
-        materialize_total_spine_clearing_contract_context(
-            root, ctx, ledger=ledger
-        )
-    _delivery_kinds = {
-        "delivery_ok",
-        "delivered_ok",
-        "min_deliveries",
-        "delivery_root_valid",
-        "dvp_ok",
-    }
-    if any(str(item.get("kind") or "") in _delivery_kinds for item in predicates):
-        materialize_total_spine_delivery_contract_context(
-            root, ctx, ledger=ledger
-        )
-    _custody_kinds = {
-        "custody_ok",
-        "custodied_ok",
-        "min_custodies",
-        "custody_root_valid",
-        "cvt_ok",
-        "title_ok",
-        "titled_ok",
-    }
-    if any(str(item.get("kind") or "") in _custody_kinds for item in predicates):
-        materialize_total_spine_custody_contract_context(
-            root, ctx, ledger=ledger
-        )
-    _margin_kinds = {
-        "margin_ok",
-        "margined_ok",
-        "min_margins",
-        "margin_root_valid",
-        "mve_ok",
-        "exposure_ok",
-        "exposed_ok",
-    }
-    if any(str(item.get("kind") or "") in _margin_kinds for item in predicates):
-        materialize_total_spine_margin_contract_context(
-            root, ctx, ledger=ledger
-        )
-    _collateral_kinds = {
-        "collateral_ok",
-        "collateralized_ok",
-        "min_collaterals",
-        "collateral_root_valid",
-        "cvo_ok",
-        "obligation_ok",
-        "obligated_ok",
-    }
-    if any(str(item.get("kind") or "") in _collateral_kinds for item in predicates):
-        materialize_total_spine_collateral_contract_context(
-            root, ctx, ledger=ledger
-        )
-    _liquidity_kinds = {
-        "liquidity_ok",
-        "funded_ok",
-        "liquid_ok",
-        "min_liquidities",
-        "liquidity_root_valid",
-        "lvc_ok",
-        "coverage_ok",
-        "covered_ok",
-    }
-    if any(str(item.get("kind") or "") in _liquidity_kinds for item in predicates):
-        materialize_total_spine_liquidity_contract_context(
-            root, ctx, ledger=ledger
-        )
-    _funding_kinds = {
-        "funding_ok",
-        "facility_ok",
-        "facilitated_ok",
-        "min_fundings",
-        "funding_root_valid",
-        "fvr_ok",
-        "requirement_ok",
-        "required_ok",
-    }
-    if any(str(item.get("kind") or "") in _funding_kinds for item in predicates):
-        materialize_total_spine_funding_contract_context(
-            root, ctx, ledger=ledger
-        )
-    _capital_kinds = {
-        "capital_ok",
-        "buffer_ok",
-        "capitalized_ok",
-        "min_capitals",
-        "capital_root_valid",
-        "cva_ok",
-        "adequacy_ok",
-        "adequate_ok",
-    }
-    if any(str(item.get("kind") or "") in _capital_kinds for item in predicates):
-        materialize_total_spine_capital_contract_context(
-            root, ctx, ledger=ledger
-        )
-    _solvency_kinds = {
-        "solvency_ok",
-        "surplus_ok",
-        "solvent_ok",
-        "min_solvencies",
-        "solvency_root_valid",
-        "svr_ok",
-        "solvency_requirement_ok",
-        "required_ok",
-    }
-    if any(str(item.get("kind") or "") in _solvency_kinds for item in predicates):
-        materialize_total_spine_solvency_contract_context(
-            root, ctx, ledger=ledger
-        )
-    _risk_kinds = {
-        "risk_ok",
-        "risked_ok",
-        "assessed_ok",
-        "min_risks",
-        "risk_root_valid",
-        "rva_ok",
-        "appetite_ok",
-        "appetent_ok",
-    }
-    if any(str(item.get("kind") or "") in _risk_kinds for item in predicates):
-        materialize_total_spine_risk_contract_context(
-            root, ctx, ledger=ledger
-        )
-    _stress_kinds = {
-        "stress_ok",
-        "stressed_ok",
-        "min_stresses",
-        "stress_root_valid",
-        "svc_ok",
-        "capacity_ok",
-        "capacious_ok",
-    }
-    if any(str(item.get("kind") or "") in _stress_kinds for item in predicates):
-        materialize_total_spine_stress_contract_context(
-            root, ctx, ledger=ledger
-        )
-    _recovery_kinds = {
-        "recovery_ok",
-        "restored_ok",
-        "min_recoveries",
-        "recovery_root_valid",
-        "rvp_ok",
-        "plan_ok",
-        "planned_ok",
-    }
-    if any(str(item.get("kind") or "") in _recovery_kinds for item in predicates):
-        materialize_total_spine_recovery_contract_context(
-            root, ctx, ledger=ledger
-        )
-    _resolution_kinds = {
-        "resolution_ok",
-        "resolved_ok",
-        "min_resolutions",
-        "resolution_root_valid",
-        "rvs_ok",
-        "strategy_ok",
-        "strategic_ok",
-    }
-    if any(str(item.get("kind") or "") in _resolution_kinds for item in predicates):
-        materialize_total_spine_resolution_contract_context(
-            root, ctx, ledger=ledger
-        )
-    _restructuring_kinds = {
-        "restructuring_ok",
-        "restructured_ok",
-        "min_restructurings",
-        "restructuring_root_valid",
-        "rvm_ok",
-        "mandate_ok",
-        "mandated_ok",
-    }
-    if any(str(item.get("kind") or "") in _restructuring_kinds for item in predicates):
-        materialize_total_spine_restructuring_contract_context(
-            root, ctx, ledger=ledger
-        )
-    _emergence_kinds = {
-        "emergence_ok",
-        "emerged_ok",
-        "min_emergences",
-        "emergence_root_valid",
-        "evc_ok",
-        "confirmation_ok",
-        "confirmed_ok",
-    }
-    if any(str(item.get("kind") or "") in _emergence_kinds for item in predicates):
-        materialize_total_spine_emergence_contract_context(
-            root, ctx, ledger=ledger
-        )
-    _reorganization_kinds = {
-        "reorganization_ok",
-        "reorganized_ok",
-        "min_reorganizations",
-        "reorganization_root_valid",
-        "rvc_ok",
-        "charter_ok",
-        "chartered_ok",
-    }
-    if any(str(item.get("kind") or "") in _reorganization_kinds for item in predicates):
-        materialize_total_spine_reorganization_contract_context(
-            root, ctx, ledger=ledger
-        )
+    # Plane-context materialization: predicate kind-sets are data; the
+    # dispatch order below preserves the historical evaluation order.
+    _MATERIALIZE_KIND_SETS: tuple[tuple[str, frozenset[str]], ...] = (
+        ("quorum", frozenset(['quorum_ok', 'quorum_met', 'min_quorum', 'byzantine_excluded', 'quorum_cert_valid'])),
+        ("execution", frozenset(['execution_ok', 'state_applied_ok', 'min_state_height', 'state_root_valid'])),
+        ("actuation", frozenset(['actuation_ok', 'effects_applied_ok', 'min_actions', 'action_root_valid'])),
+        ("settlement", frozenset(['settlement_ok', 'settled_ok', 'min_settlements', 'settlement_root_valid'])),
+        ("clearing", frozenset(['clearing_ok', 'cleared_ok', 'min_clearings', 'clearing_root_valid'])),
+        ("delivery", frozenset(['delivery_ok', 'delivered_ok', 'min_deliveries', 'delivery_root_valid', 'dvp_ok'])),
+        ("custody", frozenset(['custody_ok', 'custodied_ok', 'min_custodies', 'custody_root_valid', 'cvt_ok', 'title_ok', 'titled_ok'])),
+        ("margin", frozenset(['margin_ok', 'margined_ok', 'min_margins', 'margin_root_valid', 'mve_ok', 'exposure_ok', 'exposed_ok'])),
+        ("collateral", frozenset(['collateral_ok', 'collateralized_ok', 'min_collaterals', 'collateral_root_valid', 'cvo_ok', 'obligation_ok', 'obligated_ok'])),
+        ("liquidity", frozenset(['liquidity_ok', 'funded_ok', 'liquid_ok', 'min_liquidities', 'liquidity_root_valid', 'lvc_ok', 'coverage_ok', 'covered_ok'])),
+        ("funding", frozenset(['funding_ok', 'facility_ok', 'facilitated_ok', 'min_fundings', 'funding_root_valid', 'fvr_ok', 'requirement_ok', 'required_ok'])),
+        ("capital", frozenset(['capital_ok', 'buffer_ok', 'capitalized_ok', 'min_capitals', 'capital_root_valid', 'cva_ok', 'adequacy_ok', 'adequate_ok'])),
+        ("solvency", frozenset(['solvency_ok', 'surplus_ok', 'solvent_ok', 'min_solvencies', 'solvency_root_valid', 'svr_ok', 'solvency_requirement_ok', 'required_ok'])),
+        ("risk", frozenset(['risk_ok', 'risked_ok', 'assessed_ok', 'min_risks', 'risk_root_valid', 'rva_ok', 'appetite_ok', 'appetent_ok'])),
+        ("stress", frozenset(['stress_ok', 'stressed_ok', 'min_stresses', 'stress_root_valid', 'svc_ok', 'capacity_ok', 'capacious_ok'])),
+        ("recovery", frozenset(['recovery_ok', 'restored_ok', 'min_recoveries', 'recovery_root_valid', 'rvp_ok', 'plan_ok', 'planned_ok'])),
+        ("resolution", frozenset(['resolution_ok', 'resolved_ok', 'min_resolutions', 'resolution_root_valid', 'rvs_ok', 'strategy_ok', 'strategic_ok'])),
+        ("restructuring", frozenset(['restructuring_ok', 'restructured_ok', 'min_restructurings', 'restructuring_root_valid', 'rvm_ok', 'mandate_ok', 'mandated_ok'])),
+        ("emergence", frozenset(['emergence_ok', 'emerged_ok', 'min_emergences', 'emergence_root_valid', 'evc_ok', 'confirmation_ok', 'confirmed_ok'])),
+        ("reorganization", frozenset(['reorganization_ok', 'reorganized_ok', 'min_reorganizations', 'reorganization_root_valid', 'rvc_ok', 'charter_ok', 'chartered_ok'])),
+    )
+    for _mat_effect, _mat_kinds in _MATERIALIZE_KIND_SETS:
+        if any(str(item.get("kind") or "") in _mat_kinds for item in predicates):
+            globals()[f"materialize_total_spine_{_mat_effect}_contract_context"](
+                root, ctx, ledger=ledger
+            )
     results: list[dict[str, Any]] = []
     for predicate in predicates:
         kind = str(predicate.get("kind") or "")
