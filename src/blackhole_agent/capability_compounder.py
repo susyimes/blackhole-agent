@@ -2996,12 +2996,7 @@ def materialize_total_spine_quorum_contract_context(
     Byzantine minority) through ``federate_total_spine(quorum=True)`` — O(ms),
     no skill-route, no full depth-28 dispatch.
     """
-    existing = (
-        context.get("quorum")
-        or context.get("quorum_plane")
-        or context.get("consensus")
-        or {}
-    )
+    existing = _plane_context(context, "quorum", "quorum_plane", "consensus")
     if isinstance(existing, Mapping) and existing.get("ok"):
         return dict(existing)
 
@@ -3144,12 +3139,7 @@ def materialize_total_spine_execution_contract_context(
     them hermetically with synthetic absolute-tower finality → quorum →
     multi-height execution — O(ms), no skill-route, no full depth-28 dispatch.
     """
-    existing = (
-        context.get("execution")
-        or context.get("execution_plane")
-        or context.get("worldstate")
-        or {}
-    )
+    existing = _plane_context(context, "execution", "execution_plane", "worldstate")
     if isinstance(existing, Mapping) and existing.get("ok"):
         return dict(existing)
 
@@ -3300,12 +3290,7 @@ def materialize_total_spine_actuation_contract_context(
     them hermetically with synthetic absolute-tower finality → quorum →
     execution → multi-action actuation — O(ms-s), no skill-route.
     """
-    existing = (
-        context.get("actuation")
-        or context.get("actuation_plane")
-        or context.get("effects")
-        or {}
-    )
+    existing = _plane_context(context, "actuation", "actuation_plane", "effects")
     if isinstance(existing, Mapping) and existing.get("ok"):
         return dict(existing)
 
@@ -3465,11 +3450,7 @@ def materialize_total_spine_settlement_contract_context(
     them hermetically with synthetic absolute-tower finality → quorum →
     execution → actuation → settlement — no skill-route.
     """
-    existing = (
-        context.get("settlement")
-        or context.get("settlement_plane")
-        or {}
-    )
+    existing = _plane_context(context, "settlement", "settlement_plane")
     if isinstance(existing, Mapping) and existing.get("ok"):
         return dict(existing)
 
@@ -3646,11 +3627,7 @@ def materialize_total_spine_clearing_contract_context(
     execution → actuation → settlement → confirmation settlement →
     clearing — no skill-route.
     """
-    existing = (
-        context.get("clearing")
-        or context.get("clearing_plane")
-        or {}
-    )
+    existing = _plane_context(context, "clearing", "clearing_plane")
     if isinstance(existing, Mapping) and existing.get("ok"):
         return dict(existing)
 
@@ -4228,6 +4205,130 @@ def evaluate_outcome_contract(
     }
 
 
+def _plane_context(context: Mapping[str, Any], *keys: str) -> Mapping[str, Any]:
+    """First present plane context among alias keys (or empty mapping)."""
+
+    for key in keys:
+        value = context.get(key)
+        if value:
+            return value
+    return {}
+
+
+_PREDICATE_SIMPLE_OK: dict[str, tuple[str, ...]] = {
+    "contract_plane_ok": ('contract_plane',),
+    "assurance_plane_ok": ('assurance', 'assurance_plane'),
+    "sovereignty_ok": ('sovereignty', 'sovereignty_plane'),
+    "lineage_ok": ('lineage', 'lineage_plane'),
+    "reconciliation_ok": ('reconciliation', 'reconciliation_plane', 'heal', 'heal_plane'),
+    "repair_plane_ok": ('repair', 'repair_plane'),
+    "continuity_ok": ('continuity', 'continuity_plane', 'resurrection'),
+    "federation_ok": ('federation', 'federation_plane', 'federated'),
+    "quorum_ok": ('quorum', 'quorum_plane', 'consensus'),
+    "finality_ok": ('finality', 'finality_plane', 'epoch_finality'),
+    "execution_ok": ('execution', 'execution_plane', 'worldstate'),
+    "actuation_ok": ('actuation', 'actuation_plane', 'effects'),
+    "settlement_ok": ('settlement', 'settlement_plane'),
+    "clearing_ok": ('clearing', 'clearing_plane'),
+    "delivery_ok": ('delivery', 'delivery_plane'),
+    "custody_ok": ('custody', 'custody_plane'),
+    "margin_ok": ('margin', 'margin_plane'),
+    "collateral_ok": ('collateral', 'collateral_plane'),
+}
+
+
+_PREDICATE_FIELD_CHECKS: dict[str, Any] = {
+    'healed_ok': {'keys': ['reconciliation', 'reconciliation_plane', 'heal'], 'rules': [['healed', 'is_true_and_ok'], ['healed_ok', 'is_true']], 'else': ['ok_and_count', 'heal_entry_count', 1], 'detail': 'healed_ok={ok}'},
+    'federated_ok': {'keys': ['federation', 'federation_plane', 'federated', 'merge'], 'rules': [['federated', 'is_true_and_ok'], ['federated_ok', 'is_true']], 'else': ['ok_and_count', 'origin_count', 2], 'detail': 'federated_ok={ok}'},
+    'dvp_ok': {'keys': ['delivery', 'delivery_plane'], 'rules': [['dvp_ok', 'is_true_and_ok']], 'else': ['ok_and_field_true', 'delivered'], 'detail': 'dvp_ok={ok}'},
+    'cvt_ok': {'keys': ['custody', 'custody_plane'], 'rules': [['cvt_ok', 'is_true_and_ok']], 'else': ['ok_and_field_true', 'custodied'], 'detail': 'cvt_ok={ok}'},
+    'title_ok|titled_ok': {'keys': ['custody', 'custody_plane'], 'rules': [['title_ok', 'is_true_and_ok'], ['titled_ok', 'is_true_and_ok']], 'else': ['ok_and_field_true', 'custodied'], 'detail': '{kind}={ok}'},
+    'mve_ok': {'keys': ['margin', 'margin_plane'], 'rules': [['mve_ok', 'is_true_and_ok']], 'else': ['ok_and_field_true', 'margined'], 'detail': 'mve_ok={ok}'},
+    'exposure_ok|exposed_ok': {'keys': ['margin', 'margin_plane'], 'rules': [['exposure_ok', 'is_true_and_ok'], ['exposed_ok', 'is_true_and_ok']], 'else': ['ok_and_field_true', 'margined'], 'detail': '{kind}={ok}'},
+    'cvo_ok': {'keys': ['collateral', 'collateral_plane'], 'rules': [['cvo_ok', 'is_true_and_ok']], 'else': ['ok_and_field_true', 'collateralized'], 'detail': 'cvo_ok={ok}'},
+    'obligation_ok|obligated_ok': {'keys': ['collateral', 'collateral_plane'], 'rules': [['obligation_ok', 'is_true_and_ok'], ['obligated_ok', 'is_true_and_ok']], 'else': ['ok_and_field_true', 'collateralized'], 'detail': '{kind}={ok}'},
+    'lvc_ok': {'keys': ['liquidity', 'liquidity_plane'], 'rules': [['lvc_ok', 'is_true_and_ok']], 'else': ['ok_and_field_true', 'funded'], 'detail': 'lvc_ok={ok}'},
+    'coverage_ok|covered_ok': {'keys': ['liquidity', 'liquidity_plane'], 'rules': [['coverage_ok', 'is_true_and_ok'], ['covered_ok', 'is_true_and_ok']], 'else': ['ok_and_field_true', 'funded'], 'detail': '{kind}={ok}'},
+    'fvr_ok': {'keys': ['funding', 'funding_plane'], 'rules': [['fvr_ok', 'is_true_and_ok']], 'else': ['ok_and_field_true', 'facilitated'], 'detail': 'fvr_ok={ok}'},
+    'requirement_ok|required_ok': {'keys': ['funding', 'funding_plane'], 'rules': [['requirement_ok', 'is_true_and_ok'], ['required_ok', 'is_true_and_ok']], 'else': ['ok_and_field_true', 'facilitated'], 'detail': '{kind}={ok}'},
+    'buffer_ok': {'keys': ['capital', 'capital_plane'], 'rules': [['buffer_ok', 'is_true_and_ok']], 'else': ['ok_and_field_true', 'capitalized'], 'detail': 'buffer_ok={ok}'},
+    'cva_ok': {'keys': ['capital', 'capital_plane'], 'rules': [['cva_ok', 'is_true_and_ok']], 'else': ['ok_and_field_true', 'capitalized'], 'detail': 'cva_ok={ok}'},
+    'adequacy_ok|adequate_ok': {'keys': ['capital', 'capital_plane'], 'rules': [['adequacy_ok', 'is_true_and_ok'], ['adequate_ok', 'is_true_and_ok']], 'else': ['ok_and_field_true', 'capitalized'], 'detail': '{kind}={ok}'},
+    'surplus_ok': {'keys': ['solvency', 'solvency_plane'], 'rules': [['surplus_ok', 'is_true_and_ok']], 'else': ['ok_and_field_true', 'solvent'], 'detail': 'surplus_ok={ok}'},
+    'svr_ok': {'keys': ['solvency', 'solvency_plane'], 'rules': [['svr_ok', 'is_true_and_ok']], 'else': ['ok_and_field_true', 'solvent'], 'detail': 'svr_ok={ok}'},
+    'assessed_ok': {'keys': ['risk', 'risk_plane'], 'rules': [['assessed_ok', 'is_true_and_ok']], 'else': ['ok_and_field_true', 'risked'], 'detail': 'assessed_ok={ok}'},
+    'rva_ok': {'keys': ['risk', 'risk_plane'], 'rules': [['rva_ok', 'is_true_and_ok']], 'else': ['ok_and_field_true', 'risked'], 'detail': 'rva_ok={ok}'},
+    'svc_ok': {'keys': ['stress', 'stress_plane'], 'rules': [['svc_ok', 'is_true_and_ok']], 'else': ['ok_and_field_true', 'stressed'], 'detail': 'svc_ok={ok}'},
+    'rvp_ok': {'keys': ['recovery', 'recovery_plane'], 'rules': [['rvp_ok', 'is_true_and_ok']], 'else': ['ok_and_field_true', 'restored'], 'detail': 'rvp_ok={ok}'},
+    'rvs_ok': {'keys': ['resolution', 'resolution_plane'], 'rules': [['rvs_ok', 'is_true_and_ok']], 'else': ['ok_and_field_true', 'resolved'], 'detail': 'rvs_ok={ok}'},
+    'rvm_ok': {'keys': ['restructuring', 'restructuring_plane'], 'rules': [['rvm_ok', 'is_true_and_ok']], 'else': ['ok_and_field_true', 'restructured'], 'detail': 'rvm_ok={ok}'},
+    'evc_ok': {'keys': ['emergence', 'emergence_plane'], 'rules': [['evc_ok', 'is_true_and_ok']], 'else': ['ok_and_field_true', 'emerged'], 'detail': 'evc_ok={ok}'},
+    'rvc_ok': {'keys': ['reorganization', 'reorganization_plane'], 'rules': [['rvc_ok', 'is_true_and_ok']], 'else': ['ok_and_field_true', 'reorganized'], 'detail': 'rvc_ok={ok}'},
+}
+
+
+_PREDICATE_MIN_COUNTS: dict[str, Any] = {
+    'min_quorum': {'direct': 'quorum_size', 'keys': ['quorum', 'quorum_plane', 'consensus'], 'fields': ['quorum_size', 'agreeing_count', 'origin_count'], 'detail': 'quorum_size={have_i} need>={need}'},
+    'min_clearings': {'direct': 'clearing_count', 'keys': ['clearing', 'clearing_plane'], 'fields': ['clearing_count', 'tip_height', 'entry_count'], 'detail': 'clearings={have_i} need>={need}'},
+    'min_deliveries': {'direct': 'delivery_count', 'keys': ['delivery', 'delivery_plane'], 'fields': ['delivery_count', 'tip_height', 'entry_count'], 'detail': 'deliveries={have_i} need>={need}'},
+    'min_custodies': {'direct': 'custody_count', 'keys': ['custody', 'custody_plane'], 'fields': ['custody_count', 'tip_height', 'entry_count'], 'detail': 'custodies={have_i} need>={need}'},
+    'min_margins': {'direct': 'margin_count', 'keys': ['margin', 'margin_plane'], 'fields': ['margin_count', 'tip_height', 'entry_count'], 'detail': 'margins={have_i} need>={need}'},
+    'min_collaterals': {'direct': 'collateral_count', 'keys': ['collateral', 'collateral_plane'], 'fields': ['collateral_count', 'tip_height', 'entry_count'], 'detail': 'collaterals={have_i} need>={need}'},
+    'min_liquidities': {'direct': 'liquidity_count', 'keys': ['liquidity', 'liquidity_plane'], 'fields': ['liquidity_count', 'tip_height', 'entry_count'], 'detail': 'liquidities={have_i} need>={need}'},
+    'min_fundings': {'direct': 'funding_count', 'keys': ['funding', 'funding_plane'], 'fields': ['funding_count', 'tip_height', 'entry_count'], 'detail': 'fundings={have_i} need>={need}'},
+    'min_capitals': {'direct': 'capital_count', 'keys': ['capital', 'capital_plane'], 'fields': ['capital_count', 'tip_height', 'entry_count'], 'detail': 'capitals={have_i} need>={need}'},
+    'min_solvencies': {'direct': 'solvency_count', 'keys': ['solvency', 'solvency_plane'], 'fields': ['solvency_count', 'tip_height', 'entry_count'], 'detail': 'solvencies={have_i} need>={need}'},
+    'min_risks': {'direct': 'risk_count', 'keys': ['risk', 'risk_plane'], 'fields': ['risk_count', 'tip_height', 'entry_count'], 'detail': 'risks={have_i} need>={need}'},
+    'min_stresses': {'direct': 'stress_count', 'keys': ['stress', 'stress_plane'], 'fields': ['stress_count', 'tip_height', 'entry_count'], 'detail': 'stresses={have_i} need>={need}'},
+    'min_recoveries': {'direct': 'recovery_count', 'keys': ['recovery', 'recovery_plane'], 'fields': ['recovery_count', 'tip_height', 'entry_count'], 'detail': 'recoveries={have_i} need>={need}'},
+    'min_resolutions': {'direct': 'resolution_count', 'keys': ['resolution', 'resolution_plane'], 'fields': ['resolution_count', 'tip_height', 'entry_count'], 'detail': 'resolutions={have_i} need>={need}'},
+    'min_restructurings': {'direct': 'restructuring_count', 'keys': ['restructuring', 'restructuring_plane'], 'fields': ['restructuring_count', 'tip_height', 'entry_count'], 'detail': 'restructurings={have_i} need>={need}'},
+    'min_emergences': {'direct': 'emergence_count', 'keys': ['emergence', 'emergence_plane'], 'fields': ['emergence_count', 'tip_height', 'entry_count'], 'detail': 'emergences={have_i} need>={need}'},
+    'min_reorganizations': {'direct': 'reorganization_count', 'keys': ['reorganization', 'reorganization_plane'], 'fields': ['reorganization_count', 'tip_height', 'entry_count'], 'detail': 'reorganizations={have_i} need>={need}'},
+}
+
+
+_PREDICATE_METRIC_MINS: dict[str, Any] = {
+    'min_capabilities': {'metric': 'count', 'detail': 'count={have} need>={need}'},
+    'min_primitives': {'metric': 'primitive_count', 'detail': 'primitives={have} need>={need}'},
+    'min_unique_coverage': {'metric': 'unique_composed_coverage_sets', 'detail': 'unique_coverage={have} need>={need}'},
+    'min_proved': {'metric': 'proved_count', 'detail': 'proved={have} need>={need}'},
+}
+
+def _eval_field_check(cfg: Mapping[str, Any], kind: str, context: Mapping[str, Any]) -> tuple[bool, str]:
+    plane = _plane_context(context, *cfg["keys"])
+    for field, mode in cfg["rules"]:
+        if field in plane:
+            ok = plane.get(field) is True
+            if mode == "is_true_and_ok":
+                ok = ok and bool(plane.get("ok", True))
+            return ok, cfg["detail"].format(ok=ok)
+    mode = cfg["else"][0]
+    if mode == "ok_and_field_true":
+        ok = bool(plane.get("ok")) and plane.get(cfg["else"][1]) is True
+    else:
+        ok = bool(plane.get("ok")) and int(plane.get(cfg["else"][1]) or 0) >= cfg["else"][2]
+    return ok, cfg["detail"].format(ok=ok)
+
+
+def _eval_min_count(cfg: Mapping[str, Any], arg: str, context: Mapping[str, Any]) -> tuple[bool, str]:
+    need = int(float(arg or "0"))
+    have = context.get(cfg["direct"])
+    if have is None:
+        plane = _plane_context(context, *cfg["keys"])
+        have = None
+        for field in cfg["fields"]:
+            have = have or plane.get(field)
+    have_i = int(have or 0)
+    return have_i >= need, cfg["detail"].format(have_i=have_i, need=need)
+
+
+def _eval_metric_min(cfg: Mapping[str, Any], arg: str, metrics: Mapping[str, Any]) -> tuple[bool, str]:
+    need = int(float(arg or "0"))
+    have = int(metrics.get(cfg["metric"]) or 0)
+    return have >= need, cfg["detail"].format(have=have, need=need)
+
+
 def _eval_one_outcome_predicate(
     kind: str,
     arg: str,
@@ -4242,22 +4343,23 @@ def _eval_one_outcome_predicate(
 ) -> tuple[bool, str]:
     """Evaluate a single predicate; returns (passed, detail)."""
 
-    if kind == "min_capabilities":
-        need = int(float(arg or "0"))
-        have = int(metrics.get("count") or 0)
-        return have >= need, f"count={have} need>={need}"
-    if kind == "min_primitives":
-        need = int(float(arg or "0"))
-        have = int(metrics.get("primitive_count") or 0)
-        return have >= need, f"primitives={have} need>={need}"
-    if kind == "min_unique_coverage":
-        need = int(float(arg or "0"))
-        have = int(metrics.get("unique_composed_coverage_sets") or 0)
-        return have >= need, f"unique_coverage={have} need>={need}"
-    if kind == "min_proved":
-        need = int(float(arg or "0"))
-        have = int(metrics.get("proved_count") or 0)
-        return have >= need, f"proved={have} need>={need}"
+    _simple_keys = _PREDICATE_SIMPLE_OK.get(kind)
+    if _simple_keys is not None:
+        plane = _plane_context(context, *_simple_keys)
+        ok = bool(plane.get("ok"))
+        return ok, f"{kind}={ok}"
+
+    _fc = _PREDICATE_FIELD_CHECKS.get(kind)
+    if _fc is not None:
+        return _eval_field_check(_fc, kind, context)
+    _mc = _PREDICATE_MIN_COUNTS.get(kind)
+    if _mc is not None:
+        return _eval_min_count(_mc, arg, context)
+    _mm = _PREDICATE_METRIC_MINS.get(kind)
+    if _mm is not None:
+        return _eval_metric_min(_mm, arg, metrics)
+
+
     if kind == "proved_ratio_ge":
         need = float(arg or "0")
         have = float(metrics.get("proved_ratio") or 0.0)
@@ -4297,22 +4399,9 @@ def _eval_one_outcome_predicate(
         have = int(metrics.get("novel_ready_count") or 0)
         return have <= need, f"novel_ready={have} need<={need}"
     if kind == "mission_plane_ok":
-        mission = context.get("mission") or context.get("mission_plane") or {}
+        mission = _plane_context(context, "mission", "mission_plane")
         ok = bool(mission.get("ok"))
         return ok, f"mission_ok={ok}"
-    if kind == "contract_plane_ok":
-        # Self-reference only meaningful when outer plane already recorded ok.
-        plane = context.get("contract_plane") or {}
-        ok = bool(plane.get("ok"))
-        return ok, f"contract_plane_ok={ok}"
-    if kind == "assurance_plane_ok":
-        plane = context.get("assurance") or context.get("assurance_plane") or {}
-        ok = bool(plane.get("ok"))
-        return ok, f"assurance_plane_ok={ok}"
-    if kind == "sovereignty_ok":
-        plane = context.get("sovereignty") or context.get("sovereignty_plane") or {}
-        ok = bool(plane.get("ok"))
-        return ok, f"sovereignty_ok={ok}"
     if kind == "certificate_valid":
         cert_path = (arg or "").strip() or str(
             context.get("certificate_path") or context.get("certificate") or ""
@@ -4390,12 +4479,8 @@ def _eval_one_outcome_predicate(
         )
         ok = bool(verify.get("ok")) and bool(verify.get("valid"))
         return ok, f"certificate_valid={ok} path={cert_path} hash={verify.get('certificate_hash')}"
-    if kind == "lineage_ok":
-        plane = context.get("lineage") or context.get("lineage_plane") or {}
-        ok = bool(plane.get("ok"))
-        return ok, f"lineage_ok={ok}"
     if kind == "chain_valid":
-        chain = context.get("chain") or context.get("lineage_chain") or {}
+        chain = _plane_context(context, "chain", "lineage_chain")
         if not chain and isinstance(context.get("lineage"), Mapping):
             chain = (context.get("lineage") or {}).get("chain") or {}
         if not chain and isinstance(context.get("lineage_plane"), Mapping):
@@ -4403,7 +4488,7 @@ def _eval_one_outcome_predicate(
         ok = bool(chain.get("ok")) and bool(chain.get("valid") if "valid" in chain else True)
         return ok, f"chain_valid={ok}"
     if kind == "no_drift":
-        drift = context.get("drift") or context.get("lineage_drift") or {}
+        drift = _plane_context(context, "drift", "lineage_drift")
         if not drift and isinstance(context.get("lineage"), Mapping):
             drift = (context.get("lineage") or {}).get("drift") or {}
         if not drift and isinstance(context.get("lineage_plane"), Mapping):
@@ -4424,40 +4509,11 @@ def _eval_one_outcome_predicate(
                 have = (lineage_ctx.get("lineage") or {}).get("entry_count")
         have_i = int(have or 0)
         return have_i >= need, f"lineage_entries={have_i} need>={need}"
-    if kind == "reconciliation_ok":
-        plane = (
-            context.get("reconciliation")
-            or context.get("reconciliation_plane")
-            or context.get("heal")
-            or context.get("heal_plane")
-            or {}
-        )
-        ok = bool(plane.get("ok"))
-        return ok, f"reconciliation_ok={ok}"
-    if kind == "healed_ok":
-        plane = (
-            context.get("reconciliation")
-            or context.get("reconciliation_plane")
-            or context.get("heal")
-            or {}
-        )
-        if "healed" in plane:
-            ok = plane.get("healed") is True and bool(plane.get("ok", True))
-        elif "healed_ok" in plane:
-            ok = plane.get("healed_ok") is True
-        else:
-            ok = bool(plane.get("ok")) and int(plane.get("heal_entry_count") or 0) >= 1
-        return ok, f"healed_ok={ok}"
     if kind == "min_heal_entries":
         need = int(float(arg or "0"))
         have = context.get("heal_entry_count")
         if have is None:
-            plane = (
-                context.get("reconciliation")
-                or context.get("reconciliation_plane")
-                or context.get("heal")
-                or {}
-            )
+            plane = _plane_context(context, "reconciliation", "reconciliation_plane", "heal")
             have = plane.get("heal_entry_count")
             if have is None:
                 kinds = plane.get("heal_entry_kinds") or plane.get("entry_kinds") or []
@@ -4468,12 +4524,8 @@ def _eval_one_outcome_predicate(
                 )
         have_i = int(have or 0)
         return have_i >= need, f"heal_entries={have_i} need>={need}"
-    if kind == "repair_plane_ok":
-        plane = context.get("repair") or context.get("repair_plane") or {}
-        ok = bool(plane.get("ok"))
-        return ok, f"repair_plane_ok={ok}"
     if kind == "repaired_ok":
-        plane = context.get("repair") or context.get("repair_plane") or {}
+        plane = _plane_context(context, "repair", "repair_plane")
         synthetic = plane.get("synthetic_repair") or {}
         ok = synthetic.get("verdict") == "repaired" and bool(synthetic.get("ok", True))
         live = plane.get("live_repairs") or []
@@ -4482,30 +4534,15 @@ def _eval_one_outcome_predicate(
         return ok, f"repaired_ok={ok}"
     if kind == "min_repair_actions":
         need = int(float(arg or "0"))
-        plane = context.get("repair") or context.get("repair_plane") or {}
+        plane = _plane_context(context, "repair", "repair_plane")
         have = plane.get("repair_action_count")
         if have is None:
             synthetic = plane.get("synthetic_repair") or {}
             have = len(synthetic.get("repair_actions") or [])
         have_i = int(have or 0)
         return have_i >= need, f"repair_actions={have_i} need>={need}"
-    if kind == "continuity_ok":
-        plane = (
-            context.get("continuity")
-            or context.get("continuity_plane")
-            or context.get("resurrection")
-            or {}
-        )
-        ok = bool(plane.get("ok"))
-        return ok, f"continuity_ok={ok}"
     if kind == "resurrected_ok":
-        plane = (
-            context.get("continuity")
-            or context.get("continuity_plane")
-            or context.get("resurrection")
-            or context.get("rehydrate")
-            or {}
-        )
+        plane = _plane_context(context, "continuity", "continuity_plane", "resurrection", "rehydrate")
         if "resurrected" in plane:
             ok = plane.get("resurrected") is True and bool(plane.get("ok", True))
         elif "resurrected_ok" in plane:
@@ -4516,12 +4553,7 @@ def _eval_one_outcome_predicate(
             )
         return ok, f"resurrected_ok={ok}"
     if kind == "bundle_valid":
-        plane = (
-            context.get("continuity")
-            or context.get("continuity_plane")
-            or context.get("bundle")
-            or {}
-        )
+        plane = _plane_context(context, "continuity", "continuity_plane", "bundle")
         if "bundle_valid" in plane:
             ok = plane.get("bundle_valid") is True
         elif "bundle" in plane and isinstance(plane.get("bundle"), Mapping):
@@ -4533,61 +4565,22 @@ def _eval_one_outcome_predicate(
         need = int(float(arg or "0"))
         have = context.get("bundle_cert_count")
         if have is None:
-            plane = (
-                context.get("continuity")
-                or context.get("continuity_plane")
-                or context.get("bundle")
-                or {}
-            )
+            plane = _plane_context(context, "continuity", "continuity_plane", "bundle")
             have = plane.get("bundle_cert_count") or plane.get("certificate_count")
             if have is None and isinstance(plane.get("certificates"), Mapping):
                 have = len(plane.get("certificates") or {})
         have_i = int(have or 0)
         return have_i >= need, f"bundle_certs={have_i} need>={need}"
-    if kind == "federation_ok":
-        plane = (
-            context.get("federation")
-            or context.get("federation_plane")
-            or context.get("federated")
-            or {}
-        )
-        ok = bool(plane.get("ok"))
-        return ok, f"federation_ok={ok}"
-    if kind == "federated_ok":
-        plane = (
-            context.get("federation")
-            or context.get("federation_plane")
-            or context.get("federated")
-            or context.get("merge")
-            or {}
-        )
-        if "federated" in plane:
-            ok = plane.get("federated") is True and bool(plane.get("ok", True))
-        elif "federated_ok" in plane:
-            ok = plane.get("federated_ok") is True
-        else:
-            ok = bool(plane.get("ok")) and int(plane.get("origin_count") or 0) >= 2
-        return ok, f"federated_ok={ok}"
     if kind == "min_origins":
         need = int(float(arg or "0"))
         have = context.get("origin_count")
         if have is None:
-            plane = (
-                context.get("federation")
-                or context.get("federation_plane")
-                or context.get("federated")
-                or {}
-            )
+            plane = _plane_context(context, "federation", "federation_plane", "federated")
             have = plane.get("origin_count")
         have_i = int(have or 0)
         return have_i >= need, f"origins={have_i} need>={need}"
     if kind == "federation_cert_valid":
-        plane = (
-            context.get("federation")
-            or context.get("federation_plane")
-            or context.get("federation_certificate")
-            or {}
-        )
+        plane = _plane_context(context, "federation", "federation_plane", "federation_certificate")
         if "federation_cert_valid" in plane:
             ok = plane.get("federation_cert_valid") is True
         elif "certificate_valid" in plane:
@@ -4602,22 +4595,8 @@ def _eval_one_outcome_predicate(
                     plane.get("federation_hash") or plane.get("certificate_hash")
                 )
         return ok, f"federation_cert_valid={ok}"
-    if kind == "quorum_ok":
-        plane = (
-            context.get("quorum")
-            or context.get("quorum_plane")
-            or context.get("consensus")
-            or {}
-        )
-        ok = bool(plane.get("ok"))
-        return ok, f"quorum_ok={ok}"
     if kind == "quorum_met":
-        plane = (
-            context.get("quorum")
-            or context.get("quorum_plane")
-            or context.get("consensus")
-            or {}
-        )
+        plane = _plane_context(context, "quorum", "quorum_plane", "consensus")
         if "quorum_met" in plane:
             ok = plane.get("quorum_met") is True
         elif "met" in plane and "quorum" in str(plane.get("action") or "quorum"):
@@ -4627,30 +4606,8 @@ def _eval_one_outcome_predicate(
                 plane.get("threshold") or plane.get("quorum_threshold") or 2
             )
         return ok, f"quorum_met={ok}"
-    if kind == "min_quorum":
-        need = int(float(arg or "0"))
-        have = context.get("quorum_size")
-        if have is None:
-            plane = (
-                context.get("quorum")
-                or context.get("quorum_plane")
-                or context.get("consensus")
-                or {}
-            )
-            have = (
-                plane.get("quorum_size")
-                or plane.get("agreeing_count")
-                or plane.get("origin_count")
-            )
-        have_i = int(have or 0)
-        return have_i >= need, f"quorum_size={have_i} need>={need}"
     if kind == "byzantine_excluded":
-        plane = (
-            context.get("quorum")
-            or context.get("quorum_plane")
-            or context.get("consensus")
-            or {}
-        )
+        plane = _plane_context(context, "quorum", "quorum_plane", "consensus")
         if "byzantine_excluded" in plane:
             val = plane.get("byzantine_excluded")
             if isinstance(val, bool):
@@ -4666,12 +4623,7 @@ def _eval_one_outcome_predicate(
             )
         return ok, f"byzantine_excluded={ok}"
     if kind == "quorum_cert_valid":
-        plane = (
-            context.get("quorum")
-            or context.get("quorum_plane")
-            or context.get("quorum_certificate")
-            or {}
-        )
+        plane = _plane_context(context, "quorum", "quorum_plane", "quorum_certificate")
         if "quorum_cert_valid" in plane:
             ok = plane.get("quorum_cert_valid") is True
         elif "certificate_valid" in plane:
@@ -4686,22 +4638,8 @@ def _eval_one_outcome_predicate(
                     plane.get("quorum_hash") or plane.get("certificate_hash")
                 )
         return ok, f"quorum_cert_valid={ok}"
-    if kind == "finality_ok":
-        plane = (
-            context.get("finality")
-            or context.get("finality_plane")
-            or context.get("epoch_finality")
-            or {}
-        )
-        ok = bool(plane.get("ok"))
-        return ok, f"finality_ok={ok}"
     if kind == "finalized_ok":
-        plane = (
-            context.get("finality")
-            or context.get("finality_plane")
-            or context.get("epoch_finality")
-            or {}
-        )
+        plane = _plane_context(context, "finality", "finality_plane", "epoch_finality")
         if "finalized" in plane:
             ok = plane.get("finalized") is True and bool(plane.get("ok", True))
         elif "finalized_ok" in plane:
@@ -4715,12 +4653,7 @@ def _eval_one_outcome_predicate(
         if have is None:
             have = context.get("tip_height")
         if have is None:
-            plane = (
-                context.get("finality")
-                or context.get("finality_plane")
-                or context.get("epochs")
-                or {}
-            )
+            plane = _plane_context(context, "finality", "finality_plane", "epochs")
             have = (
                 plane.get("epoch_count")
                 or plane.get("tip_height")
@@ -4729,12 +4662,7 @@ def _eval_one_outcome_predicate(
         have_i = int(have or 0)
         return have_i >= need, f"epochs={have_i} need>={need}"
     if kind == "finality_cert_valid":
-        plane = (
-            context.get("finality")
-            or context.get("finality_plane")
-            or context.get("finality_certificate")
-            or {}
-        )
+        plane = _plane_context(context, "finality", "finality_plane", "finality_certificate")
         if "finality_cert_valid" in plane:
             ok = plane.get("finality_cert_valid") is True
         elif "certificate_valid" in plane:
@@ -4749,22 +4677,8 @@ def _eval_one_outcome_predicate(
                     plane.get("finality_hash") or plane.get("certificate_hash")
                 )
         return ok, f"finality_cert_valid={ok}"
-    if kind == "execution_ok":
-        plane = (
-            context.get("execution")
-            or context.get("execution_plane")
-            or context.get("worldstate")
-            or {}
-        )
-        ok = bool(plane.get("ok"))
-        return ok, f"execution_ok={ok}"
     if kind == "state_applied_ok":
-        plane = (
-            context.get("execution")
-            or context.get("execution_plane")
-            or context.get("worldstate")
-            or {}
-        )
+        plane = _plane_context(context, "execution", "execution_plane", "worldstate")
         if "state_applied" in plane:
             ok = plane.get("state_applied") is True and bool(plane.get("ok", True))
         elif "state_applied_ok" in plane:
@@ -4780,12 +4694,7 @@ def _eval_one_outcome_predicate(
         if have is None:
             have = context.get("tip_height")
         if have is None:
-            plane = (
-                context.get("execution")
-                or context.get("execution_plane")
-                or context.get("worldstate")
-                or {}
-            )
+            plane = _plane_context(context, "execution", "execution_plane", "worldstate")
             have = (
                 plane.get("state_height")
                 or plane.get("tip_height")
@@ -4794,13 +4703,7 @@ def _eval_one_outcome_predicate(
         have_i = int(have or 0)
         return have_i >= need, f"state_height={have_i} need>={need}"
     if kind == "state_root_valid":
-        plane = (
-            context.get("execution")
-            or context.get("execution_plane")
-            or context.get("worldstate")
-            or context.get("execution_certificate")
-            or {}
-        )
+        plane = _plane_context(context, "execution", "execution_plane", "worldstate", "execution_certificate")
         if "state_root_valid" in plane:
             ok = plane.get("state_root_valid") is True
         elif "certificate_valid" in plane:
@@ -4815,22 +4718,8 @@ def _eval_one_outcome_predicate(
                     plane.get("state_root") or plane.get("tip_state_root")
                 )
         return ok, f"state_root_valid={ok}"
-    if kind == "actuation_ok":
-        plane = (
-            context.get("actuation")
-            or context.get("actuation_plane")
-            or context.get("effects")
-            or {}
-        )
-        ok = bool(plane.get("ok"))
-        return ok, f"actuation_ok={ok}"
     if kind == "effects_applied_ok":
-        plane = (
-            context.get("actuation")
-            or context.get("actuation_plane")
-            or context.get("effects")
-            or {}
-        )
+        plane = _plane_context(context, "actuation", "actuation_plane", "effects")
         if "effects_applied" in plane:
             ok = plane.get("effects_applied") is True and bool(plane.get("ok", True))
         elif "effects_applied_ok" in plane:
@@ -4846,12 +4735,7 @@ def _eval_one_outcome_predicate(
         if have is None:
             have = context.get("tip_action_height")
         if have is None:
-            plane = (
-                context.get("actuation")
-                or context.get("actuation_plane")
-                or context.get("effects")
-                or {}
-            )
+            plane = _plane_context(context, "actuation", "actuation_plane", "effects")
             have = (
                 plane.get("action_count")
                 or plane.get("tip_height")
@@ -4860,13 +4744,7 @@ def _eval_one_outcome_predicate(
         have_i = int(have or 0)
         return have_i >= need, f"actions={have_i} need>={need}"
     if kind == "action_root_valid":
-        plane = (
-            context.get("actuation")
-            or context.get("actuation_plane")
-            or context.get("effects")
-            or context.get("actuation_certificate")
-            or {}
-        )
+        plane = _plane_context(context, "actuation", "actuation_plane", "effects", "actuation_certificate")
         if "action_root_valid" in plane:
             ok = plane.get("action_root_valid") is True
         elif "certificate_valid" in plane:
@@ -4881,20 +4759,8 @@ def _eval_one_outcome_predicate(
                     plane.get("action_root") or plane.get("tip_action_root")
                 )
         return ok, f"action_root_valid={ok}"
-    if kind == "settlement_ok":
-        plane = (
-            context.get("settlement")
-            or context.get("settlement_plane")
-            or {}
-        )
-        ok = bool(plane.get("ok"))
-        return ok, f"settlement_ok={ok}"
     if kind == "settled_ok":
-        plane = (
-            context.get("settlement")
-            or context.get("settlement_plane")
-            or {}
-        )
+        plane = _plane_context(context, "settlement", "settlement_plane")
         if "settled" in plane:
             ok = plane.get("settled") is True and bool(plane.get("ok", True))
         elif "settled_ok" in plane:
@@ -4913,11 +4779,7 @@ def _eval_one_outcome_predicate(
         if have is None:
             have = context.get("observation_count")
         if have is None:
-            plane = (
-                context.get("settlement")
-                or context.get("settlement_plane")
-                or {}
-            )
+            plane = _plane_context(context, "settlement", "settlement_plane")
             have = (
                 plane.get("settlement_count")
                 or plane.get("observation_count")
@@ -4927,12 +4789,7 @@ def _eval_one_outcome_predicate(
         have_i = int(have or 0)
         return have_i >= need, f"settlements={have_i} need>={need}"
     if kind == "settlement_root_valid":
-        plane = (
-            context.get("settlement")
-            or context.get("settlement_plane")
-            or context.get("settlement_certificate")
-            or {}
-        )
+        plane = _plane_context(context, "settlement", "settlement_plane", "settlement_certificate")
         if "settlement_root_valid" in plane:
             ok = plane.get("settlement_root_valid") is True
         elif "certificate_valid" in plane:
@@ -4961,20 +4818,8 @@ def _eval_one_outcome_predicate(
                     plane.get("settlement_root") or plane.get("tip_settlement_root")
                 )
         return ok, f"settlement_root_valid={ok}"
-    if kind == "clearing_ok":
-        plane = (
-            context.get("clearing")
-            or context.get("clearing_plane")
-            or {}
-        )
-        ok = bool(plane.get("ok"))
-        return ok, f"clearing_ok={ok}"
     if kind == "cleared_ok":
-        plane = (
-            context.get("clearing")
-            or context.get("clearing_plane")
-            or {}
-        )
+        plane = _plane_context(context, "clearing", "clearing_plane")
         if "cleared" in plane:
             ok = plane.get("cleared") is True and bool(plane.get("ok", True))
         elif "cleared_ok" in plane:
@@ -4986,29 +4831,8 @@ def _eval_one_outcome_predicate(
                 or 0
             ) >= 1
         return ok, f"cleared_ok={ok}"
-    if kind == "min_clearings":
-        need = int(float(arg or "0"))
-        have = context.get("clearing_count")
-        if have is None:
-            plane = (
-                context.get("clearing")
-                or context.get("clearing_plane")
-                or {}
-            )
-            have = (
-                plane.get("clearing_count")
-                or plane.get("tip_height")
-                or plane.get("entry_count")
-            )
-        have_i = int(have or 0)
-        return have_i >= need, f"clearings={have_i} need>={need}"
     if kind == "clearing_root_valid":
-        plane = (
-            context.get("clearing")
-            or context.get("clearing_plane")
-            or context.get("clearing_certificate")
-            or {}
-        )
+        plane = _plane_context(context, "clearing", "clearing_plane", "clearing_certificate")
         if "clearing_root_valid" in plane:
             ok = plane.get("clearing_root_valid") is True
         elif "certificate_valid" in plane:
@@ -5037,20 +4861,8 @@ def _eval_one_outcome_predicate(
                     plane.get("clearing_root") or plane.get("tip_clearing_root")
                 )
         return ok, f"clearing_root_valid={ok}"
-    if kind == "delivery_ok":
-        plane = (
-            context.get("delivery")
-            or context.get("delivery_plane")
-            or {}
-        )
-        ok = bool(plane.get("ok"))
-        return ok, f"delivery_ok={ok}"
     if kind == "delivered_ok":
-        plane = (
-            context.get("delivery")
-            or context.get("delivery_plane")
-            or {}
-        )
+        plane = _plane_context(context, "delivery", "delivery_plane")
         if "delivered" in plane:
             ok = plane.get("delivered") is True and bool(plane.get("ok", True))
         elif "delivered_ok" in plane:
@@ -5062,40 +4874,8 @@ def _eval_one_outcome_predicate(
                 or 0
             ) >= 1
         return ok, f"delivered_ok={ok}"
-    if kind == "dvp_ok":
-        plane = (
-            context.get("delivery")
-            or context.get("delivery_plane")
-            or {}
-        )
-        if "dvp_ok" in plane:
-            ok = plane.get("dvp_ok") is True and bool(plane.get("ok", True))
-        else:
-            ok = bool(plane.get("ok")) and plane.get("delivered") is True
-        return ok, f"dvp_ok={ok}"
-    if kind == "min_deliveries":
-        need = int(float(arg or "0"))
-        have = context.get("delivery_count")
-        if have is None:
-            plane = (
-                context.get("delivery")
-                or context.get("delivery_plane")
-                or {}
-            )
-            have = (
-                plane.get("delivery_count")
-                or plane.get("tip_height")
-                or plane.get("entry_count")
-            )
-        have_i = int(have or 0)
-        return have_i >= need, f"deliveries={have_i} need>={need}"
     if kind == "delivery_root_valid":
-        plane = (
-            context.get("delivery")
-            or context.get("delivery_plane")
-            or context.get("delivery_certificate")
-            or {}
-        )
+        plane = _plane_context(context, "delivery", "delivery_plane", "delivery_certificate")
         if "delivery_root_valid" in plane:
             ok = plane.get("delivery_root_valid") is True
         elif "certificate_valid" in plane:
@@ -5124,20 +4904,8 @@ def _eval_one_outcome_predicate(
                     plane.get("delivery_root") or plane.get("tip_delivery_root")
                 )
         return ok, f"delivery_root_valid={ok}"
-    if kind == "custody_ok":
-        plane = (
-            context.get("custody")
-            or context.get("custody_plane")
-            or {}
-        )
-        ok = bool(plane.get("ok"))
-        return ok, f"custody_ok={ok}"
     if kind == "custodied_ok":
-        plane = (
-            context.get("custody")
-            or context.get("custody_plane")
-            or {}
-        )
+        plane = _plane_context(context, "custody", "custody_plane")
         if "custodied" in plane:
             ok = plane.get("custodied") is True and bool(plane.get("ok", True))
         elif "custodied_ok" in plane:
@@ -5149,53 +4917,8 @@ def _eval_one_outcome_predicate(
                 or 0
             ) >= 1
         return ok, f"custodied_ok={ok}"
-    if kind == "cvt_ok":
-        plane = (
-            context.get("custody")
-            or context.get("custody_plane")
-            or {}
-        )
-        if "cvt_ok" in plane:
-            ok = plane.get("cvt_ok") is True and bool(plane.get("ok", True))
-        else:
-            ok = bool(plane.get("ok")) and plane.get("custodied") is True
-        return ok, f"cvt_ok={ok}"
-    if kind in {"title_ok", "titled_ok"}:
-        plane = (
-            context.get("custody")
-            or context.get("custody_plane")
-            or {}
-        )
-        if "title_ok" in plane:
-            ok = plane.get("title_ok") is True and bool(plane.get("ok", True))
-        elif "titled_ok" in plane:
-            ok = plane.get("titled_ok") is True and bool(plane.get("ok", True))
-        else:
-            ok = bool(plane.get("ok")) and plane.get("custodied") is True
-        return ok, f"{kind}={ok}"
-    if kind == "min_custodies":
-        need = int(float(arg or "0"))
-        have = context.get("custody_count")
-        if have is None:
-            plane = (
-                context.get("custody")
-                or context.get("custody_plane")
-                or {}
-            )
-            have = (
-                plane.get("custody_count")
-                or plane.get("tip_height")
-                or plane.get("entry_count")
-            )
-        have_i = int(have or 0)
-        return have_i >= need, f"custodies={have_i} need>={need}"
     if kind == "custody_root_valid":
-        plane = (
-            context.get("custody")
-            or context.get("custody_plane")
-            or context.get("custody_certificate")
-            or {}
-        )
+        plane = _plane_context(context, "custody", "custody_plane", "custody_certificate")
         if "custody_root_valid" in plane:
             ok = plane.get("custody_root_valid") is True
         elif "certificate_valid" in plane:
@@ -5225,20 +4948,8 @@ def _eval_one_outcome_predicate(
                 )
         return ok, f"custody_root_valid={ok}"
 
-    if kind == "margin_ok":
-        plane = (
-            context.get("margin")
-            or context.get("margin_plane")
-            or {}
-        )
-        ok = bool(plane.get("ok"))
-        return ok, f"margin_ok={ok}"
     if kind == "margined_ok":
-        plane = (
-            context.get("margin")
-            or context.get("margin_plane")
-            or {}
-        )
+        plane = _plane_context(context, "margin", "margin_plane")
         if "margined" in plane:
             ok = plane.get("margined") is True and bool(plane.get("ok", True))
         elif "margined_ok" in plane:
@@ -5250,53 +4961,8 @@ def _eval_one_outcome_predicate(
                 or 0
             ) >= 1
         return ok, f"margined_ok={ok}"
-    if kind == "mve_ok":
-        plane = (
-            context.get("margin")
-            or context.get("margin_plane")
-            or {}
-        )
-        if "mve_ok" in plane:
-            ok = plane.get("mve_ok") is True and bool(plane.get("ok", True))
-        else:
-            ok = bool(plane.get("ok")) and plane.get("margined") is True
-        return ok, f"mve_ok={ok}"
-    if kind in {"exposure_ok", "exposed_ok"}:
-        plane = (
-            context.get("margin")
-            or context.get("margin_plane")
-            or {}
-        )
-        if "exposure_ok" in plane:
-            ok = plane.get("exposure_ok") is True and bool(plane.get("ok", True))
-        elif "exposed_ok" in plane:
-            ok = plane.get("exposed_ok") is True and bool(plane.get("ok", True))
-        else:
-            ok = bool(plane.get("ok")) and plane.get("margined") is True
-        return ok, f"{kind}={ok}"
-    if kind == "min_margins":
-        need = int(float(arg or "0"))
-        have = context.get("margin_count")
-        if have is None:
-            plane = (
-                context.get("margin")
-                or context.get("margin_plane")
-                or {}
-            )
-            have = (
-                plane.get("margin_count")
-                or plane.get("tip_height")
-                or plane.get("entry_count")
-            )
-        have_i = int(have or 0)
-        return have_i >= need, f"margins={have_i} need>={need}"
     if kind == "margin_root_valid":
-        plane = (
-            context.get("margin")
-            or context.get("margin_plane")
-            or context.get("margin_certificate")
-            or {}
-        )
+        plane = _plane_context(context, "margin", "margin_plane", "margin_certificate")
         if "margin_root_valid" in plane:
             ok = plane.get("margin_root_valid") is True
         elif "certificate_valid" in plane:
@@ -5326,20 +4992,8 @@ def _eval_one_outcome_predicate(
                 )
         return ok, f"margin_root_valid={ok}"
 
-    if kind == "collateral_ok":
-        plane = (
-            context.get("collateral")
-            or context.get("collateral_plane")
-            or {}
-        )
-        ok = bool(plane.get("ok"))
-        return ok, f"collateral_ok={ok}"
     if kind == "collateralized_ok":
-        plane = (
-            context.get("collateral")
-            or context.get("collateral_plane")
-            or {}
-        )
+        plane = _plane_context(context, "collateral", "collateral_plane")
         if "collateralized" in plane:
             ok = plane.get("collateralized") is True and bool(plane.get("ok", True))
         elif "collateralized_ok" in plane:
@@ -5351,53 +5005,8 @@ def _eval_one_outcome_predicate(
                 or 0
             ) >= 1
         return ok, f"collateralized_ok={ok}"
-    if kind == "cvo_ok":
-        plane = (
-            context.get("collateral")
-            or context.get("collateral_plane")
-            or {}
-        )
-        if "cvo_ok" in plane:
-            ok = plane.get("cvo_ok") is True and bool(plane.get("ok", True))
-        else:
-            ok = bool(plane.get("ok")) and plane.get("collateralized") is True
-        return ok, f"cvo_ok={ok}"
-    if kind in {"obligation_ok", "obligated_ok"}:
-        plane = (
-            context.get("collateral")
-            or context.get("collateral_plane")
-            or {}
-        )
-        if "obligation_ok" in plane:
-            ok = plane.get("obligation_ok") is True and bool(plane.get("ok", True))
-        elif "obligated_ok" in plane:
-            ok = plane.get("obligated_ok") is True and bool(plane.get("ok", True))
-        else:
-            ok = bool(plane.get("ok")) and plane.get("collateralized") is True
-        return ok, f"{kind}={ok}"
-    if kind == "min_collaterals":
-        need = int(float(arg or "0"))
-        have = context.get("collateral_count")
-        if have is None:
-            plane = (
-                context.get("collateral")
-                or context.get("collateral_plane")
-                or {}
-            )
-            have = (
-                plane.get("collateral_count")
-                or plane.get("tip_height")
-                or plane.get("entry_count")
-            )
-        have_i = int(have or 0)
-        return have_i >= need, f"collaterals={have_i} need>={need}"
     if kind == "collateral_root_valid":
-        plane = (
-            context.get("collateral")
-            or context.get("collateral_plane")
-            or context.get("collateral_certificate")
-            or {}
-        )
+        plane = _plane_context(context, "collateral", "collateral_plane", "collateral_certificate")
         if "collateral_root_valid" in plane:
             ok = plane.get("collateral_root_valid") is True
         elif "certificate_valid" in plane:
@@ -5429,19 +5038,11 @@ def _eval_one_outcome_predicate(
         return ok, f"collateral_root_valid={ok}"
 
     if kind == "liquidity_ok":
-        plane = (
-            context.get("liquidity")
-            or context.get("liquidity_plane")
-            or {}
-        )
+        plane = _plane_context(context, "liquidity", "liquidity_plane")
         ok = bool(plane.get("ok"))
         return ok, f"liquidity_ok={ok}"
     if kind in {"funded_ok", "liquid_ok"}:
-        plane = (
-            context.get("liquidity")
-            or context.get("liquidity_plane")
-            or {}
-        )
+        plane = _plane_context(context, "liquidity", "liquidity_plane")
         if "funded" in plane:
             ok = plane.get("funded") is True and bool(plane.get("ok", True))
         elif "funded_ok" in plane:
@@ -5455,53 +5056,8 @@ def _eval_one_outcome_predicate(
                 or 0
             ) >= 1
         return ok, f"{kind}={ok}"
-    if kind == "lvc_ok":
-        plane = (
-            context.get("liquidity")
-            or context.get("liquidity_plane")
-            or {}
-        )
-        if "lvc_ok" in plane:
-            ok = plane.get("lvc_ok") is True and bool(plane.get("ok", True))
-        else:
-            ok = bool(plane.get("ok")) and plane.get("funded") is True
-        return ok, f"lvc_ok={ok}"
-    if kind in {"coverage_ok", "covered_ok"}:
-        plane = (
-            context.get("liquidity")
-            or context.get("liquidity_plane")
-            or {}
-        )
-        if "coverage_ok" in plane:
-            ok = plane.get("coverage_ok") is True and bool(plane.get("ok", True))
-        elif "covered_ok" in plane:
-            ok = plane.get("covered_ok") is True and bool(plane.get("ok", True))
-        else:
-            ok = bool(plane.get("ok")) and plane.get("funded") is True
-        return ok, f"{kind}={ok}"
-    if kind == "min_liquidities":
-        need = int(float(arg or "0"))
-        have = context.get("liquidity_count")
-        if have is None:
-            plane = (
-                context.get("liquidity")
-                or context.get("liquidity_plane")
-                or {}
-            )
-            have = (
-                plane.get("liquidity_count")
-                or plane.get("tip_height")
-                or plane.get("entry_count")
-            )
-        have_i = int(have or 0)
-        return have_i >= need, f"liquidities={have_i} need>={need}"
     if kind == "liquidity_root_valid":
-        plane = (
-            context.get("liquidity")
-            or context.get("liquidity_plane")
-            or context.get("liquidity_certificate")
-            or {}
-        )
+        plane = _plane_context(context, "liquidity", "liquidity_plane", "liquidity_certificate")
         if "liquidity_root_valid" in plane:
             ok = plane.get("liquidity_root_valid") is True
         elif "certificate_valid" in plane:
@@ -5533,19 +5089,11 @@ def _eval_one_outcome_predicate(
         return ok, f"liquidity_root_valid={ok}"
 
     if kind == "funding_ok":
-        plane = (
-            context.get("funding")
-            or context.get("funding_plane")
-            or {}
-        )
+        plane = _plane_context(context, "funding", "funding_plane")
         ok = bool(plane.get("ok"))
         return ok, f"funding_ok={ok}"
     if kind in {"facility_ok", "facilitated_ok"}:
-        plane = (
-            context.get("funding")
-            or context.get("funding_plane")
-            or {}
-        )
+        plane = _plane_context(context, "funding", "funding_plane")
         if "facilitated" in plane:
             ok = plane.get("facilitated") is True and bool(plane.get("ok", True))
         elif "facility_ok" in plane:
@@ -5559,53 +5107,8 @@ def _eval_one_outcome_predicate(
                 or 0
             ) >= 1
         return ok, f"{kind}={ok}"
-    if kind == "fvr_ok":
-        plane = (
-            context.get("funding")
-            or context.get("funding_plane")
-            or {}
-        )
-        if "fvr_ok" in plane:
-            ok = plane.get("fvr_ok") is True and bool(plane.get("ok", True))
-        else:
-            ok = bool(plane.get("ok")) and plane.get("facilitated") is True
-        return ok, f"fvr_ok={ok}"
-    if kind in {"requirement_ok", "required_ok"}:
-        plane = (
-            context.get("funding")
-            or context.get("funding_plane")
-            or {}
-        )
-        if "requirement_ok" in plane:
-            ok = plane.get("requirement_ok") is True and bool(plane.get("ok", True))
-        elif "required_ok" in plane:
-            ok = plane.get("required_ok") is True and bool(plane.get("ok", True))
-        else:
-            ok = bool(plane.get("ok")) and plane.get("facilitated") is True
-        return ok, f"{kind}={ok}"
-    if kind == "min_fundings":
-        need = int(float(arg or "0"))
-        have = context.get("funding_count")
-        if have is None:
-            plane = (
-                context.get("funding")
-                or context.get("funding_plane")
-                or {}
-            )
-            have = (
-                plane.get("funding_count")
-                or plane.get("tip_height")
-                or plane.get("entry_count")
-            )
-        have_i = int(have or 0)
-        return have_i >= need, f"fundings={have_i} need>={need}"
     if kind == "funding_root_valid":
-        plane = (
-            context.get("funding")
-            or context.get("funding_plane")
-            or context.get("funding_certificate")
-            or {}
-        )
+        plane = _plane_context(context, "funding", "funding_plane", "funding_certificate")
         if "funding_root_valid" in plane:
             ok = plane.get("funding_root_valid") is True
         elif "certificate_valid" in plane:
@@ -5637,11 +5140,7 @@ def _eval_one_outcome_predicate(
         return ok, f"funding_root_valid={ok}"
 
     if kind in {"capital_ok", "capitalized_ok"}:
-        plane = (
-            context.get("capital")
-            or context.get("capital_plane")
-            or {}
-        )
+        plane = _plane_context(context, "capital", "capital_plane")
         if "capitalized" in plane:
             ok = plane.get("capitalized") is True and bool(plane.get("ok", True))
         elif "capital_ok" in plane:
@@ -5649,64 +5148,8 @@ def _eval_one_outcome_predicate(
         else:
             ok = bool(plane.get("ok"))
         return ok, f"{kind}={ok}"
-    if kind == "buffer_ok":
-        plane = (
-            context.get("capital")
-            or context.get("capital_plane")
-            or {}
-        )
-        if "buffer_ok" in plane:
-            ok = plane.get("buffer_ok") is True and bool(plane.get("ok", True))
-        else:
-            ok = bool(plane.get("ok")) and plane.get("capitalized") is True
-        return ok, f"buffer_ok={ok}"
-    if kind == "cva_ok":
-        plane = (
-            context.get("capital")
-            or context.get("capital_plane")
-            or {}
-        )
-        if "cva_ok" in plane:
-            ok = plane.get("cva_ok") is True and bool(plane.get("ok", True))
-        else:
-            ok = bool(plane.get("ok")) and plane.get("capitalized") is True
-        return ok, f"cva_ok={ok}"
-    if kind in {"adequacy_ok", "adequate_ok"}:
-        plane = (
-            context.get("capital")
-            or context.get("capital_plane")
-            or {}
-        )
-        if "adequacy_ok" in plane:
-            ok = plane.get("adequacy_ok") is True and bool(plane.get("ok", True))
-        elif "adequate_ok" in plane:
-            ok = plane.get("adequate_ok") is True and bool(plane.get("ok", True))
-        else:
-            ok = bool(plane.get("ok")) and plane.get("capitalized") is True
-        return ok, f"{kind}={ok}"
-    if kind == "min_capitals":
-        need = int(float(arg or "0"))
-        have = context.get("capital_count")
-        if have is None:
-            plane = (
-                context.get("capital")
-                or context.get("capital_plane")
-                or {}
-            )
-            have = (
-                plane.get("capital_count")
-                or plane.get("tip_height")
-                or plane.get("entry_count")
-            )
-        have_i = int(have or 0)
-        return have_i >= need, f"capitals={have_i} need>={need}"
     if kind == "capital_root_valid":
-        plane = (
-            context.get("capital")
-            or context.get("capital_plane")
-            or context.get("capital_certificate")
-            or {}
-        )
+        plane = _plane_context(context, "capital", "capital_plane", "capital_certificate")
         if "capital_root_valid" in plane:
             ok = plane.get("capital_root_valid") is True
         elif "certificate_valid" in plane:
@@ -5739,11 +5182,7 @@ def _eval_one_outcome_predicate(
 
 
     if kind in {"solvency_ok", "solvent_ok"}:
-        plane = (
-            context.get("solvency")
-            or context.get("solvency_plane")
-            or {}
-        )
+        plane = _plane_context(context, "solvency", "solvency_plane")
         if "solvent" in plane:
             ok = plane.get("solvent") is True and bool(plane.get("ok", True))
         elif "solvency_ok" in plane:
@@ -5751,34 +5190,8 @@ def _eval_one_outcome_predicate(
         else:
             ok = bool(plane.get("ok"))
         return ok, f"{kind}={ok}"
-    if kind == "surplus_ok":
-        plane = (
-            context.get("solvency")
-            or context.get("solvency_plane")
-            or {}
-        )
-        if "surplus_ok" in plane:
-            ok = plane.get("surplus_ok") is True and bool(plane.get("ok", True))
-        else:
-            ok = bool(plane.get("ok")) and plane.get("solvent") is True
-        return ok, f"surplus_ok={ok}"
-    if kind == "svr_ok":
-        plane = (
-            context.get("solvency")
-            or context.get("solvency_plane")
-            or {}
-        )
-        if "svr_ok" in plane:
-            ok = plane.get("svr_ok") is True and bool(plane.get("ok", True))
-        else:
-            ok = bool(plane.get("ok")) and plane.get("solvent") is True
-        return ok, f"svr_ok={ok}"
     if kind == "solvency_requirement_ok":
-        plane = (
-            context.get("solvency")
-            or context.get("solvency_plane")
-            or {}
-        )
+        plane = _plane_context(context, "solvency", "solvency_plane")
         if "solvency_requirement_ok" in plane:
             ok = plane.get("solvency_requirement_ok") is True and bool(
                 plane.get("ok", True)
@@ -5786,29 +5199,8 @@ def _eval_one_outcome_predicate(
         else:
             ok = bool(plane.get("ok")) and plane.get("solvent") is True
         return ok, f"{kind}={ok}"
-    if kind == "min_solvencies":
-        need = int(float(arg or "0"))
-        have = context.get("solvency_count")
-        if have is None:
-            plane = (
-                context.get("solvency")
-                or context.get("solvency_plane")
-                or {}
-            )
-            have = (
-                plane.get("solvency_count")
-                or plane.get("tip_height")
-                or plane.get("entry_count")
-            )
-        have_i = int(have or 0)
-        return have_i >= need, f"solvencies={have_i} need>={need}"
     if kind == "solvency_root_valid":
-        plane = (
-            context.get("solvency")
-            or context.get("solvency_plane")
-            or context.get("solvency_certificate")
-            or {}
-        )
+        plane = _plane_context(context, "solvency", "solvency_plane", "solvency_certificate")
         if "solvency_root_valid" in plane:
             ok = plane.get("solvency_root_valid") is True
         elif "certificate_valid" in plane:
@@ -5840,11 +5232,7 @@ def _eval_one_outcome_predicate(
         return ok, f"solvency_root_valid={ok}"
 
     if kind in {"risk_ok", "risked_ok"}:
-        plane = (
-            context.get("risk")
-            or context.get("risk_plane")
-            or {}
-        )
+        plane = _plane_context(context, "risk", "risk_plane")
         if "risked" in plane:
             ok = plane.get("risked") is True and bool(plane.get("ok", True))
         elif "risk_ok" in plane:
@@ -5852,62 +5240,15 @@ def _eval_one_outcome_predicate(
         else:
             ok = bool(plane.get("ok"))
         return ok, f"{kind}={ok}"
-    if kind == "assessed_ok":
-        plane = (
-            context.get("risk")
-            or context.get("risk_plane")
-            or {}
-        )
-        if "assessed_ok" in plane:
-            ok = plane.get("assessed_ok") is True and bool(plane.get("ok", True))
-        else:
-            ok = bool(plane.get("ok")) and plane.get("risked") is True
-        return ok, f"assessed_ok={ok}"
-    if kind == "rva_ok":
-        plane = (
-            context.get("risk")
-            or context.get("risk_plane")
-            or {}
-        )
-        if "rva_ok" in plane:
-            ok = plane.get("rva_ok") is True and bool(plane.get("ok", True))
-        else:
-            ok = bool(plane.get("ok")) and plane.get("risked") is True
-        return ok, f"rva_ok={ok}"
     if kind in {"appetite_ok", "appetent_ok"}:
-        plane = (
-            context.get("risk")
-            or context.get("risk_plane")
-            or {}
-        )
+        plane = _plane_context(context, "risk", "risk_plane")
         if kind in plane:
             ok = plane.get(kind) is True and bool(plane.get("ok", True))
         else:
             ok = bool(plane.get("ok")) and plane.get("risked") is True
         return ok, f"{kind}={ok}"
-    if kind == "min_risks":
-        need = int(float(arg or "0"))
-        have = context.get("risk_count")
-        if have is None:
-            plane = (
-                context.get("risk")
-                or context.get("risk_plane")
-                or {}
-            )
-            have = (
-                plane.get("risk_count")
-                or plane.get("tip_height")
-                or plane.get("entry_count")
-            )
-        have_i = int(have or 0)
-        return have_i >= need, f"risks={have_i} need>={need}"
     if kind == "risk_root_valid":
-        plane = (
-            context.get("risk")
-            or context.get("risk_plane")
-            or context.get("risk_certificate")
-            or {}
-        )
+        plane = _plane_context(context, "risk", "risk_plane", "risk_certificate")
         if "risk_root_valid" in plane:
             ok = plane.get("risk_root_valid") is True
         elif "certificate_valid" in plane:
@@ -5939,11 +5280,7 @@ def _eval_one_outcome_predicate(
         return ok, f"risk_root_valid={ok}"
 
     if kind in {"stress_ok", "stressed_ok"}:
-        plane = (
-            context.get("stress")
-            or context.get("stress_plane")
-            or {}
-        )
+        plane = _plane_context(context, "stress", "stress_plane")
         if "stressed" in plane:
             ok = plane.get("stressed") is True and bool(plane.get("ok", True))
         elif "stress_ok" in plane:
@@ -5951,51 +5288,15 @@ def _eval_one_outcome_predicate(
         else:
             ok = bool(plane.get("ok"))
         return ok, f"{kind}={ok}"
-    if kind == "svc_ok":
-        plane = (
-            context.get("stress")
-            or context.get("stress_plane")
-            or {}
-        )
-        if "svc_ok" in plane:
-            ok = plane.get("svc_ok") is True and bool(plane.get("ok", True))
-        else:
-            ok = bool(plane.get("ok")) and plane.get("stressed") is True
-        return ok, f"svc_ok={ok}"
     if kind in {"capacity_ok", "capacious_ok"}:
-        plane = (
-            context.get("stress")
-            or context.get("stress_plane")
-            or {}
-        )
+        plane = _plane_context(context, "stress", "stress_plane")
         if kind in plane:
             ok = plane.get(kind) is True and bool(plane.get("ok", True))
         else:
             ok = bool(plane.get("ok")) and plane.get("stressed") is True
         return ok, f"{kind}={ok}"
-    if kind == "min_stresses":
-        need = int(float(arg or "0"))
-        have = context.get("stress_count")
-        if have is None:
-            plane = (
-                context.get("stress")
-                or context.get("stress_plane")
-                or {}
-            )
-            have = (
-                plane.get("stress_count")
-                or plane.get("tip_height")
-                or plane.get("entry_count")
-            )
-        have_i = int(have or 0)
-        return have_i >= need, f"stresses={have_i} need>={need}"
     if kind == "stress_root_valid":
-        plane = (
-            context.get("stress")
-            or context.get("stress_plane")
-            or context.get("stress_certificate")
-            or {}
-        )
+        plane = _plane_context(context, "stress", "stress_plane", "stress_certificate")
         if "stress_root_valid" in plane:
             ok = plane.get("stress_root_valid") is True
         elif "certificate_valid" in plane:
@@ -6027,11 +5328,7 @@ def _eval_one_outcome_predicate(
         return ok, f"stress_root_valid={ok}"
 
     if kind in {"recovery_ok", "restored_ok"}:
-        plane = (
-            context.get("recovery")
-            or context.get("recovery_plane")
-            or {}
-        )
+        plane = _plane_context(context, "recovery", "recovery_plane")
         if "restored" in plane:
             ok = plane.get("restored") is True and bool(plane.get("ok", True))
         elif "recovery_ok" in plane:
@@ -6039,51 +5336,15 @@ def _eval_one_outcome_predicate(
         else:
             ok = bool(plane.get("ok"))
         return ok, f"{kind}={ok}"
-    if kind == "rvp_ok":
-        plane = (
-            context.get("recovery")
-            or context.get("recovery_plane")
-            or {}
-        )
-        if "rvp_ok" in plane:
-            ok = plane.get("rvp_ok") is True and bool(plane.get("ok", True))
-        else:
-            ok = bool(plane.get("ok")) and plane.get("restored") is True
-        return ok, f"rvp_ok={ok}"
     if kind in {"plan_ok", "planned_ok"}:
-        plane = (
-            context.get("recovery")
-            or context.get("recovery_plane")
-            or {}
-        )
+        plane = _plane_context(context, "recovery", "recovery_plane")
         if kind in plane:
             ok = plane.get(kind) is True and bool(plane.get("ok", True))
         else:
             ok = bool(plane.get("ok")) and plane.get("restored") is True
         return ok, f"{kind}={ok}"
-    if kind == "min_recoveries":
-        need = int(float(arg or "0"))
-        have = context.get("recovery_count")
-        if have is None:
-            plane = (
-                context.get("recovery")
-                or context.get("recovery_plane")
-                or {}
-            )
-            have = (
-                plane.get("recovery_count")
-                or plane.get("tip_height")
-                or plane.get("entry_count")
-            )
-        have_i = int(have or 0)
-        return have_i >= need, f"recoveries={have_i} need>={need}"
     if kind == "recovery_root_valid":
-        plane = (
-            context.get("recovery")
-            or context.get("recovery_plane")
-            or context.get("recovery_certificate")
-            or {}
-        )
+        plane = _plane_context(context, "recovery", "recovery_plane", "recovery_certificate")
         if "recovery_root_valid" in plane:
             ok = plane.get("recovery_root_valid") is True
         elif "certificate_valid" in plane:
@@ -6116,11 +5377,7 @@ def _eval_one_outcome_predicate(
 
 
     if kind in {"resolution_ok", "resolved_ok"}:
-        plane = (
-            context.get("resolution")
-            or context.get("resolution_plane")
-            or {}
-        )
+        plane = _plane_context(context, "resolution", "resolution_plane")
         if "resolved" in plane:
             ok = plane.get("resolved") is True and bool(plane.get("ok", True))
         elif "resolution_ok" in plane:
@@ -6128,51 +5385,15 @@ def _eval_one_outcome_predicate(
         else:
             ok = bool(plane.get("ok"))
         return ok, f"{kind}={ok}"
-    if kind == "rvs_ok":
-        plane = (
-            context.get("resolution")
-            or context.get("resolution_plane")
-            or {}
-        )
-        if "rvs_ok" in plane:
-            ok = plane.get("rvs_ok") is True and bool(plane.get("ok", True))
-        else:
-            ok = bool(plane.get("ok")) and plane.get("resolved") is True
-        return ok, f"rvs_ok={ok}"
     if kind in {"strategy_ok", "strategic_ok"}:
-        plane = (
-            context.get("resolution")
-            or context.get("resolution_plane")
-            or {}
-        )
+        plane = _plane_context(context, "resolution", "resolution_plane")
         if kind in plane:
             ok = plane.get(kind) is True and bool(plane.get("ok", True))
         else:
             ok = bool(plane.get("ok")) and plane.get("resolved") is True
         return ok, f"{kind}={ok}"
-    if kind == "min_resolutions":
-        need = int(float(arg or "0"))
-        have = context.get("resolution_count")
-        if have is None:
-            plane = (
-                context.get("resolution")
-                or context.get("resolution_plane")
-                or {}
-            )
-            have = (
-                plane.get("resolution_count")
-                or plane.get("tip_height")
-                or plane.get("entry_count")
-            )
-        have_i = int(have or 0)
-        return have_i >= need, f"resolutions={have_i} need>={need}"
     if kind == "resolution_root_valid":
-        plane = (
-            context.get("resolution")
-            or context.get("resolution_plane")
-            or context.get("resolution_certificate")
-            or {}
-        )
+        plane = _plane_context(context, "resolution", "resolution_plane", "resolution_certificate")
         if "resolution_root_valid" in plane:
             ok = plane.get("resolution_root_valid") is True
         elif "certificate_valid" in plane:
@@ -6204,11 +5425,7 @@ def _eval_one_outcome_predicate(
         return ok, f"resolution_root_valid={ok}"
 
     if kind in {"restructuring_ok", "restructured_ok"}:
-        plane = (
-            context.get("restructuring")
-            or context.get("restructuring_plane")
-            or {}
-        )
+        plane = _plane_context(context, "restructuring", "restructuring_plane")
         if "restructured" in plane:
             ok = plane.get("restructured") is True and bool(plane.get("ok", True))
         elif "restructuring_ok" in plane:
@@ -6216,51 +5433,15 @@ def _eval_one_outcome_predicate(
         else:
             ok = bool(plane.get("ok"))
         return ok, f"{kind}={ok}"
-    if kind == "rvm_ok":
-        plane = (
-            context.get("restructuring")
-            or context.get("restructuring_plane")
-            or {}
-        )
-        if "rvm_ok" in plane:
-            ok = plane.get("rvm_ok") is True and bool(plane.get("ok", True))
-        else:
-            ok = bool(plane.get("ok")) and plane.get("restructured") is True
-        return ok, f"rvm_ok={ok}"
     if kind in {"mandate_ok", "mandated_ok"}:
-        plane = (
-            context.get("restructuring")
-            or context.get("restructuring_plane")
-            or {}
-        )
+        plane = _plane_context(context, "restructuring", "restructuring_plane")
         if kind in plane:
             ok = plane.get(kind) is True and bool(plane.get("ok", True))
         else:
             ok = bool(plane.get("ok")) and plane.get("restructured") is True
         return ok, f"{kind}={ok}"
-    if kind == "min_restructurings":
-        need = int(float(arg or "0"))
-        have = context.get("restructuring_count")
-        if have is None:
-            plane = (
-                context.get("restructuring")
-                or context.get("restructuring_plane")
-                or {}
-            )
-            have = (
-                plane.get("restructuring_count")
-                or plane.get("tip_height")
-                or plane.get("entry_count")
-            )
-        have_i = int(have or 0)
-        return have_i >= need, f"restructurings={have_i} need>={need}"
     if kind == "restructuring_root_valid":
-        plane = (
-            context.get("restructuring")
-            or context.get("restructuring_plane")
-            or context.get("restructuring_certificate")
-            or {}
-        )
+        plane = _plane_context(context, "restructuring", "restructuring_plane", "restructuring_certificate")
         if "restructuring_root_valid" in plane:
             ok = plane.get("restructuring_root_valid") is True
         elif "certificate_valid" in plane:
@@ -6293,11 +5474,7 @@ def _eval_one_outcome_predicate(
 
 
     if kind in {"emergence_ok", "emerged_ok"}:
-        plane = (
-            context.get("emergence")
-            or context.get("emergence_plane")
-            or {}
-        )
+        plane = _plane_context(context, "emergence", "emergence_plane")
         if "emerged" in plane:
             ok = plane.get("emerged") is True and bool(plane.get("ok", True))
         elif "emergence_ok" in plane:
@@ -6305,51 +5482,15 @@ def _eval_one_outcome_predicate(
         else:
             ok = bool(plane.get("ok"))
         return ok, f"{kind}={ok}"
-    if kind == "evc_ok":
-        plane = (
-            context.get("emergence")
-            or context.get("emergence_plane")
-            or {}
-        )
-        if "evc_ok" in plane:
-            ok = plane.get("evc_ok") is True and bool(plane.get("ok", True))
-        else:
-            ok = bool(plane.get("ok")) and plane.get("emerged") is True
-        return ok, f"evc_ok={ok}"
     if kind in {"confirmation_ok", "confirmed_ok"}:
-        plane = (
-            context.get("emergence")
-            or context.get("emergence_plane")
-            or {}
-        )
+        plane = _plane_context(context, "emergence", "emergence_plane")
         if kind in plane:
             ok = plane.get(kind) is True and bool(plane.get("ok", True))
         else:
             ok = bool(plane.get("ok")) and plane.get("emerged") is True
         return ok, f"{kind}={ok}"
-    if kind == "min_emergences":
-        need = int(float(arg or "0"))
-        have = context.get("emergence_count")
-        if have is None:
-            plane = (
-                context.get("emergence")
-                or context.get("emergence_plane")
-                or {}
-            )
-            have = (
-                plane.get("emergence_count")
-                or plane.get("tip_height")
-                or plane.get("entry_count")
-            )
-        have_i = int(have or 0)
-        return have_i >= need, f"emergences={have_i} need>={need}"
     if kind == "emergence_root_valid":
-        plane = (
-            context.get("emergence")
-            or context.get("emergence_plane")
-            or context.get("emergence_certificate")
-            or {}
-        )
+        plane = _plane_context(context, "emergence", "emergence_plane", "emergence_certificate")
         if "emergence_root_valid" in plane:
             ok = plane.get("emergence_root_valid") is True
         elif "certificate_valid" in plane:
@@ -6381,11 +5522,7 @@ def _eval_one_outcome_predicate(
         return ok, f"emergence_root_valid={ok}"
 
     if kind in {"reorganization_ok", "reorganized_ok"}:
-        plane = (
-            context.get("reorganization")
-            or context.get("reorganization_plane")
-            or {}
-        )
+        plane = _plane_context(context, "reorganization", "reorganization_plane")
         if "reorganized" in plane:
             ok = plane.get("reorganized") is True and bool(plane.get("ok", True))
         elif "reorganization_ok" in plane:
@@ -6393,51 +5530,15 @@ def _eval_one_outcome_predicate(
         else:
             ok = bool(plane.get("ok"))
         return ok, f"{kind}={ok}"
-    if kind == "rvc_ok":
-        plane = (
-            context.get("reorganization")
-            or context.get("reorganization_plane")
-            or {}
-        )
-        if "rvc_ok" in plane:
-            ok = plane.get("rvc_ok") is True and bool(plane.get("ok", True))
-        else:
-            ok = bool(plane.get("ok")) and plane.get("reorganized") is True
-        return ok, f"rvc_ok={ok}"
     if kind in {"charter_ok", "chartered_ok"}:
-        plane = (
-            context.get("reorganization")
-            or context.get("reorganization_plane")
-            or {}
-        )
+        plane = _plane_context(context, "reorganization", "reorganization_plane")
         if kind in plane:
             ok = plane.get(kind) is True and bool(plane.get("ok", True))
         else:
             ok = bool(plane.get("ok")) and plane.get("reorganized") is True
         return ok, f"{kind}={ok}"
-    if kind == "min_reorganizations":
-        need = int(float(arg or "0"))
-        have = context.get("reorganization_count")
-        if have is None:
-            plane = (
-                context.get("reorganization")
-                or context.get("reorganization_plane")
-                or {}
-            )
-            have = (
-                plane.get("reorganization_count")
-                or plane.get("tip_height")
-                or plane.get("entry_count")
-            )
-        have_i = int(have or 0)
-        return have_i >= need, f"reorganizations={have_i} need>={need}"
     if kind == "reorganization_root_valid":
-        plane = (
-            context.get("reorganization")
-            or context.get("reorganization_plane")
-            or context.get("reorganization_certificate")
-            or {}
-        )
+        plane = _plane_context(context, "reorganization", "reorganization_plane", "reorganization_certificate")
         if "reorganization_root_valid" in plane:
             ok = plane.get("reorganization_root_valid") is True
         elif "certificate_valid" in plane:
