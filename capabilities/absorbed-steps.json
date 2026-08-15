@@ -1,5 +1,5 @@
 {
-  "absorbed_at": "2026-08-14T20:58:26.371932Z",
+  "absorbed_at": "2026-08-15T07:43:53.383563Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
@@ -51,13 +51,13 @@
       "provides": [
         "shout_output"
       ],
-      "record_digest": "b509a73871f6a6c959bebd80a4af841c38068ec30a9a69358315f2267fe00c0f",
+      "record_digest": "92e2ee2daf97d25fd13e2ec33676ff356a892969f9489226f83207e86c5f4550",
       "requires": [
         "text"
       ],
       "schema_version": 1,
       "slug": "forage-lab",
-      "vendored_tree_digest": "61b26d58485937277ec74f44ede0883d095293e7b103fe2d56adc8539730322a",
+      "vendored_tree_digest": "6d42b5ce2c00dd9cbfd3e57b64a2a83669f4b3374392a29474fe5f2957b54f89",
       "version": ""
     },
     {
@@ -210,13 +210,13 @@
       "provides": [
         "markdown_output"
       ],
-      "record_digest": "c7a7a7d3f8aa6d682e1bd5fa98b772d8f0f32190dccf1f4c17b63639ff253c45",
+      "record_digest": "ba4c40393cb9a716634172b02c6389d40f88fef1e27f3ef2fab84b71bfb6acf3",
       "requires": [
         "text"
       ],
       "schema_version": 1,
       "slug": "markdown-foraged",
-      "vendored_tree_digest": "80136ddf1b0fbe24c661ea78850171485adb1202696fcc79d7faad63df1fee2a",
+      "vendored_tree_digest": "2ccd048b5d3e31585eb7faa356986af2bb4eb5ec9faa265973b823d1f2a9befe",
       "version": "3.10.3"
     },
     {
@@ -259,13 +259,13 @@
       "provides": [
         "marked_html"
       ],
-      "record_digest": "01d1f4f192741f6c46a19db0ac867a2af4a406e3adf9c150464f0bc18e47dd59",
+      "record_digest": "79a02cebee544efd11cebd1d6900a6e122406832f238f5a4a91f7d080e2073e4",
       "requires": [
         "markdown_source"
       ],
       "schema_version": 1,
       "slug": "marked-renderer",
-      "vendored_tree_digest": "0a4287a195aa31a20f9216ec400504fb620d5b0602ea7138b8e8e43c6fc8a94c",
+      "vendored_tree_digest": "3125fa6f628517cc442567cd0b27f4a5c0a4c9b805cfac711ca4bba0cb86cb42",
       "version": "18.0.7"
     },
     {
@@ -358,13 +358,13 @@
       "provides": [
         "rendered_markdown"
       ],
-      "record_digest": "7de58a621af634e1c691cb65b185b5052c4714130b4b5e65e6bffc03faa3200a",
+      "record_digest": "a7d36889e4a825a7cb0bc16b9accb2f553a6c3186fdd688a4f139a077d8c79c7",
       "requires": [
         "markdown_source"
       ],
       "schema_version": 1,
       "slug": "python-markdown",
-      "vendored_tree_digest": "886c7f1a77b17153d1033f79619d29bfb73e4e376cc913fbe729c9096c574826",
+      "vendored_tree_digest": "859429f965447b2f46aff75b46bdd15e011ae6c8fc47b9781fbd8bdb2b999823",
       "version": "3.10.3"
     },
     {
@@ -479,13 +479,13 @@
       "provides": [
         "loads_output"
       ],
-      "record_digest": "da9bdb6040542607128c813f4ea1b3e6f262eb8e318a80fcafe136011010a48a",
+      "record_digest": "8221d9cfeda857e351ee34227b51960e4fdb30692d54db36ffe0292b94fc1d98",
       "requires": [
         "s"
       ],
       "schema_version": 1,
       "slug": "tomli-foraged",
-      "vendored_tree_digest": "13c8dcef7b29926954e832233925276426293dc951ee91cb89ba7fc3327d8cef",
+      "vendored_tree_digest": "f6b700e2f583c5317683e4b9c56ca143b6ea481840a11938cb3ab3a9c0583b32",
       "version": "2.4.1"
     },
     {
@@ -542,15 +542,15 @@
       "provides": [
         "parsed_toml"
       ],
-      "record_digest": "c4756a2dd09dbe5086dc06e73671b371f37e24228ef75299bbea5e3d1716054a",
+      "record_digest": "baf37f4ea7ea9343e4722dc0e57c87705f908b2864cbd6646103e7b84e7254dd",
       "requires": [
         "toml_source"
       ],
       "schema_version": 1,
       "slug": "tomli-parser",
-      "vendored_tree_digest": "00242ab421a81ebd2bdf0badc14d844afb451041b6d9a788ea2e852273162a0a",
+      "vendored_tree_digest": "4761e4afd5f456a0c62da810e3590bf8cd3cb5cd756878909e086adfa737b878",
       "version": "2.4.1"
     }
   ],
-  "steps_digest": "4512dc51c979b2cbb4fd0b477c0ba8856aadff33a09ab087e7bc6a4006aab277"
+  "steps_digest": "5653fba595fe26d16855e41fa2b71d126b1e011dfa28896fcb57656491bed710"
 }

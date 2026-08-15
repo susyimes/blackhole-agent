@@ -10249,134 +10249,14 @@ def run_total_spine(
     binding, and short-circuits on re-actuate so absolute-tower world-state is
     no longer inert.
 
-    Post-actuation settlement: ``settlement=True`` independently observes those
-    effects, evaluates the original done_when, seals a re-verifiable settlement
-    receipt bound to the actuation digest and action root, refuses unsettled /
-    failed / wrong-root closures, and short-circuits on re-settle so certified
-    actuation is no longer an open claim.
-
-    Post-settlement clearing: ``clearing=True`` independently confirms a second
-    settlement of the same actuation, nets matching observation books into
-    hash-chained clearing legs, discharges only when the books agree, seals a
-    re-verifiable clearing certificate, refuses uncleared / mismatched /
-    wrong-root closures, and short-circuits on re-clear so a unilateral
-    settlement receipt is no longer an open book.
-
-    Post-clearing delivery: ``delivery=True`` independently confirms a second
-    clearing of the same discharged book, pairs each netted obligation with a
-    consideration (delivery-versus-payment), seals a re-verifiable atomic DvP
-    certificate, refuses partial / one-sided / mismatched / wrong-root
-    closures, and short-circuits on re-deliver so a cleared net is no longer
-    undelivered.
-
-    Post-delivery custody: ``custody=True`` independently confirms a second
-    delivery of the same DvP book, books each delivered pair into a custody
-    register and transfers beneficial title (custody-versus-title), seals a
-    re-verifiable atomic custody certificate, refuses split / one-sided /
-    mismatched / wrong-root closures, and short-circuits on re-custody so a
-    delivered net is no longer uncustodied.
-
-    Post-custody margin: ``margin=True`` independently confirms a second
-    custody of the same CvT book, books each custodied pair into a margin
-    register and pairs it with exposure (margin-versus-exposure), seals a
-    re-verifiable atomic margin certificate, refuses split / one-sided /
-    mismatched / wrong-root closures, and short-circuits on re-margin so a
-    custodied net is no longer unmargined.
-
-    Post-margin collateral: ``collateral=True`` independently confirms a second
-    margin of the same MvE book, books each margined pair into a collateral
-    register and pairs it with obligation (collateral-versus-obligation), seals
-    a re-verifiable atomic collateral certificate, refuses split / one-sided /
-    mismatched / wrong-root closures, and short-circuits on re-collateral so a
-    margined net is no longer uncollateralized.
-
-    Post-collateral liquidity: ``liquidity=True`` independently confirms a
-    second collateral of the same CvO book, books each collateralized pair
-    into a liquidity register and pairs it with coverage
-    (liquidity-versus-coverage), seals a re-verifiable atomic liquidity
-    certificate, refuses split / one-sided / mismatched / wrong-root
-    closures, and short-circuits on re-fund so a collateralized net is
-    no longer unfunded.
-
-    Post-liquidity funding: ``funding=True`` independently confirms a
-    second liquidity of the same LvC book, books each liquid pair into a
-    funding register and pairs it with requirement
-    (funding-versus-requirement), seals a re-verifiable atomic funding
-    certificate, refuses split / one-sided / mismatched / wrong-root
-    closures, and short-circuits on re-facilitate so a liquid net is
-    no longer unfacilitated.
-
-    Post-funding capital: ``capital=True`` independently confirms a
-    second funding of the same FvR book, books each facilitated pair
-    into a capital register and pairs it with adequacy
-    (capital-versus-adequacy), seals a re-verifiable atomic capital
-    certificate, refuses split / one-sided / mismatched / wrong-root
-    closures, and short-circuits on re-capitalize so a facilitated net
-    is no longer uncapitalized.
-
-    Post-capital solvency: ``solvency=True`` independently confirms a
-    second capital of the same CvA book, books each capitalized pair
-    into a solvency register and pairs it with requirement
-    (solvency-versus-requirement), seals a re-verifiable atomic solvency
-    certificate, refuses split / one-sided / mismatched / wrong-root
-    closures, and short-circuits on re-solvency so a capitalized net
-    is no longer insolvent.
-
-    Post-solvency risk: ``risk=True`` independently confirms a
-    second solvency of the same SvR book, books each solvent pair
-    into a risk register and pairs it with appetite
-    (risk-versus-appetite), seals a re-verifiable atomic risk
-    certificate, refuses split / one-sided / mismatched / wrong-root
-    closures, and short-circuits on re-risk so a solvent net
-    is no longer unrisked.
-
-    Post-risk stress: ``stress=True`` independently confirms a
-    second risk of the same RvA book, books each risked pair
-    into a stress register and pairs it with capacity
-    (stress-versus-capacity), seals a re-verifiable atomic stress
-    certificate, refuses split / one-sided / mismatched / wrong-root
-    closures, and short-circuits on re-stress so a risked net
-    is no longer unstressed.
-
-    Post-stress recovery: ``recovery=True`` independently confirms a
-    second stress of the same SvC book, books each stressed pair
-    into a recovery register and pairs it with a plan
-    (recovery-versus-plan), seals a re-verifiable atomic recovery
-    certificate, refuses split / one-sided / mismatched / wrong-root
-    closures, and short-circuits on re-recovery so a stressed net
-    is no longer unrestored.
-
-    Post-recovery resolution: ``resolution=True`` independently confirms a
-    second recovery of the same RvP book, books each restored pair
-    into a resolution register and pairs it with a strategy
-    (resolution-versus-strategy), seals a re-verifiable atomic resolution
-    certificate, refuses split / one-sided / mismatched / wrong-root
-    closures, and short-circuits on re-resolution so a restored net
-    is no longer unresolved.
-
-    Post-resolution restructuring: ``restructuring=True`` independently confirms a
-    second resolution of the same RvS book, books each resolved pair
-    into a restructuring register and pairs it with a mandate
-    (restructuring-versus-mandate), seals a re-verifiable atomic restructuring
-    certificate, refuses split / one-sided / mismatched / wrong-root
-    closures, and short-circuits on re-restructuring so a resolved net
-    is no longer unrestructured.
-
-    Post-restructuring emergence: ``emergence=True`` independently confirms a
-    second restructuring of the same RvM book, books each mandated pair
-    into an emergence register and pairs it with confirmation
-    (emergence-versus-confirmation), seals a re-verifiable atomic emergence
-    certificate, refuses split / one-sided / mismatched / wrong-root
-    closures, and short-circuits on re-emergence so a mandated net
-    is no longer unemerged.
-
-    Post-emergence reorganization: ``reorganization=True`` independently confirms a
-    second emergence of the same EvC book, books each emerged pair
-    into a reorganization register and pairs it with a charter
-    (reorganization-versus-charter), seals a re-verifiable atomic reorganization
-    certificate, refuses split / one-sided / mismatched / wrong-root
-    closures, and short-circuits on re-reorganization so an emerged net
-    is no longer unreorganized.
+    Post-actuation effect chain (``settlement`` .. ``reorganization``): the
+    ordered links in :data:`_TOTAL_SPINE_EFFECT_CHAIN`. Each link independently
+    confirms a second predecessor book, pairs it with its own requirement
+    (SvR, RvA, …), seals a re-verifiable atomic certificate, refuses split /
+    one-sided / mismatched / wrong-root closures, and short-circuits on
+    re-application so a certified predecessor is no longer an open claim.
+    Enabling a link implies every predecessor; resume of an already-sealed
+    link short-circuits without re-dispatch.
     """
     root = (
         str(root_layer or TOTAL_SPINE_DEFAULT_ROOT).strip().lower()
@@ -11376,9 +11256,11 @@ def builtin_governance_spine_proof() -> dict[str, Any]:
         )
 
         # Source-level: facade default + outer annotate wiring.
-        facade_path = (
-            Path(ui.__file__).resolve().parent / "upstream_stewardship_facade.py"
-        )
+        # Synthesized facade modules have no __file__; resolve the real
+        # stewardship facade module directly.
+        from blackhole_agent import upstream_stewardship_facade as _usf
+
+        facade_path = Path(_usf.__file__).resolve()
         facade_text = facade_path.read_text(encoding="utf-8")
         source_ok = (
             "governance_spine" in facade_text
@@ -11830,9 +11712,11 @@ def builtin_stewardship_spine_proof() -> dict[str, Any]:
             and getattr(le_facade, "STEWARDSHIP_SPINE_IMPL", False) is True
         )
 
-        facade_path = (
-            Path(ui.__file__).resolve().parent / "upstream_stewardship_facade.py"
-        )
+        # Synthesized facade modules have no __file__; resolve the real
+        # stewardship facade module directly.
+        from blackhole_agent import upstream_stewardship_facade as _usf
+
+        facade_path = Path(_usf.__file__).resolve()
         facade_text = facade_path.read_text(encoding="utf-8")
         source_ok = (
             "layer_wants_governance_spine" in facade_text
@@ -12392,10 +12276,9 @@ def builtin_civilization_spine_proof() -> dict[str, Any]:
             and getattr(le_facade, "CIVILIZATION_SPINE_IMPL", False) is True
         )
 
-        facade_path = (
-            Path(ucw.__file__).resolve().parent
-            / "upstream_stewardship_facade.py"
-        )
+        from blackhole_agent import upstream_stewardship_facade as _usf
+
+        facade_path = Path(_usf.__file__).resolve()
         facade_text = facade_path.read_text(encoding="utf-8")
         source_ok = (
             "list_civilization_layers" in facade_text
@@ -13056,10 +12939,9 @@ def builtin_continuum_spine_proof() -> dict[str, Any]:
             and getattr(le_facade, "CONTINUUM_SPINE_IMPL", False) is True
         )
 
-        facade_path = (
-            Path(ucont.__file__).resolve().parent
-            / "upstream_stewardship_facade.py"
-        )
+        from blackhole_agent import upstream_stewardship_facade as _usf
+
+        facade_path = Path(_usf.__file__).resolve()
         facade_text = facade_path.read_text(encoding="utf-8")
         source_ok = (
             "list_continuum_layers" in facade_text

@@ -9,8 +9,54 @@
   "byzantine_origins": [
     "origin-byzantine"
   ],
-  "certificate_count": 17,
+  "certificate_count": 23,
   "certificates": {
+    "0925e0feb4b974e85d2456b5": {
+      "certificate_hash": "0925e0feb4b974e85d2456b5",
+      "certificate_path": "artifacts/quorum-bundles/quorum-certificate.json",
+      "origin_id": "quorum",
+      "payload": {
+        "agreeing_count": 2,
+        "agreeing_origins": [
+          "origin-a",
+          "origin-b"
+        ],
+        "byzantine_count": 1,
+        "byzantine_origins": [
+          "origin-byzantine"
+        ],
+        "certificate_hash": "0925e0feb4b974e85d2456b5",
+        "claims": {
+          "origin_ids": [
+            "origin-a",
+            "origin-b",
+            "origin-byzantine"
+          ],
+          "roots": [
+            "repo.import-health",
+            "capability.ledger-inventory",
+            "unbound.milestone-gate"
+          ],
+          "votes_accepted": 3
+        },
+        "goal": "quorum multi-origin consensus",
+        "issued_at": "2026-08-15T08:04:15.655027Z",
+        "kind": "quorum_certificate",
+        "lineage_head_hash": "f51d64d8ba1b76b8989988a7",
+        "member_count": 3,
+        "ok": true,
+        "origin_count": 3,
+        "origin_hashes": [
+          "07ef1adf71c8f2009b30b602",
+          "09eb9266581a2fcc72fc7b40",
+          "88898e61a2b413ce19a08ea9"
+        ],
+        "package_hash": "066545df3053adf5",
+        "schema_version": 1,
+        "threshold": 2,
+        "used_skill_route_discovery": false
+      }
+    },
     "0b609b51537e393d6351ddf9": {
       "certificate_hash": "0b609b51537e393d6351ddf9",
       "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260814T155534Z-3869c608\\artifacts\\sovereignty-certificates\\sovereignty-0b609b51537e393d6351ddf9.json",
@@ -76,23 +122,133 @@
         "schema_version": 1
       }
     },
-    "1514d8dffd7f4dc380eb92d2": {
-      "certificate_hash": "1514d8dffd7f4dc380eb92d2",
-      "certificate_path": "artifacts/federation-origins/origin-c-attest.json",
-      "origin_id": "origin-byzantine",
+    "0c523bab6627183cd34945e5": {
+      "certificate_hash": "0c523bab6627183cd34945e5",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260814T204008Z-8be5d77f\\artifacts\\sovereignty-certificates\\sovereignty-0c523bab6627183cd34945e5.json",
+      "origin_id": "origin-a",
       "payload": {
-        "certificate_hash": "1514d8dffd7f4dc380eb92d2",
-        "issued_at": "2026-08-14T17:45:46.497549Z",
-        "kind": "federation_origin_attestation",
-        "lineage_head_hash": "11415aff57f83568441d81da",
-        "member_count": 3,
-        "origin_id": "origin-c",
+        "certificate_hash": "0c523bab6627183cd34945e5",
+        "claims": {
+          "ablation_ok": true,
+          "adversarial_ok": true,
+          "assurance_ok": true,
+          "contract_met": true,
+          "contract_ok": true,
+          "machine_checkable": true,
+          "no_skill_route": true,
+          "transfer_ok": true
+        },
+        "done_when": "min_capabilities:5; capability_exists:repo.import-health; no_skill_route",
+        "evidence": {
+          "assurance": {
+            "ablation": {
+              "failed_phases": [],
+              "live_ledger_mutated": false,
+              "ok": true,
+              "passed_count": 4,
+              "phase_count": 4
+            },
+            "adversarial": {
+              "negative_count": 4,
+              "negatives_ok": true,
+              "negatives_passed": 4,
+              "ok": true,
+              "positive_ok": true
+            },
+            "ok": true,
+            "transfer": {
+              "member_count": 3,
+              "ok": true,
+              "package_hash": "7878a785b9718369",
+              "proved_count": 3
+            }
+          },
+          "contract": {
+            "failed_count": 0,
+            "machine_checkable": true,
+            "met": true,
+            "mission_ok": null,
+            "ok": true,
+            "passed_count": 3
+          },
+          "metrics": {
+            "count": 225,
+            "primitive_count": 155,
+            "proved_count": 225,
+            "proved_ratio": 1.0
+          }
+        },
+        "goal": "quorum multi-origin consensus",
+        "issued_at": "2026-08-15T07:50:52.665192Z",
+        "kind": "sovereignty_certificate",
+        "ok": true,
         "package_hash": "7878a785b9718369",
-        "roots": [
-          "repo.import-health",
-          "capability.ledger-inventory",
-          "unbound.milestone-gate"
-        ],
+        "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260814T204008Z-8be5d77f",
+        "schema_version": 1
+      }
+    },
+    "0fc1441193603f56f3a2c3ba": {
+      "certificate_hash": "0fc1441193603f56f3a2c3ba",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260814T204008Z-8be5d77f\\artifacts\\sovereignty-certificates\\sovereignty-0fc1441193603f56f3a2c3ba.json",
+      "origin_id": "origin-a",
+      "payload": {
+        "certificate_hash": "0fc1441193603f56f3a2c3ba",
+        "claims": {
+          "ablation_ok": true,
+          "adversarial_ok": true,
+          "assurance_ok": true,
+          "contract_met": true,
+          "contract_ok": true,
+          "machine_checkable": true,
+          "no_skill_route": true,
+          "transfer_ok": true
+        },
+        "done_when": "min_capabilities:5; capability_exists:repo.import-health; no_skill_route",
+        "evidence": {
+          "assurance": {
+            "ablation": {
+              "failed_phases": [],
+              "live_ledger_mutated": false,
+              "ok": true,
+              "passed_count": 4,
+              "phase_count": 4
+            },
+            "adversarial": {
+              "negative_count": 4,
+              "negatives_ok": true,
+              "negatives_passed": 4,
+              "ok": true,
+              "positive_ok": true
+            },
+            "ok": true,
+            "transfer": {
+              "member_count": 3,
+              "ok": true,
+              "package_hash": "7878a785b9718369",
+              "proved_count": 3
+            }
+          },
+          "contract": {
+            "failed_count": 0,
+            "machine_checkable": true,
+            "met": true,
+            "mission_ok": null,
+            "ok": true,
+            "passed_count": 3
+          },
+          "metrics": {
+            "count": 225,
+            "primitive_count": 155,
+            "proved_count": 225,
+            "proved_ratio": 1.0
+          }
+        },
+        "goal": "reconcile:quorum multi-origin consensus",
+        "issued_at": "2026-08-15T07:42:46.976136Z",
+        "kind": "sovereignty_certificate",
+        "ok": true,
+        "package_hash": "7878a785b9718369",
+        "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260814T204008Z-8be5d77f",
         "schema_version": 1
       }
     },
@@ -223,25 +379,6 @@
         "ok": true,
         "package_hash": "7878a785b9718369",
         "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260814T155534Z-3869c608",
-        "schema_version": 1
-      }
-    },
-    "26e41b7d3556f7f7aabdc451": {
-      "certificate_hash": "26e41b7d3556f7f7aabdc451",
-      "certificate_path": "artifacts/federation-origins/origin-b-attest.json",
-      "origin_id": "origin-b",
-      "payload": {
-        "certificate_hash": "26e41b7d3556f7f7aabdc451",
-        "issued_at": "2026-08-14T17:45:46.463433Z",
-        "kind": "federation_origin_attestation",
-        "lineage_head_hash": "8c93bf9956ce3ba17351362f",
-        "member_count": 2,
-        "origin_id": "origin-b",
-        "package_hash": "8ece9182045d973a",
-        "roots": [
-          "repo.import-health",
-          "capability.ledger-inventory"
-        ],
         "schema_version": 1
       }
     },
@@ -700,50 +837,88 @@
         "schema_version": 1
       }
     },
-    "7cb6088ab20721f80aae9ef8": {
-      "certificate_hash": "7cb6088ab20721f80aae9ef8",
-      "certificate_path": "artifacts/quorum-bundles/quorum-certificate.json",
-      "origin_id": "quorum",
+    "8fd96d00a9858919b5cb755c": {
+      "certificate_hash": "8fd96d00a9858919b5cb755c",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260814T204008Z-8be5d77f\\artifacts\\sovereignty-certificates\\sovereignty-8fd96d00a9858919b5cb755c.json",
+      "origin_id": "origin-a",
       "payload": {
-        "agreeing_count": 2,
-        "agreeing_origins": [
-          "origin-a",
-          "origin-b"
-        ],
-        "byzantine_count": 1,
-        "byzantine_origins": [
-          "origin-byzantine"
-        ],
-        "certificate_hash": "7cb6088ab20721f80aae9ef8",
+        "certificate_hash": "8fd96d00a9858919b5cb755c",
         "claims": {
-          "origin_ids": [
-            "origin-a",
-            "origin-b",
-            "origin-byzantine"
-          ],
-          "roots": [
-            "repo.import-health",
-            "capability.ledger-inventory",
-            "unbound.milestone-gate"
-          ],
-          "votes_accepted": 3
+          "ablation_ok": true,
+          "adversarial_ok": true,
+          "assurance_ok": true,
+          "contract_met": true,
+          "contract_ok": true,
+          "machine_checkable": true,
+          "no_skill_route": true,
+          "transfer_ok": true
+        },
+        "done_when": "min_capabilities:5; capability_exists:repo.import-health; no_skill_route",
+        "evidence": {
+          "assurance": {
+            "ablation": {
+              "failed_phases": [],
+              "live_ledger_mutated": false,
+              "ok": true,
+              "passed_count": 4,
+              "phase_count": 4
+            },
+            "adversarial": {
+              "negative_count": 4,
+              "negatives_ok": true,
+              "negatives_passed": 4,
+              "ok": true,
+              "positive_ok": true
+            },
+            "ok": true,
+            "transfer": {
+              "member_count": 3,
+              "ok": true,
+              "package_hash": "7878a785b9718369",
+              "proved_count": 3
+            }
+          },
+          "contract": {
+            "failed_count": 0,
+            "machine_checkable": true,
+            "met": true,
+            "mission_ok": null,
+            "ok": true,
+            "passed_count": 3
+          },
+          "metrics": {
+            "count": 225,
+            "primitive_count": 155,
+            "proved_count": 225,
+            "proved_ratio": 1.0
+          }
         },
         "goal": "quorum multi-origin consensus",
-        "issued_at": "2026-08-14T17:45:46.498214Z",
-        "kind": "quorum_certificate",
-        "lineage_head_hash": "b67de25997c26805439acb76",
-        "member_count": 3,
+        "issued_at": "2026-08-15T07:42:44.679645Z",
+        "kind": "sovereignty_certificate",
         "ok": true,
-        "origin_count": 3,
-        "origin_hashes": [
-          "6e703a51403f0aa86e5a0d7c",
-          "71b243f90584f317ee81a081",
-          "15ccf652c9c450ac0d372186"
+        "package_hash": "7878a785b9718369",
+        "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260814T204008Z-8be5d77f",
+        "schema_version": 1
+      }
+    },
+    "9c381d7760aef4cc44a219a5": {
+      "certificate_hash": "9c381d7760aef4cc44a219a5",
+      "certificate_path": "artifacts/federation-origins/origin-b-attest.json",
+      "origin_id": "origin-b",
+      "payload": {
+        "certificate_hash": "9c381d7760aef4cc44a219a5",
+        "issued_at": "2026-08-15T08:04:15.615064Z",
+        "kind": "federation_origin_attestation",
+        "lineage_head_hash": "c46c1f220a2696be7b047dc9",
+        "member_count": 2,
+        "origin_id": "origin-b",
+        "package_hash": "8ece9182045d973a",
+        "roots": [
+          "repo.import-health",
+          "capability.ledger-inventory"
         ],
-        "package_hash": "066545df3053adf5",
-        "schema_version": 1,
-        "threshold": 2,
-        "used_skill_route_discovery": false
+        "schema_version": 1
       }
     },
     "a897144711fcde6bbf32a8ac": {
@@ -808,6 +983,136 @@
         "ok": true,
         "package_hash": "7878a785b9718369",
         "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260814T155534Z-3869c608",
+        "schema_version": 1
+      }
+    },
+    "af14ac4191520465843dbf04": {
+      "certificate_hash": "af14ac4191520465843dbf04",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260814T204008Z-8be5d77f\\artifacts\\sovereignty-certificates\\sovereignty-af14ac4191520465843dbf04.json",
+      "origin_id": "origin-a",
+      "payload": {
+        "certificate_hash": "af14ac4191520465843dbf04",
+        "claims": {
+          "ablation_ok": true,
+          "adversarial_ok": true,
+          "assurance_ok": true,
+          "contract_met": true,
+          "contract_ok": true,
+          "machine_checkable": true,
+          "no_skill_route": true,
+          "transfer_ok": true
+        },
+        "done_when": "min_capabilities:5; capability_exists:repo.import-health; no_skill_route",
+        "evidence": {
+          "assurance": {
+            "ablation": {
+              "failed_phases": [],
+              "live_ledger_mutated": false,
+              "ok": true,
+              "passed_count": 4,
+              "phase_count": 4
+            },
+            "adversarial": {
+              "negative_count": 4,
+              "negatives_ok": true,
+              "negatives_passed": 4,
+              "ok": true,
+              "positive_ok": true
+            },
+            "ok": true,
+            "transfer": {
+              "member_count": 3,
+              "ok": true,
+              "package_hash": "7878a785b9718369",
+              "proved_count": 3
+            }
+          },
+          "contract": {
+            "failed_count": 0,
+            "machine_checkable": true,
+            "met": true,
+            "mission_ok": null,
+            "ok": true,
+            "passed_count": 3
+          },
+          "metrics": {
+            "count": 225,
+            "primitive_count": 155,
+            "proved_count": 224,
+            "proved_ratio": 0.9955555555555555
+          }
+        },
+        "goal": "reconcile:quorum multi-origin consensus",
+        "issued_at": "2026-08-15T08:04:14.043418Z",
+        "kind": "sovereignty_certificate",
+        "ok": true,
+        "package_hash": "7878a785b9718369",
+        "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260814T204008Z-8be5d77f",
+        "schema_version": 1
+      }
+    },
+    "b4c4b64d806f1106c9a94e48": {
+      "certificate_hash": "b4c4b64d806f1106c9a94e48",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260814T204008Z-8be5d77f\\artifacts\\sovereignty-certificates\\sovereignty-b4c4b64d806f1106c9a94e48.json",
+      "origin_id": "origin-a",
+      "payload": {
+        "certificate_hash": "b4c4b64d806f1106c9a94e48",
+        "claims": {
+          "ablation_ok": true,
+          "adversarial_ok": true,
+          "assurance_ok": true,
+          "contract_met": true,
+          "contract_ok": true,
+          "machine_checkable": true,
+          "no_skill_route": true,
+          "transfer_ok": true
+        },
+        "done_when": "min_capabilities:5; capability_exists:repo.import-health; no_skill_route",
+        "evidence": {
+          "assurance": {
+            "ablation": {
+              "failed_phases": [],
+              "live_ledger_mutated": false,
+              "ok": true,
+              "passed_count": 4,
+              "phase_count": 4
+            },
+            "adversarial": {
+              "negative_count": 4,
+              "negatives_ok": true,
+              "negatives_passed": 4,
+              "ok": true,
+              "positive_ok": true
+            },
+            "ok": true,
+            "transfer": {
+              "member_count": 3,
+              "ok": true,
+              "package_hash": "7878a785b9718369",
+              "proved_count": 3
+            }
+          },
+          "contract": {
+            "failed_count": 0,
+            "machine_checkable": true,
+            "met": true,
+            "mission_ok": null,
+            "ok": true,
+            "passed_count": 3
+          },
+          "metrics": {
+            "count": 225,
+            "primitive_count": 155,
+            "proved_count": 225,
+            "proved_ratio": 1.0
+          }
+        },
+        "goal": "reconcile:quorum multi-origin consensus",
+        "issued_at": "2026-08-15T07:50:54.974938Z",
+        "kind": "sovereignty_certificate",
+        "ok": true,
+        "package_hash": "7878a785b9718369",
+        "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260814T204008Z-8be5d77f",
         "schema_version": 1
       }
     },
@@ -941,6 +1246,91 @@
         "schema_version": 1
       }
     },
+    "dd180e6a5f2b1480012e037f": {
+      "certificate_hash": "dd180e6a5f2b1480012e037f",
+      "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260814T204008Z-8be5d77f\\artifacts\\sovereignty-certificates\\sovereignty-dd180e6a5f2b1480012e037f.json",
+      "origin_id": "origin-a",
+      "payload": {
+        "certificate_hash": "dd180e6a5f2b1480012e037f",
+        "claims": {
+          "ablation_ok": true,
+          "adversarial_ok": true,
+          "assurance_ok": true,
+          "contract_met": true,
+          "contract_ok": true,
+          "machine_checkable": true,
+          "no_skill_route": true,
+          "transfer_ok": true
+        },
+        "done_when": "min_capabilities:5; capability_exists:repo.import-health; no_skill_route",
+        "evidence": {
+          "assurance": {
+            "ablation": {
+              "failed_phases": [],
+              "live_ledger_mutated": false,
+              "ok": true,
+              "passed_count": 4,
+              "phase_count": 4
+            },
+            "adversarial": {
+              "negative_count": 4,
+              "negatives_ok": true,
+              "negatives_passed": 4,
+              "ok": true,
+              "positive_ok": true
+            },
+            "ok": true,
+            "transfer": {
+              "member_count": 3,
+              "ok": true,
+              "package_hash": "7878a785b9718369",
+              "proved_count": 3
+            }
+          },
+          "contract": {
+            "failed_count": 0,
+            "machine_checkable": true,
+            "met": true,
+            "mission_ok": null,
+            "ok": true,
+            "passed_count": 3
+          },
+          "metrics": {
+            "count": 225,
+            "primitive_count": 155,
+            "proved_count": 224,
+            "proved_ratio": 0.9955555555555555
+          }
+        },
+        "goal": "quorum multi-origin consensus",
+        "issued_at": "2026-08-15T08:04:11.638848Z",
+        "kind": "sovereignty_certificate",
+        "ok": true,
+        "package_hash": "7878a785b9718369",
+        "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260814T204008Z-8be5d77f",
+        "schema_version": 1
+      }
+    },
+    "ec2f3371e5874ce3a4f164b6": {
+      "certificate_hash": "ec2f3371e5874ce3a4f164b6",
+      "certificate_path": "artifacts/federation-origins/origin-c-attest.json",
+      "origin_id": "origin-byzantine",
+      "payload": {
+        "certificate_hash": "ec2f3371e5874ce3a4f164b6",
+        "issued_at": "2026-08-15T08:04:15.654230Z",
+        "kind": "federation_origin_attestation",
+        "lineage_head_hash": "fbbd3ec0e13cff107f46f915",
+        "member_count": 3,
+        "origin_id": "origin-c",
+        "package_hash": "7878a785b9718369",
+        "roots": [
+          "repo.import-health",
+          "capability.ledger-inventory",
+          "unbound.milestone-gate"
+        ],
+        "schema_version": 1
+      }
+    },
     "fb320731059fa26f1dabef5b": {
       "certificate_hash": "fb320731059fa26f1dabef5b",
       "certificate_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260814T155534Z-3869c608\\artifacts\\sovereignty-certificates\\sovereignty-fb320731059fa26f1dabef5b.json",
@@ -1026,39 +1416,39 @@
         "detail": {
           "origins": [
             {
-              "bundle_hash": "6e703a51403f0aa86e5a0d7c",
+              "bundle_hash": "07ef1adf71c8f2009b30b602",
               "byzantine": false,
-              "lineage_entry_count": 42,
-              "lineage_head_hash": "b928db5f1763a692e4ffb67f",
+              "lineage_entry_count": 60,
+              "lineage_head_hash": "61c47c988c3927b7d56d3eb9",
               "member_count": 3,
               "origin_id": "origin-a",
               "package_hash": "7878a785b9718369"
             },
             {
-              "bundle_hash": "71b243f90584f317ee81a081",
+              "bundle_hash": "09eb9266581a2fcc72fc7b40",
               "byzantine": false,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "8c93bf9956ce3ba17351362f",
+              "lineage_head_hash": "c46c1f220a2696be7b047dc9",
               "member_count": 2,
               "origin_id": "origin-b",
               "package_hash": "8ece9182045d973a"
             },
             {
-              "bundle_hash": "15ccf652c9c450ac0d372186",
+              "bundle_hash": "88898e61a2b413ce19a08ea9",
               "byzantine": true,
               "lineage_entry_count": 2,
-              "lineage_head_hash": "11415aff57f83568441d81da",
+              "lineage_head_hash": "fbbd3ec0e13cff107f46f915",
               "member_count": 3,
               "origin_id": "origin-byzantine",
               "package_hash": "7d88f7661e8407af"
             }
           ]
         },
-        "entry_hash": "fd619a49b98f84437409c8de",
+        "entry_hash": "19d4723abff67eb1bd7e0397",
         "entry_kind": "quorum_origin_manifest",
         "goal": "quorum multi-origin consensus",
         "index": 0,
-        "issued_at": "2026-08-14T17:45:46.498053Z",
+        "issued_at": "2026-08-15T08:04:15.654822Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1082,16 +1472,16 @@
         },
         "detail": {
           "origin_heads": [
-            "b928db5f1763a692e4ffb67f",
-            "8c93bf9956ce3ba17351362f",
-            "11415aff57f83568441d81da"
+            "61c47c988c3927b7d56d3eb9",
+            "c46c1f220a2696be7b047dc9",
+            "fbbd3ec0e13cff107f46f915"
           ]
         },
-        "entry_hash": "e461af3c59f341868d046dc6",
+        "entry_hash": "a6de29b8a8a271fcaea2b5c6",
         "entry_kind": "quorum_vote",
         "goal": "quorum multi-origin consensus",
         "index": 1,
-        "issued_at": "2026-08-14T17:45:46.498078Z",
+        "issued_at": "2026-08-15T08:04:15.654852Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1099,7 +1489,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "fd619a49b98f84437409c8de"
+        "parent_hash": "19d4723abff67eb1bd7e0397"
       },
       {
         "certificate_hash": "",
@@ -1116,11 +1506,11 @@
             "origin-byzantine"
           ]
         },
-        "entry_hash": "bb53f91b62824c2a3efe8299",
+        "entry_hash": "81bdddf93d76b5bebcecd550",
         "entry_kind": "quorum_byzantine_exclude",
         "goal": "quorum multi-origin consensus",
         "index": 2,
-        "issued_at": "2026-08-14T17:45:46.498092Z",
+        "issued_at": "2026-08-15T08:04:15.654870Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1128,7 +1518,7 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "e461af3c59f341868d046dc6"
+        "parent_hash": "a6de29b8a8a271fcaea2b5c6"
       },
       {
         "certificate_hash": "",
@@ -1148,16 +1538,16 @@
             "origin-byzantine"
           ],
           "origin_bundle_hashes": [
-            "6e703a51403f0aa86e5a0d7c",
-            "71b243f90584f317ee81a081",
-            "15ccf652c9c450ac0d372186"
+            "07ef1adf71c8f2009b30b602",
+            "09eb9266581a2fcc72fc7b40",
+            "88898e61a2b413ce19a08ea9"
           ]
         },
-        "entry_hash": "b67de25997c26805439acb76",
+        "entry_hash": "f51d64d8ba1b76b8989988a7",
         "entry_kind": "quorum_seal",
         "goal": "quorum multi-origin consensus",
         "index": 3,
-        "issued_at": "2026-08-14T17:45:46.498105Z",
+        "issued_at": "2026-08-15T08:04:15.654887Z",
         "metrics": {
           "count": null,
           "primitive_count": null,
@@ -1165,41 +1555,41 @@
           "proved_ratio": null
         },
         "package_hash": "066545df3053adf5",
-        "parent_hash": "bb53f91b62824c2a3efe8299"
+        "parent_hash": "81bdddf93d76b5bebcecd550"
       }
     ],
     "entry_count": 4,
-    "head_hash": "b67de25997c26805439acb76",
+    "head_hash": "f51d64d8ba1b76b8989988a7",
     "kind": "capability_lineage",
     "schema_version": 1,
-    "updated_at": "2026-08-14T17:45:46.498116Z"
+    "updated_at": "2026-08-15T08:04:15.654901Z"
   },
   "lineage_entry_count": 4,
-  "lineage_head_hash": "b67de25997c26805439acb76",
+  "lineage_head_hash": "f51d64d8ba1b76b8989988a7",
   "member_count": 3,
   "ok": true,
   "origin_count": 3,
   "origins": [
     {
-      "bundle_hash": "6e703a51403f0aa86e5a0d7c",
+      "bundle_hash": "07ef1adf71c8f2009b30b602",
       "byzantine": false,
-      "lineage_head_hash": "b928db5f1763a692e4ffb67f",
+      "lineage_head_hash": "61c47c988c3927b7d56d3eb9",
       "member_count": 3,
       "origin_id": "origin-a",
       "package_hash": "7878a785b9718369"
     },
     {
-      "bundle_hash": "71b243f90584f317ee81a081",
+      "bundle_hash": "09eb9266581a2fcc72fc7b40",
       "byzantine": false,
-      "lineage_head_hash": "8c93bf9956ce3ba17351362f",
+      "lineage_head_hash": "c46c1f220a2696be7b047dc9",
       "member_count": 2,
       "origin_id": "origin-b",
       "package_hash": "8ece9182045d973a"
     },
     {
-      "bundle_hash": "15ccf652c9c450ac0d372186",
+      "bundle_hash": "88898e61a2b413ce19a08ea9",
       "byzantine": true,
-      "lineage_head_hash": "11415aff57f83568441d81da",
+      "lineage_head_hash": "fbbd3ec0e13cff107f46f915",
       "member_count": 3,
       "origin_id": "origin-byzantine",
       "package_hash": "7d88f7661e8407af"
@@ -1214,7 +1604,7 @@
     "byzantine_origins": [
       "origin-byzantine"
     ],
-    "exported_at": "2026-08-14T17:45:46.498021Z",
+    "exported_at": "2026-08-15T08:04:15.654785Z",
     "federated": true,
     "member_count": 3,
     "member_ids": [
@@ -1251,7 +1641,7 @@
         "id": "capability.ledger-inventory",
         "kind": "python",
         "last_proof_exit_code": 0,
-        "last_proved_at": "2026-08-14T17:36:31.537403Z",
+        "last_proved_at": "2026-08-15T07:49:44.725681Z",
         "name": "Capability ledger inventory",
         "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_ledger_inventory; r=builtin_ledger_inventory(); assert r['ok'] and r['count'] >= 2\"",
         "source_milestone": null,
@@ -1260,7 +1650,7 @@
           "bootstrap",
           "compounder"
         ],
-        "updated_at": "2026-08-14T17:45:45.582731Z"
+        "updated_at": "2026-08-15T08:04:14.628301Z"
       },
       "repo.import-health": {
         "behavior_paths": [
@@ -1275,7 +1665,7 @@
         "id": "repo.import-health",
         "kind": "python",
         "last_proof_exit_code": 0,
-        "last_proved_at": "2026-08-14T17:45:44.901271Z",
+        "last_proved_at": "2026-08-15T08:04:13.769436Z",
         "name": "Repository import health",
         "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_repo_import_health; r=builtin_repo_import_health(); assert r['ok'] and not r['skill_route_symbols_in_compounder']\"",
         "source_milestone": null,
@@ -1284,7 +1674,7 @@
           "bootstrap",
           "health"
         ],
-        "updated_at": "2026-08-14T17:45:45.582271Z"
+        "updated_at": "2026-08-15T08:04:14.627700Z"
       },
       "unbound.milestone-gate": {
         "behavior_paths": [
@@ -1300,7 +1690,7 @@
         "id": "unbound.milestone-gate",
         "kind": "python",
         "last_proof_exit_code": 0,
-        "last_proved_at": "2026-08-14T17:36:31.853617Z",
+        "last_proved_at": "2026-08-15T07:49:44.961676Z",
         "name": "Unbound milestone gate smoke",
         "proof_command": "uv run python -c \"from blackhole_agent.capability_compounder import builtin_milestone_gate_smoke; r=builtin_milestone_gate_smoke(); assert r['ok']\"",
         "source_milestone": null,
@@ -1309,7 +1699,7 @@
           "bootstrap",
           "unbound"
         ],
-        "updated_at": "2026-08-14T17:45:45.582522Z"
+        "updated_at": "2026-08-15T08:04:14.628045Z"
       }
     },
     "ok": true,
@@ -1336,7 +1726,7 @@
     "byzantine_origins": [
       "origin-byzantine"
     ],
-    "certificate_hash": "7cb6088ab20721f80aae9ef8",
+    "certificate_hash": "0925e0feb4b974e85d2456b5",
     "claims": {
       "origin_ids": [
         "origin-a",
@@ -1351,23 +1741,23 @@
       "votes_accepted": 3
     },
     "goal": "quorum multi-origin consensus",
-    "issued_at": "2026-08-14T17:45:46.498214Z",
+    "issued_at": "2026-08-15T08:04:15.655027Z",
     "kind": "quorum_certificate",
-    "lineage_head_hash": "b67de25997c26805439acb76",
+    "lineage_head_hash": "f51d64d8ba1b76b8989988a7",
     "member_count": 3,
     "ok": true,
     "origin_count": 3,
     "origin_hashes": [
-      "6e703a51403f0aa86e5a0d7c",
-      "71b243f90584f317ee81a081",
-      "15ccf652c9c450ac0d372186"
+      "07ef1adf71c8f2009b30b602",
+      "09eb9266581a2fcc72fc7b40",
+      "88898e61a2b413ce19a08ea9"
     ],
     "package_hash": "066545df3053adf5",
     "schema_version": 1,
     "threshold": 2,
     "used_skill_route_discovery": false
   },
-  "quorum_hash": "3461583f375f589b95098f11",
+  "quorum_hash": "f1a029c0311b3e847d68712e",
   "quorum_met": true,
   "quorum_size": 2,
   "schema_version": 1,

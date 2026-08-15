@@ -1,0 +1,171 @@
+{
+  "action": "repair_plane",
+  "contract": {
+    "action": "evaluate_outcome_contract",
+    "failed": [],
+    "failed_count": 0,
+    "ledger_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260814T204008Z-8be5d77f\\capabilities\\ledger.json",
+    "machine_checkable": true,
+    "met": true,
+    "metrics": {
+      "count": 226,
+      "integrity_score": null,
+      "novel_ready_count": 0,
+      "primitive_count": 155,
+      "proved_count": 226,
+      "proved_ratio": 1.0,
+      "unique_composed_coverage_sets": 54,
+      "used_skill_route_discovery": false
+    },
+    "notes": [],
+    "ok": true,
+    "parse": {
+      "notes": [],
+      "predicate_count": 5,
+      "raw": "repair_plane_ok; repaired_ok; min_repair_actions:2; capability_exists:repo.import-health; no_skill_route"
+    },
+    "passed_count": 5,
+    "predicate_count": 5,
+    "results": [
+      {
+        "arg": "",
+        "detail": "repair_plane_ok=True",
+        "kind": "repair_plane_ok",
+        "passed": true,
+        "source": "repair_plane_ok"
+      },
+      {
+        "arg": "",
+        "detail": "repaired_ok=True",
+        "kind": "repaired_ok",
+        "passed": true,
+        "source": "repaired_ok"
+      },
+      {
+        "arg": "2",
+        "detail": "repair_actions=2 need>=2",
+        "kind": "min_repair_actions",
+        "passed": true,
+        "source": "min_repair_actions:2"
+      },
+      {
+        "arg": "repo.import-health",
+        "detail": "exists=True id=repo.import-health",
+        "kind": "capability_exists",
+        "passed": true,
+        "source": "capability_exists:repo.import-health"
+      },
+      {
+        "arg": "",
+        "detail": "used_skill_route_discovery=False",
+        "kind": "no_skill_route",
+        "passed": true,
+        "source": "no_skill_route"
+      }
+    ],
+    "used_skill_route_discovery": false
+  },
+  "generated_at": "2026-08-15T07:44:01.572847Z",
+  "ledger_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260814T204008Z-8be5d77f\\capabilities\\ledger.json",
+  "live_repairs": [],
+  "ok": true,
+  "payload_digest": "7f101e169e5019d0b5d536cc5dcd7d4324d198c4dbedab48b03f817614f06e5d",
+  "repair_action_count": 2,
+  "synthetic_repair": {
+    "bogus_interpreter": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260814T204008Z-8be5d77f\\.blackhole-repair-nonexistent\\Scripts\\python.exe",
+    "capability_id": "capability.ledger-inventory",
+    "dependency_stamps_after": {
+      "repo.import-health": 0
+    },
+    "diagnosis": {
+      "capability_id": "capability.ledger-inventory",
+      "failure_class": "stale_proof_interpreter",
+      "healthy": false,
+      "ok": false,
+      "replay": {
+        "capability_id": "capability.ledger-inventory",
+        "command": [
+          "shell",
+          "\"C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260814T204008Z-8be5d77f\\.blackhole-repair-nonexistent\\Scripts\\python.exe\" -c \"from blackhole_agent.capability_compounder import builtin_ledger_inventory; r=builtin_ledger_inventory(); assert r['ok'] and r['count'] >= 2\""
+        ],
+        "exit_code": 1,
+        "kind": "proof",
+        "ok": false,
+        "stderr": "",
+        "stdout": "",
+        "summary": "exit 1"
+      },
+      "stale_interpreter": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260814T204008Z-8be5d77f\\.blackhole-repair-nonexistent\\Scripts\\python.exe"
+    },
+    "falsified_dependencies": [
+      "repo.import-health"
+    ],
+    "honest": true,
+    "last_proof_exit_code": 0,
+    "ok": true,
+    "proof": {
+      "capability_id": "capability.ledger-inventory",
+      "command": [
+        "shell",
+        "uv run python -c \"from blackhole_agent.capability_compounder import builtin_ledger_inventory; r=builtin_ledger_inventory(); assert r['ok'] and r['count'] >= 2\""
+      ],
+      "exit_code": 0,
+      "kind": "proof",
+      "ok": true,
+      "stderr": "",
+      "stdout": "",
+      "summary": "exit 0"
+    },
+    "repair_actions": [
+      "regenerate_proof_command",
+      "reprove_dependency_chain"
+    ],
+    "verdict": "repaired"
+  },
+  "target_id": "capability.ledger-inventory",
+  "unrepairable_check": {
+    "capability_id": "capability.ledger-inventory",
+    "diagnosis": {
+      "capability_id": "capability.ledger-inventory",
+      "failure_class": "proof_replay_failed",
+      "healthy": false,
+      "ok": false,
+      "replay": {
+        "capability_id": "capability.ledger-inventory",
+        "command": [
+          "shell",
+          "\"C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260814T204008Z-8be5d77f\\.venv\\Scripts\\python.exe\" -c \"import sys; sys.exit(1)\""
+        ],
+        "exit_code": 1,
+        "kind": "proof",
+        "ok": false,
+        "stderr": "",
+        "stdout": "",
+        "summary": "exit 1"
+      },
+      "stale_interpreter": null
+    },
+    "honest": true,
+    "last_proof_exit_code": 1,
+    "ok": false,
+    "proof": {
+      "capability_id": "capability.ledger-inventory",
+      "command": [
+        "shell",
+        "\"C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260814T204008Z-8be5d77f\\.venv\\Scripts\\python.exe\" -c \"import sys; sys.exit(1)\""
+      ],
+      "exit_code": 1,
+      "kind": "proof",
+      "ok": false,
+      "stderr": "",
+      "stdout": "",
+      "summary": "exit 1"
+    },
+    "repair_actions": [
+      "reprove_dependency_chain"
+    ],
+    "stamp_after": 1,
+    "verdict": "unrepairable"
+  },
+  "used_skill_route_discovery": false
+}
