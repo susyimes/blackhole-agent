@@ -1,0 +1,39 @@
+{
+  "captured_at": "2026-08-15T16:11:39.538096Z",
+  "kind": "equivalence_snapshot",
+  "name": "log-family-clearing",
+  "probes": [
+    {
+      "id": "clearing-public-surface",
+      "include_private": false,
+      "kind": "api-surface",
+      "modules": [
+        "blackhole_agent.upstream_total_spine_clearing"
+      ]
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "blackhole_agent.upstream_control_engine",
+        "clearing-proof"
+      ],
+      "id": "proof-clearing",
+      "kind": "command"
+    }
+  ],
+  "results": {
+    "clearing-public-surface": {
+      "surfaces": {
+        "blackhole_agent.upstream_total_spine_clearing": "1e878feb599a4d1f6cb87d5b02659c2fe2fee49fe7d1863c238610344fc80c91"
+      }
+    },
+    "proof-clearing": {
+      "exit_code": 1,
+      "stdout_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_form": "raw"
+    }
+  },
+  "schema_version": 1,
+  "snapshot_digest": "a3420d1bd5f598024454f310ff09866b9ab832cce88d1ed5e2f1df13d14b3c56"
+}

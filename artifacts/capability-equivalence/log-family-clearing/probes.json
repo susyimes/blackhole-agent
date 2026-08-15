@@ -1,0 +1,13 @@
+[
+  {
+    "kind": "api-surface",
+    "id": "clearing-public-surface",
+    "modules": ["blackhole_agent.upstream_total_spine_clearing"],
+    "include_private": false
+  },
+  {
+    "kind": "command",
+    "id": "proof-clearing",
+    "argv": ["python", "-m", "blackhole_agent.upstream_control_engine", "clearing-proof"]
+  }
+]
