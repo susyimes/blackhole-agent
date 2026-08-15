@@ -1,5 +1,5 @@
 {
-  "captured_at": "2026-08-15T00:10:16.781338Z",
+  "captured_at": "2026-08-15T01:07:37.806940Z",
   "kind": "equivalence_snapshot",
   "name": "pair-effect-synthesis",
   "probes": [
@@ -12,11 +12,17 @@
       ]
     },
     {
-      "id": "solvency-public-surface",
+      "id": "synthesized-public-surfaces",
       "include_private": false,
       "kind": "api-surface",
       "modules": [
-        "blackhole_agent.upstream_total_spine_solvency"
+        "blackhole_agent.upstream_total_spine_solvency",
+        "blackhole_agent.upstream_total_spine_capital",
+        "blackhole_agent.upstream_total_spine_risk",
+        "blackhole_agent.upstream_total_spine_stress",
+        "blackhole_agent.upstream_total_spine_recovery",
+        "blackhole_agent.upstream_total_spine_resolution",
+        "blackhole_agent.upstream_total_spine_restructuring"
       ]
     },
     {
@@ -459,12 +465,18 @@
       "stdout_digest": "b69037d23954150125105fca56370601a5d2fdeac8d1d48d78ddf2b24de12620",
       "stdout_form": "json"
     },
-    "solvency-public-surface": {
+    "synthesized-public-surfaces": {
       "surfaces": {
-        "blackhole_agent.upstream_total_spine_solvency": "42b92f39ec6a7837965569197b9b9b9cb7ccd1e7e841ae75b5c7dc1b6792019d"
+        "blackhole_agent.upstream_total_spine_capital": "eacbe6d76b060e55926c289aef626ddf2d62503d6e2dfa660e5377b1fafd7277",
+        "blackhole_agent.upstream_total_spine_recovery": "fdbcc8b9793ec2ddf178b0b3db7380b41fa292752bf630edc2b6e2a955d90673",
+        "blackhole_agent.upstream_total_spine_resolution": "48444f27e006eae69ffdf34d32b0b72cc0a267d16407bc4918b436e23f7c77f3",
+        "blackhole_agent.upstream_total_spine_restructuring": "a8c618369cc027e01f6e4d1826e8c58ee393415796994320f4db0a629de97659",
+        "blackhole_agent.upstream_total_spine_risk": "83376f4a0b6eaf1f03a89e304ebd088bed56f589424c48d23e969ca12200c8e8",
+        "blackhole_agent.upstream_total_spine_solvency": "42b92f39ec6a7837965569197b9b9b9cb7ccd1e7e841ae75b5c7dc1b6792019d",
+        "blackhole_agent.upstream_total_spine_stress": "0717a640a3690608207db28071b7983cd54c2d22a318ee77eb893d18a2b23057"
       }
     }
   },
   "schema_version": 1,
-  "snapshot_digest": "a01046ce277870e89b7844c8797f805d2e59fa29411ecc32da54d937a830f461"
+  "snapshot_digest": "a50500ae0e81fade115b63ea825c57e73327ebaff214835dc12e4aec69efc8ed"
 }

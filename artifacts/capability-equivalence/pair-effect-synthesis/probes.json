@@ -9,9 +9,15 @@
  },
  {
   "kind": "api-surface",
-  "id": "solvency-public-surface",
+  "id": "synthesized-public-surfaces",
   "modules": [
-   "blackhole_agent.upstream_total_spine_solvency"
+   "blackhole_agent.upstream_total_spine_solvency",
+   "blackhole_agent.upstream_total_spine_capital",
+   "blackhole_agent.upstream_total_spine_risk",
+   "blackhole_agent.upstream_total_spine_stress",
+   "blackhole_agent.upstream_total_spine_recovery",
+   "blackhole_agent.upstream_total_spine_resolution",
+   "blackhole_agent.upstream_total_spine_restructuring"
   ],
   "include_private": false
  },
