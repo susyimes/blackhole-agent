@@ -268,6 +268,11 @@ from blackhole_agent.capability_compounder import (
     utc_now_iso,
 )
 from blackhole_agent.durable_state import durable_read_path
+from blackhole_agent.upstream_certificate_plane import (
+    load_irreversible_certificate,
+    resolve_certificate_path,
+    write_irreversible_certificate,
+)
 
 SCHEMA_VERSION = 1
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -5444,17 +5449,12 @@ def seal_total_spine_continuity_checkpoint(
 
 def continuity_checkpoint_path(root: Path) -> Path:
     """Resolve ``total-spine-continuity.json`` under a continuity/out root."""
-    path = Path(root)
-    if path.is_file():
-        return path
-    named = path / TOTAL_SPINE_CONTINUITY_FILENAME
-    if named.is_file():
-        return named
-    nested = path / "continuity" / TOTAL_SPINE_CONTINUITY_FILENAME
-    if nested.is_file():
-        return nested
-    # Preferred write location when directory does not yet contain a file.
-    return path / "continuity" / TOTAL_SPINE_CONTINUITY_FILENAME
+    return resolve_certificate_path(
+        Path(root),
+        filename=TOTAL_SPINE_CONTINUITY_FILENAME,
+        subdir="continuity",
+        kind=None,
+    )
 
 
 def write_total_spine_continuity_checkpoint(
@@ -5504,38 +5504,16 @@ def load_total_spine_continuity_checkpoint(
     Raises :class:`StageRefused` when the file is missing, unreadable, or
     tampered (digest mismatch).
     """
-    file_path = continuity_checkpoint_path(Path(path))
-    if not file_path.is_file():
-        raise StageRefused(
-            "total_spine_continuity_missing",
-            f"continuity checkpoint not found at {file_path}",
-        )
-    raw_path = durable_read_path(file_path)
-    try:
-        payload = json.loads(raw_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise StageRefused(
-            "total_spine_continuity_unreadable",
-            f"continuity checkpoint unreadable at {file_path}: {exc}",
-        ) from exc
-    if not isinstance(payload, Mapping):
-        raise StageRefused(
-            "total_spine_continuity_invalid",
-            "continuity checkpoint root must be a JSON object",
-        )
-    verify = verify_total_spine_continuity_checkpoint(payload)
-    if not verify.get("ok"):
-        raise StageRefused(
-            "total_spine_continuity_tampered",
-            f"continuity checkpoint digest mismatch at {file_path} "
-            f"(claimed={verify.get('claimed_digest')!r} "
-            f"expected={verify.get('expected_digest')!r})",
-        )
-    body = dict(payload)
-    body["checkpoint_path"] = str(file_path)
-    body["continuity_verify"] = verify
-    body["total_spine_continuity_loaded"] = True
-    return body
+    return load_irreversible_certificate(
+        path,
+        family="continuity",
+        label="continuity checkpoint",
+        path_key="checkpoint_path",
+        verify_key="continuity_verify",
+        resolve=continuity_checkpoint_path,
+        verify=verify_total_spine_continuity_checkpoint,
+        refused=StageRefused,
+    )
 
 
 def seal_total_spine_continuity_chain(
@@ -5611,44 +5589,13 @@ def seal_total_spine_finality_certificate(
 
 def finality_certificate_path(root: Path) -> Path:
     """Resolve ``total-spine-finality.json`` under a finality/out root."""
-    path = Path(root)
-    if path.is_file():
-        # Explicit certificate file (canonical name or alternate proof path).
-        if path.name == TOTAL_SPINE_FINALITY_FILENAME or path.suffix == ".json":
-            # Prefer the file itself when it is already a JSON certificate.
-            # Callers that pass a continuity file still resolve nearby finality.
-            try:
-                probe = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                probe = None
-            if isinstance(probe, Mapping) and (
-                str(probe.get("kind") or "") == TOTAL_SPINE_FINALITY_KIND
-                or path.name == TOTAL_SPINE_FINALITY_FILENAME
-            ):
-                return path
-        # Allow resume_dir pointing at continuity file: look beside it / parent.
-        parent = path.parent
-        sibling = parent / TOTAL_SPINE_FINALITY_FILENAME
-        if sibling.is_file():
-            return sibling
-        nested = parent / "finality" / TOTAL_SPINE_FINALITY_FILENAME
-        if nested.is_file():
-            return nested
-        # Continuity path is often .../continuity/total-spine-continuity.json
-        grand = parent.parent / "finality" / TOTAL_SPINE_FINALITY_FILENAME
-        if grand.is_file():
-            return grand
-        grand_sib = parent.parent / TOTAL_SPINE_FINALITY_FILENAME
-        if grand_sib.is_file():
-            return grand_sib
-        return parent / "finality" / TOTAL_SPINE_FINALITY_FILENAME
-    named = path / TOTAL_SPINE_FINALITY_FILENAME
-    if named.is_file():
-        return named
-    nested = path / "finality" / TOTAL_SPINE_FINALITY_FILENAME
-    if nested.is_file():
-        return nested
-    return path / "finality" / TOTAL_SPINE_FINALITY_FILENAME
+    return resolve_certificate_path(
+        Path(root),
+        filename=TOTAL_SPINE_FINALITY_FILENAME,
+        subdir="finality",
+        kind=TOTAL_SPINE_FINALITY_KIND,
+        parent_sibling=True,
+    )
 
 
 def write_total_spine_finality_certificate(
@@ -5665,42 +5612,17 @@ def write_total_spine_finality_certificate(
     ``total_spine_finality_supersession_refused`` so completed absolute-tower
     outcomes cannot be rewritten.
     """
-    sealed = seal_total_spine_finality_certificate(body)
-    path = finality_certificate_path(Path(out_root))
-    # Prefer nested finality/ when path does not yet exist as a file.
-    if not path.is_file() and path.name == TOTAL_SPINE_FINALITY_FILENAME:
-        # finality_certificate_path may return preferred write location.
-        pass
-    if path.is_file():
-        try:
-            existing = load_total_spine_finality_certificate(path)
-        except StageRefused:
-            existing = None
-        if existing is not None:
-            existing_digest = str(
-                existing.get("finality_digest")
-                or existing.get("certificate_hash")
-                or ""
-            )
-            new_digest = str(
-                sealed.get("finality_digest")
-                or sealed.get("certificate_hash")
-                or ""
-            )
-            if existing_digest and existing_digest == new_digest and allow_idempotent:
-                existing["finality_path"] = str(path)
-                existing["total_spine_finality_idempotent"] = True
-                return existing
-            raise StageRefused(
-                "total_spine_finality_supersession_refused",
-                f"irreversible finality already sealed at {path} "
-                f"(existing={existing_digest!r} attempted={new_digest!r})",
-            )
-    path.parent.mkdir(parents=True, exist_ok=True)
-    atomic_write_json(path, sealed)
-    sealed["finality_path"] = str(path)
-    sealed["total_spine_finality_idempotent"] = False
-    return sealed
+    return write_irreversible_certificate(
+        out_root,
+        body,
+        family="finality",
+        digest_key="finality_digest",
+        seal=seal_total_spine_finality_certificate,
+        resolve=finality_certificate_path,
+        load=load_total_spine_finality_certificate,
+        allow_idempotent=allow_idempotent,
+        refused=StageRefused,
+    )
 
 
 def verify_total_spine_finality_certificate(
@@ -5744,38 +5666,16 @@ def load_total_spine_finality_certificate(
     Raises :class:`StageRefused` when the file is missing, unreadable, or
     tampered (digest mismatch).
     """
-    file_path = finality_certificate_path(Path(path))
-    if not file_path.is_file():
-        raise StageRefused(
-            "total_spine_finality_missing",
-            f"finality certificate not found at {file_path}",
-        )
-    raw_path = durable_read_path(file_path)
-    try:
-        payload = json.loads(raw_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise StageRefused(
-            "total_spine_finality_unreadable",
-            f"finality certificate unreadable at {file_path}: {exc}",
-        ) from exc
-    if not isinstance(payload, Mapping):
-        raise StageRefused(
-            "total_spine_finality_invalid",
-            "finality certificate root must be a JSON object",
-        )
-    verify = verify_total_spine_finality_certificate(payload)
-    if not verify.get("ok"):
-        raise StageRefused(
-            "total_spine_finality_tampered",
-            f"finality certificate digest mismatch at {file_path} "
-            f"(claimed={verify.get('claimed_digest')!r} "
-            f"expected={verify.get('expected_digest')!r})",
-        )
-    body = dict(payload)
-    body["finality_path"] = str(file_path)
-    body["finality_verify"] = verify
-    body["total_spine_finality_loaded"] = True
-    return body
+    return load_irreversible_certificate(
+        path,
+        family="finality",
+        label="finality certificate",
+        path_key="finality_path",
+        verify_key="finality_verify",
+        resolve=finality_certificate_path,
+        verify=verify_total_spine_finality_certificate,
+        refused=StageRefused,
+    )
 
 
 def seal_total_spine_finality_chain(
@@ -5940,36 +5840,13 @@ def seal_total_spine_federation_certificate(
 
 def federation_certificate_path(root: Path) -> Path:
     """Resolve ``total-spine-federation.json`` under a federation/out root."""
-    path = Path(root)
-    if path.is_file():
-        if path.name == TOTAL_SPINE_FEDERATION_FILENAME or path.suffix == ".json":
-            try:
-                probe = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                probe = None
-            if isinstance(probe, Mapping) and (
-                str(probe.get("kind") or "") == TOTAL_SPINE_FEDERATION_KIND
-                or path.name == TOTAL_SPINE_FEDERATION_FILENAME
-            ):
-                return path
-        parent = path.parent
-        sibling = parent / TOTAL_SPINE_FEDERATION_FILENAME
-        if sibling.is_file():
-            return sibling
-        nested = parent / "federation" / TOTAL_SPINE_FEDERATION_FILENAME
-        if nested.is_file():
-            return nested
-        grand = parent.parent / "federation" / TOTAL_SPINE_FEDERATION_FILENAME
-        if grand.is_file():
-            return grand
-        return parent / "federation" / TOTAL_SPINE_FEDERATION_FILENAME
-    named = path / TOTAL_SPINE_FEDERATION_FILENAME
-    if named.is_file():
-        return named
-    nested = path / "federation" / TOTAL_SPINE_FEDERATION_FILENAME
-    if nested.is_file():
-        return nested
-    return path / "federation" / TOTAL_SPINE_FEDERATION_FILENAME
+    return resolve_certificate_path(
+        Path(root),
+        filename=TOTAL_SPINE_FEDERATION_FILENAME,
+        subdir="federation",
+        kind=TOTAL_SPINE_FEDERATION_KIND,
+        parent_sibling=False,
+    )
 
 
 def write_total_spine_federation_certificate(
@@ -5983,42 +5860,17 @@ def write_total_spine_federation_certificate(
     Idempotent on identical digests; divergent reseal raises
     ``total_spine_federation_supersession_refused``.
     """
-    sealed = seal_total_spine_federation_certificate(body)
-    path = federation_certificate_path(Path(out_root))
-    if path.is_file():
-        try:
-            existing = load_total_spine_federation_certificate(path)
-        except StageRefused:
-            existing = None
-        if existing is not None:
-            existing_digest = str(
-                existing.get("federation_digest")
-                or existing.get("certificate_hash")
-                or ""
-            )
-            new_digest = str(
-                sealed.get("federation_digest")
-                or sealed.get("certificate_hash")
-                or ""
-            )
-            if (
-                existing_digest
-                and existing_digest == new_digest
-                and allow_idempotent
-            ):
-                existing["federation_path"] = str(path)
-                existing["total_spine_federation_idempotent"] = True
-                return existing
-            raise StageRefused(
-                "total_spine_federation_supersession_refused",
-                f"irreversible federation already sealed at {path} "
-                f"(existing={existing_digest!r} attempted={new_digest!r})",
-            )
-    path.parent.mkdir(parents=True, exist_ok=True)
-    atomic_write_json(path, sealed)
-    sealed["federation_path"] = str(path)
-    sealed["total_spine_federation_idempotent"] = False
-    return sealed
+    return write_irreversible_certificate(
+        out_root,
+        body,
+        family="federation",
+        digest_key="federation_digest",
+        seal=seal_total_spine_federation_certificate,
+        resolve=federation_certificate_path,
+        load=load_total_spine_federation_certificate,
+        allow_idempotent=allow_idempotent,
+        refused=StageRefused,
+    )
 
 
 def verify_total_spine_federation_certificate(
@@ -6068,38 +5920,16 @@ def load_total_spine_federation_certificate(
     path: Path | str,
 ) -> dict[str, Any]:
     """Load and integrity-check a sealed federation certificate."""
-    file_path = federation_certificate_path(Path(path))
-    if not file_path.is_file():
-        raise StageRefused(
-            "total_spine_federation_missing",
-            f"federation certificate not found at {file_path}",
-        )
-    raw_path = durable_read_path(file_path)
-    try:
-        payload = json.loads(raw_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise StageRefused(
-            "total_spine_federation_unreadable",
-            f"federation certificate unreadable at {file_path}: {exc}",
-        ) from exc
-    if not isinstance(payload, Mapping):
-        raise StageRefused(
-            "total_spine_federation_invalid",
-            "federation certificate root must be a JSON object",
-        )
-    verify = verify_total_spine_federation_certificate(payload)
-    if not verify.get("ok"):
-        raise StageRefused(
-            "total_spine_federation_tampered",
-            f"federation certificate digest mismatch at {file_path} "
-            f"(claimed={verify.get('claimed_digest')!r} "
-            f"expected={verify.get('expected_digest')!r})",
-        )
-    body = dict(payload)
-    body["federation_path"] = str(file_path)
-    body["federation_verify"] = verify
-    body["total_spine_federation_loaded"] = True
-    return body
+    return load_irreversible_certificate(
+        path,
+        family="federation",
+        label="federation certificate",
+        path_key="federation_path",
+        verify_key="federation_verify",
+        resolve=federation_certificate_path,
+        verify=verify_total_spine_federation_certificate,
+        refused=StageRefused,
+    )
 
 
 def seal_total_spine_federation_chain(
@@ -6768,39 +6598,13 @@ def seal_total_spine_execution_certificate(
 
 def execution_certificate_path(root: Path) -> Path:
     """Resolve ``total-spine-execution.json`` under an execution/out root."""
-    path = Path(root)
-    if path.is_file():
-        if path.name == TOTAL_SPINE_EXECUTION_FILENAME or path.suffix == ".json":
-            try:
-                probe = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                probe = None
-            if isinstance(probe, Mapping) and (
-                str(probe.get("kind") or "") == TOTAL_SPINE_EXECUTION_KIND
-                or path.name == TOTAL_SPINE_EXECUTION_FILENAME
-            ):
-                return path
-        parent = path.parent
-        sibling = parent / TOTAL_SPINE_EXECUTION_FILENAME
-        if sibling.is_file():
-            return sibling
-        nested = parent / "execution" / TOTAL_SPINE_EXECUTION_FILENAME
-        if nested.is_file():
-            return nested
-        grand = parent.parent / "execution" / TOTAL_SPINE_EXECUTION_FILENAME
-        if grand.is_file():
-            return grand
-        grand_sib = parent.parent / TOTAL_SPINE_EXECUTION_FILENAME
-        if grand_sib.is_file():
-            return grand_sib
-        return parent / "execution" / TOTAL_SPINE_EXECUTION_FILENAME
-    named = path / TOTAL_SPINE_EXECUTION_FILENAME
-    if named.is_file():
-        return named
-    nested = path / "execution" / TOTAL_SPINE_EXECUTION_FILENAME
-    if nested.is_file():
-        return nested
-    return path / "execution" / TOTAL_SPINE_EXECUTION_FILENAME
+    return resolve_certificate_path(
+        Path(root),
+        filename=TOTAL_SPINE_EXECUTION_FILENAME,
+        subdir="execution",
+        kind=TOTAL_SPINE_EXECUTION_KIND,
+        parent_sibling=True,
+    )
 
 
 def write_total_spine_execution_certificate(
@@ -6814,42 +6618,17 @@ def write_total_spine_execution_certificate(
     Irreversible supersession: identical digests return idempotently;
     divergent reseal raises ``total_spine_execution_supersession_refused``.
     """
-    sealed = seal_total_spine_execution_certificate(body)
-    path = execution_certificate_path(Path(out_root))
-    if path.is_file():
-        try:
-            existing = load_total_spine_execution_certificate(path)
-        except StageRefused:
-            existing = None
-        if existing is not None:
-            existing_digest = str(
-                existing.get("execution_digest")
-                or existing.get("certificate_hash")
-                or ""
-            )
-            new_digest = str(
-                sealed.get("execution_digest")
-                or sealed.get("certificate_hash")
-                or ""
-            )
-            if (
-                existing_digest
-                and existing_digest == new_digest
-                and allow_idempotent
-            ):
-                existing["execution_path"] = str(path)
-                existing["total_spine_execution_idempotent"] = True
-                return existing
-            raise StageRefused(
-                "total_spine_execution_supersession_refused",
-                f"irreversible execution already sealed at {path} "
-                f"(existing={existing_digest!r} attempted={new_digest!r})",
-            )
-    path.parent.mkdir(parents=True, exist_ok=True)
-    atomic_write_json(path, sealed)
-    sealed["execution_path"] = str(path)
-    sealed["total_spine_execution_idempotent"] = False
-    return sealed
+    return write_irreversible_certificate(
+        out_root,
+        body,
+        family="execution",
+        digest_key="execution_digest",
+        seal=seal_total_spine_execution_certificate,
+        resolve=execution_certificate_path,
+        load=load_total_spine_execution_certificate,
+        allow_idempotent=allow_idempotent,
+        refused=StageRefused,
+    )
 
 
 def verify_total_spine_execution_certificate(
@@ -6905,39 +6684,20 @@ def verify_total_spine_execution_certificate(
 def load_total_spine_execution_certificate(
     path: Path | str,
 ) -> dict[str, Any]:
-    """Load and integrity-check a sealed execution certificate."""
-    file_path = execution_certificate_path(Path(path))
-    if not file_path.is_file():
-        raise StageRefused(
-            "total_spine_execution_missing",
-            f"execution certificate not found at {file_path}",
-        )
-    raw_path = durable_read_path(file_path)
-    try:
-        payload = json.loads(raw_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise StageRefused(
-            "total_spine_execution_unreadable",
-            f"execution certificate unreadable at {file_path}: {exc}",
-        ) from exc
-    if not isinstance(payload, Mapping):
-        raise StageRefused(
-            "total_spine_execution_invalid",
-            "execution certificate root must be a JSON object",
-        )
-    verify = verify_total_spine_execution_certificate(payload)
-    if not verify.get("ok"):
-        raise StageRefused(
-            "total_spine_execution_tampered",
-            f"execution certificate digest mismatch at {file_path} "
-            f"(claimed={verify.get('claimed_digest')!r} "
-            f"expected={verify.get('expected_digest')!r})",
-        )
-    body = dict(payload)
-    body["execution_path"] = str(file_path)
-    body["execution_verify"] = verify
-    body["total_spine_execution_loaded"] = True
-    return body
+    """Load and integrity-check a sealed execution certificate.
+
+    Raises ``total_spine_execution_tampered`` on digest mismatch.
+    """
+    return load_irreversible_certificate(
+        path,
+        family="execution",
+        label="execution certificate",
+        path_key="execution_path",
+        verify_key="execution_verify",
+        resolve=execution_certificate_path,
+        verify=verify_total_spine_execution_certificate,
+        refused=StageRefused,
+    )
 
 
 def seal_total_spine_execution_chain(

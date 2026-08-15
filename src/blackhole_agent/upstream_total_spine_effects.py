@@ -35,6 +35,11 @@ from blackhole_agent.capability_compounder import (
     utc_now_iso,
 )
 from blackhole_agent.durable_state import durable_read_path
+from blackhole_agent.upstream_certificate_plane import (
+    load_irreversible_certificate,
+    resolve_certificate_path,
+    write_irreversible_certificate,
+)
 
 SCHEMA_VERSION = 1
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -1462,39 +1467,13 @@ def seal_certificate(spec: PairEffectSpec, body: Mapping[str, Any]) -> dict[str,
 def certificate_path(spec: PairEffectSpec, root: Path) -> Path:
     """Resolve the effect certificate under its out root."""
 
-    path = Path(root)
-    if path.is_file():
-        if path.name == spec.filename or path.suffix == ".json":
-            try:
-                probe = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                probe = None
-            if isinstance(probe, Mapping) and (
-                str(probe.get("kind") or "") == spec.kind
-                or path.name == spec.filename
-            ):
-                return path
-        parent = path.parent
-        sibling = parent / spec.filename
-        if sibling.is_file():
-            return sibling
-        nested = parent / spec.effect / spec.filename
-        if nested.is_file():
-            return nested
-        grand = parent.parent / spec.effect / spec.filename
-        if grand.is_file():
-            return grand
-        grand_sib = parent.parent / spec.filename
-        if grand_sib.is_file():
-            return grand_sib
-        return parent / spec.effect / spec.filename
-    named = path / spec.filename
-    if named.is_file():
-        return named
-    nested = path / spec.effect / spec.filename
-    if nested.is_file():
-        return nested
-    return path / spec.effect / spec.filename
+    return resolve_certificate_path(
+        Path(root),
+        filename=spec.filename,
+        subdir=spec.effect,
+        kind=spec.kind,
+        parent_sibling=True,
+    )
 
 
 def write_certificate(
@@ -1506,42 +1485,20 @@ def write_certificate(
 ) -> dict[str, Any]:
     """Seal and atomically write an effect receipt under ``out_root``."""
 
-    sealed = seal_certificate(spec, body)
-    path = certificate_path(spec, Path(out_root))
-    if path.is_file():
-        try:
-            existing = load_certificate(spec, path)
-        except StageRefused:
-            existing = None
-        if existing is not None:
-            existing_digest = str(
-                existing.get(f"{spec.effect}_digest")
-                or existing.get("certificate_hash")
-                or ""
-            )
-            new_digest = str(
-                sealed.get(f"{spec.effect}_digest")
-                or sealed.get("certificate_hash")
-                or ""
-            )
-            if (
-                existing_digest
-                and existing_digest == new_digest
-                and allow_idempotent
-            ):
-                existing[f"{spec.effect}_path"] = str(path)
-                existing[f"{spec.kind}_idempotent"] = True
-                return existing
-            raise StageRefused(
-                f"{spec.kind}_supersession_refused",
-                f"irreversible {spec.pred} already sealed at {path} "
-                f"(existing={existing_digest!r} attempted={new_digest!r})",
-            )
-    path.parent.mkdir(parents=True, exist_ok=True)
-    atomic_write_json(path, sealed)
-    sealed[f"{spec.effect}_path"] = str(path)
-    sealed[f"{spec.kind}_idempotent"] = False
-    return sealed
+    return write_irreversible_certificate(
+        out_root,
+        body,
+        family=spec.effect,
+        digest_key=f"{spec.effect}_digest",
+        seal=lambda payload: seal_certificate(spec, payload),
+        resolve=lambda item: certificate_path(spec, item),
+        load=lambda item: load_certificate(spec, item),
+        allow_idempotent=allow_idempotent,
+        refused=StageRefused,
+        label=spec.pred,
+        path_key=f"{spec.effect}_path",
+        idempotent_key=f"{spec.kind}_idempotent",
+    )
 
 
 def verify_certificate(spec: PairEffectSpec, certificate: Mapping[str, Any]) -> dict[str, Any]:
@@ -1700,43 +1657,19 @@ def verify_certificate(spec: PairEffectSpec, certificate: Mapping[str, Any]) -> 
 def load_certificate(spec: PairEffectSpec, path: Path | str) -> dict[str, Any]:
     """Load and integrity-check a sealed effect receipt."""
 
-    file_path = certificate_path(spec, Path(path))
-    if not file_path.is_file():
-        raise StageRefused(
-            f"{spec.kind}_missing",
-            f"{spec.pred} certificate not found at {file_path}",
-        )
-    raw_path = durable_read_path(file_path)
-    try:
-        payload = json.loads(raw_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise StageRefused(
-            f"{spec.kind}_unreadable",
-            f"{spec.pred} certificate unreadable at {file_path}: {exc}",
-        ) from exc
-    if not isinstance(payload, Mapping):
-        raise StageRefused(
-            f"{spec.kind}_invalid",
-            f"{spec.pred} certificate root must be a JSON object",
-        )
-    if str(payload.get("kind") or "") != spec.kind and not payload.get(spec.kind):
-        raise StageRefused(
-            f"{spec.kind}_missing",
-            f"{spec.pred} certificate not found at {file_path}",
-        )
-    verify = verify_certificate(spec, payload)
-    if not verify.get("ok"):
-        raise StageRefused(
-            f"{spec.kind}_tampered",
-            f"{spec.pred} certificate digest mismatch at {file_path} "
-            f"(claimed={verify.get('claimed_digest')!r} "
-            f"expected={verify.get('expected_digest')!r})",
-        )
-    body = dict(payload)
-    body[f"{spec.effect}_path"] = str(file_path)
-    body[f"{spec.effect}_verify"] = verify
-    body[f"{spec.kind}_loaded"] = True
-    return body
+    return load_irreversible_certificate(
+        path,
+        family=spec.effect,
+        label=f"{spec.pred} certificate",
+        path_key=f"{spec.effect}_path",
+        verify_key=f"{spec.effect}_verify",
+        resolve=lambda item: certificate_path(spec, item),
+        verify=lambda payload: verify_certificate(spec, payload),
+        refused=StageRefused,
+        accept=lambda payload: str(payload.get("kind") or "") == spec.kind
+        or bool(payload.get(spec.kind)),
+        loaded_key=f"{spec.kind}_loaded",
+    )
 
 
 def seal_chain(

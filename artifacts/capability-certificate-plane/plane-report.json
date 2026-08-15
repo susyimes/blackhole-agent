@@ -1,0 +1,31 @@
+{
+  "action": "certificate_plane_proof",
+  "checks": {
+    "idempotent": true,
+    "invalid_refused": true,
+    "missing_refused": true,
+    "nested_path": true,
+    "no_skill_route": true,
+    "parent_sibling_probe": true,
+    "roundtrip": true,
+    "supersession_refused": true,
+    "tamper_refused": true,
+    "unreadable_refused": true,
+    "wired_families": true,
+    "write_ok": true
+  },
+  "ok": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "wired": {
+    "actuation": true,
+    "clearing": true,
+    "continuity": true,
+    "execution": true,
+    "federation": true,
+    "finality": true,
+    "pair_effects": true,
+    "settlement": true
+  },
+  "wired_count": 8
+}

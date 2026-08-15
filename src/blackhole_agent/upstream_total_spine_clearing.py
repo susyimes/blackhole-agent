@@ -20,6 +20,11 @@ from blackhole_agent.capability_compounder import (
     utc_now_iso,
 )
 from blackhole_agent.durable_state import durable_read_path
+from blackhole_agent.upstream_certificate_plane import (
+    load_irreversible_certificate,
+    resolve_certificate_path,
+    write_irreversible_certificate,
+)
 
 SCHEMA_VERSION = 1
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -339,39 +344,13 @@ def seal_total_spine_clearing_certificate(
 
 def clearing_certificate_path(root: Path) -> Path:
     """Resolve ``total-spine-clearing.json`` under a clearing/out root."""
-    path = Path(root)
-    if path.is_file():
-        if path.name == TOTAL_SPINE_CLEARING_FILENAME or path.suffix == ".json":
-            try:
-                probe = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                probe = None
-            if isinstance(probe, Mapping) and (
-                str(probe.get("kind") or "") == TOTAL_SPINE_CLEARING_KIND
-                or path.name == TOTAL_SPINE_CLEARING_FILENAME
-            ):
-                return path
-        parent = path.parent
-        sibling = parent / TOTAL_SPINE_CLEARING_FILENAME
-        if sibling.is_file():
-            return sibling
-        nested = parent / "clearing" / TOTAL_SPINE_CLEARING_FILENAME
-        if nested.is_file():
-            return nested
-        grand = parent.parent / "clearing" / TOTAL_SPINE_CLEARING_FILENAME
-        if grand.is_file():
-            return grand
-        grand_sib = parent.parent / TOTAL_SPINE_CLEARING_FILENAME
-        if grand_sib.is_file():
-            return grand_sib
-        return parent / "clearing" / TOTAL_SPINE_CLEARING_FILENAME
-    named = path / TOTAL_SPINE_CLEARING_FILENAME
-    if named.is_file():
-        return named
-    nested = path / "clearing" / TOTAL_SPINE_CLEARING_FILENAME
-    if nested.is_file():
-        return nested
-    return path / "clearing" / TOTAL_SPINE_CLEARING_FILENAME
+    return resolve_certificate_path(
+        Path(root),
+        filename=TOTAL_SPINE_CLEARING_FILENAME,
+        subdir="clearing",
+        kind=TOTAL_SPINE_CLEARING_KIND,
+        parent_sibling=True,
+    )
 
 
 def write_total_spine_clearing_certificate(
@@ -381,42 +360,17 @@ def write_total_spine_clearing_certificate(
     allow_idempotent: bool = True,
 ) -> dict[str, Any]:
     """Seal and atomically write a clearing receipt under ``out_root``."""
-    sealed = seal_total_spine_clearing_certificate(body)
-    path = clearing_certificate_path(Path(out_root))
-    if path.is_file():
-        try:
-            existing = load_total_spine_clearing_certificate(path)
-        except StageRefused:
-            existing = None
-        if existing is not None:
-            existing_digest = str(
-                existing.get("clearing_digest")
-                or existing.get("certificate_hash")
-                or ""
-            )
-            new_digest = str(
-                sealed.get("clearing_digest")
-                or sealed.get("certificate_hash")
-                or ""
-            )
-            if (
-                existing_digest
-                and existing_digest == new_digest
-                and allow_idempotent
-            ):
-                existing["clearing_path"] = str(path)
-                existing["total_spine_clearing_idempotent"] = True
-                return existing
-            raise StageRefused(
-                "total_spine_clearing_supersession_refused",
-                f"irreversible clearing already sealed at {path} "
-                f"(existing={existing_digest!r} attempted={new_digest!r})",
-            )
-    path.parent.mkdir(parents=True, exist_ok=True)
-    atomic_write_json(path, sealed)
-    sealed["clearing_path"] = str(path)
-    sealed["total_spine_clearing_idempotent"] = False
-    return sealed
+    return write_irreversible_certificate(
+        out_root,
+        body,
+        family="clearing",
+        digest_key="clearing_digest",
+        seal=seal_total_spine_clearing_certificate,
+        resolve=clearing_certificate_path,
+        load=load_total_spine_clearing_certificate,
+        allow_idempotent=allow_idempotent,
+        refused=StageRefused,
+    )
 
 
 def verify_total_spine_clearing_certificate(
@@ -547,45 +501,19 @@ def load_total_spine_clearing_certificate(
     path: Path | str,
 ) -> dict[str, Any]:
     """Load and integrity-check a sealed clearing receipt."""
-    file_path = clearing_certificate_path(Path(path))
-    if not file_path.is_file():
-        raise StageRefused(
-            "total_spine_clearing_missing",
-            f"clearing certificate not found at {file_path}",
-        )
-    raw_path = durable_read_path(file_path)
-    try:
-        payload = json.loads(raw_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise StageRefused(
-            "total_spine_clearing_unreadable",
-            f"clearing certificate unreadable at {file_path}: {exc}",
-        ) from exc
-    if not isinstance(payload, Mapping):
-        raise StageRefused(
-            "total_spine_clearing_invalid",
-            "clearing certificate root must be a JSON object",
-        )
-    if str(payload.get("kind") or "") != TOTAL_SPINE_CLEARING_KIND and not payload.get(
-        "total_spine_clearing"
-    ):
-        raise StageRefused(
-            "total_spine_clearing_missing",
-            f"clearing certificate not found at {file_path}",
-        )
-    verify = verify_total_spine_clearing_certificate(payload)
-    if not verify.get("ok"):
-        raise StageRefused(
-            "total_spine_clearing_tampered",
-            f"clearing certificate digest mismatch at {file_path} "
-            f"(claimed={verify.get('claimed_digest')!r} "
-            f"expected={verify.get('expected_digest')!r})",
-        )
-    body = dict(payload)
-    body["clearing_path"] = str(file_path)
-    body["clearing_verify"] = verify
-    body["total_spine_clearing_loaded"] = True
-    return body
+    return load_irreversible_certificate(
+        path,
+        family="clearing",
+        label="clearing certificate",
+        path_key="clearing_path",
+        verify_key="clearing_verify",
+        resolve=clearing_certificate_path,
+        verify=verify_total_spine_clearing_certificate,
+        refused=StageRefused,
+        accept=lambda payload: str(payload.get("kind") or "")
+        == TOTAL_SPINE_CLEARING_KIND
+        or bool(payload.get("total_spine_clearing")),
+    )
 
 
 def seal_total_spine_clearing_chain(

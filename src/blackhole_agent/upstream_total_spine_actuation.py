@@ -18,6 +18,11 @@ from blackhole_agent.capability_compounder import (
     utc_now_iso,
 )
 from blackhole_agent.durable_state import durable_read_path
+from blackhole_agent.upstream_certificate_plane import (
+    load_irreversible_certificate,
+    resolve_certificate_path,
+    write_irreversible_certificate,
+)
 
 # Local imports kept lazy where circular (control engine helpers).
 SCHEMA_VERSION = 1
@@ -218,39 +223,13 @@ def seal_total_spine_actuation_certificate(
 
 def actuation_certificate_path(root: Path) -> Path:
     """Resolve ``total-spine-actuation.json`` under an actuation/out root."""
-    path = Path(root)
-    if path.is_file():
-        if path.name == TOTAL_SPINE_ACTUATION_FILENAME or path.suffix == ".json":
-            try:
-                probe = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                probe = None
-            if isinstance(probe, Mapping) and (
-                str(probe.get("kind") or "") == TOTAL_SPINE_ACTUATION_KIND
-                or path.name == TOTAL_SPINE_ACTUATION_FILENAME
-            ):
-                return path
-        parent = path.parent
-        sibling = parent / TOTAL_SPINE_ACTUATION_FILENAME
-        if sibling.is_file():
-            return sibling
-        nested = parent / "actuation" / TOTAL_SPINE_ACTUATION_FILENAME
-        if nested.is_file():
-            return nested
-        grand = parent.parent / "actuation" / TOTAL_SPINE_ACTUATION_FILENAME
-        if grand.is_file():
-            return grand
-        grand_sib = parent.parent / TOTAL_SPINE_ACTUATION_FILENAME
-        if grand_sib.is_file():
-            return grand_sib
-        return parent / "actuation" / TOTAL_SPINE_ACTUATION_FILENAME
-    named = path / TOTAL_SPINE_ACTUATION_FILENAME
-    if named.is_file():
-        return named
-    nested = path / "actuation" / TOTAL_SPINE_ACTUATION_FILENAME
-    if nested.is_file():
-        return nested
-    return path / "actuation" / TOTAL_SPINE_ACTUATION_FILENAME
+    return resolve_certificate_path(
+        Path(root),
+        filename=TOTAL_SPINE_ACTUATION_FILENAME,
+        subdir="actuation",
+        kind=TOTAL_SPINE_ACTUATION_KIND,
+        parent_sibling=True,
+    )
 
 
 def write_total_spine_actuation_certificate(
@@ -260,42 +239,17 @@ def write_total_spine_actuation_certificate(
     allow_idempotent: bool = True,
 ) -> dict[str, Any]:
     """Seal and atomically write an actuation certificate under ``out_root``."""
-    sealed = seal_total_spine_actuation_certificate(body)
-    path = actuation_certificate_path(Path(out_root))
-    if path.is_file():
-        try:
-            existing = load_total_spine_actuation_certificate(path)
-        except StageRefused:
-            existing = None
-        if existing is not None:
-            existing_digest = str(
-                existing.get("actuation_digest")
-                or existing.get("certificate_hash")
-                or ""
-            )
-            new_digest = str(
-                sealed.get("actuation_digest")
-                or sealed.get("certificate_hash")
-                or ""
-            )
-            if (
-                existing_digest
-                and existing_digest == new_digest
-                and allow_idempotent
-            ):
-                existing["actuation_path"] = str(path)
-                existing["total_spine_actuation_idempotent"] = True
-                return existing
-            raise StageRefused(
-                "total_spine_actuation_supersession_refused",
-                f"irreversible actuation already sealed at {path} "
-                f"(existing={existing_digest!r} attempted={new_digest!r})",
-            )
-    path.parent.mkdir(parents=True, exist_ok=True)
-    atomic_write_json(path, sealed)
-    sealed["actuation_path"] = str(path)
-    sealed["total_spine_actuation_idempotent"] = False
-    return sealed
+    return write_irreversible_certificate(
+        out_root,
+        body,
+        family="actuation",
+        digest_key="actuation_digest",
+        seal=seal_total_spine_actuation_certificate,
+        resolve=actuation_certificate_path,
+        load=load_total_spine_actuation_certificate,
+        allow_idempotent=allow_idempotent,
+        refused=StageRefused,
+    )
 
 
 def verify_total_spine_actuation_certificate(
@@ -396,38 +350,16 @@ def load_total_spine_actuation_certificate(
     path: Path | str,
 ) -> dict[str, Any]:
     """Load and integrity-check a sealed actuation certificate."""
-    file_path = actuation_certificate_path(Path(path))
-    if not file_path.is_file():
-        raise StageRefused(
-            "total_spine_actuation_missing",
-            f"actuation certificate not found at {file_path}",
-        )
-    raw_path = durable_read_path(file_path)
-    try:
-        payload = json.loads(raw_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise StageRefused(
-            "total_spine_actuation_unreadable",
-            f"actuation certificate unreadable at {file_path}: {exc}",
-        ) from exc
-    if not isinstance(payload, Mapping):
-        raise StageRefused(
-            "total_spine_actuation_invalid",
-            "actuation certificate root must be a JSON object",
-        )
-    verify = verify_total_spine_actuation_certificate(payload)
-    if not verify.get("ok"):
-        raise StageRefused(
-            "total_spine_actuation_tampered",
-            f"actuation certificate digest mismatch at {file_path} "
-            f"(claimed={verify.get('claimed_digest')!r} "
-            f"expected={verify.get('expected_digest')!r})",
-        )
-    body = dict(payload)
-    body["actuation_path"] = str(file_path)
-    body["actuation_verify"] = verify
-    body["total_spine_actuation_loaded"] = True
-    return body
+    return load_irreversible_certificate(
+        path,
+        family="actuation",
+        label="actuation certificate",
+        path_key="actuation_path",
+        verify_key="actuation_verify",
+        resolve=actuation_certificate_path,
+        verify=verify_total_spine_actuation_certificate,
+        refused=StageRefused,
+    )
 
 
 def seal_total_spine_actuation_chain(
