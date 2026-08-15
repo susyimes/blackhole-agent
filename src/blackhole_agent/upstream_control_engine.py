@@ -138,6 +138,13 @@ Composition:
   ``from blackhole_agent.upstream_control_engine import
   annotate_total_spine_solvency`` keeps working. Execution stays as
   thin wrappers (historical source-probe targets).
+* total-spine **family catalog** — leftover continuity-guard,
+  resume-config, want-effects, and surface-log name tuples derive
+  from :func:`derive_spine_family_views` over
+  :data:`SPINE_FAMILY_CHAIN` plus spec registries and a quirk
+  overlay. A probe family appears in every derived view its quirks
+  allow; a new post-consensus plane is a chain row, not another
+  copied name list.
 * total-spine **post-settlement clearing** — closes the settled-but-
   uncleared cliff: after settlement seals a unilateral observation
   receipt, ``clear_total_spine(...)`` (and ``run_total_spine(clearing=True)``)
@@ -4588,12 +4595,17 @@ TOTAL_SPINE_EXECUTION_FILENAME: str = "total-spine-execution.json"
 # settlement, clearing) public names are re-exported from synthesized
 # modules. Execution stays as thin wrappers (source-probe targets).
 # A new family is a spec row, not another 15-line import copy.
-SPINE_SURFACE_CATALOG_IMPL = True
-SPINE_SURFACE_LOG_FAMILIES: tuple[str, ...] = (
-    "actuation",
-    "settlement",
-    "clearing",
+# Surface-log / resume leftover name lists come from the family catalog.
+from blackhole_agent.upstream_spine_catalog import (  # noqa: E402
+    SPINE_FAMILY_CATALOG_IMPL,
+    SPINE_FAMILY_CHAIN,
+    SPINE_FAMILY_QUIRKS,
+    derive_spine_family_views,
 )
+
+_SPINE_FAMILY_VIEWS = derive_spine_family_views()
+SPINE_SURFACE_CATALOG_IMPL = True
+SPINE_SURFACE_LOG_FAMILIES: tuple[str, ...] = _SPINE_FAMILY_VIEWS["surface_log"]
 _SPINE_SURFACE_GENERIC_SKIP: frozenset[str] = frozenset(
     {
         "Any",
@@ -6780,32 +6792,11 @@ def _total_spine_round_succeeded(
 
 # Post-consensus catalog (execution..reorganization): each link books the
 # predecessor's sealed pairs into its own register, seals an irreversible
-# certificate, and rebinds the tip. The chain is data, not per-link copy-paste:
-# (effect, predecessor, runner verb, certificate source variant). Variants:
-#   "consensus" — source is federation/finality (execution only)
-#   "pred"      — source is the predecessor certificate or the body
-#   "self_pred" — source is own certificate (resume), else predecessor's, else body
-#   "self"      — source is own certificate (resume) or the body
+# certificate, and rebinds the tip. The chain is family-catalog data, not
+# per-link copy-paste: (effect, predecessor, runner verb, source variant).
+# Variants: consensus / pred / self_pred / self. Owned by SPINE_FAMILY_CHAIN.
 _TOTAL_SPINE_EFFECT_CHAIN: tuple[tuple[str, str, str, str], ...] = (
-    ("execution", "finality", "execute", "consensus"),
-    ("actuation", "execution", "actuate", "pred"),
-    ("settlement", "actuation", "settle", "pred"),
-    ("clearing", "settlement", "clear", "self_pred"),
-    ("delivery", "clearing", "deliver", "self_pred"),
-    ("custody", "delivery", "custody", "self_pred"),
-    ("margin", "custody", "margin", "self_pred"),
-    ("collateral", "margin", "collateral", "self"),
-    ("liquidity", "collateral", "liquidity", "self"),
-    ("funding", "liquidity", "funding", "self"),
-    ("capital", "funding", "capital", "self"),
-    ("solvency", "capital", "solvency", "self"),
-    ("risk", "solvency", "risk", "self"),
-    ("stress", "risk", "stress", "self"),
-    ("recovery", "stress", "recovery", "self"),
-    ("resolution", "recovery", "resolution", "self"),
-    ("restructuring", "resolution", "restructuring", "self"),
-    ("emergence", "restructuring", "emerge", "self"),
-    ("reorganization", "emergence", "reorganize", "self"),
+    SPINE_FAMILY_CHAIN
 )
 
 # Full post-consensus catalog. ``SPINE_STAGE_CHAIN`` stays the historical
@@ -7035,58 +7026,14 @@ SPINE_RESUME_IMPLY_SKIPS: frozenset[str] = frozenset(
     {"emergence", "reorganization"}
 )
 SPINE_SUCCESSOR_ON_FROM: str = "risk"
-SPINE_CONTINUITY_GUARD_PLANES: tuple[str, ...] = (
-    "finality",
-    "execution",
-    "actuation",
-    "settlement",
-    "clearing",
-    "delivery",
-    "custody",
-    "margin",
-    "collateral",
-    "liquidity",
-    "funding",
-    "capital",
-    "solvency",
-    "risk",
-    "stress",
-    "recovery",
-    "resolution",
-)
-SPINE_RESUME_CONFIG_ORDER: tuple[str, ...] = (
-    "resolution",
-    "recovery",
-    "stress",
-    "risk",
-    "solvency",
-    "capital",
-    "funding",
-    "liquidity",
-    "collateral",
-    "margin",
-    "custody",
-    "delivery",
-    "clearing",
-    "settlement",
-    "actuation",
-    "finality",
-    "execution",
-)
-SPINE_RESUME_WANT_EFFECTS_PLANES: tuple[str, ...] = (
-    "finality",
-    "execution",
-    "actuation",
-    "settlement",
-    "clearing",
-    "delivery",
-    "custody",
-    "margin",
-    "collateral",
-    "liquidity",
-    "funding",
-    "capital",
-)
+# Leftover resume name lists derive from the family catalog + quirks.
+SPINE_CONTINUITY_GUARD_PLANES: tuple[str, ...] = _SPINE_FAMILY_VIEWS[
+    "continuity_guard"
+]
+SPINE_RESUME_CONFIG_ORDER: tuple[str, ...] = _SPINE_FAMILY_VIEWS["config_order"]
+SPINE_RESUME_WANT_EFFECTS_PLANES: tuple[str, ...] = _SPINE_FAMILY_VIEWS[
+    "want_effects"
+]
 
 
 def _spine_resume_loader(name: str) -> Any:
@@ -7474,15 +7421,25 @@ SPINE_SHORT_CIRCUIT_DIGEST: str = (
 )
 
 
-def _derive_spine_short_circuit() -> dict[str, dict[str, Any]]:
+def _derive_spine_short_circuit(
+    resume_planes: Sequence[str] | None = None,
+    post_consensus: Sequence[str] | None = None,
+) -> dict[str, dict[str, Any]]:
     """Build short-circuit rows from resume catalogs plus quirk overlay."""
 
-    post = list(SPINE_RESUME_POST_CONSENSUS)
+    post = list(
+        post_consensus
+        if post_consensus is not None
+        else SPINE_RESUME_POST_CONSENSUS
+    )
+    planes = list(
+        resume_planes if resume_planes is not None else SPINE_RESUME_PLANES
+    )
     deep_end = post.index(SPINE_SHORT_CIRCUIT_DEEP_THROUGH)
     deep = {"finality", *post[: deep_end + 1]}
     shallow_from = post.index(SPINE_SHORT_CIRCUIT_SHALLOW_IMPL_FROM)
     out: dict[str, dict[str, Any]] = {}
-    for name in SPINE_RESUME_PLANES:
+    for name in planes:
         row: dict[str, Any] = {}
         if name in deep:
             row["deep"] = True
@@ -15274,6 +15231,159 @@ def builtin_spine_surface_catalog_proof() -> dict[str, Any]:
         "done_when_met": ok,
     }
     out = REPO_ROOT / "artifacts" / "capability-spine-surface-catalog"
+    out.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(out / "plane-report.json", report)
+    return report
+
+
+def builtin_spine_family_catalog_proof() -> dict[str, Any]:
+    """Hermetic proof: leftover family name lists are one catalog."""
+
+    import inspect
+
+    checks: dict[str, bool] = {}
+    views = derive_spine_family_views()
+    expected_guard = (
+        "finality",
+        "execution",
+        "actuation",
+        "settlement",
+        "clearing",
+        "delivery",
+        "custody",
+        "margin",
+        "collateral",
+        "liquidity",
+        "funding",
+        "capital",
+        "solvency",
+        "risk",
+        "stress",
+        "recovery",
+        "resolution",
+    )
+    expected_config = (
+        "resolution",
+        "recovery",
+        "stress",
+        "risk",
+        "solvency",
+        "capital",
+        "funding",
+        "liquidity",
+        "collateral",
+        "margin",
+        "custody",
+        "delivery",
+        "clearing",
+        "settlement",
+        "actuation",
+        "finality",
+        "execution",
+    )
+    expected_want = (
+        "finality",
+        "execution",
+        "actuation",
+        "settlement",
+        "clearing",
+        "delivery",
+        "custody",
+        "margin",
+        "collateral",
+        "liquidity",
+        "funding",
+        "capital",
+    )
+    expected_log = ("actuation", "settlement", "clearing")
+    checks["impl"] = SPINE_FAMILY_CATALOG_IMPL is True
+    checks["quirks_skip_execution"] = "execution" in SPINE_FAMILY_QUIRKS.surface_skip
+    checks["chain_len"] = len(SPINE_FAMILY_CHAIN) == 19
+    checks["chain_alias"] = _TOTAL_SPINE_EFFECT_CHAIN == SPINE_FAMILY_CHAIN
+    checks["views_surface_log"] = views["surface_log"] == expected_log
+    checks["views_guard"] = views["continuity_guard"] == expected_guard
+    checks["views_config"] = views["config_order"] == expected_config
+    checks["views_want"] = views["want_effects"] == expected_want
+    checks["views_post"] = views["post_consensus"] == tuple(
+        row[0] for row in SPINE_FAMILY_CHAIN
+    )
+    checks["live_surface_log"] = SPINE_SURFACE_LOG_FAMILIES == views["surface_log"]
+    checks["live_guard"] = SPINE_CONTINUITY_GUARD_PLANES == views["continuity_guard"]
+    checks["live_config"] = SPINE_RESUME_CONFIG_ORDER == views["config_order"]
+    checks["live_want"] = SPINE_RESUME_WANT_EFFECTS_PLANES == views["want_effects"]
+    checks["live_public"] = SPINE_PUBLIC_STAGE_FLAGS == views["public_flags"]
+    checks["live_resume"] = SPINE_RESUME_PLANES == views["resume_planes"]
+
+    probe = derive_spine_family_views(
+        extra_chain=(("ratification", "reorganization", "ratify", "self"),),
+        extra_surface_pair=("ratification",),
+    )
+    checks["probe_post"] = probe["post_consensus"][-1] == "ratification"
+    checks["probe_public"] = "ratification" in probe["public_flags"]
+    checks["probe_resume"] = probe["resume_planes"][-1] == "ratification"
+    checks["probe_surface"] = probe["surface_families"][-1] == "ratification"
+    checks["probe_not_guard"] = "ratification" not in probe["continuity_guard"]
+    checks["probe_not_want"] = "ratification" not in probe["want_effects"]
+    checks["probe_not_config"] = "ratification" not in probe["config_order"]
+    probe_sc = _derive_spine_short_circuit(
+        resume_planes=probe["resume_planes"],
+        post_consensus=probe["post_consensus"],
+    )
+    checks["probe_short_circuit"] = "ratification" in probe_sc
+    checks["probe_does_not_mutate_live"] = (
+        "ratification" not in SPINE_RESUME_PLANES
+        and "ratification" not in _TOTAL_SPINE_SHORT_CIRCUIT
+    )
+
+    engine_src = Path(__file__).read_text(encoding="utf-8")
+    checks["surface_log_derived"] = (
+        'SPINE_SURFACE_LOG_FAMILIES: tuple[str, ...] = _SPINE_FAMILY_VIEWS["surface_log"]'
+        in engine_src
+    )
+    checks["guard_derived"] = "continuity_guard" in engine_src and (
+        "SPINE_CONTINUITY_GUARD_PLANES: tuple[str, ...] = _SPINE_FAMILY_VIEWS["
+        in engine_src
+    )
+    checks["config_derived"] = (
+        'SPINE_RESUME_CONFIG_ORDER: tuple[str, ...] = _SPINE_FAMILY_VIEWS["config_order"]'
+        in engine_src
+    )
+    checks["want_derived"] = (
+        "SPINE_RESUME_WANT_EFFECTS_PLANES: tuple[str, ...] = _SPINE_FAMILY_VIEWS["
+        in engine_src
+    )
+    checks["no_hand_copied_guard"] = (
+        'SPINE_CONTINUITY_GUARD_PLANES: tuple[str, ...] = (\n    "finality",'
+        not in engine_src
+    )
+    derive_src = inspect.getsource(derive_spine_family_views)
+    checks["derive_uses_specs"] = "LOG_FAMILY_SPECS" in derive_src
+    checks["derive_uses_chain"] = "SPINE_FAMILY_CHAIN" in derive_src
+    checks["no_skill_route"] = not legacy_pipeline_was_used()
+
+    wired = {
+        "derive": callable(derive_spine_family_views),
+        "short_circuit": callable(_derive_spine_short_circuit),
+        "views": bool(_SPINE_FAMILY_VIEWS),
+        "chain": bool(SPINE_FAMILY_CHAIN),
+        "impl": SPINE_FAMILY_CATALOG_IMPL is True,
+    }
+    ok = all(checks.values()) and all(wired.values())
+    report = {
+        "schema_version": SCHEMA_VERSION,
+        "action": "spine_family_catalog_proof",
+        "ok": ok,
+        "checks": checks,
+        "wired": wired,
+        "wired_count": sum(1 for value in wired.values() if value),
+        "family_count": len(views["surface_families"]),
+        "chain_count": len(views["post_consensus"]),
+        "probe_family": "ratification",
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+        "spine_family_catalog": True,
+        "done_when_met": ok,
+    }
+    out = REPO_ROOT / "artifacts" / "capability-spine-family-catalog"
     out.mkdir(parents=True, exist_ok=True)
     atomic_write_json(out / "plane-report.json", report)
     return report

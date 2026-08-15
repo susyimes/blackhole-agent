@@ -35,8 +35,10 @@ from blackhole_agent.upstream_control_engine import (
     builtin_spine_public_catalog_proof,
     builtin_spine_resume_catalog_proof,
     builtin_spine_surface_catalog_proof,
+    builtin_spine_family_catalog_proof,
     builtin_spine_short_circuit_catalog_proof,
     builtin_spine_stage_engine_proof,
+    derive_spine_family_views,
     run_total_spine,
 )
 
@@ -262,3 +264,30 @@ def test_spine_surface_is_one_catalog_reexport() -> None:
     assert uce.TOTAL_SPINE_SOLVENCY_IMPL is True
     assert callable(uce.actuate_total_spine)
     assert callable(uce.reorganize_total_spine)
+
+
+def test_builtin_spine_family_catalog_proof() -> None:
+    result = builtin_spine_family_catalog_proof()
+    assert result["ok"] is True
+    assert result["chain_count"] == 19
+    assert result["family_count"] == 18
+    assert result["used_skill_route_discovery"] is False
+    assert all(result["checks"].values())
+    assert all(result["wired"].values())
+
+
+def test_spine_family_catalog_probe_extends_views() -> None:
+    base = derive_spine_family_views()
+    probe = derive_spine_family_views(
+        extra_chain=(("ratification", "reorganization", "ratify", "self"),),
+        extra_surface_pair=("ratification",),
+    )
+    assert base["post_consensus"][-1] == "reorganization"
+    assert probe["post_consensus"][-1] == "ratification"
+    assert "ratification" in probe["public_flags"]
+    assert "ratification" in probe["resume_planes"]
+    assert probe["surface_families"][-1] == "ratification"
+    assert "ratification" not in probe["continuity_guard"]
+    assert "ratification" not in probe["want_effects"]
+    assert "ratification" not in probe["config_order"]
+    assert "ratification" not in base["public_flags"]
