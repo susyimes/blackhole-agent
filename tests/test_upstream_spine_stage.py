@@ -15,9 +15,11 @@ from blackhole_agent.upstream_control_engine import (
     _apply_spine_stages,
     _attach_total_spine_effects,
     _imply_caller_spine_flags,
+    _attach_spine_federation,
     _select_post_consensus_short_circuit,
     _spine_on_flags,
     _total_spine_short_circuit,
+    builtin_spine_finality_stage_proof,
     builtin_spine_resume_catalog_proof,
     builtin_spine_stage_engine_proof,
 )
@@ -46,7 +48,7 @@ def test_attach_and_short_circuit_share_the_catalog_walk() -> None:
     attach_src = inspect.getsource(_attach_total_spine_effects)
     short_src = inspect.getsource(_total_spine_short_circuit)
     apply_src = inspect.getsource(_apply_spine_stages)
-    assert attach_src.count("_apply_spine_stages") == 2
+    assert attach_src.count("_apply_spine_stages") == 1
     assert "SPINE_STAGE_POST_CONSENSUS_START" in attach_src
     assert "_apply_total_spine_effect(" not in attach_src
     assert "_apply_total_spine_chain(" not in attach_src
@@ -90,3 +92,30 @@ def test_resume_catalog_owns_attach_rehydrate() -> None:
     on_flags = _spine_on_flags({}, resume)
     assert on_flags["solvency_on"] is True
     assert on_flags["risk_on"] is False
+
+
+def test_builtin_spine_finality_stage_proof() -> None:
+    result = builtin_spine_finality_stage_proof()
+    assert result["ok"] is True
+    assert result["used_skill_route_discovery"] is False
+    assert all(result["checks"].values())
+    assert all(result["wired"].values())
+
+
+def test_finality_and_federation_are_catalog_stages() -> None:
+    attach_src = inspect.getsource(_attach_total_spine_effects)
+    short_src = inspect.getsource(_total_spine_short_circuit)
+    assert "_attach_spine_federation" in attach_src
+    assert "_attach_spine_federation" in short_src
+    assert "federate_total_spine(" not in attach_src
+    assert "if resume_finality is not None" not in attach_src
+    resume = {name: None for name in SPINE_RESUME_PLANES}
+    resume["finality"] = {"kind": "probe"}
+    assert _select_post_consensus_short_circuit(resume) == "finality"
+    empty = _attach_spine_federation({"ok": True}, peers=[])
+    assert empty["total_spine_federation"] is False
+    blocked = _attach_spine_federation(
+        {"ok": True, "total_spine_finality": False},
+        peers=["peer"],
+    )
+    assert blocked["total_spine_federation_requires_finality"] is True

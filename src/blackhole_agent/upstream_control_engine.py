@@ -108,10 +108,13 @@ Composition:
   reorganization slice. Execution and actuation are catalog rows, not
   remaining hand-wired copies.
 * total-spine **resume catalog** — resume-certificate load, caller/resume
-  implication, ``_on`` flags, and post-consensus short-circuit dispatch
-  are derived from :data:`SPINE_RESUME_PLANES`. A new stage is a catalog
-  row, not four more copies in ``_attach_total_spine_effects``. Finality
-  short-circuit stays a special path so federation can still attach.
+  implication, ``_on`` flags, and short-circuit dispatch are derived from
+  :data:`SPINE_RESUME_PLANES`. A new stage is a catalog row, not four
+  more copies in ``_attach_total_spine_effects``.
+* total-spine **finality stage** — finality short-circuit is a
+  ``_TOTAL_SPINE_SHORT_CIRCUIT`` catalog row; live and resume federation
+  attach share :func:`_attach_spine_federation`. The tower from finality
+  through reorganization is one walk.
 * total-spine **post-settlement clearing** — closes the settled-but-
   uncleared cliff: after settlement seals a unilateral observation
   receipt, ``clear_total_spine(...)`` (and ``run_total_spine(clearing=True)``)
@@ -7243,6 +7246,7 @@ SPINE_RESUME_POST_CONSENSUS: tuple[str, ...] = tuple(
     spec[0] for spec in _TOTAL_SPINE_EFFECT_CHAIN
 )
 SPINE_RESUME_CATALOG_IMPL = True
+SPINE_FINALITY_STAGE_IMPL = True
 SPINE_CALLER_IMPLY_FROM: str = "delivery"
 SPINE_RESUME_IMPLY_SKIPS: frozenset[str] = frozenset(
     {"emergence", "reorganization"}
@@ -7400,12 +7404,81 @@ def _spine_on_flags(
 def _select_post_consensus_short_circuit(
     resume: Mapping[str, Any],
 ) -> str | None:
-    """Tip-most present post-consensus cert; finality stays a special path."""
+    """Tip-most present resume cert, including finality as the last fallback."""
 
     for name in reversed(SPINE_RESUME_POST_CONSENSUS):
         if resume.get(name) is not None:
             return name
+    if resume.get("finality") is not None:
+        return "finality"
     return None
+
+
+def _attach_spine_federation(
+    annotated: dict[str, Any],
+    *,
+    peers: Sequence[Any] | None,
+    quorum: bool = False,
+    quorum_threshold: int | None = None,
+    out_root: Path | None = None,
+    resume_dir: Path | None = None,
+    local_cert: Mapping[str, Any] | None = None,
+    restamp_finality: bool = False,
+) -> dict[str, Any]:
+    """Attach multi-origin federation after local finality.
+
+    Live and finality short-circuit share this helper so a new federation
+    policy is one function, not two copied attach blocks.
+    """
+
+    peer_list = list(peers or [])
+    want_quorum = bool(quorum) and TOTAL_SPINE_QUORUM_IMPL
+    if not peer_list:
+        annotated.setdefault("total_spine_federation", False)
+        annotated.setdefault("total_spine_quorum", False)
+        return annotated
+    source: Any = local_cert or annotated.get("total_spine_finality_certificate")
+    if source is None and annotated.get("total_spine_finality_path"):
+        try:
+            source = load_total_spine_finality_certificate(
+                str(annotated.get("total_spine_finality_path"))
+            )
+        except StageRefused:
+            source = None
+    if annotated.get("total_spine_finality") is not True and not restamp_finality:
+        annotated["total_spine_federation"] = False
+        annotated["total_spine_federation_requires_finality"] = True
+        return annotated
+    if source is None:
+        annotated["total_spine_federation"] = False
+        if annotated.get("total_spine_finality") is True:
+            annotated["total_spine_federation_missing_local"] = True
+        else:
+            annotated["total_spine_federation_requires_finality"] = True
+        return annotated
+    fed_out = None
+    if out_root is not None:
+        fed_out = Path(out_root)
+    elif resume_dir is not None:
+        fed_out = Path(resume_dir)
+    prior = str(
+        annotated.get("total_spine_finality_bound_tip")
+        or annotated.get("total_spine_digest")
+        or ""
+    )
+    annotated = federate_total_spine(
+        [source, *peer_list],
+        out_root=fed_out,
+        prior_tip=prior,
+        body=annotated,
+        quorum=want_quorum,
+        quorum_threshold=quorum_threshold,
+    )
+    if restamp_finality:
+        annotated["total_spine_finality"] = True
+        annotated["total_spine_finality_short_circuit"] = True
+        annotated["total_spine_finality_irreversible"] = True
+    return annotated
 
 
 def _resume_config_source(
@@ -7528,6 +7601,22 @@ _DEEP_FALLBACK_EXTRA: dict[str, tuple[tuple[str, Any], ...]] = {
 
 
 _TOTAL_SPINE_SHORT_CIRCUIT: dict[str, dict[str, Any]] = {
+    "finality": {
+        "deep": True,
+        "planes": (),
+        "impls": (
+            "goal",
+            "adaptive",
+            "continuity",
+            "finality",
+            "federation",
+            "quorum",
+        ),
+        "federate": True,
+        "prior_from": "bound_tip",
+        "cont": ("execution", ()),
+        "cont_restamp_finality": True,
+    },
     "execution": {
         "deep": True,
         "planes": ("finality",),
@@ -7636,7 +7725,8 @@ def _total_spine_short_circuit(
     cfg = _TOTAL_SPINE_SHORT_CIRCUIT[effect]
     cert = resume[effect]
     caps = list(cert.get("capabilities") or [])
-    bound_tip = str(cert.get("prior_tip") or ctx["bound_tip"])
+    tip_key = str(cfg.get("prior_from") or "prior_tip")
+    bound_tip = str(cert.get(tip_key) or ctx["bound_tip"])
     annotated["ok"] = True
     annotated["verdict"] = f"total_spine_{effect}_short_circuit"
     annotated["total_spine_effects"] = bool(caps) or ctx["want_effects"]
@@ -7743,8 +7833,20 @@ def _total_spine_short_circuit(
         annotated[f"total_spine_{name}_impl"] = globals()[f"TOTAL_SPINE_{name.upper()}_IMPL"]
     if ctx["goal_text"] and not annotated.get("total_spine_goal"):
         annotated["total_spine_goal"] = ctx["goal_text"]
-    annotated.setdefault("total_spine_federation", False)
-    annotated.setdefault("total_spine_quorum", False)
+    if cfg.get("federate"):
+        annotated = _attach_spine_federation(
+            annotated,
+            peers=ctx.get("federation_peers") or [],
+            quorum=bool(ctx.get("federation_quorum")),
+            quorum_threshold=ctx.get("quorum_threshold"),
+            out_root=ctx.get("out_root"),
+            resume_dir=ctx.get("resume_dir"),
+            local_cert=cert,
+            restamp_finality=True,
+        )
+    else:
+        annotated.setdefault("total_spine_federation", False)
+        annotated.setdefault("total_spine_quorum", False)
     if cfg.get("post_actuation"):
         annotated = _apply_total_spine_effect(
             annotated,
@@ -7771,12 +7873,19 @@ def _total_spine_short_circuit(
             return annotated
     else:
         target, forced = cont
+    walk_names = list(chain)
+    if target not in walk_names:
+        walk_names = [spec[0] for spec in SPINE_POST_CONSENSUS_CHAIN]
     flags = {
         f"{name}_on": bool(ctx["flags"].get(f"{name}_on", False))
-        for name in chain[chain.index(target) :]
+        for name in walk_names[walk_names.index(target) :]
     }
     for name in forced:
         flags[name] = True
+    cont_ctx: dict[str, Any] = {"bound_tip": bound_tip}
+    if cfg.get("cont_restamp_finality"):
+        cont_ctx["restamp_finality"] = True
+        cont_ctx["consensus_source"] = cert
     return _apply_spine_stages(
         annotated,
         start=target,
@@ -7784,6 +7893,10 @@ def _total_spine_short_circuit(
         out_root=ctx["out_root"],
         resume_dir=ctx["resume_dir"],
         repo_path=ctx["repo_path"],
+        capabilities=ctx.get("capabilities")
+        or list(cert.get("capabilities") or []),
+        effect_timeout=int(ctx.get("effect_timeout") or 60),
+        stage_ctx=cont_ctx,
     )
 
 
@@ -8116,26 +8229,10 @@ def _attach_total_spine_effects(
         "exclude": exclude,
         "capabilities": capabilities,
         "effect_timeout": effect_timeout,
-        "flags": {
-            "settlement_on": settlement_on,
-            "clearing_on": clearing_on,
-            "delivery_on": delivery_on,
-            "custody_on": custody_on,
-            "margin_on": margin_on,
-            "collateral_on": collateral_on,
-            "liquidity_on": liquidity_on,
-            "funding_on": funding_on,
-            "capital_on": capital_on,
-            "solvency_on": solvency_on,
-            "actuation_on": actuation_on,
-            "risk_on": risk_on,
-            "stress_on": stress_on,
-            "recovery_on": recovery_on,
-            "resolution_on": resolution_on,
-            "restructuring_on": restructuring_on,
-            "emergence_on": emergence_on,
-            "reorganization_on": reorganization_on,
-        },
+        "flags": on,
+        "federation_peers": federation_peers,
+        "federation_quorum": federation_quorum,
+        "quorum_threshold": quorum_threshold,
     }
 
     sc_effect = _select_post_consensus_short_circuit(resume)
@@ -8143,152 +8240,6 @@ def _attach_total_spine_effects(
         return _total_spine_short_circuit(
             annotated, sc_effect, resume=_sc_resume, ctx=_sc_ctx
         )
-
-    # --- Irreversible finality short-circuit (no effect re-dispatch) ---
-    if resume_finality is not None:
-        short_circuited = True
-        recovered = recovered or bool(resume_finality.get("recovered"))
-        fin_caps = list(resume_finality.get("capabilities") or [])
-        fin_bound = str(resume_finality.get("bound_tip") or bound_tip)
-        bound_tip = fin_bound
-        annotated["ok"] = True
-        annotated["verdict"] = "total_spine_finality_short_circuit"
-        annotated["total_spine_effects"] = bool(fin_caps) or want_effects
-        annotated["total_spine_effects_ok"] = bool(
-            resume_finality.get("effects_ok", True)
-        )
-        annotated["total_spine_effect_capabilities"] = fin_caps
-        annotated["total_spine_effect_count"] = len(fin_caps)
-        annotated["total_spine_effects_ok_count"] = len(fin_caps)
-        annotated["total_spine_effects_failed_count"] = 0
-        annotated["total_spine_goal"] = (
-            goal_text or str(resume_finality.get("goal") or "")
-        )
-        if contract_text or resume_finality.get("done_when"):
-            annotated["total_spine_contract"] = True
-            annotated["total_spine_contract_met"] = resume_finality.get(
-                "contract_met"
-            )
-            annotated["total_spine_contract_ok"] = (
-                resume_finality.get("contract_met") is True
-                or resume_finality.get("contract_met") is None
-            )
-            annotated["total_spine_done_when"] = (
-                contract_text
-                or str(resume_finality.get("done_when") or "")
-            )
-        annotated["total_spine_adaptive"] = prior_round_count > 0 or bool(
-            adaptive_rounds_log
-        )
-        if adaptive_rounds_log:
-            annotated["total_spine_adaptive_rounds"] = adaptive_rounds_log
-            annotated["total_spine_adaptive_round_count"] = len(
-                adaptive_rounds_log
-            )
-            annotated["total_spine_adaptive_recovered"] = recovered
-            annotated["total_spine_adaptive_excluded"] = sorted(exclude)
-        annotated["total_spine_continuity"] = resume_checkpoint is not None
-        if resume_checkpoint is not None:
-            annotated["total_spine_continuity_status"] = resume_checkpoint.get(
-                "status"
-            )
-            annotated["total_spine_continuity_recovered"] = recovered
-            annotated["total_spine_continuity_digest"] = resume_checkpoint.get(
-                "checkpoint_digest"
-            )
-        # Rebind hop digests to finality-bound tip before annotate.
-        if compressed:
-            hops = seal_total_spine_hop_chain(
-                root, live_result, tip=bound_tip
-            )
-            annotated["total_spine_hop_chain"] = hops
-            annotated["total_spine_hop_count"] = len(hops)
-            if hops:
-                annotated["total_spine_digest"] = hops[0].get("digest")
-                annotated[f"{root}_digest"] = hops[0].get("digest")
-        else:
-            annotated["total_spine_digest"] = bound_tip
-            annotated[f"{root}_digest"] = bound_tip
-        annotated = annotate_total_spine_finality(
-            annotated,
-            certificate=resume_finality,
-            prior_tip=bound_tip,
-            short_circuit=True,
-        )
-        bound_tip = str(
-            annotated.get("total_spine_finality_bound_tip") or bound_tip
-        )
-        if compressed:
-            hops = seal_total_spine_hop_chain(
-                root, live_result, tip=bound_tip
-            )
-            annotated["total_spine_hop_chain"] = hops
-            annotated["total_spine_hop_count"] = len(hops)
-            if hops:
-                annotated["total_spine_digest"] = hops[0].get("digest")
-                annotated[f"{root}_digest"] = hops[0].get("digest")
-        else:
-            annotated["total_spine_digest"] = bound_tip
-            annotated[f"{root}_digest"] = bound_tip
-        annotated["total_spine_finality_short_circuit"] = True
-        annotated["total_spine_constitution_depth"] = chain_len
-        annotated["total_spine_goal_impl"] = TOTAL_SPINE_GOAL_IMPL
-        annotated["total_spine_adaptive_impl"] = TOTAL_SPINE_ADAPTIVE_IMPL
-        annotated["total_spine_continuity_impl"] = TOTAL_SPINE_CONTINUITY_IMPL
-        annotated["total_spine_finality_impl"] = TOTAL_SPINE_FINALITY_IMPL
-        annotated["total_spine_federation_impl"] = TOTAL_SPINE_FEDERATION_IMPL
-        annotated["total_spine_quorum_impl"] = TOTAL_SPINE_QUORUM_IMPL
-        if goal_text and not annotated.get("total_spine_goal"):
-            annotated["total_spine_goal"] = goal_text
-        # Multi-origin federation still applies on short-circuit resume.
-        peers_sc = list(federation_peers or [])
-        want_quorum_sc = bool(federation_quorum) and TOTAL_SPINE_QUORUM_IMPL
-        if peers_sc and resume_finality is not None:
-            fed_out_sc = None
-            if out_root is not None:
-                fed_out_sc = Path(out_root)
-            elif resume_dir is not None:
-                fed_out_sc = Path(resume_dir)
-            prior_sc = str(
-                annotated.get("total_spine_finality_bound_tip")
-                or annotated.get("total_spine_digest")
-                or bound_tip
-            )
-            annotated = federate_total_spine(
-                [resume_finality, *peers_sc],
-                out_root=fed_out_sc,
-                prior_tip=prior_sc,
-                body=annotated,
-                quorum=want_quorum_sc,
-                quorum_threshold=quorum_threshold,
-            )
-            # Preserve short-circuit markers after federation rebind.
-            annotated["total_spine_finality"] = True
-            annotated["total_spine_finality_short_circuit"] = True
-            annotated["total_spine_finality_irreversible"] = True
-        elif peers_sc:
-            annotated["total_spine_federation"] = False
-            annotated["total_spine_federation_requires_finality"] = True
-        else:
-            annotated.setdefault("total_spine_federation", False)
-            annotated.setdefault("total_spine_quorum", False)
-        annotated = _apply_spine_stages(
-            annotated,
-            start=SPINE_STAGE_POST_CONSENSUS_START,
-            out_root=out_root,
-            resume_dir=resume_dir,
-            repo_path=repo_path,
-            capabilities=capabilities
-            or list(resume_finality.get("capabilities") or []),
-            effect_timeout=effect_timeout,
-            stage_ctx={
-                "consensus_source": resume_finality,
-                "bound_tip": bound_tip,
-                "restamp_finality": True,
-            },
-            flags=on,
-        )
-        return annotated
 
     def _select_ids(round_index: int) -> tuple[list[str], str, bool, dict[str, Any] | None]:
         # Global index includes prior resumed rounds so first live round after
@@ -8956,49 +8907,17 @@ def _attach_total_spine_effects(
     annotated["total_spine_execution_impl"] = TOTAL_SPINE_EXECUTION_IMPL
 
     # Multi-origin federation: local finality + peer certificates → fed tip.
-    peers = list(federation_peers or [])
-    want_quorum = bool(federation_quorum) and TOTAL_SPINE_QUORUM_IMPL
-    if peers and annotated.get("total_spine_finality") is True:
-        local_cert = (
-            last_finality
-            or annotated.get("total_spine_finality_certificate")
-            or resume_finality
-        )
-        if local_cert is None and annotated.get("total_spine_finality_path"):
-            try:
-                local_cert = load_total_spine_finality_certificate(
-                    str(annotated.get("total_spine_finality_path"))
-                )
-            except StageRefused:
-                local_cert = None
-        if local_cert is not None:
-            fed_out = None
-            if out_root is not None:
-                fed_out = Path(out_root)
-            elif resume_dir is not None:
-                fed_out = Path(resume_dir)
-            prior = str(
-                annotated.get("total_spine_finality_bound_tip")
-                or annotated.get("total_spine_digest")
-                or ""
-            )
-            annotated = federate_total_spine(
-                [local_cert, *peers],
-                out_root=fed_out,
-                prior_tip=prior,
-                body=annotated,
-                quorum=want_quorum,
-                quorum_threshold=quorum_threshold,
-            )
-        else:
-            annotated["total_spine_federation"] = False
-            annotated["total_spine_federation_missing_local"] = True
-    elif peers:
-        annotated["total_spine_federation"] = False
-        annotated["total_spine_federation_requires_finality"] = True
-    elif not peers:
-        annotated.setdefault("total_spine_federation", False)
-        annotated.setdefault("total_spine_quorum", False)
+    annotated = _attach_spine_federation(
+        annotated,
+        peers=federation_peers,
+        quorum=bool(federation_quorum),
+        quorum_threshold=quorum_threshold,
+        out_root=out_root,
+        resume_dir=resume_dir,
+        local_cert=last_finality
+        or annotated.get("total_spine_finality_certificate")
+        or resume_finality,
+    )
 
     annotated = _apply_spine_stages(
         annotated,
@@ -14707,7 +14626,7 @@ def builtin_spine_stage_engine_proof() -> dict[str, Any]:
     attach_src = inspect.getsource(_attach_total_spine_effects)
     short_src = inspect.getsource(_total_spine_short_circuit)
     checks["walk_uses_chain"] = "_apply_total_spine_chain" in apply_src
-    checks["attach_uses_walk"] = attach_src.count("_apply_spine_stages") == 2
+    checks["attach_uses_walk"] = attach_src.count("_apply_spine_stages") == 1
     checks["attach_walks_consensus"] = (
         "SPINE_STAGE_POST_CONSENSUS_START" in attach_src
     )
@@ -14816,11 +14735,12 @@ def builtin_spine_resume_catalog_proof() -> dict[str, Any]:
         "if resume_reorganization is not None" not in attach_src
         and "if resume_solvency is not None" not in attach_src
         and "if resume_execution is not None" not in attach_src
+        and "if resume_finality is not None" not in attach_src
     )
     checks["attach_no_unrolled_imply"] = "if reorganization:" not in attach_src
     checks["attach_no_unrolled_on_kwargs"] = "execution_on=execution_on" not in attach_src
-    checks["attach_walks_flags"] = attach_src.count("flags=on") == 2
-    checks["attach_uses_walk"] = attach_src.count("_apply_spine_stages") == 2
+    checks["attach_walks_flags"] = attach_src.count("flags=on") == 1
+    checks["attach_uses_walk"] = attach_src.count("_apply_spine_stages") == 1
     checks["attach_no_execute"] = "execute_total_spine(" not in attach_src
     checks["attach_no_actuate"] = "actuate_total_spine(" not in attach_src
     checks["loader_walks_catalog"] = "SPINE_RESUME_PLANES" in load_src
@@ -14897,6 +14817,99 @@ def builtin_spine_resume_catalog_proof() -> dict[str, Any]:
         "done_when_met": ok,
     }
     out = REPO_ROOT / "artifacts" / "capability-spine-resume-catalog"
+    out.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(out / "plane-report.json", report)
+    return report
+
+
+def builtin_spine_finality_stage_proof() -> dict[str, Any]:
+    """Hermetic proof: finality short-circuit and federation attach are catalog stages."""
+
+    import inspect
+
+    checks: dict[str, bool] = {}
+    attach_src = inspect.getsource(_attach_total_spine_effects)
+    short_src = inspect.getsource(_total_spine_short_circuit)
+    fed_src = inspect.getsource(_attach_spine_federation)
+    select_src = inspect.getsource(_select_post_consensus_short_circuit)
+    cfg = _TOTAL_SPINE_SHORT_CIRCUIT.get("finality") or {}
+    checks["impl"] = SPINE_FINALITY_STAGE_IMPL is True
+    checks["catalog_has_finality"] = "finality" in _TOTAL_SPINE_SHORT_CIRCUIT
+    checks["finality_federates"] = cfg.get("federate") is True
+    checks["finality_prior_bound"] = cfg.get("prior_from") == "bound_tip"
+    checks["finality_cont_execution"] = cfg.get("cont") == ("execution", ())
+    checks["finality_restamp"] = cfg.get("cont_restamp_finality") is True
+    checks["select_includes_finality"] = 'return "finality"' in select_src
+    checks["attach_uses_federation_helper"] = "_attach_spine_federation" in attach_src
+    checks["short_uses_federation_helper"] = "_attach_spine_federation" in short_src
+    checks["attach_no_federate_copy"] = "federate_total_spine(" not in attach_src
+    checks["attach_no_finality_sc_block"] = (
+        "if resume_finality is not None" not in attach_src
+    )
+    checks["short_has_federate_hook"] = 'cfg.get("federate")' in short_src
+    checks["short_has_prior_from"] = "prior_from" in short_src
+    checks["helper_calls_federate"] = "federate_total_spine(" in fed_src
+    checks["attach_walks_once"] = attach_src.count("_apply_spine_stages") == 1
+    checks["attach_no_execute"] = "execute_total_spine(" not in attach_src
+
+    resume = _empty_spine_resume()
+    resume["finality"] = {"kind": "probe", "bound_tip": "a" * 64}
+    checks["select_finality"] = (
+        _select_post_consensus_short_circuit(resume) == "finality"
+    )
+    mixed = dict(resume)
+    mixed["solvency"] = {"kind": "probe"}
+    checks["select_still_tipmost"] = (
+        _select_post_consensus_short_circuit(mixed) == "solvency"
+    )
+
+    empty = _attach_spine_federation(
+        {"ok": True},
+        peers=[],
+        quorum=False,
+    )
+    checks["empty_peers_default"] = empty.get("total_spine_federation") is False
+    checks["empty_quorum_default"] = empty.get("total_spine_quorum") is False
+    missing = _attach_spine_federation(
+        {"ok": True, "total_spine_finality": False},
+        peers=["peer"],
+        quorum=False,
+    )
+    checks["requires_finality"] = (
+        missing.get("total_spine_federation") is False
+        and missing.get("total_spine_federation_requires_finality") is True
+    )
+    no_local = _attach_spine_federation(
+        {"ok": True, "total_spine_finality": True},
+        peers=["peer"],
+        quorum=False,
+    )
+    checks["missing_local"] = (
+        no_local.get("total_spine_federation") is False
+        and no_local.get("total_spine_federation_missing_local") is True
+    )
+    checks["no_skill_route"] = not legacy_pipeline_was_used()
+
+    wired = {
+        "attach_federation": callable(_attach_spine_federation),
+        "select": callable(_select_post_consensus_short_circuit),
+        "short_circuit": callable(_total_spine_short_circuit),
+        "finality_cfg": bool(cfg),
+        "catalog": "finality" in _TOTAL_SPINE_SHORT_CIRCUIT,
+    }
+    ok = all(checks.values()) and all(wired.values())
+    report = {
+        "schema_version": SCHEMA_VERSION,
+        "action": "spine_finality_stage_proof",
+        "ok": ok,
+        "checks": checks,
+        "wired": wired,
+        "wired_count": sum(1 for value in wired.values() if value),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+        "spine_finality_stage": True,
+        "done_when_met": ok,
+    }
+    out = REPO_ROOT / "artifacts" / "capability-spine-finality-stage"
     out.mkdir(parents=True, exist_ok=True)
     atomic_write_json(out / "plane-report.json", report)
     return report

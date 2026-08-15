@@ -1,0 +1,41 @@
+{
+  "action": "spine_finality_stage_proof",
+  "checks": {
+    "attach_no_execute": true,
+    "attach_no_federate_copy": true,
+    "attach_no_finality_sc_block": true,
+    "attach_uses_federation_helper": true,
+    "attach_walks_once": true,
+    "catalog_has_finality": true,
+    "empty_peers_default": true,
+    "empty_quorum_default": true,
+    "finality_cont_execution": true,
+    "finality_federates": true,
+    "finality_prior_bound": true,
+    "finality_restamp": true,
+    "helper_calls_federate": true,
+    "impl": true,
+    "missing_local": true,
+    "no_skill_route": true,
+    "requires_finality": true,
+    "select_finality": true,
+    "select_includes_finality": true,
+    "select_still_tipmost": true,
+    "short_has_federate_hook": true,
+    "short_has_prior_from": true,
+    "short_uses_federation_helper": true
+  },
+  "done_when_met": true,
+  "ok": true,
+  "schema_version": 1,
+  "spine_finality_stage": true,
+  "used_skill_route_discovery": false,
+  "wired": {
+    "attach_federation": true,
+    "catalog": true,
+    "finality_cfg": true,
+    "select": true,
+    "short_circuit": true
+  },
+  "wired_count": 5
+}
