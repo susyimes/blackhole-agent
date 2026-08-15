@@ -1,0 +1,13 @@
+[
+  {
+    "kind": "api-surface",
+    "id": "actuation-public-surface",
+    "modules": ["blackhole_agent.upstream_total_spine_actuation"],
+    "include_private": false
+  },
+  {
+    "kind": "command",
+    "id": "proof-actuation",
+    "argv": ["python", "-m", "blackhole_agent.upstream_control_engine", "actuation-proof"]
+  }
+]

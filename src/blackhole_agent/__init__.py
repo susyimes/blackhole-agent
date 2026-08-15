@@ -29,8 +29,10 @@ install_facade_finder()
 # The total-spine pair-effect modules (delivery..reorganization) are likewise
 # synthesized from ``upstream_total_spine_effects`` spec data.
 from blackhole_agent.upstream_total_spine_effects import install_pair_effect_finder
+from blackhole_agent.upstream_total_spine_logs import install_log_family_finder
 
 install_pair_effect_finder()
+install_log_family_finder()
 
 
 __all__ = ["Kernel", "__version__", "package_dir"]

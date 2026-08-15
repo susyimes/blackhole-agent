@@ -1,14 +1,21 @@
-"""Post-execution actuation for the absolute total spine.
+"""Total-spine log-family engine: actuation (then settlement, clearing).
 
-Closes the inert state-root cliff: after ``execute_total_spine`` seals a
-deterministic world-state root, bind ordered multi-action ledger effects to
-that root, seal a re-verifiable actuation certificate, refuse supersession /
-wrong-root binding, short-circuit re-actuate, and rebind the depth-28 tip
-without skill-route discovery.
+The remaining physical modules after the pair-effect collapse — actuation,
+settlement, clearing — are hash-chained log families, not pair-booking
+effects. This module hosts the logic once. A meta-path finder synthesizes
+``blackhole_agent.upstream_total_spine_<family>`` with the historical public
+names bound to the engine functions, so control-engine imports, ledger proof
+commands, and ``python -m`` keep working after the physical files are
+deleted. Actuation is the first family; settlement and clearing follow as
+spec rows. No skill-route discovery.
 """
 from __future__ import annotations
 
 import json
+import sys
+from dataclasses import dataclass
+from importlib.abc import Loader, MetaPathFinder
+from importlib.machinery import ModuleSpec
 from pathlib import Path
 from typing import Any, Mapping, MutableMapping, Sequence
 
@@ -1321,3 +1328,165 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+# ---------------------------------------------------------------------------
+# Synthesis: log-family modules with exact historical names and bindings.
+# ---------------------------------------------------------------------------
+
+_LOG_MODULE_PREFIX = "blackhole_agent.upstream_total_spine_"
+
+
+@dataclass(frozen=True)
+class LogFamilySpec:
+    """Tokens that distinguish one remaining log-family module."""
+
+    name: str
+    pred: str
+    verb: str
+    summary: str
+    exports: tuple[str, ...]
+
+
+# Public names the physical actuation module exposed (api-surface probe).
+_ACTUATION_EXPORTS: tuple[str, ...] = (
+    "Any",
+    "Mapping",
+    "MutableMapping",
+    "Path",
+    "REPO_ROOT",
+    "SCHEMA_VERSION",
+    "Sequence",
+    "StageRefused",
+    "TOTAL_SPINE_ACTUATION_FILENAME",
+    "TOTAL_SPINE_ACTUATION_IMPL",
+    "TOTAL_SPINE_ACTUATION_KIND",
+    "TOTAL_SPINE_ACTUATION_MIN_ACTIONS",
+    "TOTAL_SPINE_DEFAULT_EFFECT_CAPABILITIES",
+    "TOTAL_SPINE_DEFAULT_ROOT",
+    "TOTAL_SPINE_EXECUTION_KIND",
+    "actuate_total_spine",
+    "actuation_certificate_path",
+    "annotate_total_spine_actuation",
+    "annotations",
+    "atomic_write_json",
+    "build_total_spine_action_log",
+    "builtin_total_spine_actuation_proof",
+    "compute_total_spine_action_root",
+    "durable_read_path",
+    "json",
+    "legacy_pipeline_was_used",
+    "load_irreversible_certificate",
+    "load_total_spine_actuation_certificate",
+    "main",
+    "resolve_certificate_path",
+    "seal_total_spine_actuation_certificate",
+    "seal_total_spine_actuation_chain",
+    "utc_now_iso",
+    "verify_total_spine_actuation_certificate",
+    "write_irreversible_certificate",
+    "write_total_spine_actuation_certificate",
+)
+
+
+LOG_FAMILY_SPECS: dict[str, LogFamilySpec] = {
+    "actuation": LogFamilySpec(
+        name="actuation",
+        pred="execution",
+        verb="actuate",
+        summary=(
+            "Post-execution actuation for the absolute total spine. "
+            "Closes the inert state-root cliff."
+        ),
+        exports=_ACTUATION_EXPORTS,
+    )
+}
+
+
+def _synthesize_log_module(spec: LogFamilySpec) -> Any:
+    """Materialize ``blackhole_agent.upstream_total_spine_<name>``."""
+
+    import types
+    import __future__
+
+    fullname = f"{_LOG_MODULE_PREFIX}{spec.name}"
+    module = sys.modules.get(fullname)
+    impl_flag = f"TOTAL_SPINE_{spec.name.upper()}_IMPL"
+    if module is not None and module.__dict__.get(impl_flag):
+        return module
+    if module is None:
+        module = types.ModuleType(fullname)
+        sys.modules[fullname] = module
+    module.__file__ = f"<upstream-total-spine-log:{spec.name}>"
+    module.__doc__ = spec.summary
+    host = sys.modules[__name__]
+    g = module.__dict__
+    g["annotations"] = __future__.annotations
+    for name in spec.exports:
+        if name == "annotations":
+            continue
+        if name == "json":
+            g["json"] = json
+            continue
+        if name == "Path":
+            g["Path"] = Path
+            continue
+        if hasattr(host, name):
+            g[name] = getattr(host, name)
+    return module
+
+
+def _log_main_from_module(name: str, module_globals: dict[str, Any]) -> None:
+    """``python -m`` entry: synthesize the namespace, then run its main."""
+
+    spec = LOG_FAMILY_SPECS[name]
+    module = _synthesize_log_module(spec)
+    for key, value in module.__dict__.items():
+        if not (key.startswith("__") and key.endswith("__")):
+            module_globals[key] = value
+    if module_globals.get("__name__") == "__main__":
+        sys.exit(module_globals["main"]())
+
+
+class _LogFamilyLoader(Loader):
+    def __init__(self, fullname: str, spec: LogFamilySpec) -> None:
+        self._fullname = fullname
+        self._spec = spec
+
+    def create_module(self, spec_obj: ModuleSpec) -> None:
+        return None
+
+    def exec_module(self, module: Any) -> None:
+        synthesized = _synthesize_log_module(self._spec)
+        module.__dict__.update(synthesized.__dict__)
+
+    def get_code(self, fullname: str) -> Any:
+        source = (
+            "from blackhole_agent.upstream_total_spine_logs import _log_main_from_module\n"
+            f"_log_main_from_module({self._spec.name!r}, globals())\n"
+        )
+        return compile(source, f"<upstream-total-spine-log {self._spec.name}>", "exec")
+
+
+class _LogFamilyFinder(MetaPathFinder):
+    def find_spec(self, fullname: str, path: Any = None, target: Any = None) -> ModuleSpec | None:
+        if not fullname.startswith(_LOG_MODULE_PREFIX):
+            return None
+        name = fullname[len(_LOG_MODULE_PREFIX):]
+        spec = LOG_FAMILY_SPECS.get(name)
+        if spec is None:
+            return None
+        return ModuleSpec(
+            fullname,
+            _LogFamilyLoader(fullname, spec),
+            origin=f"<upstream-total-spine-log:{name}>",
+            is_package=False,
+        )
+
+
+def install_log_family_finder() -> None:
+    """Idempotently install the log-family meta-path finder."""
+
+    if not any(isinstance(finder, _LogFamilyFinder) for finder in sys.meta_path):
+        sys.meta_path.append(_LogFamilyFinder())
+

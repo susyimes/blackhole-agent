@@ -1,0 +1,39 @@
+{
+  "captured_at": "2026-08-15T16:04:03.176388Z",
+  "kind": "equivalence_snapshot",
+  "name": "log-family-actuation",
+  "probes": [
+    {
+      "id": "actuation-public-surface",
+      "include_private": false,
+      "kind": "api-surface",
+      "modules": [
+        "blackhole_agent.upstream_total_spine_actuation"
+      ]
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "blackhole_agent.upstream_control_engine",
+        "actuation-proof"
+      ],
+      "id": "proof-actuation",
+      "kind": "command"
+    }
+  ],
+  "results": {
+    "actuation-public-surface": {
+      "surfaces": {
+        "blackhole_agent.upstream_total_spine_actuation": "57cedb11ef33ac244c57512e2a19f52ec5560510f38b619497c0ab27e855d76b"
+      }
+    },
+    "proof-actuation": {
+      "exit_code": 0,
+      "stdout_digest": "a0f098521888241626ac40b418662357fb70aca5a36f5df8ad2f058ef80e077a",
+      "stdout_form": "json"
+    }
+  },
+  "schema_version": 1,
+  "snapshot_digest": "16f3eff6fd52c3ec97271402a774eb4d6a1312703b3face6aabad627ad081cdf"
+}
