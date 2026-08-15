@@ -1,0 +1,27 @@
+{
+  "captured_at": "2026-08-15T18:46:54.961938Z",
+  "kind": "equivalence_snapshot",
+  "name": "spine-stage-post-consensus",
+  "probes": [
+    {
+      "argv": [
+        "uv",
+        "run",
+        "python",
+        "-c",
+        "from blackhole_agent.upstream_control_engine import builtin_spine_stage_engine_proof; r=builtin_spine_stage_engine_proof(); assert r['ok'] and r['stage_count']==17 and r['post_consensus_count']==19 and r['checks']['attach_no_execute'] and r['checks']['attach_no_actuate'] and not r.get('used_skill_route_discovery')"
+      ],
+      "id": "spine-stage-engine-proof",
+      "kind": "command"
+    }
+  ],
+  "results": {
+    "spine-stage-engine-proof": {
+      "exit_code": 0,
+      "stdout_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_form": "raw"
+    }
+  },
+  "schema_version": 1,
+  "snapshot_digest": "9f69c1b154c003535c6574779fd193ed83c72bc04dd2edd11a883281ce534dbe"
+}

@@ -102,9 +102,11 @@ Composition:
   failed / wrong-root / tampered closures, short-circuits on re-settle,
   and rebinds the depth-28 tip without skill-route
 * total-spine **spine-stage catalog** — live and short-circuit
-  ``_attach_total_spine_effects`` walk :data:`SPINE_STAGE_CHAIN` through
-  :func:`_apply_spine_stages` from settlement through reorganization.
-  A new post-actuation stage is a catalog row, not another copied unroll.
+  ``_attach_total_spine_effects`` walk :data:`SPINE_POST_CONSENSUS_CHAIN`
+  through :func:`_apply_spine_stages` from execution through
+  reorganization. ``SPINE_STAGE_CHAIN`` remains the settlement-through-
+  reorganization slice. Execution and actuation are catalog rows, not
+  remaining hand-wired copies.
 * total-spine **post-settlement clearing** — closes the settled-but-
   uncleared cliff: after settlement seals a unilateral observation
   receipt, ``clear_total_spine(...)`` (and ``run_total_spine(clearing=True)``)
@@ -6991,14 +6993,17 @@ def _total_spine_round_succeeded(
     return True
 
 
-# Post-execution effect chain (settlement..reorganization): each link books the
+# Post-consensus catalog (execution..reorganization): each link books the
 # predecessor's sealed pairs into its own register, seals an irreversible
 # certificate, and rebinds the tip. The chain is data, not per-link copy-paste:
 # (effect, predecessor, runner verb, certificate source variant). Variants:
+#   "consensus" — source is federation/finality (execution only)
 #   "pred"      — source is the predecessor certificate or the body
 #   "self_pred" — source is own certificate (resume), else predecessor's, else body
 #   "self"      — source is own certificate (resume) or the body
 _TOTAL_SPINE_EFFECT_CHAIN: tuple[tuple[str, str, str, str], ...] = (
+    ("execution", "finality", "execute", "consensus"),
+    ("actuation", "execution", "actuate", "pred"),
     ("settlement", "actuation", "settle", "pred"),
     ("clearing", "settlement", "clear", "self_pred"),
     ("delivery", "clearing", "deliver", "self_pred"),
@@ -7018,12 +7023,15 @@ _TOTAL_SPINE_EFFECT_CHAIN: tuple[tuple[str, str, str, str], ...] = (
     ("reorganization", "emergence", "reorganize", "self"),
 )
 
-# Public catalog: live and short-circuit post-actuation dispatch walk this
-# table through :func:`_apply_spine_stages`. A new post-actuation stage is a
-# row, not another copied unroll in ``_attach_total_spine_effects``.
-SPINE_STAGE_CHAIN: tuple[tuple[str, str, str, str], ...] = _TOTAL_SPINE_EFFECT_CHAIN
+# Full post-consensus catalog. ``SPINE_STAGE_CHAIN`` stays the historical
+# post-actuation slice (settlement through reorganization).
+SPINE_POST_CONSENSUS_CHAIN: tuple[tuple[str, str, str, str], ...] = (
+    _TOTAL_SPINE_EFFECT_CHAIN
+)
+SPINE_STAGE_CHAIN: tuple[tuple[str, str, str, str], ...] = _TOTAL_SPINE_EFFECT_CHAIN[2:]
 SPINE_STAGE_ENGINE_IMPL = True
 SPINE_STAGE_POST_ACTUATION_START: str = "settlement"
+SPINE_STAGE_POST_CONSENSUS_START: str = "execution"
 
 
 def _apply_total_spine_effect(
@@ -7034,8 +7042,11 @@ def _apply_total_spine_effect(
     out_root: Path | None,
     resume_dir: Path | None,
     repo_path: Path | None,
+    capabilities: Sequence[str] | None = None,
+    effect_timeout: int = 60,
+    stage_ctx: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Apply one effect-chain link; refuse unless the predecessor is present."""
+    """Apply one catalog link; refuse unless the predecessor is present."""
     try:
         effect, pred, verb, source_variant = next(
             spec for spec in _TOTAL_SPINE_EFFECT_CHAIN if spec[0] == effect
@@ -7044,36 +7055,90 @@ def _apply_total_spine_effect(
         raise KeyError(f"unknown total-spine effect: {effect!r}") from None
     effect_key = f"total_spine_{effect}"
     impl = globals()[f"TOTAL_SPINE_{effect.upper()}_IMPL"]
+    ctx = dict(stage_ctx or {})
     if on and impl:
-        if annotated.get(f"total_spine_{pred}") is True:
+        pred_ok = annotated.get(f"total_spine_{pred}") is True
+        if effect == "execution":
+            pred_ok = pred_ok or annotated.get("total_spine_federation") is True
+        if pred_ok:
             effect_out = None
             if out_root is not None:
                 effect_out = Path(out_root)
             elif resume_dir is not None:
                 effect_out = Path(resume_dir)
-            prior = str(
-                annotated.get(f"total_spine_{pred}_bound_tip")
-                or annotated.get("total_spine_digest")
-                or ""
-            )
-            if source_variant == "pred":
-                source: Any = annotated.get(f"total_spine_{pred}_certificate") or annotated
-            elif source_variant == "self_pred":
-                source = (
-                    annotated.get(f"{effect_key}_certificate")
-                    or annotated.get(f"total_spine_{pred}_certificate")
-                    or annotated
+            runner = globals()[f"{verb}_total_spine"]
+            if source_variant == "consensus":
+                prior = str(
+                    annotated.get("total_spine_federation_bound_tip")
+                    or annotated.get("total_spine_finality_bound_tip")
+                    or annotated.get("total_spine_digest")
+                    or ctx.get("bound_tip")
+                    or ""
+                )
+                source: Any = (
+                    annotated.get("total_spine_federation_certificate")
+                    or annotated.get("total_spine_finality_certificate")
+                    or ctx.get("consensus_source")
+                )
+                if source is None and annotated.get("total_spine_finality_path"):
+                    try:
+                        source = load_total_spine_finality_certificate(
+                            str(annotated.get("total_spine_finality_path"))
+                        )
+                    except StageRefused:
+                        source = None
+                if source is None:
+                    annotated[effect_key] = False
+                    annotated[f"{effect_key}_missing_source"] = True
+                    annotated[f"{effect_key}_impl"] = impl
+                    return annotated
+                annotated = runner(
+                    source,
+                    out_root=effect_out,
+                    prior_tip=prior,
+                    body=annotated,
                 )
             else:
-                source = annotated.get(f"{effect_key}_certificate") or annotated
-            runner = globals()[f"{verb}_total_spine"]
-            annotated = runner(
-                source,
-                out_root=effect_out,
-                prior_tip=prior,
-                body=annotated,
-                repo_path=repo_path or REPO_ROOT,
-            )
+                prior = str(
+                    annotated.get(f"total_spine_{pred}_bound_tip")
+                    or annotated.get("total_spine_digest")
+                    or ctx.get("bound_tip")
+                    or ""
+                )
+                if source_variant == "pred":
+                    source = (
+                        annotated.get(f"total_spine_{pred}_certificate") or annotated
+                    )
+                elif source_variant == "self_pred":
+                    source = (
+                        annotated.get(f"{effect_key}_certificate")
+                        or annotated.get(f"total_spine_{pred}_certificate")
+                        or annotated
+                    )
+                else:
+                    source = annotated.get(f"{effect_key}_certificate") or annotated
+                kwargs: dict[str, Any] = {
+                    "out_root": effect_out,
+                    "prior_tip": prior,
+                    "body": annotated,
+                    "repo_path": repo_path or REPO_ROOT,
+                }
+                if effect == "actuation":
+                    kwargs["capabilities"] = list(
+                        capabilities
+                        or annotated.get("total_spine_effect_capabilities")
+                        or ctx.get("capabilities")
+                        or []
+                    )
+                    kwargs["effect_timeout"] = int(
+                        ctx.get("effect_timeout") or effect_timeout or 60
+                    )
+                    kwargs["dispatch"] = True
+                annotated = runner(source, **kwargs)
+            if ctx.get("restamp_finality") and annotated.get(effect_key) is True:
+                annotated["total_spine_finality"] = True
+                annotated["total_spine_finality_short_circuit"] = True
+                annotated["total_spine_finality_irreversible"] = True
         else:
             annotated[effect_key] = False
             annotated[f"{effect_key}_requires_{pred}"] = True
@@ -7092,6 +7157,9 @@ def _apply_total_spine_chain(
     out_root: Path | None,
     resume_dir: Path | None,
     repo_path: Path | None,
+    capabilities: Sequence[str] | None = None,
+    effect_timeout: int = 60,
+    stage_ctx: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Apply the effect chain from ``start`` to the chain tip."""
 
@@ -7104,6 +7172,9 @@ def _apply_total_spine_chain(
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
+            capabilities=capabilities,
+            effect_timeout=effect_timeout,
+            stage_ctx=stage_ctx,
         )
     return annotated
 
@@ -7113,7 +7184,7 @@ def _spine_stage_flag_map(**on_flags: bool) -> dict[str, bool]:
 
     return {
         f"{name}_on": bool(on_flags.get(f"{name}_on", False))
-        for name, _pred, _verb, _variant in SPINE_STAGE_CHAIN
+        for name, _pred, _verb, _variant in _TOTAL_SPINE_EFFECT_CHAIN
     }
 
 
@@ -7125,12 +7196,16 @@ def _apply_spine_stages(
     out_root: Path | None = None,
     resume_dir: Path | None = None,
     repo_path: Path | None = None,
+    capabilities: Sequence[str] | None = None,
+    effect_timeout: int = 60,
+    stage_ctx: Mapping[str, Any] | None = None,
     **on_flags: bool,
 ) -> dict[str, Any]:
-    """Walk :data:`SPINE_STAGE_CHAIN` from ``start`` to the tip.
+    """Walk the post-consensus catalog from ``start`` to the tip.
 
     Live and short-circuit ``_attach_total_spine_effects`` share this walk so
-    settlement through reorganization is one catalog, not two copied unrolls.
+    execution through reorganization is one catalog, not hand-wired copies.
+    ``SPINE_STAGE_CHAIN`` remains the settlement-through-reorganization slice.
     """
 
     merged = _spine_stage_flag_map(**on_flags)
@@ -7144,6 +7219,9 @@ def _apply_spine_stages(
         out_root=out_root,
         resume_dir=resume_dir,
         repo_path=repo_path,
+        capabilities=capabilities,
+        effect_timeout=effect_timeout,
+        stage_ctx=stage_ctx,
     )
 
 
@@ -7310,7 +7388,8 @@ def _total_spine_short_circuit(
 ) -> dict[str, Any]:
     """Rebind an already-sealed pair-chain link without re-dispatch."""
 
-    chain = [spec[0] for spec in _TOTAL_SPINE_EFFECT_CHAIN]
+    # Historical short-circuit plane/reann slices stay settlement-first.
+    chain = [spec[0] for spec in SPINE_STAGE_CHAIN]
     cfg = _TOTAL_SPINE_SHORT_CIRCUIT[effect]
     cert = resume[effect]
     caps = list(cert.get("capabilities") or [])
@@ -7424,37 +7503,22 @@ def _total_spine_short_circuit(
     annotated.setdefault("total_spine_federation", False)
     annotated.setdefault("total_spine_quorum", False)
     if cfg.get("post_actuation"):
-        if ctx["flags"].get("actuation_on") and TOTAL_SPINE_ACTUATION_IMPL:
-            act_out = None
-            if ctx["out_root"] is not None:
-                act_out = Path(ctx["out_root"])
-            elif ctx["resume_dir"] is not None:
-                act_out = Path(ctx["resume_dir"])
-            prior_act = str(
-                annotated.get("total_spine_execution_bound_tip")
-                or annotated.get("total_spine_digest")
-                or bound_tip
-            )
-            source_act: Any = (
-                annotated.get("total_spine_execution_certificate") or cert
-            )
-            annotated = actuate_total_spine(
-                source_act,
-                out_root=act_out,
-                prior_tip=prior_act,
-                body=annotated,
-                capabilities=ctx["capabilities"]
-                or list(cert.get("capabilities") or []),
-                repo_path=ctx["repo_path"] or REPO_ROOT,
-                effect_timeout=ctx["effect_timeout"],
-                dispatch=True,
-            )
+        annotated = _apply_total_spine_effect(
+            annotated,
+            "actuation",
+            on=bool(ctx["flags"].get("actuation_on", False)),
+            out_root=ctx["out_root"],
+            resume_dir=ctx["resume_dir"],
+            repo_path=ctx["repo_path"],
+            capabilities=ctx["capabilities"]
+            or list(cert.get("capabilities") or []),
+            effect_timeout=ctx["effect_timeout"],
+            stage_ctx={"bound_tip": bound_tip},
+        )
+        if annotated.get("total_spine_actuation") is True:
             annotated["total_spine_execution"] = True
             annotated["total_spine_execution_short_circuit"] = True
             annotated["total_spine_execution_irreversible"] = True
-        else:
-            annotated.setdefault("total_spine_actuation", False)
-            annotated["total_spine_actuation_impl"] = TOTAL_SPINE_ACTUATION_IMPL
     cont = cfg["cont"]
     if cont is None:
         return annotated
@@ -8533,79 +8597,22 @@ def _attach_total_spine_effects(
         else:
             annotated.setdefault("total_spine_federation", False)
             annotated.setdefault("total_spine_quorum", False)
-        # Post-consensus execution on finality short-circuit path.
-        if execution_on and TOTAL_SPINE_EXECUTION_IMPL:
-            exec_out_sc = None
-            if out_root is not None:
-                exec_out_sc = Path(out_root)
-            elif resume_dir is not None:
-                exec_out_sc = Path(resume_dir)
-            prior_exec = str(
-                annotated.get("total_spine_federation_bound_tip")
-                or annotated.get("total_spine_finality_bound_tip")
-                or annotated.get("total_spine_digest")
-                or bound_tip
-            )
-            source_sc: Any = (
-                annotated.get("total_spine_federation_certificate")
-                or resume_finality
-                or annotated.get("total_spine_finality_certificate")
-            )
-            annotated = execute_total_spine(
-                source_sc,
-                out_root=exec_out_sc,
-                prior_tip=prior_exec,
-                body=annotated,
-            )
-            annotated["total_spine_finality"] = True
-            annotated["total_spine_finality_short_circuit"] = True
-            annotated["total_spine_finality_irreversible"] = True
-        else:
-            annotated.setdefault("total_spine_execution", False)
-            annotated["total_spine_execution_impl"] = TOTAL_SPINE_EXECUTION_IMPL
-        # Post-execution actuation on finality short-circuit path.
-        if actuation_on and TOTAL_SPINE_ACTUATION_IMPL:
-            if annotated.get("total_spine_execution") is True:
-                act_out_sc = None
-                if out_root is not None:
-                    act_out_sc = Path(out_root)
-                elif resume_dir is not None:
-                    act_out_sc = Path(resume_dir)
-                prior_act = str(
-                    annotated.get("total_spine_execution_bound_tip")
-                    or annotated.get("total_spine_digest")
-                    or bound_tip
-                )
-                source_act_sc: Any = (
-                    annotated.get("total_spine_execution_certificate")
-                    or annotated
-                )
-                annotated = actuate_total_spine(
-                    source_act_sc,
-                    out_root=act_out_sc,
-                    prior_tip=prior_act,
-                    body=annotated,
-                    capabilities=capabilities
-                    or list(resume_finality.get("capabilities") or []),
-                    repo_path=repo_path or REPO_ROOT,
-                    effect_timeout=effect_timeout,
-                    dispatch=True,
-                )
-                annotated["total_spine_finality"] = True
-                annotated["total_spine_finality_short_circuit"] = True
-                annotated["total_spine_finality_irreversible"] = True
-            else:
-                annotated["total_spine_actuation"] = False
-                annotated["total_spine_actuation_requires_execution"] = True
-        else:
-            annotated.setdefault("total_spine_actuation", False)
-            annotated["total_spine_actuation_impl"] = TOTAL_SPINE_ACTUATION_IMPL
         annotated = _apply_spine_stages(
             annotated,
-            start=SPINE_STAGE_POST_ACTUATION_START,
+            start=SPINE_STAGE_POST_CONSENSUS_START,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
+            capabilities=capabilities
+            or list(resume_finality.get("capabilities") or []),
+            effect_timeout=effect_timeout,
+            stage_ctx={
+                "consensus_source": resume_finality,
+                "bound_tip": bound_tip,
+                "restamp_finality": True,
+            },
+            execution_on=execution_on,
+            actuation_on=actuation_on,
             settlement_on=settlement_on,
             clearing_on=clearing_on,
             delivery_on=delivery_on,
@@ -9336,95 +9343,18 @@ def _attach_total_spine_effects(
         annotated.setdefault("total_spine_federation", False)
         annotated.setdefault("total_spine_quorum", False)
 
-    # Post-consensus execution: finality (and optional federation/quorum) → state root.
-    if execution_on and TOTAL_SPINE_EXECUTION_IMPL:
-        if annotated.get("total_spine_finality") is True or annotated.get(
-            "total_spine_federation"
-        ):
-            exec_out = None
-            if out_root is not None:
-                exec_out = Path(out_root)
-            elif resume_dir is not None:
-                exec_out = Path(resume_dir)
-            prior_exec = str(
-                annotated.get("total_spine_federation_bound_tip")
-                or annotated.get("total_spine_finality_bound_tip")
-                or annotated.get("total_spine_digest")
-                or ""
-            )
-            source_n: Any = (
-                annotated.get("total_spine_federation_certificate")
-                or last_finality
-                or annotated.get("total_spine_finality_certificate")
-            )
-            if source_n is None and annotated.get("total_spine_finality_path"):
-                try:
-                    source_n = load_total_spine_finality_certificate(
-                        str(annotated.get("total_spine_finality_path"))
-                    )
-                except StageRefused:
-                    source_n = None
-            if source_n is not None:
-                annotated = execute_total_spine(
-                    source_n,
-                    out_root=exec_out,
-                    prior_tip=prior_exec,
-                    body=annotated,
-                )
-            else:
-                annotated["total_spine_execution"] = False
-                annotated["total_spine_execution_missing_source"] = True
-        else:
-            annotated["total_spine_execution"] = False
-            annotated["total_spine_execution_requires_finality"] = True
-    elif not execution_on:
-        annotated.setdefault("total_spine_execution", False)
-        annotated["total_spine_execution_impl"] = TOTAL_SPINE_EXECUTION_IMPL
-
-    annotated["total_spine_execution_impl"] = TOTAL_SPINE_EXECUTION_IMPL
-
-    # Post-execution actuation: execution state root → multi-action tip.
-    if actuation_on and TOTAL_SPINE_ACTUATION_IMPL:
-        if annotated.get("total_spine_execution") is True:
-            act_out = None
-            if out_root is not None:
-                act_out = Path(out_root)
-            elif resume_dir is not None:
-                act_out = Path(resume_dir)
-            prior_act = str(
-                annotated.get("total_spine_execution_bound_tip")
-                or annotated.get("total_spine_digest")
-                or ""
-            )
-            source_act_n: Any = (
-                annotated.get("total_spine_execution_certificate")
-                or annotated
-            )
-            annotated = actuate_total_spine(
-                source_act_n,
-                out_root=act_out,
-                prior_tip=prior_act,
-                body=annotated,
-                capabilities=capabilities
-                or list(annotated.get("total_spine_effect_capabilities") or []),
-                repo_path=repo_path or REPO_ROOT,
-                effect_timeout=effect_timeout,
-                dispatch=True,
-            )
-        else:
-            annotated["total_spine_actuation"] = False
-            annotated["total_spine_actuation_requires_execution"] = True
-    elif not actuation_on:
-        annotated.setdefault("total_spine_actuation", False)
-        annotated["total_spine_actuation_impl"] = TOTAL_SPINE_ACTUATION_IMPL
-
-    annotated["total_spine_actuation_impl"] = TOTAL_SPINE_ACTUATION_IMPL
     annotated = _apply_spine_stages(
         annotated,
-        start=SPINE_STAGE_POST_ACTUATION_START,
+        start=SPINE_STAGE_POST_CONSENSUS_START,
         out_root=out_root,
         resume_dir=resume_dir,
         repo_path=repo_path,
+        capabilities=capabilities
+        or list(annotated.get("total_spine_effect_capabilities") or []),
+        effect_timeout=effect_timeout,
+        stage_ctx={"consensus_source": last_finality},
+        execution_on=execution_on,
+        actuation_on=actuation_on,
         settlement_on=settlement_on,
         clearing_on=clearing_on,
         delivery_on=delivery_on,
@@ -15099,12 +15029,13 @@ def builtin_total_spine_execution_proof() -> dict[str, Any]:
 
 
 def builtin_spine_stage_engine_proof() -> dict[str, Any]:
-    """Hermetic proof: post-actuation dispatch is one spine-stage catalog walk."""
+    """Hermetic proof: post-consensus dispatch is one spine-stage catalog walk."""
 
     import inspect
 
     checks: dict[str, bool] = {}
     names = [spec[0] for spec in SPINE_STAGE_CHAIN]
+    full = [spec[0] for spec in SPINE_POST_CONSENSUS_CHAIN]
     expected = (
         "settlement",
         "clearing",
@@ -15124,18 +15055,29 @@ def builtin_spine_stage_engine_proof() -> dict[str, Any]:
         "emergence",
         "reorganization",
     )
-    checks["catalog_alias"] = SPINE_STAGE_CHAIN is _TOTAL_SPINE_EFFECT_CHAIN
+    checks["catalog_slice"] = tuple(names) == expected
     checks["catalog_names"] = tuple(names) == expected
     checks["catalog_start"] = SPINE_STAGE_POST_ACTUATION_START == "settlement"
+    checks["post_consensus_start"] = (
+        SPINE_STAGE_POST_CONSENSUS_START == "execution"
+    )
+    checks["catalog_has_execution"] = full[:2] == ["execution", "actuation"]
+    checks["catalog_full_tail"] = full[2:] == list(expected)
     checks["engine_impl"] = SPINE_STAGE_ENGINE_IMPL is True
     apply_src = inspect.getsource(_apply_spine_stages)
     attach_src = inspect.getsource(_attach_total_spine_effects)
     short_src = inspect.getsource(_total_spine_short_circuit)
     checks["walk_uses_chain"] = "_apply_total_spine_chain" in apply_src
     checks["attach_uses_walk"] = attach_src.count("_apply_spine_stages") == 2
+    checks["attach_walks_consensus"] = (
+        "SPINE_STAGE_POST_CONSENSUS_START" in attach_src
+    )
     checks["attach_no_unrolled_effect"] = "_apply_total_spine_effect(" not in attach_src
     checks["attach_no_partial_chain"] = "_apply_total_spine_chain(" not in attach_src
+    checks["attach_no_execute"] = "execute_total_spine(" not in attach_src
+    checks["attach_no_actuate"] = "actuate_total_spine(" not in attach_src
     checks["short_circuit_uses_walk"] = "_apply_spine_stages" in short_src
+    checks["short_circuit_no_actuate"] = "actuate_total_spine(" not in short_src
     off = _apply_spine_stages(
         {"ok": True, "total_spine": True},
         start=SPINE_STAGE_POST_ACTUATION_START,
@@ -15146,12 +15088,19 @@ def builtin_spine_stage_engine_proof() -> dict[str, Any]:
     checks["off_impl_flags"] = all(
         off.get(f"total_spine_{name}_impl") is True for name in expected
     )
+    off_exec = _apply_spine_stages(
+        {"ok": True, "total_spine": True},
+        start=SPINE_STAGE_POST_CONSENSUS_START,
+    )
+    checks["off_execution_default"] = off_exec.get("total_spine_execution") is False
+    checks["off_actuation_default"] = off_exec.get("total_spine_actuation") is False
     checks["no_skill_route"] = not legacy_pipeline_was_used()
     wired = {
         "apply_spine_stages": callable(_apply_spine_stages),
         "apply_chain": callable(_apply_total_spine_chain),
         "apply_effect": callable(_apply_total_spine_effect),
         "catalog": bool(SPINE_STAGE_CHAIN),
+        "post_consensus_catalog": bool(SPINE_POST_CONSENSUS_CHAIN),
     }
     ok = all(checks.values()) and all(wired.values())
     return {
@@ -15163,6 +15112,8 @@ def builtin_spine_stage_engine_proof() -> dict[str, Any]:
         "wired_count": sum(1 for value in wired.values() if value),
         "stages": list(names),
         "stage_count": len(names),
+        "post_consensus_stages": list(full),
+        "post_consensus_count": len(full),
         "used_skill_route_discovery": legacy_pipeline_was_used(),
         "spine_stage_engine": True,
         "done_when_met": ok,
