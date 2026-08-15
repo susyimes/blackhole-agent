@@ -1,0 +1,13 @@
+[
+  {
+    "kind": "api-surface",
+    "id": "settlement-public-surface",
+    "modules": ["blackhole_agent.upstream_total_spine_settlement"],
+    "include_private": false
+  },
+  {
+    "kind": "command",
+    "id": "proof-settlement",
+    "argv": ["python", "-m", "blackhole_agent.upstream_control_engine", "settlement-proof"]
+  }
+]

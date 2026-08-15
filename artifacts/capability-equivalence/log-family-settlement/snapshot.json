@@ -1,0 +1,39 @@
+{
+  "captured_at": "2026-08-15T16:07:53.188068Z",
+  "kind": "equivalence_snapshot",
+  "name": "log-family-settlement",
+  "probes": [
+    {
+      "id": "settlement-public-surface",
+      "include_private": false,
+      "kind": "api-surface",
+      "modules": [
+        "blackhole_agent.upstream_total_spine_settlement"
+      ]
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "blackhole_agent.upstream_control_engine",
+        "settlement-proof"
+      ],
+      "id": "proof-settlement",
+      "kind": "command"
+    }
+  ],
+  "results": {
+    "proof-settlement": {
+      "exit_code": 1,
+      "stdout_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_form": "raw"
+    },
+    "settlement-public-surface": {
+      "surfaces": {
+        "blackhole_agent.upstream_total_spine_settlement": "5bd199c54f3ddd364d9a79a6ce8dbf5a1985f7aa9d55debc480fc92131642ca7"
+      }
+    }
+  },
+  "schema_version": 1,
+  "snapshot_digest": "2fb46662994863514bec00ee689da63f482dc0cdbb23a5bda5ec57473731b832"
+}
