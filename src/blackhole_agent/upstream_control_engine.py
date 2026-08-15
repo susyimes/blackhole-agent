@@ -101,6 +101,10 @@ Composition:
   bound to the actuation digest and action root, refuses unsettled /
   failed / wrong-root / tampered closures, short-circuits on re-settle,
   and rebinds the depth-28 tip without skill-route
+* total-spine **spine-stage catalog** — live and short-circuit
+  ``_attach_total_spine_effects`` walk :data:`SPINE_STAGE_CHAIN` through
+  :func:`_apply_spine_stages` from settlement through reorganization.
+  A new post-actuation stage is a catalog row, not another copied unroll.
 * total-spine **post-settlement clearing** — closes the settled-but-
   uncleared cliff: after settlement seals a unilateral observation
   receipt, ``clear_total_spine(...)`` (and ``run_total_spine(clearing=True)``)
@@ -7014,6 +7018,13 @@ _TOTAL_SPINE_EFFECT_CHAIN: tuple[tuple[str, str, str, str], ...] = (
     ("reorganization", "emergence", "reorganize", "self"),
 )
 
+# Public catalog: live and short-circuit post-actuation dispatch walk this
+# table through :func:`_apply_spine_stages`. A new post-actuation stage is a
+# row, not another copied unroll in ``_attach_total_spine_effects``.
+SPINE_STAGE_CHAIN: tuple[tuple[str, str, str, str], ...] = _TOTAL_SPINE_EFFECT_CHAIN
+SPINE_STAGE_ENGINE_IMPL = True
+SPINE_STAGE_POST_ACTUATION_START: str = "settlement"
+
 
 def _apply_total_spine_effect(
     annotated: dict[str, Any],
@@ -7095,6 +7106,45 @@ def _apply_total_spine_chain(
             repo_path=repo_path,
         )
     return annotated
+
+
+def _spine_stage_flag_map(**on_flags: bool) -> dict[str, bool]:
+    """Normalize ``<stage>_on`` kwargs to the catalog flag map."""
+
+    return {
+        f"{name}_on": bool(on_flags.get(f"{name}_on", False))
+        for name, _pred, _verb, _variant in SPINE_STAGE_CHAIN
+    }
+
+
+def _apply_spine_stages(
+    annotated: dict[str, Any],
+    *,
+    start: str = SPINE_STAGE_POST_ACTUATION_START,
+    flags: Mapping[str, bool] | None = None,
+    out_root: Path | None = None,
+    resume_dir: Path | None = None,
+    repo_path: Path | None = None,
+    **on_flags: bool,
+) -> dict[str, Any]:
+    """Walk :data:`SPINE_STAGE_CHAIN` from ``start`` to the tip.
+
+    Live and short-circuit ``_attach_total_spine_effects`` share this walk so
+    settlement through reorganization is one catalog, not two copied unrolls.
+    """
+
+    merged = _spine_stage_flag_map(**on_flags)
+    if flags is not None:
+        for key, value in flags.items():
+            merged[str(key)] = bool(value)
+    return _apply_total_spine_chain(
+        annotated,
+        start,
+        merged,
+        out_root=out_root,
+        resume_dir=resume_dir,
+        repo_path=repo_path,
+    )
 
 
 # Short-circuit resume for the pair-chain links solvency..reorganization: a
@@ -7420,10 +7470,10 @@ def _total_spine_short_circuit(
     }
     for name in forced:
         flags[name] = True
-    return _apply_total_spine_chain(
+    return _apply_spine_stages(
         annotated,
-        target,
-        flags,
+        start=target,
+        flags=flags,
         out_root=ctx["out_root"],
         resume_dir=ctx["resume_dir"],
         repo_path=ctx["repo_path"],
@@ -8550,61 +8600,29 @@ def _attach_total_spine_effects(
         else:
             annotated.setdefault("total_spine_actuation", False)
             annotated["total_spine_actuation_impl"] = TOTAL_SPINE_ACTUATION_IMPL
-        annotated = _apply_total_spine_effect(
+        annotated = _apply_spine_stages(
             annotated,
-            "settlement",
-            on=settlement_on,
+            start=SPINE_STAGE_POST_ACTUATION_START,
             out_root=out_root,
             resume_dir=resume_dir,
             repo_path=repo_path,
-        )
-        annotated = _apply_total_spine_effect(
-            annotated,
-            "clearing",
-            on=clearing_on,
-            out_root=out_root,
-            resume_dir=resume_dir,
-            repo_path=repo_path,
-        )
-        annotated = _apply_total_spine_effect(
-            annotated,
-            "delivery",
-            on=delivery_on,
-            out_root=out_root,
-            resume_dir=resume_dir,
-            repo_path=repo_path,
-        )
-        annotated = _apply_total_spine_effect(
-            annotated,
-            "custody",
-            on=custody_on,
-            out_root=out_root,
-            resume_dir=resume_dir,
-            repo_path=repo_path,
-        )
-        annotated = _apply_total_spine_effect(
-            annotated,
-            "margin",
-            on=margin_on,
-            out_root=out_root,
-            resume_dir=resume_dir,
-            repo_path=repo_path,
-        )
-        annotated = _apply_total_spine_effect(
-            annotated,
-            "collateral",
-            on=collateral_on,
-            out_root=out_root,
-            resume_dir=resume_dir,
-            repo_path=repo_path,
-        )
-        annotated = _apply_total_spine_chain(
-            annotated,
-            "liquidity",
-            {"liquidity_on": liquidity_on, "funding_on": funding_on, "capital_on": capital_on, "solvency_on": solvency_on, "risk_on": risk_on, "stress_on": stress_on, "recovery_on": recovery_on, "resolution_on": resolution_on, "restructuring_on": restructuring_on, "emergence_on": emergence_on, "reorganization_on": reorganization_on},
-            out_root=out_root,
-            resume_dir=resume_dir,
-            repo_path=repo_path,
+            settlement_on=settlement_on,
+            clearing_on=clearing_on,
+            delivery_on=delivery_on,
+            custody_on=custody_on,
+            margin_on=margin_on,
+            collateral_on=collateral_on,
+            liquidity_on=liquidity_on,
+            funding_on=funding_on,
+            capital_on=capital_on,
+            solvency_on=solvency_on,
+            risk_on=risk_on,
+            stress_on=stress_on,
+            recovery_on=recovery_on,
+            resolution_on=resolution_on,
+            restructuring_on=restructuring_on,
+            emergence_on=emergence_on,
+            reorganization_on=reorganization_on,
         )
         return annotated
 
@@ -9401,61 +9419,29 @@ def _attach_total_spine_effects(
         annotated["total_spine_actuation_impl"] = TOTAL_SPINE_ACTUATION_IMPL
 
     annotated["total_spine_actuation_impl"] = TOTAL_SPINE_ACTUATION_IMPL
-    annotated = _apply_total_spine_effect(
+    annotated = _apply_spine_stages(
         annotated,
-        "settlement",
-        on=settlement_on,
+        start=SPINE_STAGE_POST_ACTUATION_START,
         out_root=out_root,
         resume_dir=resume_dir,
         repo_path=repo_path,
-    )
-    annotated = _apply_total_spine_effect(
-        annotated,
-        "clearing",
-        on=clearing_on,
-        out_root=out_root,
-        resume_dir=resume_dir,
-        repo_path=repo_path,
-    )
-    annotated = _apply_total_spine_effect(
-        annotated,
-        "delivery",
-        on=delivery_on,
-        out_root=out_root,
-        resume_dir=resume_dir,
-        repo_path=repo_path,
-    )
-    annotated = _apply_total_spine_effect(
-        annotated,
-        "custody",
-        on=custody_on,
-        out_root=out_root,
-        resume_dir=resume_dir,
-        repo_path=repo_path,
-    )
-    annotated = _apply_total_spine_effect(
-        annotated,
-        "margin",
-        on=margin_on,
-        out_root=out_root,
-        resume_dir=resume_dir,
-        repo_path=repo_path,
-    )
-    annotated = _apply_total_spine_effect(
-        annotated,
-        "collateral",
-        on=collateral_on,
-        out_root=out_root,
-        resume_dir=resume_dir,
-        repo_path=repo_path,
-    )
-    annotated = _apply_total_spine_chain(
-        annotated,
-        "liquidity",
-        {"liquidity_on": liquidity_on, "funding_on": funding_on, "capital_on": capital_on, "solvency_on": solvency_on, "risk_on": risk_on, "stress_on": stress_on, "recovery_on": recovery_on, "resolution_on": resolution_on, "restructuring_on": restructuring_on, "emergence_on": emergence_on, "reorganization_on": reorganization_on},
-        out_root=out_root,
-        resume_dir=resume_dir,
-        repo_path=repo_path,
+        settlement_on=settlement_on,
+        clearing_on=clearing_on,
+        delivery_on=delivery_on,
+        custody_on=custody_on,
+        margin_on=margin_on,
+        collateral_on=collateral_on,
+        liquidity_on=liquidity_on,
+        funding_on=funding_on,
+        capital_on=capital_on,
+        solvency_on=solvency_on,
+        risk_on=risk_on,
+        stress_on=stress_on,
+        recovery_on=recovery_on,
+        resolution_on=resolution_on,
+        restructuring_on=restructuring_on,
+        emergence_on=emergence_on,
+        reorganization_on=reorganization_on,
     )
     return annotated
 
@@ -15110,6 +15096,77 @@ def builtin_total_spine_execution_proof() -> dict[str, Any]:
 
     return _proof()
 
+
+
+def builtin_spine_stage_engine_proof() -> dict[str, Any]:
+    """Hermetic proof: post-actuation dispatch is one spine-stage catalog walk."""
+
+    import inspect
+
+    checks: dict[str, bool] = {}
+    names = [spec[0] for spec in SPINE_STAGE_CHAIN]
+    expected = (
+        "settlement",
+        "clearing",
+        "delivery",
+        "custody",
+        "margin",
+        "collateral",
+        "liquidity",
+        "funding",
+        "capital",
+        "solvency",
+        "risk",
+        "stress",
+        "recovery",
+        "resolution",
+        "restructuring",
+        "emergence",
+        "reorganization",
+    )
+    checks["catalog_alias"] = SPINE_STAGE_CHAIN is _TOTAL_SPINE_EFFECT_CHAIN
+    checks["catalog_names"] = tuple(names) == expected
+    checks["catalog_start"] = SPINE_STAGE_POST_ACTUATION_START == "settlement"
+    checks["engine_impl"] = SPINE_STAGE_ENGINE_IMPL is True
+    apply_src = inspect.getsource(_apply_spine_stages)
+    attach_src = inspect.getsource(_attach_total_spine_effects)
+    short_src = inspect.getsource(_total_spine_short_circuit)
+    checks["walk_uses_chain"] = "_apply_total_spine_chain" in apply_src
+    checks["attach_uses_walk"] = attach_src.count("_apply_spine_stages") == 2
+    checks["attach_no_unrolled_effect"] = "_apply_total_spine_effect(" not in attach_src
+    checks["attach_no_partial_chain"] = "_apply_total_spine_chain(" not in attach_src
+    checks["short_circuit_uses_walk"] = "_apply_spine_stages" in short_src
+    off = _apply_spine_stages(
+        {"ok": True, "total_spine": True},
+        start=SPINE_STAGE_POST_ACTUATION_START,
+    )
+    checks["off_walk_ok"] = off.get("ok") is True
+    checks["off_settlement_default"] = off.get("total_spine_settlement") is False
+    checks["off_reorganization_default"] = off.get("total_spine_reorganization") is False
+    checks["off_impl_flags"] = all(
+        off.get(f"total_spine_{name}_impl") is True for name in expected
+    )
+    checks["no_skill_route"] = not legacy_pipeline_was_used()
+    wired = {
+        "apply_spine_stages": callable(_apply_spine_stages),
+        "apply_chain": callable(_apply_total_spine_chain),
+        "apply_effect": callable(_apply_total_spine_effect),
+        "catalog": bool(SPINE_STAGE_CHAIN),
+    }
+    ok = all(checks.values()) and all(wired.values())
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "action": "spine_stage_engine_proof",
+        "ok": ok,
+        "checks": checks,
+        "wired": wired,
+        "wired_count": sum(1 for value in wired.values() if value),
+        "stages": list(names),
+        "stage_count": len(names),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+        "spine_stage_engine": True,
+        "done_when_met": ok,
+    }
 
 
 def builtin_control_nest_proof() -> dict[str, Any]:

@@ -1,0 +1,51 @@
+{
+  "action": "spine_stage_engine_proof",
+  "checks": {
+    "attach_no_partial_chain": true,
+    "attach_no_unrolled_effect": true,
+    "attach_uses_walk": true,
+    "catalog_alias": true,
+    "catalog_names": true,
+    "catalog_start": true,
+    "engine_impl": true,
+    "no_skill_route": true,
+    "off_impl_flags": true,
+    "off_reorganization_default": true,
+    "off_settlement_default": true,
+    "off_walk_ok": true,
+    "short_circuit_uses_walk": true,
+    "walk_uses_chain": true
+  },
+  "done_when_met": true,
+  "ok": true,
+  "schema_version": 1,
+  "spine_stage_engine": true,
+  "stage_count": 17,
+  "stages": [
+    "settlement",
+    "clearing",
+    "delivery",
+    "custody",
+    "margin",
+    "collateral",
+    "liquidity",
+    "funding",
+    "capital",
+    "solvency",
+    "risk",
+    "stress",
+    "recovery",
+    "resolution",
+    "restructuring",
+    "emergence",
+    "reorganization"
+  ],
+  "used_skill_route_discovery": false,
+  "wired": {
+    "apply_chain": true,
+    "apply_effect": true,
+    "apply_spine_stages": true,
+    "catalog": true
+  },
+  "wired_count": 4
+}
