@@ -7775,6 +7775,148 @@ def _apply_total_spine_chain(
     return annotated
 
 
+# Short-circuit resume for the pair-chain links solvency..reorganization: a
+# sealed upstream certificate rebinds the tip without re-dispatch. The eight
+# sections were per-link copy-paste; the per-link differences are chain
+# position plus the impl-flag list and continuation below (quirks preserved:
+# solvency/stress include the next link's impl flag; resolution/restructuring
+# force their continuation flag True).
+_TOTAL_SPINE_SHORT_CIRCUIT: dict[str, dict[str, Any]] = {
+    "solvency": {
+        "impls": ("collateral", "liquidity", "funding", "capital", "solvency", "risk"),
+        "cont": ("risk", ()),
+    },
+    "risk": {
+        "impls": ("collateral", "liquidity", "funding", "capital", "solvency", "risk"),
+        "cont": None,
+    },
+    "stress": {
+        "impls": ("collateral", "liquidity", "funding", "capital", "solvency", "risk", "stress", "recovery"),
+        "cont": None,
+    },
+    "recovery": {
+        "impls": ("collateral", "liquidity", "funding", "capital", "solvency", "risk", "stress", "recovery"),
+        "cont": None,
+    },
+    "resolution": {
+        "impls": ("collateral", "liquidity", "funding", "capital", "solvency", "risk", "stress", "recovery", "resolution", "restructuring"),
+        "cont": ("restructuring", ("restructuring_on",), "restructuring_on"),
+    },
+    "restructuring": {
+        "impls": ("collateral", "liquidity", "funding", "capital", "solvency", "risk", "stress", "recovery", "resolution", "restructuring"),
+        "cont": ("emergence", ("emergence_on",), "emergence_on"),
+    },
+    "emergence": {
+        "impls": ("collateral", "liquidity", "funding", "capital", "solvency", "risk", "stress", "recovery", "resolution", "emergence", "restructuring"),
+        "cont": None,
+    },
+    "reorganization": {
+        "impls": ("collateral", "liquidity", "funding", "capital", "solvency", "risk", "stress", "recovery", "resolution", "restructuring", "emergence", "reorganization"),
+        "cont": None,
+    },
+}
+
+
+def _total_spine_short_circuit(
+    annotated: dict[str, Any],
+    effect: str,
+    *,
+    resume: Mapping[str, Any],
+    ctx: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Rebind an already-sealed pair-chain link without re-dispatch."""
+
+    chain = [spec[0] for spec in _TOTAL_SPINE_EFFECT_CHAIN]
+    cfg = _TOTAL_SPINE_SHORT_CIRCUIT[effect]
+    cert = resume[effect]
+    caps = list(cert.get("capabilities") or [])
+    bound_tip = str(cert.get("prior_tip") or ctx["bound_tip"])
+    annotated["ok"] = True
+    annotated["verdict"] = f"total_spine_{effect}_short_circuit"
+    annotated["total_spine_effects"] = bool(caps) or ctx["want_effects"]
+    annotated["total_spine_effects_ok"] = bool(cert.get("effects_ok", True))
+    annotated["total_spine_effect_capabilities"] = caps
+    annotated["total_spine_effect_count"] = len(caps)
+    annotated["total_spine_effects_ok_count"] = len(caps)
+    annotated["total_spine_effects_failed_count"] = 0
+    annotated["total_spine_goal"] = ctx["goal_text"] or str(cert.get("goal") or "")
+    if ctx["contract_text"] or cert.get("done_when"):
+        annotated["total_spine_contract"] = True
+        annotated["total_spine_contract_met"] = cert.get("contract_met")
+        annotated["total_spine_contract_ok"] = (
+            cert.get("contract_met") is True or cert.get("contract_met") is None
+        )
+        annotated["total_spine_done_when"] = ctx["contract_text"] or str(
+            cert.get("done_when") or ""
+        )
+    for name in ("finality", "execution", "actuation"):
+        annotated[f"total_spine_{name}"] = True
+    for name in chain[: chain.index(effect)]:
+        annotated[f"total_spine_{name}"] = True
+    for name in ("funding", "capital") + tuple(
+        chain[chain.index("solvency") : chain.index(effect)]
+    ):
+        pred_cert = resume.get(name)
+        if pred_cert is not None:
+            annotated = globals()[f"annotate_total_spine_{name}"](
+                annotated,
+                certificate=pred_cert,
+                prior_tip=bound_tip,
+                short_circuit=True,
+            )
+            bound_tip = str(
+                annotated.get(f"total_spine_{name}_bound_tip") or bound_tip
+            )
+    annotated = globals()[f"annotate_total_spine_{effect}"](
+        annotated,
+        certificate=cert,
+        prior_tip=bound_tip,
+        short_circuit=True,
+    )
+    bound_tip = str(annotated.get(f"total_spine_{effect}_bound_tip") or bound_tip)
+    if ctx["compressed"]:
+        hops = seal_total_spine_hop_chain(ctx["root"], ctx["live_result"], tip=bound_tip)
+        annotated["total_spine_hop_chain"] = hops
+        annotated["total_spine_hop_count"] = len(hops)
+        if hops:
+            annotated["total_spine_digest"] = hops[0].get("digest")
+            annotated[f"{ctx['root']}_digest"] = hops[0].get("digest")
+    else:
+        annotated["total_spine_digest"] = bound_tip
+        annotated[f"{ctx['root']}_digest"] = bound_tip
+    annotated[f"total_spine_{effect}_short_circuit"] = True
+    annotated["total_spine_constitution_depth"] = ctx["chain_len"]
+    for name in cfg["impls"]:
+        annotated[f"total_spine_{name}_impl"] = globals()[f"TOTAL_SPINE_{name.upper()}_IMPL"]
+    if ctx["goal_text"] and not annotated.get("total_spine_goal"):
+        annotated["total_spine_goal"] = ctx["goal_text"]
+    annotated.setdefault("total_spine_federation", False)
+    annotated.setdefault("total_spine_quorum", False)
+    cont = cfg["cont"]
+    if cont is None:
+        return annotated
+    if len(cont) == 3:
+        target, forced, guard = cont
+        if not ctx["flags"].get(guard, False):
+            return annotated
+    else:
+        target, forced = cont
+    flags = {
+        f"{name}_on": bool(ctx["flags"].get(f"{name}_on", False))
+        for name in chain[chain.index(target) :]
+    }
+    for name in forced:
+        flags[name] = True
+    return _apply_total_spine_chain(
+        annotated,
+        target,
+        flags,
+        out_root=ctx["out_root"],
+        resume_dir=ctx["resume_dir"],
+        repo_path=ctx["repo_path"],
+    )
+
+
 def _attach_total_spine_effects(
     annotated: dict[str, Any],
     *,
@@ -8559,1178 +8701,73 @@ def _attach_total_spine_effects(
             resume_checkpoint.get("checkpoint_path")
         )
 
+    _sc_resume = {
+        "funding": resume_funding, "capital": resume_capital, "solvency": resume_solvency,
+        "risk": resume_risk, "stress": resume_stress, "recovery": resume_recovery,
+        "resolution": resume_resolution, "restructuring": resume_restructuring,
+        "emergence": resume_emergence, "reorganization": resume_reorganization,
+    }
+    _sc_ctx = {
+        "bound_tip": bound_tip, "recovered": recovered, "want_effects": want_effects,
+        "goal_text": goal_text, "contract_text": contract_text, "compressed": compressed,
+        "live_result": live_result, "root": root, "chain_len": chain_len,
+        "out_root": out_root, "resume_dir": resume_dir, "repo_path": repo_path,
+        "flags": {
+            "risk_on": risk_on, "stress_on": stress_on, "recovery_on": recovery_on,
+            "resolution_on": resolution_on, "restructuring_on": restructuring_on,
+            "emergence_on": emergence_on, "reorganization_on": reorganization_on,
+        },
+    }
 
-
-
-    # --- Irreversible reorganization short-circuit (no effect re-dispatch) ---
+# --- Irreversible reorganization short-circuit (no effect re-dispatch) ---
     if resume_reorganization is not None:
-        short_circuited = True
-        recovered = recovered or bool(resume_reorganization.get("recovered"))
-        reorg_caps = list(resume_reorganization.get("capabilities") or [])
-        reorg_prior = str(resume_reorganization.get("prior_tip") or bound_tip)
-        bound_tip = reorg_prior
-        annotated["ok"] = True
-        annotated["verdict"] = "total_spine_reorganization_short_circuit"
-        annotated["total_spine_effects"] = bool(reorg_caps) or want_effects
-        annotated["total_spine_effects_ok"] = bool(
-            resume_reorganization.get("effects_ok", True)
+        return _total_spine_short_circuit(
+            annotated, "reorganization", resume=_sc_resume, ctx=_sc_ctx
         )
-        annotated["total_spine_effect_capabilities"] = reorg_caps
-        annotated["total_spine_effect_count"] = len(reorg_caps)
-        annotated["total_spine_effects_ok_count"] = len(reorg_caps)
-        annotated["total_spine_effects_failed_count"] = 0
-        annotated["total_spine_goal"] = (
-            goal_text or str(resume_reorganization.get("goal") or "")
-        )
-        if contract_text or resume_reorganization.get("done_when"):
-            annotated["total_spine_contract"] = True
-            annotated["total_spine_contract_met"] = resume_reorganization.get(
-                "contract_met"
-            )
-            annotated["total_spine_contract_ok"] = (
-                resume_reorganization.get("contract_met") is True
-                or resume_reorganization.get("contract_met") is None
-            )
-            annotated["total_spine_done_when"] = (
-                contract_text
-                or str(resume_reorganization.get("done_when") or "")
-            )
-        annotated["total_spine_finality"] = True
-        annotated["total_spine_execution"] = True
-        annotated["total_spine_actuation"] = True
-        annotated["total_spine_settlement"] = True
-        annotated["total_spine_clearing"] = True
-        annotated["total_spine_delivery"] = True
-        annotated["total_spine_custody"] = True
-        annotated["total_spine_margin"] = True
-        annotated["total_spine_collateral"] = True
-        annotated["total_spine_liquidity"] = True
-        annotated["total_spine_funding"] = True
-        annotated["total_spine_capital"] = True
-        annotated["total_spine_solvency"] = True
-        annotated["total_spine_risk"] = True
-        annotated["total_spine_stress"] = True
-        annotated["total_spine_recovery"] = True
-        annotated["total_spine_resolution"] = True
-        annotated["total_spine_restructuring"] = True
-        annotated["total_spine_emergence"] = True
-        if resume_funding is not None:
-            annotated = annotate_total_spine_funding(
-                annotated,
-                certificate=resume_funding,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_funding_bound_tip") or bound_tip
-            )
-        if resume_capital is not None:
-            annotated = annotate_total_spine_capital(
-                annotated,
-                certificate=resume_capital,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_capital_bound_tip") or bound_tip
-            )
-        if resume_solvency is not None:
-            annotated = annotate_total_spine_solvency(
-                annotated,
-                certificate=resume_solvency,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_solvency_bound_tip") or bound_tip
-            )
-        if resume_risk is not None:
-            annotated = annotate_total_spine_risk(
-                annotated,
-                certificate=resume_risk,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_risk_bound_tip") or bound_tip
-            )
-        if resume_stress is not None:
-            annotated = annotate_total_spine_stress(
-                annotated,
-                certificate=resume_stress,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_stress_bound_tip") or bound_tip
-            )
-        if resume_recovery is not None:
-            annotated = annotate_total_spine_recovery(
-                annotated,
-                certificate=resume_recovery,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_recovery_bound_tip") or bound_tip
-            )
-        if resume_resolution is not None:
-            annotated = annotate_total_spine_resolution(
-                annotated,
-                certificate=resume_resolution,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_resolution_bound_tip") or bound_tip
-            )
-        if resume_restructuring is not None:
-            annotated = annotate_total_spine_restructuring(
-                annotated,
-                certificate=resume_restructuring,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_restructuring_bound_tip") or bound_tip
-            )
-        if resume_emergence is not None:
-            annotated = annotate_total_spine_emergence(
-                annotated,
-                certificate=resume_emergence,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_emergence_bound_tip") or bound_tip
-            )
-        annotated = annotate_total_spine_reorganization(
-            annotated,
-            certificate=resume_reorganization,
-            prior_tip=bound_tip,
-            short_circuit=True,
-        )
-        bound_tip = str(
-            annotated.get("total_spine_reorganization_bound_tip") or bound_tip
-        )
-        annotated["total_spine_emergence"] = True
-        if compressed:
-            hops = seal_total_spine_hop_chain(
-                root, live_result, tip=bound_tip
-            )
-            annotated["total_spine_hop_chain"] = hops
-            annotated["total_spine_hop_count"] = len(hops)
-            if hops:
-                annotated["total_spine_digest"] = hops[0].get("digest")
-                annotated[f"{root}_digest"] = hops[0].get("digest")
-        else:
-            annotated["total_spine_digest"] = bound_tip
-            annotated[f"{root}_digest"] = bound_tip
-        annotated["total_spine_reorganization_short_circuit"] = True
-        annotated["total_spine_constitution_depth"] = chain_len
-        annotated["total_spine_collateral_impl"] = TOTAL_SPINE_COLLATERAL_IMPL
-        annotated["total_spine_liquidity_impl"] = TOTAL_SPINE_LIQUIDITY_IMPL
-        annotated["total_spine_funding_impl"] = TOTAL_SPINE_FUNDING_IMPL
-        annotated["total_spine_capital_impl"] = TOTAL_SPINE_CAPITAL_IMPL
-        annotated["total_spine_solvency_impl"] = TOTAL_SPINE_SOLVENCY_IMPL
-        annotated["total_spine_risk_impl"] = TOTAL_SPINE_RISK_IMPL
-        annotated["total_spine_stress_impl"] = TOTAL_SPINE_STRESS_IMPL
-        annotated["total_spine_recovery_impl"] = TOTAL_SPINE_RECOVERY_IMPL
-        annotated["total_spine_resolution_impl"] = TOTAL_SPINE_RESOLUTION_IMPL
-        annotated["total_spine_restructuring_impl"] = TOTAL_SPINE_RESTRUCTURING_IMPL
-        annotated["total_spine_emergence_impl"] = TOTAL_SPINE_EMERGENCE_IMPL
-        annotated["total_spine_reorganization_impl"] = TOTAL_SPINE_REORGANIZATION_IMPL
-        if goal_text and not annotated.get("total_spine_goal"):
-            annotated["total_spine_goal"] = goal_text
-        annotated.setdefault("total_spine_federation", False)
-        annotated.setdefault("total_spine_quorum", False)
-        return annotated
 
     # --- Irreversible emergence short-circuit (no effect re-dispatch) ---
     if resume_emergence is not None:
-        short_circuited = True
-        recovered = recovered or bool(resume_emergence.get("recovered"))
-        emg_caps = list(resume_emergence.get("capabilities") or [])
-        emg_prior = str(resume_emergence.get("prior_tip") or bound_tip)
-        bound_tip = emg_prior
-        annotated["ok"] = True
-        annotated["verdict"] = "total_spine_emergence_short_circuit"
-        annotated["total_spine_effects"] = bool(emg_caps) or want_effects
-        annotated["total_spine_effects_ok"] = bool(
-            resume_emergence.get("effects_ok", True)
+        return _total_spine_short_circuit(
+            annotated, "emergence", resume=_sc_resume, ctx=_sc_ctx
         )
-        annotated["total_spine_effect_capabilities"] = emg_caps
-        annotated["total_spine_effect_count"] = len(emg_caps)
-        annotated["total_spine_effects_ok_count"] = len(emg_caps)
-        annotated["total_spine_effects_failed_count"] = 0
-        annotated["total_spine_goal"] = (
-            goal_text or str(resume_emergence.get("goal") or "")
-        )
-        if contract_text or resume_emergence.get("done_when"):
-            annotated["total_spine_contract"] = True
-            annotated["total_spine_contract_met"] = resume_emergence.get(
-                "contract_met"
-            )
-            annotated["total_spine_contract_ok"] = (
-                resume_emergence.get("contract_met") is True
-                or resume_emergence.get("contract_met") is None
-            )
-            annotated["total_spine_done_when"] = (
-                contract_text
-                or str(resume_emergence.get("done_when") or "")
-            )
-        annotated["total_spine_finality"] = True
-        annotated["total_spine_execution"] = True
-        annotated["total_spine_actuation"] = True
-        annotated["total_spine_settlement"] = True
-        annotated["total_spine_clearing"] = True
-        annotated["total_spine_delivery"] = True
-        annotated["total_spine_custody"] = True
-        annotated["total_spine_margin"] = True
-        annotated["total_spine_collateral"] = True
-        annotated["total_spine_liquidity"] = True
-        annotated["total_spine_funding"] = True
-        annotated["total_spine_capital"] = True
-        annotated["total_spine_solvency"] = True
-        annotated["total_spine_risk"] = True
-        annotated["total_spine_stress"] = True
-        annotated["total_spine_recovery"] = True
-        annotated["total_spine_resolution"] = True
-        annotated["total_spine_restructuring"] = True
-        if resume_funding is not None:
-            annotated = annotate_total_spine_funding(
-                annotated,
-                certificate=resume_funding,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_funding_bound_tip") or bound_tip
-            )
-        if resume_capital is not None:
-            annotated = annotate_total_spine_capital(
-                annotated,
-                certificate=resume_capital,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_capital_bound_tip") or bound_tip
-            )
-        if resume_solvency is not None:
-            annotated = annotate_total_spine_solvency(
-                annotated,
-                certificate=resume_solvency,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_solvency_bound_tip") or bound_tip
-            )
-        if resume_risk is not None:
-            annotated = annotate_total_spine_risk(
-                annotated,
-                certificate=resume_risk,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_risk_bound_tip") or bound_tip
-            )
-        if resume_stress is not None:
-            annotated = annotate_total_spine_stress(
-                annotated,
-                certificate=resume_stress,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_stress_bound_tip") or bound_tip
-            )
-        if resume_recovery is not None:
-            annotated = annotate_total_spine_recovery(
-                annotated,
-                certificate=resume_recovery,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_recovery_bound_tip") or bound_tip
-            )
-        if resume_resolution is not None:
-            annotated = annotate_total_spine_resolution(
-                annotated,
-                certificate=resume_resolution,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_resolution_bound_tip") or bound_tip
-            )
-        if resume_restructuring is not None:
-            annotated = annotate_total_spine_restructuring(
-                annotated,
-                certificate=resume_restructuring,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_restructuring_bound_tip") or bound_tip
-            )
-        annotated = annotate_total_spine_emergence(
-            annotated,
-            certificate=resume_emergence,
-            prior_tip=bound_tip,
-            short_circuit=True,
-        )
-        bound_tip = str(
-            annotated.get("total_spine_emergence_bound_tip") or bound_tip
-        )
-        annotated["total_spine_restructuring"] = True
-        if compressed:
-            hops = seal_total_spine_hop_chain(
-                root, live_result, tip=bound_tip
-            )
-            annotated["total_spine_hop_chain"] = hops
-            annotated["total_spine_hop_count"] = len(hops)
-            if hops:
-                annotated["total_spine_digest"] = hops[0].get("digest")
-                annotated[f"{root}_digest"] = hops[0].get("digest")
-        else:
-            annotated["total_spine_digest"] = bound_tip
-            annotated[f"{root}_digest"] = bound_tip
-        annotated["total_spine_emergence_short_circuit"] = True
-        annotated["total_spine_constitution_depth"] = chain_len
-        annotated["total_spine_collateral_impl"] = TOTAL_SPINE_COLLATERAL_IMPL
-        annotated["total_spine_liquidity_impl"] = TOTAL_SPINE_LIQUIDITY_IMPL
-        annotated["total_spine_funding_impl"] = TOTAL_SPINE_FUNDING_IMPL
-        annotated["total_spine_capital_impl"] = TOTAL_SPINE_CAPITAL_IMPL
-        annotated["total_spine_solvency_impl"] = TOTAL_SPINE_SOLVENCY_IMPL
-        annotated["total_spine_risk_impl"] = TOTAL_SPINE_RISK_IMPL
-        annotated["total_spine_stress_impl"] = TOTAL_SPINE_STRESS_IMPL
-        annotated["total_spine_recovery_impl"] = TOTAL_SPINE_RECOVERY_IMPL
-        annotated["total_spine_resolution_impl"] = TOTAL_SPINE_RESOLUTION_IMPL
-        annotated["total_spine_emergence_impl"] = TOTAL_SPINE_EMERGENCE_IMPL
-        annotated["total_spine_restructuring_impl"] = TOTAL_SPINE_RESTRUCTURING_IMPL
-        if goal_text and not annotated.get("total_spine_goal"):
-            annotated["total_spine_goal"] = goal_text
-        annotated.setdefault("total_spine_federation", False)
-        annotated.setdefault("total_spine_quorum", False)
-        if reorganization_on:
-            return _apply_total_spine_effect(
-                annotated,
-                "reorganization",
-                on=True,
-                out_root=out_root,
-                resume_dir=resume_dir,
-                repo_path=repo_path,
-            )
-        return annotated
 
     # --- Irreversible restructuring short-circuit (no effect re-dispatch) ---
     if resume_restructuring is not None:
-        short_circuited = True
-        recovered = recovered or bool(resume_restructuring.get("recovered"))
-        rst_caps = list(resume_restructuring.get("capabilities") or [])
-        rst_prior = str(resume_restructuring.get("prior_tip") or bound_tip)
-        bound_tip = rst_prior
-        annotated["ok"] = True
-        annotated["verdict"] = "total_spine_restructuring_short_circuit"
-        annotated["total_spine_effects"] = bool(rst_caps) or want_effects
-        annotated["total_spine_effects_ok"] = bool(
-            resume_restructuring.get("effects_ok", True)
+        return _total_spine_short_circuit(
+            annotated, "restructuring", resume=_sc_resume, ctx=_sc_ctx
         )
-        annotated["total_spine_effect_capabilities"] = rst_caps
-        annotated["total_spine_effect_count"] = len(rst_caps)
-        annotated["total_spine_effects_ok_count"] = len(rst_caps)
-        annotated["total_spine_effects_failed_count"] = 0
-        annotated["total_spine_goal"] = (
-            goal_text or str(resume_restructuring.get("goal") or "")
-        )
-        if contract_text or resume_restructuring.get("done_when"):
-            annotated["total_spine_contract"] = True
-            annotated["total_spine_contract_met"] = resume_restructuring.get(
-                "contract_met"
-            )
-            annotated["total_spine_contract_ok"] = (
-                resume_restructuring.get("contract_met") is True
-                or resume_restructuring.get("contract_met") is None
-            )
-            annotated["total_spine_done_when"] = (
-                contract_text
-                or str(resume_restructuring.get("done_when") or "")
-            )
-        annotated["total_spine_finality"] = True
-        annotated["total_spine_execution"] = True
-        annotated["total_spine_actuation"] = True
-        annotated["total_spine_settlement"] = True
-        annotated["total_spine_clearing"] = True
-        annotated["total_spine_delivery"] = True
-        annotated["total_spine_custody"] = True
-        annotated["total_spine_margin"] = True
-        annotated["total_spine_collateral"] = True
-        annotated["total_spine_liquidity"] = True
-        annotated["total_spine_funding"] = True
-        annotated["total_spine_capital"] = True
-        annotated["total_spine_solvency"] = True
-        annotated["total_spine_risk"] = True
-        annotated["total_spine_stress"] = True
-        annotated["total_spine_recovery"] = True
-        annotated["total_spine_resolution"] = True
-        if resume_funding is not None:
-            annotated = annotate_total_spine_funding(
-                annotated,
-                certificate=resume_funding,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_funding_bound_tip") or bound_tip
-            )
-        if resume_capital is not None:
-            annotated = annotate_total_spine_capital(
-                annotated,
-                certificate=resume_capital,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_capital_bound_tip") or bound_tip
-            )
-        if resume_solvency is not None:
-            annotated = annotate_total_spine_solvency(
-                annotated,
-                certificate=resume_solvency,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_solvency_bound_tip") or bound_tip
-            )
-        if resume_risk is not None:
-            annotated = annotate_total_spine_risk(
-                annotated,
-                certificate=resume_risk,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_risk_bound_tip") or bound_tip
-            )
-        if resume_stress is not None:
-            annotated = annotate_total_spine_stress(
-                annotated,
-                certificate=resume_stress,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_stress_bound_tip") or bound_tip
-            )
-        if resume_recovery is not None:
-            annotated = annotate_total_spine_recovery(
-                annotated,
-                certificate=resume_recovery,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_recovery_bound_tip") or bound_tip
-            )
-        if resume_resolution is not None:
-            annotated = annotate_total_spine_resolution(
-                annotated,
-                certificate=resume_resolution,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_resolution_bound_tip") or bound_tip
-            )
-        annotated = annotate_total_spine_restructuring(
-            annotated,
-            certificate=resume_restructuring,
-            prior_tip=bound_tip,
-            short_circuit=True,
-        )
-        bound_tip = str(
-            annotated.get("total_spine_restructuring_bound_tip") or bound_tip
-        )
-        if compressed:
-            hops = seal_total_spine_hop_chain(
-                root, live_result, tip=bound_tip
-            )
-            annotated["total_spine_hop_chain"] = hops
-            annotated["total_spine_hop_count"] = len(hops)
-            if hops:
-                annotated["total_spine_digest"] = hops[0].get("digest")
-                annotated[f"{root}_digest"] = hops[0].get("digest")
-        else:
-            annotated["total_spine_digest"] = bound_tip
-            annotated[f"{root}_digest"] = bound_tip
-        annotated["total_spine_restructuring_short_circuit"] = True
-        annotated["total_spine_constitution_depth"] = chain_len
-        annotated["total_spine_collateral_impl"] = TOTAL_SPINE_COLLATERAL_IMPL
-        annotated["total_spine_liquidity_impl"] = TOTAL_SPINE_LIQUIDITY_IMPL
-        annotated["total_spine_funding_impl"] = TOTAL_SPINE_FUNDING_IMPL
-        annotated["total_spine_capital_impl"] = TOTAL_SPINE_CAPITAL_IMPL
-        annotated["total_spine_solvency_impl"] = TOTAL_SPINE_SOLVENCY_IMPL
-        annotated["total_spine_risk_impl"] = TOTAL_SPINE_RISK_IMPL
-        annotated["total_spine_stress_impl"] = TOTAL_SPINE_STRESS_IMPL
-        annotated["total_spine_recovery_impl"] = TOTAL_SPINE_RECOVERY_IMPL
-        annotated["total_spine_resolution_impl"] = TOTAL_SPINE_RESOLUTION_IMPL
-        annotated["total_spine_restructuring_impl"] = TOTAL_SPINE_RESTRUCTURING_IMPL
-        if goal_text and not annotated.get("total_spine_goal"):
-            annotated["total_spine_goal"] = goal_text
-        annotated.setdefault("total_spine_federation", False)
-        annotated.setdefault("total_spine_quorum", False)
-        if emergence_on or reorganization_on:
-            return _apply_total_spine_chain(
-                annotated,
-                "emergence",
-                {"emergence_on": True, "reorganization_on": reorganization_on},
-                out_root=out_root,
-                resume_dir=resume_dir,
-                repo_path=repo_path,
-            )
-        return annotated
 
     # --- Irreversible resolution short-circuit (no effect re-dispatch) ---
     if resume_resolution is not None:
-        short_circuited = True
-        recovered = recovered or bool(resume_resolution.get("recovered"))
-        res_caps = list(resume_resolution.get("capabilities") or [])
-        res_prior = str(resume_resolution.get("prior_tip") or bound_tip)
-        bound_tip = res_prior
-        annotated["ok"] = True
-        annotated["verdict"] = "total_spine_resolution_short_circuit"
-        annotated["total_spine_effects"] = bool(res_caps) or want_effects
-        annotated["total_spine_effects_ok"] = bool(
-            resume_resolution.get("effects_ok", True)
+        return _total_spine_short_circuit(
+            annotated, "resolution", resume=_sc_resume, ctx=_sc_ctx
         )
-        annotated["total_spine_effect_capabilities"] = res_caps
-        annotated["total_spine_effect_count"] = len(res_caps)
-        annotated["total_spine_effects_ok_count"] = len(res_caps)
-        annotated["total_spine_effects_failed_count"] = 0
-        annotated["total_spine_goal"] = (
-            goal_text or str(resume_resolution.get("goal") or "")
-        )
-        if contract_text or resume_resolution.get("done_when"):
-            annotated["total_spine_contract"] = True
-            annotated["total_spine_contract_met"] = resume_resolution.get(
-                "contract_met"
-            )
-            annotated["total_spine_contract_ok"] = (
-                resume_resolution.get("contract_met") is True
-                or resume_resolution.get("contract_met") is None
-            )
-            annotated["total_spine_done_when"] = (
-                contract_text
-                or str(resume_resolution.get("done_when") or "")
-            )
-        annotated["total_spine_finality"] = True
-        annotated["total_spine_execution"] = True
-        annotated["total_spine_actuation"] = True
-        annotated["total_spine_settlement"] = True
-        annotated["total_spine_clearing"] = True
-        annotated["total_spine_delivery"] = True
-        annotated["total_spine_custody"] = True
-        annotated["total_spine_margin"] = True
-        annotated["total_spine_collateral"] = True
-        annotated["total_spine_liquidity"] = True
-        annotated["total_spine_funding"] = True
-        annotated["total_spine_capital"] = True
-        annotated["total_spine_solvency"] = True
-        annotated["total_spine_risk"] = True
-        annotated["total_spine_stress"] = True
-        annotated["total_spine_recovery"] = True
-        if resume_funding is not None:
-            annotated = annotate_total_spine_funding(
-                annotated,
-                certificate=resume_funding,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_funding_bound_tip") or bound_tip
-            )
-        if resume_capital is not None:
-            annotated = annotate_total_spine_capital(
-                annotated,
-                certificate=resume_capital,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_capital_bound_tip") or bound_tip
-            )
-        if resume_solvency is not None:
-            annotated = annotate_total_spine_solvency(
-                annotated,
-                certificate=resume_solvency,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_solvency_bound_tip") or bound_tip
-            )
-        if resume_risk is not None:
-            annotated = annotate_total_spine_risk(
-                annotated,
-                certificate=resume_risk,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_risk_bound_tip") or bound_tip
-            )
-        if resume_stress is not None:
-            annotated = annotate_total_spine_stress(
-                annotated,
-                certificate=resume_stress,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_stress_bound_tip") or bound_tip
-            )
-        if resume_recovery is not None:
-            annotated = annotate_total_spine_recovery(
-                annotated,
-                certificate=resume_recovery,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_recovery_bound_tip") or bound_tip
-            )
-        annotated = annotate_total_spine_resolution(
-            annotated,
-            certificate=resume_resolution,
-            prior_tip=bound_tip,
-            short_circuit=True,
-        )
-        bound_tip = str(
-            annotated.get("total_spine_resolution_bound_tip") or bound_tip
-        )
-        if compressed:
-            hops = seal_total_spine_hop_chain(
-                root, live_result, tip=bound_tip
-            )
-            annotated["total_spine_hop_chain"] = hops
-            annotated["total_spine_hop_count"] = len(hops)
-            if hops:
-                annotated["total_spine_digest"] = hops[0].get("digest")
-                annotated[f"{root}_digest"] = hops[0].get("digest")
-        else:
-            annotated["total_spine_digest"] = bound_tip
-            annotated[f"{root}_digest"] = bound_tip
-        annotated["total_spine_resolution_short_circuit"] = True
-        annotated["total_spine_constitution_depth"] = chain_len
-        annotated["total_spine_collateral_impl"] = TOTAL_SPINE_COLLATERAL_IMPL
-        annotated["total_spine_liquidity_impl"] = TOTAL_SPINE_LIQUIDITY_IMPL
-        annotated["total_spine_funding_impl"] = TOTAL_SPINE_FUNDING_IMPL
-        annotated["total_spine_capital_impl"] = TOTAL_SPINE_CAPITAL_IMPL
-        annotated["total_spine_solvency_impl"] = TOTAL_SPINE_SOLVENCY_IMPL
-        annotated["total_spine_risk_impl"] = TOTAL_SPINE_RISK_IMPL
-        annotated["total_spine_stress_impl"] = TOTAL_SPINE_STRESS_IMPL
-        annotated["total_spine_recovery_impl"] = TOTAL_SPINE_RECOVERY_IMPL
-        annotated["total_spine_resolution_impl"] = TOTAL_SPINE_RESOLUTION_IMPL
-        annotated["total_spine_restructuring_impl"] = TOTAL_SPINE_RESTRUCTURING_IMPL
-        if goal_text and not annotated.get("total_spine_goal"):
-            annotated["total_spine_goal"] = goal_text
-        annotated.setdefault("total_spine_federation", False)
-        annotated.setdefault("total_spine_quorum", False)
-        if restructuring_on:
-            return _apply_total_spine_chain(
-                annotated,
-                "restructuring",
-                {"restructuring_on": True, "emergence_on": emergence_on, "reorganization_on": reorganization_on},
-                out_root=out_root,
-                resume_dir=resume_dir,
-                repo_path=repo_path,
-            )
-        return annotated
 
     # --- Irreversible recovery short-circuit (no effect re-dispatch) ---
     if resume_recovery is not None:
-        short_circuited = True
-        recovered = recovered or bool(resume_recovery.get("recovered"))
-        rec_caps = list(resume_recovery.get("capabilities") or [])
-        rec_prior = str(resume_recovery.get("prior_tip") or bound_tip)
-        bound_tip = rec_prior
-        annotated["ok"] = True
-        annotated["verdict"] = "total_spine_recovery_short_circuit"
-        annotated["total_spine_effects"] = bool(rec_caps) or want_effects
-        annotated["total_spine_effects_ok"] = bool(
-            resume_recovery.get("effects_ok", True)
+        return _total_spine_short_circuit(
+            annotated, "recovery", resume=_sc_resume, ctx=_sc_ctx
         )
-        annotated["total_spine_effect_capabilities"] = rec_caps
-        annotated["total_spine_effect_count"] = len(rec_caps)
-        annotated["total_spine_effects_ok_count"] = len(rec_caps)
-        annotated["total_spine_effects_failed_count"] = 0
-        annotated["total_spine_goal"] = (
-            goal_text or str(resume_recovery.get("goal") or "")
-        )
-        if contract_text or resume_recovery.get("done_when"):
-            annotated["total_spine_contract"] = True
-            annotated["total_spine_contract_met"] = resume_recovery.get(
-                "contract_met"
-            )
-            annotated["total_spine_contract_ok"] = (
-                resume_recovery.get("contract_met") is True
-                or resume_recovery.get("contract_met") is None
-            )
-            annotated["total_spine_done_when"] = (
-                contract_text
-                or str(resume_recovery.get("done_when") or "")
-            )
-        annotated["total_spine_finality"] = True
-        annotated["total_spine_execution"] = True
-        annotated["total_spine_actuation"] = True
-        annotated["total_spine_settlement"] = True
-        annotated["total_spine_clearing"] = True
-        annotated["total_spine_delivery"] = True
-        annotated["total_spine_custody"] = True
-        annotated["total_spine_margin"] = True
-        annotated["total_spine_collateral"] = True
-        annotated["total_spine_liquidity"] = True
-        annotated["total_spine_funding"] = True
-        annotated["total_spine_capital"] = True
-        annotated["total_spine_solvency"] = True
-        annotated["total_spine_risk"] = True
-        annotated["total_spine_stress"] = True
-        if resume_funding is not None:
-            annotated = annotate_total_spine_funding(
-                annotated,
-                certificate=resume_funding,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_funding_bound_tip") or bound_tip
-            )
-        if resume_capital is not None:
-            annotated = annotate_total_spine_capital(
-                annotated,
-                certificate=resume_capital,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_capital_bound_tip") or bound_tip
-            )
-        if resume_solvency is not None:
-            annotated = annotate_total_spine_solvency(
-                annotated,
-                certificate=resume_solvency,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_solvency_bound_tip") or bound_tip
-            )
-        if resume_risk is not None:
-            annotated = annotate_total_spine_risk(
-                annotated,
-                certificate=resume_risk,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_risk_bound_tip") or bound_tip
-            )
-        if resume_stress is not None:
-            annotated = annotate_total_spine_stress(
-                annotated,
-                certificate=resume_stress,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_stress_bound_tip") or bound_tip
-            )
-        annotated = annotate_total_spine_recovery(
-            annotated,
-            certificate=resume_recovery,
-            prior_tip=bound_tip,
-            short_circuit=True,
-        )
-        bound_tip = str(
-            annotated.get("total_spine_recovery_bound_tip") or bound_tip
-        )
-        if compressed:
-            hops = seal_total_spine_hop_chain(
-                root, live_result, tip=bound_tip
-            )
-            annotated["total_spine_hop_chain"] = hops
-            annotated["total_spine_hop_count"] = len(hops)
-            if hops:
-                annotated["total_spine_digest"] = hops[0].get("digest")
-                annotated[f"{root}_digest"] = hops[0].get("digest")
-        else:
-            annotated["total_spine_digest"] = bound_tip
-            annotated[f"{root}_digest"] = bound_tip
-        annotated["total_spine_recovery_short_circuit"] = True
-        annotated["total_spine_constitution_depth"] = chain_len
-        annotated["total_spine_collateral_impl"] = TOTAL_SPINE_COLLATERAL_IMPL
-        annotated["total_spine_liquidity_impl"] = TOTAL_SPINE_LIQUIDITY_IMPL
-        annotated["total_spine_funding_impl"] = TOTAL_SPINE_FUNDING_IMPL
-        annotated["total_spine_capital_impl"] = TOTAL_SPINE_CAPITAL_IMPL
-        annotated["total_spine_solvency_impl"] = TOTAL_SPINE_SOLVENCY_IMPL
-        annotated["total_spine_risk_impl"] = TOTAL_SPINE_RISK_IMPL
-        annotated["total_spine_stress_impl"] = TOTAL_SPINE_STRESS_IMPL
-        annotated["total_spine_recovery_impl"] = TOTAL_SPINE_RECOVERY_IMPL
-        if goal_text and not annotated.get("total_spine_goal"):
-            annotated["total_spine_goal"] = goal_text
-        annotated.setdefault("total_spine_federation", False)
-        annotated.setdefault("total_spine_quorum", False)
-        return annotated
 
     # --- Irreversible stress short-circuit (no effect re-dispatch) ---
     if resume_stress is not None:
-        short_circuited = True
-        recovered = recovered or bool(resume_stress.get("recovered"))
-        sts_caps = list(resume_stress.get("capabilities") or [])
-        sts_prior = str(resume_stress.get("prior_tip") or bound_tip)
-        bound_tip = sts_prior
-        annotated["ok"] = True
-        annotated["verdict"] = "total_spine_stress_short_circuit"
-        annotated["total_spine_effects"] = bool(sts_caps) or want_effects
-        annotated["total_spine_effects_ok"] = bool(
-            resume_stress.get("effects_ok", True)
+        return _total_spine_short_circuit(
+            annotated, "stress", resume=_sc_resume, ctx=_sc_ctx
         )
-        annotated["total_spine_effect_capabilities"] = sts_caps
-        annotated["total_spine_effect_count"] = len(sts_caps)
-        annotated["total_spine_effects_ok_count"] = len(sts_caps)
-        annotated["total_spine_effects_failed_count"] = 0
-        annotated["total_spine_goal"] = (
-            goal_text or str(resume_stress.get("goal") or "")
-        )
-        if contract_text or resume_stress.get("done_when"):
-            annotated["total_spine_contract"] = True
-            annotated["total_spine_contract_met"] = resume_stress.get(
-                "contract_met"
-            )
-            annotated["total_spine_contract_ok"] = (
-                resume_stress.get("contract_met") is True
-                or resume_stress.get("contract_met") is None
-            )
-            annotated["total_spine_done_when"] = (
-                contract_text
-                or str(resume_stress.get("done_when") or "")
-            )
-        annotated["total_spine_finality"] = True
-        annotated["total_spine_execution"] = True
-        annotated["total_spine_actuation"] = True
-        annotated["total_spine_settlement"] = True
-        annotated["total_spine_clearing"] = True
-        annotated["total_spine_delivery"] = True
-        annotated["total_spine_custody"] = True
-        annotated["total_spine_margin"] = True
-        annotated["total_spine_collateral"] = True
-        annotated["total_spine_liquidity"] = True
-        annotated["total_spine_funding"] = True
-        annotated["total_spine_capital"] = True
-        annotated["total_spine_solvency"] = True
-        annotated["total_spine_risk"] = True
-        if resume_funding is not None:
-            annotated = annotate_total_spine_funding(
-                annotated,
-                certificate=resume_funding,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_funding_bound_tip") or bound_tip
-            )
-        if resume_capital is not None:
-            annotated = annotate_total_spine_capital(
-                annotated,
-                certificate=resume_capital,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_capital_bound_tip") or bound_tip
-            )
-        if resume_solvency is not None:
-            annotated = annotate_total_spine_solvency(
-                annotated,
-                certificate=resume_solvency,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_solvency_bound_tip") or bound_tip
-            )
-        if resume_risk is not None:
-            annotated = annotate_total_spine_risk(
-                annotated,
-                certificate=resume_risk,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_risk_bound_tip") or bound_tip
-            )
-        annotated = annotate_total_spine_stress(
-            annotated,
-            certificate=resume_stress,
-            prior_tip=bound_tip,
-            short_circuit=True,
-        )
-        bound_tip = str(
-            annotated.get("total_spine_stress_bound_tip") or bound_tip
-        )
-        if compressed:
-            hops = seal_total_spine_hop_chain(
-                root, live_result, tip=bound_tip
-            )
-            annotated["total_spine_hop_chain"] = hops
-            annotated["total_spine_hop_count"] = len(hops)
-            if hops:
-                annotated["total_spine_digest"] = hops[0].get("digest")
-                annotated[f"{root}_digest"] = hops[0].get("digest")
-        else:
-            annotated["total_spine_digest"] = bound_tip
-            annotated[f"{root}_digest"] = bound_tip
-        annotated["total_spine_stress_short_circuit"] = True
-        annotated["total_spine_constitution_depth"] = chain_len
-        annotated["total_spine_collateral_impl"] = TOTAL_SPINE_COLLATERAL_IMPL
-        annotated["total_spine_liquidity_impl"] = TOTAL_SPINE_LIQUIDITY_IMPL
-        annotated["total_spine_funding_impl"] = TOTAL_SPINE_FUNDING_IMPL
-        annotated["total_spine_capital_impl"] = TOTAL_SPINE_CAPITAL_IMPL
-        annotated["total_spine_solvency_impl"] = TOTAL_SPINE_SOLVENCY_IMPL
-        annotated["total_spine_risk_impl"] = TOTAL_SPINE_RISK_IMPL
-        annotated["total_spine_stress_impl"] = TOTAL_SPINE_STRESS_IMPL
-        annotated["total_spine_recovery_impl"] = TOTAL_SPINE_RECOVERY_IMPL
-        if goal_text and not annotated.get("total_spine_goal"):
-            annotated["total_spine_goal"] = goal_text
-        annotated.setdefault("total_spine_federation", False)
-        annotated.setdefault("total_spine_quorum", False)
-        return annotated
 
     # --- Irreversible risk short-circuit (no effect re-dispatch) ---
     if resume_risk is not None:
-        short_circuited = True
-        recovered = recovered or bool(resume_risk.get("recovered"))
-        rsk_caps = list(resume_risk.get("capabilities") or [])
-        rsk_prior = str(resume_risk.get("prior_tip") or bound_tip)
-        bound_tip = rsk_prior
-        annotated["ok"] = True
-        annotated["verdict"] = "total_spine_risk_short_circuit"
-        annotated["total_spine_effects"] = bool(rsk_caps) or want_effects
-        annotated["total_spine_effects_ok"] = bool(
-            resume_risk.get("effects_ok", True)
+        return _total_spine_short_circuit(
+            annotated, "risk", resume=_sc_resume, ctx=_sc_ctx
         )
-        annotated["total_spine_effect_capabilities"] = rsk_caps
-        annotated["total_spine_effect_count"] = len(rsk_caps)
-        annotated["total_spine_effects_ok_count"] = len(rsk_caps)
-        annotated["total_spine_effects_failed_count"] = 0
-        annotated["total_spine_goal"] = (
-            goal_text or str(resume_risk.get("goal") or "")
-        )
-        if contract_text or resume_risk.get("done_when"):
-            annotated["total_spine_contract"] = True
-            annotated["total_spine_contract_met"] = resume_risk.get(
-                "contract_met"
-            )
-            annotated["total_spine_contract_ok"] = (
-                resume_risk.get("contract_met") is True
-                or resume_risk.get("contract_met") is None
-            )
-            annotated["total_spine_done_when"] = (
-                contract_text
-                or str(resume_risk.get("done_when") or "")
-            )
-        annotated["total_spine_finality"] = True
-        annotated["total_spine_execution"] = True
-        annotated["total_spine_actuation"] = True
-        annotated["total_spine_settlement"] = True
-        annotated["total_spine_clearing"] = True
-        annotated["total_spine_delivery"] = True
-        annotated["total_spine_custody"] = True
-        annotated["total_spine_margin"] = True
-        annotated["total_spine_collateral"] = True
-        annotated["total_spine_liquidity"] = True
-        annotated["total_spine_funding"] = True
-        annotated["total_spine_capital"] = True
-        annotated["total_spine_solvency"] = True
-        if resume_funding is not None:
-            annotated = annotate_total_spine_funding(
-                annotated,
-                certificate=resume_funding,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_funding_bound_tip") or bound_tip
-            )
-        if resume_capital is not None:
-            annotated = annotate_total_spine_capital(
-                annotated,
-                certificate=resume_capital,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_capital_bound_tip") or bound_tip
-            )
-        if resume_solvency is not None:
-            annotated = annotate_total_spine_solvency(
-                annotated,
-                certificate=resume_solvency,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_solvency_bound_tip") or bound_tip
-            )
-        annotated = annotate_total_spine_risk(
-            annotated,
-            certificate=resume_risk,
-            prior_tip=bound_tip,
-            short_circuit=True,
-        )
-        bound_tip = str(
-            annotated.get("total_spine_risk_bound_tip") or bound_tip
-        )
-        if compressed:
-            hops = seal_total_spine_hop_chain(
-                root, live_result, tip=bound_tip
-            )
-            annotated["total_spine_hop_chain"] = hops
-            annotated["total_spine_hop_count"] = len(hops)
-            if hops:
-                annotated["total_spine_digest"] = hops[0].get("digest")
-                annotated[f"{root}_digest"] = hops[0].get("digest")
-        else:
-            annotated["total_spine_digest"] = bound_tip
-            annotated[f"{root}_digest"] = bound_tip
-        annotated["total_spine_risk_short_circuit"] = True
-        annotated["total_spine_constitution_depth"] = chain_len
-        annotated["total_spine_collateral_impl"] = TOTAL_SPINE_COLLATERAL_IMPL
-        annotated["total_spine_liquidity_impl"] = TOTAL_SPINE_LIQUIDITY_IMPL
-        annotated["total_spine_funding_impl"] = TOTAL_SPINE_FUNDING_IMPL
-        annotated["total_spine_capital_impl"] = TOTAL_SPINE_CAPITAL_IMPL
-        annotated["total_spine_solvency_impl"] = TOTAL_SPINE_SOLVENCY_IMPL
-        annotated["total_spine_risk_impl"] = TOTAL_SPINE_RISK_IMPL
-        if goal_text and not annotated.get("total_spine_goal"):
-            annotated["total_spine_goal"] = goal_text
-        annotated.setdefault("total_spine_federation", False)
-        annotated.setdefault("total_spine_quorum", False)
-        return annotated
 
     # --- Irreversible solvency short-circuit (no effect re-dispatch) ---
     if resume_solvency is not None:
-        short_circuited = True
-        recovered = recovered or bool(resume_solvency.get("recovered"))
-        sol_caps = list(resume_solvency.get("capabilities") or [])
-        sol_prior = str(resume_solvency.get("prior_tip") or bound_tip)
-        bound_tip = sol_prior
-        annotated["ok"] = True
-        annotated["verdict"] = "total_spine_solvency_short_circuit"
-        annotated["total_spine_effects"] = bool(sol_caps) or want_effects
-        annotated["total_spine_effects_ok"] = bool(
-            resume_solvency.get("effects_ok", True)
+        return _total_spine_short_circuit(
+            annotated, "solvency", resume=_sc_resume, ctx=_sc_ctx
         )
-        annotated["total_spine_effect_capabilities"] = sol_caps
-        annotated["total_spine_effect_count"] = len(sol_caps)
-        annotated["total_spine_effects_ok_count"] = len(sol_caps)
-        annotated["total_spine_effects_failed_count"] = 0
-        annotated["total_spine_goal"] = (
-            goal_text or str(resume_solvency.get("goal") or "")
-        )
-        if contract_text or resume_solvency.get("done_when"):
-            annotated["total_spine_contract"] = True
-            annotated["total_spine_contract_met"] = resume_solvency.get(
-                "contract_met"
-            )
-            annotated["total_spine_contract_ok"] = (
-                resume_solvency.get("contract_met") is True
-                or resume_solvency.get("contract_met") is None
-            )
-            annotated["total_spine_done_when"] = (
-                contract_text
-                or str(resume_solvency.get("done_when") or "")
-            )
-        annotated["total_spine_finality"] = True
-        annotated["total_spine_execution"] = True
-        annotated["total_spine_actuation"] = True
-        annotated["total_spine_settlement"] = True
-        annotated["total_spine_clearing"] = True
-        annotated["total_spine_delivery"] = True
-        annotated["total_spine_custody"] = True
-        annotated["total_spine_margin"] = True
-        annotated["total_spine_collateral"] = True
-        annotated["total_spine_liquidity"] = True
-        annotated["total_spine_funding"] = True
-        annotated["total_spine_capital"] = True
-        if resume_funding is not None:
-            annotated = annotate_total_spine_funding(
-                annotated,
-                certificate=resume_funding,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_funding_bound_tip") or bound_tip
-            )
-        if resume_capital is not None:
-            annotated = annotate_total_spine_capital(
-                annotated,
-                certificate=resume_capital,
-                prior_tip=bound_tip,
-                short_circuit=True,
-            )
-            bound_tip = str(
-                annotated.get("total_spine_capital_bound_tip") or bound_tip
-            )
-        annotated = annotate_total_spine_solvency(
-            annotated,
-            certificate=resume_solvency,
-            prior_tip=bound_tip,
-            short_circuit=True,
-        )
-        bound_tip = str(
-            annotated.get("total_spine_solvency_bound_tip") or bound_tip
-        )
-        if compressed:
-            hops = seal_total_spine_hop_chain(
-                root, live_result, tip=bound_tip
-            )
-            annotated["total_spine_hop_chain"] = hops
-            annotated["total_spine_hop_count"] = len(hops)
-            if hops:
-                annotated["total_spine_digest"] = hops[0].get("digest")
-                annotated[f"{root}_digest"] = hops[0].get("digest")
-        else:
-            annotated["total_spine_digest"] = bound_tip
-            annotated[f"{root}_digest"] = bound_tip
-        annotated["total_spine_solvency_short_circuit"] = True
-        annotated["total_spine_constitution_depth"] = chain_len
-        annotated["total_spine_collateral_impl"] = TOTAL_SPINE_COLLATERAL_IMPL
-        annotated["total_spine_liquidity_impl"] = TOTAL_SPINE_LIQUIDITY_IMPL
-        annotated["total_spine_funding_impl"] = TOTAL_SPINE_FUNDING_IMPL
-        annotated["total_spine_capital_impl"] = TOTAL_SPINE_CAPITAL_IMPL
-        annotated["total_spine_solvency_impl"] = TOTAL_SPINE_SOLVENCY_IMPL
-        annotated["total_spine_risk_impl"] = TOTAL_SPINE_RISK_IMPL
-        if goal_text and not annotated.get("total_spine_goal"):
-            annotated["total_spine_goal"] = goal_text
-        annotated.setdefault("total_spine_federation", False)
-        annotated.setdefault("total_spine_quorum", False)
-        annotated = _apply_total_spine_chain(
-            annotated,
-            "risk",
-            {"risk_on": risk_on, "stress_on": stress_on, "recovery_on": recovery_on, "resolution_on": resolution_on, "restructuring_on": restructuring_on, "emergence_on": emergence_on, "reorganization_on": reorganization_on},
-            out_root=out_root,
-            resume_dir=resume_dir,
-            repo_path=repo_path,
-        )
-        return annotated
 
-    # --- Irreversible capital short-circuit (no effect re-dispatch) ---
+# --- Irreversible capital short-circuit (no effect re-dispatch) ---
     if resume_capital is not None:
         short_circuited = True
         recovered = recovered or bool(resume_capital.get("recovered"))
