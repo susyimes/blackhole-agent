@@ -115,6 +115,11 @@ Composition:
   ``_TOTAL_SPINE_SHORT_CIRCUIT`` catalog row; live and resume federation
   attach share :func:`_attach_spine_federation`. The tower from finality
   through reorganization is one walk.
+* total-spine **attach catalog** — live attach after short-circuit is
+  one walk of :data:`SPINE_PRE_CONSENSUS_CHAIN` (dispatch, adaptive,
+  continuity, finality, federation) then the post-consensus catalog.
+  Per-stage ``resume_*`` / ``*_on`` locals are gone; a new pre-consensus
+  plane is a catalog row plus an apply function.
 * total-spine **post-settlement clearing** — closes the settled-but-
   uncleared cliff: after settlement seals a unilateral observation
   receipt, ``clear_total_spine(...)`` (and ``run_total_spine(clearing=True)``)
@@ -7900,6 +7905,822 @@ def _total_spine_short_circuit(
     )
 
 
+# Live attach after short-circuit is one pre-consensus catalog walk.
+# Dispatch owns the adaptive effects+contract loop; later rows seal the
+# already-computed tip. Historical hop-rebind after each seal stays inside
+# the row so sealed digests do not change.
+SPINE_PRE_CONSENSUS_CHAIN: tuple[str, ...] = (
+    "dispatch",
+    "adaptive",
+    "continuity",
+    "finality",
+    "federation",
+)
+SPINE_ATTACH_CATALOG_IMPL = True
+
+
+def _rebind_spine_bound_tip(
+    annotated: dict[str, Any],
+    ctx: Mapping[str, Any],
+    bound_tip: str,
+) -> dict[str, Any]:
+    """Rebind hop digests (or the uncompressed tip) to ``bound_tip``."""
+
+    root = str(ctx["root"])
+    live_result = ctx["live_result"]
+    if ctx.get("compressed"):
+        hops = seal_total_spine_hop_chain(root, live_result, tip=bound_tip)
+        annotated["total_spine_hop_chain"] = hops
+        annotated["total_spine_hop_count"] = len(hops)
+        if hops:
+            annotated["total_spine_digest"] = hops[0].get("digest")
+            annotated[f"{root}_digest"] = hops[0].get("digest")
+    else:
+        annotated["total_spine_digest"] = bound_tip
+        annotated[f"{root}_digest"] = bound_tip
+    return annotated
+
+
+def _select_spine_dispatch_ids(
+    ctx: dict[str, Any],
+    round_index: int,
+) -> tuple[list[str], str, bool, dict[str, Any] | None]:
+    """Pick effect ids for one live dispatch round (explicit / goal / default)."""
+
+    prior_round_count = int(ctx.get("prior_round_count") or 0)
+    exclude = ctx["exclude"]
+    capabilities = ctx.get("capabilities")
+    goal_text = str(ctx.get("goal_text") or "")
+    max_effect_steps = ctx.get("max_effect_steps")
+    repo = ctx["repo"]
+    global_index = prior_round_count + round_index
+    explicit_caps = bool(ctx.get("explicit_caps"))
+    if explicit_caps and global_index == 0:
+        ids0 = [str(c).strip() for c in (capabilities or []) if str(c).strip()]
+        return ids0, "explicit", False, None
+    if explicit_caps and global_index > 0:
+        survivors = [
+            str(c).strip()
+            for c in (capabilities or [])
+            if str(c).strip() and str(c).strip() not in exclude
+        ]
+        if survivors:
+            return survivors, "explicit_survivors", False, None
+        if goal_text:
+            plan = plan_total_spine_goal_effects(
+                goal_text,
+                max_steps=max_effect_steps,
+                cwd=repo,
+                exclude=sorted(exclude),
+            )
+            return (
+                list(plan.get("steps") or []),
+                "goal_replan",
+                True,
+                plan,
+            )
+        return [], "explicit_exhausted", False, None
+    if goal_text:
+        plan = plan_total_spine_goal_effects(
+            goal_text,
+            max_steps=max_effect_steps,
+            cwd=repo,
+            exclude=sorted(exclude) if exclude else None,
+        )
+        return (
+            list(plan.get("steps") or []),
+            "goal" if global_index == 0 else "goal_replan",
+            True,
+            plan,
+        )
+    ids_default = [
+        c
+        for c in TOTAL_SPINE_DEFAULT_EFFECT_CAPABILITIES
+        if c not in exclude
+    ]
+    return ids_default, "default", False, None
+
+
+def _write_spine_continuity(
+    annotated: Mapping[str, Any],
+    ctx: dict[str, Any],
+    *,
+    status: str,
+    success: bool,
+) -> dict[str, Any] | None:
+    """Seal a continuity checkpoint when the live continuity plane is on."""
+
+    if not ctx.get("continuity_on"):
+        return None
+    out_root = ctx.get("out_root")
+    resume_dir = ctx.get("resume_dir")
+    if out_root is None and resume_dir is None:
+        return None
+    write_root = Path(out_root) if out_root is not None else Path(resume_dir)
+    explicit_caps = bool(ctx.get("explicit_caps"))
+    capabilities = ctx.get("capabilities")
+    body = {
+        "schema_version": SCHEMA_VERSION,
+        "kind": TOTAL_SPINE_CONTINUITY_KIND,
+        "root_layer": ctx["root"],
+        "goal": ctx.get("goal_text") or "",
+        "done_when": ctx.get("contract_text") or "",
+        "capabilities": (
+            [str(c).strip() for c in (capabilities or []) if str(c).strip()]
+            if explicit_caps
+            else list(
+                annotated.get("total_spine_effect_capabilities")
+                or TOTAL_SPINE_DEFAULT_EFFECT_CAPABILITIES
+            )
+        ),
+        "explicit_capabilities": explicit_caps,
+        "effects": bool(ctx.get("want_effects")),
+        "max_effect_steps": ctx.get("max_effect_steps"),
+        "excluded": sorted(ctx["exclude"]),
+        "rounds": ctx["adaptive_rounds_log"],
+        "operational_tip": ctx["operational_tip"],
+        "bound_tip": ctx["bound_tip"],
+        "next_round_index": len(ctx["adaptive_rounds_log"]),
+        "want_effects": bool(ctx.get("want_effects")),
+        "grow": bool(ctx.get("grow_on")),
+        "grow_budget": ctx.get("grow_limit"),
+        "status": status,
+        "recovered": bool(ctx.get("recovered")),
+        "success": success,
+        "created_at": utc_now_iso(),
+    }
+    return write_total_spine_continuity_checkpoint(write_root, body)
+
+
+def _apply_spine_dispatch(
+    annotated: dict[str, Any],
+    ctx: dict[str, Any],
+) -> dict[str, Any]:
+    """Live adaptive effects+contract loop; one pre-consensus catalog row."""
+
+    want_effects = bool(ctx.get("want_effects"))
+    contract_text = str(ctx.get("contract_text") or "")
+    goal_text = str(ctx.get("goal_text") or "")
+    repo = ctx["repo"]
+    out_root = ctx.get("out_root")
+    effect_timeout = int(ctx.get("effect_timeout") or 60)
+    operational_tip = str(ctx["operational_tip"])
+    bound_tip = str(ctx["bound_tip"])
+    exclude: set[str] = ctx["exclude"]
+    adaptive_rounds_log: list[dict[str, Any]] = ctx["adaptive_rounds_log"]
+    prior_round_count = int(ctx.get("prior_round_count") or 0)
+    max_rounds = int(ctx.get("max_rounds") or 1)
+    adaptive_on = bool(ctx.get("adaptive_on"))
+    grow_on = bool(ctx.get("grow_on"))
+    grow_limit = int(ctx.get("grow_limit") or 0)
+    grew_any = bool(ctx.get("grew_any"))
+    growth_records: list[dict[str, Any]] = ctx["growth_records"]
+    recovered = bool(ctx.get("recovered"))
+    last_pack = ctx.get("last_pack")
+    last_contract = ctx.get("last_contract")
+    last_seal = ctx.get("last_seal")
+    last_goal_plan = ctx.get("last_goal_plan")
+    effect_source = str(ctx.get("effect_source") or "default")
+    goal_planned = bool(ctx.get("goal_planned"))
+    last_checkpoint = ctx.get("last_checkpoint")
+    explicit_caps = bool(ctx.get("explicit_caps"))
+    capabilities = ctx.get("capabilities")
+
+    for round_index in range(max_rounds):
+        global_round_index = prior_round_count + round_index
+        round_grew = False
+        ids: list[str] = []
+        plan_meta: dict[str, Any] | None = None
+        source = "default"
+        planned = False
+
+        if want_effects:
+            ids, source, planned, plan_meta = _select_spine_dispatch_ids(
+                ctx, round_index
+            )
+            if planned and plan_meta is not None:
+                last_goal_plan = plan_meta
+                goal_planned = True
+            effect_source = source
+
+            if not ids and grow_on and grow_limit > 0:
+                from blackhole_agent.capability_compounder import (
+                    run_adaptive_growth,
+                )
+
+                growth_pack = run_adaptive_growth(
+                    repo,
+                    budget=grow_limit,
+                    timeout=max(30, effect_timeout),
+                    novel_only=True,
+                )
+                growth_records.append(growth_pack)
+                round_grew = bool(growth_pack.get("grew"))
+                grew_any = grew_any or round_grew
+                ids, source, planned, plan_meta = _select_spine_dispatch_ids(
+                    ctx, round_index
+                )
+                if planned and plan_meta is not None:
+                    last_goal_plan = plan_meta
+                    goal_planned = True
+                effect_source = source
+
+            if not ids:
+                annotated["total_spine_effects"] = True
+                annotated["total_spine_effects_ok"] = False
+                annotated["ok"] = False
+                annotated["verdict"] = (
+                    annotated.get("verdict") or "total_spine_goal_plan_empty"
+                )
+                adaptive_rounds_log.append(
+                    {
+                        "round_index": global_round_index,
+                        "capability_ids": [],
+                        "effects_ok": False,
+                        "contract_met": None,
+                        "effect_tip": bound_tip,
+                        "grew": round_grew,
+                        "recovered": False,
+                        "source": source,
+                        "verdict": "empty_plan",
+                        "success": False,
+                        "failed_ids": [],
+                    }
+                )
+                last_checkpoint = _write_spine_continuity(
+                    annotated, ctx, status="incomplete", success=False
+                )
+                if not adaptive_on or round_index + 1 >= max_rounds:
+                    break
+                continue
+
+            effect_out = None
+            if out_root is not None:
+                effect_out = (
+                    Path(out_root) / "effects" / f"round-{global_round_index}"
+                )
+            pack = dispatch_total_spine_effects(
+                ids,
+                cwd=repo,
+                out_root=effect_out,
+                timeout=effect_timeout,
+            )
+            last_pack = pack
+            effect_chain = seal_total_spine_effect_chain(
+                pack.get("effects") or [],
+                operational_tip=operational_tip,
+            )
+            effect_tip = (
+                effect_chain[-1]["digest"] if effect_chain else operational_tip
+            )
+            bound_tip = _sha256_bytes(
+                f"{operational_tip}|{effect_tip}".encode("utf-8")
+            )
+            ctx["bound_tip"] = bound_tip
+            annotated = annotate_total_spine_effects(
+                annotated,
+                effect_pack=pack,
+                operational_tip=operational_tip,
+            )
+            annotated["total_spine_effect_bound_tip"] = bound_tip
+            annotated["total_spine_effect_source"] = source
+            annotated["total_spine_goal_planned"] = goal_planned
+            if last_goal_plan is not None:
+                annotated["total_spine_goal_plan"] = last_goal_plan
+                annotated["total_spine_goal"] = (
+                    last_goal_plan.get("goal") or goal_text
+                )
+            effects_ok = bool(pack.get("ok"))
+            failed_ids = [
+                str(e.get("capability_id") or "")
+                for e in (pack.get("effects") or [])
+                if isinstance(e, Mapping) and not e.get("ok")
+            ]
+            failed_ids = [f for f in failed_ids if f]
+        else:
+            effects_ok = True
+            failed_ids = []
+            annotated["total_spine_effects"] = False
+            annotated["total_spine_goal_planned"] = False
+
+        contract_met: Any = None
+        contract_machine = False
+        if contract_text:
+            prior = str(
+                annotated.get("total_spine_effect_bound_tip")
+                or annotated.get("total_spine_digest")
+                or bound_tip
+                or operational_tip
+            )
+            context: dict[str, Any] = {
+                "total_spine": annotated,
+                "total_spine_effects": annotated.get("total_spine_effects"),
+                "total_spine_effects_ok": annotated.get(
+                    "total_spine_effects_ok"
+                ),
+                "total_spine_effect_count": annotated.get(
+                    "total_spine_effect_count"
+                ),
+                "total_dispatched_ok": annotated.get("total_dispatched_ok"),
+                "total_spine_goal": annotated.get("total_spine_goal")
+                or goal_text,
+                "effects_applied_ok": bool(
+                    annotated.get("total_spine_effects_ok")
+                ),
+                "adaptive_round": global_round_index,
+                "program": {
+                    "ok": bool(annotated.get("total_spine_effects_ok")),
+                    "passed_count": int(
+                        annotated.get("total_spine_effects_ok_count") or 0
+                    ),
+                    "steps": list(
+                        annotated.get("total_spine_effect_capabilities") or []
+                    ),
+                },
+            }
+            contract = evaluate_total_spine_contract(
+                contract_text,
+                context=context,
+                cwd=repo,
+                timeout=effect_timeout,
+            )
+            last_contract = contract
+            seal = seal_total_spine_contract(contract, prior_tip=prior)
+            last_seal = seal
+            contract_tip = str(seal.get("digest") or prior)
+            bound_tip = _sha256_bytes(
+                f"{prior}|{contract_tip}".encode("utf-8")
+            )
+            ctx["bound_tip"] = bound_tip
+            annotated = annotate_total_spine_contract(
+                annotated,
+                contract=contract,
+                prior_tip=prior,
+                done_when=contract_text,
+            )
+            annotated["total_spine_contract_bound_tip"] = bound_tip
+            contract_met = contract.get("met")
+            contract_machine = bool(contract.get("machine_checkable"))
+
+        success = _total_spine_round_succeeded(
+            want_effects=want_effects,
+            effects_ok=effects_ok if want_effects else True,
+            contract_text=contract_text,
+            contract_met=contract_met,
+            contract_machine=contract_machine,
+        )
+        if success and (global_round_index > 0 or prior_round_count > 0):
+            prior_failed = any(
+                not bool(r.get("success")) for r in adaptive_rounds_log
+            )
+            if prior_failed or global_round_index > 0:
+                recovered = True
+                ctx["recovered"] = True
+
+        adaptive_rounds_log.append(
+            {
+                "round_index": global_round_index,
+                "capability_ids": list(ids) if want_effects else [],
+                "effects_ok": effects_ok if want_effects else None,
+                "contract_met": contract_met,
+                "effect_tip": str(
+                    annotated.get("total_spine_effect_tip")
+                    or bound_tip
+                    or operational_tip
+                ),
+                "bound_tip": bound_tip,
+                "grew": round_grew,
+                "recovered": success and global_round_index > 0,
+                "source": effect_source,
+                "failed_ids": list(failed_ids),
+                "success": success,
+            }
+        )
+
+        last_checkpoint = _write_spine_continuity(
+            annotated,
+            ctx,
+            status="complete" if success else "incomplete",
+            success=success,
+        )
+
+        if success:
+            if annotated.get("verdict") in {
+                "total_spine_effects_failed",
+                "total_spine_contract_failed",
+                "total_spine_goal_plan_empty",
+            }:
+                annotated["verdict"] = (
+                    "total_spine_continuity_ok"
+                    if ctx.get("resumed")
+                    else "total_spine_adaptive_ok"
+                )
+            if want_effects and last_pack and last_pack.get("ok"):
+                annotated["ok"] = True
+            if (
+                contract_text
+                and contract_machine
+                and contract_met is True
+                and (not want_effects or effects_ok)
+            ):
+                annotated["ok"] = True
+            break
+
+        if not adaptive_on or round_index + 1 >= max_rounds:
+            break
+        for failed in failed_ids:
+            exclude.add(failed)
+        if grow_on and grow_limit > 0 and (
+            not want_effects
+            or not any(
+                str(c).strip() not in exclude
+                for c in (
+                    list(capabilities or [])
+                    if explicit_caps
+                    else list(
+                        (last_goal_plan or {}).get("steps")
+                        or TOTAL_SPINE_DEFAULT_EFFECT_CAPABILITIES
+                    )
+                )
+            )
+        ):
+            from blackhole_agent.capability_compounder import (
+                run_adaptive_growth,
+            )
+
+            growth_pack = run_adaptive_growth(
+                repo,
+                budget=grow_limit,
+                timeout=max(30, effect_timeout),
+                novel_only=True,
+            )
+            growth_records.append(growth_pack)
+            grew_any = grew_any or bool(growth_pack.get("grew"))
+
+    ctx["bound_tip"] = bound_tip
+    ctx["grew_any"] = grew_any
+    ctx["recovered"] = recovered
+    ctx["last_pack"] = last_pack
+    ctx["last_contract"] = last_contract
+    ctx["last_seal"] = last_seal
+    ctx["last_goal_plan"] = last_goal_plan
+    ctx["effect_source"] = effect_source
+    ctx["goal_planned"] = goal_planned
+    ctx["last_checkpoint"] = last_checkpoint
+    return _rebind_spine_bound_tip(annotated, ctx, bound_tip)
+
+
+def _apply_spine_adaptive_seal(
+    annotated: dict[str, Any],
+    ctx: dict[str, Any],
+) -> dict[str, Any]:
+    """Seal the adaptive hop chain when the recovery loop ran more than once."""
+
+    adaptive_on = bool(ctx.get("adaptive_on"))
+    adaptive_rounds_log: list[dict[str, Any]] = ctx["adaptive_rounds_log"]
+    if not (adaptive_on or len(adaptive_rounds_log) > 1):
+        annotated["total_spine_adaptive"] = False
+        return annotated
+    operational_tip = str(ctx["operational_tip"])
+    bound_tip = str(ctx["bound_tip"])
+    recovered = bool(ctx.get("recovered"))
+    grew_any = bool(ctx.get("grew_any"))
+    exclude = ctx["exclude"]
+    growth_records = ctx["growth_records"]
+    chain = seal_total_spine_adaptive_chain(
+        adaptive_rounds_log,
+        prior_tip=operational_tip,
+    )
+    adaptive_tip = chain[-1]["digest"] if chain else bound_tip
+    final_bound = _sha256_bytes(
+        f"{bound_tip}|{adaptive_tip}".encode("utf-8")
+    )
+    annotated["total_spine_adaptive"] = True
+    annotated["total_spine_adaptive_impl"] = TOTAL_SPINE_ADAPTIVE_IMPL
+    annotated["total_spine_adaptive_rounds"] = adaptive_rounds_log
+    annotated["total_spine_adaptive_round_count"] = len(adaptive_rounds_log)
+    annotated["total_spine_adaptive_chain"] = chain
+    annotated["total_spine_adaptive_tip"] = adaptive_tip
+    annotated["total_spine_adaptive_bound_tip"] = final_bound
+    annotated["total_spine_adaptive_recovered"] = recovered
+    annotated["total_spine_adaptive_grew"] = grew_any
+    annotated["total_spine_adaptive_excluded"] = sorted(exclude)
+    annotated["total_spine_adaptive_growth"] = growth_records
+    annotated["total_spine_digest_pre_adaptive"] = bound_tip
+    bound_tip = final_bound
+    ctx["bound_tip"] = bound_tip
+    annotated = _rebind_spine_bound_tip(annotated, ctx, bound_tip)
+    out_root = ctx.get("out_root")
+    if out_root is not None:
+        adapt_dir = Path(out_root) / "adaptive"
+        adapt_dir.mkdir(parents=True, exist_ok=True)
+        atomic_write_json(
+            adapt_dir / "total-spine-adaptive.json",
+            {
+                "rounds": adaptive_rounds_log,
+                "chain": chain,
+                "excluded": sorted(exclude),
+                "recovered": recovered,
+                "grew": grew_any,
+                "bound_tip": bound_tip,
+                "resumed": bool(ctx.get("resumed")),
+                "prior_round_count": int(ctx.get("prior_round_count") or 0),
+            },
+        )
+        annotated["total_spine_adaptive_receipt_dir"] = str(adapt_dir)
+    return annotated
+
+
+def _apply_spine_continuity_seal(
+    annotated: dict[str, Any],
+    ctx: dict[str, Any],
+) -> dict[str, Any]:
+    """Bind the continuity checkpoint hop into the absolute tip."""
+
+    if not ctx.get("continuity_on"):
+        annotated["total_spine_continuity"] = False
+        return annotated
+    last_checkpoint = ctx.get("last_checkpoint")
+    resume_checkpoint = ctx.get("resume_checkpoint")
+    recovered = bool(ctx.get("recovered"))
+    resumed = bool(ctx.get("resumed"))
+    prior_round_count = int(ctx.get("prior_round_count") or 0)
+    adaptive_rounds_log: list[dict[str, Any]] = ctx["adaptive_rounds_log"]
+    bound_tip = str(ctx["bound_tip"])
+    if last_checkpoint is None:
+        last_checkpoint = _write_spine_continuity(
+            annotated,
+            ctx,
+            status=("complete" if annotated.get("ok") else "incomplete"),
+            success=bool(annotated.get("ok")),
+        )
+        ctx["last_checkpoint"] = last_checkpoint
+    ck_digest = str(
+        (last_checkpoint or {}).get("checkpoint_digest")
+        or (resume_checkpoint or {}).get("checkpoint_digest")
+        or ""
+    )
+    cont_seal = seal_total_spine_continuity_chain(
+        prior_tip=bound_tip,
+        checkpoint_digest=ck_digest,
+        resumed=resumed,
+        recovered=recovered,
+        prior_round_count=prior_round_count,
+        total_round_count=len(adaptive_rounds_log),
+    )
+    cont_tip = str(cont_seal.get("digest") or bound_tip)
+    cont_bound = _sha256_bytes(
+        f"{bound_tip}|{cont_tip}".encode("utf-8")
+    )
+    annotated["total_spine_continuity"] = True
+    annotated["total_spine_continuity_impl"] = TOTAL_SPINE_CONTINUITY_IMPL
+    annotated["total_spine_continuity_resumed"] = resumed
+    annotated["total_spine_continuity_recovered"] = recovered
+    annotated["total_spine_continuity_prior_rounds"] = prior_round_count
+    annotated["total_spine_continuity_chain"] = cont_seal
+    annotated["total_spine_continuity_tip"] = cont_tip
+    annotated["total_spine_continuity_bound_tip"] = cont_bound
+    annotated["total_spine_continuity_checkpoint"] = last_checkpoint
+    if last_checkpoint is not None:
+        annotated["total_spine_continuity_checkpoint_path"] = last_checkpoint.get(
+            "checkpoint_path"
+        )
+        annotated["total_spine_continuity_status"] = last_checkpoint.get(
+            "status"
+        )
+        annotated["total_spine_continuity_digest"] = last_checkpoint.get(
+            "checkpoint_digest"
+        )
+    ctx["bound_tip"] = cont_bound
+    return _rebind_spine_bound_tip(annotated, ctx, cont_bound)
+
+
+def _apply_spine_finality_seal(
+    annotated: dict[str, Any],
+    ctx: dict[str, Any],
+) -> dict[str, Any]:
+    """Seal irreversible finality when the live round closed successfully."""
+
+    on = ctx.get("on") or {}
+    finality_on = bool(on.get("finality_on"))
+    contract_text = str(ctx.get("contract_text") or "")
+    want_effects = bool(ctx.get("want_effects"))
+    out_root = ctx.get("out_root")
+    resume_dir = ctx.get("resume_dir")
+    last_checkpoint = ctx.get("last_checkpoint")
+    resume_checkpoint = ctx.get("resume_checkpoint")
+    recovered = bool(ctx.get("recovered"))
+    resumed = bool(ctx.get("resumed"))
+    adaptive_rounds_log: list[dict[str, Any]] = ctx["adaptive_rounds_log"]
+    last_contract = ctx.get("last_contract")
+    last_seal = ctx.get("last_seal")
+    last_finality = ctx.get("last_finality")
+    bound_tip = str(ctx["bound_tip"])
+    goal_text = str(ctx.get("goal_text") or "")
+    operational_tip = str(ctx["operational_tip"])
+    if finality_on and not ctx.get("short_circuited"):
+        success_now = bool(annotated.get("ok")) and (
+            not contract_text
+            or not bool(annotated.get("total_spine_contract"))
+            or annotated.get("total_spine_contract_met") is True
+            or annotated.get("total_spine_contract_met") is None
+        )
+        if contract_text and annotated.get("total_spine_contract"):
+            success_now = (
+                bool(annotated.get("ok"))
+                and annotated.get("total_spine_contract_met") is True
+            )
+        if want_effects:
+            success_now = success_now and bool(
+                annotated.get("total_spine_effects_ok")
+            )
+        write_root: Path | None = None
+        if out_root is not None:
+            write_root = Path(out_root)
+        elif resume_dir is not None:
+            write_root = Path(resume_dir)
+        if success_now and write_root is not None:
+            ck_digest = str(
+                (last_checkpoint or {}).get("checkpoint_digest")
+                or (resume_checkpoint or {}).get("checkpoint_digest")
+                or annotated.get("total_spine_continuity_digest")
+                or ""
+            )
+            fin_body = {
+                "schema_version": SCHEMA_VERSION,
+                "kind": TOTAL_SPINE_FINALITY_KIND,
+                "root_layer": ctx["root"],
+                "goal": goal_text,
+                "done_when": contract_text,
+                "capabilities": list(
+                    annotated.get("total_spine_effect_capabilities") or []
+                ),
+                "operational_tip": operational_tip,
+                "bound_tip": bound_tip,
+                "continuity_digest": ck_digest,
+                "adaptive_round_count": len(adaptive_rounds_log),
+                "effects_ok": bool(annotated.get("total_spine_effects_ok"))
+                if want_effects
+                else True,
+                "contract_met": annotated.get("total_spine_contract_met"),
+                "recovered": recovered,
+                "irreversible": True,
+                "success": True,
+                "finalized_at": utc_now_iso(),
+            }
+            try:
+                last_finality = write_total_spine_finality_certificate(
+                    write_root, fin_body
+                )
+            except StageRefused as exc:
+                if str(exc.verdict) == "total_spine_finality_supersession_refused":
+                    try:
+                        last_finality = load_total_spine_finality_certificate(
+                            write_root
+                        )
+                    except StageRefused:
+                        raise exc from None
+                    annotated["total_spine_finality_supersession_refused"] = True
+                    annotated = annotate_total_spine_finality(
+                        annotated,
+                        certificate=last_finality,
+                        prior_tip=bound_tip,
+                        short_circuit=True,
+                    )
+                    bound_tip = str(
+                        annotated.get("total_spine_finality_bound_tip")
+                        or bound_tip
+                    )
+                    annotated = _rebind_spine_bound_tip(
+                        annotated, ctx, bound_tip
+                    )
+                    annotated["ok"] = True
+                    annotated["verdict"] = (
+                        "total_spine_finality_supersession_refused"
+                    )
+                    last_finality = None
+                else:
+                    raise
+            if last_finality is not None:
+                annotated = annotate_total_spine_finality(
+                    annotated,
+                    certificate=last_finality,
+                    prior_tip=bound_tip,
+                    short_circuit=False,
+                )
+                bound_tip = str(
+                    annotated.get("total_spine_finality_bound_tip") or bound_tip
+                )
+                annotated = _rebind_spine_bound_tip(annotated, ctx, bound_tip)
+                if annotated.get("verdict") in {
+                    "total_spine_effects_failed",
+                    "total_spine_contract_failed",
+                    "total_spine_goal_plan_empty",
+                    "total_spine_adaptive_ok",
+                    "total_spine_continuity_ok",
+                } or annotated.get("ok"):
+                    annotated["verdict"] = (
+                        "total_spine_finality_ok"
+                        if not resumed
+                        else "total_spine_finality_ok_resumed"
+                    )
+                if last_finality.get("total_spine_finality_idempotent"):
+                    annotated["total_spine_finality_idempotent"] = True
+        elif not success_now:
+            annotated["total_spine_finality"] = False
+            annotated["total_spine_finality_impl"] = TOTAL_SPINE_FINALITY_IMPL
+        else:
+            annotated["total_spine_finality"] = False
+            annotated["total_spine_finality_impl"] = TOTAL_SPINE_FINALITY_IMPL
+            annotated["total_spine_finality_missing_out_root"] = True
+    elif not finality_on:
+        annotated["total_spine_finality"] = False
+
+    if contract_text and last_contract is not None and out_root is not None:
+        contract_dir = Path(out_root) / "contract"
+        contract_dir.mkdir(parents=True, exist_ok=True)
+        atomic_write_json(
+            contract_dir / "total-spine-contract.json",
+            {
+                "done_when": contract_text,
+                "contract": last_contract,
+                "seal": last_seal,
+                "bound_tip": annotated.get("total_spine_contract_bound_tip"),
+                "adaptive_round_count": len(adaptive_rounds_log),
+                "continuity_resumed": resumed,
+                "finality": bool(annotated.get("total_spine_finality")),
+            },
+        )
+        annotated["total_spine_contract_receipt_dir"] = str(contract_dir)
+
+    ctx["bound_tip"] = bound_tip
+    ctx["last_finality"] = last_finality
+    annotated["total_spine_constitution_depth"] = ctx["chain_len"]
+    if goal_text and not annotated.get("total_spine_goal"):
+        annotated["total_spine_goal"] = goal_text
+    annotated["total_spine_goal_impl"] = TOTAL_SPINE_GOAL_IMPL
+    annotated["total_spine_adaptive_impl"] = TOTAL_SPINE_ADAPTIVE_IMPL
+    annotated["total_spine_continuity_impl"] = TOTAL_SPINE_CONTINUITY_IMPL
+    annotated["total_spine_finality_impl"] = TOTAL_SPINE_FINALITY_IMPL
+    annotated["total_spine_federation_impl"] = TOTAL_SPINE_FEDERATION_IMPL
+    annotated["total_spine_quorum_impl"] = TOTAL_SPINE_QUORUM_IMPL
+    annotated["total_spine_execution_impl"] = TOTAL_SPINE_EXECUTION_IMPL
+    return annotated
+
+
+def _apply_spine_federation_live(
+    annotated: dict[str, Any],
+    ctx: dict[str, Any],
+) -> dict[str, Any]:
+    """Live federation attach: one catalog row over the shared helper."""
+
+    resume = ctx.get("resume") or {}
+    return _attach_spine_federation(
+        annotated,
+        peers=ctx.get("federation_peers"),
+        quorum=bool(ctx.get("federation_quorum")),
+        quorum_threshold=ctx.get("quorum_threshold"),
+        out_root=ctx.get("out_root"),
+        resume_dir=ctx.get("resume_dir"),
+        local_cert=ctx.get("last_finality")
+        or annotated.get("total_spine_finality_certificate")
+        or resume.get("finality"),
+    )
+
+
+_PRE_CONSENSUS_APPLIERS: dict[str, Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]] = {
+    "dispatch": _apply_spine_dispatch,
+    "adaptive": _apply_spine_adaptive_seal,
+    "continuity": _apply_spine_continuity_seal,
+    "finality": _apply_spine_finality_seal,
+    "federation": _apply_spine_federation_live,
+}
+
+
+def _apply_pre_consensus_stage(
+    annotated: dict[str, Any],
+    name: str,
+    ctx: dict[str, Any],
+) -> dict[str, Any]:
+    """Apply one pre-consensus catalog row."""
+
+    applier = _PRE_CONSENSUS_APPLIERS.get(name)
+    if applier is None:
+        raise KeyError(f"unknown pre-consensus stage: {name!r}")
+    return applier(annotated, ctx)
+
+
+def _apply_pre_consensus_stages(
+    annotated: dict[str, Any],
+    ctx: dict[str, Any],
+) -> dict[str, Any]:
+    """Walk :data:`SPINE_PRE_CONSENSUS_CHAIN` against one mutable attach ctx."""
+
+    for name in SPINE_PRE_CONSENSUS_CHAIN:
+        annotated = _apply_pre_consensus_stage(annotated, name, ctx)
+    return annotated
+
+
 def _attach_total_spine_effects(
     annotated: dict[str, Any],
     *,
@@ -8060,54 +8881,8 @@ def _attach_total_spine_effects(
                 pass
         requested = _apply_resume_implies(requested, resume)
 
-    resume_finality = resume.get('finality')
-    resume_execution = resume.get('execution')
-    resume_actuation = resume.get('actuation')
-    resume_settlement = resume.get('settlement')
-    resume_clearing = resume.get('clearing')
-    resume_delivery = resume.get('delivery')
-    resume_custody = resume.get('custody')
-    resume_margin = resume.get('margin')
-    resume_collateral = resume.get('collateral')
-    resume_liquidity = resume.get('liquidity')
-    resume_funding = resume.get('funding')
-    resume_capital = resume.get('capital')
-    resume_solvency = resume.get('solvency')
-    resume_risk = resume.get('risk')
-    resume_stress = resume.get('stress')
-    resume_recovery = resume.get('recovery')
-    resume_resolution = resume.get('resolution')
-    resume_restructuring = resume.get('restructuring')
-    resume_emergence = resume.get('emergence')
-    resume_reorganization = resume.get('reorganization')
-
     continuity_on = bool(continuity) or resumed or resume_dir is not None
     on = _spine_on_flags(requested, resume)
-    finality_on = on['finality_on']
-    execution_on = on['execution_on']
-    actuation_on = on['actuation_on']
-    settlement_on = on['settlement_on']
-    clearing_on = on['clearing_on']
-    delivery_on = on['delivery_on']
-    custody_on = on['custody_on']
-    margin_on = on['margin_on']
-    collateral_on = on['collateral_on']
-    liquidity_on = on['liquidity_on']
-    funding_on = on['funding_on']
-    capital_on = on['capital_on']
-    solvency_on = on['solvency_on']
-    risk_on = on['risk_on']
-    stress_on = on['stress_on']
-    recovery_on = on['recovery_on']
-    resolution_on = on['resolution_on']
-    restructuring_on = on['restructuring_on']
-    emergence_on = on['emergence_on']
-    reorganization_on = on['reorganization_on']
-    # Finality needs a durable write root for the certificate.
-    # Finality needs a durable write root for the certificate.
-    if finality_on and not continuity_on and (out_root is not None or resume_dir is not None):
-        # Keep continuity optional; finality can seal alone under out_root.
-        pass
 
     max_rounds = (
         int(adaptive_rounds)
@@ -8141,8 +8916,8 @@ def _attach_total_spine_effects(
         not want_effects
         and not contract_text
         and not resumed
-        and not finality_on
-        and not execution_on
+        and not on["finality_on"]
+        and not on["execution_on"]
     ):
         annotated["total_spine_effects"] = False
         annotated["total_spine_goal_planned"] = False
@@ -8241,684 +9016,53 @@ def _attach_total_spine_effects(
             annotated, sc_effect, resume=_sc_resume, ctx=_sc_ctx
         )
 
-    def _select_ids(round_index: int) -> tuple[list[str], str, bool, dict[str, Any] | None]:
-        # Global index includes prior resumed rounds so first live round after
-        # resume is treated as adaptive recovery (survivors / replan).
-        global_index = prior_round_count + round_index
-        if explicit_caps and global_index == 0:
-            ids0 = [str(c).strip() for c in capabilities if str(c).strip()]
-            return ids0, "explicit", False, None
-        if explicit_caps and global_index > 0:
-            # Adaptive recovery for explicit lists: survivors after exclude,
-            # or goal replan when a free-text goal is also present.
-            survivors = [
-                str(c).strip()
-                for c in capabilities
-                if str(c).strip() and str(c).strip() not in exclude
-            ]
-            if survivors:
-                return survivors, "explicit_survivors", False, None
-            if goal_text:
-                plan = plan_total_spine_goal_effects(
-                    goal_text,
-                    max_steps=max_effect_steps,
-                    cwd=repo,
-                    exclude=sorted(exclude),
-                )
-                return (
-                    list(plan.get("steps") or []),
-                    "goal_replan",
-                    True,
-                    plan,
-                )
-            return [], "explicit_exhausted", False, None
-        if goal_text:
-            plan = plan_total_spine_goal_effects(
-                goal_text,
-                max_steps=max_effect_steps,
-                cwd=repo,
-                exclude=sorted(exclude) if exclude else None,
-            )
-            return (
-                list(plan.get("steps") or []),
-                "goal" if global_index == 0 else "goal_replan",
-                True,
-                plan,
-            )
-        ids_default = [
-            c
-            for c in TOTAL_SPINE_DEFAULT_EFFECT_CAPABILITIES
-            if c not in exclude
-        ]
-        return ids_default, "default", False, None
-
-    def _write_continuity(
-        *,
-        status: str,
-        success: bool,
-    ) -> dict[str, Any] | None:
-        if not continuity_on:
-            return None
-        if out_root is None and resume_dir is None:
-            return None
-        write_root = Path(out_root) if out_root is not None else Path(resume_dir)  # type: ignore[arg-type]
-        body = {
-            "schema_version": SCHEMA_VERSION,
-            "kind": TOTAL_SPINE_CONTINUITY_KIND,
-            "root_layer": root,
-            "goal": goal_text,
-            "done_when": contract_text,
-            "capabilities": (
-                [str(c).strip() for c in (capabilities or []) if str(c).strip()]
-                if explicit_caps
-                else list(
-                    annotated.get("total_spine_effect_capabilities")
-                    or TOTAL_SPINE_DEFAULT_EFFECT_CAPABILITIES
-                )
-            ),
-            "explicit_capabilities": explicit_caps,
-            "effects": want_effects,
-            "max_effect_steps": max_effect_steps,
-            "excluded": sorted(exclude),
-            "rounds": adaptive_rounds_log,
-            "operational_tip": operational_tip,
-            "bound_tip": bound_tip,
-            "next_round_index": len(adaptive_rounds_log),
-            "want_effects": want_effects,
-            "grow": grow_on,
-            "grow_budget": grow_limit,
-            "status": status,
-            "recovered": recovered,
-            "success": success,
-            "created_at": utc_now_iso(),
-        }
-        sealed = write_total_spine_continuity_checkpoint(write_root, body)
-        return sealed
-
-    for round_index in range(max_rounds):
-        global_round_index = prior_round_count + round_index
-        round_grew = False
-        growth_pack: dict[str, Any] | None = None
-        ids: list[str] = []
-        plan_meta: dict[str, Any] | None = None
-        source = "default"
-        planned = False
-
-        if want_effects:
-            ids, source, planned, plan_meta = _select_ids(round_index)
-            if planned and plan_meta is not None:
-                last_goal_plan = plan_meta
-                goal_planned = True
-            effect_source = source
-
-            # Empty plan on adaptive path: optional grow then replan once.
-            if not ids and grow_on and grow_limit > 0:
-                from blackhole_agent.capability_compounder import (
-                    run_adaptive_growth,
-                )
-
-                growth_pack = run_adaptive_growth(
-                    repo,
-                    budget=grow_limit,
-                    timeout=max(30, effect_timeout),
-                    novel_only=True,
-                )
-                growth_records.append(growth_pack)
-                round_grew = bool(growth_pack.get("grew"))
-                grew_any = grew_any or round_grew
-                ids, source, planned, plan_meta = _select_ids(round_index)
-                if planned and plan_meta is not None:
-                    last_goal_plan = plan_meta
-                    goal_planned = True
-                effect_source = source
-
-            if not ids:
-                annotated["total_spine_effects"] = True
-                annotated["total_spine_effects_ok"] = False
-                annotated["ok"] = False
-                annotated["verdict"] = (
-                    annotated.get("verdict") or "total_spine_goal_plan_empty"
-                )
-                adaptive_rounds_log.append(
-                    {
-                        "round_index": global_round_index,
-                        "capability_ids": [],
-                        "effects_ok": False,
-                        "contract_met": None,
-                        "effect_tip": bound_tip,
-                        "grew": round_grew,
-                        "recovered": False,
-                        "source": source,
-                        "verdict": "empty_plan",
-                        "success": False,
-                        "failed_ids": [],
-                    }
-                )
-                last_checkpoint = _write_continuity(
-                    status="incomplete", success=False
-                )
-                if not adaptive_on or round_index + 1 >= max_rounds:
-                    break
-                continue
-
-            effect_out = None
-            if out_root is not None:
-                effect_out = (
-                    Path(out_root) / "effects" / f"round-{global_round_index}"
-                )
-            pack = dispatch_total_spine_effects(
-                ids,
-                cwd=repo,
-                out_root=effect_out,
-                timeout=effect_timeout,
-            )
-            last_pack = pack
-            effect_chain = seal_total_spine_effect_chain(
-                pack.get("effects") or [],
-                operational_tip=operational_tip,
-            )
-            effect_tip = (
-                effect_chain[-1]["digest"] if effect_chain else operational_tip
-            )
-            bound_tip = _sha256_bytes(
-                f"{operational_tip}|{effect_tip}".encode("utf-8")
-            )
-            annotated = annotate_total_spine_effects(
-                annotated,
-                effect_pack=pack,
-                operational_tip=operational_tip,
-            )
-            annotated["total_spine_effect_bound_tip"] = bound_tip
-            annotated["total_spine_effect_source"] = source
-            annotated["total_spine_goal_planned"] = goal_planned
-            if last_goal_plan is not None:
-                annotated["total_spine_goal_plan"] = last_goal_plan
-                annotated["total_spine_goal"] = (
-                    last_goal_plan.get("goal") or goal_text
-                )
-            effects_ok = bool(pack.get("ok"))
-            failed_ids = [
-                str(e.get("capability_id") or "")
-                for e in (pack.get("effects") or [])
-                if isinstance(e, Mapping) and not e.get("ok")
-            ]
-            failed_ids = [f for f in failed_ids if f]
-        else:
-            effects_ok = True
-            failed_ids = []
-            effect_tip = operational_tip
-            annotated["total_spine_effects"] = False
-            annotated["total_spine_goal_planned"] = False
-
-        contract_met: Any = None
-        contract_machine = False
-        if contract_text:
-            prior = str(
-                annotated.get("total_spine_effect_bound_tip")
-                or annotated.get("total_spine_digest")
-                or bound_tip
-                or operational_tip
-            )
-            context: dict[str, Any] = {
-                "total_spine": annotated,
-                "total_spine_effects": annotated.get("total_spine_effects"),
-                "total_spine_effects_ok": annotated.get(
-                    "total_spine_effects_ok"
-                ),
-                "total_spine_effect_count": annotated.get(
-                    "total_spine_effect_count"
-                ),
-                "total_dispatched_ok": annotated.get("total_dispatched_ok"),
-                "total_spine_goal": annotated.get("total_spine_goal")
-                or goal_text,
-                "effects_applied_ok": bool(
-                    annotated.get("total_spine_effects_ok")
-                ),
-                "adaptive_round": global_round_index,
-                "program": {
-                    "ok": bool(annotated.get("total_spine_effects_ok")),
-                    "passed_count": int(
-                        annotated.get("total_spine_effects_ok_count") or 0
-                    ),
-                    "steps": list(
-                        annotated.get("total_spine_effect_capabilities") or []
-                    ),
-                },
-            }
-            contract = evaluate_total_spine_contract(
-                contract_text,
-                context=context,
-                cwd=repo,
-                timeout=effect_timeout,
-            )
-            last_contract = contract
-            seal = seal_total_spine_contract(contract, prior_tip=prior)
-            last_seal = seal
-            contract_tip = str(seal.get("digest") or prior)
-            bound_tip = _sha256_bytes(
-                f"{prior}|{contract_tip}".encode("utf-8")
-            )
-            annotated = annotate_total_spine_contract(
-                annotated,
-                contract=contract,
-                prior_tip=prior,
-                done_when=contract_text,
-            )
-            annotated["total_spine_contract_bound_tip"] = bound_tip
-            contract_met = contract.get("met")
-            contract_machine = bool(contract.get("machine_checkable"))
-
-        success = _total_spine_round_succeeded(
-            want_effects=want_effects,
-            effects_ok=effects_ok if want_effects else True,
-            contract_text=contract_text,
-            contract_met=contract_met,
-            contract_machine=contract_machine,
-        )
-        # Recovery: any success after prior failed rounds (this process or
-        # rehydrated prior rounds) counts as recovered.
-        if success and (global_round_index > 0 or prior_round_count > 0):
-            # Only mark recovered when there was a prior unsuccessful round.
-            prior_failed = any(
-                not bool(r.get("success")) for r in adaptive_rounds_log
-            )
-            if prior_failed or global_round_index > 0:
-                recovered = True
-
-        adaptive_rounds_log.append(
-            {
-                "round_index": global_round_index,
-                "capability_ids": list(ids) if want_effects else [],
-                "effects_ok": effects_ok if want_effects else None,
-                "contract_met": contract_met,
-                "effect_tip": str(
-                    annotated.get("total_spine_effect_tip")
-                    or bound_tip
-                    or operational_tip
-                ),
-                "bound_tip": bound_tip,
-                "grew": round_grew,
-                "recovered": success and global_round_index > 0,
-                "source": effect_source,
-                "failed_ids": list(failed_ids),
-                "success": success,
-            }
-        )
-
-        last_checkpoint = _write_continuity(
-            status="complete" if success else "incomplete",
-            success=success,
-        )
-
-        if success:
-            # Restore ok when adaptive recovery cleared a prior failure.
-            if annotated.get("verdict") in {
-                "total_spine_effects_failed",
-                "total_spine_contract_failed",
-                "total_spine_goal_plan_empty",
-            }:
-                annotated["verdict"] = (
-                    "total_spine_continuity_ok"
-                    if resumed
-                    else "total_spine_adaptive_ok"
-                )
-            if want_effects and last_pack and last_pack.get("ok"):
-                annotated["ok"] = True
-            if (
-                contract_text
-                and contract_machine
-                and contract_met is True
-                and (not want_effects or effects_ok)
-            ):
-                annotated["ok"] = True
-            break
-
-        # Prepare next adaptive round.
-        if not adaptive_on or round_index + 1 >= max_rounds:
-            break
-        for failed in failed_ids:
-            exclude.add(failed)
-        # If the whole pack failed only due to missing caps, survivors may
-        # already be enough; also grow when requested and nothing left.
-        if grow_on and grow_limit > 0 and (
-            not want_effects
-            or not any(
-                str(c).strip() not in exclude
-                for c in (
-                    list(capabilities or [])
-                    if explicit_caps
-                    else list(
-                        (last_goal_plan or {}).get("steps")
-                        or TOTAL_SPINE_DEFAULT_EFFECT_CAPABILITIES
-                    )
-                )
-            )
-        ):
-            from blackhole_agent.capability_compounder import (
-                run_adaptive_growth,
-            )
-
-            growth_pack = run_adaptive_growth(
-                repo,
-                budget=grow_limit,
-                timeout=max(30, effect_timeout),
-                novel_only=True,
-            )
-            growth_records.append(growth_pack)
-            grew_any = grew_any or bool(growth_pack.get("grew"))
-
-    # Rebind hop digests to final bound tip.
-    if compressed:
-        hops = seal_total_spine_hop_chain(root, live_result, tip=bound_tip)
-        annotated["total_spine_hop_chain"] = hops
-        annotated["total_spine_hop_count"] = len(hops)
-        if hops:
-            annotated["total_spine_digest"] = hops[0].get("digest")
-            annotated[f"{root}_digest"] = hops[0].get("digest")
-    else:
-        annotated["total_spine_digest"] = bound_tip
-        annotated[f"{root}_digest"] = bound_tip
-
-    if adaptive_on or len(adaptive_rounds_log) > 1:
-        chain = seal_total_spine_adaptive_chain(
-            adaptive_rounds_log,
-            prior_tip=operational_tip,
-        )
-        adaptive_tip = chain[-1]["digest"] if chain else bound_tip
-        final_bound = _sha256_bytes(
-            f"{bound_tip}|{adaptive_tip}".encode("utf-8")
-        )
-        annotated["total_spine_adaptive"] = True
-        annotated["total_spine_adaptive_impl"] = TOTAL_SPINE_ADAPTIVE_IMPL
-        annotated["total_spine_adaptive_rounds"] = adaptive_rounds_log
-        annotated["total_spine_adaptive_round_count"] = len(adaptive_rounds_log)
-        annotated["total_spine_adaptive_chain"] = chain
-        annotated["total_spine_adaptive_tip"] = adaptive_tip
-        annotated["total_spine_adaptive_bound_tip"] = final_bound
-        annotated["total_spine_adaptive_recovered"] = recovered
-        annotated["total_spine_adaptive_grew"] = grew_any
-        annotated["total_spine_adaptive_excluded"] = sorted(exclude)
-        annotated["total_spine_adaptive_growth"] = growth_records
-        annotated["total_spine_digest_pre_adaptive"] = bound_tip
-        bound_tip = final_bound
-        if compressed:
-            hops = seal_total_spine_hop_chain(root, live_result, tip=bound_tip)
-            annotated["total_spine_hop_chain"] = hops
-            annotated["total_spine_hop_count"] = len(hops)
-            if hops:
-                annotated["total_spine_digest"] = hops[0].get("digest")
-                annotated[f"{root}_digest"] = hops[0].get("digest")
-        else:
-            annotated["total_spine_digest"] = bound_tip
-            annotated[f"{root}_digest"] = bound_tip
-        if out_root is not None:
-            adapt_dir = Path(out_root) / "adaptive"
-            adapt_dir.mkdir(parents=True, exist_ok=True)
-            atomic_write_json(
-                adapt_dir / "total-spine-adaptive.json",
-                {
-                    "rounds": adaptive_rounds_log,
-                    "chain": chain,
-                    "excluded": sorted(exclude),
-                    "recovered": recovered,
-                    "grew": grew_any,
-                    "bound_tip": bound_tip,
-                    "resumed": resumed,
-                    "prior_round_count": prior_round_count,
-                },
-            )
-            annotated["total_spine_adaptive_receipt_dir"] = str(adapt_dir)
-    else:
-        annotated["total_spine_adaptive"] = False
-
-    # Final continuity seal: bind resume hop into absolute tip when active.
-    if continuity_on:
-        if last_checkpoint is None:
-            last_checkpoint = _write_continuity(
-                status=(
-                    "complete"
-                    if annotated.get("ok")
-                    else "incomplete"
-                ),
-                success=bool(annotated.get("ok")),
-            )
-        ck_digest = str(
-            (last_checkpoint or {}).get("checkpoint_digest")
-            or (resume_checkpoint or {}).get("checkpoint_digest")
-            or ""
-        )
-        cont_seal = seal_total_spine_continuity_chain(
-            prior_tip=bound_tip,
-            checkpoint_digest=ck_digest,
-            resumed=resumed,
-            recovered=recovered,
-            prior_round_count=prior_round_count,
-            total_round_count=len(adaptive_rounds_log),
-        )
-        cont_tip = str(cont_seal.get("digest") or bound_tip)
-        cont_bound = _sha256_bytes(
-            f"{bound_tip}|{cont_tip}".encode("utf-8")
-        )
-        annotated["total_spine_continuity"] = True
-        annotated["total_spine_continuity_impl"] = TOTAL_SPINE_CONTINUITY_IMPL
-        annotated["total_spine_continuity_resumed"] = resumed
-        annotated["total_spine_continuity_recovered"] = recovered
-        annotated["total_spine_continuity_prior_rounds"] = prior_round_count
-        annotated["total_spine_continuity_chain"] = cont_seal
-        annotated["total_spine_continuity_tip"] = cont_tip
-        annotated["total_spine_continuity_bound_tip"] = cont_bound
-        annotated["total_spine_continuity_checkpoint"] = last_checkpoint
-        if last_checkpoint is not None:
-            annotated["total_spine_continuity_checkpoint_path"] = last_checkpoint.get(
-                "checkpoint_path"
-            )
-            annotated["total_spine_continuity_status"] = last_checkpoint.get(
-                "status"
-            )
-            annotated["total_spine_continuity_digest"] = last_checkpoint.get(
-                "checkpoint_digest"
-            )
-        bound_tip = cont_bound
-        if compressed:
-            hops = seal_total_spine_hop_chain(root, live_result, tip=bound_tip)
-            annotated["total_spine_hop_chain"] = hops
-            annotated["total_spine_hop_count"] = len(hops)
-            if hops:
-                annotated["total_spine_digest"] = hops[0].get("digest")
-                annotated[f"{root}_digest"] = hops[0].get("digest")
-        else:
-            annotated["total_spine_digest"] = bound_tip
-            annotated[f"{root}_digest"] = bound_tip
-    else:
-        annotated["total_spine_continuity"] = False
-
-    # Irreversible finality seal when a round closed successfully.
-    if finality_on and not short_circuited:
-        success_now = bool(annotated.get("ok")) and (
-            not contract_text
-            or not bool(annotated.get("total_spine_contract"))
-            or annotated.get("total_spine_contract_met") is True
-            or annotated.get("total_spine_contract_met") is None
-        )
-        # Require machine-checkable contract met when done_when is present.
-        if contract_text and annotated.get("total_spine_contract"):
-            success_now = (
-                bool(annotated.get("ok"))
-                and annotated.get("total_spine_contract_met") is True
-            )
-        if want_effects:
-            success_now = success_now and bool(
-                annotated.get("total_spine_effects_ok")
-            )
-        write_root: Path | None = None
-        if out_root is not None:
-            write_root = Path(out_root)
-        elif resume_dir is not None:
-            write_root = Path(resume_dir)
-        if success_now and write_root is not None:
-            ck_digest = str(
-                (last_checkpoint or {}).get("checkpoint_digest")
-                or (resume_checkpoint or {}).get("checkpoint_digest")
-                or annotated.get("total_spine_continuity_digest")
-                or ""
-            )
-            fin_body = {
-                "schema_version": SCHEMA_VERSION,
-                "kind": TOTAL_SPINE_FINALITY_KIND,
-                "root_layer": root,
-                "goal": goal_text,
-                "done_when": contract_text,
-                "capabilities": list(
-                    annotated.get("total_spine_effect_capabilities") or []
-                ),
-                "operational_tip": operational_tip,
-                "bound_tip": bound_tip,
-                "continuity_digest": ck_digest,
-                "adaptive_round_count": len(adaptive_rounds_log),
-                "effects_ok": bool(annotated.get("total_spine_effects_ok"))
-                if want_effects
-                else True,
-                "contract_met": annotated.get("total_spine_contract_met"),
-                "recovered": recovered,
-                "irreversible": True,
-                "success": True,
-                "finalized_at": utc_now_iso(),
-            }
-            try:
-                last_finality = write_total_spine_finality_certificate(
-                    write_root, fin_body
-                )
-            except StageRefused as exc:
-                if str(exc.verdict) == "total_spine_finality_supersession_refused":
-                    # Existing irreversible seal wins: short-circuit annotate
-                    # from the sealed certificate rather than rewriting it.
-                    try:
-                        last_finality = load_total_spine_finality_certificate(
-                            write_root
-                        )
-                    except StageRefused:
-                        raise exc from None
-                    annotated["total_spine_finality_supersession_refused"] = True
-                    annotated = annotate_total_spine_finality(
-                        annotated,
-                        certificate=last_finality,
-                        prior_tip=bound_tip,
-                        short_circuit=True,
-                    )
-                    bound_tip = str(
-                        annotated.get("total_spine_finality_bound_tip")
-                        or bound_tip
-                    )
-                    if compressed:
-                        hops = seal_total_spine_hop_chain(
-                            root, live_result, tip=bound_tip
-                        )
-                        annotated["total_spine_hop_chain"] = hops
-                        annotated["total_spine_hop_count"] = len(hops)
-                        if hops:
-                            annotated["total_spine_digest"] = hops[0].get(
-                                "digest"
-                            )
-                            annotated[f"{root}_digest"] = hops[0].get("digest")
-                    else:
-                        annotated["total_spine_digest"] = bound_tip
-                        annotated[f"{root}_digest"] = bound_tip
-                    annotated["ok"] = True
-                    annotated["verdict"] = (
-                        "total_spine_finality_supersession_refused"
-                    )
-                    # Skip normal first-seal path below.
-                    last_finality = None
-                else:
-                    raise
-            if last_finality is not None:
-                annotated = annotate_total_spine_finality(
-                    annotated,
-                    certificate=last_finality,
-                    prior_tip=bound_tip,
-                    short_circuit=False,
-                )
-                bound_tip = str(
-                    annotated.get("total_spine_finality_bound_tip") or bound_tip
-                )
-                if compressed:
-                    hops = seal_total_spine_hop_chain(
-                        root, live_result, tip=bound_tip
-                    )
-                    annotated["total_spine_hop_chain"] = hops
-                    annotated["total_spine_hop_count"] = len(hops)
-                    if hops:
-                        annotated["total_spine_digest"] = hops[0].get("digest")
-                        annotated[f"{root}_digest"] = hops[0].get("digest")
-                else:
-                    annotated["total_spine_digest"] = bound_tip
-                    annotated[f"{root}_digest"] = bound_tip
-                if annotated.get("verdict") in {
-                    "total_spine_effects_failed",
-                    "total_spine_contract_failed",
-                    "total_spine_goal_plan_empty",
-                    "total_spine_adaptive_ok",
-                    "total_spine_continuity_ok",
-                } or annotated.get("ok"):
-                    annotated["verdict"] = (
-                        "total_spine_finality_ok"
-                        if not resumed
-                        else "total_spine_finality_ok_resumed"
-                    )
-                if last_finality.get("total_spine_finality_idempotent"):
-                    annotated["total_spine_finality_idempotent"] = True
-        elif not success_now:
-            annotated["total_spine_finality"] = False
-            annotated["total_spine_finality_impl"] = TOTAL_SPINE_FINALITY_IMPL
-        else:
-            # Success but no durable write root — still mark intent.
-            annotated["total_spine_finality"] = False
-            annotated["total_spine_finality_impl"] = TOTAL_SPINE_FINALITY_IMPL
-            annotated["total_spine_finality_missing_out_root"] = True
-    elif not finality_on:
-        annotated["total_spine_finality"] = False
-
-    if contract_text and last_contract is not None and out_root is not None:
-        contract_dir = Path(out_root) / "contract"
-        contract_dir.mkdir(parents=True, exist_ok=True)
-        atomic_write_json(
-            contract_dir / "total-spine-contract.json",
-            {
-                "done_when": contract_text,
-                "contract": last_contract,
-                "seal": last_seal,
-                "bound_tip": annotated.get("total_spine_contract_bound_tip"),
-                "adaptive_round_count": len(adaptive_rounds_log),
-                "continuity_resumed": resumed,
-                "finality": bool(annotated.get("total_spine_finality")),
-            },
-        )
-        annotated["total_spine_contract_receipt_dir"] = str(contract_dir)
-
-    annotated["total_spine_constitution_depth"] = chain_len
-    if goal_text and not annotated.get("total_spine_goal"):
-        annotated["total_spine_goal"] = goal_text
-    annotated["total_spine_goal_impl"] = TOTAL_SPINE_GOAL_IMPL
-    annotated["total_spine_adaptive_impl"] = TOTAL_SPINE_ADAPTIVE_IMPL
-    annotated["total_spine_continuity_impl"] = TOTAL_SPINE_CONTINUITY_IMPL
-    annotated["total_spine_finality_impl"] = TOTAL_SPINE_FINALITY_IMPL
-    annotated["total_spine_federation_impl"] = TOTAL_SPINE_FEDERATION_IMPL
-    annotated["total_spine_quorum_impl"] = TOTAL_SPINE_QUORUM_IMPL
-    annotated["total_spine_execution_impl"] = TOTAL_SPINE_EXECUTION_IMPL
-
-    # Multi-origin federation: local finality + peer certificates → fed tip.
-    annotated = _attach_spine_federation(
-        annotated,
-        peers=federation_peers,
-        quorum=bool(federation_quorum),
-        quorum_threshold=quorum_threshold,
-        out_root=out_root,
-        resume_dir=resume_dir,
-        local_cert=last_finality
-        or annotated.get("total_spine_finality_certificate")
-        or resume_finality,
-    )
-
+    live_ctx: dict[str, Any] = {
+        "root": root,
+        "live_result": live_result,
+        "compressed": compressed,
+        "chain_len": chain_len,
+        "out_root": out_root,
+        "resume_dir": resume_dir,
+        "repo_path": repo_path,
+        "repo": repo,
+        "want_effects": want_effects,
+        "explicit_caps": explicit_caps,
+        "capabilities": capabilities,
+        "goal_text": goal_text,
+        "contract_text": contract_text,
+        "max_effect_steps": max_effect_steps,
+        "effect_timeout": effect_timeout,
+        "operational_tip": operational_tip,
+        "bound_tip": bound_tip,
+        "exclude": exclude,
+        "adaptive_rounds_log": adaptive_rounds_log,
+        "prior_round_count": prior_round_count,
+        "max_rounds": max_rounds,
+        "adaptive_on": adaptive_on,
+        "grow_on": grow_on,
+        "grow_limit": grow_limit,
+        "grew_any": grew_any,
+        "growth_records": growth_records,
+        "recovered": recovered,
+        "resumed": resumed,
+        "last_pack": last_pack,
+        "last_contract": last_contract,
+        "last_seal": last_seal,
+        "last_goal_plan": last_goal_plan,
+        "effect_source": effect_source,
+        "goal_planned": goal_planned,
+        "last_checkpoint": last_checkpoint,
+        "last_finality": last_finality,
+        "continuity_on": continuity_on,
+        "resume_checkpoint": resume_checkpoint,
+        "resume": resume,
+        "on": on,
+        "federation_peers": federation_peers,
+        "federation_quorum": federation_quorum,
+        "quorum_threshold": quorum_threshold,
+        "short_circuited": short_circuited,
+    }
+    annotated = _apply_pre_consensus_stages(annotated, live_ctx)
     annotated = _apply_spine_stages(
         annotated,
         start=SPINE_STAGE_POST_CONSENSUS_START,
@@ -8928,10 +9072,11 @@ def _attach_total_spine_effects(
         capabilities=capabilities
         or list(annotated.get("total_spine_effect_capabilities") or []),
         effect_timeout=effect_timeout,
-        stage_ctx={"consensus_source": last_finality},
+        stage_ctx={"consensus_source": live_ctx.get("last_finality")},
         flags=on,
     )
     return annotated
+
 
 
 def run_total_spine(
@@ -14840,7 +14985,11 @@ def builtin_spine_finality_stage_proof() -> dict[str, Any]:
     checks["finality_cont_execution"] = cfg.get("cont") == ("execution", ())
     checks["finality_restamp"] = cfg.get("cont_restamp_finality") is True
     checks["select_includes_finality"] = 'return "finality"' in select_src
-    checks["attach_uses_federation_helper"] = "_attach_spine_federation" in attach_src
+    checks["attach_uses_federation_helper"] = (
+        "_apply_pre_consensus_stages" in attach_src
+        and "_attach_spine_federation"
+        in inspect.getsource(_apply_spine_federation_live)
+    )
     checks["short_uses_federation_helper"] = "_attach_spine_federation" in short_src
     checks["attach_no_federate_copy"] = "federate_total_spine(" not in attach_src
     checks["attach_no_finality_sc_block"] = (
@@ -14910,6 +15059,146 @@ def builtin_spine_finality_stage_proof() -> dict[str, Any]:
         "done_when_met": ok,
     }
     out = REPO_ROOT / "artifacts" / "capability-spine-finality-stage"
+    out.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(out / "plane-report.json", report)
+    return report
+
+
+def builtin_spine_attach_catalog_proof() -> dict[str, Any]:
+    """Hermetic proof: live attach after short-circuit is one pre-consensus walk."""
+
+    import inspect
+
+    checks: dict[str, bool] = {}
+    names = list(SPINE_PRE_CONSENSUS_CHAIN)
+    expected = (
+        "dispatch",
+        "adaptive",
+        "continuity",
+        "finality",
+        "federation",
+    )
+    checks["catalog"] = tuple(names) == expected
+    checks["catalog_len"] = len(names) == 5
+    checks["impl"] = SPINE_ATTACH_CATALOG_IMPL is True
+    checks["appliers_cover_catalog"] = set(_PRE_CONSENSUS_APPLIERS) == set(expected)
+    attach_src = inspect.getsource(_attach_total_spine_effects)
+    walk_src = inspect.getsource(_apply_pre_consensus_stages)
+    dispatch_src = inspect.getsource(_apply_spine_dispatch)
+    adaptive_src = inspect.getsource(_apply_spine_adaptive_seal)
+    continuity_src = inspect.getsource(_apply_spine_continuity_seal)
+    finality_src = inspect.getsource(_apply_spine_finality_seal)
+    fed_src = inspect.getsource(_apply_spine_federation_live)
+    checks["attach_walks_pre_consensus"] = (
+        attach_src.count("_apply_pre_consensus_stages") == 1
+    )
+    checks["attach_walks_post_consensus"] = (
+        attach_src.count("_apply_spine_stages") == 1
+    )
+    checks["attach_no_dispatch_loop"] = "for round_index in range" not in attach_src
+    checks["attach_no_finality_write"] = (
+        "write_total_spine_finality_certificate" not in attach_src
+    )
+    checks["attach_no_resume_unroll"] = (
+        "resume_finality =" not in attach_src
+        and "resume_reorganization =" not in attach_src
+        and "resume_solvency =" not in attach_src
+    )
+    checks["attach_no_on_unroll"] = (
+        "finality_on = on[" not in attach_src
+        and "reorganization_on = on[" not in attach_src
+        and "execution_on = on[" not in attach_src
+    )
+    checks["attach_no_federate_copy"] = "federate_total_spine(" not in attach_src
+    checks["attach_no_execute"] = "execute_total_spine(" not in attach_src
+    checks["attach_no_actuate"] = "actuate_total_spine(" not in attach_src
+    checks["walk_uses_catalog"] = "SPINE_PRE_CONSENSUS_CHAIN" in walk_src
+    checks["dispatch_owns_loop"] = "for round_index in range" in dispatch_src
+    checks["adaptive_seals"] = "seal_total_spine_adaptive_chain" in adaptive_src
+    checks["continuity_seals"] = "seal_total_spine_continuity_chain" in continuity_src
+    checks["finality_writes"] = "write_total_spine_finality_certificate" in finality_src
+    checks["federation_uses_helper"] = "_attach_spine_federation" in fed_src
+    off = _apply_pre_consensus_stages(
+        {"ok": True, "total_spine": True},
+        {
+            "root": "quettacontinuum",
+            "live_result": {},
+            "compressed": False,
+            "chain_len": 0,
+            "out_root": None,
+            "resume_dir": None,
+            "repo_path": REPO_ROOT,
+            "repo": REPO_ROOT,
+            "want_effects": False,
+            "explicit_caps": False,
+            "capabilities": None,
+            "goal_text": "",
+            "contract_text": "",
+            "max_effect_steps": None,
+            "effect_timeout": 60,
+            "operational_tip": "0" * 64,
+            "bound_tip": "0" * 64,
+            "exclude": set(),
+            "adaptive_rounds_log": [],
+            "prior_round_count": 0,
+            "max_rounds": 1,
+            "adaptive_on": False,
+            "grow_on": False,
+            "grow_limit": 0,
+            "grew_any": False,
+            "growth_records": [],
+            "recovered": False,
+            "resumed": False,
+            "last_pack": None,
+            "last_contract": None,
+            "last_seal": None,
+            "last_goal_plan": None,
+            "effect_source": "default",
+            "goal_planned": False,
+            "last_checkpoint": None,
+            "last_finality": None,
+            "continuity_on": False,
+            "resume_checkpoint": None,
+            "resume": {},
+            "on": {"finality_on": False},
+            "federation_peers": None,
+            "federation_quorum": False,
+            "quorum_threshold": None,
+            "short_circuited": False,
+        },
+    )
+    checks["off_walk_ok"] = off.get("ok") is True
+    checks["off_effects_default"] = off.get("total_spine_effects") is False
+    checks["off_adaptive_default"] = off.get("total_spine_adaptive") is False
+    checks["off_continuity_default"] = off.get("total_spine_continuity") is False
+    checks["off_finality_default"] = off.get("total_spine_finality") is False
+    checks["off_federation_default"] = off.get("total_spine_federation") is False
+    checks["no_skill_route"] = not legacy_pipeline_was_used()
+    wired = {
+        "apply_pre_consensus": callable(_apply_pre_consensus_stages),
+        "apply_stage": callable(_apply_pre_consensus_stage),
+        "dispatch": callable(_apply_spine_dispatch),
+        "adaptive": callable(_apply_spine_adaptive_seal),
+        "continuity": callable(_apply_spine_continuity_seal),
+        "finality": callable(_apply_spine_finality_seal),
+        "federation": callable(_apply_spine_federation_live),
+        "catalog": bool(SPINE_PRE_CONSENSUS_CHAIN),
+    }
+    ok = all(checks.values()) and all(wired.values())
+    report = {
+        "schema_version": SCHEMA_VERSION,
+        "action": "spine_attach_catalog_proof",
+        "ok": ok,
+        "checks": checks,
+        "wired": wired,
+        "wired_count": sum(1 for value in wired.values() if value),
+        "stages": list(names),
+        "stage_count": len(names),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+        "spine_attach_catalog": True,
+        "done_when_met": ok,
+    }
+    out = REPO_ROOT / "artifacts" / "capability-spine-attach-catalog"
     out.mkdir(parents=True, exist_ok=True)
     atomic_write_json(out / "plane-report.json", report)
     return report

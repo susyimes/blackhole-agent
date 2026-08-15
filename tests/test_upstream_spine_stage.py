@@ -6,12 +6,15 @@ import inspect
 
 from blackhole_agent.upstream_control_engine import (
     SPINE_POST_CONSENSUS_CHAIN,
+    SPINE_PRE_CONSENSUS_CHAIN,
     SPINE_RESUME_PLANES,
     SPINE_STAGE_CHAIN,
     SPINE_STAGE_ENGINE_IMPL,
     SPINE_STAGE_POST_ACTUATION_START,
     SPINE_STAGE_POST_CONSENSUS_START,
+    _apply_pre_consensus_stages,
     _apply_resume_implies,
+    _apply_spine_federation_live,
     _apply_spine_stages,
     _attach_total_spine_effects,
     _imply_caller_spine_flags,
@@ -19,6 +22,7 @@ from blackhole_agent.upstream_control_engine import (
     _select_post_consensus_short_circuit,
     _spine_on_flags,
     _total_spine_short_circuit,
+    builtin_spine_attach_catalog_proof,
     builtin_spine_finality_stage_proof,
     builtin_spine_resume_catalog_proof,
     builtin_spine_stage_engine_proof,
@@ -105,7 +109,9 @@ def test_builtin_spine_finality_stage_proof() -> None:
 def test_finality_and_federation_are_catalog_stages() -> None:
     attach_src = inspect.getsource(_attach_total_spine_effects)
     short_src = inspect.getsource(_total_spine_short_circuit)
-    assert "_attach_spine_federation" in attach_src
+    fed_src = inspect.getsource(_apply_spine_federation_live)
+    assert "_apply_pre_consensus_stages" in attach_src
+    assert "_attach_spine_federation" in fed_src
     assert "_attach_spine_federation" in short_src
     assert "federate_total_spine(" not in attach_src
     assert "if resume_finality is not None" not in attach_src
@@ -119,3 +125,32 @@ def test_finality_and_federation_are_catalog_stages() -> None:
         peers=["peer"],
     )
     assert blocked["total_spine_federation_requires_finality"] is True
+
+
+def test_builtin_spine_attach_catalog_proof() -> None:
+    result = builtin_spine_attach_catalog_proof()
+    assert result["ok"] is True
+    assert result["stage_count"] == 5
+    assert result["used_skill_route_discovery"] is False
+    assert all(result["checks"].values())
+    assert all(result["wired"].values())
+
+
+def test_live_attach_is_one_pre_consensus_catalog_walk() -> None:
+    assert list(SPINE_PRE_CONSENSUS_CHAIN) == [
+        "dispatch",
+        "adaptive",
+        "continuity",
+        "finality",
+        "federation",
+    ]
+    attach_src = inspect.getsource(_attach_total_spine_effects)
+    walk_src = inspect.getsource(_apply_pre_consensus_stages)
+    assert attach_src.count("_apply_pre_consensus_stages") == 1
+    assert attach_src.count("_apply_spine_stages") == 1
+    assert "for round_index in range" not in attach_src
+    assert "resume_finality =" not in attach_src
+    assert "finality_on = on[" not in attach_src
+    assert "write_total_spine_finality_certificate" not in attach_src
+    assert "federate_total_spine(" not in attach_src
+    assert "SPINE_PRE_CONSENSUS_CHAIN" in walk_src
