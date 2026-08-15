@@ -1,0 +1,470 @@
+{
+  "captured_at": "2026-08-15T00:10:16.781338Z",
+  "kind": "equivalence_snapshot",
+  "name": "pair-effect-synthesis",
+  "probes": [
+    {
+      "id": "engine-public-surface",
+      "include_private": false,
+      "kind": "api-surface",
+      "modules": [
+        "blackhole_agent.upstream_control_engine"
+      ]
+    },
+    {
+      "id": "solvency-public-surface",
+      "include_private": false,
+      "kind": "api-surface",
+      "modules": [
+        "blackhole_agent.upstream_total_spine_solvency"
+      ]
+    },
+    {
+      "id": "loop-engine-tests",
+      "kind": "pytest",
+      "paths": [
+        "tests/test_upstream_loop_engine.py"
+      ]
+    },
+    {
+      "id": "plane-engine-tests",
+      "kind": "pytest",
+      "paths": [
+        "tests/test_plane_engine.py"
+      ]
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_control_engine",
+        "total-proof"
+      ],
+      "id": "proof-total",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_control_engine",
+        "actuation-proof"
+      ],
+      "id": "proof-actuation",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_control_engine",
+        "adaptive-proof"
+      ],
+      "id": "proof-adaptive",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_control_engine",
+        "capital-proof"
+      ],
+      "id": "proof-capital",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_control_engine",
+        "clearing-proof"
+      ],
+      "id": "proof-clearing",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_control_engine",
+        "collateral-proof"
+      ],
+      "id": "proof-collateral",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_control_engine",
+        "continuity-proof"
+      ],
+      "id": "proof-continuity",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_control_engine",
+        "custody-proof"
+      ],
+      "id": "proof-custody",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_control_engine",
+        "delivery-proof"
+      ],
+      "id": "proof-delivery",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_control_engine",
+        "effect-proof"
+      ],
+      "id": "proof-effect",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_control_engine",
+        "emergence-proof"
+      ],
+      "id": "proof-emergence",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_control_engine",
+        "execution-proof"
+      ],
+      "id": "proof-execution",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_control_engine",
+        "federation-proof"
+      ],
+      "id": "proof-federation",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_control_engine",
+        "finality-proof"
+      ],
+      "id": "proof-finality",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_control_engine",
+        "funding-proof"
+      ],
+      "id": "proof-funding",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_control_engine",
+        "goal-proof"
+      ],
+      "id": "proof-goal",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_control_engine",
+        "liquidity-proof"
+      ],
+      "id": "proof-liquidity",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_control_engine",
+        "margin-proof"
+      ],
+      "id": "proof-margin",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_control_engine",
+        "quorum-proof"
+      ],
+      "id": "proof-quorum",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_control_engine",
+        "recovery-proof"
+      ],
+      "id": "proof-recovery",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_control_engine",
+        "reorganization-proof"
+      ],
+      "id": "proof-reorganization",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_control_engine",
+        "resolution-proof"
+      ],
+      "id": "proof-resolution",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_control_engine",
+        "restructuring-proof"
+      ],
+      "id": "proof-restructuring",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_control_engine",
+        "risk-proof"
+      ],
+      "id": "proof-risk",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_control_engine",
+        "settlement-proof"
+      ],
+      "id": "proof-settlement",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_control_engine",
+        "solvency-proof"
+      ],
+      "id": "proof-solvency",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "blackhole_agent.upstream_control_engine",
+        "stress-proof"
+      ],
+      "id": "proof-stress",
+      "kind": "command"
+    }
+  ],
+  "results": {
+    "engine-public-surface": {
+      "surfaces": {
+        "blackhole_agent.upstream_control_engine": "704d7645bc13c23e082fe11a3bcf885203258a30ba69bbfda66b4fe04a5ee4e6"
+      }
+    },
+    "loop-engine-tests": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "skipped": 0,
+      "tests": 3
+    },
+    "plane-engine-tests": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "skipped": 3,
+      "tests": 10
+    },
+    "proof-actuation": {
+      "exit_code": 0,
+      "stdout_digest": "93809a69df6676d011cf7e6a4ee47607ec8df83d7a93d54404a3bb259b60e648",
+      "stdout_form": "json"
+    },
+    "proof-adaptive": {
+      "exit_code": 0,
+      "stdout_digest": "e5a94a920838f8d76f16d7fc6710554b4c1187c3a187dd54be453c3cedc77fe8",
+      "stdout_form": "json"
+    },
+    "proof-capital": {
+      "exit_code": 0,
+      "stdout_digest": "9d8bf7b7f572f960be0255d42429ed2079453459b9a6870ba734ad27aae4d579",
+      "stdout_form": "json"
+    },
+    "proof-clearing": {
+      "exit_code": 0,
+      "stdout_digest": "74c84964b99229e9be098e1195b4a3b2b63db5229b3ffbc988e548afdf7623b2",
+      "stdout_form": "json"
+    },
+    "proof-collateral": {
+      "exit_code": 0,
+      "stdout_digest": "8e5482621eba8968bfc18a4a39226f38d48adf348d36cd9adbb313745da6678c",
+      "stdout_form": "json"
+    },
+    "proof-continuity": {
+      "exit_code": 0,
+      "stdout_digest": "ab9393d17c2fdb3c214cac1925cdda8608a6095512685a1979e88cc37f3cc6ec",
+      "stdout_form": "json"
+    },
+    "proof-custody": {
+      "exit_code": 0,
+      "stdout_digest": "df8c4fae83bdfcc876b60c6083083f519c3216d669ec9698caac64f4c6a0fc24",
+      "stdout_form": "json"
+    },
+    "proof-delivery": {
+      "exit_code": 0,
+      "stdout_digest": "28f9662e52fba6efd8cdb104fc6b931e6b70ac891a3626ecf49e9762c62a7871",
+      "stdout_form": "json"
+    },
+    "proof-effect": {
+      "exit_code": 0,
+      "stdout_digest": "bfd8826ccfaac6b4de45cf9f86fa36ec0da5365f2602cfda251886d22fb47aa4",
+      "stdout_form": "json"
+    },
+    "proof-emergence": {
+      "exit_code": 0,
+      "stdout_digest": "26c4732e7fdfe47226f9b3bdc7fe84d078f33fb6a78e7eb2f3f57a0501e05613",
+      "stdout_form": "json"
+    },
+    "proof-execution": {
+      "exit_code": 0,
+      "stdout_digest": "b199bdfa209a598c5d13398c119239dd223de8ffb6513a5ad494fd2c22c3917b",
+      "stdout_form": "json"
+    },
+    "proof-federation": {
+      "exit_code": 0,
+      "stdout_digest": "f575202d06798c5e5933e6cd0cf51736ad0b249e89fd5954cb9f92e1dc78318a",
+      "stdout_form": "json"
+    },
+    "proof-finality": {
+      "exit_code": 0,
+      "stdout_digest": "594fbe69b4a9e0d41c637eccc351e155be729c6296e55916b68b9b152f2645a7",
+      "stdout_form": "json"
+    },
+    "proof-funding": {
+      "exit_code": 0,
+      "stdout_digest": "f80de696a9d6bc9af296147f1a1b389c2daef2b5725bd25a8441d0d6571b9409",
+      "stdout_form": "json"
+    },
+    "proof-goal": {
+      "exit_code": 0,
+      "stdout_digest": "ea22f15a5e8d15856a6bac213bd69be022382b81244184ba0c652857a7a4105b",
+      "stdout_form": "json"
+    },
+    "proof-liquidity": {
+      "exit_code": 0,
+      "stdout_digest": "9ace893a7fcaa8a517484254c08f721329ef7b8f30b0c81c5d8851c49bc72a1e",
+      "stdout_form": "json"
+    },
+    "proof-margin": {
+      "exit_code": 0,
+      "stdout_digest": "b9b2f1f0a9c5fe02d20dce1aa750c507caf7830e180bff2a70e89243176e35f5",
+      "stdout_form": "json"
+    },
+    "proof-quorum": {
+      "exit_code": 0,
+      "stdout_digest": "70cdaabfe50a5de3deb629a07374a02ce659205180ea8fa23dac8e4f7b52e181",
+      "stdout_form": "json"
+    },
+    "proof-recovery": {
+      "exit_code": 0,
+      "stdout_digest": "11d2027932286784c669e976b991f109bebab588b6468915b8052ae779457c7c",
+      "stdout_form": "json"
+    },
+    "proof-reorganization": {
+      "exit_code": 0,
+      "stdout_digest": "1bb3580777043567cbc94988520aaa1c3f02f81faee61d93a8bbda4a612e86b9",
+      "stdout_form": "json"
+    },
+    "proof-resolution": {
+      "exit_code": 0,
+      "stdout_digest": "d337811cf7fcbb7944f171d15bb3a4d5681a6db6bb2211e8a0015d7fbb34a7a8",
+      "stdout_form": "json"
+    },
+    "proof-restructuring": {
+      "exit_code": 0,
+      "stdout_digest": "c469ffbd97e48f5859d5218e3dfff7d95c82dc1a87f93cf420e12d18e3d53939",
+      "stdout_form": "json"
+    },
+    "proof-risk": {
+      "exit_code": 0,
+      "stdout_digest": "8745530d1f289f5951e82666501230216cf27e7f49fb29101db89160e7d8da00",
+      "stdout_form": "json"
+    },
+    "proof-settlement": {
+      "exit_code": 0,
+      "stdout_digest": "b26b77c9cd33d72612dbd05005da76617b12fae499c36110370abc1c3817449c",
+      "stdout_form": "json"
+    },
+    "proof-solvency": {
+      "exit_code": 0,
+      "stdout_digest": "6684ee29096dd8ae6c7c7b055b3487fff0f7787e64f2a31bf59f144fc451c0c1",
+      "stdout_form": "json"
+    },
+    "proof-stress": {
+      "exit_code": 0,
+      "stdout_digest": "ecf6fe5d94addb78ea635154d954b104d286501df217b863a6aded6fd775882f",
+      "stdout_form": "json"
+    },
+    "proof-total": {
+      "exit_code": 0,
+      "stdout_digest": "b69037d23954150125105fca56370601a5d2fdeac8d1d48d78ddf2b24de12620",
+      "stdout_form": "json"
+    },
+    "solvency-public-surface": {
+      "surfaces": {
+        "blackhole_agent.upstream_total_spine_solvency": "42b92f39ec6a7837965569197b9b9b9cb7ccd1e7e841ae75b5c7dc1b6792019d"
+      }
+    }
+  },
+  "schema_version": 1,
+  "snapshot_digest": "a01046ce277870e89b7844c8797f805d2e59fa29411ecc32da54d937a830f461"
+}
