@@ -1,0 +1,32 @@
+{
+  "action": "log_family_runner_proof",
+  "checks": {
+    "apply_short_circuit": true,
+    "no_skill_route": true,
+    "shared_apply": true,
+    "shared_finish": true,
+    "shared_proof": true,
+    "three_specs": true,
+    "wired_wrappers": true
+  },
+  "families": [
+    "actuation",
+    "clearing",
+    "settlement"
+  ],
+  "ok": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "wired": {
+    "actuation_apply": true,
+    "actuation_core": true,
+    "actuation_proof": true,
+    "clearing_apply": true,
+    "clearing_core": true,
+    "clearing_proof": true,
+    "settlement_apply": true,
+    "settlement_core": true,
+    "settlement_proof": true
+  },
+  "wired_count": 9
+}

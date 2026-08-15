@@ -8,11 +8,13 @@ names bound to the engine functions, so control-engine imports, ledger proof
 commands, and ``python -m`` keep working after the physical files are
 deleted.
 
-Certificate seal/verify for every log family is one spec-driven engine
-(:func:`_seal_log_certificate`, :func:`_verify_log_certificate`). Public
-``seal_total_spine_<family>_certificate`` / ``verify_…`` names stay as
-thin wrappers so a new hash-chained family is a :class:`LogFamilySpec`
-row, not another 150-line copy. No skill-route discovery.
+Certificate seal/verify and apply/proof for every log family are one
+spec-driven engine (:func:`_seal_log_certificate`,
+:func:`_verify_log_certificate`, :func:`_apply_log_family`,
+:func:`_run_log_family_proof`). Public seal/verify/apply/proof names stay
+as thin wrappers so a new hash-chained family is a :class:`LogFamilySpec`
+row plus a build hook, not another 1,500-line copy. No skill-route
+discovery.
 """
 from __future__ import annotations
 
@@ -487,6 +489,39 @@ def actuate_total_spine(
     dispatch: bool = True,
 ) -> dict[str, Any]:
     """Apply post-execution multi-action actuation on the absolute total spine."""
+    return _apply_log_family(
+        "actuation",
+        source,
+        out_root=out_root,
+        prior_tip=prior_tip,
+        body=body,
+        capabilities=capabilities,
+        min_actions=min_actions,
+        parent_action_root=parent_action_root,
+        action_height=action_height,
+        short_circuit=short_circuit,
+        repo_path=repo_path,
+        effect_timeout=effect_timeout,
+        dispatch=dispatch,
+    )
+
+
+def _actuation_apply_core(
+    source: Path | str | Mapping[str, Any] | None = None,
+    *,
+    out_root: Path | None = None,
+    prior_tip: str | None = None,
+    body: dict[str, Any] | None = None,
+    capabilities: Sequence[str] | None = None,
+    min_actions: int = TOTAL_SPINE_ACTUATION_MIN_ACTIONS,
+    parent_action_root: str = "",
+    action_height: int | None = None,
+    short_circuit: bool = False,
+    repo_path: Path | None = None,
+    effect_timeout: int = 60,
+    dispatch: bool = True,
+) -> dict[str, Any]:
+    """Actuation apply core: dispatch effects, build the action log, finish."""
     from blackhole_agent.upstream_control_engine import (
         TOTAL_SPINE_DEFAULT_ROOT as ENGINE_DEFAULT_ROOT,
         dispatch_total_spine_effects,
@@ -511,17 +546,7 @@ def actuate_total_spine(
             or (body or {}).get("total_spine_digest")
             or ""
         )
-        result = body if body is not None else {
-            "ok": True,
-            "action": "actuate_total_spine",
-            "total_spine": True,
-        }
-        return annotate_total_spine_actuation(
-            result,
-            certificate=resolved,
-            prior_tip=tip,
-            short_circuit=True,
-        )
+        return _short_circuit_log_apply("actuation", resolved, body, prior_tip)
 
     state_root = str(
         resolved.get("state_root")
@@ -676,532 +701,24 @@ def actuate_total_spine(
         "actuated_at": utc_now_iso(),
     }
 
-    write_target = Path(out_root) if out_root is not None else None
-    if write_target is not None:
-        certificate = write_total_spine_actuation_certificate(
-            write_target, act_body
-        )
-    else:
-        certificate = seal_total_spine_actuation_certificate(act_body)
-
-    result = body if body is not None else {
-        "ok": True,
-        "action": "actuate_total_spine",
-        "total_spine": True,
-        "total_spine_root": root_layer,
-        "total_nest_depth": total_nest_depth(root_layer),
-    }
-    annotated = annotate_total_spine_actuation(
-        result,
-        certificate=certificate,
+    return _finish_log_apply(
+        "actuation",
+        cert_body=act_body,
+        out_root=out_root,
+        body=body,
         prior_tip=tip,
         short_circuit=short_circuit,
+        extra={
+            "total_spine_actuation_bound_state_root": state_root,
+            "total_spine_actuation_execution_digest": exec_digest,
+        },
     )
-    if annotated.get("total_spine_compressed") and root_layer:
-        live_result = {
-            "institution_digest": annotated.get("institution_digest") or tip,
-            "ok": True,
-        }
-        act_bound = str(
-            annotated.get("total_spine_actuation_bound_tip") or tip
-        )
-        hops = seal_total_spine_hop_chain(
-            root_layer, live_result, tip=act_bound
-        )
-        annotated["total_spine_hop_chain"] = hops
-        annotated["total_spine_hop_count"] = len(hops)
-        if hops:
-            annotated["total_spine_digest"] = hops[0].get("digest")
-            annotated[f"{root_layer}_digest"] = hops[0].get("digest")
-    annotated["total_spine_actuation_bound_state_root"] = state_root
-    annotated["total_spine_actuation_execution_digest"] = exec_digest
-    annotated["used_skill_route_discovery"] = legacy_pipeline_was_used()
-    return annotated
 
 
 def builtin_total_spine_actuation_proof() -> dict[str, Any]:
     """Hermetic proof: post-execution multi-action actuation on absolute tower."""
-    import shutil
-    import tempfile
+    return _run_log_family_proof("actuation")
 
-    from blackhole_agent.capability_compounder import (
-        default_ledger_path,
-        load_ledger,
-    )
-    from blackhole_agent.upstream_control_engine import (
-        SCHEMA_VERSION as ENGINE_SCHEMA,
-        TOTAL_SPINE_ACTUATION_IMPL as ENGINE_ACT_IMPL,
-        TOTAL_SPINE_EXECUTION_IMPL,
-        TOTAL_SPINE_FINALITY_KIND,
-        execute_total_spine,
-        federate_total_spine,
-        run_total_spine,
-        write_total_spine_finality_certificate,
-    )
-
-    scratch = Path(tempfile.mkdtemp(prefix="total-spine-actuation-proof-"))
-    try:
-        from blackhole_agent import upstream_loop_engine as le_facade
-
-        flags_ok = (
-            TOTAL_SPINE_ACTUATION_IMPL is True
-            and ENGINE_ACT_IMPL is True
-            and TOTAL_SPINE_EXECUTION_IMPL is True
-            and TOTAL_SPINE_ACTUATION_KIND == "total_spine_actuation"
-            and bool(TOTAL_SPINE_ACTUATION_FILENAME)
-            and TOTAL_SPINE_ACTUATION_MIN_ACTIONS >= 2
-        )
-
-        good_id = "repo.import-health"
-        inv_id = "capability.ledger-inventory"
-        contract_pass = "min_proved:1; no_skill_route"
-        contract_byzantine = "min_proved:99; no_skill_route"
-
-        # Phase 1: synthetic multi-origin quorum → execution → actuation.
-        paths: list[str] = []
-        for idx, done_when in enumerate(
-            (contract_pass, contract_pass, contract_byzantine)
-        ):
-            body = {
-                "schema_version": ENGINE_SCHEMA,
-                "kind": TOTAL_SPINE_FINALITY_KIND,
-                "root_layer": "quettacontinuum",
-                "goal": "actuation proof origin",
-                "done_when": done_when,
-                "capabilities": [good_id, inv_id],
-                "operational_tip": f"{idx + 1:x}" * 64,
-                "bound_tip": f"{(idx + 4):x}" * 64,
-                "continuity_digest": f"{(idx + 7):x}" * 64,
-                "adaptive_round_count": 0,
-                "effects_ok": True,
-                "contract_met": True,
-                "recovered": False,
-                "irreversible": True,
-                "success": True,
-                "finalized_at": utc_now_iso(),
-            }
-            cert = write_total_spine_finality_certificate(
-                scratch / f"origin-{idx}", body
-            )
-            paths.append(str(cert.get("finality_path") or ""))
-
-        quorumed = federate_total_spine(
-            paths,
-            out_root=scratch / "quorum",
-            prior_tip="a" * 64,
-            quorum=True,
-        )
-        executed = execute_total_spine(
-            quorumed.get("total_spine_federation_certificate"),
-            out_root=scratch / "exec-h1",
-            prior_tip=str(
-                quorumed.get("total_spine_federation_bound_tip") or ""
-            ),
-            body={
-                "ok": True,
-                "total_spine": True,
-                "total_spine_root": "quettacontinuum",
-                "total_spine_compressed": True,
-                "total_nest_depth": 28,
-                "total_spine_federation": True,
-                "total_spine_quorum": True,
-                "total_spine_digest": quorumed.get("total_spine_digest"),
-                "total_spine_federation_bound_tip": quorumed.get(
-                    "total_spine_federation_bound_tip"
-                ),
-            },
-            state_height=1,
-        )
-        state_root = str(executed.get("total_spine_state_root") or "")
-        offline_act = actuate_total_spine(
-            executed.get("total_spine_execution_certificate")
-            or executed.get("total_spine_execution_path"),
-            out_root=scratch / "act-h1",
-            prior_tip=str(
-                executed.get("total_spine_execution_bound_tip") or ""
-            ),
-            body=dict(executed),
-            capabilities=[good_id, inv_id],
-            repo_path=REPO_ROOT,
-            effect_timeout=90,
-            dispatch=True,
-        )
-        act_path = offline_act.get("total_spine_actuation_path")
-        tip_action = str(offline_act.get("total_spine_tip_action_root") or "")
-        offline_ok = (
-            bool(offline_act.get("ok"))
-            and offline_act.get("total_spine_actuation") is True
-            and offline_act.get("total_spine_actuation_post_execution") is True
-            and offline_act.get("total_spine_actuation_irreversible") is True
-            and offline_act.get("total_spine_effects_applied") is True
-            and int(offline_act.get("total_spine_action_count") or 0) >= 2
-            and int(offline_act.get("total_spine_action_height") or 0) >= 2
-            and len(tip_action) >= 32
-            and str(offline_act.get("total_spine_state_root") or "") == state_root
-            and str(offline_act.get("total_spine_digest") or "")
-            != str(executed.get("total_spine_digest") or "")
-            and isinstance(act_path, str)
-            and Path(act_path).is_file()
-            and not legacy_pipeline_was_used()
-        )
-
-        loaded = load_total_spine_actuation_certificate(act_path or scratch)
-        verify_ok = bool(
-            loaded.get("total_spine_actuation_loaded")
-            and (loaded.get("actuation_verify") or {}).get("ok")
-            and (loaded.get("actuation_verify") or {}).get("action_root_ok")
-            and (loaded.get("actuation_verify") or {}).get("chain_ok")
-        )
-
-        # Tamper fails closed.
-        tampered_path = scratch / "tampered-actuation.json"
-        tampered_body = dict(loaded)
-        for drop in (
-            "actuation_verify",
-            "total_spine_actuation_loaded",
-            "actuation_path",
-        ):
-            tampered_body.pop(drop, None)
-        tampered_body["action_height"] = 99
-        atomic_write_json(tampered_path, tampered_body)
-        tamper_ok = False
-        try:
-            load_total_spine_actuation_certificate(tampered_path)
-        except StageRefused as exc:
-            tamper_ok = str(exc.verdict) == "total_spine_actuation_tampered"
-        except Exception:  # noqa: BLE001
-            tamper_ok = False
-
-        # Supersession refused on divergent reseal.
-        supersession_ok = False
-        try:
-            write_total_spine_actuation_certificate(
-                scratch / "act-h1",
-                {
-                    **{
-                        k: v
-                        for k, v in loaded.items()
-                        if k
-                        not in {
-                            "actuation_verify",
-                            "total_spine_actuation_loaded",
-                            "actuation_path",
-                            "actuation_digest",
-                            "certificate_hash",
-                            "actuated_at",
-                            "total_spine_actuation",
-                            "total_spine_actuation_impl",
-                            "used_skill_route_discovery",
-                        }
-                    },
-                    "goal": "forged-supersession-goal",
-                    "tip_action_root": "",
-                },
-            )
-        except StageRefused as exc:
-            supersession_ok = (
-                str(exc.verdict)
-                == "total_spine_actuation_supersession_refused"
-            )
-        except Exception:  # noqa: BLE001
-            supersession_ok = False
-
-        # Wrong-root binding refused via verify (mutated bound_state_root).
-        wrong_root_ok = False
-        wrong_body = dict(loaded)
-        for drop in (
-            "actuation_verify",
-            "total_spine_actuation_loaded",
-            "actuation_path",
-        ):
-            wrong_body.pop(drop, None)
-        wrong_body["bound_state_root"] = "f" * 64
-        # Re-seal digest so load gets past hash but chain fails... actually
-        # verify recomputes digest from material including bound_state_root,
-        # so either digest mismatch or chain fails. Prefer chain via reseal.
-        resealed = seal_total_spine_actuation_certificate(wrong_body)
-        # actions still bound to original root → chain_ok False
-        wrong_verify = verify_total_spine_actuation_certificate(resealed)
-        wrong_root_ok = wrong_verify.get("ok") is False and (
-            wrong_verify.get("chain_ok") is False
-            or wrong_verify.get("action_root_ok") is False
-        )
-
-        # Multi-height action chain (parent_action_root).
-        h2 = actuate_total_spine(
-            executed.get("total_spine_execution_certificate"),
-            out_root=scratch / "act-h2",
-            prior_tip=str(
-                offline_act.get("total_spine_actuation_bound_tip") or ""
-            ),
-            parent_action_root=tip_action,
-            action_height=int(offline_act.get("total_spine_action_height") or 0)
-            + 1,
-            capabilities=[good_id, inv_id],
-            repo_path=REPO_ROOT,
-            effect_timeout=90,
-            dispatch=False,
-        )
-        multi_height_ok = (
-            bool(h2.get("ok"))
-            and int(h2.get("total_spine_action_count") or 0) >= 2
-            and str(h2.get("total_spine_tip_action_root") or "") != tip_action
-            and str(
-                (h2.get("total_spine_actuation_certificate") or {}).get(
-                    "parent_action_root"
-                )
-                or ""
-            )
-            == tip_action
-        )
-
-        # Determinism: recompute tip action root.
-        recomputed = compute_total_spine_action_root(loaded.get("actions") or [])
-        determinism_ok = recomputed == tip_action and bool(recomputed)
-
-        # Live path: resume finality short-circuit + execution + actuation.
-        # Build a durable finality resume root from synthetic origin-0.
-        origin0_path = paths[0]
-        live = run_total_spine(
-            root_layer="quettacontinuum",
-            out_root=scratch / "live-act",
-            max_rounds=1,
-            dispatch=True,
-            dispatch_budget=2,
-            max_successions=1,
-            max_epochs=1,
-            max_waves=1,
-            compress=True,
-            effects=True,
-            capabilities=[good_id, inv_id],
-            done_when=contract_pass,
-            adaptive=False,
-            continuity=False,
-            finality=True,
-            resume_dir=origin0_path,
-            federation_peers=[paths[1], paths[2]],
-            federation_quorum=True,
-            execution=True,
-            actuation=True,
-            effect_timeout=90,
-            repo_path=REPO_ROOT,
-        )
-        live_act_path = live.get("total_spine_actuation_path")
-        live_ok = (
-            bool(live.get("ok"))
-            and live.get("total_spine") is True
-            and live.get("total_spine_finality") is True
-            and live.get("total_spine_federation") is True
-            and live.get("total_spine_quorum") is True
-            and live.get("total_spine_execution") is True
-            and live.get("total_spine_actuation") is True
-            and live.get("total_spine_effects_applied") is True
-            and int(live.get("total_spine_action_count") or 0) >= 2
-            and isinstance(live.get("total_spine_tip_action_root"), str)
-            and len(str(live.get("total_spine_tip_action_root"))) >= 32
-            and int(live.get("total_nest_depth") or 0) == 28
-            and isinstance(live_act_path, str)
-            and Path(live_act_path).is_file()
-            and not legacy_pipeline_was_used()
-        )
-
-        # Short-circuit re-actuate.
-        shorted = run_total_spine(
-            root_layer="quettacontinuum",
-            out_root=scratch / "short-act",
-            max_rounds=1,
-            dispatch=True,
-            dispatch_budget=2,
-            max_successions=1,
-            max_epochs=1,
-            max_waves=1,
-            compress=True,
-            effects=True,
-            capabilities=[good_id, inv_id],
-            done_when=contract_pass,
-            finality=True,
-            execution=True,
-            actuation=True,
-            resume_dir=live_act_path or (scratch / "live-act"),
-            effect_timeout=90,
-            repo_path=REPO_ROOT,
-        )
-        short_ok = (
-            bool(shorted.get("ok"))
-            and shorted.get("total_spine_actuation") is True
-            and shorted.get("total_spine_actuation_short_circuit") is True
-            and str(shorted.get("total_spine_tip_action_root") or "")
-            == str(live.get("total_spine_tip_action_root") or "")
-            and int(shorted.get("total_nest_depth") or 0) == 28
-            and not legacy_pipeline_was_used()
-        )
-
-        # Chain integrity.
-        act_chain = live.get("total_spine_actuation_chain") or {}
-        chain_integrity_ok = False
-        if isinstance(act_chain, Mapping) and act_chain:
-            re_seal = seal_total_spine_actuation_chain(
-                prior_tip=str(act_chain.get("prior_tip") or ""),
-                actuation_digest=str(act_chain.get("actuation_digest") or ""),
-                tip_action_root=str(act_chain.get("tip_action_root") or ""),
-                bound_state_root=str(act_chain.get("bound_state_root") or ""),
-                action_height=int(act_chain.get("action_height") or 0),
-                short_circuit=bool(act_chain.get("short_circuit")),
-            )
-            chain_integrity_ok = (
-                re_seal.get("digest") == act_chain.get("digest")
-                and re_seal.get("digest")
-                == live.get("total_spine_actuation_tip")
-            )
-
-        differential_ok = (
-            offline_ok
-            and live_ok
-            and str(executed.get("total_spine_digest") or "")
-            != str(offline_act.get("total_spine_digest") or "")
-        )
-
-        # Facade exposes this stage's surface (delegation identity;
-        # source-text greps predate the thin PEP 562 facade).
-        source_ok = (
-            getattr(le_facade, "TOTAL_SPINE_ACTUATION_IMPL", None) is TOTAL_SPINE_ACTUATION_IMPL
-            and getattr(le_facade, "builtin_total_spine_actuation_proof", None) is builtin_total_spine_actuation_proof
-            and getattr(le_facade, "actuate_total_spine", None) is actuate_total_spine
-            and callable(
-                getattr(le_facade, "builtin_total_spine_actuation_proof", None)
-    
-        )
-            and callable(getattr(le_facade, "actuate_total_spine", None))
-            and getattr(le_facade, "TOTAL_SPINE_ACTUATION_IMPL", False) is True
-        )
-
-        engine_path = Path(
-            __import__(
-                "blackhole_agent.upstream_control_engine", fromlist=["_"]
-            ).__file__
-        ).resolve()
-        engine_text = engine_path.read_text(encoding="utf-8")
-        engine_source_ok = (
-            "TOTAL_SPINE_ACTUATION_IMPL" in engine_text
-            and "actuate_total_spine" in engine_text
-            and (
-                "actuation=True" in engine_text
-                or "actuation: bool = False" in engine_text
-            )
-            and "total_spine_actuation_supersession_refused" in engine_text
-            or True  # re-exports may reference module; check re-exports below
-        )
-        engine_source_ok = (
-            "TOTAL_SPINE_ACTUATION_IMPL" in engine_text
-            and "actuate_total_spine" in engine_text
-            and (
-                "actuation=True" in engine_text
-                or "actuation: bool = False" in engine_text
-            )
-            and "builtin_total_spine_actuation_proof" in engine_text
-        )
-
-        mod_path = Path(__file__).resolve()
-        mod_text = mod_path.read_text(encoding="utf-8")
-        mod_source_ok = (
-            "def actuate_total_spine" in mod_text
-            and "def builtin_total_spine_actuation_proof" in mod_text
-            and "total_spine_actuation_supersession_refused" in mod_text
-            and "total_spine_actuation_tampered" in mod_text
-        )
-
-        ledger_path = default_ledger_path(REPO_ROOT)
-        ledger_ok = False
-        try:
-            ledger = load_ledger(ledger_path)
-            entry = ledger.capabilities.get(
-                "capability.upstream-total-spine-actuation"
-            )
-            tags_blob = " ".join(entry.tags).lower() if entry else ""
-            delta_blob = (
-                (entry.capability_delta or "").lower() if entry else ""
-            )
-            name_blob = (entry.name or "").lower() if entry else ""
-            ledger_ok = (
-                entry is not None
-                and (
-                    "upstream_total_spine_actuation" in (entry.entry or "")
-                    or "upstream_control_engine" in (entry.entry or "")
-                )
-                and "builtin_total_spine_actuation_proof" in (entry.entry or "")
-                and (
-                    "actuation" in tags_blob
-                    or "actuation" in name_blob
-                    or "actuation" in delta_blob
-                )
-                and ("total" in tags_blob or "total" in name_blob)
-                and (
-                    "action" in delta_blob
-                    or "actuate_total_spine" in delta_blob
-                    or "post-execution" in delta_blob
-                    or "post_execution" in delta_blob
-                )
-            )
-        except Exception:  # noqa: BLE001
-            ledger_ok = False
-
-        ok = all(
-            [
-                flags_ok,
-                offline_ok,
-                verify_ok,
-                tamper_ok,
-                supersession_ok,
-                wrong_root_ok,
-                multi_height_ok,
-                determinism_ok,
-                live_ok,
-                short_ok,
-                chain_integrity_ok,
-                differential_ok,
-                source_ok,
-                engine_source_ok,
-                mod_source_ok,
-                ledger_ok,
-                not legacy_pipeline_was_used(),
-            ]
-        )
-        return {
-            "ok": ok,
-            "action": "total_spine_actuation_proof",
-            "flags_ok": flags_ok,
-            "offline_ok": offline_ok,
-            "actuation_path": act_path,
-            "tip_action_root": tip_action,
-            "state_root": state_root,
-            "action_count": offline_act.get("total_spine_action_count"),
-            "verify_ok": verify_ok,
-            "tamper_ok": tamper_ok,
-            "supersession_ok": supersession_ok,
-            "wrong_root_ok": wrong_root_ok,
-            "multi_height_ok": multi_height_ok,
-            "determinism_ok": determinism_ok,
-            "live_ok": live_ok,
-            "live_actuation_path": live_act_path,
-            "live_tip_action_root": live.get("total_spine_tip_action_root"),
-            "live_digest": live.get("total_spine_digest"),
-            "short_ok": short_ok,
-            "chain_integrity_ok": chain_integrity_ok,
-            "differential_ok": differential_ok,
-            "source_ok": source_ok,
-            "engine_source_ok": engine_source_ok,
-            "mod_source_ok": mod_source_ok,
-            "ledger_capability_ok": ledger_ok,
-            "used_skill_route_discovery": legacy_pipeline_was_used(),
-            "control_engine": True,
-            "total_spine": True,
-            "total_spine_actuation": True,
-            "total_spine_execution": True,
-            "total_spine_quorum": True,
-            "done_when_met": ok,
-        }
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -1776,6 +1293,37 @@ def settle_total_spine(
     require_contract: bool = True,
 ) -> dict[str, Any]:
     """Apply post-actuation settlement on the absolute total spine."""
+    return _apply_log_family(
+        "settlement",
+        source,
+        out_root=out_root,
+        prior_tip=prior_tip,
+        body=body,
+        min_observations=min_observations,
+        parent_observation_root=parent_observation_root,
+        observation_height=observation_height,
+        short_circuit=short_circuit,
+        repo_path=repo_path,
+        observation_records=observation_records,
+        require_contract=require_contract,
+    )
+
+
+def _settlement_apply_core(
+    source: Path | str | Mapping[str, Any] | None = None,
+    *,
+    out_root: Path | None = None,
+    prior_tip: str | None = None,
+    body: dict[str, Any] | None = None,
+    min_observations: int = TOTAL_SPINE_SETTLEMENT_MIN_OBSERVATIONS,
+    parent_observation_root: str = "",
+    observation_height: int | None = None,
+    short_circuit: bool = False,
+    repo_path: Path | None = None,
+    observation_records: Sequence[Mapping[str, Any]] | None = None,
+    require_contract: bool = True,
+) -> dict[str, Any]:
+    """Settlement apply core: observe actions, evaluate contract, finish."""
     from blackhole_agent.upstream_control_engine import (
         TOTAL_SPINE_DEFAULT_ROOT as ENGINE_DEFAULT_ROOT,
         evaluate_total_spine_contract,
@@ -1800,17 +1348,7 @@ def settle_total_spine(
             or (body or {}).get("total_spine_digest")
             or ""
         )
-        result = body if body is not None else {
-            "ok": True,
-            "action": "settle_total_spine",
-            "total_spine": True,
-        }
-        return annotate_total_spine_settlement(
-            result,
-            certificate=resolved,
-            prior_tip=tip,
-            short_circuit=True,
-        )
+        return _short_circuit_log_apply("settlement", resolved, body, prior_tip)
 
     actions = list(resolved.get("actions") or [])
     if not actions and isinstance(
@@ -2043,575 +1581,31 @@ def settle_total_spine(
             "ok": contract_eval.get("ok"),
         }
 
-    write_target = Path(out_root) if out_root is not None else None
-    if write_target is not None:
-        certificate = write_total_spine_settlement_certificate(
-            write_target, set_body
-        )
-    else:
-        certificate = seal_total_spine_settlement_certificate(set_body)
-
-    result = body if body is not None else {
-        "ok": True,
-        "action": "settle_total_spine",
-        "total_spine": True,
-        "total_spine_root": root_layer,
-        "total_nest_depth": total_nest_depth(root_layer),
+    extra: dict[str, Any] = {
+        "total_spine_settlement_bound_state_root": state_root,
+        "total_spine_settlement_bound_action_root": action_root,
+        "total_spine_settlement_actuation_digest": actuation_digest,
     }
-    annotated = annotate_total_spine_settlement(
-        result,
-        certificate=certificate,
-        prior_tip=tip,
-        short_circuit=short_circuit,
-    )
-    if annotated.get("total_spine_compressed") and root_layer:
-        live_result = {
-            "institution_digest": annotated.get("institution_digest") or tip,
-            "ok": True,
-        }
-        set_bound = str(
-            annotated.get("total_spine_settlement_bound_tip") or tip
-        )
-        hops = seal_total_spine_hop_chain(
-            root_layer, live_result, tip=set_bound
-        )
-        annotated["total_spine_hop_chain"] = hops
-        annotated["total_spine_hop_count"] = len(hops)
-        if hops:
-            annotated["total_spine_digest"] = hops[0].get("digest")
-            annotated[f"{root_layer}_digest"] = hops[0].get("digest")
-    annotated["total_spine_settlement_bound_state_root"] = state_root
-    annotated["total_spine_settlement_bound_action_root"] = action_root
-    annotated["total_spine_settlement_actuation_digest"] = actuation_digest
     if (
         str(resolved.get("kind") or "") == TOTAL_SPINE_ACTUATION_KIND
         or resolved.get("actions")
         or resolved.get("tip_action_root")
     ):
-        annotated.setdefault("total_spine_actuation_certificate", dict(resolved))
-    annotated["used_skill_route_discovery"] = legacy_pipeline_was_used()
-    return annotated
+        extra["setdefault_actuation_certificate"] = dict(resolved)
+    return _finish_log_apply(
+        "settlement",
+        cert_body=set_body,
+        out_root=out_root,
+        body=body,
+        prior_tip=tip,
+        short_circuit=short_circuit,
+        extra=extra,
+    )
 
 
 def builtin_total_spine_settlement_proof() -> dict[str, Any]:
     """Hermetic proof: post-actuation settlement on the absolute tower."""
-    import shutil
-    import tempfile
-
-    from blackhole_agent.capability_compounder import (
-        default_ledger_path,
-        load_ledger,
-    )
-    from blackhole_agent.upstream_control_engine import (
-        SCHEMA_VERSION as ENGINE_SCHEMA,
-        TOTAL_SPINE_ACTUATION_IMPL,
-        TOTAL_SPINE_FINALITY_KIND,
-        TOTAL_SPINE_SETTLEMENT_IMPL as ENGINE_SET_IMPL,
-        actuate_total_spine,
-        execute_total_spine,
-        federate_total_spine,
-        run_total_spine,
-        write_total_spine_finality_certificate,
-    )
-
-    scratch = Path(tempfile.mkdtemp(prefix="total-spine-settlement-proof-"))
-    try:
-        from blackhole_agent import upstream_loop_engine as le_facade
-
-        flags_ok = (
-            TOTAL_SPINE_SETTLEMENT_IMPL is True
-            and ENGINE_SET_IMPL is True
-            and TOTAL_SPINE_ACTUATION_IMPL is True
-            and TOTAL_SPINE_SETTLEMENT_KIND == "total_spine_settlement"
-            and bool(TOTAL_SPINE_SETTLEMENT_FILENAME)
-            and TOTAL_SPINE_SETTLEMENT_MIN_OBSERVATIONS >= 2
-        )
-
-        good_id = "repo.import-health"
-        inv_id = "capability.ledger-inventory"
-        contract_pass = "min_proved:1; no_skill_route"
-        contract_byzantine = "min_proved:99; no_skill_route"
-
-        paths: list[str] = []
-        for idx, done_when in enumerate(
-            (contract_pass, contract_pass, contract_byzantine)
-        ):
-            body = {
-                "schema_version": ENGINE_SCHEMA,
-                "kind": TOTAL_SPINE_FINALITY_KIND,
-                "root_layer": "quettacontinuum",
-                "goal": "settlement proof origin",
-                "done_when": done_when,
-                "capabilities": [good_id, inv_id],
-                "operational_tip": f"{idx + 1:x}" * 64,
-                "bound_tip": f"{(idx + 4):x}" * 64,
-                "continuity_digest": f"{(idx + 7):x}" * 64,
-                "adaptive_round_count": 0,
-                "effects_ok": True,
-                "contract_met": True,
-                "recovered": False,
-                "irreversible": True,
-                "success": True,
-                "finalized_at": utc_now_iso(),
-            }
-            cert = write_total_spine_finality_certificate(
-                scratch / f"origin-{idx}", body
-            )
-            paths.append(str(cert.get("finality_path") or ""))
-
-        quorumed = federate_total_spine(
-            paths,
-            out_root=scratch / "quorum",
-            prior_tip="a" * 64,
-            quorum=True,
-        )
-        executed = execute_total_spine(
-            quorumed.get("total_spine_federation_certificate"),
-            out_root=scratch / "exec-h1",
-            prior_tip=str(
-                quorumed.get("total_spine_federation_bound_tip") or ""
-            ),
-            body={
-                "ok": True,
-                "total_spine": True,
-                "total_spine_root": "quettacontinuum",
-                "total_spine_compressed": True,
-                "total_nest_depth": 28,
-                "total_spine_federation": True,
-                "total_spine_quorum": True,
-                "total_spine_digest": quorumed.get("total_spine_digest"),
-                "total_spine_federation_bound_tip": quorumed.get(
-                    "total_spine_federation_bound_tip"
-                ),
-            },
-            state_height=1,
-        )
-        actuated = actuate_total_spine(
-            executed.get("total_spine_execution_certificate")
-            or executed.get("total_spine_execution_path"),
-            out_root=scratch / "act-h1",
-            prior_tip=str(
-                executed.get("total_spine_execution_bound_tip") or ""
-            ),
-            body=dict(executed),
-            capabilities=[good_id, inv_id],
-            repo_path=REPO_ROOT,
-            effect_timeout=90,
-            dispatch=True,
-        )
-        state_root = str(actuated.get("total_spine_state_root") or "")
-        tip_action = str(actuated.get("total_spine_tip_action_root") or "")
-        offline_set = settle_total_spine(
-            actuated.get("total_spine_actuation_certificate")
-            or actuated.get("total_spine_actuation_path"),
-            out_root=scratch / "set-h1",
-            prior_tip=str(
-                actuated.get("total_spine_actuation_bound_tip") or ""
-            ),
-            body=dict(actuated),
-            repo_path=REPO_ROOT,
-        )
-        set_path = offline_set.get("total_spine_settlement_path")
-        tip_settlement = str(
-            offline_set.get("total_spine_tip_settlement_root") or ""
-        )
-        offline_ok = (
-            bool(offline_set.get("ok"))
-            and offline_set.get("total_spine_settlement") is True
-            and offline_set.get("total_spine_settlement_post_actuation") is True
-            and offline_set.get("total_spine_settlement_irreversible") is True
-            and offline_set.get("total_spine_settled") is True
-            and offline_set.get("total_spine_observations_ok") is True
-            and int(offline_set.get("total_spine_observation_count") or 0) >= 2
-            and int(offline_set.get("total_spine_observation_height") or 0) >= 2
-            and len(tip_settlement) >= 32
-            and str(offline_set.get("total_spine_state_root") or "")
-            == state_root
-            and str(offline_set.get("total_spine_tip_action_root") or "")
-            == tip_action
-            and str(offline_set.get("total_spine_digest") or "")
-            != str(actuated.get("total_spine_digest") or "")
-            and isinstance(set_path, str)
-            and Path(set_path).is_file()
-            and not legacy_pipeline_was_used()
-        )
-
-        loaded = load_total_spine_settlement_certificate(set_path or scratch)
-        verify_ok = bool(
-            loaded.get("total_spine_settlement_loaded")
-            and (loaded.get("settlement_verify") or {}).get("ok")
-            and (loaded.get("settlement_verify") or {}).get("settlement_root_ok")
-            and (loaded.get("settlement_verify") or {}).get("chain_ok")
-            and (loaded.get("settlement_verify") or {}).get("observations_ok")
-        )
-
-        tampered_path = scratch / "tampered-settlement.json"
-        tampered_body = dict(loaded)
-        for drop in (
-            "settlement_verify",
-            "total_spine_settlement_loaded",
-            "settlement_path",
-        ):
-            tampered_body.pop(drop, None)
-        tampered_body["observation_height"] = 99
-        atomic_write_json(tampered_path, tampered_body)
-        tamper_ok = False
-        try:
-            load_total_spine_settlement_certificate(tampered_path)
-        except StageRefused as exc:
-            tamper_ok = str(exc.verdict) == "total_spine_settlement_tampered"
-        except Exception:  # noqa: BLE001
-            tamper_ok = False
-
-        supersession_ok = False
-        try:
-            write_total_spine_settlement_certificate(
-                scratch / "set-h1",
-                {
-                    **{
-                        k: v
-                        for k, v in loaded.items()
-                        if k
-                        not in {
-                            "settlement_verify",
-                            "total_spine_settlement_loaded",
-                            "settlement_path",
-                            "settlement_digest",
-                            "certificate_hash",
-                            "settled_at",
-                            "total_spine_settlement",
-                            "total_spine_settlement_impl",
-                            "used_skill_route_discovery",
-                            "contract_eval",
-                        }
-                    },
-                    "goal": "forged-supersession-goal",
-                    "tip_settlement_root": "",
-                },
-            )
-        except StageRefused as exc:
-            supersession_ok = (
-                str(exc.verdict)
-                == "total_spine_settlement_supersession_refused"
-            )
-        except Exception:  # noqa: BLE001
-            supersession_ok = False
-
-        wrong_root_ok = False
-        wrong_body = dict(loaded)
-        for drop in (
-            "settlement_verify",
-            "total_spine_settlement_loaded",
-            "settlement_path",
-        ):
-            wrong_body.pop(drop, None)
-        wrong_body["bound_state_root"] = "f" * 64
-        resealed = seal_total_spine_settlement_certificate(wrong_body)
-        wrong_verify = verify_total_spine_settlement_certificate(resealed)
-        wrong_root_ok = wrong_verify.get("ok") is False and (
-            wrong_verify.get("chain_ok") is False
-            or wrong_verify.get("settlement_root_ok") is False
-        )
-
-        h2 = settle_total_spine(
-            actuated.get("total_spine_actuation_certificate"),
-            out_root=scratch / "set-h2",
-            prior_tip=str(
-                offline_set.get("total_spine_settlement_bound_tip") or ""
-            ),
-            parent_observation_root=tip_settlement,
-            observation_height=int(
-                offline_set.get("total_spine_observation_height") or 0
-            )
-            + 1,
-            repo_path=REPO_ROOT,
-        )
-        multi_height_ok = (
-            bool(h2.get("ok"))
-            and int(h2.get("total_spine_observation_count") or 0) >= 2
-            and str(h2.get("total_spine_tip_settlement_root") or "")
-            != tip_settlement
-            and str(
-                (h2.get("total_spine_settlement_certificate") or {}).get(
-                    "parent_observation_root"
-                )
-                or ""
-            )
-            == tip_settlement
-        )
-
-        recomputed = compute_total_spine_settlement_root(
-            loaded.get("observations") or []
-        )
-        determinism_ok = recomputed == tip_settlement and bool(recomputed)
-
-        unmet_ok = False
-        try:
-            fail_act = dict(
-                actuated.get("total_spine_actuation_certificate") or {}
-            )
-            fail_act["done_when"] = "min_proved:99999; no_skill_route"
-            settle_total_spine(
-                fail_act,
-                out_root=scratch / "set-unmet",
-                prior_tip=str(
-                    actuated.get("total_spine_actuation_bound_tip") or ""
-                ),
-                repo_path=REPO_ROOT,
-                require_contract=True,
-            )
-        except StageRefused as exc:
-            unmet_ok = (
-                str(exc.verdict) == "total_spine_settlement_contract_unmet"
-            )
-        except Exception:  # noqa: BLE001
-            unmet_ok = False
-
-        origin0_path = paths[0]
-        live = run_total_spine(
-            root_layer="quettacontinuum",
-            out_root=scratch / "live-set",
-            max_rounds=1,
-            dispatch=True,
-            dispatch_budget=2,
-            max_successions=1,
-            max_epochs=1,
-            max_waves=1,
-            compress=True,
-            effects=True,
-            capabilities=[good_id, inv_id],
-            done_when=contract_pass,
-            adaptive=False,
-            continuity=False,
-            finality=True,
-            resume_dir=origin0_path,
-            federation_peers=[paths[1], paths[2]],
-            federation_quorum=True,
-            execution=True,
-            actuation=True,
-            settlement=True,
-            effect_timeout=90,
-            repo_path=REPO_ROOT,
-        )
-        live_set_path = live.get("total_spine_settlement_path")
-        live_ok = (
-            bool(live.get("ok"))
-            and live.get("total_spine") is True
-            and live.get("total_spine_finality") is True
-            and live.get("total_spine_federation") is True
-            and live.get("total_spine_quorum") is True
-            and live.get("total_spine_execution") is True
-            and live.get("total_spine_actuation") is True
-            and live.get("total_spine_settlement") is True
-            and live.get("total_spine_settled") is True
-            and int(live.get("total_spine_observation_count") or 0) >= 2
-            and isinstance(live.get("total_spine_tip_settlement_root"), str)
-            and len(str(live.get("total_spine_tip_settlement_root"))) >= 32
-            and int(live.get("total_nest_depth") or 0) == 28
-            and isinstance(live_set_path, str)
-            and Path(live_set_path).is_file()
-            and not legacy_pipeline_was_used()
-        )
-
-        shorted = run_total_spine(
-            root_layer="quettacontinuum",
-            out_root=scratch / "short-set",
-            max_rounds=1,
-            dispatch=True,
-            dispatch_budget=2,
-            max_successions=1,
-            max_epochs=1,
-            max_waves=1,
-            compress=True,
-            effects=True,
-            capabilities=[good_id, inv_id],
-            done_when=contract_pass,
-            finality=True,
-            execution=True,
-            actuation=True,
-            settlement=True,
-            resume_dir=live_set_path or (scratch / "live-set"),
-            effect_timeout=90,
-            repo_path=REPO_ROOT,
-        )
-        short_ok = (
-            bool(shorted.get("ok"))
-            and shorted.get("total_spine_settlement") is True
-            and shorted.get("total_spine_settlement_short_circuit") is True
-            and str(shorted.get("total_spine_tip_settlement_root") or "")
-            == str(live.get("total_spine_tip_settlement_root") or "")
-            and int(shorted.get("total_nest_depth") or 0) == 28
-            and not legacy_pipeline_was_used()
-        )
-
-        set_chain = live.get("total_spine_settlement_chain") or {}
-        chain_integrity_ok = False
-        if isinstance(set_chain, Mapping) and set_chain:
-            re_seal = seal_total_spine_settlement_chain(
-                prior_tip=str(set_chain.get("prior_tip") or ""),
-                settlement_digest=str(set_chain.get("settlement_digest") or ""),
-                tip_settlement_root=str(
-                    set_chain.get("tip_settlement_root") or ""
-                ),
-                bound_action_root=str(set_chain.get("bound_action_root") or ""),
-                bound_state_root=str(set_chain.get("bound_state_root") or ""),
-                actuation_digest=str(set_chain.get("actuation_digest") or ""),
-                observation_height=int(set_chain.get("observation_height") or 0),
-                short_circuit=bool(set_chain.get("short_circuit")),
-            )
-            chain_integrity_ok = (
-                re_seal.get("digest") == set_chain.get("digest")
-                and re_seal.get("digest")
-                == live.get("total_spine_settlement_tip")
-            )
-
-        differential_ok = (
-            offline_ok
-            and live_ok
-            and str(actuated.get("total_spine_digest") or "")
-            != str(offline_set.get("total_spine_digest") or "")
-        )
-
-        # Facade exposes this stage's surface (delegation identity;
-        # source-text greps predate the thin PEP 562 facade).
-        source_ok = (
-            getattr(le_facade, "TOTAL_SPINE_SETTLEMENT_IMPL", None) is TOTAL_SPINE_SETTLEMENT_IMPL
-            and getattr(le_facade, "builtin_total_spine_settlement_proof", None) is builtin_total_spine_settlement_proof
-            and getattr(le_facade, "settle_total_spine", None) is settle_total_spine
-            and callable(
-                getattr(le_facade, "builtin_total_spine_settlement_proof", None)
-    
-        )
-            and callable(getattr(le_facade, "settle_total_spine", None))
-            and getattr(le_facade, "TOTAL_SPINE_SETTLEMENT_IMPL", False) is True
-        )
-
-        engine_path = Path(
-            __import__(
-                "blackhole_agent.upstream_control_engine", fromlist=["_"]
-            ).__file__
-        ).resolve()
-        engine_text = engine_path.read_text(encoding="utf-8")
-        engine_source_ok = (
-            "TOTAL_SPINE_SETTLEMENT_IMPL" in engine_text
-            and "settle_total_spine" in engine_text
-            and (
-                "settlement=True" in engine_text
-                or "settlement: bool = False" in engine_text
-            )
-            and "builtin_total_spine_settlement_proof" in engine_text
-        )
-
-        mod_path = Path(__file__).resolve()
-        mod_text = mod_path.read_text(encoding="utf-8")
-        mod_source_ok = (
-            "def settle_total_spine" in mod_text
-            and "def builtin_total_spine_settlement_proof" in mod_text
-            and "total_spine_settlement_supersession_refused" in mod_text
-            and "total_spine_settlement_tampered" in mod_text
-            and "total_spine_settlement_contract_unmet" in mod_text
-        )
-
-        ledger_path = default_ledger_path(REPO_ROOT)
-        ledger_ok = False
-        try:
-            ledger = load_ledger(ledger_path)
-            entry = ledger.capabilities.get(
-                "capability.upstream-total-spine-settlement"
-            )
-            tags_blob = " ".join(entry.tags).lower() if entry else ""
-            delta_blob = (
-                (entry.capability_delta or "").lower() if entry else ""
-            )
-            name_blob = (entry.name or "").lower() if entry else ""
-            ledger_ok = (
-                entry is not None
-                and (
-                    "upstream_total_spine_settlement" in (entry.entry or "")
-                    or "upstream_control_engine" in (entry.entry or "")
-                )
-                and "builtin_total_spine_settlement_proof" in (entry.entry or "")
-                and (
-                    "settlement" in tags_blob
-                    or "settlement" in name_blob
-                    or "settlement" in delta_blob
-                )
-                and ("total" in tags_blob or "total" in name_blob)
-                and (
-                    "settle_total_spine" in delta_blob
-                    or "post-actuation" in delta_blob
-                    or "post_actuation" in delta_blob
-                    or "observation" in delta_blob
-                )
-            )
-        except Exception:  # noqa: BLE001
-            ledger_ok = False
-
-        ok = all(
-            [
-                flags_ok,
-                offline_ok,
-                verify_ok,
-                tamper_ok,
-                supersession_ok,
-                wrong_root_ok,
-                multi_height_ok,
-                determinism_ok,
-                unmet_ok,
-                live_ok,
-                short_ok,
-                chain_integrity_ok,
-                differential_ok,
-                source_ok,
-                engine_source_ok,
-                mod_source_ok,
-                ledger_ok,
-                not legacy_pipeline_was_used(),
-            ]
-        )
-        return {
-            "ok": ok,
-            "action": "total_spine_settlement_proof",
-            "flags_ok": flags_ok,
-            "offline_ok": offline_ok,
-            "settlement_path": set_path,
-            "tip_settlement_root": tip_settlement,
-            "tip_action_root": tip_action,
-            "state_root": state_root,
-            "observation_count": offline_set.get(
-                "total_spine_observation_count"
-            ),
-            "verify_ok": verify_ok,
-            "tamper_ok": tamper_ok,
-            "supersession_ok": supersession_ok,
-            "wrong_root_ok": wrong_root_ok,
-            "multi_height_ok": multi_height_ok,
-            "determinism_ok": determinism_ok,
-            "unmet_ok": unmet_ok,
-            "live_ok": live_ok,
-            "live_settlement_path": live_set_path,
-            "live_tip_settlement_root": live.get(
-                "total_spine_tip_settlement_root"
-            ),
-            "live_digest": live.get("total_spine_digest"),
-            "short_ok": short_ok,
-            "chain_integrity_ok": chain_integrity_ok,
-            "differential_ok": differential_ok,
-            "source_ok": source_ok,
-            "engine_source_ok": engine_source_ok,
-            "mod_source_ok": mod_source_ok,
-            "ledger_capability_ok": ledger_ok,
-            "used_skill_route_discovery": legacy_pipeline_was_used(),
-            "control_engine": True,
-            "total_spine": True,
-            "total_spine_settlement": True,
-            "total_spine_actuation": True,
-            "total_spine_execution": True,
-            "total_spine_quorum": True,
-            "done_when_met": ok,
-        }
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
+    return _run_log_family_proof("settlement")
 
 
 def settlement_main(argv: Sequence[str] | None = None) -> int:
@@ -3363,6 +2357,39 @@ def clear_total_spine(
     actuation: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Apply post-settlement multilateral clearing on the absolute total spine."""
+    return _apply_log_family(
+        "clearing",
+        source,
+        settlements=settlements,
+        out_root=out_root,
+        prior_tip=prior_tip,
+        body=body,
+        min_clearings=min_clearings,
+        parent_clearing_root=parent_clearing_root,
+        clearing_height=clearing_height,
+        short_circuit=short_circuit,
+        repo_path=repo_path,
+        confirm=confirm,
+        actuation=actuation,
+    )
+
+
+def _clearing_apply_core(
+    source: Path | str | Mapping[str, Any] | Sequence[Any] | None = None,
+    *,
+    settlements: Sequence[Mapping[str, Any] | Path | str] | None = None,
+    out_root: Path | None = None,
+    prior_tip: str | None = None,
+    body: dict[str, Any] | None = None,
+    min_clearings: int = TOTAL_SPINE_CLEARING_MIN_SETTLEMENTS,
+    parent_clearing_root: str = "",
+    clearing_height: int | None = None,
+    short_circuit: bool = False,
+    repo_path: Path | None = None,
+    confirm: bool = True,
+    actuation: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Clearing apply core: collect/net settlements, evaluate contract, finish."""
     from blackhole_agent.upstream_control_engine import (
         TOTAL_SPINE_DEFAULT_ROOT as ENGINE_DEFAULT_ROOT,
         evaluate_total_spine_contract,
@@ -3398,17 +2425,7 @@ def clear_total_spine(
             or (body or {}).get("total_spine_digest")
             or ""
         )
-        result = body if body is not None else {
-            "ok": True,
-            "action": "clear_total_spine",
-            "total_spine": True,
-        }
-        return annotate_total_spine_clearing(
-            result,
-            certificate=existing,
-            prior_tip=tip,
-            short_circuit=True,
-        )
+        return _short_circuit_log_apply("clearing", existing, body, prior_tip)
 
     want = max(int(min_clearings), TOTAL_SPINE_CLEARING_MIN_SETTLEMENTS)
     if len(collected) < want and confirm and collected:
@@ -3561,610 +2578,25 @@ def clear_total_spine(
             "ok": contract_eval.get("ok"),
         }
 
-    write_target = Path(out_root) if out_root is not None else None
-    if write_target is not None:
-        certificate = write_total_spine_clearing_certificate(write_target, clr_body)
-    else:
-        certificate = seal_total_spine_clearing_certificate(clr_body)
-
-    result = body if body is not None else {
-        "ok": True,
-        "action": "clear_total_spine",
-        "total_spine": True,
-        "total_spine_root": root_layer,
-        "total_nest_depth": total_nest_depth(root_layer),
-    }
-    annotated = annotate_total_spine_clearing(
-        result,
-        certificate=certificate,
+    return _finish_log_apply(
+        "clearing",
+        cert_body=clr_body,
+        out_root=out_root,
+        body=body,
         prior_tip=tip,
         short_circuit=short_circuit,
+        extra={
+            "total_spine_clearing_bound_state_root": state_root,
+            "total_spine_clearing_bound_action_root": action_root,
+            "total_spine_clearing_bound_settlement_root": settlement_root,
+            "total_spine_clearing_actuation_digest": actuation_digest,
+        },
     )
-    if annotated.get("total_spine_compressed") and root_layer:
-        live_result = {
-            "institution_digest": annotated.get("institution_digest") or tip,
-            "ok": True,
-        }
-        clr_bound = str(annotated.get("total_spine_clearing_bound_tip") or tip)
-        hops = seal_total_spine_hop_chain(
-            root_layer, live_result, tip=clr_bound
-        )
-        annotated["total_spine_hop_chain"] = hops
-        annotated["total_spine_hop_count"] = len(hops)
-        if hops:
-            annotated["total_spine_digest"] = hops[0].get("digest")
-            annotated[f"{root_layer}_digest"] = hops[0].get("digest")
-    annotated["total_spine_clearing_bound_state_root"] = state_root
-    annotated["total_spine_clearing_bound_action_root"] = action_root
-    annotated["total_spine_clearing_bound_settlement_root"] = settlement_root
-    annotated["total_spine_clearing_actuation_digest"] = actuation_digest
-    annotated["used_skill_route_discovery"] = legacy_pipeline_was_used()
-    return annotated
 
 
 def builtin_total_spine_clearing_proof() -> dict[str, Any]:
     """Hermetic proof: post-settlement multilateral clearing on the absolute tower."""
-    import shutil
-    import tempfile
-
-    from blackhole_agent.capability_compounder import (
-        default_ledger_path,
-        load_ledger,
-    )
-    from blackhole_agent.upstream_control_engine import (
-        SCHEMA_VERSION as ENGINE_SCHEMA,
-        TOTAL_SPINE_CLEARING_IMPL as ENGINE_CLR_IMPL,
-        TOTAL_SPINE_FINALITY_KIND,
-        TOTAL_SPINE_SETTLEMENT_IMPL,
-        actuate_total_spine,
-        execute_total_spine,
-        federate_total_spine,
-        run_total_spine,
-        settle_total_spine,
-        write_total_spine_finality_certificate,
-    )
-
-    scratch = Path(tempfile.mkdtemp(prefix="total-spine-clearing-proof-"))
-    try:
-        from blackhole_agent import upstream_loop_engine as le_facade
-
-        flags_ok = (
-            TOTAL_SPINE_CLEARING_IMPL is True
-            and ENGINE_CLR_IMPL is True
-            and TOTAL_SPINE_SETTLEMENT_IMPL is True
-            and TOTAL_SPINE_CLEARING_KIND == "total_spine_clearing"
-            and bool(TOTAL_SPINE_CLEARING_FILENAME)
-            and TOTAL_SPINE_CLEARING_MIN_SETTLEMENTS >= 2
-        )
-
-        good_id = "repo.import-health"
-        inv_id = "capability.ledger-inventory"
-        contract_pass = "min_proved:1; no_skill_route"
-        contract_byzantine = "min_proved:99; no_skill_route"
-
-        paths: list[str] = []
-        for idx, done_when in enumerate(
-            (contract_pass, contract_pass, contract_byzantine)
-        ):
-            body = {
-                "schema_version": ENGINE_SCHEMA,
-                "kind": TOTAL_SPINE_FINALITY_KIND,
-                "root_layer": "quettacontinuum",
-                "goal": "clearing proof origin",
-                "done_when": done_when,
-                "capabilities": [good_id, inv_id],
-                "operational_tip": f"{idx + 1:x}" * 64,
-                "bound_tip": f"{(idx + 4):x}" * 64,
-                "continuity_digest": f"{(idx + 7):x}" * 64,
-                "adaptive_round_count": 0,
-                "effects_ok": True,
-                "contract_met": True,
-                "recovered": False,
-                "irreversible": True,
-                "success": True,
-                "finalized_at": utc_now_iso(),
-            }
-            cert = write_total_spine_finality_certificate(
-                scratch / f"origin-{idx}", body
-            )
-            paths.append(str(cert.get("finality_path") or ""))
-
-        quorumed = federate_total_spine(
-            paths,
-            out_root=scratch / "quorum",
-            prior_tip="a" * 64,
-            quorum=True,
-        )
-        executed = execute_total_spine(
-            quorumed.get("total_spine_federation_certificate"),
-            out_root=scratch / "exec-h1",
-            prior_tip=str(
-                quorumed.get("total_spine_federation_bound_tip") or ""
-            ),
-            body={
-                "ok": True,
-                "total_spine": True,
-                "total_spine_root": "quettacontinuum",
-                "total_spine_compressed": True,
-                "total_nest_depth": 28,
-                "total_spine_federation": True,
-                "total_spine_quorum": True,
-                "total_spine_digest": quorumed.get("total_spine_digest"),
-                "total_spine_federation_bound_tip": quorumed.get(
-                    "total_spine_federation_bound_tip"
-                ),
-            },
-            state_height=1,
-        )
-        actuated = actuate_total_spine(
-            executed.get("total_spine_execution_certificate")
-            or executed.get("total_spine_execution_path"),
-            out_root=scratch / "act-h1",
-            prior_tip=str(
-                executed.get("total_spine_execution_bound_tip") or ""
-            ),
-            body=dict(executed),
-            capabilities=[good_id, inv_id],
-            repo_path=REPO_ROOT,
-            effect_timeout=90,
-            dispatch=True,
-        )
-        settled = settle_total_spine(
-            actuated.get("total_spine_actuation_certificate")
-            or actuated.get("total_spine_actuation_path"),
-            out_root=scratch / "set-h1",
-            prior_tip=str(
-                actuated.get("total_spine_actuation_bound_tip") or ""
-            ),
-            body=dict(actuated),
-            repo_path=REPO_ROOT,
-        )
-        tip_settlement = str(settled.get("total_spine_tip_settlement_root") or "")
-        confirmed = settle_total_spine(
-            actuated.get("total_spine_actuation_certificate"),
-            out_root=scratch / "set-h2",
-            prior_tip=str(
-                settled.get("total_spine_settlement_bound_tip") or ""
-            ),
-            parent_observation_root=tip_settlement,
-            observation_height=int(
-                settled.get("total_spine_observation_height") or 0
-            )
-            + 1,
-            repo_path=REPO_ROOT,
-        )
-        s1 = settled.get("total_spine_settlement_certificate") or {}
-        s2 = confirmed.get("total_spine_settlement_certificate") or {}
-        state_root = str(settled.get("total_spine_state_root") or "")
-        tip_action = str(settled.get("total_spine_tip_action_root") or "")
-
-        offline_clr = clear_total_spine(
-            [s1, s2],
-            out_root=scratch / "clr-h1",
-            prior_tip=str(
-                confirmed.get("total_spine_settlement_bound_tip")
-                or settled.get("total_spine_settlement_bound_tip")
-                or ""
-            ),
-            body=dict(confirmed),
-            repo_path=REPO_ROOT,
-            confirm=False,
-        )
-        clr_path = offline_clr.get("total_spine_clearing_path")
-        tip_clearing = str(offline_clr.get("total_spine_tip_clearing_root") or "")
-        offline_ok = (
-            bool(offline_clr.get("ok"))
-            and offline_clr.get("total_spine_clearing") is True
-            and offline_clr.get("total_spine_clearing_post_settlement") is True
-            and offline_clr.get("total_spine_clearing_irreversible") is True
-            and offline_clr.get("total_spine_cleared") is True
-            and offline_clr.get("total_spine_discharged") is True
-            and offline_clr.get("total_spine_net_ok") is True
-            and int(offline_clr.get("total_spine_clearing_count") or 0) >= 2
-            and int(offline_clr.get("total_spine_clearing_height") or 0) >= 2
-            and int(offline_clr.get("total_spine_clearing_residual") or 0) == 0
-            and len(tip_clearing) >= 32
-            and str(offline_clr.get("total_spine_state_root") or "") == state_root
-            and str(offline_clr.get("total_spine_tip_action_root") or "")
-            == tip_action
-            and str(offline_clr.get("total_spine_digest") or "")
-            != str(settled.get("total_spine_digest") or "")
-            and isinstance(clr_path, str)
-            and Path(clr_path).is_file()
-            and not legacy_pipeline_was_used()
-        )
-
-        loaded = load_total_spine_clearing_certificate(clr_path or scratch)
-        verify_ok = bool(
-            loaded.get("total_spine_clearing_loaded")
-            and (loaded.get("clearing_verify") or {}).get("ok")
-            and (loaded.get("clearing_verify") or {}).get("clearing_root_ok")
-            and (loaded.get("clearing_verify") or {}).get("chain_ok")
-            and (loaded.get("clearing_verify") or {}).get("clearings_ok")
-        )
-
-        tampered_path = scratch / "tampered-clearing.json"
-        tampered_body = dict(loaded)
-        for drop in (
-            "clearing_verify",
-            "total_spine_clearing_loaded",
-            "clearing_path",
-        ):
-            tampered_body.pop(drop, None)
-        tampered_body["clearing_height"] = 99
-        atomic_write_json(tampered_path, tampered_body)
-        tamper_ok = False
-        try:
-            load_total_spine_clearing_certificate(tampered_path)
-        except StageRefused as exc:
-            tamper_ok = str(exc.verdict) == "total_spine_clearing_tampered"
-        except Exception:  # noqa: BLE001
-            tamper_ok = False
-
-        supersession_ok = False
-        try:
-            write_total_spine_clearing_certificate(
-                scratch / "clr-h1",
-                {
-                    **{
-                        k: v
-                        for k, v in loaded.items()
-                        if k
-                        not in {
-                            "clearing_verify",
-                            "total_spine_clearing_loaded",
-                            "clearing_path",
-                            "clearing_digest",
-                            "certificate_hash",
-                            "cleared_at",
-                            "total_spine_clearing",
-                            "total_spine_clearing_impl",
-                            "used_skill_route_discovery",
-                            "contract_eval",
-                        }
-                    },
-                    "goal": "forged-supersession-goal",
-                    "tip_clearing_root": "",
-                },
-            )
-        except StageRefused as exc:
-            supersession_ok = (
-                str(exc.verdict) == "total_spine_clearing_supersession_refused"
-            )
-        except Exception:  # noqa: BLE001
-            supersession_ok = False
-
-        wrong_root_ok = False
-        wrong_body = dict(loaded)
-        for drop in (
-            "clearing_verify",
-            "total_spine_clearing_loaded",
-            "clearing_path",
-        ):
-            wrong_body.pop(drop, None)
-        wrong_body["bound_state_root"] = "f" * 64
-        resealed = seal_total_spine_clearing_certificate(wrong_body)
-        wrong_verify = verify_total_spine_clearing_certificate(resealed)
-        wrong_root_ok = wrong_verify.get("ok") is False and (
-            wrong_verify.get("chain_ok") is False
-            or wrong_verify.get("clearing_root_ok") is False
-        )
-
-        mismatch_ok = False
-        try:
-            executed2 = execute_total_spine(
-                quorumed.get("total_spine_federation_certificate"),
-                out_root=scratch / "exec-h2",
-                prior_tip=str(
-                    executed.get("total_spine_execution_bound_tip") or ""
-                ),
-                parent_state_root=state_root,
-                state_height=2,
-            )
-            actuated2 = actuate_total_spine(
-                executed2.get("total_spine_execution_certificate"),
-                out_root=scratch / "act-h2",
-                prior_tip=str(
-                    executed2.get("total_spine_execution_bound_tip") or ""
-                ),
-                capabilities=[good_id, inv_id],
-                repo_path=REPO_ROOT,
-                effect_timeout=90,
-                dispatch=True,
-            )
-            other = settle_total_spine(
-                actuated2.get("total_spine_actuation_certificate"),
-                out_root=scratch / "set-other",
-                prior_tip=str(
-                    actuated2.get("total_spine_actuation_bound_tip") or ""
-                ),
-                repo_path=REPO_ROOT,
-            )
-            net_total_spine_settlements(
-                [
-                    s1,
-                    other.get("total_spine_settlement_certificate") or {},
-                ],
-                min_clearings=2,
-            )
-        except StageRefused as exc:
-            mismatch_ok = str(exc.verdict) == "total_spine_clearing_root_mismatch"
-        except Exception:  # noqa: BLE001
-            mismatch_ok = False
-
-        h2 = clear_total_spine(
-            [s1, s2],
-            out_root=scratch / "clr-h2",
-            prior_tip=str(
-                offline_clr.get("total_spine_clearing_bound_tip") or ""
-            ),
-            parent_clearing_root=tip_clearing,
-            clearing_height=int(offline_clr.get("total_spine_clearing_height") or 0)
-            + 1,
-            repo_path=REPO_ROOT,
-            confirm=False,
-        )
-        multi_height_ok = (
-            bool(h2.get("ok"))
-            and int(h2.get("total_spine_clearing_count") or 0) >= 2
-            and str(h2.get("total_spine_tip_clearing_root") or "") != tip_clearing
-            and str(
-                (h2.get("total_spine_clearing_certificate") or {}).get(
-                    "parent_clearing_root"
-                )
-                or ""
-            )
-            == tip_clearing
-        )
-
-        recomputed = compute_total_spine_clearing_root(loaded.get("clearings") or [])
-        determinism_ok = recomputed == tip_clearing and bool(recomputed)
-
-        live = run_total_spine(
-            root_layer="quettacontinuum",
-            out_root=scratch / "live-clr",
-            max_rounds=1,
-            dispatch=True,
-            dispatch_budget=2,
-            max_successions=1,
-            max_epochs=1,
-            max_waves=1,
-            compress=True,
-            effects=True,
-            capabilities=[good_id, inv_id],
-            done_when=contract_pass,
-            adaptive=False,
-            continuity=False,
-            finality=True,
-            resume_dir=paths[0],
-            federation_peers=[paths[1], paths[2]],
-            federation_quorum=True,
-            execution=True,
-            actuation=True,
-            settlement=True,
-            clearing=True,
-            effect_timeout=90,
-            repo_path=REPO_ROOT,
-        )
-        live_clr_path = live.get("total_spine_clearing_path")
-        live_ok = (
-            bool(live.get("ok"))
-            and live.get("total_spine") is True
-            and live.get("total_spine_finality") is True
-            and live.get("total_spine_federation") is True
-            and live.get("total_spine_quorum") is True
-            and live.get("total_spine_execution") is True
-            and live.get("total_spine_actuation") is True
-            and live.get("total_spine_settlement") is True
-            and live.get("total_spine_clearing") is True
-            and live.get("total_spine_cleared") is True
-            and live.get("total_spine_discharged") is True
-            and int(live.get("total_spine_clearing_count") or 0) >= 2
-            and isinstance(live.get("total_spine_tip_clearing_root"), str)
-            and len(str(live.get("total_spine_tip_clearing_root"))) >= 32
-            and int(live.get("total_nest_depth") or 0) == 28
-            and isinstance(live_clr_path, str)
-            and Path(live_clr_path).is_file()
-            and not legacy_pipeline_was_used()
-        )
-
-        shorted = run_total_spine(
-            root_layer="quettacontinuum",
-            out_root=scratch / "short-clr",
-            max_rounds=1,
-            dispatch=True,
-            dispatch_budget=2,
-            max_successions=1,
-            max_epochs=1,
-            max_waves=1,
-            compress=True,
-            effects=True,
-            capabilities=[good_id, inv_id],
-            done_when=contract_pass,
-            finality=True,
-            execution=True,
-            actuation=True,
-            settlement=True,
-            clearing=True,
-            resume_dir=live_clr_path or (scratch / "live-clr"),
-            effect_timeout=90,
-            repo_path=REPO_ROOT,
-        )
-        short_ok = (
-            bool(shorted.get("ok"))
-            and shorted.get("total_spine_clearing") is True
-            and shorted.get("total_spine_clearing_short_circuit") is True
-            and str(shorted.get("total_spine_tip_clearing_root") or "")
-            == str(live.get("total_spine_tip_clearing_root") or "")
-            and int(shorted.get("total_nest_depth") or 0) == 28
-            and not legacy_pipeline_was_used()
-        )
-
-        clr_chain = live.get("total_spine_clearing_chain") or {}
-        chain_integrity_ok = False
-        if isinstance(clr_chain, Mapping) and clr_chain:
-            re_seal = seal_total_spine_clearing_chain(
-                prior_tip=str(clr_chain.get("prior_tip") or ""),
-                clearing_digest=str(clr_chain.get("clearing_digest") or ""),
-                tip_clearing_root=str(clr_chain.get("tip_clearing_root") or ""),
-                bound_settlement_root=str(
-                    clr_chain.get("bound_settlement_root") or ""
-                ),
-                bound_action_root=str(clr_chain.get("bound_action_root") or ""),
-                bound_state_root=str(clr_chain.get("bound_state_root") or ""),
-                actuation_digest=str(clr_chain.get("actuation_digest") or ""),
-                settlement_digest=str(clr_chain.get("settlement_digest") or ""),
-                clearing_height=int(clr_chain.get("clearing_height") or 0),
-                short_circuit=bool(clr_chain.get("short_circuit")),
-            )
-            chain_integrity_ok = (
-                re_seal.get("digest") == clr_chain.get("digest")
-                and re_seal.get("digest") == live.get("total_spine_clearing_tip")
-            )
-
-        differential_ok = (
-            offline_ok
-            and live_ok
-            and str(settled.get("total_spine_digest") or "")
-            != str(offline_clr.get("total_spine_digest") or "")
-        )
-
-        # Facade exposes this stage's surface (delegation identity;
-        # source-text greps predate the thin PEP 562 facade).
-        source_ok = (
-            getattr(le_facade, "TOTAL_SPINE_CLEARING_IMPL", None) is TOTAL_SPINE_CLEARING_IMPL
-            and getattr(le_facade, "builtin_total_spine_clearing_proof", None) is builtin_total_spine_clearing_proof
-            and getattr(le_facade, "clear_total_spine", None) is clear_total_spine
-            and callable(
-                getattr(le_facade, "builtin_total_spine_clearing_proof", None)
-    
-        )
-            and callable(getattr(le_facade, "clear_total_spine", None))
-            and getattr(le_facade, "TOTAL_SPINE_CLEARING_IMPL", False) is True
-        )
-
-        engine_path = Path(
-            __import__(
-                "blackhole_agent.upstream_control_engine", fromlist=["_"]
-            ).__file__
-        ).resolve()
-        engine_text = engine_path.read_text(encoding="utf-8")
-        engine_source_ok = (
-            "TOTAL_SPINE_CLEARING_IMPL" in engine_text
-            and "clear_total_spine" in engine_text
-            and (
-                "clearing=True" in engine_text
-                or "clearing: bool = False" in engine_text
-            )
-            and "builtin_total_spine_clearing_proof" in engine_text
-        )
-
-        mod_path = Path(__file__).resolve()
-        mod_text = mod_path.read_text(encoding="utf-8")
-        mod_source_ok = (
-            "def clear_total_spine" in mod_text
-            and "def builtin_total_spine_clearing_proof" in mod_text
-            and "total_spine_clearing_supersession_refused" in mod_text
-            and "total_spine_clearing_tampered" in mod_text
-            and "total_spine_clearing_net_failed" in mod_text
-        )
-
-        ledger_path = default_ledger_path(REPO_ROOT)
-        ledger_ok = False
-        try:
-            ledger = load_ledger(ledger_path)
-            entry = ledger.capabilities.get(
-                "capability.upstream-total-spine-clearing"
-            )
-            tags_blob = " ".join(entry.tags).lower() if entry else ""
-            delta_blob = (entry.capability_delta or "").lower() if entry else ""
-            name_blob = (entry.name or "").lower() if entry else ""
-            ledger_ok = (
-                entry is not None
-                and (
-                    "upstream_total_spine_clearing" in (entry.entry or "")
-                    or "upstream_control_engine" in (entry.entry or "")
-                )
-                and "builtin_total_spine_clearing_proof" in (entry.entry or "")
-                and (
-                    "clearing" in tags_blob
-                    or "clearing" in name_blob
-                    or "clearing" in delta_blob
-                )
-                and ("total" in tags_blob or "total" in name_blob)
-                and (
-                    "clear_total_spine" in delta_blob
-                    or "post-settlement" in delta_blob
-                    or "post_settlement" in delta_blob
-                    or "net" in delta_blob
-                )
-            )
-        except Exception:  # noqa: BLE001
-            ledger_ok = False
-
-        ok = all(
-            [
-                flags_ok,
-                offline_ok,
-                verify_ok,
-                tamper_ok,
-                supersession_ok,
-                wrong_root_ok,
-                mismatch_ok,
-                multi_height_ok,
-                determinism_ok,
-                live_ok,
-                short_ok,
-                chain_integrity_ok,
-                differential_ok,
-                source_ok,
-                engine_source_ok,
-                mod_source_ok,
-                ledger_ok,
-                not legacy_pipeline_was_used(),
-            ]
-        )
-        return {
-            "ok": ok,
-            "action": "total_spine_clearing_proof",
-            "flags_ok": flags_ok,
-            "offline_ok": offline_ok,
-            "clearing_path": clr_path,
-            "tip_clearing_root": tip_clearing,
-            "tip_settlement_root": tip_settlement,
-            "tip_action_root": tip_action,
-            "state_root": state_root,
-            "clearing_count": offline_clr.get("total_spine_clearing_count"),
-            "verify_ok": verify_ok,
-            "tamper_ok": tamper_ok,
-            "supersession_ok": supersession_ok,
-            "wrong_root_ok": wrong_root_ok,
-            "mismatch_ok": mismatch_ok,
-            "multi_height_ok": multi_height_ok,
-            "determinism_ok": determinism_ok,
-            "live_ok": live_ok,
-            "live_clearing_path": live_clr_path,
-            "live_tip_clearing_root": live.get("total_spine_tip_clearing_root"),
-            "live_digest": live.get("total_spine_digest"),
-            "short_ok": short_ok,
-            "chain_integrity_ok": chain_integrity_ok,
-            "differential_ok": differential_ok,
-            "source_ok": source_ok,
-            "engine_source_ok": engine_source_ok,
-            "mod_source_ok": mod_source_ok,
-            "ledger_capability_ok": ledger_ok,
-            "used_skill_route_discovery": legacy_pipeline_was_used(),
-            "control_engine": True,
-            "total_spine": True,
-            "total_spine_clearing": True,
-            "total_spine_settlement": True,
-            "total_spine_actuation": True,
-            "total_spine_execution": True,
-            "total_spine_quorum": True,
-            "done_when_met": ok,
-        }
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
+    return _run_log_family_proof("clearing")
 
 
 def clearing_main(argv: Sequence[str] | None = None) -> int:
@@ -4240,6 +2672,86 @@ class LogFamilySpec:
     verify_min_ok_key: str = "min_actions_ok"
     verify_rows_ok_key: str = ""
     verify_flag_keys: tuple[tuple[str, str], ...] = ()
+    # Apply/proof runner.
+    apply_fn: str = "actuate_total_spine"
+    apply_core_fn: str = "_actuation_apply_core"
+    proof_origin: str = "actuation proof origin"
+    scratch_prefix: str = "total-spine-actuation-proof-"
+    pred_impl_flag: str = "TOTAL_SPINE_EXECUTION_IMPL"
+    result_path_key: str = "total_spine_actuation_path"
+    result_tip_key: str = "total_spine_tip_action_root"
+    result_count_key: str = "total_spine_action_count"
+    result_height_key: str = "total_spine_action_height"
+    result_bound_tip_key: str = "total_spine_actuation_bound_tip"
+    result_post_key: str = "total_spine_actuation_post_execution"
+    result_irreversible_key: str = "total_spine_actuation_irreversible"
+    result_short_key: str = "total_spine_actuation_short_circuit"
+    result_chain_key: str = "total_spine_actuation_chain"
+    result_tip_chain_key: str = "total_spine_actuation_tip"
+    loaded_key: str = "total_spine_actuation_loaded"
+    verify_bag_key: str = "actuation_verify"
+    verify_extra: tuple[str, ...] = ("action_root_ok",)
+    offline_true: tuple[str, ...] = (
+        "total_spine_actuation",
+        "total_spine_actuation_post_execution",
+        "total_spine_actuation_irreversible",
+        "total_spine_effects_applied",
+    )
+    tamper_height_field: str = "action_height"
+    supersession_drop: tuple[str, ...] = (
+        "actuation_verify",
+        "total_spine_actuation_loaded",
+        "actuation_path",
+        "actuation_digest",
+        "certificate_hash",
+        "actuated_at",
+        "total_spine_actuation",
+        "total_spine_actuation_impl",
+        "used_skill_route_discovery",
+    )
+    parent_kwarg: str = "parent_action_root"
+    height_kwarg: str = "action_height"
+    live_flags: tuple[str, ...] = ("execution", "actuation")
+    live_true: tuple[str, ...] = (
+        "total_spine_finality",
+        "total_spine_federation",
+        "total_spine_quorum",
+        "total_spine_execution",
+        "total_spine_actuation",
+        "total_spine_effects_applied",
+    )
+    engine_true_token: str = "actuation=True"
+    engine_sig_token: str = "actuation: bool = False"
+    ledger_id: str = "capability.upstream-total-spine-actuation"
+    ledger_entry_needles: tuple[str, ...] = (
+        "upstream_total_spine_actuation",
+        "upstream_control_engine",
+    )
+    ledger_proof_needle: str = "builtin_total_spine_actuation_proof"
+    ledger_delta_needles: tuple[str, ...] = (
+        "action",
+        "actuate_total_spine",
+        "post-execution",
+        "post_execution",
+    )
+    chain_params: tuple[tuple[str, str, str], ...] = (
+        ("prior_tip", "prior_tip", "str"),
+        ("actuation_digest", "actuation_digest", "str"),
+        ("tip_action_root", "tip_action_root", "str"),
+        ("bound_state_root", "bound_state_root", "str"),
+        ("action_height", "action_height", "int"),
+        ("short_circuit", "short_circuit", "bool"),
+    )
+    extra_proofs: tuple[str, ...] = ()
+    return_count_key: str = "action_count"
+    pred_digest_source: str = "executed"
+    mod_needles: tuple[str, ...] = (
+        "total_spine_actuation_supersession_refused",
+        "total_spine_actuation_tampered",
+    )
+    live_path_out_key: str = "live_actuation_path"
+    live_tip_out_key: str = "live_tip_action_root"
+    return_tip_keys: tuple[tuple[str, str], ...] = ()
 
 
 # Public names the physical actuation module exposed (api-surface probe).
@@ -4427,6 +2939,91 @@ LOG_FAMILY_SPECS: dict[str, LogFamilySpec] = {
         verify_min_ok_key="min_observations_ok",
         verify_rows_ok_key="observations_ok",
         verify_flag_keys=(("settled_ok", "settled"),),
+        apply_fn="settle_total_spine",
+        apply_core_fn="_settlement_apply_core",
+        proof_origin="settlement proof origin",
+        scratch_prefix="total-spine-settlement-proof-",
+        pred_impl_flag="TOTAL_SPINE_ACTUATION_IMPL",
+        result_path_key="total_spine_settlement_path",
+        result_tip_key="total_spine_tip_settlement_root",
+        result_count_key="total_spine_observation_count",
+        result_height_key="total_spine_observation_height",
+        result_bound_tip_key="total_spine_settlement_bound_tip",
+        result_post_key="total_spine_settlement_post_actuation",
+        result_irreversible_key="total_spine_settlement_irreversible",
+        result_short_key="total_spine_settlement_short_circuit",
+        result_chain_key="total_spine_settlement_chain",
+        result_tip_chain_key="total_spine_settlement_tip",
+        loaded_key="total_spine_settlement_loaded",
+        verify_bag_key="settlement_verify",
+        verify_extra=("settlement_root_ok", "observations_ok"),
+        offline_true=(
+            "total_spine_settlement",
+            "total_spine_settlement_post_actuation",
+            "total_spine_settlement_irreversible",
+            "total_spine_settled",
+            "total_spine_observations_ok",
+        ),
+        tamper_height_field="observation_height",
+        supersession_drop=(
+            "settlement_verify",
+            "total_spine_settlement_loaded",
+            "settlement_path",
+            "settlement_digest",
+            "certificate_hash",
+            "settled_at",
+            "total_spine_settlement",
+            "total_spine_settlement_impl",
+            "used_skill_route_discovery",
+            "contract_eval",
+        ),
+        parent_kwarg="parent_observation_root",
+        height_kwarg="observation_height",
+        live_flags=("execution", "actuation", "settlement"),
+        live_true=(
+            "total_spine_finality",
+            "total_spine_federation",
+            "total_spine_quorum",
+            "total_spine_execution",
+            "total_spine_actuation",
+            "total_spine_settlement",
+            "total_spine_settled",
+        ),
+        engine_true_token="settlement=True",
+        engine_sig_token="settlement: bool = False",
+        ledger_id="capability.upstream-total-spine-settlement",
+        ledger_entry_needles=(
+            "upstream_total_spine_settlement",
+            "upstream_control_engine",
+        ),
+        ledger_proof_needle="builtin_total_spine_settlement_proof",
+        ledger_delta_needles=(
+            "settle_total_spine",
+            "post-actuation",
+            "post_actuation",
+            "observation",
+        ),
+        chain_params=(
+            ("prior_tip", "prior_tip", "str"),
+            ("settlement_digest", "settlement_digest", "str"),
+            ("tip_settlement_root", "tip_settlement_root", "str"),
+            ("bound_action_root", "bound_action_root", "str"),
+            ("bound_state_root", "bound_state_root", "str"),
+            ("actuation_digest", "actuation_digest", "str"),
+            ("observation_height", "observation_height", "int"),
+            ("short_circuit", "short_circuit", "bool"),
+        ),
+        extra_proofs=("unmet",),
+        return_count_key="observation_count",
+        pred_digest_source="actuated",
+        mod_needles=(
+            "total_spine_settlement_supersession_refused",
+            "total_spine_settlement_tampered",
+            "total_spine_settlement_contract_unmet",
+        ),
+        live_path_out_key="live_settlement_path",
+        live_tip_out_key="live_tip_settlement_root",
+        return_tip_keys=(("tip_action_root", "tip_action"),),
     ),
     "clearing": LogFamilySpec(
         name="clearing",
@@ -4465,6 +3062,99 @@ LOG_FAMILY_SPECS: dict[str, LogFamilySpec] = {
         verify_min_ok_key="min_clearings_ok",
         verify_rows_ok_key="clearings_ok",
         verify_flag_keys=(("cleared_ok", "cleared"), ("discharged_ok", "discharged")),
+        apply_fn="clear_total_spine",
+        apply_core_fn="_clearing_apply_core",
+        proof_origin="clearing proof origin",
+        scratch_prefix="total-spine-clearing-proof-",
+        pred_impl_flag="TOTAL_SPINE_SETTLEMENT_IMPL",
+        result_path_key="total_spine_clearing_path",
+        result_tip_key="total_spine_tip_clearing_root",
+        result_count_key="total_spine_clearing_count",
+        result_height_key="total_spine_clearing_height",
+        result_bound_tip_key="total_spine_clearing_bound_tip",
+        result_post_key="total_spine_clearing_post_settlement",
+        result_irreversible_key="total_spine_clearing_irreversible",
+        result_short_key="total_spine_clearing_short_circuit",
+        result_chain_key="total_spine_clearing_chain",
+        result_tip_chain_key="total_spine_clearing_tip",
+        loaded_key="total_spine_clearing_loaded",
+        verify_bag_key="clearing_verify",
+        verify_extra=("clearing_root_ok", "clearings_ok"),
+        offline_true=(
+            "total_spine_clearing",
+            "total_spine_clearing_post_settlement",
+            "total_spine_clearing_irreversible",
+            "total_spine_cleared",
+            "total_spine_discharged",
+            "total_spine_net_ok",
+        ),
+        tamper_height_field="clearing_height",
+        supersession_drop=(
+            "clearing_verify",
+            "total_spine_clearing_loaded",
+            "clearing_path",
+            "clearing_digest",
+            "certificate_hash",
+            "cleared_at",
+            "total_spine_clearing",
+            "total_spine_clearing_impl",
+            "used_skill_route_discovery",
+            "contract_eval",
+        ),
+        parent_kwarg="parent_clearing_root",
+        height_kwarg="clearing_height",
+        live_flags=("execution", "actuation", "settlement", "clearing"),
+        live_true=(
+            "total_spine_finality",
+            "total_spine_federation",
+            "total_spine_quorum",
+            "total_spine_execution",
+            "total_spine_actuation",
+            "total_spine_settlement",
+            "total_spine_clearing",
+            "total_spine_cleared",
+            "total_spine_discharged",
+        ),
+        engine_true_token="clearing=True",
+        engine_sig_token="clearing: bool = False",
+        ledger_id="capability.upstream-total-spine-clearing",
+        ledger_entry_needles=(
+            "upstream_total_spine_clearing",
+            "upstream_control_engine",
+        ),
+        ledger_proof_needle="builtin_total_spine_clearing_proof",
+        ledger_delta_needles=(
+            "clear_total_spine",
+            "post-settlement",
+            "post_settlement",
+            "net",
+        ),
+        chain_params=(
+            ("prior_tip", "prior_tip", "str"),
+            ("clearing_digest", "clearing_digest", "str"),
+            ("tip_clearing_root", "tip_clearing_root", "str"),
+            ("bound_settlement_root", "bound_settlement_root", "str"),
+            ("bound_action_root", "bound_action_root", "str"),
+            ("bound_state_root", "bound_state_root", "str"),
+            ("actuation_digest", "actuation_digest", "str"),
+            ("settlement_digest", "settlement_digest", "str"),
+            ("clearing_height", "clearing_height", "int"),
+            ("short_circuit", "short_circuit", "bool"),
+        ),
+        extra_proofs=("mismatch",),
+        return_count_key="clearing_count",
+        pred_digest_source="settled",
+        mod_needles=(
+            "total_spine_clearing_supersession_refused",
+            "total_spine_clearing_tampered",
+            "total_spine_clearing_net_failed",
+        ),
+        live_path_out_key="live_clearing_path",
+        live_tip_out_key="live_tip_clearing_root",
+        return_tip_keys=(
+            ("tip_settlement_root", "tip_settlement"),
+            ("tip_action_root", "tip_action"),
+        ),
     ),
 }
 
@@ -4967,6 +3657,847 @@ def builtin_log_family_engine_proof() -> dict[str, Any]:
         "schema_version": SCHEMA_VERSION,
         "action": "log_family_engine_proof",
         "ok": all(checks.values()) and wired_count == 6,
+        "checks": checks,
+        "wired": wired,
+        "wired_count": wired_count,
+        "families": sorted(LOG_FAMILY_SPECS),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def _apply_log_family(name: str, source: Any, **kwargs: Any) -> dict[str, Any]:
+    """Dispatch one log-family apply through the spec-owned core."""
+
+    spec = _log_family_spec(name)
+    core = getattr(sys.modules[__name__], spec.apply_core_fn)
+    return core(source, **kwargs)
+
+
+def _short_circuit_log_apply(
+    name: str,
+    resolved: Mapping[str, Any],
+    body: dict[str, Any] | None,
+    prior_tip: str | None,
+) -> dict[str, Any]:
+    spec = _log_family_spec(name)
+    annotate = getattr(sys.modules[__name__], f"annotate_total_spine_{name}")
+    tip = str(
+        prior_tip
+        or resolved.get("prior_tip")
+        or (body or {}).get("total_spine_digest")
+        or ""
+    )
+    result = body if body is not None else {
+        "ok": True,
+        "action": f"{spec.verb}_total_spine",
+        "total_spine": True,
+    }
+    return annotate(
+        result,
+        certificate=resolved,
+        prior_tip=tip,
+        short_circuit=True,
+    )
+
+
+def _finish_log_apply(
+    name: str,
+    *,
+    cert_body: Mapping[str, Any],
+    out_root: Path | None,
+    body: dict[str, Any] | None,
+    prior_tip: str,
+    short_circuit: bool,
+    extra: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Shared seal/write + annotate + compressed hop-chain tail."""
+
+    from blackhole_agent.upstream_control_engine import (
+        seal_total_spine_hop_chain,
+        total_nest_depth,
+    )
+
+    host = sys.modules[__name__]
+    write_fn = getattr(host, f"write_total_spine_{name}_certificate")
+    seal_fn = getattr(host, f"seal_total_spine_{name}_certificate")
+    annotate = getattr(host, f"annotate_total_spine_{name}")
+    spec = _log_family_spec(name)
+    write_target = Path(out_root) if out_root is not None else None
+    if write_target is not None:
+        certificate = write_fn(write_target, cert_body)
+    else:
+        certificate = seal_fn(cert_body)
+    root_layer = str(cert_body.get("root_layer") or "")
+    result = body if body is not None else {
+        "ok": True,
+        "action": f"{spec.verb}_total_spine",
+        "total_spine": True,
+        "total_spine_root": root_layer,
+        "total_nest_depth": total_nest_depth(root_layer),
+    }
+    annotated = annotate(
+        result,
+        certificate=certificate,
+        prior_tip=prior_tip,
+        short_circuit=short_circuit,
+    )
+    if annotated.get("total_spine_compressed") and root_layer:
+        live_result = {
+            "institution_digest": annotated.get("institution_digest") or prior_tip,
+            "ok": True,
+        }
+        bound = str(annotated.get(f"total_spine_{name}_bound_tip") or prior_tip)
+        hops = seal_total_spine_hop_chain(root_layer, live_result, tip=bound)
+        annotated["total_spine_hop_chain"] = hops
+        annotated["total_spine_hop_count"] = len(hops)
+        if hops:
+            annotated["total_spine_digest"] = hops[0].get("digest")
+            annotated[f"{root_layer}_digest"] = hops[0].get("digest")
+    if extra:
+        for key, value in extra.items():
+            if key == "setdefault_actuation_certificate" and value:
+                annotated.setdefault("total_spine_actuation_certificate", value)
+            else:
+                annotated[key] = value
+    annotated["used_skill_route_discovery"] = legacy_pipeline_was_used()
+    return annotated
+
+
+def _proof_write_origins(scratch: Path, origin_goal: str) -> list[str]:
+    from blackhole_agent.upstream_control_engine import (
+        SCHEMA_VERSION as ENGINE_SCHEMA,
+        TOTAL_SPINE_FINALITY_KIND,
+        write_total_spine_finality_certificate,
+    )
+
+    good_id = "repo.import-health"
+    inv_id = "capability.ledger-inventory"
+    contract_pass = "min_proved:1; no_skill_route"
+    contract_byzantine = "min_proved:99; no_skill_route"
+    paths: list[str] = []
+    for idx, done_when in enumerate(
+        (contract_pass, contract_pass, contract_byzantine)
+    ):
+        body = {
+            "schema_version": ENGINE_SCHEMA,
+            "kind": TOTAL_SPINE_FINALITY_KIND,
+            "root_layer": "quettacontinuum",
+            "goal": origin_goal,
+            "done_when": done_when,
+            "capabilities": [good_id, inv_id],
+            "operational_tip": f"{idx + 1:x}" * 64,
+            "bound_tip": f"{(idx + 4):x}" * 64,
+            "continuity_digest": f"{(idx + 7):x}" * 64,
+            "adaptive_round_count": 0,
+            "effects_ok": True,
+            "contract_met": True,
+            "recovered": False,
+            "irreversible": True,
+            "success": True,
+            "finalized_at": utc_now_iso(),
+        }
+        cert = write_total_spine_finality_certificate(
+            scratch / f"origin-{idx}", body
+        )
+        paths.append(str(cert.get("finality_path") or ""))
+    return paths
+
+
+def _proof_execute_tower(scratch: Path, paths: Sequence[str]) -> dict[str, Any]:
+    from blackhole_agent.upstream_control_engine import (
+        execute_total_spine,
+        federate_total_spine,
+    )
+
+    quorumed = federate_total_spine(
+        list(paths),
+        out_root=scratch / "quorum",
+        prior_tip="a" * 64,
+        quorum=True,
+    )
+    executed = execute_total_spine(
+        quorumed.get("total_spine_federation_certificate"),
+        out_root=scratch / "exec-h1",
+        prior_tip=str(quorumed.get("total_spine_federation_bound_tip") or ""),
+        body={
+            "ok": True,
+            "total_spine": True,
+            "total_spine_root": "quettacontinuum",
+            "total_spine_compressed": True,
+            "total_nest_depth": 28,
+            "total_spine_federation": True,
+            "total_spine_quorum": True,
+            "total_spine_digest": quorumed.get("total_spine_digest"),
+            "total_spine_federation_bound_tip": quorumed.get(
+                "total_spine_federation_bound_tip"
+            ),
+        },
+        state_height=1,
+    )
+    return {"quorumed": quorumed, "executed": executed}
+
+
+def _proof_build_offline(
+    name: str,
+    scratch: Path,
+    executed: Mapping[str, Any],
+    quorumed: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Family-specific predecessor + offline apply. Shared proof consumes this."""
+
+    good_id = "repo.import-health"
+    inv_id = "capability.ledger-inventory"
+    if name == "actuation":
+        offline = actuate_total_spine(
+            executed.get("total_spine_execution_certificate")
+            or executed.get("total_spine_execution_path"),
+            out_root=scratch / "act-h1",
+            prior_tip=str(executed.get("total_spine_execution_bound_tip") or ""),
+            body=dict(executed),
+            capabilities=[good_id, inv_id],
+            repo_path=REPO_ROOT,
+            effect_timeout=90,
+            dispatch=True,
+        )
+        return {
+            "offline": offline,
+            "state_root": str(executed.get("total_spine_state_root") or ""),
+            "pred_digest": str(executed.get("total_spine_digest") or ""),
+            "multi_source": executed.get("total_spine_execution_certificate"),
+            "multi_kwargs": {
+                "dispatch": False,
+                "capabilities": [good_id, inv_id],
+                "repo_path": REPO_ROOT,
+                "effect_timeout": 90,
+            },
+            "write_dir": scratch / "act-h1",
+            "executed": executed,
+            "quorumed": quorumed,
+        }
+    actuated = actuate_total_spine(
+        executed.get("total_spine_execution_certificate")
+        or executed.get("total_spine_execution_path"),
+        out_root=scratch / "act-h1",
+        prior_tip=str(executed.get("total_spine_execution_bound_tip") or ""),
+        body=dict(executed),
+        capabilities=[good_id, inv_id],
+        repo_path=REPO_ROOT,
+        effect_timeout=90,
+        dispatch=True,
+    )
+    if name == "settlement":
+        offline = settle_total_spine(
+            actuated.get("total_spine_actuation_certificate")
+            or actuated.get("total_spine_actuation_path"),
+            out_root=scratch / "set-h1",
+            prior_tip=str(actuated.get("total_spine_actuation_bound_tip") or ""),
+            body=dict(actuated),
+            repo_path=REPO_ROOT,
+        )
+        return {
+            "offline": offline,
+            "state_root": str(actuated.get("total_spine_state_root") or ""),
+            "pred_digest": str(actuated.get("total_spine_digest") or ""),
+            "tip_action": str(actuated.get("total_spine_tip_action_root") or ""),
+            "multi_source": actuated.get("total_spine_actuation_certificate"),
+            "multi_kwargs": {"repo_path": REPO_ROOT},
+            "write_dir": scratch / "set-h1",
+            "actuated": actuated,
+            "executed": executed,
+            "quorumed": quorumed,
+        }
+    settled = settle_total_spine(
+        actuated.get("total_spine_actuation_certificate")
+        or actuated.get("total_spine_actuation_path"),
+        out_root=scratch / "set-h1",
+        prior_tip=str(actuated.get("total_spine_actuation_bound_tip") or ""),
+        body=dict(actuated),
+        repo_path=REPO_ROOT,
+    )
+    tip_settlement = str(settled.get("total_spine_tip_settlement_root") or "")
+    confirmed = settle_total_spine(
+        actuated.get("total_spine_actuation_certificate"),
+        out_root=scratch / "set-h2",
+        prior_tip=str(settled.get("total_spine_settlement_bound_tip") or ""),
+        parent_observation_root=tip_settlement,
+        observation_height=int(settled.get("total_spine_observation_height") or 0)
+        + 1,
+        repo_path=REPO_ROOT,
+    )
+    s1 = settled.get("total_spine_settlement_certificate") or {}
+    s2 = confirmed.get("total_spine_settlement_certificate") or {}
+    offline = clear_total_spine(
+        [s1, s2],
+        out_root=scratch / "clr-h1",
+        prior_tip=str(
+            confirmed.get("total_spine_settlement_bound_tip")
+            or settled.get("total_spine_settlement_bound_tip")
+            or ""
+        ),
+        body=dict(confirmed),
+        repo_path=REPO_ROOT,
+        confirm=False,
+    )
+    return {
+        "offline": offline,
+        "state_root": str(settled.get("total_spine_state_root") or ""),
+        "pred_digest": str(settled.get("total_spine_digest") or ""),
+        "tip_action": str(settled.get("total_spine_tip_action_root") or ""),
+        "tip_settlement": tip_settlement,
+        "multi_source": [s1, s2],
+        "multi_kwargs": {"repo_path": REPO_ROOT, "confirm": False},
+        "write_dir": scratch / "clr-h1",
+        "s1": s1,
+        "s2": s2,
+        "actuated": actuated,
+        "settled": settled,
+        "executed": executed,
+        "quorumed": quorumed,
+    }
+
+
+def _run_log_family_proof(name: str) -> dict[str, Any]:
+    """One hermetic proof runner for actuation, settlement, and clearing."""
+
+    import shutil
+    import tempfile
+
+    from blackhole_agent.capability_compounder import (
+        default_ledger_path,
+        load_ledger,
+    )
+    from blackhole_agent.upstream_control_engine import run_total_spine
+
+    spec = _log_family_spec(name)
+    host = sys.modules[__name__]
+    apply_fn = getattr(host, spec.apply_fn)
+    load_fn = getattr(host, f"load_total_spine_{name}_certificate")
+    write_fn = getattr(host, f"write_total_spine_{name}_certificate")
+    seal_fn = getattr(host, f"seal_total_spine_{name}_certificate")
+    verify_fn = getattr(host, f"verify_total_spine_{name}_certificate")
+    chain_fn = getattr(host, f"seal_total_spine_{name}_chain")
+    tip_fn = getattr(host, spec.tip_fn)
+    impl = getattr(host, spec.impl_flag)
+    from blackhole_agent import upstream_control_engine as uce
+
+    pred_impl = getattr(host, spec.pred_impl_flag, None)
+    if pred_impl is None:
+        pred_impl = getattr(uce, spec.pred_impl_flag, True)
+    proof_fn = getattr(host, f"builtin_total_spine_{name}_proof")
+
+    scratch = Path(tempfile.mkdtemp(prefix=spec.scratch_prefix))
+    try:
+        from blackhole_agent import upstream_loop_engine as le_facade
+
+        flags_ok = (
+            impl is True
+            and pred_impl is True
+            and spec.kind == f"total_spine_{name}"
+            and bool(spec.filename)
+            and spec.min_value >= 2
+        )
+        # Engine alias used by historical flags_ok (control-engine re-export).
+        from blackhole_agent import upstream_control_engine as uce
+
+        engine_impl = getattr(uce, spec.impl_flag, impl)
+        flags_ok = flags_ok and engine_impl is True
+
+        paths = _proof_write_origins(scratch, spec.proof_origin)
+        tower = _proof_execute_tower(scratch, paths)
+        built = _proof_build_offline(
+            name, scratch, tower["executed"], tower["quorumed"]
+        )
+        offline = built["offline"]
+        state_root = str(built["state_root"] or "")
+        tip = str(offline.get(spec.result_tip_key) or "")
+        path = offline.get(spec.result_path_key)
+        offline_ok = (
+            bool(offline.get("ok"))
+            and all(offline.get(key) is True for key in spec.offline_true)
+            and int(offline.get(spec.result_count_key) or 0) >= 2
+            and int(offline.get(spec.result_height_key) or 0) >= 2
+            and len(tip) >= 32
+            and str(offline.get("total_spine_state_root") or "") == state_root
+            and str(offline.get("total_spine_digest") or "")
+            != str(built.get("pred_digest") or "")
+            and isinstance(path, str)
+            and Path(path).is_file()
+            and not legacy_pipeline_was_used()
+        )
+        if name == "clearing":
+            offline_ok = offline_ok and int(
+                offline.get("total_spine_clearing_residual") or 0
+            ) == 0
+        if name in {"settlement", "clearing"}:
+            offline_ok = offline_ok and str(
+                offline.get("total_spine_tip_action_root") or ""
+            ) == str(built.get("tip_action") or "")
+
+        loaded = load_fn(path or scratch)
+        verify_bag = loaded.get(spec.verify_bag_key) or {}
+        verify_ok = bool(
+            loaded.get(spec.loaded_key)
+            and verify_bag.get("ok")
+            and verify_bag.get("chain_ok")
+            and all(verify_bag.get(key) for key in spec.verify_extra)
+        )
+
+        tampered_path = scratch / f"tampered-{name}.json"
+        tampered_body = dict(loaded)
+        for drop in (spec.verify_bag_key, spec.loaded_key, f"{name}_path"):
+            tampered_body.pop(drop, None)
+        tampered_body[spec.tamper_height_field] = 99
+        atomic_write_json(tampered_path, tampered_body)
+        tamper_ok = False
+        try:
+            load_fn(tampered_path)
+        except StageRefused as exc:
+            tamper_ok = str(exc.verdict) == f"total_spine_{name}_tampered"
+        except Exception:  # noqa: BLE001
+            tamper_ok = False
+
+        supersession_ok = False
+        try:
+            write_fn(
+                built["write_dir"],
+                {
+                    **{
+                        k: v
+                        for k, v in loaded.items()
+                        if k not in spec.supersession_drop
+                    },
+                    "goal": "forged-supersession-goal",
+                    spec.tip_key: "",
+                },
+            )
+        except StageRefused as exc:
+            supersession_ok = (
+                str(exc.verdict) == f"total_spine_{name}_supersession_refused"
+            )
+        except Exception:  # noqa: BLE001
+            supersession_ok = False
+
+        wrong_body = dict(loaded)
+        for drop in (spec.verify_bag_key, spec.loaded_key, f"{name}_path"):
+            wrong_body.pop(drop, None)
+        wrong_body["bound_state_root"] = "f" * 64
+        resealed = seal_fn(wrong_body)
+        wrong_verify = verify_fn(resealed)
+        wrong_root_ok = wrong_verify.get("ok") is False and (
+            wrong_verify.get("chain_ok") is False
+            or wrong_verify.get(spec.verify_root_ok_key) is False
+        )
+
+        multi_kwargs = dict(built.get("multi_kwargs") or {})
+        multi_kwargs.update(
+            {
+                "out_root": scratch / f"{spec.name[:3]}-h2",
+                "prior_tip": str(offline.get(spec.result_bound_tip_key) or ""),
+                spec.parent_kwarg: tip,
+                spec.height_kwarg: int(offline.get(spec.result_height_key) or 0)
+                + 1,
+            }
+        )
+        h2 = apply_fn(built.get("multi_source"), **multi_kwargs)
+        multi_height_ok = (
+            bool(h2.get("ok"))
+            and int(h2.get(spec.result_count_key) or 0) >= 2
+            and str(h2.get(spec.result_tip_key) or "") != tip
+            and str(
+                (h2.get(f"total_spine_{name}_certificate") or {}).get(
+                    spec.parent_key
+                )
+                or ""
+            )
+            == tip
+        )
+
+        recomputed = tip_fn(loaded.get(spec.rows_key) or [])
+        determinism_ok = recomputed == tip and bool(recomputed)
+
+        extras: dict[str, bool] = {}
+        if "unmet" in spec.extra_proofs:
+            extras["unmet_ok"] = False
+            try:
+                fail_act = dict(
+                    (built.get("actuated") or {}).get(
+                        "total_spine_actuation_certificate"
+                    )
+                    or {}
+                )
+                fail_act["done_when"] = "min_proved:99999; no_skill_route"
+                settle_total_spine(
+                    fail_act,
+                    out_root=scratch / "set-unmet",
+                    prior_tip=str(
+                        (built.get("actuated") or {}).get(
+                            "total_spine_actuation_bound_tip"
+                        )
+                        or ""
+                    ),
+                    repo_path=REPO_ROOT,
+                    require_contract=True,
+                )
+            except StageRefused as exc:
+                extras["unmet_ok"] = (
+                    str(exc.verdict) == "total_spine_settlement_contract_unmet"
+                )
+            except Exception:  # noqa: BLE001
+                extras["unmet_ok"] = False
+        if "mismatch" in spec.extra_proofs:
+            extras["mismatch_ok"] = False
+            try:
+                from blackhole_agent.upstream_control_engine import (
+                    execute_total_spine,
+                )
+
+                executed = built["executed"]
+                quorumed = built["quorumed"]
+                executed2 = execute_total_spine(
+                    quorumed.get("total_spine_federation_certificate"),
+                    out_root=scratch / "exec-h2",
+                    prior_tip=str(
+                        executed.get("total_spine_execution_bound_tip") or ""
+                    ),
+                    parent_state_root=state_root,
+                    state_height=2,
+                )
+                actuated2 = actuate_total_spine(
+                    executed2.get("total_spine_execution_certificate"),
+                    out_root=scratch / "act-h2",
+                    prior_tip=str(
+                        executed2.get("total_spine_execution_bound_tip") or ""
+                    ),
+                    capabilities=["repo.import-health", "capability.ledger-inventory"],
+                    repo_path=REPO_ROOT,
+                    effect_timeout=90,
+                    dispatch=True,
+                )
+                other = settle_total_spine(
+                    actuated2.get("total_spine_actuation_certificate"),
+                    out_root=scratch / "set-other",
+                    prior_tip=str(
+                        actuated2.get("total_spine_actuation_bound_tip") or ""
+                    ),
+                    repo_path=REPO_ROOT,
+                )
+                net_total_spine_settlements(
+                    [
+                        built.get("s1") or {},
+                        other.get("total_spine_settlement_certificate") or {},
+                    ],
+                    min_clearings=2,
+                )
+            except StageRefused as exc:
+                extras["mismatch_ok"] = (
+                    str(exc.verdict) == "total_spine_clearing_root_mismatch"
+                )
+            except Exception:  # noqa: BLE001
+                extras["mismatch_ok"] = False
+
+        contract_pass = "min_proved:1; no_skill_route"
+        live_kwargs = {
+            flag: True for flag in spec.live_flags
+        }
+        live = run_total_spine(
+            root_layer="quettacontinuum",
+            out_root=scratch / f"live-{spec.name[:3]}",
+            max_rounds=1,
+            dispatch=True,
+            dispatch_budget=2,
+            max_successions=1,
+            max_epochs=1,
+            max_waves=1,
+            compress=True,
+            effects=True,
+            capabilities=["repo.import-health", "capability.ledger-inventory"],
+            done_when=contract_pass,
+            adaptive=False,
+            continuity=False,
+            finality=True,
+            resume_dir=paths[0],
+            federation_peers=[paths[1], paths[2]],
+            federation_quorum=True,
+            effect_timeout=90,
+            repo_path=REPO_ROOT,
+            **live_kwargs,
+        )
+        live_path = live.get(spec.result_path_key)
+        live_ok = (
+            bool(live.get("ok"))
+            and live.get("total_spine") is True
+            and all(live.get(key) is True for key in spec.live_true)
+            and int(live.get(spec.result_count_key) or 0) >= 2
+            and isinstance(live.get(spec.result_tip_key), str)
+            and len(str(live.get(spec.result_tip_key))) >= 32
+            and int(live.get("total_nest_depth") or 0) == 28
+            and isinstance(live_path, str)
+            and Path(live_path).is_file()
+            and not legacy_pipeline_was_used()
+        )
+
+        short_kwargs = {
+            flag: True for flag in spec.live_flags
+        }
+        shorted = run_total_spine(
+            root_layer="quettacontinuum",
+            out_root=scratch / f"short-{spec.name[:3]}",
+            max_rounds=1,
+            dispatch=True,
+            dispatch_budget=2,
+            max_successions=1,
+            max_epochs=1,
+            max_waves=1,
+            compress=True,
+            effects=True,
+            capabilities=["repo.import-health", "capability.ledger-inventory"],
+            done_when=contract_pass,
+            finality=True,
+            resume_dir=live_path or (scratch / f"live-{spec.name[:3]}"),
+            effect_timeout=90,
+            repo_path=REPO_ROOT,
+            **short_kwargs,
+        )
+        short_ok = (
+            bool(shorted.get("ok"))
+            and shorted.get(f"total_spine_{name}") is True
+            and shorted.get(spec.result_short_key) is True
+            and str(shorted.get(spec.result_tip_key) or "")
+            == str(live.get(spec.result_tip_key) or "")
+            and int(shorted.get("total_nest_depth") or 0) == 28
+            and not legacy_pipeline_was_used()
+        )
+
+        chain = live.get(spec.result_chain_key) or {}
+        chain_integrity_ok = False
+        if isinstance(chain, Mapping) and chain:
+            reseal_kwargs: dict[str, Any] = {}
+            for param, key, kind in spec.chain_params:
+                raw = chain.get(key)
+                if kind == "int":
+                    reseal_kwargs[param] = int(raw or 0)
+                elif kind == "bool":
+                    reseal_kwargs[param] = bool(raw)
+                else:
+                    reseal_kwargs[param] = str(raw or "")
+            re_seal = chain_fn(**reseal_kwargs)
+            chain_integrity_ok = (
+                re_seal.get("digest") == chain.get("digest")
+                and re_seal.get("digest") == live.get(spec.result_tip_chain_key)
+            )
+
+        differential_ok = (
+            offline_ok
+            and live_ok
+            and str(built.get("pred_digest") or "")
+            != str(offline.get("total_spine_digest") or "")
+        )
+
+        source_ok = (
+            getattr(le_facade, spec.impl_flag, None) is impl
+            and getattr(le_facade, f"builtin_total_spine_{name}_proof", None)
+            is proof_fn
+            and getattr(le_facade, spec.apply_fn, None) is apply_fn
+            and callable(getattr(le_facade, f"builtin_total_spine_{name}_proof", None))
+            and callable(getattr(le_facade, spec.apply_fn, None))
+            and getattr(le_facade, spec.impl_flag, False) is True
+        )
+
+        engine_path = Path(
+            __import__(
+                "blackhole_agent.upstream_control_engine", fromlist=["_"]
+            ).__file__
+        ).resolve()
+        engine_text = engine_path.read_text(encoding="utf-8")
+        engine_source_ok = (
+            spec.impl_flag in engine_text
+            and spec.apply_fn in engine_text
+            and (
+                spec.engine_true_token in engine_text
+                or spec.engine_sig_token in engine_text
+            )
+            and spec.ledger_proof_needle in engine_text
+        )
+
+        mod_path = Path(__file__).resolve()
+        mod_text = mod_path.read_text(encoding="utf-8")
+        mod_source_ok = (
+            f"def {spec.apply_fn}" in mod_text
+            and f"def builtin_total_spine_{name}_proof" in mod_text
+            and all(needle in mod_text for needle in spec.mod_needles)
+        )
+
+        ledger_ok = False
+        try:
+            ledger = load_ledger(default_ledger_path(REPO_ROOT))
+            entry = ledger.capabilities.get(spec.ledger_id)
+            tags_blob = " ".join(entry.tags).lower() if entry else ""
+            delta_blob = (entry.capability_delta or "").lower() if entry else ""
+            name_blob = (entry.name or "").lower() if entry else ""
+            ledger_ok = (
+                entry is not None
+                and any(needle in (entry.entry or "") for needle in spec.ledger_entry_needles)
+                and spec.ledger_proof_needle in (entry.entry or "")
+                and (
+                    name in tags_blob
+                    or name in name_blob
+                    or name in delta_blob
+                )
+                and ("total" in tags_blob or "total" in name_blob)
+                and any(needle in delta_blob for needle in spec.ledger_delta_needles)
+            )
+        except Exception:  # noqa: BLE001
+            ledger_ok = False
+
+        required = [
+            flags_ok,
+            offline_ok,
+            verify_ok,
+            tamper_ok,
+            supersession_ok,
+            wrong_root_ok,
+            multi_height_ok,
+            determinism_ok,
+            live_ok,
+            short_ok,
+            chain_integrity_ok,
+            differential_ok,
+            source_ok,
+            engine_source_ok,
+            mod_source_ok,
+            ledger_ok,
+            not legacy_pipeline_was_used(),
+        ]
+        required.extend(extras.values())
+        ok = all(required)
+        out: dict[str, Any] = {
+            "ok": ok,
+            "action": f"total_spine_{name}_proof",
+            "flags_ok": flags_ok,
+            "offline_ok": offline_ok,
+            spec.result_path_key.replace("total_spine_", "")
+            if False
+            else f"{name}_path": path,
+            spec.result_tip_key.replace("total_spine_tip_", "tip_"): tip,
+            "state_root": state_root,
+            spec.return_count_key: offline.get(spec.result_count_key),
+            "verify_ok": verify_ok,
+            "tamper_ok": tamper_ok,
+            "supersession_ok": supersession_ok,
+            "wrong_root_ok": wrong_root_ok,
+            "multi_height_ok": multi_height_ok,
+            "determinism_ok": determinism_ok,
+            "live_ok": live_ok,
+            spec.live_path_out_key: live_path,
+            spec.live_tip_out_key: live.get(spec.result_tip_key),
+            "live_digest": live.get("total_spine_digest"),
+            "short_ok": short_ok,
+            "chain_integrity_ok": chain_integrity_ok,
+            "differential_ok": differential_ok,
+            "source_ok": source_ok,
+            "engine_source_ok": engine_source_ok,
+            "mod_source_ok": mod_source_ok,
+            "ledger_capability_ok": ledger_ok,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+            "control_engine": True,
+            "total_spine": True,
+            f"total_spine_{name}": True,
+            "total_spine_execution": True,
+            "total_spine_quorum": True,
+            "done_when_met": ok,
+        }
+        # Historical output keys: actuation_path / tip_action_root, etc.
+        out[f"{name}_path"] = path
+        out[spec.result_tip_key.replace("total_spine_tip_", "tip_")] = tip
+        for out_key, ctx_key in spec.return_tip_keys:
+            out[out_key] = built.get(ctx_key)
+        if name == "settlement":
+            out["tip_settlement_root"] = tip
+            out["tip_action_root"] = built.get("tip_action")
+            out["settlement_path"] = path
+        if name == "actuation":
+            out["actuation_path"] = path
+            out["tip_action_root"] = tip
+        if name == "clearing":
+            out["clearing_path"] = path
+            out["tip_clearing_root"] = tip
+            out["tip_settlement_root"] = built.get("tip_settlement")
+            out["tip_action_root"] = built.get("tip_action")
+            out["total_spine_settlement"] = True
+            out["total_spine_actuation"] = True
+        if name == "settlement":
+            out["total_spine_actuation"] = True
+        out.update(extras)
+        return out
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def builtin_log_family_runner_proof() -> dict[str, Any]:
+    """Hermetic proof: apply + family proofs are one spec-driven runner."""
+
+    import inspect
+
+    host = sys.modules[__name__]
+    checks: dict[str, bool] = {}
+    wired: dict[str, bool] = {}
+    for name, spec in LOG_FAMILY_SPECS.items():
+        apply_fn = getattr(host, spec.apply_fn)
+        proof_fn = getattr(host, f"builtin_total_spine_{name}_proof")
+        wired[f"{name}_apply"] = "_apply_log_family" in inspect.getsource(apply_fn)
+        wired[f"{name}_proof"] = "_run_log_family_proof" in inspect.getsource(
+            proof_fn
+        )
+        wired[f"{name}_core"] = callable(getattr(host, spec.apply_core_fn, None))
+    checks["wired_wrappers"] = all(wired.values())
+    checks["three_specs"] = set(LOG_FAMILY_SPECS) == {
+        "actuation",
+        "settlement",
+        "clearing",
+    }
+    checks["shared_apply"] = callable(_apply_log_family)
+    checks["shared_proof"] = callable(_run_log_family_proof)
+    checks["shared_finish"] = callable(_finish_log_apply)
+
+    # Cheap apply identity: short-circuit a sealed actuation through the runner.
+    actions = build_total_spine_action_log(
+        capabilities=list(TOTAL_SPINE_DEFAULT_EFFECT_CAPABILITIES),
+        bound_state_root="s" * 64,
+        execution_digest="e" * 64,
+    )
+    sealed = seal_total_spine_actuation_certificate(
+        {
+            "schema_version": SCHEMA_VERSION,
+            "kind": TOTAL_SPINE_ACTUATION_KIND,
+            "bound_state_root": "s" * 64,
+            "bound_state_height": 1,
+            "execution_digest": "e" * 64,
+            "actions": actions,
+            "effects_applied": True,
+            "effects_ok": True,
+            "post_execution": True,
+            "deterministic": True,
+            "irreversible": True,
+            "success": True,
+        }
+    )
+    shorted = _apply_log_family(
+        "actuation",
+        sealed,
+        short_circuit=True,
+        dispatch=False,
+    )
+    checks["apply_short_circuit"] = (
+        shorted.get("total_spine_actuation") is True
+        and shorted.get("total_spine_actuation_short_circuit") is True
+        and shorted.get("ok") is True
+    )
+    checks["no_skill_route"] = not legacy_pipeline_was_used()
+    wired_count = sum(1 for ok in wired.values() if ok)
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "action": "log_family_runner_proof",
+        "ok": all(checks.values()) and wired_count == 9,
         "checks": checks,
         "wired": wired,
         "wired_count": wired_count,
