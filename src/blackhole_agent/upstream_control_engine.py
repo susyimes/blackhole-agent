@@ -107,6 +107,11 @@ Composition:
   reorganization. ``SPINE_STAGE_CHAIN`` remains the settlement-through-
   reorganization slice. Execution and actuation are catalog rows, not
   remaining hand-wired copies.
+* total-spine **resume catalog** — resume-certificate load, caller/resume
+  implication, ``_on`` flags, and post-consensus short-circuit dispatch
+  are derived from :data:`SPINE_RESUME_PLANES`. A new stage is a catalog
+  row, not four more copies in ``_attach_total_spine_effects``. Finality
+  short-circuit stays a special path so federation can still attach.
 * total-spine **post-settlement clearing** — closes the settled-but-
   uncleared cliff: after settlement seals a unilateral observation
   receipt, ``clear_total_spine(...)`` (and ``run_total_spine(clearing=True)``)
@@ -7225,6 +7230,244 @@ def _apply_spine_stages(
     )
 
 
+# Resume/rehydrate catalog. Finality is a resume plane; post-consensus
+# short-circuit walks this table from the tip. Continuity stays separate.
+# Historical quirks are data: emergence/reorganization skip resume-implies,
+# caller implication starts at delivery, successor _on flags start at risk,
+# continuity swallow-guard and config fallbacks omit the newest tip planes.
+SPINE_RESUME_PLANES: tuple[str, ...] = (
+    "finality",
+    *(spec[0] for spec in _TOTAL_SPINE_EFFECT_CHAIN),
+)
+SPINE_RESUME_POST_CONSENSUS: tuple[str, ...] = tuple(
+    spec[0] for spec in _TOTAL_SPINE_EFFECT_CHAIN
+)
+SPINE_RESUME_CATALOG_IMPL = True
+SPINE_CALLER_IMPLY_FROM: str = "delivery"
+SPINE_RESUME_IMPLY_SKIPS: frozenset[str] = frozenset(
+    {"emergence", "reorganization"}
+)
+SPINE_SUCCESSOR_ON_FROM: str = "risk"
+SPINE_CONTINUITY_GUARD_PLANES: tuple[str, ...] = (
+    "finality",
+    "execution",
+    "actuation",
+    "settlement",
+    "clearing",
+    "delivery",
+    "custody",
+    "margin",
+    "collateral",
+    "liquidity",
+    "funding",
+    "capital",
+    "solvency",
+    "risk",
+    "stress",
+    "recovery",
+    "resolution",
+)
+SPINE_RESUME_CONFIG_ORDER: tuple[str, ...] = (
+    "resolution",
+    "recovery",
+    "stress",
+    "risk",
+    "solvency",
+    "capital",
+    "funding",
+    "liquidity",
+    "collateral",
+    "margin",
+    "custody",
+    "delivery",
+    "clearing",
+    "settlement",
+    "actuation",
+    "finality",
+    "execution",
+)
+SPINE_RESUME_WANT_EFFECTS_PLANES: tuple[str, ...] = (
+    "finality",
+    "execution",
+    "actuation",
+    "settlement",
+    "clearing",
+    "delivery",
+    "custody",
+    "margin",
+    "collateral",
+    "liquidity",
+    "funding",
+    "capital",
+)
+
+
+def _spine_resume_loader(name: str) -> Any:
+    """Resolve ``load_total_spine_<plane>_certificate`` from the catalog name."""
+
+    loader = globals().get(f"load_total_spine_{name}_certificate")
+    if not callable(loader):
+        raise KeyError(f"missing resume loader for {name!r}")
+    return loader
+
+
+def _load_spine_resume_certificates(
+    resume_dir: Path,
+) -> dict[str, dict[str, Any] | None]:
+    """Load every resume plane; re-raise only tamper verdicts."""
+
+    loaded: dict[str, dict[str, Any] | None] = {}
+    for name in SPINE_RESUME_PLANES:
+        loader = _spine_resume_loader(name)
+        try:
+            loaded[name] = loader(resume_dir)
+        except Exception as exc:  # noqa: BLE001 — StageRefused is modular
+            verdict = getattr(exc, "verdict", "")
+            if str(verdict) == f"total_spine_{name}_tampered":
+                raise
+            loaded[name] = None
+    return loaded
+
+
+def _empty_spine_resume() -> dict[str, dict[str, Any] | None]:
+    return {name: None for name in SPINE_RESUME_PLANES}
+
+
+def _imply_caller_spine_flags(
+    requested: Mapping[str, bool],
+) -> dict[str, bool]:
+    """Enable catalog predecessors of caller flags.
+
+    Linear implication starts at delivery. Clearing also jumps to
+    settlement/actuation/execution/finality. Settlement-only does not
+    imply actuation — that historical cliff is preserved.
+    """
+
+    out = {name: bool(requested.get(name, False)) for name in SPINE_RESUME_PLANES}
+    pred_of = {effect: pred for effect, pred, *_ in _TOTAL_SPINE_EFFECT_CHAIN}
+    names = list(SPINE_RESUME_POST_CONSENSUS)
+    start = names.index(SPINE_CALLER_IMPLY_FROM)
+    for name in reversed(names[start:]):
+        if out.get(name):
+            pred = pred_of.get(name)
+            if pred:
+                out[pred] = True
+    if out.get("clearing"):
+        for name in ("settlement", "actuation", "execution", "finality"):
+            out[name] = True
+    return out
+
+
+def _apply_resume_implies(
+    requested: Mapping[str, bool],
+    resume: Mapping[str, Any],
+) -> dict[str, bool]:
+    """Enable the prefix through each present resume cert.
+
+    Emergence and reorganization historically skipped this prefix walk;
+    they only turn later ``_on`` flags via the successor or-chain.
+    """
+
+    out = {name: bool(requested.get(name, False)) for name in SPINE_RESUME_PLANES}
+    for index, name in enumerate(SPINE_RESUME_PLANES):
+        if name in SPINE_RESUME_IMPLY_SKIPS:
+            continue
+        if resume.get(name) is not None:
+            for pred in SPINE_RESUME_PLANES[: index + 1]:
+                out[pred] = True
+    return out
+
+
+def _spine_on_flags(
+    requested: Mapping[str, bool],
+    resume: Mapping[str, Any],
+) -> dict[str, bool]:
+    """Build ``<plane>_on`` from implied caller flags plus resume certs."""
+
+    names = list(SPINE_RESUME_PLANES)
+    start = names.index(SPINE_SUCCESSOR_ON_FROM)
+    on_flags: dict[str, bool] = {}
+    for index, name in enumerate(names):
+        own = bool(requested.get(name, False)) or resume.get(name) is not None
+        if index >= start:
+            own = own or any(
+                resume.get(successor) is not None for successor in names[index:]
+            )
+        on_flags[f"{name}_on"] = own
+    return on_flags
+
+
+def _select_post_consensus_short_circuit(
+    resume: Mapping[str, Any],
+) -> str | None:
+    """Tip-most present post-consensus cert; finality stays a special path."""
+
+    for name in reversed(SPINE_RESUME_POST_CONSENSUS):
+        if resume.get(name) is not None:
+            return name
+    return None
+
+
+def _resume_config_source(
+    resume: Mapping[str, Any],
+    checkpoint: Mapping[str, Any] | None,
+) -> Mapping[str, Any]:
+    if checkpoint:
+        return checkpoint
+    for name in SPINE_RESUME_CONFIG_ORDER:
+        cert = resume.get(name)
+        if isinstance(cert, Mapping):
+            return cert
+    return {}
+
+
+def _resume_has_capability_hint(
+    resume: Mapping[str, Any],
+    checkpoint: Mapping[str, Any] | None,
+) -> bool:
+    if checkpoint and checkpoint.get("explicit_capabilities"):
+        return True
+    return any(
+        bool((resume.get(name) or {}).get("capabilities"))
+        for name in SPINE_RESUME_CONFIG_ORDER
+        if isinstance(resume.get(name), Mapping)
+    )
+
+
+def _resume_capabilities(
+    resume: Mapping[str, Any],
+    checkpoint: Mapping[str, Any] | None,
+) -> list[str]:
+    if checkpoint and checkpoint.get("capabilities"):
+        return list(checkpoint.get("capabilities") or [])
+    for name in SPINE_RESUME_CONFIG_ORDER:
+        cert = resume.get(name)
+        if isinstance(cert, Mapping) and cert.get("capabilities"):
+            return list(cert.get("capabilities") or [])
+    return []
+
+
+def _resume_want_effects(
+    resume: Mapping[str, Any],
+    checkpoint: Mapping[str, Any] | None,
+) -> bool:
+    if checkpoint and (
+        checkpoint.get("want_effects") or checkpoint.get("effects")
+    ):
+        return True
+    return any(
+        bool((resume.get(name) or {}).get("capabilities"))
+        for name in SPINE_RESUME_WANT_EFFECTS_PLANES
+        if isinstance(resume.get(name), Mapping)
+    )
+
+
+def _resume_has_continuity_guard_cert(resume: Mapping[str, Any]) -> bool:
+    return any(
+        resume.get(name) is not None for name in SPINE_CONTINUITY_GUARD_PLANES
+    )
+
+
 # Short-circuit resume for the pair-chain links solvency..reorganization: a
 # sealed upstream certificate rebinds the tip without re-dispatch. The eight
 # sections were per-link copy-paste; the per-link differences are chain
@@ -7634,41 +7877,10 @@ def _attach_total_spine_effects(
     rebinds the tip. Enabling a link implies every predecessor; resume of
     an already-sealed link short-circuits without re-dispatch.
     """
-    if reorganization:
-        emergence = True
-    if emergence:
-        restructuring = True
-    if restructuring:
-        resolution = True
-    if resolution:
-        recovery = True
-    if recovery:
-        stress = True
-    if stress:
-        risk = True
-    if risk:
-        solvency = True
-    if solvency:
-        capital = True
-    if capital:
-        funding = True
-    if funding:
-        liquidity = True
-    if liquidity:
-        collateral = True
-    if collateral:
-        margin = True
-    if margin:
-        custody = True
-    if custody:
-        delivery = True
-    if delivery:
-        clearing = True
-    if clearing:
-        settlement = True
-        actuation = True
-        execution = True
-        finality = True
+    _caller_flags = locals()
+    requested = _imply_caller_spine_flags(
+        {name: bool(_caller_flags[name]) for name in SPINE_RESUME_PLANES}
+    )
     goal_text = str(goal or "").strip()
     contract_text = str(done_when or "").strip()
     explicit_caps = (
@@ -7687,198 +7899,9 @@ def _attach_total_spine_effects(
     resumed = False
     prior_round_count = 0
     resume_checkpoint: dict[str, Any] | None = None
-    resume_finality: dict[str, Any] | None = None
-    resume_execution: dict[str, Any] | None = None
-    resume_actuation: dict[str, Any] | None = None
-    resume_settlement: dict[str, Any] | None = None
-    resume_clearing: dict[str, Any] | None = None
-    resume_delivery: dict[str, Any] | None = None
-    resume_custody: dict[str, Any] | None = None
-    resume_margin: dict[str, Any] | None = None
-    resume_collateral: dict[str, Any] | None = None
-    resume_liquidity: dict[str, Any] | None = None
-    resume_funding: dict[str, Any] | None = None
-    resume_capital: dict[str, Any] | None = None
-    resume_solvency: dict[str, Any] | None = None
-    resume_risk: dict[str, Any] | None = None
-    resume_stress: dict[str, Any] | None = None
-    resume_recovery: dict[str, Any] | None = None
-    resume_resolution: dict[str, Any] | None = None
-    resume_restructuring: dict[str, Any] | None = None
-    resume_emergence: dict[str, Any] | None = None
-    resume_reorganization: dict[str, Any] | None = None
+    resume = _empty_spine_resume()
     if resume_dir is not None:
-        # Prefer reorganization short-circuit, then emergence, restructuring, resolution, recovery, stress,
-        # risk, solvency, capital, funding, liquidity, collateral, margin,
-        # custody, delivery, clearing, settlement, actuation, execution, finality.
-        try:
-            resume_reorganization = load_total_spine_reorganization_certificate(
-                resume_dir
-            )
-        except Exception as exc:  # noqa: BLE001 — reorganization StageRefused is modular
-            verdict = getattr(exc, "verdict", "")
-            if str(verdict) == "total_spine_reorganization_tampered":
-                raise
-            resume_reorganization = None
-        try:
-            resume_emergence = load_total_spine_emergence_certificate(
-                resume_dir
-            )
-        except Exception as exc:  # noqa: BLE001 — emergence StageRefused is modular
-            verdict = getattr(exc, "verdict", "")
-            if str(verdict) == "total_spine_emergence_tampered":
-                raise
-            resume_emergence = None
-        try:
-            resume_restructuring = load_total_spine_restructuring_certificate(
-                resume_dir
-            )
-        except Exception as exc:  # noqa: BLE001 — restructuring StageRefused is modular
-            verdict = getattr(exc, "verdict", "")
-            if str(verdict) == "total_spine_restructuring_tampered":
-                raise
-            resume_restructuring = None
-        try:
-            resume_resolution = load_total_spine_resolution_certificate(
-                resume_dir
-            )
-        except Exception as exc:  # noqa: BLE001 — resolution StageRefused is modular
-            verdict = getattr(exc, "verdict", "")
-            if str(verdict) == "total_spine_resolution_tampered":
-                raise
-            resume_resolution = None
-        try:
-            resume_recovery = load_total_spine_recovery_certificate(
-                resume_dir
-            )
-        except Exception as exc:  # noqa: BLE001 — recovery StageRefused is modular
-            verdict = getattr(exc, "verdict", "")
-            if str(verdict) == "total_spine_recovery_tampered":
-                raise
-            resume_recovery = None
-        try:
-            resume_stress = load_total_spine_stress_certificate(
-                resume_dir
-            )
-        except Exception as exc:  # noqa: BLE001 — stress StageRefused is modular
-            verdict = getattr(exc, "verdict", "")
-            if str(verdict) == "total_spine_stress_tampered":
-                raise
-            resume_stress = None
-        try:
-            resume_risk = load_total_spine_risk_certificate(
-                resume_dir
-            )
-        except Exception as exc:  # noqa: BLE001 — risk StageRefused is modular
-            verdict = getattr(exc, "verdict", "")
-            if str(verdict) == "total_spine_risk_tampered":
-                raise
-            resume_risk = None
-        try:
-            resume_solvency = load_total_spine_solvency_certificate(
-                resume_dir
-            )
-        except Exception as exc:  # noqa: BLE001 — solvency StageRefused is modular
-            verdict = getattr(exc, "verdict", "")
-            if str(verdict) == "total_spine_solvency_tampered":
-                raise
-            resume_solvency = None
-        try:
-            resume_capital = load_total_spine_capital_certificate(
-                resume_dir
-            )
-        except Exception as exc:  # noqa: BLE001 — capital StageRefused is modular
-            verdict = getattr(exc, "verdict", "")
-            if str(verdict) == "total_spine_capital_tampered":
-                raise
-            resume_capital = None
-        try:
-            resume_funding = load_total_spine_funding_certificate(
-                resume_dir
-            )
-        except Exception as exc:  # noqa: BLE001 — funding StageRefused is modular
-            verdict = getattr(exc, "verdict", "")
-            if str(verdict) == "total_spine_funding_tampered":
-                raise
-            resume_funding = None
-        try:
-            resume_liquidity = load_total_spine_liquidity_certificate(
-                resume_dir
-            )
-        except Exception as exc:  # noqa: BLE001 — liquidity StageRefused is modular
-            verdict = getattr(exc, "verdict", "")
-            if str(verdict) == "total_spine_liquidity_tampered":
-                raise
-            resume_liquidity = None
-        try:
-            resume_collateral = load_total_spine_collateral_certificate(
-                resume_dir
-            )
-        except Exception as exc:  # noqa: BLE001 — collateral StageRefused is modular
-            verdict = getattr(exc, "verdict", "")
-            if str(verdict) == "total_spine_collateral_tampered":
-                raise
-            resume_collateral = None
-        try:
-            resume_margin = load_total_spine_margin_certificate(resume_dir)
-        except Exception as exc:  # noqa: BLE001 — margin StageRefused is modular
-            verdict = getattr(exc, "verdict", "")
-            if str(verdict) == "total_spine_margin_tampered":
-                raise
-            resume_margin = None
-        try:
-            resume_custody = load_total_spine_custody_certificate(resume_dir)
-        except Exception as exc:  # noqa: BLE001 — custody StageRefused is modular
-            verdict = getattr(exc, "verdict", "")
-            if str(verdict) == "total_spine_custody_tampered":
-                raise
-            resume_custody = None
-        try:
-            resume_delivery = load_total_spine_delivery_certificate(resume_dir)
-        except Exception as exc:  # noqa: BLE001 — delivery StageRefused is modular
-            verdict = getattr(exc, "verdict", "")
-            if str(verdict) == "total_spine_delivery_tampered":
-                raise
-            resume_delivery = None
-        try:
-            resume_clearing = load_total_spine_clearing_certificate(resume_dir)
-        except Exception as exc:  # noqa: BLE001 — clearing StageRefused is modular
-            verdict = getattr(exc, "verdict", "")
-            if str(verdict) == "total_spine_clearing_tampered":
-                raise
-            resume_clearing = None
-        try:
-            resume_settlement = load_total_spine_settlement_certificate(
-                resume_dir
-            )
-        except Exception as exc:  # noqa: BLE001 — settlement StageRefused is modular
-            verdict = getattr(exc, "verdict", "")
-            if str(verdict) == "total_spine_settlement_tampered":
-                raise
-            resume_settlement = None
-        try:
-            resume_actuation = load_total_spine_actuation_certificate(resume_dir)
-        except Exception as exc:  # noqa: BLE001 — actuation StageRefused is modular
-            verdict = getattr(exc, "verdict", "")
-            if str(verdict) == "total_spine_actuation_tampered":
-                raise
-            resume_actuation = None
-        try:
-            resume_execution = load_total_spine_execution_certificate(resume_dir)
-        except StageRefused as exc:
-            if str(exc.verdict) == "total_spine_execution_tampered":
-                raise
-            resume_execution = None
-        except Exception:  # noqa: BLE001
-            resume_execution = None
-        try:
-            resume_finality = load_total_spine_finality_certificate(resume_dir)
-        except StageRefused as exc:
-            if str(exc.verdict) == "total_spine_finality_tampered":
-                raise
-            resume_finality = None
-        except Exception:  # noqa: BLE001
-            resume_finality = None
+        resume = _load_spine_resume_certificates(Path(resume_dir))
         try:
             resume_checkpoint = load_total_spine_continuity_checkpoint(
                 resume_dir
@@ -7886,342 +7909,88 @@ def _attach_total_spine_effects(
             resumed = True
             continuity = True
         except StageRefused:
-            # Finality/execution/actuation-only resume is allowed without continuity.
-            # Path resolution may point continuity_checkpoint_path at a sibling
-            # execution/finality JSON; those are not continuity tamper events.
-            if (
-                resume_finality is None
-                and resume_execution is None
-                and resume_actuation is None
-                and resume_settlement is None
-                and resume_clearing is None
-                and resume_delivery is None
-                and resume_custody is None
-                and resume_margin is None
-                and resume_collateral is None
-                and resume_liquidity is None
-                and resume_funding is None
-                and resume_capital is None
-                and resume_solvency is None
-                and resume_risk is None
-                and resume_stress is None
-                and resume_recovery is None
-                and resume_resolution is None
-            ):
+            # Finality/execution/actuation-only resume is allowed without
+            # continuity. Path resolution may point continuity_checkpoint_path
+            # at a sibling execution/finality JSON; those are not continuity
+            # tamper events. Historical swallow-guard omits emergence,
+            # restructuring, and reorganization.
+            if not _resume_has_continuity_guard_cert(resume):
                 raise
             resumed = True
-        # Prefer checkpoint mission config when caller left fields empty.
-        config_src: Mapping[str, Any] = (
-            resume_checkpoint
-            or resume_resolution
-            or resume_recovery
-            or resume_stress
-            or resume_risk
-            or resume_solvency
-            or resume_capital
-            or resume_funding
-            or resume_liquidity
-            or resume_collateral
-            or resume_margin
-            or resume_custody
-            or resume_delivery
-            or resume_clearing
-            or resume_settlement
-            or resume_actuation
-            or resume_finality
-            or resume_execution
-            or {}
-        )
+        config_src = _resume_config_source(resume, resume_checkpoint)
         if not goal_text:
-            goal_text = str(config_src.get("goal") or "").strip()
+            goal_text = str(config_src.get('goal') or '').strip()
         if not contract_text:
-            contract_text = str(config_src.get("done_when") or "").strip()
-        if not explicit_caps and (
-            (resume_checkpoint or {}).get("explicit_capabilities")
-            or (resume_finality or {}).get("capabilities")
-            or (resume_execution or {}).get("capabilities")
-            or (resume_actuation or {}).get("capabilities")
-            or (resume_settlement or {}).get("capabilities")
-            or (resume_clearing or {}).get("capabilities")
-            or (resume_delivery or {}).get("capabilities")
-            or (resume_custody or {}).get("capabilities")
-            or (resume_margin or {}).get("capabilities")
-            or (resume_collateral or {}).get("capabilities")
-            or (resume_liquidity or {}).get("capabilities")
-            or (resume_funding or {}).get("capabilities")
-            or (resume_capital or {}).get("capabilities")
-            or (resume_solvency or {}).get("capabilities")
-            or (resume_resolution or {}).get("capabilities")
-            or (resume_recovery or {}).get("capabilities")
-            or (resume_stress or {}).get("capabilities")
-            or (resume_risk or {}).get("capabilities")
+            contract_text = str(config_src.get('done_when') or '').strip()
+        if not explicit_caps and _resume_has_capability_hint(
+            resume, resume_checkpoint
         ):
-            capabilities = list(
-                (resume_checkpoint or {}).get("capabilities")
-                or (resume_resolution or {}).get("capabilities")
-                or (resume_recovery or {}).get("capabilities")
-                or (resume_stress or {}).get("capabilities")
-            or (resume_risk or {}).get("capabilities")
-                or (resume_solvency or {}).get("capabilities")
-                or (resume_capital or {}).get("capabilities")
-                or (resume_funding or {}).get("capabilities")
-                or (resume_liquidity or {}).get("capabilities")
-                or (resume_collateral or {}).get("capabilities")
-                or (resume_margin or {}).get("capabilities")
-                or (resume_custody or {}).get("capabilities")
-                or (resume_delivery or {}).get("capabilities")
-                or (resume_clearing or {}).get("capabilities")
-                or (resume_settlement or {}).get("capabilities")
-                or (resume_actuation or {}).get("capabilities")
-                or (resume_finality or {}).get("capabilities")
-                or (resume_execution or {}).get("capabilities")
-                or []
-            )
+            capabilities = _resume_capabilities(resume, resume_checkpoint)
             explicit_caps = bool(capabilities)
         if not want_effects:
-            want_effects = bool(
-                (resume_checkpoint or {}).get("want_effects")
-            ) or bool((resume_checkpoint or {}).get("effects")) or bool(
-                (resume_finality or {}).get("capabilities")
-            ) or bool((resume_execution or {}).get("capabilities")) or bool(
-                (resume_actuation or {}).get("capabilities")
-            ) or bool((resume_settlement or {}).get("capabilities")) or bool(
-                (resume_clearing or {}).get("capabilities")
-            ) or bool((resume_delivery or {}).get("capabilities")
-            ) or bool((resume_custody or {}).get("capabilities")
-            ) or bool((resume_margin or {}).get("capabilities")
-            ) or bool((resume_collateral or {}).get("capabilities")
-            ) or bool((resume_liquidity or {}).get("capabilities")
-            ) or bool((resume_funding or {}).get("capabilities")
-            ) or bool((resume_capital or {}).get("capabilities"))
+            want_effects = _resume_want_effects(resume, resume_checkpoint)
         if max_effect_steps is None and (resume_checkpoint or {}).get(
-            "max_effect_steps"
+            'max_effect_steps'
         ) is not None:
             try:
-                max_effect_steps = int(resume_checkpoint["max_effect_steps"])  # type: ignore[index]
+                max_effect_steps = int(resume_checkpoint['max_effect_steps'])  # type: ignore[index]
             except (TypeError, ValueError):
                 pass
-        if not grow and (resume_checkpoint or {}).get("grow"):
+        if not grow and (resume_checkpoint or {}).get('grow'):
             grow = True
         if grow_budget is None and (resume_checkpoint or {}).get(
-            "grow_budget"
+            'grow_budget'
         ) is not None:
             try:
-                grow_budget = int(resume_checkpoint["grow_budget"])  # type: ignore[index]
+                grow_budget = int(resume_checkpoint['grow_budget'])  # type: ignore[index]
             except (TypeError, ValueError):
                 pass
-        # Finality resume implies finality mode; execution/actuation cascade.
-        if resume_finality is not None:
-            finality = True
-        if resume_execution is not None:
-            finality = True
-            execution = True
-        if resume_actuation is not None:
-            finality = True
-            execution = True
-            actuation = True
-        if resume_settlement is not None:
-            finality = True
-            execution = True
-            actuation = True
-            settlement = True
-        if resume_clearing is not None:
-            finality = True
-            execution = True
-            actuation = True
-            settlement = True
-            clearing = True
-        if resume_delivery is not None:
-            finality = True
-            execution = True
-            actuation = True
-            settlement = True
-            clearing = True
-            delivery = True
-        if resume_custody is not None:
-            finality = True
-            execution = True
-            actuation = True
-            settlement = True
-            clearing = True
-            delivery = True
-            custody = True
-        if resume_margin is not None:
-            finality = True
-            execution = True
-            actuation = True
-            settlement = True
-            clearing = True
-            delivery = True
-            custody = True
-            margin = True
-        if resume_collateral is not None:
-            finality = True
-            execution = True
-            actuation = True
-            settlement = True
-            clearing = True
-            delivery = True
-            custody = True
-            margin = True
-            collateral = True
-        if resume_liquidity is not None:
-            finality = True
-            execution = True
-            actuation = True
-            settlement = True
-            clearing = True
-            delivery = True
-            custody = True
-            margin = True
-            collateral = True
-            liquidity = True
-        if resume_funding is not None:
-            finality = True
-            execution = True
-            actuation = True
-            settlement = True
-            clearing = True
-            delivery = True
-            custody = True
-            margin = True
-            collateral = True
-            liquidity = True
-            funding = True
-        if resume_restructuring is not None:
-            finality = True
-            execution = True
-            actuation = True
-            settlement = True
-            clearing = True
-            delivery = True
-            custody = True
-            margin = True
-            collateral = True
-            liquidity = True
-            funding = True
-            capital = True
-            solvency = True
-            risk = True
-            stress = True
-            recovery = True
-            resolution = True
-            restructuring = True
-        if resume_resolution is not None:
-            finality = True
-            execution = True
-            actuation = True
-            settlement = True
-            clearing = True
-            delivery = True
-            custody = True
-            margin = True
-            collateral = True
-            liquidity = True
-            funding = True
-            capital = True
-            solvency = True
-            risk = True
-            stress = True
-            recovery = True
-            resolution = True
-        if resume_recovery is not None:
-            finality = True
-            execution = True
-            actuation = True
-            settlement = True
-            clearing = True
-            delivery = True
-            custody = True
-            margin = True
-            collateral = True
-            liquidity = True
-            funding = True
-            capital = True
-            solvency = True
-            risk = True
-            stress = True
-            recovery = True
-        if resume_stress is not None:
-            finality = True
-            execution = True
-            actuation = True
-            settlement = True
-            clearing = True
-            delivery = True
-            custody = True
-            margin = True
-            collateral = True
-            liquidity = True
-            funding = True
-            capital = True
-            solvency = True
-            risk = True
-            stress = True
-        if resume_risk is not None:
-            finality = True
-            execution = True
-            actuation = True
-            settlement = True
-            clearing = True
-            delivery = True
-            custody = True
-            margin = True
-            collateral = True
-            liquidity = True
-            funding = True
-            capital = True
-            solvency = True
-            risk = True
-        if resume_solvency is not None:
-            finality = True
-            execution = True
-            actuation = True
-            settlement = True
-            clearing = True
-            delivery = True
-            custody = True
-            margin = True
-            collateral = True
-            liquidity = True
-            funding = True
-            capital = True
-            solvency = True
-        if resume_capital is not None:
-            finality = True
-            execution = True
-            actuation = True
-            settlement = True
-            clearing = True
-            delivery = True
-            custody = True
-            margin = True
-            collateral = True
-            liquidity = True
-            funding = True
-            capital = True
+        requested = _apply_resume_implies(requested, resume)
+
+    resume_finality = resume.get('finality')
+    resume_execution = resume.get('execution')
+    resume_actuation = resume.get('actuation')
+    resume_settlement = resume.get('settlement')
+    resume_clearing = resume.get('clearing')
+    resume_delivery = resume.get('delivery')
+    resume_custody = resume.get('custody')
+    resume_margin = resume.get('margin')
+    resume_collateral = resume.get('collateral')
+    resume_liquidity = resume.get('liquidity')
+    resume_funding = resume.get('funding')
+    resume_capital = resume.get('capital')
+    resume_solvency = resume.get('solvency')
+    resume_risk = resume.get('risk')
+    resume_stress = resume.get('stress')
+    resume_recovery = resume.get('recovery')
+    resume_resolution = resume.get('resolution')
+    resume_restructuring = resume.get('restructuring')
+    resume_emergence = resume.get('emergence')
+    resume_reorganization = resume.get('reorganization')
 
     continuity_on = bool(continuity) or resumed or resume_dir is not None
-    finality_on = bool(finality) or resume_finality is not None
-    execution_on = bool(execution) or resume_execution is not None
-    actuation_on = bool(actuation) or resume_actuation is not None
-    settlement_on = bool(settlement) or resume_settlement is not None
-    clearing_on = bool(clearing) or resume_clearing is not None
-    delivery_on = bool(delivery) or resume_delivery is not None
-    custody_on = bool(custody) or resume_custody is not None
-    margin_on = bool(margin) or resume_margin is not None
-    collateral_on = bool(collateral) or resume_collateral is not None
-    liquidity_on = bool(liquidity) or resume_liquidity is not None
-    funding_on = bool(funding) or resume_funding is not None
-    capital_on = bool(capital) or resume_capital is not None
-    solvency_on = bool(solvency) or resume_solvency is not None
-    risk_on = bool(risk) or resume_risk is not None or resume_stress is not None or resume_recovery is not None or resume_resolution is not None or resume_restructuring is not None or resume_emergence is not None or resume_reorganization is not None
-    stress_on = bool(stress) or resume_stress is not None or resume_recovery is not None or resume_resolution is not None or resume_restructuring is not None or resume_emergence is not None or resume_reorganization is not None
-    recovery_on = bool(recovery) or resume_recovery is not None or resume_resolution is not None or resume_restructuring is not None or resume_emergence is not None or resume_reorganization is not None
-    resolution_on = bool(resolution) or resume_resolution is not None or resume_restructuring is not None or resume_emergence is not None or resume_reorganization is not None
-    restructuring_on = bool(restructuring) or resume_restructuring is not None or resume_emergence is not None or resume_reorganization is not None
-    emergence_on = bool(emergence) or resume_emergence is not None or resume_reorganization is not None
-    reorganization_on = bool(reorganization) or resume_reorganization is not None
+    on = _spine_on_flags(requested, resume)
+    finality_on = on['finality_on']
+    execution_on = on['execution_on']
+    actuation_on = on['actuation_on']
+    settlement_on = on['settlement_on']
+    clearing_on = on['clearing_on']
+    delivery_on = on['delivery_on']
+    custody_on = on['custody_on']
+    margin_on = on['margin_on']
+    collateral_on = on['collateral_on']
+    liquidity_on = on['liquidity_on']
+    funding_on = on['funding_on']
+    capital_on = on['capital_on']
+    solvency_on = on['solvency_on']
+    risk_on = on['risk_on']
+    stress_on = on['stress_on']
+    recovery_on = on['recovery_on']
+    resolution_on = on['resolution_on']
+    restructuring_on = on['restructuring_on']
+    emergence_on = on['emergence_on']
+    reorganization_on = on['reorganization_on']
+    # Finality needs a durable write root for the certificate.
     # Finality needs a durable write root for the certificate.
     if finality_on and not continuity_on and (out_root is not None or resume_dir is not None):
         # Keep continuity optional; finality can seal alone under out_root.
@@ -8328,146 +8097,52 @@ def _attach_total_spine_effects(
             resume_checkpoint.get("checkpoint_path")
         )
 
-    _sc_resume = {
-        "checkpoint": resume_checkpoint,
-        "finality": resume_finality, "execution": resume_execution, "actuation": resume_actuation,
-        "settlement": resume_settlement, "clearing": resume_clearing, "delivery": resume_delivery,
-        "custody": resume_custody,
-        "margin": resume_margin, "collateral": resume_collateral, "liquidity": resume_liquidity,
-        "funding": resume_funding, "capital": resume_capital, "solvency": resume_solvency,
-        "risk": resume_risk, "stress": resume_stress, "recovery": resume_recovery,
-        "resolution": resume_resolution, "restructuring": resume_restructuring,
-        "emergence": resume_emergence, "reorganization": resume_reorganization,
-    }
+    _sc_resume = {"checkpoint": resume_checkpoint, **resume}
     _sc_ctx = {
-        "bound_tip": bound_tip, "recovered": recovered, "want_effects": want_effects,
-        "goal_text": goal_text, "contract_text": contract_text, "compressed": compressed,
-        "live_result": live_result, "root": root, "chain_len": chain_len,
-        "out_root": out_root, "resume_dir": resume_dir, "repo_path": repo_path,
+        "bound_tip": bound_tip,
+        "recovered": recovered,
+        "want_effects": want_effects,
+        "goal_text": goal_text,
+        "contract_text": contract_text,
+        "compressed": compressed,
+        "live_result": live_result,
+        "root": root,
+        "chain_len": chain_len,
+        "out_root": out_root,
+        "resume_dir": resume_dir,
+        "repo_path": repo_path,
         "prior_round_count": prior_round_count,
         "adaptive_rounds_log": adaptive_rounds_log,
         "exclude": exclude,
         "capabilities": capabilities,
         "effect_timeout": effect_timeout,
         "flags": {
-            "settlement_on": settlement_on, "clearing_on": clearing_on,
-            "delivery_on": delivery_on, "custody_on": custody_on,
-            "margin_on": margin_on, "collateral_on": collateral_on,
-            "liquidity_on": liquidity_on, "funding_on": funding_on,
-            "capital_on": capital_on, "solvency_on": solvency_on,
+            "settlement_on": settlement_on,
+            "clearing_on": clearing_on,
+            "delivery_on": delivery_on,
+            "custody_on": custody_on,
+            "margin_on": margin_on,
+            "collateral_on": collateral_on,
+            "liquidity_on": liquidity_on,
+            "funding_on": funding_on,
+            "capital_on": capital_on,
+            "solvency_on": solvency_on,
             "actuation_on": actuation_on,
-            "risk_on": risk_on, "stress_on": stress_on, "recovery_on": recovery_on,
-            "resolution_on": resolution_on, "restructuring_on": restructuring_on,
-            "emergence_on": emergence_on, "reorganization_on": reorganization_on,
+            "risk_on": risk_on,
+            "stress_on": stress_on,
+            "recovery_on": recovery_on,
+            "resolution_on": resolution_on,
+            "restructuring_on": restructuring_on,
+            "emergence_on": emergence_on,
+            "reorganization_on": reorganization_on,
         },
     }
 
-# --- Irreversible reorganization short-circuit (no effect re-dispatch) ---
-    if resume_reorganization is not None:
+    sc_effect = _select_post_consensus_short_circuit(resume)
+    if sc_effect is not None:
         return _total_spine_short_circuit(
-            annotated, "reorganization", resume=_sc_resume, ctx=_sc_ctx
+            annotated, sc_effect, resume=_sc_resume, ctx=_sc_ctx
         )
-
-    # --- Irreversible emergence short-circuit (no effect re-dispatch) ---
-    if resume_emergence is not None:
-        return _total_spine_short_circuit(
-            annotated, "emergence", resume=_sc_resume, ctx=_sc_ctx
-        )
-
-    # --- Irreversible restructuring short-circuit (no effect re-dispatch) ---
-    if resume_restructuring is not None:
-        return _total_spine_short_circuit(
-            annotated, "restructuring", resume=_sc_resume, ctx=_sc_ctx
-        )
-
-    # --- Irreversible resolution short-circuit (no effect re-dispatch) ---
-    if resume_resolution is not None:
-        return _total_spine_short_circuit(
-            annotated, "resolution", resume=_sc_resume, ctx=_sc_ctx
-        )
-
-    # --- Irreversible recovery short-circuit (no effect re-dispatch) ---
-    if resume_recovery is not None:
-        return _total_spine_short_circuit(
-            annotated, "recovery", resume=_sc_resume, ctx=_sc_ctx
-        )
-
-    # --- Irreversible stress short-circuit (no effect re-dispatch) ---
-    if resume_stress is not None:
-        return _total_spine_short_circuit(
-            annotated, "stress", resume=_sc_resume, ctx=_sc_ctx
-        )
-
-    # --- Irreversible risk short-circuit (no effect re-dispatch) ---
-    if resume_risk is not None:
-        return _total_spine_short_circuit(
-            annotated, "risk", resume=_sc_resume, ctx=_sc_ctx
-        )
-
-    # --- Irreversible solvency short-circuit (no effect re-dispatch) ---
-    if resume_solvency is not None:
-        return _total_spine_short_circuit(
-            annotated, "solvency", resume=_sc_resume, ctx=_sc_ctx
-        )
-
-    # --- Irreversible capital short-circuit (no effect re-dispatch) ---
-    if resume_capital is not None:
-        return _total_spine_short_circuit(
-            annotated, "capital", resume=_sc_resume, ctx=_sc_ctx
-        )
-
-    # --- Irreversible funding short-circuit (no effect re-dispatch) ---
-    if resume_funding is not None:
-        return _total_spine_short_circuit(
-            annotated, "funding", resume=_sc_resume, ctx=_sc_ctx
-        )
-
-    # --- Irreversible liquidity short-circuit (no effect re-dispatch) ---
-    if resume_liquidity is not None:
-        return _total_spine_short_circuit(
-            annotated, "liquidity", resume=_sc_resume, ctx=_sc_ctx
-        )
-# --- Irreversible collateral short-circuit (no effect re-dispatch) ---
-    if resume_collateral is not None:
-        return _total_spine_short_circuit(
-            annotated, "collateral", resume=_sc_resume, ctx=_sc_ctx
-        )
-# --- Irreversible margin short-circuit (no effect re-dispatch) ---
-    if resume_margin is not None:
-        return _total_spine_short_circuit(
-            annotated, "margin", resume=_sc_resume, ctx=_sc_ctx
-        )
-# --- Irreversible custody short-circuit (no effect re-dispatch) ---
-    if resume_custody is not None:
-        return _total_spine_short_circuit(
-            annotated, "custody", resume=_sc_resume, ctx=_sc_ctx
-        )
-# --- Irreversible delivery short-circuit (no effect re-dispatch) ---
-    if resume_delivery is not None:
-        return _total_spine_short_circuit(
-            annotated, "delivery", resume=_sc_resume, ctx=_sc_ctx
-        )
-# --- Irreversible clearing short-circuit (no effect re-dispatch) ---
-    if resume_clearing is not None:
-        return _total_spine_short_circuit(
-            annotated, "clearing", resume=_sc_resume, ctx=_sc_ctx
-        )
-# --- Irreversible settlement short-circuit (no effect re-dispatch) ---
-    if resume_settlement is not None:
-        return _total_spine_short_circuit(
-            annotated, "settlement", resume=_sc_resume, ctx=_sc_ctx
-        )
-# --- Irreversible actuation short-circuit (no effect re-dispatch) ---
-    if resume_actuation is not None:
-        return _total_spine_short_circuit(
-            annotated, "actuation", resume=_sc_resume, ctx=_sc_ctx
-        )
-# --- Irreversible execution short-circuit (no effect re-dispatch) ---
-    if resume_execution is not None:
-        return _total_spine_short_circuit(
-            annotated, "execution", resume=_sc_resume, ctx=_sc_ctx
-        )
-
 
     # --- Irreversible finality short-circuit (no effect re-dispatch) ---
     if resume_finality is not None:
@@ -8611,25 +8286,7 @@ def _attach_total_spine_effects(
                 "bound_tip": bound_tip,
                 "restamp_finality": True,
             },
-            execution_on=execution_on,
-            actuation_on=actuation_on,
-            settlement_on=settlement_on,
-            clearing_on=clearing_on,
-            delivery_on=delivery_on,
-            custody_on=custody_on,
-            margin_on=margin_on,
-            collateral_on=collateral_on,
-            liquidity_on=liquidity_on,
-            funding_on=funding_on,
-            capital_on=capital_on,
-            solvency_on=solvency_on,
-            risk_on=risk_on,
-            stress_on=stress_on,
-            recovery_on=recovery_on,
-            resolution_on=resolution_on,
-            restructuring_on=restructuring_on,
-            emergence_on=emergence_on,
-            reorganization_on=reorganization_on,
+            flags=on,
         )
         return annotated
 
@@ -9353,25 +9010,7 @@ def _attach_total_spine_effects(
         or list(annotated.get("total_spine_effect_capabilities") or []),
         effect_timeout=effect_timeout,
         stage_ctx={"consensus_source": last_finality},
-        execution_on=execution_on,
-        actuation_on=actuation_on,
-        settlement_on=settlement_on,
-        clearing_on=clearing_on,
-        delivery_on=delivery_on,
-        custody_on=custody_on,
-        margin_on=margin_on,
-        collateral_on=collateral_on,
-        liquidity_on=liquidity_on,
-        funding_on=funding_on,
-        capital_on=capital_on,
-        solvency_on=solvency_on,
-        risk_on=risk_on,
-        stress_on=stress_on,
-        recovery_on=recovery_on,
-        resolution_on=resolution_on,
-        restructuring_on=restructuring_on,
-        emergence_on=emergence_on,
-        reorganization_on=reorganization_on,
+        flags=on,
     )
     return annotated
 
@@ -15118,6 +14757,149 @@ def builtin_spine_stage_engine_proof() -> dict[str, Any]:
         "spine_stage_engine": True,
         "done_when_met": ok,
     }
+
+
+def builtin_spine_resume_catalog_proof() -> dict[str, Any]:
+    """Hermetic proof: resume load/imply/short-circuit is one catalog."""
+
+    import inspect
+
+    checks: dict[str, bool] = {}
+    planes = list(SPINE_RESUME_PLANES)
+    expected = [
+        "finality",
+        "execution",
+        "actuation",
+        "settlement",
+        "clearing",
+        "delivery",
+        "custody",
+        "margin",
+        "collateral",
+        "liquidity",
+        "funding",
+        "capital",
+        "solvency",
+        "risk",
+        "stress",
+        "recovery",
+        "resolution",
+        "restructuring",
+        "emergence",
+        "reorganization",
+    ]
+    checks["catalog_planes"] = planes == expected
+    checks["catalog_len"] = len(planes) == 20
+    checks["post_consensus"] = list(SPINE_RESUME_POST_CONSENSUS) == expected[1:]
+    checks["impl"] = SPINE_RESUME_CATALOG_IMPL is True
+    checks["imply_from_delivery"] = SPINE_CALLER_IMPLY_FROM == "delivery"
+    checks["imply_skips"] = SPINE_RESUME_IMPLY_SKIPS == frozenset(
+        {"emergence", "reorganization"}
+    )
+    checks["successor_from_risk"] = SPINE_SUCCESSOR_ON_FROM == "risk"
+
+    attach_src = inspect.getsource(_attach_total_spine_effects)
+    load_src = inspect.getsource(_load_spine_resume_certificates)
+    select_src = inspect.getsource(_select_post_consensus_short_circuit)
+    checks["attach_loads_catalog"] = "_load_spine_resume_certificates" in attach_src
+    checks["attach_selects_catalog"] = (
+        "_select_post_consensus_short_circuit" in attach_src
+    )
+    checks["attach_implies_caller"] = "_imply_caller_spine_flags" in attach_src
+    checks["attach_implies_resume"] = "_apply_resume_implies" in attach_src
+    checks["attach_on_flags"] = "_spine_on_flags" in attach_src
+    checks["attach_no_unrolled_load"] = (
+        "load_total_spine_reorganization_certificate" not in attach_src
+        and "load_total_spine_solvency_certificate" not in attach_src
+    )
+    checks["attach_no_unrolled_sc"] = (
+        "if resume_reorganization is not None" not in attach_src
+        and "if resume_solvency is not None" not in attach_src
+        and "if resume_execution is not None" not in attach_src
+    )
+    checks["attach_no_unrolled_imply"] = "if reorganization:" not in attach_src
+    checks["attach_no_unrolled_on_kwargs"] = "execution_on=execution_on" not in attach_src
+    checks["attach_walks_flags"] = attach_src.count("flags=on") == 2
+    checks["attach_uses_walk"] = attach_src.count("_apply_spine_stages") == 2
+    checks["attach_no_execute"] = "execute_total_spine(" not in attach_src
+    checks["attach_no_actuate"] = "actuate_total_spine(" not in attach_src
+    checks["loader_walks_catalog"] = "SPINE_RESUME_PLANES" in load_src
+    checks["select_walks_catalog"] = "SPINE_RESUME_POST_CONSENSUS" in select_src
+
+    empty_dir = Path(tempfile.mkdtemp(prefix="spine-resume-empty-"))
+    try:
+        empty = _load_spine_resume_certificates(empty_dir)
+    finally:
+        shutil.rmtree(empty_dir, ignore_errors=True)
+    checks["empty_load_count"] = len(empty) == 20
+    checks["empty_load_none"] = all(value is None for value in empty.values())
+
+    implied = _imply_caller_spine_flags({"reorganization": True})
+    checks["imply_reorg_finality"] = implied.get("finality") is True
+    checks["imply_reorg_execution"] = implied.get("execution") is True
+    checks["imply_reorg_clearing"] = implied.get("clearing") is True
+    checks["imply_reorg_settlement"] = implied.get("settlement") is True
+    settlement_only = _imply_caller_spine_flags({"settlement": True})
+    checks["settlement_does_not_imply_actuation"] = (
+        settlement_only.get("settlement") is True
+        and settlement_only.get("actuation") is False
+        and settlement_only.get("finality") is False
+    )
+
+    dummy = {"kind": "probe"}
+    resume_solvency = _empty_spine_resume()
+    resume_solvency["solvency"] = dummy
+    implied_resume = _apply_resume_implies({}, resume_solvency)
+    checks["resume_imply_prefix"] = implied_resume.get("finality") is True
+    checks["resume_imply_self"] = implied_resume.get("solvency") is True
+    checks["resume_imply_stops"] = implied_resume.get("risk") is False
+
+    resume_reorg = _empty_spine_resume()
+    resume_reorg["reorganization"] = dummy
+    skipped = _apply_resume_implies({}, resume_reorg)
+    checks["resume_imply_skip_reorg"] = skipped.get("finality") is False
+    on_reorg = _spine_on_flags({}, resume_reorg)
+    checks["successor_on_risk"] = on_reorg.get("risk_on") is True
+    checks["successor_not_capital"] = on_reorg.get("capital_on") is False
+    checks["successor_on_reorg"] = on_reorg.get("reorganization_on") is True
+
+    mixed = _empty_spine_resume()
+    mixed["settlement"] = dummy
+    mixed["solvency"] = dummy
+    checks["select_tipmost"] = (
+        _select_post_consensus_short_circuit(mixed) == "solvency"
+    )
+    checks["select_empty"] = _select_post_consensus_short_circuit(
+        _empty_spine_resume()
+    ) is None
+    checks["no_skill_route"] = not legacy_pipeline_was_used()
+
+    wired = {
+        "load": callable(_load_spine_resume_certificates),
+        "imply": callable(_imply_caller_spine_flags),
+        "resume_imply": callable(_apply_resume_implies),
+        "on_flags": callable(_spine_on_flags),
+        "select": callable(_select_post_consensus_short_circuit),
+        "catalog": bool(SPINE_RESUME_PLANES),
+    }
+    ok = all(checks.values()) and all(wired.values())
+    report = {
+        "schema_version": SCHEMA_VERSION,
+        "action": "spine_resume_catalog_proof",
+        "ok": ok,
+        "checks": checks,
+        "wired": wired,
+        "wired_count": sum(1 for value in wired.values() if value),
+        "planes": planes,
+        "plane_count": len(planes),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+        "spine_resume_catalog": True,
+        "done_when_met": ok,
+    }
+    out = REPO_ROOT / "artifacts" / "capability-spine-resume-catalog"
+    out.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(out / "plane-report.json", report)
+    return report
 
 
 def builtin_control_nest_proof() -> dict[str, Any]:
