@@ -7,6 +7,7 @@ import inspect
 from blackhole_agent.upstream_control_engine import (
     SPINE_POST_CONSENSUS_CHAIN,
     SPINE_PRE_CONSENSUS_CHAIN,
+    SPINE_PUBLIC_STAGE_FLAGS,
     SPINE_RESUME_PLANES,
     SPINE_STAGE_CHAIN,
     SPINE_STAGE_ENGINE_IMPL,
@@ -17,6 +18,7 @@ from blackhole_agent.upstream_control_engine import (
     _apply_spine_federation_live,
     _apply_spine_stages,
     _attach_total_spine_effects,
+    _collect_spine_stage_flags,
     _imply_caller_spine_flags,
     _attach_spine_federation,
     _select_post_consensus_short_circuit,
@@ -26,9 +28,11 @@ from blackhole_agent.upstream_control_engine import (
     _TOTAL_SPINE_SHORT_CIRCUIT,
     builtin_spine_attach_catalog_proof,
     builtin_spine_finality_stage_proof,
+    builtin_spine_public_catalog_proof,
     builtin_spine_resume_catalog_proof,
     builtin_spine_short_circuit_catalog_proof,
     builtin_spine_stage_engine_proof,
+    run_total_spine,
 )
 
 
@@ -181,3 +185,34 @@ def test_live_attach_is_one_pre_consensus_catalog_walk() -> None:
     assert "write_total_spine_finality_certificate" not in attach_src
     assert "federate_total_spine(" not in attach_src
     assert "SPINE_PRE_CONSENSUS_CHAIN" in walk_src
+
+
+def test_builtin_spine_public_catalog_proof() -> None:
+    result = builtin_spine_public_catalog_proof()
+    assert result["ok"] is True
+    assert result["stage_count"] == 19
+    assert result["used_skill_route_discovery"] is False
+    assert all(result["checks"].values())
+    assert all(result["wired"].values())
+
+
+def test_public_stage_flags_are_catalog_validated() -> None:
+    assert list(SPINE_PUBLIC_STAGE_FLAGS)[0] == "execution"
+    assert list(SPINE_PUBLIC_STAGE_FLAGS)[-1] == "reorganization"
+    assert "finality" not in SPINE_PUBLIC_STAGE_FLAGS
+    collected = _collect_spine_stage_flags(None, {"solvency": True})
+    assert collected["solvency"] is True
+    assert collected["execution"] is False
+    try:
+        _collect_spine_stage_flags(None, {"not_a_spine_stage": True})
+    except TypeError:
+        refused = True
+    else:
+        refused = False
+    assert refused is True
+    attach_src = inspect.getsource(_attach_total_spine_effects)
+    run_src = inspect.getsource(run_total_spine)
+    assert "reorganization: bool = False" not in attach_src
+    assert "reorganization: bool = False" not in run_src
+    assert "reorganization=reorganization" not in run_src
+    assert run_src.count("stages=requested_stages") == 2

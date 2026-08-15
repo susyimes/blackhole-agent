@@ -124,6 +124,12 @@ Composition:
   is derived from :data:`SPINE_RESUME_PLANES` plus a compact quirk
   overlay (deep-through, impl extras, continuation jumps). A new stage
   is a catalog row, not another copied short-circuit body.
+* total-spine **public stage catalog** — ``run_total_spine`` and
+  ``_attach_total_spine_effects`` take catalog-validated stage flags
+  (``stages=`` mapping or historical ``solvency=True`` kwargs) from
+  :data:`SPINE_PUBLIC_STAGE_FLAGS`. A new post-consensus plane is a
+  catalog row, not another signature or forwarding copy. ``finality``
+  stays a named pre-consensus parameter.
 * total-spine **post-settlement clearing** — closes the settled-but-
   uncleared cliff: after settlement seals a unilateral observation
   receipt, ``clear_total_spine(...)`` (and ``run_total_spine(clearing=True)``)
@@ -7254,6 +7260,12 @@ SPINE_RESUME_PLANES: tuple[str, ...] = (
 SPINE_RESUME_POST_CONSENSUS: tuple[str, ...] = tuple(
     spec[0] for spec in _TOTAL_SPINE_EFFECT_CHAIN
 )
+# Public live entry accepts these as catalog-validated flags
+# (``stages=`` mapping or historical ``solvency=True`` kwargs). A new
+# post-consensus plane is a chain row, not another signature copy.
+# ``finality`` stays a named pre-consensus parameter.
+SPINE_PUBLIC_STAGE_FLAGS: tuple[str, ...] = SPINE_RESUME_POST_CONSENSUS
+SPINE_PUBLIC_CATALOG_IMPL = True
 SPINE_RESUME_CATALOG_IMPL = True
 SPINE_FINALITY_STAGE_IMPL = True
 SPINE_CALLER_IMPLY_FROM: str = "delivery"
@@ -7344,6 +7356,33 @@ def _load_spine_resume_certificates(
 
 def _empty_spine_resume() -> dict[str, dict[str, Any] | None]:
     return {name: None for name in SPINE_RESUME_PLANES}
+
+
+def _collect_spine_stage_flags(
+    stages: Mapping[str, Any] | None = None,
+    extra: Mapping[str, Any] | None = None,
+) -> dict[str, bool]:
+    """Normalize public stage flags against :data:`SPINE_PUBLIC_STAGE_FLAGS`.
+
+    Historical ``run_total_spine(solvency=True)`` kwargs land in ``extra``.
+    Unknown names raise ``TypeError`` so a typo fails like a missing
+    signature parameter rather than being silently ignored.
+    """
+
+    allowed = set(SPINE_PUBLIC_STAGE_FLAGS)
+    out = {name: False for name in SPINE_PUBLIC_STAGE_FLAGS}
+    for src in (stages, extra):
+        if not src:
+            continue
+        for key, value in src.items():
+            name = str(key)
+            if name not in allowed:
+                known = ", ".join(SPINE_PUBLIC_STAGE_FLAGS)
+                raise TypeError(
+                    f"unknown total-spine stage flag {name!r}; known={known}"
+                )
+            out[name] = bool(value)
+    return out
 
 
 def _imply_caller_spine_flags(
@@ -8748,25 +8787,8 @@ def _attach_total_spine_effects(
     federation_peers: Sequence[Path | str | Mapping[str, Any]] | None = None,
     federation_quorum: bool = False,
     quorum_threshold: int | None = None,
-    execution: bool = False,
-    actuation: bool = False,
-    settlement: bool = False,
-    clearing: bool = False,
-    delivery: bool = False,
-    custody: bool = False,
-    margin: bool = False,
-    collateral: bool = False,
-    liquidity: bool = False,
-    funding: bool = False,
-    capital: bool = False,
-    solvency: bool = False,
-    risk: bool = False,
-    stress: bool = False,
-    recovery: bool = False,
-    resolution: bool = False,
-    restructuring: bool = False,
-    emergence: bool = False,
-    reorganization: bool = False,
+    stages: Mapping[str, Any] | None = None,
+    **stage_flags: Any,
 ) -> dict[str, Any]:
     """Optionally dispatch ledger effects, gate contracts, rebind hop digests.
 
@@ -8806,16 +8828,18 @@ def _attach_total_spine_effects(
     Resume of an already-executed run short-circuits without re-dispatch.
 
     Post-execution effect chain (``actuation`` .. ``reorganization``): the
-    ordered links in :data:`_TOTAL_SPINE_EFFECT_CHAIN`. Actuation binds an
-    ordered multi-action log to the execution state root; every later link
-    independently confirms a second predecessor book, pairs it with its own
-    requirement (SvR, RvA, …), seals an irreversible certificate, and
-    rebinds the tip. Enabling a link implies every predecessor; resume of
-    an already-sealed link short-circuits without re-dispatch.
+    ordered links in :data:`_TOTAL_SPINE_EFFECT_CHAIN`, accepted as
+    catalog-validated ``stages=`` / ``**stage_flags`` (historical
+    ``solvency=True`` still binds). Actuation binds an ordered multi-action
+    log to the execution state root; every later link independently
+    confirms a second predecessor book, pairs it with its own requirement
+    (SvR, RvA, …), seals an irreversible certificate, and rebinds the tip.
+    Enabling a link implies every predecessor; resume of an already-sealed
+    link short-circuits without re-dispatch.
     """
-    _caller_flags = locals()
+    requested_stages = _collect_spine_stage_flags(stages, stage_flags)
     requested = _imply_caller_spine_flags(
-        {name: bool(_caller_flags[name]) for name in SPINE_RESUME_PLANES}
+        {"finality": bool(finality), **requested_stages}
     )
     goal_text = str(goal or "").strip()
     contract_text = str(done_when or "").strip()
@@ -9118,25 +9142,8 @@ def run_total_spine(
     federation_peers: Sequence[Path | str | Mapping[str, Any]] | None = None,
     federation_quorum: bool = False,
     quorum_threshold: int | None = None,
-    execution: bool = False,
-    actuation: bool = False,
-    settlement: bool = False,
-    clearing: bool = False,
-    delivery: bool = False,
-    custody: bool = False,
-    margin: bool = False,
-    collateral: bool = False,
-    liquidity: bool = False,
-    funding: bool = False,
-    capital: bool = False,
-    solvency: bool = False,
-    risk: bool = False,
-    stress: bool = False,
-    recovery: bool = False,
-    resolution: bool = False,
-    restructuring: bool = False,
-    emergence: bool = False,
-    reorganization: bool = False,
+    stages: Mapping[str, Any] | None = None,
+    **stage_flags: Any,
 ) -> dict[str, Any]:
     """Public entry: absolute total spine from root into the operational nest.
 
@@ -9199,8 +9206,11 @@ def run_total_spine(
     one-sided / mismatched / wrong-root closures, and short-circuits on
     re-application so a certified predecessor is no longer an open claim.
     Enabling a link implies every predecessor; resume of an already-sealed
-    link short-circuits without re-dispatch.
+    link short-circuits without re-dispatch. Stage flags are catalog-
+    validated (``stages=`` or historical ``solvency=True`` kwargs); a new
+    post-consensus plane does not add a signature parameter.
     """
+    requested_stages = _collect_spine_stage_flags(stages, stage_flags)
     root = (
         str(root_layer or TOTAL_SPINE_DEFAULT_ROOT).strip().lower()
         or TOTAL_SPINE_DEFAULT_ROOT
@@ -9272,25 +9282,7 @@ def run_total_spine(
             federation_peers=federation_peers,
             federation_quorum=federation_quorum,
             quorum_threshold=quorum_threshold,
-            execution=execution,
-            actuation=actuation,
-            settlement=settlement,
-            clearing=clearing,
-            delivery=delivery,
-            custody=custody,
-            margin=margin,
-            collateral=collateral,
-            liquidity=liquidity,
-            funding=funding,
-            capital=capital,
-            solvency=solvency,
-            risk=risk,
-            stress=stress,
-            recovery=recovery,
-            resolution=resolution,
-            restructuring=restructuring,
-            emergence=emergence,
-            reorganization=reorganization,
+            stages=requested_stages,
         )
         return annotated
 
@@ -9356,25 +9348,7 @@ def run_total_spine(
         federation_peers=federation_peers,
         federation_quorum=federation_quorum,
         quorum_threshold=quorum_threshold,
-        execution=execution,
-        actuation=actuation,
-        settlement=settlement,
-        clearing=clearing,
-        delivery=delivery,
-        custody=custody,
-        margin=margin,
-        collateral=collateral,
-        liquidity=liquidity,
-        funding=funding,
-        capital=capital,
-        solvency=solvency,
-        risk=risk,
-        stress=stress,
-        recovery=recovery,
-        resolution=resolution,
-        restructuring=restructuring,
-        emergence=emergence,
-        reorganization=reorganization,
+        stages=requested_stages,
     )
     if out_root is not None:
         receipt_dir = Path(out_root)
@@ -15294,6 +15268,118 @@ def builtin_spine_short_circuit_catalog_proof() -> dict[str, Any]:
         "done_when_met": ok,
     }
     out = REPO_ROOT / "artifacts" / "capability-spine-short-circuit-catalog"
+    out.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(out / "plane-report.json", report)
+    return report
+
+
+def builtin_spine_public_catalog_proof() -> dict[str, Any]:
+    """Hermetic proof: public live entry takes catalog-validated stage flags."""
+
+    import inspect
+
+    checks: dict[str, bool] = {}
+    names = list(SPINE_PUBLIC_STAGE_FLAGS)
+    checks["impl"] = SPINE_PUBLIC_CATALOG_IMPL is True
+    checks["catalog"] = tuple(names) == tuple(SPINE_RESUME_POST_CONSENSUS)
+    checks["catalog_len"] = len(names) == 19
+    checks["catalog_start"] = names[0] == "execution"
+    checks["catalog_end"] = names[-1] == "reorganization"
+    checks["excludes_finality"] = "finality" not in names
+
+    attach_sig = inspect.signature(_attach_total_spine_effects)
+    run_sig = inspect.signature(run_total_spine)
+    attach_params = attach_sig.parameters
+    run_params = run_sig.parameters
+    checks["attach_has_stages"] = "stages" in attach_params
+    checks["run_has_stages"] = "stages" in run_params
+    checks["attach_has_var_keyword"] = any(
+        param.kind is inspect.Parameter.VAR_KEYWORD
+        for param in attach_params.values()
+    )
+    checks["run_has_var_keyword"] = any(
+        param.kind is inspect.Parameter.VAR_KEYWORD
+        for param in run_params.values()
+    )
+    checks["attach_keeps_finality"] = "finality" in attach_params
+    checks["run_keeps_finality"] = "finality" in run_params
+    leaked = ("execution", "actuation", "solvency", "reorganization")
+    checks["attach_no_stage_params"] = all(
+        name not in attach_params for name in leaked
+    )
+    checks["run_no_stage_params"] = all(name not in run_params for name in leaked)
+    try:
+        run_sig.bind_partial(solvency=True, execution=True)
+        checks["historical_kwargs_bind"] = True
+    except TypeError:
+        checks["historical_kwargs_bind"] = False
+    try:
+        run_sig.bind_partial(stages={"solvency": True})
+        checks["mapping_form_binds"] = True
+    except TypeError:
+        checks["mapping_form_binds"] = False
+
+    collected = _collect_spine_stage_flags(None, {"solvency": True})
+    checks["collect_solvency"] = collected.get("solvency") is True
+    checks["collect_defaults"] = collected.get("execution") is False
+    checks["collect_count"] = len(collected) == 19
+    merged = _collect_spine_stage_flags(
+        {"execution": True},
+        {"solvency": True},
+    )
+    checks["collect_merges"] = (
+        merged.get("execution") is True and merged.get("solvency") is True
+    )
+    try:
+        _collect_spine_stage_flags(None, {"not_a_spine_stage": True})
+        checks["unknown_refused"] = False
+    except TypeError:
+        checks["unknown_refused"] = True
+
+    implied = _imply_caller_spine_flags(
+        {"finality": False, **_collect_spine_stage_flags(None, {"solvency": True})}
+    )
+    checks["historical_solvency_implies"] = (
+        implied.get("solvency") is True
+        and implied.get("execution") is True
+        and implied.get("finality") is True
+    )
+
+    attach_src = inspect.getsource(_attach_total_spine_effects)
+    run_src = inspect.getsource(run_total_spine)
+    collect_src = inspect.getsource(_collect_spine_stage_flags)
+    checks["attach_collects"] = "_collect_spine_stage_flags" in attach_src
+    checks["run_collects"] = "_collect_spine_stage_flags" in run_src
+    checks["attach_no_locals_unroll"] = "_caller_flags = locals()" not in attach_src
+    checks["attach_no_sig_copy"] = "reorganization: bool = False" not in attach_src
+    checks["run_no_sig_copy"] = "reorganization: bool = False" not in run_src
+    checks["run_no_forward_copy"] = "reorganization=reorganization" not in run_src
+    checks["run_forwards_stages"] = run_src.count("stages=requested_stages") == 2
+    checks["collect_uses_catalog"] = "SPINE_PUBLIC_STAGE_FLAGS" in collect_src
+    checks["no_skill_route"] = not legacy_pipeline_was_used()
+
+    wired = {
+        "collect": callable(_collect_spine_stage_flags),
+        "attach": callable(_attach_total_spine_effects),
+        "run": callable(run_total_spine),
+        "catalog": bool(SPINE_PUBLIC_STAGE_FLAGS),
+        "impl": SPINE_PUBLIC_CATALOG_IMPL is True,
+    }
+    ok = all(checks.values()) and all(wired.values())
+    report = {
+        "schema_version": SCHEMA_VERSION,
+        "action": "spine_public_catalog_proof",
+        "ok": ok,
+        "checks": checks,
+        "wired": wired,
+        "wired_count": sum(1 for value in wired.values() if value),
+        "stages": names,
+        "stage_count": len(names),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+        "spine_public_catalog": True,
+        "done_when_met": ok,
+    }
+    out = REPO_ROOT / "artifacts" / "capability-spine-public-catalog"
     out.mkdir(parents=True, exist_ok=True)
     atomic_write_json(out / "plane-report.json", report)
     return report
