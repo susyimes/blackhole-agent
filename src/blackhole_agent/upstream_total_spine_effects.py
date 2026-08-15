@@ -71,15 +71,30 @@ class PairEffectSpec:
     abbr: str  # sol (proof scratch dir prefix)
     # Refusal-kind suffixes as historically generated (residue preserved):
     refusal_pred_tampered: str  # margin_tampered
-    refusal_pred_partial: str  # margin_partial
     refusal_pred_short: str  # margins_short
     refusal_pred_not_done: str  # capital_uncapitalized
     refusal_pred_unmet: str  # capital_unrequired
     refusal_code_failed: str  # cva_failed
     summary: str  # one-line module summary (CLI description)
+    refusal_pred_partial: str | None = None  # margin_partial (None: no atomic check, e.g. delivery)
     out_extra_flags: tuple[str, ...] = ()  # extra total_spine_* booleans in proof output
     proof_goal: str = ""  # finality-origin goal prose (residue; default: "<effect> proof origin")
     chain_tag: str = ""  # chain-material prefix (residue: "risk" for stress..reorganization)
+    # Confirm-step plan (historical divergence carried as data):
+    confirm_source: str = "first_or_bundle"  # first_or_bundle | bundle | preds_or_body | list:<role>
+    confirm_kwargs: tuple[str, ...] | None = None  # roles; default preds+margins+clearings+settlements+actuation+body
+    confirm_accessor_plural: str = ""  # accessor feeding preds (default: pred-of-pred plural)
+    confirm_drops: str = "base"  # base | none | self_loaded
+    refusal_confirm_missing: str = "confirmation_missing"
+    book_fn_prefix: str = "book"  # historical book-function prefix ("pair" for delivery)
+    # pred block in annotate: three setdefault suffixes (default: pred, pred_done, <pred_code>_ok)
+    pred_block: tuple[str, str, str] | None = None
+    # _book_signature shape: (sig row sources, include clearing root, include delivery root,
+    # signatures key, include pair_count, count key)
+    book_sig: tuple[tuple[str, ...], bool, bool, str, bool, str] | None = None
+    chain_layout: str = "full"  # "full" | "delivery" | "custody" (seal-chain material slot layout)
+    # runner contract ctx: {outer, inner[(key, role)...], outer_extra[(key, role)...]}; roles: true|count:<noun>|tip|state
+    ctx: dict[str, Any] | None = None
     out_tip_skip: tuple[str, ...] = ()  # chain members omitted from printed tip roots (recovery skips risk)
     # mis-keyed height reads in the historical proof second calls: link -> wrong noun
     second_height_miskey: dict[str, str] | None = None
@@ -455,6 +470,457 @@ _register(
 )
 
 
+_register(
+    PairEffectSpec(
+        effect='emergence',
+        live_dir='live',
+        short_dir='short',
+        short_resume_dir='live-emg',
+        out_tip_skip=('restructuring',),
+        out_tip_alias={'emergence': 'restructuring'},
+        plural='emergences',
+        verb='emerge',
+        pred='restructuring',
+        pred_plural='restructurings',
+        code='evc',
+        code_upper='Evc',
+        pred_code='rvm',
+        pred_code_upper='Rvm',
+        verdict_1='emerged_ok',
+        verdict_2='confirmation_ok',
+        adj_1='emerged',
+        adj_2='confirmed',
+        adj_1_negated='unrestructured',
+        counterpart='requirement',
+        pred_done='restructured',
+        pred_verdict_1='mandated',
+        pred_verdict_2='rvm_ok',
+        post_key='post_emergence',
+        min_name='EMERGENCES',
+        collect_push=('restructuring', 'risk', 'capital', 'funding', 'collateral', 'margin', 'custody', 'delivery'),
+        abbr='emg',
+        chain_tag='risk',
+        out_extra_flags=('resolution',),
+        confirm_source='preds_or_body',
+        confirm_accessor_plural='restructurings',
+        confirm_drops='self_loaded',
+        refusal_pred_tampered='margin_tampered',
+        refusal_pred_partial='margin_partial',
+        refusal_pred_short='margins_short',
+        refusal_pred_not_done='capital_unrestructured',
+        refusal_pred_unmet='capital_uncapacitated',
+        refusal_code_failed='rvm_failed',
+        summary='Post-restructuring emergence-versus-confirmation for the absolute total spine.',
+        signatures={
+            'annotate_total_spine_emergence': '(\n    body: dict[str, Any],\n    *,\n    certificate: Mapping[str, Any],\n    prior_tip: str,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
+            'book_total_spine_restructurings': '(\n    margins: Sequence[Mapping[str, Any]],\n    *,\n    min_emergences: int = TOTAL_SPINE_EMERGENCE_MIN_EMERGENCES,\n    parent_emergence_root: str = "",\n    emergence_height: int | None = None,\n) -> list[dict[str, Any]]',
+            'builtin_total_spine_emergence_proof': '() -> dict[str, Any]',
+            'compute_total_spine_emergence_root': '(\n    risks: Sequence[Mapping[str, Any]],\n) -> str',
+            'load_total_spine_emergence_certificate': '(\n    path: Path | str,\n) -> dict[str, Any]',
+            'seal_total_spine_emergence_certificate': '(\n    body: Mapping[str, Any],\n) -> dict[str, Any]',
+            'seal_total_spine_emergence_chain': '(\n    *,\n    prior_tip: str,\n    emergence_digest: str,\n    tip_emergence_root: str,\n    bound_restructuring_root: str,\n    bound_delivery_root: str,\n    bound_clearing_root: str,\n    bound_settlement_root: str,\n    bound_action_root: str,\n    bound_state_root: str,\n    actuation_digest: str,\n    restructuring_digest: str,\n    delivery_digest: str,\n    emergence_height: int,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
+            'verify_total_spine_emergence_certificate': '(\n    certificate: Mapping[str, Any],\n) -> dict[str, Any]',
+            'write_total_spine_emergence_certificate': '(\n    out_root: Path,\n    body: Mapping[str, Any],\n    *,\n    allow_idempotent: bool = True,\n) -> dict[str, Any]',
+            'emerge_total_spine': '(\n    source: Path | str | Mapping[str, Any] | Sequence[Any] | None = None,\n    *,\n    restructurings: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    margins: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    out_root: Path | None = None,\n    prior_tip: str | None = None,\n    body: dict[str, Any] | None = None,\n    min_emergences: int = TOTAL_SPINE_EMERGENCE_MIN_EMERGENCES,\n    parent_emergence_root: str = "",\n    emergence_height: int | None = None,\n    short_circuit: bool = False,\n    repo_path: Path | None = None,\n    confirm: bool = True,\n    actuation: Mapping[str, Any] | None = None,\n    settlements: Sequence[Mapping[str, Any]] | None = None,\n    clearings: Sequence[Mapping[str, Any]] | None = None,\n) -> dict[str, Any]',
+            'emergence_certificate_path': '(root: Path) -> Path',
+            'main': '(argv: Sequence[str] | None = None) -> int',
+        },
+    )
+)
+
+
+_register(
+    PairEffectSpec(
+        effect='reorganization',
+        live_dir='live',
+        short_dir='short',
+        short_resume_dir='live-emg',
+        out_tip_skip=('emergence', 'restructuring'),
+        out_tip_alias={'reorganization': 'emergence'},
+        plural='reorganizations',
+        verb='reorganize',
+        pred='emergence',
+        pred_plural='emergences',
+        code='rvc',
+        code_upper='Rvc',
+        pred_code='evc',
+        pred_code_upper='Evc',
+        verdict_1='reorganized_ok',
+        verdict_2='charter_ok',
+        adj_1='reorganized',
+        adj_2='chartered',
+        adj_1_negated='unemerged',
+        counterpart='requirement',
+        pred_done='emerged',
+        pred_verdict_1='confirmed',
+        pred_verdict_2='evc_ok',
+        post_key='post_reorganization',
+        min_name='REORGANIZATIONS',
+        collect_push=('emergence', 'risk', 'capital', 'funding', 'collateral', 'margin', 'custody', 'delivery'),
+        abbr='reorg',
+        chain_tag='risk',
+        out_extra_flags=('resolution',),
+        confirm_source='preds_or_body',
+        confirm_accessor_plural='emergences',
+        confirm_drops='self_loaded',
+        refusal_confirm_missing='charter_missing',
+        refusal_pred_tampered='margin_tampered',
+        refusal_pred_partial='margin_partial',
+        refusal_pred_short='margins_short',
+        refusal_pred_not_done='capital_unemerged',
+        refusal_pred_unmet='capital_uncapacitated',
+        refusal_code_failed='evc_failed',
+        summary='Post-emergence reorganization-versus-charter for the absolute total spine.',
+        signatures={
+            'annotate_total_spine_reorganization': '(\n    body: dict[str, Any],\n    *,\n    certificate: Mapping[str, Any],\n    prior_tip: str,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
+            'book_total_spine_emergences': '(\n    margins: Sequence[Mapping[str, Any]],\n    *,\n    min_reorganizations: int = TOTAL_SPINE_REORGANIZATION_MIN_REORGANIZATIONS,\n    parent_reorganization_root: str = "",\n    reorganization_height: int | None = None,\n) -> list[dict[str, Any]]',
+            'builtin_total_spine_reorganization_proof': '() -> dict[str, Any]',
+            'compute_total_spine_reorganization_root': '(\n    risks: Sequence[Mapping[str, Any]],\n) -> str',
+            'load_total_spine_reorganization_certificate': '(\n    path: Path | str,\n) -> dict[str, Any]',
+            'seal_total_spine_reorganization_certificate': '(\n    body: Mapping[str, Any],\n) -> dict[str, Any]',
+            'seal_total_spine_reorganization_chain': '(\n    *,\n    prior_tip: str,\n    reorganization_digest: str,\n    tip_reorganization_root: str,\n    bound_emergence_root: str,\n    bound_delivery_root: str,\n    bound_clearing_root: str,\n    bound_settlement_root: str,\n    bound_action_root: str,\n    bound_state_root: str,\n    actuation_digest: str,\n    emergence_digest: str,\n    delivery_digest: str,\n    reorganization_height: int,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
+            'verify_total_spine_reorganization_certificate': '(\n    certificate: Mapping[str, Any],\n) -> dict[str, Any]',
+            'write_total_spine_reorganization_certificate': '(\n    out_root: Path,\n    body: Mapping[str, Any],\n    *,\n    allow_idempotent: bool = True,\n) -> dict[str, Any]',
+            'reorganize_total_spine': '(\n    source: Path | str | Mapping[str, Any] | Sequence[Any] | None = None,\n    *,\n    emergences: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    margins: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    out_root: Path | None = None,\n    prior_tip: str | None = None,\n    body: dict[str, Any] | None = None,\n    min_reorganizations: int = TOTAL_SPINE_REORGANIZATION_MIN_REORGANIZATIONS,\n    parent_reorganization_root: str = "",\n    reorganization_height: int | None = None,\n    short_circuit: bool = False,\n    repo_path: Path | None = None,\n    confirm: bool = True,\n    actuation: Mapping[str, Any] | None = None,\n    settlements: Sequence[Mapping[str, Any]] | None = None,\n    clearings: Sequence[Mapping[str, Any]] | None = None,\n) -> dict[str, Any]',
+            'reorganization_certificate_path': '(root: Path) -> Path',
+            'main': '(argv: Sequence[str] | None = None) -> int',
+        },
+    )
+)
+
+
+_register(
+    PairEffectSpec(
+        effect='delivery',
+        chain_layout='delivery',
+        book_sig=(("observation_signature",), False, False, "observation_signatures", False, "net_count"),
+        plural='deliveries',
+        verb='deliver',
+        pred='clearing',
+        pred_plural='clearings',
+        code='dvp',
+        code_upper='Dvp',
+        pred_code='net',
+        pred_code_upper='Net',
+        verdict_1='deliver_ok',
+        verdict_2='pay_ok',
+        adj_1='delivered',
+        adj_2='paid',
+        adj_1_negated=None,
+        counterpart=None,
+        pred_done='cleared',
+        pred_verdict_1='discharged',
+        pred_verdict_2='net_ok',
+        post_key='post_clearing',
+        min_name='CLEARINGS',
+        collect_push=('clearing',),
+        abbr='dlv',
+        confirm_source='list:settlements',
+        confirm_kwargs=('settlements', 'actuation'),
+        confirm_drops='none',
+        pred_block=('total_spine_clearing', 'total_spine_cleared', 'total_spine_discharged'),
+        ctx={'outer': 'clearing', 'inner': [('ok', 'true'), ('cleared', 'true'), ('cleared_ok', 'true'), ('clearing_root_valid', 'true'), ('clearing_count', 'count:clearing'), ('tip_clearing_root', 'tip')], 'outer_extra': [('clearing_count', 'count:clearing'), ('tip_clearing_root', 'tip'), ('state_root', 'state')]},
+        book_fn_prefix='pair',
+        refusal_pred_tampered='clearing_tampered',
+        refusal_pred_short='clearings_short',
+        refusal_pred_not_done='clearing_uncleared',
+        refusal_pred_unmet='clearing_undischarged',
+        refusal_code_failed='dvp_failed',
+        summary='Post-clearing delivery-versus-payment for the absolute total spine.',
+        signatures={
+            'annotate_total_spine_delivery': '(\n    body: dict[str, Any],\n    *,\n    certificate: Mapping[str, Any],\n    prior_tip: str,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
+            'pair_total_spine_clearings': '(\n    clearings: Sequence[Mapping[str, Any]],\n    *,\n    min_deliveries: int = TOTAL_SPINE_DELIVERY_MIN_CLEARINGS,\n    parent_delivery_root: str = "",\n    delivery_height: int | None = None,\n) -> list[dict[str, Any]]',
+            'builtin_total_spine_delivery_proof': '() -> dict[str, Any]',
+            'compute_total_spine_delivery_root': '(\n    deliveries: Sequence[Mapping[str, Any]],\n) -> str',
+            'load_total_spine_delivery_certificate': '(\n    path: Path | str,\n) -> dict[str, Any]',
+            'seal_total_spine_delivery_certificate': '(\n    body: Mapping[str, Any],\n) -> dict[str, Any]',
+            'seal_total_spine_delivery_chain': '(\n    *,\n    prior_tip: str,\n    delivery_digest: str,\n    tip_delivery_root: str,\n    bound_clearing_root: str,\n    bound_settlement_root: str,\n    bound_action_root: str,\n    bound_state_root: str,\n    actuation_digest: str,\n    clearing_digest: str,\n    delivery_height: int,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
+            'verify_total_spine_delivery_certificate': '(\n    certificate: Mapping[str, Any],\n) -> dict[str, Any]',
+            'write_total_spine_delivery_certificate': '(\n    out_root: Path,\n    body: Mapping[str, Any],\n    *,\n    allow_idempotent: bool = True,\n) -> dict[str, Any]',
+            'deliver_total_spine': '(\n    source: Path | str | Mapping[str, Any] | Sequence[Any] | None = None,\n    *,\n    clearings: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    out_root: Path | None = None,\n    prior_tip: str | None = None,\n    body: dict[str, Any] | None = None,\n    min_deliveries: int = TOTAL_SPINE_DELIVERY_MIN_CLEARINGS,\n    parent_delivery_root: str = "",\n    delivery_height: int | None = None,\n    short_circuit: bool = False,\n    repo_path: Path | None = None,\n    confirm: bool = True,\n    actuation: Mapping[str, Any] | None = None,\n    settlements: Sequence[Mapping[str, Any]] | None = None,\n) -> dict[str, Any]',
+            'delivery_certificate_path': '(root: Path) -> Path',
+            'main': '(argv: Sequence[str] | None = None) -> int',
+        },
+    )
+)
+
+
+_register(
+    PairEffectSpec(
+        effect='custody',
+        chain_layout='custody',
+        book_sig=(("book_signature", "pairs_digest"), True, False, "delivery_signatures", True, "delivery_count"),
+        plural='custodies',
+        verb='custody',
+        pred='delivery',
+        pred_plural='deliveries',
+        code='cvt',
+        code_upper='Cvt',
+        pred_code='dvp',
+        pred_code_upper='Dvp',
+        verdict_1='custody_ok',
+        verdict_2='title_ok',
+        adj_1='custodied',
+        adj_2='titled',
+        adj_1_negated=None,
+        counterpart='title',
+        pred_done='delivered',
+        pred_verdict_1='paid',
+        pred_verdict_2='dvp_ok',
+        post_key='post_delivery',
+        min_name='DELIVERIES',
+        collect_push=('delivery',),
+        abbr='cst',
+        confirm_source='list:clearings',
+        confirm_kwargs=('clearings', 'settlements', 'actuation'),
+        confirm_drops='none',
+        pred_block=('total_spine_delivery', 'total_spine_delivered', 'total_spine_dvp_ok'),
+        ctx={'outer': 'delivery', 'inner': [('ok', 'true'), ('delivered', 'true'), ('delivered_ok', 'true'), ('delivery_root_valid', 'true'), ('dvp_ok', 'true'), ('delivery_count', 'count:delivery'), ('tip_delivery_root', 'tip')], 'outer_extra': [('delivery_count', 'count:delivery'), ('tip_delivery_root', 'tip'), ('state_root', 'state')]},
+        refusal_pred_partial='delivery_partial',
+        refusal_pred_tampered='delivery_tampered',
+        refusal_pred_short='deliveries_short',
+        refusal_pred_not_done='delivery_undelivered',
+        refusal_pred_unmet='delivery_unpaid',
+        refusal_code_failed='cvt_failed',
+        summary='Post-delivery custody-versus-title for the absolute total spine.',
+        signatures={
+            'annotate_total_spine_custody': '(\n    body: dict[str, Any],\n    *,\n    certificate: Mapping[str, Any],\n    prior_tip: str,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
+            'book_total_spine_deliveries': '(\n    deliveries: Sequence[Mapping[str, Any]],\n    *,\n    min_custodies: int = TOTAL_SPINE_CUSTODY_MIN_DELIVERIES,\n    parent_custody_root: str = "",\n    custody_height: int | None = None,\n) -> list[dict[str, Any]]',
+            'builtin_total_spine_custody_proof': '() -> dict[str, Any]',
+            'compute_total_spine_custody_root': '(\n    custodies: Sequence[Mapping[str, Any]],\n) -> str',
+            'load_total_spine_custody_certificate': '(\n    path: Path | str,\n) -> dict[str, Any]',
+            'seal_total_spine_custody_certificate': '(\n    body: Mapping[str, Any],\n) -> dict[str, Any]',
+            'seal_total_spine_custody_chain': '(\n    *,\n    prior_tip: str,\n    custody_digest: str,\n    tip_custody_root: str,\n    bound_delivery_root: str,\n    bound_clearing_root: str,\n    bound_settlement_root: str,\n    bound_action_root: str,\n    bound_state_root: str,\n    actuation_digest: str,\n    delivery_digest: str,\n    custody_height: int,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
+            'verify_total_spine_custody_certificate': '(\n    certificate: Mapping[str, Any],\n) -> dict[str, Any]',
+            'write_total_spine_custody_certificate': '(\n    out_root: Path,\n    body: Mapping[str, Any],\n    *,\n    allow_idempotent: bool = True,\n) -> dict[str, Any]',
+            'custody_total_spine': '(\n    source: Path | str | Mapping[str, Any] | Sequence[Any] | None = None,\n    *,\n    deliveries: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    out_root: Path | None = None,\n    prior_tip: str | None = None,\n    body: dict[str, Any] | None = None,\n    min_custodies: int = TOTAL_SPINE_CUSTODY_MIN_DELIVERIES,\n    parent_custody_root: str = "",\n    custody_height: int | None = None,\n    short_circuit: bool = False,\n    repo_path: Path | None = None,\n    confirm: bool = True,\n    actuation: Mapping[str, Any] | None = None,\n    settlements: Sequence[Mapping[str, Any]] | None = None,\n    clearings: Sequence[Mapping[str, Any]] | None = None,\n) -> dict[str, Any]',
+            'custody_certificate_path': '(root: Path) -> Path',
+            'main': '(argv: Sequence[str] | None = None) -> int',
+        },
+    )
+)
+
+
+_register(
+    PairEffectSpec(
+        effect='margin',
+        book_sig=(("book_signature", "pairs_digest"), True, True, "custody_signatures", True, "custody_count"),
+        plural='margins',
+        verb='margin',
+        pred='custody',
+        pred_plural='custodies',
+        code='mve',
+        code_upper='Mve',
+        pred_code='cvt',
+        pred_code_upper='Cvt',
+        verdict_1='margin_ok',
+        verdict_2='exposure_ok',
+        adj_1='margined',
+        adj_2='exposed',
+        adj_1_negated=None,
+        counterpart='exposure',
+        pred_done='custodied',
+        pred_verdict_1='titled',
+        pred_verdict_2='cvt_ok',
+        post_key='post_custody',
+        min_name='CUSTODIES',
+        collect_push=('custody', 'delivery'),
+        abbr='mgn',
+        confirm_source='list:deliveries',
+        confirm_kwargs=('deliveries', 'clearings', 'settlements', 'actuation'),
+        confirm_drops='none',
+        pred_block=('total_spine_custody', 'total_spine_custodied', 'total_spine_cvt_ok'),
+        ctx={'outer': 'custody', 'inner': [('ok', 'true'), ('custodied', 'true'), ('custodied_ok', 'true'), ('custody_root_valid', 'true'), ('cvt_ok', 'true'), ('custody_count', 'count:custody'), ('tip_custody_root', 'tip')], 'outer_extra': [('custody_count', 'count:custody'), ('tip_custody_root', 'tip'), ('state_root', 'state')]},
+        refusal_pred_partial='custody_partial',
+        refusal_pred_tampered='custody_tampered',
+        refusal_pred_short='custodies_short',
+        refusal_pred_not_done='custody_uncustodied',
+        refusal_pred_unmet='custody_untitled',
+        refusal_code_failed='mve_failed',
+        summary='Post-custody margin-versus-exposure for the absolute total spine.',
+        signatures={
+            'annotate_total_spine_margin': '(\n    body: dict[str, Any],\n    *,\n    certificate: Mapping[str, Any],\n    prior_tip: str,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
+            'book_total_spine_custodies': '(\n    custodies: Sequence[Mapping[str, Any]],\n    *,\n    min_margins: int = TOTAL_SPINE_MARGIN_MIN_CUSTODIES,\n    parent_margin_root: str = "",\n    margin_height: int | None = None,\n) -> list[dict[str, Any]]',
+            'builtin_total_spine_margin_proof': '() -> dict[str, Any]',
+            'compute_total_spine_margin_root': '(\n    margins: Sequence[Mapping[str, Any]],\n) -> str',
+            'load_total_spine_margin_certificate': '(\n    path: Path | str,\n) -> dict[str, Any]',
+            'seal_total_spine_margin_certificate': '(\n    body: Mapping[str, Any],\n) -> dict[str, Any]',
+            'seal_total_spine_margin_chain': '(\n    *,\n    prior_tip: str,\n    margin_digest: str,\n    tip_margin_root: str,\n    bound_custody_root: str,\n    bound_delivery_root: str,\n    bound_clearing_root: str,\n    bound_settlement_root: str,\n    bound_action_root: str,\n    bound_state_root: str,\n    actuation_digest: str,\n    custody_digest: str,\n    delivery_digest: str,\n    margin_height: int,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
+            'verify_total_spine_margin_certificate': '(\n    certificate: Mapping[str, Any],\n) -> dict[str, Any]',
+            'write_total_spine_margin_certificate': '(\n    out_root: Path,\n    body: Mapping[str, Any],\n    *,\n    allow_idempotent: bool = True,\n) -> dict[str, Any]',
+            'margin_total_spine': '(\n    source: Path | str | Mapping[str, Any] | Sequence[Any] | None = None,\n    *,\n    custodies: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    out_root: Path | None = None,\n    prior_tip: str | None = None,\n    body: dict[str, Any] | None = None,\n    min_margins: int = TOTAL_SPINE_MARGIN_MIN_CUSTODIES,\n    parent_margin_root: str = "",\n    margin_height: int | None = None,\n    short_circuit: bool = False,\n    repo_path: Path | None = None,\n    confirm: bool = True,\n    actuation: Mapping[str, Any] | None = None,\n    settlements: Sequence[Mapping[str, Any]] | None = None,\n    clearings: Sequence[Mapping[str, Any]] | None = None,\n) -> dict[str, Any]',
+            'margin_certificate_path': '(root: Path) -> Path',
+            'main': '(argv: Sequence[str] | None = None) -> int',
+        },
+    )
+)
+
+
+_register(
+    PairEffectSpec(
+        effect='collateral',
+        book_sig=(("book_signature", "pairs_digest"), True, True, "margin_signatures", True, "margin_count"),
+        plural='collaterals',
+        verb='collateral',
+        pred='margin',
+        pred_plural='margins',
+        code='cvo',
+        code_upper='Cvo',
+        pred_code='mve',
+        pred_code_upper='Mve',
+        verdict_1='collateral_ok',
+        verdict_2='obligation_ok',
+        adj_1='collateralized',
+        adj_2='obligated',
+        adj_1_negated=None,
+        counterpart='obligation',
+        pred_done='margined',
+        pred_verdict_1='exposed',
+        pred_verdict_2='mve_ok',
+        post_key='post_margin',
+        min_name='COLLATERALS',
+        collect_push=('margin', 'custody', 'delivery'),
+        abbr='col',
+        confirm_source='bundle',
+        confirm_kwargs=('custodies', 'clearings', 'settlements', 'actuation'),
+        confirm_drops='none',
+        pred_block=('total_spine_margin', 'total_spine_margined', 'total_spine_mve_ok'),
+        ctx={'outer': 'margin', 'inner': [('ok', 'true'), ('margined', 'true'), ('margined_ok', 'true'), ('margin_root_valid', 'true'), ('mve_ok', 'true'), ('margin_count', 'count:margin'), ('tip_margin_root', 'tip')], 'outer_extra': [('margin_count', 'count:margin'), ('tip_margin_root', 'tip'), ('state_root', 'state')]},
+        refusal_pred_partial='margin_partial',
+        refusal_pred_tampered='margin_tampered',
+        refusal_pred_short='margins_short',
+        refusal_pred_not_done='margin_unmargined',
+        refusal_pred_unmet='margin_unexposed',
+        refusal_code_failed='cvo_failed',
+        summary='Post-margin collateral-versus-obligation for the absolute total spine.',
+        signatures={
+            'annotate_total_spine_collateral': '(\n    body: dict[str, Any],\n    *,\n    certificate: Mapping[str, Any],\n    prior_tip: str,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
+            'book_total_spine_margins': '(\n    margins: Sequence[Mapping[str, Any]],\n    *,\n    min_collaterals: int = TOTAL_SPINE_COLLATERAL_MIN_COLLATERALS,\n    parent_collateral_root: str = "",\n    collateral_height: int | None = None,\n) -> list[dict[str, Any]]',
+            'builtin_total_spine_collateral_proof': '() -> dict[str, Any]',
+            'compute_total_spine_collateral_root': '(\n    collaterals: Sequence[Mapping[str, Any]],\n) -> str',
+            'load_total_spine_collateral_certificate': '(\n    path: Path | str,\n) -> dict[str, Any]',
+            'seal_total_spine_collateral_certificate': '(\n    body: Mapping[str, Any],\n) -> dict[str, Any]',
+            'seal_total_spine_collateral_chain': '(\n    *,\n    prior_tip: str,\n    collateral_digest: str,\n    tip_collateral_root: str,\n    bound_margin_root: str,\n    bound_delivery_root: str,\n    bound_clearing_root: str,\n    bound_settlement_root: str,\n    bound_action_root: str,\n    bound_state_root: str,\n    actuation_digest: str,\n    margin_digest: str,\n    delivery_digest: str,\n    collateral_height: int,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
+            'verify_total_spine_collateral_certificate': '(\n    certificate: Mapping[str, Any],\n) -> dict[str, Any]',
+            'write_total_spine_collateral_certificate': '(\n    out_root: Path,\n    body: Mapping[str, Any],\n    *,\n    allow_idempotent: bool = True,\n) -> dict[str, Any]',
+            'collateral_total_spine': '(\n    source: Path | str | Mapping[str, Any] | Sequence[Any] | None = None,\n    *,\n    margins: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    out_root: Path | None = None,\n    prior_tip: str | None = None,\n    body: dict[str, Any] | None = None,\n    min_collaterals: int = TOTAL_SPINE_COLLATERAL_MIN_COLLATERALS,\n    parent_collateral_root: str = "",\n    collateral_height: int | None = None,\n    short_circuit: bool = False,\n    repo_path: Path | None = None,\n    confirm: bool = True,\n    actuation: Mapping[str, Any] | None = None,\n    settlements: Sequence[Mapping[str, Any]] | None = None,\n    clearings: Sequence[Mapping[str, Any]] | None = None,\n) -> dict[str, Any]',
+            'collateral_certificate_path': '(root: Path) -> Path',
+            'main': '(argv: Sequence[str] | None = None) -> int',
+        },
+    )
+)
+
+
+_register(
+    PairEffectSpec(
+        effect='liquidity',
+        book_sig=(("book_signature", "pairs_digest"), True, True, "margin_signatures", True, "collateral_count"),
+        plural='liquidities',
+        verb='liquidity',
+        pred='collateral',
+        pred_plural='collaterals',
+        code='lvc',
+        code_upper='Lvc',
+        pred_code='cvo',
+        pred_code_upper='Cvo',
+        verdict_1='liquidity_ok',
+        verdict_2='coverage_ok',
+        adj_1='funded',
+        adj_2='covered',
+        adj_1_negated='unfunded',
+        counterpart='coverage',
+        pred_done='collateralized',
+        pred_verdict_1='obligated',
+        pred_verdict_2='cvo_ok',
+        post_key='post_collateral',
+        min_name='LIQUIDITIES',
+        collect_push=('collateral', 'margin', 'custody', 'delivery'),
+        abbr='liq',
+        confirm_source='bundle',
+        confirm_kwargs=('margins', 'clearings', 'settlements', 'actuation'),
+        confirm_drops='none',
+        pred_block=('total_spine_collateral', 'total_spine_collateralized', 'total_spine_cvo_ok'),
+        ctx={'outer': 'margin', 'inner': [('ok', 'true'), ('collateralized', 'true'), ('collateralized_ok', 'true'), ('margin_root_valid', 'true'), ('cvo_ok', 'true'), ('collateral_count', 'count:collateral'), ('tip_collateral_root', 'tip')], 'outer_extra': [('collateral_count', 'count:collateral'), ('tip_collateral_root', 'tip'), ('state_root', 'state')]},
+        refusal_pred_partial='margin_partial',
+        refusal_pred_tampered='margin_tampered',
+        refusal_pred_short='margins_short',
+        refusal_pred_not_done='margin_uncollateralized',
+        refusal_pred_unmet='margin_unobligated',
+        refusal_code_failed='lvc_failed',
+        summary='Post-collateral liquidity-versus-coverage for the absolute total spine.',
+        signatures={
+            'annotate_total_spine_liquidity': '(\n    body: dict[str, Any],\n    *,\n    certificate: Mapping[str, Any],\n    prior_tip: str,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
+            'book_total_spine_collaterals': '(\n    margins: Sequence[Mapping[str, Any]],\n    *,\n    min_liquidities: int = TOTAL_SPINE_LIQUIDITY_MIN_LIQUIDITIES,\n    parent_liquidity_root: str = "",\n    liquidity_height: int | None = None,\n) -> list[dict[str, Any]]',
+            'builtin_total_spine_liquidity_proof': '() -> dict[str, Any]',
+            'compute_total_spine_liquidity_root': '(\n    collaterals: Sequence[Mapping[str, Any]],\n) -> str',
+            'load_total_spine_liquidity_certificate': '(\n    path: Path | str,\n) -> dict[str, Any]',
+            'seal_total_spine_liquidity_certificate': '(\n    body: Mapping[str, Any],\n) -> dict[str, Any]',
+            'seal_total_spine_liquidity_chain': '(\n    *,\n    prior_tip: str,\n    liquidity_digest: str,\n    tip_liquidity_root: str,\n    bound_collateral_root: str,\n    bound_delivery_root: str,\n    bound_clearing_root: str,\n    bound_settlement_root: str,\n    bound_action_root: str,\n    bound_state_root: str,\n    actuation_digest: str,\n    collateral_digest: str,\n    delivery_digest: str,\n    liquidity_height: int,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
+            'verify_total_spine_liquidity_certificate': '(\n    certificate: Mapping[str, Any],\n) -> dict[str, Any]',
+            'write_total_spine_liquidity_certificate': '(\n    out_root: Path,\n    body: Mapping[str, Any],\n    *,\n    allow_idempotent: bool = True,\n) -> dict[str, Any]',
+            'liquidity_total_spine': '(\n    source: Path | str | Mapping[str, Any] | Sequence[Any] | None = None,\n    *,\n    collaterals: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    margins: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    out_root: Path | None = None,\n    prior_tip: str | None = None,\n    body: dict[str, Any] | None = None,\n    min_liquidities: int = TOTAL_SPINE_LIQUIDITY_MIN_LIQUIDITIES,\n    parent_liquidity_root: str = "",\n    liquidity_height: int | None = None,\n    short_circuit: bool = False,\n    repo_path: Path | None = None,\n    confirm: bool = True,\n    actuation: Mapping[str, Any] | None = None,\n    settlements: Sequence[Mapping[str, Any]] | None = None,\n    clearings: Sequence[Mapping[str, Any]] | None = None,\n) -> dict[str, Any]',
+            'liquidity_certificate_path': '(root: Path) -> Path',
+            'main': '(argv: Sequence[str] | None = None) -> int',
+        },
+    )
+)
+
+
+_register(
+    PairEffectSpec(
+        effect='funding',
+        book_sig=(("book_signature", "pairs_digest"), True, True, "margin_signatures", True, "liquidity_count"),
+        plural='fundings',
+        verb='funding',
+        pred='liquidity',
+        pred_plural='liquidities',
+        code='fvr',
+        code_upper='Fvr',
+        pred_code='lvc',
+        pred_code_upper='Lvc',
+        verdict_1='facility_ok',
+        verdict_2='requirement_ok',
+        adj_1='facilitated',
+        adj_2='required',
+        adj_1_negated='unfacilitated',
+        counterpart='requirement',
+        pred_done='funded',
+        pred_verdict_1='covered',
+        pred_verdict_2='lvc_ok',
+        post_key='post_liquidity',
+        min_name='FUNDINGS',
+        collect_push=('liquidity', 'collateral', 'margin', 'custody', 'delivery'),
+        abbr='fnd',
+        confirm_source='bundle',
+        confirm_kwargs=('collaterals', 'margins', 'clearings', 'settlements', 'actuation'),
+        confirm_drops='none',
+        pred_block=('total_spine_liquidity', 'total_spine_funded', 'total_spine_lvc_ok'),
+        ctx={'outer': 'liquidity', 'inner': [('ok', 'true'), ('funded', 'true'), ('funded_ok', 'true'), ('liquidity_root_valid', 'true'), ('lvc_ok', 'true'), ('liquidity_count', 'count:liquidity'), ('tip_liquidity_root', 'tip')], 'outer_extra': [('liquidity_count', 'count:liquidity'), ('tip_liquidity_root', 'tip'), ('state_root', 'state')]},
+        refusal_pred_partial='margin_partial',
+        refusal_pred_tampered='margin_tampered',
+        refusal_pred_short='margins_short',
+        refusal_pred_not_done='margin_unfunded',
+        refusal_pred_unmet='margin_uncovered',
+        refusal_code_failed='fvr_failed',
+        summary='Post-collateral funding-versus-requirement for the absolute total spine.',
+        signatures={
+            'annotate_total_spine_funding': '(\n    body: dict[str, Any],\n    *,\n    certificate: Mapping[str, Any],\n    prior_tip: str,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
+            'book_total_spine_liquidities': '(\n    margins: Sequence[Mapping[str, Any]],\n    *,\n    min_fundings: int = TOTAL_SPINE_FUNDING_MIN_FUNDINGS,\n    parent_funding_root: str = "",\n    funding_height: int | None = None,\n) -> list[dict[str, Any]]',
+            'builtin_total_spine_funding_proof': '() -> dict[str, Any]',
+            'compute_total_spine_funding_root': '(\n    liquidities: Sequence[Mapping[str, Any]],\n) -> str',
+            'load_total_spine_funding_certificate': '(\n    path: Path | str,\n) -> dict[str, Any]',
+            'seal_total_spine_funding_certificate': '(\n    body: Mapping[str, Any],\n) -> dict[str, Any]',
+            'seal_total_spine_funding_chain': '(\n    *,\n    prior_tip: str,\n    funding_digest: str,\n    tip_funding_root: str,\n    bound_liquidity_root: str,\n    bound_delivery_root: str,\n    bound_clearing_root: str,\n    bound_settlement_root: str,\n    bound_action_root: str,\n    bound_state_root: str,\n    actuation_digest: str,\n    liquidity_digest: str,\n    delivery_digest: str,\n    funding_height: int,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
+            'verify_total_spine_funding_certificate': '(\n    certificate: Mapping[str, Any],\n) -> dict[str, Any]',
+            'write_total_spine_funding_certificate': '(\n    out_root: Path,\n    body: Mapping[str, Any],\n    *,\n    allow_idempotent: bool = True,\n) -> dict[str, Any]',
+            'funding_total_spine': '(\n    source: Path | str | Mapping[str, Any] | Sequence[Any] | None = None,\n    *,\n    liquidities: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    margins: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    out_root: Path | None = None,\n    prior_tip: str | None = None,\n    body: dict[str, Any] | None = None,\n    min_fundings: int = TOTAL_SPINE_FUNDING_MIN_FUNDINGS,\n    parent_funding_root: str = "",\n    funding_height: int | None = None,\n    short_circuit: bool = False,\n    repo_path: Path | None = None,\n    confirm: bool = True,\n    actuation: Mapping[str, Any] | None = None,\n    settlements: Sequence[Mapping[str, Any]] | None = None,\n    clearings: Sequence[Mapping[str, Any]] | None = None,\n) -> dict[str, Any]',
+            'funding_certificate_path': '(root: Path) -> Path',
+            'main': '(argv: Sequence[str] | None = None) -> int',
+        },
+    )
+)
+
+
 class StageRefused(Exception):
     """A verdict-bearing refusal from a total-spine pair effect."""
 
@@ -514,38 +980,57 @@ def _book_signature(spec: PairEffectSpec, margin: Mapping[str, Any]) -> str:
     """Identity of a collateralized book, independent of margin height/digest."""
 
     legs = margin.get(spec.pred_plural) or []
+    (
+        sig_sources,
+        with_clearing,
+        with_delivery,
+        signatures_key,
+        with_pair_count,
+        count_key,
+    ) = spec.book_sig or (
+        ("book_signature", "pairs_digest"),
+        True,
+        True,
+        "margin_signatures",
+        True,
+        "liquidity_count",
+    )
     sigs: list[str] = []
     if isinstance(legs, list):
         for row in legs:
             if not isinstance(row, Mapping):
                 continue
-            sig = str(
-                row.get("book_signature") or row.get("pairs_digest") or ""
-            )
+            sig = ""
+            for source_key in sig_sources:
+                sig = str(row.get(source_key) or "")
+                if sig:
+                    break
             if sig:
                 sigs.append(sig)
-    return _sha256_json(
-        {
-            "bound_state_root": str(margin.get("bound_state_root") or ""),
-            "bound_action_root": str(margin.get("bound_action_root") or ""),
-            "actuation_digest": str(margin.get("actuation_digest") or ""),
-            "bound_settlement_root": str(
-                margin.get("bound_settlement_root") or ""
-            ),
-            "bound_clearing_root": str(
-                margin.get("bound_clearing_root") or ""
-            ),
-            "bound_delivery_root": str(
-                margin.get("bound_delivery_root")
-                or margin.get("tip_delivery_root")
-                or ""
-            ),
-            "margin_signatures": sigs,
-            "residual": int(margin.get("residual") or 0),
-            "pair_count": int(margin.get("pair_count") or 0),
-            "liquidity_count": int(margin.get("liquidity_count") or 0),
-        }
-    )
+    body: dict[str, Any] = {
+        "bound_state_root": str(margin.get("bound_state_root") or ""),
+        "bound_action_root": str(margin.get("bound_action_root") or ""),
+        "actuation_digest": str(margin.get("actuation_digest") or ""),
+        "bound_settlement_root": str(
+            margin.get("bound_settlement_root") or ""
+        ),
+    }
+    if with_clearing:
+        body["bound_clearing_root"] = str(
+            margin.get("bound_clearing_root") or ""
+        )
+    if with_delivery:
+        body["bound_delivery_root"] = str(
+            margin.get("bound_delivery_root")
+            or margin.get("tip_delivery_root")
+            or ""
+        )
+    body[signatures_key] = sigs
+    body["residual"] = int(margin.get("residual") or 0)
+    if with_pair_count:
+        body["pair_count"] = int(margin.get("pair_count") or 0)
+    body[count_key] = int(margin.get(f"{count_key}") or 0)
+    return _sha256_json(body)
 
 
 def _pairs(spec: PairEffectSpec, capabilities: Sequence[str]) -> list[dict[str, Any]]:
@@ -612,29 +1097,56 @@ def _assert_pairs_atomic(spec: PairEffectSpec, pairs: Sequence[Mapping[str, Any]
             )
 
 
+
+def _material_slots(spec: PairEffectSpec) -> dict[str, bool]:
+    """Certificate-material slot inclusion, derived from chain position."""
+
+    idx = TOTAL_SPINE_CHAIN.index(spec.effect)
+    return {
+        "delivery_root": idx >= TOTAL_SPINE_CHAIN.index("custody"),
+        "custody_root": idx >= TOTAL_SPINE_CHAIN.index("margin"),
+        "delivery_digest": idx >= TOTAL_SPINE_CHAIN.index("custody"),
+        "pred_plural_ok": idx <= TOTAL_SPINE_CHAIN.index("liquidity"),
+        "row_delivery_root": spec.effect != "delivery",
+        # leg root key noun: own effect for delivery..collateral, predecessor above
+        "leg_root_noun": spec.effect if idx <= TOTAL_SPINE_CHAIN.index("collateral") else spec.pred,
+        # annotate main-section key inclusion
+        "adj_2_key": idx >= TOTAL_SPINE_CHAIN.index("custody"),
+        "effect_ok_key": idx >= TOTAL_SPINE_CHAIN.index("funding"),
+        # digest-pre noun: own effect through liquidity, predecessor above
+        "pre_noun": spec.effect if idx <= TOTAL_SPINE_CHAIN.index("liquidity") else spec.pred,
+    }
+
+
 def _certificate_material(spec: PairEffectSpec, body: Mapping[str, Any]) -> dict[str, Any]:
     """Canonical material for total-spine effect certificate digests."""
 
+    slots = _material_slots(spec)
     legs = body.get(spec.plural) or body.get("legs") or []
     rows: list[dict[str, Any]] = []
     if isinstance(legs, list):
         for row in legs:
             if not isinstance(row, Mapping):
                 continue
+            pred_row: dict[str, Any] = {
+                f"{spec.pred}_index": int(row.get(f"{spec.pred}_index") or 0),
+                f"{spec.pred}_height": int(row.get(f"{spec.pred}_height") or 0),
+                f"{spec.pred}_digest": str(row.get(f"{spec.pred}_digest") or ""),
+                f"bound_{spec.pred}_root": str(
+                    row.get(f"bound_{spec.pred}_root") or ""
+                ),
+            }
+            if slots["row_delivery_root"] and spec.pred != "delivery":
+                pred_row["bound_delivery_root"] = str(
+                    row.get("bound_delivery_root") or ""
+                )
+            if spec.pred != "clearing":
+                pred_row["bound_clearing_root"] = str(
+                    row.get("bound_clearing_root") or ""
+                )
             rows.append(
                 {
-                    f"{spec.pred}_index": int(row.get(f"{spec.pred}_index") or 0),
-                    f"{spec.pred}_height": int(row.get(f"{spec.pred}_height") or 0),
-                    f"{spec.pred}_digest": str(row.get(f"{spec.pred}_digest") or ""),
-                    f"bound_{spec.pred}_root": str(
-                        row.get(f"bound_{spec.pred}_root") or ""
-                    ),
-                    "bound_delivery_root": str(
-                        row.get("bound_delivery_root") or ""
-                    ),
-                    "bound_clearing_root": str(
-                        row.get("bound_clearing_root") or ""
-                    ),
+                    **pred_row,
                     "bound_settlement_root": str(
                         row.get("bound_settlement_root") or ""
                     ),
@@ -654,7 +1166,7 @@ def _certificate_material(spec: PairEffectSpec, body: Mapping[str, Any]) -> dict
                     f"parent_{spec.effect}_root": str(
                         row.get(f"parent_{spec.effect}_root") or ""
                     ),
-                    f"{spec.pred}_root": str(row.get(f"{spec.pred}_root") or ""),
+                    f"{slots['leg_root_noun']}_root": str(row.get(f"{slots['leg_root_noun']}_root") or ""),
                     spec.post_key: bool(row.get(spec.post_key, True)),
                     "deterministic": bool(row.get("deterministic", True)),
                     spec.code: bool(row.get(spec.code, True)),
@@ -672,10 +1184,10 @@ def _certificate_material(spec: PairEffectSpec, body: Mapping[str, Any]) -> dict
         "bound_settlement_root": str(body.get("bound_settlement_root") or ""),
         "bound_clearing_root": str(body.get("bound_clearing_root") or ""),
         f"bound_{spec.pred}_root": str(body.get(f"bound_{spec.pred}_root") or ""),
-        "bound_custody_root": str(body.get("bound_custody_root") or ""),
-        "bound_delivery_root": str(body.get("bound_delivery_root") or ""),
+        **({"bound_custody_root": str(body.get("bound_custody_root") or "")} if slots["custody_root"] else {}),
+        **({"bound_delivery_root": str(body.get("bound_delivery_root") or "")} if slots["delivery_root"] else {}),
         f"{spec.pred}_digest": str(body.get(f"{spec.pred}_digest") or ""),
-        "delivery_digest": str(body.get("delivery_digest") or ""),
+        **({"delivery_digest": str(body.get("delivery_digest") or "")} if slots["delivery_digest"] else {}),
         f"parent_{spec.effect}_root": str(body.get(f"parent_{spec.effect}_root") or ""),
         f"tip_{spec.effect}_root": str(body.get(f"tip_{spec.effect}_root") or ""),
         f"{spec.effect}_height": int(body.get(f"{spec.effect}_height") or 0),
@@ -691,7 +1203,7 @@ def _certificate_material(spec: PairEffectSpec, body: Mapping[str, Any]) -> dict
         f"{spec.code}_ok": bool(body.get(f"{spec.code}_ok", True)),
         "one_sided": bool(body.get("one_sided", False)),
         f"{spec.plural}_ok": bool(body.get(f"{spec.plural}_ok", True)),
-        f"{spec.plural}_ok": bool(body.get(f"{spec.plural}_ok", True)),
+        **({f"{spec.pred_plural}_ok": bool(body.get(f"{spec.pred_plural}_ok", True))} if slots["pred_plural_ok"] else {f"{spec.plural}_ok": bool(body.get(f"{spec.plural}_ok", True))}),
         spec.post_key: bool(body.get(spec.post_key, True)),
         "deterministic": bool(body.get("deterministic", True)),
         "irreversible": bool(body.get("irreversible", True)),
@@ -707,18 +1219,20 @@ def compute_tip_root(spec: PairEffectSpec, preds: Sequence[Mapping[str, Any]]) -
     if not preds:
         return "0" * 64
     last = preds[-1]
-    tip = str(last.get(f"{spec.pred}_root") or "").strip()
+    slots = _material_slots(spec)
+    tip = str(last.get(f"{slots['leg_root_noun']}_root") or "").strip()
     if tip:
         return tip
     parent = ""
     for idx, row in enumerate(preds):
+        slots = _material_slots(spec)
         body = {
             f"{spec.pred}_index": int(row.get(f"{spec.pred}_index") or idx),
             f"{spec.pred}_height": int(row.get(f"{spec.pred}_height") or (idx + 1)),
             f"{spec.pred}_digest": str(row.get(f"{spec.pred}_digest") or ""),
             f"bound_{spec.pred}_root": str(row.get(f"bound_{spec.pred}_root") or ""),
-            "bound_delivery_root": str(row.get("bound_delivery_root") or ""),
-            "bound_clearing_root": str(row.get("bound_clearing_root") or ""),
+            **({"bound_delivery_root": str(row.get("bound_delivery_root") or "")} if slots["row_delivery_root"] and spec.pred != "delivery" else {}),
+            **({"bound_clearing_root": str(row.get("bound_clearing_root") or "")} if spec.pred != "clearing" else {}),
             "bound_settlement_root": str(row.get("bound_settlement_root") or ""),
             "bound_state_root": str(row.get("bound_state_root") or ""),
             "bound_action_root": str(row.get("bound_action_root") or ""),
@@ -777,7 +1291,7 @@ def book_predecessors(
                 f"{kind}_{spec.refusal_pred_unmet}",
                 f"{spec.effect} refuses a {spec.pred} whose {spec.pred_code_upper} is not complete",
             )
-        if raw.get("atomic_ok") is False:
+        if spec.refusal_pred_partial and raw.get("atomic_ok") is False:
             raise StageRefused(
                 f"{kind}_{spec.refusal_pred_partial}",
                 f"{spec.effect} refuses a non-atomic margin receipt",
@@ -867,6 +1381,7 @@ def book_predecessors(
             if effect_height is not None
             else (idx + 1)
         )
+        slots = _material_slots(spec)
         material = {
             f"{spec.pred}_index": idx,
             f"{spec.pred}_height": height,
@@ -874,12 +1389,12 @@ def book_predecessors(
             f"bound_{spec.pred}_root": str(
                 margin.get(f"tip_{spec.pred}_root") or ""
             ),
-            "bound_delivery_root": str(
+            **({"bound_delivery_root": str(
                 margin.get("bound_delivery_root")
                 or margin.get("tip_delivery_root")
                 or ""
-            ),
-            "bound_clearing_root": clearing or book_clearing,
+            )} if slots["row_delivery_root"] and spec.pred != "delivery" else {}),
+            **({"bound_clearing_root": clearing or book_clearing} if spec.pred != "clearing" else {}),
             "bound_settlement_root": settlement or book_settlement,
             "bound_state_root": state,
             "bound_action_root": action,
@@ -901,7 +1416,7 @@ def book_predecessors(
         }
         pred_root = _sha256_json(material)
         row = dict(material)
-        row[f"{spec.pred}_root"] = pred_root
+        row[f"{slots['leg_root_noun']}_root"] = pred_root
         row["pairs"] = pairs
         row["schema_version"] = SCHEMA_VERSION
         legs.append(row)
@@ -1084,13 +1599,14 @@ def verify_certificate(spec: PairEffectSpec, certificate: Mapping[str, Any]) -> 
             except StageRefused:
                 chain_ok = False
                 break
+        slots = _material_slots(spec)
         material_row = {
             f"{spec.pred}_index": int(row.get(f"{spec.pred}_index") or idx),
             f"{spec.pred}_height": int(row.get(f"{spec.pred}_height") or (idx + 1)),
             f"{spec.pred}_digest": str(row.get(f"{spec.pred}_digest") or ""),
             f"bound_{spec.pred}_root": str(row.get(f"bound_{spec.pred}_root") or ""),
-            "bound_delivery_root": str(row.get("bound_delivery_root") or ""),
-            "bound_clearing_root": str(row.get("bound_clearing_root") or ""),
+            **({"bound_delivery_root": str(row.get("bound_delivery_root") or "")} if slots["row_delivery_root"] and spec.pred != "delivery" else {}),
+            **({"bound_clearing_root": str(row.get("bound_clearing_root") or "")} if spec.pred != "clearing" else {}),
             "bound_settlement_root": str(row.get("bound_settlement_root") or ""),
             "bound_state_root": str(row.get("bound_state_root") or ""),
             "bound_action_root": str(row.get("bound_action_root") or ""),
@@ -1111,7 +1627,7 @@ def verify_certificate(spec: PairEffectSpec, certificate: Mapping[str, Any]) -> 
             spec.code: True,
         }
         expected_root = _sha256_json(material_row)
-        if str(row.get(f"{spec.pred}_root") or "") != expected_root:
+        if str(row.get(f"{slots['leg_root_noun']}_root") or "") != expected_root:
             chain_ok = False
             break
         parent = expected_root
@@ -1255,9 +1771,15 @@ def seal_chain(
     ad = str(actuation_digest or "").strip() or ("0" * 64)
     cd = str(pred_digest or "").strip() or ("0" * 64)
     dvd = str(delivery_digest or "").strip() or ("0" * 64)
+    if spec.chain_layout == "delivery":
+        slots = [st, ar, ad, sr, clr, cd, mr, md, tip]
+    elif spec.chain_layout == "custody":
+        slots = [st, ar, ad, sr, clr, cr, dvd, mr, md, tip]
+    else:
+        slots = [st, ar, ad, sr, clr, dlr, cr, dvd, cd, mr, md, tip]
     material = (
         f"{spec.chain_tag or spec.effect}|{int(bool(short_circuit))}|{int(effect_height)}|"
-        f"{st}|{ar}|{ad}|{sr}|{clr}|{dlr}|{cr}|{dvd}|{cd}|{mr}|{md}|{tip}"
+        + "|".join(slots)
     ).encode("utf-8")
     digest = _sha256_bytes(material)
     return {
@@ -1265,7 +1787,7 @@ def seal_chain(
         f"{spec.effect}_height": int(effect_height),
         f"tip_{spec.effect}_root": mr,
         f"bound_{spec.pred}_root": cr,
-        "bound_delivery_root": dlr,
+        **({"bound_delivery_root": dlr} if spec.chain_layout != "delivery" else {}),
         "bound_clearing_root": clr,
         "bound_settlement_root": sr,
         "bound_action_root": ar,
@@ -1343,7 +1865,7 @@ def annotate(
     body[f"{kind}_chain"] = chain
     body[f"{kind}_tip"] = cst_tip
     body[f"{kind}_bound_tip"] = bound
-    body[f"total_spine_digest_pre_{spec.pred}"] = prior_tip
+    body[f"total_spine_digest_pre_{_material_slots(spec)['pre_noun']}"] = prior_tip
     body[f"total_spine_tip_{spec.effect}_root"] = tip_effect_root
     body[f"{kind}_height"] = effect_height
     body[f"{kind}_count"] = effect_count
@@ -1368,11 +1890,14 @@ def annotate(
     body[f"tip_{spec.effect}_root"] = tip_effect_root
     body[f"{spec.effect}_count"] = effect_count
     body[f"{spec.effect}_height"] = effect_height
+    slots = _material_slots(spec)
     body[spec.adj_1] = bool(certificate.get(spec.adj_1, True))
     body[f"{spec.adj_1}_ok"] = bool(certificate.get(spec.adj_1, True))
-    body[f"{spec.effect}_ok"] = bool(certificate.get(spec.adj_1, True))
+    if slots["effect_ok_key"]:
+        body[f"{spec.effect}_ok"] = bool(certificate.get(spec.adj_1, True))
     body[f"{spec.code}_ok"] = bool(certificate.get(f"{spec.code}_ok", True))
-    body[spec.adj_2] = bool(certificate.get(spec.adj_2, True))
+    if slots["adj_2_key"]:
+        body[spec.adj_2] = bool(certificate.get(spec.adj_2, True))
     if certificate.get(f"{spec.effect}_path"):
         body[f"{kind}_path"] = certificate.get(f"{spec.effect}_path")
     if bound_state_root:
@@ -1400,12 +1925,16 @@ def annotate(
         body.setdefault("total_spine_cleared", True)
         body.setdefault("total_spine_discharged", True)
     if bound_pred_root:
+        triplet = spec.pred_block or (
+            f"total_spine_{spec.pred}",
+            f"total_spine_{spec.pred_done}",
+            f"total_spine_{spec.pred_code}_ok",
+        )
         body[f"total_spine_tip_{spec.pred}_root"] = bound_pred_root
         body[f"{spec.pred}_root"] = bound_pred_root
         body[f"tip_{spec.pred}_root"] = bound_pred_root
-        body.setdefault(f"total_spine_{spec.pred}", True)
-        body.setdefault(f"total_spine_{spec.pred_done}", True)
-        body.setdefault(f"total_spine_{spec.pred_code}_ok", True)
+        for key in triplet:
+            body.setdefault(key, True)
     bound_custody_root = str(certificate.get("bound_custody_root") or "")
     if bound_custody_root:
         body["total_spine_tip_custody_root"] = bound_custody_root
@@ -1668,6 +2197,62 @@ def _fundings_from(item: Any) -> list[dict[str, Any]]:
     return found
 
 
+def _restructurings_from(item: Any) -> list[dict[str, Any]]:
+    found: list[dict[str, Any]] = []
+    if not isinstance(item, Mapping):
+        return found
+    nested = item.get("total_spine_restructuring_certificate")
+    if isinstance(nested, Mapping) and (
+        nested.get("tip_restructuring_root") or nested.get("restructurings")
+    ):
+        found.append(dict(nested))
+    kind = str(item.get("kind") or "")
+    if (
+        kind == "total_spine_restructuring"
+        or item.get("total_spine_restructuring_loaded")
+        or item.get("total_spine_restructuring")
+    ) and item.get("tip_restructuring_root"):
+        found.append(dict(item))
+    extra = item.get("restructurings")
+    if isinstance(extra, list):
+        for row in extra:
+            if isinstance(row, Mapping) and (
+                row.get("tip_restructuring_root") or row.get("restructuring_digest")
+            ):
+                found.append(dict(row))
+    if item.get("tip_restructuring_root") and item.get("restructurings"):
+        found.append(dict(item))
+    return found
+
+
+def _emergences_from(item: Any) -> list[dict[str, Any]]:
+    found: list[dict[str, Any]] = []
+    if not isinstance(item, Mapping):
+        return found
+    nested = item.get("total_spine_emergence_certificate")
+    if isinstance(nested, Mapping) and (
+        nested.get("tip_emergence_root") or nested.get("emergences")
+    ):
+        found.append(dict(nested))
+    kind = str(item.get("kind") or "")
+    if (
+        kind == "total_spine_emergence"
+        or item.get("total_spine_emergence_loaded")
+        or item.get("total_spine_emergence")
+    ) and item.get("tip_emergence_root"):
+        found.append(dict(item))
+    extra = item.get("emergences")
+    if isinstance(extra, list):
+        for row in extra:
+            if isinstance(row, Mapping) and (
+                row.get("tip_emergence_root") or row.get("emergence_digest")
+            ):
+                found.append(dict(row))
+    if item.get("tip_emergence_root") and item.get("emergences"):
+        found.append(dict(item))
+    return found
+
+
 # Accessor dispatch for the pair chain below the effect itself.
 def _capitals_from(item: Any) -> list[dict[str, Any]]:
     found: list[dict[str, Any]] = []
@@ -1704,6 +2289,8 @@ _CHAIN_ACCESSORS = {
     "liquidities": _liquidities_from,
     "fundings": _fundings_from,
     "capitals": _capitals_from,
+    "restructurings": _restructurings_from,
+    "emergences": _emergences_from,
 }
 
 
@@ -1847,11 +2434,17 @@ def _confirm_pred(
     repo_path: Path | None,
     body: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Independently re-run the predecessor on the same book as confirmation."""
+    """Independently re-run the predecessor on the same book as confirmation.
+
+    The historical modules' confirm steps diverge per effect; the plan is
+    spec data: ``confirm_source`` picks the source expression, and
+    ``confirm_kwargs`` the extra kwarg roles forwarded to the predecessor
+    runner (in historical order).
+    """
 
     from blackhole_agent import upstream_control_engine as _engine
 
-    pred_runner = getattr(_engine, f"{spec.pred}_total_spine")
+    pred_runner = getattr(_engine, f"{_CHAIN_VERBS[spec.pred]}_total_spine")
 
     # Do not nest confirm writes under out_root: each prior plane appends
     # its own *-confirm directory, and the full cascade exceeds Windows
@@ -1864,40 +2457,54 @@ def _confirm_pred(
         confirm_body = dict(body)
     elif isinstance(primary, Mapping):
         confirm_body = dict(primary)
-    for drop in (
-        spec.pred_kind,
-        f"{spec.pred_kind}_certificate",
-        f"{spec.pred_kind}_loaded",
-        spec.kind,
-        f"{spec.kind}_certificate",
-        "kind",
-        f"tip_{spec.pred}_root",
-        f"tip_{spec.effect}_root",
-        f"{spec.pred}_digest",
-        f"{spec.effect}_digest",
-        "certificate_hash",
-    ):
-        kind = str(confirm_body.get("kind") or "")
-        if kind in {spec.pred_kind, spec.kind}:
-            confirm_body.pop("kind", None)
-        confirm_body.pop(drop, None)
+    if spec.confirm_drops != "none":
+        drops = [
+            spec.pred_kind,
+            f"{spec.pred_kind}_certificate",
+            f"{spec.pred_kind}_loaded",
+            spec.kind,
+            f"{spec.kind}_certificate",
+            "kind",
+            f"tip_{spec.pred}_root",
+            f"tip_{spec.effect}_root",
+            f"{spec.pred}_digest",
+            f"{spec.effect}_digest",
+            "certificate_hash",
+        ]
+        if spec.confirm_drops == "self_loaded":
+            drops.insert(5, f"{spec.kind}_loaded")
+        for drop in drops:
+            kind = str(confirm_body.get("kind") or "")
+            if kind in {spec.pred_kind, spec.kind}:
+                confirm_body.pop("kind", None)
+            confirm_body.pop(drop, None)
+    accessor_plural = spec.confirm_accessor_plural or _pred_pred_plural(spec)
     pred_preds: list[dict[str, Any]] = []
     seen: set[str] = set()
-    pred_pred_accessor = _CHAIN_ACCESSORS.get(_pred_pred_plural(spec))
-    for src in (primary, body, confirm_body):
-        if pred_pred_accessor is None:
-            break
-        for row in pred_pred_accessor(src):
-            key = str(
-                row.get(f"{TOTAL_SPINE_CHAIN[TOTAL_SPINE_CHAIN.index(spec.pred) - 1]}_digest")
-                or row.get("certificate_hash")
-                or row.get(f"tip_{TOTAL_SPINE_CHAIN[TOTAL_SPINE_CHAIN.index(spec.pred) - 1]}_root")
-                or ""
-            )
-            if not key or key in seen:
-                continue
-            seen.add(key)
-            pred_preds.append(row)
+    accessor = _CHAIN_ACCESSORS.get(accessor_plural)
+    if accessor is not None:
+        noun = accessor_plural[: -1] if accessor_plural.endswith("s") else accessor_plural
+        # singular digest/tip keys use the chain noun (solvency, not solvencie)
+        noun = {
+            "custodies": "custody", "deliveries": "delivery", "clearings": "clearing",
+            "settlements": "settlement", "collaterals": "collateral", "margins": "margin",
+            "liquidities": "liquidity", "fundings": "funding", "capitals": "capital",
+            "solvencies": "solvency", "risks": "risk", "stresses": "stress",
+            "recoveries": "recovery", "resolutions": "resolution",
+            "restructurings": "restructuring", "emergences": "emergence",
+        }[accessor_plural]
+        for item in (primary, body, confirm_body):
+            for row in accessor(item):
+                key = str(
+                    row.get(f"{noun}_digest")
+                    or row.get("certificate_hash")
+                    or row.get(f"tip_{noun}_root")
+                    or ""
+                )
+                if not key or key in seen:
+                    continue
+                seen.add(key)
+                pred_preds.append(row)
     bundle: list[Any] = list(pred_preds)
     for row in collaterals:
         bundle.append(row)
@@ -1916,33 +2523,60 @@ def _confirm_pred(
         confirm_body.setdefault("total_spine_actuation_certificate", dict(actuation))
     if not pred_preds and not bundle and not confirm_body:
         raise StageRefused(
-            f"{spec.kind}_confirmation_missing",
-            f"single {spec.pred} requires {_pred_pred_plural(spec)}, collaterals, margins, "
+            f"{spec.kind}_{spec.refusal_confirm_missing}",
+            f"single {spec.pred} requires {accessor_plural}, collaterals, margins, "
             "custodies, deliveries, clearings, settlements, or actuation "
             f"to confirm-{spec.effect}",
         )
-    source: Any = pred_preds[0] if len(pred_preds) == 1 else (pred_preds or bundle)
+    if spec.confirm_source == "bundle":
+        source: Any = bundle
+    elif spec.confirm_source == "preds_or_body":
+        source = pred_preds if pred_preds else (confirm_body or body or primary)
+    elif spec.confirm_source.startswith("list:"):
+        role = spec.confirm_source[5:]
+        pool = {
+            "settlements": settlements,
+            "clearings": clearings,
+            "deliveries": deliveries,
+        }[role]
+        source = list(pool) if pool else None
+    else:  # first_or_bundle
+        source = pred_preds[0] if len(pred_preds) == 1 else (pred_preds or bundle)
+    roles = {
+        "preds": pred_preds or None,
+        "margins": margins or None,
+        "clearings": clearings or None,
+        "settlements": settlements or None,
+        "custodies": custodies or None,
+        "deliveries": deliveries or None,
+        "collaterals": collaterals or None,
+        "actuation": actuation,
+        "body": confirm_body or None,
+    }
+    if spec.confirm_kwargs is not None:
+        kwarg_names = list(spec.confirm_kwargs)
+    else:
+        kwarg_names = ["preds", "margins", "clearings", "settlements", "actuation", "body"]
+    call_kwargs: dict[str, Any] = {}
+    for role in kwarg_names:
+        key = _pred_pred_plural(spec) if role == "preds" else role
+        call_kwargs[key] = roles[role]
     confirmed = pred_runner(
         source,
+        **call_kwargs,
+        out_root=confirm_out,
+        prior_tip=prior_tip,
         **{
-            _pred_pred_plural(spec): pred_preds or None,
-            "margins": margins or None,
-            "clearings": clearings or None,
-            "settlements": settlements or None,
-            "actuation": actuation,
-            "body": confirm_body or None,
-            "out_root": confirm_out,
-            "prior_tip": prior_tip,
             f"parent_{spec.pred}_root": tip_pred,
             f"{spec.pred}_height": pred_height + 1 if pred_height else None,
-            "repo_path": repo_path or REPO_ROOT,
-            "confirm": True,
         },
+        repo_path=repo_path or REPO_ROOT,
+        confirm=True,
     )
     cert = confirmed.get(f"{spec.pred_kind}_certificate")
     if not isinstance(cert, Mapping):
         raise StageRefused(
-            f"{spec.kind}_confirmation_missing",
+            f"{spec.kind}_{spec.refusal_confirm_missing}",
             f"confirmation {spec.pred} did not produce a certificate",
         )
     return dict(cert)
@@ -2254,20 +2888,40 @@ def run_pair_effect(
     contract_eval: dict[str, Any] | None = None
     pre_effect = _strip_effect_predicates(spec, done_when)
     if pre_effect:
-        ctx = {
-            "liquidity": {
-                "ok": True,
-                "funded": True,
-                "funded_ok": True,
-                f"{spec.pred}_root_valid": True,
-                "lvc_ok": True,
+        if spec.ctx is not None:
+            def _ctx_value(role: str) -> Any:
+                if role == "true":
+                    return True
+                if role == "tip":
+                    return pred_root
+                if role == "state":
+                    return state_root
+                if role.startswith("count:"):
+                    return int(first.get(f"{role[6:]}_count") or 0)
+                raise KeyError(role)
+
+            ctx = {
+                spec.ctx["outer"]: {
+                    key: _ctx_value(role) for key, role in spec.ctx["inner"]
+                },
+            }
+            for key, role in spec.ctx["outer_extra"]:
+                ctx[key] = _ctx_value(role)
+        else:
+            ctx = {
+                "liquidity": {
+                    "ok": True,
+                    "funded": True,
+                    "funded_ok": True,
+                    f"{spec.pred}_root_valid": True,
+                    "lvc_ok": True,
+                    "liquidity_count": int(first.get("liquidity_count") or 0),
+                    f"tip_{spec.pred}_root": pred_root,
+                },
                 "liquidity_count": int(first.get("liquidity_count") or 0),
                 f"tip_{spec.pred}_root": pred_root,
-            },
-            "liquidity_count": int(first.get("liquidity_count") or 0),
-            f"tip_{spec.pred}_root": pred_root,
-            "state_root": state_root,
-        }
+                "state_root": state_root,
+            }
         contract_eval = evaluate_total_spine_contract(
             pre_effect,
             context=ctx,
@@ -3070,6 +3724,10 @@ def _builtin_pair_effect_proof(spec: PairEffectSpec) -> dict[str, Any]:
                 continue
             source_name = (spec.out_tip_alias or {}).get(name, name)
             result[f"tip_{name}_root"] = tip_roots.get(source_name, "")
+        self_alias = (spec.out_tip_alias or {}).get(spec.effect)
+        if self_alias is not None:
+            # Historical duplicate-key overwrite: the self root prints the alias target's tip.
+            result[f"tip_{spec.effect}_root"] = tip_roots.get(self_alias, "")
         result.update(
             {
                 "tip_action_root": tip_action,
@@ -3104,15 +3762,15 @@ def _builtin_pair_effect_proof(spec: PairEffectSpec) -> dict[str, Any]:
         )
         for extra_flag in spec.out_extra_flags:
             result[f"total_spine_{extra_flag}"] = True
+        mid_flags = {}
+        for name in TOTAL_SPINE_CHAIN[1:eff_idx + 1]:
+            if name in ("clearing", "delivery", "custody", "margin", "collateral", "liquidity"):
+                mid_flags[f"total_spine_{name}"] = True
+        # settlement is always printed (chain base).
+        mid_flags["total_spine_settlement"] = True
         result.update(
             {
-                "total_spine_liquidity": True,
-                "total_spine_collateral": True,
-                "total_spine_margin": True,
-                "total_spine_custody": True,
-                "total_spine_delivery": True,
-                "total_spine_clearing": True,
-                "total_spine_settlement": True,
+                **mid_flags,
                 "total_spine_actuation": True,
                 "total_spine_execution": True,
                 "total_spine_quorum": True,
@@ -3137,7 +3795,7 @@ def _forward(spec: PairEffectSpec, public_name: str, ns: dict[str, Any]) -> Any:
     if public_name == f"{spec.verb}_total_spine":
         source = ns.pop("source", None)
         return run_pair_effect(spec, source, **ns)
-    if public_name == f"book_total_spine_{spec.pred_plural}":
+    if public_name == f"{spec.book_fn_prefix}_total_spine_{spec.pred_plural}":
         return book_predecessors(
             spec,
             ns["margins"],
@@ -3250,7 +3908,7 @@ def _synthesize_effect_module(spec: PairEffectSpec) -> Any:
 
     public_functions = {
         f"annotate_total_spine_{spec.effect}",
-        f"book_total_spine_{spec.pred_plural}",
+        f"{spec.book_fn_prefix}_total_spine_{spec.pred_plural}",
         f"builtin_total_spine_{spec.effect}_proof",
         f"compute_total_spine_{spec.effect}_root",
         f"load_total_spine_{spec.effect}_certificate",

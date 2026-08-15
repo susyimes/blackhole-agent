@@ -1,5 +1,5 @@
 {
-  "captured_at": "2026-08-15T01:07:37.806940Z",
+  "captured_at": "2026-08-15T02:02:27.406748Z",
   "kind": "equivalence_snapshot",
   "name": "pair-effect-synthesis",
   "probes": [
@@ -16,13 +16,21 @@
       "include_private": false,
       "kind": "api-surface",
       "modules": [
-        "blackhole_agent.upstream_total_spine_solvency",
+        "blackhole_agent.upstream_total_spine_delivery",
+        "blackhole_agent.upstream_total_spine_custody",
+        "blackhole_agent.upstream_total_spine_margin",
+        "blackhole_agent.upstream_total_spine_collateral",
+        "blackhole_agent.upstream_total_spine_liquidity",
+        "blackhole_agent.upstream_total_spine_funding",
         "blackhole_agent.upstream_total_spine_capital",
+        "blackhole_agent.upstream_total_spine_solvency",
         "blackhole_agent.upstream_total_spine_risk",
         "blackhole_agent.upstream_total_spine_stress",
         "blackhole_agent.upstream_total_spine_recovery",
         "blackhole_agent.upstream_total_spine_resolution",
-        "blackhole_agent.upstream_total_spine_restructuring"
+        "blackhole_agent.upstream_total_spine_restructuring",
+        "blackhole_agent.upstream_total_spine_emergence",
+        "blackhole_agent.upstream_total_spine_reorganization"
       ]
     },
     {
@@ -468,7 +476,15 @@
     "synthesized-public-surfaces": {
       "surfaces": {
         "blackhole_agent.upstream_total_spine_capital": "eacbe6d76b060e55926c289aef626ddf2d62503d6e2dfa660e5377b1fafd7277",
+        "blackhole_agent.upstream_total_spine_collateral": "6d7583bafb2030de33526240647dda375a9d2c552f17a875acae236918528d41",
+        "blackhole_agent.upstream_total_spine_custody": "8d52274fb758db4e24052cec73cc5f968d7beeddf71756bb200304be6d33afa8",
+        "blackhole_agent.upstream_total_spine_delivery": "e07ecee5972ac0e625cfc78cae91acca6606518514961f751ab8239e79cb393a",
+        "blackhole_agent.upstream_total_spine_emergence": "3cf69eaa63ca486bc7d6d2ad3a7358a38b13e9c408ab209ec2f5d285aa0e0a93",
+        "blackhole_agent.upstream_total_spine_funding": "c2c47fde276b5742d929942c8f764176ef5576fddfff355a33e0874942cfcf35",
+        "blackhole_agent.upstream_total_spine_liquidity": "44de542725b3594cce2b7078f991429dd748754ef39e8656084a8ad95d7642c1",
+        "blackhole_agent.upstream_total_spine_margin": "2502a0f1440227df809cb1ab19bb5c664e1429f0686dd426db5038e935846a47",
         "blackhole_agent.upstream_total_spine_recovery": "fdbcc8b9793ec2ddf178b0b3db7380b41fa292752bf630edc2b6e2a955d90673",
+        "blackhole_agent.upstream_total_spine_reorganization": "718e0bc56eb8b8de950a97809083f88a869dd30497642fe6a1577938a897de9d",
         "blackhole_agent.upstream_total_spine_resolution": "48444f27e006eae69ffdf34d32b0b72cc0a267d16407bc4918b436e23f7c77f3",
         "blackhole_agent.upstream_total_spine_restructuring": "a8c618369cc027e01f6e4d1826e8c58ee393415796994320f4db0a629de97659",
         "blackhole_agent.upstream_total_spine_risk": "83376f4a0b6eaf1f03a89e304ebd088bed56f589424c48d23e969ca12200c8e8",
@@ -478,5 +494,5 @@
     }
   },
   "schema_version": 1,
-  "snapshot_digest": "a50500ae0e81fade115b63ea825c57e73327ebaff214835dc12e4aec69efc8ed"
+  "snapshot_digest": "ad88921509c30563269817d47e60e0999a13ad9f732537b4dca3dbb5dfc045c5"
 }

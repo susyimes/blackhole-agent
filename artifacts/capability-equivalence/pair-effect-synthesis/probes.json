@@ -11,13 +11,21 @@
   "kind": "api-surface",
   "id": "synthesized-public-surfaces",
   "modules": [
-   "blackhole_agent.upstream_total_spine_solvency",
+   "blackhole_agent.upstream_total_spine_delivery",
+   "blackhole_agent.upstream_total_spine_custody",
+   "blackhole_agent.upstream_total_spine_margin",
+   "blackhole_agent.upstream_total_spine_collateral",
+   "blackhole_agent.upstream_total_spine_liquidity",
+   "blackhole_agent.upstream_total_spine_funding",
    "blackhole_agent.upstream_total_spine_capital",
+   "blackhole_agent.upstream_total_spine_solvency",
    "blackhole_agent.upstream_total_spine_risk",
    "blackhole_agent.upstream_total_spine_stress",
    "blackhole_agent.upstream_total_spine_recovery",
    "blackhole_agent.upstream_total_spine_resolution",
-   "blackhole_agent.upstream_total_spine_restructuring"
+   "blackhole_agent.upstream_total_spine_restructuring",
+   "blackhole_agent.upstream_total_spine_emergence",
+   "blackhole_agent.upstream_total_spine_reorganization"
   ],
   "include_private": false
  },
