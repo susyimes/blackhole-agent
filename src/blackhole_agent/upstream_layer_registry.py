@@ -2,8 +2,8 @@
 
 Every ``blackhole_agent.upstream_<layer>`` facade used to be a physical
 17-line module whose entire body was ``export_layer_api(globals(), layer)``.
-They are now synthesized on demand from :data:`FACADE_LAYERS` by a meta-path
-finder installed from ``blackhole_agent/__init__.py``:
+They are now synthesized on demand from :data:`FACADE_LAYERS` by the
+shared module-synthesis finder installed from ``blackhole_agent/__init__.py``:
 
 - ``import blackhole_agent.upstream_omniverse`` and
   ``from blackhole_agent import upstream_omniverse`` resolve through the
@@ -23,8 +23,6 @@ No skill-route discovery.
 from __future__ import annotations
 
 import sys
-from importlib.abc import Loader, MetaPathFinder
-from importlib.machinery import ModuleSpec
 from typing import Any
 
 FACADE_LAYERS: tuple[str, ...] = (
@@ -81,50 +79,11 @@ def _layer_for(fullname: str) -> str | None:
     return layer if layer in FACADE_LAYERS else None
 
 
-class _FacadeLoader(Loader):
-    """Executes the bootstrap shim for one synthesized facade module."""
-
-    def __init__(self, fullname: str, layer: str) -> None:
-        self._fullname = fullname
-        self._layer = layer
-
-    def _code(self) -> Any:
-        source = (
-            "from __future__ import annotations\n"
-            "import sys\n"
-            "from blackhole_agent.upstream_layer_registry import bootstrap_layer\n"
-            f"bootstrap_layer(globals(), {self._layer!r})\n"
-        )
-        return compile(source, f"<upstream-layer {self._layer}>", "exec")
-
-    def create_module(self, spec: ModuleSpec) -> None:
-        return None
-
-    def exec_module(self, module: Any) -> None:
-        exec(self._code(), module.__dict__)
-
-    def get_code(self, fullname: str) -> Any:
-        # runpy (`python -m blackhole_agent.upstream_<layer>`) requires this.
-        return self._code()
-
-
-class _FacadeFinder(MetaPathFinder):
-    """Resolves ``blackhole_agent.upstream_<layer>`` for registered layers."""
-
-    def find_spec(self, fullname: str, path: Any = None, target: Any = None) -> ModuleSpec | None:
-        layer = _layer_for(fullname)
-        if layer is None:
-            return None
-        return ModuleSpec(
-            fullname,
-            _FacadeLoader(fullname, layer),
-            origin=f"<upstream-layer:{layer}>",
-            is_package=False,
-        )
-
-
 def install_facade_finder() -> None:
-    """Idempotently install the facade meta-path finder."""
+    """Historical name: install the shared module-synthesis finder."""
 
-    if not any(isinstance(finder, _FacadeFinder) for finder in sys.meta_path):
-        sys.meta_path.append(_FacadeFinder())
+    from blackhole_agent.upstream_module_synthesis import (
+        install_module_synthesis_finder,
+    )
+
+    install_module_synthesis_finder()

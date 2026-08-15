@@ -24,8 +24,6 @@ from __future__ import annotations
 import json
 import sys
 from dataclasses import dataclass
-from importlib.abc import Loader, MetaPathFinder
-from importlib.machinery import ModuleSpec
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -3886,26 +3884,6 @@ def _synthesize_effect_module(spec: PairEffectSpec) -> Any:
     return module
 
 
-class _PairEffectLoader(Loader):
-    def __init__(self, fullname: str, spec: PairEffectSpec) -> None:
-        self._fullname = fullname
-        self._spec = spec
-
-    def create_module(self, spec_obj: ModuleSpec) -> None:
-        return None
-
-    def exec_module(self, module: Any) -> None:
-        synthesized = _synthesize_effect_module(self._spec)
-        module.__dict__.update(synthesized.__dict__)
-
-    def get_code(self, fullname: str) -> Any:
-        source = (
-            "from blackhole_agent.upstream_total_spine_effects import _effect_main_from_module\n"
-            f"_effect_main_from_module({self._spec.effect!r}, globals())\n"
-        )
-        return compile(source, f"<upstream-total-spine-effect {self._spec.effect}>", "exec")
-
-
 def _effect_main_from_module(effect: str, module_globals: dict[str, Any]) -> None:
     """``python -m`` entry: synthesize the namespace, then run its main."""
 
@@ -3918,24 +3896,11 @@ def _effect_main_from_module(effect: str, module_globals: dict[str, Any]) -> Non
         sys.exit(_effect_main(spec))
 
 
-class _PairEffectFinder(MetaPathFinder):
-    def find_spec(self, fullname: str, path: Any = None, target: Any = None) -> ModuleSpec | None:
-        if not fullname.startswith(_EFFECT_MODULE_PREFIX):
-            return None
-        effect = fullname[len(_EFFECT_MODULE_PREFIX):]
-        spec = PAIR_EFFECT_SPECS.get(effect)
-        if spec is None:
-            return None
-        return ModuleSpec(
-            fullname,
-            _PairEffectLoader(fullname, spec),
-            origin=f"<upstream-total-spine-effect:{effect}>",
-            is_package=False,
-        )
-
-
 def install_pair_effect_finder() -> None:
-    """Idempotently install the pair-effect meta-path finder."""
+    """Historical name: install the shared module-synthesis finder."""
 
-    if not any(isinstance(finder, _PairEffectFinder) for finder in sys.meta_path):
-        sys.meta_path.append(_PairEffectFinder())
+    from blackhole_agent.upstream_module_synthesis import (
+        install_module_synthesis_finder,
+    )
+
+    install_module_synthesis_finder()

@@ -21,8 +21,6 @@ from __future__ import annotations
 import json
 import sys
 from dataclasses import dataclass
-from importlib.abc import Loader, MetaPathFinder
-from importlib.machinery import ModuleSpec
 from pathlib import Path
 from typing import Any, Mapping, MutableMapping, Sequence
 
@@ -3258,47 +3256,14 @@ def _log_main_from_module(name: str, module_globals: dict[str, Any]) -> None:
         sys.exit(module_globals["main"]())
 
 
-class _LogFamilyLoader(Loader):
-    def __init__(self, fullname: str, spec: LogFamilySpec) -> None:
-        self._fullname = fullname
-        self._spec = spec
-
-    def create_module(self, spec_obj: ModuleSpec) -> None:
-        return None
-
-    def exec_module(self, module: Any) -> None:
-        synthesized = _synthesize_log_module(self._spec)
-        module.__dict__.update(synthesized.__dict__)
-
-    def get_code(self, fullname: str) -> Any:
-        source = (
-            "from blackhole_agent.upstream_total_spine_logs import _log_main_from_module\n"
-            f"_log_main_from_module({self._spec.name!r}, globals())\n"
-        )
-        return compile(source, f"<upstream-total-spine-log {self._spec.name}>", "exec")
-
-
-class _LogFamilyFinder(MetaPathFinder):
-    def find_spec(self, fullname: str, path: Any = None, target: Any = None) -> ModuleSpec | None:
-        if not fullname.startswith(_LOG_MODULE_PREFIX):
-            return None
-        name = fullname[len(_LOG_MODULE_PREFIX):]
-        spec = LOG_FAMILY_SPECS.get(name)
-        if spec is None:
-            return None
-        return ModuleSpec(
-            fullname,
-            _LogFamilyLoader(fullname, spec),
-            origin=f"<upstream-total-spine-log:{name}>",
-            is_package=False,
-        )
-
-
 def install_log_family_finder() -> None:
-    """Idempotently install the log-family meta-path finder."""
+    """Historical name: install the shared module-synthesis finder."""
 
-    if not any(isinstance(finder, _LogFamilyFinder) for finder in sys.meta_path):
-        sys.meta_path.append(_LogFamilyFinder())
+    from blackhole_agent.upstream_module_synthesis import (
+        install_module_synthesis_finder,
+    )
+
+    install_module_synthesis_finder()
 
 
 # ---------------------------------------------------------------------------

@@ -276,6 +276,40 @@ def test_builtin_spine_family_catalog_proof() -> None:
     assert all(result["wired"].values())
 
 
+def test_builtin_module_synthesis_plane_proof() -> None:
+    from blackhole_agent.upstream_module_synthesis import (
+        builtin_module_synthesis_plane_proof,
+    )
+
+    result = builtin_module_synthesis_plane_proof()
+    assert result["ok"] is True
+    assert result["catalog_count"] == 42
+    assert result["facade_count"] == 23
+    assert result["pair_count"] == 15
+    assert result["log_count"] == 4
+    assert result["used_skill_route_discovery"] is False
+    assert all(result["checks"].values())
+    assert all(result["wired"].values())
+
+
+def test_module_synthesis_probe_is_a_catalog_row() -> None:
+    from blackhole_agent.upstream_module_synthesis import (
+        derive_module_synthesis_catalog,
+        resolve_synthesis_row,
+    )
+
+    live = resolve_synthesis_row("blackhole_agent.upstream_total_spine_ratification")
+    assert live is None
+    probe = derive_module_synthesis_catalog(extra_pair=("ratification",))
+    row = resolve_synthesis_row(
+        "blackhole_agent.upstream_total_spine_ratification",
+        catalog=probe,
+    )
+    assert row is not None
+    assert row.kind == "pair_effect"
+    assert row.name == "ratification"
+
+
 def test_spine_family_catalog_probe_extends_views() -> None:
     base = derive_spine_family_views()
     probe = derive_spine_family_views(
