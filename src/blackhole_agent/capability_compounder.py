@@ -2804,10 +2804,17 @@ def _materialize_pair_effect(
         shutil.rmtree(scratch, ignore_errors=True)
 
 
-def _mat_inline_run(ce: Any, spec: Any, scratch: Path, repo_path: Path) -> Mapping[str, Any]:
-    """Finality → quorum → execution → actuation → settlement → pair chain."""
+def _mat_finality_origins(
+    ce: Any,
+    scratch: Path,
+    effect: str,
+    capabilities: Sequence[str] = (
+        "repo.import-health",
+        "capability.ledger-inventory",
+    ),
+) -> list[str]:
+    """Three synthetic finality origins (pass, pass, byzantine) for a plane."""
 
-    effect = spec.effect
     paths: list[str] = []
     for idx, done_when in enumerate(
         (
@@ -2822,10 +2829,7 @@ def _mat_inline_run(ce: Any, spec: Any, scratch: Path, repo_path: Path) -> Mappi
             "root_layer": "quettacontinuum",
             "goal": f"outcome-contract total-spine {effect} materialize",
             "done_when": done_when,
-            "capabilities": [
-                "repo.import-health",
-                "capability.ledger-inventory",
-            ],
+            "capabilities": list(capabilities),
             "operational_tip": f"{idx:x}" * 64,
             "bound_tip": f"{(idx + 3):x}" * 64,
             "continuity_digest": f"{(idx + 6):x}" * 64,
@@ -2841,6 +2845,13 @@ def _mat_inline_run(ce: Any, spec: Any, scratch: Path, repo_path: Path) -> Mappi
             scratch / f"origin-{idx}", body
         )
         paths.append(str(cert.get("finality_path") or ""))
+    return paths
+
+
+def _mat_prologue(ce: Any, scratch: Path, effect: str, repo_path: Path) -> tuple[Any, Any, Any]:
+    """Quorum federation → execution → actuation over the finality origins."""
+
+    paths = _mat_finality_origins(ce, scratch, effect)
     quorumed = ce.federate_total_spine(
         paths,
         out_root=scratch / "quorum",
@@ -2868,6 +2879,15 @@ def _mat_inline_run(ce: Any, spec: Any, scratch: Path, repo_path: Path) -> Mappi
         effect_timeout=60,
         dispatch=True,
     )
+    return quorumed, executed, actuated
+
+
+def _mat_inline_run(ce: Any, spec: Any, scratch: Path, repo_path: Path) -> Mapping[str, Any]:
+
+    """Finality → quorum → execution → actuation → settlement → pair chain."""
+
+    effect = spec.effect
+    quorumed, executed, actuated = _mat_prologue(ce, scratch, effect, repo_path)
     prev = ce.settle_total_spine(
         actuated.get("total_spine_actuation_certificate"),
         out_root=scratch / "set-h1",
@@ -3001,6 +3021,7 @@ def materialize_total_spine_quorum_contract_context(
         return dict(existing)
 
     try:
+        from blackhole_agent import upstream_control_engine as _ce
         from blackhole_agent.upstream_control_engine import (
             SCHEMA_VERSION,
             TOTAL_SPINE_FINALITY_KIND,
@@ -3033,33 +3054,8 @@ def materialize_total_spine_quorum_contract_context(
 
     scratch = Path(tempfile.mkdtemp(prefix="contract-total-spine-quorum-"))
     try:
-        paths: list[str] = []
-        for idx, done_when in enumerate(
-            ("contract-quorum-pass", "contract-quorum-pass", "contract-quorum-byzantine")
-        ):
-            body = {
-                "schema_version": SCHEMA_VERSION,
-                "kind": TOTAL_SPINE_FINALITY_KIND,
-                "root_layer": "quettacontinuum",
-                "goal": "outcome-contract total-spine quorum materialize",
-                "done_when": done_when,
-                "capabilities": ["repo.import-health"],
-                "operational_tip": f"{idx:x}" * 64,
-                "bound_tip": f"{(idx + 3):x}" * 64,
-                "continuity_digest": f"{(idx + 6):x}" * 64,
-                "adaptive_round_count": 0,
-                "effects_ok": True,
-                "contract_met": True,
-                "recovered": False,
-                "irreversible": True,
-                "success": True,
-                "finalized_at": utc_now_iso(),
-            }
-            cert = write_total_spine_finality_certificate(
-                scratch / f"origin-{idx}", body
-            )
-            paths.append(str(cert.get("finality_path") or ""))
-        result = federate_total_spine(
+        paths = _mat_finality_origins(_ce, scratch, "quorum", capabilities=("repo.import-health",))
+        result = _ce.federate_total_spine(
             paths,
             out_root=scratch / "quorum",
             quorum=True,
@@ -3144,6 +3140,7 @@ def materialize_total_spine_execution_contract_context(
         return dict(existing)
 
     try:
+        from blackhole_agent import upstream_control_engine as _ce
         from blackhole_agent.upstream_control_engine import (
             SCHEMA_VERSION,
             TOTAL_SPINE_EXECUTION_IMPL,
@@ -3178,37 +3175,8 @@ def materialize_total_spine_execution_contract_context(
 
     scratch = Path(tempfile.mkdtemp(prefix="contract-total-spine-execution-"))
     try:
-        paths: list[str] = []
-        for idx, done_when in enumerate(
-            (
-                "contract-execution-pass",
-                "contract-execution-pass",
-                "contract-execution-byzantine",
-            )
-        ):
-            body = {
-                "schema_version": SCHEMA_VERSION,
-                "kind": TOTAL_SPINE_FINALITY_KIND,
-                "root_layer": "quettacontinuum",
-                "goal": "outcome-contract total-spine execution materialize",
-                "done_when": done_when,
-                "capabilities": ["repo.import-health"],
-                "operational_tip": f"{idx:x}" * 64,
-                "bound_tip": f"{(idx + 3):x}" * 64,
-                "continuity_digest": f"{(idx + 6):x}" * 64,
-                "adaptive_round_count": 0,
-                "effects_ok": True,
-                "contract_met": True,
-                "recovered": False,
-                "irreversible": True,
-                "success": True,
-                "finalized_at": utc_now_iso(),
-            }
-            cert = write_total_spine_finality_certificate(
-                scratch / f"origin-{idx}", body
-            )
-            paths.append(str(cert.get("finality_path") or ""))
-        quorumed = federate_total_spine(
+        paths = _mat_finality_origins(_ce, scratch, "execution", capabilities=("repo.import-health",))
+        quorumed = _ce.federate_total_spine(
             paths,
             out_root=scratch / "quorum",
             quorum=True,
@@ -3295,6 +3263,7 @@ def materialize_total_spine_actuation_contract_context(
         return dict(existing)
 
     try:
+        from blackhole_agent import upstream_control_engine as _ce
         from blackhole_agent.upstream_control_engine import (
             SCHEMA_VERSION,
             TOTAL_SPINE_ACTUATION_IMPL,
@@ -3330,66 +3299,7 @@ def materialize_total_spine_actuation_contract_context(
 
     scratch = Path(tempfile.mkdtemp(prefix="contract-total-spine-actuation-"))
     try:
-        paths: list[str] = []
-        for idx, done_when in enumerate(
-            (
-                "contract-actuation-pass",
-                "contract-actuation-pass",
-                "contract-actuation-byzantine",
-            )
-        ):
-            body = {
-                "schema_version": SCHEMA_VERSION,
-                "kind": TOTAL_SPINE_FINALITY_KIND,
-                "root_layer": "quettacontinuum",
-                "goal": "outcome-contract total-spine actuation materialize",
-                "done_when": done_when,
-                "capabilities": [
-                    "repo.import-health",
-                    "capability.ledger-inventory",
-                ],
-                "operational_tip": f"{idx:x}" * 64,
-                "bound_tip": f"{(idx + 3):x}" * 64,
-                "continuity_digest": f"{(idx + 6):x}" * 64,
-                "adaptive_round_count": 0,
-                "effects_ok": True,
-                "contract_met": True,
-                "recovered": False,
-                "irreversible": True,
-                "success": True,
-                "finalized_at": utc_now_iso(),
-            }
-            cert = write_total_spine_finality_certificate(
-                scratch / f"origin-{idx}", body
-            )
-            paths.append(str(cert.get("finality_path") or ""))
-        quorumed = federate_total_spine(
-            paths,
-            out_root=scratch / "quorum",
-            quorum=True,
-        )
-        executed = execute_total_spine(
-            quorumed.get("total_spine_federation_certificate"),
-            out_root=scratch / "exec-h1",
-            prior_tip=str(
-                quorumed.get("total_spine_federation_bound_tip") or ""
-            ),
-            state_height=1,
-        )
-        actuated = actuate_total_spine(
-            executed.get("total_spine_execution_certificate"),
-            out_root=scratch / "act-h1",
-            prior_tip=str(
-                executed.get("total_spine_execution_bound_tip") or ""
-            ),
-            capabilities=[
-                "repo.import-health",
-                "capability.ledger-inventory",
-            ],
-            repo_path=repo_path,
-            effect_timeout=60,
-            dispatch=True,
-        )
+        quorumed, executed, actuated = _mat_prologue(_ce, scratch, "actuation", repo_path)
         plane = {
             "ok": (
                 bool(actuated.get("ok"))
@@ -3455,6 +3365,7 @@ def materialize_total_spine_settlement_contract_context(
         return dict(existing)
 
     try:
+        from blackhole_agent import upstream_control_engine as _ce
         from blackhole_agent.upstream_control_engine import (
             SCHEMA_VERSION,
             TOTAL_SPINE_FINALITY_KIND,
@@ -3491,66 +3402,7 @@ def materialize_total_spine_settlement_contract_context(
 
     scratch = Path(tempfile.mkdtemp(prefix="contract-total-spine-settlement-"))
     try:
-        paths: list[str] = []
-        for idx, done_when in enumerate(
-            (
-                "contract-settlement-pass",
-                "contract-settlement-pass",
-                "contract-settlement-byzantine",
-            )
-        ):
-            body = {
-                "schema_version": SCHEMA_VERSION,
-                "kind": TOTAL_SPINE_FINALITY_KIND,
-                "root_layer": "quettacontinuum",
-                "goal": "outcome-contract total-spine settlement materialize",
-                "done_when": done_when,
-                "capabilities": [
-                    "repo.import-health",
-                    "capability.ledger-inventory",
-                ],
-                "operational_tip": f"{idx:x}" * 64,
-                "bound_tip": f"{(idx + 3):x}" * 64,
-                "continuity_digest": f"{(idx + 6):x}" * 64,
-                "adaptive_round_count": 0,
-                "effects_ok": True,
-                "contract_met": True,
-                "recovered": False,
-                "irreversible": True,
-                "success": True,
-                "finalized_at": utc_now_iso(),
-            }
-            cert = write_total_spine_finality_certificate(
-                scratch / f"origin-{idx}", body
-            )
-            paths.append(str(cert.get("finality_path") or ""))
-        quorumed = federate_total_spine(
-            paths,
-            out_root=scratch / "quorum",
-            quorum=True,
-        )
-        executed = execute_total_spine(
-            quorumed.get("total_spine_federation_certificate"),
-            out_root=scratch / "exec-h1",
-            prior_tip=str(
-                quorumed.get("total_spine_federation_bound_tip") or ""
-            ),
-            state_height=1,
-        )
-        actuated = actuate_total_spine(
-            executed.get("total_spine_execution_certificate"),
-            out_root=scratch / "act-h1",
-            prior_tip=str(
-                executed.get("total_spine_execution_bound_tip") or ""
-            ),
-            capabilities=[
-                "repo.import-health",
-                "capability.ledger-inventory",
-            ],
-            repo_path=repo_path,
-            effect_timeout=60,
-            dispatch=True,
-        )
+        quorumed, executed, actuated = _mat_prologue(_ce, scratch, "settlement", repo_path)
         settled = settle_total_spine(
             actuated.get("total_spine_actuation_certificate"),
             out_root=scratch / "set-h1",
@@ -3632,6 +3484,7 @@ def materialize_total_spine_clearing_contract_context(
         return dict(existing)
 
     try:
+        from blackhole_agent import upstream_control_engine as _ce
         from blackhole_agent.upstream_control_engine import (
             SCHEMA_VERSION,
             TOTAL_SPINE_CLEARING_IMPL,
@@ -3669,66 +3522,7 @@ def materialize_total_spine_clearing_contract_context(
 
     scratch = Path(tempfile.mkdtemp(prefix="contract-total-spine-clearing-"))
     try:
-        paths: list[str] = []
-        for idx, done_when in enumerate(
-            (
-                "contract-clearing-pass",
-                "contract-clearing-pass",
-                "contract-clearing-byzantine",
-            )
-        ):
-            body = {
-                "schema_version": SCHEMA_VERSION,
-                "kind": TOTAL_SPINE_FINALITY_KIND,
-                "root_layer": "quettacontinuum",
-                "goal": "outcome-contract total-spine clearing materialize",
-                "done_when": done_when,
-                "capabilities": [
-                    "repo.import-health",
-                    "capability.ledger-inventory",
-                ],
-                "operational_tip": f"{idx:x}" * 64,
-                "bound_tip": f"{(idx + 3):x}" * 64,
-                "continuity_digest": f"{(idx + 6):x}" * 64,
-                "adaptive_round_count": 0,
-                "effects_ok": True,
-                "contract_met": True,
-                "recovered": False,
-                "irreversible": True,
-                "success": True,
-                "finalized_at": utc_now_iso(),
-            }
-            cert = write_total_spine_finality_certificate(
-                scratch / f"origin-{idx}", body
-            )
-            paths.append(str(cert.get("finality_path") or ""))
-        quorumed = federate_total_spine(
-            paths,
-            out_root=scratch / "quorum",
-            quorum=True,
-        )
-        executed = execute_total_spine(
-            quorumed.get("total_spine_federation_certificate"),
-            out_root=scratch / "exec-h1",
-            prior_tip=str(
-                quorumed.get("total_spine_federation_bound_tip") or ""
-            ),
-            state_height=1,
-        )
-        actuated = actuate_total_spine(
-            executed.get("total_spine_execution_certificate"),
-            out_root=scratch / "act-h1",
-            prior_tip=str(
-                executed.get("total_spine_execution_bound_tip") or ""
-            ),
-            capabilities=[
-                "repo.import-health",
-                "capability.ledger-inventory",
-            ],
-            repo_path=repo_path,
-            effect_timeout=60,
-            dispatch=True,
-        )
+        quorumed, executed, actuated = _mat_prologue(_ce, scratch, "clearing", repo_path)
         settled = settle_total_spine(
             actuated.get("total_spine_actuation_certificate"),
             out_root=scratch / "set-h1",
