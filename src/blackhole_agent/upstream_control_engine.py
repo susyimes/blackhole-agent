@@ -120,6 +120,10 @@ Composition:
   continuity, finality, federation) then the post-consensus catalog.
   Per-stage ``resume_*`` / ``*_on`` locals are gone; a new pre-consensus
   plane is a catalog row plus an apply function.
+* total-spine **short-circuit catalog** — ``_TOTAL_SPINE_SHORT_CIRCUIT``
+  is derived from :data:`SPINE_RESUME_PLANES` plus a compact quirk
+  overlay (deep-through, impl extras, continuation jumps). A new stage
+  is a catalog row, not another copied short-circuit body.
 * total-spine **post-settlement clearing** — closes the settled-but-
   uncleared cliff: after settlement seals a unilateral observation
   receipt, ``clear_total_spine(...)`` (and ``run_total_spine(clearing=True)``)
@@ -7605,116 +7609,114 @@ _DEEP_FALLBACK_EXTRA: dict[str, tuple[tuple[str, Any], ...]] = {
 }
 
 
-_TOTAL_SPINE_SHORT_CIRCUIT: dict[str, dict[str, Any]] = {
-    "finality": {
-        "deep": True,
-        "planes": (),
-        "impls": (
-            "goal",
-            "adaptive",
-            "continuity",
-            "finality",
-            "federation",
-            "quorum",
-        ),
-        "federate": True,
-        "prior_from": "bound_tip",
-        "cont": ("execution", ()),
-        "cont_restamp_finality": True,
-    },
-    "execution": {
-        "deep": True,
-        "planes": ("finality",),
-        "post_actuation": True,
-        "impls": ("goal", "adaptive", "continuity", "finality", "federation", "quorum", "execution"),
-        "cont": ("settlement", ()),
-    },
-    "actuation": {
-        "deep": True,
-        "planes": ("finality", "execution"),
-        "impls": ("goal", "adaptive", "continuity", "finality", "federation", "quorum", "execution", "actuation"),
-        "cont": ("settlement", ()),
-    },
-    "settlement": {
-        "deep": True,
-        "impls": ("goal", "adaptive", "continuity", "finality", "federation", "quorum", "execution", "actuation", "settlement"),
-        "cont": ("liquidity", ()),
-    },
-    "clearing": {
-        "deep": True,
-        "impls": ("goal", "adaptive", "continuity", "finality", "federation", "quorum", "execution", "actuation", "settlement", "clearing"),
-        "cont": ("liquidity", ()),
-    },
-    "delivery": {
-        "deep": True,
-        "impls": ("goal", "adaptive", "continuity", "finality", "federation", "quorum", "execution", "actuation", "settlement", "clearing", "delivery"),
-        "cont": ("liquidity", ()),
-    },
-    "custody": {
-        "deep": True,
-        "impls": ("goal", "adaptive", "continuity", "finality", "federation", "quorum", "execution", "actuation", "settlement", "clearing", "delivery", "custody", "margin"),
-        "cont": ("liquidity", ()),
-    },
-    "margin": {
-        "deep": True,
-        "impls": ("goal", "adaptive", "continuity", "finality", "federation", "quorum", "execution", "actuation", "settlement", "clearing", "delivery", "custody", "margin"),
-        "cont": None,
-    },
-    "collateral": {
-        "deep": True,
-        "impls": ("goal", "adaptive", "continuity", "finality", "federation", "quorum", "execution", "actuation", "settlement", "clearing", "delivery", "custody", "margin", "collateral", "liquidity"),
-        "cont": ("liquidity", ()),
-    },
-
-    "liquidity": {
-        "impls": ("collateral", "liquidity", "funding"),
-        "cont": ("funding", ()),
-        "reann_start": "collateral",
-    },
-    "funding": {
-        "impls": ("collateral", "liquidity", "funding"),
-        "cont": None,
-        "reann_start": "collateral",
-    },
-    "capital": {
-        "impls": ("collateral", "liquidity", "funding", "capital", "solvency"),
-        "cont": ("solvency", ()),
-        "reann_start": "collateral",
-    },
-    "solvency": {
-        "impls": ("collateral", "liquidity", "funding", "capital", "solvency", "risk"),
-        "cont": ("risk", ()),
-    },
-    "risk": {
-        "impls": ("collateral", "liquidity", "funding", "capital", "solvency", "risk"),
-        "cont": None,
-    },
-    "stress": {
-        "impls": ("collateral", "liquidity", "funding", "capital", "solvency", "risk", "stress", "recovery"),
-        "cont": None,
-    },
-    "recovery": {
-        "impls": ("collateral", "liquidity", "funding", "capital", "solvency", "risk", "stress", "recovery"),
-        "cont": None,
-    },
-    "resolution": {
-        "impls": ("collateral", "liquidity", "funding", "capital", "solvency", "risk", "stress", "recovery", "resolution", "restructuring"),
-        "cont": ("restructuring", ("restructuring_on",), "restructuring_on"),
-    },
-    "restructuring": {
-        "impls": ("collateral", "liquidity", "funding", "capital", "solvency", "risk", "stress", "recovery", "resolution", "restructuring"),
-        "cont": ("emergence", ("emergence_on",), "emergence_on"),
-    },
-    "emergence": {
-        "impls": ("collateral", "liquidity", "funding", "capital", "solvency", "risk", "stress", "recovery", "resolution", "emergence", "restructuring"),
-        "cont": None,
-    },
-    "reorganization": {
-        "impls": ("collateral", "liquidity", "funding", "capital", "solvency", "risk", "stress", "recovery", "resolution", "restructuring", "emergence", "reorganization"),
-        "cont": None,
-    },
+# Short-circuit rows are derived from the resume/post-consensus catalogs.
+# Historical quirks stay overlay data: deep-through, impl extras, continuation
+# jumps, and a few plane/reann overrides. A new stage is a catalog row plus
+# optional overlay, not another copied short-circuit body.
+SPINE_SHORT_CIRCUIT_CATALOG_IMPL = True
+SPINE_SHORT_CIRCUIT_DEEP_THROUGH: str = "collateral"
+SPINE_SHORT_CIRCUIT_SHALLOW_IMPL_FROM: str = "collateral"
+SPINE_SHORT_CIRCUIT_PRE_IMPLS: tuple[str, ...] = (
+    "goal",
+    "adaptive",
+    "continuity",
+    "finality",
+    "federation",
+    "quorum",
+)
+SPINE_SHORT_CIRCUIT_PLANES: dict[str, tuple[str, ...]] = {
+    "finality": (),
+    "execution": ("finality",),
+    "actuation": ("finality", "execution"),
 }
+SPINE_SHORT_CIRCUIT_IMPL_INCLUDE_NEXT: frozenset[str] = frozenset(
+    {
+        "custody",
+        "collateral",
+        "liquidity",
+        "capital",
+        "solvency",
+        "stress",
+        "resolution",
+    }
+)
+SPINE_SHORT_CIRCUIT_IMPL_DROP: dict[str, frozenset[str]] = {
+    "emergence": frozenset({"restructuring"}),
+}
+SPINE_SHORT_CIRCUIT_IMPL_APPEND: dict[str, tuple[str, ...]] = {
+    "emergence": ("restructuring",),
+}
+SPINE_SHORT_CIRCUIT_CONT: dict[str, tuple[Any, ...] | None] = {
+    "finality": ("execution", ()),
+    "execution": ("settlement", ()),
+    "actuation": ("settlement", ()),
+    "settlement": ("liquidity", ()),
+    "clearing": ("liquidity", ()),
+    "delivery": ("liquidity", ()),
+    "custody": ("liquidity", ()),
+    "collateral": ("liquidity", ()),
+    "liquidity": ("funding", ()),
+    "capital": ("solvency", ()),
+    "solvency": ("risk", ()),
+    "resolution": ("restructuring", ("restructuring_on",), "restructuring_on"),
+    "restructuring": ("emergence", ("emergence_on",), "emergence_on"),
+}
+SPINE_SHORT_CIRCUIT_REANN_FROM: dict[str, str] = {
+    "liquidity": "collateral",
+    "funding": "collateral",
+    "capital": "collateral",
+}
+SPINE_SHORT_CIRCUIT_FEDERATE: frozenset[str] = frozenset({"finality"})
+SPINE_SHORT_CIRCUIT_POST_ACTUATION: frozenset[str] = frozenset({"execution"})
+SPINE_SHORT_CIRCUIT_DIGEST: str = (
+    "a9859a4d77903deeee33ec625fe1daf087e8829c7c582ac86f7656701ffe4887"
+)
 
+
+def _derive_spine_short_circuit() -> dict[str, dict[str, Any]]:
+    """Build short-circuit rows from resume catalogs plus quirk overlay."""
+
+    post = list(SPINE_RESUME_POST_CONSENSUS)
+    deep_end = post.index(SPINE_SHORT_CIRCUIT_DEEP_THROUGH)
+    deep = {"finality", *post[: deep_end + 1]}
+    shallow_from = post.index(SPINE_SHORT_CIRCUIT_SHALLOW_IMPL_FROM)
+    out: dict[str, dict[str, Any]] = {}
+    for name in SPINE_RESUME_PLANES:
+        row: dict[str, Any] = {}
+        if name in deep:
+            row["deep"] = True
+            if name in SPINE_SHORT_CIRCUIT_PLANES:
+                row["planes"] = SPINE_SHORT_CIRCUIT_PLANES[name]
+            impls = list(SPINE_SHORT_CIRCUIT_PRE_IMPLS)
+            if name != "finality":
+                impls.extend(post[: post.index(name) + 1])
+        else:
+            impls = list(post[shallow_from : post.index(name) + 1])
+        if name in SPINE_SHORT_CIRCUIT_IMPL_INCLUDE_NEXT:
+            nxt = post[post.index(name) + 1]
+            if nxt not in impls:
+                impls.append(nxt)
+        drop = SPINE_SHORT_CIRCUIT_IMPL_DROP.get(name) or frozenset()
+        if drop:
+            impls = [item for item in impls if item not in drop]
+        impls.extend(SPINE_SHORT_CIRCUIT_IMPL_APPEND.get(name, ()))
+        row["impls"] = tuple(impls)
+        row["cont"] = SPINE_SHORT_CIRCUIT_CONT.get(name)
+        if name in SPINE_SHORT_CIRCUIT_REANN_FROM:
+            row["reann_start"] = SPINE_SHORT_CIRCUIT_REANN_FROM[name]
+        if name in SPINE_SHORT_CIRCUIT_FEDERATE:
+            row["federate"] = True
+            row["prior_from"] = "bound_tip"
+            row["cont_restamp_finality"] = True
+        if name in SPINE_SHORT_CIRCUIT_POST_ACTUATION:
+            row["post_actuation"] = True
+        out[name] = row
+    return out
+
+
+_TOTAL_SPINE_SHORT_CIRCUIT: dict[str, dict[str, Any]] = (
+    _derive_spine_short_circuit()
+)
 
 def _total_spine_short_circuit(
     annotated: dict[str, Any],
@@ -15199,6 +15201,99 @@ def builtin_spine_attach_catalog_proof() -> dict[str, Any]:
         "done_when_met": ok,
     }
     out = REPO_ROOT / "artifacts" / "capability-spine-attach-catalog"
+    out.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(out / "plane-report.json", report)
+    return report
+
+
+def builtin_spine_short_circuit_catalog_proof() -> dict[str, Any]:
+    """Hermetic proof: short-circuit rows are derived from resume catalogs."""
+
+    import inspect
+
+    checks: dict[str, bool] = {}
+    derived = _derive_spine_short_circuit()
+    names = list(derived)
+    checks["impl"] = SPINE_SHORT_CIRCUIT_CATALOG_IMPL is True
+    checks["keys_match_resume"] = names == list(SPINE_RESUME_PLANES)
+    checks["key_count"] = len(names) == 20
+    checks["deterministic"] = derived == _derive_spine_short_circuit()
+    checks["bound_to_module"] = derived == _TOTAL_SPINE_SHORT_CIRCUIT
+    blob = json.dumps(derived, sort_keys=True, separators=(",", ":"))
+    checks["digest_sealed"] = _sha256_bytes(blob.encode("utf-8")) == (
+        SPINE_SHORT_CIRCUIT_DIGEST
+    )
+    cfg = derived.get("finality") or {}
+    checks["finality_federates"] = cfg.get("federate") is True
+    checks["finality_prior_bound"] = cfg.get("prior_from") == "bound_tip"
+    checks["finality_cont_execution"] = cfg.get("cont") == ("execution", ())
+    checks["finality_restamp"] = cfg.get("cont_restamp_finality") is True
+    exec_cfg = derived.get("execution") or {}
+    checks["execution_post_actuation"] = exec_cfg.get("post_actuation") is True
+    checks["execution_cont_settlement"] = exec_cfg.get("cont") == (
+        "settlement",
+        (),
+    )
+    checks["margin_stops"] = derived.get("margin", {}).get("cont") is None
+    checks["emergence_impl_order"] = derived.get("emergence", {}).get(
+        "impls"
+    ) == (
+        "collateral",
+        "liquidity",
+        "funding",
+        "capital",
+        "solvency",
+        "risk",
+        "stress",
+        "recovery",
+        "resolution",
+        "emergence",
+        "restructuring",
+    )
+    checks["custody_includes_next"] = "margin" in (
+        derived.get("custody", {}).get("impls") or ()
+    )
+    checks["liquidity_reann"] = (
+        derived.get("liquidity", {}).get("reann_start") == "collateral"
+    )
+    checks["solvency_default_reann"] = "reann_start" not in (
+        derived.get("solvency") or {}
+    )
+    derive_src = inspect.getsource(_derive_spine_short_circuit)
+    short_src = inspect.getsource(_total_spine_short_circuit)
+    checks["derive_uses_resume"] = "SPINE_RESUME_PLANES" in derive_src
+    checks["derive_uses_post"] = "SPINE_RESUME_POST_CONSENSUS" in derive_src
+    checks["derive_no_hand_rows"] = '"settlement": {' not in derive_src
+    checks["module_assigns_derive"] = (
+        "_TOTAL_SPINE_SHORT_CIRCUIT: dict[str, dict[str, Any]] = (\n"
+        "    _derive_spine_short_circuit()\n"
+        ")"
+    ) in Path(__file__).read_text(encoding="utf-8")
+    checks["short_reads_catalog"] = "_TOTAL_SPINE_SHORT_CIRCUIT[effect]" in short_src
+    checks["no_skill_route"] = not legacy_pipeline_was_used()
+    wired = {
+        "derive": callable(_derive_spine_short_circuit),
+        "catalog": bool(_TOTAL_SPINE_SHORT_CIRCUIT),
+        "digest": bool(SPINE_SHORT_CIRCUIT_DIGEST),
+        "overlay_cont": bool(SPINE_SHORT_CIRCUIT_CONT),
+        "overlay_planes": bool(SPINE_SHORT_CIRCUIT_PLANES),
+    }
+    ok = all(checks.values()) and all(wired.values())
+    report = {
+        "schema_version": SCHEMA_VERSION,
+        "action": "spine_short_circuit_catalog_proof",
+        "ok": ok,
+        "checks": checks,
+        "wired": wired,
+        "wired_count": sum(1 for value in wired.values() if value),
+        "stages": names,
+        "stage_count": len(names),
+        "digest": SPINE_SHORT_CIRCUIT_DIGEST,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+        "spine_short_circuit_catalog": True,
+        "done_when_met": ok,
+    }
+    out = REPO_ROOT / "artifacts" / "capability-spine-short-circuit-catalog"
     out.mkdir(parents=True, exist_ok=True)
     atomic_write_json(out / "plane-report.json", report)
     return report

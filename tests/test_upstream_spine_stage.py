@@ -22,9 +22,12 @@ from blackhole_agent.upstream_control_engine import (
     _select_post_consensus_short_circuit,
     _spine_on_flags,
     _total_spine_short_circuit,
+    _derive_spine_short_circuit,
+    _TOTAL_SPINE_SHORT_CIRCUIT,
     builtin_spine_attach_catalog_proof,
     builtin_spine_finality_stage_proof,
     builtin_spine_resume_catalog_proof,
+    builtin_spine_short_circuit_catalog_proof,
     builtin_spine_stage_engine_proof,
 )
 
@@ -134,6 +137,30 @@ def test_builtin_spine_attach_catalog_proof() -> None:
     assert result["used_skill_route_discovery"] is False
     assert all(result["checks"].values())
     assert all(result["wired"].values())
+
+
+def test_builtin_spine_short_circuit_catalog_proof() -> None:
+    result = builtin_spine_short_circuit_catalog_proof()
+    assert result["ok"] is True
+    assert result["stage_count"] == 20
+    assert result["used_skill_route_discovery"] is False
+    assert all(result["checks"].values())
+    assert all(result["wired"].values())
+
+
+def test_short_circuit_rows_are_derived_from_catalogs() -> None:
+    derived = _derive_spine_short_circuit()
+    assert list(derived) == list(SPINE_RESUME_PLANES)
+    assert derived == _TOTAL_SPINE_SHORT_CIRCUIT
+    assert derived["finality"]["federate"] is True
+    assert derived["finality"]["cont"] == ("execution", ())
+    assert derived["execution"]["post_actuation"] is True
+    assert derived["margin"]["cont"] is None
+    assert "margin" in derived["custody"]["impls"]
+    derive_src = inspect.getsource(_derive_spine_short_circuit)
+    assert "SPINE_RESUME_PLANES" in derive_src
+    assert "SPINE_RESUME_POST_CONSENSUS" in derive_src
+    assert '"settlement": {' not in derive_src
 
 
 def test_live_attach_is_one_pre_consensus_catalog_walk() -> None:
