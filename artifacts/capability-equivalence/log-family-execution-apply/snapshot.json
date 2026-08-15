@@ -1,0 +1,25 @@
+{
+  "captured_at": "2026-08-15T17:57:35.491344Z",
+  "kind": "equivalence_snapshot",
+  "name": "log-family-execution-apply",
+  "probes": [
+    {
+      "argv": [
+        "python",
+        "-c",
+        "import inspect; from blackhole_agent.upstream_control_engine import execute_total_spine, builtin_total_spine_execution_proof; from blackhole_agent.upstream_total_spine_logs import LOG_FAMILY_SPECS, execute_total_spine as ex, builtin_total_spine_execution_proof as pr; assert set(LOG_FAMILY_SPECS)=={\"actuation\",\"clearing\",\"execution\",\"settlement\"}; assert \"_apply_log_family\" in inspect.getsource(execute_total_spine); assert \"_apply_log_family\" in inspect.getsource(ex); assert \"_run_log_family_proof\" in inspect.getsource(pr); print(\"ok\")"
+      ],
+      "id": "wrapper-surface",
+      "kind": "command"
+    }
+  ],
+  "results": {
+    "wrapper-surface": {
+      "exit_code": 0,
+      "stdout_digest": "dc51b8c96c2d745df3bd5590d990230a482fd247123599548e0632fdbf97fc22",
+      "stdout_form": "raw"
+    }
+  },
+  "schema_version": 1,
+  "snapshot_digest": "ed9adcf29bd0d18630952357afb0665fae48977f6b5217f29b8279dd89ecfb59"
+}

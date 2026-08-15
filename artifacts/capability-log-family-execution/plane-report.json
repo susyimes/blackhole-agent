@@ -1,30 +1,53 @@
 {
-  "action": "log_family_engine_proof",
-  "checks": {
-    "actuation_roundtrip": true,
-    "actuation_seal_matches": true,
-    "actuation_tamper_closed": true,
-    "actuation_verify_ok": true,
-    "clearing_seal_matches": true,
-    "clearing_tamper_closed": true,
-    "clearing_verify_ok": true,
-    "execution_compact_digest": true,
-    "execution_parent_ok": true,
-    "execution_seal_matches": true,
-    "execution_state_shape": true,
-    "execution_tamper_closed": true,
-    "execution_verify_ok": true,
-    "four_specs": true,
-    "no_skill_route": true,
-    "row_shapes": true,
-    "settlement_carries_actions": true,
-    "settlement_seal_matches": true,
-    "settlement_tamper_closed": true,
-    "settlement_verify_ok": true,
-    "shared_seal": true,
-    "shared_state_verify": true,
-    "shared_verify": true,
-    "wired_wrappers": true
+  "action": "log_family_execution_apply_proof",
+  "engine": {
+    "action": "log_family_engine_proof",
+    "checks": {
+      "actuation_roundtrip": true,
+      "actuation_seal_matches": true,
+      "actuation_tamper_closed": true,
+      "actuation_verify_ok": true,
+      "clearing_seal_matches": true,
+      "clearing_tamper_closed": true,
+      "clearing_verify_ok": true,
+      "execution_compact_digest": true,
+      "execution_parent_ok": true,
+      "execution_seal_matches": true,
+      "execution_state_shape": true,
+      "execution_tamper_closed": true,
+      "execution_verify_ok": true,
+      "four_specs": true,
+      "no_skill_route": true,
+      "row_shapes": true,
+      "settlement_carries_actions": true,
+      "settlement_seal_matches": true,
+      "settlement_tamper_closed": true,
+      "settlement_verify_ok": true,
+      "shared_seal": true,
+      "shared_state_verify": true,
+      "shared_verify": true,
+      "wired_wrappers": true
+    },
+    "families": [
+      "actuation",
+      "clearing",
+      "execution",
+      "settlement"
+    ],
+    "ok": true,
+    "schema_version": 1,
+    "used_skill_route_discovery": false,
+    "wired": {
+      "actuation_seal": true,
+      "actuation_verify": true,
+      "clearing_seal": true,
+      "clearing_verify": true,
+      "execution_seal": true,
+      "execution_verify": true,
+      "settlement_seal": true,
+      "settlement_verify": true
+    },
+    "wired_count": 8
   },
   "families": [
     "actuation",
@@ -33,17 +56,51 @@
     "settlement"
   ],
   "ok": true,
-  "schema_version": 1,
-  "used_skill_route_discovery": false,
-  "wired": {
-    "actuation_seal": true,
-    "actuation_verify": true,
-    "clearing_seal": true,
-    "clearing_verify": true,
-    "execution_seal": true,
-    "execution_verify": true,
-    "settlement_seal": true,
-    "settlement_verify": true
+  "runner": {
+    "action": "log_family_runner_proof",
+    "checks": {
+      "apply_short_circuit": true,
+      "catalog_includes_execution": true,
+      "execution_apply_short_circuit": true,
+      "execution_apply_wired": true,
+      "execution_proof_wired": true,
+      "no_skill_route": true,
+      "shared_apply": true,
+      "shared_finish": true,
+      "shared_proof": true,
+      "three_row_specs": true,
+      "wired_wrappers": true
+    },
+    "families": [
+      "actuation",
+      "clearing",
+      "execution",
+      "settlement"
+    ],
+    "ok": true,
+    "schema_version": 1,
+    "used_skill_route_discovery": false,
+    "wired": {
+      "actuation_apply": true,
+      "actuation_core": true,
+      "actuation_proof": true,
+      "clearing_apply": true,
+      "clearing_core": true,
+      "clearing_proof": true,
+      "execution_apply": true,
+      "execution_core": true,
+      "execution_proof": true,
+      "settlement_apply": true,
+      "settlement_core": true,
+      "settlement_proof": true
+    },
+    "wired_count": 12
   },
-  "wired_count": 8
+  "used_skill_route_discovery": false,
+  "wrappers": {
+    "control_execute": true,
+    "control_proof": true,
+    "logs_execute": true,
+    "logs_proof": true
+  }
 }

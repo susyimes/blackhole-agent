@@ -11,8 +11,10 @@ from blackhole_agent.upstream_total_spine_logs import (
     builtin_log_family_runner_proof,
     builtin_total_spine_actuation_proof,
     builtin_total_spine_clearing_proof,
+    builtin_total_spine_execution_proof,
     builtin_total_spine_settlement_proof,
     clear_total_spine,
+    execute_total_spine,
     seal_total_spine_actuation_certificate,
     seal_total_spine_clearing_certificate,
     seal_total_spine_execution_certificate,
@@ -69,9 +71,11 @@ def test_public_seal_verify_are_spec_wrappers() -> None:
 def test_builtin_log_family_runner_proof() -> None:
     result = builtin_log_family_runner_proof()
     assert result["ok"] is True
-    assert result["wired_count"] == 9
+    assert result["wired_count"] == 12
     assert result["used_skill_route_discovery"] is False
     assert all(result["wired"].values())
+    assert result["checks"]["execution_apply_wired"] is True
+    assert result["checks"]["execution_proof_wired"] is True
 
 
 def test_execution_seal_digest_matches_historical_baseline() -> None:
@@ -113,8 +117,14 @@ def test_execution_seal_digest_matches_historical_baseline() -> None:
 
 
 def test_public_apply_proof_are_spec_wrappers() -> None:
-    applies = (actuate_total_spine, settle_total_spine, clear_total_spine)
+    applies = (
+        execute_total_spine,
+        actuate_total_spine,
+        settle_total_spine,
+        clear_total_spine,
+    )
     proofs = (
+        builtin_total_spine_execution_proof,
         builtin_total_spine_actuation_proof,
         builtin_total_spine_settlement_proof,
         builtin_total_spine_clearing_proof,
@@ -123,3 +133,13 @@ def test_public_apply_proof_are_spec_wrappers() -> None:
         assert "_apply_log_family" in inspect.getsource(fn)
     for fn in proofs:
         assert "_run_log_family_proof" in inspect.getsource(fn)
+
+
+def test_control_engine_execution_names_are_engine_wrappers() -> None:
+    from blackhole_agent.upstream_control_engine import (
+        builtin_total_spine_execution_proof as engine_proof,
+        execute_total_spine as engine_execute,
+    )
+
+    assert "_apply_log_family" in inspect.getsource(engine_execute)
+    assert "builtin_total_spine_execution_proof" in inspect.getsource(engine_proof)
