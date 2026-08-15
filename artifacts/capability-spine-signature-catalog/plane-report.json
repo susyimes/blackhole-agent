@@ -1,0 +1,40 @@
+{
+  "action": "spine_signature_catalog_proof",
+  "checks": {
+    "delivery_book_arg": true,
+    "derive_present": true,
+    "derived_matches_live": true,
+    "impl": true,
+    "no_leftover_signature_blocks": true,
+    "no_skill_route": true,
+    "probe_annotate": true,
+    "probe_not_live": true,
+    "probe_runner": true,
+    "probe_twelve": true,
+    "public_names_present": true,
+    "recovery_compute_arg": true,
+    "register_fills": true,
+    "solvency_annotate": true,
+    "solvency_runner_params": true,
+    "spec_count": true,
+    "surface_delegates": true,
+    "surface_no_name_copy": true,
+    "twelve_names": true
+  },
+  "done_when_met": true,
+  "mismatches": [],
+  "ok": true,
+  "probe_family": "ratification",
+  "schema_version": 1,
+  "spec_count": 15,
+  "spine_signature_catalog": true,
+  "used_skill_route_discovery": false,
+  "wired": {
+    "derive": true,
+    "impl": true,
+    "public_names": true,
+    "quirks": true,
+    "surface_names": true
+  },
+  "wired_count": 5
+}

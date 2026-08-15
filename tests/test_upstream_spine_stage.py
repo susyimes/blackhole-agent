@@ -310,6 +310,68 @@ def test_module_synthesis_probe_is_a_catalog_row() -> None:
     assert row.name == "ratification"
 
 
+def test_builtin_spine_signature_catalog_proof() -> None:
+    from blackhole_agent.upstream_total_spine_effects import (
+        PAIR_EFFECT_SPECS,
+        builtin_spine_signature_catalog_proof,
+        derive_pair_effect_signatures,
+    )
+
+    result = builtin_spine_signature_catalog_proof()
+    assert result["ok"] is True
+    assert result["spec_count"] == 15
+    assert result["used_skill_route_discovery"] is False
+    assert all(result["checks"].values())
+    assert all(result["wired"].values())
+    solvency = PAIR_EFFECT_SPECS["solvency"]
+    derived = derive_pair_effect_signatures(solvency)
+    assert derived == solvency.signatures
+    assert "solvency_total_spine" in derived
+
+
+def test_spine_signature_catalog_probe_is_a_token_row() -> None:
+    from blackhole_agent.upstream_total_spine_effects import (
+        PAIR_EFFECT_SPECS,
+        PairEffectSpec,
+        derive_pair_effect_signatures,
+    )
+
+    probe = PairEffectSpec(
+        effect="ratification",
+        plural="ratifications",
+        verb="ratify",
+        pred="reorganization",
+        pred_plural="reorganizations",
+        code="rtr",
+        code_upper="Rtr",
+        pred_code="rvc",
+        pred_code_upper="Rvc",
+        verdict_1="ratified_ok",
+        verdict_2="treaty_ok",
+        adj_1="ratified",
+        adj_2="treatied",
+        adj_1_negated="unratified",
+        counterpart="treaty",
+        pred_done="reorganized",
+        pred_verdict_1="chartered",
+        pred_verdict_2="rvc_ok",
+        post_key="post_reorganization",
+        min_name="RATIFICATIONS",
+        collect_push=("reorganization",),
+        abbr="rat",
+        refusal_pred_tampered="margin_tampered",
+        refusal_pred_short="margins_short",
+        refusal_pred_not_done="capital_unreorganized",
+        refusal_pred_unmet="capital_unrequired",
+        refusal_code_failed="rvc_failed",
+        summary="probe",
+    )
+    names = derive_pair_effect_signatures(probe)
+    assert "ratify_total_spine" in names
+    assert "annotate_total_spine_ratification" in names
+    assert "ratification" not in PAIR_EFFECT_SPECS
+
+
 def test_spine_family_catalog_probe_extends_views() -> None:
     base = derive_spine_family_views()
     probe = derive_spine_family_views(

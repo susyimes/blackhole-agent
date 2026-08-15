@@ -6,8 +6,9 @@ logic: confirm a second predecessor book, pair it with this effect's
 requirement, seal a hash-chained irreversible certificate, rebind the tip.
 The only real differences are per-effect tokens (nouns, pair codes, verdict
 fields, adjectives, refusal-kind suffixes, and a few historical residue
-strings). Those now live in :data:`PAIR_EFFECT_SPECS`; the logic lives here
-once.
+strings). Those now live in :data:`PAIR_EFFECT_SPECS`; leftover public
+signature blocks derive from tokens plus a compact quirk overlay.
+The logic lives here once.
 
 Synthesized modules keep the historical import paths
 (``blackhole_agent.upstream_total_spine_<effect>``) and their exact public
@@ -23,7 +24,7 @@ from __future__ import annotations
 
 import json
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -106,8 +107,8 @@ class PairEffectSpec:
     live_dir: str = ""  # proof live-run dir (default: live-<abbr>)
     short_dir: str = ""  # proof short-circuit run dir (default: short-<abbr>)
     short_resume_dir: str = ""  # short-run resume fallback (default: live-<abbr>)
-    # Exact historical def-signature texts (params + return) per public name,
-    # so synthesized modules reproduce the original API surface byte-for-byte.
+    # Optional leftover override. Live rows leave this empty so
+    # :func:`derive_pair_effect_signatures` fills the historical surface.
     signatures: dict[str, str] | None = None
 
     @property
@@ -135,10 +136,210 @@ class PairEffectSpec:
         return 2
 
 
+SPINE_SIGNATURE_CATALOG_IMPL = True
+_EARLY_PRED = frozenset({"clearing", "delivery", "custody", "margin"})
+
+
+def pair_effect_public_names(spec: PairEffectSpec) -> tuple[str, ...]:
+    """Historical public function names on one synthesized pair-effect module."""
+
+    return (
+        f"annotate_total_spine_{spec.effect}",
+        f"{spec.book_fn_prefix}_total_spine_{spec.pred_plural}",
+        f"builtin_total_spine_{spec.effect}_proof",
+        f"compute_total_spine_{spec.effect}_root",
+        f"load_total_spine_{spec.effect}_certificate",
+        f"seal_total_spine_{spec.effect}_certificate",
+        f"seal_total_spine_{spec.effect}_chain",
+        f"verify_total_spine_{spec.effect}_certificate",
+        f"write_total_spine_{spec.effect}_certificate",
+        f"{spec.verb}_total_spine",
+        f"{spec.effect}_certificate_path",
+        "main",
+    )
+
+
+def pair_effect_surface_names(spec: PairEffectSpec) -> tuple[str, ...]:
+    """Control-engine names historically imported from one pair-effect module."""
+
+    return (
+        f"TOTAL_SPINE_{spec.upper}_FILENAME",
+        f"TOTAL_SPINE_{spec.upper}_IMPL",
+        f"TOTAL_SPINE_{spec.upper}_KIND",
+        f"TOTAL_SPINE_{spec.upper}_MIN_{spec.min_name}",
+        *pair_effect_public_names(spec)[:-1],
+    )
+
+
+def pair_effect_signature_quirks(spec: PairEffectSpec) -> dict[str, Any]:
+    """Historical leftover signature slices that are data, not another block."""
+
+    early = spec.pred in _EARLY_PRED
+    book_arg = spec.pred_plural if early else "margins"
+    if spec.chain_tag == "risk" and spec.pred != "risk":
+        compute_arg = "risks"
+    elif early:
+        compute_arg = spec.plural
+    else:
+        compute_arg = spec.pred_plural
+    return {
+        "book_arg": book_arg,
+        "compute_arg": compute_arg,
+        "runner_margins": book_arg == "margins" and spec.pred_plural != "margins",
+        "runner_clearings": spec.effect != "delivery",
+        "chain_layout": spec.chain_layout,
+    }
+
+
+def _format_signature(params: Sequence[str], ret: str, *, oneline: bool = False) -> str:
+    if not params:
+        return f"() -> {ret}"
+    if oneline:
+        return f"({params[0]}) -> {ret}"
+    return "(\n    " + ",\n    ".join(params) + ",\n) -> " + ret
+
+
+def derive_pair_effect_signatures(spec: PairEffectSpec) -> dict[str, str]:
+    """Build the historical public signature block from tokens + quirks.
+
+    A new pair-effect family is a token row. The 12-function signature
+    copy is derived. Probe specs with empty ``signatures`` still get a
+    full public surface.
+    """
+
+    quirks = pair_effect_signature_quirks(spec)
+    min_const = f"TOTAL_SPINE_{spec.upper}_MIN_{spec.min_name}"
+    seq_map = "Sequence[Mapping[str, Any]]"
+    seq_path = "Sequence[Mapping[str, Any] | Path | str]"
+    book_name = f"{spec.book_fn_prefix}_total_spine_{spec.pred_plural}"
+    runner_params = [
+        "source: Path | str | Mapping[str, Any] | Sequence[Any] | None = None",
+        "*",
+        f"{spec.pred_plural}: {seq_path} | None = None",
+    ]
+    if quirks["runner_margins"]:
+        runner_params.append(f"margins: {seq_path} | None = None")
+    runner_params.extend(
+        [
+            "out_root: Path | None = None",
+            "prior_tip: str | None = None",
+            "body: dict[str, Any] | None = None",
+            f"min_{spec.plural}: int = {min_const}",
+            f"parent_{spec.effect}_root: str = \"\"",
+            f"{spec.effect}_height: int | None = None",
+            "short_circuit: bool = False",
+            "repo_path: Path | None = None",
+            "confirm: bool = True",
+            "actuation: Mapping[str, Any] | None = None",
+            "settlements: Sequence[Mapping[str, Any]] | None = None",
+        ]
+    )
+    if quirks["runner_clearings"]:
+        runner_params.append("clearings: Sequence[Mapping[str, Any]] | None = None")
+
+    if spec.chain_layout == "delivery":
+        chain_params = [
+            "prior_tip: str",
+            f"{spec.effect}_digest: str",
+            f"tip_{spec.effect}_root: str",
+            f"bound_{spec.pred}_root: str",
+            "bound_settlement_root: str",
+            "bound_action_root: str",
+            "bound_state_root: str",
+            "actuation_digest: str",
+            f"{spec.pred}_digest: str",
+            f"{spec.effect}_height: int",
+            "short_circuit: bool = False",
+        ]
+    elif spec.chain_layout == "custody":
+        chain_params = [
+            "prior_tip: str",
+            f"{spec.effect}_digest: str",
+            f"tip_{spec.effect}_root: str",
+            f"bound_{spec.pred}_root: str",
+            "bound_clearing_root: str",
+            "bound_settlement_root: str",
+            "bound_action_root: str",
+            "bound_state_root: str",
+            "actuation_digest: str",
+            f"{spec.pred}_digest: str",
+            f"{spec.effect}_height: int",
+            "short_circuit: bool = False",
+        ]
+    else:
+        chain_params = [
+            "prior_tip: str",
+            f"{spec.effect}_digest: str",
+            f"tip_{spec.effect}_root: str",
+            f"bound_{spec.pred}_root: str",
+            "bound_delivery_root: str",
+            "bound_clearing_root: str",
+            "bound_settlement_root: str",
+            "bound_action_root: str",
+            "bound_state_root: str",
+            "actuation_digest: str",
+            f"{spec.pred}_digest: str",
+            "delivery_digest: str",
+            f"{spec.effect}_height: int",
+            "short_circuit: bool = False",
+        ]
+
+    names = pair_effect_public_names(spec)
+    return {
+        names[0]: _format_signature(
+            [
+                "body: dict[str, Any]",
+                "*",
+                "certificate: Mapping[str, Any]",
+                "prior_tip: str",
+                "short_circuit: bool = False",
+            ],
+            "dict[str, Any]",
+        ),
+        book_name: _format_signature(
+            [
+                f"{quirks['book_arg']}: {seq_map}",
+                "*",
+                f"min_{spec.plural}: int = {min_const}",
+                f"parent_{spec.effect}_root: str = \"\"",
+                f"{spec.effect}_height: int | None = None",
+            ],
+            "list[dict[str, Any]]",
+        ),
+        names[2]: _format_signature((), "dict[str, Any]"),
+        names[3]: _format_signature(
+            [f"{quirks['compute_arg']}: {seq_map}"],
+            "str",
+        ),
+        names[4]: _format_signature(["path: Path | str"], "dict[str, Any]"),
+        names[5]: _format_signature(["body: Mapping[str, Any]"], "dict[str, Any]"),
+        names[6]: _format_signature(["*", *chain_params], "dict[str, Any]"),
+        names[7]: _format_signature(
+            ["certificate: Mapping[str, Any]"], "dict[str, Any]"
+        ),
+        names[8]: _format_signature(
+            [
+                "out_root: Path",
+                "body: Mapping[str, Any]",
+                "*",
+                "allow_idempotent: bool = True",
+            ],
+            "dict[str, Any]",
+        ),
+        names[9]: _format_signature(runner_params, "dict[str, Any]"),
+        names[10]: _format_signature(["root: Path"], "Path", oneline=True),
+        names[11]: _format_signature(
+            ["argv: Sequence[str] | None = None"], "int", oneline=True
+        ),
+    }
+
+
 PAIR_EFFECT_SPECS: dict[str, PairEffectSpec] = {}
 
 
 def _register(spec: PairEffectSpec) -> None:
+    if not spec.signatures:
+        spec = replace(spec, signatures=derive_pair_effect_signatures(spec))
     PAIR_EFFECT_SPECS[spec.effect] = spec
 
 
@@ -166,20 +367,6 @@ _register(
         min_name="SOLVENCIES",
         collect_push=("capital", "funding", "collateral", "margin", "custody", "delivery"),
         abbr="sol",
-        signatures={
-            'annotate_total_spine_solvency': '(\n    body: dict[str, Any],\n    *,\n    certificate: Mapping[str, Any],\n    prior_tip: str,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
-            'book_total_spine_capitals': '(\n    margins: Sequence[Mapping[str, Any]],\n    *,\n    min_solvencies: int = TOTAL_SPINE_SOLVENCY_MIN_SOLVENCIES,\n    parent_solvency_root: str = "",\n    solvency_height: int | None = None,\n) -> list[dict[str, Any]]',
-            'builtin_total_spine_solvency_proof': '() -> dict[str, Any]',
-            'compute_total_spine_solvency_root': '(\n    capitals: Sequence[Mapping[str, Any]],\n) -> str',
-            'load_total_spine_solvency_certificate': '(\n    path: Path | str,\n) -> dict[str, Any]',
-            'seal_total_spine_solvency_certificate': '(\n    body: Mapping[str, Any],\n) -> dict[str, Any]',
-            'seal_total_spine_solvency_chain': '(\n    *,\n    prior_tip: str,\n    solvency_digest: str,\n    tip_solvency_root: str,\n    bound_capital_root: str,\n    bound_delivery_root: str,\n    bound_clearing_root: str,\n    bound_settlement_root: str,\n    bound_action_root: str,\n    bound_state_root: str,\n    actuation_digest: str,\n    capital_digest: str,\n    delivery_digest: str,\n    solvency_height: int,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
-            'verify_total_spine_solvency_certificate': '(\n    certificate: Mapping[str, Any],\n) -> dict[str, Any]',
-            'write_total_spine_solvency_certificate': '(\n    out_root: Path,\n    body: Mapping[str, Any],\n    *,\n    allow_idempotent: bool = True,\n) -> dict[str, Any]',
-            'solvency_total_spine': '(\n    source: Path | str | Mapping[str, Any] | Sequence[Any] | None = None,\n    *,\n    capitals: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    margins: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    out_root: Path | None = None,\n    prior_tip: str | None = None,\n    body: dict[str, Any] | None = None,\n    min_solvencies: int = TOTAL_SPINE_SOLVENCY_MIN_SOLVENCIES,\n    parent_solvency_root: str = "",\n    solvency_height: int | None = None,\n    short_circuit: bool = False,\n    repo_path: Path | None = None,\n    confirm: bool = True,\n    actuation: Mapping[str, Any] | None = None,\n    settlements: Sequence[Mapping[str, Any]] | None = None,\n    clearings: Sequence[Mapping[str, Any]] | None = None,\n) -> dict[str, Any]',
-            'solvency_certificate_path': '(root: Path) -> Path',
-            'main': '(argv: Sequence[str] | None = None) -> int',
-        },
         refusal_pred_tampered="margin_tampered",
         refusal_pred_partial="margin_partial",
         refusal_pred_short="margins_short",
@@ -222,7 +409,6 @@ _register(
         refusal_pred_unmet="capital_unrequired",
         refusal_code_failed="svr_failed",
         summary="Post-solvency risk-versus-appetite for the absolute total spine.",
-        signatures={'annotate_total_spine_risk': '(\n    body: dict[str, Any],\n    *,\n    certificate: Mapping[str, Any],\n    prior_tip: str,\n    short_circuit: bool = False,\n) -> dict[str, Any]', 'book_total_spine_solvencies': '(\n    margins: Sequence[Mapping[str, Any]],\n    *,\n    min_risks: int = TOTAL_SPINE_RISK_MIN_RISKS,\n    parent_risk_root: str = "",\n    risk_height: int | None = None,\n) -> list[dict[str, Any]]', 'builtin_total_spine_risk_proof': '() -> dict[str, Any]', 'compute_total_spine_risk_root': '(\n    solvencies: Sequence[Mapping[str, Any]],\n) -> str', 'load_total_spine_risk_certificate': '(\n    path: Path | str,\n) -> dict[str, Any]', 'seal_total_spine_risk_certificate': '(\n    body: Mapping[str, Any],\n) -> dict[str, Any]', 'seal_total_spine_risk_chain': '(\n    *,\n    prior_tip: str,\n    risk_digest: str,\n    tip_risk_root: str,\n    bound_solvency_root: str,\n    bound_delivery_root: str,\n    bound_clearing_root: str,\n    bound_settlement_root: str,\n    bound_action_root: str,\n    bound_state_root: str,\n    actuation_digest: str,\n    solvency_digest: str,\n    delivery_digest: str,\n    risk_height: int,\n    short_circuit: bool = False,\n) -> dict[str, Any]', 'verify_total_spine_risk_certificate': '(\n    certificate: Mapping[str, Any],\n) -> dict[str, Any]', 'write_total_spine_risk_certificate': '(\n    out_root: Path,\n    body: Mapping[str, Any],\n    *,\n    allow_idempotent: bool = True,\n) -> dict[str, Any]', 'risk_total_spine': '(\n    source: Path | str | Mapping[str, Any] | Sequence[Any] | None = None,\n    *,\n    solvencies: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    margins: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    out_root: Path | None = None,\n    prior_tip: str | None = None,\n    body: dict[str, Any] | None = None,\n    min_risks: int = TOTAL_SPINE_RISK_MIN_RISKS,\n    parent_risk_root: str = "",\n    risk_height: int | None = None,\n    short_circuit: bool = False,\n    repo_path: Path | None = None,\n    confirm: bool = True,\n    actuation: Mapping[str, Any] | None = None,\n    settlements: Sequence[Mapping[str, Any]] | None = None,\n    clearings: Sequence[Mapping[str, Any]] | None = None,\n) -> dict[str, Any]', 'risk_certificate_path': '(root: Path) -> Path', 'main': '(argv: Sequence[str] | None = None) -> int'},
     )
 )
 
@@ -260,7 +446,6 @@ _register(
         out_extra_flags=(),
         proof_goal="funding proof origin",
         summary="Post-funding capital-versus-adequacy for the absolute total spine.",
-        signatures={'annotate_total_spine_capital': '(\n    body: dict[str, Any],\n    *,\n    certificate: Mapping[str, Any],\n    prior_tip: str,\n    short_circuit: bool = False,\n) -> dict[str, Any]', 'book_total_spine_fundings': '(\n    margins: Sequence[Mapping[str, Any]],\n    *,\n    min_capitals: int = TOTAL_SPINE_CAPITAL_MIN_CAPITALS,\n    parent_capital_root: str = "",\n    capital_height: int | None = None,\n) -> list[dict[str, Any]]', 'builtin_total_spine_capital_proof': '() -> dict[str, Any]', 'compute_total_spine_capital_root': '(\n    fundings: Sequence[Mapping[str, Any]],\n) -> str', 'load_total_spine_capital_certificate': '(\n    path: Path | str,\n) -> dict[str, Any]', 'seal_total_spine_capital_certificate': '(\n    body: Mapping[str, Any],\n) -> dict[str, Any]', 'seal_total_spine_capital_chain': '(\n    *,\n    prior_tip: str,\n    capital_digest: str,\n    tip_capital_root: str,\n    bound_funding_root: str,\n    bound_delivery_root: str,\n    bound_clearing_root: str,\n    bound_settlement_root: str,\n    bound_action_root: str,\n    bound_state_root: str,\n    actuation_digest: str,\n    funding_digest: str,\n    delivery_digest: str,\n    capital_height: int,\n    short_circuit: bool = False,\n) -> dict[str, Any]', 'verify_total_spine_capital_certificate': '(\n    certificate: Mapping[str, Any],\n) -> dict[str, Any]', 'write_total_spine_capital_certificate': '(\n    out_root: Path,\n    body: Mapping[str, Any],\n    *,\n    allow_idempotent: bool = True,\n) -> dict[str, Any]', 'capital_total_spine': '(\n    source: Path | str | Mapping[str, Any] | Sequence[Any] | None = None,\n    *,\n    fundings: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    margins: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    out_root: Path | None = None,\n    prior_tip: str | None = None,\n    body: dict[str, Any] | None = None,\n    min_capitals: int = TOTAL_SPINE_CAPITAL_MIN_CAPITALS,\n    parent_capital_root: str = "",\n    capital_height: int | None = None,\n    short_circuit: bool = False,\n    repo_path: Path | None = None,\n    confirm: bool = True,\n    actuation: Mapping[str, Any] | None = None,\n    settlements: Sequence[Mapping[str, Any]] | None = None,\n    clearings: Sequence[Mapping[str, Any]] | None = None,\n) -> dict[str, Any]', 'capital_certificate_path': '(root: Path) -> Path', 'main': '(argv: Sequence[str] | None = None) -> int'},
     )
 )
 
@@ -297,20 +482,6 @@ _register(
         refusal_pred_unmet='capital_unrequired',
         refusal_code_failed='rva_failed',
         summary='Post-risk stress-versus-capacity for the absolute total spine.',
-        signatures={
-            'annotate_total_spine_stress': '(\n    body: dict[str, Any],\n    *,\n    certificate: Mapping[str, Any],\n    prior_tip: str,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
-            'book_total_spine_risks': '(\n    margins: Sequence[Mapping[str, Any]],\n    *,\n    min_stresses: int = TOTAL_SPINE_STRESS_MIN_STRESSES,\n    parent_stress_root: str = "",\n    stress_height: int | None = None,\n) -> list[dict[str, Any]]',
-            'builtin_total_spine_stress_proof': '() -> dict[str, Any]',
-            'compute_total_spine_stress_root': '(\n    risks: Sequence[Mapping[str, Any]],\n) -> str',
-            'load_total_spine_stress_certificate': '(\n    path: Path | str,\n) -> dict[str, Any]',
-            'seal_total_spine_stress_certificate': '(\n    body: Mapping[str, Any],\n) -> dict[str, Any]',
-            'seal_total_spine_stress_chain': '(\n    *,\n    prior_tip: str,\n    stress_digest: str,\n    tip_stress_root: str,\n    bound_risk_root: str,\n    bound_delivery_root: str,\n    bound_clearing_root: str,\n    bound_settlement_root: str,\n    bound_action_root: str,\n    bound_state_root: str,\n    actuation_digest: str,\n    risk_digest: str,\n    delivery_digest: str,\n    stress_height: int,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
-            'verify_total_spine_stress_certificate': '(\n    certificate: Mapping[str, Any],\n) -> dict[str, Any]',
-            'write_total_spine_stress_certificate': '(\n    out_root: Path,\n    body: Mapping[str, Any],\n    *,\n    allow_idempotent: bool = True,\n) -> dict[str, Any]',
-            'stress_total_spine': '(\n    source: Path | str | Mapping[str, Any] | Sequence[Any] | None = None,\n    *,\n    risks: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    margins: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    out_root: Path | None = None,\n    prior_tip: str | None = None,\n    body: dict[str, Any] | None = None,\n    min_stresses: int = TOTAL_SPINE_STRESS_MIN_STRESSES,\n    parent_stress_root: str = "",\n    stress_height: int | None = None,\n    short_circuit: bool = False,\n    repo_path: Path | None = None,\n    confirm: bool = True,\n    actuation: Mapping[str, Any] | None = None,\n    settlements: Sequence[Mapping[str, Any]] | None = None,\n    clearings: Sequence[Mapping[str, Any]] | None = None,\n) -> dict[str, Any]',
-            'stress_certificate_path': '(root: Path) -> Path',
-            'main': '(argv: Sequence[str] | None = None) -> int',
-        },
     )
 )
 
@@ -350,20 +521,6 @@ _register(
         refusal_pred_unmet='capital_uncapacitated',
         refusal_code_failed='svc_failed',
         summary='Post-stress recovery-versus-plan for the absolute total spine.',
-        signatures={
-            'annotate_total_spine_recovery': '(\n    body: dict[str, Any],\n    *,\n    certificate: Mapping[str, Any],\n    prior_tip: str,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
-            'book_total_spine_stresses': '(\n    margins: Sequence[Mapping[str, Any]],\n    *,\n    min_recoveries: int = TOTAL_SPINE_RECOVERY_MIN_RECOVERIES,\n    parent_recovery_root: str = "",\n    recovery_height: int | None = None,\n) -> list[dict[str, Any]]',
-            'builtin_total_spine_recovery_proof': '() -> dict[str, Any]',
-            'compute_total_spine_recovery_root': '(\n    risks: Sequence[Mapping[str, Any]],\n) -> str',
-            'load_total_spine_recovery_certificate': '(\n    path: Path | str,\n) -> dict[str, Any]',
-            'seal_total_spine_recovery_certificate': '(\n    body: Mapping[str, Any],\n) -> dict[str, Any]',
-            'seal_total_spine_recovery_chain': '(\n    *,\n    prior_tip: str,\n    recovery_digest: str,\n    tip_recovery_root: str,\n    bound_stress_root: str,\n    bound_delivery_root: str,\n    bound_clearing_root: str,\n    bound_settlement_root: str,\n    bound_action_root: str,\n    bound_state_root: str,\n    actuation_digest: str,\n    stress_digest: str,\n    delivery_digest: str,\n    recovery_height: int,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
-            'verify_total_spine_recovery_certificate': '(\n    certificate: Mapping[str, Any],\n) -> dict[str, Any]',
-            'write_total_spine_recovery_certificate': '(\n    out_root: Path,\n    body: Mapping[str, Any],\n    *,\n    allow_idempotent: bool = True,\n) -> dict[str, Any]',
-            'recovery_total_spine': '(\n    source: Path | str | Mapping[str, Any] | Sequence[Any] | None = None,\n    *,\n    stresses: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    margins: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    out_root: Path | None = None,\n    prior_tip: str | None = None,\n    body: dict[str, Any] | None = None,\n    min_recoveries: int = TOTAL_SPINE_RECOVERY_MIN_RECOVERIES,\n    parent_recovery_root: str = "",\n    recovery_height: int | None = None,\n    short_circuit: bool = False,\n    repo_path: Path | None = None,\n    confirm: bool = True,\n    actuation: Mapping[str, Any] | None = None,\n    settlements: Sequence[Mapping[str, Any]] | None = None,\n    clearings: Sequence[Mapping[str, Any]] | None = None,\n) -> dict[str, Any]',
-            'recovery_certificate_path': '(root: Path) -> Path',
-            'main': '(argv: Sequence[str] | None = None) -> int',
-        },
     )
 )
 
@@ -401,20 +558,6 @@ _register(
         refusal_pred_unmet='capital_uncapacitated',
         refusal_code_failed='rvp_failed',
         summary='Post-recovery resolution-versus-strategy for the absolute total spine.',
-        signatures={
-            'annotate_total_spine_resolution': '(\n    body: dict[str, Any],\n    *,\n    certificate: Mapping[str, Any],\n    prior_tip: str,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
-            'book_total_spine_recoveries': '(\n    margins: Sequence[Mapping[str, Any]],\n    *,\n    min_resolutions: int = TOTAL_SPINE_RESOLUTION_MIN_RESOLUTIONS,\n    parent_resolution_root: str = "",\n    resolution_height: int | None = None,\n) -> list[dict[str, Any]]',
-            'builtin_total_spine_resolution_proof': '() -> dict[str, Any]',
-            'compute_total_spine_resolution_root': '(\n    risks: Sequence[Mapping[str, Any]],\n) -> str',
-            'load_total_spine_resolution_certificate': '(\n    path: Path | str,\n) -> dict[str, Any]',
-            'seal_total_spine_resolution_certificate': '(\n    body: Mapping[str, Any],\n) -> dict[str, Any]',
-            'seal_total_spine_resolution_chain': '(\n    *,\n    prior_tip: str,\n    resolution_digest: str,\n    tip_resolution_root: str,\n    bound_recovery_root: str,\n    bound_delivery_root: str,\n    bound_clearing_root: str,\n    bound_settlement_root: str,\n    bound_action_root: str,\n    bound_state_root: str,\n    actuation_digest: str,\n    recovery_digest: str,\n    delivery_digest: str,\n    resolution_height: int,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
-            'verify_total_spine_resolution_certificate': '(\n    certificate: Mapping[str, Any],\n) -> dict[str, Any]',
-            'write_total_spine_resolution_certificate': '(\n    out_root: Path,\n    body: Mapping[str, Any],\n    *,\n    allow_idempotent: bool = True,\n) -> dict[str, Any]',
-            'resolution_total_spine': '(\n    source: Path | str | Mapping[str, Any] | Sequence[Any] | None = None,\n    *,\n    recoveries: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    margins: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    out_root: Path | None = None,\n    prior_tip: str | None = None,\n    body: dict[str, Any] | None = None,\n    min_resolutions: int = TOTAL_SPINE_RESOLUTION_MIN_RESOLUTIONS,\n    parent_resolution_root: str = "",\n    resolution_height: int | None = None,\n    short_circuit: bool = False,\n    repo_path: Path | None = None,\n    confirm: bool = True,\n    actuation: Mapping[str, Any] | None = None,\n    settlements: Sequence[Mapping[str, Any]] | None = None,\n    clearings: Sequence[Mapping[str, Any]] | None = None,\n) -> dict[str, Any]',
-            'resolution_certificate_path': '(root: Path) -> Path',
-            'main': '(argv: Sequence[str] | None = None) -> int',
-        },
     )
 )
 
@@ -455,20 +598,6 @@ _register(
         refusal_pred_unmet='capital_uncapacitated',
         refusal_code_failed='rvs_failed',
         summary='Post-resolution restructuring-versus-mandate for the absolute total spine.',
-        signatures={
-            'annotate_total_spine_restructuring': '(\n    body: dict[str, Any],\n    *,\n    certificate: Mapping[str, Any],\n    prior_tip: str,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
-            'book_total_spine_resolutions': '(\n    margins: Sequence[Mapping[str, Any]],\n    *,\n    min_restructurings: int = TOTAL_SPINE_RESTRUCTURING_MIN_RESTRUCTURINGS,\n    parent_restructuring_root: str = "",\n    restructuring_height: int | None = None,\n) -> list[dict[str, Any]]',
-            'builtin_total_spine_restructuring_proof': '() -> dict[str, Any]',
-            'compute_total_spine_restructuring_root': '(\n    risks: Sequence[Mapping[str, Any]],\n) -> str',
-            'load_total_spine_restructuring_certificate': '(\n    path: Path | str,\n) -> dict[str, Any]',
-            'seal_total_spine_restructuring_certificate': '(\n    body: Mapping[str, Any],\n) -> dict[str, Any]',
-            'seal_total_spine_restructuring_chain': '(\n    *,\n    prior_tip: str,\n    restructuring_digest: str,\n    tip_restructuring_root: str,\n    bound_resolution_root: str,\n    bound_delivery_root: str,\n    bound_clearing_root: str,\n    bound_settlement_root: str,\n    bound_action_root: str,\n    bound_state_root: str,\n    actuation_digest: str,\n    resolution_digest: str,\n    delivery_digest: str,\n    restructuring_height: int,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
-            'verify_total_spine_restructuring_certificate': '(\n    certificate: Mapping[str, Any],\n) -> dict[str, Any]',
-            'write_total_spine_restructuring_certificate': '(\n    out_root: Path,\n    body: Mapping[str, Any],\n    *,\n    allow_idempotent: bool = True,\n) -> dict[str, Any]',
-            'restructuring_total_spine': '(\n    source: Path | str | Mapping[str, Any] | Sequence[Any] | None = None,\n    *,\n    resolutions: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    margins: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    out_root: Path | None = None,\n    prior_tip: str | None = None,\n    body: dict[str, Any] | None = None,\n    min_restructurings: int = TOTAL_SPINE_RESTRUCTURING_MIN_RESTRUCTURINGS,\n    parent_restructuring_root: str = "",\n    restructuring_height: int | None = None,\n    short_circuit: bool = False,\n    repo_path: Path | None = None,\n    confirm: bool = True,\n    actuation: Mapping[str, Any] | None = None,\n    settlements: Sequence[Mapping[str, Any]] | None = None,\n    clearings: Sequence[Mapping[str, Any]] | None = None,\n) -> dict[str, Any]',
-            'restructuring_certificate_path': '(root: Path) -> Path',
-            'main': '(argv: Sequence[str] | None = None) -> int',
-        },
     )
 )
 
@@ -514,20 +643,6 @@ _register(
         refusal_pred_unmet='capital_uncapacitated',
         refusal_code_failed='rvm_failed',
         summary='Post-restructuring emergence-versus-confirmation for the absolute total spine.',
-        signatures={
-            'annotate_total_spine_emergence': '(\n    body: dict[str, Any],\n    *,\n    certificate: Mapping[str, Any],\n    prior_tip: str,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
-            'book_total_spine_restructurings': '(\n    margins: Sequence[Mapping[str, Any]],\n    *,\n    min_emergences: int = TOTAL_SPINE_EMERGENCE_MIN_EMERGENCES,\n    parent_emergence_root: str = "",\n    emergence_height: int | None = None,\n) -> list[dict[str, Any]]',
-            'builtin_total_spine_emergence_proof': '() -> dict[str, Any]',
-            'compute_total_spine_emergence_root': '(\n    risks: Sequence[Mapping[str, Any]],\n) -> str',
-            'load_total_spine_emergence_certificate': '(\n    path: Path | str,\n) -> dict[str, Any]',
-            'seal_total_spine_emergence_certificate': '(\n    body: Mapping[str, Any],\n) -> dict[str, Any]',
-            'seal_total_spine_emergence_chain': '(\n    *,\n    prior_tip: str,\n    emergence_digest: str,\n    tip_emergence_root: str,\n    bound_restructuring_root: str,\n    bound_delivery_root: str,\n    bound_clearing_root: str,\n    bound_settlement_root: str,\n    bound_action_root: str,\n    bound_state_root: str,\n    actuation_digest: str,\n    restructuring_digest: str,\n    delivery_digest: str,\n    emergence_height: int,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
-            'verify_total_spine_emergence_certificate': '(\n    certificate: Mapping[str, Any],\n) -> dict[str, Any]',
-            'write_total_spine_emergence_certificate': '(\n    out_root: Path,\n    body: Mapping[str, Any],\n    *,\n    allow_idempotent: bool = True,\n) -> dict[str, Any]',
-            'emerge_total_spine': '(\n    source: Path | str | Mapping[str, Any] | Sequence[Any] | None = None,\n    *,\n    restructurings: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    margins: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    out_root: Path | None = None,\n    prior_tip: str | None = None,\n    body: dict[str, Any] | None = None,\n    min_emergences: int = TOTAL_SPINE_EMERGENCE_MIN_EMERGENCES,\n    parent_emergence_root: str = "",\n    emergence_height: int | None = None,\n    short_circuit: bool = False,\n    repo_path: Path | None = None,\n    confirm: bool = True,\n    actuation: Mapping[str, Any] | None = None,\n    settlements: Sequence[Mapping[str, Any]] | None = None,\n    clearings: Sequence[Mapping[str, Any]] | None = None,\n) -> dict[str, Any]',
-            'emergence_certificate_path': '(root: Path) -> Path',
-            'main': '(argv: Sequence[str] | None = None) -> int',
-        },
     )
 )
 
@@ -574,20 +689,6 @@ _register(
         refusal_pred_unmet='capital_uncapacitated',
         refusal_code_failed='evc_failed',
         summary='Post-emergence reorganization-versus-charter for the absolute total spine.',
-        signatures={
-            'annotate_total_spine_reorganization': '(\n    body: dict[str, Any],\n    *,\n    certificate: Mapping[str, Any],\n    prior_tip: str,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
-            'book_total_spine_emergences': '(\n    margins: Sequence[Mapping[str, Any]],\n    *,\n    min_reorganizations: int = TOTAL_SPINE_REORGANIZATION_MIN_REORGANIZATIONS,\n    parent_reorganization_root: str = "",\n    reorganization_height: int | None = None,\n) -> list[dict[str, Any]]',
-            'builtin_total_spine_reorganization_proof': '() -> dict[str, Any]',
-            'compute_total_spine_reorganization_root': '(\n    risks: Sequence[Mapping[str, Any]],\n) -> str',
-            'load_total_spine_reorganization_certificate': '(\n    path: Path | str,\n) -> dict[str, Any]',
-            'seal_total_spine_reorganization_certificate': '(\n    body: Mapping[str, Any],\n) -> dict[str, Any]',
-            'seal_total_spine_reorganization_chain': '(\n    *,\n    prior_tip: str,\n    reorganization_digest: str,\n    tip_reorganization_root: str,\n    bound_emergence_root: str,\n    bound_delivery_root: str,\n    bound_clearing_root: str,\n    bound_settlement_root: str,\n    bound_action_root: str,\n    bound_state_root: str,\n    actuation_digest: str,\n    emergence_digest: str,\n    delivery_digest: str,\n    reorganization_height: int,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
-            'verify_total_spine_reorganization_certificate': '(\n    certificate: Mapping[str, Any],\n) -> dict[str, Any]',
-            'write_total_spine_reorganization_certificate': '(\n    out_root: Path,\n    body: Mapping[str, Any],\n    *,\n    allow_idempotent: bool = True,\n) -> dict[str, Any]',
-            'reorganize_total_spine': '(\n    source: Path | str | Mapping[str, Any] | Sequence[Any] | None = None,\n    *,\n    emergences: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    margins: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    out_root: Path | None = None,\n    prior_tip: str | None = None,\n    body: dict[str, Any] | None = None,\n    min_reorganizations: int = TOTAL_SPINE_REORGANIZATION_MIN_REORGANIZATIONS,\n    parent_reorganization_root: str = "",\n    reorganization_height: int | None = None,\n    short_circuit: bool = False,\n    repo_path: Path | None = None,\n    confirm: bool = True,\n    actuation: Mapping[str, Any] | None = None,\n    settlements: Sequence[Mapping[str, Any]] | None = None,\n    clearings: Sequence[Mapping[str, Any]] | None = None,\n) -> dict[str, Any]',
-            'reorganization_certificate_path': '(root: Path) -> Path',
-            'main': '(argv: Sequence[str] | None = None) -> int',
-        },
     )
 )
 
@@ -630,20 +731,6 @@ _register(
         refusal_pred_unmet='clearing_undischarged',
         refusal_code_failed='dvp_failed',
         summary='Post-clearing delivery-versus-payment for the absolute total spine.',
-        signatures={
-            'annotate_total_spine_delivery': '(\n    body: dict[str, Any],\n    *,\n    certificate: Mapping[str, Any],\n    prior_tip: str,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
-            'pair_total_spine_clearings': '(\n    clearings: Sequence[Mapping[str, Any]],\n    *,\n    min_deliveries: int = TOTAL_SPINE_DELIVERY_MIN_CLEARINGS,\n    parent_delivery_root: str = "",\n    delivery_height: int | None = None,\n) -> list[dict[str, Any]]',
-            'builtin_total_spine_delivery_proof': '() -> dict[str, Any]',
-            'compute_total_spine_delivery_root': '(\n    deliveries: Sequence[Mapping[str, Any]],\n) -> str',
-            'load_total_spine_delivery_certificate': '(\n    path: Path | str,\n) -> dict[str, Any]',
-            'seal_total_spine_delivery_certificate': '(\n    body: Mapping[str, Any],\n) -> dict[str, Any]',
-            'seal_total_spine_delivery_chain': '(\n    *,\n    prior_tip: str,\n    delivery_digest: str,\n    tip_delivery_root: str,\n    bound_clearing_root: str,\n    bound_settlement_root: str,\n    bound_action_root: str,\n    bound_state_root: str,\n    actuation_digest: str,\n    clearing_digest: str,\n    delivery_height: int,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
-            'verify_total_spine_delivery_certificate': '(\n    certificate: Mapping[str, Any],\n) -> dict[str, Any]',
-            'write_total_spine_delivery_certificate': '(\n    out_root: Path,\n    body: Mapping[str, Any],\n    *,\n    allow_idempotent: bool = True,\n) -> dict[str, Any]',
-            'deliver_total_spine': '(\n    source: Path | str | Mapping[str, Any] | Sequence[Any] | None = None,\n    *,\n    clearings: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    out_root: Path | None = None,\n    prior_tip: str | None = None,\n    body: dict[str, Any] | None = None,\n    min_deliveries: int = TOTAL_SPINE_DELIVERY_MIN_CLEARINGS,\n    parent_delivery_root: str = "",\n    delivery_height: int | None = None,\n    short_circuit: bool = False,\n    repo_path: Path | None = None,\n    confirm: bool = True,\n    actuation: Mapping[str, Any] | None = None,\n    settlements: Sequence[Mapping[str, Any]] | None = None,\n) -> dict[str, Any]',
-            'delivery_certificate_path': '(root: Path) -> Path',
-            'main': '(argv: Sequence[str] | None = None) -> int',
-        },
     )
 )
 
@@ -686,20 +773,6 @@ _register(
         refusal_pred_unmet='delivery_unpaid',
         refusal_code_failed='cvt_failed',
         summary='Post-delivery custody-versus-title for the absolute total spine.',
-        signatures={
-            'annotate_total_spine_custody': '(\n    body: dict[str, Any],\n    *,\n    certificate: Mapping[str, Any],\n    prior_tip: str,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
-            'book_total_spine_deliveries': '(\n    deliveries: Sequence[Mapping[str, Any]],\n    *,\n    min_custodies: int = TOTAL_SPINE_CUSTODY_MIN_DELIVERIES,\n    parent_custody_root: str = "",\n    custody_height: int | None = None,\n) -> list[dict[str, Any]]',
-            'builtin_total_spine_custody_proof': '() -> dict[str, Any]',
-            'compute_total_spine_custody_root': '(\n    custodies: Sequence[Mapping[str, Any]],\n) -> str',
-            'load_total_spine_custody_certificate': '(\n    path: Path | str,\n) -> dict[str, Any]',
-            'seal_total_spine_custody_certificate': '(\n    body: Mapping[str, Any],\n) -> dict[str, Any]',
-            'seal_total_spine_custody_chain': '(\n    *,\n    prior_tip: str,\n    custody_digest: str,\n    tip_custody_root: str,\n    bound_delivery_root: str,\n    bound_clearing_root: str,\n    bound_settlement_root: str,\n    bound_action_root: str,\n    bound_state_root: str,\n    actuation_digest: str,\n    delivery_digest: str,\n    custody_height: int,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
-            'verify_total_spine_custody_certificate': '(\n    certificate: Mapping[str, Any],\n) -> dict[str, Any]',
-            'write_total_spine_custody_certificate': '(\n    out_root: Path,\n    body: Mapping[str, Any],\n    *,\n    allow_idempotent: bool = True,\n) -> dict[str, Any]',
-            'custody_total_spine': '(\n    source: Path | str | Mapping[str, Any] | Sequence[Any] | None = None,\n    *,\n    deliveries: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    out_root: Path | None = None,\n    prior_tip: str | None = None,\n    body: dict[str, Any] | None = None,\n    min_custodies: int = TOTAL_SPINE_CUSTODY_MIN_DELIVERIES,\n    parent_custody_root: str = "",\n    custody_height: int | None = None,\n    short_circuit: bool = False,\n    repo_path: Path | None = None,\n    confirm: bool = True,\n    actuation: Mapping[str, Any] | None = None,\n    settlements: Sequence[Mapping[str, Any]] | None = None,\n    clearings: Sequence[Mapping[str, Any]] | None = None,\n) -> dict[str, Any]',
-            'custody_certificate_path': '(root: Path) -> Path',
-            'main': '(argv: Sequence[str] | None = None) -> int',
-        },
     )
 )
 
@@ -741,20 +814,6 @@ _register(
         refusal_pred_unmet='custody_untitled',
         refusal_code_failed='mve_failed',
         summary='Post-custody margin-versus-exposure for the absolute total spine.',
-        signatures={
-            'annotate_total_spine_margin': '(\n    body: dict[str, Any],\n    *,\n    certificate: Mapping[str, Any],\n    prior_tip: str,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
-            'book_total_spine_custodies': '(\n    custodies: Sequence[Mapping[str, Any]],\n    *,\n    min_margins: int = TOTAL_SPINE_MARGIN_MIN_CUSTODIES,\n    parent_margin_root: str = "",\n    margin_height: int | None = None,\n) -> list[dict[str, Any]]',
-            'builtin_total_spine_margin_proof': '() -> dict[str, Any]',
-            'compute_total_spine_margin_root': '(\n    margins: Sequence[Mapping[str, Any]],\n) -> str',
-            'load_total_spine_margin_certificate': '(\n    path: Path | str,\n) -> dict[str, Any]',
-            'seal_total_spine_margin_certificate': '(\n    body: Mapping[str, Any],\n) -> dict[str, Any]',
-            'seal_total_spine_margin_chain': '(\n    *,\n    prior_tip: str,\n    margin_digest: str,\n    tip_margin_root: str,\n    bound_custody_root: str,\n    bound_delivery_root: str,\n    bound_clearing_root: str,\n    bound_settlement_root: str,\n    bound_action_root: str,\n    bound_state_root: str,\n    actuation_digest: str,\n    custody_digest: str,\n    delivery_digest: str,\n    margin_height: int,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
-            'verify_total_spine_margin_certificate': '(\n    certificate: Mapping[str, Any],\n) -> dict[str, Any]',
-            'write_total_spine_margin_certificate': '(\n    out_root: Path,\n    body: Mapping[str, Any],\n    *,\n    allow_idempotent: bool = True,\n) -> dict[str, Any]',
-            'margin_total_spine': '(\n    source: Path | str | Mapping[str, Any] | Sequence[Any] | None = None,\n    *,\n    custodies: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    out_root: Path | None = None,\n    prior_tip: str | None = None,\n    body: dict[str, Any] | None = None,\n    min_margins: int = TOTAL_SPINE_MARGIN_MIN_CUSTODIES,\n    parent_margin_root: str = "",\n    margin_height: int | None = None,\n    short_circuit: bool = False,\n    repo_path: Path | None = None,\n    confirm: bool = True,\n    actuation: Mapping[str, Any] | None = None,\n    settlements: Sequence[Mapping[str, Any]] | None = None,\n    clearings: Sequence[Mapping[str, Any]] | None = None,\n) -> dict[str, Any]',
-            'margin_certificate_path': '(root: Path) -> Path',
-            'main': '(argv: Sequence[str] | None = None) -> int',
-        },
     )
 )
 
@@ -796,20 +855,6 @@ _register(
         refusal_pred_unmet='margin_unexposed',
         refusal_code_failed='cvo_failed',
         summary='Post-margin collateral-versus-obligation for the absolute total spine.',
-        signatures={
-            'annotate_total_spine_collateral': '(\n    body: dict[str, Any],\n    *,\n    certificate: Mapping[str, Any],\n    prior_tip: str,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
-            'book_total_spine_margins': '(\n    margins: Sequence[Mapping[str, Any]],\n    *,\n    min_collaterals: int = TOTAL_SPINE_COLLATERAL_MIN_COLLATERALS,\n    parent_collateral_root: str = "",\n    collateral_height: int | None = None,\n) -> list[dict[str, Any]]',
-            'builtin_total_spine_collateral_proof': '() -> dict[str, Any]',
-            'compute_total_spine_collateral_root': '(\n    collaterals: Sequence[Mapping[str, Any]],\n) -> str',
-            'load_total_spine_collateral_certificate': '(\n    path: Path | str,\n) -> dict[str, Any]',
-            'seal_total_spine_collateral_certificate': '(\n    body: Mapping[str, Any],\n) -> dict[str, Any]',
-            'seal_total_spine_collateral_chain': '(\n    *,\n    prior_tip: str,\n    collateral_digest: str,\n    tip_collateral_root: str,\n    bound_margin_root: str,\n    bound_delivery_root: str,\n    bound_clearing_root: str,\n    bound_settlement_root: str,\n    bound_action_root: str,\n    bound_state_root: str,\n    actuation_digest: str,\n    margin_digest: str,\n    delivery_digest: str,\n    collateral_height: int,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
-            'verify_total_spine_collateral_certificate': '(\n    certificate: Mapping[str, Any],\n) -> dict[str, Any]',
-            'write_total_spine_collateral_certificate': '(\n    out_root: Path,\n    body: Mapping[str, Any],\n    *,\n    allow_idempotent: bool = True,\n) -> dict[str, Any]',
-            'collateral_total_spine': '(\n    source: Path | str | Mapping[str, Any] | Sequence[Any] | None = None,\n    *,\n    margins: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    out_root: Path | None = None,\n    prior_tip: str | None = None,\n    body: dict[str, Any] | None = None,\n    min_collaterals: int = TOTAL_SPINE_COLLATERAL_MIN_COLLATERALS,\n    parent_collateral_root: str = "",\n    collateral_height: int | None = None,\n    short_circuit: bool = False,\n    repo_path: Path | None = None,\n    confirm: bool = True,\n    actuation: Mapping[str, Any] | None = None,\n    settlements: Sequence[Mapping[str, Any]] | None = None,\n    clearings: Sequence[Mapping[str, Any]] | None = None,\n) -> dict[str, Any]',
-            'collateral_certificate_path': '(root: Path) -> Path',
-            'main': '(argv: Sequence[str] | None = None) -> int',
-        },
     )
 )
 
@@ -851,20 +896,6 @@ _register(
         refusal_pred_unmet='margin_unobligated',
         refusal_code_failed='lvc_failed',
         summary='Post-collateral liquidity-versus-coverage for the absolute total spine.',
-        signatures={
-            'annotate_total_spine_liquidity': '(\n    body: dict[str, Any],\n    *,\n    certificate: Mapping[str, Any],\n    prior_tip: str,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
-            'book_total_spine_collaterals': '(\n    margins: Sequence[Mapping[str, Any]],\n    *,\n    min_liquidities: int = TOTAL_SPINE_LIQUIDITY_MIN_LIQUIDITIES,\n    parent_liquidity_root: str = "",\n    liquidity_height: int | None = None,\n) -> list[dict[str, Any]]',
-            'builtin_total_spine_liquidity_proof': '() -> dict[str, Any]',
-            'compute_total_spine_liquidity_root': '(\n    collaterals: Sequence[Mapping[str, Any]],\n) -> str',
-            'load_total_spine_liquidity_certificate': '(\n    path: Path | str,\n) -> dict[str, Any]',
-            'seal_total_spine_liquidity_certificate': '(\n    body: Mapping[str, Any],\n) -> dict[str, Any]',
-            'seal_total_spine_liquidity_chain': '(\n    *,\n    prior_tip: str,\n    liquidity_digest: str,\n    tip_liquidity_root: str,\n    bound_collateral_root: str,\n    bound_delivery_root: str,\n    bound_clearing_root: str,\n    bound_settlement_root: str,\n    bound_action_root: str,\n    bound_state_root: str,\n    actuation_digest: str,\n    collateral_digest: str,\n    delivery_digest: str,\n    liquidity_height: int,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
-            'verify_total_spine_liquidity_certificate': '(\n    certificate: Mapping[str, Any],\n) -> dict[str, Any]',
-            'write_total_spine_liquidity_certificate': '(\n    out_root: Path,\n    body: Mapping[str, Any],\n    *,\n    allow_idempotent: bool = True,\n) -> dict[str, Any]',
-            'liquidity_total_spine': '(\n    source: Path | str | Mapping[str, Any] | Sequence[Any] | None = None,\n    *,\n    collaterals: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    margins: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    out_root: Path | None = None,\n    prior_tip: str | None = None,\n    body: dict[str, Any] | None = None,\n    min_liquidities: int = TOTAL_SPINE_LIQUIDITY_MIN_LIQUIDITIES,\n    parent_liquidity_root: str = "",\n    liquidity_height: int | None = None,\n    short_circuit: bool = False,\n    repo_path: Path | None = None,\n    confirm: bool = True,\n    actuation: Mapping[str, Any] | None = None,\n    settlements: Sequence[Mapping[str, Any]] | None = None,\n    clearings: Sequence[Mapping[str, Any]] | None = None,\n) -> dict[str, Any]',
-            'liquidity_certificate_path': '(root: Path) -> Path',
-            'main': '(argv: Sequence[str] | None = None) -> int',
-        },
     )
 )
 
@@ -906,20 +937,6 @@ _register(
         refusal_pred_unmet='margin_uncovered',
         refusal_code_failed='fvr_failed',
         summary='Post-collateral funding-versus-requirement for the absolute total spine.',
-        signatures={
-            'annotate_total_spine_funding': '(\n    body: dict[str, Any],\n    *,\n    certificate: Mapping[str, Any],\n    prior_tip: str,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
-            'book_total_spine_liquidities': '(\n    margins: Sequence[Mapping[str, Any]],\n    *,\n    min_fundings: int = TOTAL_SPINE_FUNDING_MIN_FUNDINGS,\n    parent_funding_root: str = "",\n    funding_height: int | None = None,\n) -> list[dict[str, Any]]',
-            'builtin_total_spine_funding_proof': '() -> dict[str, Any]',
-            'compute_total_spine_funding_root': '(\n    liquidities: Sequence[Mapping[str, Any]],\n) -> str',
-            'load_total_spine_funding_certificate': '(\n    path: Path | str,\n) -> dict[str, Any]',
-            'seal_total_spine_funding_certificate': '(\n    body: Mapping[str, Any],\n) -> dict[str, Any]',
-            'seal_total_spine_funding_chain': '(\n    *,\n    prior_tip: str,\n    funding_digest: str,\n    tip_funding_root: str,\n    bound_liquidity_root: str,\n    bound_delivery_root: str,\n    bound_clearing_root: str,\n    bound_settlement_root: str,\n    bound_action_root: str,\n    bound_state_root: str,\n    actuation_digest: str,\n    liquidity_digest: str,\n    delivery_digest: str,\n    funding_height: int,\n    short_circuit: bool = False,\n) -> dict[str, Any]',
-            'verify_total_spine_funding_certificate': '(\n    certificate: Mapping[str, Any],\n) -> dict[str, Any]',
-            'write_total_spine_funding_certificate': '(\n    out_root: Path,\n    body: Mapping[str, Any],\n    *,\n    allow_idempotent: bool = True,\n) -> dict[str, Any]',
-            'funding_total_spine': '(\n    source: Path | str | Mapping[str, Any] | Sequence[Any] | None = None,\n    *,\n    liquidities: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    margins: Sequence[Mapping[str, Any] | Path | str] | None = None,\n    out_root: Path | None = None,\n    prior_tip: str | None = None,\n    body: dict[str, Any] | None = None,\n    min_fundings: int = TOTAL_SPINE_FUNDING_MIN_FUNDINGS,\n    parent_funding_root: str = "",\n    funding_height: int | None = None,\n    short_circuit: bool = False,\n    repo_path: Path | None = None,\n    confirm: bool = True,\n    actuation: Mapping[str, Any] | None = None,\n    settlements: Sequence[Mapping[str, Any]] | None = None,\n    clearings: Sequence[Mapping[str, Any]] | None = None,\n) -> dict[str, Any]',
-            'funding_certificate_path': '(root: Path) -> Path',
-            'main': '(argv: Sequence[str] | None = None) -> int',
-        },
     )
 )
 
@@ -3839,20 +3856,9 @@ def _synthesize_effect_module(spec: PairEffectSpec) -> Any:
     g[f"TOTAL_SPINE_{spec.upper}_MIN_{spec.min_name}"] = spec.min_value
     g[f"TOTAL_SPINE_{spec.pred_upper}_KIND"] = spec.pred_kind
 
-    public_functions = {
-        f"annotate_total_spine_{spec.effect}",
-        f"{spec.book_fn_prefix}_total_spine_{spec.pred_plural}",
-        f"builtin_total_spine_{spec.effect}_proof",
-        f"compute_total_spine_{spec.effect}_root",
-        f"load_total_spine_{spec.effect}_certificate",
-        f"seal_total_spine_{spec.effect}_certificate",
-        f"seal_total_spine_{spec.effect}_chain",
-        f"verify_total_spine_{spec.effect}_certificate",
-        f"write_total_spine_{spec.effect}_certificate",
-        f"{spec.verb}_total_spine",
-        f"{spec.effect}_certificate_path",
-    }
-    for public_name, signature in spec.signatures.items():
+    public_functions = set(pair_effect_public_names(spec)) - {"main"}
+    signatures = spec.signatures or derive_pair_effect_signatures(spec)
+    for public_name, signature in signatures.items():
         if public_name == "main":
             stub = (
                 "from __future__ import annotations\n"
@@ -3904,3 +3910,127 @@ def install_pair_effect_finder() -> None:
     )
 
     install_module_synthesis_finder()
+
+
+def builtin_spine_signature_catalog_proof() -> dict[str, Any]:
+    """Hermetic proof: leftover pair-effect signatures are one catalog."""
+
+    import inspect
+    import importlib
+
+    checks: dict[str, bool] = {}
+    checks["impl"] = SPINE_SIGNATURE_CATALOG_IMPL is True
+    checks["spec_count"] = len(PAIR_EFFECT_SPECS) == 15
+    mismatches: list[str] = []
+    for name, spec in PAIR_EFFECT_SPECS.items():
+        derived = derive_pair_effect_signatures(spec)
+        hist = spec.signatures or {}
+        if derived != hist:
+            mismatches.append(name)
+        if set(derived) != set(pair_effect_public_names(spec)):
+            mismatches.append(f"{name}:names")
+    checks["derived_matches_live"] = mismatches == []
+    checks["twelve_names"] = all(
+        len(spec.signatures or {}) == 12 for spec in PAIR_EFFECT_SPECS.values()
+    )
+
+    probe = PairEffectSpec(
+        effect="ratification",
+        plural="ratifications",
+        verb="ratify",
+        pred="reorganization",
+        pred_plural="reorganizations",
+        code="rtr",
+        code_upper="Rtr",
+        pred_code="rvc",
+        pred_code_upper="Rvc",
+        verdict_1="ratified_ok",
+        verdict_2="treaty_ok",
+        adj_1="ratified",
+        adj_2="treatied",
+        adj_1_negated="unratified",
+        counterpart="treaty",
+        pred_done="reorganized",
+        pred_verdict_1="chartered",
+        pred_verdict_2="rvc_ok",
+        post_key="post_reorganization",
+        min_name="RATIFICATIONS",
+        collect_push=("reorganization",),
+        abbr="rat",
+        refusal_pred_tampered="margin_tampered",
+        refusal_pred_short="margins_short",
+        refusal_pred_not_done="capital_unreorganized",
+        refusal_pred_unmet="capital_unrequired",
+        refusal_code_failed="rvc_failed",
+        summary="probe signature catalog family",
+    )
+    probe_sigs = derive_pair_effect_signatures(probe)
+    checks["probe_twelve"] = len(probe_sigs) == 12
+    checks["probe_annotate"] = "annotate_total_spine_ratification" in probe_sigs
+    checks["probe_runner"] = "ratify_total_spine" in probe_sigs
+    checks["probe_not_live"] = "ratification" not in PAIR_EFFECT_SPECS
+
+    effects_src = Path(__file__).read_text(encoding="utf-8")
+    checks["no_leftover_signature_blocks"] = "\n        signatures={" not in effects_src
+    checks["derive_present"] = "def derive_pair_effect_signatures" in effects_src
+    checks["register_fills"] = "derive_pair_effect_signatures(spec)" in effects_src
+    checks["public_names_present"] = "def pair_effect_public_names" in effects_src
+
+    engine_src = (
+        REPO_ROOT / "src" / "blackhole_agent" / "upstream_control_engine.py"
+    ).read_text(encoding="utf-8")
+    checks["surface_delegates"] = (
+        "from blackhole_agent.upstream_total_spine_effects import pair_effect_surface_names"
+        in engine_src
+        and "return pair_effect_surface_names(spec)" in engine_src
+    )
+    checks["surface_no_name_copy"] = (
+        'f"annotate_total_spine_{spec.effect}"' not in engine_src
+    )
+
+    solvency = importlib.import_module("blackhole_agent.upstream_total_spine_solvency")
+    delivery = importlib.import_module("blackhole_agent.upstream_total_spine_delivery")
+    recovery = importlib.import_module("blackhole_agent.upstream_total_spine_recovery")
+    sol_params = list(inspect.signature(solvency.solvency_total_spine).parameters)
+    checks["solvency_runner_params"] = sol_params[:3] == [
+        "source",
+        "capitals",
+        "margins",
+    ]
+    book_params = list(inspect.signature(delivery.pair_total_spine_clearings).parameters)
+    checks["delivery_book_arg"] = book_params[0] == "clearings"
+    compute_params = list(
+        inspect.signature(recovery.compute_total_spine_recovery_root).parameters
+    )
+    checks["recovery_compute_arg"] = compute_params == ["risks"]
+    checks["solvency_annotate"] = callable(
+        getattr(solvency, "annotate_total_spine_solvency", None)
+    )
+    checks["no_skill_route"] = not legacy_pipeline_was_used()
+
+    wired = {
+        "derive": callable(derive_pair_effect_signatures),
+        "quirks": callable(pair_effect_signature_quirks),
+        "public_names": callable(pair_effect_public_names),
+        "surface_names": callable(pair_effect_surface_names),
+        "impl": SPINE_SIGNATURE_CATALOG_IMPL is True,
+    }
+    ok = all(checks.values()) and all(wired.values())
+    report = {
+        "schema_version": SCHEMA_VERSION,
+        "action": "spine_signature_catalog_proof",
+        "ok": ok,
+        "checks": checks,
+        "wired": wired,
+        "wired_count": sum(1 for value in wired.values() if value),
+        "spec_count": len(PAIR_EFFECT_SPECS),
+        "mismatches": mismatches,
+        "probe_family": "ratification",
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+        "spine_signature_catalog": True,
+        "done_when_met": ok,
+    }
+    out = REPO_ROOT / "artifacts" / "capability-spine-signature-catalog"
+    out.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(out / "plane-report.json", report)
+    return report

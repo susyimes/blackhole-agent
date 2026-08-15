@@ -145,6 +145,10 @@ Composition:
   overlay. A probe family appears in every derived view its quirks
   allow; a new post-consensus plane is a chain row, not another
   copied name list.
+* total-spine **signature catalog** — leftover pair-effect public
+  signature blocks derive from tokens plus a compact quirk overlay.
+  A new pair-effect family is a token row, not another 12-function
+  signature copy. Historical solvency callers keep working.
 * total-spine **post-settlement clearing** — closes the settled-but-
   uncleared cliff: after settlement seals a unilateral observation
   receipt, ``clear_total_spine(...)`` (and ``run_total_spine(clearing=True)``)
@@ -4635,23 +4639,9 @@ _SPINE_SURFACE_GENERIC_SKIP: frozenset[str] = frozenset(
 def _pair_effect_surface_names(spec: Any) -> tuple[str, ...]:
     """Control-engine names historically imported from one pair-effect module."""
 
-    return (
-        f"TOTAL_SPINE_{spec.upper}_FILENAME",
-        f"TOTAL_SPINE_{spec.upper}_IMPL",
-        f"TOTAL_SPINE_{spec.upper}_KIND",
-        f"TOTAL_SPINE_{spec.upper}_MIN_{spec.min_name}",
-        f"annotate_total_spine_{spec.effect}",
-        f"{spec.book_fn_prefix}_total_spine_{spec.pred_plural}",
-        f"builtin_total_spine_{spec.effect}_proof",
-        f"compute_total_spine_{spec.effect}_root",
-        f"load_total_spine_{spec.effect}_certificate",
-        f"seal_total_spine_{spec.effect}_certificate",
-        f"seal_total_spine_{spec.effect}_chain",
-        f"verify_total_spine_{spec.effect}_certificate",
-        f"write_total_spine_{spec.effect}_certificate",
-        f"{spec.verb}_total_spine",
-        f"{spec.effect}_certificate_path",
-    )
+    from blackhole_agent.upstream_total_spine_effects import pair_effect_surface_names
+
+    return pair_effect_surface_names(spec)
 
 
 def _log_family_surface_names(spec: Any) -> tuple[str, ...]:
