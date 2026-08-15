@@ -1,8 +1,8 @@
-"""Total-spine log-family engine: actuation, settlement, and clearing.
+"""Total-spine log-family engine: execution, actuation, settlement, clearing.
 
-The remaining physical modules after the pair-effect collapse — actuation,
-settlement, clearing — are hash-chained log families, not pair-booking
-effects. This module hosts the logic once. A meta-path finder synthesizes
+The pre-pair-effect tower — execution (single-state) plus actuation,
+settlement, and clearing (multi-row logs) — is one spec-driven engine.
+A meta-path finder synthesizes
 ``blackhole_agent.upstream_total_spine_<family>`` with the historical public
 names bound to the engine functions, so control-engine imports, ledger proof
 commands, and ``python -m`` keep working after the physical files are
@@ -12,9 +12,9 @@ Certificate seal/verify and apply/proof for every log family are one
 spec-driven engine (:func:`_seal_log_certificate`,
 :func:`_verify_log_certificate`, :func:`_apply_log_family`,
 :func:`_run_log_family_proof`). Public seal/verify/apply/proof names stay
-as thin wrappers so a new hash-chained family is a :class:`LogFamilySpec`
-row plus a build hook, not another 1,500-line copy. No skill-route
-discovery.
+as thin wrappers so a new family is a :class:`LogFamilySpec` row (shape
+``rows`` or ``state``) plus a build hook, not another control-engine copy.
+No skill-route discovery.
 """
 from __future__ import annotations
 
@@ -52,7 +52,9 @@ TOTAL_SPINE_DEFAULT_EFFECT_CAPABILITIES: tuple[str, ...] = (
     "capability.ledger-inventory",
 )
 TOTAL_SPINE_DEFAULT_ROOT: str = "quettacontinuum"
+TOTAL_SPINE_EXECUTION_IMPL = True
 TOTAL_SPINE_EXECUTION_KIND: str = "total_spine_execution"
+TOTAL_SPINE_EXECUTION_FILENAME: str = "total-spine-execution.json"
 
 
 class StageRefused(Exception):
@@ -72,6 +74,14 @@ def _sha256_bytes(data: bytes) -> str:
 
 def _sha256_json(payload: Mapping[str, Any]) -> str:
     blob = json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str)
+    return _sha256_bytes(blob.encode("utf-8"))
+
+
+def _sha256_json_compact(payload: Mapping[str, Any]) -> str:
+    """Control-engine canonicalizer: compact separators, no default=str."""
+    blob = json.dumps(
+        payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    )
     return _sha256_bytes(blob.encode("utf-8"))
 
 
@@ -2643,6 +2653,8 @@ class LogFamilySpec:
     exports: tuple[str, ...]
     main_name: str = "main"
     # Certificate engine (seal + verify).
+    shape: str = "rows"  # "rows" (hash-chained log) | "state" (single state root)
+    digest_style: str = "spaced"  # "spaced" | "compact" (control-engine historical)
     kind: str = ""
     filename: str = ""
     impl_flag: str = ""
@@ -2872,6 +2884,45 @@ _CLEARING_EXPORTS: tuple[str, ...] = (
 
 
 LOG_FAMILY_SPECS: dict[str, LogFamilySpec] = {
+    "execution": LogFamilySpec(
+        name="execution",
+        pred="quorum",
+        verb="execute",
+        summary=(
+            "Post-consensus world-state execution for the absolute total spine. "
+            "Closes the certificate-only cliff."
+        ),
+        exports=(),
+        shape="state",
+        digest_style="compact",
+        kind=TOTAL_SPINE_EXECUTION_KIND,
+        filename=TOTAL_SPINE_EXECUTION_FILENAME,
+        impl_flag="TOTAL_SPINE_EXECUTION_IMPL",
+        min_value=1,
+        rows_key="",
+        tip_key="state_root",
+        count_key="",
+        height_key="state_height",
+        parent_key="parent_state_root",
+        row_root_key="",
+        digest_key="execution_digest",
+        timestamp_key="executed_at",
+        post_flag="post_finality",
+        material_fn="_execution_certificate_material",
+        tip_fn="compute_total_spine_state_root",
+        row_material_fn="",
+        required_nonempty=("source_digest",),
+        verify_root_ok_key="state_root_ok",
+        verify_recomputed_key="recomputed_state_root",
+        apply_fn="execute_total_spine",
+        apply_core_fn="",
+        proof_origin="execution proof origin",
+        scratch_prefix="total-spine-execution-proof-",
+        ledger_id="capability.upstream-total-spine-execution",
+        ledger_entry_needles=("upstream_control_engine",),
+        ledger_proof_needle="builtin_total_spine_execution_proof",
+        ledger_delta_needles=("execute_total_spine", "state_root", "post-quorum"),
+    ),
     "actuation": LogFamilySpec(
         name="actuation",
         pred="execution",
@@ -3251,6 +3302,78 @@ def install_log_family_finder() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Execution (state-shaped) certificate material. Seal/verify are spec-driven.
+# ---------------------------------------------------------------------------
+
+
+def _execution_certificate_material(body: Mapping[str, Any]) -> dict[str, Any]:
+    """Canonical fields that bind a total-spine execution certificate digest."""
+    return {
+        "schema_version": int(body.get("schema_version") or SCHEMA_VERSION),
+        "kind": str(body.get("kind") or TOTAL_SPINE_EXECUTION_KIND),
+        "root_layer": str(body.get("root_layer") or ""),
+        "goal": str(body.get("goal") or ""),
+        "done_when": str(body.get("done_when") or ""),
+        "source_kind": str(body.get("source_kind") or ""),
+        "source_digest": str(body.get("source_digest") or ""),
+        "prior_tip": str(body.get("prior_tip") or ""),
+        "parent_state_root": str(body.get("parent_state_root") or ""),
+        "state_height": int(body.get("state_height") or 0),
+        "state_root": str(body.get("state_root") or ""),
+        "capabilities": list(body.get("capabilities") or []),
+        "effects_ok": bool(body.get("effects_ok", True)),
+        "contract_met": body.get("contract_met"),
+        "origin_count": int(body.get("origin_count") or 0),
+        "quorum_met": bool(body.get("quorum_met", False)),
+        "post_finality": True,
+        "deterministic": True,
+        "irreversible": True,
+        "success": bool(body.get("success", True)),
+    }
+
+
+def compute_total_spine_state_root(body: Mapping[str, Any]) -> str:
+    """Deterministic world-state root from consensus projection fields.
+
+    Excludes wall-clock and certificate envelope fields so recompute from the
+    same source digest + height + parent root yields an identical tip.
+    """
+    projection = {
+        "goal": str(body.get("goal") or ""),
+        "done_when": str(body.get("done_when") or ""),
+        "effects_ok": bool(body.get("effects_ok", True)),
+        "contract_met": body.get("contract_met"),
+        "origin_count": int(body.get("origin_count") or 0),
+        "quorum_met": bool(body.get("quorum_met", False)),
+        "capabilities": list(body.get("capabilities") or []),
+    }
+    material = {
+        "root_layer": str(body.get("root_layer") or ""),
+        "source_kind": str(body.get("source_kind") or ""),
+        "source_digest": str(body.get("source_digest") or ""),
+        "prior_tip": str(body.get("prior_tip") or ""),
+        "parent_state_root": str(body.get("parent_state_root") or ""),
+        "state_height": int(body.get("state_height") or 0),
+        "projection": projection,
+    }
+    return _sha256_json_compact(material)
+
+
+def seal_total_spine_execution_certificate(
+    body: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Seal post-consensus world-state into a tamper-evident execution cert."""
+    return _seal_log_certificate("execution", body)
+
+
+def verify_total_spine_execution_certificate(
+    certificate: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Recompute execution digest and state root; fail closed on tamper."""
+    return _verify_log_certificate("execution", certificate)
+
+
+# ---------------------------------------------------------------------------
 # Spec-driven certificate seal/verify. Public family names stay thin wrappers.
 # ---------------------------------------------------------------------------
 
@@ -3349,17 +3472,22 @@ def _seal_log_certificate(name: str, body: Mapping[str, Any]) -> dict[str, Any]:
     material_fn = getattr(host, spec.material_fn)
     tip_fn = getattr(host, spec.tip_fn)
     impl = getattr(host, spec.impl_flag)
+    hasher = _sha256_json_compact if spec.digest_style == "compact" else _sha256_json
     sealed_body = dict(body)
-    rows = list(sealed_body.get(spec.rows_key) or [])
-    if not str(sealed_body.get(spec.tip_key) or "").strip():
-        sealed_body[spec.tip_key] = tip_fn(rows)
-    if not int(sealed_body.get(spec.count_key) or 0):
-        sealed_body[spec.count_key] = len(rows)
-    if not int(sealed_body.get(spec.height_key) or 0):
-        sealed_body[spec.height_key] = len(rows)
+    if spec.shape == "state":
+        if not str(sealed_body.get(spec.tip_key) or "").strip():
+            sealed_body[spec.tip_key] = tip_fn(sealed_body)
+    else:
+        rows = list(sealed_body.get(spec.rows_key) or [])
+        if not str(sealed_body.get(spec.tip_key) or "").strip():
+            sealed_body[spec.tip_key] = tip_fn(rows)
+        if spec.count_key and not int(sealed_body.get(spec.count_key) or 0):
+            sealed_body[spec.count_key] = len(rows)
+        if spec.height_key and not int(sealed_body.get(spec.height_key) or 0):
+            sealed_body[spec.height_key] = len(rows)
     material = material_fn(sealed_body)
     material[spec.tip_key] = str(sealed_body.get(spec.tip_key) or "")
-    digest = _sha256_json(material)
+    digest = hasher(material)
     sealed = dict(material)
     sealed[spec.digest_key] = digest
     sealed["certificate_hash"] = digest
@@ -3376,12 +3504,72 @@ def _seal_log_certificate(name: str, body: Mapping[str, Any]) -> dict[str, Any]:
     return sealed
 
 
+def _verify_state_certificate(
+    spec: LogFamilySpec, certificate: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Verify a single-state family (execution); fail closed on tamper."""
+
+    host = sys.modules[__name__]
+    material_fn = getattr(host, spec.material_fn)
+    tip_fn = getattr(host, spec.tip_fn)
+    impl = getattr(host, spec.impl_flag)
+    hasher = _sha256_json_compact if spec.digest_style == "compact" else _sha256_json
+    claimed = str(
+        certificate.get(spec.digest_key)
+        or certificate.get("certificate_hash")
+        or ""
+    )
+    material = material_fn(certificate)
+    expected = hasher(material)
+    recomputed_root = tip_fn(certificate)
+    claimed_root = str(certificate.get(spec.tip_key) or "")
+    height = int(certificate.get(spec.height_key) or 0)
+    parent = str(certificate.get(spec.parent_key) or "")
+    parent_ok = (height == 1 and not parent) or (height > 1 and bool(parent))
+    required_ok = all(
+        bool(str(certificate.get(field) or "").strip())
+        for field in spec.required_nonempty
+    )
+    ok = (
+        bool(claimed)
+        and claimed == expected
+        and str(certificate.get("kind") or "") == spec.kind
+        and int(certificate.get("schema_version") or 0) == SCHEMA_VERSION
+        and certificate.get("irreversible") is True
+        and certificate.get(spec.post_flag) is True
+        and certificate.get("deterministic") is True
+        and bool(certificate.get("success"))
+        and height >= 1
+        and bool(claimed_root)
+        and claimed_root == recomputed_root
+        and parent_ok
+        and required_ok
+        and impl is True
+    )
+    return {
+        "ok": ok,
+        "action": f"verify_total_spine_{spec.name}",
+        "claimed_digest": claimed,
+        "expected_digest": expected,
+        spec.verify_root_ok_key: claimed_root == recomputed_root and bool(claimed_root),
+        spec.verify_recomputed_key: recomputed_root,
+        "parent_ok": parent_ok,
+        "kind_ok": str(certificate.get("kind") or "") == spec.kind,
+        "schema_ok": int(certificate.get("schema_version") or 0) == SCHEMA_VERSION,
+        "irreversible_ok": certificate.get("irreversible") is True,
+        f"total_spine_{spec.name}": True,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
 def _verify_log_certificate(
     name: str, certificate: Mapping[str, Any]
 ) -> dict[str, Any]:
     """Recompute digest and row roots for one log family; fail closed on tamper."""
 
     spec = _log_family_spec(name)
+    if spec.shape == "state":
+        return _verify_state_certificate(spec, certificate)
     host = sys.modules[__name__]
     material_fn = getattr(host, spec.material_fn)
     tip_fn = getattr(host, spec.tip_fn)
@@ -3496,7 +3684,7 @@ def _verify_log_certificate(
 
 
 def builtin_log_family_engine_proof() -> dict[str, Any]:
-    """Hermetic proof: three log families share one seal/verify engine."""
+    """Hermetic proof: four log families share one seal/verify engine."""
 
     import inspect
     import tempfile
@@ -3504,7 +3692,7 @@ def builtin_log_family_engine_proof() -> dict[str, Any]:
     host = sys.modules[__name__]
     checks: dict[str, bool] = {}
     wired: dict[str, bool] = {}
-    for name in ("actuation", "settlement", "clearing"):
+    for name in ("execution", "actuation", "settlement", "clearing"):
         seal_fn = getattr(host, f"seal_total_spine_{name}_certificate")
         verify_fn = getattr(host, f"verify_total_spine_{name}_certificate")
         wired[f"{name}_seal"] = "_seal_log_certificate" in inspect.getsource(seal_fn)
@@ -3512,13 +3700,60 @@ def builtin_log_family_engine_proof() -> dict[str, Any]:
             verify_fn
         )
     checks["wired_wrappers"] = all(wired.values())
-    checks["three_specs"] = set(LOG_FAMILY_SPECS) == {
+    checks["four_specs"] = set(LOG_FAMILY_SPECS) == {
+        "execution",
         "actuation",
         "settlement",
         "clearing",
     }
+    checks["execution_state_shape"] = LOG_FAMILY_SPECS["execution"].shape == "state"
+    checks["execution_compact_digest"] = (
+        LOG_FAMILY_SPECS["execution"].digest_style == "compact"
+    )
+    checks["row_shapes"] = all(
+        LOG_FAMILY_SPECS[name].shape == "rows"
+        for name in ("actuation", "settlement", "clearing")
+    )
     checks["shared_seal"] = callable(_seal_log_certificate)
     checks["shared_verify"] = callable(_verify_log_certificate)
+    checks["shared_state_verify"] = callable(_verify_state_certificate)
+
+    exec_body: dict[str, Any] = {
+        "schema_version": SCHEMA_VERSION,
+        "kind": TOTAL_SPINE_EXECUTION_KIND,
+        "root_layer": TOTAL_SPINE_DEFAULT_ROOT,
+        "goal": "log-family-execution",
+        "done_when": "min_proved:1; no_skill_route",
+        "source_kind": "quorum",
+        "source_digest": "d" * 64,
+        "prior_tip": "a" * 64,
+        "parent_state_root": "",
+        "state_height": 1,
+        "capabilities": ["repo.import-health"],
+        "effects_ok": True,
+        "contract_met": True,
+        "origin_count": 3,
+        "quorum_met": True,
+        "post_finality": True,
+        "deterministic": True,
+        "irreversible": True,
+        "success": True,
+        "executed_at": "2026-08-15T00:00:00+00:00",
+    }
+    sealed_exec = seal_total_spine_execution_certificate(exec_body)
+    generic_exec = _seal_log_certificate("execution", exec_body)
+    exec_verify = verify_total_spine_execution_certificate(sealed_exec)
+    checks["execution_seal_matches"] = (
+        sealed_exec.get("execution_digest") == generic_exec.get("execution_digest")
+        and bool(sealed_exec.get("execution_digest"))
+    )
+    checks["execution_verify_ok"] = exec_verify.get("ok") is True
+    checks["execution_parent_ok"] = exec_verify.get("parent_ok") is True
+    tampered_exec = dict(sealed_exec)
+    tampered_exec["source_digest"] = "t" * 64
+    checks["execution_tamper_closed"] = (
+        verify_total_spine_execution_certificate(tampered_exec).get("ok") is False
+    )
 
     state_root = "s" * 64
     execution_digest = "e" * 64
@@ -3656,7 +3891,7 @@ def builtin_log_family_engine_proof() -> dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
         "action": "log_family_engine_proof",
-        "ok": all(checks.values()) and wired_count == 6,
+        "ok": all(checks.values()) and wired_count == 8,
         "checks": checks,
         "wired": wired,
         "wired_count": wired_count,
@@ -4441,7 +4676,12 @@ def builtin_log_family_runner_proof() -> dict[str, Any]:
     host = sys.modules[__name__]
     checks: dict[str, bool] = {}
     wired: dict[str, bool] = {}
-    for name, spec in LOG_FAMILY_SPECS.items():
+    row_specs = {
+        name: spec
+        for name, spec in LOG_FAMILY_SPECS.items()
+        if spec.shape == "rows"
+    }
+    for name, spec in row_specs.items():
         apply_fn = getattr(host, spec.apply_fn)
         proof_fn = getattr(host, f"builtin_total_spine_{name}_proof")
         wired[f"{name}_apply"] = "_apply_log_family" in inspect.getsource(apply_fn)
@@ -4450,11 +4690,12 @@ def builtin_log_family_runner_proof() -> dict[str, Any]:
         )
         wired[f"{name}_core"] = callable(getattr(host, spec.apply_core_fn, None))
     checks["wired_wrappers"] = all(wired.values())
-    checks["three_specs"] = set(LOG_FAMILY_SPECS) == {
+    checks["three_row_specs"] = set(row_specs) == {
         "actuation",
         "settlement",
         "clearing",
     }
+    checks["catalog_includes_execution"] = "execution" in LOG_FAMILY_SPECS
     checks["shared_apply"] = callable(_apply_log_family)
     checks["shared_proof"] = callable(_run_log_family_proof)
     checks["shared_finish"] = callable(_finish_log_apply)

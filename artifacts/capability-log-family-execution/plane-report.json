@@ -1,0 +1,49 @@
+{
+  "action": "log_family_engine_proof",
+  "checks": {
+    "actuation_roundtrip": true,
+    "actuation_seal_matches": true,
+    "actuation_tamper_closed": true,
+    "actuation_verify_ok": true,
+    "clearing_seal_matches": true,
+    "clearing_tamper_closed": true,
+    "clearing_verify_ok": true,
+    "execution_compact_digest": true,
+    "execution_parent_ok": true,
+    "execution_seal_matches": true,
+    "execution_state_shape": true,
+    "execution_tamper_closed": true,
+    "execution_verify_ok": true,
+    "four_specs": true,
+    "no_skill_route": true,
+    "row_shapes": true,
+    "settlement_carries_actions": true,
+    "settlement_seal_matches": true,
+    "settlement_tamper_closed": true,
+    "settlement_verify_ok": true,
+    "shared_seal": true,
+    "shared_state_verify": true,
+    "shared_verify": true,
+    "wired_wrappers": true
+  },
+  "families": [
+    "actuation",
+    "clearing",
+    "execution",
+    "settlement"
+  ],
+  "ok": true,
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "wired": {
+    "actuation_seal": true,
+    "actuation_verify": true,
+    "clearing_seal": true,
+    "clearing_verify": true,
+    "execution_seal": true,
+    "execution_verify": true,
+    "settlement_seal": true,
+    "settlement_verify": true
+  },
+  "wired_count": 8
+}

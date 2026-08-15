@@ -6522,78 +6522,26 @@ def federate_total_spine(
 # ---------------------------------------------------------------------------
 
 
-def _execution_certificate_material(body: Mapping[str, Any]) -> dict[str, Any]:
-    """Canonical fields that bind a total-spine execution certificate digest."""
-    return {
-        "schema_version": int(body.get("schema_version") or SCHEMA_VERSION),
-        "kind": str(body.get("kind") or TOTAL_SPINE_EXECUTION_KIND),
-        "root_layer": str(body.get("root_layer") or ""),
-        "goal": str(body.get("goal") or ""),
-        "done_when": str(body.get("done_when") or ""),
-        "source_kind": str(body.get("source_kind") or ""),
-        "source_digest": str(body.get("source_digest") or ""),
-        "prior_tip": str(body.get("prior_tip") or ""),
-        "parent_state_root": str(body.get("parent_state_root") or ""),
-        "state_height": int(body.get("state_height") or 0),
-        "state_root": str(body.get("state_root") or ""),
-        "capabilities": list(body.get("capabilities") or []),
-        "effects_ok": bool(body.get("effects_ok", True)),
-        "contract_met": body.get("contract_met"),
-        "origin_count": int(body.get("origin_count") or 0),
-        "quorum_met": bool(body.get("quorum_met", False)),
-        "post_finality": True,
-        "deterministic": True,
-        "irreversible": True,
-        "success": bool(body.get("success", True)),
-    }
-
-
 def compute_total_spine_state_root(body: Mapping[str, Any]) -> str:
     """Deterministic world-state root from consensus projection fields.
 
-    Excludes wall-clock and certificate envelope fields so recompute from the
-    same source digest + height + parent root yields an identical tip.
+    Hosted by the log-family engine; this name stays on the control engine
+    so historical imports and execution-proof source probes keep working.
     """
-    projection = {
-        "goal": str(body.get("goal") or ""),
-        "done_when": str(body.get("done_when") or ""),
-        "effects_ok": bool(body.get("effects_ok", True)),
-        "contract_met": body.get("contract_met"),
-        "origin_count": int(body.get("origin_count") or 0),
-        "quorum_met": bool(body.get("quorum_met", False)),
-        "capabilities": list(body.get("capabilities") or []),
-    }
-    material = {
-        "root_layer": str(body.get("root_layer") or ""),
-        "source_kind": str(body.get("source_kind") or ""),
-        "source_digest": str(body.get("source_digest") or ""),
-        "prior_tip": str(body.get("prior_tip") or ""),
-        "parent_state_root": str(body.get("parent_state_root") or ""),
-        "state_height": int(body.get("state_height") or 0),
-        "projection": projection,
-    }
-    return _sha256_json(material)
+    from blackhole_agent.upstream_total_spine_logs import (
+        compute_total_spine_state_root as _compute_state_root,
+    )
+
+    return _compute_state_root(body)
 
 
 def seal_total_spine_execution_certificate(
     body: Mapping[str, Any],
 ) -> dict[str, Any]:
     """Seal post-consensus world-state into a tamper-evident execution cert."""
-    sealed_body = dict(body)
-    if not str(sealed_body.get("state_root") or "").strip():
-        sealed_body["state_root"] = compute_total_spine_state_root(sealed_body)
-    material = _execution_certificate_material(sealed_body)
-    # Material must include the computed state_root.
-    material["state_root"] = str(sealed_body.get("state_root") or "")
-    digest = _sha256_json(material)
-    sealed = dict(material)
-    sealed["execution_digest"] = digest
-    sealed["certificate_hash"] = digest
-    sealed["total_spine_execution"] = True
-    sealed["total_spine_execution_impl"] = TOTAL_SPINE_EXECUTION_IMPL
-    sealed["executed_at"] = str(body.get("executed_at") or utc_now_iso())
-    sealed["used_skill_route_discovery"] = legacy_pipeline_was_used()
-    return sealed
+    from blackhole_agent.upstream_total_spine_logs import _seal_log_certificate
+
+    return _seal_log_certificate("execution", body)
 
 
 def execution_certificate_path(root: Path) -> Path:
@@ -6635,50 +6583,9 @@ def verify_total_spine_execution_certificate(
     certificate: Mapping[str, Any],
 ) -> dict[str, Any]:
     """Recompute execution digest and state root; fail closed on tamper."""
-    claimed = str(
-        certificate.get("execution_digest")
-        or certificate.get("certificate_hash")
-        or ""
-    )
-    material = _execution_certificate_material(certificate)
-    expected = _sha256_json(material)
-    recomputed_root = compute_total_spine_state_root(certificate)
-    claimed_root = str(certificate.get("state_root") or "")
-    height = int(certificate.get("state_height") or 0)
-    parent = str(certificate.get("parent_state_root") or "")
-    parent_ok = (height == 1 and not parent) or (height > 1 and bool(parent))
-    ok = (
-        bool(claimed)
-        and claimed == expected
-        and str(certificate.get("kind") or "") == TOTAL_SPINE_EXECUTION_KIND
-        and int(certificate.get("schema_version") or 0) == SCHEMA_VERSION
-        and certificate.get("irreversible") is True
-        and certificate.get("post_finality") is True
-        and certificate.get("deterministic") is True
-        and bool(certificate.get("success"))
-        and height >= 1
-        and bool(claimed_root)
-        and claimed_root == recomputed_root
-        and parent_ok
-        and bool(str(certificate.get("source_digest") or "").strip())
-        and TOTAL_SPINE_EXECUTION_IMPL is True
-    )
-    return {
-        "ok": ok,
-        "action": "verify_total_spine_execution",
-        "claimed_digest": claimed,
-        "expected_digest": expected,
-        "state_root_ok": claimed_root == recomputed_root and bool(claimed_root),
-        "recomputed_state_root": recomputed_root,
-        "parent_ok": parent_ok,
-        "kind_ok": str(certificate.get("kind") or "")
-        == TOTAL_SPINE_EXECUTION_KIND,
-        "schema_ok": int(certificate.get("schema_version") or 0)
-        == SCHEMA_VERSION,
-        "irreversible_ok": certificate.get("irreversible") is True,
-        "total_spine_execution": True,
-        "used_skill_route_discovery": legacy_pipeline_was_used(),
-    }
+    from blackhole_agent.upstream_total_spine_logs import _verify_log_certificate
+
+    return _verify_log_certificate("execution", certificate)
 
 
 def load_total_spine_execution_certificate(

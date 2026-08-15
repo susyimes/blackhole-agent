@@ -1,0 +1,39 @@
+{
+  "captured_at": "2026-08-15T17:47:52.996850Z",
+  "kind": "equivalence_snapshot",
+  "name": "log-family-execution",
+  "probes": [
+    {
+      "argv": [
+        "python",
+        "-c",
+        "from blackhole_agent.upstream_control_engine import seal_total_spine_execution_certificate, verify_total_spine_execution_certificate; body={\"schema_version\":1,\"kind\":\"total_spine_execution\",\"root_layer\":\"quettacontinuum\",\"goal\":\"baseline-execution-seal\",\"done_when\":\"min_proved:1; no_skill_route\",\"source_kind\":\"quorum\",\"source_digest\":\"d\"*64,\"prior_tip\":\"a\"*64,\"parent_state_root\":\"\",\"state_height\":1,\"capabilities\":[\"repo.import-health\"],\"effects_ok\":True,\"contract_met\":True,\"origin_count\":3,\"quorum_met\":True,\"post_finality\":True,\"deterministic\":True,\"irreversible\":True,\"success\":True,\"executed_at\":\"2026-08-15T00:00:00+00:00\"}; s=seal_total_spine_execution_certificate(body); v=verify_total_spine_execution_certificate(s); assert s[\"execution_digest\"]==\"305496a9515fe8d2ba625ab8e9fe5bc7539b5efdf8e18fdbea6220081ea86716\"; assert s[\"state_root\"]==\"7c3d854ce5fa4d6bc37cd0acd6d91902e310b58af3b5ada319254a38e83d8f62\"; assert v[\"ok\"] is True; print(\"ok\")"
+      ],
+      "id": "execution-seal-baseline",
+      "kind": "command"
+    },
+    {
+      "argv": [
+        "python",
+        "-c",
+        "from blackhole_agent.upstream_total_spine_logs import builtin_log_family_engine_proof; r=builtin_log_family_engine_proof(); assert r[\"ok\"] and r[\"wired_count\"]>=8 and \"execution\" in r[\"families\"]; print(r[\"wired_count\"])"
+      ],
+      "id": "engine-proof",
+      "kind": "command"
+    }
+  ],
+  "results": {
+    "engine-proof": {
+      "exit_code": 0,
+      "stdout_digest": "2c624232cdd221771294dfbb310aca000a0df6ac8b66b696d90ef06fdefb64a3",
+      "stdout_form": "json"
+    },
+    "execution-seal-baseline": {
+      "exit_code": 0,
+      "stdout_digest": "dc51b8c96c2d745df3bd5590d990230a482fd247123599548e0632fdbf97fc22",
+      "stdout_form": "raw"
+    }
+  },
+  "schema_version": 1,
+  "snapshot_digest": "5915aecca3d5402c3044d5f99e958b3b2b600b220ea561847c8100dcc6a97022"
+}
