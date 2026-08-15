@@ -382,6 +382,7 @@ def test_builtin_spine_family_engine_proof() -> None:
     assert result["catalog_count"] == 19
     assert result["pair_count"] == 15
     assert result["log_count"] == 4
+    assert result["wired_count"] >= 8
     assert result["used_skill_route_discovery"] is False
     assert all(result["checks"].values())
     assert all(result["wired"].values())

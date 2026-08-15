@@ -1444,8 +1444,10 @@ def book_predecessors(
     return legs
 
 
-def seal_certificate(spec: PairEffectSpec, body: Mapping[str, Any]) -> dict[str, Any]:
-    """Seal the effect log into a tamper-evident receipt."""
+def _seal_pair_certificate(
+    spec: PairEffectSpec, body: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Shape-private pair seal; public seal is :func:`seal_spine_family`."""
 
     sealed_body = dict(body)
     legs = list(sealed_body.get(spec.plural) or [])
@@ -1477,6 +1479,14 @@ def seal_certificate(spec: PairEffectSpec, body: Mapping[str, Any]) -> dict[str,
         if sealed_pairs:
             sealed[spec.plural] = sealed_pairs
     return sealed
+
+
+def seal_certificate(spec: PairEffectSpec, body: Mapping[str, Any]) -> dict[str, Any]:
+    """Historical name: seal through the shared family engine."""
+
+    from blackhole_agent.upstream_spine_family import seal_spine_family
+
+    return seal_spine_family(spec.effect, body)
 
 
 def certificate_path(spec: PairEffectSpec, root: Path) -> Path:
@@ -2690,12 +2700,12 @@ def _strip_effect_predicates(spec: PairEffectSpec, done_when: str) -> str:
     return "; ".join(kept)
 
 
-def run_pair_effect(
+def _apply_pair_effect_core(
     spec: PairEffectSpec,
     source: Path | str | Mapping[str, Any] | Sequence[Any] | None = None,
     **kwargs: Any,
 ) -> dict[str, Any]:
-    """Apply the atomic pair effect on the absolute total spine."""
+    """Shape-private pair apply; public apply is :func:`apply_spine_family`."""
 
     from blackhole_agent.upstream_control_engine import (
         TOTAL_SPINE_DEFAULT_ROOT as ENGINE_DEFAULT_ROOT,
@@ -3004,6 +3014,18 @@ def run_pair_effect(
     return annotated
 
 
+def run_pair_effect(
+    spec: PairEffectSpec,
+    source: Path | str | Mapping[str, Any] | Sequence[Any] | None = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Historical name: apply through the shared family engine."""
+
+    from blackhole_agent.upstream_spine_family import apply_spine_family
+
+    return apply_spine_family(spec.effect, source, **kwargs)
+
+
 _CHAIN_VERBS = {
     "clearing": "clear",
     "delivery": "deliver",
@@ -3043,8 +3065,8 @@ _CHAIN_ABBRS = {
 }
 
 
-def _builtin_pair_effect_proof(spec: PairEffectSpec) -> dict[str, Any]:
-    """Hermetic proof: the pair effect on the absolute tower."""
+def _pair_effect_proof_core(spec: PairEffectSpec) -> dict[str, Any]:
+    """Shape-private pair proof; public proof is :func:`prove_spine_family`."""
 
     import shutil
     import tempfile
@@ -3732,6 +3754,14 @@ def _builtin_pair_effect_proof(spec: PairEffectSpec) -> dict[str, Any]:
         shutil.rmtree(scratch, ignore_errors=True)
 
 
+def _builtin_pair_effect_proof(spec: PairEffectSpec) -> dict[str, Any]:
+    """Historical name: prove through the shared family engine."""
+
+    from blackhole_agent.upstream_spine_family import prove_spine_family
+
+    return prove_spine_family(spec.effect)
+
+
 # ---------------------------------------------------------------------------
 # Synthesis: per-effect modules with exact historical names and signatures.
 # ---------------------------------------------------------------------------
@@ -3743,8 +3773,10 @@ def _forward(spec: PairEffectSpec, public_name: str, ns: dict[str, Any]) -> Any:
     """Dispatch one synthesized public call to the generic implementation."""
 
     if public_name == f"{spec.verb}_total_spine":
+        from blackhole_agent.upstream_spine_family import apply_spine_family
+
         source = ns.pop("source", None)
-        return run_pair_effect(spec, source, **ns)
+        return apply_spine_family(spec.effect, source, **ns)
     if public_name == f"{spec.book_fn_prefix}_total_spine_{spec.pred_plural}":
         return book_predecessors(
             spec,
@@ -3766,7 +3798,9 @@ def _forward(spec: PairEffectSpec, public_name: str, ns: dict[str, Any]) -> Any:
     if public_name == f"load_total_spine_{spec.effect}_certificate":
         return load_certificate(spec, ns["path"])
     if public_name == f"seal_total_spine_{spec.effect}_certificate":
-        return seal_certificate(spec, ns["body"])
+        from blackhole_agent.upstream_spine_family import seal_spine_family
+
+        return seal_spine_family(spec.effect, ns["body"])
     if public_name == f"seal_total_spine_{spec.effect}_chain":
         return seal_chain(
             spec,
@@ -3794,7 +3828,9 @@ def _forward(spec: PairEffectSpec, public_name: str, ns: dict[str, Any]) -> Any:
             short_circuit=ns.get("short_circuit", False),
         )
     if public_name == f"builtin_total_spine_{spec.effect}_proof":
-        return _builtin_pair_effect_proof(spec)
+        from blackhole_agent.upstream_spine_family import prove_spine_family
+
+        return prove_spine_family(spec.effect)
     raise KeyError(f"no generic implementation for {public_name!r}")
 
 
@@ -3810,7 +3846,9 @@ def _effect_main(spec: PairEffectSpec, argv: Sequence[str] | None = None) -> int
     sub.add_parser("proof", help=f"Alias for {spec.effect}-proof")
     args = parser.parse_args(list(argv) if argv is not None else None)
     if args.cmd in {f"{spec.effect}-proof", "proof"}:
-        result = _builtin_pair_effect_proof(spec)
+        from blackhole_agent.upstream_spine_family import prove_spine_family
+
+        result = prove_spine_family(spec.effect)
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
     return 2

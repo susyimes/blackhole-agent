@@ -150,10 +150,9 @@ Composition:
   A new pair-effect family is a token row, not another 12-function
   signature copy. Historical solvency callers keep working.
 * total-spine **family engine** — leftover pair-effect and log-family
-  synthesizers share one catalog and one populate path. A new family
-  is a :class:`SpineFamilyEngineRow`, not another host synthesizer
-  copy. ``run_spine_family`` / ``prove_spine_family`` dispatch by
-  catalog row. Historical solvency callers keep working.
+  synthesizers, apply, and seal share one catalog. A new family is a
+  :class:`SpineFamilyEngineRow`, not another host synthesizer or public
+  apply/seal copy. Historical solvency callers keep working.
 * total-spine **post-settlement clearing** — closes the settled-but-
   uncleared cliff: after settlement seals a unilateral observation
   receipt, ``clear_total_spine(...)`` (and ``run_total_spine(clearing=True)``)

@@ -6,9 +6,12 @@ Leftover host synthesizers (``_synthesize_effect_module`` /
 A family is a :class:`SpineFamilyEngineRow`; shape (``pair`` / ``rows`` /
 ``state``) is data. Historical host synthesizer names stay as thin wrappers.
 
-Seal/apply/proof still live in the host engines for this increment; the
-public :func:`run_spine_family` / :func:`prove_spine_family` entries
-dispatch by catalog row so a new family is not another load-path copy.
+Apply, seal, and proof are owned here. Host ``run_pair_effect`` /
+``_apply_log_family`` / ``seal_certificate`` / ``_seal_log_certificate``
+names stay as thin wrappers. Shape-private cores (``_apply_pair_effect_core``,
+``_seal_pair_certificate``, ``_seal_log_certificate_core``, apply_core_fn)
+stay in the host token modules. A new family is a catalog row, not
+another public engine copy.
 
 No skill-route discovery.
 """
@@ -19,7 +22,7 @@ import sys
 import types
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 from blackhole_agent.capability_compounder import (
     atomic_write_json,
@@ -278,22 +281,53 @@ def run_family_main(
         sys.exit(module_globals["main"]())
 
 
-def run_spine_family(name: str, source: Any = None, **kwargs: Any) -> dict[str, Any]:
-    """Run one catalog family by name. A new family is a spec row, not a load copy."""
+def apply_spine_family(
+    name: str, source: Any = None, **kwargs: Any
+) -> dict[str, Any]:
+    """Apply one catalog family. Public apply is this function, not a host copy."""
 
     row = resolve_family_row(name)
     if row is None:
         raise KeyError(f"unknown spine family: {name!r}")
     if row.kind == "log_family":
-        from blackhole_agent.upstream_total_spine_logs import _apply_log_family
+        from blackhole_agent.upstream_total_spine_logs import LOG_FAMILY_SPECS
 
-        return _apply_log_family(name, source, **kwargs)
+        spec = LOG_FAMILY_SPECS[name]
+        host = sys.modules["blackhole_agent.upstream_total_spine_logs"]
+        core = getattr(host, spec.apply_core_fn)
+        return core(source, **kwargs)
     from blackhole_agent.upstream_total_spine_effects import (
         PAIR_EFFECT_SPECS,
-        run_pair_effect,
+        _apply_pair_effect_core,
     )
 
-    return run_pair_effect(PAIR_EFFECT_SPECS[name], source, **kwargs)
+    return _apply_pair_effect_core(PAIR_EFFECT_SPECS[name], source, **kwargs)
+
+
+def seal_spine_family(name: str, body: Mapping[str, Any]) -> dict[str, Any]:
+    """Seal one catalog family. Public seal is this function, not a host copy."""
+
+    row = resolve_family_row(name)
+    if row is None:
+        raise KeyError(f"unknown spine family: {name!r}")
+    if row.kind == "log_family":
+        from blackhole_agent.upstream_total_spine_logs import (
+            _seal_log_certificate_core,
+        )
+
+        return _seal_log_certificate_core(name, body)
+    from blackhole_agent.upstream_total_spine_effects import (
+        PAIR_EFFECT_SPECS,
+        _seal_pair_certificate,
+    )
+
+    return _seal_pair_certificate(PAIR_EFFECT_SPECS[name], body)
+
+
+def run_spine_family(name: str, source: Any = None, **kwargs: Any) -> dict[str, Any]:
+    """Historical apply name: one catalog family."""
+
+    return apply_spine_family(name, source, **kwargs)
 
 
 def prove_spine_family(name: str) -> dict[str, Any]:
@@ -308,10 +342,10 @@ def prove_spine_family(name: str) -> dict[str, Any]:
         return _run_log_family_proof(name)
     from blackhole_agent.upstream_total_spine_effects import (
         PAIR_EFFECT_SPECS,
-        _builtin_pair_effect_proof,
+        _pair_effect_proof_core,
     )
 
-    return _builtin_pair_effect_proof(PAIR_EFFECT_SPECS[name])
+    return _pair_effect_proof_core(PAIR_EFFECT_SPECS[name])
 
 
 def builtin_spine_family_engine_proof() -> dict[str, Any]:
@@ -373,12 +407,19 @@ def builtin_spine_family_engine_proof() -> dict[str, Any]:
         getattr(actuation, "actuate_total_spine", None)
     )
     checks["run_dispatch"] = callable(run_spine_family)
+    checks["apply_owned"] = callable(apply_spine_family)
+    checks["seal_owned"] = callable(seal_spine_family)
     checks["prove_dispatch"] = callable(prove_spine_family)
     try:
         run_spine_family("not-a-family")
         checks["run_unknown_refused"] = False
     except KeyError:
         checks["run_unknown_refused"] = True
+    try:
+        seal_spine_family("not-a-family", {})
+        checks["seal_unknown_refused"] = False
+    except KeyError:
+        checks["seal_unknown_refused"] = True
 
     effects_src = (
         REPO_ROOT / "src" / "blackhole_agent" / "upstream_total_spine_effects.py"
@@ -389,21 +430,21 @@ def builtin_spine_family_engine_proof() -> dict[str, Any]:
     synth_src = (
         REPO_ROOT / "src" / "blackhole_agent" / "upstream_module_synthesis.py"
     ).read_text(encoding="utf-8")
-    pair_synth = inspect.getsource(
-        importlib.import_module(
-            "blackhole_agent.upstream_total_spine_effects"
-        )._synthesize_effect_module
+    effects = importlib.import_module(
+        "blackhole_agent.upstream_total_spine_effects"
     )
-    log_synth = inspect.getsource(
-        importlib.import_module(
-            "blackhole_agent.upstream_total_spine_logs"
-        )._synthesize_log_module
-    )
-    exec_src = inspect.getsource(
-        importlib.import_module(
-            "blackhole_agent.upstream_module_synthesis"
-        )._exec_row
-    )
+    logs = importlib.import_module("blackhole_agent.upstream_total_spine_logs")
+    synth = importlib.import_module("blackhole_agent.upstream_module_synthesis")
+    pair_synth = inspect.getsource(effects._synthesize_effect_module)
+    log_synth = inspect.getsource(logs._synthesize_log_module)
+    exec_src = inspect.getsource(synth._exec_row)
+    pair_apply = inspect.getsource(effects.run_pair_effect)
+    log_apply = inspect.getsource(logs._apply_log_family)
+    pair_seal = inspect.getsource(effects.seal_certificate)
+    log_seal = inspect.getsource(logs._seal_log_certificate)
+    apply_src = inspect.getsource(apply_spine_family)
+    seal_src = inspect.getsource(seal_spine_family)
+    forward_src = inspect.getsource(effects._forward)
     checks["pair_synth_thin"] = "synthesize_family" in pair_synth
     checks["pair_synth_no_body"] = "pair_effect_public_names" not in pair_synth
     checks["log_synth_thin"] = "synthesize_family" in log_synth
@@ -411,6 +452,24 @@ def builtin_spine_family_engine_proof() -> dict[str, Any]:
     checks["exec_uses_engine"] = "populate_family_module" in exec_src
     checks["exec_no_pair_import"] = "PAIR_EFFECT_SPECS" not in exec_src
     checks["exec_no_log_import"] = "LOG_FAMILY_SPECS" not in exec_src
+    checks["pair_apply_thin"] = "apply_spine_family" in pair_apply
+    checks["pair_apply_no_body"] = "_collect_preds" not in pair_apply
+    checks["log_apply_thin"] = "apply_spine_family" in log_apply
+    checks["log_apply_no_body"] = "apply_core_fn" not in log_apply
+    checks["pair_seal_thin"] = "seal_spine_family" in pair_seal
+    checks["pair_seal_no_body"] = "_certificate_material" not in pair_seal
+    checks["log_seal_thin"] = "seal_spine_family" in log_seal
+    checks["log_seal_no_body"] = "material_fn" not in log_seal
+    checks["apply_no_host_public"] = (
+        "run_pair_effect" not in apply_src and "_apply_log_family" not in apply_src
+    )
+    checks["seal_no_host_public"] = (
+        "seal_certificate(" not in seal_src
+        and "_seal_log_certificate(" not in seal_src
+    )
+    checks["forward_apply"] = "apply_spine_family" in forward_src
+    checks["forward_seal"] = "seal_spine_family" in forward_src
+    checks["forward_prove"] = "prove_spine_family" in forward_src
     checks["wrappers_stay"] = (
         "def _effect_main_from_module" in effects_src
         and "def _log_main_from_module" in logs_src
@@ -423,6 +482,8 @@ def builtin_spine_family_engine_proof() -> dict[str, Any]:
         "resolve": callable(resolve_family_row),
         "populate": callable(populate_family_module),
         "synthesize": callable(synthesize_family),
+        "apply": callable(apply_spine_family),
+        "seal": callable(seal_spine_family),
         "run": callable(run_spine_family),
         "impl": SPINE_FAMILY_ENGINE_IMPL is True,
     }

@@ -3849,8 +3849,10 @@ def _log_family_spec(name: str) -> LogFamilySpec:
     return spec
 
 
-def _seal_log_certificate(name: str, body: Mapping[str, Any]) -> dict[str, Any]:
-    """Seal one log-family certificate from :data:`LOG_FAMILY_SPECS`."""
+def _seal_log_certificate_core(
+    name: str, body: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Shape-private log seal; public seal is :func:`seal_spine_family`."""
 
     spec = _log_family_spec(name)
     host = sys.modules[__name__]
@@ -3887,6 +3889,14 @@ def _seal_log_certificate(name: str, body: Mapping[str, Any]) -> dict[str, Any]:
                 dict(row) if isinstance(row, Mapping) else row for row in value
             ]
     return sealed
+
+
+def _seal_log_certificate(name: str, body: Mapping[str, Any]) -> dict[str, Any]:
+    """Historical name: seal through the shared family engine."""
+
+    from blackhole_agent.upstream_spine_family import seal_spine_family
+
+    return seal_spine_family(name, body)
 
 
 def _verify_state_certificate(
@@ -4854,11 +4864,11 @@ def _hosted_execution_family_proof() -> dict[str, Any]:
 
 
 def _apply_log_family(name: str, source: Any, **kwargs: Any) -> dict[str, Any]:
-    """Dispatch one log-family apply through the spec-owned core."""
+    """Historical name: apply through the shared family engine."""
 
-    spec = _log_family_spec(name)
-    core = getattr(sys.modules[__name__], spec.apply_core_fn)
-    return core(source, **kwargs)
+    from blackhole_agent.upstream_spine_family import apply_spine_family
+
+    return apply_spine_family(name, source, **kwargs)
 
 
 def _short_circuit_log_apply(
