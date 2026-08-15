@@ -3817,89 +3817,19 @@ def _effect_main(spec: PairEffectSpec, argv: Sequence[str] | None = None) -> int
 
 
 def _synthesize_effect_module(spec: PairEffectSpec) -> Any:
-    """Materialize ``blackhole_agent.upstream_total_spine_<effect>``."""
+    """Historical name: populate through the shared family engine."""
 
-    import types
+    from blackhole_agent.upstream_spine_family import synthesize_family
 
-    fullname = f"{_EFFECT_MODULE_PREFIX}{spec.effect}"
-    module = sys.modules.get(fullname)
-    if module is not None and module.__dict__.get(f"TOTAL_SPINE_{spec.upper}_IMPL"):
-        return module
-    if module is None:
-        module = types.ModuleType(fullname)
-        sys.modules[fullname] = module
-    module.__file__ = f"<upstream-total-spine-effect:{spec.effect}>"
-    module.__doc__ = spec.summary
-    g = module.__dict__
-    # Match the physical modules' import surface (public names in api-surface).
-    import __future__
-    import json as _json
-    from typing import Any as _Any, Mapping as _Mapping, Sequence as _Sequence
-
-    g["annotations"] = __future__.annotations
-    g["json"] = _json
-    g["Path"] = Path
-    g["Any"] = _Any
-    g["Mapping"] = _Mapping
-    g["Sequence"] = _Sequence
-    g["atomic_write_json"] = atomic_write_json
-    g["durable_read_path"] = durable_read_path
-    g["legacy_pipeline_was_used"] = legacy_pipeline_was_used
-    g["utc_now_iso"] = utc_now_iso
-    g["SCHEMA_VERSION"] = SCHEMA_VERSION
-    g["REPO_ROOT"] = REPO_ROOT
-    g["TOTAL_SPINE_DEFAULT_ROOT"] = TOTAL_SPINE_DEFAULT_ROOT
-    g["StageRefused"] = StageRefused
-    g[f"TOTAL_SPINE_{spec.upper}_IMPL"] = True
-    g[f"TOTAL_SPINE_{spec.upper}_KIND"] = spec.kind
-    g[f"TOTAL_SPINE_{spec.upper}_FILENAME"] = spec.filename
-    g[f"TOTAL_SPINE_{spec.upper}_MIN_{spec.min_name}"] = spec.min_value
-    g[f"TOTAL_SPINE_{spec.pred_upper}_KIND"] = spec.pred_kind
-
-    public_functions = set(pair_effect_public_names(spec)) - {"main"}
-    signatures = spec.signatures or derive_pair_effect_signatures(spec)
-    for public_name, signature in signatures.items():
-        if public_name == "main":
-            stub = (
-                "from __future__ import annotations\n"
-                "from pathlib import Path\n"
-                "from typing import Any, Mapping, Sequence\n"
-                f"def main{signature}:\n"
-                "    return _effect_main(_SPEC, argv)\n"
-            )
-            stub_ns = dict(g)
-            stub_ns["_effect_main"] = _effect_main
-            stub_ns["_SPEC"] = spec
-            exec(compile(stub, f"<upstream-total-spine-effect {spec.effect}>", "exec"), stub_ns)
-            g["main"] = stub_ns["main"]
-            continue
-        if public_name not in public_functions:
-            continue
-        stub = (
-            "from __future__ import annotations\n"
-            "from pathlib import Path\n"
-            "from typing import Any, Mapping, Sequence\n"
-            f"def {public_name}{signature}:\n"
-            f"    return _forward(_SPEC, {public_name!r}, locals())\n"
-        )
-        stub_ns: dict[str, Any] = dict(g)
-        stub_ns["_forward"] = _forward
-        stub_ns["_SPEC"] = spec
-        exec(compile(stub, f"<upstream-total-spine-effect {spec.effect}>", "exec"), stub_ns)
-        g[public_name] = stub_ns[public_name]
-    return module
+    return synthesize_family("pair_effect", spec.effect)
 
 
 def _effect_main_from_module(effect: str, module_globals: dict[str, Any]) -> None:
-    """``python -m`` entry: synthesize the namespace, then run its main."""
+    """Historical ``python -m`` entry: delegate to the family engine."""
 
-    spec = PAIR_EFFECT_SPECS[effect]
-    module = _synthesize_effect_module(spec)
-    for key, value in module.__dict__.items():
-        if not (key.startswith("__") and key.endswith("__")):
-            module_globals[key] = value
-    if module_globals.get("__name__") == "__main__":
-        sys.exit(_effect_main(spec))
+    from blackhole_agent.upstream_spine_family import run_family_main
+
+    run_family_main("pair_effect", effect, module_globals)
 
 
 def install_pair_effect_finder() -> None:

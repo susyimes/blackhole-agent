@@ -3209,51 +3209,19 @@ LOG_FAMILY_SPECS: dict[str, LogFamilySpec] = {
 
 
 def _synthesize_log_module(spec: LogFamilySpec) -> Any:
-    """Materialize ``blackhole_agent.upstream_total_spine_<name>``."""
+    """Historical name: populate through the shared family engine."""
 
-    import types
-    import __future__
+    from blackhole_agent.upstream_spine_family import synthesize_family
 
-    fullname = f"{_LOG_MODULE_PREFIX}{spec.name}"
-    module = sys.modules.get(fullname)
-    impl_flag = f"TOTAL_SPINE_{spec.name.upper()}_IMPL"
-    if module is not None and module.__dict__.get(impl_flag):
-        return module
-    if module is None:
-        module = types.ModuleType(fullname)
-        sys.modules[fullname] = module
-    module.__file__ = f"<upstream-total-spine-log:{spec.name}>"
-    module.__doc__ = spec.summary
-    host = sys.modules[__name__]
-    g = module.__dict__
-    g["annotations"] = __future__.annotations
-    for name in spec.exports:
-        if name == "annotations":
-            continue
-        if name == "json":
-            g["json"] = json
-            continue
-        if name == "Path":
-            g["Path"] = Path
-            continue
-        if name == "main":
-            g["main"] = getattr(host, spec.main_name)
-            continue
-        if hasattr(host, name):
-            g[name] = getattr(host, name)
-    return module
+    return synthesize_family("log_family", spec.name)
 
 
 def _log_main_from_module(name: str, module_globals: dict[str, Any]) -> None:
-    """``python -m`` entry: synthesize the namespace, then run its main."""
+    """Historical ``python -m`` entry: delegate to the family engine."""
 
-    spec = LOG_FAMILY_SPECS[name]
-    module = _synthesize_log_module(spec)
-    for key, value in module.__dict__.items():
-        if not (key.startswith("__") and key.endswith("__")):
-            module_globals[key] = value
-    if module_globals.get("__name__") == "__main__":
-        sys.exit(module_globals["main"]())
+    from blackhole_agent.upstream_spine_family import run_family_main
+
+    run_family_main("log_family", name, module_globals)
 
 
 def install_log_family_finder() -> None:

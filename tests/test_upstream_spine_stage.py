@@ -372,6 +372,36 @@ def test_spine_signature_catalog_probe_is_a_token_row() -> None:
     assert "ratification" not in PAIR_EFFECT_SPECS
 
 
+def test_builtin_spine_family_engine_proof() -> None:
+    from blackhole_agent.upstream_spine_family import (
+        builtin_spine_family_engine_proof,
+    )
+
+    result = builtin_spine_family_engine_proof()
+    assert result["ok"] is True
+    assert result["catalog_count"] == 19
+    assert result["pair_count"] == 15
+    assert result["log_count"] == 4
+    assert result["used_skill_route_discovery"] is False
+    assert all(result["checks"].values())
+    assert all(result["wired"].values())
+
+
+def test_spine_family_engine_probe_is_a_catalog_row() -> None:
+    from blackhole_agent.upstream_spine_family import (
+        derive_spine_family_engine_catalog,
+        resolve_family_row,
+    )
+
+    assert resolve_family_row("ratification") is None
+    probe = derive_spine_family_engine_catalog(extra_pair=("ratification",))
+    row = resolve_family_row("ratification", catalog=probe)
+    assert row is not None
+    assert row.kind == "pair_effect"
+    assert row.shape == "pair"
+    assert row.populate == "signatures"
+
+
 def test_spine_family_catalog_probe_extends_views() -> None:
     base = derive_spine_family_views()
     probe = derive_spine_family_views(

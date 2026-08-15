@@ -6,9 +6,10 @@ finder. A synthesized module is a :class:`ModuleSynthesisRow`; historical
 ``install_facade_finder`` / ``install_pair_effect_finder`` /
 ``install_log_family_finder`` names stay as thin wrappers.
 
-Bootstrap bodies stay in the host modules (``bootstrap_layer``,
-``_synthesize_effect_module``, ``_synthesize_log_module``) so sealed
-digests and ``python -m`` shims keep their historical import paths.
+Facade bootstrap stays in the host registry. Pair-effect and log-family
+populate through :mod:`blackhole_agent.upstream_spine_family` so a new
+family is a catalog row, not another host synthesizer copy. Historical
+``python -m`` shims keep their import paths.
 
 No skill-route discovery.
 """
@@ -155,25 +156,9 @@ def _exec_row(row: ModuleSynthesisRow, module: Any) -> None:
     if row.kind == "facade":
         exec(compile(row.shim, row.filename, "exec"), module.__dict__)
         return
-    if row.kind == "pair_effect":
-        from blackhole_agent.upstream_total_spine_effects import (
-            PAIR_EFFECT_SPECS,
-            _synthesize_effect_module,
-        )
+    from blackhole_agent.upstream_spine_family import populate_family_module
 
-        synthesized = _synthesize_effect_module(PAIR_EFFECT_SPECS[row.name])
-        module.__dict__.update(synthesized.__dict__)
-        return
-    if row.kind == "log_family":
-        from blackhole_agent.upstream_total_spine_logs import (
-            LOG_FAMILY_SPECS,
-            _synthesize_log_module,
-        )
-
-        synthesized = _synthesize_log_module(LOG_FAMILY_SPECS[row.name])
-        module.__dict__.update(synthesized.__dict__)
-        return
-    raise KeyError(f"unknown synthesis kind: {row.kind!r}")
+    populate_family_module(row, module)
 
 
 class _ModuleSynthesisLoader(Loader):
