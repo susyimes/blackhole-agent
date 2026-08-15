@@ -3564,13 +3564,15 @@ def _builtin_pair_effect_proof(spec: PairEffectSpec) -> dict[str, Any]:
         engine_path = Path(ce.__file__).resolve()
         engine_text = engine_path.read_text(encoding="utf-8")
         engine_source_ok = (
-            impl_name in engine_text
-            and runner_name in engine_text
+            getattr(ce, impl_name, None) is True
+            and callable(getattr(ce, runner_name, None))
+            and getattr(ce, runner_name, None) is getattr(synth, runner_name)
+            and callable(getattr(ce, proof_name, None))
+            and getattr(ce, proof_name, None) is getattr(synth, proof_name)
             and (
                 f"{spec.effect}=True" in engine_text
                 or f"{spec.effect}: bool = False" in engine_text
             )
-            and proof_name in engine_text
         )
 
         engine_mod_path = Path(__file__).resolve()

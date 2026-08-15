@@ -5560,20 +5560,17 @@ def _run_log_family_proof(name: str) -> dict[str, Any]:
             and getattr(le_facade, spec.impl_flag, False) is True
         )
 
-        engine_path = Path(
-            __import__(
-                "blackhole_agent.upstream_control_engine", fromlist=["_"]
-            ).__file__
-        ).resolve()
+        engine_path = Path(uce.__file__).resolve()
         engine_text = engine_path.read_text(encoding="utf-8")
         engine_source_ok = (
-            spec.impl_flag in engine_text
-            and spec.apply_fn in engine_text
+            getattr(uce, spec.impl_flag, None) is True
+            and callable(getattr(uce, spec.apply_fn, None))
+            and getattr(uce, spec.apply_fn, None) is apply_fn
+            and callable(getattr(uce, spec.ledger_proof_needle, None))
             and (
                 spec.engine_true_token in engine_text
                 or spec.engine_sig_token in engine_text
             )
-            and spec.ledger_proof_needle in engine_text
         )
 
         mod_path = Path(__file__).resolve()

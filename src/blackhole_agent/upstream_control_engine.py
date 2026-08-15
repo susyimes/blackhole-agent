@@ -130,6 +130,14 @@ Composition:
   :data:`SPINE_PUBLIC_STAGE_FLAGS`. A new post-consensus plane is a
   catalog row, not another signature or forwarding copy. ``finality``
   stays a named pre-consensus parameter.
+* total-spine **surface catalog** — leftover
+  ``from blackhole_agent.upstream_total_spine_<family> import (...)``
+  copies are gone. Pair-effect and log-family public names are
+  re-exported from synthesized modules by one catalog walk. A new
+  family is a spec row, not another 15-line import block.
+  ``from blackhole_agent.upstream_control_engine import
+  annotate_total_spine_solvency`` keeps working. Execution stays as
+  thin wrappers (historical source-probe targets).
 * total-spine **post-settlement clearing** — closes the settled-but-
   uncleared cliff: after settlement seals a unilateral observation
   receipt, ``clear_total_spine(...)`` (and ``run_total_spine(clearing=True)``)
@@ -281,6 +289,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib
 import json
 import os
 import secrets
@@ -4574,349 +4583,102 @@ TOTAL_SPINE_QUORUM_MIN_ORIGINS: int = 3
 TOTAL_SPINE_EXECUTION_IMPL = True
 TOTAL_SPINE_EXECUTION_KIND: str = "total_spine_execution"
 TOTAL_SPINE_EXECUTION_FILENAME: str = "total-spine-execution.json"
-# Post-execution actuation: ordered multi-action effects bound to state roots.
-# Implementation lives in upstream_total_spine_actuation; re-exported here.
-from blackhole_agent.upstream_total_spine_actuation import (  # noqa: E402
-    TOTAL_SPINE_ACTUATION_FILENAME,
-    TOTAL_SPINE_ACTUATION_IMPL,
-    TOTAL_SPINE_ACTUATION_KIND,
-    TOTAL_SPINE_ACTUATION_MIN_ACTIONS,
-    actuate_total_spine,
-    actuation_certificate_path,
-    annotate_total_spine_actuation,
-    build_total_spine_action_log,
-    builtin_total_spine_actuation_proof,
-    compute_total_spine_action_root,
-    load_total_spine_actuation_certificate,
-    seal_total_spine_actuation_certificate,
-    seal_total_spine_actuation_chain,
-    verify_total_spine_actuation_certificate,
-    write_total_spine_actuation_certificate,
+# Spine surface catalog: leftover import unroll is gone.
+# Pair-effect (delivery..reorganization) and log-family (actuation,
+# settlement, clearing) public names are re-exported from synthesized
+# modules. Execution stays as thin wrappers (source-probe targets).
+# A new family is a spec row, not another 15-line import copy.
+SPINE_SURFACE_CATALOG_IMPL = True
+SPINE_SURFACE_LOG_FAMILIES: tuple[str, ...] = (
+    "actuation",
+    "settlement",
+    "clearing",
 )
-# Post-actuation settlement: independent observation + done_when closure.
-# Implementation lives in upstream_total_spine_settlement; re-exported here.
-from blackhole_agent.upstream_total_spine_settlement import (  # noqa: E402
-    TOTAL_SPINE_SETTLEMENT_FILENAME,
-    TOTAL_SPINE_SETTLEMENT_IMPL,
-    TOTAL_SPINE_SETTLEMENT_KIND,
-    TOTAL_SPINE_SETTLEMENT_MIN_OBSERVATIONS,
-    annotate_total_spine_settlement,
-    builtin_total_spine_settlement_proof,
-    compute_total_spine_settlement_root,
-    load_total_spine_settlement_certificate,
-    observe_total_spine_actions,
-    seal_total_spine_settlement_certificate,
-    seal_total_spine_settlement_chain,
-    settle_total_spine,
-    settlement_certificate_path,
-    verify_total_spine_settlement_certificate,
-    write_total_spine_settlement_certificate,
-)
-# Post-settlement clearing: multilateral netting + discharge of settlement books.
-# Implementation lives in upstream_total_spine_clearing; re-exported here.
-from blackhole_agent.upstream_total_spine_clearing import (  # noqa: E402
-    TOTAL_SPINE_CLEARING_FILENAME,
-    TOTAL_SPINE_CLEARING_IMPL,
-    TOTAL_SPINE_CLEARING_KIND,
-    TOTAL_SPINE_CLEARING_MIN_SETTLEMENTS,
-    annotate_total_spine_clearing,
-    builtin_total_spine_clearing_proof,
-    clear_total_spine,
-    clearing_certificate_path,
-    compute_total_spine_clearing_root,
-    load_total_spine_clearing_certificate,
-    net_total_spine_settlements,
-    seal_total_spine_clearing_certificate,
-    seal_total_spine_clearing_chain,
-    verify_total_spine_clearing_certificate,
-    write_total_spine_clearing_certificate,
-)
-# Post-clearing delivery-versus-payment: atomic deliver+pay of discharged nets.
-# Implementation lives in upstream_total_spine_delivery; re-exported here.
-from blackhole_agent.upstream_total_spine_delivery import (  # noqa: E402
-    TOTAL_SPINE_DELIVERY_FILENAME,
-    TOTAL_SPINE_DELIVERY_IMPL,
-    TOTAL_SPINE_DELIVERY_KIND,
-    TOTAL_SPINE_DELIVERY_MIN_CLEARINGS,
-    annotate_total_spine_delivery,
-    builtin_total_spine_delivery_proof,
-    compute_total_spine_delivery_root,
-    deliver_total_spine,
-    delivery_certificate_path,
-    load_total_spine_delivery_certificate,
-    pair_total_spine_clearings,
-    seal_total_spine_delivery_certificate,
-    seal_total_spine_delivery_chain,
-    verify_total_spine_delivery_certificate,
-    write_total_spine_delivery_certificate,
-)
-# Post-delivery custody-versus-title: atomic hold+own of delivered pairs.
-# Implementation lives in upstream_total_spine_custody; re-exported here.
-from blackhole_agent.upstream_total_spine_custody import (  # noqa: E402
-    TOTAL_SPINE_CUSTODY_FILENAME,
-    TOTAL_SPINE_CUSTODY_IMPL,
-    TOTAL_SPINE_CUSTODY_KIND,
-    TOTAL_SPINE_CUSTODY_MIN_DELIVERIES,
-    annotate_total_spine_custody,
-    book_total_spine_deliveries,
-    builtin_total_spine_custody_proof,
-    compute_total_spine_custody_root,
-    custody_certificate_path,
-    custody_total_spine,
-    load_total_spine_custody_certificate,
-    seal_total_spine_custody_certificate,
-    seal_total_spine_custody_chain,
-    verify_total_spine_custody_certificate,
-    write_total_spine_custody_certificate,
-)
-# Post-custody margin-versus-exposure: atomic margin+exposure of custodied pairs.
-# Implementation lives in upstream_total_spine_margin; re-exported here.
-from blackhole_agent.upstream_total_spine_margin import (  # noqa: E402
-    TOTAL_SPINE_MARGIN_FILENAME,
-    TOTAL_SPINE_MARGIN_IMPL,
-    TOTAL_SPINE_MARGIN_KIND,
-    TOTAL_SPINE_MARGIN_MIN_CUSTODIES,
-    annotate_total_spine_margin,
-    book_total_spine_custodies,
-    builtin_total_spine_margin_proof,
-    compute_total_spine_margin_root,
-    load_total_spine_margin_certificate,
-    margin_certificate_path,
-    margin_total_spine,
-    seal_total_spine_margin_certificate,
-    seal_total_spine_margin_chain,
-    verify_total_spine_margin_certificate,
-    write_total_spine_margin_certificate,
-)
-# Post-margin collateral-versus-obligation: atomic collateral+obligation of margined pairs.
-# Implementation lives in upstream_total_spine_collateral; re-exported here.
-from blackhole_agent.upstream_total_spine_collateral import (  # noqa: E402
-    TOTAL_SPINE_COLLATERAL_FILENAME,
-    TOTAL_SPINE_COLLATERAL_IMPL,
-    TOTAL_SPINE_COLLATERAL_KIND,
-    TOTAL_SPINE_COLLATERAL_MIN_COLLATERALS,
-    annotate_total_spine_collateral,
-    book_total_spine_margins,
-    builtin_total_spine_collateral_proof,
-    collateral_certificate_path,
-    collateral_total_spine,
-    compute_total_spine_collateral_root,
-    load_total_spine_collateral_certificate,
-    seal_total_spine_collateral_certificate,
-    seal_total_spine_collateral_chain,
-    verify_total_spine_collateral_certificate,
-    write_total_spine_collateral_certificate,
-)
-# Post-collateral liquidity-versus-coverage: atomic liquidity+coverage of collateralized pairs.
-# Implementation lives in upstream_total_spine_liquidity; re-exported here.
-from blackhole_agent.upstream_total_spine_liquidity import (  # noqa: E402
-    TOTAL_SPINE_LIQUIDITY_FILENAME,
-    TOTAL_SPINE_LIQUIDITY_IMPL,
-    TOTAL_SPINE_LIQUIDITY_KIND,
-    TOTAL_SPINE_LIQUIDITY_MIN_LIQUIDITIES,
-    annotate_total_spine_liquidity,
-    book_total_spine_collaterals,
-    builtin_total_spine_liquidity_proof,
-    compute_total_spine_liquidity_root,
-    liquidity_certificate_path,
-    liquidity_total_spine,
-    load_total_spine_liquidity_certificate,
-    seal_total_spine_liquidity_certificate,
-    seal_total_spine_liquidity_chain,
-    verify_total_spine_liquidity_certificate,
-    write_total_spine_liquidity_certificate,
-)
-# Post-liquidity funding-versus-requirement: atomic facility+requirement of liquid pairs.
-# Implementation lives in upstream_total_spine_funding; re-exported here.
-from blackhole_agent.upstream_total_spine_funding import (  # noqa: E402
-    TOTAL_SPINE_FUNDING_FILENAME,
-    TOTAL_SPINE_FUNDING_IMPL,
-    TOTAL_SPINE_FUNDING_KIND,
-    TOTAL_SPINE_FUNDING_MIN_FUNDINGS,
-    annotate_total_spine_funding,
-    book_total_spine_liquidities,
-    builtin_total_spine_funding_proof,
-    compute_total_spine_funding_root,
-    funding_certificate_path,
-    funding_total_spine,
-    load_total_spine_funding_certificate,
-    seal_total_spine_funding_certificate,
-    seal_total_spine_funding_chain,
-    verify_total_spine_funding_certificate,
-    write_total_spine_funding_certificate,
-)
-# Post-funding capital-versus-adequacy: atomic buffer+adequacy of facilitated pairs.
-# Implementation lives in upstream_total_spine_capital; re-exported here.
-from blackhole_agent.upstream_total_spine_capital import (  # noqa: E402
-    TOTAL_SPINE_CAPITAL_FILENAME,
-    TOTAL_SPINE_CAPITAL_IMPL,
-    TOTAL_SPINE_CAPITAL_KIND,
-    TOTAL_SPINE_CAPITAL_MIN_CAPITALS,
-    annotate_total_spine_capital,
-    book_total_spine_fundings,
-    builtin_total_spine_capital_proof,
-    capital_certificate_path,
-    capital_total_spine,
-    compute_total_spine_capital_root,
-    load_total_spine_capital_certificate,
-    seal_total_spine_capital_certificate,
-    seal_total_spine_capital_chain,
-    verify_total_spine_capital_certificate,
-    write_total_spine_capital_certificate,
+_SPINE_SURFACE_GENERIC_SKIP: frozenset[str] = frozenset(
+    {
+        "Any",
+        "Mapping",
+        "MutableMapping",
+        "Path",
+        "REPO_ROOT",
+        "SCHEMA_VERSION",
+        "Sequence",
+        "StageRefused",
+        "annotations",
+        "atomic_write_json",
+        "durable_read_path",
+        "json",
+        "legacy_pipeline_was_used",
+        "load_irreversible_certificate",
+        "main",
+        "resolve_certificate_path",
+        "utc_now_iso",
+        "write_irreversible_certificate",
+        "TOTAL_SPINE_DEFAULT_EFFECT_CAPABILITIES",
+        "TOTAL_SPINE_DEFAULT_ROOT",
+    }
 )
 
-# Post-capital solvency-versus-requirement: atomic surplus+requirement of capitalized pairs.
-# Implementation lives in upstream_total_spine_solvency; re-exported here.
-from blackhole_agent.upstream_total_spine_solvency import (  # noqa: E402
-    TOTAL_SPINE_SOLVENCY_FILENAME,
-    TOTAL_SPINE_SOLVENCY_IMPL,
-    TOTAL_SPINE_SOLVENCY_KIND,
-    TOTAL_SPINE_SOLVENCY_MIN_SOLVENCIES,
-    annotate_total_spine_solvency,
-    book_total_spine_capitals,
-    builtin_total_spine_solvency_proof,
-    compute_total_spine_solvency_root,
-    load_total_spine_solvency_certificate,
-    seal_total_spine_solvency_certificate,
-    seal_total_spine_solvency_chain,
-    solvency_certificate_path,
-    solvency_total_spine,
-    verify_total_spine_solvency_certificate,
-    write_total_spine_solvency_certificate,
-)
-# Post-solvency risk-versus-appetite: atomic assessment+appetite of solvent pairs.
-# Implementation lives in upstream_total_spine_risk; re-exported here.
-from blackhole_agent.upstream_total_spine_risk import (  # noqa: E402
-    TOTAL_SPINE_RISK_FILENAME,
-    TOTAL_SPINE_RISK_IMPL,
-    TOTAL_SPINE_RISK_KIND,
-    TOTAL_SPINE_RISK_MIN_RISKS,
-    annotate_total_spine_risk,
-    book_total_spine_solvencies,
-    builtin_total_spine_risk_proof,
-    compute_total_spine_risk_root,
-    load_total_spine_risk_certificate,
-    risk_certificate_path,
-    risk_total_spine,
-    seal_total_spine_risk_certificate,
-    seal_total_spine_risk_chain,
-    verify_total_spine_risk_certificate,
-    write_total_spine_risk_certificate,
-)
-# Post-risk stress-versus-capacity: atomic shock+capacity of risked pairs.
-# Implementation lives in upstream_total_spine_stress; re-exported here.
-from blackhole_agent.upstream_total_spine_stress import (  # noqa: E402
-    TOTAL_SPINE_STRESS_FILENAME,
-    TOTAL_SPINE_STRESS_IMPL,
-    TOTAL_SPINE_STRESS_KIND,
-    TOTAL_SPINE_STRESS_MIN_STRESSES,
-    annotate_total_spine_stress,
-    book_total_spine_risks,
-    builtin_total_spine_stress_proof,
-    compute_total_spine_stress_root,
-    load_total_spine_stress_certificate,
-    stress_certificate_path,
-    stress_total_spine,
-    seal_total_spine_stress_certificate,
-    seal_total_spine_stress_chain,
-    verify_total_spine_stress_certificate,
-    write_total_spine_stress_certificate,
-)
-# Post-stress recovery-versus-plan: atomic restoration+plan of stressed pairs.
-# Implementation lives in upstream_total_spine_recovery; re-exported here.
-from blackhole_agent.upstream_total_spine_recovery import (  # noqa: E402
-    TOTAL_SPINE_RECOVERY_FILENAME,
-    TOTAL_SPINE_RECOVERY_IMPL,
-    TOTAL_SPINE_RECOVERY_KIND,
-    TOTAL_SPINE_RECOVERY_MIN_RECOVERIES,
-    annotate_total_spine_recovery,
-    book_total_spine_stresses,
-    builtin_total_spine_recovery_proof,
-    compute_total_spine_recovery_root,
-    load_total_spine_recovery_certificate,
-    recovery_certificate_path,
-    recovery_total_spine,
-    seal_total_spine_recovery_certificate,
-    seal_total_spine_recovery_chain,
-    verify_total_spine_recovery_certificate,
-    write_total_spine_recovery_certificate,
-)
-# Post-recovery resolution-versus-strategy: atomic resolution+strategy of restored pairs.
-# Implementation lives in upstream_total_spine_resolution; re-exported here.
-from blackhole_agent.upstream_total_spine_resolution import (  # noqa: E402
-    TOTAL_SPINE_RESOLUTION_FILENAME,
-    TOTAL_SPINE_RESOLUTION_IMPL,
-    TOTAL_SPINE_RESOLUTION_KIND,
-    TOTAL_SPINE_RESOLUTION_MIN_RESOLUTIONS,
-    annotate_total_spine_resolution,
-    book_total_spine_recoveries,
-    builtin_total_spine_resolution_proof,
-    compute_total_spine_resolution_root,
-    load_total_spine_resolution_certificate,
-    resolution_certificate_path,
-    resolution_total_spine,
-    seal_total_spine_resolution_certificate,
-    seal_total_spine_resolution_chain,
-    verify_total_spine_resolution_certificate,
-    write_total_spine_resolution_certificate,
-)
-# Post-resolution restructuring-versus-mandate: atomic restructuring+mandate of resolved pairs.
-# Implementation lives in upstream_total_spine_restructuring; re-exported here.
-from blackhole_agent.upstream_total_spine_restructuring import (  # noqa: E402
-    TOTAL_SPINE_RESTRUCTURING_FILENAME,
-    TOTAL_SPINE_RESTRUCTURING_IMPL,
-    TOTAL_SPINE_RESTRUCTURING_KIND,
-    TOTAL_SPINE_RESTRUCTURING_MIN_RESTRUCTURINGS,
-    annotate_total_spine_restructuring,
-    book_total_spine_resolutions,
-    builtin_total_spine_restructuring_proof,
-    compute_total_spine_restructuring_root,
-    load_total_spine_restructuring_certificate,
-    restructuring_certificate_path,
-    restructuring_total_spine,
-    seal_total_spine_restructuring_certificate,
-    seal_total_spine_restructuring_chain,
-    verify_total_spine_restructuring_certificate,
-    write_total_spine_restructuring_certificate,
-)
-# Post-restructuring emergence-versus-confirmation: atomic emergence+confirmation of mandated pairs.
-# Implementation lives in upstream_total_spine_emergence; re-exported here.
-from blackhole_agent.upstream_total_spine_emergence import (  # noqa: E402
-    TOTAL_SPINE_EMERGENCE_FILENAME,
-    TOTAL_SPINE_EMERGENCE_IMPL,
-    TOTAL_SPINE_EMERGENCE_KIND,
-    TOTAL_SPINE_EMERGENCE_MIN_EMERGENCES,
-    annotate_total_spine_emergence,
-    book_total_spine_restructurings,
-    builtin_total_spine_emergence_proof,
-    compute_total_spine_emergence_root,
-    emerge_total_spine,
-    emergence_certificate_path,
-    load_total_spine_emergence_certificate,
-    seal_total_spine_emergence_certificate,
-    seal_total_spine_emergence_chain,
-    verify_total_spine_emergence_certificate,
-    write_total_spine_emergence_certificate,
-)
-# Post-emergence reorganization-versus-charter: atomic reorganization+charter of emerged pairs.
-# Implementation lives in upstream_total_spine_reorganization; re-exported here.
-from blackhole_agent.upstream_total_spine_reorganization import (  # noqa: E402
-    TOTAL_SPINE_REORGANIZATION_FILENAME,
-    TOTAL_SPINE_REORGANIZATION_IMPL,
-    TOTAL_SPINE_REORGANIZATION_KIND,
-    TOTAL_SPINE_REORGANIZATION_MIN_REORGANIZATIONS,
-    annotate_total_spine_reorganization,
-    book_total_spine_emergences,
-    builtin_total_spine_reorganization_proof,
-    compute_total_spine_reorganization_root,
-    reorganize_total_spine,
-    reorganization_certificate_path,
-    load_total_spine_reorganization_certificate,
-    seal_total_spine_reorganization_certificate,
-    seal_total_spine_reorganization_chain,
-    verify_total_spine_reorganization_certificate,
-    write_total_spine_reorganization_certificate,
-)
+
+def _pair_effect_surface_names(spec: Any) -> tuple[str, ...]:
+    """Control-engine names historically imported from one pair-effect module."""
+
+    return (
+        f"TOTAL_SPINE_{spec.upper}_FILENAME",
+        f"TOTAL_SPINE_{spec.upper}_IMPL",
+        f"TOTAL_SPINE_{spec.upper}_KIND",
+        f"TOTAL_SPINE_{spec.upper}_MIN_{spec.min_name}",
+        f"annotate_total_spine_{spec.effect}",
+        f"{spec.book_fn_prefix}_total_spine_{spec.pred_plural}",
+        f"builtin_total_spine_{spec.effect}_proof",
+        f"compute_total_spine_{spec.effect}_root",
+        f"load_total_spine_{spec.effect}_certificate",
+        f"seal_total_spine_{spec.effect}_certificate",
+        f"seal_total_spine_{spec.effect}_chain",
+        f"verify_total_spine_{spec.effect}_certificate",
+        f"write_total_spine_{spec.effect}_certificate",
+        f"{spec.verb}_total_spine",
+        f"{spec.effect}_certificate_path",
+    )
+
+
+def _log_family_surface_names(spec: Any) -> tuple[str, ...]:
+    """Control-engine names historically imported from one log-family module."""
+
+    skip = set(_SPINE_SURFACE_GENERIC_SKIP)
+    skip.add(f"TOTAL_SPINE_{str(spec.pred).upper()}_KIND")
+    return tuple(name for name in spec.exports if name not in skip)
+
+
+def _export_spine_surface(ns: dict[str, Any]) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Bind synthesized family names onto the control-engine module."""
+
+    from blackhole_agent.upstream_total_spine_effects import PAIR_EFFECT_SPECS
+    from blackhole_agent.upstream_total_spine_logs import LOG_FAMILY_SPECS
+
+    exported: list[str] = []
+    families: list[str] = []
+    for family in SPINE_SURFACE_LOG_FAMILIES:
+        spec = LOG_FAMILY_SPECS[family]
+        mod = importlib.import_module(f"blackhole_agent.upstream_total_spine_{family}")
+        for attr in _log_family_surface_names(spec):
+            ns[attr] = getattr(mod, attr)
+            exported.append(attr)
+        families.append(family)
+    for spec in PAIR_EFFECT_SPECS.values():
+        mod = importlib.import_module(
+            f"blackhole_agent.upstream_total_spine_{spec.effect}"
+        )
+        for attr in _pair_effect_surface_names(spec):
+            ns[attr] = getattr(mod, attr)
+            exported.append(attr)
+        families.append(spec.effect)
+    return tuple(families), tuple(exported)
+
+
+SPINE_SURFACE_FAMILIES, SPINE_SURFACE_EXPORTED = _export_spine_surface(globals())
+
+
 # Constitution-layer goals accepted by run_constitution (not free-text).
 TOTAL_SPINE_CONSTITUTION_GOALS: frozenset[str] = frozenset(
     {
@@ -15380,6 +15142,138 @@ def builtin_spine_public_catalog_proof() -> dict[str, Any]:
         "done_when_met": ok,
     }
     out = REPO_ROOT / "artifacts" / "capability-spine-public-catalog"
+    out.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(out / "plane-report.json", report)
+    return report
+
+
+def builtin_spine_surface_catalog_proof() -> dict[str, Any]:
+    """Hermetic proof: leftover family import unroll is one surface catalog."""
+
+    import inspect
+
+    from blackhole_agent.upstream_total_spine_effects import PAIR_EFFECT_SPECS
+    from blackhole_agent.upstream_total_spine_logs import LOG_FAMILY_SPECS
+
+    checks: dict[str, bool] = {}
+    families = list(SPINE_SURFACE_FAMILIES)
+    expected_log = ("actuation", "settlement", "clearing")
+    expected_pair = tuple(PAIR_EFFECT_SPECS)
+    checks["impl"] = SPINE_SURFACE_CATALOG_IMPL is True
+    checks["log_families"] = tuple(SPINE_SURFACE_LOG_FAMILIES) == expected_log
+    checks["catalog_log_prefix"] = tuple(families[:3]) == expected_log
+    checks["catalog_pair_tail"] = tuple(families[3:]) == expected_pair
+    checks["catalog_len"] = len(families) == 18
+    checks["excludes_execution"] = "execution" not in families
+    checks["exported_count"] = len(SPINE_SURFACE_EXPORTED) >= 18 * 14
+
+    this = sys.modules[__name__]
+    engine_src = Path(__file__).read_text(encoding="utf-8")
+    leftover_families = (
+        "actuation",
+        "settlement",
+        "clearing",
+        "delivery",
+        "solvency",
+        "reorganization",
+    )
+    checks["no_leftover_imports"] = all(
+        f"from blackhole_agent.upstream_total_spine_{name} import" not in engine_src
+        for name in leftover_families
+    )
+    export_src = inspect.getsource(_export_spine_surface)
+    checks["export_uses_pair_catalog"] = "PAIR_EFFECT_SPECS" in export_src
+    checks["export_uses_log_catalog"] = "LOG_FAMILY_SPECS" in export_src
+    checks["export_uses_importlib"] = "importlib.import_module" in export_src
+
+    solvency_names = set(_pair_effect_surface_names(PAIR_EFFECT_SPECS["solvency"]))
+    checks["solvency_names"] = solvency_names == {
+        "TOTAL_SPINE_SOLVENCY_FILENAME",
+        "TOTAL_SPINE_SOLVENCY_IMPL",
+        "TOTAL_SPINE_SOLVENCY_KIND",
+        "TOTAL_SPINE_SOLVENCY_MIN_SOLVENCIES",
+        "annotate_total_spine_solvency",
+        "book_total_spine_capitals",
+        "builtin_total_spine_solvency_proof",
+        "compute_total_spine_solvency_root",
+        "load_total_spine_solvency_certificate",
+        "seal_total_spine_solvency_certificate",
+        "seal_total_spine_solvency_chain",
+        "verify_total_spine_solvency_certificate",
+        "write_total_spine_solvency_certificate",
+        "solvency_total_spine",
+        "solvency_certificate_path",
+    }
+    actuation_names = set(_log_family_surface_names(LOG_FAMILY_SPECS["actuation"]))
+    checks["actuation_names"] = actuation_names == {
+        "TOTAL_SPINE_ACTUATION_FILENAME",
+        "TOTAL_SPINE_ACTUATION_IMPL",
+        "TOTAL_SPINE_ACTUATION_KIND",
+        "TOTAL_SPINE_ACTUATION_MIN_ACTIONS",
+        "actuate_total_spine",
+        "actuation_certificate_path",
+        "annotate_total_spine_actuation",
+        "build_total_spine_action_log",
+        "builtin_total_spine_actuation_proof",
+        "compute_total_spine_action_root",
+        "load_total_spine_actuation_certificate",
+        "seal_total_spine_actuation_certificate",
+        "seal_total_spine_actuation_chain",
+        "verify_total_spine_actuation_certificate",
+        "write_total_spine_actuation_certificate",
+    }
+
+    identity_ok = True
+    for family in expected_log:
+        spec = LOG_FAMILY_SPECS[family]
+        mod = importlib.import_module(f"blackhole_agent.upstream_total_spine_{family}")
+        for attr in _log_family_surface_names(spec):
+            if getattr(this, attr, None) is not getattr(mod, attr):
+                identity_ok = False
+                break
+    for spec in PAIR_EFFECT_SPECS.values():
+        mod = importlib.import_module(
+            f"blackhole_agent.upstream_total_spine_{spec.effect}"
+        )
+        for attr in _pair_effect_surface_names(spec):
+            if getattr(this, attr, None) is not getattr(mod, attr):
+                identity_ok = False
+                break
+    checks["identity"] = identity_ok
+    checks["solvency_impl"] = this.TOTAL_SPINE_SOLVENCY_IMPL is True
+    checks["actuation_impl"] = this.TOTAL_SPINE_ACTUATION_IMPL is True
+    checks["reorg_impl"] = this.TOTAL_SPINE_REORGANIZATION_IMPL is True
+    checks["historical_import"] = callable(this.annotate_total_spine_solvency)
+    checks["execution_wrapper_stays"] = (
+        "def execute_total_spine" in engine_src
+        and "def compute_total_spine_state_root" in engine_src
+    )
+    checks["no_skill_route"] = not legacy_pipeline_was_used()
+
+    wired = {
+        "export": callable(_export_spine_surface),
+        "pair_names": callable(_pair_effect_surface_names),
+        "log_names": callable(_log_family_surface_names),
+        "catalog": bool(SPINE_SURFACE_FAMILIES),
+        "exported": bool(SPINE_SURFACE_EXPORTED),
+        "impl": SPINE_SURFACE_CATALOG_IMPL is True,
+    }
+    ok = all(checks.values()) and all(wired.values())
+    report = {
+        "schema_version": SCHEMA_VERSION,
+        "action": "spine_surface_catalog_proof",
+        "ok": ok,
+        "checks": checks,
+        "wired": wired,
+        "wired_count": sum(1 for value in wired.values() if value),
+        "families": families,
+        "family_count": len(families),
+        "exported_count": len(SPINE_SURFACE_EXPORTED),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+        "spine_surface_catalog": True,
+        "done_when_met": ok,
+    }
+    out = REPO_ROOT / "artifacts" / "capability-spine-surface-catalog"
     out.mkdir(parents=True, exist_ok=True)
     atomic_write_json(out / "plane-report.json", report)
     return report

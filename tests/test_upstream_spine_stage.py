@@ -9,6 +9,10 @@ from blackhole_agent.upstream_control_engine import (
     SPINE_PRE_CONSENSUS_CHAIN,
     SPINE_PUBLIC_STAGE_FLAGS,
     SPINE_RESUME_PLANES,
+    SPINE_SURFACE_CATALOG_IMPL,
+    SPINE_SURFACE_EXPORTED,
+    SPINE_SURFACE_FAMILIES,
+    SPINE_SURFACE_LOG_FAMILIES,
     SPINE_STAGE_CHAIN,
     SPINE_STAGE_ENGINE_IMPL,
     SPINE_STAGE_POST_ACTUATION_START,
@@ -30,6 +34,7 @@ from blackhole_agent.upstream_control_engine import (
     builtin_spine_finality_stage_proof,
     builtin_spine_public_catalog_proof,
     builtin_spine_resume_catalog_proof,
+    builtin_spine_surface_catalog_proof,
     builtin_spine_short_circuit_catalog_proof,
     builtin_spine_stage_engine_proof,
     run_total_spine,
@@ -216,3 +221,44 @@ def test_public_stage_flags_are_catalog_validated() -> None:
     assert "reorganization: bool = False" not in run_src
     assert "reorganization=reorganization" not in run_src
     assert run_src.count("stages=requested_stages") == 2
+
+
+def test_builtin_spine_surface_catalog_proof() -> None:
+    result = builtin_spine_surface_catalog_proof()
+    assert result["ok"] is True
+    assert result["family_count"] == 18
+    assert result["used_skill_route_discovery"] is False
+    assert all(result["checks"].values())
+    assert all(result["wired"].values())
+
+
+def test_spine_surface_is_one_catalog_reexport() -> None:
+    import blackhole_agent.upstream_control_engine as uce
+    from blackhole_agent.upstream_total_spine_solvency import (
+        annotate_total_spine_solvency,
+    )
+
+    assert SPINE_SURFACE_CATALOG_IMPL is True
+    assert list(SPINE_SURFACE_LOG_FAMILIES) == [
+        "actuation",
+        "settlement",
+        "clearing",
+    ]
+    assert list(SPINE_SURFACE_FAMILIES)[:3] == [
+        "actuation",
+        "settlement",
+        "clearing",
+    ]
+    assert "execution" not in SPINE_SURFACE_FAMILIES
+    assert "reorganization" in SPINE_SURFACE_FAMILIES
+    assert len(SPINE_SURFACE_EXPORTED) >= 18 * 14
+    src = inspect.getsource(uce)
+    leftover_families = ("actuation", "solvency", "reorganization")
+    assert all(
+        f"from blackhole_agent.upstream_total_spine_{name} import" not in src
+        for name in leftover_families
+    )
+    assert uce.annotate_total_spine_solvency is annotate_total_spine_solvency
+    assert uce.TOTAL_SPINE_SOLVENCY_IMPL is True
+    assert callable(uce.actuate_total_spine)
+    assert callable(uce.reorganize_total_spine)
