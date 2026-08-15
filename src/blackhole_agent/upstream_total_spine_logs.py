@@ -6,8 +6,13 @@ effects. This module hosts the logic once. A meta-path finder synthesizes
 ``blackhole_agent.upstream_total_spine_<family>`` with the historical public
 names bound to the engine functions, so control-engine imports, ledger proof
 commands, and ``python -m`` keep working after the physical files are
-deleted. Actuation is the first family; settlement and clearing follow as
-spec rows. No skill-route discovery.
+deleted.
+
+Certificate seal/verify for every log family is one spec-driven engine
+(:func:`_seal_log_certificate`, :func:`_verify_log_certificate`). Public
+``seal_total_spine_<family>_certificate`` / ``verify_…`` names stay as
+thin wrappers so a new hash-chained family is a :class:`LogFamilySpec`
+row, not another 150-line copy. No skill-route discovery.
 """
 from __future__ import annotations
 
@@ -207,25 +212,7 @@ def seal_total_spine_actuation_certificate(
     body: Mapping[str, Any],
 ) -> dict[str, Any]:
     """Seal post-execution multi-action log into a tamper-evident actuation cert."""
-    sealed_body = dict(body)
-    actions = list(sealed_body.get("actions") or [])
-    if not str(sealed_body.get("tip_action_root") or "").strip():
-        sealed_body["tip_action_root"] = compute_total_spine_action_root(actions)
-    if not int(sealed_body.get("action_count") or 0):
-        sealed_body["action_count"] = len(actions)
-    if not int(sealed_body.get("action_height") or 0):
-        sealed_body["action_height"] = len(actions)
-    material = _actuation_certificate_material(sealed_body)
-    material["tip_action_root"] = str(sealed_body.get("tip_action_root") or "")
-    digest = _sha256_json(material)
-    sealed = dict(material)
-    sealed["actuation_digest"] = digest
-    sealed["certificate_hash"] = digest
-    sealed["total_spine_actuation"] = True
-    sealed["total_spine_actuation_impl"] = TOTAL_SPINE_ACTUATION_IMPL
-    sealed["actuated_at"] = str(body.get("actuated_at") or utc_now_iso())
-    sealed["used_skill_route_discovery"] = legacy_pipeline_was_used()
-    return sealed
+    return _seal_log_certificate("actuation", body)
 
 
 def actuation_certificate_path(root: Path) -> Path:
@@ -263,94 +250,7 @@ def verify_total_spine_actuation_certificate(
     certificate: Mapping[str, Any],
 ) -> dict[str, Any]:
     """Recompute actuation digest and action roots; fail closed on tamper."""
-    claimed = str(
-        certificate.get("actuation_digest")
-        or certificate.get("certificate_hash")
-        or ""
-    )
-    material = _actuation_certificate_material(certificate)
-    expected = _sha256_json(material)
-    actions = list(certificate.get("actions") or [])
-    recomputed_tip = compute_total_spine_action_root(actions)
-    claimed_tip = str(certificate.get("tip_action_root") or "")
-    height = int(certificate.get("action_height") or 0)
-    count = int(certificate.get("action_count") or 0)
-    bound_root = str(certificate.get("bound_state_root") or "")
-    cert_parent = str(certificate.get("parent_action_root") or "")
-    chain_ok = True
-    parent = cert_parent
-    for idx, row in enumerate(actions):
-        if not isinstance(row, Mapping):
-            chain_ok = False
-            break
-        if str(row.get("bound_state_root") or "") != bound_root:
-            chain_ok = False
-            break
-        if str(row.get("parent_action_root") or "") != parent:
-            chain_ok = False
-            break
-        material_row = {
-            "action_index": int(row.get("action_index") or idx),
-            "action_height": int(row.get("action_height") or (idx + 1)),
-            "capability_id": str(row.get("capability_id") or ""),
-            "bound_state_root": str(row.get("bound_state_root") or ""),
-            "execution_digest": str(row.get("execution_digest") or ""),
-            "parent_action_root": parent,
-            "effect_ok": bool(row.get("effect_ok", True)),
-            "effect_exit_code": int(row.get("effect_exit_code") or 0),
-            "dispatched": bool(row.get("dispatched")),
-            "post_execution": True,
-            "deterministic": True,
-        }
-        expected_root = _sha256_json(material_row)
-        if str(row.get("action_root") or "") != expected_root:
-            chain_ok = False
-            break
-        parent = expected_root
-    # parent_action_root empty only for genesis batch (heights starting at 1).
-    parent_ok = (not cert_parent and height == count) or (
-        bool(cert_parent) and height >= count
-    )
-    min_ok = count >= TOTAL_SPINE_ACTUATION_MIN_ACTIONS and height >= count
-    ok = (
-        bool(claimed)
-        and claimed == expected
-        and str(certificate.get("kind") or "") == TOTAL_SPINE_ACTUATION_KIND
-        and int(certificate.get("schema_version") or 0) == SCHEMA_VERSION
-        and certificate.get("irreversible") is True
-        and certificate.get("post_execution") is True
-        and certificate.get("deterministic") is True
-        and bool(certificate.get("success"))
-        and height >= 1
-        and count >= 1
-        and count == len(actions)
-        and height >= count
-        and bool(bound_root)
-        and bool(claimed_tip)
-        and claimed_tip == recomputed_tip
-        and chain_ok
-        and parent_ok
-        and min_ok
-        and bool(str(certificate.get("execution_digest") or "").strip())
-        and TOTAL_SPINE_ACTUATION_IMPL is True
-    )
-    return {
-        "ok": ok,
-        "action": "verify_total_spine_actuation",
-        "claimed_digest": claimed,
-        "expected_digest": expected,
-        "action_root_ok": claimed_tip == recomputed_tip and bool(claimed_tip),
-        "recomputed_tip_action_root": recomputed_tip,
-        "chain_ok": chain_ok,
-        "min_actions_ok": min_ok,
-        "kind_ok": str(certificate.get("kind") or "")
-        == TOTAL_SPINE_ACTUATION_KIND,
-        "schema_ok": int(certificate.get("schema_version") or 0)
-        == SCHEMA_VERSION,
-        "irreversible_ok": certificate.get("irreversible") is True,
-        "total_spine_actuation": True,
-        "used_skill_route_discovery": legacy_pipeline_was_used(),
-    }
+    return _verify_log_certificate("actuation", certificate)
 
 
 def load_total_spine_actuation_certificate(
@@ -1533,35 +1433,7 @@ def seal_total_spine_settlement_certificate(
     body: Mapping[str, Any],
 ) -> dict[str, Any]:
     """Seal post-actuation observation log into a tamper-evident receipt."""
-    sealed_body = dict(body)
-    observations = list(sealed_body.get("observations") or [])
-    if not str(sealed_body.get("tip_settlement_root") or "").strip():
-        sealed_body["tip_settlement_root"] = compute_total_spine_settlement_root(
-            observations
-        )
-    if not int(sealed_body.get("observation_count") or 0):
-        sealed_body["observation_count"] = len(observations)
-    if not int(sealed_body.get("observation_height") or 0):
-        sealed_body["observation_height"] = len(observations)
-    material = _settlement_certificate_material(sealed_body)
-    material["tip_settlement_root"] = str(
-        sealed_body.get("tip_settlement_root") or ""
-    )
-    digest = _sha256_json(material)
-    sealed = dict(material)
-    sealed["settlement_digest"] = digest
-    sealed["certificate_hash"] = digest
-    sealed["total_spine_settlement"] = True
-    sealed["total_spine_settlement_impl"] = TOTAL_SPINE_SETTLEMENT_IMPL
-    sealed["settled_at"] = str(body.get("settled_at") or utc_now_iso())
-    sealed["used_skill_route_discovery"] = legacy_pipeline_was_used()
-    # Carry the actuation action log so post-settlement clearing can
-    # independently confirm without a separate in-memory actuation handle.
-    # Not part of the digest material.
-    actions = body.get("actions")
-    if isinstance(actions, list) and actions:
-        sealed["actions"] = [dict(row) if isinstance(row, Mapping) else row for row in actions]
-    return sealed
+    return _seal_log_certificate("settlement", body)
 
 
 def settlement_certificate_path(root: Path) -> Path:
@@ -1599,111 +1471,7 @@ def verify_total_spine_settlement_certificate(
     certificate: Mapping[str, Any],
 ) -> dict[str, Any]:
     """Recompute settlement digest and observation roots; fail closed on tamper."""
-    claimed = str(
-        certificate.get("settlement_digest")
-        or certificate.get("certificate_hash")
-        or ""
-    )
-    material = _settlement_certificate_material(certificate)
-    expected = _sha256_json(material)
-    observations = list(certificate.get("observations") or [])
-    recomputed_tip = compute_total_spine_settlement_root(observations)
-    claimed_tip = str(certificate.get("tip_settlement_root") or "")
-    height = int(certificate.get("observation_height") or 0)
-    count = int(certificate.get("observation_count") or 0)
-    bound_root = str(certificate.get("bound_state_root") or "")
-    bound_action = str(certificate.get("bound_action_root") or "")
-    actuation_digest = str(certificate.get("actuation_digest") or "")
-    cert_parent = str(certificate.get("parent_observation_root") or "")
-    chain_ok = True
-    parent = cert_parent
-    for idx, row in enumerate(observations):
-        if not isinstance(row, Mapping):
-            chain_ok = False
-            break
-        if str(row.get("bound_state_root") or "") != bound_root:
-            chain_ok = False
-            break
-        if str(row.get("actuation_digest") or "") != actuation_digest:
-            chain_ok = False
-            break
-        if str(row.get("parent_observation_root") or "") != parent:
-            chain_ok = False
-            break
-        material_row = {
-            "observation_index": int(row.get("observation_index") or idx),
-            "observation_height": int(row.get("observation_height") or (idx + 1)),
-            "capability_id": str(row.get("capability_id") or ""),
-            "bound_state_root": str(row.get("bound_state_root") or ""),
-            "bound_action_root": str(row.get("bound_action_root") or ""),
-            "actuation_digest": str(row.get("actuation_digest") or ""),
-            "claimed_effect_ok": bool(row.get("claimed_effect_ok", True)),
-            "observed_ok": bool(row.get("observed_ok", True)),
-            "observed_exit_code": int(row.get("observed_exit_code") or 0),
-            "independent": bool(row.get("independent", True)),
-            "parent_observation_root": parent,
-            "post_actuation": True,
-            "deterministic": True,
-        }
-        expected_root = _sha256_json(material_row)
-        if str(row.get("observation_root") or "") != expected_root:
-            chain_ok = False
-            break
-        parent = expected_root
-    parent_ok = (not cert_parent and height == count) or (
-        bool(cert_parent) and height >= count
-    )
-    min_ok = (
-        count >= TOTAL_SPINE_SETTLEMENT_MIN_OBSERVATIONS and height >= count
-    )
-    observations_ok = all(
-        isinstance(row, Mapping) and bool(row.get("observed_ok", True))
-        for row in observations
-    )
-    ok = (
-        bool(claimed)
-        and claimed == expected
-        and str(certificate.get("kind") or "") == TOTAL_SPINE_SETTLEMENT_KIND
-        and int(certificate.get("schema_version") or 0) == SCHEMA_VERSION
-        and certificate.get("irreversible") is True
-        and certificate.get("post_actuation") is True
-        and certificate.get("deterministic") is True
-        and certificate.get("settled") is True
-        and bool(certificate.get("success"))
-        and height >= 1
-        and count >= 1
-        and count == len(observations)
-        and height >= count
-        and bool(bound_root)
-        and bool(bound_action)
-        and bool(actuation_digest)
-        and bool(claimed_tip)
-        and claimed_tip == recomputed_tip
-        and chain_ok
-        and parent_ok
-        and min_ok
-        and observations_ok
-        and TOTAL_SPINE_SETTLEMENT_IMPL is True
-    )
-    return {
-        "ok": ok,
-        "action": "verify_total_spine_settlement",
-        "claimed_digest": claimed,
-        "expected_digest": expected,
-        "settlement_root_ok": claimed_tip == recomputed_tip and bool(claimed_tip),
-        "recomputed_tip_settlement_root": recomputed_tip,
-        "chain_ok": chain_ok,
-        "min_observations_ok": min_ok,
-        "observations_ok": observations_ok,
-        "kind_ok": str(certificate.get("kind") or "")
-        == TOTAL_SPINE_SETTLEMENT_KIND,
-        "schema_ok": int(certificate.get("schema_version") or 0)
-        == SCHEMA_VERSION,
-        "irreversible_ok": certificate.get("irreversible") is True,
-        "settled_ok": certificate.get("settled") is True,
-        "total_spine_settlement": True,
-        "used_skill_route_discovery": legacy_pipeline_was_used(),
-    }
+    return _verify_log_certificate("settlement", certificate)
 
 
 def load_total_spine_settlement_certificate(
@@ -3141,27 +2909,7 @@ def seal_total_spine_clearing_certificate(
     body: Mapping[str, Any],
 ) -> dict[str, Any]:
     """Seal post-settlement netting log into a tamper-evident receipt."""
-    sealed_body = dict(body)
-    clearings = list(sealed_body.get("clearings") or [])
-    if not str(sealed_body.get("tip_clearing_root") or "").strip():
-        sealed_body["tip_clearing_root"] = compute_total_spine_clearing_root(
-            clearings
-        )
-    if not int(sealed_body.get("clearing_count") or 0):
-        sealed_body["clearing_count"] = len(clearings)
-    if not int(sealed_body.get("clearing_height") or 0):
-        sealed_body["clearing_height"] = len(clearings)
-    material = _clearing_certificate_material(sealed_body)
-    material["tip_clearing_root"] = str(sealed_body.get("tip_clearing_root") or "")
-    digest = _sha256_json(material)
-    sealed = dict(material)
-    sealed["clearing_digest"] = digest
-    sealed["certificate_hash"] = digest
-    sealed["total_spine_clearing"] = True
-    sealed["total_spine_clearing_impl"] = TOTAL_SPINE_CLEARING_IMPL
-    sealed["cleared_at"] = str(body.get("cleared_at") or utc_now_iso())
-    sealed["used_skill_route_discovery"] = legacy_pipeline_was_used()
-    return sealed
+    return _seal_log_certificate("clearing", body)
 
 
 def clearing_certificate_path(root: Path) -> Path:
@@ -3199,124 +2947,7 @@ def verify_total_spine_clearing_certificate(
     certificate: Mapping[str, Any],
 ) -> dict[str, Any]:
     """Recompute clearing digest and netting roots; fail closed on tamper."""
-    claimed = str(
-        certificate.get("clearing_digest")
-        or certificate.get("certificate_hash")
-        or ""
-    )
-    material = _clearing_certificate_material(certificate)
-    expected = _sha256_json(material)
-    clearings = list(certificate.get("clearings") or [])
-    recomputed_tip = compute_total_spine_clearing_root(clearings)
-    claimed_tip = str(certificate.get("tip_clearing_root") or "")
-    height = int(certificate.get("clearing_height") or 0)
-    count = int(certificate.get("clearing_count") or 0)
-    bound_root = str(certificate.get("bound_state_root") or "")
-    bound_action = str(certificate.get("bound_action_root") or "")
-    actuation_digest = str(certificate.get("actuation_digest") or "")
-    cert_parent = str(certificate.get("parent_clearing_root") or "")
-    chain_ok = True
-    parent = cert_parent
-    book_sig = ""
-    for idx, row in enumerate(clearings):
-        if not isinstance(row, Mapping):
-            chain_ok = False
-            break
-        if str(row.get("bound_state_root") or "") != bound_root:
-            chain_ok = False
-            break
-        if str(row.get("actuation_digest") or "") != actuation_digest:
-            chain_ok = False
-            break
-        if str(row.get("parent_clearing_root") or "") != parent:
-            chain_ok = False
-            break
-        sig = str(row.get("observation_signature") or "")
-        if not book_sig:
-            book_sig = sig
-        elif sig != book_sig:
-            chain_ok = False
-            break
-        material_row = {
-            "settlement_index": int(row.get("settlement_index") or idx),
-            "settlement_height": int(row.get("settlement_height") or (idx + 1)),
-            "settlement_digest": str(row.get("settlement_digest") or ""),
-            "bound_settlement_root": str(row.get("bound_settlement_root") or ""),
-            "bound_state_root": str(row.get("bound_state_root") or ""),
-            "bound_action_root": str(row.get("bound_action_root") or ""),
-            "actuation_digest": str(row.get("actuation_digest") or ""),
-            "observation_count": int(row.get("observation_count") or 0),
-            "observation_signature": sig,
-            "observations_ok": bool(row.get("observations_ok", True)),
-            "net_ok": bool(row.get("net_ok", True)),
-            "discharged": bool(row.get("discharged", True)),
-            "residual": int(row.get("residual") or 0),
-            "independent": bool(row.get("independent", True)),
-            "parent_clearing_root": parent,
-            "post_settlement": True,
-            "deterministic": True,
-        }
-        expected_root = _sha256_json(material_row)
-        if str(row.get("clearing_root") or "") != expected_root:
-            chain_ok = False
-            break
-        parent = expected_root
-    parent_ok = (not cert_parent and height == count) or (
-        bool(cert_parent) and height >= count
-    )
-    min_ok = count >= TOTAL_SPINE_CLEARING_MIN_SETTLEMENTS and height >= count
-    clearings_ok = all(
-        isinstance(row, Mapping)
-        and bool(row.get("net_ok", True))
-        and bool(row.get("discharged", True))
-        and int(row.get("residual") or 0) == 0
-        for row in clearings
-    )
-    ok = (
-        bool(claimed)
-        and claimed == expected
-        and str(certificate.get("kind") or "") == TOTAL_SPINE_CLEARING_KIND
-        and int(certificate.get("schema_version") or 0) == SCHEMA_VERSION
-        and certificate.get("irreversible") is True
-        and certificate.get("post_settlement") is True
-        and certificate.get("deterministic") is True
-        and certificate.get("cleared") is True
-        and certificate.get("discharged") is True
-        and bool(certificate.get("success"))
-        and height >= 1
-        and count >= 1
-        and count == len(clearings)
-        and height >= count
-        and bool(bound_root)
-        and bool(bound_action)
-        and bool(actuation_digest)
-        and bool(claimed_tip)
-        and claimed_tip == recomputed_tip
-        and chain_ok
-        and parent_ok
-        and min_ok
-        and clearings_ok
-        and int(certificate.get("residual") or 0) == 0
-        and TOTAL_SPINE_CLEARING_IMPL is True
-    )
-    return {
-        "ok": ok,
-        "action": "verify_total_spine_clearing",
-        "claimed_digest": claimed,
-        "expected_digest": expected,
-        "clearing_root_ok": claimed_tip == recomputed_tip and bool(claimed_tip),
-        "recomputed_tip_clearing_root": recomputed_tip,
-        "chain_ok": chain_ok,
-        "min_clearings_ok": min_ok,
-        "clearings_ok": clearings_ok,
-        "kind_ok": str(certificate.get("kind") or "") == TOTAL_SPINE_CLEARING_KIND,
-        "schema_ok": int(certificate.get("schema_version") or 0) == SCHEMA_VERSION,
-        "irreversible_ok": certificate.get("irreversible") is True,
-        "cleared_ok": certificate.get("cleared") is True,
-        "discharged_ok": certificate.get("discharged") is True,
-        "total_spine_clearing": True,
-        "used_skill_route_discovery": legacy_pipeline_was_used(),
-    }
+    return _verify_log_certificate("clearing", certificate)
 
 
 def load_total_spine_clearing_certificate(
@@ -4567,7 +4198,11 @@ _LOG_MODULE_PREFIX = "blackhole_agent.upstream_total_spine_"
 
 @dataclass(frozen=True)
 class LogFamilySpec:
-    """Tokens that distinguish one remaining log-family module."""
+    """Tokens that distinguish one remaining log-family module.
+
+    Certificate seal/verify is driven by the fields below: a new hash-chained
+    family is a row, not another copy of the digest/chain walk.
+    """
 
     name: str
     pred: str
@@ -4575,6 +4210,36 @@ class LogFamilySpec:
     summary: str
     exports: tuple[str, ...]
     main_name: str = "main"
+    # Certificate engine (seal + verify).
+    kind: str = ""
+    filename: str = ""
+    impl_flag: str = ""
+    min_value: int = 2
+    rows_key: str = "actions"
+    tip_key: str = "tip_action_root"
+    count_key: str = "action_count"
+    height_key: str = "action_height"
+    parent_key: str = "parent_action_root"
+    row_root_key: str = "action_root"
+    digest_key: str = "actuation_digest"
+    timestamp_key: str = "actuated_at"
+    post_flag: str = "post_execution"
+    material_fn: str = "_actuation_certificate_material"
+    tip_fn: str = "compute_total_spine_action_root"
+    row_material_fn: str = "_actuation_row_material"
+    carry_keys: tuple[str, ...] = ()
+    bind_fields: tuple[str, ...] = ("bound_state_root",)
+    required_nonempty: tuple[str, ...] = ("bound_state_root",)
+    required_true: tuple[str, ...] = ()
+    required_zero: tuple[str, ...] = ()
+    require_execution_digest: bool = False
+    book_sig_field: str = ""
+    rows_ok_fn: str = ""
+    verify_root_ok_key: str = "action_root_ok"
+    verify_recomputed_key: str = "recomputed_tip_action_root"
+    verify_min_ok_key: str = "min_actions_ok"
+    verify_rows_ok_key: str = ""
+    verify_flag_keys: tuple[tuple[str, str], ...] = ()
 
 
 # Public names the physical actuation module exposed (api-surface probe).
@@ -4704,6 +4369,27 @@ LOG_FAMILY_SPECS: dict[str, LogFamilySpec] = {
             "Closes the inert state-root cliff."
         ),
         exports=_ACTUATION_EXPORTS,
+        kind=TOTAL_SPINE_ACTUATION_KIND,
+        filename=TOTAL_SPINE_ACTUATION_FILENAME,
+        impl_flag="TOTAL_SPINE_ACTUATION_IMPL",
+        min_value=TOTAL_SPINE_ACTUATION_MIN_ACTIONS,
+        rows_key="actions",
+        tip_key="tip_action_root",
+        count_key="action_count",
+        height_key="action_height",
+        parent_key="parent_action_root",
+        row_root_key="action_root",
+        digest_key="actuation_digest",
+        timestamp_key="actuated_at",
+        post_flag="post_execution",
+        material_fn="_actuation_certificate_material",
+        tip_fn="compute_total_spine_action_root",
+        row_material_fn="_actuation_row_material",
+        required_nonempty=("bound_state_root",),
+        require_execution_digest=True,
+        verify_root_ok_key="action_root_ok",
+        verify_recomputed_key="recomputed_tip_action_root",
+        verify_min_ok_key="min_actions_ok",
     ),
     "settlement": LogFamilySpec(
         name="settlement",
@@ -4715,6 +4401,32 @@ LOG_FAMILY_SPECS: dict[str, LogFamilySpec] = {
         ),
         exports=_SETTLEMENT_EXPORTS,
         main_name="settlement_main",
+        kind=TOTAL_SPINE_SETTLEMENT_KIND,
+        filename=TOTAL_SPINE_SETTLEMENT_FILENAME,
+        impl_flag="TOTAL_SPINE_SETTLEMENT_IMPL",
+        min_value=TOTAL_SPINE_SETTLEMENT_MIN_OBSERVATIONS,
+        rows_key="observations",
+        tip_key="tip_settlement_root",
+        count_key="observation_count",
+        height_key="observation_height",
+        parent_key="parent_observation_root",
+        row_root_key="observation_root",
+        digest_key="settlement_digest",
+        timestamp_key="settled_at",
+        post_flag="post_actuation",
+        material_fn="_settlement_certificate_material",
+        tip_fn="compute_total_spine_settlement_root",
+        row_material_fn="_settlement_row_material",
+        carry_keys=("actions",),
+        bind_fields=("bound_state_root", "actuation_digest"),
+        required_nonempty=("bound_state_root", "bound_action_root", "actuation_digest"),
+        required_true=("settled",),
+        rows_ok_fn="_settlement_rows_ok",
+        verify_root_ok_key="settlement_root_ok",
+        verify_recomputed_key="recomputed_tip_settlement_root",
+        verify_min_ok_key="min_observations_ok",
+        verify_rows_ok_key="observations_ok",
+        verify_flag_keys=(("settled_ok", "settled"),),
     ),
     "clearing": LogFamilySpec(
         name="clearing",
@@ -4726,6 +4438,33 @@ LOG_FAMILY_SPECS: dict[str, LogFamilySpec] = {
         ),
         exports=_CLEARING_EXPORTS,
         main_name="clearing_main",
+        kind=TOTAL_SPINE_CLEARING_KIND,
+        filename=TOTAL_SPINE_CLEARING_FILENAME,
+        impl_flag="TOTAL_SPINE_CLEARING_IMPL",
+        min_value=TOTAL_SPINE_CLEARING_MIN_SETTLEMENTS,
+        rows_key="clearings",
+        tip_key="tip_clearing_root",
+        count_key="clearing_count",
+        height_key="clearing_height",
+        parent_key="parent_clearing_root",
+        row_root_key="clearing_root",
+        digest_key="clearing_digest",
+        timestamp_key="cleared_at",
+        post_flag="post_settlement",
+        material_fn="_clearing_certificate_material",
+        tip_fn="compute_total_spine_clearing_root",
+        row_material_fn="_clearing_row_material",
+        bind_fields=("bound_state_root", "actuation_digest"),
+        required_nonempty=("bound_state_root", "bound_action_root", "actuation_digest"),
+        required_true=("cleared", "discharged"),
+        required_zero=("residual",),
+        book_sig_field="observation_signature",
+        rows_ok_fn="_clearing_rows_ok",
+        verify_root_ok_key="clearing_root_ok",
+        verify_recomputed_key="recomputed_tip_clearing_root",
+        verify_min_ok_key="min_clearings_ok",
+        verify_rows_ok_key="clearings_ok",
+        verify_flag_keys=(("cleared_ok", "cleared"), ("discharged_ok", "discharged")),
     ),
 }
 
@@ -4819,4 +4558,419 @@ def install_log_family_finder() -> None:
 
     if not any(isinstance(finder, _LogFamilyFinder) for finder in sys.meta_path):
         sys.meta_path.append(_LogFamilyFinder())
+
+
+# ---------------------------------------------------------------------------
+# Spec-driven certificate seal/verify. Public family names stay thin wrappers.
+# ---------------------------------------------------------------------------
+
+
+def _actuation_row_material(
+    row: Mapping[str, Any], idx: int, parent: str
+) -> dict[str, Any]:
+    return {
+        "action_index": int(row.get("action_index") or idx),
+        "action_height": int(row.get("action_height") or (idx + 1)),
+        "capability_id": str(row.get("capability_id") or ""),
+        "bound_state_root": str(row.get("bound_state_root") or ""),
+        "execution_digest": str(row.get("execution_digest") or ""),
+        "parent_action_root": parent,
+        "effect_ok": bool(row.get("effect_ok", True)),
+        "effect_exit_code": int(row.get("effect_exit_code") or 0),
+        "dispatched": bool(row.get("dispatched")),
+        "post_execution": True,
+        "deterministic": True,
+    }
+
+
+def _settlement_row_material(
+    row: Mapping[str, Any], idx: int, parent: str
+) -> dict[str, Any]:
+    return {
+        "observation_index": int(row.get("observation_index") or idx),
+        "observation_height": int(row.get("observation_height") or (idx + 1)),
+        "capability_id": str(row.get("capability_id") or ""),
+        "bound_state_root": str(row.get("bound_state_root") or ""),
+        "bound_action_root": str(row.get("bound_action_root") or ""),
+        "actuation_digest": str(row.get("actuation_digest") or ""),
+        "claimed_effect_ok": bool(row.get("claimed_effect_ok", True)),
+        "observed_ok": bool(row.get("observed_ok", True)),
+        "observed_exit_code": int(row.get("observed_exit_code") or 0),
+        "independent": bool(row.get("independent", True)),
+        "parent_observation_root": parent,
+        "post_actuation": True,
+        "deterministic": True,
+    }
+
+
+def _clearing_row_material(
+    row: Mapping[str, Any], idx: int, parent: str
+) -> dict[str, Any]:
+    return {
+        "settlement_index": int(row.get("settlement_index") or idx),
+        "settlement_height": int(row.get("settlement_height") or (idx + 1)),
+        "settlement_digest": str(row.get("settlement_digest") or ""),
+        "bound_settlement_root": str(row.get("bound_settlement_root") or ""),
+        "bound_state_root": str(row.get("bound_state_root") or ""),
+        "bound_action_root": str(row.get("bound_action_root") or ""),
+        "actuation_digest": str(row.get("actuation_digest") or ""),
+        "observation_count": int(row.get("observation_count") or 0),
+        "observation_signature": str(row.get("observation_signature") or ""),
+        "observations_ok": bool(row.get("observations_ok", True)),
+        "net_ok": bool(row.get("net_ok", True)),
+        "discharged": bool(row.get("discharged", True)),
+        "residual": int(row.get("residual") or 0),
+        "independent": bool(row.get("independent", True)),
+        "parent_clearing_root": parent,
+        "post_settlement": True,
+        "deterministic": True,
+    }
+
+
+def _settlement_rows_ok(rows: Sequence[Any]) -> bool:
+    return all(
+        isinstance(row, Mapping) and bool(row.get("observed_ok", True))
+        for row in rows
+    )
+
+
+def _clearing_rows_ok(rows: Sequence[Any]) -> bool:
+    return all(
+        isinstance(row, Mapping)
+        and bool(row.get("net_ok", True))
+        and bool(row.get("discharged", True))
+        and int(row.get("residual") or 0) == 0
+        for row in rows
+    )
+
+
+def _log_family_spec(name: str) -> LogFamilySpec:
+    spec = LOG_FAMILY_SPECS.get(name)
+    if spec is None:
+        raise KeyError(name)
+    return spec
+
+
+def _seal_log_certificate(name: str, body: Mapping[str, Any]) -> dict[str, Any]:
+    """Seal one log-family certificate from :data:`LOG_FAMILY_SPECS`."""
+
+    spec = _log_family_spec(name)
+    host = sys.modules[__name__]
+    material_fn = getattr(host, spec.material_fn)
+    tip_fn = getattr(host, spec.tip_fn)
+    impl = getattr(host, spec.impl_flag)
+    sealed_body = dict(body)
+    rows = list(sealed_body.get(spec.rows_key) or [])
+    if not str(sealed_body.get(spec.tip_key) or "").strip():
+        sealed_body[spec.tip_key] = tip_fn(rows)
+    if not int(sealed_body.get(spec.count_key) or 0):
+        sealed_body[spec.count_key] = len(rows)
+    if not int(sealed_body.get(spec.height_key) or 0):
+        sealed_body[spec.height_key] = len(rows)
+    material = material_fn(sealed_body)
+    material[spec.tip_key] = str(sealed_body.get(spec.tip_key) or "")
+    digest = _sha256_json(material)
+    sealed = dict(material)
+    sealed[spec.digest_key] = digest
+    sealed["certificate_hash"] = digest
+    sealed[f"total_spine_{spec.name}"] = True
+    sealed[f"total_spine_{spec.name}_impl"] = impl
+    sealed[spec.timestamp_key] = str(body.get(spec.timestamp_key) or utc_now_iso())
+    sealed["used_skill_route_discovery"] = legacy_pipeline_was_used()
+    for key in spec.carry_keys:
+        value = body.get(key)
+        if isinstance(value, list) and value:
+            sealed[key] = [
+                dict(row) if isinstance(row, Mapping) else row for row in value
+            ]
+    return sealed
+
+
+def _verify_log_certificate(
+    name: str, certificate: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Recompute digest and row roots for one log family; fail closed on tamper."""
+
+    spec = _log_family_spec(name)
+    host = sys.modules[__name__]
+    material_fn = getattr(host, spec.material_fn)
+    tip_fn = getattr(host, spec.tip_fn)
+    row_material_fn = getattr(host, spec.row_material_fn)
+    impl = getattr(host, spec.impl_flag)
+    claimed = str(
+        certificate.get(spec.digest_key)
+        or certificate.get("certificate_hash")
+        or ""
+    )
+    material = material_fn(certificate)
+    expected = _sha256_json(material)
+    rows = list(certificate.get(spec.rows_key) or [])
+    recomputed_tip = tip_fn(rows)
+    claimed_tip = str(certificate.get(spec.tip_key) or "")
+    height = int(certificate.get(spec.height_key) or 0)
+    count = int(certificate.get(spec.count_key) or 0)
+    cert_parent = str(certificate.get(spec.parent_key) or "")
+    bind_expected = {
+        field: str(certificate.get(field) or "") for field in spec.bind_fields
+    }
+    chain_ok = True
+    parent = cert_parent
+    book_sig = ""
+    for idx, row in enumerate(rows):
+        if not isinstance(row, Mapping):
+            chain_ok = False
+            break
+        if any(
+            str(row.get(field) or "") != expected_value
+            for field, expected_value in bind_expected.items()
+        ):
+            chain_ok = False
+            break
+        if str(row.get(spec.parent_key) or "") != parent:
+            chain_ok = False
+            break
+        if spec.book_sig_field:
+            sig = str(row.get(spec.book_sig_field) or "")
+            if not book_sig:
+                book_sig = sig
+            elif sig != book_sig:
+                chain_ok = False
+                break
+        material_row = row_material_fn(row, idx, parent)
+        expected_root = _sha256_json(material_row)
+        if str(row.get(spec.row_root_key) or "") != expected_root:
+            chain_ok = False
+            break
+        parent = expected_root
+    parent_ok = (not cert_parent and height == count) or (
+        bool(cert_parent) and height >= count
+    )
+    min_ok = count >= spec.min_value and height >= count
+    rows_ok = True
+    if spec.rows_ok_fn:
+        rows_ok = bool(getattr(host, spec.rows_ok_fn)(rows))
+    required_ok = all(
+        bool(str(certificate.get(field) or "").strip())
+        for field in spec.required_nonempty
+    )
+    flags_ok = all(certificate.get(flag) is True for flag in spec.required_true)
+    zeros_ok = all(int(certificate.get(field) or 0) == 0 for field in spec.required_zero)
+    exec_ok = True
+    if spec.require_execution_digest:
+        exec_ok = bool(str(certificate.get("execution_digest") or "").strip())
+    ok = (
+        bool(claimed)
+        and claimed == expected
+        and str(certificate.get("kind") or "") == spec.kind
+        and int(certificate.get("schema_version") or 0) == SCHEMA_VERSION
+        and certificate.get("irreversible") is True
+        and certificate.get(spec.post_flag) is True
+        and certificate.get("deterministic") is True
+        and bool(certificate.get("success"))
+        and height >= 1
+        and count >= 1
+        and count == len(rows)
+        and height >= count
+        and bool(claimed_tip)
+        and claimed_tip == recomputed_tip
+        and chain_ok
+        and parent_ok
+        and min_ok
+        and rows_ok
+        and required_ok
+        and flags_ok
+        and zeros_ok
+        and exec_ok
+        and impl is True
+    )
+    result: dict[str, Any] = {
+        "ok": ok,
+        "action": f"verify_total_spine_{spec.name}",
+        "claimed_digest": claimed,
+        "expected_digest": expected,
+        spec.verify_root_ok_key: claimed_tip == recomputed_tip and bool(claimed_tip),
+        spec.verify_recomputed_key: recomputed_tip,
+        "chain_ok": chain_ok,
+        spec.verify_min_ok_key: min_ok,
+        "kind_ok": str(certificate.get("kind") or "") == spec.kind,
+        "schema_ok": int(certificate.get("schema_version") or 0) == SCHEMA_VERSION,
+        "irreversible_ok": certificate.get("irreversible") is True,
+        f"total_spine_{spec.name}": True,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+    if spec.verify_rows_ok_key:
+        result[spec.verify_rows_ok_key] = rows_ok
+    for out_key, cert_key in spec.verify_flag_keys:
+        result[out_key] = certificate.get(cert_key) is True
+    return result
+
+
+def builtin_log_family_engine_proof() -> dict[str, Any]:
+    """Hermetic proof: three log families share one seal/verify engine."""
+
+    import inspect
+    import tempfile
+
+    host = sys.modules[__name__]
+    checks: dict[str, bool] = {}
+    wired: dict[str, bool] = {}
+    for name in ("actuation", "settlement", "clearing"):
+        seal_fn = getattr(host, f"seal_total_spine_{name}_certificate")
+        verify_fn = getattr(host, f"verify_total_spine_{name}_certificate")
+        wired[f"{name}_seal"] = "_seal_log_certificate" in inspect.getsource(seal_fn)
+        wired[f"{name}_verify"] = "_verify_log_certificate" in inspect.getsource(
+            verify_fn
+        )
+    checks["wired_wrappers"] = all(wired.values())
+    checks["three_specs"] = set(LOG_FAMILY_SPECS) == {
+        "actuation",
+        "settlement",
+        "clearing",
+    }
+    checks["shared_seal"] = callable(_seal_log_certificate)
+    checks["shared_verify"] = callable(_verify_log_certificate)
+
+    state_root = "s" * 64
+    execution_digest = "e" * 64
+    actions = build_total_spine_action_log(
+        capabilities=list(TOTAL_SPINE_DEFAULT_EFFECT_CAPABILITIES),
+        bound_state_root=state_root,
+        execution_digest=execution_digest,
+    )
+    act_body: dict[str, Any] = {
+        "schema_version": SCHEMA_VERSION,
+        "kind": TOTAL_SPINE_ACTUATION_KIND,
+        "root_layer": TOTAL_SPINE_DEFAULT_ROOT,
+        "bound_state_root": state_root,
+        "bound_state_height": 1,
+        "execution_digest": execution_digest,
+        "actions": actions,
+        "capabilities": [str(row.get("capability_id") or "") for row in actions],
+        "effects_applied": True,
+        "effects_ok": True,
+        "post_execution": True,
+        "deterministic": True,
+        "irreversible": True,
+        "success": True,
+    }
+    sealed_act = seal_total_spine_actuation_certificate(act_body)
+    generic_act = _seal_log_certificate("actuation", act_body)
+    act_verify = verify_total_spine_actuation_certificate(sealed_act)
+    checks["actuation_seal_matches"] = (
+        sealed_act.get("actuation_digest") == generic_act.get("actuation_digest")
+        and bool(sealed_act.get("actuation_digest"))
+    )
+    checks["actuation_verify_ok"] = act_verify.get("ok") is True
+    tampered_act = dict(sealed_act)
+    tampered_act["bound_state_root"] = "t" * 64
+    checks["actuation_tamper_closed"] = (
+        verify_total_spine_actuation_certificate(tampered_act).get("ok") is False
+    )
+
+    observations = observe_total_spine_actions(
+        actions=actions,
+        actuation_digest=str(sealed_act.get("actuation_digest") or ""),
+        bound_state_root=state_root,
+    )
+    set_body: dict[str, Any] = {
+        "schema_version": SCHEMA_VERSION,
+        "kind": TOTAL_SPINE_SETTLEMENT_KIND,
+        "root_layer": TOTAL_SPINE_DEFAULT_ROOT,
+        "bound_state_root": state_root,
+        "bound_action_root": str(sealed_act.get("tip_action_root") or ""),
+        "actuation_digest": str(sealed_act.get("actuation_digest") or ""),
+        "execution_digest": execution_digest,
+        "actions": list(sealed_act.get("actions") or []),
+        "observations": observations,
+        "capabilities": [str(row.get("capability_id") or "") for row in observations],
+        "contract_met": True,
+        "contract_machine": False,
+        "settled": True,
+        "observations_ok": True,
+        "effects_ok": True,
+        "post_actuation": True,
+        "deterministic": True,
+        "irreversible": True,
+        "success": True,
+    }
+    sealed_set = seal_total_spine_settlement_certificate(set_body)
+    generic_set = _seal_log_certificate("settlement", set_body)
+    set_verify = verify_total_spine_settlement_certificate(sealed_set)
+    checks["settlement_seal_matches"] = (
+        sealed_set.get("settlement_digest") == generic_set.get("settlement_digest")
+        and bool(sealed_set.get("settlement_digest"))
+    )
+    checks["settlement_verify_ok"] = set_verify.get("ok") is True
+    checks["settlement_carries_actions"] = bool(sealed_set.get("actions"))
+    tampered_set = dict(sealed_set)
+    tampered_set["bound_action_root"] = "x" * 64
+    checks["settlement_tamper_closed"] = (
+        verify_total_spine_settlement_certificate(tampered_set).get("ok") is False
+    )
+
+    peer = dict(sealed_set)
+    peer["settled_at"] = "peer"
+    sealed_peer = seal_total_spine_settlement_certificate(peer)
+    legs = net_total_spine_settlements([sealed_set, sealed_peer])
+    clr_body: dict[str, Any] = {
+        "schema_version": SCHEMA_VERSION,
+        "kind": TOTAL_SPINE_CLEARING_KIND,
+        "root_layer": TOTAL_SPINE_DEFAULT_ROOT,
+        "bound_state_root": state_root,
+        "bound_action_root": str(sealed_set.get("bound_action_root") or ""),
+        "actuation_digest": str(sealed_set.get("actuation_digest") or ""),
+        "bound_settlement_root": str(sealed_set.get("tip_settlement_root") or ""),
+        "settlement_digest": str(sealed_set.get("settlement_digest") or ""),
+        "clearings": legs,
+        "gross_count": 2,
+        "net_count": 2,
+        "residual": 0,
+        "capabilities": list(sealed_set.get("capabilities") or []),
+        "contract_met": True,
+        "contract_machine": False,
+        "cleared": True,
+        "clearings_ok": True,
+        "settlements_ok": True,
+        "net_ok": True,
+        "discharged": True,
+        "post_settlement": True,
+        "deterministic": True,
+        "irreversible": True,
+        "success": True,
+    }
+    sealed_clr = seal_total_spine_clearing_certificate(clr_body)
+    generic_clr = _seal_log_certificate("clearing", clr_body)
+    clr_verify = verify_total_spine_clearing_certificate(sealed_clr)
+    checks["clearing_seal_matches"] = (
+        sealed_clr.get("clearing_digest") == generic_clr.get("clearing_digest")
+        and bool(sealed_clr.get("clearing_digest"))
+    )
+    checks["clearing_verify_ok"] = clr_verify.get("ok") is True
+    tampered_clr = dict(sealed_clr)
+    tampered_clr["residual"] = 1
+    checks["clearing_tamper_closed"] = (
+        verify_total_spine_clearing_certificate(tampered_clr).get("ok") is False
+    )
+
+    with tempfile.TemporaryDirectory(prefix="blackhole-log-family-") as tmp:
+        root = Path(tmp)
+        written = write_total_spine_actuation_certificate(root, act_body)
+        loaded = load_total_spine_actuation_certificate(root)
+        checks["actuation_roundtrip"] = (
+            loaded.get("actuation_digest") == written.get("actuation_digest")
+            and loaded.get("total_spine_actuation_loaded") is True
+        )
+
+    checks["no_skill_route"] = not legacy_pipeline_was_used()
+    wired_count = sum(1 for ok in wired.values() if ok)
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "action": "log_family_engine_proof",
+        "ok": all(checks.values()) and wired_count == 6,
+        "checks": checks,
+        "wired": wired,
+        "wired_count": wired_count,
+        "families": sorted(LOG_FAMILY_SPECS),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
 
