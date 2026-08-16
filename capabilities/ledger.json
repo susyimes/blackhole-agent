@@ -4405,6 +4405,40 @@
       ],
       "updated_at": "2026-08-16T07:20:00.000000Z"
     },
+    "capability.spine-family-admission": {
+      "behavior_paths": [
+        "src/blackhole_agent/upstream_total_spine_effects.py",
+        "src/blackhole_agent/upstream_control_engine.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Late-tower pair-effect families are compact admissions: emergence, reorganization, and rehabilitation derive from PairEffectAdmission rows so a new late-tower family is compact tokens plus a chain row rather than another 40-field PairEffectSpec copy.",
+      "created_at": "2026-08-16T08:10:00.000000Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.spine-signature-catalog",
+        "capability.spine-family-engine",
+        "capability.spine-family-catalog",
+        "capability.equivalence-gate"
+      ],
+      "description": "Late-tower pair-effect families (emergence onward) derive from a compact PairEffectAdmission row. Predecessor nouns come from the already-registered pred spec. A new late-tower family is compact tokens plus a SPINE_FAMILY_CHAIN row, not another 40-field host spec copy. Historical solvency callers and sealed tokens stay unchanged.",
+      "entry": "blackhole_agent.upstream_total_spine_effects:builtin_spine_family_admission_proof",
+      "id": "capability.spine-family-admission",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-16T08:10:00.000000Z",
+      "name": "Total-spine family admission",
+      "proof_command": "uv run python -c \"from blackhole_agent.upstream_total_spine_effects import builtin_spine_family_admission_proof; r=builtin_spine_family_admission_proof(); assert r['ok'] and int(r.get('admission_count') or 0) == 3 and int(r.get('spec_count') or 0) == 16 and int(r.get('wired_count') or 0) >= 6 and all(r.get('checks') or {}) and all(r.get('wired') or {}) and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": 1,
+      "source_mission_id": "20260816T073742Z-e8b1bc61",
+      "tags": [
+        "spine-stage",
+        "simplification",
+        "admission",
+        "evidence"
+      ],
+      "updated_at": "2026-08-16T08:10:00.000000Z"
+    },
     "capability.spine-family-catalog": {
       "behavior_paths": [
         "src/blackhole_agent/upstream_spine_catalog.py",
@@ -9518,5 +9552,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-08-16T07:07:36.204582Z"
+  "updated_at": "2026-08-16T08:10:00.000000Z"
 }

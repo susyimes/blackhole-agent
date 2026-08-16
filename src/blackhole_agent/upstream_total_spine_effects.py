@@ -8,6 +8,9 @@ The only real differences are per-effect tokens (nouns, pair codes, verdict
 fields, adjectives, refusal-kind suffixes, and a few historical residue
 strings). Those now live in :data:`PAIR_EFFECT_SPECS`; leftover public
 signature blocks derive from tokens plus a compact quirk overlay.
+Late-tower families (emergence onward) are compact
+:class:`PairEffectAdmission` rows — a new family is those tokens plus a
+chain row, not another 40-field spec copy.
 The logic lives here once.
 
 Synthesized modules keep the historical import paths
@@ -506,6 +509,169 @@ def derive_spine_contract_chain_maps(
 
 
 PAIR_EFFECT_SPECS: dict[str, PairEffectSpec] = {}
+SPINE_FAMILY_ADMISSION_IMPL = True
+_LATE_COLLECT_TAIL: tuple[str, ...] = (
+    "risk",
+    "capital",
+    "funding",
+    "collateral",
+    "margin",
+    "custody",
+    "delivery",
+)
+
+
+@dataclass(frozen=True)
+class PairEffectAdmission:
+    """Compact late-tower family. Shape-private tokens are derived.
+
+    A new post-emergence family is this row plus a ``SPINE_FAMILY_CHAIN``
+    entry, not another 40-field :class:`PairEffectSpec` copy. Historical
+    residue stays as optional overlays (``post_key``, ``short_resume_dir``,
+    ``out_tip_skip``). Predecessor nouns are read from the already-registered
+    pred spec.
+    """
+
+    effect: str
+    pred: str
+    verb: str
+    plural: str
+    code: str
+    versus: str
+    adj_1: str
+    adj_2: str
+    abbr: str
+    counterpart: str = "requirement"
+    post_key: str = ""
+    short_resume_dir: str = ""
+    out_tip_skip: tuple[str, ...] = ()
+    refusal_confirm_missing: str = ""
+
+
+def _late_code_upper(code: str) -> str:
+    if not code:
+        return ""
+    return code[0].upper() + code[1:].lower()
+
+
+def derive_late_pair_effect_spec(
+    admission: PairEffectAdmission,
+    *,
+    pred_spec: PairEffectSpec | None = None,
+) -> PairEffectSpec:
+    """Build one late-tower pair-effect spec from a compact admission row."""
+
+    pred_spec = pred_spec or PAIR_EFFECT_SPECS.get(admission.pred)
+    if pred_spec is None:
+        raise KeyError(
+            f"late-tower admission {admission.effect!r} needs pred "
+            f"{admission.pred!r} already registered"
+        )
+    versus = admission.versus
+    pred_code = pred_spec.code
+    return PairEffectSpec(
+        effect=admission.effect,
+        live_dir="live",
+        short_dir="short",
+        short_resume_dir=admission.short_resume_dir
+        or f"live-{admission.abbr}",
+        out_tip_skip=admission.out_tip_skip,
+        out_tip_alias={admission.effect: admission.pred},
+        plural=admission.plural,
+        verb=admission.verb,
+        pred=admission.pred,
+        pred_plural=pred_spec.plural,
+        code=admission.code,
+        code_upper=_late_code_upper(admission.code),
+        pred_code=pred_code,
+        pred_code_upper=_late_code_upper(pred_code),
+        verdict_1=f"{admission.adj_1}_ok",
+        verdict_2=f"{versus}_ok",
+        adj_1=admission.adj_1,
+        adj_2=admission.adj_2,
+        adj_1_negated=f"un{pred_spec.adj_1}",
+        counterpart=admission.counterpart,
+        pred_done=pred_spec.adj_1,
+        pred_verdict_1=pred_spec.adj_2,
+        pred_verdict_2=f"{pred_code}_ok",
+        post_key=admission.post_key or f"post_{admission.effect}",
+        min_name=admission.plural.upper(),
+        collect_push=(admission.pred, *_LATE_COLLECT_TAIL),
+        abbr=admission.abbr,
+        chain_tag="risk",
+        out_extra_flags=("resolution",),
+        confirm_source="preds_or_body",
+        confirm_accessor_plural=pred_spec.plural,
+        confirm_drops="self_loaded",
+        refusal_confirm_missing=(
+            admission.refusal_confirm_missing or f"{versus}_missing"
+        ),
+        refusal_pred_tampered="margin_tampered",
+        refusal_pred_partial="margin_partial",
+        refusal_pred_short="margins_short",
+        refusal_pred_not_done=f"capital_un{pred_spec.adj_1}",
+        refusal_pred_unmet="capital_uncapacitated",
+        refusal_code_failed=f"{pred_code}_failed",
+        summary=(
+            f"Post-{admission.pred} {admission.effect}-versus-{versus} "
+            "for the absolute total spine."
+        ),
+    )
+
+
+def admit_late_pair_effect(
+    admission: PairEffectAdmission,
+    *,
+    pred_spec: PairEffectSpec | None = None,
+) -> PairEffectSpec:
+    """Register one late-tower family from a compact admission row."""
+
+    spec = derive_late_pair_effect_spec(admission, pred_spec=pred_spec)
+    _register(spec)
+    return PAIR_EFFECT_SPECS[spec.effect]
+
+
+LATE_PAIR_ADMISSIONS: tuple[PairEffectAdmission, ...] = (
+    PairEffectAdmission(
+        effect="emergence",
+        pred="restructuring",
+        verb="emerge",
+        plural="emergences",
+        code="evc",
+        versus="confirmation",
+        adj_1="emerged",
+        adj_2="confirmed",
+        abbr="emg",
+        out_tip_skip=("restructuring",),
+    ),
+    PairEffectAdmission(
+        effect="reorganization",
+        pred="emergence",
+        verb="reorganize",
+        plural="reorganizations",
+        code="rvc",
+        versus="charter",
+        adj_1="reorganized",
+        adj_2="chartered",
+        abbr="reorg",
+        short_resume_dir="live-emg",
+        out_tip_skip=("emergence", "restructuring"),
+    ),
+    PairEffectAdmission(
+        effect="rehabilitation",
+        pred="reorganization",
+        verb="rehabilitate",
+        plural="rehabilitations",
+        code="rvr",
+        versus="remedy",
+        counterpart="remedy",
+        adj_1="rehabilitated",
+        adj_2="remedied",
+        abbr="reh",
+        post_key="post_reorganization",
+        out_tip_skip=("reorganization", "emergence", "restructuring"),
+    ),
+)
 
 
 def _register(spec: PairEffectSpec) -> None:
@@ -773,141 +939,8 @@ _register(
 )
 
 
-_register(
-    PairEffectSpec(
-        effect='emergence',
-        live_dir='live',
-        short_dir='short',
-        short_resume_dir='live-emg',
-        out_tip_skip=('restructuring',),
-        out_tip_alias={'emergence': 'restructuring'},
-        plural='emergences',
-        verb='emerge',
-        pred='restructuring',
-        pred_plural='restructurings',
-        code='evc',
-        code_upper='Evc',
-        pred_code='rvm',
-        pred_code_upper='Rvm',
-        verdict_1='emerged_ok',
-        verdict_2='confirmation_ok',
-        adj_1='emerged',
-        adj_2='confirmed',
-        adj_1_negated='unrestructured',
-        counterpart='requirement',
-        pred_done='restructured',
-        pred_verdict_1='mandated',
-        pred_verdict_2='rvm_ok',
-        post_key='post_emergence',
-        min_name='EMERGENCES',
-        collect_push=('restructuring', 'risk', 'capital', 'funding', 'collateral', 'margin', 'custody', 'delivery'),
-        abbr='emg',
-        chain_tag='risk',
-        out_extra_flags=('resolution',),
-        confirm_source='preds_or_body',
-        confirm_accessor_plural='restructurings',
-        confirm_drops='self_loaded',
-        refusal_pred_tampered='margin_tampered',
-        refusal_pred_partial='margin_partial',
-        refusal_pred_short='margins_short',
-        refusal_pred_not_done='capital_unrestructured',
-        refusal_pred_unmet='capital_uncapacitated',
-        refusal_code_failed='rvm_failed',
-        summary='Post-restructuring emergence-versus-confirmation for the absolute total spine.',
-    )
-)
-
-
-_register(
-    PairEffectSpec(
-        effect='reorganization',
-        live_dir='live',
-        short_dir='short',
-        short_resume_dir='live-emg',
-        out_tip_skip=('emergence', 'restructuring'),
-        out_tip_alias={'reorganization': 'emergence'},
-        plural='reorganizations',
-        verb='reorganize',
-        pred='emergence',
-        pred_plural='emergences',
-        code='rvc',
-        code_upper='Rvc',
-        pred_code='evc',
-        pred_code_upper='Evc',
-        verdict_1='reorganized_ok',
-        verdict_2='charter_ok',
-        adj_1='reorganized',
-        adj_2='chartered',
-        adj_1_negated='unemerged',
-        counterpart='requirement',
-        pred_done='emerged',
-        pred_verdict_1='confirmed',
-        pred_verdict_2='evc_ok',
-        post_key='post_reorganization',
-        min_name='REORGANIZATIONS',
-        collect_push=('emergence', 'risk', 'capital', 'funding', 'collateral', 'margin', 'custody', 'delivery'),
-        abbr='reorg',
-        chain_tag='risk',
-        out_extra_flags=('resolution',),
-        confirm_source='preds_or_body',
-        confirm_accessor_plural='emergences',
-        confirm_drops='self_loaded',
-        refusal_confirm_missing='charter_missing',
-        refusal_pred_tampered='margin_tampered',
-        refusal_pred_partial='margin_partial',
-        refusal_pred_short='margins_short',
-        refusal_pred_not_done='capital_unemerged',
-        refusal_pred_unmet='capital_uncapacitated',
-        refusal_code_failed='evc_failed',
-        summary='Post-emergence reorganization-versus-charter for the absolute total spine.',
-    )
-)
-
-
-_register(
-    PairEffectSpec(
-        effect='rehabilitation',
-        live_dir='live',
-        short_dir='short',
-        short_resume_dir='live-reh',
-        out_tip_skip=('reorganization', 'emergence', 'restructuring'),
-        out_tip_alias={'rehabilitation': 'reorganization'},
-        plural='rehabilitations',
-        verb='rehabilitate',
-        pred='reorganization',
-        pred_plural='reorganizations',
-        code='rvr',
-        code_upper='Rvr',
-        pred_code='rvc',
-        pred_code_upper='Rvc',
-        verdict_1='rehabilitated_ok',
-        verdict_2='remedy_ok',
-        adj_1='rehabilitated',
-        adj_2='remedied',
-        adj_1_negated='unreorganized',
-        counterpart='remedy',
-        pred_done='reorganized',
-        pred_verdict_1='chartered',
-        pred_verdict_2='rvc_ok',
-        post_key='post_reorganization',
-        min_name='REHABILITATIONS',
-        collect_push=('reorganization', 'risk', 'capital', 'funding', 'collateral', 'margin', 'custody', 'delivery'),
-        abbr='reh',
-        chain_tag='risk',
-        out_extra_flags=('resolution',),
-        confirm_source='preds_or_body',
-        confirm_accessor_plural='reorganizations',
-        confirm_drops='self_loaded',
-        refusal_confirm_missing='remedy_missing',
-        refusal_pred_tampered='margin_tampered',
-        refusal_pred_partial='margin_partial',
-        refusal_pred_short='margins_short',
-        refusal_pred_not_done='capital_unreorganized',
-        refusal_pred_unmet='capital_uncapacitated',
-        refusal_code_failed='rvc_failed',
-        summary='Post-reorganization rehabilitation-versus-remedy for the absolute total spine.',
-    )
-)
+for _admission in LATE_PAIR_ADMISSIONS:
+    admit_late_pair_effect(_admission)
 
 
 _register(
@@ -4473,6 +4506,146 @@ def builtin_spine_rehabilitation_proof() -> dict[str, Any]:
         "done_when_met": ok,
     }
     out = REPO_ROOT / "artifacts" / "capability-spine-rehabilitation"
+    out.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(out / "plane-report.json", report)
+    return report
+
+
+def builtin_spine_family_admission_proof() -> dict[str, Any]:
+    """Hermetic proof: late-tower pair effects are compact admission rows."""
+
+    from dataclasses import fields as dc_fields
+
+    checks: dict[str, bool] = {}
+    effects_src = Path(__file__).read_text(encoding="utf-8")
+    live_names = tuple(row.effect for row in LATE_PAIR_ADMISSIONS)
+    checks["impl"] = SPINE_FAMILY_ADMISSION_IMPL is True
+    checks["admission_count"] = live_names == (
+        "emergence",
+        "reorganization",
+        "rehabilitation",
+    )
+    checks["admissions_loop"] = "for _admission in LATE_PAIR_ADMISSIONS" in effects_src
+    checks["admit_used"] = "admit_late_pair_effect(_admission)" in effects_src
+    leftover_blocks = False
+    for name in live_names:
+        if f"PairEffectSpec(\n        effect='{name}'" in effects_src:
+            leftover_blocks = True
+        if f'PairEffectSpec(\n        effect="{name}"' in effects_src:
+            leftover_blocks = True
+    checks["no_leftover_spec_blocks"] = leftover_blocks is False
+
+    token_ok = True
+    derive_matches = True
+    skip = {"signatures"}
+    for admission in LATE_PAIR_ADMISSIONS:
+        live = PAIR_EFFECT_SPECS.get(admission.effect)
+        if live is None:
+            token_ok = False
+            derive_matches = False
+            continue
+        derived = derive_late_pair_effect_spec(admission)
+        for field in dc_fields(PairEffectSpec):
+            if field.name in skip:
+                continue
+            if getattr(derived, field.name) != getattr(live, field.name):
+                derive_matches = False
+        if not (live.signatures and len(live.signatures) == 12):
+            token_ok = False
+    checks["derive_matches_live"] = derive_matches
+    checks["live_signatures"] = token_ok
+    rehab = PAIR_EFFECT_SPECS.get("rehabilitation")
+    checks["rehab_tokens"] = bool(
+        rehab is not None
+        and rehab.verb == "rehabilitate"
+        and rehab.code == "rvr"
+        and rehab.counterpart == "remedy"
+        and rehab.post_key == "post_reorganization"
+        and rehab.pred == "reorganization"
+    )
+    emergence = PAIR_EFFECT_SPECS.get("emergence")
+    checks["emergence_residue"] = bool(
+        emergence is not None
+        and emergence.counterpart == "requirement"
+        and emergence.verdict_2 == "confirmation_ok"
+        and emergence.refusal_confirm_missing == "confirmation_missing"
+    )
+    reorg = PAIR_EFFECT_SPECS.get("reorganization")
+    checks["reorg_residue"] = bool(
+        reorg is not None
+        and reorg.short_resume_dir == "live-emg"
+        and reorg.counterpart == "requirement"
+        and reorg.verdict_2 == "charter_ok"
+    )
+
+    probe = PairEffectAdmission(
+        effect="supervision",
+        pred="rehabilitation",
+        verb="supervise",
+        plural="supervisions",
+        code="svn",
+        versus="covenant",
+        adj_1="supervised",
+        adj_2="covenanted",
+        abbr="sup",
+    )
+    derived_probe = derive_late_pair_effect_spec(probe)
+    checks["probe_derived"] = (
+        derived_probe.effect == "supervision"
+        and derived_probe.pred == "rehabilitation"
+        and derived_probe.verb == "supervise"
+        and derived_probe.code_upper == "Svn"
+        and derived_probe.pred_code == "rvr"
+        and derived_probe.verdict_2 == "covenant_ok"
+        and derived_probe.pred_done == "rehabilitated"
+        and derived_probe.collect_push[0] == "rehabilitation"
+        and derived_probe.confirm_source == "preds_or_body"
+    )
+    checks["probe_not_live"] = "supervision" not in PAIR_EFFECT_SPECS
+    try:
+        derive_late_pair_effect_spec(
+            PairEffectAdmission(
+                effect="orphan",
+                pred="not-a-family",
+                verb="orphan",
+                plural="orphans",
+                code="orn",
+                versus="void",
+                adj_1="orphaned",
+                adj_2="voided",
+                abbr="orn",
+            )
+        )
+        checks["missing_pred_refused"] = False
+    except KeyError:
+        checks["missing_pred_refused"] = True
+    checks["pair_count"] = len(PAIR_EFFECT_SPECS) == 16
+    checks["no_skill_route"] = not legacy_pipeline_was_used()
+
+    wired = {
+        "derive": callable(derive_late_pair_effect_spec),
+        "admit": callable(admit_late_pair_effect),
+        "admissions": bool(LATE_PAIR_ADMISSIONS),
+        "impl": SPINE_FAMILY_ADMISSION_IMPL is True,
+        "rehab": "rehabilitation" in PAIR_EFFECT_SPECS,
+        "probe": derived_probe.effect == "supervision",
+    }
+    ok = all(checks.values()) and all(wired.values())
+    report = {
+        "schema_version": SCHEMA_VERSION,
+        "action": "spine_family_admission_proof",
+        "ok": ok,
+        "checks": checks,
+        "wired": wired,
+        "wired_count": sum(1 for value in wired.values() if value),
+        "admission_count": len(LATE_PAIR_ADMISSIONS),
+        "spec_count": len(PAIR_EFFECT_SPECS),
+        "probe_family": "supervision",
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+        "spine_family_admission": True,
+        "done_when_met": ok,
+    }
+    out = REPO_ROOT / "artifacts" / "capability-spine-family-admission"
     out.mkdir(parents=True, exist_ok=True)
     atomic_write_json(out / "plane-report.json", report)
     return report

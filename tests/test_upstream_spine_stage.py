@@ -576,3 +576,67 @@ def test_builtin_spine_rehabilitation_proof() -> None:
     assert all(result["wired"].values())
     assert "rehabilitation" in PAIR_EFFECT_SPECS
     assert TOTAL_SPINE_CHAIN[-1] == "rehabilitation"
+
+
+def test_builtin_spine_family_admission_proof() -> None:
+    from blackhole_agent.upstream_total_spine_effects import (
+        LATE_PAIR_ADMISSIONS,
+        PAIR_EFFECT_SPECS,
+        PairEffectAdmission,
+        builtin_spine_family_admission_proof,
+        derive_late_pair_effect_spec,
+    )
+
+    result = builtin_spine_family_admission_proof()
+    assert result["ok"] is True
+    assert result["admission_count"] == 3
+    assert result["spec_count"] == 16
+    assert result["probe_family"] == "supervision"
+    assert result["used_skill_route_discovery"] is False
+    assert all(result["checks"].values())
+    assert all(result["wired"].values())
+    assert [row.effect for row in LATE_PAIR_ADMISSIONS] == [
+        "emergence",
+        "reorganization",
+        "rehabilitation",
+    ]
+    probe = PairEffectAdmission(
+        effect="supervision",
+        pred="rehabilitation",
+        verb="supervise",
+        plural="supervisions",
+        code="svn",
+        versus="covenant",
+        adj_1="supervised",
+        adj_2="covenanted",
+        abbr="sup",
+    )
+    derived = derive_late_pair_effect_spec(probe)
+    assert derived.verb == "supervise"
+    assert derived.pred_code == "rvr"
+    assert "supervision" not in PAIR_EFFECT_SPECS
+
+
+def test_spine_family_admission_probe_is_not_live() -> None:
+    from blackhole_agent.upstream_total_spine_effects import (
+        PAIR_EFFECT_SPECS,
+        PairEffectAdmission,
+        derive_late_pair_effect_spec,
+    )
+
+    probe = PairEffectAdmission(
+        effect="supervision",
+        pred="rehabilitation",
+        verb="supervise",
+        plural="supervisions",
+        code="svn",
+        versus="covenant",
+        adj_1="supervised",
+        adj_2="covenanted",
+        abbr="sup",
+    )
+    derived = derive_late_pair_effect_spec(probe)
+    assert derived.collect_push[0] == "rehabilitation"
+    assert derived.out_tip_alias == {"supervision": "rehabilitation"}
+    assert derived.refusal_confirm_missing == "covenant_missing"
+    assert "supervision" not in PAIR_EFFECT_SPECS

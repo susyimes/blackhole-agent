@@ -1,0 +1,37 @@
+{
+  "action": "spine_family_admission_proof",
+  "admission_count": 3,
+  "checks": {
+    "admission_count": true,
+    "admissions_loop": true,
+    "admit_used": true,
+    "derive_matches_live": true,
+    "emergence_residue": true,
+    "impl": true,
+    "live_signatures": true,
+    "missing_pred_refused": true,
+    "no_leftover_spec_blocks": true,
+    "no_skill_route": true,
+    "pair_count": true,
+    "probe_derived": true,
+    "probe_not_live": true,
+    "rehab_tokens": true,
+    "reorg_residue": true
+  },
+  "done_when_met": true,
+  "ok": true,
+  "probe_family": "supervision",
+  "schema_version": 1,
+  "spec_count": 16,
+  "spine_family_admission": true,
+  "used_skill_route_discovery": false,
+  "wired": {
+    "admissions": true,
+    "admit": true,
+    "derive": true,
+    "impl": true,
+    "probe": true,
+    "rehab": true
+  },
+  "wired_count": 6
+}

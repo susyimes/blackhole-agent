@@ -163,6 +163,13 @@ Composition:
   Outcome-contract auto-materialization is one kind-set walk. A new
   family of any kind is a spec+config row, not another host
   materializer copy. Historical names stay as thin wrappers.
+* total-spine **family admission** — leftover late-tower
+  (emergence, reorganization, rehabilitation) 40-field
+  ``PairEffectSpec`` copies derive from a compact
+  :class:`PairEffectAdmission` row. Predecessor nouns come from the
+  already-registered pred spec. A new late-tower family is compact
+  tokens plus a chain row, not another host spec copy. Historical
+  solvency callers and sealed tokens stay unchanged.
 * total-spine **post-settlement clearing** — closes the settled-but-
   uncleared cliff: after settlement seals a unilateral observation
   receipt, ``clear_total_spine(...)`` (and ``run_total_spine(clearing=True)``)
