@@ -496,6 +496,70 @@ def test_spine_family_catalog_probe_extends_views() -> None:
     assert "rehabilitation" in base["public_flags"]
 
 
+def test_builtin_spine_contract_engine_proof() -> None:
+    from blackhole_agent.upstream_total_spine_logs import (
+        LOG_FAMILY_SPECS,
+        builtin_spine_contract_engine_proof,
+        derive_log_family_contract_config,
+        derive_spine_contract_engine_catalog,
+        derive_spine_contract_engine_kind_sets,
+    )
+
+    result = builtin_spine_contract_engine_proof()
+    assert result["ok"] is True
+    assert result["catalog_count"] == 21
+    assert result["kind_count"] == 21
+    assert result["pair_count"] == 16
+    assert result["log_count"] == 4
+    assert result["pre_count"] == 1
+    assert result["used_skill_route_discovery"] is False
+    assert all(result["checks"].values())
+    assert all(result["wired"].values())
+    catalog = derive_spine_contract_engine_catalog()
+    assert catalog["quorum"]["runner"] == "federate"
+    assert catalog["execution"]["runner"] == "multi_height"
+    assert catalog["settlement"]["runner"] == "settle"
+    assert catalog["clearing"]["runner"] == "clear"
+    assert catalog["solvency"]["kind"] == "pair_effect"
+    kinds = derive_spine_contract_engine_kind_sets()
+    assert [name for name, _ in kinds[:5]] == [
+        "quorum",
+        "execution",
+        "actuation",
+        "settlement",
+        "clearing",
+    ]
+    settlement = derive_log_family_contract_config(LOG_FAMILY_SPECS["settlement"])
+    assert settlement["fields"]["settled_ok"] == ["lit", True]
+    assert "notation" not in catalog
+
+
+def test_spine_contract_engine_probe_is_a_catalog_row() -> None:
+    from blackhole_agent.upstream_total_spine_logs import (
+        LogFamilySpec,
+        derive_log_family_contract_config,
+        derive_spine_contract_engine_catalog,
+    )
+
+    probe = LogFamilySpec(
+        name="notation",
+        pred="rehabilitation",
+        verb="notate",
+        summary="probe",
+        exports=(),
+        impl_flag="TOTAL_SPINE_NOTATION_IMPL",
+        ledger_id="capability.upstream-total-spine-notation",
+    )
+    cfg = derive_log_family_contract_config(probe)
+    assert cfg["kind"] == "log_family"
+    assert "notation_ok" in cfg["kinds"]
+    live = derive_spine_contract_engine_catalog()
+    assert "notation" not in live
+    probe_catalog = derive_spine_contract_engine_catalog(extra_log=(probe,))
+    assert "notation" in probe_catalog
+    assert "notation" not in live
+
+
 def test_builtin_spine_rehabilitation_proof() -> None:
     from blackhole_agent.upstream_total_spine_effects import (
         PAIR_EFFECT_SPECS,

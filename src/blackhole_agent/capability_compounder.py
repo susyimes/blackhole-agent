@@ -2684,15 +2684,19 @@ def snapshot_outcome_metrics(
 
 
 # ---------------------------------------------------------------------------
-# Contract-context materializers: pair-effect family (catalog-driven).
+# Contract-context materializers: one family contract engine.
 #
-# Each materializer proves a plane's machine-checkable predicates hermetically
-# with a synthetic absolute-tower run and fills the empty context. Leftover
-# ``_MAT_PAIR_CONFIG`` / chain-map / kind-set copies derive from pair-effect
-# tokens plus a compact quirk overlay. A new pair-effect family is a token
-# row, not another config dict. Historical ``materialize_total_spine_*``
-# names stay as thin wrappers. No skill-route discovery.
+# Pair-effect, log-family, and pre-consensus (quorum) leftover copies share
+# one catalog. Each row proves a plane's machine-checkable predicates
+# hermetically with a synthetic absolute-tower run and fills the empty
+# context. A new family is a spec+config row, not another host materializer
+# copy. Historical ``materialize_total_spine_*`` names stay as thin wrappers.
+# No skill-route discovery.
 # ---------------------------------------------------------------------------
+
+
+def _mat_role_key(raw: Any) -> str:
+    return str(raw).strip("'\"")
 
 
 def _mat_eval_value(role: list, result: Mapping[str, Any], ledger_ok: bool) -> Any:
@@ -2700,11 +2704,20 @@ def _mat_eval_value(role: list, result: Mapping[str, Any], ledger_ok: bool) -> A
     if kind == "lit":
         return role[1]
     if kind == "int":
-        return int(result.get(role[1]) or int(role[2] or 0))
+        return int(result.get(_mat_role_key(role[1])) or int(role[2] or 0))
     if kind == "bool":
-        return bool(result.get(role[1]) or (role[2] if len(role) > 2 and role[2] else False))
+        return bool(
+            result.get(_mat_role_key(role[1]))
+            or (role[2] if len(role) > 2 and role[2] else False)
+        )
     if kind == "get":
-        return result.get(role[1].strip("'\""))
+        return result.get(_mat_role_key(role[1]))
+    if kind == "list":
+        return list(result.get(_mat_role_key(role[1])) or [])
+    if kind == "is_true":
+        return result.get(_mat_role_key(role[1])) is True
+    if kind == "ge1":
+        return int(result.get(_mat_role_key(role[1])) or 0) >= 1
     if kind == "ledger":
         return ledger_ok
     raise ValueError(f"unknown materializer field role: {role!r}")
@@ -2714,19 +2727,19 @@ def _mat_eval_ok(terms: list, result: Mapping[str, Any], ledger_ok: bool) -> boo
     for term in terms:
         kind = term[0]
         if kind == "bool":
-            if not bool(result.get(term[1])):
+            if not bool(result.get(_mat_role_key(term[1]))):
                 return False
         elif kind == "is":
-            if not (result.get(term[1]) is term[2]):
+            if not (result.get(_mat_role_key(term[1])) is term[2]):
                 return False
         elif kind == "min":
-            if not (int(result.get(term[1]) or 0) >= int(term[2])):
+            if not (int(result.get(_mat_role_key(term[1])) or 0) >= int(term[2])):
                 return False
         elif kind == "ledger":
             if not ledger_ok:
                 return False
         elif kind == "not_bool":
-            if bool(result.get(term[1])):
+            if bool(result.get(_mat_role_key(term[1]))):
                 return False
         else:
             raise ValueError(f"unknown ok-term role: {term!r}")
@@ -2931,6 +2944,193 @@ def _mat_inline_run(ce: Any, spec: Any, scratch: Path, repo_path: Path) -> Mappi
     return prev
 
 
+def _mat_run_federate(
+    ce: Any, scratch: Path, name: str, repo_path: Path, cfg: Mapping[str, Any]
+) -> Mapping[str, Any]:
+    paths = _mat_finality_origins(
+        ce,
+        scratch,
+        name,
+        capabilities=tuple(cfg.get("origin_capabilities") or ("repo.import-health",)),
+    )
+    result = ce.federate_total_spine(
+        paths,
+        out_root=scratch / "quorum",
+        quorum=True,
+    )
+    excl = (
+        result.get("total_spine_quorum_byzantine_excluded_count")
+        or len(result.get("total_spine_quorum_byzantine_excluded") or [])
+        or 0
+    )
+    merged = dict(result)
+    merged["total_spine_quorum_byzantine_excluded_count"] = int(excl)
+    return merged
+
+
+def _mat_run_multi_height(
+    ce: Any, scratch: Path, name: str, repo_path: Path, cfg: Mapping[str, Any]
+) -> Mapping[str, Any]:
+    paths = _mat_finality_origins(
+        ce,
+        scratch,
+        name,
+        capabilities=tuple(cfg.get("origin_capabilities") or ("repo.import-health",)),
+    )
+    quorumed = ce.federate_total_spine(
+        paths,
+        out_root=scratch / "quorum",
+        quorum=True,
+    )
+    h1 = ce.execute_total_spine(
+        quorumed.get("total_spine_federation_certificate"),
+        out_root=scratch / "exec-h1",
+        prior_tip=str(quorumed.get("total_spine_federation_bound_tip") or ""),
+        state_height=1,
+    )
+    root1 = str(h1.get("total_spine_state_root") or "")
+    h2 = ce.execute_total_spine(
+        quorumed.get("total_spine_federation_certificate"),
+        out_root=scratch / "exec-h2",
+        prior_tip=str(h1.get("total_spine_execution_bound_tip") or ""),
+        parent_state_root=root1,
+        state_height=2,
+    )
+    merged = dict(h2)
+    merged["ok"] = bool(h1.get("ok")) and bool(h2.get("ok"))
+    merged["parent_state_root"] = root1
+    merged["total_spine_state_applied"] = h1.get("total_spine_state_applied")
+    if h1.get("total_spine_execution") is not True:
+        merged["total_spine_execution"] = h1.get("total_spine_execution")
+    if h1.get("used_skill_route_discovery") or h2.get("used_skill_route_discovery"):
+        merged["used_skill_route_discovery"] = True
+    return merged
+
+
+def _mat_run_prologue(
+    ce: Any, scratch: Path, name: str, repo_path: Path, cfg: Mapping[str, Any]
+) -> Mapping[str, Any]:
+    _quorumed, _executed, actuated = _mat_prologue(ce, scratch, name, repo_path)
+    return actuated
+
+
+def _mat_run_settle(
+    ce: Any, scratch: Path, name: str, repo_path: Path, cfg: Mapping[str, Any]
+) -> Mapping[str, Any]:
+    _quorumed, _executed, actuated = _mat_prologue(ce, scratch, name, repo_path)
+    kwargs: dict[str, Any] = {
+        "out_root": scratch / "set-h1",
+        "prior_tip": str(actuated.get("total_spine_actuation_bound_tip") or ""),
+        "repo_path": repo_path,
+    }
+    if cfg.get("settle_passes_body"):
+        kwargs["body"] = dict(actuated)
+    return ce.settle_total_spine(
+        actuated.get("total_spine_actuation_certificate"),
+        **kwargs,
+    )
+
+
+def _mat_run_clear(
+    ce: Any, scratch: Path, name: str, repo_path: Path, cfg: Mapping[str, Any]
+) -> Mapping[str, Any]:
+    _quorumed, _executed, actuated = _mat_prologue(ce, scratch, name, repo_path)
+    settled = ce.settle_total_spine(
+        actuated.get("total_spine_actuation_certificate"),
+        out_root=scratch / "set-h1",
+        prior_tip=str(actuated.get("total_spine_actuation_bound_tip") or ""),
+        body=dict(actuated),
+        repo_path=repo_path,
+    )
+    return ce.clear_total_spine(
+        settled.get("total_spine_settlement_certificate"),
+        out_root=scratch / "clr-h1",
+        prior_tip=str(settled.get("total_spine_settlement_bound_tip") or ""),
+        body=dict(settled),
+        actuation=actuated.get("total_spine_actuation_certificate"),
+        repo_path=repo_path,
+    )
+
+
+_MAT_RUNNERS: dict[str, Callable[..., Mapping[str, Any]]] = {
+    "federate": _mat_run_federate,
+    "multi_height": _mat_run_multi_height,
+    "prologue": _mat_run_prologue,
+    "settle": _mat_run_settle,
+    "clear": _mat_run_clear,
+}
+
+
+def _materialize_catalog_contract(
+    name: str,
+    cfg: Mapping[str, Any],
+    repo_path: Path,
+    context: MutableMapping[str, Any],
+    *,
+    ledger: CapabilityLedger | None = None,
+) -> dict[str, Any]:
+    """Fill empty plane context for one catalog (log / pre-consensus) row."""
+
+    aliases = tuple(cfg.get("aliases") or (name, f"{name}_plane"))
+    existing = _plane_context(context, *aliases)
+    if isinstance(existing, Mapping) and existing.get("ok"):
+        return dict(existing)
+
+    try:
+        from blackhole_agent import upstream_control_engine as ce
+    except Exception:  # noqa: BLE001
+        return {}
+
+    impl_flag = str(cfg.get("impl_flag") or "")
+    if impl_flag and getattr(ce, impl_flag, None) is not True:
+        return {}
+
+    ledger_ok = True
+    if ledger is not None:
+        entry = ledger.capabilities.get(str(cfg.get("ledger_id") or ""))
+        blob = (
+            ((entry.capability_delta or "") if entry else "")
+            + " "
+            + ((entry.name or "") if entry else "")
+            + " "
+            + " ".join((entry.tags or ()) if entry else ())
+        ).lower()
+        tokens = [str(token) for token in (cfg.get("ledger_tokens") or (name,))]
+        ledger_ok = entry is not None and any(token in blob for token in tokens)
+
+    import shutil
+    import tempfile
+
+    scratch = Path(
+        tempfile.mkdtemp(
+            prefix=str(cfg.get("scratch_prefix") or f"contract-total-spine-{name}-")
+        )
+    )
+    try:
+        runner = _MAT_RUNNERS.get(str(cfg.get("runner") or ""))
+        if runner is None:
+            raise KeyError(f"unknown spine contract runner: {cfg.get('runner')!r}")
+        result = runner(ce, scratch, name, repo_path, cfg)
+        plane = {
+            "ok": _mat_eval_ok(list(cfg.get("ok_terms") or []), result, ledger_ok),
+        }
+        for key, role in (cfg.get("fields") or {}).items():
+            plane[key] = _mat_eval_value(list(role), result, ledger_ok)
+        for alias in aliases:
+            context[alias] = plane
+        for copy_key in cfg.get("context_copies") or ():
+            if copy_key in plane:
+                context[str(copy_key)] = plane[copy_key]
+        context.setdefault(
+            "used_skill_route_discovery", plane.get("used_skill_route_discovery")
+        )
+        return plane
+    except Exception:  # noqa: BLE001
+        return {}
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
 def materialize_spine_family_contract_context(
     name: str,
     repo_path: Path,
@@ -2941,19 +3141,18 @@ def materialize_spine_family_contract_context(
     """Materialize one catalog family. Public dispatch is this function."""
 
     from blackhole_agent.upstream_total_spine_effects import PAIR_EFFECT_SPECS
+    from blackhole_agent.upstream_total_spine_logs import (
+        derive_spine_contract_engine_catalog,
+    )
 
-    if name not in PAIR_EFFECT_SPECS:
+    catalog = derive_spine_contract_engine_catalog()
+    if name not in catalog:
         raise KeyError(f"unknown spine contract family: {name!r}")
-    return _materialize_pair_effect(name, repo_path, context, ledger=ledger)
-
-
-_LOG_CONTRACT_KIND_SETS: tuple[tuple[str, frozenset[str]], ...] = (
-    ("quorum", frozenset(['quorum_ok', 'quorum_met', 'min_quorum', 'byzantine_excluded', 'quorum_cert_valid'])),
-    ("execution", frozenset(['execution_ok', 'state_applied_ok', 'min_state_height', 'state_root_valid'])),
-    ("actuation", frozenset(['actuation_ok', 'effects_applied_ok', 'min_actions', 'action_root_valid'])),
-    ("settlement", frozenset(['settlement_ok', 'settled_ok', 'min_settlements', 'settlement_root_valid'])),
-    ("clearing", frozenset(['clearing_ok', 'cleared_ok', 'min_clearings', 'clearing_root_valid'])),
-)
+    if name in PAIR_EFFECT_SPECS:
+        return _materialize_pair_effect(name, repo_path, context, ledger=ledger)
+    return _materialize_catalog_contract(
+        name, catalog[name], repo_path, context, ledger=ledger
+    )
 
 
 def materialize_total_spine_quorum_contract_context(
@@ -2971,109 +3170,9 @@ def materialize_total_spine_quorum_contract_context(
     Byzantine minority) through ``federate_total_spine(quorum=True)`` — O(ms),
     no skill-route, no full depth-28 dispatch.
     """
-    existing = _plane_context(context, "quorum", "quorum_plane", "consensus")
-    if isinstance(existing, Mapping) and existing.get("ok"):
-        return dict(existing)
-
-    try:
-        from blackhole_agent import upstream_control_engine as _ce
-        from blackhole_agent.upstream_control_engine import (
-            SCHEMA_VERSION,
-            TOTAL_SPINE_FINALITY_KIND,
-            TOTAL_SPINE_QUORUM_IMPL,
-            federate_total_spine,
-            utc_now_iso,
-            write_total_spine_finality_certificate,
-        )
-    except Exception:  # noqa: BLE001
-        return {}
-
-    if TOTAL_SPINE_QUORUM_IMPL is not True:
-        return {}
-
-    # Require the durable ledger capability when present so contract success
-    # compounds the registered total-spine quorum surface, not a silent fork.
-    ledger_ok = True
-    if ledger is not None:
-        entry = ledger.capabilities.get("capability.upstream-total-spine-quorum")
-        ledger_ok = entry is not None and "quorum" in (
-            (entry.capability_delta or "")
-            + " "
-            + (entry.name or "")
-            + " "
-            + " ".join(entry.tags or ())
-        ).lower()
-
-    import shutil
-    import tempfile
-
-    scratch = Path(tempfile.mkdtemp(prefix="contract-total-spine-quorum-"))
-    try:
-        paths = _mat_finality_origins(_ce, scratch, "quorum", capabilities=("repo.import-health",))
-        result = _ce.federate_total_spine(
-            paths,
-            out_root=scratch / "quorum",
-            quorum=True,
-        )
-        excl = (
-            result.get("total_spine_quorum_byzantine_excluded_count")
-            or len(result.get("total_spine_quorum_byzantine_excluded") or [])
-            or 0
-        )
-        plane = {
-            "ok": (
-                bool(result.get("ok"))
-                and result.get("total_spine_quorum") is True
-                and result.get("total_spine_quorum_met") is True
-                and int(excl) >= 1
-                and ledger_ok
-                and not bool(result.get("used_skill_route_discovery"))
-            ),
-            "action": "total_spine_quorum_contract",
-            "quorum_met": result.get("total_spine_quorum_met") is True,
-            "threshold": int(result.get("total_spine_quorum_threshold") or 0),
-            "quorum_threshold": int(result.get("total_spine_quorum_threshold") or 0),
-            "agreeing_count": int(
-                result.get("total_spine_federation_origin_count") or 0
-            ),
-            "quorum_size": int(
-                result.get("total_spine_federation_origin_count") or 0
-            ),
-            "origin_count": int(
-                result.get("total_spine_federation_origin_count") or 0
-            ),
-            "submitted_count": int(
-                result.get("total_spine_quorum_submitted_count") or 0
-            ),
-            "byzantine_excluded": int(excl) >= 1,
-            "byzantine_excluded_count": int(excl),
-            "byzantine_count": int(excl),
-            "excluded_origins": list(
-                result.get("total_spine_quorum_byzantine_excluded") or []
-            ),
-            "byzantine_origins": list(
-                result.get("total_spine_quorum_byzantine_excluded") or []
-            ),
-            "total_spine_quorum": True,
-            "federation_digest": result.get("total_spine_federation_digest"),
-            "federation_path": result.get("total_spine_federation_path"),
-            "ledger_capability_ok": ledger_ok,
-            "used_skill_route_discovery": bool(
-                result.get("used_skill_route_discovery")
-            ),
-        }
-        context["quorum"] = plane
-        context["quorum_plane"] = plane
-        context["consensus"] = plane
-        context.setdefault(
-            "used_skill_route_discovery", plane.get("used_skill_route_discovery")
-        )
-        return plane
-    except Exception:  # noqa: BLE001
-        return {}
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
-
+    return materialize_spine_family_contract_context(
+        "quorum", repo_path, context, ledger=ledger
+    )
 
 
 def materialize_total_spine_execution_contract_context(
@@ -3090,113 +3189,9 @@ def materialize_total_spine_execution_contract_context(
     them hermetically with synthetic absolute-tower finality → quorum →
     multi-height execution — O(ms), no skill-route, no full depth-28 dispatch.
     """
-    existing = _plane_context(context, "execution", "execution_plane", "worldstate")
-    if isinstance(existing, Mapping) and existing.get("ok"):
-        return dict(existing)
-
-    try:
-        from blackhole_agent import upstream_control_engine as _ce
-        from blackhole_agent.upstream_control_engine import (
-            SCHEMA_VERSION,
-            TOTAL_SPINE_EXECUTION_IMPL,
-            TOTAL_SPINE_FINALITY_KIND,
-            execute_total_spine,
-            federate_total_spine,
-            utc_now_iso,
-            write_total_spine_finality_certificate,
-        )
-    except Exception:  # noqa: BLE001
-        return {}
-
-    if TOTAL_SPINE_EXECUTION_IMPL is not True:
-        return {}
-
-    ledger_ok = True
-    if ledger is not None:
-        entry = ledger.capabilities.get(
-            "capability.upstream-total-spine-execution"
-        )
-        blob = (
-            ((entry.capability_delta or "") if entry else "")
-            + " "
-            + ((entry.name or "") if entry else "")
-            + " "
-            + " ".join((entry.tags or ()) if entry else ())
-        ).lower()
-        ledger_ok = entry is not None and "execution" in blob
-
-    import shutil
-    import tempfile
-
-    scratch = Path(tempfile.mkdtemp(prefix="contract-total-spine-execution-"))
-    try:
-        paths = _mat_finality_origins(_ce, scratch, "execution", capabilities=("repo.import-health",))
-        quorumed = _ce.federate_total_spine(
-            paths,
-            out_root=scratch / "quorum",
-            quorum=True,
-        )
-        h1 = execute_total_spine(
-            quorumed.get("total_spine_federation_certificate"),
-            out_root=scratch / "exec-h1",
-            prior_tip=str(
-                quorumed.get("total_spine_federation_bound_tip") or ""
-            ),
-            state_height=1,
-        )
-        root1 = str(h1.get("total_spine_state_root") or "")
-        h2 = execute_total_spine(
-            quorumed.get("total_spine_federation_certificate"),
-            out_root=scratch / "exec-h2",
-            prior_tip=str(h1.get("total_spine_execution_bound_tip") or ""),
-            parent_state_root=root1,
-            state_height=2,
-        )
-        plane = {
-            "ok": (
-                bool(h1.get("ok"))
-                and bool(h2.get("ok"))
-                and h1.get("total_spine_execution") is True
-                and h2.get("total_spine_execution") is True
-                and h1.get("total_spine_state_applied") is True
-                and int(h2.get("total_spine_state_height") or 0) >= 2
-                and bool(h2.get("total_spine_state_root"))
-                and ledger_ok
-                and not bool(h2.get("used_skill_route_discovery"))
-            ),
-            "action": "total_spine_execution_contract",
-            "state_applied": True,
-            "state_applied_ok": True,
-            "state_root_valid": True,
-            "state_height": int(h2.get("total_spine_state_height") or 0),
-            "tip_height": int(h2.get("total_spine_state_height") or 0),
-            "state_count": 2,
-            "state_root": h2.get("total_spine_state_root"),
-            "tip_state_root": h2.get("total_spine_state_root"),
-            "parent_state_root": root1,
-            "execution_certificate": h2.get(
-                "total_spine_execution_certificate"
-            ),
-            "total_spine_execution": True,
-            "source_kind": h1.get("total_spine_execution_source_kind"),
-            "ledger_capability_ok": ledger_ok,
-            "used_skill_route_discovery": bool(
-                h2.get("used_skill_route_discovery")
-            ),
-        }
-        context["execution"] = plane
-        context["execution_plane"] = plane
-        context["worldstate"] = plane
-        context["state_height"] = plane["state_height"]
-        context["tip_height"] = plane["tip_height"]
-        context.setdefault(
-            "used_skill_route_discovery", plane.get("used_skill_route_discovery")
-        )
-        return plane
-    except Exception:  # noqa: BLE001
-        return {}
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
+    return materialize_spine_family_contract_context(
+        "execution", repo_path, context, ledger=ledger
+    )
 
 
 def materialize_total_spine_actuation_contract_context(
@@ -3213,92 +3208,9 @@ def materialize_total_spine_actuation_contract_context(
     them hermetically with synthetic absolute-tower finality → quorum →
     execution → multi-action actuation — O(ms-s), no skill-route.
     """
-    existing = _plane_context(context, "actuation", "actuation_plane", "effects")
-    if isinstance(existing, Mapping) and existing.get("ok"):
-        return dict(existing)
-
-    try:
-        from blackhole_agent import upstream_control_engine as _ce
-        from blackhole_agent.upstream_control_engine import (
-            SCHEMA_VERSION,
-            TOTAL_SPINE_ACTUATION_IMPL,
-            TOTAL_SPINE_FINALITY_KIND,
-            actuate_total_spine,
-            execute_total_spine,
-            federate_total_spine,
-            utc_now_iso,
-            write_total_spine_finality_certificate,
-        )
-    except Exception:  # noqa: BLE001
-        return {}
-
-    if TOTAL_SPINE_ACTUATION_IMPL is not True:
-        return {}
-
-    ledger_ok = True
-    if ledger is not None:
-        entry = ledger.capabilities.get(
-            "capability.upstream-total-spine-actuation"
-        )
-        blob = (
-            ((entry.capability_delta or "") if entry else "")
-            + " "
-            + ((entry.name or "") if entry else "")
-            + " "
-            + " ".join((entry.tags or ()) if entry else ())
-        ).lower()
-        ledger_ok = entry is not None and "actuation" in blob
-
-    import shutil
-    import tempfile
-
-    scratch = Path(tempfile.mkdtemp(prefix="contract-total-spine-actuation-"))
-    try:
-        quorumed, executed, actuated = _mat_prologue(_ce, scratch, "actuation", repo_path)
-        plane = {
-            "ok": (
-                bool(actuated.get("ok"))
-                and actuated.get("total_spine_actuation") is True
-                and actuated.get("total_spine_effects_applied") is True
-                and int(actuated.get("total_spine_action_count") or 0) >= 2
-                and bool(actuated.get("total_spine_tip_action_root"))
-                and ledger_ok
-                and not bool(actuated.get("used_skill_route_discovery"))
-            ),
-            "action": "total_spine_actuation_contract",
-            "effects_applied": True,
-            "effects_applied_ok": True,
-            "action_root_valid": True,
-            "action_count": int(actuated.get("total_spine_action_count") or 0),
-            "tip_height": int(actuated.get("total_spine_action_height") or 0),
-            "tip_action_height": int(
-                actuated.get("total_spine_action_height") or 0
-            ),
-            "action_root": actuated.get("total_spine_tip_action_root"),
-            "tip_action_root": actuated.get("total_spine_tip_action_root"),
-            "bound_state_root": actuated.get("total_spine_state_root"),
-            "actuation_certificate": actuated.get(
-                "total_spine_actuation_certificate"
-            ),
-            "total_spine_actuation": True,
-            "ledger_capability_ok": ledger_ok,
-            "used_skill_route_discovery": bool(
-                actuated.get("used_skill_route_discovery")
-            ),
-        }
-        context["actuation"] = plane
-        context["actuation_plane"] = plane
-        context["effects"] = plane
-        context["action_count"] = plane["action_count"]
-        context["tip_action_height"] = plane["tip_action_height"]
-        context.setdefault(
-            "used_skill_route_discovery", plane.get("used_skill_route_discovery")
-        )
-        return plane
-    except Exception:  # noqa: BLE001
-        return {}
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
+    return materialize_spine_family_contract_context(
+        "actuation", repo_path, context, ledger=ledger
+    )
 
 
 def materialize_total_spine_settlement_contract_context(
@@ -3315,108 +3227,9 @@ def materialize_total_spine_settlement_contract_context(
     them hermetically with synthetic absolute-tower finality → quorum →
     execution → actuation → settlement — no skill-route.
     """
-    existing = _plane_context(context, "settlement", "settlement_plane")
-    if isinstance(existing, Mapping) and existing.get("ok"):
-        return dict(existing)
-
-    try:
-        from blackhole_agent import upstream_control_engine as _ce
-        from blackhole_agent.upstream_control_engine import (
-            SCHEMA_VERSION,
-            TOTAL_SPINE_FINALITY_KIND,
-            TOTAL_SPINE_SETTLEMENT_IMPL,
-            actuate_total_spine,
-            execute_total_spine,
-            federate_total_spine,
-            settle_total_spine,
-            utc_now_iso,
-            write_total_spine_finality_certificate,
-        )
-    except Exception:  # noqa: BLE001
-        return {}
-
-    if TOTAL_SPINE_SETTLEMENT_IMPL is not True:
-        return {}
-
-    ledger_ok = True
-    if ledger is not None:
-        entry = ledger.capabilities.get(
-            "capability.upstream-total-spine-settlement"
-        )
-        blob = (
-            ((entry.capability_delta or "") if entry else "")
-            + " "
-            + ((entry.name or "") if entry else "")
-            + " "
-            + " ".join((entry.tags or ()) if entry else ())
-        ).lower()
-        ledger_ok = entry is not None and "settlement" in blob
-
-    import shutil
-    import tempfile
-
-    scratch = Path(tempfile.mkdtemp(prefix="contract-total-spine-settlement-"))
-    try:
-        quorumed, executed, actuated = _mat_prologue(_ce, scratch, "settlement", repo_path)
-        settled = settle_total_spine(
-            actuated.get("total_spine_actuation_certificate"),
-            out_root=scratch / "set-h1",
-            prior_tip=str(
-                actuated.get("total_spine_actuation_bound_tip") or ""
-            ),
-            repo_path=repo_path,
-        )
-        plane = {
-            "ok": (
-                bool(settled.get("ok"))
-                and settled.get("total_spine_settlement") is True
-                and settled.get("total_spine_settled") is True
-                and int(settled.get("total_spine_observation_count") or 0) >= 2
-                and bool(settled.get("total_spine_tip_settlement_root"))
-                and ledger_ok
-                and not bool(settled.get("used_skill_route_discovery"))
-            ),
-            "action": "total_spine_settlement_contract",
-            "settled": True,
-            "settled_ok": True,
-            "settlement_root_valid": True,
-            "observation_count": int(
-                settled.get("total_spine_observation_count") or 0
-            ),
-            "tip_height": int(
-                settled.get("total_spine_observation_height") or 0
-            ),
-            "settlement_count": int(
-                settled.get("total_spine_observation_count") or 0
-            ),
-            "settlement_root": settled.get("total_spine_tip_settlement_root"),
-            "tip_settlement_root": settled.get(
-                "total_spine_tip_settlement_root"
-            ),
-            "bound_state_root": settled.get("total_spine_state_root"),
-            "bound_action_root": settled.get("total_spine_tip_action_root"),
-            "settlement_certificate": settled.get(
-                "total_spine_settlement_certificate"
-            ),
-            "certificate_valid": True,
-            "total_spine_settlement": True,
-            "ledger_capability_ok": ledger_ok,
-            "used_skill_route_discovery": bool(
-                settled.get("used_skill_route_discovery")
-            ),
-        }
-        context["settlement"] = plane
-        context["settlement_plane"] = plane
-        context["observation_count"] = plane["observation_count"]
-        context["settlement_count"] = plane["settlement_count"]
-        context.setdefault(
-            "used_skill_route_discovery", plane.get("used_skill_route_discovery")
-        )
-        return plane
-    except Exception:  # noqa: BLE001
-        return {}
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
+    return materialize_spine_family_contract_context(
+        "settlement", repo_path, context, ledger=ledger
+    )
 
 
 def materialize_total_spine_clearing_contract_context(
@@ -3434,118 +3247,9 @@ def materialize_total_spine_clearing_contract_context(
     execution → actuation → settlement → confirmation settlement →
     clearing — no skill-route.
     """
-    existing = _plane_context(context, "clearing", "clearing_plane")
-    if isinstance(existing, Mapping) and existing.get("ok"):
-        return dict(existing)
-
-    try:
-        from blackhole_agent import upstream_control_engine as _ce
-        from blackhole_agent.upstream_control_engine import (
-            SCHEMA_VERSION,
-            TOTAL_SPINE_CLEARING_IMPL,
-            TOTAL_SPINE_FINALITY_KIND,
-            actuate_total_spine,
-            clear_total_spine,
-            execute_total_spine,
-            federate_total_spine,
-            settle_total_spine,
-            utc_now_iso,
-            write_total_spine_finality_certificate,
-        )
-    except Exception:  # noqa: BLE001
-        return {}
-
-    if TOTAL_SPINE_CLEARING_IMPL is not True:
-        return {}
-
-    ledger_ok = True
-    if ledger is not None:
-        entry = ledger.capabilities.get(
-            "capability.upstream-total-spine-clearing"
-        )
-        blob = (
-            ((entry.capability_delta or "") if entry else "")
-            + " "
-            + ((entry.name or "") if entry else "")
-            + " "
-            + " ".join((entry.tags or ()) if entry else ())
-        ).lower()
-        ledger_ok = entry is not None and "clearing" in blob
-
-    import shutil
-    import tempfile
-
-    scratch = Path(tempfile.mkdtemp(prefix="contract-total-spine-clearing-"))
-    try:
-        quorumed, executed, actuated = _mat_prologue(_ce, scratch, "clearing", repo_path)
-        settled = settle_total_spine(
-            actuated.get("total_spine_actuation_certificate"),
-            out_root=scratch / "set-h1",
-            prior_tip=str(
-                actuated.get("total_spine_actuation_bound_tip") or ""
-            ),
-            body=dict(actuated),
-            repo_path=repo_path,
-        )
-        cleared = clear_total_spine(
-            settled.get("total_spine_settlement_certificate"),
-            out_root=scratch / "clr-h1",
-            prior_tip=str(
-                settled.get("total_spine_settlement_bound_tip") or ""
-            ),
-            body=dict(settled),
-            actuation=actuated.get("total_spine_actuation_certificate"),
-            repo_path=repo_path,
-        )
-        plane = {
-            "ok": (
-                bool(cleared.get("ok"))
-                and cleared.get("total_spine_clearing") is True
-                and cleared.get("total_spine_cleared") is True
-                and cleared.get("total_spine_discharged") is True
-                and int(cleared.get("total_spine_clearing_count") or 0) >= 2
-                and bool(cleared.get("total_spine_tip_clearing_root"))
-                and ledger_ok
-                and not bool(cleared.get("used_skill_route_discovery"))
-            ),
-            "action": "total_spine_clearing_contract",
-            "cleared": True,
-            "cleared_ok": True,
-            "clearing_root_valid": True,
-            "clearing_count": int(
-                cleared.get("total_spine_clearing_count") or 0
-            ),
-            "tip_height": int(
-                cleared.get("total_spine_clearing_height") or 0
-            ),
-            "clearing_root": cleared.get("total_spine_tip_clearing_root"),
-            "tip_clearing_root": cleared.get("total_spine_tip_clearing_root"),
-            "bound_state_root": cleared.get("total_spine_state_root"),
-            "bound_action_root": cleared.get("total_spine_tip_action_root"),
-            "bound_settlement_root": cleared.get(
-                "total_spine_tip_settlement_root"
-            ),
-            "clearing_certificate": cleared.get(
-                "total_spine_clearing_certificate"
-            ),
-            "certificate_valid": True,
-            "total_spine_clearing": True,
-            "ledger_capability_ok": ledger_ok,
-            "used_skill_route_discovery": bool(
-                cleared.get("used_skill_route_discovery")
-            ),
-        }
-        context["clearing"] = plane
-        context["clearing_plane"] = plane
-        context["clearing_count"] = plane["clearing_count"]
-        context.setdefault(
-            "used_skill_route_discovery", plane.get("used_skill_route_discovery")
-        )
-        return plane
-    except Exception:  # noqa: BLE001
-        return {}
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
+    return materialize_spine_family_contract_context(
+        "clearing", repo_path, context, ledger=ledger
+    )
 
 
 def materialize_total_spine_delivery_contract_context(
@@ -3902,24 +3606,17 @@ def evaluate_outcome_contract(
     ctx.setdefault("workspace_path", str(root))
     # Auto-materialize total-spine N-of-M quorum evidence for empty-context
     # machine checks (controller complete gates inject no plane context).
-    # Pair-effect kind-sets are catalog data; log/pre-consensus rows stay
-    # the compact leftover prefix until those cores join the family engine.
-    from blackhole_agent.upstream_total_spine_effects import (
-        PAIR_EFFECT_SPECS,
-        derive_pair_effect_contract_kind_sets,
+    # Pair-effect, log-family, and pre-consensus kind-sets are one catalog.
+    from blackhole_agent.upstream_total_spine_logs import (
+        derive_spine_contract_engine_kind_sets,
     )
 
-    kind_sets = _LOG_CONTRACT_KIND_SETS + derive_pair_effect_contract_kind_sets()
+    kind_sets = derive_spine_contract_engine_kind_sets()
     for _mat_effect, _mat_kinds in kind_sets:
         if any(str(item.get("kind") or "") in _mat_kinds for item in predicates):
-            if _mat_effect in PAIR_EFFECT_SPECS:
-                materialize_spine_family_contract_context(
-                    _mat_effect, root, ctx, ledger=ledger
-                )
-            else:
-                globals()[f"materialize_total_spine_{_mat_effect}_contract_context"](
-                    root, ctx, ledger=ledger
-                )
+            materialize_spine_family_contract_context(
+                _mat_effect, root, ctx, ledger=ledger
+            )
     results: list[dict[str, Any]] = []
     for predicate in predicates:
         kind = str(predicate.get("kind") or "")

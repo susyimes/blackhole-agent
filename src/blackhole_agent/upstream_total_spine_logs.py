@@ -3208,6 +3208,415 @@ LOG_FAMILY_SPECS: dict[str, LogFamilySpec] = {
 }
 
 
+LOG_CONTRACT_ENGINE_IMPL = True
+# Historical leftover materializer slices that are data, not another copy.
+_LOG_CONTRACT_QUIRKS: dict[str, dict[str, Any]] = {
+    "execution": {
+        "runner": "multi_height",
+        "aliases": ("execution", "execution_plane", "worldstate"),
+        "context_copies": ("state_height", "tip_height"),
+        "origin_capabilities": ("repo.import-health",),
+        "kinds": frozenset(
+            {
+                "execution_ok",
+                "state_applied_ok",
+                "min_state_height",
+                "state_root_valid",
+            }
+        ),
+        "ok_terms": [
+            ["bool", "ok"],
+            ["is", "total_spine_execution", True],
+            ["is", "total_spine_state_applied", True],
+            ["min", "total_spine_state_height", 2],
+            ["bool", "total_spine_state_root"],
+            ["ledger"],
+            ["not_bool", "used_skill_route_discovery"],
+        ],
+        "fields": {
+            "state_applied": ["lit", True],
+            "state_applied_ok": ["lit", True],
+            "state_root_valid": ["lit", True],
+            "state_height": ["int", "total_spine_state_height", "0"],
+            "tip_height": ["int", "total_spine_state_height", "0"],
+            "state_count": ["lit", 2],
+            "state_root": ["get", "total_spine_state_root"],
+            "tip_state_root": ["get", "total_spine_state_root"],
+            "parent_state_root": ["get", "parent_state_root"],
+            "execution_certificate": ["get", "total_spine_execution_certificate"],
+            "total_spine_execution": ["lit", True],
+            "source_kind": ["get", "total_spine_execution_source_kind"],
+        },
+    },
+    "actuation": {
+        "runner": "prologue",
+        "aliases": ("actuation", "actuation_plane", "effects"),
+        "context_copies": ("action_count", "tip_action_height"),
+        "kinds": frozenset(
+            {
+                "actuation_ok",
+                "effects_applied_ok",
+                "min_actions",
+                "action_root_valid",
+            }
+        ),
+        "ok_terms": [
+            ["bool", "ok"],
+            ["is", "total_spine_actuation", True],
+            ["is", "total_spine_effects_applied", True],
+            ["min", "total_spine_action_count", 2],
+            ["bool", "total_spine_tip_action_root"],
+            ["ledger"],
+            ["not_bool", "used_skill_route_discovery"],
+        ],
+        "fields": {
+            "effects_applied": ["lit", True],
+            "effects_applied_ok": ["lit", True],
+            "action_root_valid": ["lit", True],
+            "action_count": ["int", "total_spine_action_count", "0"],
+            "tip_height": ["int", "total_spine_action_height", "0"],
+            "tip_action_height": ["int", "total_spine_action_height", "0"],
+            "action_root": ["get", "total_spine_tip_action_root"],
+            "tip_action_root": ["get", "total_spine_tip_action_root"],
+            "bound_state_root": ["get", "total_spine_state_root"],
+            "actuation_certificate": ["get", "total_spine_actuation_certificate"],
+            "total_spine_actuation": ["lit", True],
+        },
+    },
+    "settlement": {
+        "runner": "settle",
+        "aliases": ("settlement", "settlement_plane"),
+        "context_copies": ("observation_count", "settlement_count"),
+        "settle_passes_body": False,
+        "kinds": frozenset(
+            {
+                "settlement_ok",
+                "settled_ok",
+                "min_settlements",
+                "settlement_root_valid",
+            }
+        ),
+        "ok_terms": [
+            ["bool", "ok"],
+            ["is", "total_spine_settlement", True],
+            ["is", "total_spine_settled", True],
+            ["min", "total_spine_observation_count", 2],
+            ["bool", "total_spine_tip_settlement_root"],
+            ["ledger"],
+            ["not_bool", "used_skill_route_discovery"],
+        ],
+        "fields": {
+            "settled": ["lit", True],
+            "settled_ok": ["lit", True],
+            "settlement_root_valid": ["lit", True],
+            "observation_count": ["int", "total_spine_observation_count", "0"],
+            "tip_height": ["int", "total_spine_observation_height", "0"],
+            "settlement_count": ["int", "total_spine_observation_count", "0"],
+            "settlement_root": ["get", "total_spine_tip_settlement_root"],
+            "tip_settlement_root": ["get", "total_spine_tip_settlement_root"],
+            "bound_state_root": ["get", "total_spine_state_root"],
+            "bound_action_root": ["get", "total_spine_tip_action_root"],
+            "settlement_certificate": ["get", "total_spine_settlement_certificate"],
+            "certificate_valid": ["lit", True],
+            "total_spine_settlement": ["lit", True],
+        },
+    },
+    "clearing": {
+        "runner": "clear",
+        "aliases": ("clearing", "clearing_plane"),
+        "context_copies": ("clearing_count",),
+        "settle_passes_body": True,
+        "kinds": frozenset(
+            {
+                "clearing_ok",
+                "cleared_ok",
+                "min_clearings",
+                "clearing_root_valid",
+            }
+        ),
+        "ok_terms": [
+            ["bool", "ok"],
+            ["is", "total_spine_clearing", True],
+            ["is", "total_spine_cleared", True],
+            ["is", "total_spine_discharged", True],
+            ["min", "total_spine_clearing_count", 2],
+            ["bool", "total_spine_tip_clearing_root"],
+            ["ledger"],
+            ["not_bool", "used_skill_route_discovery"],
+        ],
+        "fields": {
+            "cleared": ["lit", True],
+            "cleared_ok": ["lit", True],
+            "clearing_root_valid": ["lit", True],
+            "clearing_count": ["int", "total_spine_clearing_count", "0"],
+            "tip_height": ["int", "total_spine_clearing_height", "0"],
+            "clearing_root": ["get", "total_spine_tip_clearing_root"],
+            "tip_clearing_root": ["get", "total_spine_tip_clearing_root"],
+            "bound_state_root": ["get", "total_spine_state_root"],
+            "bound_action_root": ["get", "total_spine_tip_action_root"],
+            "bound_settlement_root": ["get", "total_spine_tip_settlement_root"],
+            "clearing_certificate": ["get", "total_spine_clearing_certificate"],
+            "certificate_valid": ["lit", True],
+            "total_spine_clearing": ["lit", True],
+        },
+    },
+}
+
+_PRE_CONSENSUS_CONTRACT_ROWS: dict[str, dict[str, Any]] = {
+    "quorum": {
+        "kind": "pre_consensus",
+        "runner": "federate",
+        "impl_flag": "TOTAL_SPINE_QUORUM_IMPL",
+        "ledger_id": "capability.upstream-total-spine-quorum",
+        "ledger_tokens": ["quorum"],
+        "aliases": ("quorum", "quorum_plane", "consensus"),
+        "context_copies": (),
+        "origin_capabilities": ("repo.import-health",),
+        "scratch_prefix": "contract-total-spine-quorum-",
+        "kinds": frozenset(
+            {
+                "quorum_ok",
+                "quorum_met",
+                "min_quorum",
+                "byzantine_excluded",
+                "quorum_cert_valid",
+            }
+        ),
+        "ok_terms": [
+            ["bool", "ok"],
+            ["is", "total_spine_quorum", True],
+            ["is", "total_spine_quorum_met", True],
+            ["min", "total_spine_quorum_byzantine_excluded_count", 1],
+            ["ledger"],
+            ["not_bool", "used_skill_route_discovery"],
+        ],
+        "fields": {
+            "action": ["lit", "total_spine_quorum_contract"],
+            "quorum_met": ["is_true", "total_spine_quorum_met"],
+            "threshold": ["int", "total_spine_quorum_threshold", "0"],
+            "quorum_threshold": ["int", "total_spine_quorum_threshold", "0"],
+            "agreeing_count": ["int", "total_spine_federation_origin_count", "0"],
+            "quorum_size": ["int", "total_spine_federation_origin_count", "0"],
+            "origin_count": ["int", "total_spine_federation_origin_count", "0"],
+            "submitted_count": ["int", "total_spine_quorum_submitted_count", "0"],
+            "byzantine_excluded": ["ge1", "total_spine_quorum_byzantine_excluded_count"],
+            "byzantine_excluded_count": [
+                "int",
+                "total_spine_quorum_byzantine_excluded_count",
+                "0",
+            ],
+            "byzantine_count": [
+                "int",
+                "total_spine_quorum_byzantine_excluded_count",
+                "0",
+            ],
+            "excluded_origins": ["list", "total_spine_quorum_byzantine_excluded"],
+            "byzantine_origins": ["list", "total_spine_quorum_byzantine_excluded"],
+            "total_spine_quorum": ["lit", True],
+            "federation_digest": ["get", "total_spine_federation_digest"],
+            "federation_path": ["get", "total_spine_federation_path"],
+            "ledger_capability_ok": ["ledger"],
+            "used_skill_route_discovery": ["bool", "used_skill_route_discovery"],
+        },
+    },
+}
+
+_CONTRACT_ENGINE_PREFIX: tuple[str, ...] = (
+    "quorum",
+    "execution",
+    "actuation",
+    "settlement",
+    "clearing",
+)
+
+
+def log_family_contract_quirks(spec: LogFamilySpec) -> dict[str, Any]:
+    """Historical leftover contract-materializer slices that are data."""
+
+    overlay = _LOG_CONTRACT_QUIRKS.get(spec.name)
+    if overlay is not None:
+        return overlay
+    name = spec.name
+    return {
+        "runner": "multi_height" if spec.shape == "state" else "prologue",
+        "aliases": (name, f"{name}_plane"),
+        "context_copies": (),
+        "origin_capabilities": (
+            "repo.import-health",
+            "capability.ledger-inventory",
+        ),
+        "kinds": frozenset({f"{name}_ok"}),
+        "ok_terms": [
+            ["bool", "ok"],
+            ["is", f"total_spine_{name}", True],
+            ["ledger"],
+            ["not_bool", "used_skill_route_discovery"],
+        ],
+        "fields": {f"total_spine_{name}": ["lit", True]},
+        "ledger_tokens": [name],
+    }
+
+
+def derive_log_family_contract_config(spec: LogFamilySpec) -> dict[str, Any]:
+    """Build the historical leftover materializer row from a log-family spec.
+
+    A new log family is a spec row plus a compact quirk overlay. Live leftovers
+    (execution, actuation, settlement, clearing) stay historically exact.
+    """
+
+    quirks = log_family_contract_quirks(spec)
+    name = spec.name
+    fields = {
+        "action": ["lit", f"total_spine_{name}_contract"],
+        **dict(quirks["fields"]),
+        "ledger_capability_ok": ["ledger"],
+        "used_skill_route_discovery": ["bool", "used_skill_route_discovery"],
+    }
+    return {
+        "kind": "log_family",
+        "runner": quirks["runner"],
+        "impl_flag": spec.impl_flag,
+        "ledger_id": spec.ledger_id,
+        "ledger_tokens": list(quirks.get("ledger_tokens") or [name]),
+        "aliases": tuple(quirks["aliases"]),
+        "context_copies": tuple(quirks.get("context_copies") or ()),
+        "origin_capabilities": tuple(
+            quirks.get("origin_capabilities")
+            or ("repo.import-health", "capability.ledger-inventory")
+        ),
+        "settle_passes_body": bool(quirks.get("settle_passes_body", False)),
+        "scratch_prefix": str(
+            quirks.get("scratch_prefix") or f"contract-total-spine-{name}-"
+        ),
+        "fields": fields,
+        "ok_terms": list(quirks["ok_terms"]),
+        "kinds": frozenset(quirks["kinds"]),
+    }
+
+
+def derive_log_family_contract_kinds(spec: LogFamilySpec) -> frozenset[str]:
+    """Predicate kinds that trigger one log-family contract materializer."""
+
+    return frozenset(log_family_contract_quirks(spec)["kinds"])
+
+
+def derive_log_family_contract_catalog(
+    *,
+    log_families: Sequence[str] | None = None,
+    extra: Sequence[LogFamilySpec] = (),
+) -> dict[str, dict[str, Any]]:
+    """Live or probe log-family contract catalog. A probe extra is not live."""
+
+    if log_families is None:
+        specs = list(LOG_FAMILY_SPECS.values())
+    else:
+        specs = [LOG_FAMILY_SPECS[name] for name in log_families]
+    catalog = {spec.name: derive_log_family_contract_config(spec) for spec in specs}
+    for spec in extra:
+        catalog[spec.name] = derive_log_family_contract_config(spec)
+    return catalog
+
+
+def derive_pre_consensus_contract_catalog(
+    *,
+    extra: Mapping[str, Mapping[str, Any]] | None = None,
+) -> dict[str, dict[str, Any]]:
+    """Quorum (and optional probe) pre-consensus contract rows."""
+
+    catalog = {name: dict(row) for name, row in _PRE_CONSENSUS_CONTRACT_ROWS.items()}
+    for name, row in (extra or {}).items():
+        catalog[name] = dict(row)
+    return catalog
+
+
+def derive_spine_contract_engine_catalog(
+    *,
+    extra_pair: Sequence[Any] = (),
+    extra_log: Sequence[LogFamilySpec] = (),
+    extra_pre: Mapping[str, Mapping[str, Any]] | None = None,
+    pair_families: Sequence[str] | None = None,
+    log_families: Sequence[str] | None = None,
+) -> dict[str, dict[str, Any]]:
+    """One contract-materializer catalog: pre-consensus + log + pair."""
+
+    from blackhole_agent.upstream_total_spine_effects import (
+        derive_pair_effect_contract_catalog,
+    )
+
+    catalog: dict[str, dict[str, Any]] = {}
+    catalog.update(derive_pre_consensus_contract_catalog(extra=extra_pre))
+    catalog.update(
+        derive_log_family_contract_catalog(
+            log_families=log_families, extra=extra_log
+        )
+    )
+    pair = derive_pair_effect_contract_catalog(
+        pair_families=pair_families, extra=extra_pair
+    )
+    for name, cfg in pair.items():
+        catalog[name] = {**cfg, "kind": "pair_effect", "runner": "inline"}
+    return catalog
+
+
+def derive_spine_contract_engine_kind_sets(
+    *,
+    extra_pair: Sequence[Any] = (),
+    extra_log: Sequence[LogFamilySpec] = (),
+    extra_pre: Mapping[str, Mapping[str, Any]] | None = None,
+    pair_families: Sequence[str] | None = None,
+    log_families: Sequence[str] | None = None,
+) -> tuple[tuple[str, frozenset[str]], ...]:
+    """Materializer kind-sets in tower order: quorum → logs → pair effects."""
+
+    from blackhole_agent.upstream_total_spine_effects import (
+        derive_pair_effect_contract_kind_sets,
+    )
+
+    catalog = derive_spine_contract_engine_catalog(
+        extra_pair=extra_pair,
+        extra_log=extra_log,
+        extra_pre=extra_pre,
+        pair_families=pair_families,
+        log_families=log_families,
+    )
+    rows: list[tuple[str, frozenset[str]]] = []
+    seen: set[str] = set()
+    prefix = list(_CONTRACT_ENGINE_PREFIX)
+    if extra_pre:
+        prefix.extend(name for name in extra_pre if name not in prefix)
+    for name in prefix:
+        cfg = catalog.get(name)
+        if cfg is None:
+            continue
+        kinds = cfg.get("kinds")
+        if kinds is None:
+            continue
+        rows.append((name, frozenset(kinds)))
+        seen.add(name)
+    for name, spec in (
+        derive_log_family_contract_catalog(
+            log_families=log_families, extra=extra_log
+        )
+    ).items():
+        if name in seen:
+            continue
+        rows.append((name, frozenset(spec["kinds"])))
+        seen.add(name)
+    rows.extend(
+        derive_pair_effect_contract_kind_sets(pair_families=pair_families)
+    )
+    if extra_pair:
+        from blackhole_agent.upstream_total_spine_effects import (
+            derive_pair_effect_contract_kinds,
+        )
+
+        for spec in extra_pair:
+            effect = getattr(spec, "effect", None)
+            if effect and effect not in seen:
+                rows.append((str(effect), derive_pair_effect_contract_kinds(spec)))
+    return tuple(rows)
+
+
 def _synthesize_log_module(spec: LogFamilySpec) -> Any:
     """Historical name: populate through the shared family engine."""
 
@@ -4293,6 +4702,174 @@ def builtin_log_family_engine_proof() -> dict[str, Any]:
         "families": sorted(LOG_FAMILY_SPECS),
         "used_skill_route_discovery": legacy_pipeline_was_used(),
     }
+
+
+def builtin_spine_contract_engine_proof() -> dict[str, Any]:
+    """Hermetic proof: leftover log/pre-consensus materializers are one engine."""
+
+    import inspect
+
+    from blackhole_agent import capability_compounder as compounder
+    from blackhole_agent.upstream_total_spine_effects import PAIR_EFFECT_SPECS
+
+    checks: dict[str, bool] = {}
+    catalog = derive_spine_contract_engine_catalog()
+    kinds = derive_spine_contract_engine_kind_sets()
+    checks["impl"] = LOG_CONTRACT_ENGINE_IMPL is True
+    checks["catalog_len"] = len(catalog) == 21
+    checks["kind_len"] = len(kinds) == 21
+    checks["kind_prefix"] = [name for name, _ in kinds[:5]] == list(
+        _CONTRACT_ENGINE_PREFIX
+    )
+    checks["kind_suffix"] = kinds[-1][0] == "rehabilitation"
+    checks["quorum_row"] = catalog.get("quorum", {}).get("kind") == "pre_consensus"
+    checks["quorum_runner"] = catalog.get("quorum", {}).get("runner") == "federate"
+    checks["execution_row"] = catalog.get("execution", {}).get("kind") == "log_family"
+    checks["execution_runner"] = (
+        catalog.get("execution", {}).get("runner") == "multi_height"
+    )
+    checks["actuation_runner"] = catalog.get("actuation", {}).get("runner") == "prologue"
+    checks["settlement_runner"] = catalog.get("settlement", {}).get("runner") == "settle"
+    checks["clearing_runner"] = catalog.get("clearing", {}).get("runner") == "clear"
+    checks["solvency_pair"] = catalog.get("solvency", {}).get("kind") == "pair_effect"
+    checks["pair_count"] = sum(
+        1 for cfg in catalog.values() if cfg.get("kind") == "pair_effect"
+    ) == 16
+    checks["log_count"] = sum(
+        1 for cfg in catalog.values() if cfg.get("kind") == "log_family"
+    ) == 4
+    checks["pre_count"] = sum(
+        1 for cfg in catalog.values() if cfg.get("kind") == "pre_consensus"
+    ) == 1
+    kind_map = dict(kinds)
+    checks["quorum_kinds"] = kind_map.get("quorum") == frozenset(
+        {
+            "quorum_ok",
+            "quorum_met",
+            "min_quorum",
+            "byzantine_excluded",
+            "quorum_cert_valid",
+        }
+    )
+    checks["execution_kinds"] = kind_map.get("execution") == frozenset(
+        {
+            "execution_ok",
+            "state_applied_ok",
+            "min_state_height",
+            "state_root_valid",
+        }
+    )
+    checks["settlement_kinds"] = "settled_ok" in (kind_map.get("settlement") or ())
+    checks["clearing_kinds"] = "cleared_ok" in (kind_map.get("clearing") or ())
+
+    probe = LogFamilySpec(
+        name="notation",
+        pred="rehabilitation",
+        verb="notate",
+        summary="probe contract engine family",
+        exports=(),
+        impl_flag="TOTAL_SPINE_NOTATION_IMPL",
+        ledger_id="capability.upstream-total-spine-notation",
+    )
+    probe_cfg = derive_log_family_contract_config(probe)
+    checks["probe_config"] = (
+        probe_cfg["kind"] == "log_family"
+        and probe_cfg["fields"]["total_spine_notation"] == ["lit", True]
+        and "notation_ok" in probe_cfg["kinds"]
+    )
+    checks["probe_not_live"] = "notation" not in catalog
+    probe_catalog = derive_spine_contract_engine_catalog(extra_log=(probe,))
+    checks["probe_catalog"] = (
+        "notation" in probe_catalog and "notation" not in catalog
+    )
+    probe_kinds = derive_spine_contract_engine_kind_sets(extra_log=(probe,))
+    checks["probe_kinds"] = any(name == "notation" for name, _ in probe_kinds)
+
+    compounder_src = Path(compounder.__file__).read_text(encoding="utf-8")
+    logs_src = Path(__file__).read_text(encoding="utf-8")
+    eval_src = inspect.getsource(compounder.evaluate_outcome_contract)
+    dispatch_src = inspect.getsource(
+        compounder.materialize_spine_family_contract_context
+    )
+    checks["no_leftover_kind_prefix"] = "_LOG_CONTRACT_KIND_SETS" not in compounder_src
+    checks["no_leftover_dual_path"] = (
+        'globals()[f"materialize_total_spine_{_mat_effect}_contract_context"]'
+        not in eval_src
+    )
+    checks["eval_uses_engine"] = (
+        "derive_spine_contract_engine_kind_sets" in eval_src
+        and "materialize_spine_family_contract_context" in eval_src
+    )
+    checks["dispatch_all_kinds"] = (
+        "derive_spine_contract_engine_catalog" in dispatch_src
+        and "PAIR_EFFECT_SPECS" in dispatch_src
+    )
+    checks["derive_present"] = "def derive_log_family_contract_config" in logs_src
+    leftover_names = (
+        "quorum",
+        "execution",
+        "actuation",
+        "settlement",
+        "clearing",
+    )
+    thin = True
+    for name in leftover_names:
+        wrap = inspect.getsource(
+            getattr(compounder, f"materialize_total_spine_{name}_contract_context")
+        )
+        body = wrap.split('"""', 2)[-1]
+        if "materialize_spine_family_contract_context" not in body:
+            thin = False
+        if "federate_total_spine" in body or "execute_total_spine" in body:
+            thin = False
+        if "settle_total_spine" in body or "clear_total_spine" in body:
+            thin = False
+    checks["leftover_wrappers_thin"] = thin
+    checks["public_dispatch"] = callable(
+        compounder.materialize_spine_family_contract_context
+    )
+    try:
+        compounder.materialize_spine_family_contract_context(
+            "not-a-family", REPO_ROOT, {}
+        )
+        checks["unknown_refused"] = False
+    except KeyError:
+        checks["unknown_refused"] = True
+    checks["no_skill_route"] = not legacy_pipeline_was_used()
+
+    wired = {
+        "derive_log_config": callable(derive_log_family_contract_config),
+        "derive_log_kinds": callable(derive_log_family_contract_kinds),
+        "derive_log_catalog": callable(derive_log_family_contract_catalog),
+        "derive_pre": callable(derive_pre_consensus_contract_catalog),
+        "derive_engine": callable(derive_spine_contract_engine_catalog),
+        "derive_kind_sets": callable(derive_spine_contract_engine_kind_sets),
+        "quirks": callable(log_family_contract_quirks),
+        "dispatch": callable(compounder.materialize_spine_family_contract_context),
+        "impl": LOG_CONTRACT_ENGINE_IMPL is True,
+    }
+    ok = all(checks.values()) and all(wired.values())
+    report = {
+        "schema_version": SCHEMA_VERSION,
+        "action": "spine_contract_engine_proof",
+        "ok": ok,
+        "checks": checks,
+        "wired": wired,
+        "wired_count": sum(1 for value in wired.values() if value),
+        "catalog_count": len(catalog),
+        "kind_count": len(kinds),
+        "pair_count": len(PAIR_EFFECT_SPECS),
+        "log_count": len(LOG_FAMILY_SPECS),
+        "pre_count": len(_PRE_CONSENSUS_CONTRACT_ROWS),
+        "probe_family": "notation",
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+        "spine_contract_engine": True,
+        "done_when_met": ok,
+    }
+    out = REPO_ROOT / "artifacts" / "capability-spine-contract-engine"
+    out.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(out / "plane-report.json", report)
+    return report
 
 
 def _hosted_execution_family_proof() -> dict[str, Any]:

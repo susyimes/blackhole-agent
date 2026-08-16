@@ -4311,7 +4311,7 @@ def builtin_spine_contract_catalog_proof() -> dict[str, Any]:
     checks["compounder_uses_catalog"] = (
         "derive_pair_effect_contract_config" in compounder_src
         and "derive_spine_contract_chain_maps" in compounder_src
-        and "derive_pair_effect_contract_kind_sets" in compounder_src
+        and "derive_spine_contract_engine_kind_sets" in compounder_src
         and "materialize_spine_family_contract_context" in compounder_src
     )
     checks["derive_present"] = "def derive_pair_effect_contract_config" in effects_src

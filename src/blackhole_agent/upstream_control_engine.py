@@ -158,6 +158,11 @@ Composition:
   plus a compact quirk overlay. A new pair-effect family is a token row,
   not another materializer config dict. Historical
   ``materialize_total_spine_*`` names stay as thin wrappers.
+* total-spine **contract engine** — leftover log-family and
+  pre-consensus (quorum) materializer copies join the family catalog.
+  Outcome-contract auto-materialization is one kind-set walk. A new
+  family of any kind is a spec+config row, not another host
+  materializer copy. Historical names stay as thin wrappers.
 * total-spine **post-settlement clearing** — closes the settled-but-
   uncleared cliff: after settlement seals a unilateral observation
   receipt, ``clear_total_spine(...)`` (and ``run_total_spine(clearing=True)``)
