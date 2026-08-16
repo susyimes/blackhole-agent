@@ -2690,7 +2690,8 @@ def snapshot_outcome_metrics(
 # one catalog. Each row proves a plane's machine-checkable predicates
 # hermetically with a synthetic absolute-tower run and fills the empty
 # context. A new family is a spec+config row, not another host materializer
-# copy. Historical ``materialize_total_spine_*`` names stay as thin wrappers.
+# copy. Historical ``materialize_total_spine_*`` names resolve from the
+# catalog via ``__getattr__`` — a new family is not another wrapper def.
 # No skill-route discovery.
 # ---------------------------------------------------------------------------
 
@@ -3155,430 +3156,104 @@ def materialize_spine_family_contract_context(
     )
 
 
-def materialize_total_spine_quorum_contract_context(
-    repo_path: Path,
-    context: MutableMapping[str, Any],
-    *,
-    ledger: CapabilityLedger | None = None,
-) -> dict[str, Any]:
-    """Fill empty quorum plane context via fast total-spine N-of-M federation.
+_MAT_WRAPPER_PREFIX = "materialize_total_spine_"
+_MAT_WRAPPER_SUFFIX = "_contract_context"
+SPINE_CONTRACT_WRAPPER_CATALOG_IMPL = True
 
-    Controller complete-gates evaluate machine-checkable done_when with no
-    injected plane context. When predicates ask for ``quorum_ok`` /
-    ``quorum_met`` / ``byzantine_excluded`` (etc.), prove them hermetically
-    with three synthetic absolute-tower finality certificates (2 honest + 1
-    Byzantine minority) through ``federate_total_spine(quorum=True)`` — O(ms),
-    no skill-route, no full depth-28 dispatch.
-    """
-    return materialize_spine_family_contract_context(
-        "quorum", repo_path, context, ledger=ledger
+
+def _parse_spine_family_materializer_name(name: str) -> str | None:
+    if not name.startswith(_MAT_WRAPPER_PREFIX) or not name.endswith(
+        _MAT_WRAPPER_SUFFIX
+    ):
+        return None
+    family = name[len(_MAT_WRAPPER_PREFIX) : -len(_MAT_WRAPPER_SUFFIX)]
+    return family or None
+
+
+def spine_contract_materializer_families(
+    *,
+    extra_pair: Sequence[Any] = (),
+    extra_log: Sequence[Any] = (),
+) -> frozenset[str]:
+    """Live or probe contract-family names that own a historical wrapper."""
+
+    from blackhole_agent.upstream_total_spine_logs import (
+        derive_spine_contract_engine_catalog,
+    )
+
+    return frozenset(
+        derive_spine_contract_engine_catalog(
+            extra_pair=extra_pair, extra_log=extra_log
+        )
     )
 
 
-def materialize_total_spine_execution_contract_context(
-    repo_path: Path,
-    context: MutableMapping[str, Any],
-    *,
-    ledger: CapabilityLedger | None = None,
-) -> dict[str, Any]:
-    """Fill empty execution plane context via fast total-spine world-state apply.
+def bind_spine_family_materializer(name: str) -> Callable[..., dict[str, Any]]:
+    """One catalog family. Historical wrapper names resolve here."""
 
-    Controller complete-gates evaluate machine-checkable done_when with no
-    injected plane context. When predicates ask for ``execution_ok`` /
-    ``state_applied_ok`` / ``state_root_valid`` / ``min_state_height``, prove
-    them hermetically with synthetic absolute-tower finality → quorum →
-    multi-height execution — O(ms), no skill-route, no full depth-28 dispatch.
-    """
-    return materialize_spine_family_contract_context(
-        "execution", repo_path, context, ledger=ledger
+    def materialize_total_spine_family_contract_context(
+        repo_path: Path,
+        context: MutableMapping[str, Any],
+        *,
+        ledger: CapabilityLedger | None = None,
+    ) -> dict[str, Any]:
+        return materialize_spine_family_contract_context(
+            name, repo_path, context, ledger=ledger
+        )
+
+    materialize_total_spine_family_contract_context.__name__ = (
+        f"materialize_total_spine_{name}_contract_context"
     )
-
-
-def materialize_total_spine_actuation_contract_context(
-    repo_path: Path,
-    context: MutableMapping[str, Any],
-    *,
-    ledger: CapabilityLedger | None = None,
-) -> dict[str, Any]:
-    """Fill empty actuation plane context via fast total-spine multi-action apply.
-
-    Controller complete-gates evaluate machine-checkable done_when with no
-    injected plane context. When predicates ask for ``actuation_ok`` /
-    ``effects_applied_ok`` / ``min_actions`` / ``action_root_valid``, prove
-    them hermetically with synthetic absolute-tower finality → quorum →
-    execution → multi-action actuation — O(ms-s), no skill-route.
-    """
-    return materialize_spine_family_contract_context(
-        "actuation", repo_path, context, ledger=ledger
+    materialize_total_spine_family_contract_context.__qualname__ = (
+        f"materialize_total_spine_{name}_contract_context"
     )
-
-
-def materialize_total_spine_settlement_contract_context(
-    repo_path: Path,
-    context: MutableMapping[str, Any],
-    *,
-    ledger: CapabilityLedger | None = None,
-) -> dict[str, Any]:
-    """Fill empty settlement plane context via fast total-spine observation.
-
-    Controller complete-gates evaluate machine-checkable done_when with no
-    injected plane context. When predicates ask for ``settlement_ok`` /
-    ``settled_ok`` / ``min_settlements`` / ``settlement_root_valid``, prove
-    them hermetically with synthetic absolute-tower finality → quorum →
-    execution → actuation → settlement — no skill-route.
-    """
-    return materialize_spine_family_contract_context(
-        "settlement", repo_path, context, ledger=ledger
+    materialize_total_spine_family_contract_context.__doc__ = (
+        f"Fill empty {name} plane context via the family contract engine."
     )
+    return materialize_total_spine_family_contract_context
 
 
-def materialize_total_spine_clearing_contract_context(
-    repo_path: Path,
-    context: MutableMapping[str, Any],
+def resolve_spine_family_materializer(
+    name: str,
     *,
-    ledger: CapabilityLedger | None = None,
-) -> dict[str, Any]:
-    """Fill empty clearing plane context via fast total-spine netting.
+    catalog: Mapping[str, Any] | None = None,
+) -> Callable[..., dict[str, Any]]:
+    """Resolve one historical materialize_total_spine_* name from a catalog."""
 
-    Controller complete-gates evaluate machine-checkable done_when with no
-    injected plane context. When predicates ask for ``clearing_ok`` /
-    ``cleared_ok`` / ``min_clearings`` / ``clearing_root_valid``, prove
-    them hermetically with synthetic absolute-tower finality → quorum →
-    execution → actuation → settlement → confirmation settlement →
-    clearing — no skill-route.
-    """
-    return materialize_spine_family_contract_context(
-        "clearing", repo_path, context, ledger=ledger
+    families = (
+        frozenset(catalog)
+        if catalog is not None
+        else spine_contract_materializer_families()
     )
-
-
-def materialize_total_spine_delivery_contract_context(
-    repo_path: Path,
-    context: MutableMapping[str, Any],
-    *,
-    ledger: CapabilityLedger | None = None,
-) -> dict[str, Any]:
-    """Fill empty delivery plane context via fast total-spine DvP.
-
-    Controller complete-gates evaluate machine-checkable done_when with no
-    injected plane context. When predicates ask for ``delivery_ok`` /
-    ``delivered_ok`` / ``min_deliveries`` / ``delivery_root_valid`` /
-    ``dvp_ok``, prove them hermetically with synthetic absolute-tower
-    finality → quorum → execution → actuation → settlement → clearing →
-    confirmation clearing → delivery — no skill-route.
-    """
-    return materialize_spine_family_contract_context(
-        "delivery", repo_path, context, ledger=ledger
-    )
-
-
-
-def materialize_total_spine_custody_contract_context(
-    repo_path: Path,
-    context: MutableMapping[str, Any],
-    *,
-    ledger: CapabilityLedger | None = None,
-) -> dict[str, Any]:
-    """Fill empty custody plane context via fast total-spine CvT.
-
-    Controller complete-gates evaluate machine-checkable done_when with no
-    injected plane context. When predicates ask for ``custody_ok`` /
-    ``custodied_ok`` / ``min_custodies`` / ``custody_root_valid`` /
-    ``cvt_ok`` / ``title_ok``, prove them hermetically with synthetic
-    absolute-tower finality → quorum → execution → actuation → settlement
-    → clearing → delivery → confirmation delivery → custody — no skill-route.
-    """
-    return materialize_spine_family_contract_context(
-        "custody", repo_path, context, ledger=ledger
-    )
-
-
-
-def materialize_total_spine_margin_contract_context(
-    repo_path: Path,
-    context: MutableMapping[str, Any],
-    *,
-    ledger: CapabilityLedger | None = None,
-) -> dict[str, Any]:
-    """Fill empty margin plane context via fast total-spine MvE.
-
-    Controller complete-gates evaluate machine-checkable done_when with no
-    injected plane context. When predicates ask for ``margin_ok`` /
-    ``margined_ok`` / ``min_margins`` / ``margin_root_valid`` /
-    ``mve_ok`` / ``exposure_ok``, prove them hermetically with synthetic
-    absolute-tower finality → quorum → execution → actuation → settlement
-    → clearing → delivery → custody → confirmation custody → margin —
-    no skill-route.
-    """
-    return materialize_spine_family_contract_context(
-        "margin", repo_path, context, ledger=ledger
-    )
-
-
-
-def materialize_total_spine_collateral_contract_context(
-    repo_path: Path,
-    context: dict[str, Any],
-    *,
-    ledger: CapabilityLedger | None = None,
-) -> dict[str, Any]:
-    """Fill empty collateral plane context via fast total-spine CvO.
-
-    Controller complete-gates evaluate machine-checkable done_when with no
-    injected plane context. When predicates ask for ``collateral_ok`` /
-    ``collateralized_ok`` / ``min_collaterals`` / ``collateral_root_valid`` /
-    ``cvo_ok`` / ``obligation_ok``, prove them hermetically with synthetic
-    absolute-tower finality → quorum → execution → actuation → settlement
-    → clearing → delivery → custody → margin → confirmation margin →
-    collateral — no skill-route.
-    """
-    return materialize_spine_family_contract_context(
-        "collateral", repo_path, context, ledger=ledger
-    )
-
-
-
-def materialize_total_spine_liquidity_contract_context(
-    repo_path: Path,
-    context: dict[str, Any],
-    *,
-    ledger: CapabilityLedger | None = None,
-) -> dict[str, Any]:
-    """Fill empty liquidity plane context via fast total-spine LvC.
-
-    Controller complete-gates evaluate machine-checkable done_when with no
-    injected plane context. When predicates ask for ``liquidity_ok`` /
-    ``funded_ok`` / ``min_liquidities`` / ``liquidity_root_valid`` /
-    ``lvc_ok`` / ``coverage_ok``, prove them hermetically with synthetic
-    absolute-tower finality → quorum → execution → actuation → settlement
-    → clearing → delivery → custody → margin → collateral → confirmation
-    collateral → liquidity — no skill-route.
-    """
-    return materialize_spine_family_contract_context(
-        "liquidity", repo_path, context, ledger=ledger
-    )
-
-
-
-def materialize_total_spine_funding_contract_context(
-    repo_path: Path,
-    context: dict[str, Any],
-    *,
-    ledger: CapabilityLedger | None = None,
-) -> dict[str, Any]:
-    """Fill empty funding plane context via fast total-spine FvR.
-
-    Controller complete-gates evaluate machine-checkable done_when with no
-    injected plane context. When predicates ask for ``funding_ok`` /
-    ``facility_ok`` / ``min_fundings`` / ``funding_root_valid`` /
-    ``fvr_ok`` / ``requirement_ok``, prove them hermetically with synthetic
-    absolute-tower finality → quorum → execution → actuation → settlement
-    → clearing → delivery → custody → margin → collateral → liquidity →
-    confirmation liquidity → funding — no skill-route.
-    """
-    return materialize_spine_family_contract_context(
-        "funding", repo_path, context, ledger=ledger
-    )
-
-
-
-
-def materialize_total_spine_capital_contract_context(
-    repo_path: Path,
-    context: dict[str, Any],
-    *,
-    ledger: CapabilityLedger | None = None,
-) -> dict[str, Any]:
-    """Fill empty capital plane context via fast total-spine CvA.
-
-    Controller complete-gates evaluate machine-checkable done_when with no
-    injected plane context. When predicates ask for ``capital_ok`` /
-    ``buffer_ok`` / ``min_capitals`` / ``capital_root_valid`` /
-    ``cva_ok`` / ``adequacy_ok``, prove them hermetically with synthetic
-    absolute-tower finality → quorum → execution → actuation → settlement
-    → clearing → delivery → custody → margin → collateral → liquidity →
-    funding → confirmation funding → capital — no skill-route.
-    """
-    return materialize_spine_family_contract_context(
-        "capital", repo_path, context, ledger=ledger
-    )
-
-
-
-
-def materialize_total_spine_solvency_contract_context(
-    repo_path: Path,
-    context: dict[str, Any],
-    *,
-    ledger: CapabilityLedger | None = None,
-) -> dict[str, Any]:
-    """Fill empty solvency plane context via fast total-spine SvR.
-
-    Controller complete-gates evaluate machine-checkable done_when with no
-    injected plane context. When predicates ask for ``solvency_ok`` /
-    ``surplus_ok`` / ``min_solvencies`` / ``solvency_root_valid`` /
-    ``svr_ok`` / ``solvency_requirement_ok``, prove them hermetically with
-    synthetic absolute-tower finality → … → capital → confirmation capital
-    → solvency — no skill-route.
-    """
-    return materialize_spine_family_contract_context(
-        "solvency", repo_path, context, ledger=ledger
-    )
-
-
-
-def materialize_total_spine_risk_contract_context(
-    repo_path: Path,
-    context: dict[str, Any],
-    *,
-    ledger: CapabilityLedger | None = None,
-) -> dict[str, Any]:
-    """Fill empty risk plane context via fast total-spine RvA.
-
-    When predicates ask for ``risk_ok`` / ``assessed_ok`` / ``min_risks`` /
-    ``risk_root_valid`` / ``rva_ok`` / ``appetite_ok``, prove them
-    hermetically from a solvent SvR book — no skill-route.
-    """
-    return materialize_spine_family_contract_context(
-        "risk", repo_path, context, ledger=ledger
-    )
-
-
-
-
-
-def materialize_total_spine_stress_contract_context(
-    repo_path: Path,
-    context: dict[str, Any],
-    *,
-    ledger: CapabilityLedger | None = None,
-) -> dict[str, Any]:
-    """Fill empty stress plane context via fast total-spine SvC.
-
-    When predicates ask for ``stress_ok`` / ``stressed_ok`` / ``min_stresses`` /
-    ``stress_root_valid`` / ``svc_ok`` / ``capacity_ok``, prove them
-    hermetically from a risked RvA book — no skill-route.
-    """
-    return materialize_spine_family_contract_context(
-        "stress", repo_path, context, ledger=ledger
-    )
-
-
-
-
-
-def materialize_total_spine_recovery_contract_context(
-    repo_path: Path,
-    context: dict[str, Any],
-    *,
-    ledger: CapabilityLedger | None = None,
-) -> dict[str, Any]:
-    """Fill empty recovery plane context via fast total-spine RvP.
-
-    When predicates ask for ``recovery_ok`` / ``restored_ok`` / ``min_recoveries`` /
-    ``recovery_root_valid`` / ``rvp_ok`` / ``plan_ok``, prove them
-    hermetically from a stressed SvC book — no skill-route.
-    """
-    return materialize_spine_family_contract_context(
-        "recovery", repo_path, context, ledger=ledger
-    )
-
-
-
-
-
-
-def materialize_total_spine_resolution_contract_context(
-    repo_path: Path,
-    context: dict[str, Any],
-    *,
-    ledger: CapabilityLedger | None = None,
-) -> dict[str, Any]:
-    """Fill empty resolution plane context via fast total-spine RvS.
-
-    When predicates ask for ``resolution_ok`` / ``resolved_ok`` / ``min_resolutions`` /
-    ``resolution_root_valid`` / ``rvs_ok`` / ``strategy_ok``, prove them
-    hermetically from a restored RvP book — no skill-route.
-    """
-    return materialize_spine_family_contract_context(
-        "resolution", repo_path, context, ledger=ledger
-    )
-
-
-
-def materialize_total_spine_restructuring_contract_context(
-    repo_path: Path,
-    context: dict[str, Any],
-    *,
-    ledger: CapabilityLedger | None = None,
-) -> dict[str, Any]:
-    '''Fill empty restructuring plane context via fast total-spine RvM.'''
-    return materialize_spine_family_contract_context(
-        "restructuring", repo_path, context, ledger=ledger
-    )
-
-
-
-
-def materialize_total_spine_emergence_contract_context(
-    repo_path: Path,
-    context: dict[str, Any],
-    *,
-    ledger: CapabilityLedger | None = None,
-) -> dict[str, Any]:
-    """Fill empty emergence plane context via fast total-spine EvC."""
-    return materialize_spine_family_contract_context(
-        "emergence", repo_path, context, ledger=ledger
-    )
-
-
-
-def materialize_total_spine_reorganization_contract_context(
-    repo_path: Path,
-    context: dict[str, Any],
-    *,
-    ledger: CapabilityLedger | None = None,
-) -> dict[str, Any]:
-    """Fill empty reorganization plane context via fast total-spine RvC."""
-    return materialize_spine_family_contract_context(
-        "reorganization", repo_path, context, ledger=ledger
-    )
-
-
-def materialize_total_spine_rehabilitation_contract_context(
-    repo_path: Path,
-    context: dict[str, Any],
-    *,
-    ledger: CapabilityLedger | None = None,
-) -> dict[str, Any]:
-    """Fill empty rehabilitation plane context via fast total-spine RvR."""
-    return materialize_spine_family_contract_context(
-        "rehabilitation", repo_path, context, ledger=ledger
-    )
-
-
-def materialize_total_spine_ratification_contract_context(
-    repo_path: Path,
-    context: dict[str, Any],
-    *,
-    ledger: CapabilityLedger | None = None,
-) -> dict[str, Any]:
-    """Fill empty ratification plane context via fast total-spine RvE."""
-    return materialize_spine_family_contract_context(
-        "ratification", repo_path, context, ledger=ledger
-    )
-
-
-def materialize_total_spine_supervision_contract_context(
-    repo_path: Path,
-    context: dict[str, Any],
-    *,
-    ledger: CapabilityLedger | None = None,
-) -> dict[str, Any]:
-    """Fill empty supervision plane context via fast total-spine Svn."""
-    return materialize_spine_family_contract_context(
-        "supervision", repo_path, context, ledger=ledger
-    )
+    if name not in families:
+        raise KeyError(f"unknown spine contract family: {name!r}")
+    return bind_spine_family_materializer(name)
+
+
+def __getattr__(name: str) -> Any:
+    family = _parse_spine_family_materializer_name(name)
+    if family is not None:
+        try:
+            fn = resolve_spine_family_materializer(family)
+        except KeyError as exc:
+            raise AttributeError(
+                f"module {__name__!r} has no attribute {name!r}"
+            ) from exc
+        globals()[name] = fn
+        return fn
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__() -> list[str]:
+    names = set(globals())
+    try:
+        names.update(
+            f"{_MAT_WRAPPER_PREFIX}{family}{_MAT_WRAPPER_SUFFIX}"
+            for family in spine_contract_materializer_families()
+        )
+    except Exception:  # noqa: BLE001
+        pass
+    return sorted(names)
 
 
 

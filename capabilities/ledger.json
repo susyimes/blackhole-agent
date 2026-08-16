@@ -4544,6 +4544,42 @@
       ],
       "updated_at": "2026-08-15T19:35:35.621454Z"
     },
+    "capability.spine-late-host-surface": {
+      "behavior_paths": [
+        "src/blackhole_agent/upstream_total_spine_effects.py",
+        "src/blackhole_agent/capability_compounder.py",
+        "src/blackhole_agent/upstream_loop_engine.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Late-tower host copies derive from the catalog: materialize_total_spine_* wrappers, loop {name}-proof CLI rows, and builtin_spine_{name}_proof resolve via getattr/derive so the next family is only a PairEffectAdmission plus a chain row.",
+      "created_at": "2026-08-16T09:20:00.000000Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.spine-family-admission",
+        "capability.spine-supervision",
+        "capability.spine-contract-catalog",
+        "capability.spine-family-engine",
+        "capability.equivalence-gate"
+      ],
+      "description": "Leftover late-tower compounder wrappers, loop-engine CLI rows, and copied host proofs are gone. A probe family appears on those surfaces from an extra admission/catalog row without a new host def. Historical supervision/ratification/solvency names stay live.",
+      "entry": "blackhole_agent.upstream_total_spine_effects:builtin_spine_late_host_surface_proof",
+      "id": "capability.spine-late-host-surface",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-16T09:20:00.000000Z",
+      "name": "Total-spine late-tower host surfaces",
+      "proof_command": "uv run python -c \"from blackhole_agent.upstream_total_spine_effects import builtin_spine_late_host_surface_proof; r=builtin_spine_late_host_surface_proof(); assert r['ok'] and r.get('spine_late_host_surface') is True and r.get('probe_family')=='oversight' and int(r.get('wired_count') or 0) >= 6 and all(r.get('checks') or {}) and all(r.get('wired') or {}) and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": 2,
+      "source_mission_id": "20260816T082739Z-7e169a69",
+      "tags": [
+        "spine-stage",
+        "simplification",
+        "late-tower",
+        "evidence"
+      ],
+      "updated_at": "2026-08-16T09:20:00.000000Z"
+    },
     "capability.spine-public-catalog": {
       "behavior_paths": [
         "src/blackhole_agent/upstream_control_engine.py"

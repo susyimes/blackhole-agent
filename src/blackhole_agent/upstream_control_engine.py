@@ -157,7 +157,7 @@ Composition:
   ``_MAT_PAIR_CONFIG`` / chain-map / kind-set copies derive from tokens
   plus a compact quirk overlay. A new pair-effect family is a token row,
   not another materializer config dict. Historical
-  ``materialize_total_spine_*`` names stay as thin wrappers.
+  ``materialize_total_spine_*`` names resolve from the catalog.
 * total-spine **contract engine** — leftover log-family and
   pre-consensus (quorum) materializer copies join the family catalog.
   Outcome-contract auto-materialization is one kind-set walk. A new

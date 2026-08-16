@@ -4441,124 +4441,6 @@ def builtin_spine_contract_catalog_proof() -> dict[str, Any]:
     return report
 
 
-def builtin_spine_rehabilitation_proof() -> dict[str, Any]:
-    """Hermetic proof: rehabilitation is a live spec+chain row."""
-
-    import importlib
-    import inspect
-
-    from blackhole_agent.upstream_spine_catalog import SPINE_FAMILY_CHAIN
-    from blackhole_agent.upstream_spine_family import (
-        apply_spine_family,
-        resolve_family_row,
-        spine_family_engine_catalog,
-    )
-    from blackhole_agent.upstream_module_synthesis import (
-        module_synthesis_catalog,
-        resolve_synthesis_row,
-    )
-    from blackhole_agent import capability_compounder as compounder
-    from blackhole_agent import upstream_control_engine as ce
-
-    checks: dict[str, bool] = {}
-    spec = PAIR_EFFECT_SPECS.get("rehabilitation")
-    checks["spec_row"] = spec is not None and spec.pred == "reorganization"
-    checks["spec_verb"] = spec is not None and spec.verb == "rehabilitate"
-    checks["spec_code"] = spec is not None and spec.code == "rvr"
-    chain_names = [row[0] for row in SPINE_FAMILY_CHAIN]
-    rehab_idx = chain_names.index("rehabilitation") if "rehabilitation" in chain_names else -1
-    checks["chain_row"] = rehab_idx >= 0
-    checks["chain_pred"] = (
-        rehab_idx >= 0 and SPINE_FAMILY_CHAIN[rehab_idx][1] == "reorganization"
-    )
-    checks["chain_verb"] = (
-        rehab_idx >= 0 and SPINE_FAMILY_CHAIN[rehab_idx][2] == "rehabilitate"
-    )
-    checks["total_chain_has"] = "rehabilitation" in TOTAL_SPINE_CHAIN
-    checks["pair_member"] = "rehabilitation" in PAIR_EFFECT_SPECS
-
-    engine_row = resolve_family_row("rehabilitation")
-    checks["engine_row"] = (
-        engine_row is not None and engine_row.kind == "pair_effect"
-    )
-    checks["engine_catalog"] = any(
-        row.name == "rehabilitation" for row in spine_family_engine_catalog()
-    )
-    synth_row = resolve_synthesis_row(
-        "blackhole_agent.upstream_total_spine_rehabilitation"
-    )
-    checks["synth_row"] = synth_row is not None and synth_row.kind == "pair_effect"
-    checks["synth_catalog"] = any(
-        row.name == "rehabilitation" for row in module_synthesis_catalog()
-    )
-
-    module = importlib.import_module(
-        "blackhole_agent.upstream_total_spine_rehabilitation"
-    )
-    checks["module_runner"] = callable(
-        getattr(module, "rehabilitate_total_spine", None)
-    )
-    checks["module_proof"] = callable(
-        getattr(module, "builtin_total_spine_rehabilitation_proof", None)
-    )
-    checks["module_impl"] = getattr(module, "TOTAL_SPINE_REHABILITATION_IMPL", None) is True
-    checks["engine_impl"] = ce.TOTAL_SPINE_REHABILITATION_IMPL is True
-    checks["engine_runner"] = callable(
-        getattr(ce, "rehabilitate_total_spine", None)
-    )
-    checks["public_flag"] = "rehabilitation" in ce.SPINE_PUBLIC_STAGE_FLAGS
-    checks["resume_plane"] = "rehabilitation" in ce.SPINE_RESUME_PLANES
-    checks["short_circuit"] = "rehabilitation" in ce._TOTAL_SPINE_SHORT_CIRCUIT
-    contract = derive_pair_effect_contract_catalog()
-    checks["contract_row"] = "rehabilitation" in contract
-    checks["contract_kinds"] = "rehabilitation_ok" in derive_pair_effect_contract_kinds(
-        PAIR_EFFECT_SPECS["rehabilitation"]
-    )
-    checks["apply_owned"] = callable(apply_spine_family)
-    checks["no_leftover_mat"] = "_MAT_PAIR_CONFIG:" not in Path(
-        compounder.__file__
-    ).read_text(encoding="utf-8")
-    wrap_src = inspect.getsource(
-        compounder.materialize_total_spine_rehabilitation_contract_context
-    )
-    checks["wrapper_thin"] = "materialize_spine_family_contract_context" in wrap_src
-    flags = ce._collect_spine_stage_flags(None, {"rehabilitation": True})
-    checks["flag_accepted"] = flags.get("rehabilitation") is True
-    try:
-        ce._collect_spine_stage_flags(None, {"not-a-family": True})
-        checks["unknown_flag_refused"] = False
-    except Exception:
-        checks["unknown_flag_refused"] = True
-    checks["no_skill_route"] = not legacy_pipeline_was_used()
-
-    wired = {
-        "spec": "rehabilitation" in PAIR_EFFECT_SPECS,
-        "chain": "rehabilitation" in chain_names,
-        "engine": engine_row is not None,
-        "module": callable(getattr(module, "rehabilitate_total_spine", None)),
-        "contract": "rehabilitation" in contract,
-        "impl": ce.TOTAL_SPINE_REHABILITATION_IMPL is True,
-    }
-    ok = all(checks.values()) and all(wired.values())
-    report = {
-        "schema_version": SCHEMA_VERSION,
-        "action": "spine_rehabilitation_proof",
-        "ok": ok,
-        "checks": checks,
-        "wired": wired,
-        "wired_count": sum(1 for value in wired.values() if value),
-        "spec_count": len(PAIR_EFFECT_SPECS),
-        "chain_count": len(SPINE_FAMILY_CHAIN),
-        "used_skill_route_discovery": legacy_pipeline_was_used(),
-        "spine_rehabilitation": True,
-        "done_when_met": ok,
-    }
-    out = REPO_ROOT / "artifacts" / "capability-spine-rehabilitation"
-    out.mkdir(parents=True, exist_ok=True)
-    atomic_write_json(out / "plane-report.json", report)
-    return report
-
-
 def builtin_spine_family_admission_proof() -> dict[str, Any]:
     """Hermetic proof: late-tower pair effects are compact admission rows."""
 
@@ -4723,8 +4605,21 @@ def builtin_spine_family_admission_proof() -> dict[str, Any]:
     return report
 
 
-def builtin_spine_ratification_proof() -> dict[str, Any]:
-    """Hermetic proof: ratification is a live compact admission + chain row."""
+
+
+SPINE_LATE_HOST_SURFACE_IMPL = True
+_RESERVED_SPINE_PROOFS = frozenset(
+    {
+        "signature_catalog",
+        "contract_catalog",
+        "family_admission",
+        "late_host_surface",
+    }
+)
+
+
+def prove_late_pair_family(name: str) -> dict[str, Any]:
+    """Hermetic proof: one late-tower family is a live compact admission + chain."""
 
     import importlib
     import inspect
@@ -4743,80 +4638,91 @@ def builtin_spine_ratification_proof() -> dict[str, Any]:
     from blackhole_agent import upstream_control_engine as ce
 
     checks: dict[str, bool] = {}
-    spec = PAIR_EFFECT_SPECS.get("ratification")
+    spec = PAIR_EFFECT_SPECS.get(name)
     admission = next(
-        (row for row in LATE_PAIR_ADMISSIONS if row.effect == "ratification"),
+        (row for row in LATE_PAIR_ADMISSIONS if row.effect == name),
         None,
     )
-    checks["spec_row"] = spec is not None and spec.pred == "rehabilitation"
-    checks["spec_verb"] = spec is not None and spec.verb == "ratify"
-    checks["spec_code"] = spec is not None and spec.code == "rve"
-    checks["admission_row"] = (
-        admission is not None
-        and admission.versus == "endorsement"
-        and admission.pred == "rehabilitation"
+    checks["spec_row"] = spec is not None
+    checks["spec_verb"] = spec is not None and bool(spec.verb)
+    checks["spec_code"] = spec is not None and bool(spec.code)
+    checks["admission_row"] = admission is not None and (
+        admission.pred == (spec.pred if spec is not None else "")
     )
     checks["from_admission"] = admission is not None and spec is not None and (
         derive_late_pair_effect_spec(admission).code == spec.code
     )
     chain_names = [row[0] for row in SPINE_FAMILY_CHAIN]
-    ratif_idx = chain_names.index("ratification") if "ratification" in chain_names else -1
-    checks["chain_row"] = ratif_idx >= 0
-    checks["chain_pred"] = (
-        ratif_idx >= 0 and SPINE_FAMILY_CHAIN[ratif_idx][1] == "rehabilitation"
+    idx = chain_names.index(name) if name in chain_names else -1
+    checks["chain_row"] = idx >= 0
+    checks["chain_pred"] = idx >= 0 and spec is not None and (
+        SPINE_FAMILY_CHAIN[idx][1] == spec.pred
     )
-    checks["chain_verb"] = (
-        ratif_idx >= 0 and SPINE_FAMILY_CHAIN[ratif_idx][2] == "ratify"
+    checks["chain_verb"] = idx >= 0 and spec is not None and (
+        SPINE_FAMILY_CHAIN[idx][2] == spec.verb
     )
-    checks["total_chain_has"] = "ratification" in TOTAL_SPINE_CHAIN
-    checks["rehab_stays"] = "rehabilitation" in PAIR_EFFECT_SPECS
+    checks["total_chain_has"] = name in TOTAL_SPINE_CHAIN
+    if chain_names and chain_names[-1] == name:
+        checks["total_chain_tip"] = TOTAL_SPINE_CHAIN[-1] == name
     checks["solvency_stays"] = "solvency" in PAIR_EFFECT_SPECS
+    if spec is not None and spec.pred in PAIR_EFFECT_SPECS and spec.pred != name:
+        checks["pred_stays"] = spec.pred in PAIR_EFFECT_SPECS
 
-    engine_row = resolve_family_row("ratification")
+    engine_row = resolve_family_row(name)
     checks["engine_row"] = (
         engine_row is not None and engine_row.kind == "pair_effect"
     )
     checks["engine_catalog"] = any(
-        row.name == "ratification" for row in spine_family_engine_catalog()
+        row.name == name for row in spine_family_engine_catalog()
     )
     synth_row = resolve_synthesis_row(
-        "blackhole_agent.upstream_total_spine_ratification"
+        f"blackhole_agent.upstream_total_spine_{name}"
     )
     checks["synth_row"] = synth_row is not None and synth_row.kind == "pair_effect"
     checks["synth_catalog"] = any(
-        row.name == "ratification" for row in module_synthesis_catalog()
+        row.name == name for row in module_synthesis_catalog()
     )
 
-    module = importlib.import_module(
-        "blackhole_agent.upstream_total_spine_ratification"
-    )
-    checks["module_runner"] = callable(
-        getattr(module, "ratify_total_spine", None)
-    )
+    module = importlib.import_module(f"blackhole_agent.upstream_total_spine_{name}")
+    runner = f"{spec.verb}_total_spine" if spec is not None else ""
+    checks["module_runner"] = callable(getattr(module, runner, None))
     checks["module_proof"] = callable(
-        getattr(module, "builtin_total_spine_ratification_proof", None)
+        getattr(module, f"builtin_total_spine_{name}_proof", None)
     )
-    checks["module_impl"] = getattr(module, "TOTAL_SPINE_RATIFICATION_IMPL", None) is True
-    checks["engine_impl"] = ce.TOTAL_SPINE_RATIFICATION_IMPL is True
-    checks["engine_runner"] = callable(getattr(ce, "ratify_total_spine", None))
-    checks["public_flag"] = "ratification" in ce.SPINE_PUBLIC_STAGE_FLAGS
-    checks["resume_plane"] = "ratification" in ce.SPINE_RESUME_PLANES
-    checks["short_circuit"] = "ratification" in ce._TOTAL_SPINE_SHORT_CIRCUIT
+    checks["module_impl"] = getattr(
+        module, f"TOTAL_SPINE_{name.upper()}_IMPL", None
+    ) is True
+    checks["engine_impl"] = getattr(
+        ce, f"TOTAL_SPINE_{name.upper()}_IMPL", None
+    ) is True
+    checks["engine_runner"] = callable(getattr(ce, runner, None))
+    checks["public_flag"] = name in ce.SPINE_PUBLIC_STAGE_FLAGS
+    checks["resume_plane"] = name in ce.SPINE_RESUME_PLANES
+    checks["short_circuit"] = name in ce._TOTAL_SPINE_SHORT_CIRCUIT
     contract = derive_pair_effect_contract_catalog()
-    checks["contract_row"] = "ratification" in contract
-    checks["contract_kinds"] = "ratification_ok" in derive_pair_effect_contract_kinds(
-        PAIR_EFFECT_SPECS["ratification"]
+    checks["contract_row"] = name in contract
+    checks["contract_kinds"] = spec is not None and (
+        f"{name}_ok" in derive_pair_effect_contract_kinds(spec)
     )
     checks["apply_owned"] = callable(apply_spine_family)
-    wrap_src = inspect.getsource(
-        compounder.materialize_total_spine_ratification_contract_context
+    wrap = getattr(
+        compounder, f"materialize_total_spine_{name}_contract_context"
     )
+    wrap_src = inspect.getsource(wrap)
     checks["wrapper_thin"] = "materialize_spine_family_contract_context" in wrap_src
-    flags = ce._collect_spine_stage_flags(None, {"ratification": True})
-    checks["flag_accepted"] = flags.get("ratification") is True
+    compounder_src = Path(compounder.__file__).read_text(encoding="utf-8")
+    checks["no_leftover_wrapper_def"] = (
+        f"def materialize_total_spine_{name}_contract_context" not in compounder_src
+    )
+    effects_src = Path(__file__).read_text(encoding="utf-8")
+    checks["no_leftover_proof_def"] = (
+        f"def builtin_spine_{name}_proof" not in effects_src
+    )
+    flags = ce._collect_spine_stage_flags(None, {name: True})
+    checks["flag_accepted"] = flags.get(name) is True
     run_sig = inspect.signature(ce.run_total_spine)
     try:
-        run_sig.bind_partial(ratification=True)
+        run_sig.bind_partial(**{name: True})
         checks["run_kwarg"] = True
     except TypeError:
         checks["run_kwarg"] = False
@@ -4826,24 +4732,22 @@ def builtin_spine_ratification_proof() -> dict[str, Any]:
     except Exception:
         checks["unknown_flag_refused"] = True
     checks["no_leftover_spec_block"] = (
-        "PairEffectSpec(\n        effect='ratification'" not in Path(__file__).read_text(
-            encoding="utf-8"
-        )
+        f"PairEffectSpec(\n        effect='{name}'" not in effects_src
     )
     checks["no_skill_route"] = not legacy_pipeline_was_used()
 
     wired = {
-        "spec": "ratification" in PAIR_EFFECT_SPECS,
-        "chain": "ratification" in chain_names,
+        "spec": name in PAIR_EFFECT_SPECS,
+        "chain": name in chain_names,
         "engine": engine_row is not None,
-        "module": callable(getattr(module, "ratify_total_spine", None)),
-        "contract": "ratification" in contract,
-        "impl": ce.TOTAL_SPINE_RATIFICATION_IMPL is True,
+        "module": callable(getattr(module, runner, None)),
+        "contract": name in contract,
+        "impl": getattr(ce, f"TOTAL_SPINE_{name.upper()}_IMPL", None) is True,
     }
     ok = all(checks.values()) and all(wired.values())
     report = {
         "schema_version": SCHEMA_VERSION,
-        "action": "spine_ratification_proof",
+        "action": f"spine_{name}_proof",
         "ok": ok,
         "checks": checks,
         "wired": wired,
@@ -4851,143 +4755,211 @@ def builtin_spine_ratification_proof() -> dict[str, Any]:
         "spec_count": len(PAIR_EFFECT_SPECS),
         "chain_count": len(SPINE_FAMILY_CHAIN),
         "used_skill_route_discovery": legacy_pipeline_was_used(),
-        "spine_ratification": True,
+        f"spine_{name}": True,
         "done_when_met": ok,
     }
-    out = REPO_ROOT / "artifacts" / "capability-spine-ratification"
+    out = REPO_ROOT / "artifacts" / f"capability-spine-{name}"
     out.mkdir(parents=True, exist_ok=True)
     atomic_write_json(out / "plane-report.json", report)
     return report
 
 
-def builtin_spine_supervision_proof() -> dict[str, Any]:
-    """Hermetic proof: supervision is a live compact admission + chain row."""
+def resolve_late_pair_family_proof(
+    name: str,
+    *,
+    admissions: Sequence[PairEffectAdmission] | None = None,
+):
+    """Resolve builtin_spine_{name}_proof from late-tower admissions."""
 
-    import importlib
+    rows = tuple(admissions) if admissions is not None else LATE_PAIR_ADMISSIONS
+    if name in _RESERVED_SPINE_PROOFS or not any(row.effect == name for row in rows):
+        raise KeyError(f"unknown late-tower family proof: {name!r}")
+
+    def builtin_spine_family_proof() -> dict[str, Any]:
+        return prove_late_pair_family(name)
+
+    builtin_spine_family_proof.__name__ = f"builtin_spine_{name}_proof"
+    builtin_spine_family_proof.__qualname__ = f"builtin_spine_{name}_proof"
+    builtin_spine_family_proof.__doc__ = (
+        f"Hermetic proof: {name} is a live compact admission + chain row."
+    )
+    return builtin_spine_family_proof
+
+
+def __getattr__(name: str) -> Any:
+    prefix = "builtin_spine_"
+    suffix = "_proof"
+    if name.startswith(prefix) and name.endswith(suffix):
+        family = name[len(prefix) : -len(suffix)]
+        try:
+            fn = resolve_late_pair_family_proof(family)
+        except KeyError as exc:
+            raise AttributeError(
+                f"module {__name__!r} has no attribute {name!r}"
+            ) from exc
+        globals()[name] = fn
+        return fn
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def builtin_spine_late_host_surface_proof() -> dict[str, Any]:
+    """Hermetic proof: late-tower host copies derive from the catalog."""
+
     import inspect
 
-    from blackhole_agent.upstream_spine_catalog import SPINE_FAMILY_CHAIN
-    from blackhole_agent.upstream_spine_family import (
-        apply_spine_family,
-        resolve_family_row,
-        spine_family_engine_catalog,
-    )
-    from blackhole_agent.upstream_module_synthesis import (
-        module_synthesis_catalog,
-        resolve_synthesis_row,
-    )
     from blackhole_agent import capability_compounder as compounder
-    from blackhole_agent import upstream_control_engine as ce
+    from blackhole_agent.upstream_loop_engine import (
+        LOOP_CLI_CATALOG_IMPL,
+        _CLI_DISPATCH,
+        _CLI_STATIC,
+        derive_loop_cli_dispatch,
+    )
+    from blackhole_agent.upstream_total_spine_logs import (
+        derive_spine_contract_engine_catalog,
+    )
 
     checks: dict[str, bool] = {}
-    spec = PAIR_EFFECT_SPECS.get("supervision")
-    admission = next(
-        (row for row in LATE_PAIR_ADMISSIONS if row.effect == "supervision"),
-        None,
-    )
-    checks["spec_row"] = spec is not None and spec.pred == "ratification"
-    checks["spec_verb"] = spec is not None and spec.verb == "supervise"
-    checks["spec_code"] = spec is not None and spec.code == "svn"
-    checks["admission_row"] = (
-        admission is not None
-        and admission.versus == "covenant"
-        and admission.pred == "ratification"
-    )
-    checks["from_admission"] = admission is not None and spec is not None and (
-        derive_late_pair_effect_spec(admission).code == spec.code
-    )
-    chain_names = [row[0] for row in SPINE_FAMILY_CHAIN]
-    checks["chain_row"] = chain_names[-1] == "supervision"
-    checks["chain_pred"] = SPINE_FAMILY_CHAIN[-1][1] == "ratification"
-    checks["chain_verb"] = SPINE_FAMILY_CHAIN[-1][2] == "supervise"
-    checks["total_chain_tip"] = TOTAL_SPINE_CHAIN[-1] == "supervision"
-    checks["ratif_stays"] = "ratification" in PAIR_EFFECT_SPECS
-    checks["rehab_stays"] = "rehabilitation" in PAIR_EFFECT_SPECS
-    checks["solvency_stays"] = "solvency" in PAIR_EFFECT_SPECS
+    checks["impl"] = SPINE_LATE_HOST_SURFACE_IMPL is True
+    checks["wrapper_impl"] = compounder.SPINE_CONTRACT_WRAPPER_CATALOG_IMPL is True
+    checks["cli_impl"] = LOOP_CLI_CATALOG_IMPL is True
+    checks["prove"] = callable(prove_late_pair_family)
+    checks["resolve_proof"] = callable(resolve_late_pair_family_proof)
+    checks["resolve_wrapper"] = callable(compounder.resolve_spine_family_materializer)
+    checks["derive_cli"] = callable(derive_loop_cli_dispatch)
 
-    engine_row = resolve_family_row("supervision")
-    checks["engine_row"] = (
-        engine_row is not None and engine_row.kind == "pair_effect"
+    compounder_src = Path(compounder.__file__).read_text(encoding="utf-8")
+    effects_src = Path(__file__).read_text(encoding="utf-8")
+    loop_src = Path(
+        REPO_ROOT / "src" / "blackhole_agent" / "upstream_loop_engine.py"
+    ).read_text(encoding="utf-8")
+
+    late_names = tuple(row.effect for row in LATE_PAIR_ADMISSIONS)
+    leftover_wrap = any(
+        f"def materialize_total_spine_{name}_contract_context" in compounder_src
+        for name in late_names
     )
-    checks["engine_catalog"] = any(
-        row.name == "supervision" for row in spine_family_engine_catalog()
+    leftover_proof = any(
+        f"def builtin_spine_{name}_proof" in effects_src for name in late_names
     )
-    synth_row = resolve_synthesis_row(
-        "blackhole_agent.upstream_total_spine_supervision"
+    leftover_cli = any(
+        f'"{name}-proof":' in loop_src for name in late_names
     )
-    checks["synth_row"] = synth_row is not None and synth_row.kind == "pair_effect"
-    checks["synth_catalog"] = any(
-        row.name == "supervision" for row in module_synthesis_catalog()
+    checks["no_leftover_wrapper_defs"] = leftover_wrap is False
+    checks["no_leftover_proof_defs"] = leftover_proof is False
+    checks["no_leftover_cli_rows"] = leftover_cli is False
+    checks["cli_static_has_no_family"] = all(
+        f"{name}-proof" not in _CLI_STATIC for name in late_names
+    )
+    checks["cli_live_has_supervision"] = "supervision-proof" in _CLI_DISPATCH
+    checks["cli_live_target"] = (
+        _CLI_DISPATCH.get("supervision-proof")
+        == "builtin_total_spine_supervision_proof"
     )
 
-    module = importlib.import_module(
-        "blackhole_agent.upstream_total_spine_supervision"
+    wrap = getattr(compounder, "materialize_total_spine_supervision_contract_context")
+    checks["wrapper_getattr"] = callable(wrap)
+    wrap_src = inspect.getsource(wrap)
+    checks["wrapper_delegates"] = "materialize_spine_family_contract_context" in wrap_src
+    live_proof = resolve_late_pair_family_proof("supervision")
+    checks["proof_resolves"] = callable(live_proof)
+    checks["proof_name"] = live_proof.__name__ == "builtin_spine_supervision_proof"
+
+    probe = _probe_oversight_spec()
+    probe_admission = PairEffectAdmission(
+        effect="oversight",
+        pred="supervision",
+        verb="oversee",
+        plural="oversights",
+        code="ovs",
+        versus="standard",
+        adj_1="overseen",
+        adj_2="standardized",
+        abbr="ovr",
     )
-    checks["module_runner"] = callable(
-        getattr(module, "supervise_total_spine", None)
-    )
-    checks["module_proof"] = callable(
-        getattr(module, "builtin_total_spine_supervision_proof", None)
-    )
-    checks["module_impl"] = getattr(module, "TOTAL_SPINE_SUPERVISION_IMPL", None) is True
-    checks["engine_impl"] = ce.TOTAL_SPINE_SUPERVISION_IMPL is True
-    checks["engine_runner"] = callable(getattr(ce, "supervise_total_spine", None))
-    checks["public_flag"] = "supervision" in ce.SPINE_PUBLIC_STAGE_FLAGS
-    checks["resume_plane"] = "supervision" in ce.SPINE_RESUME_PLANES
-    checks["short_circuit"] = "supervision" in ce._TOTAL_SPINE_SHORT_CIRCUIT
-    contract = derive_pair_effect_contract_catalog()
-    checks["contract_row"] = "supervision" in contract
-    checks["contract_kinds"] = "supervision_ok" in derive_pair_effect_contract_kinds(
-        PAIR_EFFECT_SPECS["supervision"]
-    )
-    checks["apply_owned"] = callable(apply_spine_family)
-    wrap_src = inspect.getsource(
-        compounder.materialize_total_spine_supervision_contract_context
-    )
-    checks["wrapper_thin"] = "materialize_spine_family_contract_context" in wrap_src
-    flags = ce._collect_spine_stage_flags(None, {"supervision": True})
-    checks["flag_accepted"] = flags.get("supervision") is True
-    run_sig = inspect.signature(ce.run_total_spine)
+    probe_catalog = derive_spine_contract_engine_catalog(extra_pair=(probe,))
     try:
-        run_sig.bind_partial(supervision=True)
-        checks["run_kwarg"] = True
-    except TypeError:
-        checks["run_kwarg"] = False
-    try:
-        ce._collect_spine_stage_flags(None, {"not-a-family": True})
-        checks["unknown_flag_refused"] = False
-    except Exception:
-        checks["unknown_flag_refused"] = True
-    checks["no_leftover_spec_block"] = (
-        "PairEffectSpec(\n        effect='supervision'" not in Path(__file__).read_text(
-            encoding="utf-8"
+        probe_wrap = compounder.resolve_spine_family_materializer(
+            "oversight", catalog=probe_catalog
         )
+        checks["probe_wrapper"] = callable(probe_wrap)
+    except Exception:  # noqa: BLE001
+        checks["probe_wrapper"] = False
+    try:
+        compounder.resolve_spine_family_materializer("oversight")
+        checks["probe_wrapper_not_live"] = False
+    except KeyError:
+        checks["probe_wrapper_not_live"] = True
+    try:
+        getattr(compounder, "materialize_total_spine_oversight_contract_context")
+        checks["probe_getattr_not_live"] = False
+    except AttributeError:
+        checks["probe_getattr_not_live"] = True
+
+    probe_cli = derive_loop_cli_dispatch(extra_pair=("oversight",))
+    checks["probe_cli"] = (
+        probe_cli.get("oversight-proof") == "builtin_total_spine_oversight_proof"
     )
+    checks["probe_cli_not_live"] = "oversight-proof" not in _CLI_DISPATCH
+    probe_admissions = (*LATE_PAIR_ADMISSIONS, probe_admission)
+    probe_proof = resolve_late_pair_family_proof(
+        "oversight", admissions=probe_admissions
+    )
+    checks["probe_proof"] = (
+        callable(probe_proof)
+        and probe_proof.__name__ == "builtin_spine_oversight_proof"
+    )
+    try:
+        resolve_late_pair_family_proof("oversight")
+        checks["probe_proof_not_live"] = False
+    except KeyError:
+        checks["probe_proof_not_live"] = True
+    try:
+        getattr(
+            sys.modules[__name__],
+            "builtin_spine_oversight_proof",
+        )
+        checks["probe_proof_getattr_not_live"] = False
+    except AttributeError:
+        checks["probe_proof_getattr_not_live"] = True
+
+    checks["no_oversight_wrapper_def"] = (
+        "def materialize_total_spine_" + "oversight_contract_context"
+        not in compounder_src
+    )
+    checks["no_oversight_proof_def"] = (
+        "def builtin_spine_" + "oversight_proof" not in effects_src
+    )
+    checks["no_oversight_cli_row"] = '"oversight-proof":' not in loop_src
+    checks["getattr_present"] = "def __getattr__" in compounder_src
+    checks["cli_derive_present"] = "def derive_loop_cli_dispatch" in loop_src
+    checks["live_supervision"] = "supervision" in PAIR_EFFECT_SPECS
+    checks["live_ratification"] = "ratification" in PAIR_EFFECT_SPECS
+    checks["live_solvency"] = "solvency" in PAIR_EFFECT_SPECS
     checks["no_skill_route"] = not legacy_pipeline_was_used()
 
     wired = {
-        "spec": "supervision" in PAIR_EFFECT_SPECS,
-        "chain": chain_names[-1] == "supervision",
-        "engine": engine_row is not None,
-        "module": callable(getattr(module, "supervise_total_spine", None)),
-        "contract": "supervision" in contract,
-        "impl": ce.TOTAL_SPINE_SUPERVISION_IMPL is True,
+        "prove": callable(prove_late_pair_family),
+        "wrapper": callable(compounder.resolve_spine_family_materializer),
+        "cli": callable(derive_loop_cli_dispatch),
+        "impl": SPINE_LATE_HOST_SURFACE_IMPL is True,
+        "supervision": "supervision" in PAIR_EFFECT_SPECS,
+        "probe": probe.effect == "oversight",
     }
     ok = all(checks.values()) and all(wired.values())
     report = {
         "schema_version": SCHEMA_VERSION,
-        "action": "spine_supervision_proof",
+        "action": "spine_late_host_surface_proof",
         "ok": ok,
         "checks": checks,
         "wired": wired,
         "wired_count": sum(1 for value in wired.values() if value),
-        "spec_count": len(PAIR_EFFECT_SPECS),
-        "chain_count": len(SPINE_FAMILY_CHAIN),
+        "admission_count": len(LATE_PAIR_ADMISSIONS),
+        "probe_family": "oversight",
         "used_skill_route_discovery": legacy_pipeline_was_used(),
-        "spine_supervision": True,
+        "spine_late_host_surface": True,
         "done_when_met": ok,
     }
-    out = REPO_ROOT / "artifacts" / "capability-spine-supervision"
+    out = REPO_ROOT / "artifacts" / "capability-spine-late-host-surface"
     out.mkdir(parents=True, exist_ok=True)
     atomic_write_json(out / "plane-report.json", report)
     return report

@@ -26,9 +26,10 @@ STEWARDSHIP_SPINE_IMPL = True
 # is the loop-mode alias, not the engine's pipeline-mode one.
 ClassifyVerdict = _engine.LoopClassifyVerdict
 
-# CLI subcommand -> engine builtin. Preserved from the historical facade so
-# operator invocations and the registered ledger proof command keep working.
-_CLI_DISPATCH = {
+# Static CLI rows that are not a catalog family. Family ``{name}-proof``
+# rows derive from the log/pair catalogs so a new family is not another
+# dispatch copy.
+_CLI_STATIC: dict[str, str] = {
     "proof": "builtin_loop_engine_proof",
     "governance-proof": "builtin_governance_spine_proof",
     "stewardship-proof": "builtin_stewardship_spine_proof",
@@ -42,29 +43,36 @@ _CLI_DISPATCH = {
     "finality-proof": "builtin_total_spine_finality_proof",
     "federation-proof": "builtin_total_spine_federation_proof",
     "quorum-proof": "builtin_total_spine_quorum_proof",
-    "execution-proof": "builtin_total_spine_execution_proof",
-    "actuation-proof": "builtin_total_spine_actuation_proof",
-    "settlement-proof": "builtin_total_spine_settlement_proof",
-    "clearing-proof": "builtin_total_spine_clearing_proof",
-    "delivery-proof": "builtin_total_spine_delivery_proof",
-    "custody-proof": "builtin_total_spine_custody_proof",
-    "margin-proof": "builtin_total_spine_margin_proof",
-    "collateral-proof": "builtin_total_spine_collateral_proof",
-    "liquidity-proof": "builtin_total_spine_liquidity_proof",
-    "funding-proof": "builtin_total_spine_funding_proof",
-    "capital-proof": "builtin_total_spine_capital_proof",
-    "solvency-proof": "builtin_total_spine_solvency_proof",
-    "risk-proof": "builtin_total_spine_risk_proof",
-    "stress-proof": "builtin_total_spine_stress_proof",
-    "recovery-proof": "builtin_total_spine_recovery_proof",
-    "resolution-proof": "builtin_total_spine_resolution_proof",
-    "restructuring-proof": "builtin_total_spine_restructuring_proof",
-    "emergence-proof": "builtin_total_spine_emergence_proof",
-    "reorganization-proof": "builtin_total_spine_reorganization_proof",
-    "rehabilitation-proof": "builtin_total_spine_rehabilitation_proof",
-    "ratification-proof": "builtin_total_spine_ratification_proof",
-    "supervision-proof": "builtin_total_spine_supervision_proof",
 }
+LOOP_CLI_CATALOG_IMPL = True
+
+
+def derive_loop_cli_dispatch(
+    *,
+    extra_pair: Sequence[str] = (),
+    extra_log: Sequence[str] = (),
+    pair_families: Sequence[str] | None = None,
+    log_families: Sequence[str] | None = None,
+) -> dict[str, str]:
+    """Build CLI dispatch. A probe extra does not mutate the live map."""
+
+    if pair_families is None:
+        from blackhole_agent.upstream_total_spine_effects import PAIR_EFFECT_SPECS
+
+        pair_families = tuple(PAIR_EFFECT_SPECS)
+    if log_families is None:
+        from blackhole_agent.upstream_total_spine_logs import LOG_FAMILY_SPECS
+
+        log_families = tuple(LOG_FAMILY_SPECS)
+    dispatch = dict(_CLI_STATIC)
+    for name in list(log_families) + list(extra_log) + list(pair_families) + list(
+        extra_pair
+    ):
+        dispatch[f"{name}-proof"] = f"builtin_total_spine_{name}_proof"
+    return dispatch
+
+
+_CLI_DISPATCH = derive_loop_cli_dispatch()
 
 
 def __getattr__(name: str) -> Any:

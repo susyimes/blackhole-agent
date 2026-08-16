@@ -699,3 +699,39 @@ def test_builtin_spine_supervision_proof() -> None:
     import inspect
 
     inspect.signature(run_total_spine).bind_partial(supervision=True)
+
+
+def test_builtin_spine_late_host_surface_proof() -> None:
+    from blackhole_agent import capability_compounder as compounder
+    from blackhole_agent.upstream_loop_engine import (
+        _CLI_DISPATCH,
+        derive_loop_cli_dispatch,
+    )
+    from blackhole_agent.upstream_total_spine_effects import (
+        PAIR_EFFECT_SPECS,
+        builtin_spine_late_host_surface_proof,
+        builtin_spine_supervision_proof,
+        resolve_late_pair_family_proof,
+    )
+
+    result = builtin_spine_late_host_surface_proof()
+    assert result["ok"] is True
+    assert result["probe_family"] == "oversight"
+    assert result["used_skill_route_discovery"] is False
+    assert all(result["checks"].values())
+    assert all(result["wired"].values())
+    assert callable(builtin_spine_supervision_proof)
+    assert callable(
+        compounder.materialize_total_spine_supervision_contract_context
+    )
+    assert "supervision-proof" in _CLI_DISPATCH
+    assert "oversight-proof" not in _CLI_DISPATCH
+    probe_cli = derive_loop_cli_dispatch(extra_pair=("oversight",))
+    assert probe_cli["oversight-proof"] == "builtin_total_spine_oversight_proof"
+    try:
+        resolve_late_pair_family_proof("oversight")
+        live = True
+    except KeyError:
+        live = False
+    assert live is False
+    assert "oversight" not in PAIR_EFFECT_SPECS
