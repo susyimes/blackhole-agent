@@ -164,12 +164,12 @@ Composition:
   family of any kind is a spec+config row, not another host
   materializer copy. Historical names stay as thin wrappers.
 * total-spine **family admission** — leftover late-tower
-  (emergence, reorganization, rehabilitation) 40-field
-  ``PairEffectSpec`` copies derive from a compact
-  :class:`PairEffectAdmission` row. Predecessor nouns come from the
-  already-registered pred spec. A new late-tower family is compact
-  tokens plus a chain row, not another host spec copy. Historical
-  solvency callers and sealed tokens stay unchanged.
+  (emergence, reorganization, rehabilitation, ratification,
+  supervision) 40-field ``PairEffectSpec`` copies derive from a
+  compact :class:`PairEffectAdmission` row. Predecessor nouns come
+  from the already-registered pred spec. A new late-tower family is
+  compact tokens plus a chain row, not another host spec copy.
+  Historical solvency callers and sealed tokens stay unchanged.
 * total-spine **post-settlement clearing** — closes the settled-but-
   uncleared cliff: after settlement seals a unilateral observation
   receipt, ``clear_total_spine(...)`` (and ``run_total_spine(clearing=True)``)
@@ -334,6 +334,17 @@ Composition:
   re-verifiable atomic ratification certificate, refuses split /
   one-sided / mismatched / failed / wrong-root / tampered
   ratifications, short-circuits on re-ratification, and rebinds the
+  depth-28 tip. Hosted as a compact PairEffectAdmission plus a chain
+  row, not another 40-field host spec copy.
+* total-spine **post-ratification supervision-versus-covenant** —
+  closes the ratified-but-unsupervised cliff: after atomic RvE seals
+  matching ratification books, ``supervise_total_spine(...)``
+  (and ``run_total_spine(supervision=True)``) independently confirms a
+  second ratification, books each ratified pair into a
+  supervision register and pairs it with a covenant (Svn), seals a
+  re-verifiable atomic supervision certificate, refuses split /
+  one-sided / mismatched / failed / wrong-root / tampered
+  supervisions, short-circuits on re-supervision, and rebinds the
   depth-28 tip. Hosted as a compact PairEffectAdmission plus a chain
   row, not another 40-field host spec copy.
 
@@ -7450,7 +7461,7 @@ SPINE_SHORT_CIRCUIT_REANN_FROM: dict[str, str] = {
 SPINE_SHORT_CIRCUIT_FEDERATE: frozenset[str] = frozenset({"finality"})
 SPINE_SHORT_CIRCUIT_POST_ACTUATION: frozenset[str] = frozenset({"execution"})
 SPINE_SHORT_CIRCUIT_DIGEST: str = (
-    "dfe41217d755a5c2ee82ecdac9fb88b95cd8c0150d5fd2775269f2fad40c6b87"
+    "0bb6e2064db894c97a297f268bee71abb8b7f97636644dbcf72a806058a71117"
 )
 
 
@@ -15312,24 +15323,24 @@ def builtin_spine_family_catalog_proof() -> dict[str, Any]:
     checks["live_resume"] = SPINE_RESUME_PLANES == views["resume_planes"]
 
     probe = derive_spine_family_views(
-        extra_chain=(("supervision", "ratification", "supervise", "self"),),
-        extra_surface_pair=("supervision",),
+        extra_chain=(("oversight", "supervision", "oversee", "self"),),
+        extra_surface_pair=("oversight",),
     )
-    checks["probe_post"] = probe["post_consensus"][-1] == "supervision"
-    checks["probe_public"] = "supervision" in probe["public_flags"]
-    checks["probe_resume"] = probe["resume_planes"][-1] == "supervision"
-    checks["probe_surface"] = probe["surface_families"][-1] == "supervision"
-    checks["probe_not_guard"] = "supervision" not in probe["continuity_guard"]
-    checks["probe_not_want"] = "supervision" not in probe["want_effects"]
-    checks["probe_not_config"] = "supervision" not in probe["config_order"]
+    checks["probe_post"] = probe["post_consensus"][-1] == "oversight"
+    checks["probe_public"] = "oversight" in probe["public_flags"]
+    checks["probe_resume"] = probe["resume_planes"][-1] == "oversight"
+    checks["probe_surface"] = probe["surface_families"][-1] == "oversight"
+    checks["probe_not_guard"] = "oversight" not in probe["continuity_guard"]
+    checks["probe_not_want"] = "oversight" not in probe["want_effects"]
+    checks["probe_not_config"] = "oversight" not in probe["config_order"]
     probe_sc = _derive_spine_short_circuit(
         resume_planes=probe["resume_planes"],
         post_consensus=probe["post_consensus"],
     )
-    checks["probe_short_circuit"] = "supervision" in probe_sc
+    checks["probe_short_circuit"] = "oversight" in probe_sc
     checks["probe_does_not_mutate_live"] = (
-        "supervision" not in SPINE_RESUME_PLANES
-        and "supervision" not in _TOTAL_SPINE_SHORT_CIRCUIT
+        "oversight" not in SPINE_RESUME_PLANES
+        and "oversight" not in _TOTAL_SPINE_SHORT_CIRCUIT
     )
 
     engine_src = Path(__file__).read_text(encoding="utf-8")
@@ -15375,7 +15386,7 @@ def builtin_spine_family_catalog_proof() -> dict[str, Any]:
         "wired_count": sum(1 for value in wired.values() if value),
         "family_count": len(views["surface_families"]),
         "chain_count": len(views["post_consensus"]),
-        "probe_family": "supervision",
+        "probe_family": "oversight",
         "used_skill_route_discovery": legacy_pipeline_was_used(),
         "spine_family_catalog": True,
         "done_when_met": ok,

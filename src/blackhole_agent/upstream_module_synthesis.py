@@ -305,9 +305,9 @@ def builtin_module_synthesis_plane_proof() -> dict[str, Any]:
         spec.loader.get_code("blackhole_agent.upstream_omniverse") is not None
     )
 
-    probe = derive_module_synthesis_catalog(extra_pair=("supervision",))
+    probe = derive_module_synthesis_catalog(extra_pair=("oversight",))
     probe_row = resolve_synthesis_row(
-        "blackhole_agent.upstream_total_spine_supervision",
+        "blackhole_agent.upstream_total_spine_oversight",
         catalog=probe,
     )
     checks["probe_row"] = (
@@ -315,7 +315,7 @@ def builtin_module_synthesis_plane_proof() -> dict[str, Any]:
     )
     checks["probe_not_live"] = (
         resolve_synthesis_row(
-            "blackhole_agent.upstream_total_spine_supervision"
+            "blackhole_agent.upstream_total_spine_oversight"
         )
         is None
     )

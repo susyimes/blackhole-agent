@@ -1,6 +1,6 @@
 {
   "action": "spine_rehabilitation_proof",
-  "chain_count": 21,
+  "chain_count": 22,
   "checks": {
     "apply_owned": true,
     "chain_pred": true,
@@ -34,7 +34,7 @@
   "done_when_met": true,
   "ok": true,
   "schema_version": 1,
-  "spec_count": 17,
+  "spec_count": 18,
   "spine_rehabilitation": true,
   "used_skill_route_discovery": false,
   "wired": {

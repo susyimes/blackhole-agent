@@ -1,6 +1,6 @@
 {
   "action": "spine_contract_engine_proof",
-  "catalog_count": 21,
+  "catalog_count": 23,
   "checks": {
     "actuation_runner": true,
     "catalog_len": true,
@@ -37,10 +37,10 @@
     "unknown_refused": true
   },
   "done_when_met": true,
-  "kind_count": 21,
+  "kind_count": 23,
   "log_count": 4,
   "ok": true,
-  "pair_count": 16,
+  "pair_count": 18,
   "pre_count": 1,
   "probe_family": "notation",
   "schema_version": 1,

@@ -4780,6 +4780,46 @@
       ],
       "updated_at": "2026-08-15T18:46:28.826648Z"
     },
+    "capability.spine-supervision": {
+      "behavior_paths": [
+        "src/blackhole_agent/upstream_total_spine_effects.py",
+        "src/blackhole_agent/upstream_spine_catalog.py",
+        "src/blackhole_agent/upstream_control_engine.py",
+        "src/blackhole_agent/capability_compounder.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Post-ratification supervision is a live compact admission: a PairEffectAdmission plus SPINE_FAMILY_CHAIN row grows the tower so supervise_total_spine and run_total_spine(supervision=True) exist without another 40-field PairEffectSpec copy.",
+      "created_at": "2026-08-16T08:45:00.000000Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.spine-family-admission",
+        "capability.spine-ratification",
+        "capability.spine-contract-catalog",
+        "capability.spine-signature-catalog",
+        "capability.spine-family-engine",
+        "capability.module-synthesis-plane",
+        "capability.spine-family-catalog",
+        "capability.equivalence-gate"
+      ],
+      "description": "Post-ratification supervision-versus-covenant is a live compact admission plus chain row. A new late-tower family is PairEffectAdmission tokens plus SPINE_FAMILY_CHAIN, not another 40-field host spec copy. Historical solvency, rehabilitation, and ratification callers stay unchanged.",
+      "entry": "blackhole_agent.upstream_total_spine_effects:builtin_spine_supervision_proof",
+      "id": "capability.spine-supervision",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-16T08:45:00.000000Z",
+      "name": "Total-spine supervision family",
+      "proof_command": "uv run python -c \"from blackhole_agent.upstream_total_spine_effects import builtin_spine_supervision_proof; r=builtin_spine_supervision_proof(); assert r['ok'] and r.get('spine_supervision') is True and int(r.get('wired_count') or 0) >= 6 and all(r.get('checks') or {}) and all(r.get('wired') or {}) and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": 1,
+      "source_mission_id": "20260816T082739Z-7e169a69",
+      "tags": [
+        "spine-stage",
+        "simplification",
+        "supervision",
+        "evidence"
+      ],
+      "updated_at": "2026-08-16T08:45:00.000000Z"
+    },
     "capability.spine-surface-catalog": {
       "behavior_paths": [
         "src/blackhole_agent/upstream_control_engine.py"

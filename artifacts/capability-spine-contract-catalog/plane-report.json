@@ -1,11 +1,11 @@
 {
   "action": "spine_contract_catalog_proof",
-  "catalog_count": 16,
-  "chain_count": 17,
+  "catalog_count": 18,
+  "chain_count": 19,
   "checks": {
     "abbr_quirks": true,
     "catalog_len": true,
-    "chain_ends_rehabilitation": true,
+    "chain_ends_tip": true,
     "chain_len": true,
     "chain_starts_clearing": true,
     "compounder_uses_catalog": true,
@@ -31,11 +31,11 @@
     "unknown_refused": true
   },
   "done_when_met": true,
-  "kind_count": 16,
+  "kind_count": 18,
   "ok": true,
-  "probe_family": "ratification",
+  "probe_family": "oversight",
   "schema_version": 1,
-  "spec_count": 16,
+  "spec_count": 18,
   "spine_contract_catalog": true,
   "used_skill_route_discovery": false,
   "wired": {

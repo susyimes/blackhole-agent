@@ -3569,6 +3569,18 @@ def materialize_total_spine_ratification_contract_context(
     )
 
 
+def materialize_total_spine_supervision_contract_context(
+    repo_path: Path,
+    context: dict[str, Any],
+    *,
+    ledger: CapabilityLedger | None = None,
+) -> dict[str, Any]:
+    """Fill empty supervision plane context via fast total-spine Svn."""
+    return materialize_spine_family_contract_context(
+        "supervision", repo_path, context, ledger=ledger
+    )
+
+
 
 def evaluate_outcome_contract(
     repo_path: Path,

@@ -1,5 +1,5 @@
 {
-  "action": "spine_ratification_proof",
+  "action": "spine_supervision_proof",
   "chain_count": 22,
   "checks": {
     "admission_row": true,
@@ -21,6 +21,7 @@
     "no_leftover_spec_block": true,
     "no_skill_route": true,
     "public_flag": true,
+    "ratif_stays": true,
     "rehab_stays": true,
     "resume_plane": true,
     "run_kwarg": true,
@@ -31,7 +32,7 @@
     "spec_verb": true,
     "synth_catalog": true,
     "synth_row": true,
-    "total_chain_has": true,
+    "total_chain_tip": true,
     "unknown_flag_refused": true,
     "wrapper_thin": true
   },
@@ -39,7 +40,7 @@
   "ok": true,
   "schema_version": 1,
   "spec_count": 18,
-  "spine_ratification": true,
+  "spine_supervision": true,
   "used_skill_route_discovery": false,
   "wired": {
     "chain": true,

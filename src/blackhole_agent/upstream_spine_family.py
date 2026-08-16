@@ -388,14 +388,14 @@ def builtin_spine_family_engine_proof() -> dict[str, Any]:
         resolve_family_row("execution") is not None
         and resolve_family_row("execution").shape == "state"
     )
-    checks["unknown_refused"] = resolve_family_row("supervision") is None
+    checks["unknown_refused"] = resolve_family_row("oversight") is None
 
-    probe = derive_spine_family_engine_catalog(extra_pair=("supervision",))
-    probe_row = resolve_family_row("supervision", catalog=probe)
+    probe = derive_spine_family_engine_catalog(extra_pair=("oversight",))
+    probe_row = resolve_family_row("oversight", catalog=probe)
     checks["probe_row"] = (
         probe_row is not None and probe_row.kind == "pair_effect"
     )
-    checks["probe_not_live"] = resolve_family_row("supervision") is None
+    checks["probe_not_live"] = resolve_family_row("oversight") is None
     checks["probe_len"] = len(probe) == len(catalog) + 1
     probe_log = derive_spine_family_engine_catalog(extra_log=("notation",))
     checks["probe_log"] = (

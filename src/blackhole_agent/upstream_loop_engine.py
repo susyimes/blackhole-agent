@@ -63,6 +63,7 @@ _CLI_DISPATCH = {
     "reorganization-proof": "builtin_total_spine_reorganization_proof",
     "rehabilitation-proof": "builtin_total_spine_rehabilitation_proof",
     "ratification-proof": "builtin_total_spine_ratification_proof",
+    "supervision-proof": "builtin_total_spine_supervision_proof",
 }
 
 

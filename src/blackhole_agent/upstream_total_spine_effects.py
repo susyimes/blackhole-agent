@@ -689,6 +689,25 @@ LATE_PAIR_ADMISSIONS: tuple[PairEffectAdmission, ...] = (
             "restructuring",
         ),
     ),
+    PairEffectAdmission(
+        effect="supervision",
+        pred="ratification",
+        verb="supervise",
+        plural="supervisions",
+        code="svn",
+        versus="covenant",
+        counterpart="covenant",
+        adj_1="supervised",
+        adj_2="covenanted",
+        abbr="sup",
+        out_tip_skip=(
+            "ratification",
+            "rehabilitation",
+            "reorganization",
+            "emergence",
+            "restructuring",
+        ),
+    ),
 )
 
 
@@ -4141,40 +4160,40 @@ def builtin_spine_signature_catalog_proof() -> dict[str, Any]:
     )
 
     probe = PairEffectSpec(
-        effect="supervision",
-        plural="supervisions",
-        verb="supervise",
-        pred="rehabilitation",
-        pred_plural="rehabilitations",
-        code="svn",
-        code_upper="Svn",
-        pred_code="rvr",
-        pred_code_upper="Rvr",
-        verdict_1="supervised_ok",
-        verdict_2="covenant_ok",
-        adj_1="supervised",
-        adj_2="covenanted",
-        adj_1_negated="unrehabilitated",
-        counterpart="covenant",
-        pred_done="rehabilitated",
-        pred_verdict_1="remedied",
-        pred_verdict_2="rvr_ok",
-        post_key="post_rehabilitation",
-        min_name="SUPERVISIONS",
-        collect_push=("rehabilitation",),
-        abbr="sup",
+        effect="oversight",
+        plural="oversights",
+        verb="oversee",
+        pred="supervision",
+        pred_plural="supervisions",
+        code="ovs",
+        code_upper="Ovs",
+        pred_code="svn",
+        pred_code_upper="Svn",
+        verdict_1="overseen_ok",
+        verdict_2="standard_ok",
+        adj_1="overseen",
+        adj_2="standardized",
+        adj_1_negated="unsupervised",
+        counterpart="standard",
+        pred_done="supervised",
+        pred_verdict_1="covenanted",
+        pred_verdict_2="svn_ok",
+        post_key="post_supervision",
+        min_name="OVERSIGHTS",
+        collect_push=("supervision",),
+        abbr="ovr",
         refusal_pred_tampered="margin_tampered",
         refusal_pred_short="margins_short",
-        refusal_pred_not_done="capital_unrehabilitated",
+        refusal_pred_not_done="capital_unsupervised",
         refusal_pred_unmet="capital_unrequired",
-        refusal_code_failed="rvr_failed",
+        refusal_code_failed="svn_failed",
         summary="probe signature catalog family",
     )
     probe_sigs = derive_pair_effect_signatures(probe)
     checks["probe_twelve"] = len(probe_sigs) == 12
-    checks["probe_annotate"] = "annotate_total_spine_supervision" in probe_sigs
-    checks["probe_runner"] = "supervise_total_spine" in probe_sigs
-    checks["probe_not_live"] = "supervision" not in PAIR_EFFECT_SPECS
+    checks["probe_annotate"] = "annotate_total_spine_oversight" in probe_sigs
+    checks["probe_runner"] = "oversee_total_spine" in probe_sigs
+    checks["probe_not_live"] = "oversight" not in PAIR_EFFECT_SPECS
 
     effects_src = Path(__file__).read_text(encoding="utf-8")
     checks["no_leftover_signature_blocks"] = "\n        signatures={" not in effects_src
@@ -4231,7 +4250,7 @@ def builtin_spine_signature_catalog_proof() -> dict[str, Any]:
         "wired_count": sum(1 for value in wired.values() if value),
         "spec_count": len(PAIR_EFFECT_SPECS),
         "mismatches": mismatches,
-        "probe_family": "supervision",
+        "probe_family": "oversight",
         "used_skill_route_discovery": legacy_pipeline_was_used(),
         "spine_signature_catalog": True,
         "done_when_met": ok,
@@ -4242,35 +4261,35 @@ def builtin_spine_signature_catalog_proof() -> dict[str, Any]:
     return report
 
 
-def _probe_supervision_spec() -> PairEffectSpec:
+def _probe_oversight_spec() -> PairEffectSpec:
     return PairEffectSpec(
-        effect="supervision",
-        plural="supervisions",
-        verb="supervise",
-        pred="rehabilitation",
-        pred_plural="rehabilitations",
-        code="svn",
-        code_upper="Svn",
-        pred_code="rvr",
-        pred_code_upper="Rvr",
-        verdict_1="supervised_ok",
-        verdict_2="covenant_ok",
-        adj_1="supervised",
-        adj_2="covenanted",
-        adj_1_negated="unrehabilitated",
-        counterpart="covenant",
-        pred_done="rehabilitated",
-        pred_verdict_1="remedied",
-        pred_verdict_2="rvr_ok",
-        post_key="post_rehabilitation",
-        min_name="SUPERVISIONS",
-        collect_push=("rehabilitation",),
-        abbr="sup",
+        effect="oversight",
+        plural="oversights",
+        verb="oversee",
+        pred="supervision",
+        pred_plural="supervisions",
+        code="ovs",
+        code_upper="Ovs",
+        pred_code="svn",
+        pred_code_upper="Svn",
+        verdict_1="overseen_ok",
+        verdict_2="standard_ok",
+        adj_1="overseen",
+        adj_2="standardized",
+        adj_1_negated="unsupervised",
+        counterpart="standard",
+        pred_done="supervised",
+        pred_verdict_1="covenanted",
+        pred_verdict_2="svn_ok",
+        post_key="post_supervision",
+        min_name="OVERSIGHTS",
+        collect_push=("supervision",),
+        abbr="ovr",
         refusal_pred_tampered="margin_tampered",
         refusal_pred_short="margins_short",
-        refusal_pred_not_done="capital_unrehabilitated",
+        refusal_pred_not_done="capital_unsupervised",
         refusal_pred_unmet="capital_unrequired",
-        refusal_code_failed="rvr_failed",
+        refusal_code_failed="svn_failed",
         summary="probe contract catalog family",
     )
 
@@ -4336,25 +4355,25 @@ def builtin_spine_contract_catalog_proof() -> dict[str, Any]:
         }
     )
 
-    probe = _probe_supervision_spec()
+    probe = _probe_oversight_spec()
     probe_cfg = derive_pair_effect_contract_config(probe)
     probe_kinds = derive_pair_effect_contract_kinds(probe)
     checks["probe_config"] = (
-        probe_cfg["fields"]["supervised"] == ["lit", True]
-        and "covenant_ok" in probe_cfg["fields"]
-        and probe_cfg["abbr"] == "sup"
+        probe_cfg["fields"]["overseen"] == ["lit", True]
+        and "standard_ok" in probe_cfg["fields"]
+        and probe_cfg["abbr"] == "ovr"
     )
     checks["probe_kinds"] = (
-        "supervision_ok" in probe_kinds and "covenant_ok" in probe_kinds
+        "oversight_ok" in probe_kinds and "standard_ok" in probe_kinds
     )
-    checks["probe_not_live"] = "supervision" not in catalog
+    checks["probe_not_live"] = "oversight" not in catalog
     probe_verbs, probe_preds, _probe_abbrs = derive_spine_contract_chain_maps(
-        extra_chain=(("supervision", "ratification", "supervise", "self"),)
+        extra_chain=(("oversight", "supervision", "oversee", "self"),)
     )
     checks["probe_chain"] = (
-        probe_verbs.get("supervision") == "supervise"
-        and probe_preds.get("supervision") == "ratification"
-        and "supervision" not in verbs
+        probe_verbs.get("oversight") == "oversee"
+        and probe_preds.get("oversight") == "supervision"
+        and "oversight" not in verbs
     )
 
     compounder_src = Path(compounder.__file__).read_text(encoding="utf-8")
@@ -4411,7 +4430,7 @@ def builtin_spine_contract_catalog_proof() -> dict[str, Any]:
         "catalog_count": len(catalog),
         "kind_count": len(kinds),
         "chain_count": len(verbs),
-        "probe_family": "supervision",
+        "probe_family": "oversight",
         "used_skill_route_discovery": legacy_pipeline_was_used(),
         "spine_contract_catalog": True,
         "done_when_met": ok,
@@ -4554,6 +4573,7 @@ def builtin_spine_family_admission_proof() -> dict[str, Any]:
         "reorganization",
         "rehabilitation",
         "ratification",
+        "supervision",
     )
     checks["admissions_loop"] = "for _admission in LATE_PAIR_ADMISSIONS" in effects_src
     checks["admit_used"] = "admit_late_pair_effect(_admission)" in effects_src
@@ -4609,29 +4629,29 @@ def builtin_spine_family_admission_proof() -> dict[str, Any]:
     )
 
     probe = PairEffectAdmission(
-        effect="supervision",
-        pred="rehabilitation",
-        verb="supervise",
-        plural="supervisions",
-        code="svn",
-        versus="covenant",
-        adj_1="supervised",
-        adj_2="covenanted",
-        abbr="sup",
+        effect="oversight",
+        pred="supervision",
+        verb="oversee",
+        plural="oversights",
+        code="ovs",
+        versus="standard",
+        adj_1="overseen",
+        adj_2="standardized",
+        abbr="ovr",
     )
     derived_probe = derive_late_pair_effect_spec(probe)
     checks["probe_derived"] = (
-        derived_probe.effect == "supervision"
-        and derived_probe.pred == "rehabilitation"
-        and derived_probe.verb == "supervise"
-        and derived_probe.code_upper == "Svn"
-        and derived_probe.pred_code == "rvr"
-        and derived_probe.verdict_2 == "covenant_ok"
-        and derived_probe.pred_done == "rehabilitated"
-        and derived_probe.collect_push[0] == "rehabilitation"
+        derived_probe.effect == "oversight"
+        and derived_probe.pred == "supervision"
+        and derived_probe.verb == "oversee"
+        and derived_probe.code_upper == "Ovs"
+        and derived_probe.pred_code == "svn"
+        and derived_probe.verdict_2 == "standard_ok"
+        and derived_probe.pred_done == "supervised"
+        and derived_probe.collect_push[0] == "supervision"
         and derived_probe.confirm_source == "preds_or_body"
     )
-    checks["probe_not_live"] = "supervision" not in PAIR_EFFECT_SPECS
+    checks["probe_not_live"] = "oversight" not in PAIR_EFFECT_SPECS
     try:
         derive_late_pair_effect_spec(
             PairEffectAdmission(
@@ -4658,8 +4678,17 @@ def builtin_spine_family_admission_proof() -> dict[str, Any]:
         and ratif.counterpart == "endorsement"
         and ratif.verdict_2 == "endorsement_ok"
     )
+    superv = PAIR_EFFECT_SPECS.get("supervision")
+    checks["superv_tokens"] = bool(
+        superv is not None
+        and superv.verb == "supervise"
+        and superv.code == "svn"
+        and superv.pred == "ratification"
+        and superv.counterpart == "covenant"
+        and superv.verdict_2 == "covenant_ok"
+    )
     checks["pair_count"] = (
-        "ratification" in PAIR_EFFECT_SPECS and len(PAIR_EFFECT_SPECS) >= 17
+        "supervision" in PAIR_EFFECT_SPECS and len(PAIR_EFFECT_SPECS) >= 18
     )
     checks["no_skill_route"] = not legacy_pipeline_was_used()
 
@@ -4670,7 +4699,8 @@ def builtin_spine_family_admission_proof() -> dict[str, Any]:
         "impl": SPINE_FAMILY_ADMISSION_IMPL is True,
         "rehab": "rehabilitation" in PAIR_EFFECT_SPECS,
         "ratif": "ratification" in PAIR_EFFECT_SPECS,
-        "probe": derived_probe.effect == "supervision",
+        "superv": "supervision" in PAIR_EFFECT_SPECS,
+        "probe": derived_probe.effect == "oversight",
     }
     ok = all(checks.values()) and all(wired.values())
     report = {
@@ -4682,7 +4712,7 @@ def builtin_spine_family_admission_proof() -> dict[str, Any]:
         "wired_count": sum(1 for value in wired.values() if value),
         "admission_count": len(LATE_PAIR_ADMISSIONS),
         "spec_count": len(PAIR_EFFECT_SPECS),
-        "probe_family": "supervision",
+        "probe_family": "oversight",
         "used_skill_route_discovery": legacy_pipeline_was_used(),
         "spine_family_admission": True,
         "done_when_met": ok,
@@ -4730,10 +4760,15 @@ def builtin_spine_ratification_proof() -> dict[str, Any]:
         derive_late_pair_effect_spec(admission).code == spec.code
     )
     chain_names = [row[0] for row in SPINE_FAMILY_CHAIN]
-    checks["chain_row"] = chain_names[-1] == "ratification"
-    checks["chain_pred"] = SPINE_FAMILY_CHAIN[-1][1] == "rehabilitation"
-    checks["chain_verb"] = SPINE_FAMILY_CHAIN[-1][2] == "ratify"
-    checks["total_chain_tip"] = TOTAL_SPINE_CHAIN[-1] == "ratification"
+    ratif_idx = chain_names.index("ratification") if "ratification" in chain_names else -1
+    checks["chain_row"] = ratif_idx >= 0
+    checks["chain_pred"] = (
+        ratif_idx >= 0 and SPINE_FAMILY_CHAIN[ratif_idx][1] == "rehabilitation"
+    )
+    checks["chain_verb"] = (
+        ratif_idx >= 0 and SPINE_FAMILY_CHAIN[ratif_idx][2] == "ratify"
+    )
+    checks["total_chain_has"] = "ratification" in TOTAL_SPINE_CHAIN
     checks["rehab_stays"] = "rehabilitation" in PAIR_EFFECT_SPECS
     checks["solvency_stays"] = "solvency" in PAIR_EFFECT_SPECS
 
@@ -4799,7 +4834,7 @@ def builtin_spine_ratification_proof() -> dict[str, Any]:
 
     wired = {
         "spec": "ratification" in PAIR_EFFECT_SPECS,
-        "chain": chain_names[-1] == "ratification",
+        "chain": "ratification" in chain_names,
         "engine": engine_row is not None,
         "module": callable(getattr(module, "ratify_total_spine", None)),
         "contract": "ratification" in contract,
@@ -4820,6 +4855,139 @@ def builtin_spine_ratification_proof() -> dict[str, Any]:
         "done_when_met": ok,
     }
     out = REPO_ROOT / "artifacts" / "capability-spine-ratification"
+    out.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(out / "plane-report.json", report)
+    return report
+
+
+def builtin_spine_supervision_proof() -> dict[str, Any]:
+    """Hermetic proof: supervision is a live compact admission + chain row."""
+
+    import importlib
+    import inspect
+
+    from blackhole_agent.upstream_spine_catalog import SPINE_FAMILY_CHAIN
+    from blackhole_agent.upstream_spine_family import (
+        apply_spine_family,
+        resolve_family_row,
+        spine_family_engine_catalog,
+    )
+    from blackhole_agent.upstream_module_synthesis import (
+        module_synthesis_catalog,
+        resolve_synthesis_row,
+    )
+    from blackhole_agent import capability_compounder as compounder
+    from blackhole_agent import upstream_control_engine as ce
+
+    checks: dict[str, bool] = {}
+    spec = PAIR_EFFECT_SPECS.get("supervision")
+    admission = next(
+        (row for row in LATE_PAIR_ADMISSIONS if row.effect == "supervision"),
+        None,
+    )
+    checks["spec_row"] = spec is not None and spec.pred == "ratification"
+    checks["spec_verb"] = spec is not None and spec.verb == "supervise"
+    checks["spec_code"] = spec is not None and spec.code == "svn"
+    checks["admission_row"] = (
+        admission is not None
+        and admission.versus == "covenant"
+        and admission.pred == "ratification"
+    )
+    checks["from_admission"] = admission is not None and spec is not None and (
+        derive_late_pair_effect_spec(admission).code == spec.code
+    )
+    chain_names = [row[0] for row in SPINE_FAMILY_CHAIN]
+    checks["chain_row"] = chain_names[-1] == "supervision"
+    checks["chain_pred"] = SPINE_FAMILY_CHAIN[-1][1] == "ratification"
+    checks["chain_verb"] = SPINE_FAMILY_CHAIN[-1][2] == "supervise"
+    checks["total_chain_tip"] = TOTAL_SPINE_CHAIN[-1] == "supervision"
+    checks["ratif_stays"] = "ratification" in PAIR_EFFECT_SPECS
+    checks["rehab_stays"] = "rehabilitation" in PAIR_EFFECT_SPECS
+    checks["solvency_stays"] = "solvency" in PAIR_EFFECT_SPECS
+
+    engine_row = resolve_family_row("supervision")
+    checks["engine_row"] = (
+        engine_row is not None and engine_row.kind == "pair_effect"
+    )
+    checks["engine_catalog"] = any(
+        row.name == "supervision" for row in spine_family_engine_catalog()
+    )
+    synth_row = resolve_synthesis_row(
+        "blackhole_agent.upstream_total_spine_supervision"
+    )
+    checks["synth_row"] = synth_row is not None and synth_row.kind == "pair_effect"
+    checks["synth_catalog"] = any(
+        row.name == "supervision" for row in module_synthesis_catalog()
+    )
+
+    module = importlib.import_module(
+        "blackhole_agent.upstream_total_spine_supervision"
+    )
+    checks["module_runner"] = callable(
+        getattr(module, "supervise_total_spine", None)
+    )
+    checks["module_proof"] = callable(
+        getattr(module, "builtin_total_spine_supervision_proof", None)
+    )
+    checks["module_impl"] = getattr(module, "TOTAL_SPINE_SUPERVISION_IMPL", None) is True
+    checks["engine_impl"] = ce.TOTAL_SPINE_SUPERVISION_IMPL is True
+    checks["engine_runner"] = callable(getattr(ce, "supervise_total_spine", None))
+    checks["public_flag"] = "supervision" in ce.SPINE_PUBLIC_STAGE_FLAGS
+    checks["resume_plane"] = "supervision" in ce.SPINE_RESUME_PLANES
+    checks["short_circuit"] = "supervision" in ce._TOTAL_SPINE_SHORT_CIRCUIT
+    contract = derive_pair_effect_contract_catalog()
+    checks["contract_row"] = "supervision" in contract
+    checks["contract_kinds"] = "supervision_ok" in derive_pair_effect_contract_kinds(
+        PAIR_EFFECT_SPECS["supervision"]
+    )
+    checks["apply_owned"] = callable(apply_spine_family)
+    wrap_src = inspect.getsource(
+        compounder.materialize_total_spine_supervision_contract_context
+    )
+    checks["wrapper_thin"] = "materialize_spine_family_contract_context" in wrap_src
+    flags = ce._collect_spine_stage_flags(None, {"supervision": True})
+    checks["flag_accepted"] = flags.get("supervision") is True
+    run_sig = inspect.signature(ce.run_total_spine)
+    try:
+        run_sig.bind_partial(supervision=True)
+        checks["run_kwarg"] = True
+    except TypeError:
+        checks["run_kwarg"] = False
+    try:
+        ce._collect_spine_stage_flags(None, {"not-a-family": True})
+        checks["unknown_flag_refused"] = False
+    except Exception:
+        checks["unknown_flag_refused"] = True
+    checks["no_leftover_spec_block"] = (
+        "PairEffectSpec(\n        effect='supervision'" not in Path(__file__).read_text(
+            encoding="utf-8"
+        )
+    )
+    checks["no_skill_route"] = not legacy_pipeline_was_used()
+
+    wired = {
+        "spec": "supervision" in PAIR_EFFECT_SPECS,
+        "chain": chain_names[-1] == "supervision",
+        "engine": engine_row is not None,
+        "module": callable(getattr(module, "supervise_total_spine", None)),
+        "contract": "supervision" in contract,
+        "impl": ce.TOTAL_SPINE_SUPERVISION_IMPL is True,
+    }
+    ok = all(checks.values()) and all(wired.values())
+    report = {
+        "schema_version": SCHEMA_VERSION,
+        "action": "spine_supervision_proof",
+        "ok": ok,
+        "checks": checks,
+        "wired": wired,
+        "wired_count": sum(1 for value in wired.values() if value),
+        "spec_count": len(PAIR_EFFECT_SPECS),
+        "chain_count": len(SPINE_FAMILY_CHAIN),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+        "spine_supervision": True,
+        "done_when_met": ok,
+    }
+    out = REPO_ROOT / "artifacts" / "capability-spine-supervision"
     out.mkdir(parents=True, exist_ok=True)
     atomic_write_json(out / "plane-report.json", report)
     return report

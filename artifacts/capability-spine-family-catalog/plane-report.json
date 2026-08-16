@@ -1,6 +1,6 @@
 {
   "action": "spine_family_catalog_proof",
-  "chain_count": 20,
+  "chain_count": 22,
   "checks": {
     "chain_alias": true,
     "chain_len": true,
@@ -36,9 +36,9 @@
     "want_derived": true
   },
   "done_when_met": true,
-  "family_count": 19,
+  "family_count": 21,
   "ok": true,
-  "probe_family": "ratification",
+  "probe_family": "oversight",
   "schema_version": 1,
   "spine_family_catalog": true,
   "used_skill_route_discovery": false,

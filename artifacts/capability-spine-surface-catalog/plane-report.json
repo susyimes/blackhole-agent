@@ -23,7 +23,7 @@
     "solvency_names": true
   },
   "done_when_met": true,
-  "exported_count": 285,
+  "exported_count": 315,
   "families": [
     "actuation",
     "settlement",
@@ -38,6 +38,8 @@
     "emergence",
     "reorganization",
     "rehabilitation",
+    "ratification",
+    "supervision",
     "delivery",
     "custody",
     "margin",
@@ -45,7 +47,7 @@
     "liquidity",
     "funding"
   ],
-  "family_count": 19,
+  "family_count": 21,
   "ok": true,
   "schema_version": 1,
   "spine_surface_catalog": true,

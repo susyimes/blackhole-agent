@@ -58,7 +58,7 @@ def test_attach_and_short_circuit_share_the_catalog_walk() -> None:
     assert SPINE_STAGE_POST_ACTUATION_START == "settlement"
     assert SPINE_STAGE_POST_CONSENSUS_START == "execution"
     assert [row[0] for row in SPINE_STAGE_CHAIN][0] == "settlement"
-    assert [row[0] for row in SPINE_STAGE_CHAIN][-1] == "ratification"
+    assert [row[0] for row in SPINE_STAGE_CHAIN][-1] == "supervision"
     assert [row[0] for row in SPINE_POST_CONSENSUS_CHAIN][:2] == [
         "execution",
         "actuation",
@@ -88,7 +88,7 @@ def test_builtin_spine_resume_catalog_proof() -> None:
 
 def test_resume_catalog_owns_attach_rehydrate() -> None:
     assert list(SPINE_RESUME_PLANES)[0] == "finality"
-    assert list(SPINE_RESUME_PLANES)[-1] == "ratification"
+    assert list(SPINE_RESUME_PLANES)[-1] == "supervision"
     attach_src = inspect.getsource(_attach_total_spine_effects)
     assert "_load_spine_resume_certificates" in attach_src
     assert "_select_post_consensus_short_circuit" in attach_src
@@ -205,7 +205,7 @@ def test_builtin_spine_public_catalog_proof() -> None:
 
 def test_public_stage_flags_are_catalog_validated() -> None:
     assert list(SPINE_PUBLIC_STAGE_FLAGS)[0] == "execution"
-    assert list(SPINE_PUBLIC_STAGE_FLAGS)[-1] == "ratification"
+    assert list(SPINE_PUBLIC_STAGE_FLAGS)[-1] == "supervision"
     assert "finality" not in SPINE_PUBLIC_STAGE_FLAGS
     collected = _collect_spine_stage_flags(None, {"solvency": True})
     assert collected["solvency"] is True
@@ -255,6 +255,7 @@ def test_spine_surface_is_one_catalog_reexport() -> None:
     assert "reorganization" in SPINE_SURFACE_FAMILIES
     assert "rehabilitation" in SPINE_SURFACE_FAMILIES
     assert "ratification" in SPINE_SURFACE_FAMILIES
+    assert "supervision" in SPINE_SURFACE_FAMILIES
     assert len(SPINE_SURFACE_EXPORTED) >= 18 * 14
     src = inspect.getsource(uce)
     leftover_families = ("actuation", "solvency", "reorganization")
@@ -301,18 +302,18 @@ def test_module_synthesis_probe_is_a_catalog_row() -> None:
         resolve_synthesis_row,
     )
 
-    live = resolve_synthesis_row("blackhole_agent.upstream_total_spine_supervision")
+    live = resolve_synthesis_row("blackhole_agent.upstream_total_spine_oversight")
     assert live is None
-    probe = derive_module_synthesis_catalog(extra_pair=("supervision",))
+    probe = derive_module_synthesis_catalog(extra_pair=("oversight",))
     row = resolve_synthesis_row(
-        "blackhole_agent.upstream_total_spine_supervision",
+        "blackhole_agent.upstream_total_spine_oversight",
         catalog=probe,
     )
     assert row is not None
     assert row.kind == "pair_effect"
-    assert row.name == "supervision"
+    assert row.name == "oversight"
     assert resolve_synthesis_row(
-        "blackhole_agent.upstream_total_spine_ratification"
+        "blackhole_agent.upstream_total_spine_supervision"
     ) is not None
 
 
@@ -343,40 +344,40 @@ def test_spine_signature_catalog_probe_is_a_token_row() -> None:
     )
 
     probe = PairEffectSpec(
-        effect="supervision",
-        plural="supervisions",
-        verb="supervise",
-        pred="rehabilitation",
-        pred_plural="rehabilitations",
-        code="svn",
-        code_upper="Svn",
-        pred_code="rvr",
-        pred_code_upper="Rvr",
-        verdict_1="supervised_ok",
-        verdict_2="covenant_ok",
-        adj_1="supervised",
-        adj_2="covenanted",
-        adj_1_negated="unrehabilitated",
-        counterpart="covenant",
-        pred_done="rehabilitated",
-        pred_verdict_1="remedied",
-        pred_verdict_2="rvr_ok",
-        post_key="post_rehabilitation",
-        min_name="SUPERVISIONS",
-        collect_push=("rehabilitation",),
-        abbr="sup",
+        effect="oversight",
+        plural="oversights",
+        verb="oversee",
+        pred="supervision",
+        pred_plural="supervisions",
+        code="ovs",
+        code_upper="Ovs",
+        pred_code="svn",
+        pred_code_upper="Svn",
+        verdict_1="overseen_ok",
+        verdict_2="standard_ok",
+        adj_1="overseen",
+        adj_2="standardized",
+        adj_1_negated="unsupervised",
+        counterpart="standard",
+        pred_done="supervised",
+        pred_verdict_1="covenanted",
+        pred_verdict_2="svn_ok",
+        post_key="post_supervision",
+        min_name="OVERSIGHTS",
+        collect_push=("supervision",),
+        abbr="ovr",
         refusal_pred_tampered="margin_tampered",
         refusal_pred_short="margins_short",
-        refusal_pred_not_done="capital_unrehabilitated",
+        refusal_pred_not_done="capital_unsupervised",
         refusal_pred_unmet="capital_unrequired",
-        refusal_code_failed="rvr_failed",
+        refusal_code_failed="svn_failed",
         summary="probe",
     )
     names = derive_pair_effect_signatures(probe)
-    assert "supervise_total_spine" in names
-    assert "annotate_total_spine_supervision" in names
-    assert "supervision" not in PAIR_EFFECT_SPECS
-    assert "ratify_total_spine" in PAIR_EFFECT_SPECS["ratification"].signatures
+    assert "oversee_total_spine" in names
+    assert "annotate_total_spine_oversight" in names
+    assert "oversight" not in PAIR_EFFECT_SPECS
+    assert "supervise_total_spine" in PAIR_EFFECT_SPECS["supervision"].signatures
 
 
 def test_builtin_spine_family_engine_proof() -> None:
@@ -401,14 +402,14 @@ def test_spine_family_engine_probe_is_a_catalog_row() -> None:
         resolve_family_row,
     )
 
-    assert resolve_family_row("supervision") is None
-    probe = derive_spine_family_engine_catalog(extra_pair=("supervision",))
-    row = resolve_family_row("supervision", catalog=probe)
+    assert resolve_family_row("oversight") is None
+    probe = derive_spine_family_engine_catalog(extra_pair=("oversight",))
+    row = resolve_family_row("oversight", catalog=probe)
     assert row is not None
     assert row.kind == "pair_effect"
     assert row.shape == "pair"
     assert row.populate == "signatures"
-    assert resolve_family_row("ratification") is not None
+    assert resolve_family_row("supervision") is not None
 
 
 def test_builtin_spine_contract_catalog_proof() -> None:
@@ -441,66 +442,67 @@ def test_spine_contract_catalog_probe_is_a_token_row() -> None:
     )
 
     probe = PairEffectSpec(
-        effect="supervision",
-        plural="supervisions",
-        verb="supervise",
-        pred="rehabilitation",
-        pred_plural="rehabilitations",
-        code="svn",
-        code_upper="Svn",
-        pred_code="rvr",
-        pred_code_upper="Rvr",
-        verdict_1="supervised_ok",
-        verdict_2="covenant_ok",
-        adj_1="supervised",
-        adj_2="covenanted",
-        adj_1_negated="unrehabilitated",
-        counterpart="covenant",
-        pred_done="rehabilitated",
-        pred_verdict_1="remedied",
-        pred_verdict_2="rvr_ok",
-        post_key="post_rehabilitation",
-        min_name="SUPERVISIONS",
-        collect_push=("rehabilitation",),
-        abbr="sup",
+        effect="oversight",
+        plural="oversights",
+        verb="oversee",
+        pred="supervision",
+        pred_plural="supervisions",
+        code="ovs",
+        code_upper="Ovs",
+        pred_code="svn",
+        pred_code_upper="Svn",
+        verdict_1="overseen_ok",
+        verdict_2="standard_ok",
+        adj_1="overseen",
+        adj_2="standardized",
+        adj_1_negated="unsupervised",
+        counterpart="standard",
+        pred_done="supervised",
+        pred_verdict_1="covenanted",
+        pred_verdict_2="svn_ok",
+        post_key="post_supervision",
+        min_name="OVERSIGHTS",
+        collect_push=("supervision",),
+        abbr="ovr",
         refusal_pred_tampered="margin_tampered",
         refusal_pred_short="margins_short",
-        refusal_pred_not_done="capital_unrehabilitated",
+        refusal_pred_not_done="capital_unsupervised",
         refusal_pred_unmet="capital_unrequired",
-        refusal_code_failed="rvr_failed",
+        refusal_code_failed="svn_failed",
         summary="probe",
     )
     cfg = derive_pair_effect_contract_config(probe)
-    assert cfg["fields"]["supervised"] == ["lit", True]
-    assert "covenant_ok" in cfg["fields"]
+    assert cfg["fields"]["overseen"] == ["lit", True]
+    assert "standard_ok" in cfg["fields"]
     live = derive_pair_effect_contract_catalog()
-    assert "supervision" not in live
-    assert "ratification" in live
+    assert "oversight" not in live
+    assert "supervision" in live
     verbs, preds, _abbrs = derive_spine_contract_chain_maps(
-        extra_chain=(("supervision", "ratification", "supervise", "self"),)
+        extra_chain=(("oversight", "supervision", "oversee", "self"),)
     )
-    assert verbs["supervision"] == "supervise"
-    assert preds["supervision"] == "ratification"
+    assert verbs["oversight"] == "oversee"
+    assert preds["oversight"] == "supervision"
     live_verbs, _live_preds, _live_abbrs = derive_spine_contract_chain_maps()
-    assert "supervision" not in live_verbs
-    assert "ratification" in PAIR_EFFECT_SPECS
+    assert "oversight" not in live_verbs
+    assert "supervision" in PAIR_EFFECT_SPECS
 
 
 def test_spine_family_catalog_probe_extends_views() -> None:
     base = derive_spine_family_views()
     probe = derive_spine_family_views(
-        extra_chain=(("supervision", "ratification", "supervise", "self"),),
-        extra_surface_pair=("supervision",),
+        extra_chain=(("oversight", "supervision", "oversee", "self"),),
+        extra_surface_pair=("oversight",),
     )
-    assert base["post_consensus"][-1] == "ratification"
-    assert probe["post_consensus"][-1] == "supervision"
-    assert "supervision" in probe["public_flags"]
-    assert "supervision" in probe["resume_planes"]
-    assert probe["surface_families"][-1] == "supervision"
-    assert "supervision" not in probe["continuity_guard"]
-    assert "supervision" not in probe["want_effects"]
-    assert "supervision" not in probe["config_order"]
-    assert "supervision" not in base["public_flags"]
+    assert base["post_consensus"][-1] == "supervision"
+    assert probe["post_consensus"][-1] == "oversight"
+    assert "oversight" in probe["public_flags"]
+    assert "oversight" in probe["resume_planes"]
+    assert probe["surface_families"][-1] == "oversight"
+    assert "oversight" not in probe["continuity_guard"]
+    assert "oversight" not in probe["want_effects"]
+    assert "oversight" not in probe["config_order"]
+    assert "oversight" not in base["public_flags"]
+    assert "supervision" in base["public_flags"]
     assert "ratification" in base["public_flags"]
     assert "rehabilitation" in base["public_flags"]
 
@@ -586,7 +588,7 @@ def test_builtin_spine_rehabilitation_proof() -> None:
     assert all(result["checks"].values())
     assert all(result["wired"].values())
     assert "rehabilitation" in PAIR_EFFECT_SPECS
-    assert TOTAL_SPINE_CHAIN[-1] == "ratification"
+    assert TOTAL_SPINE_CHAIN[-1] == "supervision"
 
 
 def test_builtin_spine_family_admission_proof() -> None:
@@ -600,9 +602,9 @@ def test_builtin_spine_family_admission_proof() -> None:
 
     result = builtin_spine_family_admission_proof()
     assert result["ok"] is True
-    assert result["admission_count"] == 4
+    assert result["admission_count"] == 5
     assert result["spec_count"] == len(PAIR_EFFECT_SPECS)
-    assert result["probe_family"] == "supervision"
+    assert result["probe_family"] == "oversight"
     assert result["used_skill_route_discovery"] is False
     assert all(result["checks"].values())
     assert all(result["wired"].values())
@@ -611,22 +613,23 @@ def test_builtin_spine_family_admission_proof() -> None:
         "reorganization",
         "rehabilitation",
         "ratification",
+        "supervision",
     ]
     probe = PairEffectAdmission(
-        effect="supervision",
-        pred="rehabilitation",
-        verb="supervise",
-        plural="supervisions",
-        code="svn",
-        versus="covenant",
-        adj_1="supervised",
-        adj_2="covenanted",
-        abbr="sup",
+        effect="oversight",
+        pred="supervision",
+        verb="oversee",
+        plural="oversights",
+        code="ovs",
+        versus="standard",
+        adj_1="overseen",
+        adj_2="standardized",
+        abbr="ovr",
     )
     derived = derive_late_pair_effect_spec(probe)
-    assert derived.verb == "supervise"
-    assert derived.pred_code == "rvr"
-    assert "supervision" not in PAIR_EFFECT_SPECS
+    assert derived.verb == "oversee"
+    assert derived.pred_code == "svn"
+    assert "oversight" not in PAIR_EFFECT_SPECS
 
 
 def test_spine_family_admission_probe_is_not_live() -> None:
@@ -637,21 +640,21 @@ def test_spine_family_admission_probe_is_not_live() -> None:
     )
 
     probe = PairEffectAdmission(
-        effect="supervision",
-        pred="rehabilitation",
-        verb="supervise",
-        plural="supervisions",
-        code="svn",
-        versus="covenant",
-        adj_1="supervised",
-        adj_2="covenanted",
-        abbr="sup",
+        effect="oversight",
+        pred="supervision",
+        verb="oversee",
+        plural="oversights",
+        code="ovs",
+        versus="standard",
+        adj_1="overseen",
+        adj_2="standardized",
+        abbr="ovr",
     )
     derived = derive_late_pair_effect_spec(probe)
-    assert derived.collect_push[0] == "rehabilitation"
-    assert derived.out_tip_alias == {"supervision": "rehabilitation"}
-    assert derived.refusal_confirm_missing == "covenant_missing"
-    assert "supervision" not in PAIR_EFFECT_SPECS
+    assert derived.collect_push[0] == "supervision"
+    assert derived.out_tip_alias == {"oversight": "supervision"}
+    assert derived.refusal_confirm_missing == "standard_missing"
+    assert "oversight" not in PAIR_EFFECT_SPECS
 
 
 def test_builtin_spine_ratification_proof() -> None:
@@ -670,7 +673,29 @@ def test_builtin_spine_ratification_proof() -> None:
     assert all(result["wired"].values())
     assert PAIR_EFFECT_SPECS["ratification"].verb == "ratify"
     assert PAIR_EFFECT_SPECS["ratification"].pred == "rehabilitation"
-    assert TOTAL_SPINE_CHAIN[-1] == "ratification"
+    assert "ratification" in TOTAL_SPINE_CHAIN
     import inspect
 
     inspect.signature(run_total_spine).bind_partial(ratification=True)
+
+
+def test_builtin_spine_supervision_proof() -> None:
+    from blackhole_agent.upstream_control_engine import run_total_spine
+    from blackhole_agent.upstream_total_spine_effects import (
+        PAIR_EFFECT_SPECS,
+        TOTAL_SPINE_CHAIN,
+        builtin_spine_supervision_proof,
+    )
+
+    result = builtin_spine_supervision_proof()
+    assert result["ok"] is True
+    assert result["spec_count"] == len(PAIR_EFFECT_SPECS)
+    assert result["used_skill_route_discovery"] is False
+    assert all(result["checks"].values())
+    assert all(result["wired"].values())
+    assert PAIR_EFFECT_SPECS["supervision"].verb == "supervise"
+    assert PAIR_EFFECT_SPECS["supervision"].pred == "ratification"
+    assert TOTAL_SPINE_CHAIN[-1] == "supervision"
+    import inspect
+
+    inspect.signature(run_total_spine).bind_partial(supervision=True)

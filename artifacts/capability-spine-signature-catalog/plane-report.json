@@ -24,9 +24,9 @@
   "done_when_met": true,
   "mismatches": [],
   "ok": true,
-  "probe_family": "ratification",
+  "probe_family": "oversight",
   "schema_version": 1,
-  "spec_count": 16,
+  "spec_count": 18,
   "spine_signature_catalog": true,
   "used_skill_route_discovery": false,
   "wired": {
