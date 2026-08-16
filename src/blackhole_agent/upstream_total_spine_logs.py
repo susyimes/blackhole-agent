@@ -4715,13 +4715,17 @@ def builtin_spine_contract_engine_proof() -> dict[str, Any]:
     checks: dict[str, bool] = {}
     catalog = derive_spine_contract_engine_catalog()
     kinds = derive_spine_contract_engine_kind_sets()
+    from blackhole_agent.upstream_spine_catalog import SPINE_FAMILY_CHAIN
+
     checks["impl"] = LOG_CONTRACT_ENGINE_IMPL is True
-    checks["catalog_len"] = len(catalog) == 21
-    checks["kind_len"] = len(kinds) == 21
+    checks["catalog_len"] = len(catalog) == (
+        len(PAIR_EFFECT_SPECS) + len(LOG_FAMILY_SPECS) + len(_PRE_CONSENSUS_CONTRACT_ROWS)
+    )
+    checks["kind_len"] = len(kinds) == len(catalog)
     checks["kind_prefix"] = [name for name, _ in kinds[:5]] == list(
         _CONTRACT_ENGINE_PREFIX
     )
-    checks["kind_suffix"] = kinds[-1][0] == "rehabilitation"
+    checks["kind_suffix"] = kinds[-1][0] == SPINE_FAMILY_CHAIN[-1][0]
     checks["quorum_row"] = catalog.get("quorum", {}).get("kind") == "pre_consensus"
     checks["quorum_runner"] = catalog.get("quorum", {}).get("runner") == "federate"
     checks["execution_row"] = catalog.get("execution", {}).get("kind") == "log_family"
@@ -4734,13 +4738,13 @@ def builtin_spine_contract_engine_proof() -> dict[str, Any]:
     checks["solvency_pair"] = catalog.get("solvency", {}).get("kind") == "pair_effect"
     checks["pair_count"] = sum(
         1 for cfg in catalog.values() if cfg.get("kind") == "pair_effect"
-    ) == 16
+    ) == len(PAIR_EFFECT_SPECS)
     checks["log_count"] = sum(
         1 for cfg in catalog.values() if cfg.get("kind") == "log_family"
-    ) == 4
+    ) == len(LOG_FAMILY_SPECS)
     checks["pre_count"] = sum(
         1 for cfg in catalog.values() if cfg.get("kind") == "pre_consensus"
-    ) == 1
+    ) == len(_PRE_CONSENSUS_CONTRACT_ROWS)
     kind_map = dict(kinds)
     checks["quorum_kinds"] = kind_map.get("quorum") == frozenset(
         {

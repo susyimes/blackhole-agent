@@ -325,6 +325,17 @@ Composition:
   rehabilitations, short-circuits on re-rehabilitation, and rebinds the
   depth-28 tip. Hosted as a spec+chain row on the family/contract
   catalogs, not another host synthesizer.
+* total-spine **post-rehabilitation ratification-versus-endorsement** —
+  closes the rehabilitated-but-unratified cliff: after atomic RvR seals
+  matching rehabilitation books, ``ratify_total_spine(...)``
+  (and ``run_total_spine(ratification=True)``) independently confirms a
+  second rehabilitation, books each rehabilitated pair into a
+  ratification register and pairs it with an endorsement (RvE), seals a
+  re-verifiable atomic ratification certificate, refuses split /
+  one-sided / mismatched / failed / wrong-root / tampered
+  ratifications, short-circuits on re-ratification, and rebinds the
+  depth-28 tip. Hosted as a compact PairEffectAdmission plus a chain
+  row, not another 40-field host spec copy.
 
 No skill-route discovery.
 """
@@ -7439,7 +7450,7 @@ SPINE_SHORT_CIRCUIT_REANN_FROM: dict[str, str] = {
 SPINE_SHORT_CIRCUIT_FEDERATE: frozenset[str] = frozenset({"finality"})
 SPINE_SHORT_CIRCUIT_POST_ACTUATION: frozenset[str] = frozenset({"execution"})
 SPINE_SHORT_CIRCUIT_DIGEST: str = (
-    "9e5e2e4b04961a6f5408e06f29d00c02de96e3df1b8a849cfcd42341772a5174"
+    "dfe41217d755a5c2ee82ecdac9fb88b95cd8c0150d5fd2775269f2fad40c6b87"
 )
 
 
@@ -14456,28 +14467,10 @@ def builtin_spine_stage_engine_proof() -> dict[str, Any]:
     checks: dict[str, bool] = {}
     names = [spec[0] for spec in SPINE_STAGE_CHAIN]
     full = [spec[0] for spec in SPINE_POST_CONSENSUS_CHAIN]
-    expected = (
-        "settlement",
-        "clearing",
-        "delivery",
-        "custody",
-        "margin",
-        "collateral",
-        "liquidity",
-        "funding",
-        "capital",
-        "solvency",
-        "risk",
-        "stress",
-        "recovery",
-        "resolution",
-        "restructuring",
-        "emergence",
-        "reorganization",
-        "rehabilitation",
-    )
+    expected = tuple(row[0] for row in SPINE_FAMILY_CHAIN[2:])
     checks["catalog_slice"] = tuple(names) == expected
     checks["catalog_names"] = tuple(names) == expected
+    checks["catalog_tip"] = names[-1] == SPINE_FAMILY_CHAIN[-1][0]
     checks["catalog_start"] = SPINE_STAGE_POST_ACTUATION_START == "settlement"
     checks["post_consensus_start"] = (
         SPINE_STAGE_POST_CONSENSUS_START == "execution"
@@ -14548,31 +14541,9 @@ def builtin_spine_resume_catalog_proof() -> dict[str, Any]:
 
     checks: dict[str, bool] = {}
     planes = list(SPINE_RESUME_PLANES)
-    expected = [
-        "finality",
-        "execution",
-        "actuation",
-        "settlement",
-        "clearing",
-        "delivery",
-        "custody",
-        "margin",
-        "collateral",
-        "liquidity",
-        "funding",
-        "capital",
-        "solvency",
-        "risk",
-        "stress",
-        "recovery",
-        "resolution",
-        "restructuring",
-        "emergence",
-        "reorganization",
-        "rehabilitation",
-    ]
+    expected = ["finality", *[row[0] for row in SPINE_FAMILY_CHAIN]]
     checks["catalog_planes"] = planes == expected
-    checks["catalog_len"] = len(planes) == 21
+    checks["catalog_len"] = len(planes) == 1 + len(SPINE_FAMILY_CHAIN)
     checks["post_consensus"] = list(SPINE_RESUME_POST_CONSENSUS) == expected[1:]
     checks["impl"] = SPINE_RESUME_CATALOG_IMPL is True
     checks["imply_from_delivery"] = SPINE_CALLER_IMPLY_FROM == "delivery"
@@ -14615,7 +14586,7 @@ def builtin_spine_resume_catalog_proof() -> dict[str, Any]:
         empty = _load_spine_resume_certificates(empty_dir)
     finally:
         shutil.rmtree(empty_dir, ignore_errors=True)
-    checks["empty_load_count"] = len(empty) == 21
+    checks["empty_load_count"] = len(empty) == len(SPINE_RESUME_PLANES)
     checks["empty_load_none"] = all(value is None for value in empty.values())
 
     implied = _imply_caller_spine_flags({"reorganization": True})
@@ -14933,7 +14904,7 @@ def builtin_spine_short_circuit_catalog_proof() -> dict[str, Any]:
     names = list(derived)
     checks["impl"] = SPINE_SHORT_CIRCUIT_CATALOG_IMPL is True
     checks["keys_match_resume"] = names == list(SPINE_RESUME_PLANES)
-    checks["key_count"] = len(names) == 21
+    checks["key_count"] = len(names) == len(SPINE_RESUME_PLANES)
     checks["deterministic"] = derived == _derive_spine_short_circuit()
     checks["bound_to_module"] = derived == _TOTAL_SPINE_SHORT_CIRCUIT
     blob = json.dumps(derived, sort_keys=True, separators=(",", ":"))
@@ -15025,9 +14996,9 @@ def builtin_spine_public_catalog_proof() -> dict[str, Any]:
     names = list(SPINE_PUBLIC_STAGE_FLAGS)
     checks["impl"] = SPINE_PUBLIC_CATALOG_IMPL is True
     checks["catalog"] = tuple(names) == tuple(SPINE_RESUME_POST_CONSENSUS)
-    checks["catalog_len"] = len(names) == 20
+    checks["catalog_len"] = len(names) == len(SPINE_FAMILY_CHAIN)
     checks["catalog_start"] = names[0] == "execution"
-    checks["catalog_end"] = names[-1] == "rehabilitation"
+    checks["catalog_end"] = names[-1] == SPINE_FAMILY_CHAIN[-1][0]
     checks["excludes_finality"] = "finality" not in names
 
     attach_sig = inspect.signature(_attach_total_spine_effects)
@@ -15065,7 +15036,7 @@ def builtin_spine_public_catalog_proof() -> dict[str, Any]:
     collected = _collect_spine_stage_flags(None, {"solvency": True})
     checks["collect_solvency"] = collected.get("solvency") is True
     checks["collect_defaults"] = collected.get("execution") is False
-    checks["collect_count"] = len(collected) == 20
+    checks["collect_count"] = len(collected) == len(SPINE_PUBLIC_STAGE_FLAGS)
     merged = _collect_spine_stage_flags(
         {"execution": True},
         {"solvency": True},
@@ -15144,9 +15115,11 @@ def builtin_spine_surface_catalog_proof() -> dict[str, Any]:
     checks["log_families"] = tuple(SPINE_SURFACE_LOG_FAMILIES) == expected_log
     checks["catalog_log_prefix"] = tuple(families[:3]) == expected_log
     checks["catalog_pair_tail"] = tuple(families[3:]) == expected_pair
-    checks["catalog_len"] = len(families) == 19
+    checks["catalog_len"] = len(families) == len(expected_log) + len(expected_pair)
     checks["excludes_execution"] = "execution" not in families
-    checks["exported_count"] = len(SPINE_SURFACE_EXPORTED) >= 19 * 14
+    checks["exported_count"] = len(SPINE_SURFACE_EXPORTED) >= (
+        len(families) * 14
+    )
 
     this = sys.modules[__name__]
     engine_src = Path(__file__).read_text(encoding="utf-8")
@@ -15322,7 +15295,7 @@ def builtin_spine_family_catalog_proof() -> dict[str, Any]:
     expected_log = ("actuation", "settlement", "clearing")
     checks["impl"] = SPINE_FAMILY_CATALOG_IMPL is True
     checks["quirks_skip_execution"] = "execution" in SPINE_FAMILY_QUIRKS.surface_skip
-    checks["chain_len"] = len(SPINE_FAMILY_CHAIN) == 20
+    checks["chain_len"] = len(SPINE_FAMILY_CHAIN) == len(views["post_consensus"])
     checks["chain_alias"] = _TOTAL_SPINE_EFFECT_CHAIN == SPINE_FAMILY_CHAIN
     checks["views_surface_log"] = views["surface_log"] == expected_log
     checks["views_guard"] = views["continuity_guard"] == expected_guard
@@ -15339,24 +15312,24 @@ def builtin_spine_family_catalog_proof() -> dict[str, Any]:
     checks["live_resume"] = SPINE_RESUME_PLANES == views["resume_planes"]
 
     probe = derive_spine_family_views(
-        extra_chain=(("ratification", "reorganization", "ratify", "self"),),
-        extra_surface_pair=("ratification",),
+        extra_chain=(("supervision", "ratification", "supervise", "self"),),
+        extra_surface_pair=("supervision",),
     )
-    checks["probe_post"] = probe["post_consensus"][-1] == "ratification"
-    checks["probe_public"] = "ratification" in probe["public_flags"]
-    checks["probe_resume"] = probe["resume_planes"][-1] == "ratification"
-    checks["probe_surface"] = probe["surface_families"][-1] == "ratification"
-    checks["probe_not_guard"] = "ratification" not in probe["continuity_guard"]
-    checks["probe_not_want"] = "ratification" not in probe["want_effects"]
-    checks["probe_not_config"] = "ratification" not in probe["config_order"]
+    checks["probe_post"] = probe["post_consensus"][-1] == "supervision"
+    checks["probe_public"] = "supervision" in probe["public_flags"]
+    checks["probe_resume"] = probe["resume_planes"][-1] == "supervision"
+    checks["probe_surface"] = probe["surface_families"][-1] == "supervision"
+    checks["probe_not_guard"] = "supervision" not in probe["continuity_guard"]
+    checks["probe_not_want"] = "supervision" not in probe["want_effects"]
+    checks["probe_not_config"] = "supervision" not in probe["config_order"]
     probe_sc = _derive_spine_short_circuit(
         resume_planes=probe["resume_planes"],
         post_consensus=probe["post_consensus"],
     )
-    checks["probe_short_circuit"] = "ratification" in probe_sc
+    checks["probe_short_circuit"] = "supervision" in probe_sc
     checks["probe_does_not_mutate_live"] = (
-        "ratification" not in SPINE_RESUME_PLANES
-        and "ratification" not in _TOTAL_SPINE_SHORT_CIRCUIT
+        "supervision" not in SPINE_RESUME_PLANES
+        and "supervision" not in _TOTAL_SPINE_SHORT_CIRCUIT
     )
 
     engine_src = Path(__file__).read_text(encoding="utf-8")
@@ -15402,7 +15375,7 @@ def builtin_spine_family_catalog_proof() -> dict[str, Any]:
         "wired_count": sum(1 for value in wired.values() if value),
         "family_count": len(views["surface_families"]),
         "chain_count": len(views["post_consensus"]),
-        "probe_family": "ratification",
+        "probe_family": "supervision",
         "used_skill_route_discovery": legacy_pipeline_was_used(),
         "spine_family_catalog": True,
         "done_when_met": ok,

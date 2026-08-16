@@ -361,11 +361,16 @@ def builtin_spine_family_engine_proof() -> dict[str, Any]:
     for row in catalog:
         kinds[row.kind] = kinds.get(row.kind, 0) + 1
         shapes[row.shape] = shapes.get(row.shape, 0) + 1
+    from blackhole_agent.upstream_total_spine_effects import PAIR_EFFECT_SPECS
+    from blackhole_agent.upstream_total_spine_logs import LOG_FAMILY_SPECS
+
     checks["impl"] = SPINE_FAMILY_ENGINE_IMPL is True
-    checks["catalog_len"] = len(catalog) == 20
-    checks["pair_count"] = kinds["pair_effect"] == 16
-    checks["log_count"] = kinds["log_family"] == 4
-    checks["pair_shape"] = shapes["pair"] == 16
+    checks["catalog_len"] = len(catalog) == len(PAIR_EFFECT_SPECS) + len(
+        LOG_FAMILY_SPECS
+    )
+    checks["pair_count"] = kinds["pair_effect"] == len(PAIR_EFFECT_SPECS)
+    checks["log_count"] = kinds["log_family"] == len(LOG_FAMILY_SPECS)
+    checks["pair_shape"] = shapes["pair"] == len(PAIR_EFFECT_SPECS)
     checks["rows_shape"] = shapes["rows"] == 3
     checks["state_shape"] = shapes["state"] == 1
     names = [row.name for row in catalog]
@@ -383,14 +388,14 @@ def builtin_spine_family_engine_proof() -> dict[str, Any]:
         resolve_family_row("execution") is not None
         and resolve_family_row("execution").shape == "state"
     )
-    checks["unknown_refused"] = resolve_family_row("ratification") is None
+    checks["unknown_refused"] = resolve_family_row("supervision") is None
 
-    probe = derive_spine_family_engine_catalog(extra_pair=("ratification",))
-    probe_row = resolve_family_row("ratification", catalog=probe)
+    probe = derive_spine_family_engine_catalog(extra_pair=("supervision",))
+    probe_row = resolve_family_row("supervision", catalog=probe)
     checks["probe_row"] = (
         probe_row is not None and probe_row.kind == "pair_effect"
     )
-    checks["probe_not_live"] = resolve_family_row("ratification") is None
+    checks["probe_not_live"] = resolve_family_row("supervision") is None
     checks["probe_len"] = len(probe) == len(catalog) + 1
     probe_log = derive_spine_family_engine_catalog(extra_log=("notation",))
     checks["probe_log"] = (

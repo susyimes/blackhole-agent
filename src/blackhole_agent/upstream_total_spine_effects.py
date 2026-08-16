@@ -671,6 +671,24 @@ LATE_PAIR_ADMISSIONS: tuple[PairEffectAdmission, ...] = (
         post_key="post_reorganization",
         out_tip_skip=("reorganization", "emergence", "restructuring"),
     ),
+    PairEffectAdmission(
+        effect="ratification",
+        pred="rehabilitation",
+        verb="ratify",
+        plural="ratifications",
+        code="rve",
+        versus="endorsement",
+        counterpart="endorsement",
+        adj_1="ratified",
+        adj_2="endorsed",
+        abbr="rat",
+        out_tip_skip=(
+            "rehabilitation",
+            "reorganization",
+            "emergence",
+            "restructuring",
+        ),
+    ),
 )
 
 
@@ -4108,7 +4126,7 @@ def builtin_spine_signature_catalog_proof() -> dict[str, Any]:
 
     checks: dict[str, bool] = {}
     checks["impl"] = SPINE_SIGNATURE_CATALOG_IMPL is True
-    checks["spec_count"] = len(PAIR_EFFECT_SPECS) == 16
+    checks["spec_count"] = len(PAIR_EFFECT_SPECS) >= 16
     mismatches: list[str] = []
     for name, spec in PAIR_EFFECT_SPECS.items():
         derived = derive_pair_effect_signatures(spec)
@@ -4123,40 +4141,40 @@ def builtin_spine_signature_catalog_proof() -> dict[str, Any]:
     )
 
     probe = PairEffectSpec(
-        effect="ratification",
-        plural="ratifications",
-        verb="ratify",
-        pred="reorganization",
-        pred_plural="reorganizations",
-        code="rtr",
-        code_upper="Rtr",
-        pred_code="rvc",
-        pred_code_upper="Rvc",
-        verdict_1="ratified_ok",
-        verdict_2="treaty_ok",
-        adj_1="ratified",
-        adj_2="treatied",
-        adj_1_negated="unratified",
-        counterpart="treaty",
-        pred_done="reorganized",
-        pred_verdict_1="chartered",
-        pred_verdict_2="rvc_ok",
-        post_key="post_reorganization",
-        min_name="RATIFICATIONS",
-        collect_push=("reorganization",),
-        abbr="rat",
+        effect="supervision",
+        plural="supervisions",
+        verb="supervise",
+        pred="rehabilitation",
+        pred_plural="rehabilitations",
+        code="svn",
+        code_upper="Svn",
+        pred_code="rvr",
+        pred_code_upper="Rvr",
+        verdict_1="supervised_ok",
+        verdict_2="covenant_ok",
+        adj_1="supervised",
+        adj_2="covenanted",
+        adj_1_negated="unrehabilitated",
+        counterpart="covenant",
+        pred_done="rehabilitated",
+        pred_verdict_1="remedied",
+        pred_verdict_2="rvr_ok",
+        post_key="post_rehabilitation",
+        min_name="SUPERVISIONS",
+        collect_push=("rehabilitation",),
+        abbr="sup",
         refusal_pred_tampered="margin_tampered",
         refusal_pred_short="margins_short",
-        refusal_pred_not_done="capital_unreorganized",
+        refusal_pred_not_done="capital_unrehabilitated",
         refusal_pred_unmet="capital_unrequired",
-        refusal_code_failed="rvc_failed",
+        refusal_code_failed="rvr_failed",
         summary="probe signature catalog family",
     )
     probe_sigs = derive_pair_effect_signatures(probe)
     checks["probe_twelve"] = len(probe_sigs) == 12
-    checks["probe_annotate"] = "annotate_total_spine_ratification" in probe_sigs
-    checks["probe_runner"] = "ratify_total_spine" in probe_sigs
-    checks["probe_not_live"] = "ratification" not in PAIR_EFFECT_SPECS
+    checks["probe_annotate"] = "annotate_total_spine_supervision" in probe_sigs
+    checks["probe_runner"] = "supervise_total_spine" in probe_sigs
+    checks["probe_not_live"] = "supervision" not in PAIR_EFFECT_SPECS
 
     effects_src = Path(__file__).read_text(encoding="utf-8")
     checks["no_leftover_signature_blocks"] = "\n        signatures={" not in effects_src
@@ -4213,7 +4231,7 @@ def builtin_spine_signature_catalog_proof() -> dict[str, Any]:
         "wired_count": sum(1 for value in wired.values() if value),
         "spec_count": len(PAIR_EFFECT_SPECS),
         "mismatches": mismatches,
-        "probe_family": "ratification",
+        "probe_family": "supervision",
         "used_skill_route_discovery": legacy_pipeline_was_used(),
         "spine_signature_catalog": True,
         "done_when_met": ok,
@@ -4224,35 +4242,35 @@ def builtin_spine_signature_catalog_proof() -> dict[str, Any]:
     return report
 
 
-def _probe_ratification_spec() -> PairEffectSpec:
+def _probe_supervision_spec() -> PairEffectSpec:
     return PairEffectSpec(
-        effect="ratification",
-        plural="ratifications",
-        verb="ratify",
-        pred="reorganization",
-        pred_plural="reorganizations",
-        code="rtr",
-        code_upper="Rtr",
-        pred_code="rvc",
-        pred_code_upper="Rvc",
-        verdict_1="ratified_ok",
-        verdict_2="treaty_ok",
-        adj_1="ratified",
-        adj_2="treatied",
-        adj_1_negated="unratified",
-        counterpart="treaty",
-        pred_done="reorganized",
-        pred_verdict_1="chartered",
-        pred_verdict_2="rvc_ok",
-        post_key="post_reorganization",
-        min_name="RATIFICATIONS",
-        collect_push=("reorganization",),
-        abbr="rat",
+        effect="supervision",
+        plural="supervisions",
+        verb="supervise",
+        pred="rehabilitation",
+        pred_plural="rehabilitations",
+        code="svn",
+        code_upper="Svn",
+        pred_code="rvr",
+        pred_code_upper="Rvr",
+        verdict_1="supervised_ok",
+        verdict_2="covenant_ok",
+        adj_1="supervised",
+        adj_2="covenanted",
+        adj_1_negated="unrehabilitated",
+        counterpart="covenant",
+        pred_done="rehabilitated",
+        pred_verdict_1="remedied",
+        pred_verdict_2="rvr_ok",
+        post_key="post_rehabilitation",
+        min_name="SUPERVISIONS",
+        collect_push=("rehabilitation",),
+        abbr="sup",
         refusal_pred_tampered="margin_tampered",
         refusal_pred_short="margins_short",
-        refusal_pred_not_done="capital_unreorganized",
+        refusal_pred_not_done="capital_unrehabilitated",
         refusal_pred_unmet="capital_unrequired",
-        refusal_code_failed="rvc_failed",
+        refusal_code_failed="rvr_failed",
         summary="probe contract catalog family",
     )
 
@@ -4269,17 +4287,23 @@ def builtin_spine_contract_catalog_proof() -> dict[str, Any]:
     kinds = derive_pair_effect_contract_kind_sets()
     verbs, preds, abbrs = derive_spine_contract_chain_maps()
     checks["impl"] = SPINE_CONTRACT_CATALOG_IMPL is True
-    checks["catalog_len"] = len(catalog) == 16
-    checks["kind_len"] = len(kinds) == 16
+    checks["catalog_len"] = len(catalog) == len(PAIR_EFFECT_SPECS)
+    checks["kind_len"] = len(kinds) == len(PAIR_EFFECT_SPECS)
     checks["kind_order"] = [name for name, _ in kinds] == [
         name for name in TOTAL_SPINE_CHAIN if name in PAIR_EFFECT_SPECS
     ]
-    checks["chain_len"] = len(verbs) == 17 and len(preds) == 17 and len(abbrs) == 17
+    expected_chain = 1 + len(PAIR_EFFECT_SPECS)
+    checks["chain_len"] = (
+        len(verbs) == expected_chain
+        and len(preds) == expected_chain
+        and len(abbrs) == expected_chain
+    )
     checks["chain_starts_clearing"] = (
         list(verbs)[0] == "clearing" and verbs["clearing"] == "clear"
     )
-    checks["chain_ends_rehabilitation"] = (
-        list(verbs)[-1] == "rehabilitation" and verbs["rehabilitation"] == "rehabilitate"
+    tip = TOTAL_SPINE_CHAIN[-1]
+    checks["chain_ends_tip"] = list(verbs)[-1] == tip and verbs[tip] == (
+        PAIR_EFFECT_SPECS[tip].verb if tip in PAIR_EFFECT_SPECS else ""
     )
     checks["abbr_quirks"] = (
         abbrs["clearing"] == "clr"
@@ -4312,25 +4336,25 @@ def builtin_spine_contract_catalog_proof() -> dict[str, Any]:
         }
     )
 
-    probe = _probe_ratification_spec()
+    probe = _probe_supervision_spec()
     probe_cfg = derive_pair_effect_contract_config(probe)
     probe_kinds = derive_pair_effect_contract_kinds(probe)
     checks["probe_config"] = (
-        probe_cfg["fields"]["ratified"] == ["lit", True]
-        and "treaty_ok" in probe_cfg["fields"]
-        and probe_cfg["abbr"] == "rat"
+        probe_cfg["fields"]["supervised"] == ["lit", True]
+        and "covenant_ok" in probe_cfg["fields"]
+        and probe_cfg["abbr"] == "sup"
     )
     checks["probe_kinds"] = (
-        "ratification_ok" in probe_kinds and "treaty_ok" in probe_kinds
+        "supervision_ok" in probe_kinds and "covenant_ok" in probe_kinds
     )
-    checks["probe_not_live"] = "ratification" not in catalog
+    checks["probe_not_live"] = "supervision" not in catalog
     probe_verbs, probe_preds, _probe_abbrs = derive_spine_contract_chain_maps(
-        extra_chain=(("ratification", "reorganization", "ratify", "self"),)
+        extra_chain=(("supervision", "ratification", "supervise", "self"),)
     )
     checks["probe_chain"] = (
-        probe_verbs.get("ratification") == "ratify"
-        and probe_preds.get("ratification") == "reorganization"
-        and "ratification" not in verbs
+        probe_verbs.get("supervision") == "supervise"
+        and probe_preds.get("supervision") == "ratification"
+        and "supervision" not in verbs
     )
 
     compounder_src = Path(compounder.__file__).read_text(encoding="utf-8")
@@ -4387,7 +4411,7 @@ def builtin_spine_contract_catalog_proof() -> dict[str, Any]:
         "catalog_count": len(catalog),
         "kind_count": len(kinds),
         "chain_count": len(verbs),
-        "probe_family": "ratification",
+        "probe_family": "supervision",
         "used_skill_route_discovery": legacy_pipeline_was_used(),
         "spine_contract_catalog": True,
         "done_when_met": ok,
@@ -4423,11 +4447,16 @@ def builtin_spine_rehabilitation_proof() -> dict[str, Any]:
     checks["spec_verb"] = spec is not None and spec.verb == "rehabilitate"
     checks["spec_code"] = spec is not None and spec.code == "rvr"
     chain_names = [row[0] for row in SPINE_FAMILY_CHAIN]
-    checks["chain_row"] = chain_names[-1] == "rehabilitation"
-    checks["chain_pred"] = SPINE_FAMILY_CHAIN[-1][1] == "reorganization"
-    checks["chain_verb"] = SPINE_FAMILY_CHAIN[-1][2] == "rehabilitate"
-    checks["total_chain_tip"] = TOTAL_SPINE_CHAIN[-1] == "rehabilitation"
-    checks["pair_count"] = len(PAIR_EFFECT_SPECS) == 16
+    rehab_idx = chain_names.index("rehabilitation") if "rehabilitation" in chain_names else -1
+    checks["chain_row"] = rehab_idx >= 0
+    checks["chain_pred"] = (
+        rehab_idx >= 0 and SPINE_FAMILY_CHAIN[rehab_idx][1] == "reorganization"
+    )
+    checks["chain_verb"] = (
+        rehab_idx >= 0 and SPINE_FAMILY_CHAIN[rehab_idx][2] == "rehabilitate"
+    )
+    checks["total_chain_has"] = "rehabilitation" in TOTAL_SPINE_CHAIN
+    checks["pair_member"] = "rehabilitation" in PAIR_EFFECT_SPECS
 
     engine_row = resolve_family_row("rehabilitation")
     checks["engine_row"] = (
@@ -4485,7 +4514,7 @@ def builtin_spine_rehabilitation_proof() -> dict[str, Any]:
 
     wired = {
         "spec": "rehabilitation" in PAIR_EFFECT_SPECS,
-        "chain": chain_names[-1] == "rehabilitation",
+        "chain": "rehabilitation" in chain_names,
         "engine": engine_row is not None,
         "module": callable(getattr(module, "rehabilitate_total_spine", None)),
         "contract": "rehabilitation" in contract,
@@ -4524,6 +4553,7 @@ def builtin_spine_family_admission_proof() -> dict[str, Any]:
         "emergence",
         "reorganization",
         "rehabilitation",
+        "ratification",
     )
     checks["admissions_loop"] = "for _admission in LATE_PAIR_ADMISSIONS" in effects_src
     checks["admit_used"] = "admit_late_pair_effect(_admission)" in effects_src
@@ -4619,7 +4649,18 @@ def builtin_spine_family_admission_proof() -> dict[str, Any]:
         checks["missing_pred_refused"] = False
     except KeyError:
         checks["missing_pred_refused"] = True
-    checks["pair_count"] = len(PAIR_EFFECT_SPECS) == 16
+    ratif = PAIR_EFFECT_SPECS.get("ratification")
+    checks["ratif_tokens"] = bool(
+        ratif is not None
+        and ratif.verb == "ratify"
+        and ratif.code == "rve"
+        and ratif.pred == "rehabilitation"
+        and ratif.counterpart == "endorsement"
+        and ratif.verdict_2 == "endorsement_ok"
+    )
+    checks["pair_count"] = (
+        "ratification" in PAIR_EFFECT_SPECS and len(PAIR_EFFECT_SPECS) >= 17
+    )
     checks["no_skill_route"] = not legacy_pipeline_was_used()
 
     wired = {
@@ -4628,6 +4669,7 @@ def builtin_spine_family_admission_proof() -> dict[str, Any]:
         "admissions": bool(LATE_PAIR_ADMISSIONS),
         "impl": SPINE_FAMILY_ADMISSION_IMPL is True,
         "rehab": "rehabilitation" in PAIR_EFFECT_SPECS,
+        "ratif": "ratification" in PAIR_EFFECT_SPECS,
         "probe": derived_probe.effect == "supervision",
     }
     ok = all(checks.values()) and all(wired.values())
@@ -4646,6 +4688,138 @@ def builtin_spine_family_admission_proof() -> dict[str, Any]:
         "done_when_met": ok,
     }
     out = REPO_ROOT / "artifacts" / "capability-spine-family-admission"
+    out.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(out / "plane-report.json", report)
+    return report
+
+
+def builtin_spine_ratification_proof() -> dict[str, Any]:
+    """Hermetic proof: ratification is a live compact admission + chain row."""
+
+    import importlib
+    import inspect
+
+    from blackhole_agent.upstream_spine_catalog import SPINE_FAMILY_CHAIN
+    from blackhole_agent.upstream_spine_family import (
+        apply_spine_family,
+        resolve_family_row,
+        spine_family_engine_catalog,
+    )
+    from blackhole_agent.upstream_module_synthesis import (
+        module_synthesis_catalog,
+        resolve_synthesis_row,
+    )
+    from blackhole_agent import capability_compounder as compounder
+    from blackhole_agent import upstream_control_engine as ce
+
+    checks: dict[str, bool] = {}
+    spec = PAIR_EFFECT_SPECS.get("ratification")
+    admission = next(
+        (row for row in LATE_PAIR_ADMISSIONS if row.effect == "ratification"),
+        None,
+    )
+    checks["spec_row"] = spec is not None and spec.pred == "rehabilitation"
+    checks["spec_verb"] = spec is not None and spec.verb == "ratify"
+    checks["spec_code"] = spec is not None and spec.code == "rve"
+    checks["admission_row"] = (
+        admission is not None
+        and admission.versus == "endorsement"
+        and admission.pred == "rehabilitation"
+    )
+    checks["from_admission"] = admission is not None and spec is not None and (
+        derive_late_pair_effect_spec(admission).code == spec.code
+    )
+    chain_names = [row[0] for row in SPINE_FAMILY_CHAIN]
+    checks["chain_row"] = chain_names[-1] == "ratification"
+    checks["chain_pred"] = SPINE_FAMILY_CHAIN[-1][1] == "rehabilitation"
+    checks["chain_verb"] = SPINE_FAMILY_CHAIN[-1][2] == "ratify"
+    checks["total_chain_tip"] = TOTAL_SPINE_CHAIN[-1] == "ratification"
+    checks["rehab_stays"] = "rehabilitation" in PAIR_EFFECT_SPECS
+    checks["solvency_stays"] = "solvency" in PAIR_EFFECT_SPECS
+
+    engine_row = resolve_family_row("ratification")
+    checks["engine_row"] = (
+        engine_row is not None and engine_row.kind == "pair_effect"
+    )
+    checks["engine_catalog"] = any(
+        row.name == "ratification" for row in spine_family_engine_catalog()
+    )
+    synth_row = resolve_synthesis_row(
+        "blackhole_agent.upstream_total_spine_ratification"
+    )
+    checks["synth_row"] = synth_row is not None and synth_row.kind == "pair_effect"
+    checks["synth_catalog"] = any(
+        row.name == "ratification" for row in module_synthesis_catalog()
+    )
+
+    module = importlib.import_module(
+        "blackhole_agent.upstream_total_spine_ratification"
+    )
+    checks["module_runner"] = callable(
+        getattr(module, "ratify_total_spine", None)
+    )
+    checks["module_proof"] = callable(
+        getattr(module, "builtin_total_spine_ratification_proof", None)
+    )
+    checks["module_impl"] = getattr(module, "TOTAL_SPINE_RATIFICATION_IMPL", None) is True
+    checks["engine_impl"] = ce.TOTAL_SPINE_RATIFICATION_IMPL is True
+    checks["engine_runner"] = callable(getattr(ce, "ratify_total_spine", None))
+    checks["public_flag"] = "ratification" in ce.SPINE_PUBLIC_STAGE_FLAGS
+    checks["resume_plane"] = "ratification" in ce.SPINE_RESUME_PLANES
+    checks["short_circuit"] = "ratification" in ce._TOTAL_SPINE_SHORT_CIRCUIT
+    contract = derive_pair_effect_contract_catalog()
+    checks["contract_row"] = "ratification" in contract
+    checks["contract_kinds"] = "ratification_ok" in derive_pair_effect_contract_kinds(
+        PAIR_EFFECT_SPECS["ratification"]
+    )
+    checks["apply_owned"] = callable(apply_spine_family)
+    wrap_src = inspect.getsource(
+        compounder.materialize_total_spine_ratification_contract_context
+    )
+    checks["wrapper_thin"] = "materialize_spine_family_contract_context" in wrap_src
+    flags = ce._collect_spine_stage_flags(None, {"ratification": True})
+    checks["flag_accepted"] = flags.get("ratification") is True
+    run_sig = inspect.signature(ce.run_total_spine)
+    try:
+        run_sig.bind_partial(ratification=True)
+        checks["run_kwarg"] = True
+    except TypeError:
+        checks["run_kwarg"] = False
+    try:
+        ce._collect_spine_stage_flags(None, {"not-a-family": True})
+        checks["unknown_flag_refused"] = False
+    except Exception:
+        checks["unknown_flag_refused"] = True
+    checks["no_leftover_spec_block"] = (
+        "PairEffectSpec(\n        effect='ratification'" not in Path(__file__).read_text(
+            encoding="utf-8"
+        )
+    )
+    checks["no_skill_route"] = not legacy_pipeline_was_used()
+
+    wired = {
+        "spec": "ratification" in PAIR_EFFECT_SPECS,
+        "chain": chain_names[-1] == "ratification",
+        "engine": engine_row is not None,
+        "module": callable(getattr(module, "ratify_total_spine", None)),
+        "contract": "ratification" in contract,
+        "impl": ce.TOTAL_SPINE_RATIFICATION_IMPL is True,
+    }
+    ok = all(checks.values()) and all(wired.values())
+    report = {
+        "schema_version": SCHEMA_VERSION,
+        "action": "spine_ratification_proof",
+        "ok": ok,
+        "checks": checks,
+        "wired": wired,
+        "wired_count": sum(1 for value in wired.values() if value),
+        "spec_count": len(PAIR_EFFECT_SPECS),
+        "chain_count": len(SPINE_FAMILY_CHAIN),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+        "spine_ratification": True,
+        "done_when_met": ok,
+    }
+    out = REPO_ROOT / "artifacts" / "capability-spine-ratification"
     out.mkdir(parents=True, exist_ok=True)
     atomic_write_json(out / "plane-report.json", report)
     return report

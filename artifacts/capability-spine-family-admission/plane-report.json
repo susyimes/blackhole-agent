@@ -1,6 +1,6 @@
 {
   "action": "spine_family_admission_proof",
-  "admission_count": 3,
+  "admission_count": 4,
   "checks": {
     "admission_count": true,
     "admissions_loop": true,
@@ -15,6 +15,7 @@
     "pair_count": true,
     "probe_derived": true,
     "probe_not_live": true,
+    "ratif_tokens": true,
     "rehab_tokens": true,
     "reorg_residue": true
   },
@@ -22,7 +23,7 @@
   "ok": true,
   "probe_family": "supervision",
   "schema_version": 1,
-  "spec_count": 16,
+  "spec_count": 17,
   "spine_family_admission": true,
   "used_skill_route_discovery": false,
   "wired": {
@@ -31,7 +32,8 @@
     "derive": true,
     "impl": true,
     "probe": true,
+    "ratif": true,
     "rehab": true
   },
-  "wired_count": 6
+  "wired_count": 7
 }

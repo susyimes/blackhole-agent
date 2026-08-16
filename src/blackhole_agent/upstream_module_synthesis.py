@@ -233,11 +233,17 @@ def builtin_module_synthesis_plane_proof() -> dict[str, Any]:
     kinds: dict[str, int] = {"facade": 0, "pair_effect": 0, "log_family": 0}
     for row in catalog:
         kinds[row.kind] = kinds.get(row.kind, 0) + 1
+    from blackhole_agent.upstream_layer_registry import FACADE_LAYERS
+    from blackhole_agent.upstream_total_spine_effects import PAIR_EFFECT_SPECS
+    from blackhole_agent.upstream_total_spine_logs import LOG_FAMILY_SPECS
+
     checks["impl"] = MODULE_SYNTHESIS_IMPL is True
-    checks["facade_count"] = kinds["facade"] == 23
-    checks["pair_count"] = kinds["pair_effect"] == 16
-    checks["log_count"] = kinds["log_family"] == 4
-    checks["catalog_len"] = len(catalog) == 43
+    checks["facade_count"] = kinds["facade"] == len(FACADE_LAYERS)
+    checks["pair_count"] = kinds["pair_effect"] == len(PAIR_EFFECT_SPECS)
+    checks["log_count"] = kinds["log_family"] == len(LOG_FAMILY_SPECS)
+    checks["catalog_len"] = len(catalog) == (
+        kinds["facade"] + kinds["pair_effect"] + kinds["log_family"]
+    )
     fullnames = [row.fullname for row in catalog]
     checks["unique_fullnames"] = len(fullnames) == len(set(fullnames))
     checks["resolve_omniverse"] = (
@@ -299,9 +305,9 @@ def builtin_module_synthesis_plane_proof() -> dict[str, Any]:
         spec.loader.get_code("blackhole_agent.upstream_omniverse") is not None
     )
 
-    probe = derive_module_synthesis_catalog(extra_pair=("ratification",))
+    probe = derive_module_synthesis_catalog(extra_pair=("supervision",))
     probe_row = resolve_synthesis_row(
-        "blackhole_agent.upstream_total_spine_ratification",
+        "blackhole_agent.upstream_total_spine_supervision",
         catalog=probe,
     )
     checks["probe_row"] = (
@@ -309,7 +315,7 @@ def builtin_module_synthesis_plane_proof() -> dict[str, Any]:
     )
     checks["probe_not_live"] = (
         resolve_synthesis_row(
-            "blackhole_agent.upstream_total_spine_ratification"
+            "blackhole_agent.upstream_total_spine_supervision"
         )
         is None
     )
